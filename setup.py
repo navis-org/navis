@@ -28,7 +28,7 @@ setup(
     author_email='pms70@cam.ac.uk',
     keywords='Neuron Analysis Visualization Anatomy Connectivity',
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
+        'Development Status :: 3 - Alpha',
 
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Bio-Informatics',
