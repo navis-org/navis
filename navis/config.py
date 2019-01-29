@@ -42,8 +42,12 @@ use_igraph = True
 # Default color for neurons
 default_color = (.95, .65, .04)
 
-# Default connector color palette
-default_connector_colors = mcl.get_cmap('Set1')(np.linspace(0, 1, 10))
+try:
+    # Default connector color palette
+    default_connector_colors = mcl.get_cmap('Set1')(np.linspace(0, 1, 10))
+except:
+    # Above will fail in docs
+    default_connector_colors = None
 
 def _type_of_script():
     """ Returns context in which pymaid is run. """
