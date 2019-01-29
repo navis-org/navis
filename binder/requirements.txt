@@ -1,0 +1,2 @@
+git+git://github.com/schlegelp/navis@master
+jupyter_contrib_nbextensions==0.5.0

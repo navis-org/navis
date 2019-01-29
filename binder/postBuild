@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Install pyoctree: will fail during build due to numpy missing
+pip install pyoctree
+
+# Install a JupyterLab extension for demonstration purposes
+pip install ipywidgets --upgrade
+jupyter contrib nbextension install --user
+jupyter nbextension enable --py widgetsnbextension
+jupyter labextension install @jupyter-widgets/jupyterlab-manager
+jupyter labextension install @jupyterlab/plotly-extension

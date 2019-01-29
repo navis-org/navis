@@ -1,0 +1,23 @@
+language: python
+python:
+  - "3.5"
+# command to install dependencies
+install:
+  - pip install -U pip
+  - pip install -U setuptools
+  - pip install -e .
+  - pip install coveralls
+  - pip install pyoctree # additional requirement for fast intersections
+  - pip install shapely # additional requirement for 2d shapes
+  - pip install pytest-cov # to get .coverage report via pytest
+  - pip install imageio # necessary for pymaid.tiles
+# initialise a display
+before_script:
+  - "export DISPLAY=:99.0"
+  - "sh -e /etc/init.d/xvfb start"
+  - sleep 3 # give xvfb some time to start
+# command to run tests
+script: pytest --cov=./ --verbose
+# push coverage results to coverall
+after_success:
+  - coveralls
