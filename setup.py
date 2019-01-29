@@ -2,7 +2,6 @@ from setuptools import setup, find_packages
 
 import re
 
-
 VERSIONFILE = "navis/__init__.py"
 verstrline = open(VERSIONFILE, "rt").read()
 VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
@@ -21,7 +20,7 @@ setup(
     version=verstr,
     packages=find_packages(),
     license='GNU GPL V3',
-    description='Neuron Analysis Visualization Library',
+    description='Neuron Analysis and Visualization Library',
     long_description=open('README.md').read(),
     url='https://github.com/schlegelp/navis',
     author='Philipp Schlegel',
