@@ -1,6 +1,6 @@
 [![Documentation Status](https://readthedocs.org/projects/navis/badge/?version=latest)](http://navis.readthedocs.io/en/latest/?badge=latest) [![Build Status](https://travis-ci.org/schlegelp/navis.svg?branch=master)](https://travis-ci.org/schlegelp/navis) [![Coverage Status](https://coveralls.io/repos/github/schlegelp/navis/badge.svg?branch=master)](https://coveralls.io/github/schlegelp/navis?branch=master) [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/schlegelp/navis/master?urlpath=tree)
 
-<img src="https://github.com/schlegelp/pyMaid/raw/master/docs/_static/favicon.png" height="30"> NAVis
+<img src="https://github.com/schlegelp/navis/raw/master/docs/_static/favicon.png" height="30"> NAVis
 =====================================================================================================
 NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization
 with focus on hierarchical tree-like neuron data.
@@ -9,7 +9,6 @@ with focus on hierarchical tree-like neuron data.
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
 ## Features
-
 * interactive 2D (matplotlib) and 3D (vispy or plotly) plotting of neurons
 * virtual neuron surgery: cutting, pruning, rerooting
 * clustering methods (e.g. by connectivity or synapse placement)
