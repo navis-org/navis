@@ -15,13 +15,26 @@ with open('requirements.txt') as f:
     requirements = f.read().splitlines()
     requirements = [l for l in requirements if not l.startswith('#')]
 
+LONG_DESCRIPTION = """
+**NAVis** is a Python 3 library for **N**euron **A**nalysis and
+**Vis**ualization with focus on hierarchical tree-like neuron data.
+
+Features:
+
+  - interactive 2D (matplotlib) and 3D (vispy or plotly) plotting of neurons
+  - virtual neuron surgery: cutting, pruning, rerooting
+  - clustering methods (e.g. by connectivity or synapse placement)
+  - R bindings (e.g. for libraries nat, rcatmaid, elmr)
+  - interfaces with Blender 3D and Cytoscape
+"""
+
 setup(
     name='navis',
     version=verstr,
     packages=find_packages(),
     license='GNU GPL V3',
     description='Neuron Analysis and Visualization Library',
-    long_description=open('README.md').read(),
+    long_description=LONG_DESCRIPTION,
     url='https://github.com/schlegelp/navis',
     author='Philipp Schlegel',
     author_email='pms70@cam.ac.uk',
@@ -45,7 +58,6 @@ setup(
     python_requires='>=3.5',
     zip_safe=False,
 
-    include_package_data=True,
-    package_data={'': ['data/swc/*.swc', 'data/volumes/*.json']}
+    package_data={'navis': ['data/swc/*.swc', 'data/volumes/*.json']}
 
 )
