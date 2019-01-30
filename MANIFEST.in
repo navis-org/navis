@@ -1,0 +1,4 @@
+include navis/data/*
+include navis/data/gml/*
+include navis/data/swc/*
+include navis/data/volumes/*

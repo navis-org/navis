@@ -58,6 +58,6 @@ setup(
     python_requires='>=3.5',
     zip_safe=False,
 
-    package_data={'navis': ['data/swc/*.swc', 'data/volumes/*.json']}
+    include_package_data=True
 
 )
