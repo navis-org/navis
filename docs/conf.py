@@ -413,7 +413,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'navis', 'navis Documentation',
-     author, 'navis', 'Neuron analysis toolbox for CATMAID data.',
+     author, 'navis', 'Neuron analysis toolbox.',
      'Miscellaneous'),
 ]
 
@@ -432,6 +432,7 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #
 # texinfo_no_detailmenu = False
+
 
 def setup(app):
     app.add_stylesheet('style.css')
