@@ -6,7 +6,7 @@ __pycache__/
 *$py.class
 *.pyc
 
-# Test config 
+# Test config
 /navis/tests/config_test.py
 
 # Coverage
@@ -118,6 +118,6 @@ ENV/
 
 # mypy
 .mypy_cache/
-*.swc
-*.json
+#*.swc
+#*.json
 MANIFEST
