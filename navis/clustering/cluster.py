@@ -129,7 +129,7 @@ def cluster_by_connectivity(cn, similarity='vertex_normalized',
     # Calc number of partners used for calculating matching score (i.e. ratio of input to outputs)!
     # This is AFTER filtering! Total number of partners can be altered!
     n_partners = {n: {'upstream': connectivity[(connectivity[n] > 0) & (connectivity.relation == r)].shape[0],
-                      'downstream': connectivity[(connectivity[] > 0) & (connectivity.relation == r)].shape[0]
+                      'downstream': connectivity[(connectivity[n] > 0) & (connectivity.relation == r)].shape[0]
                      } for r in rel for n in neurons}
 
     matching_scores = {}
