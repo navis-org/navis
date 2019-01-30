@@ -29,7 +29,7 @@ import mathutils
 import pandas as pd
 import numpy as np
 
-from . import core, utils, config
+from .. import core, utils, config
 
 logger = config.logger
 
