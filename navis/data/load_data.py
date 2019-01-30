@@ -22,8 +22,11 @@ from ..graph import *
 
 __all__ = ['example_neurons', 'example_volume']
 
-
 fp = os.path.dirname(__file__)
+
+print('!!!!')
+print(os.listdir(fp))
+print('!!!!')
 
 gml_path = os.path.join(fp, 'gml')
 swc_path = os.path.join(fp, 'swc')
