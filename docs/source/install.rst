@@ -10,10 +10,10 @@ Installation instructions come in two flavors:
 
 .. topic:: By the way
 
-   You can try pymaid without having to install **anything**! Simply follow this
-   link to `Binder <https://mybinder.org/v2/gh/schlegelp/pyMaid/master?urlpath=tree>`_:
+   You can try navis without having to install **anything**! Simply follow this
+   link to `Binder <https://mybinder.org/v2/gh/schlegelp/navis/master?urlpath=tree>`_:
    they are kindly hosting a Jupyter notebook server with the most up-to-date version
-   of pymaid. Just navigate and open ``examples/start_here.ipynb`` to have
+   of navis. Just navigate and open ``examples/start_here.ipynb`` to have
    a crack at it!
 
 
@@ -22,14 +22,18 @@ Quick install
 
 If you don't already have it, get the Python package manager `PIP <https://pip.pypa.io/en/stable/installing/>`_.
 
-Pymaid is **NOT** listed in the Python Packaging Index (PyPI). There is a
-`pymaid` package on PyPI but that is something else! Hence, you will have to
-install from `Github <https://github.com/schlegelp/PyMaid>`_. To get the
-most recent version use:
+To get the most recent version from PyPI use:
 
 ::
 
-   pip3 install git+git://github.com/schlegelp/pymaid@master
+   pip3 install navis
+
+To get the most recent development version from
+`Github <https://github.com/schlegelp/navis>`_ use:
+
+::
+
+   pip3 install git+git://github.com/schlegelp/navis@master
 
 
 **Installing from source**
@@ -37,7 +41,7 @@ most recent version use:
 Instead of using PIP to install from Github, you can also install manually:
 
 1. Download the source (e.g a ``tar.gz`` file from
-   https://github.com/schlegelp/PyMaid/tree/master/dist)
+   https://github.com/schlegelp/navis/tree/master/dist)
 
 2. Unpack and change directory to the source directory
    (the one with ``setup.py``).
@@ -47,7 +51,7 @@ Instead of using PIP to install from Github, you can also install manually:
 .. note::
    There are two optional dependencies that you might want to install manually:
    :ref:`pyoctree <pyoc>` and :ref:`rpy2 <rpy>`. The latter is only relevant if
-   you intend to use pymaid's R wrappers.
+   you intend to use navis's R wrappers.
 
 
 Step-by-step instructions
@@ -87,21 +91,12 @@ Step-by-step instructions
         and install PIP.
       </li>
       <li>
-        <strong>Make sure <a href="https://git-scm.com/">git</a> is installed.</strong><br>
-        In 99% of the cases you should be fine but just to make sure, try running
-        this in a terminal:
-        <pre>git --version</pre>
-        If you get: <pre>git: command not found</pre> follow this
-        <a href="https://git-scm.com/">link</a> for instructions how to install
-        git on your OS.
-      </li>
-      <li>
-        <strong>Install pymaid and its dependencies</strong>.<br>
+        <strong>Install navis and its dependencies</strong>.<br>
         Open a terminal and run:
-        <pre>pip3 install git+git://github.com/schlegelp/pymaid@master</pre>
-        to install the most recent version of pymaid and all of its
+        <pre>pip3 install navis</pre>
+        to install the most recent version of navis and all of its
         <em>mandatory</em> dependencies. <strong>You can also use this command
-        to update an existing install of pymaid!</strong>
+        to update an existing install of navis!</strong>
       </li>
       <li>
         <strong>Done!</strong> Go to <em>Tutorial</em> to get started.
@@ -121,10 +116,10 @@ Step-by-step instructions
 
    On **Linux** and **OSX (Mac)**, simply go to https://www.python.org to
    download + install Python3. I recommend getting Python 3.5 or 3.6 as newer
-   versions may still have compatibility problems with some of pymaid's
+   versions may still have compatibility problems with some of navis's
    dependencies.
 
-   On **Windows**, things are bit more tricky. While pymaid is written in pure
+   On **Windows**, things are bit more tricky. While navis is written in pure
    Python, some of its dependencies are written in C for speed and need to be
    compiled - which a pain on Windows. I strongly recommend installing a
    scientific Python distribution that comes with "batteries included".
@@ -134,7 +129,7 @@ Step-by-step instructions
 .. note::
    There are two optional dependencies that you might want to install manually:
    :ref:`pyoctree <pyoc>` and :ref:`rpy2 <rpy>`. The latter is only relevant if
-   you intend to use pymaid's R bindings.
+   you intend to use navis's R bindings.
 
 
 Dependencies
@@ -143,7 +138,7 @@ Dependencies
 Mandatory
 +++++++++
 
-If you installed pymaid using ``PIP``, mandatory dependencies should have been
+If you installed navis using ``PIP``, mandatory dependencies should have been
 installed automatically.
 
 `NumPy <http://www.numpy.org/>`_
@@ -156,7 +151,7 @@ installed automatically.
 `Vispy <http://vispy.org/>`_
   Used to visualise neurons in 3D. This requires you to have *one* of
   the supported `backends <http://vispy.org/installation.html#backend-requirements>`_
-  installed. During automatic installation pymaid will try installing the
+  installed. During automatic installation navis will try installing the
   `PyQt5 <http://pyqt.sourceforge.net/Docs/PyQt5/installation.html>`_ backend
   to fullfil this requirement.
 
@@ -165,7 +160,7 @@ installed automatically.
 
 `NetworkX <https://networkx.github.io>`_
   Graph analysis library written in pure Python. This is the standard library
-  used by pymaid.
+  used by navis.
 
 `SciPy <http://scipy.org>`_
   Provides tons of scientific computing tools: sparse matrix representation
@@ -221,13 +216,13 @@ Optional
 Advanced users: more speed with iGraph
 --------------------------------------
 
-By default pymaid uses the `NetworkX <https://networkx.github.io>`_ graph
+By default navis uses the `NetworkX <https://networkx.github.io>`_ graph
 library for most of the computationally expensive function. NetworkX is
 written in pure Python, well maintained and easy to install.
 
 If you need that extra bit of speed, consider manually installing
 `iGraph <http://igraph.org/>`_. It is written in C and therefore very fast. If
-available, pymaid will try using iGraph over NetworkX. iGraph is difficult to
+available, navis will try using iGraph over NetworkX. iGraph is difficult to
 install though because you have to install the C core first and then its
 Python bindings, ``python-igraph``.
 

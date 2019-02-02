@@ -1,5 +1,5 @@
-NAVis - *N*euron *A*nalysis and *Vis*ualization
-===============================================
+**NAVis** - **N**\ euron **A**\ nalysis and **Vis**\ ualization
+=========================================
 
 .. raw:: html
 
@@ -7,10 +7,7 @@ NAVis - *N*euron *A*nalysis and *Vis*ualization
       <div class="row">
          <div class="col-md-6">
 
-NAVis is a Python library for **visualisation** and **analysis** of
-**neurons**.
-
-The package is a generalization of `Pymaid <https://github.com/schlegelp/PyMaid>`_
+This package is a generalization of `Pymaid <https://github.com/schlegelp/PyMaid>`_
 and is currently being refactored - I recommend watching the
 `Github repository <https://github.com/schlegelp/navis>`_ for updates.
 Make sure that your ``navis.__version__`` is up-to-date and check out the

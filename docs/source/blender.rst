@@ -5,14 +5,14 @@
 Blender interface
 *****************
 
-Pymaid comes with an interface to import neurons into
-`Blender 3D <https://www.blender.org>`_: :mod:`pymaid.b3d`
+Navis comes with an interface to import neurons into
+`Blender 3D <https://www.blender.org>`_: :mod:`navis.b3d`
 
 Installation
 ============
 
 Blender comes with its own Python 3.5 distribution! So you need to install
-pymaid explicitly for this distribution in order to use it within Blender.
+navis explicitly for this distribution in order to use it within Blender.
 
 There are several ways to install additional packages for Blender's
 built-in Python. The easiest way IMHO is this:
@@ -30,13 +30,13 @@ built-in Python. The easiest way IMHO is this:
     cd Downloads
     /Applications/Blender/blender.app/Contents/Resources/2.79/python/bin/python3.5m get-pip.py
 
-3. Now you can use PIP to install pymaid (or any other package for that
+3. Now you can use PIP to install navis (or any other package for that
    matter). Please note we have to - again - specify that we want to install
    for Blender's Python::
 
-    /Applications/Blender/blender.app/Contents/Resources/2.79/python/bin/python3.5m -m pip install git+git://github.com/schlegelp/pymaid@master
+    /Applications/Blender/blender.app/Contents/Resources/2.79/python/bin/python3.5m -m pip install git+git://github.com/schlegelp/navis@master
 
-4. You should now be all set to use pymaid in Blender. Check out Quickstart!
+4. You should now be all set to use navis in Blender. Check out Quickstart!
 
 .. note::
    If any of the above steps fails with a *Permission* error, try the same
@@ -45,20 +45,20 @@ built-in Python. The easiest way IMHO is this:
 Quickstart
 ==========
 
-:mod:`pymaid.b3d` provides a simple interface that lets you add, select and
+:mod:`navis.b3d` provides a simple interface that lets you add, select and
 manipulate neurons from within :red:`Blender's Python console`:
 
-First, import and set up pymaid like you are used to.
+First, import and set up navis like you are used to.
 
->>> import pymaid
->>> rm = pymaid.CatmaidInstance('server_url', 'http_user', 'http_pw', 'token')
+>>> import navis
+>>> rm = navis.CatmaidInstance('server_url', 'http_user', 'http_pw', 'token')
 >>> # Fetch a bunch of neurons
->>> nl = pymaid.get_neuron('annotation: glomerulus DA1')
+>>> nl = navis.get_neuron('annotation: glomerulus DA1')
 
 Now initialise the interface with Blender and import the neurons.
 
->>> # The b3d module is not automatically loaded when importing pymaid
->>> from pymaid import b3d
+>>> # The b3d module is not automatically loaded when importing navis
+>>> from navis import b3d
 >>> # Initialise handler
 >>> handler = b3d.handler()
 >>> # Load neurons into scene
@@ -95,23 +95,23 @@ Objects
 .. autosummary::
     :toctree: generated/
 
-    pymaid.b3d.handler.add
-    pymaid.b3d.handler.clear
-    pymaid.b3d.handler.select
-    pymaid.b3d.handler.hide
-    pymaid.b3d.handler.unhide
+    navis.b3d.handler.add
+    navis.b3d.handler.clear
+    navis.b3d.handler.select
+    navis.b3d.handler.hide
+    navis.b3d.handler.unhide
 
 Materials
 ---------
 .. autosummary::
     :toctree: generated/
 
-    pymaid.b3d.handler.color
-    pymaid.b3d.handler.colorize
-    pymaid.b3d.handler.emit
-    pymaid.b3d.handler.use_transparency
-    pymaid.b3d.handler.alpha
-    pymaid.b3d.handler.bevel
+    navis.b3d.handler.color
+    navis.b3d.handler.colorize
+    navis.b3d.handler.emit
+    navis.b3d.handler.use_transparency
+    navis.b3d.handler.alpha
+    navis.b3d.handler.bevel
 
 
 Selections
@@ -119,22 +119,22 @@ Selections
 .. autosummary::
     :toctree: generated/
 
-    pymaid.b3d.handler.select
+    navis.b3d.handler.select
 
-    pymaid.b3d.object_list.select
-    pymaid.b3d.object_list.color
-    pymaid.b3d.object_list.colorize
-    pymaid.b3d.object_list.emit
-    pymaid.b3d.object_list.use_transparency
-    pymaid.b3d.object_list.alpha
-    pymaid.b3d.object_list.bevel
+    navis.b3d.object_list.select
+    navis.b3d.object_list.color
+    navis.b3d.object_list.colorize
+    navis.b3d.object_list.emit
+    navis.b3d.object_list.use_transparency
+    navis.b3d.object_list.alpha
+    navis.b3d.object_list.bevel
 
-    pymaid.b3d.object_list.hide
-    pymaid.b3d.object_list.unhide
-    pymaid.b3d.object_list.hide_others
+    navis.b3d.object_list.hide
+    navis.b3d.object_list.unhide
+    navis.b3d.object_list.hide_others
 
-    pymaid.b3d.object_list.delete
+    navis.b3d.object_list.delete
 
-    pymaid.b3d.object_list.to_json
+    navis.b3d.object_list.to_json
 
 

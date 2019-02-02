@@ -3,20 +3,20 @@
 Neuron objects
 ==============
 
-Single neurons and lists of neurons are represented in ``pymaid`` by:
+Single neurons and lists of neurons are represented in ``navis`` by:
 
 .. autosummary::
     :toctree: generated/
 
- 	~pymaid.CatmaidNeuron
- 	~pymaid.CatmaidNeuronList
+ 	~navis.TreeNeuron
+ 	~navis.NeuronList
 
 They can be minimally initialized with just skeleton IDs. So you can do
 something like this::
 
-	>>> n = pymaid.CatmaidNeuron(16)
+	>>> n = navis.TreeNeuron(16)
 	>>> n
-	type              <class 'pymaid.core.CatmaidNeuron'>
+	type              <class 'navis.core.TreeNeuron'>
 	neuron_name                                        NA
 	skeleton_id                                        16
 	n_nodes                                            NA
@@ -32,11 +32,11 @@ something like this::
 
 This gives you an **empty** neuron (note ``NA`` entries) which you can
 use to retrieve more data. Ordinarily, however, you would get neurons from
-functions like :func:`~pymaid.get_neuron` that already contain some data::
+functions like :func:`~navis.get_neuron` that already contain some data::
 
-	>>> n = pymaid.get_neuron(16)
+	>>> n = navis.get_neuron(16)
 	>>> n
-	type              <class 'pymaid.core.CatmaidNeuron'>
+	type              <class 'navis.core.TreeNeuron'>
 	neuron_name                  PN glomerulus VA6 017 DB
 	skeleton_id                                        16
 	n_nodes                                         12743
@@ -48,7 +48,7 @@ functions like :func:`~pymaid.get_neuron` that already contain some data::
 	review_status                                      NA
 	soma                                          2941309
 
-:func:`pymaid.get_neuron` returned a :class:`~pymaid.CatmaidNeuron` with name,
+:func:`navis.get_neuron` returned a :class:`~navis.TreeNeuron` with name,
 nodes, connectors and tags::
 
 	>>> n.nodes
@@ -89,12 +89,12 @@ data from the server::
  	 'glomerulus DA1 right excitatory']
 
 
-Functions such as :func:`~pymaid.get_neuron` return multiple neurons as
-:class:`~pymaid.CatmaidNeuronList`::
+Functions such as :func:`~navis.get_neuron` return multiple neurons as
+:class:`~navis.NeuronList`::
 
-	>>> nl = pymaid.get_neuron([16, 27295])
+	>>> nl = navis.get_neuron([16, 27295])
 	>>> nl
-	<class 'pymaid.core.CatmaidNeuronList'> of 2 neurons
+	<class 'navis.core.NeuronList'> of 2 neurons
                  	  neuron_name skeleton_id  n_nodes  n_connectors  \
 	0    PN glomerulus VA6 017 DB          16    12743          2028
 	1  PN glomerulus DA1 27296 BH       27295     9973           469
@@ -103,11 +103,11 @@ Functions such as :func:`~pymaid.get_neuron` return multiple neurons as
 	0             774          823        280   2866.105439            NA  True
 	1             212          219         58   1591.519821            NA  True
 
-A :class:`~pymaid.CatmaidNeuronList` works similar to normal lists with a few
+A :class:`~navis.NeuronList` works similar to normal lists with a few
 additional perks::
 
 	>>> nl[0]
-	type              <class 'pymaid.core.CatmaidNeuron'>
+	type              <class 'navis.core.TreeNeuron'>
 	neuron_name                  PN glomerulus VA6 017 DB
 	skeleton_id                                        16
 	n_nodes                                         12743
@@ -120,7 +120,7 @@ additional perks::
 	soma                                          2941309
 
 	>>> nl.skid[27295]
-	type              <class 'pymaid.core.CatmaidNeuron'>
+	type              <class 'navis.core.TreeNeuron'>
 	neuron_name                  PN glomerulus VA6 017 DB
 	skeleton_id                                        16
 	n_nodes                                         12743
@@ -133,7 +133,7 @@ additional perks::
 	soma                                          2941309
 
 	>>> nl.has_annotations('glomerulus VA6')
-	<class 'pymaid.core.CatmaidNeuronList'> of 1 neurons
+	<class 'navis.core.NeuronList'> of 1 neurons
                  	  neuron_name skeleton_id  n_nodes  n_connectors  \
 	0    PN glomerulus VA6 017 DB          16    12743          2028
 
@@ -150,38 +150,38 @@ They allow easy and fast access to data across all neurons::
 	array([2866.10543944, 1591.51982146])
 
 
-In addition to these **attributes**, both :class:`~pymaid.CatmaidNeuron` and
-:class:`~pymaid.CatmaidNeuronList` have shortcuts (called **methods**) to
-other pymaid functions. These lines of code are equivalent::
+In addition to these **attributes**, both :class:`~navis.TreeNeuron` and
+:class:`~navis.NeuronList` have shortcuts (called **methods**) to
+other navis functions. These lines of code are equivalent::
 
 	>>> n.reroot(n.soma, inplace=True)
-	>>> pymaid.reroot_neuron(n, n.soma, inplace=True)
+	>>> navis.reroot_neuron(n, n.soma, inplace=True)
 
 	>>> n.plot3d(color='red')
-	>>> pymaid.plot3d(n, color='red')
+	>>> navis.plot3d(n, color='red')
 
 	>>> n.prune_by_volume('LH_R', inplace=True)
-	>>> pymaid.in_volume(n, 'LH_R', inplace=True)
+	>>> navis.in_volume(n, 'LH_R', inplace=True)
 
-The ``inplace`` parameter is part of many pymaid functions and works like that
+The ``inplace`` parameter is part of many navis functions and works like that
 in the excellent pandas library. If ``inplace=True`` operations are performed
 on the original. Ff ``inplace=False`` operations are performed on a copy of the
 original which is then returned::
 
-	>>> n = pymaid.get_neuron(16)
+	>>> n = navis.get_neuron(16)
 	>>> n_lh = n.prune_by_volume('LH_R', inplace=False)
 	>>> n.n_nodes, n_lh.n_nodes
 	(12743, 3564)
 
 Please see other sections and the docstrings of
-:class:`~pymaid.CatmaidNeuron` and :class:`~pymaid.CatmaidNeuronList` for
+:class:`~navis.TreeNeuron` and :class:`~navis.NeuronList` for
 more examples.
 
 Neuron attributes
 -----------------
 
-This is a *selection* of :class:`~pymaid.CatmaidNeuron` and
-:class:`~pymaid.CatmaidNeuronList` class attributes:
+This is a *selection* of :class:`~navis.TreeNeuron` and
+:class:`~navis.NeuronList` class attributes:
 
 - ``skeleton_id``: neurons' skeleton ID(s)
 - ``neuron_name``: neurons' name(s)
@@ -207,4 +207,4 @@ All attributes are accessible through auto-completion.
 Reference
 ---------
 
-See :class:`~pymaid.CatmaidNeuron` or :ref:`API <api_neurons>`.
+See :class:`~navis.TreeNeuron` or :ref:`API <api_neurons>`.

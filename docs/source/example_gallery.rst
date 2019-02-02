@@ -2,7 +2,7 @@
 
 Example gallery
 ===============
-These examples are small code snippets meant to illustrate certain pymaid
+These examples are small code snippets meant to illustrate certain navis
 functions. As per usual: have a look at the :ref:`API reference <api>` to
 find out details about a given function.
 
@@ -23,7 +23,6 @@ find out details about a given function.
    Overview <neurons>
    Indexing NeuronLists <indexing_neuronlists>
    NeuronList math <neuronlist_math>
-   Parsing skeleton IDs <parsing_skids>
 
 .. raw:: html
 
@@ -44,7 +43,6 @@ find out details about a given function.
    3D plots <plotting_3d>
    Depth coloring <depth_coloring>
    Highlight connectors <highlight_connectors>
-   EM image data <tiles.ipynb>
 
 .. raw:: html
 
@@ -101,9 +99,9 @@ find out details about a given function.
 .. toctree::
    :maxdepth: 1
 
-   Pymaid & Blender3D <blender>
-   Pymaid & Cytoscape <python2cytoscape>
-   Pymaid & R <rmaid_doc>
+   navis & Blender3D <blender>
+   navis & Cytoscape <python2cytoscape>
+   navis & R <rmaid_doc>
 
 .. raw:: html
 
@@ -120,9 +118,6 @@ find out details about a given function.
 .. toctree::
    :maxdepth: 1
 
-   URLs & random sampling <generate_urls>
-   User contributions <user_contributions>
-   Data caching <data_caching>
    Troubleshooting <troubleshooting>
 
 .. raw:: html
