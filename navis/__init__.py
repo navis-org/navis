@@ -18,81 +18,13 @@ from . import config
 logger = config.logger
 
 from .core import *
-from .plotting import *
 from .data import *
-
-"""
-
-
-# Flatten namespace by importing contents of all modules of navis
-try:
-    from .cluster import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.cluster:\n' + str(error))
-
-try:
-    from .morpho import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.morpho:\n' + str(error))
-
-
-
-# This needs to be AFTER plotting b/c in plotting vispy is imported first
-# and we set the backend!
-try:
-    from .scene3d import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.scene3d:\n' + str(error))
-
-try:
-    from .user_stats import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.user_stats:\n' + str(error))
-
-try:
-    from .graph import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.graph:\n' + str(error))
-
-try:
-    from .graph_utils import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.graph_utils:\n' + str(error))
-
-try:
-    from .resample import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.resample:\n' + str(error))
-
-try:
-    from .intersect import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.intersect:\n' + str(error))
-
-try:
-    from .connectivity import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.connectivity:\n' + str(error))
-
-try:
-    from .utils import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.utils:\n' + str(error))
-
-try:
-    from .snapshot import *
-except Exception as error:
-    logger.warning(str(error))
-    logger.warning('Error importing pymaid.snapshot:\n' + str(error))
-
-"""
+from .clustering import *
+from .connectivity import *
+from .graph import *
+from .intersection import *
+from .io import *
+from .morpho import *
+from .plotting import *
+from .sampling import *
+from .utils import *
