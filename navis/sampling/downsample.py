@@ -18,6 +18,8 @@ from .. import config, graph
 # Set up logging
 logger = config.logger
 
+__all__ = ['downsample_neuron']
+
 
 def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
                       preserve_tag_treenodes=False, inplace=False,):

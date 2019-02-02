@@ -72,11 +72,11 @@ class handler:
 
     Examples
     --------
-    >>> # This example assumes you have alread imported and set up pymaid
+    >>> # This example assumes you have alread imported and set up navis
     >>> # b3d module has to be imported explicitly
-    >>> from pymaid import b3d
+    >>> from navis import b3d
     >>> # Get some neurons (you have already set up a remote instance?)
-    >>> nl = pymaid.CatmaidNeuronList([12345, 67890])
+    >>> nl = navis.example_neurons()
     >>> # Initialize handler
     >>> handler = b3d.handler()
     >>> # Add neurons
@@ -550,7 +550,7 @@ class handler:
 
         Returns
         -------
-        :class:`pymaid.b3d.object_list` :  containing requested neurons
+        :class:`navis.b3d.object_list` :  containing requested neurons
 
         Examples
         --------
@@ -656,7 +656,7 @@ class object_list:
     -----
 
     1.  Object_lists should normally be constructed via the handler
-        (see :class:`pymaid.b3d.handler`)!
+        (see :class:`navis.b3d.handler`)!
     2.  List works with object NAMES to prevent Blender from crashing when
         trying to access neurons that do not exist anymore. This also means
         that changing names manually will compromise a object list.
@@ -678,8 +678,8 @@ class object_list:
     Examples
     --------
     >>> # b3d module has to be import explicitly
-    >>> from pymaid import b3d
-    >>> nl = pymaid.get_neuron('annotation:glomerulus DA1')
+    >>> from navis import b3d
+    >>> nl = navis.example_neurons()
     >>> handler = b3d.handler()
     >>> handler.add(nl)
     >>> # Select only neurons on the right

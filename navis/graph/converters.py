@@ -56,29 +56,6 @@ def network2nx(x, remote_instance=None, threshold=1, group_by=None):
     networkx.DiGraph
                         NetworkX representation of the network.
 
-    Examples
-    --------
-    >>> import matplotlib.pyplot as plt
-    >>> import networkx as nx
-    >>> import numpy as np
-    >>> g = pymaid.network2graph('annotation:large network')
-    >>> # Plot with default settings
-    >>> nx.draw(g)
-    >>> plt.show()
-    >>> # Plot with neuron names
-    >>> labels = nx.get_node_attributes(g, 'neuron_name')
-    >>> nx.draw(g, labels=labels, with_labels=True)
-    >>> plt.show()
-    >>> # Plot with layout
-    >>> layout = nx.circular_layout(g)
-    >>> nx.draw(g, pos=layout)
-    >>> plt.show()
-    >>> # Plot with edge weights
-    >>> nx.draw_networkx_nodes(g, pos=layout)
-    >>> weight = np.array(list(nx.get_edge_attributes(g, 'weight').values()))
-    >>> nx.draw_networkx_edges(g, pos=layout, width=weight/50)
-    >>> plt.show()
-
     """
 
     if isinstance(x, (core.NeuronList, list, np.ndarray, str)):
@@ -155,9 +132,9 @@ def network2igraph(x, remote_instance=None, threshold=1):
 
     Examples
     --------
-    >>> import pymaid
+    >>> import navis
     >>> import igraph
-    >>> g = pymaid.network2igraph('annotation:large network',
+    >>> g = navis.network2igraph('annotation:large network',
     ...                           remote_instance=rm)
     >>> # Plot graph
     >>> igraph.plot(g)
@@ -491,14 +468,14 @@ def neuron2dps(x):
 
     Examples
     --------
-    >>> x = pymaid.get_neurons(16)
-    >>> dps = pymaid.to_dotproduct(x)
+    >>> x = navis.example_neurons()
+    >>> dps = navis.to_dotproduct(x)
     >>> # Get array of all locations
     >>> locs = numpy.vstack(dps.point.values)
 
     See Also
     --------
-    pymaid.TreeNeuron.dps
+    navis.TreeNeuron.dps
 
     """
 

@@ -277,8 +277,8 @@ def segregation_index(x, centrality_method='centrifugal'):
                         Type of flow centrality to use to split into axon +
                         dendrite of ``x`` is only a single neuron.
                         There are four flavors:
-                            - for the first three, see :func:`~pymaid.flow_centrality`
-                            - for `bending`, see :func:`~pymaid.bending_flow`
+                            - for the first three, see :func:`~navis.flow_centrality`
+                            - for `bending`, see :func:`~navis.bending_flow`
 
                         Will try using stored centrality, if possible.
 
@@ -375,11 +375,11 @@ def bending_flow(x, polypre=False):
 
     See Also
     --------
-    :func:`~pymaid.flow_centrality`
+    :func:`~navis.flow_centrality`
             Calculate synapse flow centrality after Schneider-Mizell et al
-    :func:`~pymaid.segregation_score`
+    :func:`~navis.segregation_score`
             Uses flow centrality to calculate segregation score (polarity)
-    :func:`~pymaid.split_axon_dendrite`
+    :func:`~navis.split_axon_dendrite`
             Split the neuron into axon, dendrite and primary neurite.
 
     Returns
@@ -503,11 +503,11 @@ def flow_centrality(x, mode='centrifugal', polypre=False):
 
     See Also
     --------
-    :func:`~pymaid.bending_flow`
+    :func:`~navis.bending_flow`
             Variation of flow centrality: calculates bending flow.
-    :func:`~pymaid.segregation_index`
+    :func:`~navis.segregation_index`
             Calculates segregation score (polarity) of a neuron
-    :func:`~pymaid.flow_centrality_split`
+    :func:`~navis.flow_centrality_split`
             Tries splitting a neuron into axon, dendrite and primary neurite.
 
 
@@ -617,7 +617,7 @@ def tortuosity(x, seg_length=10, skip_remainder=False):
     Note
     ----
     If you want to make sure that segments are as close to length `L` as
-    possible, consider resampling the neuron using :func:`pymaid.resample`.
+    possible, consider resampling the neuron using :func:`navis.resample`.
 
     Parameters
     ----------

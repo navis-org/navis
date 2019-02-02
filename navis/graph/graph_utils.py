@@ -305,7 +305,7 @@ def distal_to(x, a=None, b=None):
     Examples
     --------
     >>> # Get a neuron
-    >>> x = navis.get_neuron(16)
+    >>> x = navis.example_neurons()
     >>> # Get a treenode ID from tag
     >>> a = x.tags['TEST_TAG'][0]
     >>> # Check all nodes if they are distal or proximal to that tag
@@ -595,7 +595,7 @@ def split_into_fragments(x, n=2, min_size=None, reroot_to_soma=False):
 
     Examples
     --------
-    >>> x = navis.get_neuron('16')
+    >>> x = navis.example_neurons()
     >>> # Cut into two fragments
     >>> cut1 = navis.split_into_fragments(x, n=2)
     >>> # Cut into fragments of >10 um size
@@ -766,7 +766,7 @@ def reroot_neuron(x, new_root, inplace=False):
 
     Examples
     --------
-    >>> n = navis.get_neuron(16)
+    >>> n = navis.example_neurons()
     >>> # Reroot neuron to its soma
     >>> n2 = navis.reroot_neuron(n, n.soma)
 
@@ -926,31 +926,6 @@ def cut_neuron(x, cut_node, ret='both'):
     proximal :              NeuronList
                             Proximal part of the neuron. Only if
                             ``ret='proximal'``.
-
-    Examples
-    --------
-    First example: single cut at node tag
-
-    >>> n = navis.get_neuron(16)
-    >>> # Cut neuron
-    >>> nl = cut_neuron(n, 'SCHLEGEL_LH')
-    >>> nl
-    <class 'navis.core.NeuronList'> of 2 neurons
-                     neuron_name skeleton_id  n_nodes  n_connectors  \
-    0  PN glomerulus VA6 017 DB          16     3603          1295
-    1  PN glomerulus VA6 017 DB          16     9142           741
-       n_branch_nodes  n_end_nodes  open_ends  cable_length review_status   soma
-    0             303          323          3    960.118516            NA  False
-    1             471          501        278   1905.986926            NA   True
-
-    Second example: multiple cuts at low confidence edges
-
-    >>> # Get neuron
-    >>> n = navis.get_neuron(27295)
-    >>> # Get IDs of low confidence treenodes
-    >>> lc = n.nodes[n.nodes.confidence < 5].node_id.values
-    >>> # Cut neuron
-    >>> nl = navis.cut_neuron(n, lc)
 
     See Also
     --------
@@ -1172,7 +1147,7 @@ def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
     Subset neuron to presynapse-bearing branches
 
     >>> # Get neuron
-    >>> n = navis.get_neuron(16)
+    >>> n = navis.example_neurons()
     >>> # Go over each segment and find those with synapses
     >>> cn_nodes = set(n.presynapses.node_id.values)
     >>> syn_segs = [s for s in n.small_segments if set(s) & set(cn_nodes)]
@@ -1366,7 +1341,7 @@ def connected_subgraph(x, ss):
     np.ndarray
                 Treenode IDs of connected subgraph.
     root ID
-                ID of the treenode most proximal to the old root in the 
+                ID of the treenode most proximal to the old root in the
                 connected subgraph.
 
     """
@@ -1425,6 +1400,6 @@ def connected_subgraph(x, ss):
         # Add those nodes to be included
         include = set.union(include, ss)
     else:
-        new_root = first_common    
+        new_root = first_common
 
-    return np.array(list(include)), new_root    
+    return np.array(list(include)), new_root

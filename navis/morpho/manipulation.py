@@ -160,8 +160,8 @@ def split_axon_dendrite(x, method='bending', primary_neurite=True,
     method :            'centrifugal' | 'centripetal' | 'sum' | 'bending', optional
                         Type of flow centrality to use to split the neuron.
                         There are four flavors: the first three refer to
-                        :func:`~pymaid.flow_centrality`, the last
-                        refers to :func:`~pymaid.bending_flow`.
+                        :func:`~navis.flow_centrality`, the last
+                        refers to :func:`~navis.bending_flow`.
 
                         Will try using stored centrality, if possible.
     primary_neurite :   bool, optional
@@ -182,11 +182,11 @@ def split_axon_dendrite(x, method='bending', primary_neurite=True,
 
     Examples
     --------
-    >>> x = pymaid.get_neuron(123456)
-    >>> split = pymaid.split_axon_dendrite(x, method='centrifugal',
+    >>> x = navis.example_neurons()
+    >>> split = navis.split_axon_dendrite(x, method='centrifugal',
     ...                                    reroot_soma=True)
     >>> split
-    <class 'pymaid.NeuronList'> of 3 neurons
+    <class 'navis.NeuronList'> of 3 neurons
                           neuron_name skeleton_id  n_nodes  n_connectors
     0  neuron 123457_primary_neurite          16      148             0
     1             neuron 123457_axon          16     9682          1766
@@ -360,16 +360,16 @@ def stitch_neurons(*x, method='NONE', tn_to_stitch=None):
     --------
     Stitching using a neuron list:
 
-    >>> nl = pymaid.get_neuron('annotation:glomerulus DA1 right')
-    >>> stitched = pymaid.stitch_neurons(nl, method='NONE')
+    >>> nl = navis.example_neurons()
+    >>> stitched = navis.stitch_neurons(nl, method='NONE')
 
     Stitching using individual neurons:
 
-    >>> a = pymaid.get_neuron(16)
-    >>> b = pymaid.get_neuron(2863104)
-    >>> stitched = pymaid.stitch_neurons(a, b, method='NONE')
+    >>> a = navis.get_neuron(16)
+    >>> b = navis.get_neuron(2863104)
+    >>> stitched = navis.stitch_neurons(a, b, method='NONE')
     >>> # Or alternatively:
-    >>> stitched = pymaid.stitch_neurons([a, b], method='NONE')
+    >>> stitched = navis.stitch_neurons([a, b], method='NONE')
 
     """
     method = method.upper() if isinstance(method, str) else method
@@ -384,7 +384,7 @@ def stitch_neurons(*x, method='NONE', tn_to_stitch=None):
     neurons = [n.copy() for n in neurons]
 
     if len(neurons) < 2:
-        raise ValueError('Need at least 2 neurons to stitch, found {}'.format(len(neurons)))    
+        raise ValueError('Need at least 2 neurons to stitch, found {}'.format(len(neurons)))
 
     stitched_n = neurons[0].copy()
 
@@ -406,11 +406,11 @@ def stitch_neurons(*x, method='NONE', tn_to_stitch=None):
                 this_cn = n.connectors.copy()
                 this_cn.loc[:, 'node_id'] += max_node_id
                 this_cn.loc[:, 'connector_id'] += max_cn_id
-                all_nodes.append(this_cn)              
+                all_nodes.append(this_cn)
 
         stitched_n.nodes = pd.concat(all_nodes, ignore_index=True)
 
-        if any(all_cn):            
+        if any(all_cn):
             stitched_n.connectors = pd.concat(all_cn, ignore_index=True)
 
         # Reset temporary attributes of our final neuron
@@ -474,7 +474,7 @@ def stitch_neurons(*x, method='NONE', tn_to_stitch=None):
             [stitched_n.nodes, nB.nodes], ignore_index=True)
         if any([n.has_connectors for n in neurons]):
             stitched_n.connectors = pd.concat(
-                [stitched_n.connectors, nB.connectors], ignore_index=True)        
+                [stitched_n.connectors, nB.connectors], ignore_index=True)
 
     # Reset temporary attributes of our final neuron
     stitched_n._clear_temp_attr()
@@ -505,15 +505,15 @@ def average_neurons(x, limit=10, base_neuron=None):
     Examples
     --------
     >>> # Get a bunch of neurons
-    >>> da1 = pymaid.get_neurons('annotation:glomerulus DA1 right')
+    >>> da2 = navis.example_neurons()
     >>> # Prune down to longest neurite
-    >>> da1.reroot(da1.soma)
-    >>> da1_pr = da1.prune_by_longest_neurite(inplace=False)
+    >>> da2.reroot(da2.soma)
+    >>> da2_pr = da2.prune_by_longest_neurite(inplace=False)
     >>> # Make average
-    >>> da1_avg = pymaid.average_neurons(da1_pr)
+    >>> da2_avg = navis.average_neurons(da2_pr)
     >>> # Plot
-    >>> da1.plot3d()
-    >>> da1_avg.plot3d()
+    >>> da2.plot3d()
+    >>> da2_avg.plot3d()
 
     """
 

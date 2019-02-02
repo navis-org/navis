@@ -61,9 +61,6 @@ class NeuronList:
                         up to a lot faster depending on the numbers of cores.
                         Switch off if you experience performance issues.
 
-    Examples
-    --------
-
     """
 
     def __init__(self, x, make_copy=False, use_parallel=False):

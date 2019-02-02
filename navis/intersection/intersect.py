@@ -91,32 +91,6 @@ def in_volume(x, volume, inplace=False, mode='IN', prevent_fragments=False):
                          'volume2': in_volume(x, volume2),
                          ... }
 
-    Examples
-    --------
-    Advanced example: Check with which antennal lobe glomeruli a neuron
-    intersects.
-
-    >>> # First prepare some volume names
-    >>> gloms = ['v14.DA1','v14.DA2', 'v14.DA3', 'v14.DA4l' ,'v14.DL4',
-    ...          'v14.VA2', 'v14.DC3', 'v14.VM7v', 'v14.DC4', 'v14.DC1',
-    ...          'v14.DM5', 'v14.D', 'v14.VM2', 'v14.VC4', 'v14.VL1',
-    ...          'v14.DM3', 'v14.DL1', 'v14.DP1m']
-    >>> # Get neuron to check
-    >>> n = navis.get_neuron('name:PN unknown glomerulus',
-    ...                       remote_instance = remote_instance )
-    >>> # Calc intersections with each of the above glomeruli
-    >>> res = navis.in_volume(n, gloms, remote_instance=remote_instance)
-    >>> # Extract cable
-    >>> cable = {v: res[v].cable_length for v in res}
-    >>> # Plot graph
-    >>> import pandas as pd
-    >>> import matplotlib.pyplot as plt
-    >>> df = pd.DataFrame(list( cable.values() ),
-    ...                   index = list( cable.keys() )
-    ...                   )
-    >>> df.boxplot()
-    >>> plt.show()
-
     """
 
     # If we are given multiple volumes

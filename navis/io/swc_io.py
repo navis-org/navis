@@ -148,7 +148,7 @@ def to_swc(x, filename=None, export_synapses=False):
 
     See Also
     --------
-    :func:`pymaid.from_swc`
+    :func:`navis.from_swc`
                         Import SWC files.
 
     """

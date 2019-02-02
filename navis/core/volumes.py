@@ -24,7 +24,7 @@ logger = config.logger
 
 
 class Volume:
-    """ Class to hold CATMAID meshes.
+    """ Class representing meshes.
 
     Parameters
     ----------
@@ -46,8 +46,8 @@ class Volume:
 
     See Also
     --------
-    :func:`~navis.get_volume`
-        Retrieves volumes from CATMAID and returns :class:`navis.Volume`.
+    :func:`~navis.example_volume`
+        Loads example volume(s).
 
     """
 

@@ -16,7 +16,7 @@
 
 import pandas as pd
 
-from .. import core, config
+from .. import config
 
 from .iterables import *
 

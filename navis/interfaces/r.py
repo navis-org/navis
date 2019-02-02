@@ -69,7 +69,7 @@ def init_rcatmaid(**kwargs):
     Parameters
     ----------
     remote_instance :   CATMAID instance
-                        From pymaid.CatmaidInstance(). This is used to
+                        From navis.CatmaidInstance(). This is used to
                         extract credentials. Overrides other credentials
                         provided!
     server :            str, optional
@@ -465,10 +465,9 @@ def nblast_allbyall(x, micron_conversion, normalize=True, resample=1,
     --------
     >>> import navis
     >>> import matplotlib.pyplot as plt
-    >>> # Initialize connection to Catmaid server
-    >>> nl = pymaid.get_neuron('annotation:glomerulus DA1')
+    >>> nl = navis.example_neurons()
     >>> # Blast against each other
-    >>> res = pymaid.nblast_allbyall( nl )
+    >>> res = navis.nblast_allbyall( nl )
     >>> # Cluster and create simple dendrogram
     >>> res.cluster(method='ward')
     >>> res.plot_matrix()
@@ -535,7 +534,7 @@ def nblast(neuron, remote_instance=None, db=None, n_cores=os.cpu_count(),
     x
                     Neuron to nblast. This can be either:
                     1. A single skeleton ID
-                    2. PyMaid neuron from e.g. pymaid.get_neuron()
+                    2. navis neuron from e.g. navis.get_neuron()
                     3. RCatmaid neuron object
     remote_instance :   Catmaid Instance, optional
                         Only neccessary if only a SKID is provided
@@ -571,26 +570,10 @@ def nblast(neuron, remote_instance=None, db=None, n_cores=os.cpu_count(),
     Returns
     -------
     nblast_results
-        Instance of :class:`pymaid.rmaid.NBLASTresults` that holds nblast
+        Instance of :class:`navis.rmaid.NBLASTresults` that holds nblast
         results and contains wrappers to plot/extract data. Please use
         help(NBLASTresults) to learn more and see example below.
 
-    Examples
-    --------
-    >>> import pymaid
-    >>> # Initialize connection to Catmaid server
-    >>> rm = CatmaidInstance( url, http_user, http_pw, token )
-    >>> # Blast a neuron against default (FlyCircuit) database
-    >>> nbl = pymaid.nblast( skid = 16, remote_instance = rm  )
-    >>> # See contents of nblast_res object
-    >>> help(nbl)
-    >>> # Get results as Pandas Dataframe
-    >>> nbl.results
-    >>> # Plot histogram of results
-    >>> nbl.plot.hist(alpha=.5)
-    >>> # Sort and plot the first hits
-    >>> nbl.sort('mu_score')
-    >>> nbl.plot(hits = 4)
     """
 
     start_time = time.time()
@@ -765,9 +748,9 @@ class NBLASTresults:
 
     Examples
     --------
-    >>> import pymaid
+    >>> import navis
     >>> # Blast neuron by skeleton ID
-    >>> nbl = pymaid.nblast( skid, remote_instance = rm )
+    >>> nbl = navis.nblast( skid, remote_instance = rm )
     >>> # Sort results by mu_score
     >>> nbl.sort( 'mu_score' )
     >>> # Show table
@@ -797,7 +780,7 @@ class NBLASTresults:
         self.results.reset_index(inplace=True, drop=True)
 
     def plot3d(self, hits=5, plot_neuron=True, plot_brain=True, **kwargs):
-        """ Wrapper to plot nblast hits using ``pymaid.plot3d()``
+        """ Wrapper to plot nblast hits using ``navis.plot3d()``
 
         Parameters
         ----------
@@ -814,18 +797,18 @@ class NBLASTresults:
         plot_brain :    bool
                         If ``True``, the reference brain will be plotted.
         **kwargs
-                        Parameters passed to :func:`~pymaid.plot3d`.
-                        See ``help(pymaid.plot3d)`` for details.
+                        Parameters passed to :func:`~navis.plot3d`.
+                        See ``help(navis.plot3d)`` for details.
 
         Returns
         -------
-        Depending on the backends used by ``pymaid.plot3d()``:
+        Depending on the backends used by ``navis.plot3d()``:
 
         vispy (default) : canvas, view
         plotly : matplotlib figure
 
         You can specify the backend by using e.g. ``backend='plotly'`` in
-        **kwargs. See ``help(pymaid.plot3d)`` for details.
+        **kwargs. See ``help(navis.plot3d)`` for details.
         """
 
         nl = self.get_dps(hits)
@@ -906,7 +889,7 @@ class NBLASTresults:
 
 def get_neuropil(x, template='FCWB', convert_nm=True):
     """ Fetches given neuropil from ``nat.flybrains``, ``flycircuit`` or
-    ``elmr`` and converts to :class:`pymaid.Volume`.
+    ``elmr`` and converts to :class:`navis.Volume`.
 
     Parameters
     ----------

@@ -238,9 +238,9 @@ def plot3d_vispy(x, **kwargs):
     plotly_inline = kwargs.get('plotly_inline', True)
 
     if 'viewer' not in kwargs:
-        # If does not exists yet, initialise a canvas object and make global    
+        # If does not exists yet, initialise a canvas object and make global
         if not getattr(config, 'primary_viewer', None):
-            viewer = config.primary_viewer = Viewer()            
+            viewer = config.primary_viewer = Viewer()
         else:
             viewer = getattr(config, 'primary_viewer', None)
     else:
@@ -607,7 +607,7 @@ def plot3d_plotly():
 def _prepare_connector_cmap(neurons):
     """ Looks for "label" or "type" column in connector tables and generates
     a color for every unique type. Default colors can be defined as
-    ``pymaid.config.default_connector_colors``.
+    ``navis.config.default_connector_colors``.
 
     Returns
     -------

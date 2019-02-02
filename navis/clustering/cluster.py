@@ -102,19 +102,6 @@ def cluster_by_connectivity(cn, similarity='vertex_normalized',
     :class:`navis.ClustResults`
                          Custom cluster results class holding the distance
                          matrix and contains wrappers e.g. to plot dendograms.
-
-    Examples
-    --------
-    >>> import matplotlib.pyplot as plt
-    >>> # Cluster a set of neurons by their inputs (ignore small fragments)
-    >>> res = navis.cluster_by_connectivity('annotation:PBG6 P-EN right',
-    ...                                      upstream=True, downstream=False,
-    ...                                      threshold=1, min_nodes=500)
-    >>> # Get the adjacency matrix
-    >>> print(res.mat)
-    >>> # Plot a dendrogram
-    >>> fig = res.plot_dendrogram()
-    >>> plt.show()
     """
     if not isinstance(cn, pd.DataFrame):
         raise TypeError('Expected DataFrame, got "{}"'.format(type(cn)))
@@ -205,7 +192,7 @@ def cluster_by_connectivity(cn, similarity='vertex_normalized',
     results = ClustResults(dist_matrix, labels=[neuron_names[str(
         n)] for n in dist_matrix.columns], mat_type='similarity')
 
-    if isinstance(x, core.CatmaidNeuronList):
+    if isinstance(x, core.NeuronList):
         results.neurons = x
 
     return results
@@ -480,7 +467,7 @@ def cluster_by_synapse_placement(x, sigma=2000, omega=2000, mu_score=True,
                         1. skeleton IDs (int or str)
                         2. neuron name (str, exact match)
                         3. annotation: e.g. 'annotation:PN right'
-                        4. CatmaidNeuron or CatmaidNeuronList object
+                        4. CatmaidNeuron or NeuronList object
     sigma :             int, optional
                         Distance in nanometer between synapses that is
                         considered to be "close".
@@ -511,7 +498,7 @@ def cluster_by_synapse_placement(x, sigma=2000, omega=2000, mu_score=True,
 
     """
 
-    if not isinstance(x, core.CatmaidNeuronList):
+    if not isinstance(x, core.NeuronList):
         remote_instance = utils._eval_remote_instance(remote_instance)
         neurons = fetch.get_neuron(x, remote_instance=remote_instance)
     else:
@@ -574,7 +561,7 @@ def cluster_xyz(x, labels=None):
     This examples assumes you understand the basics of using navis:
 
     >>> import matplotlib.pyplot as plt
-    >>> n = navis.get_neuron(16)
+    >>> n = navis.example_neurons(n=1)
     >>> rs = navis.cluster_xyz(n.connectors,
     ...                         labels=n.connectors.connector_id.values)
     >>> rs.plot_matrix()
@@ -614,7 +601,7 @@ class ClustResults:
     --------
     >>> import matplotlib.pyplot as plt
     >>> # Get a bunch of neurons
-    >>> nl = navis.get_neuron('annotation:glomerulus DA1')
+    >>> nl = navis.example_neurons()
     >>> # Perform all-by-all nblast
     >>> res = navis.nblast_allbyall(nl)
     >>> # res is a ClustResults object
@@ -954,44 +941,6 @@ class ClustResults:
 
         return plotting.plot3d(self.neurons, **kwargs)
 
-    def to_selection(self, fname='cluster.json', k=5, criterion='maxclust'):
-        """ Convert clustered neurons into json file that can be loaded into
-        CATMAID selection table.
-
-        Parameters
-        ----------
-        fname :     str, optional
-                    Filename to save selection to.
-        k :         int | float
-        criterion : 'maxclust' | 'distance', optional
-                    If ``maxclust``, ``k`` clusters will be formed. If
-                    ``distance`` clusters will be created at threshold ``k``.
-
-        See Also
-        --------
-        :func:`navis.CatmaidNeuronList.to_selection`
-                    Turn CatmaidNeuronList into CATMAID-readable selection.
-        :func:`navis.CatmaidNeuronList.from_selection`
-                    CatmaidNeuronList from CATMAID selection.
-        """
-
-        cmap = self.get_colormap(k=k, criterion=criterion)
-
-        # Convert to 0-255
-        cmap = {n: [int(v * 255) for v in cmap[n]] for n in cmap}
-
-        data = [dict(skeleton_id=int(n),
-                     color="#{:02x}{:02x}{:02x}".format(
-                         cmap[n][0], cmap[n][1], cmap[n][2]),
-                     opacity=1
-                     ) for n in cmap]
-
-        with open(fname, 'w') as outfile:
-            json.dump(data, outfile)
-
-        logger.info('Selection saved as %s in %s' % (fname, os.getcwd()))
-
-        return
 
     def get_colormap(self, k=5, criterion='maxclust'):
         """Generate colormap based on clustering.

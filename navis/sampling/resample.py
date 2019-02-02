@@ -21,6 +21,8 @@ from .. import core, config
 # Set up logging
 logger = config.logger
 
+__all__ = ['resample_neuron']
+
 
 def resample_neuron(x, resample_to, method='linear', inplace=False,
                     skip_errors=True):
@@ -61,7 +63,7 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
 
     See Also
     --------
-    :func:`pymaid.downsample_neuron`
+    :func:`navis.downsample_neuron`
                         This function reduces the number of nodes instead of
                         resample to certain resolution. Useful if you are
                         just after some simplification e.g. for speeding up
@@ -79,7 +81,7 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
         if not inplace:
             return core.NeuronList(results)
         return
-    elif not isinstance(x, core.TreeNeuron):        
+    elif not isinstance(x, core.TreeNeuron):
         raise TypeError('Unable to resample data of type "{}"'.format(type(x)))
 
     if not inplace:
@@ -175,7 +177,7 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
     if not isinstance(root, (np.ndarray, list)):
         root = [x.root]
     root = x.nodes.loc[x.nodes.node_id.isin(root), ['node_id',
-                                                    'parent_id',                                                        
+                                                    'parent_id',
                                                     'x', 'y', 'z',
                                                     'radius']]
     new_nodes += [list(r) for r in root.values]
@@ -261,7 +263,7 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
     elif isinstance(x, core.TreeNeuron):
         if not inplace:
             x = x.copy()
-    else:        
+    else:
         raise TypeError('Unable to downsample data of type "{}"'.format(type(x)))
 
     # If no resampling, simply return neuron

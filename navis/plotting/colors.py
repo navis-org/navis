@@ -137,7 +137,7 @@ def map_colors(colors, objects, color_range=255):
         # If list of correct length, map onto objets
         if len(colors) != len(objects):
             logger.warning('N colours does not match N objects.')
-        miss = len(objects) - len(colors) if len(objects) > len(colors) else 0 
+        miss = len(objects) - len(colors) if len(objects) > len(colors) else 0
         return colors[: len(objects)] + [config.default_color] * miss
     else:
         raise TypeError('Unable to interpret colors of type "{}"'.format(type(colors)))
@@ -146,7 +146,7 @@ def map_colors(colors, objects, color_range=255):
 def prepare_connector_cmap(neurons):
     """ Looks for "label" or "type" column in connector tables and generates
     a color for every unique type. Default colors can be defined as
-    ``pymaid.config.default_connector_colors``.
+    ``navis.config.default_connector_colors``.
 
     Returns
     -------

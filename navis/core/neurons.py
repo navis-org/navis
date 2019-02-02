@@ -438,7 +438,7 @@ class TreeNeuron:
 
         Examples
         --------
-        >>> nl = navis.get_neuron('annotation:uPN right')
+        >>> nl = navis.example_neurons()
         >>> #Plot with connectors
         >>> nl.plot3d( connectors=True )
 
@@ -860,7 +860,7 @@ class TreeNeuron:
     def to_swc(self, filename=None, **kwargs):
         """ Generate SWC file from this neuron.
 
-        This converts CATMAID nanometer coordinates into microns.
+        This converts navis nanometer coordinates into microns.
 
         Parameters
         ----------

@@ -1,4 +1,4 @@
-#    This script is part of pymaid (http://www.github.com/schlegelp/pymaid).
+#    This script is part of navis (http://www.github.com/schlegelp/navis).
 #    Copyright (C) 2017 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -75,7 +75,7 @@ def eval_uuid(x, warn_duplicates=True):
             logger.warning('Duplicate UUIDs found in NeuronList.'
                            'The function you are using might not respect '
                            'fragments of the same neuron. For explanation see '
-                           'http://pymaid.readthedocs.io/en/latest/source/conn'
+                           'http://navis.readthedocs.io/en/latest/source/conn'
                            'ectivity_analysis.html.')
         return list(x.uuid)
     elif isinstance(x, pd.DataFrame):
@@ -140,7 +140,7 @@ def eval_neurons(x, warn_duplicates=True, raise_other=True):
             logger.warning('Duplicate UUIDs found in NeuronList.'
                            'The function you are using might not respect '
                            'fragments of the same neuron. For explanation see '
-                           'http://pymaid.readthedocs.io/en/latest/source/conn'
+                           'http://navis.readthedocs.io/en/latest/source/conn'
                            'ectivity_analysis.html.')
         return x.neurons
     elif isinstance(x, type(None)):
