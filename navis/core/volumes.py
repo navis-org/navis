@@ -169,7 +169,7 @@ class Volume:
         if isinstance(x, dict):
             x = list(x.values())
 
-        if not utils._is_iterable(x):
+        if not utils.is_iterable(x):
             x = [x]
 
         if False in [isinstance(v, Volume) for v in x]:

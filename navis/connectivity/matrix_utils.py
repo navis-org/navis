@@ -64,9 +64,9 @@ def group_matrix(mat, row_groups={}, col_groups={}, drop_ungrouped=False,
                         'DataFrames, got "{}"'.format(type(mat)))
 
     # Convert to neuron->group format if necessary
-    if col_groups and utils._is_iterable(list(col_groups.values())[0]):
+    if col_groups and utils.is_iterable(list(col_groups.values())[0]):
         col_groups = {n: g for g in col_groups for n in col_groups[g]}
-    if row_groups and utils._is_iterable(list(row_groups.values())[0]):
+    if row_groups and utils.is_iterable(list(row_groups.values())[0]):
         row_groups = {n: g for g in row_groups for n in row_groups[g]}
 
     # Make sure everything is string

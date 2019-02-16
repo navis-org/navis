@@ -91,7 +91,7 @@ def unpack_neurons(x, raise_on_error=True):
 
     if isinstance(x, (list, np.ndarray, tuple)):
         for l in x:
-            neurons += _unpack_neurons(l)
+            neurons += unpack_neurons(l)
     elif isinstance(x, core.TreeNeuron):
         neurons.append(x)
     elif isinstance(x, core.NeuronList):

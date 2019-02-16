@@ -497,8 +497,8 @@ def dist_between(x, a, b):
     else:
         raise ValueError('Unable to process data of type {0}'.format(type(x)))
 
-    if (utils._is_iterable(a) and len(a) > 1) or \
-       (utils._is_iterable(b) and len(b) > 1):
+    if (utils.is_iterable(a) and len(a) > 1) or \
+       (utils.is_iterable(b) and len(b) > 1):
         raise ValueError('Can only process single treenodes. Use '
                          'navis.geodesic_matrix instead.')
 
@@ -953,7 +953,7 @@ def cut_neuron(x, cut_node, ret='both'):
         raise TypeError('Unable to process data of type "{0}"'.format(type(x)))
 
     # Turn cut node into iterable
-    if not utils._is_iterable(cut_node):
+    if not utils.is_iterable(cut_node):
         cut_node = [cut_node]
 
     # Process cut nodes (i.e. if tag)
@@ -995,7 +995,7 @@ def cut_neuron(x, cut_node, ret='both'):
             cut = _cut_networkx(to_cut, cn, ret)
 
         # If ret != 'both', we will get only a single neuron
-        if not utils._is_iterable(cut):
+        if not utils.is_iterable(cut):
             cut = [cut]
 
         # Add results back to results at same index, proximal first

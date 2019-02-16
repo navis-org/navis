@@ -40,7 +40,7 @@ def make_non_iterable(x):
     """ Helper function. Turns x into non-iterable, if it isn't already. Will
     raise error if len(x) > 1.
     """
-    if not _is_iterable(x):
+    if not is_iterable(x):
         return x
     elif len(x) == 1:
         return x[0]
