@@ -790,7 +790,10 @@ class TreeNeuron:
             # We will do this sequentially and stop as soon as we find a
             # discrepancy -> this saves tons of time!
             for at in to_comp:
-                if getattr(self, at) != getattr(other, at):
+                comp = getattr(self, at) == getattr(other, at)
+                if isinstance(comp, np.ndarray) and not all(comp):
+                    return False
+                elif comp is False:
                     return False
             # If all comparisons have passed, return True
             return True
