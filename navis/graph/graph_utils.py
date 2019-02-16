@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import numbers
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -803,18 +804,28 @@ def reroot_neuron(x, new_root, inplace=False):
         x = x.copy()
 
     # Skip if new root is old root
-    if x.root == new_root:
+    if any(x.root == new_root):
         if not inplace:
             return x
         else:
             return
 
     if x.igraph and config.use_igraph:
-        path = x.igraph.get_shortest_paths(x.igraph.vs.find(node_id=new_root),
-                                           x.igraph.vs.find(node_id=x.root))[0]
-        epath = x.igraph.get_shortest_paths(x.igraph.vs.find(node_id=new_root),
-                                            x.igraph.vs.find(node_id=x.root),
-                                            output='epath')[0]
+        # Prevent warnings in the following code - querying paths between
+        # unreachable nodes will otherwise generate a runtime warning
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+
+            # Find paths to all roots
+            path = x.igraph.get_shortest_paths(x.igraph.vs.find(node_id=new_root),
+                                               [x.igraph.vs.find(node_id=r) for r in x.root])
+            epath = x.igraph.get_shortest_paths(x.igraph.vs.find(node_id=new_root),
+                                                [x.igraph.vs.find(node_id=r) for r in x.root],
+                                                output='epath')
+
+        # Extract paths that actually worked (i.e. within a continuous fragment)
+        path = [p for p in path if p][0]
+        epath = [p for p in epath if p][0]
 
         edges = [(s, t) for s, t in zip(path[:-1], path[1:])]
 
@@ -842,9 +853,11 @@ def reroot_neuron(x, new_root, inplace=False):
     else:
         # If this NetworkX graph is just an (immutable) view, turn it into a
         # full, independent graph
-        if isinstance(x.graph, nx.classes.graphviews.ReadOnlyGraph):
+        if float(nx.__version__) < 2.2:
+            if isinstance(x.graph, nx.classes.graphviews.ReadOnlyGraph):
+                x.graph = nx.DiGraph(x.graph)
+        elif hasattr(x.graph, '_NODE_OK'):
             x.graph = nx.DiGraph(x.graph)
-        g = x.graph
 
         # Walk from new root to old root and remove edges along the way
         parent = next(g.successors(new_root), None)
