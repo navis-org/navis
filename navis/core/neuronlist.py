@@ -458,7 +458,7 @@ class NeuronList:
         return NeuronList([n.copy(deepcopy=deepcopy) for n in config.tqdm(self.neurons,
                                                                           desc='Copy',
                                                                           leave=False,
-                                                                          hide=config.pbar_hide)],
+                                                                          disable=config.pbar_hide)],
                                  make_copy=False,
                                  use_parallel=self.use_parallel)
 
