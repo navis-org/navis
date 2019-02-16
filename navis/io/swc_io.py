@@ -13,6 +13,7 @@
 
 import csv
 import datetime
+from glob import glob
 import os
 
 import pandas as pd
@@ -23,7 +24,7 @@ from .. import core, config, utils
 logger = config.logger
 
 
-def from_swc(f, connector_labels={}, **kwargs):
+def from_swc(f, connector_labels={}, include_subdirs=False, **kwargs):
     """ Creates Neuron/List from SWC file.
 
     This import is following format specified
@@ -31,13 +32,17 @@ def from_swc(f, connector_labels={}, **kwargs):
 
     Parameters
     ----------
-    f :                 str
+    f :                 str, iterable
                         SWC string, filename or folder. If folder, will import
                         all ``.swc`` files.
     connector_labels :  dict, optional
                         If provided will extract connectors from SWC.
                         Dictionary must map type to label:
                         ``{'presynapse': 7, 'postsynapse': 8}``
+    include_subdirs :   bool, optional
+                        If True and ``f`` is a folder, will also search
+                        subdirectories for ``.swc`` files.
+
     **kwargs
                         Keyword arguments passed to ``navis.TreeNeuron``
 
@@ -51,11 +56,25 @@ def from_swc(f, connector_labels={}, **kwargs):
                         Export neurons as SWC files.
 
     """
+    if utils.is_iterable(f):
+        return core.NeuronList([from_swc(x,
+                                         connector_labels=connector_labels,
+                                         include_subdirs=include_subdirs)
+                               for x in config.tqdm(f, desc='Importing',
+                                                    disable=config.pbar_hide,
+                                                    leave=config.pbar_leave)])
+
     if os.path.isdir(f):
-        swc = [os.path.join(f, x) for x in os.listdir(f) if os.path.isfile(os.path.join(f, x)) and x.endswith('.swc')]
+        if not include_subdirs:
+            swc = [os.path.join(f, x) for x in os.listdir(f) if
+                   os.path.isfile(os.path.join(f, x)) and x.endswith('.swc')]
+        else:
+            swc = [y for x in os.walk(f) for y in glob(os.path.join(x[0], '*.swc'))]
+
         return core.NeuronList([from_swc(x,
                                          connector_labels=connector_labels)
-                                         for x in config.tqdm(swc, desc='Importing',
+                                         for x in config.tqdm(swc,
+                                                              desc='Reading {}'.format(f.split('/')[-1]),
                                                               disable=config.pbar_hide,
                                                               leave=config.pbar_leave)])
 
@@ -90,14 +109,29 @@ def from_swc(f, connector_labels={}, **kwargs):
                                   'radius', 'parent_id'],
                          dtype=object)
 
+    # Remove empty entries and generate nodes DataFrame
+    nodes = pd.DataFrame([[to_float(e) for e in row if e != ''] for row in data],
+                         columns=['node_id', 'label', 'x', 'y', 'z',
+                                  'radius', 'parent_id'],
+                         dtype=object)
+
+    # If any invalid nodes are found
+    if any(nodes[['node_id', 'parent_id', 'x', 'y', 'z']].isnull()):
+        # Remove nodes without coordinates
+        nodes = nodes.loc[~nodes[['node_id', 'parent_id', 'x', 'y', 'z']].isnull().any(axis=1)]    
+
+        # Because we removed nodes, we'll have to run a more complicated root
+        # detection
+        nodes.loc[~nodes.parent_id.isin(nodes.node_id), 'parent_id'] = None
+    else:
+        # Root node will have parent=-1 -> set this to None
+        nodes.loc[nodes.parent_id < 0, 'parent_id'] = None    
+
     # Make sure we are using integers
     nodes.parent_id = nodes.parent_id.astype(int, errors='ignore')
     nodes.node_id = nodes.node_id.astype(int, errors='ignore')
     nodes.parent_id = nodes.parent_id.astype(object)
     nodes.node_id = nodes.node_id.astype(object)
-
-    # Root node will have parent=-1 -> set this to None
-    nodes.loc[nodes.parent_id < 0, 'parent_id'] = None
 
     # Take care of connectors
     if connector_labels:
@@ -117,8 +151,10 @@ def from_swc(f, connector_labels={}, **kwargs):
                            name=kwargs.pop('name',
                                             os.path.basename(f).replace('.swc',
                                                                         '')),
-                           input_file=f,
+                           filename=os.path.basename(f),
+                           pathname=os.path.dirname(f),
                            created_at=str(datetime.datetime.now()),
+
                            **kwargs)
 
 
@@ -239,3 +275,12 @@ def to_swc(x, filename=None, export_synapses=False):
 
         writer = csv.writer(file, delimiter=' ')
         writer.writerows(swc.astype(str).values)
+
+
+def to_float(x):
+    """ Helper to try to convert to float.
+    """
+    try: 
+        return float(x)
+    except:
+        return None        
