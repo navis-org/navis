@@ -1,2 +1,2 @@
-from .utils import *
+from .vputils import *
 from .viewer import *

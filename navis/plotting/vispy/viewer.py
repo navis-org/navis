@@ -29,7 +29,7 @@ with warnings.catch_warnings():
 
 from ... import utils, config
 from ..colors import *
-from .utils import *
+from .vputils import *
 from .visuals import *
 
 __all__ = ['Viewer']
