@@ -253,6 +253,24 @@ class Volume:
                                                                   self.vertices.shape[0],
                                                                   self.faces.shape[0])
 
+    def __truediv__(self, other):
+        """Implements division for vertex coordinates."""
+        if isinstance(other, numbers.Number):
+            # If a number, consider this an offset for coordinates
+            return self.__mul__(1/other)
+        else:
+            return NotImplemented
+
+    def __mul__(self, other):
+        """Implements multiplication for vertex coordinates."""
+        if isinstance(other, numbers.Number):
+            # If a number, consider this an offset for coordinates
+            v = self.copy()
+            v.vertices *= other
+            return v
+        else:
+            return NotImplemented
+
     def resize(self, x, inplace=False):
         """ Resize volume by given factor.
 
