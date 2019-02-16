@@ -54,21 +54,26 @@ def volume2vispy(x, **kwargs):
         object_id = uuid.uuid4()
 
         if 'color' in kwargs or 'c' in kwargs:
-            color = kwargs.get('color', kwargs.get('c', (.95, .95, .95, .6)))
+            color = kwargs.get('color', kwargs.get('c', (.95, .95, .95, .1)))
         else:
-            color = getattr(v, 'color', (.95, .95, .95, .6))
+            color = getattr(v, 'color', (.95, .95, .95, .1))
         color = np.array(color, dtype=float)
 
         # Add alpha
         if len(color) < 4:
-            color = np.append(color, [.6])
+            color = np.append(color, [.1])
 
         if max(color) > 1:
             color[:3] = color[:3] / 255
 
         s = scene.visuals.Mesh(vertices=v.vertices,
                                faces=v.faces, color=color,
-                               shading=kwargs.get('shading', None))
+                               shading=kwargs.get('shading', 'smooth'))
+
+        # Set some aesthetic parameters
+        s.shininess = 0
+        # Possible presets are "additive", "translucent", "opaque"
+        s.set_gl_state('additive', cull_face=True, depth_test=False)
 
         # Make sure volumes are always drawn after neurons
         s.order = kwargs.get('order', 10)
