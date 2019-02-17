@@ -146,8 +146,13 @@ class TreeNeuron:
         elif key == 'dps':
             self.dps = self.get_dps()
             return self.dps
-
-        raise AttributeError('Neuron has no attribute "{}"'.format(key))
+        elif key.startswith('has_'):
+            key = key[key.index('_'):]
+            if hasattr(self, key):
+                data = getattr(self, key)
+                if isinstance(data, pd.DataFrame) and not data.empty:
+                    return True
+            return False
 
     @property
     def nodes(self):
@@ -233,11 +238,6 @@ class TreeNeuron:
         """ Root node(s)."""
         roots = self.nodes[self.nodes.parent_id.isnull()].node_id.values
         return roots
-
-    @property
-    def has_connectors(self):
-        """ True if neuron has connectors, False if not."""
-        return isinstance(self.connectors, pd.DataFrame) and not self.connectors.empty
 
     @property
     def n_nodes(self):
@@ -438,9 +438,10 @@ class TreeNeuron:
 
         Examples
         --------
+        >>> import navis
         >>> nl = navis.example_neurons()
         >>> #Plot with connectors
-        >>> nl.plot3d( connectors=True )
+        >>> nl.plot3d(connectors=True)
 
         """
 
