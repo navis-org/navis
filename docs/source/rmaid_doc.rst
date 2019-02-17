@@ -110,19 +110,19 @@ Quickstart
 
 Data conversion
 ===============
-:mod:`navis.rmaid` provides functions to convert data from Python to R:
+:mod:`navis.interfaces.r` provides functions to convert data from Python to R:
 
-1. :func:`navis.rmaid.data2py` converts general data from R to Python
-2. :func:`navis.rmaid.neuron2py` converts R neuron or neuronlist objects to Python :class:`navis.CatmaidNeuron` and :class:`navis.CatmaidNeuronList`, respectively
-3. :func:`navis.rmaid.neuron2r` converts :class:`navis.CatmaidNeuron` or :class:`navis.CatmaidNeuronList` to R neuron or neuronlist objects
-4. :func:`navis.rmaid.dotprops2py` converts R dotprop objects to pandas DataFrame that can be passed to :func:`navis.plot.plot3d`
+1. :func:`navis.interfaces.r.data2py` converts general data from R to Python
+2. :func:`navis.interfaces.r.neuron2py` converts R neuron or neuronlist objects to Python :class:`navis.CatmaidNeuron` and :class:`navis.CatmaidNeuronList`, respectively
+3. :func:`navis.interfaces.r.neuron2r` converts :class:`navis.CatmaidNeuron` or :class:`navis.CatmaidNeuronList` to R neuron or neuronlist objects
+4. :func:`navis.interfaces.r.dotprops2py` converts R dotprop objects to pandas DataFrame that can be passed to :func:`navis.plot.plot3d`
 
 R catmaid
 =========
 :func:`rmaid.init_rcatmaid` is a wrapper to initialise R catmaid (https://github.com/jefferis/rcatmaid)
 
 >>> import navis
->>> from navis import rmaid
+>>> from navis.interfaces import r as rmaid
 
 >>> # Initialize connection to Catmaid server
 >>> rm = navis.CatmaidInstance('server_url', 'http_user', 'http_pw', 'token')
@@ -158,7 +158,7 @@ Now convert to navis :class:`navis.CatmaidNeuron`
 
 Nblasting
 =========
-:func:`navis.rmaid.nblast` provides a wrapper to nblast neurons.
+:func:`navis.interfaces.r.nblast` provides a wrapper to nblast neurons.
 
 >>> from navis import rmaid, CatmaidInstance
 >>> # Initialize connection to Catmaid server
@@ -168,7 +168,7 @@ Nblasting
 >>> skeleton_id = 16
 >>> nbl = rmaid.nblast(skeleton_id, remote_instance=rm)
 
-:func:`navis.rmaid.nblast` returns nblast results as instance of the :class:`navis.rmaid.NBLASTresults` class.
+:func:`navis.interfaces.r.nblast` returns nblast results as instance of the :class:`navis.interfaces.r.NBLASTresults` class.
 
 >>> # See contents of nblast_res object
 >>> help(nbl)
@@ -190,11 +190,11 @@ Reference
 .. autosummary::
     :toctree: generated/
 
-	navis.rmaid.init_rcatmaid
-	navis.rmaid.data2py
-	navis.rmaid.nblast
-	navis.rmaid.nblast_allbyall
-	navis.rmaid.neuron2py
-	navis.rmaid.neuron2r
-    navis.rmaid.NBLASTresults
+	navis.interfaces.r.init_rcatmaid
+	navis.interfaces.r.data2py
+	navis.interfaces.r.nblast
+	navis.interfaces.r.nblast_allbyall
+	navis.interfaces.r.neuron2py
+	navis.interfaces.r.neuron2r
+    navis.interfaces.r.NBLASTresults
 

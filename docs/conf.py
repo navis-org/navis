@@ -54,13 +54,14 @@ MOCK_MODULES = ['sklearn', 'igraph' , 'tqdm', 'pandas', 'bpy', 'bmesh',
                 'networkx', 'nx', 'requests', 'requests-futures', 'requests.exceptions',
                 'imageio', 'py2cytoscape', 'py2cytoscape.data.cyrest_client', 'CyRestClient',
                 'requests_futures.sessions', 'requests_futures.sessions.FuturesSession',
-                'vispy','seaborn','vispy.geometry', 'vispy.gloo.util', 'vispy.gloo.util._screenshot']
+                'vispy', 'seaborn', 'vispy.geometry', 'vispy.gloo.util', 'vispy.gloo.util._screenshot']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
 import navis
 from navis.interfaces import cytoscape
 from navis.interfaces import blender
+from navis.interfaces import r
 
 
 # -- Make execution numbers in Jupyter notebooks ascending -------------------

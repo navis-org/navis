@@ -60,7 +60,6 @@ Plotting
     navis.plot3d
     navis.plot2d
     navis.plot1d
-    navis.plot_network
     navis.clear3d
     navis.close3d
     navis.get_viewer
@@ -196,7 +195,7 @@ Import/Export
     navis.neuron2json
     navis.json2neuron
 
-.. _api_b3d:
+.. _api_interfaces.blender:
 
 Blender API
 +++++++++++
@@ -206,43 +205,43 @@ Objects
 .. autosummary::
     :toctree: generated/
 
-    navis.b3d.handler.add
-    navis.b3d.handler.clear
-    navis.b3d.handler.select
-    navis.b3d.handler.hide
-    navis.b3d.handler.unhide
+    navis.interfaces.blender.handler.add
+    navis.interfaces.blender.handler.clear
+    navis.interfaces.blender.handler.select
+    navis.interfaces.blender.handler.hide
+    navis.interfaces.blender.handler.unhide
 
 Materials
 ---------
 .. autosummary::
     :toctree: generated/
 
-    navis.b3d.handler.color
-    navis.b3d.handler.colorize
-    navis.b3d.handler.emit
-    navis.b3d.handler.use_transparency
-    navis.b3d.handler.alpha
-    navis.b3d.handler.bevel
+    navis.interfaces.blender.handler.color
+    navis.interfaces.blender.handler.colorize
+    navis.interfaces.blender.handler.emit
+    navis.interfaces.blender.handler.use_transparency
+    navis.interfaces.blender.handler.alpha
+    navis.interfaces.blender.handler.bevel
 
 Selections
 ----------
 .. autosummary::
     :toctree: generated/
 
-    navis.b3d.handler.select
+    navis.interfaces.blender.handler.select
 
-    navis.b3d.object_list.select
-    navis.b3d.object_list.color
-    navis.b3d.object_list.colorize
-    navis.b3d.object_list.emit
-    navis.b3d.object_list.use_transparency
-    navis.b3d.object_list.alpha
-    navis.b3d.object_list.bevel
-    navis.b3d.object_list.hide
-    navis.b3d.object_list.unhide
-    navis.b3d.object_list.hide_others
-    navis.b3d.object_list.delete
-    navis.b3d.object_list.to_json
+    navis.interfaces.blender.object_list.select
+    navis.interfaces.blender.object_list.color
+    navis.interfaces.blender.object_list.colorize
+    navis.interfaces.blender.object_list.emit
+    navis.interfaces.blender.object_list.use_transparency
+    navis.interfaces.blender.object_list.alpha
+    navis.interfaces.blender.object_list.bevel
+    navis.interfaces.blender.object_list.hide
+    navis.interfaces.blender.object_list.unhide
+    navis.interfaces.blender.object_list.hide_others
+    navis.interfaces.blender.object_list.delete
+    navis.interfaces.blender.object_list.to_json
 
 
 Cytoscape API
@@ -250,9 +249,9 @@ Cytoscape API
 .. autosummary::
     :toctree: generated/
 
-    navis.cytoscape.generate_network
-    navis.cytoscape.get_client
-    navis.cytoscape.watch_network
+    navis.interfaces.cytoscape.generate_network
+    navis.interfaces.cytoscape.get_client
+    navis.interfaces.cytoscape.watch_network
 
 .. _api_userstats:
 
@@ -263,15 +262,15 @@ R interface (rMAID)
 .. autosummary::
     :toctree: generated/
 
-    navis.rmaid.init_rcatmaid
-    navis.rmaid.data2py
-    navis.rmaid.nblast
-    navis.rmaid.nblast_allbyall
-    navis.rmaid.neuron2py
-    navis.rmaid.dotprops2py
-    navis.rmaid.neuron2r
-    navis.rmaid.NBLASTresults
-    navis.rmaid.get_neuropil
+    navis.interfaces.r.init_rcatmaid
+    navis.interfaces.r.data2py
+    navis.interfaces.r.nblast
+    navis.interfaces.r.nblast_allbyall
+    navis.interfaces.r.neuron2py
+    navis.interfaces.r.dotprops2py
+    navis.interfaces.r.neuron2r
+    navis.interfaces.r.NBLASTresults
+    navis.interfaces.r.get_neuropil
 
 Utility
 +++++++

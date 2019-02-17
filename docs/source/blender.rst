@@ -6,7 +6,7 @@ Blender interface
 *****************
 
 Navis comes with an interface to import neurons into
-`Blender 3D <https://www.blender.org>`_: :mod:`navis.b3d`
+`Blender 3D <https://www.blender.org>`_: :mod:`navis.interfaces.blender`
 
 Installation
 ============
@@ -45,7 +45,7 @@ built-in Python. The easiest way IMHO is this:
 Quickstart
 ==========
 
-:mod:`navis.b3d` provides a simple interface that lets you add, select and
+:mod:`navis.interfaces.blender` provides a simple interface that lets you add, select and
 manipulate neurons from within :red:`Blender's Python console`:
 
 First, import and set up navis like you are used to.
@@ -57,10 +57,10 @@ First, import and set up navis like you are used to.
 
 Now initialise the interface with Blender and import the neurons.
 
->>> # The b3d module is not automatically loaded when importing navis
->>> from navis import b3d
+>>> # The interfaces.blender module is not automatically loaded when importing navis
+>>> from navis import interfaces.blender
 >>> # Initialise handler
->>> handler = b3d.handler()
+>>> handler = interfaces.blender.handler()
 >>> # Load neurons into scene
 >>> handler.add(nl)
 
@@ -95,23 +95,23 @@ Objects
 .. autosummary::
     :toctree: generated/
 
-    navis.b3d.handler.add
-    navis.b3d.handler.clear
-    navis.b3d.handler.select
-    navis.b3d.handler.hide
-    navis.b3d.handler.unhide
+    navis.interfaces.blender.handler.add
+    navis.interfaces.blender.handler.clear
+    navis.interfaces.blender.handler.select
+    navis.interfaces.blender.handler.hide
+    navis.interfaces.blender.handler.unhide
 
 Materials
 ---------
 .. autosummary::
     :toctree: generated/
 
-    navis.b3d.handler.color
-    navis.b3d.handler.colorize
-    navis.b3d.handler.emit
-    navis.b3d.handler.use_transparency
-    navis.b3d.handler.alpha
-    navis.b3d.handler.bevel
+    navis.interfaces.blender.handler.color
+    navis.interfaces.blender.handler.colorize
+    navis.interfaces.blender.handler.emit
+    navis.interfaces.blender.handler.use_transparency
+    navis.interfaces.blender.handler.alpha
+    navis.interfaces.blender.handler.bevel
 
 
 Selections
@@ -119,22 +119,22 @@ Selections
 .. autosummary::
     :toctree: generated/
 
-    navis.b3d.handler.select
+    navis.interfaces.blender.handler.select
 
-    navis.b3d.object_list.select
-    navis.b3d.object_list.color
-    navis.b3d.object_list.colorize
-    navis.b3d.object_list.emit
-    navis.b3d.object_list.use_transparency
-    navis.b3d.object_list.alpha
-    navis.b3d.object_list.bevel
+    navis.interfaces.blender.object_list.select
+    navis.interfaces.blender.object_list.color
+    navis.interfaces.blender.object_list.colorize
+    navis.interfaces.blender.object_list.emit
+    navis.interfaces.blender.object_list.use_transparency
+    navis.interfaces.blender.object_list.alpha
+    navis.interfaces.blender.object_list.bevel
 
-    navis.b3d.object_list.hide
-    navis.b3d.object_list.unhide
-    navis.b3d.object_list.hide_others
+    navis.interfaces.blender.object_list.hide
+    navis.interfaces.blender.object_list.unhide
+    navis.interfaces.blender.object_list.hide_others
 
-    navis.b3d.object_list.delete
+    navis.interfaces.blender.object_list.delete
 
-    navis.b3d.object_list.to_json
+    navis.interfaces.blender.object_list.to_json
 
 
