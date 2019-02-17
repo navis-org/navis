@@ -574,7 +574,7 @@ def average_neurons(x, limit=10, base_neuron=None):
     x :             NeuronList
                     Neurons to be averaged.
     limit :         int, optional
-                    Max distance for nearest neighbour search. In microns.
+                    Max distance for nearest neighbour search.
     base_neuron :   skeleton_ID | TreeNeuron, optional
                     Neuron to use as template for averaging. If not provided,
                     the first neuron in the list is used as template!
@@ -632,7 +632,7 @@ def average_neurons(x, limit=10, base_neuron=None):
     # For each "other" neuron, collect nearest neighbour coordinates
     for n in other_neurons:
         nn_dist, nn_ix = n.tree.query(
-            base_nodes, k=1, distance_upper_bound=limit * 1000)
+            base_nodes, k=1, distance_upper_bound=limit)
 
         # Translate indices into coordinates
         # First, make empty array
