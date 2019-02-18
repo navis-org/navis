@@ -1,7 +1,7 @@
 [![Documentation Status](https://readthedocs.org/projects/navis/badge/?version=latest)](http://navis.readthedocs.io/en/latest/?badge=latest) [![Build Status](https://travis-ci.org/schlegelp/navis.svg?branch=master)](https://travis-ci.org/schlegelp/navis) [![Coverage Status](https://coveralls.io/repos/github/schlegelp/navis/badge.svg?branch=master)](https://coveralls.io/github/schlegelp/navis?branch=master) [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/schlegelp/navis/master?urlpath=tree)
 
 <img src="https://github.com/schlegelp/navis/raw/master/docs/_static/favicon.png" height="60">
-==============================================================================================
+
 
 NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization
 with focus on hierarchical tree-like neuron data.
