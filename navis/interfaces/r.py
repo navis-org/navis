@@ -32,7 +32,7 @@ import numpy as np
 
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
-from rpy2.robjects import pandas2ri
+from rpy2.robjects import pandas2ri, numpy2ri
 
 from .. import cluster as pyclust
 from .. import core, plotting, config, utils
@@ -49,7 +49,7 @@ try:
     r_nblast = importr('nat.nblast')
     nat_templatebrains = importr('nat.templatebrains')
     nat_flybrains = importr('nat.flybrains')
-    # even if not used, these packages are important!
+    # Even if not used, these packages are important e.g. for template brains!
     flycircuit = importr('flycircuit')
     elmr = importr('elmr')
 except BaseException:
@@ -58,8 +58,11 @@ except BaseException:
 
 __all__ = sorted(['neuron2r', 'neuron2py', 'init_rcatmaid', 'dotprops2py',
                   'data2py', 'NBLASTresults', 'nblast', 'nblast_allbyall',
-                  'get_neuropil'])
+                  'get_neuropil', 'xform_brain'])
 
+# Activate automatic conversion
+numpy2ri.activate()
+pandas2ri.activate()
 
 def init_rcatmaid(**kwargs):
     """ Initialize the R catmaid package.
@@ -885,6 +888,70 @@ class NBLASTresults:
             logger.error('Unable to intepret entries provided. See '
                          'help(NBLASTresults.plot3d) for details.')
             return None
+
+
+def xform_brain(x, source, target, fallback=None, **kwargs):
+    """ Transform 3D data between template brains. This is just a wrapper for
+    ``nat.templatebrains:xform_brain``.
+
+    Parameters
+    ----------
+    x :         Neuron/List | numpy.ndarray | pandas.DataFrame
+                Data to transform. Dataframe must contain ``['x', 'y', 'z']``
+                columns. Numpy array must be shape ``(N, 3)``.
+    source :    str
+                Source template brain that the data currently is in.
+    target :    str
+                Target template brain that the data should be transformed into.
+    fallback :  None | "AFFINE",
+                If "AFFINE", will fall back to affine transformation if CMTK
+                transformation fails. Else coordinates of points for which the
+                transformation failed (e.g. b/c they are out of bounds), will
+                be returned as ``None``.
+    **kwargs
+                Keyword arguments passed to ``nat.templatebrains:xform_brain``
+
+    Returns
+    -------
+    same type as ``x``
+                Copy of input with transformed coordinates.
+    """
+
+    if not isinstance(x, (core.TreeNeuron, np.ndarray, pd.DataFrame)):
+        raise TypeError('Unable to transform data of type "{}"'.format(type(x)))
+
+    if isinstance(x, core.TreeNeuron):
+        x = x.copy()
+        x.nodes = xform_brain(x.nodes, source, target)
+        x.connectors = xform_brain(x.connectors, source, target)
+        return x
+    elif isinstance(x, pd.DataFrame):
+        if any([c not in x.columns for c in ['x', 'y', 'z']]):
+            raise ValueError('DataFrame must have x, y and z columns.')
+        x = x.copy()
+        x.loc[:, ['x', 'y', 'z']] = xform_brain(x.loc[['x', 'y', 'z']].values,
+                                                source, target)
+        return x
+    elif x.shape[1] != 3:
+        raise ValueError('Array must be of shape (N, 3).')
+
+    if isinstance(source, str):
+        source = robjects.r(source)
+    else:
+        TypeError('Expected source of type str, got "{}"'.format(type(source)))
+
+    if isinstance(target, str):
+        target = robjects.r(target)
+    else:
+        TypeError('Expected target of type str, got "{}"'.format(type(target)))
+
+    xf = nat_templatebrains.xform_brain(x,
+                                        sample=source,
+                                        reference=target,
+                                        FallBackToAffine=fallback=='AFFINE',
+                                        **kwargs)
+
+    return np.array(xf)
 
 
 def get_neuropil(x, template='FCWB', convert_nm=True):
