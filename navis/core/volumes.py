@@ -126,7 +126,7 @@ class Volume:
         """
 
         with open(filename, 'r') as f:
-            data = json.read(f, **kwargs)
+            data = json.load(f, **kwargs)
 
         return Volume(faces=data['faces'],
                       vertices=data['vertices'],
