@@ -143,11 +143,11 @@ def in_volume(x, volume, inplace=False, mode='IN', prevent_fragments=False):
         raise ValueError('Points must be array of shape (N,3).')
 
     if pyoctree:
-        return _in_volume_ray(points, volume)
+        return ray_in_volume(points, volume)
     else:
         logger.warning(
             'Package pyoctree not found. Falling back to ConvexHull.')
-        return _in_volume_convex(points, volume, approximate=False)
+        return in_volume_convex(points, volume, approximate=False)
 
 
 def intersection_matrix(x, volumes, attr=None):
