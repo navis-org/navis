@@ -114,7 +114,8 @@ def parse_objects(x):
     Visuals :       list of vispy visuals
     """
 
-    if not isinstance(x, (list, np.ndarray)):
+    # Make sure this is a list.
+    if not isinstance(x, list):
         x = [x]
 
     # Collect neuron objects and collate to single Neuronlist
