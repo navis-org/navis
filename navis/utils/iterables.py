@@ -18,7 +18,7 @@ import collections
 import six
 
 import numpy as np
-
+import pandas as pd
 
 def make_iterable(x, force_type=None):
     """ Helper function. Turns x into a np.ndarray, if it isn't already. For
@@ -52,7 +52,7 @@ def is_iterable(x):
     """ Helper function. Returns True if x is an iterable but not str or
     dictionary.
     """
-    if isinstance(x, collections.Iterable) and not isinstance(x, six.string_types):
+    if isinstance(x, collections.Iterable) and not isinstance(x, (six.string_types, pd.DataFrame)):
         return True
     else:
         return False
