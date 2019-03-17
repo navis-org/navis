@@ -315,17 +315,16 @@ def neuron2vispy(x, **kwargs):
 
         if kwargs.get('connectors', False) or kwargs.get('connectors_only',
                                                          False):
-            for j in [0, 1, 2]:
+            for j in neuron.connectors.relation.unique():
                 if kwargs.get('cn_mesh_colors', False):
                     color = neuron_color
                 else:
-                    color = syn_lay[j]['color']
+                    color = syn_lay.get(j, {'color': (.1, .1, .1)})['color']
 
                 if max(color) > 1:
                     color = np.array(color) / 255
 
-                this_cn = neuron.connectors[
-                    neuron.connectors.relation == j]
+                this_cn = neuron.connectors[neuron.connectors.relation == j]
 
                 if this_cn.empty:
                     continue
@@ -480,7 +479,7 @@ def points2vispy(x, **kwargs):
     colors = kwargs.get('color',
                         kwargs.get('c',
                                    kwargs.get('colors',
-                                              _eval_color(config.default_color, 1))))
+                                              eval_color(config.default_color, 1))))
 
     visuals = []
     for p in x:
