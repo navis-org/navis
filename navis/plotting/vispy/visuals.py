@@ -31,6 +31,7 @@ with warnings.catch_warnings():
 
 from ... import core, config, utils
 from ..colors import *
+from ..external.tube import Tube
 
 __all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy',
            'points2vispy']
@@ -194,8 +195,7 @@ def neuron2vispy(x, **kwargs):
             nodes = neuron.nodes[~neuron.nodes.parent_id.isnull()]
 
             # Extract treenode_coordinates and their parent's coordinates
-            tn_coords = nodes[['x', 'y', 'z']].apply(
-                pd.to_numeric).values
+            tn_coords = nodes[['x', 'y', 'z']].apply(pd.to_numeric).values
             parent_coords = neuron.nodes.set_index('node_id').loc[nodes.parent_id.values][['x', 'y', 'z']].apply(pd.to_numeric).values
 
             # Turn coordinates into segments
@@ -257,7 +257,6 @@ def neuron2vispy(x, **kwargs):
 
                     visuals.append(t)
                 else:
-                    from navis import tube
                     coords = _segments_to_coords(neuron,
                                                  neuron.segments,
                                                  modifier=(1, 1, 1))
@@ -265,10 +264,10 @@ def neuron2vispy(x, **kwargs):
                     for s, c in zip(neuron.segments, coords):
                         radii = nodes.loc[s, 'radius'].values.astype(float)
                         radii[radii <= 100] = 100
-                        t = tube.Tube(c.astype(float),
-                                      radius=radii,
-                                      color=neuron_color,
-                                      tube_points=5,)
+                        t = Tube(c.astype(float),
+                                 radius=radii,
+                                 color=neuron_color,
+                                 tube_points=5,)
 
                         # Add custom attributes
                         t.unfreeze()
