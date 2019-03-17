@@ -378,6 +378,9 @@ class handler:
         cu.bevel_resolution = 5
         cu.bevel_depth = 0.007
 
+        if use_radii:
+            cu.bevel_depth=1
+
         # DO NOT touch this: lookup via dict is >10X faster!
         tn_coords = {r.treenode_id: (r.x * self.conversion,
                                      r.z * self.conversion,
