@@ -470,18 +470,35 @@ class NeuronList:
         """Return summary for bottom N neurons."""
         return self.summary(n=slice(-n, len(self)))
 
-    def remove_duplicates(self, inplace=False):
-        """Removes duplicate neurons from list. Based on id()."""
+    def remove_duplicates(self, key='neuron_name', inplace=False):
+        """Removes duplicate neurons from list.
+
+        Parameters
+        ----------
+        key :       str | list, optional
+                    Attribute(s) by which to identify duplicates. In case of
+                    multiple, all attributes must match to flag a neuron as
+                    duplicate.
+        inplace :   bool, optional
+                    If False will return a copy of the original with
+                    duplicates removed.
+        """
         if inplace:
             x = self
         else:
             x = self.copy(deepcopy=False)
 
-        temp = x.neurons
-        x.neurons = []
-        for n in temp:
-            if not set([id(n)]) & set([id(a) for a in x]):
-                x.neurons.append(n)
+        key = utils.make_iterable(key)
+
+        # Generate pandas DataFrame
+        df = pd.DataFrame([[getattr(n, at) for at in key] for n in x],
+                          columns=key)
+
+        # Find out which neurons to keep
+        keep = ~df.duplicated(keep='first').values
+
+        # Reassign neurons
+        x.neurons = x[keep].neurons
 
         if not inplace:
             return x
