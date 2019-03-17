@@ -396,9 +396,9 @@ class TreeNeuron:
     def _get_segments(self, how='length'):
         """Generate segments for neuron."""
         if how == 'length':
-            return graph._generate_segments(self)
+            return graph.graph_utils._generate_segments(self)
         elif how == 'break':
-            return graph._break_segments(self)
+            return graph.graph_utils._break_segments(self)
         else:
             raise ValueError('Unknown how: "{}"'.format(how))
 
