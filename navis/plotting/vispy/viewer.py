@@ -781,6 +781,11 @@ class Viewer:
                              '"{}". Use "hide" or '
                              '"alpha"!'.format(self._cycle_mode))
 
+        self.active_neuron = to_show
+        self._data_text.text = '{} [{}/{}]'.format('|'.join(to_show),
+                                                   self._cycle_index,
+                                                   len(self.neurons))
+
     def _draw_fps(self, fps):
         """ Callback for ``canvas.measure_fps``. """
         self._fps_text.text = '{:.2f} FPS'.format(fps)
