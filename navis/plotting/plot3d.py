@@ -20,7 +20,6 @@ import warnings
 import pandas as pd
 import numpy as np
 
-import plotly.graph_objs as go
 import plotly.offline
 
 with warnings.catch_warnings():
@@ -29,6 +28,8 @@ with warnings.catch_warnings():
 
 from .. import morpho, core, utils, config
 from .vispy.viewer import Viewer
+from .plotly.graph_objs import *
+from .colors import prepare_colormap
 
 try:
     # Try setting vispy backend to PyQt5
@@ -186,22 +187,22 @@ def plot3d(x, **kwargs):
 
 def plot3d_vispy(x, **kwargs):
     """ Plot3d() helper function to generate vispy 3D plots. This is just to
-    improve readability.
+    improve readability. It's only purpose is to find the existing viewer
+    or generate a new one.
     """
 
     # Parse objects to plot
     skdata, dotprops, volumes, points, visual = utils.parse_objects(x)
 
-    # Check for allowed parameters
+    # Check for allowed static parameters
     allowed = {'color', 'colors', 'by_strahler', 'by_confidence',
                'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
                'auto_limits', 'autolimits', 'plotly_inline', 'viewer',
                'clear', 'clear3d'}
 
+    # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - allowed
-    if notallowed:
-        raise ValueError('Unknown parameter(s): {}'.format(','.split(notallowed)))
 
     # Parameters for neurons
     color = kwargs.get('color',
@@ -213,7 +214,7 @@ def plot3d_vispy(x, **kwargs):
     cn_mesh_colors = kwargs.get('cn_mesh_colors', False)
     linewidth = kwargs.get('linewidth', 2)
     connectors_only = kwargs.get('connectors_only', False)
-    scatter_kws = kwargs.get('scatter_kws', {})
+    scatter_kws = kwargs.pop('scatter_kws', {})
     syn_lay_new = kwargs.get('synapse_layout', {})
     syn_lay = {0: {'name': 'Presynapses',
                    'color': (255, 0, 0)},
@@ -244,7 +245,7 @@ def plot3d_vispy(x, **kwargs):
         else:
             viewer = getattr(config, 'primary_viewer', None)
     else:
-        viewer = kwargs.get('viewer', getattr(config, 'primary_viewer'))
+        viewer = kwargs.pop('viewer', getattr(config, 'primary_viewer'))
 
     # Make sure viewer is visible
     viewer.show()
@@ -264,25 +265,57 @@ def plot3d_vispy(x, **kwargs):
     return viewer
 
 
-def plot3d_plotly():
+def plot3d_plotly(x, **kwargs):
     """
     Plot3d() helper function to generate plotly 3D plots. This is just to
     improve readability and structure of the code.
     """
+
+    # Parse objects to plot
+    skdata, dotprops, volumes, points, visual = utils.parse_objects(x)
+
     trace_data = []
+
+    if skdata:
+        trace_data += neuron2plotly(skdata, **kwargs)
+    if not dotprops.empty:
+        trace_data += dotprops2plotly(dotprops, **kwargs)
+    if volumes:
+        trace_data += volume2plotly(volumes, **kwargs)
+    if points:
+        trace_data += scatter2plotly(points,
+                                     scatter_kws=kwargs.get('scatter_kws', {}))
+
+    layout = layout2plotly(**kwargs)
+
+    fig = dict(data=trace_data, layout=layout)
+
+    if kwargs.get('plotly_inline', True) and utils.is_jupyter():
+        plotly.offline.iplot(fig)
+        return
+    else:
+        logger.info('Use plotly.offline.plot(fig, filename="3d_plot.html")'
+                    ' to plot. Optimized for Google Chrome.')
+        return fig
+
+"""
+def plot3d_plotly(x, **kwargs):
+
+    # Parse objects to plot
+    skdata, dotprops, volumes, points, visual = utils.parse_objects(x)
 
     # Generate sphere for somas
     fib_points = _fibonacci_sphere(samples=30)
 
     # Generate the colormaps
-    neuron_cmap, dotprop_cmap = _prepare_colormap(color,
-                                                  skdata, dotprops,
-                                                  use_neuron_color=use_neuron_color,
-                                                  color_range=255)
+    neuron_cmap, dotprop_cmap = prepare_colormap(kwargs.get('color',
+                                                            kwargs.get('colors', None)),,
+                                                 skdata, dotprops,
+                                                 use_neuron_color=kwargs.get('use_neuron_color', False),
+                                                 color_range=255)
 
+    trace_data = []
     for i, neuron in enumerate(skdata.itertuples()):
-        logger.debug('Working on neuron {}'.format(neuron.uuid))
-
         neuron_name = str(neuron.uuid)
         skid = neuron.uuid
 
@@ -602,98 +635,4 @@ def plot3d_plotly():
         return _plot3d_plotly()
     else:
         return _plot3d_vispy()
-
-
-def _prepare_connector_cmap(neurons):
-    """ Looks for "label" or "type" column in connector tables and generates
-    a color for every unique type. Default colors can be defined as
-    ``navis.config.default_connector_colors``.
-
-    Returns
-    -------
-    dict
-            Maps type to color. Will be empty if no types.
-    """
-
-    if not isinstance(neurons.connectors, pd.DataFrame):
-        unique = []
-    elif 'type' in neurons.connectors:
-        unique = neurons.connectors.type.unique()
-    elif 'label' in neurons.connectors:
-        unique = neurons.connectors.label.unique()
-
-    return {t: config.default_connector_colors[i] for i, t in enumerate(unique)}
-
-
-def _prepare_colormap(colors, skdata=None, dotprops=None,
-                      use_neuron_color=False, color_range=255):
-    """ Maps color(s) to neuron/dotprop colorlists.
-    """
-
-    # Prepare dummies in case either no skdata or no dotprops
-    if isinstance(skdata, type(None)):
-        skdata = core.NeuronList([])
-
-    if isinstance(dotprops, type(None)):
-        dotprops = core.Dotprops()
-        dotprops['gene_name'] = []
-
-    # If no colors, generate random colors
-    if isinstance(colors, type(None)):
-        if (skdata.shape[0] + dotprops.shape[0]) > 0:
-            colors = _random_colors(skdata.shape[0] + dotprops.shape[0],
-                                    color_space='RGB', color_range=color_range)
-        else:
-            # If no neurons to plot, just return None
-            # This happens when there is only a scatter plot
-            return [None], [None]
-    else:
-        colors = _eval_color(colors, color_range=color_range)
-
-    # In order to cater for duplicate skeleton IDs in skdata (e.g. from
-    # splitting into fragments), we will not map skids to colors but instead
-    # keep colors as a list. That way users can pass a simple list of colors.
-
-    # If dictionary, map skids to dotprops gene names and neuron skeleton IDs
-    dotprop_cmap = []
-    neuron_cmap = []
-    if isinstance(colors, dict):
-        # We will try to get the skid first as str, then as int
-        neuron_cmap = [colors.get(s,
-                                  colors.get(int(s),
-                                             _eval_color(config.default_color,
-                                                         color_range)))
-                       for s in skdata.uuid]
-        dotprop_cmap = [colors.get(s,
-                                   _eval_color(config.default_color,
-                                               color_range))
-                        for s in dotprops.gene_name.values]
-    # If list of colors
-    elif isinstance(colors, (list, tuple, np.ndarray)):
-        colors_required = skdata.shape[0] + dotprops.shape[0]
-
-        # If color is a single color, convert to list
-        if all([isinstance(elem, numbers.Number) for elem in colors]):
-            colors = [colors] * colors_required
-        elif len(colors) < colors_required:
-            raise ValueError('Need colors for {} neurons/dotprops, got '
-                             '{}'.format(colors_required, len(colors)))
-        elif len(colors) > colors_required:
-            logger.debug('More colors than required: got {}, needed '
-                         '{}'.format(len(colors), colors_required))
-
-        if skdata.shape[0]:
-            neuron_cmap = [colors[i] for i in range(skdata.shape[0])]
-        if dotprops.shape[0]:
-            dotprop_cmap = [colors[i + skdata.shape[0]] for i in range(dotprops.shape[0])]
-    else:
-        raise TypeError('Got colors of type "{}"'.format(type(colors)))
-
-    # Override neuron cmap if we are supposed to use neuron colors
-    if use_neuron_color:
-        neuron_cmap = [n.getattr('color',
-                                 _eval_color(config.default_color,
-                                             color_range))
-                       for i, n in enumerate(skdata)]
-
-    return neuron_cmap, dotprop_cmap
+"""
