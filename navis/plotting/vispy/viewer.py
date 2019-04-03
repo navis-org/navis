@@ -526,19 +526,22 @@ class Viewer:
 
         skdata, dotprops, volumes, points, visuals = utils.parse_objects(x)
 
+        if len(set(kwargs) & set(['c', 'color', 'colors'])) > 1:
+            raise ValueError('Must not provide colors via multiple arguments')
+
         # Parse colors for neurons and dotprops
-        neuron_cmap, skdata_cmap = prepare_colormap(kwargs.get('color',
-                                                               kwargs.get('colors', None)),
-                                                    skdata, dotprops,
-                                                    use_neuron_color=kwargs.get('use_neuron_color', False))
-        kwargs['color'] = neuron_cmap + skdata_cmap
+        neuron_cmap, dotprops_cmap, volumes_cmap = prepare_colormap(kwargs.pop('color',
+                                                                   kwargs.pop('colors',
+                                                                   kwargs.pop('c', None))),
+                                                    skdata, dotprops, volumes,
+                                                    use_neuron_color=kwargs.pop('use_neuron_color', False))
 
         if skdata:
-            visuals += neuron2vispy(skdata, **kwargs)
+            visuals += neuron2vispy(skdata, color=neuron_cmap, **kwargs)
         if not dotprops.empty:
-            visuals += dp2vispy(dotprops, **kwargs)
+            visuals += dp2vispy(dotprops, color=dotprops_cmap, **kwargs)
         if volumes:
-            visuals += volume2vispy(volumes, **kwargs)
+            visuals += volume2vispy(volumes, color=volumes_cmap, **kwargs)
         if points:
             visuals += points2vispy(points,
                                     **kwargs.get('scatter_kws', {}))
@@ -564,7 +567,7 @@ class Viewer:
 
     def close(self):
         """ Close viewer. """
-        if self == getattr(config, 'primary_viewer'):
+        if self == getattr(config, 'primary_viewer',  None):
             del config.primary_viewer
         self.canvas.close()
 

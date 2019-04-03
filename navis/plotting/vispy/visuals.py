@@ -150,7 +150,7 @@ def neuron2vispy(x, **kwargs):
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
 
-    colormap, _ = prepare_colormap(colors,
+    colormap, _, _ = prepare_colormap(colors,
                                     x, None,
                                     use_neuron_color=kwargs.get('use_neuron_color', False),
                                     color_range=1)
@@ -398,7 +398,7 @@ def dotprop2vispy(x, **kwargs):
     colors = kwargs.get('color',
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
-    _, colormap = prepare_colormap(colors,
+    _, colormap, _ = prepare_colormap(colors,
                                     None, x, use_neuron_color=False,
                                     color_range=1)
 
