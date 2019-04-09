@@ -462,13 +462,13 @@ class NeuronList:
                                  make_copy=False,
                                  use_parallel=self.use_parallel)
 
-    def head(self, n=5):
+    def head(self, N=5):
         """Return summary for top N neurons."""
-        return self.summary(n=n)
+        return self.summary(N=N)
 
-    def tail(self, n=5):
+    def tail(self, N=5):
         """Return summary for bottom N neurons."""
-        return self.summary(n=slice(-n, len(self)))
+        return self.summary(N=slice(-N, len(self)))
 
     def remove_duplicates(self, key='neuron_name', inplace=False):
         """Removes duplicate neurons from list.
