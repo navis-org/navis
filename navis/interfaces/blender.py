@@ -41,7 +41,7 @@ except ImportError:
                  'within Blender!')
 
 
-class handler:
+class Handler:
     """ Class that interfaces with scene in Blender.
 
     Parameters
@@ -53,8 +53,8 @@ class handler:
     -----
 
         (1) The handler adds neurons and keeps track of them in the scene.
-        (2) If you request a list of objects via its attributes (e.g. ``handler.neurons``)
-            or via :func:`~navis.interfaces.blender.handler.select`, a :class:`~navis.interfaces.blender.object_list`
+        (2) If you request a list of objects via its attributes (e.g. ``Handler.neurons``)
+            or via :func:`~navis.interfaces.blender.Handler.select`, a :class:`~navis.interfaces.blender.ObjectList`
             is returned. This class lets you change basic parameters of your selected
             neurons.
 
@@ -78,17 +78,17 @@ class handler:
     >>> # Get some neurons (you have already set up a remote instance?)
     >>> nl = navis.example_neurons()
     >>> # Initialize handler
-    >>> handler = b3d.handler()
+    >>> h = b3d.Handler()
     >>> # Add neurons
-    >>> handler.add(nl)
+    >>> h.add(nl)
     >>> # Assign colors to all neurons
-    >>> handler.colorize()
+    >>> h.colorize()
     >>> # Select all somas and change color to black
-    >>> handler.soma.color(0, 0, 0)
+    >>> h.soma.color(0, 0, 0)
     >>> # Clear scene
-    >>> handler.clear()
+    >>> h.clear()
     >>> # Add only soma
-    >>> handler.add(nl, neurites=False, connectors=False)
+    >>> h.add(nl, neurites=False, connectors=False)
     """
     cn_dict = {
         0: dict(name='presynapses',
@@ -101,9 +101,9 @@ class handler:
                 color=(1, 0, 1))
     }  # : defines default colours/names for different connector types
 
-    def __init__(self, conversion=1 / 10000):
+    def __init__(self, conversion=1/10000):
         self.conversion = conversion
-        self.cn_dict = handler.cn_dict
+        self.cn_dict = Handler.cn_dict
 
     def _selection_helper(self, type):
         return [ob.name for ob in bpy.data.objects if 'type' in ob and ob['type'] == type]
@@ -113,21 +113,21 @@ class handler:
 
     def __getattr__(self, key):
         if key == 'neurons' or key == 'neuron' or key == 'neurites':
-            return object_list(self._selection_helper('NEURON'))
+            return ObjectList(self._selection_helper('NEURON'))
         elif key == 'connectors' or key == 'connector':
-            return object_list(self._selection_helper('CONNECTORS'))
+            return ObjectList(self._selection_helper('CONNECTORS'))
         elif key == 'soma' or key == 'somas':
-            return object_list(self._selection_helper('SOMA'))
+            return ObjectList(self._selection_helper('SOMA'))
         elif key == 'selected':
-            return object_list([ob.name for ob in bpy.context.selected_objects if 'catmaid_object' in ob])
+            return ObjectList([ob.name for ob in bpy.context.selected_objects if 'catmaid_object' in ob])
         elif key == 'presynapses':
-            return object_list(self._cn_selection_helper(0))
+            return ObjectList(self._cn_selection_helper(0))
         elif key == 'postsynapses':
-            return object_list(self._cn_selection_helper(1))
+            return ObjectList(self._cn_selection_helper(1))
         elif key == 'gapjunctions':
-            return object_list(self._cn_selection_helper(2))
+            return ObjectList(self._cn_selection_helper(2))
         elif key == 'abutting':
-            return object_list(self._cn_selection_helper(3))
+            return ObjectList(self._cn_selection_helper(3))
         elif key == 'all':
             return self.neurons + self.connectors + self.soma
         else:
@@ -553,11 +553,11 @@ class handler:
 
         Returns
         -------
-        :class:`navis.b3d.object_list` :  containing requested neurons
+        :class:`navis.b3d.ObjectList` :  containing requested neurons
 
         Examples
         --------
-        >>> selection = handler.select([123456, 7890])
+        >>> selection = Handler.select([123456, 7890])
         >>> # Get only connectors
         >>> cn = selection.connectors
         >>> # Hide everything else
@@ -579,7 +579,7 @@ class handler:
                 if ob['skeleton_id'] in skids:
                     ob.select = True
                     names.append(ob.name)
-        return object_list(names, handler=self)
+        return ObjectList(names, handler=self)
 
     def color(self, r, g, b):
         """ Assign color to all neurons.
@@ -652,19 +652,19 @@ class handler:
         self.all.unhide()
 
 
-class object_list:
+class ObjectList:
     """ Collection of Blender objects.
 
     Notes
     -----
 
-    1.  Object_lists should normally be constructed via the handler
-        (see :class:`navis.b3d.handler`)!
+    1.  ObjectLists should normally be constructed via the handler
+        (see :class:`navis.b3d.Handler`)!
     2.  List works with object NAMES to prevent Blender from crashing when
         trying to access neurons that do not exist anymore. This also means
         that changing names manually will compromise a object list.
     3.  Accessing a neuron list's attributes (see below) return another
-        ``object_list`` class which you can use to manipulate the new
+        ``ObjectList`` class which you can use to manipulate the new
         subselection.
 
     Attributes
@@ -683,7 +683,7 @@ class object_list:
     >>> # b3d module has to be import explicitly
     >>> from navis import b3d
     >>> nl = navis.example_neurons()
-    >>> handler = b3d.handler()
+    >>> handler = b3d.Handler()
     >>> handler.add(nl)
     >>> # Select only neurons on the right
     >>> right = handler.select('annotation:uPN right')
@@ -701,19 +701,19 @@ class object_list:
 
     def __getattr__(self, key):
         if key in ['neurons', 'neuron', 'neurites']:
-            return object_list([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'NEURON'])
+            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'NEURON'])
         elif key in ['connectors', 'connector']:
-            return object_list([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS'])
+            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS'])
         elif key in ['soma', 'somas']:
-            return object_list([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'SOMA'])
+            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'SOMA'])
         elif key == 'presynapses':
-            return object_list([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 0])
+            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 0])
         elif key == 'postsynapses':
-            return object_list([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 1])
+            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 1])
         elif key == 'gapjunctions':
-            return object_list([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 2])
+            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 2])
         elif key == 'abutting':
-            return object_list([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 3])
+            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 3])
         elif key in ['skeleton_id', 'skeleton_ids', 'skeletonid', 'skeletonids', 'skid', 'skids']:
             return [bpy.data.objects[n]['skeleton_id'] for n in self.object_names if n in bpy.data.objects]
         else:
@@ -721,7 +721,7 @@ class object_list:
 
     def __getitem__(self, key):
         if isinstance(key, int) or isinstance(key, slice):
-            return object_list(self.object_names[key], handler=self.handler)
+            return ObjectList(self.object_names[key], handler=self.handler)
         else:
             raise Exception('Unable to index non-integers.')
 
@@ -738,10 +738,10 @@ class object_list:
         return len(self.object_names)
 
     def __add__(self, to_add):
-        if not isinstance(to_add, object_list):
+        if not isinstance(to_add, ObjectList):
             raise AttributeError('Can only merge other object lists')
         print(to_add.object_names)
-        return object_list(list(set(self.object_names + to_add.object_names)),
+        return ObjectList(list(set(self.object_names + to_add.object_names)),
                            handler=self.handler)
 
     def select(self, unselect_others=True):

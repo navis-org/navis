@@ -205,43 +205,43 @@ Objects
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.blender.handler.add
-    navis.interfaces.blender.handler.clear
-    navis.interfaces.blender.handler.select
-    navis.interfaces.blender.handler.hide
-    navis.interfaces.blender.handler.unhide
+    navis.interfaces.blender.Handler.add
+    navis.interfaces.blender.Handler.clear
+    navis.interfaces.blender.Handler.select
+    navis.interfaces.blender.Handler.hide
+    navis.interfaces.blender.Handler.unhide
 
 Materials
 ---------
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.blender.handler.color
-    navis.interfaces.blender.handler.colorize
-    navis.interfaces.blender.handler.emit
-    navis.interfaces.blender.handler.use_transparency
-    navis.interfaces.blender.handler.alpha
-    navis.interfaces.blender.handler.bevel
+    navis.interfaces.blender.Handler.color
+    navis.interfaces.blender.Handler.colorize
+    navis.interfaces.blender.Handler.emit
+    navis.interfaces.blender.Handler.use_transparency
+    navis.interfaces.blender.Handler.alpha
+    navis.interfaces.blender.Handler.bevel
 
 Selections
 ----------
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.blender.handler.select
+    navis.interfaces.blender.Handler.select
 
-    navis.interfaces.blender.object_list.select
-    navis.interfaces.blender.object_list.color
-    navis.interfaces.blender.object_list.colorize
-    navis.interfaces.blender.object_list.emit
-    navis.interfaces.blender.object_list.use_transparency
-    navis.interfaces.blender.object_list.alpha
-    navis.interfaces.blender.object_list.bevel
-    navis.interfaces.blender.object_list.hide
-    navis.interfaces.blender.object_list.unhide
-    navis.interfaces.blender.object_list.hide_others
-    navis.interfaces.blender.object_list.delete
-    navis.interfaces.blender.object_list.to_json
+    navis.interfaces.blender.ObjectList.select
+    navis.interfaces.blender.ObjectList.color
+    navis.interfaces.blender.ObjectList.colorize
+    navis.interfaces.blender.ObjectList.emit
+    navis.interfaces.blender.ObjectList.use_transparency
+    navis.interfaces.blender.ObjectList.alpha
+    navis.interfaces.blender.ObjectList.bevel
+    navis.interfaces.blender.ObjectList.hide
+    navis.interfaces.blender.ObjectList.unhide
+    navis.interfaces.blender.ObjectList.hide_others
+    navis.interfaces.blender.ObjectList.delete
+    navis.interfaces.blender.ObjectList.to_json
 
 
 Cytoscape API
