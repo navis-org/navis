@@ -40,6 +40,8 @@ def generate_colors(N, color_space='RGB', color_range=1):
     """
     if N == 1:
         return [eval_color(config.default_color, color_range)]
+    elif N == 0:
+        return []
 
     # Make count_color an even number
     if N % 2 != 0:
@@ -187,9 +189,12 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     # If no colors, generate random colors
     if isinstance(colors, type(None)):
         if colors_required > 0:
-            colors = generate_colors(colors_required,
-                                     color_space='RGB',
-                                     color_range=color_range)
+            colors = []
+            colors += generate_colors(colors_required  - volumes.shape[0],
+                                      color_space='RGB',
+                                      color_range=color_range)
+            colors += eval_color([getattr(v, 'color', (1, 1, 1)) for v in volumes],
+                                  color_range=color_range)
         else:
             # If no neurons to plot, just return None
             # This happens when there is only a scatter plot
