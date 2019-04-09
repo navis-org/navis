@@ -787,7 +787,8 @@ class Viewer:
                              '"alpha"!'.format(self._cycle_mode))
 
         self.active_neuron = to_show
-        self._data_text.text = '{} [{}/{}]'.format('|'.join(to_show),
+        names = [getattr(self.neurons[u][0], 'name', 'NA') for u in to_show]
+        self._data_text.text = '{} [{}/{}]'.format('|'.join(names),
                                                    self._cycle_index,
                                                    len(self.neurons))
 
