@@ -26,6 +26,7 @@ import seaborn as sns
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from vispy import scene
+    from vispy.util.quaternion import Quaternion
 
 from ... import utils, config
 from ..colors import *
@@ -534,6 +535,7 @@ class Viewer:
                                                                    kwargs.pop('colors',
                                                                    kwargs.pop('c', None))),
                                                     skdata, dotprops, volumes,
+                                                    color_range=1,
                                                     use_neuron_color=kwargs.pop('use_neuron_color', False))
 
         if skdata:
@@ -922,14 +924,14 @@ class Viewer:
 
         """
 
-        if isinstance(view, vp.util.quaternion.Quaternion):
+        if isinstance(view, Quaternion):
             q = view
         elif view == 'XY':
-            q = vp.util.quaternion.Quaternion(w=1, x=.4, y=0, z=0)
+            q = Quaternion(w=1, x=.4, y=0, z=0)
         elif view == 'XZ':
-            q = vp.util.quaternion.Quaternion(w=1, x=-.4, y=0, z=0)
+            q = Quaternion(w=1, x=-.4, y=0, z=0)
         elif view == 'YZ':
-            q = vp.util.quaternion.Quaternion(w=.6, x=0.5, y=0.5, z=-.4)
+            q = Quaternion(w=.6, x=0.5, y=0.5, z=-.4)
         else:
             raise TypeError('Unable to set view from {}'.format(type(view)))
 
