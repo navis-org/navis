@@ -48,7 +48,7 @@ def volume2vispy(x, **kwargs):
 
     # List to fill with vispy visuals
     visuals = []
-    for v in x:
+    for i, v in enumerate(x):
         if not isinstance(v, core.Volume):
             raise TypeError('Expected navis.Volume, got "{}"'.format(type(v)))
 
@@ -58,6 +58,12 @@ def volume2vispy(x, **kwargs):
             color = kwargs.get('color', kwargs.get('c', (.95, .95, .95, .1)))
         else:
             color = getattr(v, 'color', (.95, .95, .95, .1))
+
+        # Colors might be list, need to pick the correct color for this volume
+        if isinstance(color, list):
+            if all([isinstance(c, (tuple, list, np.ndarray)) for c in color]):
+                color = color[i]
+
         color = np.array(color, dtype=float)
 
         # Add alpha
