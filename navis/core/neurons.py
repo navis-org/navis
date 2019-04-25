@@ -286,6 +286,10 @@ class TreeNeuron:
         return self.n_nodes / self.cable_length
 
     @property
+    def n_skeletons(self):
+        return self.nodes[self.nodes.parent_id.isnull()].shape[0]
+
+    @property
     def type(self):
         """ Type. """
         return 'TreeNeuron'
