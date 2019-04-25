@@ -153,6 +153,8 @@ class TreeNeuron:
                 if isinstance(data, pd.DataFrame) and not data.empty:
                     return True
             return False
+        else:
+            raise AttributeError('Attribute "%s" not found' % key)
 
     @property
     def nodes(self):
