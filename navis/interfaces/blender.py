@@ -304,7 +304,7 @@ class Handler:
         """
         mesh = bpy.data.meshes.new(x.neuron_name + ' mesh')
 
-        nodes = x.nodes.set_index('treenode_id')
+        nodes = x.nodes.set_index('node_id')
 
         verts = []
         edges = []
@@ -382,11 +382,11 @@ class Handler:
             cu.bevel_depth=1
 
         # DO NOT touch this: lookup via dict is >10X faster!
-        tn_coords = {r.treenode_id: (r.x * self.conversion,
+        tn_coords = {r.node_id: (r.x * self.conversion,
                                      r.z * self.conversion,
                                      r.y * -self.conversion) for r in x.nodes.itertuples()}
         if use_radii:
-            tn_radii = {r.treenode_id: r.radius * self.conversion for r in x.nodes.itertuples()}
+            tn_radii = {r.node_id: r.radius * self.conversion for r in x.nodes.itertuples()}
 
         for s in x.segments:
             sp = cu.splines.new('POLY')
@@ -415,7 +415,7 @@ class Handler:
 
     def _create_soma(self, x, mat):
         """ Create soma """
-        s = x.nodes.set_index('treenode_id').ix[x.soma]
+        s = x.nodes.set_index('node_id').ix[x.soma]
         loc = s[['x', 'z', 'y']].values * self.conversion * [1, 1, -1]
         rad = s.radius * self.conversion
 
@@ -457,7 +457,7 @@ class Handler:
             cn_coords *= float(self.conversion)
             cn_coords *= [1, 1, -1]
 
-            tn_coords = x.nodes.set_index('treenode_id').loc[con.treenode_id.values,
+            tn_coords = x.nodes.set_index('node_id').loc[con.node_id.values,
                                                              ['x', 'z', 'y']].values.astype(float)
             tn_coords *= float(self.conversion)
             tn_coords *= [1, 1, -1]

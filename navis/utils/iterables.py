@@ -20,6 +20,7 @@ import six
 import numpy as np
 import pandas as pd
 
+
 def make_iterable(x, force_type=None):
     """ Helper function. Turns x into a np.ndarray, if it isn't already. For
     dicts, keys will be turned into array.

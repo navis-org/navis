@@ -853,7 +853,7 @@ def _tn_pairs_to_coords(x, modifier=(1, 1, 1)):
 
 
 def _segments_to_coords(x, segments, modifier=(1, 1, 1)):
-    """Turns lists of treenode_ids into coordinates
+    """Turns lists of node_ids into coordinates
 
     Parameters
     ----------

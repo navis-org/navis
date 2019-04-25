@@ -315,7 +315,7 @@ def segregation_index(x, centrality_method='centrifugal'):
         temp.downsample(10000)
 
         # Get one of its children
-        child = temp.nodes[temp.nodes.parent_id == split_point].treenode_id.values[0]
+        child = temp.nodes[temp.nodes.parent_id == split_point].node_id.values[0]
 
         # This will leave the proximal split with the primary neurite but
         # since that should not have synapses, we don't care at this point.
@@ -408,11 +408,11 @@ def bending_flow(x, polypre=False):
     logger.setLevel(current_level)
 
     # Get list of nodes with pre/postsynapses
-    pre_node_ids = y.connectors[y.connectors.relation == 0].treenode_id.values
-    post_node_ids = y.connectors[y.connectors.relation == 1].treenode_id.values
+    pre_node_ids = y.connectors[y.connectors.relation == 0].node_id.values
+    post_node_ids = y.connectors[y.connectors.relation == 1].node_id.values
 
     # Get list of branch_points
-    bp_node_ids = y.nodes[y.nodes.type == 'branch'].treenode_id.values.tolist()
+    bp_node_ids = y.nodes[y.nodes.type == 'branch'].node_id.values.tolist()
     # Add root if it is also a branch point
     for root in y.root:
         if y.graph.degree(root) > 1:
@@ -450,8 +450,8 @@ def bending_flow(x, polypre=False):
     # Set flow centrality to None for all nodes
     x.nodes['flow_centrality'] = None
 
-    # Change index to treenode_id
-    x.nodes.set_index('treenode_id', inplace=True)
+    # Change index to node_id
+    x.nodes.set_index('node_id', inplace=True)
 
     # Add flow (make sure we use igraph of y to get node ids!)
     x.nodes.loc[flow.keys(), 'flow_centrality'] = list(flow.values())
@@ -550,16 +550,16 @@ def flow_centrality(x, mode='centrifugal', polypre=False):
 
     # Get list of nodes with pre/postsynapses
     pre_node_ids = y.connectors[y.connectors.relation ==
-                                0].treenode_id.unique()
+                                0].node_id.unique()
     post_node_ids = y.connectors[y.connectors.relation ==
-                                 1].treenode_id.unique()
+                                 1].node_id.unique()
     total_pre = len(pre_node_ids)
     total_post = len(post_node_ids)
 
     # Get list of points to calculate flow centrality for:
     # branches and nodes with synapses
     calc_node_ids = y.nodes[(y.nodes.type == 'branch') | (
-        y.nodes.treenode_id.isin(y.connectors.treenode_id))].treenode_id.values
+        y.nodes.node_id.isin(y.connectors.node_id))].node_id.values
 
     # Get number of pre/postsynapses distal to each branch's childs
     distal_pre = graph.distal_to(y, pre_node_ids, calc_node_ids)
@@ -594,12 +594,12 @@ def flow_centrality(x, mode='centrifugal', polypre=False):
 
     # Now map this onto our neuron
     if mode == 'centrifugal':
-        x.nodes['flow_centrality'] = x.nodes.treenode_id.map(centrifugal)
+        x.nodes['flow_centrality'] = x.nodes.node_id.map(centrifugal)
     elif mode == 'centripetal':
-        x.nodes['flow_centrality'] = x.nodes.treenode_id.map(centripetal)
+        x.nodes['flow_centrality'] = x.nodes.node_id.map(centripetal)
     elif mode == 'sum':
         combined = {n : centrifugal[n] + centripetal[n] for n in centrifugal}
-        x.nodes['flow_centrality'] = x.nodes.treenode_id.map(combined)
+        x.nodes['flow_centrality'] = x.nodes.node_id.map(combined)
 
     # Add info on method/mode used for flow centrality
     x.centrality_method = mode
@@ -691,7 +691,7 @@ def tortuosity(x, seg_length=10, skip_remainder=False):
             end_tn += [seg[n] for n in cut_ix[1:]]
 
     # Now calculate euclidean distances
-    tn_table = x.nodes.set_index('treenode_id')
+    tn_table = x.nodes.set_index('node_id')
     start_co = tn_table.loc[start_tn, ['x', 'y', 'z']].values
     end_co = tn_table.loc[end_tn, ['x', 'y', 'z']].values
     R = np.linalg.norm(start_co - end_co, axis=1) / 1000

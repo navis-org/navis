@@ -268,13 +268,13 @@ class TestFetch(unittest.TestCase):
     @try_conditions
     def test_node_details(self):
         n = pymaid.get_neuron(config_test.test_skids[0])
-        self.assertIsInstance(pymaid.get_node_details(n.nodes.sample(100).treenode_id.values),
+        self.assertIsInstance(pymaid.get_node_details(n.nodes.sample(100).node_id.values),
                               pd.DataFrame)
 
     @try_conditions
     def test_skid_from_treenode(self):
         n = pymaid.get_neuron(config_test.test_skids[0])
-        self.assertIsInstance(pymaid.get_skid_from_treenode(n.nodes.iloc[0].treenode_id),
+        self.assertIsInstance(pymaid.get_skid_from_treenode(n.nodes.iloc[0].node_id),
                               dict)
 
     @try_conditions
@@ -302,13 +302,13 @@ class TestFetch(unittest.TestCase):
     @try_conditions
     def test_treenode_info(self):
         n = pymaid.get_neuron(config_test.test_skids[0])
-        self.assertIsInstance(pymaid.get_treenode_info(n.nodes.treenode_id.values[0:50]),
+        self.assertIsInstance(pymaid.get_treenode_info(n.nodes.node_id.values[0:50]),
                               pd.DataFrame)
 
     @try_conditions
     def test_treenode_tags(self):
         n = pymaid.get_neuron(config_test.test_skids[0])
-        self.assertIsInstance(pymaid.get_node_tags(n.nodes.treenode_id.values[0:50],
+        self.assertIsInstance(pymaid.get_node_tags(n.nodes.node_id.values[0:50],
                                                    node_type='TREENODE'),
                               dict)
 
@@ -455,7 +455,7 @@ class TestCore(unittest.TestCase):
     @try_conditions
     def test_neuron_functions(self):
         n = self.nl[0]
-        slab = n.nodes[n.nodes.type == 'slab'].sample(1).iloc[0].treenode_id
+        slab = n.nodes[n.nodes.type == 'slab'].sample(1).iloc[0].node_id
 
         self.assertIsInstance(n.prune_distal_to(slab, inplace=False),
                               pymaid.CatmaidNeuron)
@@ -661,9 +661,9 @@ class TestGraphs(unittest.TestCase):
 
         # Get some random leaf node
         self.leaf_id = self.n.nodes[self.n.nodes.type == 'end'].sample(
-            1).iloc[0].treenode_id
+            1).iloc[0].node_id
         self.slab_id = self.n.nodes[self.n.nodes.type == 'slab'].sample(
-            1).iloc[0].treenode_id
+            1).iloc[0].node_id
 
     @try_conditions
     def test_reroot(self):
@@ -677,7 +677,7 @@ class TestGraphs(unittest.TestCase):
 
     @try_conditions
     def test_distance(self):
-        leaf_id = self.n.nodes[self.n.nodes.type == 'end'].iloc[0].treenode_id
+        leaf_id = self.n.nodes[self.n.nodes.type == 'end'].iloc[0].node_id
 
         self.assertIsNotNone(pymaid.dist_between(self.n,
                                                  leaf_id,

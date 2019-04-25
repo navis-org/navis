@@ -108,23 +108,23 @@ def prune_by_strahler(x, to_prune, reroot_soma=True, inplace=False,
     # Prepare parent dict if needed later
     if relocate_connectors:
         parent_dict = {
-            tn.treenode_id: tn.parent_id for tn in neuron.nodes.itertuples()}
+            tn.node_id: tn.parent_id for tn in neuron.nodes.itertuples()}
 
     neuron.nodes = neuron.nodes[
         ~neuron.nodes.strahler_index.isin(to_prune)].reset_index(drop=True)
 
     if not relocate_connectors:
-        neuron.connectors = neuron.connectors[neuron.connectors.treenode_id.isin(
-            neuron.nodes.treenode_id.values)].reset_index(drop=True)
+        neuron.connectors = neuron.connectors[neuron.connectors.node_id.isin(
+            neuron.nodes.node_id.values)].reset_index(drop=True)
     else:
-        remaining_tns = set(neuron.nodes.treenode_id.values)
-        for cn in neuron.connectors[~neuron.connectors.treenode_id.isin(neuron.nodes.treenode_id.values)].itertuples():
-            this_tn = parent_dict[cn.treenode_id]
+        remaining_tns = set(neuron.nodes.node_id.values)
+        for cn in neuron.connectors[~neuron.connectors.node_id.isin(neuron.nodes.node_id.values)].itertuples():
+            this_tn = parent_dict[cn.node_id]
             while True:
                 if this_tn in remaining_tns:
                     break
                 this_tn = parent_dict[this_tn]
-            neuron.connectors.loc[cn.Index, 'treenode_id'] = this_tn
+            neuron.connectors.loc[cn.Index, 'node_id'] = this_tn
 
     # Reset indices of node and connector tables (important for igraph!)
     neuron.nodes.reset_index(inplace=True, drop=True)
@@ -133,7 +133,7 @@ def prune_by_strahler(x, to_prune, reroot_soma=True, inplace=False,
     # Theoretically we can end up with disconnected pieces, i.e. with more
     # than 1 root node -> we have to fix the nodes that lost their parents
     neuron.nodes.loc[~neuron.nodes.parent_id.isin(
-        neuron.nodes.treenode_id.values), 'parent_id'] = None
+        neuron.nodes.node_id.values), 'parent_id'] = None
 
     # Remove temporary attributes
     neuron._clear_temp_attr()
@@ -243,7 +243,7 @@ def split_axon_dendrite(x, method='bending', primary_neurite=True,
 
     # Now get the node point with the highest flow centrality.
     cut = x.nodes[x.nodes.flow_centrality ==
-                  x.nodes.flow_centrality.max()].treenode_id.values
+                  x.nodes.flow_centrality.max()].node_id.values
 
     # If there is more than one point we need to get one closest to the soma
     # (root)
@@ -263,7 +263,7 @@ def split_axon_dendrite(x, method='bending', primary_neurite=True,
         path_to_root = nx.shortest_path(x.graph, cut, x.root[0])
 
         # Get flow centrality along the path
-        flows = x.nodes.set_index('treenode_id').loc[path_to_root]
+        flows = x.nodes.set_index('node_id').loc[path_to_root]
 
         # Subset to those that are branches (exclude mere synapses)
         flows = flows[flows.type == 'branch']
@@ -323,7 +323,7 @@ def stitch_neurons(*x, method='LEAFS', master='SOMA', tn_to_stitch=None):
     """ Stitch multiple neurons together.
 
     Uses minimum spanning tree to determine a way to connect all fragments
-    while minimizing length (eucledian distance) of the new edges. Nodes 
+    while minimizing length (eucledian distance) of the new edges. Nodes
     that have been stitched will be get a "stitched" tag.
 
     Important
@@ -342,11 +342,11 @@ def stitch_neurons(*x, method='LEAFS', master='SOMA', tn_to_stitch=None):
                             (2) 'ALL': All treenodes are considered.
                             (3) 'NONE': Node and connector tables will simply
                                 be combined without generating any new edges.
-                                The resulting neuron will have multiple roots.                                
+                                The resulting neuron will have multiple roots.
     master :            'SOMA' | 'LARGEST' | 'FIRST', optional
                         Sets the master neuron:
-                            (1) 'SOMA': The largest fragment with a soma 
-                                becomes the master neuron. If no neuron with 
+                            (1) 'SOMA': The largest fragment with a soma
+                                becomes the master neuron. If no neuron with
                                 soma, will pick the largest.
                             (2) 'LARGEST': The largest fragment becomes the
                                 master neuron.
@@ -355,7 +355,7 @@ def stitch_neurons(*x, method='LEAFS', master='SOMA', tn_to_stitch=None):
     tn_to_stitch :      List of treenode IDs, optional
                         If provided, these treenodes will be preferentially
                         used to stitch neurons together. Overrides methods
-                        ``'ALL'`` or ``'LEAFS'``. 
+                        ``'ALL'`` or ``'LEAFS'``.
 
     Returns
     -------
@@ -517,8 +517,8 @@ def stitch_neurons(*x, method='LEAFS', master='SOMA', tn_to_stitch=None):
         # List of edges
         tn_comb = itertools.product(tnA.node_id.values, tnB.node_id.values)
 
-        # Add edges to union graph        
-        g.add_edges_from([(a, b, {'weight': w, 'new': True}) for (a, b), w in zip(tn_comb, d.ravel())])    
+        # Add edges to union graph
+        g.add_edges_from([(a, b, {'weight': w, 'new': True}) for (a, b), w in zip(tn_comb, d.ravel())])
 
     # Get minimum spanning tree
     edges = nx.minimum_spanning_edges(g)
@@ -672,8 +672,8 @@ def despike_neuron(x, sigma=5, max_spike_length=1, inplace=False,
     """ Removes spikes in neuron traces (e.g. from jumps in image data).
 
     For each treenode A, the euclidean distance to its next successor (parent)
-    B and the second next successor is computed. If
-    :math:`\\frac{dist(A,B)}{dist(A,C)}>sigma`. node B is considered a spike
+    B and that node's successor is computed. If
+    :math:`\\frac{dist(A,B)}{dist(A,C)}>sigma`, node B is considered a spike
     and realigned between A and C.
 
     Parameters
@@ -833,18 +833,18 @@ def guess_radius(x, method='linear', limit=None, smooth=True, inplace=False):
 
     # Prepare nodes (add parent_dist for later, set index)
     metrics.parent_dist(x, root_dist=0)
-    nodes = x.nodes.set_index('treenode_id')
+    nodes = x.nodes.set_index('node_id')
 
     # For each connector (pre and post), get the X/Y distance to its treenode
     cn_locs = cn[['x', 'y']].values
-    tn_locs = nodes.loc[cn.treenode_id.values,
+    tn_locs = nodes.loc[cn.node_id.values,
                         ['x', 'y']].values
     dist = np.sqrt(np.sum((tn_locs - cn_locs) ** 2, axis=1).astype(int))
     cn['dist'] = dist
 
     # Get max distance per treenode (in case of multiple connectors per
     # treenode)
-    cn_grouped = cn.groupby('treenode_id').max()
+    cn_grouped = cn.groupby('node_id').max()
 
     # Set undefined radii to None
     nodes.loc[nodes.radius <= 0, 'radius'] = None
@@ -925,7 +925,7 @@ def smooth_neuron(x, window=5, inplace=False):
 
     # Prepare nodes (add parent_dist for later, set index)
     metrics.parent_dist(x, root_dist=0)
-    nodes = x.nodes.set_index('treenode_id')
+    nodes = x.nodes.set_index('node_id')
 
     # Go over each segment and interpolate radii
     for s in config.tqdm(x.segments, desc='Smoothing',
