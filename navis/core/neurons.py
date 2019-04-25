@@ -225,7 +225,7 @@ class TreeNeuron:
 
     @soma.setter
     def soma(self, value):
-        if hasattr(self._soma, '__call__'):
+        if hasattr(value, '__call__'):
             self._soma = types.MethodType(value, self)
         elif isinstance(value, type(None)):
             self._soma = None
