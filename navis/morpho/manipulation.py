@@ -31,7 +31,8 @@ logger = config.logger
 
 __all__ = sorted(['prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
                   'average_neurons', 'despike_neuron', 'guess_radius',
-                  'smooth_neuron'])
+                  'smooth_neuron', 'heal_fragmented_neuron',
+                  'break_fragments'])
 
 
 def prune_by_strahler(x, to_prune, reroot_soma=True, inplace=False,
@@ -371,18 +372,18 @@ def stitch_neurons(*x, method='LEAFS', master='SOMA', tn_to_stitch=None):
 
     Stitching fragmented neurons:
     >>> a = navis.example_neurons(1)
-    >>> fragments = navis.cut_neuron(a, 100) 
-    >>> stitched = navis.stitch_neurons(frag, method='LEAFS')    
+    >>> fragments = navis.cut_neuron(a, 100)
+    >>> stitched = navis.stitch_neurons(frag, method='LEAFS')
 
     """
     method = str(method).upper()
-    master = str(master).upper()    
+    master = str(master).upper()
 
     if method not in ['LEAFS', 'ALL', 'NONE']:
         raise ValueError('Unknown method: %s' % str(method))
 
     if master not in ['SOMA', 'LARGEST', 'FIRST']:
-        raise ValueError('Unknown master: %s' % str(master))          
+        raise ValueError('Unknown master: %s' % str(master))
 
     # Compile list of individual neurons
     x = utils.unpack_neurons(x)
@@ -413,42 +414,43 @@ def stitch_neurons(*x, method='LEAFS', master='SOMA', tn_to_stitch=None):
         master = x[0]
 
     # Check if we need to make any node IDs unique
-    seen_tn = set(master.nodes.node_id)
-    for n in [n for n in x if n != master]:
-        this_tn = set(n.nodes.node_id)
+    if x.nodes.duplicated(subset='node_id').sum() > 0:
+        seen_tn = set(master.nodes.node_id)
+        for n in [n for n in x if n != master]:
+            this_tn = set(n.nodes.node_id)
 
-        # Get duplicate node IDs
-        non_unique = seen_tn & this_tn
+            # Get duplicate node IDs
+            non_unique = seen_tn & this_tn
 
-        # Add this neuron's existing nodes to seen
-        seen_tn = seen_tn | this_tn
-        if non_unique:
-            # Generate new, unique node IDs
-            new_tn = np.arange(0, len(non_unique)) + max(seen_tn) + 1
+            # Add this neuron's existing nodes to seen
+            seen_tn = seen_tn | this_tn
+            if non_unique:
+                # Generate new, unique node IDs
+                new_tn = np.arange(0, len(non_unique)) + max(seen_tn) + 1
 
-            # Generate new map
-            new_map = dict(zip(non_unique, new_tn))
+                # Generate new map
+                new_map = dict(zip(non_unique, new_tn))
 
-            # Remap node IDs - if no new value, keep the old
-            n.nodes.node_id = n.nodes.node_id.map(lambda x: new_map.get(x, x))
-            
-            if n.has_connectors:
-                n.connectors.node_id = n.connectors.node_id.map(lambda x: new_map.get(x, x))
+                # Remap node IDs - if no new value, keep the old
+                n.nodes.node_id = n.nodes.node_id.map(lambda x: new_map.get(x, x))
 
-            if hasattr(n, 'tags'):
-                n.tags = {new_map.get(k, k): v for k, v in n.tags.items()}
+                if n.has_connectors:
+                    n.connectors.node_id = n.connectors.node_id.map(lambda x: new_map.get(x, x))
 
-            # Remapping parent IDs requires the root to be temporarily set to
-            # -1. Otherwise the node IDs will become floats
-            new_map[None] = -1
-            n.nodes.parent_id = n.nodes.parent_id.map(lambda x: new_map.get(x, x)).astype(object)
-            n.nodes.loc[n.nodes.parent_id == -1, 'parent_id'] = None
+                if hasattr(n, 'tags'):
+                    n.tags = {new_map.get(k, k): v for k, v in n.tags.items()}
 
-            # Add new nodes to seen
-            seen_tn = seen_tn | set(new_tn)
+                # Remapping parent IDs requires the root to be temporarily set
+                # to -1. Otherwise the node IDs will become floats
+                new_map[None] = -1
+                n.nodes.parent_id = n.nodes.parent_id.map(lambda x: new_map.get(x, x)).astype(object)
+                n.nodes.loc[n.nodes.parent_id == -1, 'parent_id'] = None
 
-            # Make sure the graph is updated
-            n._clear_temp_attr()
+                # Add new nodes to seen
+                seen_tn = seen_tn | set(new_tn)
+
+                # Make sure the graph is updated
+                n._clear_temp_attr()
 
     # If method is none, we can just merge the data tables
     if method == 'NONE' or method is None:
@@ -484,7 +486,7 @@ def stitch_neurons(*x, method='LEAFS', master='SOMA', tn_to_stitch=None):
     nx.set_edge_attributes(g, 0, 'weight')
 
     # If two nodes occupy the same position (e.g. after if fragments are the
-    # result of cutting), they will have a distance of 0. Hence, we won't be 
+    # result of cutting), they will have a distance of 0. Hence, we won't be
     # able to simply filter by distance
     nx.set_edge_attributes(g, False, 'new')
 
@@ -723,7 +725,7 @@ def despike_neuron(x, sigma=5, max_spike_length=1, inplace=False,
         x = x.copy()
 
     # Index treenodes table by treenode ID
-    this_treenodes = x.nodes.set_index('treenode_id')
+    this_treenodes = x.nodes.set_index('node_id')
 
     segs_to_walk = x.segments
 
