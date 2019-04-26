@@ -24,7 +24,8 @@ from .. import core, config, utils
 logger = config.logger
 
 
-def from_swc(f, connector_labels={}, include_subdirs=False, **kwargs):
+def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
+             **kwargs):
     """ Creates Neuron/List from SWC file.
 
     This import is following format specified
@@ -49,6 +50,8 @@ def from_swc(f, connector_labels={}, include_subdirs=False, **kwargs):
     Returns
     -------
     navis.TreeNeuron
+                        If generated from SWC file, will have file header
+                        as ``.swc_header`` attribute.
 
     See Also
     --------
@@ -64,6 +67,7 @@ def from_swc(f, connector_labels={}, include_subdirs=False, **kwargs):
                                                     disable=config.pbar_hide,
                                                     leave=config.pbar_leave)])
 
+    header = []
     if isinstance(f, pd.DataFrame):
         nodes = f
         f = 'SWC'
@@ -99,6 +103,8 @@ def from_swc(f, connector_labels={}, include_subdirs=False, **kwargs):
             for row in f.split('\n')[:-1]:
                 if not row.startswith('#'):
                     data.append(row.split(' '))
+                else:
+                    header.append(row)
 
             # Change f to generic name so that we can use it as name
             f = 'SWC'
@@ -107,16 +113,12 @@ def from_swc(f, connector_labels={}, include_subdirs=False, **kwargs):
             raise ValueError('No data found in SWC.')
 
         # Remove empty entries and generate nodes DataFrame
-        nodes = pd.DataFrame([[float(e) for e in row if e != ''] for row in data],
+        nodes = pd.DataFrame([[e for e in row if e != ''] for row in data],
                              columns=['node_id', 'label', 'x', 'y', 'z',
                                       'radius', 'parent_id'],
                              dtype=object)
 
-        # Remove empty entries and generate nodes DataFrame
-        nodes = pd.DataFrame([[to_float(e) for e in row if e != ''] for row in data],
-                             columns=['node_id', 'label', 'x', 'y', 'z',
-                                      'radius', 'parent_id'],
-                             dtype=object)
+    header = '\n'.join(header)
 
     # If any invalid nodes are found
     if any(nodes[['node_id', 'parent_id', 'x', 'y', 'z']].isnull()):
@@ -130,11 +132,16 @@ def from_swc(f, connector_labels={}, include_subdirs=False, **kwargs):
         # Root node will have parent=-1 -> set this to None
         nodes.loc[nodes.parent_id < 0, 'parent_id'] = None
 
-    # Make sure we are using integers
-    nodes.parent_id = nodes.parent_id.astype(int, errors='ignore')
-    nodes.node_id = nodes.node_id.astype(int, errors='ignore')
-    nodes.parent_id = nodes.parent_id.astype(object)
-    nodes.node_id = nodes.node_id.astype(object)
+    # Convert data to respective dtypes
+    dtypes = {'node_id': int, 'parent_id': to_int, 'label': str,
+              'x': float, 'y': float, 'z': float, 'radius': float}
+
+    for k, v in dtypes.items():
+        if isinstance(v, type):
+            nodes[k] = nodes[k].astype(v, errors='ignore')
+        else:
+            nodes[k] = nodes[k].map(v)
+            nodes[k] = nodes[k].astype(object)
 
     # Take care of connectors
     if connector_labels:
@@ -149,17 +156,22 @@ def from_swc(f, connector_labels={}, include_subdirs=False, **kwargs):
     else:
         connectors = None
 
-    return core.TreeNeuron(nodes,
-                           connectors=connectors,
-                           name=kwargs.pop('name',
-                                            os.path.basename(f).replace('.swc', '')),
-                           filename=os.path.basename(f),
-                           pathname=os.path.dirname(f),
-                           created_at=str(datetime.datetime.now()),
-                           **kwargs)
+    n = core.TreeNeuron(nodes,
+                        connectors=connectors,
+                        name=kwargs.pop('name',
+                                         os.path.basename(f).replace('.swc', '')),
+                        filename=os.path.basename(f),
+                        pathname=os.path.dirname(f),
+                        created_at=str(datetime.datetime.now()),
+                        **kwargs)
+
+    if header:
+        n.swc_header = header
+
+    return n
 
 
-def to_swc(x, filename=None, export_synapses=False):
+def to_swc(x, filename=None, header=None, labels=True, export_synapses=False):
     """ Generate SWC file from neuron(s).
 
     Follows the format specified
@@ -173,11 +185,21 @@ def to_swc(x, filename=None, export_synapses=False):
     filename :          None | str | list, optional
                         If ``None``, will use "neuron_{skeletonID}.swc". Pass
                         filenames as list when processing multiple neurons.
+    header :            str | None, optional
+                        Header for SWC file. If not provided, will use
+                        generic header.
+    labels :            str | dict | bool, optional
+                        Node labels. Can be::
+                            str : column name in node table
+                            dict: must be of format {node_id: 'label', ...}.
+                            bool: if True, will generate automatic labels, if
+                                  false all nodes have label "0".
     export_connectors : bool, optional
                         If True, will label nodes with pre- ("7") and
                         postsynapse ("8"). Because only one label can be given
                         this might drop synapses (i.e. in case of multiple
-                        pre- or postsynapses on a single treenode)!
+                        pre- or postsynapses on a single treenode)! ``labels``
+                        must be ``True`` for this to have any effect..
 
     Returns
     -------
@@ -212,7 +234,7 @@ def to_swc(x, filename=None, export_synapses=False):
                          'got "{}"'.format(type(filename)))
 
     # Make sure file ending is correct
-    if os.isdir(filename):
+    if os.path.isdir(filename):
         filename += 'neuron_{}.swc'.format(x.skeleton_id)
     elif not filename.endswith('.swc'):
         filename += '.swc'
@@ -236,18 +258,23 @@ def to_swc(x, filename=None, export_synapses=False):
     # Make parent index column
     this_tn['parent_ix'] = this_tn.parent_id.map(tn2ix)
 
-    # Set Label column to 0 (undefined)
-    this_tn['label'] = 0
-    # Add end/branch labels
-    this_tn.loc[this_tn.type == 'branch', 'label'] = 5
-    this_tn.loc[this_tn.type == 'end', 'label'] = 6
-    # Add soma label
-    if x.soma:
-        this_tn.loc[x.soma, 'label'] = 1
-    if export_synapses:
-        # Add synapse label
-        this_tn.loc[x.presynapses.node_id.values, 'label'] = 7
-        this_tn.loc[x.postsynapses.node_id.values, 'label'] = 8
+    # Add labels
+    if isinstance(labels, dict):
+        this_tn['label'] = this_tn.index.map(labels)
+    elif isinstance(labels, str):
+        this_tn['label'] = this_tn[labels]
+    else:
+        this_tn['label'] = 0
+        # Add end/branch labels
+        this_tn.loc[this_tn.type == 'branch', 'label'] = 5
+        this_tn.loc[this_tn.type == 'end', 'label'] = 6
+        # Add soma label
+        if x.soma:
+            this_tn.loc[x.soma, 'label'] = 1
+        if export_synapses:
+            # Add synapse label
+            this_tn.loc[x.presynapses.node_id.values, 'label'] = 7
+            this_tn.loc[x.postsynapses.node_id.values, 'label'] = 8
 
     # Generate table consisting of PointNo Label X Y Z Radius Parent
     # .copy() is to prevent pandas' chaining warnings
@@ -257,21 +284,21 @@ def to_swc(x, filename=None, export_synapses=False):
     # Adjust column titles
     swc.columns = ['PointNo', 'Label', 'X', 'Y', 'Z', 'Radius', 'Parent']
 
-    # Coordinates and radius to microns
-    swc.loc[:, ['X', 'Y', 'Z', 'Radius']] /= 1000
-
     with open(filename, 'w') as file:
         # Write header
-        file.write('# SWC format file\n')
-        file.write('# based on specifications at http://research.mssm.edu/cnic/swc.html\n')
-        file.write('# Created on {} using navis (https://github.com/schlegelp/navis)\n'.format(str(datetime.date.today())))
-        file.write('# PointNo Label X Y Z Radius Parent\n')
-        file.write('# Labels:\n')
-        for l in ['0 = undefined', '1 = soma', '5 = fork point', '6 = end point']:
-            file.write('# {}\n'.format(l))
-        if export_synapses:
-            for l in ['7 = presynapse', '8 = postsynapse']:
+        if not isinstance(header, str):
+            file.write('# SWC format file\n')
+            file.write('# based on specifications at http://research.mssm.edu/cnic/swc.html\n')
+            file.write('# Created on {} using navis (https://github.com/schlegelp/navis)\n'.format(str(datetime.date.today())))
+            file.write('# PointNo Label X Y Z Radius Parent\n')
+            file.write('# Labels:\n')
+            for l in ['0 = undefined', '1 = soma', '5 = fork point', '6 = end point']:
                 file.write('# {}\n'.format(l))
+            if export_synapses:
+                for l in ['7 = presynapse', '8 = postsynapse']:
+                    file.write('# {}\n'.format(l))
+        else:
+            f.write(header)
         #file.write('\n')
 
         writer = csv.writer(file, delimiter=' ')
@@ -283,5 +310,13 @@ def to_float(x):
     """
     try:
         return float(x)
+    except:
+        return None
+
+def to_int(x):
+    """ Helper to try to convert to float.
+    """
+    try:
+        return int(x)
     except:
         return None
