@@ -71,7 +71,7 @@ MOCK_MODULES = ['sklearn', 'igraph' , 'tqdm', 'pandas', 'pyoctree', 'numpy',
 
                 'vispy', 'vispy.color', 'vispy.scene',
                 'vispy.geometry', 'vispy.gloo.util', 'vispy.visuals',
-                'vispy.scene.visuals',
+                'vispy.scene.visuals', 'vispy.visuals.tube',
                 'vispy.scene.visuals.create_visual_node',
                 'vispy.color.ColorArray', 'vispy.visuals.MeshVisual',
                 'vispy.gloo.util._screenshot', 'vispy.util.quaternion',
