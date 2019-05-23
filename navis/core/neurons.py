@@ -182,10 +182,12 @@ class TreeNeuron:
             self.__connectors = None
         else:
             self._connectors = utils.validate_table(v,
-                                                    required = ['connector_id',
-                                                                'node_id',
-                                                                'x', 'y', 'z',
-                                                                'type'],
+                                                    required=['connector_id',
+                                                              'node_id',
+                                                              'x', 'y', 'z',
+                                                              ('type',
+                                                               'relation',
+                                                               'label')],
                                                     restrict=False)
 
     @property
