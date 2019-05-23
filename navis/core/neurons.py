@@ -202,6 +202,17 @@ class TreeNeuron:
         return list(comp)
 
     @property
+    def simple(self):
+        """ Neuron representation consisting only of root, branch points and
+        leafs.
+        """
+        if not hasattr(self, '_simple'):
+            self._simple = self.downsample(float('inf'),
+                                           preserve_cn_treenodes=False,
+                                           inplace=False)
+        return self._simple
+
+    @property
     def soma(self):
         """ Search for soma and return node ID of soma.
 
