@@ -19,7 +19,7 @@ import matplotlib.patches as mpatches
 
 import numpy as np
 
-from .. import core, config
+from .. import core, config, graph
 
 logger = config.logger
 
@@ -59,8 +59,7 @@ def plot1d(x, ax=None, color=None, **kwargs):
     elif isinstance(x, core.TreeNeuron):
         x = core.NeuronList(x)
     else:
-        raise TypeError(
-            'Unable to work with data of type "{0}"'.format(type(x)))
+        raise TypeError(f'Unable to work with data of type "{type(x)}"')
 
     if isinstance(color, type(None)):
         color = (0.56, 0.86, 0.34)
@@ -83,7 +82,7 @@ def plot1d(x, ax=None, color=None, **kwargs):
             this_c = color
 
         # Get topological sort (root -> terminals)
-        topology = graph_utils.node_label_sorting(n)
+        topology = graph.node_label_sorting(n)
 
         # Get terminals and branch points
         bp = n.nodes[n.nodes.type == 'branch'].node_id.values
@@ -101,8 +100,7 @@ def plot1d(x, ax=None, color=None, **kwargs):
             dist_mat = n.nodes_geodesic_distance_matrix
         else:
             # If not, compute matrix for subset of nodes
-            dist_mat = graph_utils.geodesic_matrix(
-                n, tn_ids=breaks, directed=False)
+            dist_mat = graph.geodesic_matrix(n, tn_ids=breaks, directed=False)
 
         dist = np.array([dist_mat.loc[s[0], s[1]] for s in segs]) / 1000
         max_x.append(sum(dist))

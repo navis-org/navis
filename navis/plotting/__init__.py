@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .plot1d import *
-from .plot2d import *
-from .plot3d import *
+from .d import *
+from .dd import *
+from .ddd import *
 from .vispy import *

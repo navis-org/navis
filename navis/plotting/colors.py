@@ -145,10 +145,9 @@ def map_colors(colors, objects, color_range=255):
         raise TypeError('Unable to interpret colors of type "{}"'.format(type(colors)))
 
 
-def prepare_connector_cmap(neurons):
+def prepare_connector_cmap(x):
     """ Looks for "label" or "type" column in connector tables and generates
-    a color for every unique type. Default colors can be defined as
-    ``navis.config.default_connector_colors``.
+    a color for every unique type. See ``navis.set_default_connector_colors``.
 
     Returns
     -------
@@ -156,14 +155,36 @@ def prepare_connector_cmap(neurons):
             Maps type to color. Will be empty if no types.
     """
 
-    if not isinstance(neurons.connectors, pd.DataFrame):
-        unique = []
-    elif 'type' in neurons.connectors:
-        unique = neurons.connectors.type.unique()
-    elif 'label' in neurons.connectors:
-        unique = neurons.connectors.label.unique()
+    if isinstance(x, (core.NeuronList, core.TreeNeuron)):
+        connectors = x.get('connectors', None)
 
-    return {t: config.default_connector_colors[i] for i, t in enumerate(unique)}
+        if not isinstance(connectors, pd.DataFrame):
+            unique = []
+        elif 'type' in connectors:
+            unique = connectors.type.unique()
+        elif 'label' in connectors:
+            unique = connectors.label.unique()
+        elif 'relation' in connectors:
+            unique = connectors.label.unique()
+        else:
+            unique = []
+    else:
+        unique = list(set(x))
+
+    colors = config.default_connector_colors
+    if isinstance(colors, (list, np.ndarray)):
+        if len(unique) > len(colors):
+            raise ValueError('Must define more default connector colors. See'
+                             'navis.set_default_connector_colors')
+
+        return {t: config.default_connector_colors[i] for i, t in enumerate(unique)}
+    elif isinstance(colors, dict):
+        miss = [l for l in unique if l not in colors]
+        if miss:
+            raise ValueError(f'Connector labels/types {",".join(miss)} are not'
+                             ' defined in default connector colors. '
+                             'See navis.set_default_connector_colors')
+        return colors
 
 
 def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
@@ -215,15 +236,15 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
         neuron_cmap = [colors.get(s,
                                   colors.get(int(s),
                                              eval_color(config.default_color,
-                                                         color_range)))
+                                                        color_range=color_range)))
                        for s in skdata.uuid]
         dotprop_cmap = [colors.get(s,
                                    eval_color(config.default_color,
-                                               color_range))
+                                              color_range=color_range))
                         for s in dotprops.gene_name.values]
         volumes_cmap = [colors.get(s.getattr('name', None),
                                    eval_color((1, 1, 1, .5),
-                                              color_range))
+                                              color_range=color_range))
                         for s in volumes]
     # If list of colors
     elif isinstance(colors, (list, tuple, np.ndarray)):

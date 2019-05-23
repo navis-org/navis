@@ -102,6 +102,26 @@ def unpack_neurons(x, raise_on_error=True):
     return neurons
 
 
+def set_default_connector_colors(x):
+    """ Set default connector colors.
+
+    Parameters
+    ----------
+    x :         list-like | dict
+                New default connector colors. Can be::
+
+                   list : [(r, g, b), (r, g, b), ..]
+                   dict : {'cn_label': (r, g, b), ..}
+    """
+
+    if not isinstance(x, (dict, list, np.ndarray)):
+        raise TypeError('Expect dict, list or numpy array, got "{}"'.format(type(x)))
+
+    config.default_connector_colors = x
+
+    return
+
+
 def parse_objects(x):
     """ Helper class to categorize objects e.g. for plotting.
 

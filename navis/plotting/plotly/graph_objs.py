@@ -15,9 +15,6 @@ import numpy as np
 import pandas as pd
 
 import plotly.graph_objs as go
-import plotly.offline
-
-from .. import config
 
 from ..colors import *
 from ..plot_utils import *
@@ -44,10 +41,10 @@ def neuron2plotly(x, **kwargs):
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
 
-    colormap, _ = prepare_colormap(colors,
-                                   x, None,
-                                   use_neuron_color=kwargs.get('use_neuron_color', False),
-                                   color_range=255)
+    colormap, _, _ = prepare_colormap(colors,
+                                      x, None,
+                                      use_neuron_color=kwargs.get('use_neuron_color', False),
+                                      color_range=255)
 
     linewidth = kwargs.get('linewidth', 1)
 
@@ -126,9 +123,7 @@ def neuron2plotly(x, **kwargs):
                         alphahull=.5,
                         color=c,
                         name=name,
-                        legendgroup=name,
-                        showlegend=False,
-                        hoverinfo='name'))
+                        hoverlabel='name'))
 
         # Add connectors
         if kwargs.get('connectors', False) \
@@ -184,7 +179,7 @@ def neuron2plotly(x, **kwargs):
 def scatter2plotly(x, **kwargs):
     """ Converts DataFrame with x,y,z columns to plotly scatter plot."""
 
-    c = kwargs.get('color', (10, 10, 10))
+    c = eval_colors(kwargs.get('color', (10, 10, 10)), color_range=255)
     s = kwargs.get('size', 2)
     name = kwargs.get('name', None)
 
@@ -198,20 +193,16 @@ def scatter2plotly(x, **kwargs):
         if not isinstance(scatter, np.ndarray):
             scatter = np.array(scatter)
 
-        trace_data.append(go.Scatter3d(
-                                        x=scatter[:, 0],
-                                        y=scatter[:, 1],
-                                        z=scatter[:, 2],
-                                        mode='markers',
-                                        marker=dict(
-                                                    color='rgb%s' % str(c),
-                                                    size=s,
-                                                    opacity=kwargs.get('opacity', 1)
-                                        ),
-                                        name='test',
-                                        showlegend=True,
-                                        hoverinfo='none'
-                                    ))
+        trace_data.append(go.Scatter3d(x=scatter[:, 0],
+                                       y=scatter[:, 1],
+                                       z=scatter[:, 2],
+                                       mode='markers',
+                                       marker=dict(color='rgb%s' % str(c),
+                                                   size=s,
+                                                   opacity=kwargs.get('opacity', 1)),
+                                       name=name,
+                                       showlegend=True,
+                                       hoverinfo='none'))
     return trace_data
 
 
@@ -222,24 +213,25 @@ def lines2plotly(x, **kwargs):
     name = kwargs.get('name', None)
     c = kwargs.get('color', (10, 10, 10))
 
-    x_coords = [n for sublist in zip(this_cn.x.values * -1, tn.x.values * -1, [None] * this_cn.shape[0]) for n in sublist]
-    y_coords = [n for sublist in zip(this_cn.y.values * -1, tn.y.values * -1, [None] * this_cn.shape[0]) for n in sublist]
-    z_coords = [n for sublist in zip(this_cn.z.values * -1, tn.z.values * -1, [None] * this_cn.shape[0]) for n in sublist]
+    x_coords = [n for sublist in zip(this_cn.x.values * -1, tn.x.values * -1,
+                                [None] * this_cn.shape[0]) for n in sublist]
+    y_coords = [n for sublist in zip(this_cn.y.values * -1, tn.y.values * -1,
+                                [None] * this_cn.shape[0]) for n in sublist]
+    z_coords = [n for sublist in zip(this_cn.z.values * -1, tn.z.values * -1,
+                                [None] * this_cn.shape[0]) for n in sublist]
 
     trace_data = []
-    trace_data.append(go.Scatter3d(
-                                    x=x_coords,
-                                    y=y_coords,  # y and z are switched
-                                    z=z_coords,
-                                    mode='lines',
-                                    line=dict(
+    trace_data.append(go.Scatter3d(x=x_coords,
+                                   y=y_coords,  # y and z are switched
+                                   z=z_coords,
+                                   mode='lines',
+                                   line=dict(
                                         color='rgb%s' % str(c),
                                         width=5
-                                    ),
-                                    name=syn_lay[j]['name'] + ' of ' + neuron_name,
-                                    showlegend=True,
-                                    hoverinfo='none'
-                    ))
+                                   ),
+                                   name=syn_lay[j]['name'] + ' of ' + neuron_name,
+                                   showlegend=True,
+                                   hoverinfo='none'))
 
     return trace_data
 
@@ -248,55 +240,52 @@ def dotprops2plotly(x, **kwargs):
     """ Converts dotprops to plotly objects."""
 
     linewidth = kwargs.get('linewidth', 5)
-    name = getattr(x, 'name', getattr(x, 'gene_name', None))
-    c = kwargs.get('color', (10, 10, 10))
 
-    # Prepare lines - this is based on nat:::plot3d.dotprops
-    halfvect = x.points[['x_vec', 'y_vec', 'z_vec']] / 2 * scale_vect
+    colors = kwargs.get('color',
+                        kwargs.get('c',
+                                   kwargs.get('colors', None)))
 
-    starts = x.points[['x', 'y', 'z']].values - halfvect.values
-    ends = x.points[['x', 'y', 'z']].values + halfvect.values
+    _, colormap, _ = prepare_colormap(colors,
+                                      x, None,
+                                      use_neuron_color=kwargs.get('use_neuron_color', False),
+                                      color_range=255)
 
-    x_coords = [n for sublist in zip(
-        starts[:, 0] * -1, ends[:, 0] * -1, [None] * starts.shape[0]) for n in sublist]
-    y_coords = [n for sublist in zip(
-        starts[:, 1] * -1, ends[:, 1] * -1, [None] * starts.shape[0]) for n in sublist]
-    z_coords = [n for sublist in zip(
-        starts[:, 2] * -1, ends[:, 2] * -1, [None] * starts.shape[0]) for n in sublist]
+    for i, dp in enumerate(x):
+        # Get Name
+        name = getattr(dp, 'name', getattr(dp, 'gene_name', None))
+        c = colormap[i]
 
-    try:
-        c = 'rgb{}'.format(dotprop_cmap[i])
-    except BaseException:
-        c = 'rgb(10,10,10)'
+        # Prepare lines - this is based on nat:::plot3d.dotprops
+        halfvect = dp.points[['x_vec', 'y_vec', 'z_vec']] / 2 * scale_vect
 
-    trace_data.append(go.Scatter3d(x=x_coords, y=z_coords, z=y_coords,
-                                   mode='lines',
-                                   line=dict(
-                                       color=c,
-                                       width=linewidth
-                                   ),
-                                   name=name,
-                                   legendgroup=name,
-                                   showlegend=True,
-                                   hoverinfo='none'
-                                   ))
+        starts = dp.points[['x', 'y', 'z']].values - halfvect.values
+        ends = dp.points[['x', 'y', 'z']].values + halfvect.values
 
-    # Add soma
-    rad = 4
-    trace_data.append(go.Mesh3d(
-        x=[(v[0] * rad / 2) - x.X for v in fib_points],
-        # y and z are switched
-        y=[(v[1] * rad / 2) - x.Z for v in fib_points],
-        z=[(v[2] * rad / 2) - x.Y for v in fib_points],
+        x_coords = [n for sublist in zip(
+            starts[:, 0] * -1, ends[:, 0] * -1, [None] * starts.shape[0]) for n in sublist]
+        y_coords = [n for sublist in zip(
+            starts[:, 1] * -1, ends[:, 1] * -1, [None] * starts.shape[0]) for n in sublist]
+        z_coords = [n for sublist in zip(
+            starts[:, 2] * -1, ends[:, 2] * -1, [None] * starts.shape[0]) for n in sublist]
 
-        alphahull=.5,
+        try:
+            c = 'rgb{}'.format(c)
+        except BaseException:
+            c = 'rgb(10,10,10)'
 
-        color=c,
-        name=name,
-        legendgroup=name,
-        showlegend=False,
-        hoverinfo='name'
-    ))
+        trace_data.append(go.Scatter3d(x=x_coords,
+                                       y=z_coords,
+                                       z=y_coords,
+                                       mode='lines',
+                                       line=dict(
+                                           color=c,
+                                           width=linewidth
+                                       ),
+                                       name=name,
+                                       legendgroup=name,
+                                       showlegend=True,
+                                       hoverinfo='none'
+                                       ))
 
     return trace_data
 
@@ -304,11 +293,19 @@ def dotprops2plotly(x, **kwargs):
 def volume2plotly(x, **kwargs):
     """ Convert Volumes to plotly objects. """
 
-    name = getattr(x, 'name', None)
-    c = kwargs.get('color', (.5, .5, .5))
+    colors = kwargs.get('color',
+                        kwargs.get('c',
+                                   kwargs.get('colors', None)))
+
+    _, _, colormap = prepare_colormap(colors,
+                                      x, None,
+                                      use_neuron_color=kwargs.get('use_neuron_color', False),
+                                      color_range=255)
 
     trace_data = []
-    for v in x:
+    for i, v in enumerate(x):
+        name = getattr(v, 'name', None)
+        c = colormap[i]
         # Skip empty data
         if isinstance(v.vertices, np.ndarray):
             if not v.vertices.any():
@@ -316,20 +313,17 @@ def volume2plotly(x, **kwargs):
         elif not v.vertices:
             continue
 
-        trace_data.append(go.Mesh3d(
-                                    x = v.vertices[:, 0],
-                                    y = v.vertices[:, 1],
-                                    z = v.vertices[:, 2],
-                                    i = v.faces[:, 0],
-                                    j = v.faces[:, 1],
-                                    k = v.faces[:, 2],
+        trace_data.append(go.Mesh3d(x=v.vertices[:, 0],
+                                    y=v.vertices[:, 1],
+                                    z=v.vertices[:, 2],
+                                    i=v.faces[:, 0],
+                                    j=v.faces[:, 1],
+                                    k=v.faces[:, 2],
 
-                                    opacity = .5,
-                                    color = 'rgb' + str(c),
-                                    name = name,
-                                    showlegend = True,
-                                    hoverinfo = 'none'
-                                ))
+                                    opacity=.5,
+                                    color='rgb' + str(c),
+                                    name=name,
+                                    hoverinfo='none'))
 
     return trace_data
 
