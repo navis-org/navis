@@ -57,7 +57,7 @@ setup(
     install_requires=requirements,
     extras_require={'extras': ['pyoctree==0.2.10',
                                'trimesh==2.35.2']},
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     zip_safe=False,
 
     include_package_data=True
