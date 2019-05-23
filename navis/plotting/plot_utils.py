@@ -49,10 +49,10 @@ def tn_pairs_to_coords(x, modifier=(1, 1, 1)):
     if not isinstance(modifier, np.ndarray):
         modifier = np.array(modifier)
 
-    nodes = x.nodes[~x.nodes.parent_id.isnull()]
+    nodes = x.nodes[x.nodes.parent_id >= 0]
     tn_co = nodes.loc[:, ['x', 'y', 'z']].values
     parent_co = x.nodes.set_index('node_id').loc[nodes.parent_id.values,
-                                                     ['x', 'y', 'z']].values
+                                                 ['x', 'y', 'z']].values
 
     tn_co *= modifier
     parent_co *= modifier

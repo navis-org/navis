@@ -13,7 +13,7 @@
 
 import numpy as np
 
-from .. import config, graph
+from .. import config, graph, core
 
 # Set up logging
 logger = config.logger
@@ -77,9 +77,8 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
         else:
             return
 
-    list_of_parents = {
-        n.node_id: n.parent_id for n in x.nodes.itertuples()}
-    list_of_parents[None] = None
+    list_of_parents = {n.node_id: n.parent_id for n in x.nodes.itertuples()}
+    list_of_parents[-1] = None
 
     if 'type' not in x.nodes:
         graph.classify_nodes(x)
@@ -87,10 +86,9 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
     selection = x.nodes.type != 'slab'
 
     if preserve_cn_treenodes and x.has_connectors:
-        selection = selection | x.nodes.node_id.isin(
-            x.connectors.node_id)
+        selection = selection | x.nodes.node_id.isin(x.connectors.node_id)
 
-    if preserve_tag_treenodes:
+    if preserve_tag_treenodes and x.has_tags:
         with_tags = [t for l in x.tags.values() for t in l]
         selection = selection | x.nodes.node_id.isin(with_tags)
 
@@ -133,16 +131,9 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
     new_nodes.loc[:, 'parent_id'] = [new_parents[tn]
                                      for tn in new_nodes.node_id]
 
-    # We have to temporarily set parent of root node from 1 to an integer
-    root_ix = new_nodes[new_nodes.parent_id.isnull()].index
-    new_nodes.loc[root_ix, 'parent_id'] = 0
-    # first convert everything to int
+    # Assign new parent IDs
     new_nodes.loc[:, 'parent_id'] = new_nodes.parent_id.values.astype(int)
-    # then back to object so that we can add a 'None'
-    new_nodes.loc[:, 'parent_id'] = new_nodes.parent_id.values.astype(object)
 
-    # Reassign parent_id None to root node
-    new_nodes.loc[root_ix, 'parent_id'] = None
     logger.debug(f'Nodes before/after: {len(x.nodes)}/{len(new_nodes)}')
 
     x.nodes = new_nodes

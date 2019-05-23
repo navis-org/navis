@@ -21,7 +21,7 @@ import itertools
 import pandas as pd
 import numpy as np
 
-from .. import core, config, graph
+from .. import core, config, graph, sampling
 from .manipulation import split_axon_dendrite
 
 # Set up logging
@@ -55,7 +55,7 @@ def parent_dist(x, root_dist=None):
         raise TypeError('Need TreeNeuron or DataFrame, got "{}"'.format(type(x)))
 
     # Calculate distance to parent for each node
-    wo_root = nodes[~nodes.parent_id.isnull()]
+    wo_root = nodes[nodes.parent_id >= 0]
     tn_coords = wo_root[['x', 'y', 'z']].values
 
     # Ready treenode table to be indexes by node_id
@@ -67,7 +67,7 @@ def parent_dist(x, root_dist=None):
     w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1))
 
     nodes['parent_dist'] = root_dist
-    nodes.loc[~nodes.parent_id.isnull(), 'parent_dist'] = w
+    nodes.loc[nodes.parent_id >= 0, 'parent_dist'] = w
 
     return
 
@@ -197,7 +197,6 @@ def strahler_index(x, inplace=True, method='standard', to_ignore=[],
             # Find parent
             spine = [this_node]
 
-            #parent_node = list_of_parents [ this_node ]
             parent_node = this_tn.loc[this_node, 'parent_id']
 
             while parent_node not in branch_nodes and parent_node is not None:

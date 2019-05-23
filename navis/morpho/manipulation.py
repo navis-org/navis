@@ -15,7 +15,6 @@
 """ This module contains functions to analyse and manipulate neuron morphology.
 """
 
-import math
 import itertools
 
 import pandas as pd
@@ -23,7 +22,7 @@ import numpy as np
 import scipy.spatial.distance
 import networkx as nx
 
-from .. import core, graph, utils, config, sampling
+from .. import core, graph, utils, config
 from . import metrics
 
 # Set up logging
@@ -89,7 +88,7 @@ def prune_by_strahler(x, to_prune, reroot_soma=True, inplace=False,
         neuron.reroot(neuron.soma)
 
     if 'strahler_index' not in neuron.nodes or force_strahler_update:
-        strahler_index(neuron)
+        metrics.strahler_index(neuron)
 
     # Prepare indices
     if isinstance(to_prune, int) and to_prune < 0:
@@ -134,7 +133,7 @@ def prune_by_strahler(x, to_prune, reroot_soma=True, inplace=False,
     # Theoretically we can end up with disconnected pieces, i.e. with more
     # than 1 root node -> we have to fix the nodes that lost their parents
     neuron.nodes.loc[~neuron.nodes.parent_id.isin(
-        neuron.nodes.node_id.values), 'parent_id'] = None
+        neuron.nodes.node_id.values), 'parent_id'] = -1
 
     # Remove temporary attributes
     neuron._clear_temp_attr()
@@ -443,8 +442,7 @@ def stitch_neurons(*x, method='LEAFS', master='SOMA', tn_to_stitch=None):
                 # Remapping parent IDs requires the root to be temporarily set
                 # to -1. Otherwise the node IDs will become floats
                 new_map[None] = -1
-                n.nodes.parent_id = n.nodes.parent_id.map(lambda x: new_map.get(x, x)).astype(object)
-                n.nodes.loc[n.nodes.parent_id == -1, 'parent_id'] = None
+                n.nodes.parent_id = n.nodes.parent_id.map(lambda x: new_map.get(x, x)).astype(int)
 
                 # Add new nodes to seen
                 seen_tn = seen_tn | set(new_tn)

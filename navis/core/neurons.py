@@ -238,7 +238,7 @@ class TreeNeuron:
     @property
     def root(self):
         """ Root node(s)."""
-        roots = self.nodes[self.nodes.parent_id.isnull()].node_id.values
+        roots = self.nodes[self.nodes.parent_id < 0].node_id.values
         return roots
 
     @property
@@ -287,7 +287,7 @@ class TreeNeuron:
 
     @property
     def n_skeletons(self):
-        return self.nodes[self.nodes.parent_id.isnull()].shape[0]
+        return self.nodes[self.nodes.parent_id < 0].shape[0]
 
     @property
     def type(self):

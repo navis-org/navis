@@ -13,6 +13,7 @@
 
 import numpy as np
 import networkx as nx
+import math
 import pandas as pd
 
 try:
@@ -29,22 +30,16 @@ __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
                   'neuron2nx', 'neuron2KDTree', 'neuron2dps'])
 
 
-def network2nx(x, remote_instance=None, threshold=1, group_by=None):
+def network2nx(x, threshold=1, group_by=None):
     """ Generates NetworkX graph for neuron connectivity.
 
     Parameters
     ----------
-    x
-                        Catmaid Neurons as:
-                         1. list of skeleton IDs (int or str)
-                         2. list of neuron names (str, exact match)
-                         3. annotation(s): e.g. 'annotation:PN right'
-                         4. NeuronList object
+    x :                 pandas.DataFrame
+                        Connectivity information:
+                         1. List of edges (columns: 'source', 'target', 'weight')
                          5. Adjacency matrix (pd.DataFrame, rows=sources,
                             columns=targets)
-    remote_instance :   CATMAID instance, optional
-                        Either pass directly to function or define globally
-                        as ``remote_instance``.
     threshold :         int, optional
                         Connections weaker than this will be excluded.
     group_by :          None | dict, optional
@@ -210,11 +205,10 @@ def neuron2nx(x):
     # Collect nodes
     nodes = x.nodes.set_index('node_id')
     # Collect edges
-    edges = x.nodes[~x.nodes.parent_id.isnull()][['node_id',
-                                                  'parent_id']].values
+    edges = x.nodes[x.nodes.parent_id >= 0][['node_id', 'parent_id']].values
     # Collect weight
-    weights = np.sqrt(np.sum((nodes.loc[edges[:, 0], ['x', 'y', 'z']].values.astype(float)
-                              - nodes.loc[edges[:, 1], ['x', 'y', 'z']].values.astype(float)) ** 2, axis=1))
+    weights = np.sqrt(np.sum((nodes.loc[edges[:, 0], ['x', 'y', 'z']].values.astype(float) -
+                              nodes.loc[edges[:, 1], ['x', 'y', 'z']].values.astype(float)) ** 2, axis=1))
     # Generate weight dictionary
     edge_dict = np.array([{'weight': w} for w in weights])
     # Add weights to dictionary
@@ -267,12 +261,11 @@ def neuron2igraph(x):
     vlist = nodes.node_id.values
 
     # Get list of edges as indices (needs to exclude root node)
-    tn_index_with_parent = nodes.loc[
-        ~nodes.parent_id.isnull()].index.values
-    parent_ids = nodes.loc[~nodes.parent_id.isnull()].parent_id.values
+    tn_index_with_parent = nodes.loc[nodes.parent_id >= 0].index.values
+    parent_ids = nodes.loc[nodes.parent_id >= 0].parent_id.values
     nodes['temp_index'] = nodes.index  # add temporary index column
     parent_index = nodes.set_index('node_id').loc[parent_ids,
-                                                      'temp_index'].values
+                                                  'temp_index'].values
 
     # Generate list of edges based on index of vertices
     elist = list(zip(tn_index_with_parent, parent_index.astype(int)))
@@ -487,9 +480,8 @@ def neuron2dps(x):
         raise ValueError('Can only process TreeNeurons')
 
     # First, get a list of child -> parent locs (exclude root node!)
-    tn_locs = x.nodes[~x.nodes.parent_id.isnull()][['x', 'y', 'z']].values
-    pn_locs = x.nodes.set_index('node_id').loc[x.nodes[~x.nodes.parent_id.isnull(
-    )].parent_id][['x', 'y', 'z']].values
+    tn_locs = x.nodes[x.nodes.parent_id >= 0][['x', 'y', 'z']].values
+    pn_locs = x.nodes.set_index('node_id').loc[x.nodes[x.nodes.parent_id >= 0].parent_id][['x', 'y', 'z']].values
 
     # Get centers between each pair of locs
     centers = tn_locs + (pn_locs - tn_locs) / 2

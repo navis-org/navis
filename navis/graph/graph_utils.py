@@ -265,7 +265,7 @@ def classify_nodes(x, inplace=True):
 
             x.nodes.loc[x.nodes.node_id.isin(ends), 'type'] = 'end'
             x.nodes.loc[x.nodes.node_id.isin(branches), 'type'] = 'branch'
-            x.nodes.loc[x.nodes.parent_id.isnull(), 'type'] = 'root'
+            x.nodes.loc[x.nodes.parent_id < 0, 'type'] = 'root'
         else:
             x.nodes['type'] = None
     else:
@@ -855,6 +855,10 @@ def reroot_neuron(x, new_root, inplace=False):
                 x.graph = nx.DiGraph(x.graph)
         elif hasattr(x.graph, '_NODE_OK'):
             x.graph = nx.DiGraph(x.graph)
+        elif nx.is_frozen(x.graph):
+            x.graph = nx.DiGraph(x.graph)
+
+        g = x.graph
 
         # Walk from new root to old root and remove edges along the way
         parent = next(g.successors(new_root), None)
@@ -891,8 +895,7 @@ def reroot_neuron(x, new_root, inplace=False):
     x.nodes.reset_index(drop=False, inplace=True)
 
     # Set new root's parent to None
-    x.nodes.parent_id = x.nodes.parent_id.astype(object)
-    x.nodes.loc[x.nodes.node_id == new_root, 'parent_id'] = None
+    x.nodes.loc[x.nodes.node_id == new_root, 'parent_id'] = -1
 
     if x.igraph and config.use_igraph:
         x._clear_temp_attr(exclude=['igraph', 'classify_nodes'])
@@ -1047,7 +1050,6 @@ def _cut_igraph(x, cut_node, ret):
         dist = subset_neuron(x, dist_graph.vs['node_id'], clear_temp=False)
 
         # Change new root for dist
-        # dist.nodes.loc[dist.nodes.node_id == cut_node, 'parent_id'] = None
         dist.nodes.loc[dist.nodes.node_id == cut_node, 'type'] = 'root'
 
         # Clear other temporary attributes
@@ -1087,7 +1089,7 @@ def _cut_networkx(x, cut_node, ret):
         dist = subset_neuron(x, dist_graph, clear_temp=False)
 
         # Change new root for dist
-        dist.nodes.loc[dist.nodes.node_id == cut_node, 'parent_id'] = None
+        dist.nodes.loc[dist.nodes.node_id == cut_node, 'parent_id'] = -1
         dist.nodes.loc[dist.nodes.node_id == cut_node, 'type'] = 'root'
 
         # Reassign graphs

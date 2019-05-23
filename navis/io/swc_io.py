@@ -127,13 +127,10 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
 
         # Because we removed nodes, we'll have to run a more complicated root
         # detection
-        nodes.loc[~nodes.parent_id.isin(nodes.node_id), 'parent_id'] = None
-    else:
-        # Root node will have parent=-1 -> set this to None
-        nodes.loc[nodes.parent_id < 0, 'parent_id'] = None
+        nodes.loc[~nodes.parent_id.isin(nodes.node_id), 'parent_id'] = -1
 
     # Convert data to respective dtypes
-    dtypes = {'node_id': int, 'parent_id': to_int, 'label': str,
+    dtypes = {'node_id': int, 'parent_id': int, 'label': str,
               'x': float, 'y': float, 'z': float, 'radius': float}
 
     for k, v in dtypes.items():
@@ -253,6 +250,7 @@ def to_swc(x, filename=None, header=None, labels=True, export_synapses=False):
 
     # Make a dictionary node_id -> index
     tn2ix = this_tn['index'].to_dict()
+    # This is for safety: all nodes with parent None will become roots
     tn2ix[None] = -1
 
     # Make parent index column

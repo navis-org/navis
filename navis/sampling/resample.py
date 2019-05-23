@@ -190,7 +190,7 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
                              )
 
     # Convert columns to appropriate dtypes
-    dtypes = {'node_id': int, 'parent_id': object, 'x': float, 'y': float,
+    dtypes = {'node_id': int, 'parent_id': int, 'x': float, 'y': float,
               'z': float, 'radius': float}
 
     for k, v in dtypes.items():

@@ -194,11 +194,10 @@ def neuron2vispy(x, **kwargs):
 
         # Get root node indices (may be more than one if neuron has been
         # cut weirdly)
-        root_ix = neuron.nodes[
-            neuron.nodes.parent_id.isnull()].index.tolist()
+        root_ix = neuron.nodes[neuron.nodes.parent_id < 0].index.tolist()
 
         if not kwargs.get('connectors_only', False):
-            nodes = neuron.nodes[~neuron.nodes.parent_id.isnull()]
+            nodes = neuron.nodes[neuron.nodes.parent_id >= 0]
 
             # Extract treenode_coordinates and their parent's coordinates
             tn_coords = nodes[['x', 'y', 'z']].apply(pd.to_numeric).values
