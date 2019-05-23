@@ -114,8 +114,8 @@ def cluster_by_connectivity(cn, similarity='vertex_normalized',
 
     # Calc number of partners used for calculating matching score (i.e. ratio of input to outputs)!
     # This is AFTER filtering! Total number of partners can be altered!
-    n_partners = {n: {'upstream': connectivity[(connectivity[n] > 0) & (connectivity.relation == r)].shape[0],
-                      'downstream': connectivity[(connectivity[n] > 0) & (connectivity.relation == r)].shape[0]
+    n_partners = {n: {'upstream': cn[(cn[n] > 0) & (cn.relation == r)].shape[0],
+                      'downstream': cn[(cn[n] > 0) & (cn.relation == r)].shape[0]
                      } for r in rel for n in neurons}
 
     matching_scores = {}
@@ -127,7 +127,7 @@ def cluster_by_connectivity(cn, similarity='vertex_normalized',
 
     # Calculate connectivity similarity by direction
     for d in directions:
-        this_cn = connectivity[connectivity.relation == d]
+        this_cn = cn[cn.relation == d]
 
         # Prepare connectivity subsets:
         cn_subsets = {n: this_cn[n] > 0 for n in neurons}
@@ -562,7 +562,7 @@ def cluster_xyz(x, labels=None):
     >>> import matplotlib.pyplot as plt
     >>> n = navis.example_neurons(n=1)
     >>> rs = navis.cluster_xyz(n.connectors,
-    ...                         labels=n.connectors.connector_id.values)
+    ...                        labels=n.connectors.connector_id.values)
     >>> rs.plot_matrix()
     >>> plt.show()
 
@@ -940,7 +940,6 @@ class ClustResults:
 
         return plotting.plot3d(self.neurons, **kwargs)
 
-
     def get_colormap(self, k=5, criterion='maxclust'):
         """Generate colormap based on clustering.
 
@@ -1018,8 +1017,7 @@ class ClustResults:
         try:
             import ete3
         except BaseException:
-            raise ImportError(
-                'Please install ete3 package to use this function.')
+            raise ImportError('Please install ete3 package to use this function.')
 
         max_dist = self.linkage[-1][2]
         n_original_obs = self.dist_mat.shape[0]

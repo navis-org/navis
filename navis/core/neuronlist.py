@@ -167,11 +167,6 @@ class NeuronList:
         pandas DataFrame
 
         """
-        d = []
-
-        # Set level to warning to avoid spam of "skeleton data not available"
-        l = logger.level
-
         cols = ['type', 'n_nodes', 'n_connectors', 'n_branches', 'n_leafs',
                 'cable_length', 'soma']
         cols += add_cols
@@ -180,7 +175,7 @@ class NeuronList:
             N = slice(N)
 
         return pd.DataFrame(data=[[getattr(n, a, 'NA') for a in cols]
-                                            for n in self.neurons[N]],
+                                  for n in self.neurons[N]],
                             columns=cols)
 
     def __str__(self):
@@ -321,7 +316,7 @@ class NeuronList:
         """Implements substraction. """
         if isinstance(to_sub, core.TreeNeuron):
             return NeuronList([n for n in self.neurons if n != to_sub],
-                               make_copy=self.copy_on_subset)
+                              make_copy=self.copy_on_subset)
         elif isinstance(to_sub, NeuronList):
             return NeuronList([n for n in self.neurons if n not in to_sub],
                               make_copy=self.copy_on_subset)
@@ -337,7 +332,7 @@ class NeuronList:
                 n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
 
                 if self.has_connectors:
-                    n.connectors.loc[: ,['x', 'y', 'z']] /= other
+                    n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
                 n._clear_temp_attr(exclude=['classify_nodes'])
             return nl
@@ -353,7 +348,7 @@ class NeuronList:
                 n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
 
                 if self.has_connectors:
-                    n.connectors.loc[: ,['x', 'y', 'z']] *= other
+                    n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
                 n._clear_temp_attr(exclude=['classify_nodes'])
             return nl
@@ -364,7 +359,7 @@ class NeuronList:
         """Implements bitwise AND using the & operator. """
         if isinstance(other, core.TreeNeuron):
             return NeuronList([n for n in self.neurons if n == other],
-                               make_copy=self.copy_on_subset)
+                              make_copy=self.copy_on_subset)
         elif isinstance(other, NeuronList):
             return NeuronList([n for n in self.neurons if n in other],
                               make_copy=self.copy_on_subset)
@@ -459,9 +454,9 @@ class NeuronList:
         return NeuronList([n.copy(deepcopy=deepcopy) for n in config.tqdm(self.neurons,
                                                                           desc='Copy',
                                                                           leave=False,
-                                                                          disable=config.pbar_hide)],
-                                 make_copy=False,
-                                 use_parallel=self.use_parallel)
+                                                                          disable=config.pbar_hide | len(self) < 20)],
+                          make_copy=False,
+                          use_parallel=self.use_parallel)
 
     def head(self, N=5):
         """Return summary for top N neurons."""
@@ -571,6 +566,7 @@ class NeuronProcessor:
             return
         else:
             return NeuronList(res)
+
 
 def _worker_wrapper(x):
     f, args, kwargs = x

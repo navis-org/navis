@@ -163,8 +163,8 @@ def parse_objects(x):
 
     # Collect dataframes with X/Y/Z coordinates
     # Note: dotprops and volumes are instances of pd.DataFrames
-    dataframes = [ob for ob in x if isinstance(ob, pd.DataFrame)
-                  and not isinstance(ob, (core.Dotprops, core.Volume))]
+    dataframes = [ob for ob in x if isinstance(ob, pd.DataFrame) and
+                  not isinstance(ob, (core.Dotprops, core.Volume))]
     if [d for d in dataframes if False in [c in d.columns for c in ['x', 'y', 'z']]]:
         logger.warning('DataFrames must have x, y and z columns.')
     # Filter to and extract x/y/z coordinates

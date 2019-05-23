@@ -164,10 +164,10 @@ class TreeNeuron:
     @nodes.setter
     def nodes(self, v):
         self._nodes = utils.validate_table(v,
-                                           required = ['node_id',
-                                                       'parent_id',
-                                                       'x', 'y', 'z'],
-                                           optional = {'radius': 0},
+                                           required=['node_id',
+                                                     'parent_id',
+                                                     'x', 'y', 'z'],
+                                           optional={'radius': 0},
                                            restrict=False)
         graph.classify_nodes(self)
 
@@ -823,7 +823,7 @@ class TreeNeuron:
             n = self.copy()
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
             if n.has_connectors:
-                n.connectors.loc[: ,['x', 'y', 'z']] /= other
+                n.connectors.loc[:, ['x', 'y', 'z']] /= other
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
         else:
@@ -836,7 +836,7 @@ class TreeNeuron:
             n = self.copy()
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
             if n.has_connectors:
-                n.connectors.loc[: ,['x', 'y', 'z']] *= other
+                n.connectors.loc[:, ['x', 'y', 'z']] *= other
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
         else:
@@ -851,15 +851,10 @@ class TreeNeuron:
         logger.setLevel('WARNING')
 
         # Look up these values without requesting them
-
-        s = pd.Series([type(self),
-                       self.n_nodes, self.n_connectors,
-                       self.n_branches, self.n_leafs, self.cable_length,
-                       self.soma],
-                      index=['type',
-                             'n_nodes', 'n_connectors', 'n_branches',
-                             'n_leafs', 'cable_length',
-                             'soma'])
+        props = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
+                 'n_leafs', 'cable_length', 'soma']
+        s = pd.Series([getattr(self, at, 'NA') for at in props],
+                      index=props)
 
         logger.setLevel(l)
         return s

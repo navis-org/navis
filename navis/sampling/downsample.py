@@ -59,7 +59,9 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
 
     """
     if isinstance(x, core.NeuronList):
-        return core.NeuronList([downsample_neuron(n, downsampling_factor, inplace=inplace) for n in x])
+        return core.NeuronList([downsample_neuron(n,
+                                                  downsampling_factor,
+                                                  inplace=inplace) for n in x])
     elif isinstance(x, core.TreeNeuron):
         if not inplace:
             x = x.copy()

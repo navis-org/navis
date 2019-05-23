@@ -39,6 +39,8 @@ try:
 except ImportError:
     logger.error('Unable to load Blender API - this module only works from '
                  'within Blender!')
+except BaseException:
+    raise
 
 
 class Handler:
@@ -101,7 +103,7 @@ class Handler:
                 color=(1, 0, 1))
     }  # : defines default colours/names for different connector types
 
-    def __init__(self, conversion=1/10000):
+    def __init__(self, conversion=1 / 10000):
         self.conversion = conversion
         self.cn_dict = Handler.cn_dict
 
@@ -207,8 +209,8 @@ class Handler:
         coords *= [1, 1, -1]
 
         verts, faces = CalcSphere(kwargs.get('size', 0.02),
-                                            kwargs.get('sp_res', 7),
-                                            kwargs.get('sp_res', 7))
+                                  kwargs.get('sp_res', 7),
+                                  kwargs.get('sp_res', 7))
 
         mesh = bpy.data.meshes.new(kwargs.get('name', 'scatter'))
         mesh.from_pydata(verts, [], faces)
@@ -379,12 +381,12 @@ class Handler:
         cu.bevel_depth = 0.007
 
         if use_radii:
-            cu.bevel_depth=1
+            cu.bevel_depth = 1
 
         # DO NOT touch this: lookup via dict is >10X faster!
         tn_coords = {r.node_id: (r.x * self.conversion,
-                                     r.z * self.conversion,
-                                     r.y * -self.conversion) for r in x.nodes.itertuples()}
+                                 r.z * self.conversion,
+                                 r.y * -self.conversion) for r in x.nodes.itertuples()}
         if use_radii:
             tn_radii = {r.node_id: r.radius * self.conversion for r in x.nodes.itertuples()}
 
@@ -458,7 +460,7 @@ class Handler:
             cn_coords *= [1, 1, -1]
 
             tn_coords = x.nodes.set_index('node_id').loc[con.node_id.values,
-                                                             ['x', 'z', 'y']].values.astype(float)
+                                                         ['x', 'z', 'y']].values.astype(float)
             tn_coords *= float(self.conversion)
             tn_coords *= [1, 1, -1]
 
@@ -742,7 +744,7 @@ class ObjectList:
             raise AttributeError('Can only merge other object lists')
         print(to_add.object_names)
         return ObjectList(list(set(self.object_names + to_add.object_names)),
-                           handler=self.handler)
+                          handler=self.handler)
 
     def select(self, unselect_others=True):
         """ Select objects in 3D viewer
@@ -890,7 +892,9 @@ def CalcSphere(radius, nrPolar, nrAzimuthal):
             currCosA = math.cos(currAzimuthal)
             currSinA = math.sin(currAzimuthal)
 
-            currV = mathutils.Vector((currSinP * currCosA, currSinP * currSinA, currCosP)) * radius
+            currV = mathutils.Vector((currSinP * currCosA,
+                                      currSinP * currSinA,
+                                      currCosP)) * radius
             verts.append(currV)
     currV = mathutils.Vector((0.0, 0.0, - radius))        # bottom vertex
     verts.append(currV)
@@ -899,7 +903,8 @@ def CalcSphere(radius, nrPolar, nrAzimuthal):
     faces = []
     for iAzimuthal in range(nrAzimuthal):                # top faces
         iNextAzimuthal = iAzimuthal + 1
-        if iNextAzimuthal >= nrAzimuthal: iNextAzimuthal -= nrAzimuthal
+        if iNextAzimuthal >= nrAzimuthal:
+            iNextAzimuthal -= nrAzimuthal
         faces.append([0, iAzimuthal + 1, iNextAzimuthal + 1])
 
     for iPolar in range(nrPolar - 3):                    # regular faces
@@ -907,15 +912,22 @@ def CalcSphere(radius, nrPolar, nrAzimuthal):
 
         for iAzimuthal in range(nrAzimuthal):
             iNextAzimuthal = iAzimuthal + 1
-            if iNextAzimuthal >= nrAzimuthal: iNextAzimuthal -= nrAzimuthal
-            faces.append([iAzimuthalStart + iAzimuthal, iAzimuthalStart + iAzimuthal + nrAzimuthal, iAzimuthalStart + iNextAzimuthal + nrAzimuthal, iAzimuthalStart + iNextAzimuthal])
+            if iNextAzimuthal >= nrAzimuthal:
+                iNextAzimuthal -= nrAzimuthal
+            faces.append([iAzimuthalStart + iAzimuthal,
+                          iAzimuthalStart + iAzimuthal + nrAzimuthal,
+                          iAzimuthalStart + iNextAzimuthal + nrAzimuthal,
+                          iAzimuthalStart + iNextAzimuthal])
 
     iLast = len(verts) - 1
     iAzimuthalStart = iLast - nrAzimuthal
     for iAzimuthal in range(nrAzimuthal):                # bottom faces
         iNextAzimuthal = iAzimuthal + 1
-        if iNextAzimuthal >= nrAzimuthal: iNextAzimuthal -= nrAzimuthal
-        faces.append([iAzimuthalStart + iAzimuthal, iLast, iAzimuthalStart + iNextAzimuthal])
-
+        if iNextAzimuthal >= nrAzimuthal:
+            iNextAzimuthal -= nrAzimuthal
+        faces.append([iAzimuthalStart + iAzimuthal,
+                      iLast,
+                      iAzimuthalStart + iNextAzimuthal])
 
     return np.vstack(verts), faces
+

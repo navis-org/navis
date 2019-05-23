@@ -58,7 +58,8 @@ def cable_overlap(a, b, dist=2, method='min'):
 
     """
 
-    if not isinstance(a, (core.TreeNeuron, core.NeuronList)) or not isinstance(b, (core.TreeNeuron, core.NeuronList)):
+    if not isinstance(a, (core.TreeNeuron, core.NeuronList)) \
+       or not isinstance(b, (core.TreeNeuron, core.NeuronList)):
         raise TypeError('Need to pass CatmaidNeurons')
 
     if isinstance(a, core.NeuronList):

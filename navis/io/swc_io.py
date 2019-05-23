@@ -63,9 +63,9 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
         return core.NeuronList([from_swc(x,
                                          connector_labels=connector_labels,
                                          include_subdirs=include_subdirs)
-                               for x in config.tqdm(f, desc='Importing',
-                                                    disable=config.pbar_hide,
-                                                    leave=config.pbar_leave)])
+                                for x in config.tqdm(f, desc='Importing',
+                                                     disable=config.pbar_hide,
+                                                     leave=config.pbar_leave)])
 
     header = []
     if isinstance(f, pd.DataFrame):
@@ -80,10 +80,10 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
 
         return core.NeuronList([from_swc(x,
                                          connector_labels=connector_labels)
-                                         for x in config.tqdm(swc,
-                                                              desc='Reading {}'.format(f.split('/')[-1]),
-                                                              disable=config.pbar_hide,
-                                                              leave=config.pbar_leave)])
+                                for x in config.tqdm(swc,
+                                                     desc='Reading {}'.format(f.split('/')[-1]),
+                                                     disable=config.pbar_hide,
+                                                     leave=config.pbar_leave)])
     else:
         data = []
         if os.path.isfile(f):
@@ -96,6 +96,8 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
                     # skip comments
                     if not row[0].startswith('#'):
                         data.append(row)
+                    else:
+                        header.append(' '.join(row))
 
         # If not file, assume it's a SWC string
         else:
@@ -118,6 +120,7 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
                                       'radius', 'parent_id'],
                              dtype=object)
 
+    # Turn header back into single string
     header = '\n'.join(header)
 
     # If any invalid nodes are found
@@ -156,14 +159,12 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
     n = core.TreeNeuron(nodes,
                         connectors=connectors,
                         name=kwargs.pop('name',
-                                         os.path.basename(f).replace('.swc', '')),
+                                        os.path.basename(f).replace('.swc', '')),
                         filename=os.path.basename(f),
                         pathname=os.path.dirname(f),
+                        header=header,
                         created_at=str(datetime.datetime.now()),
                         **kwargs)
-
-    if header:
-        n.swc_header = header
 
     return n
 
@@ -308,13 +309,14 @@ def to_float(x):
     """
     try:
         return float(x)
-    except:
+    except BaseException:
         return None
+
 
 def to_int(x):
     """ Helper to try to convert to float.
     """
     try:
         return int(x)
-    except:
+    except BaseException:
         return None

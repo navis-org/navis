@@ -211,11 +211,11 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     if isinstance(colors, type(None)):
         if colors_required > 0:
             colors = []
-            colors += generate_colors(colors_required  - volumes.shape[0],
+            colors += generate_colors(colors_required - volumes.shape[0],
                                       color_space='RGB',
                                       color_range=color_range)
             colors += eval_color([getattr(v, 'color', (1, 1, 1)) for v in volumes],
-                                  color_range=color_range)
+                                 color_range=color_range)
         else:
             # If no neurons to plot, just return None
             # This happens when there is only a scatter plot

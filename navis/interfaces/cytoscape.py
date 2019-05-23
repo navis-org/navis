@@ -136,7 +136,9 @@ def generate_network(x, layout='fruchterman-rheingold', apply_style=True,
         s.create_passthrough_mapping(
             column='neuron_name', vp='NODE_LABEL', col_type='String')
         max_edge_weight = n.get_edge_column('weight').max()
-        s.create_continuous_mapping(column='weight', vp='EDGE_WIDTH', col_type='Double',
+        s.create_continuous_mapping(column='weight',
+                                    vp='EDGE_WIDTH',
+                                    col_type='Double',
                                     points=[{'equal': '1.0', 'greater': '1.0', 'lesser': '1.0', 'value': 1.0},
                                             {'equal': max_edge_weight / 3, 'greater': 1.0, 'lesser': max_edge_weight / 3, 'value': max_edge_weight}]
                                     )

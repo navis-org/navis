@@ -531,12 +531,14 @@ class Viewer:
             raise ValueError('Must not provide colors via multiple arguments')
 
         # Parse colors for neurons and dotprops
-        neuron_cmap, dotprops_cmap, volumes_cmap = prepare_colormap(kwargs.pop('color',
-                                                                   kwargs.pop('colors',
-                                                                   kwargs.pop('c', None))),
-                                                    skdata, dotprops, volumes,
-                                                    color_range=1,
-                                                    use_neuron_color=kwargs.pop('use_neuron_color', False))
+        (neuron_cmap,
+         dotprops_cmap,
+         volumes_cmap) = prepare_colormap(kwargs.pop('color',
+                                               kwargs.pop('colors',
+                                                      kwargs.pop('c', None))),
+                                          skdata, dotprops, volumes,
+                                          color_range=1,
+                                          use_neuron_color=kwargs.pop('use_neuron_color', False))
 
         if skdata:
             visuals += neuron2vispy(skdata, color=neuron_cmap, **kwargs)
@@ -569,7 +571,7 @@ class Viewer:
 
     def close(self):
         """ Close viewer. """
-        if self == getattr(config, 'primary_viewer',  None):
+        if self == getattr(config, 'primary_viewer', None):
             del config.primary_viewer
         self.canvas.close()
 
