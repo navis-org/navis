@@ -1361,14 +1361,14 @@ def connected_subgraph(x, ss):
     elif not isinstance(x, core.TreeNeuron):
         raise TypeError('Input must be a single TreeNeuron.')
 
-    missing = set(ss) - set(x.nodes.treenode_id.values)
+    missing = set(ss) - set(x.nodes.node_id.values)
     if missing:
-        raise ValueError('Nodes not found: {}'.format(','.join(missing)))
+        raise ValueError(f'Nodes not found: {",".join(missing)}')
 
     # Find leaf nodes in subset (real leafs and simply disconnected slabs)
-    ss_nodes = x.nodes[x.nodes.treenode_id.isin(ss)]
-    leafs = ss_nodes[(ss_nodes.type == 'end')].treenode_id.values
-    disconnected = x.nodes[(~x.nodes.treenode_id.isin(ss)) & (x.nodes.parent_id.isin(ss))]
+    ss_nodes = x.nodes[x.nodes.node_id.isin(ss)]
+    leafs = ss_nodes[(ss_nodes.type == 'end')].node_id.values
+    disconnected = x.nodes[(~x.nodes.node_id.isin(ss)) & (x.nodes.parent_id.isin(ss))]
     leafs = np.append(leafs, disconnected.parent_id.values)
 
     # Walk from each node to root and keep track of path

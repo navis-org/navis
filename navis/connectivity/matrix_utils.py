@@ -18,6 +18,9 @@
 import pandas as pd
 import numpy as np
 
+from .. import utils
+
+
 def group_matrix(mat, row_groups={}, col_groups={}, drop_ungrouped=False,
                  method='SUM'):
     """ Groups adjacency matrix into neuron groups.

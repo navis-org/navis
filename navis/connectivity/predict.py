@@ -15,8 +15,6 @@
 """ This module contains functions to analyse connectivity.
 """
 
-from itertools import combinations
-
 import pandas as pd
 import numpy as np
 import scipy.spatial
@@ -174,16 +172,8 @@ def predict_connectivity(source, target, method='possible_contacts', **kwargs):
 
     """
 
-    remote_instance = utils._eval_remote_instance(remote_instance)
-
-    if not remote_instance:
-        try:
-            remote_instance = source._remote_instance
-        except BaseException:
-            pass
-
     for _ in [source, target]:
-        if not isinstance(_, (core.CatmaidNeuron, core.CatmaidNeuronList)):
+        if not isinstance(_, (core.TreeNeuron, core.NeuronList)):
             raise TypeError('Need CatmaidNeuron/List, got '
                             '"{}"'.format(type(_)))
 

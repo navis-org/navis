@@ -145,7 +145,7 @@ class NeuronList:
                 for n in config.tqdm(to_convert, desc='Make nrn',
                                      disable=config.pbar_hide,
                                      leave=config.pbar_leave):
-                    self.neurons[n[2]] = core.TreeNeuron(n[0], remote_instance=remote_instance)
+                    self.neurons[n[2]] = core.TreeNeuron(n[0])
 
     def _convert_helper(self, x):
         """ Helper function to convert x to core.TreeNeuron."""

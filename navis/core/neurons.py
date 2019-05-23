@@ -21,7 +21,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-from .. import graph, morpho, utils, config, core
+from .. import graph, morpho, utils, config, core, sampling, intersection
 
 __all__ = ['Neuron', 'TreeNeuron']
 
@@ -479,7 +479,7 @@ class TreeNeuron:
         else:
             x = self.copy(deepcopy=False)
 
-        resample.resample_neuron(x, resample_to, inplace=True)
+        sampling.resample_neuron(x, resample_to, inplace=True)
 
         # No need to call this as base function does this for us
         # x._clear_temp_attr()
@@ -514,7 +514,7 @@ class TreeNeuron:
         else:
             x = self.copy(deepcopy=False)
 
-        resample.downsample_neuron(x, factor, inplace=True, **kwargs)
+        sampling.downsample_neuron(x, factor, inplace=True, **kwargs)
 
         # Delete outdated attributes
         x._clear_temp_attr()
@@ -732,18 +732,15 @@ class TreeNeuron:
             Base function. See for details and examples.
         """
 
-        if not isinstance(v, Volume):
-            v = fetch.get_volume(v, combine_vols=True,
-                                 remote_instance=self._remote_instance)
-
         if inplace:
             x = self
         else:
             x = self.copy()
 
-        intersect.in_volume(x, v, inplace=True,
-                            prevent_fragments=prevent_fragments,
-                            remote_instance=self._remote_instance, mode=mode)
+        intersection.in_volume(x, v, inplace=True,
+                               prevent_fragments=prevent_fragments,
+                               remote_instance=self._remote_instance,
+                               mode=mode)
 
         # Clear temporary attributes
         # x._clear_temp_attr()

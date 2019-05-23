@@ -13,6 +13,8 @@
 
 import csv
 import json
+import math
+import numbers
 
 import numpy as np
 import scipy.spatial

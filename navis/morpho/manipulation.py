@@ -232,9 +232,9 @@ def split_axon_dendrite(x, method='bending', primary_neurite=True,
 
     if last_method != method:
         if method == 'bending':
-            _ = bending_flow(x)
+            _ = metrics.bending_flow(x)
         elif method in ['centripetal', 'centrifugal', 'sum']:
-            _ = flow_centrality(x, mode=method)
+            _ = metrics.flow_centrality(x, mode=method)
         else:
             raise ValueError('Unknown method "{}"'.format(method))
 
@@ -248,7 +248,7 @@ def split_axon_dendrite(x, method='bending', primary_neurite=True,
     # If there is more than one point we need to get one closest to the soma
     # (root)
     if len(cut) > 1:
-        cut = sorted(cut, key=lambda y: graph_utils.dist_between(
+        cut = sorted(cut, key=lambda y: graph.dist_between(
             x.graph, y, x.root[0]))[0]
     else:
         cut = cut[0]
@@ -278,7 +278,7 @@ def split_axon_dendrite(x, method='bending', primary_neurite=True,
         to_cut = flows.iloc[last_with_flow].name
 
         # Cut off primary neurite
-        rest, primary_neurite = graph_utils.cut_neuron(x, to_cut)
+        rest, primary_neurite = graph.cut_neuron(x, to_cut)
 
         if method == 'bending':
             # The new cut node has to be a child of the original cut node
@@ -293,11 +293,11 @@ def split_axon_dendrite(x, method='bending', primary_neurite=True,
         primary_neurite = None
 
     # Next, cut the rest into axon and dendrite
-    a, b = graph_utils.cut_neuron(rest, cut)
+    a, b = graph.cut_neuron(rest, cut)
 
     # Figure out which one is which by comparing fraction of in- to outputs
-    a_inout = a.n_postsynapses/a.n_presynapses if a.n_presynapses else float('inf')
-    b_inout = b.n_postsynapses/b.n_presynapses if b.n_presynapses else float('inf')
+    a_inout = a.n_postsynapses / a.n_presynapses if a.n_presynapses else float('inf')
+    b_inout = b.n_postsynapses / b.n_presynapses if b.n_presynapses else float('inf')
     if a_inout > b_inout:
         dendrite, axon = a, b
     else:

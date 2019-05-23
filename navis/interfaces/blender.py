@@ -227,7 +227,7 @@ class Handler:
         if group_name != 'scatter' and group_name in bpy.data.groups:
             group = bpy.data.groups[group_name]
         else:
-            group = byp.data.groups.new(group_name)
+            group = bpy.data.groups.new(group_name)
 
         for obj in objects:
             bpy.context.scene.objects.link(obj)

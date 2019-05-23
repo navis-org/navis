@@ -12,7 +12,6 @@
 #    GNU General Public License for more details.
 
 import os
-import json
 import colorsys
 import math
 
