@@ -349,7 +349,7 @@ def segregation_index(x, centrality_method='centrifugal'):
     return H
 
 
-def bending_flow(x, polypre=False):
+def bending_flow(x):
     """ Variation of the algorithm for calculating synapse flow from
     Schneider-Mizell et al. (eLife, 2016).
 
@@ -360,11 +360,7 @@ def bending_flow(x, polypre=False):
     Parameters
     ----------
     x :         TreeNeuron | NeuronList
-                Neuron(s) to calculate bending flow for
-    polypre :   bool, optional
-                Whether to consider the number of presynapses as a multiple of
-                the numbers of connections each makes. Attention: this works
-                only if all synapses have been properly annotated.
+                Neuron(s) to calculate bending flow for.
 
     Notes
     -----
@@ -392,7 +388,7 @@ def bending_flow(x, polypre=False):
                          'not {0}'.format(type(x)))
 
     if isinstance(x, core.NeuronList):
-        return [bending_flow(n, mode=mode, polypre=polypre, ) for n in x]
+        return [bending_flow(n) for n in x]
 
     if x.soma and x.soma not in x.root:
         logger.warning(
@@ -425,13 +421,6 @@ def bending_flow(x, polypre=False):
     distal_pre = graph.distal_to(y, pre_node_ids, childs)
     distal_post = graph.distal_to(y, post_node_ids, childs)
 
-    # Multiply columns (presynapses) by the number of postsynaptically
-    # connected nodes
-    if polypre:
-        # Map vertex ID to number of postsynaptic nodes (avoid 0)
-        distal_pre *= [max(1, len(cn_details[cn_details.presynaptic_to_node ==
-                                             n].postsynaptic_to_node.sum())) for n in distal_pre.columns]
-
     # Sum up axis - now each row represents the number of pre/postsynapses
     # distal to that node
     distal_pre = distal_pre.T.sum(axis=1)
@@ -463,7 +452,7 @@ def bending_flow(x, polypre=False):
     return
 
 
-def flow_centrality(x, mode='centrifugal', polypre=False):
+def flow_centrality(x, mode='centrifugal'):
     """ Calculates synapse flow centrality (SFC).
 
     From Schneider-Mizell et al. (2016): "We use flow centrality for
@@ -494,11 +483,6 @@ def flow_centrality(x, mode='centrifugal', polypre=False):
                 (1) centrifugal, counts paths from proximal inputs to distal outputs
                 (2) centripetal, counts paths from distal inputs to proximal outputs
                 (3) the sum of both
-    polypre :   bool, optional
-                Whether to consider the number of presynapses as a multiple of
-                the numbers of connections each makes. Attention: this works
-                only if all synapses have been properly annotated (i.e. all
-                postsynaptic sites).
 
     See Also
     --------
@@ -537,22 +521,16 @@ def flow_centrality(x, mode='centrifugal', polypre=False):
     current_state = config.pbar_hide
     logger.setLevel('ERROR')
     config.pbar_hide = True
-    y = resample.downsample_neuron(x, float('inf'),
+    y = sampling.downsample_neuron(x, float('inf'),
                                    inplace=False, preserve_cn_treenodes=True)
     logger.setLevel(current_level)
     config.pbar_hide = current_state
-
-    if polypre:
-        # Get details for all presynapses
-        cn_details = fetch.get_connector_details(
-            y.connectors[y.connectors.relation == 0])
 
     # Get list of nodes with pre/postsynapses
     pre_node_ids = y.connectors[y.connectors.relation ==
                                 0].node_id.unique()
     post_node_ids = y.connectors[y.connectors.relation ==
                                  1].node_id.unique()
-    total_pre = len(pre_node_ids)
     total_post = len(post_node_ids)
 
     # Get list of points to calculate flow centrality for:
@@ -563,16 +541,6 @@ def flow_centrality(x, mode='centrifugal', polypre=False):
     # Get number of pre/postsynapses distal to each branch's childs
     distal_pre = graph.distal_to(y, pre_node_ids, calc_node_ids)
     distal_post = graph.distal_to(y, post_node_ids, calc_node_ids)
-
-    # Multiply columns (presynapses) by the number of postsynaptically
-    # connected nodes
-    if polypre:
-        # Map vertex ID to number of postsynaptic nodes (avoid 0)
-        distal_pre *= [max(1, len(cn_details[cn_details.presynaptic_to_node ==
-                                             n].postsynaptic_to_node.sum())) for n in distal_pre.columns]
-        # Also change total_pre as accordingly
-        total_pre = sum([max(1, len(row))
-                         for row in cn_details.postsynaptic_to_node.values])
 
     # Sum up axis - now each row represents the number of pre/postsynapses
     # that are distal to that node
@@ -597,7 +565,7 @@ def flow_centrality(x, mode='centrifugal', polypre=False):
     elif mode == 'centripetal':
         x.nodes['flow_centrality'] = x.nodes.node_id.map(centripetal)
     elif mode == 'sum':
-        combined = {n : centrifugal[n] + centripetal[n] for n in centrifugal}
+        combined = {n: centrifugal[n] + centripetal[n] for n in centrifugal}
         x.nodes['flow_centrality'] = x.nodes.node_id.map(combined)
 
     # Add info on method/mode used for flow centrality
