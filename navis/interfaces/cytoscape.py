@@ -122,8 +122,7 @@ def generate_network(x, layout='fruchterman-rheingold', apply_style=True,
     elif isinstance(x, pd.DataFrame):
         n = cy.network.create_from_dataframe(x)
     else:
-        raise TypeError('Unable to generate network from data of '
-                        'type "{0}"'.format(type(x)))
+        raise TypeError(f'Unable to generate network from data of type "{type(x)}"')
 
     if layout:
         # Apply basic layout

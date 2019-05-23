@@ -78,7 +78,7 @@ def generate_colors(N, color_space='RGB', color_range=1):
             hsv = colorsys.hsv_to_rgb(h, s, v)
             colormap.append(tuple(v * color_range for v in hsv))
 
-    logger.debug('{} random colors created: {}'.format(color_count, colormap))
+    logger.debug(f'{color_count} random colors created: {colormap}')
 
     # Make sure we return exactly N colors
     return colormap[:N]
@@ -142,7 +142,7 @@ def map_colors(colors, objects, color_range=255):
         miss = len(objects) - len(colors) if len(objects) > len(colors) else 0
         return colors[: len(objects)] + [config.default_color] * miss
     else:
-        raise TypeError('Unable to interpret colors of type "{}"'.format(type(colors)))
+        raise TypeError(f'Unable to interpret colors of type "{type(colors)}"')
 
 
 def prepare_connector_cmap(x):
@@ -252,11 +252,11 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
         if all([isinstance(elem, numbers.Number) for elem in colors]):
             colors = [colors] * colors_required
         elif len(colors) < colors_required:
-            raise ValueError('Need colors for {} neurons/dotprops, got '
-                             '{}'.format(colors_required, len(colors)))
+            raise ValueError(f'Need colors for {colors_required} neurons/'
+                             f'dotprops, got {len(colors)}')
         elif len(colors) > colors_required:
-            logger.debug('More colors than required: got {}, needed '
-                         '{}'.format(len(colors), colors_required))
+            logger.debug(f'More colors than required: got {len(colors)}, '
+                         f'needed {colors_required}')
 
         if skdata.shape[0]:
             neuron_cmap = [colors[i] for i in range(skdata.shape[0])]
@@ -265,7 +265,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
         if volumes.shape[0]:
             volumes_cmap = [colors[i + skdata.shape[0] + dotprops.shape[0]] for i in range(volumes.shape[0])]
     else:
-        raise TypeError('Got colors of type "{}"'.format(type(colors)))
+        raise TypeError(f'Got colors of type "{type(colors)}"')
 
     # Override neuron cmap if we are supposed to use neuron colors
     if use_neuron_color:
@@ -297,8 +297,7 @@ def eval_color(x, color_range=255):
     elif isinstance(x, type(None)):
         return None
     else:
-        raise TypeError('Unable to interpret color of type '
-                        '"{}"'.format(type(x)))
+        raise TypeError(f'Unable to interpret color of type "{type(x)}"')
 
     # Check if we need to convert
     if not any([v > 1 for v in c]) and color_range == 255:

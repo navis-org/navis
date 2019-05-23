@@ -88,15 +88,13 @@ def eval_uuid(x, warn_duplicates=True):
         elif 'uuid' in x:
             return [x.uuid]
         else:
-            raise ValueError('Unable to extract UUID from pandas '
-                             'series {0}'.format(x))
+            raise ValueError(f'Unable to extract UUID from pandas series {x}')
     elif isinstance(x, type(None)):
         return None
     else:
-        logger.error('Unable to extract UUID from data of'
-                     'type "{}"'.format(type(x)))
-        raise TypeError('Unable to extract UUID(s) from '
-                        'type "{}"'.format(type(x)))
+        msg = f'Unable to extract UUID(s) from data of type "{type(x)}"'
+        logger.error(msg)
+        raise TypeError(msg)
 
 
 def eval_neurons(x, warn_duplicates=True, raise_other=True):
@@ -146,10 +144,9 @@ def eval_neurons(x, warn_duplicates=True, raise_other=True):
     elif isinstance(x, type(None)):
         return None
     elif raise_other:
-        logger.error('Unable to extract neurons from data of '
-                     'type "{}"'.format(type(x)))
-        raise TypeError('Unable to extract neurons from data of '
-                        'type "{}"'.format(type(x)))
+        msg = f'Unable to extract neurons from data of type "{type(x)}"'
+        logger.error(msg)
+        raise TypeError(msg)
     return None
 
 

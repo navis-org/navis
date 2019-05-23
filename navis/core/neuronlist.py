@@ -187,9 +187,7 @@ class NeuronList:
         return self.__repr__()
 
     def __repr__(self):
-        return '{0} of {1} neurons \n {2}'.format(type(self),
-                                                  len(self.neurons),
-                                                  str(self.summary()))
+        return f'{type(self)} of {len(self)} neurons \n {str(self.summary())}'
 
     def _repr_html_(self):
         return self.summary()._repr_html_()
@@ -241,14 +239,14 @@ class NeuronList:
             # First check if there is any reason why we can't collect this
             # attribute across all neurons
             if all([isinstance(v, type(NotImplemented)) for v in values]):
-                raise AttributeError('Attribute "{}" not found in in '
-                                     'NeuronList nor in contained neurons'.format(key))
+                raise AttributeError(f'Attribute "{key}" not found in in '
+                                     'NeuronList nor in contained neurons')
             elif any([isinstance(v, type(NotImplemented)) for v in values]):
-                raise AttributeError('Attribute or function "{}" missing '
-                                      'for some neurons'.format(key))
+                raise AttributeError(f'Attribute or function "{key}" missing '
+                                     'for some neurons')
             elif len(set(is_method)) > 1:
                 raise TypeError('Found both methods and attributes with name '
-                                '"{}" among neurons.'.format(key))
+                                f'"{key}" among neurons.')
             # Concatenate if dealing with DataFrame
             elif not all(is_method):
                 if all(is_frame):
@@ -257,7 +255,10 @@ class NeuronList:
                         if isinstance(v, pd.DataFrame):
                             v['neuron'] = i
                             data.append(v)
-                    return pd.concat(data, axis=0, ignore_index=True, sort=True)
+                    return pd.concat(data,
+                                     axis=0,
+                                     ignore_index=True,
+                                     sort=True)
                 else:
                     return np.array(values)
             else:

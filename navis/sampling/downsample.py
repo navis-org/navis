@@ -64,15 +64,14 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
         if not inplace:
             x = x.copy()
     else:
-        raise TypeError('Unable to downsample data of type "{}"'.format(type(x)))
+        raise TypeError(f'Unable to downsample data of type "{type(x)}"')
 
     # If no resampling, simply return neuron
     if downsampling_factor <= 1:
         raise ValueError('Downsampling factor must be greater than 1.')
 
     if x.nodes.shape[0] <= 1:
-        logger.warning(
-            'No nodes in neuron {}. Skipping...'.format(x.uuid))
+        logger.warning(f'No nodes in neuron {x.uuid}. Skipping.')
         if not inplace:
             return x
         else:
@@ -144,9 +143,7 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
 
     # Reassign parent_id None to root node
     new_nodes.loc[root_ix, 'parent_id'] = None
-
-    logger.debug(
-        'Nodes before/after: {}/{}'.format(len(x.nodes), len(new_nodes)))
+    logger.debug(f'Nodes before/after: {len(x.nodes)}/{len(new_nodes)}')
 
     x.nodes = new_nodes
 

@@ -172,18 +172,18 @@ def intersection_matrix(x, volumes, attr=None):
         x = core.NeuronList(x)
 
     if not isinstance(x, core.NeuronList):
-        raise TypeError('x must be Neuron/List, not "{}"'.format(type(x)))
+        raise TypeError(f'x must be Neuron/List, not "{type(x)}"')
 
     if isinstance(volumes, list):
         volumes = {v.name: v for v in volumes}
 
     if not isinstance(volumes, (list, dict)):
-        raise TypeError('volumes must be given as list or dict, not "{}"'.format(type(volumes)))
+        raise TypeError('Volumes must be given as list or dict, not '
+                        f'"{type(volumes)}"')
 
     for v in volumes.values():
         if not isinstance(v, core.Volume):
-            raise TypeError('Wrong data type found in volumes: "{}"'.format(type(v)))
-
+            raise TypeError(f'Wrong data type found in volumes: "{type(v)}"')
 
     data = in_volume(x, volumes, inplace=False, mode='IN',
                      remote_instance=remote_instance)

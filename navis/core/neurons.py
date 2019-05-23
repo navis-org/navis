@@ -49,10 +49,10 @@ def Neuron(x, **metadata):
 
     if isinstance(x, (nx.Graph, str, pd.DataFrame)):
         return TreeNeuron(x, **metadata)
-    elif isinstance(x, (Volume, trimesh.Trimesh, dict)):
-        return VolumeNeuron(x, **metadata)
+    #elif isinstance(x, (Volume, trimesh.Trimesh, dict)):
+    #    return VolumeNeuron(x, **metadata)
     else:
-        raise TypeError('Unable to construct neuron from "{}"'.format(type(x)))
+        raise TypeError(f'Unable to construct neuron from "{type(x)}"')
 
 
 class TreeNeuron:
@@ -332,13 +332,13 @@ class TreeNeuron:
         """Clear temporary attributes."""
         temp_att = ['igraph', 'graph', 'segments', 'small_segments',
                     'nodes_geodesic_distance_matrix', 'dps',
-                    'centrality_method']
+                    'centrality_method', '_simple']
         for a in [at for at in temp_att if at not in exclude]:
             try:
                 delattr(self, a)
-                logger.debug('Neuron {}: {} cleared'.format(id(self), a))
+                logger.debug(f'Neuron {id(self)}: {a} cleared')
             except BaseException:
-                logger.debug('Neuron {}: Unable to clear temporary attribute "{}"'.format(id(self), a))
+                logger.debug(f'Neuron {id(self)}: Unable to clear temporary attribute "{a}"')
                 pass
 
         temp_node_cols = ['flow_centrality', 'strahler_index']
@@ -406,7 +406,7 @@ class TreeNeuron:
         elif how == 'break':
             return graph.graph_utils._break_segments(self)
         else:
-            raise ValueError('Unknown how: "{}"'.format(how))
+            raise ValueError(f'Unknown how: "{how}"')
 
     def plot2d(self, **kwargs):
         """Plot neuron using :func:`navis.plot2d`.

@@ -79,8 +79,7 @@ def network2nx(x, remote_instance=None, threshold=1, group_by=None):
         edges = [[str(s), str(t), {'weight': x.loc[s, t]}]
                  for s in x.index.values for t in x.columns.values if x.loc[s, t] >= threshold]
     else:
-        raise ValueError(
-            'Unable to process data of type "{0}"'.format(type(x)))
+        raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     # Generate node dictionary
     names = fetch.get_names(skids, remote_instance=remote_instance)
@@ -172,8 +171,7 @@ def network2igraph(x, remote_instance=None, threshold=1):
         weight = [x.loc[i, j] for i in range(x.shape[0]) for j in range(
             x.shape[1]) if x.loc[i, j] >= threshold]
     else:
-        raise ValueError(
-            'Unable to process data of type "{0}"'.format(type(x)))
+        raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     # Generate igraph and assign custom properties
     g = igraph.Graph(directed=True)
@@ -207,7 +205,7 @@ def neuron2nx(x):
     elif isinstance(x, (pd.Series, core.TreeNeuron)):
         pass
     else:
-        raise ValueError('Unable input type "{0}"'.format(type(x)))
+        raise ValueError(f'Wrong input type "{type(x)}"')
 
     # Collect nodes
     nodes = x.nodes.set_index('node_id')
@@ -258,7 +256,7 @@ def neuron2igraph(x):
     elif isinstance(x, (pd.Series, core.TreeNeuron)):
         pass
     else:
-        raise ValueError('Unable input type "{0}"'.format(type(x)))
+        raise ValueError(f'Unable input type "{type(x)}"')
 
     logger.debug('Generating graph from skeleton data...')
 
@@ -318,7 +316,7 @@ def nx2neuron(g, root=None):
 
     # First some sanity checks
     if not isinstance(g, nx.Graph):
-        raise TypeError('g must be NetworkX Graph, not "{}"'.format(type(g)))
+        raise TypeError(f'g must be NetworkX Graph, not "{type(g)}"')
 
     # We need an undirected Graph
     if isinstance(g, nx.DiGraph):
@@ -331,7 +329,7 @@ def nx2neuron(g, root=None):
     if not root:
         root = list(g.nodes)[0]
     elif root not in g.nodes:
-        raise ValueError('Node "{}" not in graph.'.format(root))
+        raise ValueError(f'Node "{root}" not in graph.')
 
     # Generate parent->child dictionary
     lop = nx.predecessor(g, root)
@@ -430,7 +428,7 @@ def neuron2KDTree(x, tree_type='c', data='treenodes', **kwargs):
         else:
             raise ValueError('Need a single TreeNeuron')
     elif not isinstance(x, core.TreeNeuron):
-        raise TypeError('Need TreeNeuron, got "{0}"'.format(type(x)))
+        raise TypeError(f'Need TreeNeuron, got "{type(x)}"')
 
     if data == 'treenodes':
         d = x.nodes[['x', 'y', 'z']].values

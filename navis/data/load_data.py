@@ -60,6 +60,7 @@ def example_neurons(n=None, source='swc'):
     Examples
     --------
     Load a single neuron
+    >>> import navis
     >>> n = navis.example_neurons(n=1)
 
     Load all example neurons
@@ -68,7 +69,7 @@ def example_neurons(n=None, source='swc'):
     """
 
     if not isinstance(n, (int, type(None))):
-        raise TypeError('Expected int or None, got "{}"'.format(type(x)))
+        raise TypeError(f'Expected int or None, got "{type(x)}"')
 
     if source == 'gml':
         graphs = [nx.read_gml(os.path.join(gml_path, g)) for g in gml[:n]]
@@ -76,8 +77,7 @@ def example_neurons(n=None, source='swc'):
     elif source == 'swc':
         nl = NeuronList([from_swc(os.path.join(swc_path, f)) for f in swc[:n]])
     else:
-        raise ValueError('Source must be "swc" or "gml", '
-                         'not "{}"'.format(source))
+        raise ValueError(f'Source must be "swc" or "gml", not "{source}"')
 
     if n == 1:
         return nl[0]
@@ -102,13 +102,11 @@ def example_volume(name):
     Examples
     --------
     Load LH volume
-    >>> n = navis.example_volume(n=1)
-
-    Load all example neurons
-    >>> nl = navis.example_volume()
+    >>> import navis
+    >>> lh = navis.example_volume('LH')
     """
     if not isinstance(name, str):
-        raise TypeError('Expected string, got "{}"'.format(type(name)))
+        raise TypeError(f'Expected string, got "{type(name)}"')
 
     # Force lower case
     name = name.lower()
@@ -118,8 +116,7 @@ def example_volume(name):
         name += '.json'
 
     if name not in vols:
-        raise ValueError('No volume named "{}". Available volumes: '
-                         '{}'.format(name, ','.join(vols)))
+        raise ValueError(f'No volume named "{name}". Available volumes: {",".join(vols)}')
 
     with open(os.path.join(vols_path, name), 'r') as f:
         data = json.load(f)

@@ -526,7 +526,7 @@ def flow_centrality(x, mode='centrifugal', polypre=False):
                          'not {0}'.format(type(x)))
 
     if isinstance(x, core.NeuronList):
-        return [flow_centrality(n, mode=mode, polypre=polypre) for n in x]
+        return [flow_centrality(n, mode=mode) for n in x]
 
     if x.soma and x.soma not in x.root:
         logger.warning(

@@ -73,7 +73,7 @@ def _generate_segments(x, weight=None):
         endNodeIDs = x.nodes[x.nodes.type == 'end'].node_id.values
         endNodeIDs = sorted(endNodeIDs, key=d.get, reverse=True)
     else:
-        raise ValueError('Unable to use weight "{}"'.format(weight))
+        raise ValueError(f'Unable to use weight "{weight}"')
 
     if config.use_igraph and x.igraph:
         g = x.igraph
@@ -425,8 +425,7 @@ def geodesic_matrix(x, tn_ids=None, directed=False, weight='weight'):
     elif isinstance(x, core.TreeNeuron):
         pass
     else:
-        raise ValueError(
-            'Unable to process data of type "{0}"'.format(type(x)))
+        raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     if x.igraph and config.use_igraph:
         nodeList = x.igraph.vs.get_attribute_values('node_id')
@@ -483,7 +482,7 @@ def dist_between(x, a, b):
         if len(x) == 1:
             x = x[0]
         else:
-            raise ValueError('Need a single TreeNeuron, got {}'.format(len(x)))
+            raise ValueError(f'Need a single TreeNeuron, got {len(x)}')
 
     if isinstance(x, core.TreeNeuron):
         if x.igraph and config.use_igraph:
@@ -496,7 +495,7 @@ def dist_between(x, a, b):
         # We can't use isinstance here because igraph library might not be installed
         g = x
     else:
-        raise ValueError('Unable to process data of type {0}'.format(type(x)))
+        raise ValueError(f'Unable to process data of type {type(x)}')
 
     if (utils.is_iterable(a) and len(a) > 1) or \
        (utils.is_iterable(b) and len(b) > 1):
@@ -549,8 +548,7 @@ def find_main_branchpoint(x, reroot_to_soma=False):
     elif isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
     elif not isinstance(x, (core.TreeNeuron, core.NeuronList)):
-        raise TypeError(
-            'Must provide TreeNeuron/List, not "{0}"'.format(type(x)))
+        raise TypeError(f'Must provide TreeNeuron/List, not "{type(x)}"')
 
     g = graph.neuron2nx(x)
 
@@ -614,7 +612,7 @@ def split_into_fragments(x, n=2, min_size=None, reroot_to_soma=False):
                          ' neuron!' % x.shape[0])
             raise Exception
     else:
-        raise TypeError('Unable to process data of type "{0}"'.format(type(x)))
+        raise TypeError(f'Unable to process data of type "{type(x)}"')
 
     if n < 2:
         raise ValueError('Number of fragments must be at least 2.')
@@ -671,7 +669,7 @@ def split_into_fragments(x, n=2, min_size=None, reroot_to_soma=False):
 
     # Rename neurons
     for i, n in enumerate(nl):
-        n.neuron_name += '_{}'.format(i)
+        n.neuron_name += f'_{i}'
 
     return nl
 
@@ -715,7 +713,7 @@ def longest_neurite(x, n=1, reroot_to_soma=False, inplace=False):
         else:
             raise ValueError('Please provide only a single neuron.')
     else:
-        raise TypeError('Unable to process data of type "{0}"'.format(type(x)))
+        raise TypeError(f'Unable to process data of type "{type(x)}"')
 
     if isinstance(n, numbers.Number) and n < 1:
         raise ValueError('Number of longest neurites to preserve must be at '
@@ -734,7 +732,7 @@ def longest_neurite(x, n=1, reroot_to_soma=False, inplace=False):
     elif isinstance(n, slice):
         tn_to_preserve = [tn for s in segments[n] for tn in s]
     else:
-        raise TypeError('Unable to use N of type "{}"'.format(type(n)))
+        raise TypeError(f'Unable to use N of type "{type(n)}"')
 
     subset_neuron(x, tn_to_preserve, inplace=True)
 
@@ -782,20 +780,19 @@ def reroot_neuron(x, new_root, inplace=False):
         if x.shape[0] == 1:
             x = x.loc[0]
         else:
-            raise Exception('{0} neurons provided. Please provide only '
-                            'a single neuron!'.format(x.shape[0]))
+            raise ValueError(f'Please provide only a single neuron, not {x.shape[0]}')
     else:
-        raise Exception('Unable to process data of type "{0}"'.format(type(x)))
+        raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     # If new root is a tag, rather than a ID, try finding that node
     if isinstance(new_root, str):
         if new_root not in x.tags:
-            logger.error('#{}: Found no treenodes with tag {} - please double '
-                         'check!'.format(x.skeleton_id, new_root))
+            logger.error(f'#{x.uuid}: Found no treenodes with tag {new_root} '
+                         ' - please double check!')
             return
         elif len(x.tags[new_root]) > 1:
-            logger.error('#{}: Found multiple treenodes with tag {} - please '
-                         'double check!'.format(x.skeleton_id, new_root))
+            logger.error(f'#{x.uuid}: Found multiple treenodes with tag '
+                         f'{new_root} - please double check!')
             return
         else:
             new_root = x.tags[new_root][0]
@@ -963,7 +960,7 @@ def cut_neuron(x, cut_node, ret='both'):
             raise Exception('%i neurons provided. Please provide '
                             'only a single neuron!' % x.shape[0])
     else:
-        raise TypeError('Unable to process data of type "{0}"'.format(type(x)))
+        raise TypeError(f'Unable to process data of type "{type(x)}"')
 
     # Turn cut node into iterable
     if not utils.is_iterable(cut_node):
@@ -975,11 +972,11 @@ def cut_neuron(x, cut_node, ret='both'):
         # If cut_node is a tag (rather than an ID), try finding that node
         if isinstance(cn, str):
             if cn not in x.tags:
-                raise ValueError('#{}: Found no treenode with tag {} - please '
-                                 'double check!'.format(x.skeleton_id, cn))
+                raise ValueError(f'#{x.uuid}: Found no treenode with tag {cn}'
+                                 ' - please double check!')
             cn_ids += x.tags[cn]
         elif cn not in x.nodes.node_id.values:
-            raise ValueError('No treenode with ID "{}" found.'.format(cn))
+            raise ValueError(f'No treenode with ID "{cn}" found.')
         else:
             cn_ids.append(cn)
 
@@ -1179,8 +1176,7 @@ def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
         x = x[0]
 
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError('Can only process data of type "TreeNeuron", not\
-                         "{0}"'.format(type(x)))
+        raise TypeError(f'Expecte "TreeNeuron", not {type(x)}')
 
     if isinstance(subset, np.ndarray):
         pass
@@ -1189,8 +1185,8 @@ def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
     elif isinstance(subset, (nx.DiGraph, nx.Graph)):
         subset = subset.nodes
     else:
-        raise TypeError('Can only subset to list, set, numpy.ndarray or \
-                         networkx.Graph, not "{0}"'.format(type(subset)))
+        raise TypeError('Can only subset to list, set, numpy.ndarray or'
+                        f'networkx.Graph, not "{type(subset)}"')
 
     if prevent_fragments:
         subset, new_root = connected_subgraph(x, subset)
@@ -1281,7 +1277,7 @@ def node_label_sorting(x):
 
     """
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError('Need TreeNeuron, got "{0}"'.format(type(x)))
+        raise TypeError(f'Need TreeNeuron, got "{type(x)}"')
 
     if len(x.root) > 1:
         raise ValueError('Unable to process multi-root neurons!')

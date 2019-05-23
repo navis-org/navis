@@ -247,17 +247,14 @@ class Volume:
         return self.__repr__()
 
     def __repr__(self):
-        return '{0} "{1}" at {2}: {3} vertices, {4} faces'.format(type(self),
-                                                                  self.name,
-                                                                  hex(id(self)),
-                                                                  self.vertices.shape[0],
-                                                                  self.faces.shape[0])
+        return f'{type(self)} "{self.name}" at {hex(id(self))}: ' \
+               f'{self.vertices.shape[0]} vertices, {self.faces.shape[0]} faces'
 
     def __truediv__(self, other):
         """Implements division for vertex coordinates."""
         if isinstance(other, numbers.Number):
             # If a number, consider this an offset for coordinates
-            return self.__mul__(1/other)
+            return self.__mul__(1 / other)
         else:
             return NotImplemented
 
@@ -425,7 +422,7 @@ class Volume:
             from shapely.ops import cascaded_union, polygonize
             import shapely.geometry as geometry
         except ImportError:
-            raise ImportError('This function needs the <shapely> package.')
+            raise ImportError('This function needs the shapely package.')
 
         if view in['xy', 'yx']:
             coords = self.vertices[:, [0, 1]]
@@ -439,9 +436,7 @@ class Volume:
             if invert_y:
                 coords[:, 0] = coords[:, 0] * -1
         else:
-            raise ValueError(
-                'View {0} unknown. Please use either: {1}'.format(view,
-                                                                  accepted_views))
+            raise ValueError(f'View {view} unknown. Please use either: {accepted_views}')
 
         tri = scipy.spatial.Delaunay(coords)
         edges = set()

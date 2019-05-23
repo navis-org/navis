@@ -186,7 +186,7 @@ class Handler:
             logger.error('Unable to interpret data type ' + str(type(x)))
             raise AttributeError('Unable to add data of type' + str(type(x)))
 
-        print('Import done in {:.2f}s'.format(time.time() - start))
+        print(f'Import done in {time.time()-start:.2f}s')
 
         return
 
@@ -419,8 +419,8 @@ class Handler:
         loc = s[['x', 'z', 'y']].values * self.conversion * [1, 1, -1]
         rad = s.radius * self.conversion
 
-        mesh = bpy.data.meshes.new('Soma of #{0} - mesh'.format(x.skeleton_id))
-        soma_ob = bpy.data.objects.new('Soma of #{0}'.format(x.skeleton_id), mesh)
+        mesh = bpy.data.meshes.new(f'Soma of #{x.uuid} - mesh')
+        soma_ob = bpy.data.objects.new(f'Soma of #{x.uuid}', mesh)
 
         soma_ob.location = loc
 
@@ -432,7 +432,7 @@ class Handler:
 
         mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
 
-        soma_ob.name = 'Soma of #{0}'.format(x.skeleton_id)
+        soma_ob.name = f'Soma of #{x.uuid}'
         soma_ob['type'] = 'SOMA'
         soma_ob['catmaid_object'] = True
         soma_ob['skeleton_id'] = x.skeleton_id
@@ -866,7 +866,7 @@ class ObjectList:
             json.dump(data, outfile)
 
         logger.info('Selection saved as %s in %s' % (fname, os.getcwd()))
-        print('Selection saved as {0} in {1}'.format(fname, os.getcwd()))
+        print(f'Selection saved as {fname} in {os.getcwd()}')
 
 
 def CalcSphere(radius, nrPolar, nrAzimuthal):

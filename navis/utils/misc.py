@@ -97,7 +97,7 @@ def unpack_neurons(x, raise_on_error=True):
     elif isinstance(x, core.NeuronList):
         neurons += x.neurons
     elif raise_on_error:
-        raise TypeError('Unknown neuron format: "{}"'.format(type(x)))
+        raise TypeError(f'Unknown neuron format: "{type(x)}"')
 
     return neurons
 
@@ -115,7 +115,7 @@ def set_default_connector_colors(x):
     """
 
     if not isinstance(x, (dict, list, np.ndarray)):
-        raise TypeError('Expect dict, list or numpy array, got "{}"'.format(type(x)))
+        raise TypeError(f'Expect dict, list or numpy array, got "{type(x)}"')
 
     config.default_connector_colors = x
 

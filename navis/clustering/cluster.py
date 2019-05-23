@@ -104,7 +104,7 @@ def cluster_by_connectivity(cn, similarity='vertex_normalized',
                          matrix and contains wrappers e.g. to plot dendograms.
     """
     if not isinstance(cn, pd.DataFrame):
-        raise TypeError('Expected DataFrame, got "{}"'.format(type(cn)))
+        raise TypeError(f'Expected DataFrame, got "{type(cn)}"')
 
     if 'relation' not in cn.columns:
         cn = cn.copy()
@@ -633,7 +633,7 @@ class ClustResults:
 
         """
         if mat_type not in ClustResults._PERM_MAT_TYPES:
-            raise ValueError('Matrix type "{0}" unkown.'.format(mat_type))
+            raise ValueError(f'Matrix type "{mat_type}" unkown.')
 
         if mat_type == 'similarity':
             self.dist_mat = self._invert_mat(mat)
@@ -753,7 +753,7 @@ class ClustResults:
         # Save method in case we want to look it up later
         self.cluster_method = method
 
-        logger.info('Clustering done using method "{0}"'.format(method))
+        logger.info(f'Clustering done using method "{method}"')
 
     def plot_dendrogram(self, color_threshold=None, return_dendrogram=False,
                         labels=None, fig=None, **kwargs):
@@ -1073,9 +1073,11 @@ def _calc_sparseness(x, mode='activity_ratio'):
                     (3) "kurtosis"
 
     """
+    ALLOWED_MODES = ['activity_ratio', 'lifetime_sparseness', 'kurtosis']
 
-    if mode not in ['activity_ratio', 'lifetime_sparseness', 'kurtosis']:
-        raise ValueError('Unknown mode: {}'.format(mode))
+    if mode not in ALLOWED_MODES:
+        raise ValueError(f'Unknown mode: "{mode}". Allowed: '
+                         '{",".join(ALLOWED_MODES)}')
 
     if isinstance(x, pd.DataFrame):
         mat = x.as_matrix()
@@ -1084,7 +1086,7 @@ def _calc_sparseness(x, mode='activity_ratio'):
         mat = x
         names = list(range(x.shape[1]))
     else:
-        raise TypeError('Unable to process data of type {0}'.format(type(x)))
+        raise TypeError(f'Unable to process data of type "{type(x)}"')
 
     for i in range(mat.shape[1]):
         this_col = mat[:, i].T

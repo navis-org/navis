@@ -177,7 +177,7 @@ def data2py(data, **kwargs):
         elif 'dotprops' in cl(data):
             return dotprops2py(data)
         else:
-            logger.debug('Unable to convert R data of type "{}"'.format(cl(data)))
+            logger.debug(f'Unable to convert R data of type "{cl(data)}"')
             return 'Not converted'
     elif cl(data)[0] == 'integer':
         if not names(data):
@@ -198,8 +198,8 @@ def data2py(data, **kwargs):
         try:
             df = pandas2ri.ri2py_dataframe(data)
             return df
-        except:
-            logger.debug('Unable to convert R data of type "{}"'.format(cl(data)))
+        except BaseException:
+            logger.debug(f'Unable to convert R data of type "{cl(data)}"')
             return 'Not converted'
     elif cl(data)[0] == 'matrix':
         mat = np.array(data)
@@ -234,7 +234,7 @@ def data2py(data, **kwargs):
                     'in your original_data[2].')
         return df
     else:
-        logger.debug('Unable to convert R data of type "{}"'.format(cl(data)))
+        logger.debug(f'Unable to convert R data of type "{cl(data)}"')
         return 'Not converted'
 
 
@@ -259,18 +259,18 @@ def neuron2py(x, unit_conversion=False, add_attributes=None):
     TreeNeuron/NeuronList
     """
 
-    if not 'rpy2' in str(type(x)):
-        raise TypeError('This does not look like R object: "{}"'.format(type(x)))
+    if 'rpy2' not in str(type(x)):
+        raise TypeError(f'This does not look like R object: "{type(x)}"')
 
     if cl(x)[0] == 'neuronlist':
         nl = pd.DataFrame(data=[[data2py(e) for e in n] for n in x],
-                                   columns=list(x[0].names))
+                          columns=list(x[0].names))
     elif cl(x)[0] == 'neuron':
         nl = pd.DataFrame(data=[[e for e in x]],
                           columns=x.names)
         nl = nl.applymap(data2py)
     else:
-        raise TypeError('Must be neuron or neuronlist, got "{}"'.format(cl(x)[0]))
+        raise TypeError(f'Must be neuron or neuronlist, got "{cl(x)[0]}"')
 
     add_attributes = utils._make_iterable(add_attributes)
 
@@ -389,7 +389,7 @@ def neuron2r(x, unit_conversion=False, add_metadata=False):
         # Generate nat neuron - will reroot to soma (I think)
         return nat.as_neuron(swc, origin=soma_id, **meta)
     else:
-        raise TypeError('Unable to convert data of type "{}" into R neuron.'.format(type(x)))
+        raise TypeError(f'Unable to convert data of type "{type(x)}" into R neuron.')
 
 
 def dotprops2py(dp, subset=None):
@@ -492,7 +492,7 @@ def nblast_allbyall(x, micron_conversion, normalize=True, resample=1,
     elif isinstance(x, core.TreeNeuron):
         raise ValueError('You have to provide more than a single neuron.')
     else:
-        raise ValueError('Must provide NeuronList, not "{}"'.format(type(x)))
+        raise ValueError(f'Must provide NeuronList, not "{type(x)}"')
 
     # Make dotprops and resample
     xdp = nat.dotprops(rn, k=5, resample=resample)
@@ -918,7 +918,7 @@ def xform_brain(x, source, target, fallback=None, **kwargs):
     """
 
     if not isinstance(x, (core.TreeNeuron, np.ndarray, pd.DataFrame)):
-        raise TypeError('Unable to transform data of type "{}"'.format(type(x)))
+        raise TypeError(f'Unable to transform data of type "{type(x)}"')
 
     if isinstance(x, core.TreeNeuron):
         x = x.copy()
@@ -939,17 +939,17 @@ def xform_brain(x, source, target, fallback=None, **kwargs):
     if isinstance(source, str):
         source = robjects.r(source)
     else:
-        TypeError('Expected source of type str, got "{}"'.format(type(source)))
+        TypeError(f'Expected source of type str, got "{type(source)}"')
 
     if isinstance(target, str):
         target = robjects.r(target)
     else:
-        TypeError('Expected target of type str, got "{}"'.format(type(target)))
+        TypeError(f'Expected target of type str, got "{type(target)}"')
 
     xf = nat_templatebrains.xform_brain(x,
                                         sample=source,
                                         reference=target,
-                                        FallBackToAffine=fallback=='AFFINE',
+                                        FallBackToAffine=fallback == 'AFFINE',
                                         **kwargs)
 
     return np.array(xf)
@@ -972,7 +972,7 @@ def get_neuropil(x, template='FCWB', convert_nm=True):
     if not template.endswith('NP.surf'):
         template += 'NP.surf'
 
-    np = data2py(robjects.r('subset({}, "{}")'.format(x, template)))
+    np = data2py(robjects.r(f'subset({x}, "{template}")'))
 
     n_verts = np['Vertices'].shape[0]
     verts = np['Vertices'][['X', 'Y', 'Z']].values

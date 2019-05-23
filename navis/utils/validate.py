@@ -48,10 +48,10 @@ def validate_options(x, options, kwargs, raise_on_error=True):
 
     for o in options:
         for k in kwargs:
-            if isinstance(k,  str) and k.startswith(o):
-                d = k[k.index('_'): ]
+            if isinstance(k, str) and k.startswith(o):
+                d = k[k.index('_'):]
                 if not hasattr(x, d):
-                    msg = 'Option "{}" but {} has no "{}"'.format(k, type(x), d)
+                    msg = f'Option "{k}" but {type(x)} has no "{d}"'
                     if raise_on_error:
                         raise ValueError(msg)
                     else:
@@ -75,7 +75,7 @@ def validate_table(x, required, restrict=False, optional={}):
     """
 
     if not isinstance(x, pd.DataFrame):
-        raise TypeError('Need DataFrame, got "{}"'.format(type(x)))
+        raise TypeError(f'Need DataFrame, got "{type(x)}"')
 
     missing = set(required) - set(x.columns)
     if missing:

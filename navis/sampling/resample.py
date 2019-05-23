@@ -82,7 +82,7 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
             return core.NeuronList(results)
         return
     elif not isinstance(x, core.TreeNeuron):
-        raise TypeError('Unable to resample data of type "{}"'.format(type(x)))
+        raise TypeError(f'Unable to resample data of type "{type(x)}"')
 
     if not inplace:
         x = x.copy()
@@ -169,8 +169,8 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
         max_tn_id += len(new_ids)
 
     if errors:
-        logger.warning('{} ({:.0%}) segments skipped due to '
-                       'errors'.format(errors, errors / i))
+        logger.warning(f'{errors} ({errors/i:.0%}) segments skipped due to '
+                       'errors')
 
     # Add root node(s)
     root = x.root
