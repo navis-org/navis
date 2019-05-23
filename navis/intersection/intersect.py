@@ -19,7 +19,7 @@ import pandas as pd
 import numpy as np
 
 
-from .. import core, config
+from .. import core, config, graph
 
 from .ray import *
 from .convex import *
@@ -37,7 +37,8 @@ except ImportError:
 __all__ = sorted(['in_volume', 'intersection_matrix'])
 
 
-def in_volume(x, volume, inplace=False, mode='IN', prevent_fragments=False):
+def in_volume(x, volume, inplace=False, mode='IN', method='FAST',
+              prevent_fragments=False):
     """ Test if points/neurons are within a given volume.
 
     Important
@@ -69,6 +70,11 @@ def in_volume(x, volume, inplace=False, mode='IN', prevent_fragments=False):
     mode :              'IN' | 'OUT', optional
                         If 'IN', parts of the neuron that are within the volume
                         are kept.
+    method :            'FAST' | 'SAFE', optional
+                        Method used for raycasting. "FAST" will cast only a
+                        single ray to check for intersections. If you
+                        experience problems, set method to "SAFE" to use
+                        multiple rays (slower).
     prevent_fragments : bool, optional
                         Only relevant if input is Neuron/List: if True,
                         will add nodes required to keep neuron from
@@ -97,6 +103,14 @@ def in_volume(x, volume, inplace=False, mode='IN', prevent_fragments=False):
     if isinstance(volume, (list, dict, np.ndarray)):
         # Force into dict
         if not isinstance(volume, dict):
+            # Make sure all Volumes can be uniquely indexed
+            vnames = set([v.name for v in volume if isinstance(v, core.Volume)])
+            dupli = [v for v in set(vnames) if vnames.count(v) > 1]
+            if dupli:
+                raise ValueError('Duplicate Volume names detected: '
+                                 f'{",".join(dupli)}. Volume.name must be '
+                                 'unique.')
+
             temp = {v: v for v in volume if isinstance(v, str)}
             temp.update({v.name: v for v in volume if isinstance(v, core.Volume)})
             volume = temp
@@ -104,8 +118,8 @@ def in_volume(x, volume, inplace=False, mode='IN', prevent_fragments=False):
         data = dict()
         for v in config.tqdm(volume, desc='Volumes', disable=config.pbar_hide,
                              leave=config.pbar_leave):
-            data[v] = in_volume(x, volume[v], remote_instance=remote_instance,
-                                inplace=False, mode=mode)
+            data[v] = in_volume(x, volume[v], inplace=False, mode=mode,
+                                method=method)
         return data
 
     # Make copy if necessary
@@ -116,22 +130,24 @@ def in_volume(x, volume, inplace=False, mode='IN', prevent_fragments=False):
     if isinstance(x, pd.DataFrame):
         points = x[['x', 'y', 'z']].values
     elif isinstance(x, core.TreeNeuron):
-        in_v = in_volume(x.nodes[['x', 'y', 'z']].values, volume)
+        in_v = in_volume(x.nodes[['x', 'y', 'z']].values, volume,
+                         method=method)
 
         # If mode is OUT, invert selection
         if mode == 'OUT':
             in_v = ~np.array(in_v)
 
         x = graph.subset_neuron(x, x.nodes[in_v].node_id.values,
-                                      inplace=True,
-                                      prevent_fragments=prevent_fragments)
+                                inplace=True,
+                                prevent_fragments=prevent_fragments)
 
         if inplace is False:
             return x
         return
     elif isinstance(x, core.NeuronList):
         for n in x:
-            _ = in_volume(n, volume, inplace=True, mode=mode)
+            _ = in_volume(n, volume, inplace=True, mode=mode, method=method,
+                          prevent_fragments=prevent_fragments)
 
         if inplace is False:
             return x
@@ -143,14 +159,15 @@ def in_volume(x, volume, inplace=False, mode='IN', prevent_fragments=False):
         raise ValueError('Points must be array of shape (N,3).')
 
     if pyoctree:
-        return ray_in_volume(points, volume)
+        return ray_in_volume(points, volume,
+                             multi_ray=method.upper() == 'SAFE')
     else:
         logger.warning(
             'Package pyoctree not found. Falling back to ConvexHull.')
         return in_volume_convex(points, volume, approximate=False)
 
 
-def intersection_matrix(x, volumes, attr=None):
+def intersection_matrix(x, volumes, attr=None, method='FAST'):
     """ Computes intersection matrix between a set of neurons and a set of
     volumes.
 
@@ -162,6 +179,8 @@ def intersection_matrix(x, volumes, attr=None):
     attr :            str | None, optional
                       Attribute to return for intersected neurons (e.g.
                       'cable_length'). If None, will return TreeNeuron.
+    method :          'FAST' | 'SAFE', optional
+                      See :func:`navis.intersect.in_volume`.
 
     Returns
     -------
@@ -185,8 +204,7 @@ def intersection_matrix(x, volumes, attr=None):
         if not isinstance(v, core.Volume):
             raise TypeError(f'Wrong data type found in volumes: "{type(v)}"')
 
-    data = in_volume(x, volumes, inplace=False, mode='IN',
-                     remote_instance=remote_instance)
+    data = in_volume(x, volumes, inplace=False, mode='IN', method=method)
 
     if not attr:
         df = pd.DataFrame([[n for n in data[v]] for v in data],
@@ -198,6 +216,3 @@ def intersection_matrix(x, volumes, attr=None):
                           columns=x.skeleton_id)
 
     return df
-
-
-
