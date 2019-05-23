@@ -66,7 +66,9 @@ def validate_table(x, required, restrict=False, optional={}):
     x :         pd.DataFrame
                 DataFrame to validate.
     required :  iterable
-                Columns to check for.
+                Columns to check for. If column is given as tuple (e.g.
+                ``('type', 'relation', 'label')`` one of these columns
+                has to exist)
     restrict :  bool, optional
                 If True, will return only ``required`` columns.
     optional :  dict, optional
@@ -77,12 +79,20 @@ def validate_table(x, required, restrict=False, optional={}):
     if not isinstance(x, pd.DataFrame):
         raise TypeError(f'Need DataFrame, got "{type(x)}"')
 
-    missing = set(required) - set(x.columns)
-    if missing:
-        raise ValueError('Missing required columns: {}'.format(','.join(missing)))
+    for r in required:
+        if isinstance(r, (tuple, list)):
+            if not any([c in x.columns for c in r]):
+                raise ValueError('Table must contain either of these columns'
+                                 f' {", ".join(r)}')
+        else:
+            if r not in x.columns:
+                raise ValueError(f'Table missing required column: {r}')
 
     if restrict:
-        x = x[required]
+        flat_req = [r for r in required if not isinstance(r, (list, tuple))]
+        flat_req += [r for l in required if isinstance(l, (list, tuple)) for r in l]
+
+        x = x[[r for r in flat_req if r in x.columns]]
 
     for c, v in optional.items():
         if c not in x.columns:
