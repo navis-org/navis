@@ -16,8 +16,8 @@ with open('requirements.txt') as f:
     requirements = [l for l in requirements if not l.startswith('#')]
 
 LONG_DESCRIPTION = """
-**NAVis** is a Python 3 library for **N**euron **A**nalysis and
-**Vis**ualization with focus on hierarchical tree-like neuron data.
+NAVis is a Python 3 library for Neuron Analysis and
+Visualization with focus on hierarchical tree-like neuron data.
 
 Features:
 
@@ -26,6 +26,8 @@ Features:
   - clustering methods (e.g. by connectivity or synapse placement)
   - R bindings (e.g. for libraries nat, rcatmaid, elmr)
   - interfaces with Blender 3D and Cytoscape
+
+Check out the `Documentation <http://navis.readthedocs.io/>`_.
 """
 
 setup(
