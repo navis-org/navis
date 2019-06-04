@@ -273,7 +273,7 @@ class Viewer:
     @show_legend.setter
     def show_legend(self, v):
         if not isinstance(v, bool):
-            raise TypeError('Need boolean, got "{}"'.format(type(v)))
+            raise TypeError(f'Need boolean, got "{type(v)}"')
 
         if v != self.show_legend:
             self.__show_legend = v
@@ -308,7 +308,7 @@ class Viewer:
     @picking.setter
     def picking(self, v):
         if not isinstance(v, bool):
-            raise TypeError('Need bool, got {}'.format(type(v)))
+            raise TypeError(f'Need bool, got {type(v)}')
 
         self.__picking = v
 
@@ -670,8 +670,7 @@ class Viewer:
         elif isinstance(c, dict):
             cmap = c
         else:
-            raise TypeError(
-                'Unable to use colors of type "{}"'.format(type(c)))
+            raise TypeError(f'Unable to use colors of type "{type(c)}"')
 
         for n in self.neurons:
             if n in cmap:
@@ -705,8 +704,7 @@ class Viewer:
         elif isinstance(a, dict):
             amap = a
         else:
-            raise TypeError(
-                'Unable to use colors of type "{}"'.format(type(a)))
+            raise TypeError(f'Unable to use colors of type "{type(a)}"')
 
         for n in self.neurons:
             if n in amap:
@@ -936,7 +934,7 @@ class Viewer:
         elif view == 'YZ':
             q = Quaternion(w=.6, x=0.5, y=0.5, z=-.4)
         else:
-            raise TypeError('Unable to set view from {}'.format(type(view)))
+            raise TypeError(f'Unable to set view from {type(view)}')
 
         self.camera3d._quaternion = q
         # This is necessary to force a redraw
