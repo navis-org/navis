@@ -27,7 +27,7 @@ from .iterables import *
 logger = config.logger
 
 
-def eval_conditions(x: Iterable) -> Tuple[List[bool], List[bool]]:
+def eval_conditions(x):
     """ Splits list of strings into positive (no ~) and negative (~) conditions
     """
 
