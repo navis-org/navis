@@ -86,31 +86,25 @@ def network2nx(x, threshold=1, group_by=None):
     return g
 
 
-def network2igraph(x, remote_instance=None, threshold=1):
+def network2igraph(x, threshold=1):
     """ Generates iGraph graph for neuron connectivity.
 
     Requires iGraph to be installed.
 
     Parameters
     ----------
-    x
-                        Catmaid Neurons as:
-                         1. list of skeleton IDs (int or str)
-                         2. list of neuron names (str, exact match)
-                         3. annotation(s): e.g. 'annotation:PN right'
-                         4. NeuronList object
+    x :                 pandas.DataFrame
+                        Connectivity information:
+                         1. List of edges (columns: 'source', 'target', 'weight')
                          5. Adjacency matrix (pd.DataFrame, rows=sources,
                             columns=targets)
-    remote_instance :   CATMAID instance, optional
-                        Either pass directly to function or define globally
-                        as 'remote_instance'.
     threshold :         int, optional
                         Connections weaker than this will be excluded .
 
     Returns
     -------
     igraph.Graph(directed=True)
-                        NetworkX representation of the network.
+                        iGraph representation of the network.
 
     Examples
     --------
@@ -131,44 +125,41 @@ def network2igraph(x, remote_instance=None, threshold=1):
     if igraph is None:
         raise ImportError('igraph must be installed to use this function.')
 
-    if isinstance(x, (core.NeuronList, list, np.ndarray, str)):
-        remote_instance = utils._eval_remote_instance(remote_instance)
-        skids = utils.eval_skids(x, remote_instance=remote_instance)
+    if isinstance(x, pd.DataFrame):
+        miss = [c not in x.columns for c in ['source', 'target', 'weight']]
+        if all(miss):
+            edges = x[['source', 'target', 'weight']].values
+        else:
+            edges = x.reset_index(drop=False).melt(id_vars='index').values
+    elif isinstance(x, (list, np.ndarray)):
+        if any([len(e) != 3 for e in x]):
+            raise ValueError('Edges must be [source, target, weight]')
+        edges = x
 
-        indices = {int(s): i for i, s in enumerate(skids)}
+    edges = np.array(edges)
 
-        # Fetch edges
-        edges = fetch.get_edges(skids, remote_instance=remote_instance)
+    if threshold:
+        edges = edges[edges[:, 2] >= threshold]
 
-        # Reformat into igraph format
-        edges_by_index = [[indices[e.source_skid], indices[e.target_skid]]
-                          for e in edges[edges.weight >= threshold].itertuples()]
-        weight = edges[edges.weight >= threshold].weight.tolist()
-    elif isinstance(x, pd.DataFrame):
-        skids = list(set(x.columns.tolist() + x.index.tolist()))
-        # Generate edge list
-        edges = [[i, j] for i in x.index.tolist()
-                 for j in x.columns.tolist() if x.loc[i, j] >= threshold]
-        edges_by_index = [
-            [skids.index(e[0]), skids.index(e[1])] for e in edges]
-        weight = [x.loc[i, j] for i in range(x.shape[0]) for j in range(
-            x.shape[1]) if x.loc[i, j] >= threshold]
-    else:
-        raise ValueError(f'Unable to process data of type "{type(x)}"')
+    names = list(set(np.array(edges)[:, 0]) & set(np.array(edges)[:, 1]))
+
+    indices = {int(s): i for i, s in enumerate(names)}
+
+    edges_by_index = [[names.index(e[0]), names.index(e[1])] for e in edges]
 
     # Generate igraph and assign custom properties
     g = igraph.Graph(directed=True)
-    g.add_vertices(len(skids))
+    g.add_vertices(len(names))
     g.add_edges(edges_by_index)
 
-    g.vs['node_id'] = skids
+    g.vs['node_id'] = names
     # g.vs['neuron_name'] = g.vs['label'] = neuron_names
-    g.es['weight'] = weight
+    g.es['weight'] = edges[:, 2]
 
     return g
 
 
-def neuron2nx(x):
+def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
     """ Turn TreeNeuron into an NetworkX DiGraph.
 
     Parameters
