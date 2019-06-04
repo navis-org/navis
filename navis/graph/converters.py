@@ -15,6 +15,7 @@ import numpy as np
 import networkx as nx
 import math
 import pandas as pd
+import scipy.spatial
 
 try:
     import igraph
@@ -383,9 +384,6 @@ def neuron2KDTree(x, tree_type='c', data='treenodes', **kwargs):
     ``scipy.spatial.cKDTree`` or ``scipy.spatial.KDTree``
 
     """
-
-    # Rarely used, so import in function
-    import scipy.spatial
 
     if tree_type not in ['c', 'normal']:
         raise ValueError('"tree_type" needs to be either "c" or "normal"')
