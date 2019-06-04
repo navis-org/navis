@@ -858,7 +858,7 @@ class TreeNeuron:
 
         # Set logger to warning only - otherwise you might get tons of
         # "skeleton data not available" messages
-        l = logger.level
+        lvl = logger.level
         logger.setLevel('WARNING')
 
         # Look up these values without requesting them
@@ -867,7 +867,7 @@ class TreeNeuron:
         s = pd.Series([getattr(self, at, 'NA') for at in props],
                       index=props)
 
-        logger.setLevel(l)
+        logger.setLevel(lvl)
         return s
 
     def to_swc(self, filename=None, **kwargs):
