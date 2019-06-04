@@ -113,8 +113,8 @@ class TreeNeuron:
             self.nodes = x
         elif isinstance(x, nx.Graph):
             self.nodes = graph.nx2neuron(x)
-        elif isinstance(x, io.BufferedIOBase) or isinstance(x, str):
-            x = utils.from_swc(x)
+        elif isinstance(x, BufferedIOBase) or isinstance(x, str):
+            x = io.from_swc(x)  # type: ignore
             self.__dict__.update(x.__dict__)
         elif isinstance(x, TreeNeuron):
             self.__dict__.update(x.copy().__dict__)
