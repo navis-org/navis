@@ -217,17 +217,11 @@ class TreeNeuron:
         return self._simple
 
     @property
-    def soma(self):
-        """ Search for soma and return node ID of soma.
-
-        Can either be a function that accepts a TreeNeuron as input or
-        set to a fix value. Default is ``navis.utils.find_soma``.
-
-        Returns
-        -------
-        node_id
-            Returns node ID(s) if soma was found, ``None`` if no soma.
-
+    def soma(self) -> Optional[Union[str, int]]:
+        """ Search for soma and return node ID(s) of soma or ``None`` if no
+        soma - You can set this ``.soma`` property to either a function that
+        accepts a TreeNeuron as input or a fix value - Default is
+        ``navis.utils.find_soma``.
         """
 
         if hasattr(self._soma, '__call__'):
