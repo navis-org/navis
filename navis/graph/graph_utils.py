@@ -1242,7 +1242,9 @@ def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
     if clear_temp:
         x._clear_temp_attr(exclude=['graph', 'igraph'])
 
-    return x
+    if not inplace:
+        return x
+    return None
 
 
 def generate_list_of_childs(x):
