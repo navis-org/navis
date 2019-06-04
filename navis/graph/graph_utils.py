@@ -787,13 +787,12 @@ def reroot_neuron(x, new_root, inplace=False):
     # If new root is a tag, rather than a ID, try finding that node
     if isinstance(new_root, str):
         if new_root not in x.tags:
-            logger.error(f'#{x.uuid}: Found no treenodes with tag {new_root} '
-                         ' - please double check!')
-            return
+            raise ValueError(f'#{x.uuid}: Found no treenodes with tag {new_root}'
+                             ' - please double check!')
+
         elif len(x.tags[new_root]) > 1:
-            logger.error(f'#{x.uuid}: Found multiple treenodes with tag '
-                         f'{new_root} - please double check!')
-            return
+            raise ValueError(f'#{x.uuid}: Found multiple treenodes with tag '
+                             f'{new_root} - please double check!')
         else:
             new_root = x.tags[new_root][0]
 
