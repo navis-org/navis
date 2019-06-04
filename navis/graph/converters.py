@@ -53,37 +53,25 @@ def network2nx(x, threshold=1, group_by=None):
 
     """
 
-    if isinstance(x, (core.NeuronList, list, np.ndarray, str)):
-        remote_instance = utils._eval_remote_instance(remote_instance)
-        skids = utils.eval_skids(x, remote_instance=remote_instance)
+    if isinstance(x, pd.DataFrame):
+        miss = [c not in x.columns for c in ['source', 'target', 'weight']]
+        if all(miss):
+            edges = x[['source', 'target', 'weight']].values
+        else:
+            edges = x.reset_index(drop=False).melt(id_vars='index').values
+    elif isinstance(x, (list, np.ndarray)):
+        if any([len(e) != 3 for e in x]):
+            raise ValueError('Edges must be [source, target, weight]')
+        edges = x
 
-        # Fetch edges
-        edges = fetch.get_edges(skids, remote_instance=remote_instance)
-        # Reformat into networkx format
-        edges = [[str(e.source_skid), str(e.target_skid), {'weight': e.weight}]
-                 for e in edges[edges.weight >= threshold].itertuples()]
-    elif isinstance(x, pd.DataFrame):
-        # We have to account for the fact that some might not be skids
-        skids = []
-        for s in list(set(x.columns.tolist() + x.index.tolist())):
-            try:
-                skids.append(int(s))
-            except BaseException:
-                pass
-        # Generate edge list
-        edges = [[str(s), str(t), {'weight': x.loc[s, t]}]
-                 for s in x.index.values for t in x.columns.values if x.loc[s, t] >= threshold]
-    else:
-        raise ValueError(f'Unable to process data of type "{type(x)}"')
+    edges = np.array(edges)
 
-    # Generate node dictionary
-    names = fetch.get_names(skids, remote_instance=remote_instance)
-    nodes = [[str(s), {'neuron_name': names.get(s, s)}] for s in skids]
+    if threshold:
+        edges = edges[edges[:, 2] >= threshold]
 
     # Generate graph and assign custom properties
     g = nx.DiGraph()
-    g.add_nodes_from(nodes)
-    g.add_edges_from(edges)
+    g.add_weighted_edges_from(edges)
 
     # Group nodes
     if group_by:
