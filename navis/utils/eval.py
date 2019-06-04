@@ -27,11 +27,11 @@ from .iterables import *
 logger = config.logger
 
 
-def _eval_conditions(x):
+def eval_conditions(x: Iterable) -> Tuple[List[bool], List[bool]]:
     """ Splits list of strings into positive (no ~) and negative (~) conditions
     """
 
-    x = _make_iterable(x, force_type=str)
+    x = make_iterable(x, force_type=str)
 
     return [i for i in x if not i.startswith('~')], [i[1:] for i in x if i.startswith('~')]
 

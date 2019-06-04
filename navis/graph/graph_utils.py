@@ -502,8 +502,8 @@ def dist_between(x, a, b):
         raise ValueError('Can only process single treenodes. Use '
                          'navis.geodesic_matrix instead.')
 
-    a = utils._make_non_iterable(a)
-    b = utils._make_non_iterable(b)
+    a = utils.make_non_iterable(a)
+    b = utils.make_non_iterable(b)
 
     try:
         _ = int(a)

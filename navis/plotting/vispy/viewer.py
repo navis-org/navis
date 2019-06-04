@@ -619,7 +619,7 @@ class Viewer:
     def toggle_neurons(self, n):
         """ Toggle neuron(s) visibility. """
 
-        n = utils._make_iterable(n)
+        n = utils.make_iterable(n)
 
         if False not in [isinstance(u, uuid.UUID) for u in n]:
             obj = self._neuron_obj

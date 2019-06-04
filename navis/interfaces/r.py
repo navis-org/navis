@@ -272,7 +272,7 @@ def neuron2py(x, unit_conversion=False, add_attributes=None):
     else:
         raise TypeError(f'Must be neuron or neuronlist, got "{cl(x)[0]}"')
 
-    add_attributes = utils._make_iterable(add_attributes)
+    add_attributes = utils.make_iterable(add_attributes)
 
     # Now that we (should) have all data in Python, we need to extract
     # information relevant to create a `navis.TreeNeuron`

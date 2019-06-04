@@ -44,7 +44,7 @@ def validate_options(x, options, kwargs, raise_on_error=True):
     None
     """
 
-    options = _make_iterable(options)
+    options = make_iterable(options)
 
     for o in options:
         for k in kwargs:
