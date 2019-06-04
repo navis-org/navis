@@ -101,8 +101,8 @@ ul.dropdown-menu {
 *[id]:before {
   display: block;
   content: " ";
-  margin-top: -75px;
-  height: 75px;
+  margin-top: -60px;
+  height: 60px;
   visibility: hidden;
 }
 
@@ -142,4 +142,15 @@ tbody tr:nth-child(odd) {
 
 tbody tr:hover {
     background: rgba(66, 165, 245, 0.2);
+}
+
+.container-full-width {
+    padding: 0 15px !important; /* Offset .row's margin */
+    width: 100%;
+}
+
+/* This prevents default style limit max width*/
+div.body {
+    min-width: 450px;
+    max-width: 1200px !important;
 }
