@@ -217,7 +217,7 @@ class TreeNeuron:
         return self._simple
 
     @property
-    def soma(self) -> Optional[Union[str, int]]:
+    def soma(self):
         """ Search for soma and return node ID(s) of soma or ``None`` if no
         soma - You can set this ``.soma`` property to either a function that
         accepts a TreeNeuron as input or a fix value - Default is
