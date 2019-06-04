@@ -1,11 +1,11 @@
 **NAVis** - **N**\ euron **A**\ nalysis and **Vis**\ ualization
-=========================================
+===============================================================
 
 .. raw:: html
 
    <div class="container-fluid">
       <div class="row">
-         <div class="col-md-6">
+         <div class="col-lg-6">
 
 This package is a generalization of `Pymaid <https://github.com/schlegelp/PyMaid>`_
 and is currently being refactored - I recommend watching the
@@ -29,7 +29,7 @@ If you have any questions, please contact me: pms70@cam.ac.uk
 .. raw:: html
 
          </div>
-         <div class="col-md-3">
+         <div class="col-lg-3">
             <div class="panel panel-default">
                <div class="panel-heading">
                   <h3 class="panel-title">Contents</h3>
@@ -52,7 +52,7 @@ If you have any questions, please contact me: pms70@cam.ac.uk
                </div>
             </div>
          </div>
-         <div class="col-md-3">
+         <div class="col-lg-3">
             <div class="panel panel-default">
                <div class="panel-heading">
                   <h3 class="panel-title">Features</h3>
