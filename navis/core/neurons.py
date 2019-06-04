@@ -117,7 +117,7 @@ class TreeNeuron:
             x = utils.from_swc(x)
             self.__dict__.update(x.__dict__)
         elif isinstance(x, TreeNeuron):
-            self.__dict__.update(x.__dict__)
+            self.__dict__.update(x.copy().__dict__)
         else:
             raise TypeError('Unable to construct TreeNeuron from data '
                             'type %s' % str(type(x)))
