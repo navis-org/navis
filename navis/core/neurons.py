@@ -104,7 +104,11 @@ class TreeNeuron:
         Parameters
         ----------
         x
-                        Data to construct neuron from.
+                        Data to construct neuron from:
+                         - `pandas.DataFrame` is expected to be SWC table
+                         - `str` is treated as SWC file name
+                         - `BufferedIOBase` e.g. from `open(filename)`
+                         - `networkx.DiGraph` parsed by `navis.nx2neuron`
         **metadata
                         Any additional data to attach to neuron.
         """
