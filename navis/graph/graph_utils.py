@@ -618,7 +618,7 @@ def split_into_fragments(x, n=2, min_size=None, reroot_to_soma=False):
         raise ValueError('Number of fragments must be at least 2.')
 
     if reroot_to_soma and x.soma:
-        x.reroot(x.soma)
+        x.reroot(x.soma, inplace=True)
 
     # Collect treenodes of the n longest neurites
     tn_to_preserve = []
