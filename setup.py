@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 import re
 
-VERSIONFILE = "navis/__init__.py"
+VERSIONFILE = "navis/__version__.py"
 verstrline = open(VERSIONFILE, "rt").read()
 VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
 mo = re.search(VSRE, verstrline, re.M)
