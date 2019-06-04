@@ -69,7 +69,7 @@ def example_neurons(n=None, source='swc'):
     """
 
     if not isinstance(n, (int, type(None))):
-        raise TypeError(f'Expected int or None, got "{type(x)}"')
+        raise TypeError(f'Expected int or None, got "{type(n)}"')
 
     if source == 'gml':
         graphs = [nx.read_gml(os.path.join(gml_path, g)) for g in gml[:n]]
