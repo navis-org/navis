@@ -3,6 +3,9 @@
 API Reference
 =============
 
+Unless otherwise stated below functions are available upon top level import,
+i.e. after ``import navis``.
+
 .. _api_neurons:
 
 TreeNeuron/List
@@ -11,8 +14,8 @@ TreeNeuron/List
 .. autosummary::
     :toctree: generated/
 
-    navis.TreeNeuron
-    navis.NeuronList
+    ~navis.TreeNeuron
+    ~navis.NeuronList
 
 TreeNeuron/List methods
 --------------------------
@@ -20,18 +23,18 @@ TreeNeuron/List methods
 .. autosummary::
     :toctree: generated/
 
-    navis.TreeNeuron.plot3d
-    navis.TreeNeuron.plot2d
-    navis.TreeNeuron.prune_by_strahler
-    navis.TreeNeuron.prune_by_volume
-    navis.TreeNeuron.prune_distal_to
-    navis.TreeNeuron.prune_proximal_to
-    navis.TreeNeuron.prune_by_longest_neurite
-    navis.TreeNeuron.reroot
-    navis.TreeNeuron.summary
-    navis.TreeNeuron.resample
-    navis.TreeNeuron.downsample
-    navis.TreeNeuron.copy
+    ~navis.TreeNeuron.plot3d
+    ~navis.TreeNeuron.plot2d
+    ~navis.TreeNeuron.prune_by_strahler
+    ~navis.TreeNeuron.prune_by_volume
+    ~navis.TreeNeuron.prune_distal_to
+    ~navis.TreeNeuron.prune_proximal_to
+    ~navis.TreeNeuron.prune_by_longest_neurite
+    ~navis.TreeNeuron.reroot
+    ~navis.TreeNeuron.summary
+    ~navis.TreeNeuron.resample
+    ~navis.TreeNeuron.downsample
+    ~navis.TreeNeuron.copy
 
 NeuronList-specific
 --------------------------
@@ -200,6 +203,9 @@ Import/Export
 Blender API
 +++++++++++
 
+Not imported at top level! Must be imported explicitly:
+``from navis.interfaces import blender``
+
 Objects
 -------
 .. autosummary::
@@ -246,6 +252,10 @@ Selections
 
 Cytoscape API
 +++++++++++++
+
+Not imported at top level! Must be imported explicitly:
+``from navis.interfaces import cytoscape``
+
 .. autosummary::
     :toctree: generated/
 
@@ -258,6 +268,9 @@ Cytoscape API
 
 R interface (rMAID)
 +++++++++++++++++++
+
+Not imported at top level! Must be imported explicitly:
+``from navis.interfaces import r``
 
 .. autosummary::
     :toctree: generated/
