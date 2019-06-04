@@ -193,18 +193,20 @@ def intersection_matrix(x, volumes, attr=None, method='FAST'):
     if not isinstance(x, core.NeuronList):
         raise TypeError(f'x must be Neuron/List, not "{type(x)}"')
 
-    if isinstance(volumes, list):
-        volumes = {v.name: v for v in volumes}
-
     if not isinstance(volumes, (list, dict)):
         raise TypeError('Volumes must be given as list or dict, not '
                         f'"{type(volumes)}"')
 
-    for v in volumes.values():
+    if isinstance(volumes, list):
+        volumes_dict = {v.name: v for v in volumes}
+    else:
+        volumes_dict = volumes
+
+    for v in volumes_dict.values():
         if not isinstance(v, core.Volume):
             raise TypeError(f'Wrong data type found in volumes: "{type(v)}"')
 
-    data = in_volume(x, volumes, inplace=False, mode='IN', method=method)
+    data = in_volume(x, volumes_dict, inplace=False, mode='IN', method=method)
 
     if not attr:
         df = pd.DataFrame([[n for n in data[v]] for v in data],
