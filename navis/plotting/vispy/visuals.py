@@ -31,7 +31,8 @@ with warnings.catch_warnings():
 
 from ... import core, config, utils
 from ..colors import *
-from ..external.tube import Tube
+from ..plot_utils import segments_to_coords
+from ..external.new_visuals import MeshNeuron
 
 __all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy',
            'points2vispy']
@@ -42,7 +43,7 @@ logger = config.logger
 def volume2vispy(x, **kwargs):
     """ Converts Volume(s) to vispy visuals."""
 
-    # Must not use _make_iterable here as this will turn into list of keys!
+    # Must not use make_iterable here as this will turn into list of keys!
     if not isinstance(x, (list, np.ndarray)):
         x = [x]
 
@@ -157,9 +158,9 @@ def neuron2vispy(x, **kwargs):
                                    kwargs.get('colors', None)))
 
     colormap, _, _ = prepare_colormap(colors,
-                                    x, None,
-                                    use_neuron_color=kwargs.get('use_neuron_color', False),
-                                    color_range=1)
+                                      x, None,
+                                      use_neuron_color=kwargs.get('use_neuron_color', False),
+                                      color_range=1)
 
     syn_lay = {
         0: {
@@ -238,7 +239,7 @@ def neuron2vispy(x, **kwargs):
                 neuron_color = np.insert(neuron_color, 3, alpha, axis=1)
 
             if segments:
-                if not kwargs.get('use_radius', False):
+                if not kwargs.get('radius', False):
                     # Create line plot from segments.
                     t = scene.visuals.Line(pos=np.array(segments),
                                            color=list(neuron_color),
@@ -262,28 +263,29 @@ def neuron2vispy(x, **kwargs):
 
                     visuals.append(t)
                 else:
-                    coords = _segments_to_coords(neuron,
-                                                 neuron.segments,
-                                                 modifier=(1, 1, 1))
+                    coords = segments_to_coords(neuron,
+                                                neuron.segments,
+                                                modifier=(1, 1, 1))
                     nodes = neuron.nodes.set_index('node_id')
-                    for s, c in zip(neuron.segments, coords):
-                        radii = nodes.loc[s, 'radius'].values.astype(float)
-                        radii[radii <= 100] = 100
-                        t = Tube(c.astype(float),
-                                 radius=radii,
-                                 color=neuron_color,
-                                 tube_points=5,)
 
-                        # Add custom attributes
-                        t.unfreeze()
-                        t._object_type = 'neuron'
-                        t._neuron_part = 'neurites'
-                        t._uuid = neuron.uuid
-                        t._name = str(getattr(neuron, 'name', neuron.uuid))
-                        t._object_id = object_id
-                        t.freeze()
+                    radii = [nodes.loc[s, 'radius'].values.astype(float) for s in neuron.segments]
 
-                        visuals.append(t)
+                    t = MeshNeuron(coords,
+                                   radii=radii,
+                                   color=neuron_color,
+                                   use_normals=kwargs.get('use_normals', True),
+                                   tube_points=kwargs.get('tube_points', 5))
+
+                    # Add custom attributes
+                    t.unfreeze()
+                    t._object_type = 'neuron'
+                    t._neuron_part = 'neurites'
+                    t._uuid = neuron.uuid
+                    t._name = str(getattr(neuron, 'name', neuron.uuid))
+                    t._object_id = object_id
+                    t.freeze()
+
+                    visuals.append(t)
 
             if kwargs.get('by_strahler', False) or \
                kwargs.get('by_confidence', False):

@@ -193,7 +193,7 @@ def plot3d_vispy(x, **kwargs):
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
                'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height',
-               'auto_limits', 'autolimits', 'viewer',
+               'auto_limits', 'autolimits', 'viewer', 'radius',
                'clear', 'clear3d', 'connectors', 'connectors_only'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
