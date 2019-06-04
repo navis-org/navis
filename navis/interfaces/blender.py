@@ -24,7 +24,6 @@ import json
 import os
 import time
 import math
-import mathutils
 
 import pandas as pd
 import numpy as np
@@ -36,6 +35,7 @@ logger = config.logger
 try:
     import bpy
     import bmesh
+    import mathutils
 except ImportError:
     logger.error('Unable to load Blender API - this module only works from '
                  'within Blender!')
