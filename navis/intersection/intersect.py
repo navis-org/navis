@@ -104,21 +104,22 @@ def in_volume(x, volume, inplace=False, mode='IN', method='FAST',
         # Force into dict
         if not isinstance(volume, dict):
             # Make sure all Volumes can be uniquely indexed
-            vnames = set([v.name for v in volume if isinstance(v, core.Volume)])
+            vnames = [v.name for v in volume if isinstance(v, core.Volume)]
             dupli = [v for v in set(vnames) if vnames.count(v) > 1]
             if dupli:
                 raise ValueError('Duplicate Volume names detected: '
                                  f'{",".join(dupli)}. Volume.name must be '
                                  'unique.')
 
-            temp = {v: v for v in volume if isinstance(v, str)}
-            temp.update({v.name: v for v in volume if isinstance(v, core.Volume)})
-            volume = temp
+            volume = {v.name: v for v in volume if isinstance(v, core.Volume)}
 
         data = dict()
         for v in config.tqdm(volume, desc='Volumes', disable=config.pbar_hide,
                              leave=config.pbar_leave):
-            data[v] = in_volume(x, volume[v], inplace=False, mode=mode,
+            data[v] = in_volume(x,
+                                volume=volume[v],
+                                inplace=False,
+                                mode=mode,
                                 method=method)
         return data
 
