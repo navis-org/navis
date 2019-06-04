@@ -1006,9 +1006,9 @@ def cut_neuron(x, cut_node, ret='both'):
         else:
             cut = _cut_networkx(to_cut, cn, ret)
 
-        # If ret != 'both', we will get only a single neuron
-        if not utils.is_iterable(cut):
-            cut = [cut]
+        # If ret != 'both', we will get only a single neuron - therefore
+        # make sure cut is iterable
+        cut = utils.make_iterable(cut)
 
         # Add results back to results at same index, proximal first
         for c in cut[::-1]:
