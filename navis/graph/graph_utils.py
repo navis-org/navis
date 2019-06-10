@@ -451,7 +451,37 @@ def geodesic_matrix(x, tn_ids=None, directed=False, weight='weight'):
                               default_fill_value=float('inf'))
 
 
-def dist_between(x, a, b):
+def segment_length(x: 'core.TreeNeuron',
+                   segment: List[int]) -> float:
+    """ Get length of a linear segment.
+
+    This function is superfast but has no checks - you must provide a
+    valid segment.
+
+    Parameters
+    ----------
+    x :         TreeNeuron
+                Neuron to which this segment belongs.
+    segment :   list of ints
+                Linear segment as list of node IDs ordered child->parent.
+
+    Returns
+    -------
+    length :    float
+
+    See Also
+    --------
+    :func:`navis.dist_between`
+        If you only know start and end points of the segment.
+    """
+    dist = np.array([x.graph.edges[(c, p)]['weight']
+                     for c, p in zip(segment[:-1], segment[1:])])
+    return sum(dist)
+
+
+def dist_between(x: 'core.NeuronObject',
+                 a: int,
+                 b: int) -> float:
     """ Returns the geodesic distance between treenodes in nanometers.
 
     Parameters
@@ -472,6 +502,8 @@ def dist_between(x, a, b):
         Check if a node A is distal to node B.
     :func:`~navis.geodesic_matrix`
         Get all-by-all geodesic distance matrix.
+    :func:`navis.segment_length`
+        Much faster if you have a linear segment and know all node IDs.
 
     """
 
