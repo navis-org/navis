@@ -30,6 +30,7 @@ TreeNeuron/List methods
     ~navis.TreeNeuron.prune_distal_to
     ~navis.TreeNeuron.prune_proximal_to
     ~navis.TreeNeuron.prune_by_longest_neurite
+    ~navis.TreeNeuron.prune_twigs
     ~navis.TreeNeuron.reroot
     ~navis.TreeNeuron.summary
     ~navis.TreeNeuron.resample
@@ -103,6 +104,7 @@ Manipulation
     navis.split_into_fragments
     navis.longest_neurite
     navis.prune_by_strahler
+    navis.prune_twigs
     navis.subset_neuron
     navis.average_neurons
     navis.despike_neuron
@@ -139,6 +141,7 @@ Distances
     navis.geodesic_matrix
     navis.distal_to
     navis.dist_between
+    navis.segment_length
 
 Intersection
 ------------
