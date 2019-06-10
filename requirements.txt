@@ -16,6 +16,7 @@ scipy==1.1.0
 six==1.11.0
 tqdm==4.28.1
 vispy==0.5.3
+typing-extensions
 
 # Below are optional dependencies
 # py2cytoscape==0.7.0
