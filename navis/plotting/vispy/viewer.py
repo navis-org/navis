@@ -121,6 +121,7 @@ class Viewer:
     >>> v.canvas.bgcolor = (1, 1, 1)
 
     """
+
     def __init__(self, picking=False, **kwargs):
         # Update some defaults as necessary
         defaults = dict(keys=None,
@@ -194,7 +195,7 @@ class Viewer:
 
         # Text color depends on background color
         v = self.canvas.bgcolor.hsv[2]
-        text_color = colorsys.hsv_to_rgb(0, 0, 1-v)
+        text_color = colorsys.hsv_to_rgb(0, 0, 1 - v)
 
         # Keyboard shortcuts
         self._key_shortcuts = {'O': 'toggle overlay',
@@ -207,26 +208,24 @@ class Viewer:
                                '2': 'XZ',
                                '3': 'YZ'}
 
-        shorts_text = 'SHORTCUTS: ' + \
-                      ' | '.join(['<{0}> {1}'.format(k, v)
-                                for k, v in self._key_shortcuts.items()])
+        shorts_text = 'SHORTCUTS: ' + ' | '.join([f"<{k}> {v}" for k, v in self._key_shortcuts.items()])
         self._shortcuts = scene.visuals.Text(shorts_text,
-                                                pos=(10, overlay.size[1]),
-                                                anchor_x='left',
-                                                anchor_y='bottom',
-                                                name='permanent',
-                                                parent=overlay,
-                                                color=text_color,
-                                                font_size=6)
+                                             pos=(10, overlay.size[1]),
+                                             anchor_x='left',
+                                             anchor_y='bottom',
+                                             name='permanent',
+                                             parent=overlay,
+                                             color=text_color,
+                                             font_size=6)
 
         # FPS (hidden at start)
         self._fps_text = scene.visuals.Text('FPS',
-                                               pos=(overlay.size[0]/2, 10),
-                                               anchor_x='center',
-                                               anchor_y='top',
-                                               name='permanent',
-                                               parent=overlay,
-                                               color=(0, 0, 0), font_size=6)
+                                            pos=(overlay.size[0] / 2, 10),
+                                            anchor_x='center',
+                                            anchor_y='top',
+                                            name='permanent',
+                                            parent=overlay,
+                                            color=(0, 0, 0), font_size=6)
         self._fps_text.visible = False
 
         # Picking shortcuts (hidden at start)
@@ -234,36 +233,34 @@ class Viewer:
                                    'SHIFT+LMB @neuron': 'select neuron',
                                    'D': 'deselect all',
                                    'H': 'hide selected',
-                                   'C': 'url to cursor',}
+                                   'C': 'url to cursor'}
         # Add platform-specific modifiers
         if platform.system() == 'darwin':
             self._picking_shortcuts['CMD+LMB'] = 'set cursor'
         else:
             self._picking_shortcuts['CTRL+LMB'] = 'set cursor'
 
-        shorts_text = 'PICKING: ' + \
-                      ' | '.join(['<{0}> {1}'.format(k, v)
-                                for k, v in self._picking_shortcuts.items()])
+        shorts_text = 'PICKING: ' + ' | '.join(['<{k}> {v}' for k, v in self._picking_shortcuts.items()])
         self._picking_text = scene.visuals.Text(shorts_text,
-                                                   pos=(10,
-                                                        overlay.size[1] - 10),
-                                                   anchor_x='left',
-                                                   anchor_y='bottom',
-                                                   name='permanent',
-                                                   parent=overlay,
-                                                   color=text_color,
-                                                   font_size=6)
-        self._picking_text.visible = False
-
-        # Text box in top right to display arbitrary data
-        self._data_text = scene.visuals.Text('',
-                                                pos=(overlay.size[0] - 10, 10),
-                                                anchor_x='right',
-                                                anchor_y='top',
+                                                pos=(10,
+                                                     overlay.size[1] - 10),
+                                                anchor_x='left',
+                                                anchor_y='bottom',
                                                 name='permanent',
                                                 parent=overlay,
                                                 color=text_color,
                                                 font_size=6)
+        self._picking_text.visible = False
+
+        # Text box in top right to display arbitrary data
+        self._data_text = scene.visuals.Text('',
+                                             pos=(overlay.size[0] - 10, 10),
+                                             anchor_x='right',
+                                             anchor_y='top',
+                                             name='permanent',
+                                             parent=overlay,
+                                             color=text_color,
+                                             font_size=6)
 
         return overlay
 
@@ -489,17 +486,16 @@ class Viewer:
         # Generate new labels
         to_add = [s for s in self._neuron_obj if s not in labels]
         for s in to_add:
-            l = scene.visuals.Text('{0} - #{1}'.format(self._neuron_obj[s][0]._name,
-                                                          self._neuron_obj[s][0]._uuid),
-                                      anchor_x='left',
-                                      anchor_y='top',
-                                      parent=self.overlay,
-                                      font_size=self.legend_font_size)
-            l.interactive = True
-            l.unfreeze()
-            l._object_id = s
-            l._uuid = self._neuron_obj[s][0]._uuid
-            l.freeze()
+            txt = scene.visuals.Text(f'{self._neuron_obj[s][0]._name} - #{self._neuron_obj[s][0]._uuid}',
+                                     anchor_x='left',
+                                     anchor_y='top',
+                                     parent=self.overlay,
+                                     font_size=self.legend_font_size)
+            txt.interactive = True
+            txt.unfreeze()
+            txt._object_id = s
+            txt._uuid = self._neuron_obj[s][0]._uuid
+            txt.freeze()
 
         # Position and color labels
         labels = {l._object_id: l for l in self.overlay.children if getattr(
@@ -849,10 +845,10 @@ class Viewer:
         """ Snap cursor to clostest vertex of visual."""
         if not getattr(self, '_cursor', None):
             self._cursor = scene.visuals.Arrow(pos=np.array([(0, 0, 0), (1000, 0, 0)]),
-                                                  color=(1, 0, 0, 1),
-                                                  arrow_color=(1, 0, 0, 1),
-                                                  arrow_size=10,
-                                                  arrows=np.array([[800, 0, 0, 1000, 0, 0]]))
+                                               color=(1, 0, 0, 1),
+                                               arrow_color=(1, 0, 0, 1),
+                                               arrow_size=10,
+                                               arrows=np.array([[800, 0, 0, 1000, 0, 0]]))
 
         if not self._cursor.parent:
             self.add(self._cursor, center=False)

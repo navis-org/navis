@@ -126,8 +126,8 @@ def neuron2plotly(x, **kwargs):
                         hoverlabel='name'))
 
         # Add connectors
-        if kwargs.get('connectors', False) \
-        or kwargs.get('connectors_only', False):
+        if kwargs.get('connectors', False) or \
+           kwargs.get('connectors_only', False):
             for j in neuron.connectors.relation.unique():
                 if cn_mesh_colors:
                     c = color
@@ -330,43 +330,38 @@ def volume2plotly(x, **kwargs):
 
 def layout2plotly(**kwargs):
     """ Generate layout for plotly figures."""
-    layout = dict(
-                width=kwargs.get('width', 1000),
-                height=kwargs.get('height', 600),
-                autosize=kwargs.get('fig_autosize', False),
-                title=kwargs.get('pl_title', None),
-                scene=dict(
-                    xaxis=dict(
-                        gridcolor='rgb(255, 255, 255)',
-                        zerolinecolor='rgb(255, 255, 255)',
-                        showbackground=True,
-                        backgroundcolor='rgb(240, 240, 240)',
-                    ),
-                    yaxis=dict(
-                        gridcolor='rgb(255, 255, 255)',
-                        zerolinecolor='rgb(255, 255, 255)',
-                        showbackground=True,
-                        backgroundcolor='rgb(240, 240, 240)',
-                    ),
-                    zaxis=dict(
-                        gridcolor='rgb(255, 255, 255)',
-                        zerolinecolor='rgb(255, 255, 255)',
-                        showbackground=True,
-                        backgroundcolor='rgb(240, 240, 240)',
-                    ),
-                    camera=dict(up=dict(x=0,
-                                        y=0,
-                                        z=1
+    layout = dict(width=kwargs.get('width', 1000),
+                  height=kwargs.get('height', 600),
+                  autosize=kwargs.get('fig_autosize', False),
+                  title=kwargs.get('pl_title', None),
+                  scene=dict(xaxis=dict(gridcolor='rgb(255, 255, 255)',
+                                        zerolinecolor='rgb(255, 255, 255)',
+                                        showbackground=True,
+                                        backgroundcolor='rgb(240, 240, 240)'
                                         ),
-                                eye=dict(x=-1.7428,
-                                         y=1.0707,
-                                         z=0.7100,
-                                         )
-                                ),
-                    aspectratio=dict(x=1, y=1, z=1),
-                    aspectmode='data'
-                ),
-            )
+                             yaxis=dict(gridcolor='rgb(255, 255, 255)',
+                                        zerolinecolor='rgb(255, 255, 255)',
+                                        showbackground=True,
+                                        backgroundcolor='rgb(240, 240, 240)'
+                                        ),
+                             zaxis=dict(gridcolor='rgb(255, 255, 255)',
+                                        zerolinecolor='rgb(255, 255, 255)',
+                                        showbackground=True,
+                                        backgroundcolor='rgb(240, 240, 240)'
+                                        ),
+                             camera=dict(up=dict(x=0,
+                                                 y=0,
+                                                 z=1
+                                                 ),
+                                         eye=dict(x=-1.7428,
+                                                  y=1.0707,
+                                                  z=0.7100,
+                                                  )
+                                         ),
+                             aspectratio=dict(x=1, y=1, z=1),
+                             aspectmode='data'
+                             ),
+                  )
 
     # Need to remove width and height to make autosize actually matter
     if kwargs.get('fig_autosize', False):

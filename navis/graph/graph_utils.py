@@ -322,19 +322,22 @@ def distal_to(x, a=None, b=None):
     if not isinstance(x, core.TreeNeuron):
         raise ValueError('Please pass a SINGLE TreeNeuron')
 
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
+
     if not isinstance(a, type(None)):
-        a = utils.make_iterable(a)
+        tnA = utils.make_iterable(a)
         # Make sure we're dealing with integers
-        a = np.unique(a).astype(int)
+        tnA = np.unique(tnA).astype(int)
     else:
-        a = x.nodes.node_id.values
+        tnA = x.nodes.node_id.values
 
     if not isinstance(b, type(None)):
-        b = utils.make_iterable(b)
+        tnB = utils.make_iterable(b)
         # Make sure we're dealing with integers
-        b = np.unique(b).astype(int)
+        tnB = np.unique(tnB).astype(int)
     else:
-        b = x.nodes.node_id.values
+        tnB = x.nodes.node_id.values
 
     if x.igraph and config.use_igraph:
         # Map treenodeID to index
@@ -342,17 +345,11 @@ def distal_to(x, a=None, b=None):
                                       x.igraph.vs['node_id'])}
 
         # Convert treenode IDs to indices
-        if isinstance(a, type(None)):
-            a = x.igraph.vs.indices
-        else:
-            a = [id2ix[n] for n in a]
-        if isinstance(b, type(None)):
-            b = x.igraph.vs
-        else:
-            b = [id2ix[n] for n in b]
+        tnA = [id2ix[n] for n in tnA]  # type: ignore
+        tnB = [id2ix[n] for n in tnB]  # type: ignore
 
         # Get path lengths
-        le = x.igraph.shortest_paths(a, b, mode='OUT')
+        le = x.igraph.shortest_paths(tnA, tnB, mode='OUT')
 
         # Converting to numpy array first is ~2X as fast
         le = np.asarray(le)
@@ -361,23 +358,23 @@ def distal_to(x, a=None, b=None):
         le = le != float('inf')
 
         df = pd.DataFrame(le,
-                          index=x.igraph.vs[a]['node_id'],
-                          columns=x.igraph.vs[b]['node_id'])
+                          index=x.igraph.vs[tnA]['node_id'],
+                          columns=x.igraph.vs[tnB]['node_id'])
     else:
         # Generate empty DataFrame
-        df = pd.DataFrame(np.zeros((len(a), len(b)), dtype=bool),
-                          columns=b, index=a)
+        df = pd.DataFrame(np.zeros((len(tnA), len(tnB)), dtype=bool),
+                          columns=tnB, index=tnA)
 
         # Iterate over all targets
-        for nB in config.tqdm(b, desc='Querying paths',
-                       disable=(len(b) < 1000) | config.pbar_hide,
-                       leave=config.pbar_leave):
+        for nB in config.tqdm(tnB, desc='Querying paths',
+                              disable=(len(tnB) < 1000) | config.pbar_hide,
+                              leave=config.pbar_leave):
             # Get all paths TO this target. This function returns a dictionary:
             # { source1 : path_length, source2 : path_length, ... } containing
             # all nodes distal to this node.
             paths = nx.shortest_path_length(x.graph, source=None, target=nB)
             # Check if sources are among our targets
-            df[nB] = [nA in paths for nA in a]
+            df[nB] = [nA in paths for nA in tnA]
 
     if df.shape == (1, 1):
         return df.values[0][0]

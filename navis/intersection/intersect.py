@@ -31,14 +31,89 @@ try:
     from pyoctree import pyoctree
 except ImportError:
     pyoctree = None
-    logger.warning("Module pyoctree not found. Falling back to scipy's \
-                            ConvexHull for intersection calculations.")
+    logger.warning("Module pyoctree not found. Falling back to scipy's"
+                   "ConvexHull for intersection calculations.")
 
 __all__ = sorted(['in_volume', 'intersection_matrix'])
 
 
-def in_volume(x, volume, inplace=False, mode='IN', method='FAST',
-              prevent_fragments=False):
+@overload
+def in_volume(x: 'core.NeuronObject',
+              volume: core.Volume,
+              inplace: Literal[True],
+              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
+              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              prevent_fragments: bool = False) -> None: ...
+
+
+@overload
+def in_volume(x: 'core.TreeNeuron',
+              volume: core.Volume,
+              inplace: Literal[False],
+              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
+              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              prevent_fragments: bool = False) -> 'core.TreeNeuron': ...
+
+
+@overload
+def in_volume(x: 'core.NeuronList',
+              volume: core.Volume,
+              inplace: Literal[False],
+              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
+              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              prevent_fragments: bool = False) -> 'core.NeuronList': ...
+
+
+@overload
+def in_volume(x: Union[Sequence, pd.DataFrame],
+              volume: core.Volume,
+              inplace: bool = False,
+              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
+              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              prevent_fragments: bool = False) -> Sequence[bool]: ...
+
+
+@overload
+def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
+              volume: Union[Dict[str, core.Volume],
+                            Sequence[core.Volume]],
+              inplace: bool = False,
+              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
+              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              prevent_fragments: bool = False) -> Dict[str,
+                                                       Union[Sequence[bool],
+                                                             'core.NeuronObject']]: ...
+
+
+# We do need the full signature b/c we're recursively calling in_volume
+# which means that there is uncertainty
+@overload
+def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
+              volume: Union[core.Volume,
+                            Dict[str, core.Volume],
+                            Sequence[core.Volume]],
+              inplace: bool = False,
+              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
+              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              prevent_fragments: bool = False) -> Optional[Union['core.NeuronObject',
+                                                                 Sequence[bool],
+                                                                 Dict[str, Union[Sequence[bool],
+                                                                                 'core.NeuronObject']]
+                                                                 ]]: ...
+
+
+def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
+              volume: Union[core.Volume,
+                            Dict[str, core.Volume],
+                            Sequence[core.Volume]],
+              inplace: bool = False,
+              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
+              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              prevent_fragments: bool = False) -> Optional[Union['core.NeuronObject',
+                                                                 Sequence[bool],
+                                                                 Dict[str, Union[Sequence[bool],
+                                                                                 'core.NeuronObject']]
+                                                                 ]]:
     """ Test if points/neurons are within a given volume.
 
     Important
