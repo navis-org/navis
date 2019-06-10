@@ -29,7 +29,7 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
     """ Creates Neuron/List from SWC file.
 
     This import is following format specified
-    `here <http://research.mssm.edu/cnic/swc.html>`_
+    `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_
 
     Parameters
     ----------
@@ -173,7 +173,7 @@ def to_swc(x, filename=None, header=None, labels=True, export_synapses=False):
     """ Generate SWC file from neuron(s).
 
     Follows the format specified
-    `here <http://research.mssm.edu/cnic/swc.html>`_.
+    `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_.
 
     Parameters
     ----------
