@@ -21,7 +21,13 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
+from io import BufferedIOBase, StringIO
+
+from typing import Union, Callable, List, Sequence, Optional, Dict, overload
+from typing_extensions import Literal
+
 from .. import graph, morpho, utils, config, core, sampling, intersection
+from .. import io  # type: ignore # double import
 
 __all__ = ['Neuron', 'TreeNeuron']
 
@@ -681,9 +687,50 @@ class TreeNeuron:
 
         if not inplace:
             return x
+        return None
 
-    def prune_by_longest_neurite(self, n=1, reroot_to_soma=False,
-                                 inplace=False):
+    def prune_twigs(self,
+                    size: float,
+                    inplace: bool = False,
+                    recursive: Union[int, bool, float] = False
+                    ) -> Optional['TreeNeuron']:
+        """ Prune terminal twigs under a given size.
+
+        Parameters
+        ----------
+        size :          int | float
+                        Twigs shorter than this will be pruned.
+        inplace :       bool, optional
+                        If False, pruning is performed on copy of original neuron
+                        which is then returned.
+        recursive :     int | bool | "inf", optional
+                        If `int` will undergo that many rounds of recursive
+                        pruning. Use ``float("inf")`` to prune until no more
+                        twigs under the given size are left.
+
+        See Also
+        --------
+        :func:`~navis.prune_twigs`
+            This is the base function. See for details and examples.
+
+        """
+
+        if inplace:
+            x = self
+        else:
+            x = self.copy()
+
+        morpho.prune_twigs(x, size=size, inplace=True)
+
+        if not inplace:
+            return x
+        return None
+
+    def prune_by_longest_neurite(self,
+                                 n: int = 1,
+                                 reroot_to_soma: bool = False,
+                                 inplace: bool = False
+                                 ) -> Optional['TreeNeuron']:
         """ Prune neuron down to the longest neurite.
 
         Parameters
@@ -717,6 +764,7 @@ class TreeNeuron:
 
         if not inplace:
             return x
+        return None
 
     def prune_by_volume(self, v, mode='IN', prevent_fragments=False,
                         inplace=False):
