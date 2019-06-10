@@ -17,6 +17,7 @@
 """ Module contains functions to plot neurons in 2D and 3D.
 """
 
+import copy
 import uuid
 import warnings
 
@@ -35,7 +36,7 @@ from ..plot_utils import segments_to_coords
 from ..external.new_visuals import MeshNeuron
 
 __all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy',
-           'points2vispy']
+           'points2vispy', 'combine_visuals']
 
 logger = config.logger
 
@@ -509,3 +510,104 @@ def points2vispy(x, **kwargs):
         visuals.append(con)
 
     return visuals
+
+
+def combine_visuals(visuals):
+    """ Attempts to combine multiple visuals of similar type into one.
+
+    Parameters
+    ----------
+    visuals :   List
+                List of visuals
+
+    Returns
+    -------
+    list
+                List of visuals some of which where combined.
+    """
+
+    if any([not isinstance(v, scene.visuals.VisualNode) for v in visuals]):
+        raise TypeError('Visuals must all be instances of VisualNode')
+
+    # Combining visuals (i.e. adding pos AND changing colors) fails if
+    # they are already on a canvas
+    if any([v.parent for v in visuals]):
+        raise ValueError('Visuals must not have parents when combined.')
+
+    # Sort into types
+    types = set([type(v) for v in visuals])
+
+    by_type = {ty: [v for v in visuals if type(v) == ty] for ty in types}
+
+    combined = []
+
+    # Now go over types and combine when possible
+    for ty in types:
+        # Skip if nothing to combine
+        if len(by_type[ty]) <= 1:
+            combined += by_type[ty]
+            continue
+
+        if ty == scene.visuals.Line:
+            # Collate data
+            pos = np.concatenate([vis._pos for vis in by_type[ty]])
+
+            # We need to produce one color/vertex
+            colors = np.concatenate([np.repeat([vis.color],
+                                               vis.pos.shape[0],
+                                               axis=0) for vis in by_type[ty]])
+
+            t = scene.visuals.Line(pos=pos,
+                                   color=colors,
+                                   # Can only be used with method 'agg'
+                                   connect='segments',
+                                   antialias=True,
+                                   method='gl')
+            # method can also be 'agg' -> has to use connect='strip'
+            # Make visual discoverable
+            t.interactive = True
+
+            # Add custom attributes
+            t.unfreeze()
+            t._object_type = 'neuron'
+            t._neuron_part = 'neurites'
+            t._uuid = 'NA'
+            t._object_id = uuid.uuid4()
+            t._name = 'NeuronCollection'
+            t.freeze()
+
+            combined.append(t)
+        elif ty == MeshNeuron:
+            vertices = []
+            faces = []
+            for vis in by_type[ty]:
+                verts_offset = sum([v.shape[0] for v in vertices])
+                faces.append(vis.mesh_data.get_faces() + verts_offset)
+                vertices.append(vis.mesh_data.get_vertices())
+
+            faces = np.vstack(faces)
+            vertices = np.vstack(vertices)
+
+            color = np.concatenate([vis.mesh_data.get_vertex_colors() for vis in by_type[ty]])
+
+            t = scene.visuals.Mesh(vertices,
+                                   faces=faces,
+                                   vertex_colors=color,
+                                   shading=by_type[ty][0].shading,
+                                   mode=by_type[ty][0].mode)
+
+            # Add custom attributes
+            t.unfreeze()
+            t._object_type = 'neuron'
+            t._neuron_part = 'neurites'
+            t._uuid = 'NA'
+            t._name = 'MeshNeuronCollection'
+            t._object_id = uuid.uuid4()
+            t.freeze()
+
+            combined.append(t)
+        else:
+            combined += by_type[ty]
+
+    return combined
+
