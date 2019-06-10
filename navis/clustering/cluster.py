@@ -20,22 +20,33 @@ import pandas as pd
 import scipy.cluster.hierarchy
 import scipy.spatial
 
+from typing import Union, Optional, List, Dict, Sequence
+from typing_extensions import Literal
+
 from concurrent.futures import ThreadPoolExecutor
 
-from .. import core, plotting, utils, config
+from ..core.neurons import TreeNeuron
+from ..core.neuronlist import NeuronList
+from .. import plotting, utils, config
 
 # Set up logging
 logger = config.logger
+
+NeuronObject = Union[TreeNeuron, NeuronList]
 
 __all__ = sorted(['cluster_by_connectivity', 'cluster_by_synapse_placement',
                   'cluster_xyz', 'ClustResults'])
 
 
-def cluster_by_connectivity(cn, similarity='vertex_normalized',
-                            upstream=True, downstream=True,
-                            threshold=1, include_skids=None,
-                            exclude_skids=None, min_nodes=2,
-                            connectivity_table=None, cluster_kws={}):
+def cluster_by_connectivity(adjacency: Union[pd.DataFrame, np.ndarray],
+                            similarity: Union[Literal['matching_index'],
+                                              Literal['matching_index_synapses'],
+                                              Literal['matching_index_weighted_synapses'],
+                                              Literal['vertex'],
+                                              Literal['vertex_normalized']
+                                              ] = 'vertex_normalized',
+                            threshold: int = 1,
+                            cluster_kws: dict = {}) -> 'ClustResults':
     """ Calculate connectivity similarity.
 
     This functions offers a selection of metrics to compare connectivity:
@@ -86,15 +97,13 @@ def cluster_by_connectivity(cn, similarity='vertex_normalized',
 
     Parameters
     ----------
-    cn :                 pandas DataFrame
-                         Dataframe in which each row is a connected neuron.
-                         Must contain a column for each neuron to be compared
-                         (see examples). If ``relation`` column present, will
-                         use to compare connectivity only within-type (e.g.
-                         "upstream" or "downstream").
-    similarity :         'matching_index' | 'matching_index_synapses' | 'matching_index_weighted_synapses' | 'vertex' | vertex_normalized', optional
-                         Metric used to compare connectivity. See notes for
-                         detailed explanation.
+    adjacency :         pandas DataFrame | numpy array
+                        Adjacency matrix. Does not have to be symmetrical.
+                        Will calculate similarity for all row neurons using
+                        the column neurons as observations.
+    similarity :        'matching_index' | 'matching_index_synapses' | 'matching_index_weighted_synapses' | 'vertex' | 'vertex_normalized', optional
+                        Metric used to compare connectivity. See notes for
+                        detailed explanation.
 
     Returns
     -------
@@ -102,107 +111,66 @@ def cluster_by_connectivity(cn, similarity='vertex_normalized',
                          Custom cluster results class holding the distance
                          matrix and contains wrappers e.g. to plot dendograms.
     """
-    if not isinstance(cn, pd.DataFrame):
-        raise TypeError(f'Expected DataFrame, got "{type(cn)}"')
 
-    if 'relation' not in cn.columns:
-        cn = cn.copy()
-        cn['relation'] = 'generic'
+    ALLOWED_METHODS = ['matching_index', 'matching_index_synapses',
+                       'matching_index_weighted_synapses', 'vertex',
+                       'vertex_normalized']
+    if similarity.lower() not in ALLOWED_METHODS:
+        raise ValueError(f'"method" must be either: {", ".join(ALLOWED_METHODS)}')
 
-    rel = cn.relation.unique()
-    neurons = [c for c in cn.columns if c != 'relation']
+    if isinstance(adjacency, np.ndarray):
+        adjacency = pd.DataFrame(adjacency)
 
-    # Calc number of partners used for calculating matching score (i.e. ratio of input to outputs)!
-    # This is AFTER filtering! Total number of partners can be altered!
-    n_partners = {n: {'upstream': cn[(cn[n] > 0) & (cn.relation == r)].shape[0],
-                      'downstream': cn[(cn[n] > 0) & (cn.relation == r)].shape[0]
-                     } for r in rel for n in neurons}
+    if not isinstance(adjacency, pd.DataFrame):
+        raise TypeError(f'Expected DataFrame, got "{type(adjacency)}"')
 
-    matching_scores = {}
+    neurons = adjacency.index
 
-    if similarity in ['vertex_normalized', 'vertex']:
+    # Prepare empty matching scores
+    matching_scores = pd.DataFrame(np.zeros((len(neurons), len(neurons))),
+                                   index=neurons, columns=neurons)
+
+    if similarity.lower() in ['vertex_normalized', 'vertex']:
         vertex_score = True
     else:
         vertex_score = False
 
-    # Calculate connectivity similarity by direction
-    for d in directions:
-        this_cn = cn[cn.relation == d]
+    combinations = [(nA, nB, adjacency, threshold,
+                     vertex_score, cluster_kws) for nA in neurons for nB in neurons]
 
-        # Prepare connectivity subsets:
-        cn_subsets = {n: this_cn[n] > 0 for n in neurons}
+    with ThreadPoolExecutor(max_workers=max(1, os.cpu_count())) as e:
+        futures = e.map(_unpack_connectivity_helper, combinations)
 
-        logger.info('Calculating %s similarity scores' % d)
-        matching_scores[d] = pd.DataFrame(
-            np.zeros((len(neurons), len(neurons))), index=neurons, columns=neurons)
-        if this_cn.shape[0] == 0:
-            logger.warning('No %s partners found: filtered?' % d)
+        matching_indices = [n for n in config.tqdm(futures,
+                                                   total=len(combinations),
+                                                   desc='Calculating',
+                                                   disable=config.pbar_hide,
+                                                   leave=config.pbar_leave)]
 
-        combinations = [(nA, nB, this_cn, vertex_score, cn_subsets[nA],
-                         cn_subsets[nB], cluster_kws) for nA in neurons for nB in neurons]
+    for i, v in enumerate(combinations):
+            matching_scores.loc[v[0], v[1]] = matching_indices[i][similarity]
 
-        with ThreadPoolExecutor(max_workers=max(1, os.cpu_count())) as e:
-            futures = e.map(_unpack_connectivity_helper, combinations)
-
-            matching_indices = [n for n in config.tqdm(futures, total=len(combinations),
-                                                desc=d,
-                                                disable=config.pbar_hide,
-                                                leave=config.pbar_leave)]
-
-        for i, v in enumerate(combinations):
-            matching_scores[d].loc[v[0], v[1]
-                                   ] = matching_indices[i][similarity]
-
-    # Attention! Averaging over incoming and outgoing pairing scores will
-    # give weird results with - for example -  sensory/motor neurons
-    # that have predominantly either only up- or downstream partners!
-    # To compensate, the ratio of upstream to downstream partners (after
-    # applying filters!) is considered!
-    # Ratio is applied to neuronA of A-B comparison -> will be reversed at B-A
-    # comparison
-    logger.info('Finalizing scores')
-    dist_matrix = pd.DataFrame(
-        np.zeros((len(neurons), len(neurons))), index=neurons, columns=neurons)
-    for neuronA in neurons:
-        for neuronB in neurons:
-            if len(directions) == 1:
-                dist_matrix[neuronA][neuronB] = matching_scores[
-                    directions[0]][neuronA][neuronB]
-            else:
-                try:
-                    r_inputs = number_of_partners[neuronA][
-                        'upstream'] / (number_of_partners[neuronA]['upstream'] + number_of_partners[neuronA]['downstream'])
-                    r_outputs = 1 - r_inputs
-                except:
-                    logger.warning(
-                        'Failed to calculate input/output ratio for %s assuming 50/50 (probably division by 0 error)' % str(neuronA))
-                    r_inputs = 0.5
-                    r_outputs = 0.5
-
-                dist_matrix[neuronA][neuronB] = matching_scores['upstream'][neuronA][
-                    neuronB] * r_inputs + matching_scores['downstream'][neuronA][neuronB] * r_outputs
-
-    logger.info('All done.')
-
-    # Rename rows and columns
-    #dist_matrix.columns = [neuron_names[str(n)] for n in dist_matrix.columns]
-    #dist_matrix.index = [ neuron_names[str(n)] for n in dist_matrix.index ]
-
-    results = ClustResults(dist_matrix, labels=[neuron_names[str(
-        n)] for n in dist_matrix.columns], mat_type='similarity')
-
-    if isinstance(x, core.NeuronList):
-        results.neurons = x
+    results = ClustResults(matching_scores, mat_type='similarity')
 
     return results
 
 
 def _unpack_connectivity_helper(x):
     """Helper function to unpack values from pool"""
-    return _calc_connectivity_matching_index(x[0], x[1], x[2], vertex_score=x[3], nA_cn=x[4], nB_cn=x[5], **x[6])
+    return _calc_connectivity_matching_index(neuronA=x[0],
+                                             neuronB=x[1],
+                                             connectivity=x[2],
+                                             syn_threshold=x[3],
+                                             vertex_score=x[4], **x[5])
 
 
-def _calc_connectivity_matching_index(neuronA, neuronB, connectivity, syn_threshold=1, min_nodes=1, **kwargs):
+def _calc_connectivity_matching_index(neuronA: int,
+                                      neuronB: int,
+                                      connectivity: pd.DataFrame,
+                                      syn_threshold: int = 1,
+                                      vertex_score: bool = True,
+                                      **kwargs) -> Dict[str,
+                                                        Union[float, int]]:
     """ Calculates and returns various matching indices between two neurons.
 
     Parameters
@@ -214,16 +182,9 @@ def _calc_connectivity_matching_index(neuronA, neuronB, connectivity, syn_thresh
     syn_threshold :   int, optional
                       Min number of synapses for a connection to be considered.
                       Default = 1
-    min_nodes :       int, optional
-                      Min number of nodes for a partner to be considered use
-                      this to filter fragments. Default = 1
     vertex_score :    bool, optional
                       If False, no vertex score is returned (much faster!).
                       Default = True
-    nA_cn/nB_cn :     list of bools
-                      Subsets of the connectivity that connect to either
-                      neuronA or neuronB -> if not provided, will be calculated
-                      -> time consuming
 
     Returns
     -------
@@ -264,28 +225,36 @@ def _calc_connectivity_matching_index(neuronA, neuronB, connectivity, syn_thresh
     |                           switches from negative to positive
 
     """
+    # Subset to neurons that actually connect with our neuron pair
+    this_cn = connectivity.loc[[neuronA, neuronB]]
 
-    if min_nodes > 1:
-        connectivity = connectivity[connectivity.num_nodes > min_nodes]
+    # Get all neurons that connect to either A or B
+    total = this_cn.loc[:, (this_cn >= syn_threshold).sum(axis=0) >= 1]
+    n_total = total.shape[1]
 
-    vertex_score = kwargs.get('vertex_score', True)
-    nA_cn = kwargs.get('nA_cn', connectivity[neuronA] >= syn_threshold)
-    nB_cn = kwargs.get('nB_cn', connectivity[neuronB] >= syn_threshold)
+    # Get all neurons that connect to both A and B
+    shared = this_cn.loc[:, (this_cn >= syn_threshold).sum(axis=0) == 2]
+    n_shared = shared.shape[1]
 
-    total = connectivity[nA_cn | nB_cn]
-    n_total = total.shape[0]
-
-    shared = connectivity[nA_cn & nB_cn]
-    n_shared = shared.shape[0]
-
-    shared_sum = shared.sum()
+    shared_sum = shared.sum(axis=1)
     n_synapses_sharedA = shared_sum[neuronA]
     n_synapses_sharedB = shared_sum[neuronB]
-    n_synapses_shared = n_synapses_sharedA + n_synapses_sharedB
 
-    total_sum = total.sum()
+    total_sum = total.sum(axis=1)
     n_synapses_totalA = total_sum[neuronA]
     n_synapses_totalB = total_sum[neuronB]
+
+    # If neuronA == neuronB, above counts will not be single values but
+    # DataFrames -> we'll simply have to get the first values
+    if neuronA == neuronB:
+        n_synapses_sharedA = n_synapses_sharedA.values[0]
+        n_synapses_sharedB = n_synapses_sharedB.values[0]
+
+        n_synapses_totalA = n_synapses_totalA.values[0]
+        n_synapses_totalB = n_synapses_totalB.values[0]
+
+    # Sum up
+    n_synapses_shared = n_synapses_sharedA + n_synapses_sharedB
     n_synapses_total = n_synapses_totalA + n_synapses_totalB
 
     # Vertex similarity based on Jarrell et al., 2012
@@ -298,17 +267,12 @@ def _calc_connectivity_matching_index(neuronA, neuronB, connectivity, syn_thresh
     # positive
     C1 = kwargs.get('C1', 0.5)
     C2 = kwargs.get('C2', 1)
-    vertex_similarity = 0
-    max_score = 0
-    similarity_indices = {}
+    similarity_indices: Dict[str, Union[float, int]] = {}
 
     if vertex_score:
-        # We only need the columns for neuronA and neuronB
-        this_cn = total[[neuronA, neuronB]]
-
         # Get min and max between both neurons
-        this_max = np.max(this_cn, axis=1)
-        this_min = np.min(this_cn, axis=1)
+        this_max = np.max(this_cn, axis=0)
+        this_min = np.min(this_cn, axis=0)
 
         # The max possible score is when both synapse counts are the same:
         # in which case score = max(x,y) - C1 * max(x,y) * e^(-C2 * max(x,y))
@@ -329,13 +293,12 @@ def _calc_connectivity_matching_index(neuronA, neuronB, connectivity, syn_thresh
         try:
             similarity_indices['vertex_normalized'] = (
                 vertex_similarity - min_score.sum()) / (max_score.sum() - min_score.sum())
-        except:
+        except BaseException:
             similarity_indices['vertex_normalized'] = 0
 
     if n_total != 0:
         similarity_indices['matching_index'] = n_shared / n_total
-        similarity_indices[
-            'matching_index_synapses'] = n_synapses_shared / n_synapses_total
+        similarity_indices['matching_index_synapses'] = n_synapses_shared / n_synapses_total
         if n_synapses_sharedA != 0 and n_synapses_sharedB != 0:
             similarity_indices['matching_index_weighted_synapses'] = (
                 n_synapses_sharedA / n_synapses_totalA) * (n_synapses_sharedB / n_synapses_totalB)
@@ -355,8 +318,12 @@ def _unpack_synapse_helper(x):
     return _calc_synapse_similarity(x[0], x[1], x[2], x[3], x[4])
 
 
-def _calc_synapse_similarity(cnA, cnB, sigma=2000, omega=2000,
-                             restrict_cn=None):
+def _calc_synapse_similarity(cnA: pd.DataFrame,
+                             cnB: pd.DataFrame,
+                             sigma: int = 2,
+                             omega: int = 2,
+                             restrict_cn: Optional[List[str]] = None
+                             ) -> float:
     """ Calculates synapses similarity score.
 
     Synapse similarity score is calculated by calculating for each synapse of
@@ -367,12 +334,11 @@ def _calc_synapse_similarity(cnA, cnB, sigma=2000, omega=2000,
 
     Parameters
     ----------
-    (cnA, cnB) :    CatmaidNeuron connector tables
+    (cnA, cnB) :    Connector tables.
     sigma :         int, optional
-                    Distance in nanometer that is considered to be "close".
+                    Distance that is considered to be "close".
     omega :         int, optional
-                    Radius in nanometer over which to calculate
-                    synapse density.
+                    Radius over which to calculate synapse density.
 
     Returns
     -------
@@ -430,8 +396,13 @@ def _calc_synapse_similarity(cnA, cnB, sigma=2000, omega=2000,
     return score
 
 
-def cluster_by_synapse_placement(x, sigma=2000, omega=2000, mu_score=True,
-                                 restrict_cn=None, remote_instance=None):
+def cluster_by_synapse_placement(x: Union[NeuronList,
+                                          Dict[Union[str, int], pd.DataFrame]],
+                                 sigma: int = 2,
+                                 omega: int = 2,
+                                 mu_score: bool = True,
+                                 restrict_cn: Optional[List[str]] = None
+                                 ) -> 'ClustResults':
     """ Clusters neurons based on their synapse placement.
 
     Distances score is calculated by calculating for each synapse of
@@ -460,34 +431,28 @@ def cluster_by_synapse_placement(x, sigma=2000, omega=2000, mu_score=True,
 
     Parameters
     ----------
-    x
-                        Neurons as single or list of either:
-
-                        1. skeleton IDs (int or str)
-                        2. neuron name (str, exact match)
-                        3. annotation: e.g. 'annotation:PN right'
-                        4. CatmaidNeuron or NeuronList object
+    x :                 NeuronList | Dict of pandas.DataFrame
+                        Neurons to compare. Dict must map
+                        ``{neuron_name: connector_table}``. If NeuronList,
+                        each neuron must have ``.connectors`` connector tables.
+                        Connector tables must have `x`, `y`, `y` columns. If
+                        a `type`/`relation`/`label` columns is present, will
+                        use this to compare connectors only within type.
     sigma :             int, optional
-                        Distance in nanometer between synapses that is
-                        considered to be "close".
+                        Distance between synapses that is considered to be
+                        "close".
     omega :             int, optional
-                        Radius in nanometer over which to calculate synapse
-                        density.
+                        Radius over which to calculate synapse density.
     mu_score :          bool, optional
                         If True, score is calculated as mean between A->B and
                         B->A comparison.
     restrict_cn :       int | list | None, optional
-                        Restrict to given connector types:
-                            - 0: presynapses
-                            - 1: postsynapses
-                            - 2: gap junctions
-                            - 3: abutting connectors
-                        If None, will use all connectors. Use either single
-                        integer or list. E.g. ``restrict_cn=[0, 1]`` to use
-                        only pre- and postsynapses.
-    remote_instance :   CatmaidInstance, optional
-                        Need to provide if neurons are only skids or
-                        annotation(s).
+                        Restrict to given connector types. Must map to
+                        a `type`, `relation` or `label` column in the
+                        connector tables.
+                        If None, will use all connector types. Use either
+                        single integer or list. E.g. ``restrict_cn=[0, 1]``
+                        to use only pre- and postsynapses.
 
     Returns
     -------
@@ -497,24 +462,34 @@ def cluster_by_synapse_placement(x, sigma=2000, omega=2000, mu_score=True,
 
     """
 
-    if not isinstance(x, core.NeuronList):
-        remote_instance = utils._eval_remote_instance(remote_instance)
-        neurons = fetch.get_neuron(x, remote_instance=remote_instance)
+    if isinstance(x, dict):
+        if any([not isinstance(d, pd.DataFrame) for d in x.values()]):
+            raise TypeError('Values in dict must be pandas.DataFrames.')
+    elif isinstance(x, NeuronList):
+        if any([not n.has_connectors for n in x]):
+            raise ValueError('All neurons must have connector tables as'
+                             ' .connectors property.')
     else:
-        neurons = x
+        raise TypeError('Expected Neuronlist or dict of connector tables,'
+                        f' got {type(x)}')
 
     # If single value, turn into list
-    if not isinstance(restrict_cn, (type(None), list, set, np.ndarray)):
-        restrict_cn = [restrict_cn]
+    if not isinstance(restrict_cn, type(None)):
+        restrict_cn = utils.make_iterable(restrict_cn)
 
-    sim_matrix = pd.DataFrame(
-        np.zeros((len(neurons), len(neurons))), index=neurons.skeleton_id,
-                                                columns=neurons.skeleton_id)
+    neurons = x.uuid if isinstance(x, NeuronList) else list(x.keys())
 
-    combinations = [(nA.connectors, nB.connectors, sigma, omega, restrict_cn)
-                    for nA in neurons for nB in neurons]
-    comb_skids = [(nA.skeleton_id, nB.skeleton_id)
-                  for nA in neurons for nB in neurons]
+    sim_matrix = pd.DataFrame(np.zeros((len(neurons), len(neurons))),
+                              index=neurons,
+                              columns=neurons)
+
+    if isinstance(x, NeuronList):
+        combinations = [(nA.connectors, nB.connectors, sigma, omega, restrict_cn)
+                        for nA in x for nB in x]
+        comb_names = [(nA.uuid, nB.uuid) for nA in neurons for nB in neurons]
+    else:
+        combinations = [(nA, nB, sigma, omega, restrict_cn) for nA in x.values() for nB in x.values()]
+        comb_names = [(nA, nB) for nA in x.keys() for nB in x.keys()]
 
     with ThreadPoolExecutor(max_workers=max(1, os.cpu_count())) as e:
         futures = e.map(_unpack_synapse_helper, combinations)
@@ -524,28 +499,31 @@ def cluster_by_synapse_placement(x, sigma=2000, omega=2000, mu_score=True,
                                          disable=config.pbar_hide,
                                          leave=config.pbar_leave)]
 
-    for i, v in enumerate(combinations):
-        sim_matrix.loc[comb_skids[i][0], comb_skids[i][1]] = scores[i]
+    for c, v in zip(comb_names, scores):
+        sim_matrix.loc[c[0], c[1]] = v
 
     if mu_score:
         sim_matrix = (sim_matrix + sim_matrix.T) / 2
 
-    res = ClustResults(sim_matrix, mat_type='similarity', labels=[
-                       neurons.skid[str(s)].neuron_name for s in sim_matrix.columns])
-    res.neurons = neurons
+    res = ClustResults(sim_matrix, mat_type='similarity')
+
+    if isinstance(x, NeuronList):
+        res.neurons = x  # type: ignore
 
     return res
 
 
-def cluster_xyz(x, labels=None):
+def cluster_xyz(x: Union[pd.DataFrame, np.ndarray],
+                labels: Optional[List[str]] = None
+                ) -> 'ClustResults':
     """ Thin wrapper for ``scipy.scipy.spatial.distance``.
 
     Takes a list of x,y,z coordinates and calculates EUCLEDIAN distance matrix.
 
     Parameters
     ----------
-    x :             pandas.DataFrame
-                    Must contain ``x``,``y``,``z`` columns.
+    x :             pandas.DataFrame | numpy array (N, 3)
+                    If DataFrame, must contain ``x``,``y``,``z`` columns.
     labels :        list of str, optional
                     Labels for each leaf of the dendrogram
                     (e.g. connector ids).
@@ -567,14 +545,18 @@ def cluster_xyz(x, labels=None):
     >>> plt.show()
 
     """
-
-    # Generate numpy array containing x, y, z coordinates
-    try:
-        s = x[['x', 'y', 'z']].values
-    except BaseException:
-        logger.error('Please provide dataframe connector data of '
-                     'exactly a single neuron')
-        return
+    if isinstance(x, pd.DataFrame):
+        # Generate numpy array containing x, y, z coordinates
+        try:
+            s = x[['x', 'y', 'z']].values
+        except BaseException:
+            raise ValueError('DataFrame must have x/y/z columns')
+    elif isinstance(x, np.ndarray):
+        if x.shape[1] != 3:
+            raise ValueError('Array must be of shape (N, 3).')
+        s = x
+    else:
+        raise TypeError(f'Expected DataFrame or numpy array, got "{type(x)}".')
 
     # Calculate euclidean distance matrix
     condensed_dist_mat = scipy.spatial.distance.pdist(s, 'euclidean')
@@ -613,7 +595,12 @@ class ClustResults:
 
     _PERM_MAT_TYPES = ['similarity', 'distance']
 
-    def __init__(self, mat, labels=None, mat_type='distance'):
+    def __init__(self,
+                 mat: Union[np.ndarray, pd.DataFrame],
+                 labels: Optional[List[str]] = None,
+                 mat_type: Union[Literal['distance'],
+                                 Literal['similarity']] = 'distance'
+                 ):
         """ Initialize class instance.
 
         Parameters
@@ -661,7 +648,7 @@ class ClustResults:
         elif key == 'agg_coeff':
             return self.calc_agg_coeff()
 
-    def get_leafs(self, use_labels=False):
+    def get_leafs(self, use_labels: bool = False) -> Sequence:
         """ Use to retrieve labels.
 
         Parameters
@@ -681,7 +668,7 @@ class ClustResults:
         else:
             return scipy.cluster.hierarchy.leaves_list(self.linkage)
 
-    def calc_cophenet(self):
+    def calc_cophenet(self) -> float:
         """ Returns Cophenetic Correlation coefficient of your clustering.
 
         This (very very briefly) compares (correlates) the actual pairwise
@@ -694,7 +681,7 @@ class ClustResults:
         return scipy.cluster.hierarchy.cophenet(self.linkage,
                                                 self.condensed_dist_mat)
 
-    def calc_agg_coeff(self):
+    def calc_agg_coeff(self) -> float:
         """ Returns the agglomerative coefficient.
 
         This measures the clustering structure of the linkage matrix. Because
@@ -709,8 +696,7 @@ class ClustResults:
         """
 
         # Turn into pandas DataFrame for fancy indexing
-        Z = pd.DataFrame(self.linkage, columns=[
-                         'obs1', 'obs2', 'dist', 'n_org'])
+        Z = pd.DataFrame(self.linkage, columns=['obs1', 'obs2', 'dist', 'n_org'])
 
         # Get all distances at which an original observation is merged
         all_dist = Z[(Z.obs1.isin(self.leafs)) | (Z.obs2.isin(self.leafs))].dist.values
@@ -723,14 +709,14 @@ class ClustResults:
 
         return coeff
 
-    def _invert_mat(self, sim_mat):
+    def _invert_mat(self, sim_mat: pd.DataFrame) -> pd.DataFrame:
         """ Inverts matrix."""
         if isinstance(sim_mat, pd.DataFrame):
             return (sim_mat - sim_mat.max().max()) * -1
         else:
             return (sim_mat - sim_mat.max()) * -1
 
-    def cluster(self, method='ward'):
+    def cluster(self, method: str = 'ward') -> None:
         """ Cluster distance matrix.
 
         This will automatically be called when attribute linkage is requested
@@ -754,8 +740,12 @@ class ClustResults:
 
         logger.info(f'Clustering done using method "{method}"')
 
-    def plot_dendrogram(self, color_threshold=None, return_dendrogram=False,
-                        labels=None, fig=None, **kwargs):
+    def plot_dendrogram(self,
+                        color_threshold: Optional[float] = None,
+                        return_dendrogram: bool = False,
+                        labels: Optional[List[str]] = None,
+                        fig: Optional['matplotlib.figure.Figure'] = None,
+                        **kwargs):
         """ Plot dendrogram using matplotlib.
 
         Parameters
@@ -858,7 +848,7 @@ class ClustResults:
 
         return cg
 
-    def plot_matrix(self):
+    def plot_matrix(self) -> 'matplotlib.figure.Figure':
         """ Plot distance matrix and dendrogram using matplotlib.
 
         Returns
@@ -908,7 +898,10 @@ class ClustResults:
 
         return fig
 
-    def plot3d(self, k=5, criterion='maxclust', **kwargs):
+    def plot3d(self,
+               k: Union[int, float] = 5,
+               criterion: str = 'maxclust',
+               **kwargs):
         """Plot neuron using :func:`navis.plot.plot3d`. Will only work if
         instance has neurons attached to it.
 
@@ -940,7 +933,9 @@ class ClustResults:
 
         return plotting.plot3d(self.neurons, **kwargs)
 
-    def get_colormap(self, k=5, criterion='maxclust'):
+    def get_colormap(self,
+                     k: Union[int, float] = 5,
+                     criterion: str = 'maxclust'):
         """Generate colormap based on clustering.
 
         Parameters
@@ -966,7 +961,10 @@ class ClustResults:
 
         return {n: colors[i] for i in range(len(cl)) for n in cl[i]}
 
-    def get_clusters(self, k, criterion='maxclust', return_type='labels'):
+    def get_clusters(self,
+                     k: Union[int, float],
+                     criterion: str = 'maxclust',
+                     return_type: str = 'labels') -> List[list]:
         """ Wrapper for ``scipy.cluster.hierarchy.fcluster`` to get clusters.
 
         Parameters
@@ -1015,7 +1013,7 @@ class ClustResults:
 
         """
         try:
-            import ete3
+            import ete3  # ignore type
         except BaseException:
             raise ImportError('Please install ete3 package to use this function.')
 
@@ -1052,44 +1050,3 @@ class ClustResults:
                 dist=dist_to_parent[e[1]], name=names.get(e[1], None))
 
         return tree
-
-
-def _calc_sparseness(x, mode='activity_ratio'):
-    """ Calculates sparseness for a set of neurons.
-
-    Parameters
-    ----------
-    x :         Adjacency matrix
-                Pandas DataFrame or numpy array in which rows are sources and
-                columns are targets. Sparseness is calculated for targets.
-    mode :      str, optional
-                Sparseness comes in three different flavours:
-                    (1) "activity_ratio" after Rolls and Tovee is used to
-                        describes distributions with heavy tails
-                    (2) "lifetime_sparseness" after XY
-                    (3) "kurtosis"
-
-    """
-    ALLOWED_MODES = ['activity_ratio', 'lifetime_sparseness', 'kurtosis']
-
-    if mode not in ALLOWED_MODES:
-        raise ValueError(f'Unknown mode: "{mode}". Allowed: '
-                         '{",".join(ALLOWED_MODES)}')
-
-    if isinstance(x, pd.DataFrame):
-        mat = x.as_matrix()
-        names = x.columns.tolist()
-    elif isinstance(x, np.ndarray):
-        mat = x
-        names = list(range(x.shape[1]))
-    else:
-        raise TypeError(f'Unable to process data of type "{type(x)}"')
-
-    for i in range(mat.shape[1]):
-        this_col = mat[:, i].T
-        this_col = this_col[this_col > 0]
-
-        if mode == 'activity_ratio':
-            a = (sum(this_col) / len(this_col)) ** 2 / \
-                (sum(this_col ** 2) / len(this_col))
-            S = 1 - a
