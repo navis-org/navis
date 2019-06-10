@@ -12,4 +12,4 @@
 #    GNU General Public License for more details.
 
 
-from .load_data import *
+from .load_data import example_neurons, example_volume

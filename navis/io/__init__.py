@@ -11,5 +11,5 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .json_io import *
-from .swc_io import *
+from .json_io import neuron2json, json2neuron
+from .swc_io import from_swc, to_swc

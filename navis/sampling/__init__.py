@@ -11,5 +11,5 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .downsample import *
-from .resample import *
+from .downsample import downsample_neuron
+from .resample import resample_neuron

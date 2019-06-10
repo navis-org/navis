@@ -1,4 +1,6 @@
-from .iterables import *
-from .eval import *
-from .misc import *
-from .validate import *
+from .iterables import make_iterable, make_non_iterable, is_iterable
+from .misc import (is_jupyter, set_loggers, set_pbars, unpack_neurons,
+                   set_default_connector_colors, parse_objects)
+from .validate import validate_options, validate_table
+from .eval import eval_node_ids, eval_neurons, eval_uuid, eval_conditions
+

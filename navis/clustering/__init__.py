@@ -11,4 +11,5 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .cluster import *
+from .cluster import (cluster_by_connectivity, cluster_by_synapse_placement,
+                      cluster_xyz, ClustResults)
