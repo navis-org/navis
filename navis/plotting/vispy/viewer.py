@@ -28,6 +28,8 @@ with warnings.catch_warnings():
     from vispy import scene
     from vispy.util.quaternion import Quaternion
 
+from collections import OrderedDict
+
 from ... import utils, config
 from ..colors import *
 from .vputils import *
@@ -379,6 +381,23 @@ class Viewer:
         return [v for v in self.view3d.children[0].children if isinstance(v, scene.visuals.VisualNode)]
 
     @property
+    def _object_ids(self):
+        """ Returns all object IDs on this canvas in order of addition."""
+        obj_ids = [getattr(v, '_object_id') for v in self.visuals]
+        return sorted(set(obj_ids), key=lambda x: obj_ids.index(x))
+
+    @property
+    def objects(self):
+        """ Returns dict {uuid->[visuals]} of all objects on this canvas in
+        order of addition.
+        """
+        objects = OrderedDict()
+        for ob in self._object_ids:
+            objects[ob] = [v for v in self.visuals if getattr(v, '_object_id') == ob]
+
+        return objects
+
+    @property
     def neurons(self):
         """ Returns visible and invisible neuron visuals currently on the
         canvas.
@@ -427,13 +446,22 @@ class Viewer:
     def remove(self, to_remove):
         """ Remove given neurons/visuals from canvas.
         """
+        to_remove = utils.make_iterable(to_remove)
 
-        if not isinstance(to_remove, scene.visuals.VisualNode):
-            skids = utils.eval_skids(to_remove)
-            to_remove = [v for v in self.neurons[s] if s in self.neurons]
+        for vis in to_remove:
+            if isinstance(vis, scene.visuals.VisualNode):
+                vis.parent = None
+            else:
+                uuids = utils.eval_uuid(to_remove)
+                for u in uuids:
+                    for v in self.neurons.get(u, []):
+                        v.parent = None
 
-        for v in to_remove:
-            v.parent = None
+    def pop(self, N=1):
+        """ Remove the most recently added N visuals.
+        """
+        for vis in list(self.objects.values())[-N:]:
+            self.remove(vis)
 
     @block_canvas
     def update_legend(self):
@@ -744,6 +772,10 @@ class Viewer:
 
         self.set_colors(cmap, include_connectors=include_connectors)
 
+    def set_bgcolor(self, c):
+        """ Set background color. """
+        self.canvas.bgcolor = c
+
     def _cycle_neurons(self, increment):
         """ Cycle through neurons. """
         self._cycle_index += increment
@@ -797,7 +829,7 @@ class Viewer:
         self.active_neuron = to_show
         names = [getattr(self.neurons[u][0], 'name', 'NA') for u in to_show]
         self._data_text.text = '{} [{}/{}]'.format('|'.join(names),
-                                                   self._cycle_index,
+                                                   self._cycle_index + 1,
                                                    len(self.neurons))
 
     def _draw_fps(self, fps):
