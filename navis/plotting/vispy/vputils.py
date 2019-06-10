@@ -14,11 +14,14 @@
 import png
 import warnings
 
+import numpy as np
+
 from ... import config
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from vispy.gloo.util import _screenshot
+    import vispy.scene.visuals as vpvisuals
 
 
 def get_viewer():
@@ -91,3 +94,41 @@ def screenshot(file='screenshot.png', alpha=True):
     im.save(file)
 
     return
+
+
+def _combine_visuals(visuals):
+    """ Attempts to combine multiple visuals of similar type into one.
+    """
+
+    if any([not isinstance(v, vpvisuals.VisualNode) for v in visuals]):
+        raise TypeError('Visuals must all be instances of VisualNode')
+
+    # Sort into types
+    types = set([type(v) for v in visuals])
+
+    by_type = {ty: [v for v in visuals if type(v) == ty] for ty in types}
+
+    combined = []
+
+    # Now go over types and combine when possible
+    for ty in types:
+        # Skip if nothing to combine
+        if len(by_type[ty]) <= 1:
+            combined += by_type[ty]
+            continue
+
+        if ty == vpvisuals.Line:
+            # Collate data
+            pos_comb = np.concatenate([vis._pos for vis in by_type[ty]])
+
+            color = np.concatenate([np.repeat([vis.color],
+                                              vis.pos.shape[0],
+                                              axis=0) for vis in by_type[ty]])
+
+            if color.shape[1] == 3:
+                color.append()
+
+
+
+
+

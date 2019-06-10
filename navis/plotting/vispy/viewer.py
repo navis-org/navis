@@ -505,7 +505,7 @@ class Viewer:
                                 (ybounds.min(), ybounds.max()),
                                 (zbounds.min(), zbounds.max()))
 
-    def add(self, x, center=True, clear=False, **kwargs):
+    def add(self, x, center=True, clear=False, combine=False, **kwargs):
         """ Add objects to canvas.
 
         Parameters
@@ -516,6 +516,11 @@ class Viewer:
                     If True, re-center camera to all objects on canvas.
         clear :     bool, optional
                     If True, clear canvas before adding new objects.
+        combine :   bool, optional
+                    If True, will try combining similar objects into a single
+                    visual. This reduces the number of shader programs and
+                    should increase frame rate. Downside: objects can no
+                    longer be individually manipulated.
         **kwargs
                     Keyword arguments passed when generating visuals. See
                     :func:`~navis.plot3d` for options.
@@ -534,8 +539,8 @@ class Viewer:
         (neuron_cmap,
          dotprops_cmap,
          volumes_cmap) = prepare_colormap(kwargs.pop('color',
-                                               kwargs.pop('colors',
-                                                      kwargs.pop('c', None))),
+                                                     kwargs.pop('colors',
+                                                                kwargs.pop('c', None))),
                                           skdata, dotprops, volumes,
                                           color_range=1,
                                           use_neuron_color=kwargs.pop('use_neuron_color', False))
@@ -555,6 +560,9 @@ class Viewer:
 
         if clear:
             self.clear()
+
+        if combine:
+            visuals = combine_visuals(visuals)
 
         for v in visuals:
             self.view3d.add(v)
