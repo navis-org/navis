@@ -18,8 +18,10 @@
 import pandas as pd
 import numpy as np
 
+from typing import Union, List, Dict, Sequence, Optional, overload, Any
+from typing_extensions import Literal
 
-from .. import core, config, graph
+from .. import config, graph, core
 
 from .ray import *
 from .convex import *
@@ -188,7 +190,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
 
             volume = {v.name: v for v in volume if isinstance(v, core.Volume)}
 
-        data = dict()
+        data: Dict[str, Any] = dict()
         for v in config.tqdm(volume, desc='Volumes', disable=config.pbar_hide,
                              leave=config.pbar_leave):
             data[v] = in_volume(x,
@@ -198,58 +200,71 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                                 method=method)
         return data
 
+    # From here on out volume is a single core.Volume
+    vol: 'core.Volume' = volume  # type: ignore
+
     # Make copy if necessary
     if isinstance(x, (core.NeuronList, core.TreeNeuron)):
         if inplace is False:
             x = x.copy()
 
-    if isinstance(x, pd.DataFrame):
-        points = x[['x', 'y', 'z']].values
-    elif isinstance(x, core.TreeNeuron):
-        in_v = in_volume(x.nodes[['x', 'y', 'z']].values, volume,
+    if isinstance(x, core.TreeNeuron):
+        in_v = in_volume(x.nodes[['x', 'y', 'z']],
+                         vol,
                          method=method)
 
         # If mode is OUT, invert selection
         if mode == 'OUT':
             in_v = ~np.array(in_v)
 
-        x = graph.subset_neuron(x, x.nodes[in_v].node_id.values,
-                                inplace=True,
+        x = graph.subset_neuron(x,
+                                subset=x.nodes[in_v].node_id.values,
+                                inplace=False,
                                 prevent_fragments=prevent_fragments)
 
         if inplace is False:
             return x
-        return
+        return None
     elif isinstance(x, core.NeuronList):
         for n in x:
-            _ = in_volume(n, volume, inplace=True, mode=mode, method=method,
-                          prevent_fragments=prevent_fragments)
+            in_volume(n, vol, inplace=True, mode=mode, method=method,
+                      prevent_fragments=prevent_fragments)
 
         if inplace is False:
             return x
-        return
-    else:
+        return None
+    elif isinstance(x, pd.DataFrame):
+        points = x[['x', 'y', 'z']].values
+    elif isinstance(x, np.ndarray):
         points = x
+    elif isinstance(x, (list, tuple)):
+        points = np.array(x)
 
-    if points.ndim != 2 or points.shape[1] != 3:
+    if points.ndim != 2 or points.shape[1] != 3:  # type: ignore  # does not know about numpy
         raise ValueError('Points must be array of shape (N,3).')
 
     if pyoctree:
-        return ray_in_volume(points, volume,
+        return ray_in_volume(points, vol,
                              multi_ray=method.upper() == 'SAFE')
     else:
         logger.warning(
             'Package pyoctree not found. Falling back to ConvexHull.')
-        return in_volume_convex(points, volume, approximate=False)
+        return in_volume_convex(points, vol, approximate=False)
 
 
-def intersection_matrix(x, volumes, attr=None, method='FAST'):
+def intersection_matrix(x: 'core.NeuronObject',
+                        volumes: Union[List[core.Volume],
+                                       Dict[str, core.Volume]],
+                        attr: Optional[str] = None,
+                        method: Union[Literal['FAST'],
+                                      Literal['SAFE']] = 'FAST'
+                        ) -> pd.DataFrame:
     """ Computes intersection matrix between a set of neurons and a set of
     volumes.
 
     Parameters
     ----------
-    x :               navis.NeuronList | navis.TreeNeuron
+    x :               NeuronList | TreeNeuron
                       Neurons to intersect.
     volume :          list or dict of navis.Volume
     attr :            str | None, optional
@@ -262,6 +277,9 @@ def intersection_matrix(x, volumes, attr=None, method='FAST'):
     -------
     pandas DataFrame
     """
+
+    # Volumes should be a dict at some point
+    volumes_dict: Dict[str, core.Volume]
 
     if isinstance(x, core.TreeNeuron):
         x = core.NeuronList(x)

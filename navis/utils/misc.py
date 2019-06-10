@@ -10,43 +10,43 @@
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along
-
 
 import pandas as pd
 import numpy as np
 
-from .. import core, config
+from typing import Optional, Union, List, Iterable, Dict, Tuple
+
+from .. import config, core
 
 # Set up logging
 logger = config.logger
 
 
-def _type_of_script():
+def _type_of_script() -> str:
     """ Returns context in which navis is run. """
     try:
-        ipy_str = str(type(get_ipython()))
+        ipy_str = str(type(get_ipython()))  # type: ignore
         if 'zmqshell' in ipy_str:
             return 'jupyter'
-        if 'terminal' in ipy_str:
+        else:  # if 'terminal' in ipy_str:
             return 'ipython'
     except BaseException:
         return 'terminal'
 
 
-def is_jupyter():
+def is_jupyter() -> bool:
     """ Test if navis is run in a Jupyter notebook."""
     return _type_of_script() == 'jupyter'
 
 
-def set_loggers(level='INFO'):
+def set_loggers(level: str = 'INFO'):
     """Helper function to set levels for all associated module loggers."""
     config.logger.setLevel(level)
 
 
-def set_pbars(hide=None, leave=None, jupyter=None):
+def set_pbars(hide: Optional[bool] = None,
+              leave: Optional[bool] = None,
+              jupyter: Optional[bool] = None) -> None:
     """ Set global progress bar behaviors.
 
     Parameters
@@ -82,12 +82,16 @@ def set_pbars(hide=None, leave=None, jupyter=None):
             config.tqdm = config.tqdm_classic
             config.trange = config.trange_classic
 
+    return
 
-def unpack_neurons(x, raise_on_error=True):
+
+def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.TreeNeuron'],
+                   raise_on_error: bool = True
+                   ) -> List['core.TreeNeuron']:
     """ Unpacks neurons and returns a list of individual neurons.
     """
 
-    neurons = []
+    neurons: list = []
 
     if isinstance(x, (list, np.ndarray, tuple)):
         for l in x:
@@ -102,7 +106,8 @@ def unpack_neurons(x, raise_on_error=True):
     return neurons
 
 
-def set_default_connector_colors(x):
+def set_default_connector_colors(x: Union[List[tuple], Dict[str, tuple]]
+                                 ) -> None:
     """ Set default connector colors.
 
     Parameters
@@ -122,7 +127,11 @@ def set_default_connector_colors(x):
     return
 
 
-def parse_objects(x):
+def parse_objects(x) -> Tuple['core.NeuronList',
+                              pd.DataFrame,
+                              List['core.Volume'],
+                              List[np.ndarray],
+                              List]:
     """ Helper class to categorize objects e.g. for plotting.
 
     Returns
@@ -148,18 +157,18 @@ def parse_objects(x):
     visuals = [ob for ob in x if 'vispy' in str(type(ob))]
 
     # Collect dotprops
-    dotprops = [ob for ob in x if isinstance(ob, core.Dotprops)]
+    dps = [ob for ob in x if isinstance(ob, core.Dotprops)]
 
-    if len(dotprops) == 1:
-        dotprops = dotprops[0]
-    elif len(dotprops) == 0:
+    if len(dps) == 1:
+        dotprops = dps[0]
+    elif len(dps) == 0:
         dotprops = core.Dotprops()
         dotprops['gene_name'] = []
-    elif len(dotprops) > 1:
-        dotprops = pd.concat(dotprops)
+    else:
+        dotprops = pd.concat(dps)
 
     # Collect and parse volumes
-    volumes = [ob for ob in x if isinstance(ob, (core.Volume, str))]
+    volumes = [ob for ob in x if isinstance(ob, core.Volume)]
 
     # Collect dataframes with X/Y/Z coordinates
     # Note: dotprops and volumes are instances of pd.DataFrames

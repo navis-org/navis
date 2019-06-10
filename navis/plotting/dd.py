@@ -24,7 +24,10 @@ from matplotlib.collections import LineCollection
 
 import numpy as np
 
-from .. import utils, config
+from typing import Union, List
+from typing_extensions import Literal
+
+from .. import utils, config, core
 from .colors import prepare_colormap
 from .plot_utils import segments_to_coords, tn_pairs_to_coords
 
@@ -33,7 +36,15 @@ __all__ = ['plot2d']
 logger = config.logger
 
 
-def plot2d(x, method='2d', **kwargs):
+def plot2d(x: Union[core.NeuronObject,
+                    core.Volume,
+                    np.ndarray,
+                    List[Union[core.NeuronObject, np.ndarray, core.Volume]]
+                    ],
+           method: Union[Literal['2d'],
+                         Literal['3d'],
+                         Literal['3d_complex']] = '2d',
+           **kwargs) -> Tuple[matplotlib.figure, matplotlib.ax]:
     """ Generate 2D plots of neurons and neuropils.
 
     The main advantage of this is that you can save plot as vector graphics.

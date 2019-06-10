@@ -18,9 +18,12 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 
+from typing import Union, Optional, List, Tuple, Sequence, Dict, Set, overload, Iterable
+from typing_extensions import Literal
+
 from scipy.sparse import csgraph, csr_matrix
 
-from .. import graph, core, utils, config
+from .. import graph, utils, config, core
 
 # Set up logging
 logger = config.logger
@@ -29,10 +32,12 @@ __all__ = sorted(['classify_nodes', 'cut_neuron', 'longest_neurite',
                   'split_into_fragments', 'reroot_neuron', 'distal_to',
                   'dist_between', 'find_main_branchpoint',
                   'generate_list_of_childs', 'geodesic_matrix',
-                  'subset_neuron', 'node_label_sorting'])
+                  'subset_neuron', 'node_label_sorting',
+                  'segment_length'])
 
 
-def _generate_segments(x, weight=None):
+def _generate_segments(x: 'core.NeuronObject',
+                       weight: Optional[str] = None) -> list:
     """ Generate segments maximizing segment lengths.
 
     Parameters
@@ -50,7 +55,7 @@ def _generate_segments(x, weight=None):
                 sorted by segment lengths.
     """
 
-    if isinstance(x, pd.DataFrame) or isinstance(x, core.NeuronList):
+    if isinstance(x, core.NeuronList):
         return [_generate_segments(x.loc[i],
                                    weight=weight) for i in range(x.shape[0])]
     elif isinstance(x, core.TreeNeuron):
@@ -58,6 +63,9 @@ def _generate_segments(x, weight=None):
     else:
         logger.error('Unexpected datatype: %s' % str(type(x)))
         raise ValueError
+
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
 
     if weight == 'weight':
         # Get distances from end nodes to root
@@ -67,7 +75,9 @@ def _generate_segments(x, weight=None):
                             tn_ids=x.nodes[x.nodes.type == 'end'].node_id.values)
 
         # Sort by distance to root
-        endNodeIDs = m.sort_values(x.root[0], ascending=False).index.values
+        endNodeIDs = m.sort_values(x.root[0],
+                                   inplace=False,
+                                   ascending=False).index.values
     elif not weight:
         d = _edge_count_to_root(x)
         endNodeIDs = x.nodes[x.nodes.type == 'end'].node_id.values
@@ -76,15 +86,15 @@ def _generate_segments(x, weight=None):
         raise ValueError(f'Unable to use weight "{weight}"')
 
     if config.use_igraph and x.igraph:
-        g = x.igraph
+        g: igraph.Graph = x.igraph
         # Convert endNodeIDs to indices
         id2ix = {n: ix for ix, n in zip(g.vs.indices,
                                         g.vs.get_attribute_values('node_id'))}
         endNodeIDs = [id2ix[n] for n in endNodeIDs]
     else:
-        g = x.graph
+        g: nx.DiGraph = x.graph
 
-    seen = set()
+    seen: set = set()
     sequences = []
     for nodeID in endNodeIDs:
         sequence = [nodeID]
@@ -118,7 +128,7 @@ def _generate_segments(x, weight=None):
     return sequences
 
 
-def _break_segments(x):
+def _break_segments(x: 'core.NeuronObject') -> list:
     """ Break neuron into small segments connecting ends, branches and root.
 
     Parameters
@@ -133,7 +143,7 @@ def _break_segments(x):
 
     """
 
-    if isinstance(x, pd.DataFrame) or isinstance(x, core.NeuronList):
+    if isinstance(x, core.NeuronList):
         return [_break_segments(x.loc[i]) for i in range(x.shape[0])]
     elif isinstance(x, core.TreeNeuron):
         pass
@@ -141,8 +151,11 @@ def _break_segments(x):
         logger.error('Unexpected datatype: %s' % str(type(x)))
         raise ValueError
 
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
+
     if x.igraph and config.use_igraph:
-        g = x.igraph
+        g: Union['igraph.Graph', 'nx.DiGraph'] = x.igraph
         end = g.vs.select(_indegree=0).indices
         branch = g.vs.select(_indegree_gt=1, _outdegree=1).indices
         root = g.vs.select(_outdegree=0).indices
@@ -179,10 +192,12 @@ def _break_segments(x):
     return seg_list
 
 
-def _edge_count_to_root(x):
+def _edge_count_to_root(x: 'core.TreeNeuron') -> dict:
     """ Return a map of nodeID vs number of edges from the first node that
     lacks successors (aka the root).
     """
+    current_level: List[int]
+    g: Union['igraph.Graph', 'nx.DiGraph']
     if x.igraph and config.use_igraph:
         g = x.igraph
         current_level = g.vs(_outdegree=0).indices
@@ -192,7 +207,7 @@ def _edge_count_to_root(x):
 
     dist = {}
     count = 1
-    next_level = []
+    next_level: List[Union[str, int]] = []
     while current_level:
         # Consume all elements in current_level
         while current_level:
@@ -200,7 +215,7 @@ def _edge_count_to_root(x):
             dist[node] = count
             next_level.extend(g.predecessors(node))
         # Rotate lists (current_level is now empty)
-        current_level, next_level = next_level, current_level
+        current_level, next_level = next_level, current_level  # type: ignore
         count += 1
 
     # Map vertex index to treenode ID
@@ -210,7 +225,9 @@ def _edge_count_to_root(x):
     return dist
 
 
-def classify_nodes(x, inplace=True):
+def classify_nodes(x: 'core.NeuronObject',
+                   inplace: bool = True
+                   ) -> Optional['core.NeuronObject']:
     """ Classifies neuron's treenodes into end nodes, branches, slabs
     or root.
 
@@ -239,6 +256,9 @@ def classify_nodes(x, inplace=True):
         for i in config.trange(x.shape[0], desc='Classifying'):
             classify_nodes(x[i], inplace=True)
     elif isinstance(x, core.TreeNeuron):
+        # At this point x is TreeNeuron
+        x: core.TreeNeuron
+
         # Make sure there are nodes to classify
         if x.nodes.shape[0] != 0:
             if x.igraph and config.use_igraph:
@@ -273,9 +293,40 @@ def classify_nodes(x, inplace=True):
 
     if not inplace:
         return x
+    return None
 
 
-def distal_to(x, a=None, b=None):
+#  only this combination will return a single bool
+@overload
+def distal_to(x: 'core.TreeNeuron',
+              a: Union[str, str],
+              b: Union[str, int],
+              ) -> bool:
+    pass
+
+
+#  if above types don't a DataFrame will be returned
+@overload
+def distal_to(x: 'core.TreeNeuron',
+              a: Optional[List[Union[str, int]]],
+              b: Optional[Union[str, int, List[Union[str, int]]]],
+              ) -> pd.DataFrame:
+    pass
+
+
+#  if above types don't a DataFrame will be returned
+@overload
+def distal_to(x: 'core.TreeNeuron',
+              a: Optional[Union[str, int, List[Union[str, int]]]],
+              b: Optional[List[Union[str, int]]],
+              ) -> pd.DataFrame:
+    pass
+
+
+def distal_to(x: 'core.TreeNeuron',
+              a: Optional[Union[str, int, List[Union[str, int]]]] = None,
+              b: Optional[Union[str, int, List[Union[str, int]]]] = None,
+              ) -> Union[bool, pd.DataFrame]:
     """ Checks if nodes A are distal to nodes B.
 
     Important
@@ -383,7 +434,10 @@ def distal_to(x, a=None, b=None):
         return df
 
 
-def geodesic_matrix(x, tn_ids=None, directed=False, weight='weight'):
+def geodesic_matrix(x: 'core.NeuronObject',
+                    tn_ids: Optional[Iterable[int]] = None,
+                    directed: bool = False,
+                    weight: Optional[str] = 'weight') -> pd.DataFrame:
     """ Generates geodesic ("along-the-arbor") distance matrix for treenodes
     of given neuron.
 
@@ -424,6 +478,9 @@ def geodesic_matrix(x, tn_ids=None, directed=False, weight='weight'):
     else:
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
+
     if x.igraph and config.use_igraph:
         nodeList = x.igraph.vs.get_attribute_values('node_id')
 
@@ -435,19 +492,18 @@ def geodesic_matrix(x, tn_ids=None, directed=False, weight='weight'):
         m = nx.to_scipy_sparse_matrix(x.graph, nodeList,
                                       weight=weight)
 
+    tn_indices: Optional[Iterable[int]]
     if not isinstance(tn_ids, type(None)):
         tn_ids = set(utils.make_iterable(tn_ids))
-        tn_indices = tuple(i for i, node in enumerate(
-            nodeList) if node in tn_ids)
+        tn_indices = tuple(i for i, node in enumerate(nodeList) if node in tn_ids)
         ix = [nodeList[i] for i in tn_indices]
     else:
         tn_indices = None
         ix = nodeList
 
-    dmat = csgraph.dijkstra(m,
-                            directed=directed, indices=tn_indices)
+    dmat = csgraph.dijkstra(m, directed=directed, indices=tn_indices)
 
-    return pd.SparseDataFrame(dmat, columns=nodeList, index=ix,
+    return pd.SparseDataFrame(dmat, columns=nodeList, index=ix,  # type: ignore  # no stubs
                               default_fill_value=float('inf'))
 
 
@@ -514,10 +570,8 @@ def dist_between(x: 'core.NeuronObject',
             raise ValueError(f'Need a single TreeNeuron, got {len(x)}')
 
     if isinstance(x, core.TreeNeuron):
-        if x.igraph and config.use_igraph:
-            g = x.igraph
-        else:
-            g = x.graph
+        g: Union['igraph.Graph',
+                 'nx.DiGraph'] = x.igraph if (x.igraph and config.use_igraph) else x.graph
     elif isinstance(x, nx.DiGraph):
         g = x
     elif 'igraph' in str(type(x.igraph)):
@@ -526,8 +580,8 @@ def dist_between(x: 'core.NeuronObject',
     else:
         raise ValueError(f'Unable to process data of type {type(x)}')
 
-    if (utils.is_iterable(a) and len(a) > 1) or \
-       (utils.is_iterable(b) and len(b) > 1):
+    if ((utils.is_iterable(a) and len(a) > 1) or  # type: ignore  # this is just a check
+        (utils.is_iterable(b) and len(b) > 1)):   # type: ignore  # this is just a check
         raise ValueError('Can only process single treenodes. Use '
                          'navis.geodesic_matrix instead.')
 
@@ -553,7 +607,8 @@ def dist_between(x: 'core.NeuronObject',
                                 mode='ALL')[0][0]
 
 
-def find_main_branchpoint(x, reroot_to_soma=False):
+def find_main_branchpoint(x: 'core.NeuronObject',
+                          reroot_to_soma: bool = False) -> int:
     """ Returns the branch point at which the two largest branches converge.
 
     Parameters
@@ -579,6 +634,9 @@ def find_main_branchpoint(x, reroot_to_soma=False):
     elif not isinstance(x, (core.TreeNeuron, core.NeuronList)):
         raise TypeError(f'Must provide TreeNeuron/List, not "{type(x)}"')
 
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
+
     g = graph.neuron2nx(x)
 
     # First, find longest path
@@ -596,7 +654,10 @@ def find_main_branchpoint(x, reroot_to_soma=False):
     return bp
 
 
-def split_into_fragments(x, n=2, min_size=None, reroot_to_soma=False):
+def split_into_fragments(x: 'core.NeuronObject',
+                         n: int = 2,
+                         min_size: Optional[int] = None,
+                         reroot_to_soma: bool = False) -> 'core.NeuronList':
     """ Splits neuron into fragments.
 
     Cuts are based on longest neurites: the first cut is made where the second
@@ -646,11 +707,14 @@ def split_into_fragments(x, n=2, min_size=None, reroot_to_soma=False):
     if n < 2:
         raise ValueError('Number of fragments must be at least 2.')
 
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
+
     if reroot_to_soma and x.soma:
         x.reroot(x.soma, inplace=True)
 
     # Collect treenodes of the n longest neurites
-    tn_to_preserve = []
+    tn_to_preserve: List[int] = []
     fragments = []
     i = 0
     while i < n:
@@ -693,8 +757,7 @@ def split_into_fragments(x, n=2, min_size=None, reroot_to_soma=False):
             g.remove_nodes_from(g2.nodes)
 
     # Now make neurons
-    nl = core.NeuronList(
-        [subset_neuron(x, g, clear_temp=True) for g in graphs])
+    nl = core.NeuronList([subset_neuron(x, g, clear_temp=True) for g in graphs])
 
     # Rename neurons
     for i, n in enumerate(nl):
@@ -703,7 +766,26 @@ def split_into_fragments(x, n=2, min_size=None, reroot_to_soma=False):
     return nl
 
 
-def longest_neurite(x, n=1, reroot_to_soma=False, inplace=False):
+@overload
+def longest_neurite(x: 'core.NeuronObject',
+                    n: int = 1,
+                    reroot_to_soma: bool = False,
+                    inplace: Literal[False] = False) -> 'core.TreeNeuron':
+    pass
+
+
+@overload
+def longest_neurite(x: 'core.NeuronObject',
+                    n: int = 1,
+                    reroot_to_soma: bool = False,
+                    inplace: Literal[True] = True) -> None:
+    pass
+
+
+def longest_neurite(x: 'core.NeuronObject',
+                    n: int = 1,
+                    reroot_to_soma: bool = False,
+                    inplace: bool = False) -> Optional['core.TreeNeuron']:
     """ Returns a neuron consisting of only the longest neurite(s) based on
     geodesic distance.
 
@@ -748,6 +830,9 @@ def longest_neurite(x, n=1, reroot_to_soma=False, inplace=False):
         raise ValueError('Number of longest neurites to preserve must be at '
                          'least 1.')
 
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
+
     if not inplace:
         x = x.copy()
 
@@ -757,7 +842,7 @@ def longest_neurite(x, n=1, reroot_to_soma=False, inplace=False):
     segments = _generate_segments(x, weight='weight')
 
     if isinstance(n, (int, np.int_)):
-        tn_to_preserve = [tn for s in segments[:n] for tn in s]
+        tn_to_preserve: List[int] = [tn for s in segments[:n] for tn in s]
     elif isinstance(n, slice):
         tn_to_preserve = [tn for s in segments[n] for tn in s]
     else:
@@ -767,9 +852,26 @@ def longest_neurite(x, n=1, reroot_to_soma=False, inplace=False):
 
     if not inplace:
         return x
+    return None
 
 
-def reroot_neuron(x, new_root, inplace=False):
+@overload
+def reroot_neuron(x: 'core.NeuronObject',
+                  new_root: Union[int, str],
+                  inplace: Literal[False] = False) -> 'core.TreeNeuron':
+    pass
+
+
+@overload
+def reroot_neuron(x: 'core.NeuronObject',
+                  new_root: Union[int, str],
+                  inplace: Literal[True] = True) -> None:
+    pass
+
+
+def reroot_neuron(x: 'core.NeuronObject',
+                  new_root: Union[int, str],
+                  inplace: bool = False) -> Optional['core.TreeNeuron']:
     """ Reroot neuron to new root.
 
     Parameters
@@ -825,6 +927,11 @@ def reroot_neuron(x, new_root, inplace=False):
         else:
             new_root = x.tags[new_root][0]
 
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
+    # At this point new_root is int
+    new_root: int
+
     if not inplace:
         x = x.copy()
 
@@ -832,8 +939,7 @@ def reroot_neuron(x, new_root, inplace=False):
     if any(x.root == new_root):
         if not inplace:
             return x
-        else:
-            return
+        return None
 
     if x.igraph and config.use_igraph:
         # Prevent warnings in the following code - querying paths between
@@ -892,7 +998,9 @@ def reroot_neuron(x, new_root, inplace=False):
         parent = next(g.successors(new_root), None)
         if not parent:
             # new_root is already the root
-            return
+            if not inplace:
+                return x
+            return None
         path = [new_root]
         weights = []
         while parent is not None:
@@ -932,11 +1040,15 @@ def reroot_neuron(x, new_root, inplace=False):
 
     if not inplace:
         return x
-    else:
-        return
+    return None
 
 
-def cut_neuron(x, cut_node, ret='both'):
+def cut_neuron(x: 'core.NeuronObject',
+               cut_node: Union[int, str, List[Union[int, str]]],
+               ret: Union[Literal['both'],
+                          Literal['proximal'],
+                          Literal['distal']] = 'both'
+               ) -> 'core.NeuronList':
     """ Split neuron at given point and returns two new neurons.
 
     Split is performed between cut node and its parent node. However, cut node
@@ -993,12 +1105,15 @@ def cut_neuron(x, cut_node, ret='both'):
     else:
         raise TypeError(f'Unable to process data of type "{type(x)}"')
 
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
+
     # Turn cut node into iterable
     if not utils.is_iterable(cut_node):
         cut_node = [cut_node]
 
     # Process cut nodes (i.e. if tag)
-    cn_ids = []
+    cn_ids: List[int] = []
     for cn in cut_node:
         # If cut_node is a tag (rather than an ID), try finding that node
         if isinstance(cn, str):
@@ -1012,7 +1127,7 @@ def cut_neuron(x, cut_node, ret='both'):
             cn_ids.append(cn)
 
     # Remove duplicates while retaining order - set() would mess that up
-    seen = set()
+    seen: Set[int] = set()
     cn_ids = [cn for cn in cn_ids if not (cn in seen or seen.add(cn))]
 
     # Warn if not all returned
@@ -1046,7 +1161,11 @@ def cut_neuron(x, cut_node, ret='both'):
     return core.NeuronList(res)
 
 
-def _cut_igraph(x, cut_node, ret):
+def _cut_igraph(x: 'core.TreeNeuron',
+                cut_node: int,
+                ret: str) -> Union['core.TreeNeuron',
+                                   Tuple['core.TreeNeuron',
+                                         'core.TreeNeuron']]:
     """Uses iGraph to cut a neuron."""
     # Make a copy
     g = x.igraph.copy()
@@ -1075,7 +1194,10 @@ def _cut_igraph(x, cut_node, ret):
         dist_graph, prox_graph = a, b
 
     if ret == 'distal' or ret == 'both':
-        dist = subset_neuron(x, dist_graph.vs['node_id'], clear_temp=False)
+        dist = subset_neuron(x,
+                             subset=dist_graph.vs['node_id'],
+                             inplace=False,
+                             clear_temp=False)
 
         # Change new root for dist
         dist.nodes.loc[dist.nodes.node_id == cut_node, 'type'] = 'root'
@@ -1084,7 +1206,10 @@ def _cut_igraph(x, cut_node, ret):
         dist._clear_temp_attr(exclude=['igraph', 'type', 'classify_nodes'])
 
     if ret == 'proximal' or ret == 'both':
-        prox = subset_neuron(x, prox_graph.vs['node_id'] + [cut_node],
+        ss: Sequence[int] = prox_graph.vs['node_id'] + [cut_node]
+        prox = subset_neuron(x,
+                             subset=ss,
+                             inplace=False,
                              clear_temp=False)
 
         # Change new root for dist
@@ -1097,15 +1222,19 @@ def _cut_igraph(x, cut_node, ret):
         return dist, prox
     elif ret == 'distal':
         return dist
-    elif ret == 'proximal':
+    else:  # elif ret == 'proximal':
         return prox
 
 
-def _cut_networkx(x, cut_node, ret):
+def _cut_networkx(x: 'core.TreeNeuron',
+                  cut_node: Union[int, str],
+                  ret: str) -> Union['core.TreeNeuron',
+                                     Tuple['core.TreeNeuron',
+                                           'core.TreeNeuron']]:
     """Uses networkX graph to cut a neuron."""
 
     # Get subgraphs consisting of nodes distal to cut node
-    dist_graph = nx.bfs_tree(x.graph, cut_node, reverse=True)
+    dist_graph: nx.DiGraph = nx.bfs_tree(x.graph, cut_node, reverse=True)
 
     if ret == 'distal' or ret == 'both':
         # bfs_tree does not preserve 'weight'
@@ -1114,7 +1243,10 @@ def _cut_networkx(x, cut_node, ret):
 
         # Generate new neurons
         # This is the actual bottleneck of the function: ~70% of time
-        dist = subset_neuron(x, dist_graph, clear_temp=False)
+        dist = subset_neuron(x,
+                             subset=dist_graph,
+                             inplace=False,
+                             clear_temp=False)  # type: ignore  # doesn't know nx.DiGraph
 
         # Change new root for dist
         dist.nodes.loc[dist.nodes.node_id == cut_node, 'parent_id'] = -1
@@ -1129,12 +1261,16 @@ def _cut_networkx(x, cut_node, ret):
     if ret == 'proximal' or ret == 'both':
         # bfs_tree does not preserve 'weight'
         # need to subset original graph by those nodes
-        prox_graph = x.graph.subgraph(
-            [n for n in x.graph.nodes if n not in dist_graph.nodes] + [cut_node])
+        ss_nodes = [n for n in x.graph.nodes if n not in dist_graph.nodes] + \
+                   [cut_node]
+        prox_graph: nx.DiGraph = x.graph.subgraph(ss_nodes)
 
         # Generate new neurons
         # This is the actual bottleneck of the function: ~70% of time
-        prox = subset_neuron(x, prox_graph, clear_temp=False)
+        prox = subset_neuron(x,
+                             subset=prox_graph,
+                             inplace=False,
+                             clear_temp=False)
 
         # Change cut node to end node for prox
         prox.nodes.loc[prox.nodes.node_id == cut_node, 'type'] = 'end'
@@ -1152,19 +1288,53 @@ def _cut_networkx(x, cut_node, ret):
         return dist, prox
     elif ret == 'distal':
         return dist
-    elif ret == 'proximal':
+    else:  # elif ret == 'proximal':
         return prox
 
 
-def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
-                  prevent_fragments=False, inplace=False):
+@overload
+def subset_neuron(x: 'core.TreeNeuron',
+                  subset: Union[Sequence[Union[int, str]],
+                                nx.DiGraph,
+                                pd.DataFrame],
+                  inplace: Literal[False],
+                  clear_temp: bool = True,
+                  keep_disc_cn: bool = False,
+                  prevent_fragments: bool = False
+                  ) -> 'core.TreeNeuron':
+    pass
+
+
+@overload
+def subset_neuron(x: 'core.TreeNeuron',
+                  subset: Union[Sequence[Union[int, str]],
+                                nx.DiGraph,
+                                pd.DataFrame],
+                  inplace: Literal[True],
+                  clear_temp: bool = True,
+                  keep_disc_cn: bool = False,
+                  prevent_fragments: bool = False
+                  ) -> None:
+    pass
+
+
+def subset_neuron(x: 'core.TreeNeuron',
+                  subset: Union[Sequence[Union[int, str]],
+                                nx.DiGraph,
+                                pd.DataFrame],
+                  inplace: bool = False,
+                  clear_temp: bool = True,
+                  keep_disc_cn: bool = False,
+                  prevent_fragments: bool = False
+                  ) -> Optional['core.TreeNeuron']:
     """ Subsets a neuron to a set of treenodes.
 
     Parameters
     ----------
     x :                   TreeNeuron
-    subset :              np.ndarray | NetworkX.Graph
-                          Treenodes to subset the neuron to.
+    subset :              np.ndarray | NetworkX.Graph | pandas.DataFrame
+                          Node IDs to subset the neuron to. If DataFrame
+                          must have `node_id` column.
     clear_temp :          bool, optional
                           If True, will reset temporary attributes (graph,
                           node classification, etc. ). In general, you should
@@ -1214,6 +1384,8 @@ def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
         subset = np.array(subset)
     elif isinstance(subset, (nx.DiGraph, nx.Graph)):
         subset = subset.nodes
+    elif isinstance(subset, pd.DataFrame):
+        subset = subset.node_id.values
     else:
         raise TypeError('Can only subset to list, set, numpy.ndarray or'
                         f'networkx.Graph, not "{type(subset)}"')
@@ -1221,7 +1393,7 @@ def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
     if prevent_fragments:
         subset, new_root = connected_subgraph(x, subset)
     else:
-        new_root = None
+        new_root = None  # type: ignore # new_root has already type from before
 
     # Make a copy of the neuron
     if not inplace:
@@ -1233,7 +1405,7 @@ def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
     # Make sure that there are root nodes
     # This is the fastest "pandorable" way: instead of overwriting the column,
     # concatenate a new column to this DataFrame
-    x.nodes = pd.concat([x.nodes.drop('parent_id', axis=1),
+    x.nodes = pd.concat([x.nodes.drop('parent_id', inplace=False, axis=1),  # type: ignore  # no stubs for concat
                          x.nodes[['parent_id']].where(x.nodes.parent_id.isin(x.nodes.node_id.values),
                                                       None, inplace=False)],
                         axis=1)
@@ -1245,10 +1417,10 @@ def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
 
     if hasattr(x, 'tags'):
         # Filter tags
-        x.tags = {t: [tn for tn in x.tags[t] if tn in subset] for t in x.tags}
+        x.tags = {t: [tn for tn in x.tags[t] if tn in subset] for t in x.tags}  # type: ignore  # TreeNeuron has no tags
 
         # Remove empty tags
-        x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}
+        x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}  # type: ignore  # TreeNeuron has no tags
 
     # Fix graph representations
     if 'graph' in x.__dict__:
@@ -1276,7 +1448,7 @@ def subset_neuron(x, subset, clear_temp=True, keep_disc_cn=False,
     return None
 
 
-def generate_list_of_childs(x):
+def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
     """ Returns list of childs.
 
     Parameters
@@ -1294,7 +1466,7 @@ def generate_list_of_childs(x):
     return {n: [e[0] for e in x.graph.in_edges(n)] for n in x.graph.nodes}
 
 
-def node_label_sorting(x):
+def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
     """ Returns treenodes ordered by node label sorting according to Cuntz
     et al., PLoS Computational Biology (2010).
 
@@ -1322,7 +1494,7 @@ def node_label_sorting(x):
     # Set distance between unreachable points to None
     # Need to reinitialise SparseMatrix to replace float('inf') with NaN
     # dist_mat[geo == float('inf')] = None
-    dist_mat = pd.SparseDataFrame(np.where(geo == float('inf'),
+    dist_mat = pd.SparseDataFrame(np.where(geo == float('inf'),  # type: ignore  # no stubs for SparseDataFrame
                                            np.nan,
                                            geo),
                                   columns=geo.columns,
@@ -1367,7 +1539,8 @@ def _igraph_to_sparse(graph, weight_attr=None):
                       shape=(len(graph.vs), len(graph.vs)))
 
 
-def connected_subgraph(x, ss):
+def connected_subgraph(x: 'core.TreeNeuron',
+                       ss: Sequence[Union[str, int]]) -> Tuple[np.ndarray, Union[int, str]]:
     """ Returns set of nodes necessary to connect all nodes in subset ``ss``.
 
     Parameters

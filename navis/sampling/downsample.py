@@ -13,6 +13,9 @@
 
 import numpy as np
 
+from typing import Optional, overload, Union
+from typing_extensions import Literal
+
 from .. import config, graph, core
 
 # Set up logging
@@ -21,8 +24,39 @@ logger = config.logger
 __all__ = ['downsample_neuron']
 
 
-def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
-                      preserve_tag_treenodes=False, inplace=False,):
+@overload
+def downsample_neuron(x: 'core.NeuronObject',
+                      downsampling_factor: float,
+                      inplace: Literal[True],
+                      preserve_cn_treenodes: bool = True,
+                      preserve_tag_treenodes: bool = False
+                      ) -> None: ...
+
+
+@overload
+def downsample_neuron(x: 'core.NeuronObject',
+                      downsampling_factor: float,
+                      inplace: Literal[False],
+                      preserve_cn_treenodes: bool = True,
+                      preserve_tag_treenodes: bool = False
+                      ) -> 'core.NeuronObject': ...
+
+
+@overload
+def downsample_neuron(x: 'core.NeuronObject',
+                      downsampling_factor: float,
+                      inplace: bool = False,
+                      preserve_cn_treenodes: bool = True,
+                      preserve_tag_treenodes: bool = False
+                      ) -> 'core.NeuronObject': ...
+
+
+def downsample_neuron(x: 'core.NeuronObject',
+                      downsampling_factor: Union[int, float],
+                      inplace: bool = False,
+                      preserve_cn_treenodes: bool = True,
+                      preserve_tag_treenodes: bool = False,
+                      ) -> Optional['core.NeuronObject']:
     """ Downsamples neuron(s) by a given factor.
 
     Preserves root, leafs, branchpoints by default. Preservation of treenodes
@@ -30,21 +64,15 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
 
     Parameters
     ----------
-    x :                      TreeNeuron | NeuronList
-                             Neuron(s) to downsample.
-    downsampling_factor :    int
+    x :                      Neuron(s) to downsample.
+    downsampling_factor :
                              Factor by which to reduce the node count.
-    preserve_cn_treenodes :  bool, optional
+    preserve_cn_treenodes :
                              If True, node that have connectors are
                              excluded from downsampling.
-    inplace :                bool, optional
+    inplace :
                              If True, will modify original neuron. If False, a
                              downsampled copy is returned.
-
-    Returns
-    -------
-    Neuron/List
-                             Downsampled neuron. Only if ``inplace=False``.
 
     Notes
     -----
@@ -59,9 +87,15 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
 
     """
     if isinstance(x, core.NeuronList):
-        return core.NeuronList([downsample_neuron(n,
-                                                  downsampling_factor,
-                                                  inplace=inplace) for n in x])
+        res = core.NeuronList([downsample_neuron(n,
+                                                 downsampling_factor=downsampling_factor,
+                                                 preserve_cn_treenodes=preserve_cn_treenodes,
+                                                 preserve_tag_treenodes=preserve_tag_treenodes,
+                                                 inplace=inplace) for n in x])
+        if not inplace:
+            return res
+        else:
+            return None
     elif isinstance(x, core.TreeNeuron):
         if not inplace:
             x = x.copy()
@@ -77,10 +111,10 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
         if not inplace:
             return x
         else:
-            return
+            return None
 
     list_of_parents = {n.node_id: n.parent_id for n in x.nodes.itertuples()}
-    list_of_parents[-1] = None
+    list_of_parents[-1] = None  # type: ignore  # doesn't know that node_id is int
 
     if 'type' not in x.nodes:
         graph.classify_nodes(x)
@@ -88,11 +122,11 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
     selection = x.nodes.type != 'slab'
 
     if preserve_cn_treenodes and x.has_connectors:
-        selection = selection | x.nodes.node_id.isin(x.connectors.node_id)
+        selection = selection | x.nodes.node_id.isin(x.connectors.node_id)  # type: ignore
 
     if preserve_tag_treenodes and x.has_tags:
         with_tags = [t for l in x.tags.values() for t in l]
-        selection = selection | x.nodes.node_id.isin(with_tags)
+        selection = selection | x.nodes.node_id.isin(with_tags)  # type: ignore
 
     fix_points = x.nodes[selection].node_id.values
 
@@ -125,13 +159,12 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
                     new_parents[this_node] = new_p
                     this_node = new_p
             else:
-                new_parents[this_node] = None
+                new_parents[this_node] = None  # type: ignore
                 break
 
-    new_nodes = x.nodes[x.nodes.node_id.isin(
-        list(new_parents.keys()))].copy()
+    new_nodes = x.nodes[x.nodes.node_id.isin(list(new_parents.keys()))].copy()
     new_nodes.loc[:, 'parent_id'] = [new_parents[tn]
-                                     for tn in new_nodes.node_id]
+                                     for tn in new_nodes.node_id.values]
 
     # Assign new parent IDs
     new_nodes.loc[:, 'parent_id'] = new_nodes.parent_id.values.astype(int)
@@ -147,3 +180,4 @@ def downsample_neuron(x, downsampling_factor, preserve_cn_treenodes=True,
 
     if not inplace:
         return x
+    return None

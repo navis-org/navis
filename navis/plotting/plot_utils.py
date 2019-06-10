@@ -22,20 +22,26 @@ import math
 
 import numpy as np
 
-from .. import config
+from typing import Tuple, Optional, List, Dict
+
+from .. import config, core
 
 __all__ = ['tn_pairs_to_coords', 'segments_to_coords', 'fibonacci_sphere']
 
 logger = config.logger
 
 
-def tn_pairs_to_coords(x, modifier=(1, 1, 1)):
+def tn_pairs_to_coords(x: core.TreeNeuron,
+                       modifier: Optional[Tuple[float,
+                                                float,
+                                                float]] = (1, 1, 1)
+                       ) -> np.ndarray:
     """Returns pairs of treenode -> parent node coordinates.
 
     Parameters
     ----------
-    x :         {pandas DataFrame, TreeNeuron}
-                Must contain the nodes
+    x :         pandas DataFrame | TreeNeuron
+                Must contain the nodes.
     modifier :  ints, optional
                 Use to modify/invert x/y/z axes.
 
@@ -50,9 +56,11 @@ def tn_pairs_to_coords(x, modifier=(1, 1, 1)):
         modifier = np.array(modifier)
 
     nodes = x.nodes[x.nodes.parent_id >= 0]
+
     tn_co = nodes.loc[:, ['x', 'y', 'z']].values
-    parent_co = x.nodes.set_index('node_id').loc[nodes.parent_id.values,
-                                                 ['x', 'y', 'z']].values
+    parent_co = x.nodes.set_index('node_id',
+                                  inplace=False).loc[nodes.parent_id.values,
+                                                     ['x', 'y', 'z']].values
 
     tn_co *= modifier
     parent_co *= modifier
@@ -62,12 +70,17 @@ def tn_pairs_to_coords(x, modifier=(1, 1, 1)):
     return coords.reshape((coords.shape[0], 2, 3))
 
 
-def segments_to_coords(x, segments, modifier=(1, 1, 1)):
+def segments_to_coords(x: core.TreeNeuron,
+                       segments: List[List[int]],
+                       modifier: Optional[Tuple[float,
+                                                float,
+                                                float]] = (1, 1, 1)
+                       ) -> List[np.ndarray]:
     """ Turns lists of node IDs into coordinates.
 
     Parameters
     ----------
-    x :         {pandas DataFrame, TreeNeuron}
+    x :         pandas DataFrame | TreeNeuron
                 Must contain the nodes
     segments :  list of treenode IDs
     modifier :  ints, optional
@@ -83,14 +96,16 @@ def segments_to_coords(x, segments, modifier=(1, 1, 1)):
     if not isinstance(modifier, np.ndarray):
         modifier = np.array(modifier)
 
-    locs = {r.node_id: (r.x, r.y, r.z) for r in x.nodes.itertuples()}
+    locs: Dict[int, Tuple[float, float, float]]
+    locs = {r.node_id: (r.x, r.y, r.z) for r in x.nodes.itertuples()}  # type: ignore
 
     coords = ([np.array([locs[tn] for tn in s]) * modifier for s in segments])
 
     return coords
 
 
-def fibonacci_sphere(samples=1, randomize=True):
+def fibonacci_sphere(samples: int = 1,
+                     randomize: bool = True) -> list:
     """ Calculates points on a sphere
     """
     rnd = 1.

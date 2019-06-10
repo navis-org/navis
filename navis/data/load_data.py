@@ -16,7 +16,12 @@ import os
 
 import networkx as nx
 
-from ..core import NeuronList, Volume
+from typing import Union, Optional
+from typing_extensions import Literal
+
+from ..core.volumes import Volume
+from ..core.neuronlist import NeuronList
+from ..core.neurons import TreeNeuron
 from ..io import *
 from ..graph import *
 
@@ -32,8 +37,13 @@ gml = [f for f in os.listdir(gml_path) if f.endswith('.gml')]
 swc = [f for f in os.listdir(swc_path) if f.endswith('.swc')]
 vols = [f for f in os.listdir(vols_path) if f.endswith('.json')]
 
+NeuronObject = Union[TreeNeuron, NeuronList]
 
-def example_neurons(n=None, source='swc'):
+
+def example_neurons(n: Optional[int] = None,
+                    source: Union[Literal['swc'],
+                                  Literal['gml']] = 'swc'
+                    ) -> NeuronObject:
     """ Load example neuron(s).
 
     These example neurons are olfactory projection neurons from the DA2
@@ -71,6 +81,9 @@ def example_neurons(n=None, source='swc'):
     if not isinstance(n, (int, type(None))):
         raise TypeError(f'Expected int or None, got "{type(n)}"')
 
+    if isinstance(n, int) and n < 1:
+        raise ValueError("Unable to return less than 1 neuron.")
+
     if source == 'gml':
         graphs = [nx.read_gml(os.path.join(gml_path, g)) for g in gml[:n]]
         nl = NeuronList([nx2neuron(g) for g in graphs])
@@ -84,7 +97,7 @@ def example_neurons(n=None, source='swc'):
     return nl
 
 
-def example_volume(name):
+def example_volume(name: str) -> Volume:
     """ Load an example volume.
 
     Parameters

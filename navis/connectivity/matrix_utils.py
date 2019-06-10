@@ -18,11 +18,19 @@
 import pandas as pd
 import numpy as np
 
-from .. import utils
+from typing import Union, Optional
+
+from .. import utils, config
+
+# Set up logging
+logger = config.logger
 
 
-def group_matrix(mat, row_groups={}, col_groups={}, drop_ungrouped=False,
-                 method='SUM'):
+def group_matrix(mat: Union[pd.DataFrame, np.ndarray],
+                 row_groups: Optional[dict] = {},
+                 col_groups: Optional[dict] = {},
+                 drop_ungrouped: bool = False,
+                 method: str = 'SUM') -> pd.DataFrame:
     """ Groups adjacency matrix into neuron groups.
 
     Parameters
@@ -75,8 +83,8 @@ def group_matrix(mat, row_groups={}, col_groups={}, drop_ungrouped=False,
     # Make sure everything is string
     mat.index = mat.index.astype(str)
     mat.columns = mat.columns.astype(str)
-    col_groups = {str(k): str(v) for k, v in col_groups.items()}
-    row_groups = {str(k): str(v) for k, v in row_groups.items()}
+    col_groups = {str(k): str(v) for k, v in col_groups.items()}  # type: ignore # redefinition error
+    row_groups = {str(k): str(v) for k, v in row_groups.items()}  # type: ignore # redefinition error
 
     if row_groups:
         # Drop non-grouped values if applicable

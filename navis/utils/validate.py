@@ -10,13 +10,12 @@
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along
 
 import pandas as pd
 
-from .. import config
+from typing import Union, List, Tuple
+
+from .. import config, core
 
 from .iterables import *
 
@@ -24,7 +23,10 @@ from .iterables import *
 logger = config.logger
 
 
-def validate_options(x, options, kwargs, raise_on_error=True):
+def validate_options(x: 'core.TreeNeuron',
+                     options: Union[List[str], str],
+                     kwargs: dict,
+                     raise_on_error: bool = True) -> None:
     """ Checks if neuron contains the relevant data e.g. for
     ``plot3d(plot_connectors=True)``.
 
@@ -58,8 +60,11 @@ def validate_options(x, options, kwargs, raise_on_error=True):
                         logger.warning(msg)
 
 
-def validate_table(x, required, restrict=False, optional={}):
-    """ Validates DataFrame
+def validate_table(x: pd.DataFrame,
+                   required: List[Union[str, Tuple[str]]],
+                   restrict: bool = False,
+                   optional: dict = {}) -> pd.DataFrame:
+    """ Validates DataFrame.
 
     Parameters
     ----------

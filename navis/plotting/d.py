@@ -19,17 +19,31 @@ import matplotlib.patches as mpatches
 
 import numpy as np
 
+from typing import Optional, Union, Dict, Tuple, Any
+
 from .. import core, config, graph
 
 logger = config.logger
 
+colortype = Union[str,
+                  Tuple[float, float, float],
+                  Tuple[float, float, float, float]]
 
-def plot1d(x, ax=None, color=None, **kwargs):
+
+def plot1d(x: 'core.NeuronObject',
+           ax: Optional['matplotlib.ax'] = None,
+           color: Optional[Union['str',
+                                 colortype,
+                                 Dict[Any, colortype],
+                                 ]
+                           ] = None,
+           **kwargs) -> 'matplotlib.ax':
     """ Plot neuron topology in 1D according to Cuntz et al. (2010).
 
     This function breaks a neurons into segments between branch points.
     See Cuntz et al., PLoS Computational Biology (2010) for detailed
-    explanation. For very complex neurons, the neuron "barcode"
+    explanation. For very complex neurons, this neuron "barcode" can get
+    fairly complicated - make sure to zoom in.
 
     Parameters
     ----------
@@ -37,7 +51,7 @@ def plot1d(x, ax=None, color=None, **kwargs):
                 Neuron(s) to plot.
     ax :        matplotlib.ax, optional
     cmap :      tuple | dict
-                Color. If dict must map skeleton ID to color.
+                Color. If dict must map neuron UUID to color.
     **kwargs
                 Will be passed to ``matplotlib.patches.Rectangle``.
 
@@ -48,7 +62,7 @@ def plot1d(x, ax=None, color=None, **kwargs):
     Examples
     --------
     >>> import matplotlib.pyplot as plt
-    >>> n = navis.get_neuron(16)
+    >>> n = navis.example_neuron(1)
     >>> ax = navis.plot1d(n)
     >>> plt.show()
 

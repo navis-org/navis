@@ -19,7 +19,9 @@ import uuid
 import pandas as pd
 import numpy as np
 
-from .. import core, config
+from typing import Tuple, Iterable, List, Union, Any, Optional, Sequence
+
+from .. import config, core
 
 from .iterables import *
 
@@ -27,7 +29,7 @@ from .iterables import *
 logger = config.logger
 
 
-def eval_conditions(x):
+def eval_conditions(x) -> Tuple[List[bool], List[bool]]:
     """ Splits list of strings into positive (no ~) and negative (~) conditions
     """
 
@@ -36,7 +38,8 @@ def eval_conditions(x):
     return [i for i in x if not i.startswith('~')], [i[1:] for i in x if i.startswith('~')]
 
 
-def eval_uuid(x, warn_duplicates=True):
+def eval_uuid(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
+              warn_duplicates: bool = True) -> List[uuid.UUID]:
     """ Evaluate neurons' UUIDs.
 
     Parameters
@@ -56,17 +59,17 @@ def eval_uuid(x, warn_duplicates=True):
     """
 
     if isinstance(x, uuid.UUID):
-        return [str(x)]
+        return [x]
     elif isinstance(x, (str, np.str)):
         return [uuid.UUID(x)]
     elif isinstance(x, (list, np.ndarray, set)):
-        uu = []
+        uu: List[uuid.UUID] = []
         for e in x:
             temp = eval_uuid(e, warn_duplicates=warn_duplicates)
             if isinstance(temp, (list, np.ndarray)):
                 uu += temp
             else:
-                uu.append(temp)
+                uu.append(temp)  # type: ignore
         return sorted(set(uu), key=uu.index)
     elif isinstance(x, core.TreeNeuron):
         return [x.uuid]
@@ -97,7 +100,9 @@ def eval_uuid(x, warn_duplicates=True):
         raise TypeError(msg)
 
 
-def eval_neurons(x, warn_duplicates=True, raise_other=True):
+def eval_neurons(x: Any,
+                 warn_duplicates: bool = True,
+                 raise_other: bool = True) -> Optional[List['core.TreeNeuron']]:
     """ Evaluate neurons.
 
     Parameters
@@ -120,9 +125,9 @@ def eval_neurons(x, warn_duplicates=True, raise_other=True):
     """
 
     if isinstance(x, core.TreeNeuron):
-        return [str(x)]
+        return [x]
     elif isinstance(x, (list, np.ndarray, set)):
-        neurons = []
+        neurons: List['core.TreeNeuron'] = []
         for e in x:
             temp = eval_neurons(e, warn_duplicates=warn_duplicates,
                                 raise_other=raise_other)
@@ -150,7 +155,11 @@ def eval_neurons(x, warn_duplicates=True, raise_other=True):
     return None
 
 
-def eval_node_ids(x):
+def eval_node_ids(x: Union[int, str,
+                           Sequence[Union[str, int]],
+                           'core.NeuronObject',
+                           pd.DataFrame]
+                  ) -> List[int]:
     """ Extract node IDs from data.
 
     Parameters
@@ -165,7 +174,7 @@ def eval_node_ids(x):
     Returns
     -------
     list
-                    List containing nodes as strings.
+                    List containing node IDs (integer)
 
     """
 
@@ -175,31 +184,30 @@ def eval_node_ids(x):
         try:
             return [int(x)]
         except BaseException:
-            raise TypeError('Unable to extract node ID from string <%s>' % str(x))
+            raise TypeError(f'Unable to extract node ID from string "{x}"')
     elif isinstance(x, (set, list, np.ndarray)):
         # Check non-integer entries
-        ids = []
+        ids: List[int] = []
         for e in x:
             temp = eval_node_ids(e)
             if isinstance(temp, (list, np.ndarray)):
                 ids += temp
             else:
-                ids.append(temp)
+                ids.append(temp)  # type: ignore
         # Preserving the order after making a set is super costly
         # return sorted(set(ids), key=ids.index)
         return list(set(ids))
     elif isinstance(x, core.TreeNeuron):
-        return to_return
+        return x.nodes.node_id.astype(int).tolist()
     elif isinstance(x, core.NeuronList):
-        to_return = []
+        to_return: List[int] = []
         for n in x:
-            to_return += n.nodes.node_id.tolist()
+            to_return += n.nodes.node_id.astype(int).tolist()
         return to_return
     elif isinstance(x, (pd.DataFrame, pd.Series)):
         to_return = []
         if 'node_id' in x:
-            to_return += x.node_id.tolist()
+            to_return += x.node_id.astype(int).tolist()
         return to_return
     else:
-        raise TypeError(
-            'Unable to extract node IDs from type %s' % str(type(x)))
+        raise TypeError(f'Unable to extract node IDs from type {type(x)}')

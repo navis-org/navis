@@ -18,11 +18,15 @@
 import numpy as np
 import pandas as pd
 
+from ..core.volumes import Volume
+
 from scipy.spatial import ConvexHull
 
 
-def in_volume_convex(points, volume, approximate=False,
-                     ignore_axis=[]):
+def in_volume_convex(points: np.ndarray,
+                     volume: Volume,
+                     approximate: bool = False,
+                     ignore_axis: list = []) -> np.ndarray:
     """ Uses scipy to test if points are within a given volume.
     The idea is to test if adding the point to the pointcloud changes the
     convex hull -> if yes, that point is outside the convex hull.

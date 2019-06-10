@@ -17,15 +17,21 @@ from glob import glob
 import os
 
 import pandas as pd
+import numpy as np
 
-from .. import core, config, utils
+from typing import Union, Iterable, Dict, Optional, Any
+
+from .. import config, utils, core
 
 # Set up logging
 logger = config.logger
 
 
-def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
-             **kwargs):
+def from_swc(f: Union[str, pd.DataFrame, Iterable],
+             connector_labels: Optional[Dict[str, Union[str, int]]] = {},
+             soma_label: Union[str, int] = 1,
+             include_subdirs: bool = False,
+             **kwargs) -> 'core.NeuronObject':
     """ Creates Neuron/List from SWC file.
 
     This import is following format specified
@@ -71,7 +77,7 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
     if isinstance(f, pd.DataFrame):
         nodes = f
         f = 'SWC'
-    elif os.path.isdir(f):
+    elif isinstance(f, str) and os.path.isdir(f):
         if not include_subdirs:
             swc = [os.path.join(f, x) for x in os.listdir(f) if
                    os.path.isfile(os.path.join(f, x)) and x.endswith('.swc')]
@@ -84,7 +90,7 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
                                                      desc='Reading {}'.format(f.split('/')[-1]),
                                                      disable=config.pbar_hide,
                                                      leave=config.pbar_leave)])
-    else:
+    elif isinstance(f, str):
         data = []
         if os.path.isfile(f):
             with open(f) as file:
@@ -102,11 +108,12 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
         # If not file, assume it's a SWC string
         else:
             # Note that with .split(), the last row will be empty
-            for row in f.split('\n')[:-1]:
-                if not row.startswith('#'):
-                    data.append(row.split(' '))
+            rows = f.split('\n')[:-1]
+            for r in rows:
+                if not r.startswith('#'):
+                    data.append(r.split(' '))
                 else:
-                    header.append(row)
+                    header.append(r)
 
             # Change f to generic name so that we can use it as name
             f = 'SWC'
@@ -119,13 +126,16 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
                              columns=['node_id', 'label', 'x', 'y', 'z',
                                       'radius', 'parent_id'],
                              dtype=object)
+    else:
+        raise TypeError('"f" must be filename, SWC string or DataFrame, not '
+                        f'{type(f)}')
 
     # Turn header back into single string
     header = '\n'.join(header)
 
     # If any invalid nodes are found
-    if any(nodes[['node_id', 'parent_id', 'x', 'y', 'z']].isnull()):
-        # Remove nodes without coordinates
+    if np.any(nodes[['node_id', 'parent_id', 'x', 'y', 'z']].isnull()):
+        # Remove nodes with missing data
         nodes = nodes.loc[~nodes[['node_id', 'parent_id', 'x', 'y', 'z']].isnull().any(axis=1)]
 
         # Because we removed nodes, we'll have to run a more complicated root
@@ -169,7 +179,11 @@ def from_swc(f, connector_labels={}, soma_label=1, include_subdirs=False,
     return n
 
 
-def to_swc(x, filename=None, header=None, labels=True, export_synapses=False):
+def to_swc(x: 'core.NeuronObject',
+           filename: Optional[str] = None,
+           header: Optional[str] = None,
+           labels: bool = True,
+           export_synapses: bool = False) -> None:
     """ Generate SWC file from neuron(s).
 
     Follows the format specified
@@ -213,6 +227,8 @@ def to_swc(x, filename=None, header=None, labels=True, export_synapses=False):
         if not utils.is_iterable(filename):
             filename = [filename] * len(x)
 
+        # At this point filename is iterable
+        filename: Iterable[str]
         for n, f in zip(x, filename):
             to_swc(n, f,
                    export_synapses=export_synapses)
@@ -240,7 +256,7 @@ def to_swc(x, filename=None, header=None, labels=True, export_synapses=False):
     # Make copy of nodes and reorder such that the parent is always before a
     # treenode
     nodes_ordered = [n for seg in x.segments for n in seg[::-1]]
-    this_tn = x.nodes.set_index('node_id').loc[nodes_ordered]
+    this_tn = x.nodes.set_index('node_id', inplace=False).loc[nodes_ordered]
 
     # Because the last treenode ID of each segment is a duplicate
     # (except for the first segment ), we have to remove these
@@ -252,7 +268,7 @@ def to_swc(x, filename=None, header=None, labels=True, export_synapses=False):
     # Make a dictionary node_id -> index
     tn2ix = this_tn['index'].to_dict()
     # This is for safety: all nodes with parent None will become roots
-    tn2ix[None] = -1
+    tn2ix[None] = -1  # type: ignore
 
     # Make parent index column
     this_tn['parent_ix'] = this_tn.parent_id.map(tn2ix)
@@ -297,14 +313,13 @@ def to_swc(x, filename=None, header=None, labels=True, export_synapses=False):
                 for l in ['7 = presynapse', '8 = postsynapse']:
                     file.write('# {}\n'.format(l))
         else:
-            f.write(header)
-        #file.write('\n')
+            file.write(header)
 
         writer = csv.writer(file, delimiter=' ')
         writer.writerows(swc.astype(str).values)
 
 
-def to_float(x):
+def to_float(x: Any) -> Optional[float]:
     """ Helper to try to convert to float.
     """
     try:
@@ -313,7 +328,7 @@ def to_float(x):
         return None
 
 
-def to_int(x):
+def to_int(x: Any) -> Optional[int]:
     """ Helper to try to convert to float.
     """
     try:

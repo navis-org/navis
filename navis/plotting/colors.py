@@ -21,6 +21,9 @@ import matplotlib.colors as mcl
 import numpy as np
 import pandas as pd
 
+from typing import Union, List, Tuple, Optional, Dict, Any, Sequence
+from typing_extensions import Literal
+
 from .. import core, config, utils
 
 __all__ = ['generate_colors', 'prepare_connector_cmap', 'prepare_colormap',
@@ -29,7 +32,12 @@ __all__ = ['generate_colors', 'prepare_connector_cmap', 'prepare_colormap',
 logger = config.logger
 
 
-def generate_colors(N, color_space='RGB', color_range=1):
+def generate_colors(N: int,
+                    color_space: Union[Literal['RGB'],
+                                       Literal['Grayscale']] = 'RGB',
+                    color_range: Union[Literal[1],
+                                       Literal[255]] = 1
+                    ) -> List[Tuple[float, float, float]]:
     """ Divides colorspace into N evenly distributed colors.
 
     Returns
@@ -84,7 +92,18 @@ def generate_colors(N, color_space='RGB', color_range=1):
     return colormap[:N]
 
 
-def map_colors(colors, objects, color_range=255):
+def map_colors(colors: Optional[Union[str,
+                                      Tuple[float, float, float],
+                                      Dict[Any, str],
+                                      Dict[Any, Tuple[float, float, float]],
+                                      List[Union[str,
+                                                 Tuple[float, float, float]]
+                                           ]
+                                      ]
+                                ],
+               objects: Sequence[Any],
+               color_range: Union[Literal[1], Literal[255]] = 255
+               ) -> List[Tuple[float, float, float]]:
     """ Maps color(s) onto list of objects.
 
     Parameters
@@ -145,7 +164,7 @@ def map_colors(colors, objects, color_range=255):
         raise TypeError(f'Unable to interpret colors of type "{type(colors)}"')
 
 
-def prepare_connector_cmap(x):
+def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
     """ Looks for "label" or "type" column in connector tables and generates
     a color for every unique type. See ``navis.set_default_connector_colors``.
 
@@ -159,7 +178,7 @@ def prepare_connector_cmap(x):
         connectors = x.get('connectors', None)
 
         if not isinstance(connectors, pd.DataFrame):
-            unique = []
+            unique: List[str] = []
         elif 'type' in connectors:
             unique = connectors.type.unique()
         elif 'label' in connectors:
@@ -185,6 +204,9 @@ def prepare_connector_cmap(x):
                              ' defined in default connector colors. '
                              'See navis.set_default_connector_colors')
         return colors
+    else:
+        raise TypeError('config.default_color must be dict or iterable, '
+                        f'not {type(config.default_color)}')
 
 
 def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,

@@ -17,8 +17,12 @@ import six
 import numpy as np
 import pandas as pd
 
+from typing import Optional, Any
 
-def make_iterable(x, force_type=None):
+
+def make_iterable(x,
+                  force_type: Optional[type] = None
+                  ) -> np.ndarray:
     """ Helper function. Turns x into a np.ndarray, if it isn't already. For
     dicts, keys will be turned into array.
     """
@@ -30,8 +34,7 @@ def make_iterable(x, force_type=None):
 
     if force_type:
         return np.array(x).astype(force_type)
-    else:
-        return np.array(x)
+    return np.array(x)
 
 
 def make_non_iterable(x):
@@ -46,7 +49,7 @@ def make_non_iterable(x):
         raise ValueError('Iterable must not contain more than one entry.')
 
 
-def is_iterable(x):
+def is_iterable(x: Any) -> bool:
     """ Helper function. Returns True if x is an iterable but not str or
     dictionary.
     """

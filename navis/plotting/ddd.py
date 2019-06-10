@@ -17,12 +17,15 @@
 import warnings
 
 import plotly.offline
+import numpy as np
+
+from typing import Union, List, Optional
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import vispy
 
-from .. import utils, config
+from .. import utils, config, core
 from .vispy.viewer import Viewer
 from .plotly.graph_objs import *
 
@@ -40,7 +43,12 @@ if utils.is_jupyter():
     plotly.offline.init_notebook_mode(connected=True)
 
 
-def plot3d(x, **kwargs):
+def plot3d(x: Union[core.NeuronObject,
+                    core.Volume,
+                    np.ndarray,
+                    List[Union[core.NeuronObject, np.ndarray, core.Volume]]
+                    ],
+           **kwargs) -> Optional[Union[Viewer, dict]]:
     """ Generate 3D plot.
 
     Uses either `vispy <http://vispy.org>`_ (default) or

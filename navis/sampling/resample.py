@@ -16,7 +16,10 @@ import numpy as np
 import scipy.spatial
 import scipy.interpolate
 
-from .. import core, config
+from typing import Union, Optional, List, overload
+from typing_extensions import Literal
+
+from .. import config, core, utils
 
 # Set up logging
 logger = config.logger
@@ -24,8 +27,39 @@ logger = config.logger
 __all__ = ['resample_neuron']
 
 
-def resample_neuron(x, resample_to, method='linear', inplace=False,
-                    skip_errors=True):
+@overload
+def resample_neuron(x: 'core.NeuronObject',
+                    resample_to: int,
+                    inplace: Literal[False],
+                    method: str = 'linear',
+                    skip_errors: bool = True
+                    ) -> 'core.NeuronObject': ...
+
+
+@overload
+def resample_neuron(x: 'core.NeuronObject',
+                    resample_to: int,
+                    inplace: Literal[True],
+                    method: str = 'linear',
+                    skip_errors: bool = True
+                    ) -> None: ...
+
+
+@overload
+def resample_neuron(x: 'core.NeuronObject',
+                    resample_to: int,
+                    inplace: bool = False,
+                    method: str = 'linear',
+                    skip_errors: bool = True
+                    ) -> None: ...
+
+
+def resample_neuron(x: 'core.NeuronObject',
+                    resample_to: int,
+                    inplace: bool = False,
+                    method: str = 'linear',
+                    skip_errors: bool = True
+                    ) -> Optional['core.NeuronObject']:
     """ Resamples neuron(s) to given NM resolution.
 
     Preserves root, leafs, branchpoints. Tags and connectors are mapped onto
@@ -41,7 +75,7 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
 
     Parameters
     ----------
-    x :                 CatmaidNeuron | CatmaidNeuronList
+    x :                 TreeNeuron | NeuronList
                         Neuron(s) to resample.
     resample_to :       int
                         New resolution in NANOMETERS.
@@ -71,8 +105,10 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
     """
 
     if isinstance(x, core.NeuronList):
+        if not inplace:
+            x = x.copy()
         results = [resample_neuron(x[i], resample_to,
-                                   method=method, inplace=inplace,
+                                   method=method, inplace=False,
                                    skip_errors=skip_errors)
                    for i in config.trange(x.shape[0],
                                           desc='Resampl. neurons',
@@ -80,7 +116,7 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
                                           leave=config.pbar_leave)]
         if not inplace:
             return core.NeuronList(results)
-        return
+        return None
     elif not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Unable to resample data of type "{type(x)}"')
 
@@ -88,11 +124,11 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
         x = x.copy()
 
     # Collect some information for later
-    nodes = x.nodes.set_index('node_id')
+    nodes = x.nodes.set_index('node_id', inplace=False)
     locs = nodes[['x', 'y', 'z']]
     radii = nodes['radius'].to_dict()
 
-    new_nodes = []
+    new_nodes: List = []
     max_tn_id = x.nodes.node_id.max() + 1
 
     errors = 0
@@ -173,13 +209,8 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
                        'errors')
 
     # Add root node(s)
-    root = x.root
-    if not isinstance(root, (np.ndarray, list)):
-        root = [x.root]
-    root = x.nodes.loc[x.nodes.node_id.isin(root), ['node_id',
-                                                    'parent_id',
-                                                    'x', 'y', 'z',
-                                                    'radius']]
+    root = x.nodes.loc[x.nodes.node_id.isin(utils.make_iterable(x.root)),
+                       ['node_id', 'parent_id', 'x', 'y', 'z', 'radius']]
     new_nodes += [list(r) for r in root.values]
 
     # Generate new nodes dataframe
@@ -202,8 +233,9 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
     if x.has_connectors:
         # Map connectors back:
         # 1. Get position of old synapse-bearing treenodes
-        old_tn_position = x.nodes.set_index('node_id').loc[x.connectors.node_id,
-                                                           ['x', 'y', 'z']].values
+        old_tn_position = x.nodes.set_index('node_id',
+                                            inplace=False).loc[x.connectors.node_id,
+                                                              ['x', 'y', 'z']].values
         # 2. Get closest neighbours
         distances = scipy.spatial.distance.cdist(
             old_tn_position, new_nodes[['x', 'y', 'z']].values)
@@ -219,3 +251,5 @@ def resample_neuron(x, resample_to, method='linear', inplace=False,
 
     if not inplace:
         return x
+    else:
+        return None

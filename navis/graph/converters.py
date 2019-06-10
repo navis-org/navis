@@ -17,12 +17,14 @@ import math
 import pandas as pd
 import scipy.spatial
 
+from typing import Union, Optional, List, Iterable
+
 try:
     import igraph
 except ImportError:
     igraph = None
 
-from .. import core, utils, config
+from .. import utils, config, core
 
 # Set up logging
 logger = config.logger
@@ -31,7 +33,9 @@ __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
                   'neuron2nx', 'neuron2KDTree', 'neuron2dps'])
 
 
-def network2nx(x, threshold=1, group_by=None):
+def network2nx(x: Union[pd.DataFrame, Iterable],
+               threshold: int = 1,
+               group_by: Union[dict, None] = None) -> nx.DiGraph:
     """ Generates NetworkX graph for neuron connectivity.
 
     Parameters
@@ -59,7 +63,9 @@ def network2nx(x, threshold=1, group_by=None):
         if all(miss):
             edges = x[['source', 'target', 'weight']].values
         else:
-            edges = x.reset_index(drop=False).melt(id_vars='index').values
+            edges = x.reset_index(inplace=False,
+                                  drop=False).melt(id_vars='index',
+                                                   inplace=False).values
     elif isinstance(x, (list, np.ndarray)):
         if any([len(e) != 3 for e in x]):
             raise ValueError('Edges must be [source, target, weight]')
@@ -87,7 +93,8 @@ def network2nx(x, threshold=1, group_by=None):
     return g
 
 
-def network2igraph(x, threshold=1):
+def network2igraph(x: Union[pd.DataFrame, Iterable],
+                   threshold: int = 1) -> igraph.Graph:
     """ Generates iGraph graph for neuron connectivity.
 
     Requires iGraph to be installed.
@@ -131,7 +138,9 @@ def network2igraph(x, threshold=1):
         if all(miss):
             edges = x[['source', 'target', 'weight']].values
         else:
-            edges = x.reset_index(drop=False).melt(id_vars='index').values
+            edges = x.reset_index(inplace=False,
+                                  drop=False).melt(id_vars='index',
+                                                   inplace=False).values
     elif isinstance(x, (list, np.ndarray)):
         if any([len(e) != 3 for e in x]):
             raise ValueError('Edges must be [source, target, weight]')
@@ -183,7 +192,7 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
         raise ValueError(f'Wrong input type "{type(x)}"')
 
     # Collect nodes
-    nodes = x.nodes.set_index('node_id')
+    nodes = x.nodes.set_index('node_id', inplace=False)
     # Collect edges
     edges = x.nodes[x.nodes.parent_id >= 0][['node_id', 'parent_id']].values
     # Collect weight
@@ -203,7 +212,7 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
     return g
 
 
-def neuron2igraph(x):
+def neuron2igraph(x: 'core.NeuronObject') -> igraph.Graph:
     """ Turns TreeNeuron(s) into an iGraph graph.
 
     Requires iGraph to be installed.
@@ -235,7 +244,7 @@ def neuron2igraph(x):
     logger.debug('Generating graph from skeleton data...')
 
     # Make sure we have correctly numbered indices
-    nodes = x.nodes.reset_index(drop=True)
+    nodes = x.nodes.reset_index(inplace=False, drop=True)
 
     # Generate list of vertices -> this order is retained
     vlist = nodes.node_id.values
@@ -244,8 +253,8 @@ def neuron2igraph(x):
     tn_index_with_parent = nodes.loc[nodes.parent_id >= 0].index.values
     parent_ids = nodes.loc[nodes.parent_id >= 0].parent_id.values
     nodes['temp_index'] = nodes.index  # add temporary index column
-    parent_index = nodes.set_index('node_id').loc[parent_ids,
-                                                  'temp_index'].values
+    parent_index = nodes.set_index('node_id', inplace=False).loc[parent_ids,
+                                                                 'temp_index'].values
 
     # Generate list of edges based on index of vertices
     elist = list(zip(tn_index_with_parent, parent_index.astype(int)))
@@ -266,7 +275,9 @@ def neuron2igraph(x):
     return g
 
 
-def nx2neuron(g, root=None):
+def nx2neuron(g: nx.Graph,
+              root: Optional[Union[int, str]] = None
+              ) -> pd.DataFrame:
     """ Generate treenode table from NetworkX Graph.
 
     This function will try to generate a neuron-like tree structure from
@@ -316,7 +327,7 @@ def nx2neuron(g, root=None):
 
     # Generate treenode table
     tn_table = pd.DataFrame(index=list(g.nodes))
-    tn_table.index = tn_table.index.set_names('node_id')
+    tn_table.index = tn_table.index.set_names('node_id', inplace=False)
 
     # Add parents
     tn_table['parent_id'] = tn_table.index.map(lop)
@@ -332,38 +343,53 @@ def nx2neuron(g, root=None):
     radii = nx.get_node_attributes(g, 'radius')
     tn_table['radius'] = tn_table.index.map(lambda x: radii.get(x, None))
 
-    return tn_table.reset_index()
+    return tn_table.reset_index(inplace=False)
 
 
-def _find_all_paths(g, start, end, mode='OUT', maxlen=None):
+def _find_all_paths(g: nx.DiGraph,
+                    start,
+                    end,
+                    mode: str = 'OUT',
+                    maxlen: Optional[int] = None) -> list:
     """ Find all paths between two vertices in an iGraph object. For some reason
     this function exists in R iGraph but not Python iGraph. This is rather slow
     and should not be used for large graphs.
     """
 
-    def find_all_paths_aux(adjlist, start, end, path, maxlen=None):
+    def find_all_paths_aux(adjlist: List[set],
+                           start: int,
+                           end: int,
+                           path: list,
+                           maxlen: Optional[int] = None) -> list:
         path = path + [start]
         if start == end:
             return [path]
-        paths = []
+        paths: list = []
         if maxlen is None or len(path) <= maxlen:
             for node in adjlist[start] - set(path):
-                paths.extend(find_all_paths_aux(
-                    adjlist, node, end, path, maxlen))
+                paths.extend(find_all_paths_aux(adjlist,
+                                                node,
+                                                end,
+                                                path,
+                                                maxlen))
         return paths
 
     adjlist = [set(g.neighbors(node, mode=mode))
                for node in range(g.vcount())]
-    all_paths = []
-    start = start if type(start) is list else [start]
-    end = end if type(end) is list else [end]
+    all_paths: list = []
+    start = start if isinstance(start, list) else [start]
+    end = end if isinstance(end, list) else [end]
     for s in start:
         for e in end:
             all_paths.extend(find_all_paths_aux(adjlist, s, e, [], maxlen))
     return all_paths
 
 
-def neuron2KDTree(x, tree_type='c', data='treenodes', **kwargs):
+def neuron2KDTree(x: 'core.TreeNeuron',
+                  tree_type: str = 'c',
+                  data: str = 'treenodes',
+                  **kwargs) -> Union[scipy.spatial.cKDTree,
+                                     scipy.spatial.KDTree]:
     """ Turns a neuron into scipy KDTree.
 
     Parameters
@@ -411,7 +437,7 @@ def neuron2KDTree(x, tree_type='c', data='treenodes', **kwargs):
         return scipy.spatial.KDTree(data=d, **kwargs)
 
 
-def neuron2dps(x):
+def neuron2dps(x: 'core.TreeNeuron') -> pd.DataFrame:
     """ Converts a neuron's neurites into dotproducts.
 
     Dotproducts consist of a point and a vector. This works by (1) finding the
@@ -458,7 +484,7 @@ def neuron2dps(x):
 
     # First, get a list of child -> parent locs (exclude root node!)
     tn_locs = x.nodes[x.nodes.parent_id >= 0][['x', 'y', 'z']].values
-    pn_locs = x.nodes.set_index('node_id').loc[x.nodes[x.nodes.parent_id >= 0].parent_id][['x', 'y', 'z']].values
+    pn_locs = x.nodes.set_index('node_id', inplace=False).loc[x.nodes[x.nodes.parent_id >= 0].parent_id][['x', 'y', 'z']].values
 
     # Get centers between each pair of locs
     centers = tn_locs + (pn_locs - tn_locs) / 2

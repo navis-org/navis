@@ -12,13 +12,15 @@
 #    GNU General Public License for more details.
 
 
-from .. import core, config
+from .. import config, core
+
+from typing import Sequence
 
 # Set up logging
 logger = config.logger
 
 
-def find_soma(x):
+def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     """ Tries finding a neuron's soma.
 
     Will use the ``.soma_detection_radius`` and ``.soma_label`` attribute of

@@ -19,6 +19,8 @@ import numbers
 import numpy as np
 import scipy.spatial
 
+from typing import Union, Optional, Sequence, List
+
 from .. import utils, config
 
 # Set up logging
@@ -45,7 +47,6 @@ class Volume:
     bbox :      array
                 Bounding box of the volume.
 
-
     See Also
     --------
     :func:`~navis.example_volume`
@@ -53,17 +54,25 @@ class Volume:
 
     """
 
-    def __init__(self, vertices, faces, name=None, color=(1, 1, 1, .1),
-                 volume_id=None, **kwargs):
-        self.name = name
-        self.vertices = vertices
-        self.faces = faces
-        self.color = color
-        self.volume_id = volume_id
+    def __init__(self,
+                 vertices: Union[list, np.ndarray],
+                 faces: Union[list, np.ndarray],
+                 name: Optional[str] = None,
+                 color: Sequence[Union[int, float]] = (1, 1, 1, .1),
+                 volume_id: Optional[int] = None, **kwargs):
+        self.name: Optional[str] = name
+        self.vertices: np.ndarray = np.array(vertices)
+        self.faces: np.ndarray = np.array(faces)
+        self.color: Sequence[Union[int, float]] = color
+        self.volume_id: Optional[int] = volume_id
 
     @classmethod
-    def from_csv(self, vertices, faces, name=None, color=(1, 1, 1, .1),
-                 volume_id=None, **kwargs):
+    def from_csv(self,
+                 vertices: str,
+                 faces: str,
+                 name: Optional[str] = None,
+                 color: Sequence[Union[int, float]] = (1, 1, 1, .1),
+                 volume_id: Optional[int] = None, **kwargs) -> 'Volume':
         """ Load volume from csv files containing vertices and faces.
 
         Parameters
@@ -92,7 +101,7 @@ class Volume:
         return Volume(faces=faces, vertices=vertices, name=name, color=color,
                       volume_id=volume_id)
 
-    def to_csv(self, filename, **kwargs):
+    def to_csv(self, filename: str, **kwargs) -> None:
         """ Save volume as two separated csv files containing vertices and
         faces.
 
@@ -112,7 +121,11 @@ class Volume:
                 writer.writerows(data)
 
     @classmethod
-    def from_json(self, filename, name=None, color=(1, 1, 1, .1), **kwargs):
+    def from_json(self,
+                  filename: str,
+                  name: Optional[str] = None,
+                  color: Sequence[Union[int, float]] = (1, 1, 1, .1),
+                  **kwargs) -> 'Volume':
         """ Load volume from json files containing vertices and faces.
 
         Parameters
@@ -134,7 +147,7 @@ class Volume:
                       vertices=data['vertices'],
                       name=name, color=color)
 
-    def to_json(self, filename):
+    def to_json(self, filename: str) -> None:
         """ Save volume as json file.
 
         Parameters
@@ -149,7 +162,11 @@ class Volume:
                       f)
 
     @classmethod
-    def combine(self, x, name='comb_vol', color=(1, 1, 1, .1)):
+    def combine(self,
+                x: Sequence['Volume'],
+                name: str = 'comb_vol',
+                color: Sequence[Union[int, float]] = (1, 1, 1, .1)
+                ) -> 'Volume':
         """ Merges multiple volumes into a single object.
 
         Parameters
@@ -172,13 +189,13 @@ class Volume:
             x = list(x.values())
 
         if not utils.is_iterable(x):
-            x = [x]
+            x = [x]  # type: ignore
 
         if False in [isinstance(v, Volume) for v in x]:
             raise TypeError('Input must be list of volumes')
 
-        vertices = np.empty((0, 3))
-        faces = []
+        vertices: np.ndarray = np.empty((0, 3))
+        faces: List[List[int]] = []
 
         # Reindex faces
         for vol in x:
@@ -190,13 +207,13 @@ class Volume:
         return Volume(vertices=vertices, faces=faces, name=name, color=color)
 
     @property
-    def bbox(self):
+    def bbox(self) -> np.ndarray:
         """ Bounding box of this volume. """
         return np.array([self.vertices.min(axis=0),
                          self.vertices.max(axis=0)]).T
 
     @property
-    def vertices(self):
+    def vertices(self) -> np.ndarray:
         return self.__vertices
 
     @vertices.setter
@@ -210,7 +227,7 @@ class Volume:
         self.__vertices = v
 
     @property
-    def verts(self):
+    def verts(self) -> np.ndarray:
         """Legacy access to ``.vertices``."""
         return self.vertices
 
@@ -219,7 +236,7 @@ class Volume:
         self.vertices = v
 
     @property
-    def faces(self):
+    def faces(self) -> np.ndarray:
         """Legacy access to ``.vertices``."""
         return self.__faces
 
@@ -230,7 +247,7 @@ class Volume:
         self.__faces = v
 
     @property
-    def center(self):
+    def center(self) -> np.ndarray:
         """ Center of mass."""
         return np.mean(self.vertices, axis=0)
 
@@ -240,7 +257,7 @@ class Volume:
     def __copy__(self):
         return self.copy()
 
-    def copy(self):
+    def copy(self) -> 'Volume':
         """Return copy of this volume. Does not maintain generic values."""
         return Volume(self.vertices, self.faces, self.name,
                       self.color, self.volume_id)
@@ -270,7 +287,10 @@ class Volume:
         else:
             return NotImplemented
 
-    def resize(self, x, inplace=False):
+    def resize(self,
+               x: Union[float, int],
+               inplace: bool = False
+               ) -> Optional['Volume']:
         """ Resize volume by given factor.
 
         Resize is from center of mass, not origin.
@@ -314,6 +334,7 @@ class Volume:
 
         if not inplace:
             return v
+        return None
 
     def plot3d(self, **kwargs):
         """Plot volume using :func:`navis.plot3d`.
@@ -342,7 +363,7 @@ class Volume:
 
         return plotting.plot3d(self, **kwargs)
 
-    def to_trimesh(self):
+    def to_trimesh(self) -> 'trimesh.Trimesh':
         """ Returns trimesh representation of this volume.
 
         See Also
@@ -357,7 +378,7 @@ class Volume:
             raise ImportError('Unable to import trimesh. Please make sure it '
                               'is installed properly')
 
-        return trimesh.Trimesh(vertices=self.vertices, faces=self.faces)
+        return trimesh.Trimesh(vertices=self.vertices, faces=self.faces)  # type ignore
 
     def _outlines_3d(self, view='xy', **kwargs):
         """ Generate 3d outlines along a given view (see ``.to_2d()``).
@@ -386,7 +407,10 @@ class Volume:
 
         return np.append(co2d, third.reshape(co2d.shape[0], 1), axis=1)
 
-    def to_2d(self, alpha=0.00017, view='xy', invert_y=False):
+    def to_2d(self,
+              alpha: float = 0.00017,
+              view: str = 'xy',
+              invert_y: bool = False) -> Sequence[Union[float, int]]:
         """ Computes the 2d alpha shape (concave hull) this volume.
 
         Uses Scipy Delaunay and shapely.
@@ -421,39 +445,41 @@ class Volume:
         accepted_views = ['xy', 'xz', 'yz']
 
         try:
-            from shapely.ops import cascaded_union, polygonize
-            import shapely.geometry as geometry
+            from shapely.ops import cascaded_union, polygonize  # type: ignore
+            import shapely.geometry as geometry  # type: ignore
         except ImportError:
             raise ImportError('This function needs the shapely package.')
 
+        coords: np.ndarray
+
         if view in['xy', 'yx']:
-            coords = self.vertices[:, [0, 1]]
+            coords = self.vertices[:, [0, 1]]  # type: ignore
             if invert_y:
-                coords[:, 1] = coords[:, 1] * -1
+                coords[:, 1] = coords[:, 1] * -1  # type: ignore
 
         elif view in ['xz', 'zx']:
-            coords = self.vertices[:, [0, 2]]
+            coords = self.vertices[:, [0, 2]]  # type: ignore
         elif view in ['yz', 'zy']:
-            coords = self.vertices[:, [1, 2]]
+            coords = self.vertices[:, [1, 2]]  # type: ignore
             if invert_y:
-                coords[:, 0] = coords[:, 0] * -1
+                coords[:, 0] = coords[:, 0] * -1  # type: ignore
         else:
             raise ValueError(f'View {view} unknown. Please use either: {accepted_views}')
 
         tri = scipy.spatial.Delaunay(coords)
-        edges = set()
-        edge_points = []
+        edges: set = set()
+        edge_points: list = []
         # loop over triangles:
         # ia, ib, ic = indices of corner points of the
         # triangle
         for ia, ib, ic in tri.vertices:
-            pa = coords[ia]
-            pb = coords[ib]
-            pc = coords[ic]
+            pa: np.ndarray = coords[ia]  # type: ignore
+            pb: np.ndarray = coords[ib]  # type: ignore
+            pc: np.ndarray = coords[ic]  # type: ignore
             # Lengths of sides of triangle
-            a = math.sqrt((pa[0] - pb[0])**2 + (pa[1] - pb[1])**2)
-            b = math.sqrt((pb[0] - pc[0])**2 + (pb[1] - pc[1])**2)
-            c = math.sqrt((pc[0] - pa[0])**2 + (pc[1] - pa[1])**2)
+            a = math.sqrt((pa[0] - pb[0])**2 + (pa[1] - pb[1])**2)  # type: ignore
+            b = math.sqrt((pb[0] - pc[0])**2 + (pb[1] - pc[1])**2)  # type: ignore
+            c = math.sqrt((pc[0] - pa[0])**2 + (pc[1] - pa[1])**2)  # type: ignore
             # Semiperimeter of triangle
             s = (a + b + c) / 2.0
             # Area of triangle by Heron's formula

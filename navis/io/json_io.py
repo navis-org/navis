@@ -15,13 +15,13 @@ import json
 
 import pandas as pd
 
-from .. import core, config
+from .. import config, core
 
 # Set up logging
 logger = config.logger
 
 
-def neuron2json(x, **kwargs):
+def neuron2json(x: 'core.NeuronObject', **kwargs) -> str:
     """ Generate JSON formatted ``str`` respresentation of TreeNeuron/List.
 
     Nodes and connectors are serialised using pandas' ``to_json()``. Most
@@ -69,7 +69,7 @@ def neuron2json(x, **kwargs):
                 continue
             try:
                 this_data[k] = n.__dict__[k]
-            except:
+            except BaseException:
                 logger.error('Lost attribute "{0}"'.format(k))
 
         data.append(this_data)
@@ -77,7 +77,7 @@ def neuron2json(x, **kwargs):
     return json.dumps(data, **kwargs)
 
 
-def json2neuron(s, **kwargs):
+def json2neuron(s: str, **kwargs) -> 'core.NeuronList':
     """ Load neuron from JSON string.
 
     Parameters

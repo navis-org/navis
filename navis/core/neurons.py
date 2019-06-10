@@ -35,7 +35,7 @@ __all__ = ['Neuron', 'TreeNeuron']
 logger = config.logger
 
 
-def Neuron(x, **metadata):
+def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron'], **metadata):
     """ Constructor for Neuron objects. Depending on the input, either a
     ``TreeNeuron`` or a ``VolumeNeuron`` is returned.
 
@@ -55,7 +55,7 @@ def Neuron(x, **metadata):
 
     if isinstance(x, (nx.Graph, str, pd.DataFrame)):
         return TreeNeuron(x, **metadata)
-    #elif isinstance(x, (Volume, trimesh.Trimesh, dict)):
+    # elif isinstance(x, (Volume, trimesh.Trimesh, dict)):
     #    return VolumeNeuron(x, **metadata)
     else:
         raise TypeError(f'Unable to construct neuron from "{type(x)}"')
@@ -63,48 +63,44 @@ def Neuron(x, **metadata):
 
 class TreeNeuron:
     """ Object representing neurons as hierarchical trees.
-
-    Attributes
-    ----------
-    nodes :             ``pandas.DataFrame``
-                        Contains node table.
-    connectors :        ``pandas.DataFrame``, optional
-                        Contains connector table.
-    graph :             ``network.DiGraph``
-                        Graph representation of this neuron.
-    igraph :            ``igraph.Graph``
-                        iGraph representation of this neuron. Returns ``None``
-                        if igraph library not installed.
-    dps :               ``pandas.DataFrame``
-                        Dotproduct representation of this neuron.
-    mesh :              ``navis.Volume``
-                        Volumetric representation of this neuron.
-    n_branches :        int
-                        Number of branch nodes.
-    n_leafs :           int
-                        Number of end nodes.
-    cable_length :      float
-                        Cable length. Unit same as original data.
-    segments :          list of lists
-                        Node IDs making up linear segments.
-    small_segments :    list of lists
-                        Node IDs making up linear segments between
-                        end/branch points.
-    soma :              node ID of soma
-                        Returns ``None`` if no soma.
-    root :              numpy.array
-                        Node ID(s) of root.
-
     """
 
     # Minimum radius for soma detection - set to None if no tag needed
-    soma_detection_radius = .5
+    soma_detection_radius: Union[float, int] = .5
     # Label for soma detection - set to None if no tag needed
-    soma_detection_label = 1
+    soma_detection_label: Union[float, int, str] = 1
     # Set default function for soma finding
-    _soma = morpho.find_soma
+    _soma: Union[Callable[['TreeNeuron'], Sequence[int]],
+                 int] = morpho.find_soma
 
-    def __init__(self, x, **metadata):
+    nodes: pd.DataFrame
+    connectors: pd.DataFrame
+
+    graph: 'nx.DiGraph'
+    igraph: 'igraph.Graph'  # type: ignore  # doesn't know iGraph
+
+    dps: pd.DataFrame
+
+    n_branches: int
+    n_leafs: int
+    cable_length: Union[int, float]
+
+    segments: List[list]
+    small_segments: List[list]
+
+    soma: Union[int, str]
+    root: np.ndarray
+
+    name: str
+
+    def __init__(self,
+                 x: Union[pd.DataFrame,
+                          BufferedIOBase,
+                          str,
+                          'TreeNeuron',
+                          nx.DiGraph],
+                 **metadata
+                 ):
         """ Initialize Skeleton Neuron.
 
         Parameters
@@ -167,7 +163,7 @@ class TreeNeuron:
             raise AttributeError('Attribute "%s" not found' % key)
 
     @property
-    def nodes(self):
+    def nodes(self) -> pd.DataFrame:
         """ Node table. """
         return self._nodes
 
@@ -182,7 +178,7 @@ class TreeNeuron:
         graph.classify_nodes(self)
 
     @property
-    def connectors(self):
+    def connectors(self) -> pd.DataFrame:
         """ Connector table. If none, will return ``None``. """
         return getattr(self, '_connectors', None)
 
@@ -201,18 +197,18 @@ class TreeNeuron:
                                                     restrict=False)
 
     @property
-    def n_trees(self):
+    def n_trees(self) -> int:
         """ Number of connected trees in this neuron. """
         return len(self.subtrees)
 
     @property
-    def subtrees(self):
+    def subtrees(self) -> List[List[int]]:
         """ List of subtrees as node IDs. """
         comp = nx.connected_components(self.graph.to_undirected())
         return list(comp)
 
     @property
-    def simple(self):
+    def simple(self) -> 'TreeNeuron':
         """ Neuron representation consisting only of root, branch points and
         leafs.
         """
@@ -223,15 +219,15 @@ class TreeNeuron:
         return self._simple
 
     @property
-    def soma(self):
+    def soma(self) -> Optional[Union[str, int]]:
         """ Search for soma and return node ID(s) of soma or ``None`` if no
         soma - You can set this ``.soma`` property to either a function that
         accepts a TreeNeuron as input or a fix value - Default is
         ``navis.utils.find_soma``.
         """
 
-        if hasattr(self._soma, '__call__'):
-            soma = self._soma.__call__()
+        if callable(self._soma):
+            soma = self._soma.__call__()  # type: ignore  # say int not callable
         else:
             soma = self._soma
 
@@ -253,18 +249,18 @@ class TreeNeuron:
                 raise ValueError('Soma must be function, None or a valid node ID.')
 
     @property
-    def root(self):
+    def root(self) -> Sequence:
         """ Root node(s)."""
         roots = self.nodes[self.nodes.parent_id < 0].node_id.values
         return roots
 
     @property
-    def n_nodes(self):
+    def n_nodes(self) -> int:
         """ Number of nodes."""
         return self.nodes.shape[0]
 
     @property
-    def n_connectors(self):
+    def n_connectors(self) -> int:
         """ Number of connectors."""
         if self.has_connectors:
             return self.connectors.shape[0]
@@ -272,43 +268,44 @@ class TreeNeuron:
             return 0
 
     @property
-    def n_branches(self):
+    def n_branches(self) -> int:
         """ Number of branch points."""
         return self.nodes[self.nodes.type == 'branch'].shape[0]
 
     @property
-    def n_leafs(self):
+    def n_leafs(self) -> int:
         """ Number of leafs."""
         return self.nodes[self.nodes.type == 'end'].shape[0]
 
     @property
-    def cable_length(self):
+    def cable_length(self) -> Union[int, float]:
         """ Cable length."""
         # Simply sum up edge weight of all graph edges
         if self.igraph and config.use_igraph:
-            w = self.igraph.es.get_attribute_values('weight')
+            w = self.igraph.es.get_attribute_values('weight')  # type: ignore # doesn't know iGraph
         else:
             w = nx.get_edge_attributes(self.graph, 'weight').values()
         return np.nansum(list(w))
 
     @property
-    def bbox(self):
+    def bbox(self) -> np.ndarray:
         """ Bounding box."""
         return self.nodes.describe().loc[['min', 'max'],
                                          ['x', 'y', 'z']].values.T
 
     @property
-    def sampling_resolution(self):
-        """ Nodes per unit of cable length."""
+    def sampling_resolution(self) -> float:
+        """ Nodes per unit of cable length. """
         return self.n_nodes / self.cable_length
 
     @property
-    def n_skeletons(self):
+    def n_skeletons(self) -> int:
+        """ Returns number of seperate skeletons in this neuron. """
         return self.nodes[self.nodes.parent_id < 0].shape[0]
 
     @property
-    def type(self):
-        """ Type. """
+    def type(self) -> str:
+        """ Returns 'TreeNeuron'"""
         return 'TreeNeuron'
 
     def __copy__(self):
@@ -317,16 +314,20 @@ class TreeNeuron:
     def __deepcopy__(self):
         return self.copy(deepcopy=True)
 
-    def copy(self, deepcopy=False):
+    def copy(self, deepcopy: bool = False) -> 'TreeNeuron':
         """Returns a copy of the neuron.
 
         Parameters
         ----------
         deepcopy :  bool, optional
-                    If False, `.graph` (NetworkX DiGraph) will be returned as
-                    view - changes to nodes/edges can progagate back!
+                    If False, ``.graph`` (NetworkX DiGraph) will be returned
+                    as view - changes to nodes/edges can progagate back!
                     ``.igraph`` (iGraph) - if available - will always be
                     deepcopied.
+
+        Returns
+        -------
+        copy
 
         """
         # Generate new neuron
@@ -345,7 +346,7 @@ class TreeNeuron:
 
         return x
 
-    def _clear_temp_attr(self, exclude=[]):
+    def _clear_temp_attr(self, exclude: list = []) -> None:
         """Clear temporary attributes."""
         temp_att = ['igraph', 'graph', 'segments', 'small_segments',
                     'nodes_geodesic_distance_matrix', 'dps',
@@ -373,7 +374,7 @@ class TreeNeuron:
             # Reclassify nodes
             graph.classify_nodes(self, inplace=True)
 
-    def get_graph_nx(self):
+    def get_graph_nx(self) -> nx.DiGraph:
         """Calculates networkX representation of neuron.
 
         Once calculated stored as ``.graph``. Call function again to update
@@ -386,7 +387,7 @@ class TreeNeuron:
         self.graph = graph.neuron2nx(self)
         return self.graph
 
-    def get_igraph(self):
+    def get_igraph(self) -> 'igraph.Graph':  # type: ignore
         """Calculates iGraph representation of neuron.
 
         Once calculated stored as ``.igraph``. Call function again to update
@@ -403,7 +404,7 @@ class TreeNeuron:
         self.igraph = graph.neuron2igraph(self)
         return self.igraph
 
-    def get_dps(self):
+    def get_dps(self) -> pd.DataFrame:
         """Calculates/updates dotproduct representation of the neuron.
 
         Once calculated stored as ``.dps``.
@@ -413,15 +414,18 @@ class TreeNeuron:
         :func:`navis.to_dotproduct`
         """
 
-        self.dps = morpho.to_dotproduct(self)
+        self.dps = graph.neuron2dps(self)
         return self.dps
 
-    def _get_segments(self, how='length'):
+    def _get_segments(self,
+                      how: Union[Literal['length'],
+                                 Literal['break']] = 'length'
+                      ) -> List[list]:
         """Generate segments for neuron."""
         if how == 'length':
-            return graph.graph_utils._generate_segments(self)
+            return graph._generate_segments(self)
         elif how == 'break':
-            return graph.graph_utils._break_segments(self)
+            return graph._break_segments(self)
         else:
             raise ValueError(f'Unknown how: "{how}"')
 
@@ -472,6 +476,12 @@ class TreeNeuron:
 
         return plot3d(core.NeuronList(self, make_copy=False), **kwargs)
 
+    @overload
+    def resample(self, resample_to: int, inplace: Literal[False]) -> 'TreeNeuron': ...
+
+    @overload
+    def resample(self, resample_to: int, inplace: Literal[True]) -> None: ...
+
     def resample(self, resample_to, inplace=False):
         """Resample the neuron to given resolution [nm].
 
@@ -503,6 +513,19 @@ class TreeNeuron:
 
         if not inplace:
             return x
+        return None
+
+    @overload
+    def downsample(self,
+                   factor: float,
+                   inplace: Literal[False],
+                   **kwargs) -> 'TreeNeuron': ...
+
+    @overload
+    def downsample(self,
+                   factor: float,
+                   inplace: Literal[True],
+                   **kwargs) -> None: ...
 
     def downsample(self, factor=5, inplace=False, **kwargs):
         """Downsample the neuron by given factor.
@@ -538,8 +561,11 @@ class TreeNeuron:
 
         if not inplace:
             return x
+        return None
 
-    def reroot(self, new_root, inplace=False):
+    def reroot(self,
+               new_root: Union[int, str],
+               inplace: bool = False) -> Optional['TreeNeuron']:
         """ Reroot neuron to given node ID or node tag.
 
         Parameters
@@ -569,8 +595,11 @@ class TreeNeuron:
 
         if not inplace:
             return x
+        return None
 
-    def prune_distal_to(self, node, inplace=False):
+    def prune_distal_to(self,
+                        node: Union[str, int],
+                        inplace: bool = False) -> Optional['TreeNeuron']:
         """Cut off nodes distal to given nodes.
 
         Parameters
@@ -597,15 +626,18 @@ class TreeNeuron:
         for n in node:
             prox = graph.cut_neuron(x, n, ret='proximal')
             # Reinitialise with proximal data
-            x.__init__(prox, x._remote_instance, x.meta_data)
+            x.__init__(prox, x.meta_data)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
             x._clear_temp_attr(exclude=['graph', 'igraph', 'type',
                                         'classify_nodes'])
 
         if not inplace:
             return x
+        return None
 
-    def prune_proximal_to(self, node, inplace=False):
+    def prune_proximal_to(self,
+                          node: Union[str, int],
+                          inplace: bool = False) -> Optional['TreeNeuron']:
         """Remove nodes proximal to given node. Reroots neuron to cut node.
 
         Parameters
@@ -633,7 +665,7 @@ class TreeNeuron:
         for n in node:
             dist = graph.cut_neuron(x, n, ret='distal')
             # Reinitialise with distal data
-            x.__init__(dist, x._remote_instance, x.meta_data)
+            x.__init__(dist, x.meta_data)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
             x._clear_temp_attr(exclude=['graph', 'igraph', 'type',
                                         'classify_nodes'])
@@ -643,8 +675,11 @@ class TreeNeuron:
 
         if not inplace:
             return x
+        return None
 
-    def prune_by_strahler(self, to_prune, inplace=False):
+    def prune_by_strahler(self,
+                          to_prune: Union[int, List[int], slice],
+                          inplace: bool = False) -> Optional['TreeNeuron']:
         """ Prune neuron based on `Strahler order
         <https://en.wikipedia.org/wiki/Strahler_number>`_.
 
@@ -766,8 +801,14 @@ class TreeNeuron:
             return x
         return None
 
-    def prune_by_volume(self, v, mode='IN', prevent_fragments=False,
-                        inplace=False):
+    def prune_by_volume(self,
+                        v: Union[core.Volume,
+                                 List[core.Volume],
+                                 Dict[str, core.Volume]],
+                        mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
+                        prevent_fragments: bool = False,
+                        inplace: bool = False
+                        ) -> Optional['TreeNeuron']:
         """ Prune neuron by intersection with given volume(s).
 
         Parameters
@@ -798,7 +839,6 @@ class TreeNeuron:
 
         intersection.in_volume(x, v, inplace=True,
                                prevent_fragments=prevent_fragments,
-                               remote_instance=self._remote_instance,
                                mode=mode)
 
         # Clear temporary attributes
@@ -806,6 +846,7 @@ class TreeNeuron:
 
         if not inplace:
             return x
+        return None
 
     def __str__(self):
         return self.__repr__()
@@ -832,7 +873,7 @@ class TreeNeuron:
         fig = plt.figure(figsize=(2, 2))
         ax = fig.add_subplot(111)
         fig, ax = self.plot2d(connectors=False, ax=ax)
-        output = io.StringIO()
+        output = StringIO()
         fig.savefig(output, format='svg')
 
         if prev_int:
@@ -901,7 +942,7 @@ class TreeNeuron:
         else:
             return NotImplemented
 
-    def summary(self):
+    def summary(self) -> pd.Series:
         """Get a summary of this neuron."""
 
         # Set logger to warning only - otherwise you might get tons of
@@ -918,7 +959,9 @@ class TreeNeuron:
         logger.setLevel(lvl)
         return s
 
-    def to_swc(self, filename=None, **kwargs):
+    def to_swc(self,
+               filename: Optional[str] = None,
+               **kwargs) -> None:
         """ Generate SWC file from this neuron.
 
         This converts navis nanometer coordinates into microns.
@@ -941,4 +984,4 @@ class TreeNeuron:
 
         """
 
-        return utils.to_swc(self, filename, **kwargs)
+        return io.to_swc(self, filename, **kwargs)  # type: ignore  # double import of "io"

@@ -17,13 +17,19 @@
 
 import numpy as np
 
+from typing import Sequence
+
+from ..core import Volume
+
 try:
     from pyoctree import pyoctree
 except ImportError:
     pyoctree = None
 
 
-def ray_in_volume(points, volume, multi_ray=False):
+def ray_in_volume(points: np.ndarray,
+                  volume: Volume,
+                  multi_ray: bool = False) -> Sequence[bool]:
     """ Uses pyoctree's raycsasting to test if points are within a given
     volume.
     """
@@ -35,7 +41,7 @@ def ray_in_volume(points, volume, multi_ray=False):
         tree = pyoctree.PyOctree(np.array(volume.vertices, dtype=float, order='C'),
                                  np.array(volume.faces, dtype=np.int32, order='C')
                                  )
-        volume.pyoctree = tree
+        volume.pyoctree = tree  # type: ignore
 
     # Get min max of volume
     mx = np.array(volume.vertices).max(axis=0)

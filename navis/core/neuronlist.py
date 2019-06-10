@@ -19,8 +19,13 @@ import os
 import random
 import types
 
+import networkx as nx
+
 import numpy as np
 import pandas as pd
+
+from typing import (ClassVar, Sequence, Union, Iterable, List, Any,
+                    Optional, Callable, Iterator)
 
 from .. import utils, config, core
 
@@ -49,7 +54,6 @@ class NeuronList:
     n_connectors :      np.array of int
     n_branch_nodes :    np.array of int
     n_end_nodes :       np.array of int
-    n_open_ends :       np.array of int
     cable_length :      np.array of float
                         Cable lengths in micrometers [um].
     soma :              np.array of node_ids
@@ -63,17 +67,43 @@ class NeuronList:
 
     """
 
-    def __init__(self, x, make_copy=False, use_parallel=False):
+    neurons: List[core.TreeNeuron]
+
+    nodes: pd.DataFrame
+    connectors: pd.DataFrame
+
+    n_connectors: Sequence[int]
+    n_nodes: Sequence[int]
+    n_branch_nodes: Sequence[int]
+    n_end_nodes: Sequence[int]
+
+    cable_length: Sequence[int]
+
+    soma: Sequence[int]
+    root: Sequence[int]
+
+    graph: 'nx.DiGraph'
+    igraph: 'igraph.Graph'  # type: ignore  # doesn't know iGraph
+
+    def __init__(self,
+                 x: Union[Iterable[Union[core.TreeNeuron,
+                                         'NeuronList',
+                                         pd.DataFrame]],
+                          'NeuronList',
+                          core.TreeNeuron,
+                          pd.DataFrame],
+                 make_copy: bool = False,
+                 use_parallel: bool = False):
         """ Initialize NeuronList.
 
         Parameters
         ----------
-        x :                 list | array | core.TreeNeuron | NeuronList
+        x :                 list | array | TreeNeuron | NeuronList
                             Data to construct neuronlist from. Can be either:
 
-                            1. core.TreeNeuron(s)
+                            1. TreeNeuron(s)
                             2. NeuronList(s)
-                            3. Anything that constructs a core.TreeNeuron
+                            3. Anything that constructs a TreeNeuron
                             4. List of the above
 
         make_copy :         bool, optional
@@ -86,17 +116,17 @@ class NeuronList:
         """
 
         # Set number of cores
-        self.n_cores = max(1, os.cpu_count())
+        self.n_cores: int = max(1, os.cpu_count())
 
         # If below parameter is True, most calculations will be parallelized
         # which speeds them up quite a bit. Unfortunately, this uses A TON of
         # memory - for large lists this might make your system run out of
         # memory. In these cases, leave this property at False
-        self.use_parallel = use_parallel
-        self.use_threading = True
+        self.use_parallel: bool = use_parallel
+        self.use_threading: bool = True
 
         # Determines if subsetting this NeuronList will copy the neurons
-        self.copy_on_subset = False
+        self.copy_on_subset: bool = False
 
         if isinstance(x, NeuronList):
             # We can't simply say self.neurons = x.neurons b/c that way
@@ -105,18 +135,17 @@ class NeuronList:
         elif utils.is_iterable(x):
             # If x is a list of mixed objects we need to unpack/flatten that
             # E.g. x = [NeuronList, NeuronList, core.TreeNeuron]
-
             to_unpack = [e for e in x if isinstance(e, NeuronList)]
             x = [e for e in x if not isinstance(e, NeuronList)]
             x += [n for ob in to_unpack for n in ob.neurons]
 
             # We have to convert from numpy ndarray to list
             # Do NOT remove list() here!
-            self.neurons = list(x)
+            self.neurons = list(x)  # type: ignore
         else:
             # Any other datatype will simply be assumed to be accepted by
             # core.TreeNeuron() - if not this will throw an error
-            self.neurons = [x]
+            self.neurons = [x]  # type: ignore
 
         # Now convert and/or make copies if necessary
         to_convert = []
@@ -147,11 +176,14 @@ class NeuronList:
                                      leave=config.pbar_leave):
                     self.neurons[n[2]] = core.TreeNeuron(n[0])
 
-    def _convert_helper(self, x):
+    def _convert_helper(self, x: Any) -> core.TreeNeuron:
         """ Helper function to convert x to core.TreeNeuron."""
         return core.TreeNeuron(x[0])
 
-    def summary(self, N=None, add_cols=[]):
+    def summary(self,
+                N: Optional[Union[int, slice]] = None,
+                add_cols: list = []
+                ) -> pd.DataFrame:
         """ Get summary over all neurons in this NeuronList.
 
         Parameters
@@ -187,16 +219,16 @@ class NeuronList:
     def _repr_html_(self):
         return self.summary()._repr_html_()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator['core.TreeNeuron']:
         """ Iterator instanciates a new class everytime it is called.
         This allows the use of nested loops on the same neuronlist object.
         """
-        class prange_iter:
+        class prange_iter(Iterator['core.TreeNeuron']):
             def __init__(self, neurons, start):
                 self.iter = start
                 self.neurons = neurons
 
-            def __next__(self):
+            def __next__(self) -> 'core.TreeNeuron':
                 if self.iter >= len(self.neurons):
                     raise StopIteration
                 to_return = self.neurons[self.iter]
@@ -366,15 +398,15 @@ class NeuronList:
         else:
             return NotImplemented
 
-    def sum(self):
+    def sum(self) -> pd.DataFrame:
         """Returns sum numeric and boolean values over all neurons. """
         return self.summary().sum(numeric_only=True)
 
-    def mean(self):
+    def mean(self) -> pd.DataFrame:
         """Returns mean numeric and boolean values over all neurons. """
         return self.summary().mean(numeric_only=True)
 
-    def sample(self, N=1):
+    def sample(self, N: int = 1) -> 'NeuronList':
         """Returns random subset of neurons."""
         indices = list(range(len(self.neurons)))
         random.shuffle(indices)
@@ -423,7 +455,7 @@ class NeuronList:
         """Helper class to mimic ``pandas.DataFrame`` ``itertuples()``."""
         return self.neurons
 
-    def sort_values(self, key, ascending=False):
+    def sort_values(self, key: str, ascending: bool = False):
         """Sort neurons by given key.
 
         Needs to be an attribute of all neurons: for example ``n_nodes``.
@@ -439,7 +471,7 @@ class NeuronList:
     def __deepcopy__(self):
         return self.copy(deepcopy=True)
 
-    def copy(self, deepcopy=False):
+    def copy(self, deepcopy: bool = False) -> 'NeuronList':
         """Return copy of this NeuronList.
 
         Parameters
@@ -458,15 +490,18 @@ class NeuronList:
                           make_copy=False,
                           use_parallel=self.use_parallel)
 
-    def head(self, N=5):
+    def head(self, N: int = 5) -> pd.DataFrame:
         """Return summary for top N neurons."""
         return self.summary(N=N)
 
-    def tail(self, N=5):
+    def tail(self, N: int = 5) -> pd.DataFrame:
         """Return summary for bottom N neurons."""
         return self.summary(N=slice(-N, len(self)))
 
-    def remove_duplicates(self, key='neuron_name', inplace=False):
+    def remove_duplicates(self,
+                          key: str = 'neuron_name',
+                          inplace: bool = False
+                          ) -> Optional['NeuronList']:
         """Removes duplicate neurons from list.
 
         Parameters
@@ -498,13 +533,18 @@ class NeuronList:
 
         if not inplace:
             return x
+        return None
 
 
 class NeuronProcessor:
     """ Helper class to allow processing of arbitrary functions of
     all neurons in a neuronlist.
     """
-    def __init__(self, nl, funcs, desc=None):
+
+    def __init__(self,
+                 nl: NeuronList,
+                 funcs: Callable,
+                 desc: Optional[str] = None):
         self.nl = nl
         self.funcs = funcs
         self.desc = None
@@ -568,6 +608,6 @@ class NeuronProcessor:
             return NeuronList(res)
 
 
-def _worker_wrapper(x):
+def _worker_wrapper(x: Sequence):
     f, args, kwargs = x
     return f(*args, **kwargs)
