@@ -323,14 +323,23 @@ def nx2neuron(g: nx.Graph,
         raise ValueError('Nodes with multiple parents found. Make sure graph '
                          'is tree-like.')
 
-    lop = {k: v[0] if v else None for k, v in lop.items()}
+    # Note that we assign -1 as root's parent
+    lop = {k: v[0] if v else -1 for k, v in lop.items()}
 
     # Generate treenode table
     tn_table = pd.DataFrame(index=list(g.nodes))
     tn_table.index = tn_table.index.set_names('node_id', inplace=False)
 
-    # Add parents
+    # Add parents - use -1 for root's parent
     tn_table['parent_id'] = tn_table.index.map(lop)
+
+    try:
+        tn_table.index = tn_table.index.astype(int)
+        tn_table['parent_id'] = tn_table.parent_id.astype(int)
+    except (ValueError, TypeError):
+        raise ValueError('Node IDs must be convertible to integers.')
+    except BaseException:
+        raise
 
     # Add coordinates
     x = nx.get_node_attributes(g, 'x')
@@ -343,7 +352,7 @@ def nx2neuron(g: nx.Graph,
     radii = nx.get_node_attributes(g, 'radius')
     tn_table['radius'] = tn_table.index.map(lambda x: radii.get(x, None))
 
-    return tn_table.reset_index(inplace=False)
+    return tn_table.reset_index(drop=False, inplace=False)
 
 
 def _find_all_paths(g: nx.DiGraph,
