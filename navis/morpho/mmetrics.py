@@ -21,18 +21,21 @@ import itertools
 import pandas as pd
 import numpy as np
 
-from .. import core, config, graph, sampling
+from typing import Union, Optional, Sequence, List, Dict, overload
+from typing_extensions import Literal
+
+from .. import config, graph, sampling, core
 from .manipulation import split_axon_dendrite
 
 # Set up logging
 logger = config.logger
 
 __all__ = sorted(['strahler_index', 'bending_flow',
-                  'flow_centrality', 'segregation_index', 'tortuosity',
-                  ])
+                  'flow_centrality', 'segregation_index', 'tortuosity'])
 
 
-def parent_dist(x, root_dist=None):
+def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
+                root_dist: Optional[int] = None) -> None:
     """ Adds ``parent_dist`` [nm] column to the treenode table.
 
     Parameters
@@ -55,12 +58,12 @@ def parent_dist(x, root_dist=None):
         raise TypeError('Need TreeNeuron or DataFrame, got "{}"'.format(type(x)))
 
     # Calculate distance to parent for each node
-    wo_root = nodes[nodes.parent_id >= 0]
-    tn_coords = wo_root[['x', 'y', 'z']].values
+    not_root = nodes[nodes.parent_id >= 0]
+    tn_coords = not_root[['x', 'y', 'z']].values
 
     # Ready treenode table to be indexes by node_id
-    this_tn = nodes.set_index('node_id')
-    parent_coords = this_tn.loc[wo_root.parent_id.values,
+    this_tn = nodes.set_index('node_id', inplace=False)
+    parent_coords = this_tn.loc[not_root.parent_id.values,
                                 ['x', 'y', 'z']].values
 
     # Calculate distances between nodes and their parents
@@ -69,11 +72,38 @@ def parent_dist(x, root_dist=None):
     nodes['parent_dist'] = root_dist
     nodes.loc[nodes.parent_id >= 0, 'parent_dist'] = w
 
-    return
+    return None
 
 
-def strahler_index(x, inplace=True, method='standard', to_ignore=[],
-                   min_twig_size=None):
+@overload
+def strahler_index(x: 'core.NeuronObject',
+                   inplace: Literal[False],
+                   method: Union[Literal['standard'],
+                                 Literal['greedy']] = 'standard',
+                   to_ignore: list = [],
+                   min_twig_size: Optional[int] = None
+                   ) -> 'core.NeuronObject':
+    pass
+
+
+@overload
+def strahler_index(x: 'core.NeuronObject',
+                   inplace: Literal[True],
+                   method: Union[Literal['standard'],
+                                 Literal['greedy']] = 'standard',
+                   to_ignore: list = [],
+                   min_twig_size: Optional[int] = None
+                   ) -> None:
+    pass
+
+
+def strahler_index(x: 'core.NeuronObject',
+                   inplace: bool = True,
+                   method: Union[Literal['standard'],
+                                 Literal['greedy']] = 'standard',
+                   to_ignore: list = [],
+                   min_twig_size: Optional[int] = None
+                   ) -> Optional['core.NeuronObject']:
     """ Calculates Strahler Index (SI).
 
     Starts with SI of 1 at each leaf and walks to root. At forks with different
@@ -119,12 +149,12 @@ def strahler_index(x, inplace=True, method='standard', to_ignore=[],
         else:
             res = []
             for n in config.tqdm(x):
-                res.append(strahler_index(n, inplace=inplace, method=method))
+                res.append(strahler_index(n, inplace=inplace, method=method))  # type: ignore
 
             if not inplace:
                 return core.NeuronList(res)
             else:
-                return
+                return None
 
     if not inplace:
         x = x.copy()
@@ -144,29 +174,28 @@ def strahler_index(x, inplace=True, method='standard', to_ignore=[],
     if min_twig_size:
         to_ignore = np.append(to_ignore,
                               [seg[0] for seg in x.small_segments if seg[0]
-                                in end_nodes and len(seg) < min_twig_size])
+                               in end_nodes and len(seg) < min_twig_size])
 
     # Generate dicts for childs and parents
     list_of_childs = graph.generate_list_of_childs(x)
 
     # Reindex according to node_id
-    this_tn = x.nodes.set_index('node_id')
+    this_tn = x.nodes.set_index('node_id', inplace=False)
 
     # Do NOT name anything strahler_index - this overwrites the function!
-    SI = {}
+    SI: Dict[int, int] = {}
 
     starting_points = end_nodes
 
     nodes_processed = []
 
     while starting_points:
-        logger.debug('New starting point. Remaining: '
-                     '{}'.format(len(starting_points)))
+        logger.debug(f'New starting point. Remaining: {len(starting_points)}')
         new_starting_points = []
         starting_points_done = []
 
         for i, this_node in enumerate(starting_points):
-            logger.debug('%i of %i ' % (i, len(starting_points)))
+            logger.debug(f'{i} of {len(starting_points)}')
 
             # Calculate index for this branch
             previous_indices = []
@@ -242,7 +271,7 @@ def strahler_index(x, inplace=True, method='standard', to_ignore=[],
 
     # Fix branches that were ignored
     if to_ignore:
-        this_tn = x.nodes.set_index('node_id')
+        this_tn = x.nodes.set_index('node_id', inplace=False)
         # Go over all terminal branches with the tag
         for tn in x.nodes[(x.nodes.type == 'end') & (x.nodes.node_id.isin(to_ignore))].node_id.values:
             # Get this terminal's segment
@@ -250,14 +279,20 @@ def strahler_index(x, inplace=True, method='standard', to_ignore=[],
             # Get strahler index of parent branch
             new_SI = this_tn.loc[this_seg[-1]].strahler_index
             # Set these nodes strahler index to that of the last branch point
-            x.nodes.loc[x.nodes.node_id.isin(
-                this_seg), 'strahler_index'] = new_SI
+            x.nodes.loc[x.nodes.node_id.isin(this_seg), 'strahler_index'] = new_SI
 
     if not inplace:
         return x
 
+    return None
 
-def segregation_index(x, centrality_method='centrifugal'):
+
+def segregation_index(x: 'core.NeuronObject',
+                      centrality_method: Union[Literal['centrifugal'],
+                                               Literal['centripetal'],
+                                               Literal['bending'],
+                                               Literal['sum']] = 'centrifugal',
+                      ) -> float:
     """ Calculates segregation index (SI).
 
     The segregation index as established by Schneider-Mizell et al. (eLife,
@@ -311,7 +346,7 @@ def segregation_index(x, centrality_method='centrifugal'):
 
         # Now make a virtual split (downsampled neuron to speed things up)
         temp = x.copy()
-        temp.downsample(10000)
+        temp.downsample(factor=float('inf'), inplace=True)
 
         # Get one of its children
         child = temp.nodes[temp.nodes.parent_id == split_point].node_id.values[0]
@@ -349,7 +384,7 @@ def segregation_index(x, centrality_method='centrifugal'):
     return H
 
 
-def bending_flow(x):
+def bending_flow(x: 'core.NeuronObject') -> None:
     """ Variation of the algorithm for calculating synapse flow from
     Schneider-Mizell et al. (eLife, 2016).
 
@@ -388,18 +423,18 @@ def bending_flow(x):
                          'not {0}'.format(type(x)))
 
     if isinstance(x, core.NeuronList):
-        return [bending_flow(n) for n in x]
+        [bending_flow(n) for n in x]  # type: ignore
+        return
 
     if x.soma and x.soma not in x.root:
-        logger.warning(
-            'Neuron {0} is not rooted to its soma!'.format(x.skeleton_id))
+        logger.warning(f'Neuron {x.skeleton_id} is not rooted to its soma!')
 
     # We will be processing a super downsampled version of the neuron to speed
     # up calculations
     current_level = logger.level
     logger.setLevel('ERROR')
     y = x.copy()
-    y.downsample(1000000)
+    y.downsample(factor=float('inf'), inplace=True)
     logger.setLevel(current_level)
 
     # Get list of nodes with pre/postsynapses
@@ -423,8 +458,8 @@ def bending_flow(x):
 
     # Sum up axis - now each row represents the number of pre/postsynapses
     # distal to that node
-    distal_pre = distal_pre.T.sum(axis=1)
-    distal_post = distal_post.T.sum(axis=1)
+    distal_pre_sum = distal_pre.T.sum(axis=1)
+    distal_post_sum = distal_post.T.sum(axis=1)
 
     # Now go over all branch points and check flow between branches
     # (centrifugal) vs flow from branches to root (centripetal)
@@ -433,7 +468,7 @@ def bending_flow(x):
         # We will use left/right to label the different branches here
         # (even if there is more than two)
         for left, right in itertools.permutations(bp_childs[bp], r=2):
-            flow[bp] += distal_post.loc[left] * distal_pre.loc[right]
+            flow[bp] += distal_post_sum.loc[left] * distal_pre_sum.loc[right]
 
     # Set flow centrality to None for all nodes
     x.nodes['flow_centrality'] = None
@@ -442,17 +477,21 @@ def bending_flow(x):
     x.nodes.set_index('node_id', inplace=True)
 
     # Add flow (make sure we use igraph of y to get node ids!)
-    x.nodes.loc[flow.keys(), 'flow_centrality'] = list(flow.values())
+    x.nodes.loc[list(flow.keys()), 'flow_centrality'] = list(flow.values())
 
     # Add little info on method used for flow centrality
-    x.centrality_method = 'bending'
+    x.centrality_method = 'bending'  # type: ignore
 
     x.nodes.reset_index(inplace=True)
 
-    return
+    return None
 
 
-def flow_centrality(x, mode='centrifugal'):
+def flow_centrality(x: 'core.NeuronObject',
+                    mode: Union[Literal['centrifugal'],
+                                Literal['centripetal'],
+                                Literal['sum']] = 'centrifugal'
+                    ) -> None:
     """ Calculates synapse flow centrality (SFC).
 
     From Schneider-Mizell et al. (2016): "We use flow centrality for
@@ -509,11 +548,11 @@ def flow_centrality(x, mode='centrifugal'):
                          'not {0}'.format(type(x)))
 
     if isinstance(x, core.NeuronList):
-        return [flow_centrality(n, mode=mode) for n in x]
+        _ = [flow_centrality(n, mode=mode) for n in x]  # type: ignore  # does not like assigment
+        return
 
     if x.soma and x.soma not in x.root:
-        logger.warning(
-            'Neuron {0} is not rooted to its soma!'.format(x.skeleton_id))
+        logger.warning(f'Neuron {x.skeleton_id} is not rooted to its soma!')
 
     # We will be processing a super downsampled version of the neuron to
     # speed up calculations
@@ -521,8 +560,10 @@ def flow_centrality(x, mode='centrifugal'):
     current_state = config.pbar_hide
     logger.setLevel('ERROR')
     config.pbar_hide = True
-    y = sampling.downsample_neuron(x, float('inf'),
-                                   inplace=False, preserve_cn_treenodes=True)
+    y = sampling.downsample_neuron(x=x,
+                                   downsampling_factor=float('inf'),
+                                   inplace=False,
+                                   preserve_cn_treenodes=True)
     logger.setLevel(current_level)
     config.pbar_hide = current_state
 
@@ -569,12 +610,17 @@ def flow_centrality(x, mode='centrifugal'):
         x.nodes['flow_centrality'] = x.nodes.node_id.map(combined)
 
     # Add info on method/mode used for flow centrality
-    x.centrality_method = mode
+    x.centrality_method = mode  # type: ignore
 
-    return
+    return None
 
 
-def tortuosity(x, seg_length=10, skip_remainder=False):
+def tortuosity(x: 'core.NeuronObject',
+               seg_length: Union[int, float, Sequence[Union[int, float]]] = 10,
+               skip_remainder: bool = False
+               ) -> Union[float,
+                          Sequence[float],
+                          pd.DataFrame]:
     """ Calculates tortuosity for a neurons.
 
     See Stepanyants et al., Neuron (2004) for detailed explanation. Briefly,
@@ -616,7 +662,7 @@ def tortuosity(x, seg_length=10, skip_remainder=False):
 
     if isinstance(x, core.NeuronList):
         if not isinstance(seg_length, (list, np.ndarray, tuple)):
-            seg_length = [seg_length]
+            seg_length = [seg_length]  # type: ignore
         df = pd.DataFrame([tortuosity(n, seg_length) for n in config.tqdm(x, desc='Tortuosity', disable=config.pbar_hide, leave=config.pbar_leave)],
                           index=x.skeleton_id, columns=seg_length).T
         df.index.name = 'seg_length'
@@ -626,15 +672,18 @@ def tortuosity(x, seg_length=10, skip_remainder=False):
         raise TypeError('Need TreeNeuron, got {0}'.format(type(x)))
 
     if isinstance(seg_length, (list, np.ndarray)):
-        return [tortuosity(x, l) for l in seg_length]
+        return [tortuosity(x, l) for l in seg_length]  # type: ignore  # would need to overload to fix this
+
+    # From here on out seg length is single value
+    seg_length: float
 
     if seg_length <= 0:
         raise ValueError('Segment length must be >0.')
 
     # We will collect coordinates and do distance calculations later
-    start_tn = []
-    end_tn = []
-    L = []
+    start_tn: List[int] = []
+    end_tn: List[int] = []
+    L: List[Union[int, float]] = []
 
     # Go over all segments
     for seg in x.small_segments:
@@ -658,7 +707,7 @@ def tortuosity(x, seg_length=10, skip_remainder=False):
             end_tn += [seg[n] for n in cut_ix[1:]]
 
     # Now calculate euclidean distances
-    tn_table = x.nodes.set_index('node_id')
+    tn_table = x.nodes.set_index('node_id', inplace=False)
     start_co = tn_table.loc[start_tn, ['x', 'y', 'z']].values
     end_co = tn_table.loc[end_tn, ['x', 'y', 'z']].values
     R = np.linalg.norm(start_co - end_co, axis=1) / 1000
