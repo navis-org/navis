@@ -14,6 +14,7 @@
 """ Module contains functions to plot neurons in 1D.
 """
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
@@ -37,7 +38,7 @@ def plot1d(x: 'core.NeuronObject',
                                  Dict[Any, colortype],
                                  ]
                            ] = None,
-           **kwargs) -> 'matplotlib.ax':
+           **kwargs) -> mpl.axes.Axes:
     """ Plot neuron topology in 1D according to Cuntz et al. (2010).
 
     This function breaks a neurons into segments between branch points.
