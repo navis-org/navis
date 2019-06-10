@@ -13,10 +13,6 @@
 
 from .__version__ import __version__
 
-from . import config
-
-logger = config.logger
-
 from .core import *
 from .data import *
 from .clustering import *
