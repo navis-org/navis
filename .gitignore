@@ -12,6 +12,10 @@ __pycache__/
 # Coverage
 /navis/tests/htmlcov
 
+# Sublime project
+*.sublime-project
+*.sublime-workspace
+
 # C extensions
 *.so
 
