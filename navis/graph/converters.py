@@ -94,7 +94,7 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
 
 
 def network2igraph(x: Union[pd.DataFrame, Iterable],
-                   threshold: int = 1) -> igraph.Graph:
+                   threshold: int = 1) -> 'igraph.Graph':
     """ Generates iGraph graph for neuron connectivity.
 
     Requires iGraph to be installed.
@@ -212,7 +212,7 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
     return g
 
 
-def neuron2igraph(x: 'core.NeuronObject') -> igraph.Graph:
+def neuron2igraph(x: 'core.NeuronObject') -> 'igraph.Graph':
     """ Turns TreeNeuron(s) into an iGraph graph.
 
     Requires iGraph to be installed.
