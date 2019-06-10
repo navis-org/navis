@@ -19,22 +19,34 @@ import pandas as pd
 import numpy as np
 import scipy.spatial
 
-from .. import core, intersection, utils, config, graph
+from typing import Union, Dict
+from typing_extensions import Literal
+
+from ..core.neurons import TreeNeuron
+from ..core.neuronlist import NeuronList
+from .. import config
 
 # Set up logging
 logger = config.logger
 
+NeuronObject = Union[TreeNeuron, NeuronList]
 
-def cable_overlap(a, b, dist=2, method='min'):
+
+def cable_overlap(a: NeuronObject,
+                  b: NeuronObject,
+                  dist: float = 2,
+                  method: Union[Literal['min'], Literal['max'], Literal['avg']] = 'min'
+                  ) -> pd.DataFrame:
     """ Calculates the amount of cable of neuron A within distance of neuron B.
 
-    Uses dotproduct representation of a neuron!
+    Uses dotproduct representation of a neuron! It is recommended to
+    resample neurons first.
 
     Parameters
     ----------
     a,b :       TreeNeuron | NeuronList
                 Neuron(s) for which to compute cable within distance.
-    dist :      int, optional
+    dist :      int | float, optional
                 Maximum distance.
     method :    'min' | 'max' | 'avg'
                 Method by which to calculate the overlapping cable between
@@ -56,17 +68,22 @@ def cable_overlap(a, b, dist=2, method='min'):
                 skidA3    4        3        15
                 ...
 
+    See Also
+    --------
+    func:`navis.resample_neuron`
+                Use to resample neurons before calculating overlap.
+
     """
 
-    if not isinstance(a, (core.TreeNeuron, core.NeuronList)) \
-       or not isinstance(b, (core.TreeNeuron, core.NeuronList)):
+    if not isinstance(a, (TreeNeuron, NeuronList)) \
+       or not isinstance(b, (TreeNeuron, NeuronList)):
         raise TypeError('Need to pass CatmaidNeurons')
 
-    if isinstance(a, core.NeuronList):
-        a = core.NeuronList(a)
+    if isinstance(a, NeuronList):
+        a = NeuronList(a)
 
-    if isinstance(b, core.NeuronList):
-        b = core.NeuronList(b)
+    if isinstance(b, NeuronList):
+        b = NeuronList(b)
 
     allowed_methods = ['min', 'max', 'avg']
     if method not in allowed_methods:
@@ -80,7 +97,7 @@ def cable_overlap(a, b, dist=2, method='min'):
                      disable=config.pbar_hide,
                      leave=config.pbar_leave) as pbar:
         # Keep track of KDtrees
-        trees = {}
+        trees: Dict[str, scipy.spatial.cKDTree] = {}
         for nA in a:
             # Get cKDTree for nA
             tA = trees.get(nA.name, None)
@@ -128,118 +145,3 @@ def cable_overlap(a, b, dist=2, method='min'):
             pbar.update(1)
 
     return matrix
-
-
-def predict_connectivity(source, target, method='possible_contacts', **kwargs):
-    """ Calculates potential synapses from source onto target neurons based
-    on distance.
-
-    Based on a concept by Alexander Bates.
-
-    Parameters
-    ----------
-    source,target : CatmaidNeuron | CatmaidNeuronList
-                    Neuron(s) for which to compute potential connectivity.
-                    This is unidirectional: source -> target.
-    method :        'possible_contacts'
-                    Method to use for calculations. See Notes.
-    **kwargs
-                    1. For method 'possible_contacts':
-                        - ``dist`` to set distance between connectors and
-                          treenodes manually.
-                        - ``stdev`` to set number of standard-deviations of
-                          average distance. Default = 2.
-
-    Notes
-    -----
-    Method ``possible_contacts``:
-        1. Calculating mean distance ``d`` (connector->treenode) at which
-           connections between neurons A and neurons B occur.
-        2. For all presynapses of neurons A, check if they are within ``stdev``
-           (default=2) standard deviations of ``d`` of a neurons B treenode.
-
-
-    Returns
-    -------
-    pandas.DataFrame
-            Matrix holding possible synaptic contacts. Sources are rows,
-            targets are columns::
-
-                         target1  target2  target3  ...
-                source1    5        1        0
-                source2    10       20       5
-                source3    4        3        15
-                ...
-
-    """
-
-    for _ in [source, target]:
-        if not isinstance(_, (core.TreeNeuron, core.NeuronList)):
-            raise TypeError('Need CatmaidNeuron/List, got '
-                            '"{}"'.format(type(_)))
-
-    if isinstance(source, core.CatmaidNeuron):
-        source = core.CatmaidNeuronList(source)
-
-    if isinstance(target, core.CatmaidNeuron):
-        target = core.CatmaidNeuronList(target)
-
-    allowed_methods = ['possible_contacts']
-    if method not in allowed_methods:
-        raise ValueError('Unknown method "{0}". Allowed methods: "{0}"'.format(
-            method, ','.join(allowed_methods)))
-
-    matrix = pd.DataFrame(np.zeros((source.shape[0], target.shape[0])),
-                          index=source.skeleton_id,
-                          columns=target.skeleton_id)
-
-    # First let's calculate at what distance synapses are being made
-    cn_between = fetch.get_connectors_between(source, target,
-                                              remote_instance=remote_instance)
-
-    if kwargs.get('dist', None):
-        distances = kwargs.get('dist')
-    elif cn_between.shape[0] > 0:
-        logger.warning('No ')
-        cn_locs = np.vstack(cn_between.connector_loc.values)
-        tn_locs = np.vstack(cn_between.treenode2_loc.values)
-
-        distances = np.sqrt(np.sum((cn_locs - tn_locs) ** 2, axis=1))
-
-        logger.info('Average connector->treenode distances: '
-                    '{:.2f} +/- {:.2f} nm'.format(distances.mean(),
-                                                  distances.std()))
-    else:
-        logger.warning('No existing connectors to calculate average'
-                       'connector->treenode distance found. Falling'
-                       'back to default of 1um. Use <stdev> argument'
-                       'to set manually.')
-        distances = 1000
-
-    # Calculate distances threshold
-    n_std = kwargs.get('n_std', 2)
-    dist_threshold = np.mean(distances) + n_std * np.std(distances)
-
-    with config.tqdm(total=len(target), desc='Predicting',
-                     disable=config.pbar_hide,
-                     leave=config.pbar_leave) as pbar:
-        for t in target:
-            # Create cKDTree for target
-            tree = scipy.spatial.cKDTree(
-                t.nodes[['x', 'y', 'z']].values, leafsize=10)
-            for s in source:
-                # Query against presynapses
-                dist, ix = tree.query(s.presynapses[['x', 'y', 'z']].values,
-                                      k=1,
-                                      distance_upper_bound=dist_threshold,
-                                      n_jobs=-1
-                                      )
-
-                # Calculate possible contacts
-                possible_contacts = sum(dist != float('inf'))
-
-                matrix.at[s.skeleton_id, t.skeleton_id] = possible_contacts
-
-            pbar.update(1)
-
-    return matrix.astype(int)
