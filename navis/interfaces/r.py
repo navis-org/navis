@@ -956,6 +956,9 @@ def xform_brain(x, source, target, fallback=None, **kwargs):
 
 
 def get_neuropil(x, template='FCWB', convert_nm=True):
+
+
+def get_neuropil(x: str, template: str = 'FCWB') -> core.Volume:
     """ Fetches given neuropil from ``nat.flybrains``, ``flycircuit`` or
     ``elmr`` and converts to :class:`navis.Volume`.
 
@@ -965,22 +968,50 @@ def get_neuropil(x, template='FCWB', convert_nm=True):
                     Name of neuropil.
     template :      'FCWB' | 'FAFB14' | 'JFRC', optional
                     Name of the template brain.
-    convert_nm :    bool, optional
-                    If True, will convert from um to nm.
+
+    Returns
+    -------
+    navis.Volume
     """
 
     if not template.endswith('NP.surf'):
         template += 'NP.surf'
 
-    np = data2py(robjects.r(f'subset({x}, "{template}")'))
+    # Get the brain volume (this is a named list)
+    template = robjects.r(f'{template}')
 
-    n_verts = np['Vertices'].shape[0]
-    verts = np['Vertices'][['X', 'Y', 'Z']].values
-    faces = np.array([range(0, n_verts, 3),
-                      range(1, n_verts, 3),
-                      range(2, n_verts, 3)]).T
+    reglist = template[template.names.index('RegionList')]  # type: ignore  # confused by R objects
 
-    if convert_nm:
-        verts += 1000
+    if x not in reglist:
+        raise ValueError('Neuropil not found in this brain. Available '
+                         f'regions: {", ".join(reglist)}')
 
-    return core.Volume(verts, faces)
+    # Get list of faces for desired region
+    regions = template[template.names.index('Regions')]  # type: ignore  # confused by R objects
+    faces = data2py(regions[regions.names.index(x)])  # type: ignore  # confused by R objects
+
+    # Offset to account for difference in indexing between R (1, 2, 3, ...)
+    # and  Python (0, 1, 2, ....)
+    faces -= 1
+
+    # Get pre-defined color for this neuropil
+    color = template[template.names.index('RegionColourList')][regions.names.index(x)]  # type: ignore  # confused by R objects
+
+    # Get vertices
+    all_vertices = data2py(template[template.names.index('Vertices')])  # type: ignore  # confused by R objects
+
+    # Remove superfluous vertices
+    verts_required = np.unique(faces.values)
+    this_verts = all_vertices.loc[verts_required]
+
+    # Reorder and remap - DO NOT use ".index" here!
+    new_map = {old: new for old, new in zip(this_verts.index,
+                                            np.arange(0, this_verts.shape[0]).astype(int))}
+    faces['V1'] = faces.V1.map(new_map)
+    faces['V2'] = faces.V2.map(new_map)
+    faces['V3'] = faces.V3.map(new_map)
+
+    return core.Volume(vertices=this_verts[['X', 'Y', 'Z']].values,
+                       faces=faces.values,
+                       name=x,
+                       color=color)
