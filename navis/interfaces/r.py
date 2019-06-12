@@ -955,7 +955,41 @@ def xform_brain(x, source, target, fallback=None, **kwargs):
     return np.array(xf)
 
 
-def get_neuropil(x, template='FCWB', convert_nm=True):
+def get_brain_template_mesh(x: str) -> core.Volume:
+    """ Fetches brain surface model from ``nat.flybrains``, ``flycircuit`` or
+    ``elmr`` and converts to :class:`navis.Volume`.
+
+    Parameters
+    ----------
+    x :             str
+                    Name of template brain. For example: 'FCWB', 'FAFB14' or
+                    'JFRC2'.
+
+    Returns
+    -------
+    navis.Volume
+    """
+
+    if not x.endswith('.surf'):
+        x += '.surf'
+
+    # Get the brain volume (this is a named list)
+    brain = robjects.r(f'{x}')
+
+    # Vertices are simply called vertices
+    vertices = data2py(brain[brain.names.index('Vertices')])
+
+    # For some reason faces are called "Regions" -> we're using the "first"
+    # region although some meshes might include more than one
+    faces = data2py(brain[brain.names.index('Regions')][0])
+
+    # Offset to account for difference in indexing between R (1, 2, 3, ...)
+    # and  Python (0, 1, 2, ....)
+    faces -= 1
+
+    return core.Volume(vertices=vertices[['X', 'Y', 'Z']].values,
+                       faces=faces[['V1', 'V2', 'V3']].values,
+                       name=x)
 
 
 def get_neuropil(x: str, template: str = 'FCWB') -> core.Volume:
