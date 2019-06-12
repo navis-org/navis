@@ -13,6 +13,8 @@
 
 import pandas as pd
 import numpy as np
+import requests
+import urllib
 
 from typing import Optional, Union, List, Iterable, Dict, Tuple
 
@@ -20,6 +22,17 @@ from .. import config, core
 
 # Set up logging
 logger = config.logger
+
+
+def is_url(x: str) -> bool:
+    """ Returns True if str is URL.
+    """
+    parsed = urllib.parse.urlparse(x)
+
+    if parsed.netloc and parsed.scheme:
+        return True
+    else:
+        return False
 
 
 def _type_of_script() -> str:
@@ -190,3 +203,38 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     points = dataframes + arrays
 
     return skdata, dotprops, volumes, points, visuals
+
+
+def make_url(baseurl, *args: str, **GET) -> str:
+    """ Generates URL.
+
+    Parameters
+    ----------
+    *args
+                Will be turned into the URL. For example::
+
+                    >>> make_url('http://neuromorpho.org', 'neuron', 'fields')
+                    'http://neuromorpho.org/api/neuron/fields'
+
+    **GET
+                Keyword arguments are assumed to be GET request queries
+                and will be encoded in the url. For example::
+
+                    >>> make_url('http://neuromorpho.org', 'neuron', 'fields',
+                    ...          page = 1)
+                    'http://neuromorpho.org/api/neuron/fields?page=1'
+
+    Returns
+    -------
+    url :       str
+    """
+    url = baseurl
+    # Generate the URL
+    for arg in args:
+        arg_str = str(arg)
+        joiner = '' if url.endswith('/') else '/'
+        relative = arg_str[1:] if arg_str.startswith('/') else arg_str
+        url = requests.compat.urljoin(url + joiner, relative)
+    if GET:
+        url += '?{}'.format(urllib.parse.urlencode(GET))
+    return url
