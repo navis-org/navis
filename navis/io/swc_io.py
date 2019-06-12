@@ -13,11 +13,13 @@
 
 import csv
 import datetime
-from glob import glob
 import os
+import requests
 
 import pandas as pd
 import numpy as np
+
+from glob import glob
 
 from typing import Union, Iterable, Dict, Optional, Any
 
@@ -40,8 +42,8 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
     Parameters
     ----------
     f :                 str | pandas.DataFrame | iterable
-                        SWC string, filename, folder or DataFrame. If folder,
-                        will import all ``.swc`` files.
+                        SWC string, URL, filename, folder or DataFrame.
+                        If folder, will import all ``.swc`` files.
     connector_labels :  dict, optional
                         If provided will extract connectors from SWC.
                         Dictionary must map type to label:
@@ -105,8 +107,15 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
                     else:
                         header.append(' '.join(row))
 
-        # If not file, assume it's a SWC string
+        # If not file, assume it's a SWC string or a URL
         else:
+            # Check if is url
+            if utils.is_url(f):
+                r = requests.get(f)
+                r.raise_for_status()
+
+                f = r.content.decode()
+
             # Note that with .split(), the last row will be empty
             rows = f.split('\n')[:-1]
             for r in rows:
