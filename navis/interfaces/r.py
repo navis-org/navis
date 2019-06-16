@@ -99,6 +99,21 @@ def init_rcatmaid(**kwargs):
     -------
     catmaid :           R library
                         R object representing the rcatmaid library
+
+    Examples
+    --------
+    >>> from navis.interfaces import r
+    >>> rcatmaid = r.init_rcatmaid(server='https://your.catmaid.server',
+    ...                            authname='http_user',
+    ...                            authpassword='http_pw',
+    ...                            authtoken='Your token')
+    >>> # You can now use rcatmaid functions. For example:
+    >>> neuron = rcatmaid.read_neurons_catmaid(16)
+    >>> neuron
+    R object with classes: ('neuronlist', 'list') mapped to:
+    [ListSexpVector]
+    16: <class 'rpy2.rinterface.ListSexpVector'>
+    <rpy2.rinterface.ListSexpVector object at 0x123d46708> [RTYPES.VECSXP]
     """
 
     remote_instance = kwargs.get('remote_instance', None)
@@ -186,6 +201,10 @@ def data2py(data, **kwargs):
         else:
             logger.debug(f'Unable to convert R data of type "{cl(data)}"')
             return 'Not converted'
+    elif 'neuron' in cl(data):
+        return neuron2py(data)
+    elif 'dotprops' in cl(data):
+        return dotprops2py(data)
     elif cl(data)[0] == 'integer':
         if not names(data):
             return [int(n) for n in data]
@@ -240,7 +259,10 @@ def data2py(data, **kwargs):
         return 'Not converted'
 
 
-def neuron2py(x, unit_conversion=False, add_attributes=None):
+def neuron2py(x,
+              unit_conversion: Union[bool, int, float] = False,
+              add_attributes: bool = None
+              ) -> 'core.NeuronObject':
     """ Converts an rcatmaid ``neuron`` or ``neuronlist`` object to
     :class:`~navs.TreeNeuron` or :class:`~navis.NeuronList`, respectively.
 
@@ -249,7 +271,7 @@ def neuron2py(x, unit_conversion=False, add_attributes=None):
     x :                 R neuron | R neuronlist
                         Neuron to convert to Python
     unit_conversion :   bool | int | float, optional
-                        If True will convert units.
+                        If True will convert units by given factor.
     add_attributes :    None | str | iterable
                         Give additional attributes that should be carried over
                         to TreeNeuron. If ``None``, will only use minimal
@@ -305,7 +327,9 @@ def neuron2py(x, unit_conversion=False, add_attributes=None):
     return core.NeuronList(neurons)
 
 
-def neuron2r(x, unit_conversion=False, add_metadata=False):
+def neuron2r(x: 'core.NeuronObject',
+             unit_conversion: Union[bool, int, float] = None,
+             add_metadata: bool = False):
     """ Converts a neuron or neuronlist to the corresponding
     neuron/neuronlist object in R.
 
@@ -313,7 +337,7 @@ def neuron2r(x, unit_conversion=False, add_metadata=False):
     ----------
     x :                 TreeNeuron | NeuronList
     unit_conversion :   bool | int | float, optional
-                        If not ``False`` will convert coordinates.
+                        If not ``False`` will convert units by given factor.
     add_metadata :      bool, optional
                         If False, will use minimal data necessary to construct
                         the R neuron. If True, will add additional data
@@ -348,23 +372,15 @@ def neuron2r(x, unit_conversion=False, add_metadata=False):
         nlist = robjects.ListVector(nlist)
         nlist.rownames = [str(n.uuid) for n in x]
 
-        """
-        df = robjects.DataFrame({'pid': robjects.IntVector([1] * x.shape[0]),
-                                 'name': robjects.StrVector(x.neuron_name.tolist())
-                                 })
-        df.rownames = x.skeleton_id.tolist()
-        nlist.slots['df'] = df
-        """
         nlist.rclass = robjects.r('c("neuronlist","list")')
 
         return nlist
 
     elif isinstance(x, core.TreeNeuron):
         # Convert units if applicable
-        if unit_conversion:
+        if isinstance(unit_conversion, (float, int)) and \
+           not isinstance(unit_conversion, bool):
             x = x * unit_conversion
-
-        # First convert into format that rcatmaid expects as server response
 
         # Prepare list of parents -> root node's parent "None" has to be
         # replaced with -1
@@ -381,7 +397,8 @@ def neuron2r(x, unit_conversion=False, add_metadata=False):
                                   'Parent': robjects.IntVector(parents)
                                   })
 
-        soma_id = x.soma if not isinstance(x.soma, type(None)) else robjects.r('NULL')
+        soma = utils.make_non_iterable(x.soma)
+        soma_id = int(soma) if not isinstance(soma, type(None)) else robjects.r('NULL')
 
         meta = {}
         if x.has_connectors:
@@ -399,7 +416,9 @@ def neuron2r(x, unit_conversion=False, add_metadata=False):
         raise TypeError(f'Unable to convert data of type "{type(x)}" into R neuron.')
 
 
-def dotprops2py(dp, subset=None):
+def dotprops2py(dp,
+                subset: Optional[Union[List[str], List[int]]] = None
+                ) -> 'core.Dotprops':
     """ Converts dotprops into pandas DataFrame.
 
     Parameters
@@ -424,15 +443,20 @@ def dotprops2py(dp, subset=None):
             i, int)] + [dp.names.index(n) + 1 for n in subset if isinstance(n, str)]
         dp = dp.rx(robjects.IntVector(indices))
 
-    df = data2py(dp.slots['df'])
-    df.reset_index(inplace=True, drop=True)
+    # This only works if inputs is a neuronlist of dotprops
+    if 'neuronlist' in cl(dp):
+        df = data2py(dp.slots['df'])
+        df.reset_index(inplace=True, drop=True)
+    else:
+        # If single DataFrame, we don't collect any meta information
+        df = pd.DataFrame([])
+        dp = [dp]
 
     points = []
     for i in range(len(dp)):
         this_points = pd.concat([data2py(dp[i][0]), data2py(dp[i][2])], axis=1)
         this_points['alpha'] = dp[i][1]
-        this_points.columns = ['x', 'y', 'z',
-                               'x_vec', 'y_vec', 'z_vec', 'alpha']
+        this_points.columns = ['x', 'y', 'z', 'x_vec', 'y_vec', 'z_vec', 'alpha']
         points.append(this_points)
 
     df['points'] = points
@@ -440,8 +464,12 @@ def dotprops2py(dp, subset=None):
     return core.Dotprops(df)
 
 
-def nblast_allbyall(x, micron_conversion, normalize=True, resample=1,
-                    n_cores=os.cpu_count(), use_alpha=False):
+def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_cores defau
+                    micron_conversion: float,
+                    normalize: bool = True,
+                    resample: int = 1,
+                    n_cores: int = os.cpu_count(),
+                    use_alpha: bool = False) -> 'pyclust.ClustResults':
     """ Wrapper to use R's ``nat:nblast_allbyall``
     (https://github.com/jefferislab/nat.nblast/).
 
@@ -485,7 +513,7 @@ def nblast_allbyall(x, micron_conversion, normalize=True, resample=1,
     """
 
     domc = importr('doMC')
-    cores = robjects.r('registerDoMC(%i)' % n_cores)
+    cores = robjects.r(f'registerDoMC({n_cores})')
 
     doParallel = importr('doParallel')
     doParallel.registerDoParallel(cores=n_cores)
@@ -555,7 +583,8 @@ def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores de
                     'flycircuit.datadir'.
     resample :      int, optional
                     Resample to given resolution. For nblasts against light
-                    level databases, 1 micron is recommended.
+                    level databases, 1 micron is recommended. Note that this
+                    is done AFTER any xform-ing.
     xform :         str, optional
                     If provided, will convert neuron before nblasting. Must
                     be string defining source and target brain space. For
@@ -588,6 +617,20 @@ def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores de
         Instance of :class:`navis.rmaid.NBLASTresults` that holds nblast
         results and contains wrappers to plot/extract data. Please use
         help(NBLASTresults) to learn more and see example below.
+
+
+    Examples
+    --------
+    # NBLAST example neurons against flycircuit DB
+
+    >>> import navis
+    >>> from navis.interfaces import r
+    >>> n = navis.example_neurons(1)
+    >>> # Example neurons are in FAFB space -> we need to convert and mirror
+    >>> # (this also takes care of conversion to microns)
+    >>> nbl = r.nblast(n, xform='FAFB14->FCWB', mirror='FCWB')
+    >>> # Plot top 5 results
+    >>> nbl.plot3d(hits=5)
 
     """
 
@@ -780,12 +823,16 @@ class NBLASTresults:
         self.param = nblast_param  # parameters used for nblasting
         self.date = datetime.now()  # time of nblasting
 
-    def sort(self, columns):
-        """ Sort results by given column."""
+    def sort(self, columns: Union[str, List[str]]):
+        """ Sort results by given column(s)."""
         self.results.sort_values(columns, inplace=True, ascending=False)
         self.results.reset_index(inplace=True, drop=True)
 
-    def plot3d(self, hits=5, plot_neuron=True, plot_brain=True, **kwargs):
+    def plot3d(self,
+               hits: int = 5,
+               plot_neuron: bool = True,
+               plot_brain: bool = True,
+               **kwargs):
         """ Wrapper to plot nblast hits using ``navis.plot3d()``
 
         Parameters
@@ -811,7 +858,7 @@ class NBLASTresults:
         Depending on the backends used by ``navis.plot3d()``:
 
         vispy (default) : canvas, view
-        plotly : matplotlib figure
+        plotly : plotly figure dictionary
 
         You can specify the backend by using e.g. ``backend='plotly'`` in
         **kwargs. See ``help(navis.plot3d)`` for details.
@@ -822,7 +869,7 @@ class NBLASTresults:
         n_py = neuron2py(self.neuron)
 
         # Create colormap with the query neuron being black
-        cmap = {n_py.ix[0].uuid: (0, 0, 0)}
+        cmap = {n_py.uuid: (0, 0, 0)}
 
         colors = np.linspace(0, 1, len(nl) + 1)
         colors = np.array([hsv_to_rgb(c, 1, 1) for c in colors])
@@ -837,16 +884,13 @@ class NBLASTresults:
             faces = data2py(ref_brain[1][0]).as_matrix()
             faces -= 1  # reduce indices by 1
             faces = faces.tolist()
-            # [ [i,i+1,i+2] for i in range( int( len(verts)/3 ) ) ]
 
-            volumes = {self.param['reference'][8][0]: {'verts': verts, 'faces': faces}}
+            volumes = {self.param['reference'][8][0]: {'verts': verts,
+                                                       'faces': faces}}
         else:
             volumes = []
 
-        kwargs.update({'colors': cmap,
-                       'downsampling': 1})
-
-        logger.info('Colormap:' + str(cmap))
+        kwargs.update({'color': cmap})
 
         if nl:
             if plot_neuron is True:
@@ -854,7 +898,7 @@ class NBLASTresults:
             else:
                 return plotting.plot3d([dotprops2py(nl), volumes], **kwargs)
 
-    def get_dps(self, entries):
+    def get_dps(self, entries: Union[int, str, List[str], List[int]]):
         """ Wrapper to retrieve dotproducts from DPS database (neuronlistfh)
         as neuronslist.
 
@@ -890,7 +934,13 @@ class NBLASTresults:
             return None
 
 
-def xform_brain(x, source, target, fallback=None, **kwargs):
+def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
+                source: str,
+                target: str,
+                fallback: Optional[Literal['AFFINE']] = None,
+                **kwargs) -> Union['core.NeuronObject',
+                                   'pd.DataFrame',
+                                   'np.ndarray']:
     """ Transform 3D data between template brains. This is just a wrapper for
     ``nat.templatebrains:xform_brain``.
 
