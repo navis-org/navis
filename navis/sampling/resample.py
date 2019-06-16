@@ -60,15 +60,14 @@ def resample_neuron(x: 'core.NeuronObject',
                     method: str = 'linear',
                     skip_errors: bool = True
                     ) -> Optional['core.NeuronObject']:
-    """ Resamples neuron(s) to given NM resolution.
+    """ Resamples neuron(s) to given resolution.
 
-    Preserves root, leafs, branchpoints. Tags and connectors are mapped onto
-    the closest new treenode. Columns "confidence" and "creator" of the
-    treenode table are discarded.
+    Preserves root, leafs, branchpoints. Connectors (if they exist) are mapped
+    onto the closest new treenode.
 
     Important
     ---------
-    This generates an entirely new set of treenode IDs! Those will be unique
+    This generates an entirely new set of node IDs! Those will be unique
     within a neuron, but you may encounter duplicates across neurons.
 
     Also: be aware that high-resolution neurons will use A LOT of memory.
@@ -78,7 +77,10 @@ def resample_neuron(x: 'core.NeuronObject',
     x :                 TreeNeuron | NeuronList
                         Neuron(s) to resample.
     resample_to :       int
-                        New resolution in NANOMETERS.
+                        Target sampling resolution, i.e. one node every
+                        N units of cable. Note that hitting the exact
+                        sampling resolution might not be possible e.g. when
+                        a branch is shorter than target resolution.
     method :            str, optional
                         See ``scipy.interpolate.interp1d`` for possible
                         options. By default, we're using linear interpolation.
@@ -89,11 +91,24 @@ def resample_neuron(x: 'core.NeuronObject',
                         If True, will skip errors during interpolation and
                         only print summary.
 
-
     Returns
     -------
-    CatmaidNeuron/List
+    TreeNeuron/List
                         Downsampled neuron(s). Only if ``inplace=False``.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> # Check sampling resolution (nodes/cable)
+    >>> round(n.sampling_resolution, 3)
+    191.0
+    >>> # Resample to 1 micron (example neurons are in nm space)
+    >>> n_rs = navis.resample_neuron(n,
+    ...                              resample_to=1000,
+    ...                              inplace=False)
+    >>> round(n_rs.sampling_resolution)
+    962.0
 
     See Also
     --------
