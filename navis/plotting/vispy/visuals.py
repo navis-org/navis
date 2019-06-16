@@ -441,28 +441,29 @@ def dotprop2vispy(x, **kwargs):
         t.unfreeze()
         t._object_type = 'dotprop'
         t._neuron_part = 'neurites'
-        t._name = n.gene_name
+        t._name = getattr(n, 'gene_name', getattr(n, 'name', 'NoName'))
         t._object_id = object_id
         t.freeze()
 
         visuals.append(t)
 
-        # Add soma
-        sp = create_sphere(5, 5, radius=4)
-        s = scene.visuals.Mesh(vertices=sp.get_vertices() +
-                                        np.array([n.X, n.Y, n.Z]),
-                               faces=sp.get_faces(),
-                               color=color)
+        # Add soma (if provided as X/Y/Z)
+        if all([hasattr(n, v) for v in ['X', 'Y', 'Z']]):
+            sp = create_sphere(5, 5, radius=4)
+            s = scene.visuals.Mesh(vertices=sp.get_vertices() +
+                                            np.array([n.X, n.Y, n.Z]),
+                                   faces=sp.get_faces(),
+                                   color=color)
 
-        # Add custom attributes
-        s.unfreeze()
-        s._object_type = 'dotprop'
-        s._neuron_part = 'soma'
-        s._name = n.gene_name
-        s._object_id = object_id
-        s.freeze()
+            # Add custom attributes
+            s.unfreeze()
+            s._object_type = 'dotprop'
+            s._neuron_part = 'soma'
+            s._name = n.gene_name
+            s._object_id = object_id
+            s.freeze()
 
-        visuals.append(s)
+            visuals.append(s)
 
     return visuals
 
