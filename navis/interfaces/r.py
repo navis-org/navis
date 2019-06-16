@@ -60,19 +60,23 @@ __all__ = sorted(['neuron2r', 'neuron2py', 'init_rcatmaid', 'dotprops2py',
                   'data2py', 'NBLASTresults', 'nblast', 'nblast_allbyall',
                   'get_neuropil', 'xform_brain'])
 
-# Activate automatic conversion
-numpy2ri.activate()
-pandas2ri.activate()
+# Do not use this! It will convert stuff inadvertently. E.g.
+# dps = robjects.r(f'read.neuronlistfh("{datadir}/dpscanon.rds")')
+# will turn out as just an array
+
+# numpy2ri.activate()
+# pandas2ri.activate()
+
 
 def init_rcatmaid(**kwargs):
-    """ Initialize the R catmaid package.
+    """ Initialize the R Catmaid package.
 
     R package by Greg Jefferis: https://github.com/jefferis/rcatmaid
 
     Parameters
     ----------
     remote_instance :   CATMAID instance
-                        From navis.CatmaidInstance(). This is used to
+                        From pymaid.CatmaidInstance(). This is used to
                         extract credentials. Overrides other credentials
                         provided!
     server :            str, optional
