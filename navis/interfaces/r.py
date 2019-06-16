@@ -996,6 +996,10 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     else:
         TypeError(f'Expected target of type str, got "{type(target)}"')
 
+    # We need to convert numpy arrays explicitly
+    if isinstance(x, np.ndarray):
+        x = numpy2ri.py2rpy(x)
+
     xf = nat_templatebrains.xform_brain(x,
                                         sample=source,
                                         reference=target,
