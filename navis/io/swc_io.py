@@ -276,11 +276,9 @@ def to_swc(x: 'core.NeuronObject',
 
     # Make a dictionary node_id -> index
     tn2ix = this_tn['index'].to_dict()
-    # This is for safety: all nodes with parent None will become roots
-    tn2ix[None] = -1  # type: ignore
 
     # Make parent index column
-    this_tn['parent_ix'] = this_tn.parent_id.map(tn2ix)
+    this_tn['parent_ix'] = this_tn.parent_id.map(lambda x: tn2ix.get(x, -1))
 
     # Add labels
     if isinstance(labels, dict):
