@@ -107,6 +107,14 @@ def prune_by_strahler(x: NeuronObject,
     TreeNeuron/List
                     Pruned neuron(s).
 
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> n_pr = navis.prune_by_strahler(n, to_prune=1, inplace=False)
+    >>> n.n_nodes > n_pr.n_nodes
+    True
+
     """
 
     if isinstance(x, core.NeuronList):
@@ -134,7 +142,7 @@ def prune_by_strahler(x: NeuronObject,
         neuron = neuron.copy()
 
     if reroot_soma and neuron.soma:
-        neuron.reroot(neuron.soma)
+        neuron.reroot(neuron.soma, inplace=True)
 
     if 'strahler_index' not in neuron.nodes or force_strahler_update:
         mmetrics.strahler_index(neuron)
@@ -159,29 +167,30 @@ def prune_by_strahler(x: NeuronObject,
         parent_dict = {
             tn.node_id: tn.parent_id for tn in neuron.nodes.itertuples()}
 
-    neuron.nodes = neuron.nodes[~neuron.nodes.strahler_index.isin(to_prune)].reset_index(drop=True)
+    neuron.nodes = neuron.nodes[~neuron.nodes.strahler_index.isin(to_prune)].reset_index(drop=True, inplace=False)
 
-    if not relocate_connectors:
-        neuron.connectors = neuron.connectors[neuron.connectors.node_id.isin(
-            neuron.nodes.node_id.values)].reset_index(drop=True)
-    else:
-        remaining_tns = set(neuron.nodes.node_id.values)
-        for cn in neuron.connectors[~neuron.connectors.node_id.isin(neuron.nodes.node_id.values)].itertuples():
-            this_tn = parent_dict[cn.node_id]
-            while True:
-                if this_tn in remaining_tns:
-                    break
-                this_tn = parent_dict[this_tn]
-            neuron.connectors.loc[cn.Index, 'node_id'] = this_tn
+    if neuron.has_connectors:
+        if not relocate_connectors:
+            neuron.connectors = neuron.connectors[neuron.connectors.node_id.isin(neuron.nodes.node_id.values)].reset_index(drop=True, inplace=False)
+        else:
+            remaining_tns = set(neuron.nodes.node_id.values)
+            for cn in neuron.connectors[~neuron.connectors.node_id.isin(neuron.nodes.node_id.values)].itertuples():
+                this_tn = parent_dict[cn.node_id]
+                while True:
+                    if this_tn in remaining_tns:
+                        break
+                    this_tn = parent_dict[this_tn]
+                neuron.connectors.loc[cn.Index, 'node_id'] = this_tn
 
     # Reset indices of node and connector tables (important for igraph!)
     neuron.nodes.reset_index(inplace=True, drop=True)
-    neuron.connectors.reset_index(inplace=True, drop=True)
+
+    if neuron.has_connectors:
+        neuron.connectors.reset_index(inplace=True, drop=True)
 
     # Theoretically we can end up with disconnected pieces, i.e. with more
     # than 1 root node -> we have to fix the nodes that lost their parents
-    neuron.nodes.loc[~neuron.nodes.parent_id.isin(
-        neuron.nodes.node_id.values), 'parent_id'] = -1
+    neuron.nodes.loc[~neuron.nodes.parent_id.isin(neuron.nodes.node_id.values), 'parent_id'] = -1
 
     # Remove temporary attributes
     neuron._clear_temp_attr()
@@ -240,6 +249,18 @@ def prune_twigs(x: NeuronObject,
     -------
     TreeNeuron/List
                     Pruned neuron(s).
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> # Prune twigs smaller than 5 microns (example neurons are in nm)
+    >>> n_pr = navis.prune_twigs(n,
+    ...                          size=5000,
+    ...                          recursive=float('inf'),
+    ...                          inplace=False)
+    >>> n.n_nodes > n_pr.n_nodes
+    True
 
     """
 
@@ -321,7 +342,7 @@ def split_axon_dendrite(x: NeuronObject,
     ----------
     x :                 TreeNeuron | NeuronList
                         Neuron(s) to split into axon, dendrite (and primary
-                        neurite).
+                        neurite). MUST HAVE CONNECTORS.
     method :            'centrifugal' | 'centripetal' | 'sum' | 'bending', optional
                         Type of flow centrality to use to split the neuron.
                         There are four flavors: the first three refer to
@@ -376,11 +397,13 @@ def split_axon_dendrite(x: NeuronObject,
         return core.NeuronList([n for l in nl for n in l])
 
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError('Can only process TreeNeuron, '
-                        'got "{}"'.format(type(x)))
+        raise TypeError(f'Can only process TreeNeuron, got "{type(x)}"')
+
+    if not x.has_connectors:
+        raise ValueError('Neuron must have connectors.')
 
     if method not in ['centrifugal', 'centripetal', 'sum', 'bending']:
-        raise ValueError('Unknown parameter for mode: {0}'.format(method))
+        raise ValueError(f'Unknown parameter for mode: "{method}"')
 
     if split_pnt and method != 'bending':
         logger.warning('Primary neurite splits only works well with '
