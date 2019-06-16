@@ -27,7 +27,7 @@ from typing_extensions import Literal
 from .. import core, config, utils
 
 __all__ = ['generate_colors', 'prepare_connector_cmap', 'prepare_colormap',
-           'eval_color']
+           'eval_color', 'hex_to_rgb']
 
 logger = config.logger
 
@@ -328,3 +328,10 @@ def eval_color(x, color_range=255):
         c = [v / 255 for v in c]
 
     return tuple(c)
+
+
+def hex_to_rgb(value: str) -> Tuple[int, int, int]:
+    """ Converts hex to rgb. """
+    value = value.lstrip('#')
+    lv = len(value)
+    return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))  # type: ignore
