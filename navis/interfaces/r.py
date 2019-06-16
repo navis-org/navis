@@ -39,7 +39,7 @@ from .. import core, plotting, config, utils
 
 cl = robjects.r('class')
 names = robjects.r('names')
-attributes = names = robjects.r('attributes')
+attributes = robjects.r('attributes')
 
 # Set up logging
 logger = config.logger
