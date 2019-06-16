@@ -255,11 +255,11 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     volumes_cmap = []
     if isinstance(colors, dict):
         # We will try to get the skid first as str, then as int
-        neuron_cmap = [colors.get(s,
-                                  colors.get(int(s),
+        neuron_cmap = [colors.get(n.uuid,
+                                  colors.get(int(n.uuid),
                                              eval_color(config.default_color,
                                                         color_range=color_range)))
-                       for s in skdata.uuid]
+                       for n in skdata]
         dotprop_cmap = [colors.get(s,
                                    eval_color(config.default_color,
                                               color_range=color_range))
