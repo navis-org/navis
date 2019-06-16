@@ -902,6 +902,19 @@ def reroot_neuron(x: 'core.NeuronObject',
 
     """
 
+    # if root is a list of new roots (e.g. if neuron consists of disconnected
+    # skeletons)
+    if utils.is_iterable(new_root):
+        if not inplace:
+            x = x.copy()
+        for r in new_root:  # type: ignore
+            reroot_neuron(x, new_root=r, inplace=True)
+
+        if not inplace:
+            return x
+        else:
+            return
+
     if new_root is None:
         raise ValueError('New root can not be <None>')
 
