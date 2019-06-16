@@ -572,7 +572,7 @@ class Viewer:
         if skdata:
             visuals += neuron2vispy(skdata, color=neuron_cmap, **kwargs)
         if not dotprops.empty:
-            visuals += dp2vispy(dotprops, color=dotprops_cmap, **kwargs)
+            visuals += dotprop2vispy(dotprops, color=dotprops_cmap, **kwargs)
         if volumes:
             visuals += volume2vispy(volumes, color=volumes_cmap, **kwargs)
         if points:
