@@ -287,8 +287,8 @@ def neuron2py(x, unit_conversion=False, add_attributes=None):
             new_cols = [c if c != k else v for c in new_cols]
         r.d.columns = new_cols
 
-        # Set parent to None if negative
-        r.d.loc[r.d.parent_id < 0, 'parent_id'] = None
+        # Set parent to -1 if negative
+        r.d.loc[r.d.parent_id < 0, 'parent_id'] = -1
 
         neurons.append(core.TreeNeuron(r.d, **add_data))
 
