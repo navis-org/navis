@@ -221,15 +221,11 @@ class DataFrame:
 
     def apply(self, x: Callable, **kwargs) -> 'DataFrame': ...
 
+    @classmethod
+    def from_records(self, records: List[dict], **kwargs) -> 'DataFrame': ...
+
 
 class Series:
-
-    # These are custom values
-    node_id: 'Series'
-    parent_id: 'Series'
-    relation: 'Series'
-
-    T: 'DataFrame'
 
     loc: 'SeriesLoc'
     at: 'At'
@@ -251,7 +247,7 @@ class Series:
                  copy: bool = ...,
                  ): ...
 
-    def __getitem__(self, idx) -> ndarray: ...
+    def __getitem__(self, idx) -> Any: ...
 
     def __setitem__(self, idx, value) -> None: ...
 
