@@ -52,7 +52,7 @@ def volume2vispy(x, **kwargs):
     visuals = []
     for i, v in enumerate(x):
         if not isinstance(v, core.Volume):
-            raise TypeError('Expected navis.Volume, got "{}"'.format(type(v)))
+            raise TypeError(f'Expected navis.Volume, got "{type(v)}"')
 
         object_id = uuid.uuid4()
 
@@ -152,14 +152,16 @@ def neuron2vispy(x, **kwargs):
     elif isinstance(x, core.NeuronList):
         pass
     else:
-        raise TypeError('Unable to process data of type "{}"'.format(type(x)))
+        raise TypeError(f'Unable to process data of type "{type(x)}"')
 
     colors = kwargs.get('color',
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
 
     colormap, _, _ = prepare_colormap(colors,
-                                      x, None,
+                                      skdata=x,
+                                      dotprops=None,
+                                      volumes=None,
                                       use_neuron_color=kwargs.get('use_neuron_color', False),
                                       color_range=1)
 
@@ -398,7 +400,7 @@ def dotprop2vispy(x, **kwargs):
     """
 
     if not isinstance(x, (core.Dotprops, pd.DataFrame)):
-        raise TypeError('Unable to process data of type "{}"'.format(type(x)))
+        raise TypeError(f'Unable to process data of type "{type(x)}"')
 
     visuals = []
 
@@ -407,8 +409,11 @@ def dotprop2vispy(x, **kwargs):
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
     _, colormap, _ = prepare_colormap(colors,
-                                    None, x, use_neuron_color=False,
-                                    color_range=1)
+                                      skdata=None,
+                                      dotprops=x,
+                                      volumes=None,
+                                      use_neuron_color=False,
+                                      color_range=1)
 
     scale_vect = kwargs.get('scale_vect', 1)
 
