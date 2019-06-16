@@ -25,6 +25,16 @@ def make_iterable(x,
                   ) -> np.ndarray:
     """ Helper function. Turns x into a np.ndarray, if it isn't already. For
     dicts, keys will be turned into array.
+
+    Examples
+    --------
+    >>> from navis.utils import make_iterable
+    >>> make_iterable(1)
+    array([1])
+    >>> make_iterable({'a': 1})
+    array(['a'])
+    >>> make_iterable([1])
+    array([1])
     """
     if not isinstance(x, collections.Iterable) or isinstance(x, six.string_types):
         x = [x]
@@ -40,6 +50,16 @@ def make_iterable(x,
 def make_non_iterable(x):
     """ Helper function. Turns x into non-iterable, if it isn't already. Will
     raise error if len(x) > 1.
+
+    Examples
+    --------
+    >>> from navis.utils import make_non_iterable
+    >>> make_non_iterable([1])
+    1
+    >>> make_non_iterable(1)
+    1
+    >>> make_non_iterable([1, 2])
+    ValueError ...
     """
     if not is_iterable(x):
         return x
@@ -50,8 +70,17 @@ def make_non_iterable(x):
 
 
 def is_iterable(x: Any) -> bool:
-    """ Helper function. Returns True if x is an iterable but not str or
-    dictionary.
+    """ Helper function. Returns True if x is an iterable but not str.
+
+    Examples
+    --------
+    >>> from navis.utils import is_iterable
+    >>> is_iterable(['a'])
+    True
+    >>> is_iterable('a')
+    False
+    >>> is_iterable({'a': 1})
+    True
     """
     if isinstance(x, collections.Iterable) and not isinstance(x, (six.string_types, pd.DataFrame)):
         return True

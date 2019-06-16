@@ -23,9 +23,10 @@ logger = config.logger
 def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     """ Tries finding a neuron's soma.
 
-    Will use the ``.soma_detection_radius`` and ``.soma_label`` attribute of
-    a neuron to search for the soma in the node table. If attributes don't
-    exists, will fallback to defaults: ``None`` and ``1``, respectively.
+    Will use the ``.soma_detection_radius`` and ``.soma_detection_label``
+    attribute of a neuron to search for the soma in the node table.
+    If attributes don't exists, will fallback to defaults: ``None`` and
+    ``1``, respectively.
 
     Parameters
     ----------
@@ -33,7 +34,14 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
 
     Returns
     -------
-    node ID of potential soma(s)
+    Node ID(s) of potential somata.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> navis.find_soma(n)
+    array([3490])
     """
 
     if not isinstance(x, core.TreeNeuron):
@@ -48,6 +56,6 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
         soma_nodes = soma_nodes[soma_nodes.radius >= soma_radius]
 
     if not isinstance(soma_label, type(None)) and 'label' in soma_nodes.columns:
-        soma_nodes = soma_nodes[soma_nodes.label == soma_label]
+        soma_nodes = soma_nodes[soma_nodes.label.astype(str) == str(soma_label)]
 
     return soma_nodes.node_id.values

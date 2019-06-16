@@ -44,6 +44,7 @@ def validate_options(x: 'core.TreeNeuron',
     Returns
     -------
     None
+
     """
 
     options = make_iterable(options)
@@ -79,6 +80,28 @@ def validate_table(x: pd.DataFrame,
     optional :  dict, optional
                 Optional columns. If column not present will be generated.
                 Dictionary must map column name to default value.
+
+    Returns
+    -------
+    pandas.DataFrame
+                If ``restrict=True`` will return DataFrame subset to only the
+                required columns. Columns defined in ``optional`` will be
+                added if they don't already exist.
+
+    Examples
+    --------
+    >>> from navis.utils import validate_table
+    >>> from navis.data import example_neurons
+    >>> n = example_neurons(1)
+    >>> tbl = validate_table(n.nodes, ['x', 'y', 'z', 'node_id'])
+    >>> tbl = validate_table(n.nodes, ['non_existing_column'])
+    ValueError ...
+
+    Raises
+    ------
+    ValueError
+            If any of the required columns are not in the table.
+
     """
 
     if not isinstance(x, pd.DataFrame):

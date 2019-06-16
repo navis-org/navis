@@ -26,6 +26,14 @@ logger = config.logger
 
 def is_url(x: str) -> bool:
     """ Returns True if str is URL.
+
+    Examples
+    --------
+    >>> from navis.utils import is_url
+    >>> is_url('www.google.com')
+    False
+    >>> is_url('http://www.google.com')
+    True
     """
     parsed = urllib.parse.urlparse(x)
 
@@ -48,12 +56,32 @@ def _type_of_script() -> str:
 
 
 def is_jupyter() -> bool:
-    """ Test if navis is run in a Jupyter notebook."""
+    """ Test if navis is run in a Jupyter notebook.
+
+    Examples
+    --------
+    >>> from navis.utils import is_jupyter
+    >>> # If run outside a Jupyter environment
+    >>> is_jupyter()
+    False
+    """
     return _type_of_script() == 'jupyter'
 
 
 def set_loggers(level: str = 'INFO'):
-    """Helper function to set levels for all associated module loggers."""
+    """Helper function to set levels for all associated module loggers.
+
+    Examples
+    --------
+    >>> from navis.utils import set_loggers
+    >>> from navis import config
+    >>> # Get current level
+    >>> lvl = config.logger.getLevel()
+    >>> # Set new level
+    >>> set_loggers('INFO')
+    >>> # Revert to old level
+    >>> set_loggers(lvl)
+    """
     config.logger.setLevel(level)
 
 
@@ -76,6 +104,15 @@ def set_pbars(hide: Optional[bool] = None,
     -------
     Nothing
 
+    Examples
+    --------
+    >>> from navis.utils import set_pbars
+    >>> # Hide progress bars after finishing
+    >>> set_pbars(leave=False)
+    >>> # Never show progress bars
+    >>> set_pbars(hide=True)
+    >>> # Never use Jupyter widget progress bars
+    >>> set_pbars(juyter=False)
     """
 
     if isinstance(hide, bool):
@@ -102,6 +139,24 @@ def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.TreeNeuron'],
                    raise_on_error: bool = True
                    ) -> List['core.TreeNeuron']:
     """ Unpacks neurons and returns a list of individual neurons.
+
+    Examples
+    --------
+    This is mostly for doc tests:
+
+    >>> from navis.utils import unpack_neurons
+    >>> from navis.data import example_neurons
+    >>> nl = example_neurons(3)
+    >>> type(nl)
+    navis.core.neuronlist.NeuronList
+    >>> # Unpack list of neuronlists
+    >>> unpacked = unpack_neurons([nl, nl])
+    >>> type(unpacked)
+    list
+    >>> type(unpacked[0])
+    navis.core.neurons.TreeNeuron
+    >>> len(unpacked)
+    6
     """
 
     neurons: list = []
@@ -154,6 +209,32 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     Volumes :       list
     Points :        list of arrays
     Visuals :       list of vispy visuals
+
+    Examples
+    --------
+    This is mostly for doc tests:
+
+    >>> from navis.utils import parse_objects
+    >>> from navis.data import example_neurons, example_volume
+    >>> import numpy as np
+    >>> nl = example_neurons(3)
+    >>> v = example_volume('LH')
+    >>> p = nl[0].nodes[['x', 'y', 'z']].values
+    >>> n, dps, vols, points, vis = parse_objects([nl, v, p])
+    >>> type(n), len(n)
+    (navis.core.neuronlist.NeuronList, 3)
+    >>> type(dps), len(dps)
+    (navis.core.dotprops.Dotprops, 0)
+    >>> type(vols), len(vols)
+    (list, 1)
+    >>> type(vols[0])
+    navis.core.volumes.Volume
+    >>> type(points), len(points)
+    (list, 1)
+    >>> type(points[0])
+    numpy.ndarray
+    >>> type(vis), len(points)
+    (list, 1)
     """
 
     # Make sure this is a list.
@@ -227,6 +308,17 @@ def make_url(baseurl, *args: str, **GET) -> str:
     Returns
     -------
     url :       str
+
+
+    Examples
+    --------
+    >>> from navis.utils import is_url, make_url
+    >>> url = make_url('http://www.google.com', 'test', query='test')
+    >>> url
+    'http://www.google.com/test?query=test'
+    >>> is_url(url)
+    True
+
     """
     url = baseurl
     # Generate the URL
