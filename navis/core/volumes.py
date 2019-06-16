@@ -15,11 +15,12 @@ import csv
 import json
 import math
 import numbers
+import os
 
 import numpy as np
 import scipy.spatial
 
-from typing import Union, Optional, Sequence, List
+from typing import Union, Optional, Sequence, List, Dict, Any
 
 from .. import utils, config
 
@@ -58,12 +59,13 @@ class Volume:
                  vertices: Union[list, np.ndarray],
                  faces: Union[list, np.ndarray],
                  name: Optional[str] = None,
-                 color: Sequence[Union[int, float]] = (1, 1, 1, .1),
+                 color: Union[str,
+                              Sequence[Union[int, float]]] = (1, 1, 1, .1),
                  volume_id: Optional[int] = None, **kwargs):
         self.name: Optional[str] = name
         self.vertices: np.ndarray = np.array(vertices)
         self.faces: np.ndarray = np.array(faces)
-        self.color: Sequence[Union[int, float]] = color
+        self.color: Union[str, Sequence[Union[int, float]]] = color
         self.volume_id: Optional[int] = volume_id
 
     @classmethod
@@ -71,7 +73,8 @@ class Volume:
                  vertices: str,
                  faces: str,
                  name: Optional[str] = None,
-                 color: Sequence[Union[int, float]] = (1, 1, 1, .1),
+                 color: Union[str,
+                              Sequence[Union[int, float]]] = (1, 1, 1, .1),
                  volume_id: Optional[int] = None, **kwargs) -> 'Volume':
         """ Load volume from csv files containing vertices and faces.
 
@@ -89,6 +92,9 @@ class Volume:
         navis.Volume
 
         """
+
+        if not os.path.isfile(vertices) or not os.path.isfile(faces):
+            raise ValueError('File(s) not found.')
 
         with open(vertices, 'r') as f:
             reader = csv.reader(f, **kwargs)
@@ -124,15 +130,20 @@ class Volume:
     def from_json(self,
                   filename: str,
                   name: Optional[str] = None,
-                  color: Sequence[Union[int, float]] = (1, 1, 1, .1),
-                  **kwargs) -> 'Volume':
-        """ Load volume from json files containing vertices and faces.
+                  color: Union[str,
+                               Sequence[Union[int, float]]] = (1, 1, 1, .1),
+                  import_kwargs: Dict = {},
+                  **init_kwargs) -> 'Volume':
+        """ Load volume from json file containing vertices and faces.
 
         Parameters
         ----------
         filename
-        **kwargs
+        import_kwargs
                         Keyword arguments passed to ``json.load``.
+        **init_kwargs
+                    Keyword arguments passed to navis.Volume upon
+                    initialization.
 
         Returns
         -------
@@ -140,12 +151,126 @@ class Volume:
 
         """
 
+        if not os.path.isfile(filename):
+            raise ValueError('File not found.')
+
         with open(filename, 'r') as f:
-            data = json.load(f, **kwargs)
+            data = json.load(f, **import_kwargs)
 
         return Volume(faces=data['faces'],
                       vertices=data['vertices'],
-                      name=name, color=color)
+                      name=name, color=color, **init_kwargs)
+
+    @classmethod
+    def from_object(self,
+                    obj: Any,
+                    name: Optional[str] = None,
+                    color: Union[str,
+                                 Sequence[Union[int, float]]] = (1, 1, 1, .1),
+                    **init_kwargs) -> 'Volume':
+        """ Load volume from generic object that has ``.vertices`` and
+        ``.faces`` attributes.
+
+        Parameters
+        ----------
+        obj
+        **init_kwargs
+                    Keyword arguments passed to navis.Volume upon
+                    initialization.
+
+        Returns
+        -------
+        navis.Volume
+
+        """
+
+        if not hasattr(obj, 'vertices') or not hasattr(obj, 'faces'):
+            raise ValueError('Object must have faces and vertices attributes.')
+
+        return Volume(faces=obj.faces, vertices=obj.vertices,
+                      name=name, color=color, **init_kwargs)
+
+    @classmethod
+    def from_file(self,
+                  filename: str,
+                  name: Optional[str] = None,
+                  color: Union[str,
+                               Sequence[Union[int, float]]] = (1, 1, 1, .1),
+                  import_kwargs: Dict = {},
+                  **init_kwargs) -> 'Volume':
+        """ Load volume from file containing vertices and faces.
+
+        For OBJ and STL files this function requires the optional
+        library.
+
+        Parameters
+        ----------
+        filename :      str
+                        File to load from.
+        import_kwargs
+                        Keyword arguments passed to importer:
+                          - ``json.load`` for JSON file
+                          - ``trimesh.load_mesh`` for OBJ and STL files
+        **init_kwargs
+                    Keyword arguments passed to navis.Volume upon
+                    initialization.
+
+        Returns
+        -------
+        navis.Volume
+
+        """
+        if not os.path.isfile(filename):
+            raise ValueError('File not found.')
+
+        f, ext = os.path.splitext(filename)
+
+        if ext == '.json':
+            return self.from_json(filename=filename, name=name, color=color,
+                                  import_kwargs=import_kwargs, **init_kwargs)
+
+        try:
+            import trimesh
+        except ImportError:
+            raise ImportError('Unable to import: trimesh missing - please '
+                              'install: "pip install trimesh"')
+        except BaseException:
+            raise
+
+        tm = trimesh.load_mesh(filename, **import_kwargs)
+
+        return self.from_object(tm, name=name, color=color, **init_kwargs)
+
+    def export(self,
+               filename: str,
+               **export_kwargs) -> None:
+        """ Export volume using trimesh.
+
+        See ``trimesh.export`` for available formats.
+
+
+        Parameters
+        ----------
+        filename :      str
+                        File to save to. Format will be extracted from
+                        file extension.
+        export_kwargs
+                        Keyword arguments passed to ``trimesh.export``.
+        """
+
+        try:
+            import trimesh
+        except ImportError:
+            raise ImportError('Unable to import: trimesh missing - please '
+                              'install: "pip install trimesh"')
+        except BaseException:
+            raise
+
+        tm = trimesh.Trimesh(self.vertices, self.faces)
+
+        tm.export(filename, **export_kwargs)
+
+        return None
 
     def to_json(self, filename: str) -> None:
         """ Save volume as json file.
@@ -165,7 +290,8 @@ class Volume:
     def combine(self,
                 x: Sequence['Volume'],
                 name: str = 'comb_vol',
-                color: Sequence[Union[int, float]] = (1, 1, 1, .1)
+                color: Union[str,
+                             Sequence[Union[int, float]]] = (1, 1, 1, .1)
                 ) -> 'Volume':
         """ Merges multiple volumes into a single object.
 
@@ -174,7 +300,7 @@ class Volume:
         x :     list or dict of Volumes
         name :  str, optional
                 Name of the combined volume.
-        color : tuple, optional
+        color : tuple | str, optional
                 Color of the combined volume.
 
         Returns
