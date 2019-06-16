@@ -24,8 +24,11 @@ See https://github.com/jefferis
 import os
 import sys
 import time
+
 from datetime import datetime
 from colorsys import hsv_to_rgb
+from typing import Union, Optional, List
+from typing_extensions import Literal
 
 import pandas as pd
 import numpy as np
@@ -523,28 +526,22 @@ def nblast_allbyall(x, micron_conversion, normalize=True, resample=1,
         return pyclust.ClustResults(matrix, mat_type='similarity')
 
 
-def nblast(neuron, remote_instance=None, db=None, n_cores=os.cpu_count(),
-           reverse=False, normalised=True, UseAlpha=False, mirror=True,
-           reference='nat.flybrains::FCWB'):
+def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores default
+           db: Optional[str] = None,
+           resample: int = 1,
+           xform: Optional[str] = None,
+           mirror: Optional[str] = None,
+           n_cores: int = os.cpu_count(),
+           reverse: bool = False,
+           normalised: bool = True,
+           UseAlpha: bool = False) -> 'NBLASTresults':
     """ Wrapper to use R's nblast (https://github.com/jefferis/nat).
 
-    Provide neuron to nblast either as skeleton ID or neuron object. This
-    essentially recapitulates what `elmr's <https://github.com/jefferis/elmr>`_
-    ``nblast_fafb`` does.
-
-    Notes
-    -----
-    Neurons are automatically resampled to 1 micron.
 
     Parameters
     ----------
-    x
-                    Neuron to nblast. This can be either:
-                    1. A single skeleton ID
-                    2. navis neuron from e.g. navis.get_neuron()
-                    3. RCatmaid neuron object
-    remote_instance :   Catmaid Instance, optional
-                        Only neccessary if only a SKID is provided
+    x :             TreeNeuron | nat.neuron
+                    Neurons to nblast. This can be either.
     db :            database, optional
                     File containing dotproducts to blast against. This can be
                     either:
@@ -556,6 +553,22 @@ def nblast(neuron, remote_instance=None, db=None, n_cores=os.cpu_count(),
 
                     If not provided, will search for a 'dpscanon.rds' file in
                     'flycircuit.datadir'.
+    resample :      int, optional
+                    Resample to given resolution. For nblasts against light
+                    level databases, 1 micron is recommended.
+    xform :         str, optional
+                    If provided, will convert neuron before nblasting. Must
+                    be string defining source and target brain space. For
+                    example::
+
+                        'FAFB14->JFRC2' converts from FAFB to JFRC2 space
+                        'JRC2018F->JRC2013' converts from JRC2018F to JRC2013 space
+
+    mirror :        str, optional
+                    If reference space (e.g. "FAFB14" or "JFRC2") is provided
+                    the neuron will be mirrored before nblasting. This is
+                    relevant for some database as e.g. FlyCircuit neurons are
+                    always on the fly's right.
     n_cores :       int, optional
                     Number of cores to use for nblasting. Default is
                     ``os.cpu_count()``.
@@ -566,13 +579,8 @@ def nblast(neuron, remote_instance=None, db=None, n_cores=os.cpu_count(),
     UseAlpha :      bool, optional
                     Emphasises neurons' straight parts (backbone) over parts
                     that have lots of branches.
-    mirror :        bool, optional
-                    Whether to mirror the neuron or not b/c FlyCircuit neurons
-                    are on fly's right.
     normalised :    bool, optional
                     Whether to return normalised NBLAST scores.
-    reference :     string | R file object, optional
-                    Default = 'nat.flybrains::FCWB'
 
     Returns
     -------
@@ -586,16 +594,10 @@ def nblast(neuron, remote_instance=None, db=None, n_cores=os.cpu_count(),
     start_time = time.time()
 
     domc = importr('doMC')
-    cores = robjects.r('registerDoMC(%i)' % n_cores)
+    cores = robjects.r(f'registerDoMC({int(n_cores)})')
 
     doParallel = importr('doParallel')
     doParallel.registerDoParallel(cores=n_cores)
-
-    if remote_instance is None:
-        if 'remote_instance' in sys.modules:
-            remote_instance = sys.modules['remote_instance']
-        elif 'remote_instance' in globals():
-            remote_instance = globals()['remote_instance']
 
     try:
         flycircuit = importr('flycircuit')
@@ -605,56 +607,53 @@ def nblast(neuron, remote_instance=None, db=None, n_cores=os.cpu_count(),
 
     if db is None:
         if not os.path.isfile(datadir + '/dpscanon.rds'):
-            logger.error('Unable to find default DPS database dpscanon.rds in '
-                         'flycircuit.datadir. Please provide database using '
-                         'db parameter.')
-            return
+            raise ValueError('Unable to find default DPS database dpscanon.rds'
+                             ' in flycircuit.datadir. Please provide database '
+                             'using db parameter.')
         logger.info('DPS database not explicitly provided. Loading local '
                     'FlyCircuit DB from dpscanon.rds')
-        dps = robjects.r('read.neuronlistfh("%s")' %(datadir + '/dpscanon.rds'))
+        dps = robjects.r(f'read.neuronlistfh("{datadir}/dpscanon.rds")')
     elif isinstance(db, str):
         if db.startswith('http') or '/' in db:
-            dps = robjects.r('read.neuronlistfh("%s")' % db)
+            dps = robjects.r(f'read.neuronlistfh("{db}")')
         else:
-            dps = robjects.r('read.neuronlistfh("%s")' % datadir + '/' + db)
+            dps = robjects.r(f'read.neuronlistfh("{datadir}/{db}")')
     elif 'rpy2' in str(type(db)):
         dps = db
     else:
-        logger.error('Unable to process the DPS database you have provided. '
-                     'See help(rmaid.nblast) for details.')
-        return
+        raise ValueError('Unable to process the DPS database you have provided. '
+                         'See help(rmaid.nblast) for details.')
 
     if 'rpy2' in str(type(neuron)):
         rn = neuron
-    elif isinstance(neuron, pd.DataFrame) or isinstance(neuron, core.CatmaidNeuronList):
-        if neuron.shape[0] > 1:
+    elif isinstance(neuron, core.NeuronList):
+        if len(neuron) > 1:
             logger.warning('You provided more than a single neuron. Blasting '
-                           'only against the first: %s' % neuron.ix[0].neuron_name)
-        rn = neuron2r(neuron.ix[0], convert_to_um=False)
-    elif isinstance(neuron, pd.Series) or isinstance(neuron, core.CatmaidNeuron):
-        rn = neuron2r(neuron, convert_to_um=False)
-    elif isinstance(neuron, str) or isinstance(neuron, int):
-        if not remote_instance:
-            logger.error('You have to provide a CATMAID instance using the '
-                         '<remote_instance> parameter. See help(rmaid.nblast) '
-                         'for details.')
-            return
-        rn = neuron2r(fetch.get_neuron(
-            neuron, remote_instance), convert_to_um=False)
+                           f'only against the first: {neuron[0].neuron_name}')
+        rn = neuron2r(neuron[0])
+    elif isinstance(neuron, pd.Series) or isinstance(neuron, core.TreeNeuron):
+        rn = neuron2r(neuron)
     else:
-        logger.error('Unable to intepret <neuron> parameter provided. See '
-                     'help(rmaid.nblast) for details.')
-        return
+        raise TypeError(f'Expected navis or R neuron, got {type(neuron)}')
 
-    # Bring catmaid neuron into reference brain space -> this also converts to
-    # um
-    if isinstance(reference, str):
-        reference = robjects.r(reference)
-    rn = nat_templatebrains.xform_brain(
-        nat.neuronlist(rn), sample='FAFB14', reference=reference)
+    # Xform neuron if necessary
+    if xform:
+        source, target = xform.split('->')
+        sample = robjects.r(source)
+        reference = robjects.r(target)
+        rn = nat_templatebrains.xform_brain(nat.neuronlist(rn),
+                                            sample=sample,
+                                            reference=reference)
+        # Make sure reference checks out if we are going to mirror
+        if mirror:
+            mirror = target
 
     # Mirror neuron
     if mirror:
+        if not isinstance(mirror, str):
+            raise ValueError('"mirror" must be string describing reference, '
+                             f'object but got {type(mirror)}')
+        reference = robjects.r(mirror)
         rn = nat_templatebrains.mirror_brain(rn, reference)
 
     # Save template brain for later
@@ -668,7 +667,7 @@ def nblast(neuron, remote_instance=None, db=None, n_cores=os.cpu_count(),
 
     # The following step are from nat.dotprops_neuron()
     # xdp = nat.dotprops( nat.xyzmatrix(rn) )
-    xdp = nat.dotprops(rn, resample=1, k=5)
+    xdp = nat.dotprops(rn, resample=resample, k=5)
 
     # number of reverse scores to calculate (max 100)
     nrev = min(100, len(dps))
@@ -721,7 +720,7 @@ def nblast(neuron, remote_instance=None, db=None, n_cores=os.cpu_count(),
                                'reverse_score', 'mu_score']
                       )
 
-    logger.info('Blasting done in %s seconds' % round(time.time() - start_time))
+    logger.info(f'Blasting done in {time.time() - start_time:.1f} seconds')
 
     return NBLASTresults(df, sc, scr, rn, xdp, dps, {'mirror': mirror,
                                                      'reference': reference,
