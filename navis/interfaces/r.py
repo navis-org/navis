@@ -199,12 +199,7 @@ def data2py(data, **kwargs):
         else:
             return {n: float(data[i]) for i, n in enumerate(names(data))}
     elif cl(data)[0] == 'data.frame':
-        try:
-            df = pandas2ri.ri2py_dataframe(data)
-            return df
-        except BaseException:
-            logger.debug(f'Unable to convert R data of type "{cl(data)}"')
-            return 'Not converted'
+        return pandas2ri.rpy2py(data)
     elif cl(data)[0] == 'matrix':
         mat = np.array(data)
         df = pd.DataFrame(data=mat)
