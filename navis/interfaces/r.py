@@ -823,7 +823,7 @@ class NBLASTresults:
         n_py = neuron2py(self.neuron)
 
         # Create colormap with the query neuron being black
-        cmap = {n_py.ix[0].skeleton_id: (0, 0, 0)}
+        cmap = {n_py.ix[0].uuid: (0, 0, 0)}
 
         colors = np.linspace(0, 1, len(nl) + 1)
         colors = np.array([hsv_to_rgb(c, 1, 1) for c in colors])
