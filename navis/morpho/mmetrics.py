@@ -395,46 +395,48 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     Parameters
     ----------
     x :         TreeNeuron | NeuronList
-                Neuron(s) to calculate bending flow for.
+                Neuron(s) to calculate bending flow for. Must have connectors!
 
     Notes
     -----
     This is algorithm appears to be more reliable than synapse flow
     centrality for identifying the main branch point for neurons that have
-    only partially annotated synapses.
+    incompletely annotated synapses.
 
     See Also
     --------
     :func:`~navis.flow_centrality`
-            Calculate synapse flow centrality after Schneider-Mizell et al
+            Calculate synapse flow centrality after Schneider-Mizell et al.
     :func:`~navis.segregation_score`
-            Uses flow centrality to calculate segregation score (polarity)
+            Uses flow centrality to calculate segregation score (polarity).
     :func:`~navis.split_axon_dendrite`
             Split the neuron into axon, dendrite and primary neurite.
 
     Returns
     -------
-    Adds a new column ``'flow_centrality'`` to ``x.nodes``. Branch points only!
+    Adds a new column ``'flow_centrality'`` to the nodes table (branch points
+    only).
 
     """
 
     if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
-        raise ValueError('Must pass TreeNeuron or NeuronList, '
-                         'not {0}'.format(type(x)))
+        raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
 
     if isinstance(x, core.NeuronList):
         [bending_flow(n) for n in x]  # type: ignore
         return
 
+    if not x.has_connectors:
+        raise ValueError('Neuron must have connectors.')
+
     if x.soma and x.soma not in x.root:
-        logger.warning(f'Neuron {x.skeleton_id} is not rooted to its soma!')
+        logger.warning(f'Neuron {x.uuid} is not rooted to its soma!')
 
     # We will be processing a super downsampled version of the neuron to speed
     # up calculations
     current_level = logger.level
     logger.setLevel('ERROR')
-    y = x.copy()
-    y.downsample(factor=float('inf'), inplace=True)
+    y = x.downsample(factor=float('inf'), inplace=False)
     logger.setLevel(current_level)
 
     # Get list of nodes with pre/postsynapses
@@ -516,7 +518,8 @@ def flow_centrality(x: 'core.NeuronObject',
     Parameters
     ----------
     x :         TreeNeuron | NeuronList
-                Neuron(s) to calculate flow centrality for
+                Neuron(s) to calculate flow centrality for. Must have
+                connectors!
     mode :      'centrifugal' | 'centripetal' | 'sum', optional
                 Type of flow centrality to calculate. There are three flavors::
                 (1) centrifugal, counts paths from proximal inputs to distal outputs
@@ -535,8 +538,8 @@ def flow_centrality(x: 'core.NeuronObject',
 
     Returns
     -------
-    Adds a new column 'flow_centrality' to ``x.nodes``. Only processes
-    branch- and synapse-holding nodes.
+    Adds a new column 'flow_centrality' to nodes table (only processes
+    branchpoints and synapse-holding nodes).
 
     """
 
@@ -544,15 +547,17 @@ def flow_centrality(x: 'core.NeuronObject',
         raise ValueError('Unknown parameter for mode: {0}'.format(mode))
 
     if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
-        raise ValueError('Must pass TreeNeuron or NeuronList, '
-                         'not {0}'.format(type(x)))
+        raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
+
+    if not x.has_connectors:
+        raise ValueError('Neuron must have connectors.')
 
     if isinstance(x, core.NeuronList):
         _ = [flow_centrality(n, mode=mode) for n in x]  # type: ignore  # does not like assigment
         return
 
     if x.soma and x.soma not in x.root:
-        logger.warning(f'Neuron {x.skeleton_id} is not rooted to its soma!')
+        logger.warning(f'Neuron {x.uuid} is not rooted to its soma!')
 
     # We will be processing a super downsampled version of the neuron to
     # speed up calculations
@@ -563,7 +568,7 @@ def flow_centrality(x: 'core.NeuronObject',
     y = sampling.downsample_neuron(x=x,
                                    downsampling_factor=float('inf'),
                                    inplace=False,
-                                   preserve_cn_treenodes=True)
+                                   preserve_nodes=x.connectors.node_id.values)
     logger.setLevel(current_level)
     config.pbar_hide = current_state
 
@@ -636,10 +641,10 @@ def tortuosity(x: 'core.NeuronObject',
     ----------
     x :                 TreeNeuron | NeuronList
     seg_length :        int | float | list, optional
-                        Target segment length(s) L in microns [um]. Will try
-                        resampling neuron to this resolution. Please note that
-                        the final segment length is restricted by the neuron's
-                        original resolution.
+                        Target segment length(s) L. Will try resampling neuron
+                        to this resolution. Please note that the final segment
+                        length is restricted by the neuron's original
+                        resolution.
     skip_remainder :    bool, optional
                         Segments can turn out to be smaller than desired if a
                         branch point or end point is hit before `seg_length`
@@ -664,7 +669,7 @@ def tortuosity(x: 'core.NeuronObject',
         if not isinstance(seg_length, (list, np.ndarray, tuple)):
             seg_length = [seg_length]  # type: ignore
         df = pd.DataFrame([tortuosity(n, seg_length) for n in config.tqdm(x, desc='Tortuosity', disable=config.pbar_hide, leave=config.pbar_leave)],
-                          index=x.skeleton_id, columns=seg_length).T
+                          index=x.uuid, columns=seg_length).T
         df.index.name = 'seg_length'
         return df
 
@@ -689,7 +694,7 @@ def tortuosity(x: 'core.NeuronObject',
     for seg in x.small_segments:
         # Collect distances between treenodes (in microns)
         dist = np.array([x.graph.edges[(c, p)]['weight']
-                         for c, p in zip(seg[:-1], seg[1:])]) / 1000
+                         for c, p in zip(seg[:-1], seg[1:])])
         # Walk the segment, collect stretches of length `seg_length`
         cut_ix = [0]
         for i, tn in enumerate(seg):
@@ -710,7 +715,7 @@ def tortuosity(x: 'core.NeuronObject',
     tn_table = x.nodes.set_index('node_id', inplace=False)
     start_co = tn_table.loc[start_tn, ['x', 'y', 'z']].values
     end_co = tn_table.loc[end_tn, ['x', 'y', 'z']].values
-    R = np.linalg.norm(start_co - end_co, axis=1) / 1000
+    R = np.linalg.norm(start_co - end_co, axis=1)
 
     # Get tortousity
     T = np.array(L) / R
