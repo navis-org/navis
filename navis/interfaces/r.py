@@ -297,8 +297,13 @@ def neuron2py(x, unit_conversion=False, add_attributes=None):
 
         neurons.append(core.TreeNeuron(r.d, **add_data))
 
+    if isinstance(unit_conversion, (float, int)):
+        for n in neurons:
+            n *= unit_conversion
+
     if len(neurons) == 1:
         return neurons[0]
+
     return core.NeuronList(neurons)
 
 
@@ -821,9 +826,6 @@ class NBLASTresults:
         nl = self.get_dps(hits)
 
         n_py = neuron2py(self.neuron)
-        # We have to bring the soma radius down to um -> this may mess
-        # up soma detection elsewhere, so be carefull!
-        n_py.ix[0].nodes.radius /= 1000
 
         # Create colormap with the query neuron being black
         cmap = {n_py.ix[0].skeleton_id: (0, 0, 0)}
