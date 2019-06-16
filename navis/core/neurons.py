@@ -295,8 +295,8 @@ class TreeNeuron:
 
     @property
     def sampling_resolution(self) -> float:
-        """ Nodes per unit of cable length. """
-        return self.n_nodes / self.cable_length
+        """ Average cable length between 2 nodes. """
+        return self.cable_length / self.n_nodes
 
     @property
     def n_skeletons(self) -> int:
