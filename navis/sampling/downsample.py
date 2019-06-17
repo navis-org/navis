@@ -13,10 +13,10 @@
 
 import numpy as np
 
-from typing import Optional, overload, Union
+from typing import Optional, overload, Union, List
 from typing_extensions import Literal
 
-from .. import config, graph, core
+from .. import config, graph, core, utils
 
 # Set up logging
 logger = config.logger
