@@ -811,6 +811,17 @@ def longest_neurite(x: 'core.NeuronObject',
     :func:`~navis.split_into_fragments`
             Split neuron into fragments based on longest neurites.
 
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> # Keep only the longest neurite
+    >>> ln1 = navis.longest_neurite(n, n=1, reroot_to_soma=True)
+    >>> # Keep the two longest neurites
+    >>> ln2 = navis.longest_neurite(n, n=2, reroot_to_soma=True)
+    >>> # Keep everything but the longest neurite
+    >>> ln3 = navis.longest_neurite(n, n=slice(1, None), reroot_to_soma=True)
+
     """
 
     if isinstance(x, core.TreeNeuron):
@@ -834,7 +845,7 @@ def longest_neurite(x: 'core.NeuronObject',
         x = x.copy()
 
     if reroot_to_soma and x.soma:
-        x.reroot(x.soma)
+        x.reroot(x.soma, inplace=True)
 
     segments = _generate_segments(x, weight='weight')
 
