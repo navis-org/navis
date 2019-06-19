@@ -656,7 +656,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
 
 def split_into_fragments(x: 'core.NeuronObject',
                          n: int = 2,
-                         min_size: Optional[int] = None,
+                         min_size: Optional[float] = None,
                          reroot_to_soma: bool = False) -> 'core.NeuronList':
     """ Splits neuron into fragments.
 
@@ -684,11 +684,12 @@ def split_into_fragments(x: 'core.NeuronObject',
 
     Examples
     --------
-    >>> x = navis.example_neurons()
+    >>> import navis
+    >>> x = navis.example_neurons(1)
     >>> # Cut into two fragments
     >>> cut1 = navis.split_into_fragments(x, n=2)
     >>> # Cut into fragments of >10 um size
-    >>> cut2 = navis.split_into_fragments(x, n=float('inf'), min_size=10)
+    >>> cut2 = navis.split_into_fragments(x, n=float('inf'), min_size=10e3)
 
     """
 
@@ -732,7 +733,7 @@ def split_into_fragments(x: 'core.NeuronObject',
 
         # Check if fragment is still long enough
         if min_size:
-            this_length = sum([v / 1000 for k, v in nx.get_edge_attributes(
+            this_length = sum([v for k, v in nx.get_edge_attributes(
                 x.graph, 'weight').items() if k[1] in longest_path])
             if this_length <= min_size:
                 break
@@ -758,10 +759,6 @@ def split_into_fragments(x: 'core.NeuronObject',
 
     # Now make neurons
     nl = core.NeuronList([subset_neuron(x, g, clear_temp=True) for g in graphs])
-
-    # Rename neurons
-    for i, n in enumerate(nl):
-        n.neuron_name += f'_{i}'
 
     return nl
 
