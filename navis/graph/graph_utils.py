@@ -877,7 +877,7 @@ def reroot_neuron(x: 'core.NeuronObject',
     Parameters
     ----------
     x :        TreeNeuron | NeuronList
-               List must contain a SINGLE neuron.
+               List must contain only a SINGLE neuron.
     new_root : int | str
                Node ID or tag of the node to reroot to.
     inplace :  bool, optional
@@ -1420,7 +1420,7 @@ def subset_neuron(x: 'core.TreeNeuron',
     # concatenate a new column to this DataFrame
     x.nodes = pd.concat([x.nodes.drop('parent_id', inplace=False, axis=1),  # type: ignore  # no stubs for concat
                          x.nodes[['parent_id']].where(x.nodes.parent_id.isin(x.nodes.node_id.values),
-                                                      None, inplace=False)],
+                                                      -1, inplace=False)],
                         axis=1)
 
     # Filter connectors
