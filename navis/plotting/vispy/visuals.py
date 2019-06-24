@@ -30,7 +30,7 @@ with warnings.catch_warnings():
     from vispy import scene
     from vispy.geometry import create_sphere
 
-from ... import core, config, utils
+from ... import core, config, utils, morpho
 from ..colors import *
 from ..plot_utils import segments_to_coords
 from ..external.new_visuals import MeshNeuron
