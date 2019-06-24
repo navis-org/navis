@@ -1144,20 +1144,15 @@ def smooth_neuron(x: NeuronObject,
 
     # Prepare nodes (add parent_dist for later, set index)
     mmetrics.parent_dist(x, root_dist=0)
-    nodes = x.nodes.set_index('node_id', inplace=False)
+    nodes = x.nodes.set_index('node_id', inplace=False).copy()
 
-    # Go over each segment and interpolate radii
+    # Go over each segment and smooth
     for s in config.tqdm(x.segments, desc='Smoothing',
                          disable=config.pbar_hide,
                          leave=config.pbar_leave):
 
-        # Get this segments radii and parent dist
-        this_co = nodes.loc[s, ['x', 'y', 'z', 'parent_dist']]
-        this_co['parent_dist_cum'] = this_co.parent_dist.cumsum()
-
-        # Set cumulative distance as index and drop parent_dist
-        this_co = this_co.set_index('parent_dist_cum',
-                                    drop=True).drop('parent_dist', axis=1)
+        # Get this segment's parent distances and get cumsum
+        this_co = nodes.loc[s, ['x', 'y', 'z']]
 
         interp = this_co.rolling(window, min_periods=1).mean()
 
