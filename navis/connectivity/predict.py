@@ -73,16 +73,25 @@ def cable_overlap(a: NeuronObject,
     func:`navis.resample_neuron`
                 Use to resample neurons before calculating overlap.
 
+    Examples
+    --------
+    >>> import navis
+    >>> nl = navis.example_neurons(2)
+    >>> # Resample to 1 micron
+    >>> nl.resample(1000, inplace=True)
+    >>> # Get overlapping cable within 2 microns
+    >>> ol = navis.cable_overlap(nl, nl, dist=2000)
+
     """
 
     if not isinstance(a, (TreeNeuron, NeuronList)) \
        or not isinstance(b, (TreeNeuron, NeuronList)):
         raise TypeError('Need to pass CatmaidNeurons')
 
-    if isinstance(a, NeuronList):
+    if not isinstance(a, NeuronList):
         a = NeuronList(a)
 
-    if isinstance(b, NeuronList):
+    if not isinstance(b, NeuronList):
         b = NeuronList(b)
 
     allowed_methods = ['min', 'max', 'avg']
