@@ -123,7 +123,7 @@ def resample_neuron(x: 'core.NeuronObject',
         if not inplace:
             x = x.copy()
         results = [resample_neuron(x[i], resample_to,
-                                   method=method, inplace=False,
+                                   method=method, inplace=True,
                                    skip_errors=skip_errors)
                    for i in config.trange(x.shape[0],
                                           desc='Resampl. neurons',
