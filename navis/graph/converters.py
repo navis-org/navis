@@ -471,6 +471,7 @@ def neuron2dps(x: 'core.TreeNeuron') -> pd.DataFrame:
 
     Examples
     --------
+    >>> import navis
     >>> x = navis.example_neurons()
     >>> dps = navis.to_dotproduct(x)
     >>> # Get array of all locations

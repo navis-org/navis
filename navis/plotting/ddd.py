@@ -51,8 +51,11 @@ def plot3d(x: Union[core.NeuronObject,
            **kwargs) -> Optional[Union[Viewer, dict]]:
     """ Generate 3D plot.
 
-    Uses either `vispy <http://vispy.org>`_ (default) or
-    `plotly <http://plot.ly>`_.
+    Uses either `vispy <http://vispy.org>`_ or `plotly <http://plot.ly>`_.
+    By default choice depends on context::
+      terminal: vispy
+      Jupyter: plotly
+    See ``backend`` parameter on how to change default behavior.
 
     Parameters
     ----------
@@ -62,11 +65,12 @@ def plot3d(x: Union[core.NeuronObject,
                         - multiple objects can be passed as list (see examples)
     backend :         'auto' | 'vispy' | 'plotly', default='auto'
                         - ``auto`` selects backend based on context: ``vispy``
-                          for terminal and ``plotly`` for Jupyter notebooks.
+                          for terminal and ``plotly`` for Jupyter environments.
                         - ``vispy`` uses OpenGL to generate high-performance
                           3D plots. Works in terminals.
                         - ``plotly`` generates 3D plots using WebGL. Works in
-                          Jupyter notebooks.
+                          Jupyter notebooks. For Jupyter lab, you need to
+                          have the Plotly lab extension installed.
     connectors :      bool, default=False
                       Plot connectors (e.g. synapses) if available.
     by_strahler :     bool, default=False
@@ -83,24 +87,29 @@ def plot3d(x: Union[core.NeuronObject,
                       to give all neurons the same color. Use ``list`` of
                       colors to assign colors: ``['red', (1, 0, 1), ...].
                       Use ``dict`` to map colors to neurons:
-                      ``{skid: (r, g, b), ...}``. RGB must be 0-255.
+                      ``{uuid: (r, g, b), ...}``. RGB must be 0-255.
     use_neuron_color : bool, default=False
                       If True, will try using the ``.color`` attribute of
                       each neuron.
     width/height :    int, default=600
                       Use to define figure/window size.
+    scatter_kws :     dict, optional
+                      Use to modify scatter plots. Accepted parameters are
+                        - ``size`` to adjust size of dots
+                        - ``color`` to adjust color
+
+    Plotly only
+
     title :           str, default=None
                       For plotly only! Change plot title.
     fig_autosize :    bool, default=False
                       For plotly only! Autoscale figure size.
                       Attention: autoscale overrides width and height
-    scatter_kws :     dict, optional
-                      Use to modify scatter plots. Accepted parameters are
-                        - ``size`` to adjust size of dots
-                        - ``color`` to adjust color
     plotly_inline :   bool, default=True
                       If True and you are in an Jupyter environment, will
-                      render plotly plots inline.
+                      render plotly plots inline. Else, will generate a
+                      plotly figure dictionary that can be used to generate
+                      a html with an embedded 3D plot.
 
     Returns
     --------
@@ -123,11 +132,13 @@ def plot3d(x: Union[core.NeuronObject,
 
     Examples
     --------
+    >>> import navis
+
     In a Jupyter notebook using plotly as backend.
 
     >>> import plotly.offline
     >>> plotly.offline.init_notebook_mode()
-    >>> nl = navis.get_neuron(16)
+    >>> nl = navis.example_neurons()
     >>> # Backend is automatically chosen but we can set it explicitly
     >>> # Plot inline
     >>> nl.plot3d(backend='plotly')
@@ -137,8 +148,8 @@ def plot3d(x: Union[core.NeuronObject,
 
     In a terminal using vispy as backend.
 
-    >>> # Plot single neuron
-    >>> nl = navis.get_neuron(16)
+    >>> # Plot list of neurons
+    >>> nl = navis.example_neurons()
     >>> v = navis.plot3d(nl, backend='vispy')
     >>> # Clear canvas
     >>> navis.clear3d()
@@ -146,13 +157,13 @@ def plot3d(x: Union[core.NeuronObject,
     Some more advanced examples (using vispy here but also works with plotly).
 
     >>> # plot3d() can deal with combinations of objects
-    >>> nl2 = navis.get_neuron('annotation:glomerulus DA1')
-    >>> vol = navis.get_volume('v13.LH_R')
+    >>> nl = navis.example_neurons()
+    >>> vol = navis.example_volume('LH')
     >>> vol.color = (255, 0, 0, .5)
-    >>> # This plots two neuronlists, two volumes and a single neuron
-    >>> navis.plot3d([nl1, nl2, vol, 'v13.AL_R', 233007])
+    >>> # This plots a neuronlists, a single neuron and a volume
+    >>> navis.plot3d([nl[0:2], nl[3], vol])
     >>> # Pass kwargs
-    >>> navis.plot3d(nl1, connectors=True, clear3d=True)
+    >>> navis.plot3d(nl1, clear3d=True, by_strahler)
 
     """
 

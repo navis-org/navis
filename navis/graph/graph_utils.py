@@ -356,14 +356,17 @@ def distal_to(x: 'core.TreeNeuron',
 
     Examples
     --------
+    >>> import navis
     >>> # Get a neuron
-    >>> x = navis.example_neurons()
-    >>> # Get a treenode ID from tag
-    >>> a = x.tags['TEST_TAG'][0]
-    >>> # Check all nodes if they are distal or proximal to that tag
-    >>> df = navis.distal_to(x, a)
+    >>> x = navis.example_neurons(1)
+    >>> # Get a random treenode
+    >>> n = x.nodes.iloc[100].node_id
+    >>> # Check all nodes if they are distal or proximal to that node
+    >>> df = navis.distal_to(x, n)
     >>> # Get the IDs of the nodes that are distal
-    >>> df[ df[a] ].index.values
+    >>> dist = df.loc[n, df.loc[n]].index.values
+    >>> len(dist)
+    101
 
     """
 
@@ -466,6 +469,23 @@ def geodesic_matrix(x: 'core.NeuronObject',
         Check if a node A is distal to node B.
     :func:`~navis.dist_between`
         Get point-to-point geodesic distances.
+
+
+    Examples
+    --------
+
+    Find average geodesic distance between all leaf nodes
+
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> # Generate distance matrix
+    >>> m = navis.geodesic_matrix(n)
+    >>> # Subset matrix to leaf nodes
+    >>> leafs = n.nodes[n.nodes.type=='end'].node_id.values
+    >>> l_dist = m.loc[leafs, leafs]
+    >>> # Get mean
+    >>> round(l_dist.mean().mean())
+    182018.0
     """
 
     if isinstance(x, core.NeuronList):
@@ -529,6 +549,15 @@ def segment_length(x: 'core.TreeNeuron',
     --------
     :func:`navis.dist_between`
         If you only know start and end points of the segment.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> l = navis.segment_length(n, n.segments[0])
+    >>> round(l)
+    213336.0
+
     """
     dist = np.array([x.graph.edges[(c, p)]['weight']
                      for c, p in zip(segment[:-1], segment[1:])])
@@ -560,6 +589,16 @@ def dist_between(x: 'core.NeuronObject',
         Get all-by-all geodesic distance matrix.
     :func:`navis.segment_length`
         Much faster if you have a linear segment and know all node IDs.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> l = navis.dist_between(n,
+    ...                        n.nodes.node_id.values[0],
+    ...                        n.nodes.node_id.values[1])
+    >>> round(l)
+    108
 
     """
 
@@ -621,6 +660,24 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     Returns
     -------
     treenode ID
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> navis.find_main_branchpoint(n, reroot_to_soma=True)
+    2066
+    >>> # Cut neuron into axon, dendrites and primary neurite tract:
+    >>> # for this we need to cut twice - once at the main branch point
+    >>> # and once at one of its childs
+    >>> child = n.nodes[n.nodes.parent_id == 2066].node_id.values[0]
+    >>> split = navis.cut_neuron(n, [2066, child])
+    >>> split
+    <class 'navis.core.neuronlist.NeuronList'> of 3 neurons
+              type  n_nodes  n_connectors  n_branches  n_leafs   cable_length    soma
+    0  TreeNeuron     2572             0         170      176  475078.177926    None
+    1  TreeNeuron      139             0           1        3   89983.511392  [3490]
+    2  TreeNeuron     3656             0          63       66  648285.745750    None
 
     """
 
@@ -699,9 +756,8 @@ def split_into_fragments(x: 'core.NeuronObject',
         if x.shape[0] == 1:
             x = x[0]
         else:
-            logger.error('%i neurons provided. Please provide only a single'
-                         ' neuron!' % x.shape[0])
-            raise Exception
+            raise Exception(f'{x.shape[0]} neurons provided. Please provide '
+                            'only a single neuron!')
     else:
         raise TypeError(f'Unable to process data of type "{type(x)}"')
 
@@ -904,6 +960,7 @@ def reroot_neuron(x: 'core.NeuronObject',
 
     Examples
     --------
+    >>> import navis
     >>> n = navis.example_neurons()
     >>> # Reroot neuron to its soma
     >>> n2 = navis.reroot_neuron(n, n.soma)
@@ -1080,12 +1137,13 @@ def cut_neuron(x: 'core.NeuronObject',
     x :        TreeNeuron | NeuronList
                Must be a single neuron.
     cut_node : int | str | list
-               Node ID(s) or a tag(s) of the node(s) to cut. Multiple cuts are
-               performed in the order of ``cut_node``. Fragments are ordered
-               distal -> proximal.
+               Node ID(s) or a tag(s) of the node(s) to cut. The edge that is
+               cut is the one between this node and its parent. So cut node
+               must not be a root node! Multiple cuts are performed in the
+               order of ``cut_node``. Fragments are ordered distal -> proximal.
     ret :      'proximal' | 'distal' | 'both', optional
                Define which parts of the neuron to return. Use this to speed
-               up processing when making only a single cut!
+               up processing when you need only parts of the neuron.
 
     Returns
     -------
@@ -1108,6 +1166,22 @@ def cut_neuron(x: 'core.NeuronObject',
             ``TreeNeuron/List`` shorthands to this function.
     :func:`navis.subset_neuron`
             Returns a neuron consisting of a subset of its treenodes.
+
+    Examples
+    --------
+    Cut neuron at a (random) branch point
+
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> bp = n.nodes[n.nodes.type=='branch'].node_id.values
+    >>> n_cut = navis.cut_neuron(n, bp[0])
+
+    Make a cut at multiple branch points
+
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> bp = n.nodes[n.nodes.type=='branch'].node_id.values
+    >>> n_cut = navis.cut_neuron(n, bp[:10])
 
     """
     if ret not in ['proximal', 'distal', 'both']:
@@ -1375,17 +1449,19 @@ def subset_neuron(x: 'core.TreeNeuron',
 
     Examples
     --------
-    Subset neuron to presynapse-bearing branches
+    Subset neuron to all branches with less than 10 nodes
 
+    >>> import navis
     >>> # Get neuron
-    >>> n = navis.example_neurons()
-    >>> # Go over each segment and find those with synapses
-    >>> cn_nodes = set(n.presynapses.node_id.values)
-    >>> syn_segs = [s for s in n.small_segments if set(s) & set(cn_nodes)]
+    >>> n = navis.example_neurons(1)
+    >>> # Get all linear segments
+    >>> segs = n.segments
+    >>> # Get short segments
+    >>> short_segs = [s for s in segs if len(s) <= 10]
     >>> # Flatten segments into list of nodes
-    >>> syn_branches = [n for s in syn_segs for n in s]
+    >>> nodes_to_keep = [n for s in short_segs for n in s]
     >>> # Subset neuron
-    >>> axon = navis.subset_neuron(n, syn_branches)
+    >>> n_short = navis.subset_neuron(n, nodes_to_keep)
 
     See Also
     --------
@@ -1578,6 +1654,17 @@ def connected_subgraph(x: 'core.TreeNeuron',
     root ID
                 ID of the treenode most proximal to the old root in the
                 connected subgraph.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> ends = n.nodes[n.nodes.type=='end'].node_id.values
+    >>> sg, root = navis.graph.graph_utils.connected_subgraph(n, ends)
+    >>> # Since we asked for a subgraph connecting all terminals, we expect to
+    >>> # see all nodes in the subgraph
+    >>> sg.shape[0] == n.nodes.shape[0]
+    True
 
     """
     if isinstance(x, core.NeuronList) and len(x) == 1:

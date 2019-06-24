@@ -51,6 +51,8 @@ def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron'], **metadata):
     :func:`navis.from_swc`
                         Gives you more control over how data is extraced from
                         SWC file.
+    :func:`navis.example_neurons`
+                        Loads some example neurons provided.
     """
 
     if isinstance(x, (nx.Graph, str, pd.DataFrame)):

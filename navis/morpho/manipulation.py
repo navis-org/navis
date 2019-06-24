@@ -368,9 +368,10 @@ def split_axon_dendrite(x: NeuronObject,
 
     Examples
     --------
-    >>> x = navis.example_neurons()
+    >>> import navis
+    >>> x = navis.example_neurons(1)
     >>> split = navis.split_axon_dendrite(x, method='centrifugal',
-    ...                                    reroot_soma=True)
+    ...                                   reroot_soma=True)
     >>> split
     <class 'navis.NeuronList'> of 3 neurons
                           neuron_name skeleton_id  n_nodes  n_connectors
@@ -566,7 +567,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     --------
     Stitching neuronlist by simply combining data tables:
 
-    >>> nl = navis.example_neurons()
+    >>> nl = navis.example_neurons(2)
     >>> stitched = navis.stitch_neurons(nl, method='NONE')
 
     Stitching fragmented neurons:
@@ -579,10 +580,10 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     master = str(master).upper()
 
     if method not in ['LEAFS', 'ALL', 'NONE']:
-        raise ValueError('Unknown method: %s' % str(method))
+        raise ValueError(f'Unknown method: "{method}"')
 
     if master not in ['SOMA', 'LARGEST', 'FIRST']:
-        raise ValueError('Unknown master: %s' % str(master))
+        raise ValueError(f'Unknown master: "{master}"')
 
     # Compile list of individual neurons
     neurons = utils.unpack_neurons(x)
@@ -792,7 +793,7 @@ def average_neurons(x: 'core.NeuronList',
     >>> da2.reroot(da2.soma)
     >>> da2_pr = da2.prune_by_longest_neurite(inplace=False)
     >>> # Make average
-    >>> da2_avg = navis.average_neurons(da2_pr)
+    >>> da2_avg = navis.average_neurons(da2_pr, limit=10e3)
     >>> # Plot
     >>> da2.plot3d()
     >>> da2_avg.plot3d()
@@ -800,7 +801,7 @@ def average_neurons(x: 'core.NeuronList',
     """
 
     if not isinstance(x, core.NeuronList):
-        raise TypeError('Need NeuronList, got "{0}"'.format(type(x)))
+        raise TypeError(f'Need NeuronList, got "{type(x)}"')
 
     if len(x) < 2:
         raise ValueError('Need at least 2 neurons to average!')
@@ -902,6 +903,12 @@ def despike_neuron(x: NeuronObject,
     TreeNeuron/List
                 Despiked neuron(s). Only if ``inplace=False``.
 
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> despiked = navis.despike_neuron(n)
+
     """
 
     # TODO:
@@ -921,8 +928,7 @@ def despike_neuron(x: NeuronObject,
             return x
         return None
     elif not isinstance(x, core.TreeNeuron):
-        raise TypeError('Can only process TreeNeuron or NeuronList, '
-                        'not "{0}"'.format(type(x)))
+        raise TypeError(f'Can only process TreeNeuron or NeuronList, not {type(x)}')
 
     if not inplace:
         x = x.copy()
@@ -1025,11 +1031,10 @@ def guess_radius(x: NeuronObject,
         return None
 
     elif not isinstance(x, core.TreeNeuron):
-        raise TypeError('Can only process TreeNeuron or NeuronList, '
-                        'not "{0}"'.format(type(x)))
+        raise TypeError(f'Can only process TreeNeuron or NeuronList, not {type(x)}')
 
     if not hasattr(x, 'connectors') or x.connectors.empty:
-        raise ValueError('Neuron must have connectors')
+        raise ValueError('Neuron must have connectors!')
 
     if not inplace:
         x = x.copy()
@@ -1111,7 +1116,8 @@ def smooth_neuron(x: NeuronObject,
     x :             TreeNeuron | NeuronList
                     Neuron(s) to be processed.
     window :        int, optional
-                    Size of the rolling window in number of nodes.
+                    Size (n observations) of the rolling window in number of
+                    nodes.
     inplace :       bool, optional
                     If False, will use and return copy of original neuron(s).
 
@@ -1119,6 +1125,12 @@ def smooth_neuron(x: NeuronObject,
     -------
     TreeNeuron/List
                     Smoothed neuron(s). If ``inplace=False``.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> smoothed = navis.smooth_neuron(n, window=10)
 
     """
 
@@ -1136,8 +1148,7 @@ def smooth_neuron(x: NeuronObject,
             return None
 
     elif not isinstance(x, core.TreeNeuron):
-        raise TypeError('Can only process TreeNeuron or NeuronList, '
-                        'not "{0}"'.format(type(x)))
+        raise TypeError(f'Can only process TreeNeuron or NeuronList, not {type(x)}')
 
     if not inplace:
         x = x.copy()
@@ -1189,12 +1200,24 @@ def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
     :func:`navis.heal_fragmented_neuron`
                 Use to heal fragmentation instead of breaking it up.
 
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> # Disconnect parts of the neuron
+    >>> n.nodes.loc[100, 'parent_id'] = -1
+    >>> # Break into fragments
+    >>> frags = navis.break_fragments(n)
+    >>> len(frags)
+    2
+
     """
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError('Expected Neuron/List, got "{}"'.format(type(x)))
+        raise TypeError(f'Expected Neuron/List, got "{type(x)}"')
 
     # Don't do anything if not actually fragmented
     if x.n_skeletons > 1:
@@ -1250,12 +1273,26 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
                 fragments.
     :func:`navis.break_fragments`
                 Use to break a fragmented neuron into disconnected pieces.
+
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> # Disconnect parts of the neuron
+    >>> n.nodes.loc[100, 'parent_id'] = -1
+    >>> len(n.root)
+    2
+    >>> # Heal neuron
+    >>> healed = navis.heal_fragmented_neuron(n)
+    >>> len(healed.root)
+    1
     """
 
     method = str(method).upper()
 
     if method not in ['LEAFS', 'ALL']:
-        raise ValueError('Unknown method "{}"'.format(method))
+        raise ValueError(f'Unknown method "{method}"')
 
     if isinstance(x, core.NeuronList):
         if not inplace:
@@ -1272,7 +1309,7 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
             return None
 
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError('Expected CatmaidNeuron/List, got "{}"'.format(type(x)))
+        raise TypeError(f'Expected CatmaidNeuron/List, got "{type(x)}"')
 
     # Only process if actually fragmented
     if x.n_skeletons > 1:

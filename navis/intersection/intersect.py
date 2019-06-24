@@ -174,6 +174,26 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                          'volume2': in_volume(x, volume2),
                          ... }
 
+    Examples
+    --------
+    # Prune neuron to volume
+
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> lh = navis.example_volume('LH')
+    >>> n_lh = navis.in_volume(n, lh, inplace=False)
+    >>> n_lh
+    type              TreeNeuron
+    name            neuron_38885
+    n_nodes                 1299
+    n_connectors               0
+    n_branches                54
+    n_leafs                   56
+    cable_length          294836
+    soma                    None
+    dtype: object
+
+
     """
 
     # If we are given multiple volumes

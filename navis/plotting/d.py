@@ -62,8 +62,9 @@ def plot1d(x: 'core.NeuronObject',
 
     Examples
     --------
+    >>> import navis
     >>> import matplotlib.pyplot as plt
-    >>> n = navis.example_neuron(1)
+    >>> n = navis.example_neuron(2)
     >>> ax = navis.plot1d(n)
     >>> plt.show()
 

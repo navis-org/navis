@@ -36,7 +36,7 @@ __all__ = sorted(['strahler_index', 'bending_flow',
 
 def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
                 root_dist: Optional[int] = None) -> None:
-    """ Adds ``parent_dist`` [nm] column to the treenode table.
+    """Add ``parent_dist`` [nm] column to the treenode table.
 
     Parameters
     ----------
@@ -48,6 +48,7 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
     Returns
     -------
     Nothing
+
     """
 
     if isinstance(x, core.TreeNeuron):
@@ -658,6 +659,15 @@ def tortuosity(x: 'core.NeuronObject',
                         If x is single TreeNeuron, will return either a
                         single float (if single seg_length is queried) or a
                         DataFrame (if multiple seg_lengths are queried).
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> # Calculate tortuosity with 1 micron seg lengths
+    >>> T = navis.tortuosity(n, seg_length=1e3)
+    >>> round(T, 3)
+    1.163
 
     """
 

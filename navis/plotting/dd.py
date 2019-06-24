@@ -59,7 +59,7 @@ def plot2d(x: Union[core.NeuronObject,
 
     Parameters
     ----------
-    x :               skeleton IDs | TreeNeuron | NeuronList | CatmaidVolume | Dotprops | np.ndarray
+    x :               skeleton IDs | TreeNeuron | NeuronList | Volume | Dotprops | np.ndarray
                       Objects to plot::
 
                         - int is intepreted as skeleton ID(s)
@@ -79,30 +79,36 @@ def plot2d(x: Union[core.NeuronObject,
                            added individually. This allows for more complex
                            crossing patterns to be rendered correctly. Slows
                            down rendering though.
-    remote_instance : CatmaidInstance, optional
-                      Need this too if you are passing only skids
+
     **kwargs
                       See Notes for permissible keyword arguments.
 
     Examples
     --------
+    >>> import navis
     >>> import matplotlib.pyplot as plt
-    >>> # 1. Plot two neurons from skeleton IDs:
-    >>> fig, ax = navis.plot2d( [12345, 45567] )
-    >>> # 2. Manually download a neuron, prune it and plot it:
-    >>> neuron = navis.get_neuron( [12345], rm )
-    >>> neuron.prune_distal_to( 4567 )
-    >>> fig, ax = navis.plot2d( neuron )
-    >>> matplotlib.pyplot.show()
-    >>> # 3. Plots neuropil in grey, and mushroom body in red:
-    >>> neurop = navis.get_volume('v14.neuropil')
-    >>> neurop.color = (.8,.8,.8)
-    >>> mb = navis.get_volume('v14.MB_whole')
-    >>> mb.color = (.8,0,0)
-    >>> fig, ax = navis.plot2d(  [ 12346, neurop, mb ] )
-    >>> matplotlib.pyplot.show()
-    >>> # Change perspective
-    >>> fig, ax = navis.plot2d( neuron, method='3d_complex' )
+
+    Plot list of neurons as simple 2d
+    >>> nl = navis.example_neurons()
+    >>> fig, ax = navis.plot2d(nl)
+    >>> plt.show()
+
+    Add a volume
+    >>> v = navis.example_volume('LH')
+    >>> fig, ax = navis.plot2d([nl, vol])
+    >>> plt.show()
+
+    Change neuron colors
+    >>> fig, ax = navis.plot2d(nl, color=['r', 'g', 'b', 'm', 'c', 'y'])
+    >>> plt.show()
+
+    Plot in "fake" 3D
+    >>> fig, ax = navis.plot2d(nl, method='3d')
+    >>> plt.show()
+    >>> # Try dragging the window
+
+    Plot in "fake" 3D and change perspective
+    >>> fig, ax = navis.plot2d(nl, method='3d')
     >>> # Change view to lateral
     >>> ax.azim = 0
     >>> ax.elev = 0
@@ -114,6 +120,12 @@ def plot2d(x: Union[core.NeuronObject,
     >>> ax.elev = 45
     >>> # Move camera closer (will make image bigger)
     >>> ax.dist = 5
+    >>> plt.show()
+
+    Plot using depth-coloring
+    >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True)
+    >>> plt.show()
+
 
     Returns
     --------
@@ -123,6 +135,9 @@ def plot2d(x: Union[core.NeuronObject,
     -----
 
     Optional keyword arguments:
+
+    ``soma`` (bool, default = True)
+       Plot soma if one exists.
 
     ``connectors`` (boolean, default = True)
        Plot connectors (synapses, gap junctions, abutting)
@@ -143,7 +158,7 @@ def plot2d(x: Union[core.NeuronObject,
        If True, will scale the axes to fit the data.
 
     ``scalebar`` (int | float, default=False)
-       Adds scale bar. Provide integer/float to set size of scalebar in um.
+       Adds scale bar. Provide integer/float to set size of scalebar.
        For methods '3d' and '3d_complex', this will create an axis object.
 
     ``ax`` (matplotlib ax, default=None)
@@ -191,6 +206,8 @@ def plot2d(x: Union[core.NeuronObject,
     :func:`navis.plot3d`
             Use this if you want interactive, perspectively correct renders
             and if you don't need vector graphics as outputs.
+    :func:`navis.plot1d`
+            A nifty way to visualise neurons in a single dimension.
 
     """
 
