@@ -61,9 +61,10 @@ If you have any questions, please contact me: pms70@cam.ac.uk
 
 * 2D (matplotlib) and 3D (vispy or plotly) plotting
 * virtual neuron surgery (cutting, stitching, pruning, rerooting)
-* R bindings (e.g. for libraries nat, nat.nblast and elmr)
+* * Python bindings for R neuron libraries (e.g. nat, nat.nblast and elmr)
+* load neurons directly from `neuromorpho.org <http://neuromorpho.org>`_
 * interfaces with Blender 3D and Cytoscape
-* import/export from/to SWC
+* import-export from/to SWC
 
 .. raw:: html
 

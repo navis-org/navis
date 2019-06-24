@@ -3,7 +3,7 @@
 API Reference
 =============
 
-Unless otherwise stated below functions are available upon top level import,
+Unless otherwise stated below functions are available at top level import,
 i.e. after ``import navis``.
 
 .. _api_neurons:
@@ -167,12 +167,6 @@ Graphs
     navis.network2nx
     navis.network2igraph
 
-Predicting connectivity
------------------------
-.. autosummary::
-    :toctree: generated/
-
-    navis.predict_connectivity
 
 Adjacency matrices
 ------------------
@@ -201,13 +195,51 @@ Import/Export
     navis.neuron2json
     navis.json2neuron
 
+
+.. _api_interfaces.neuromorpho:
+
+NeuroMorpho API
++++++++++++++++
+
+Not imported at top level! Must be imported explicitly::
+
+    from navis.interfaces import neuromorpho
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.interfaces.neuromorpho.get_neuron_info
+    navis.interfaces.neuromorpho.get_neuron
+    navis.interfaces.neuromorpho.get_neuron_fields
+    navis.interfaces.neuromorpho.get_available_field_values
+
+
+.. _api_interfaces.neuromorpho:
+
+InsectBrain DB API
+++++++++++++++++++
+
+Not imported at top level! Must be imported explicitly::
+
+    from navis.interfaces import insectbrain_db
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.interfaces.insectbrain_db.get_brain_meshes
+    navis.interfaces.insectbrain_db.get_species_info
+    navis.interfaces.insectbrain_db.get_available_species
+    navis.interfaces.insectbrain_db.
+
+
 .. _api_interfaces.blender:
 
 Blender API
 +++++++++++
 
-Not imported at top level! Must be imported explicitly:
-``from navis.interfaces import blender``
+Not imported at top level! Must be imported explicitly::
+
+    from navis.interfaces import blender
 
 Objects
 -------
@@ -256,8 +288,9 @@ Selections
 Cytoscape API
 +++++++++++++
 
-Not imported at top level! Must be imported explicitly:
-``from navis.interfaces import cytoscape``
+Not imported at top level! Must be imported explicitly::
+
+    from navis.interfaces import cytoscape
 
 .. autosummary::
     :toctree: generated/
@@ -266,14 +299,13 @@ Not imported at top level! Must be imported explicitly:
     navis.interfaces.cytoscape.get_client
     navis.interfaces.cytoscape.watch_network
 
-.. _api_userstats:
 
+R interface
++++++++++++
 
-R interface (rMAID)
-+++++++++++++++++++
+Not imported at top level! Must be imported explicitly::
 
-Not imported at top level! Must be imported explicitly:
-``from navis.interfaces import r``
+    from navis.interfaces import r
 
 .. autosummary::
     :toctree: generated/
