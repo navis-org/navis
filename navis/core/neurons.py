@@ -75,6 +75,8 @@ class TreeNeuron:
     _soma: Union[Callable[['TreeNeuron'], Sequence[int]],
                  int] = morpho.find_soma
 
+    name: str
+
     nodes: pd.DataFrame
     connectors: pd.DataFrame
 
@@ -163,6 +165,14 @@ class TreeNeuron:
             return False
         else:
             raise AttributeError('Attribute "%s" not found' % key)
+
+    @property
+    def name(self) -> str:
+        return getattr(self, '_name', None)
+
+    @name.setter
+    def name(self, v: str):
+        self._name = v
 
     @property
     def nodes(self) -> pd.DataFrame:
