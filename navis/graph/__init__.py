@@ -19,3 +19,4 @@ from .graph_utils import (classify_nodes, cut_neuron, longest_neurite,
                           generate_list_of_childs, geodesic_matrix,
                           subset_neuron, node_label_sorting, _break_segments,
                           _generate_segments, segment_length)
+from .clinic import (health_check)        
