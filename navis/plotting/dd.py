@@ -212,7 +212,7 @@ def plot2d(x: Union[core.NeuronObject,
     """
 
     # Filter kwargs
-    _ACCEPTED_KWARGS = ['connectors', 'connectors_only',
+    _ACCEPTED_KWARGS = ['soma', 'connectors', 'connectors_only',
                         'ax', 'color', 'colors', 'c', 'view', 'scalebar',
                         'cn_mesh_colors', 'linewidth', 'cn_size',
                         'group_neurons', 'scatter_kws', 'figsize', 'linestyle',
@@ -230,6 +230,8 @@ def plot2d(x: Union[core.NeuronObject,
 
     # Set axis to plot for method '2d'
     axis1, axis2 = kwargs.get('view', ('x', 'y'))
+
+    plot_soma = kwargs.get('soma', True)
 
     connectors = kwargs.get('connectors', True)
     connectors_only = kwargs.get('connectors_only', False)
@@ -263,13 +265,11 @@ def plot2d(x: Union[core.NeuronObject,
     skdata, dotprops, volumes, points, visuals = utils.parse_objects(x)
 
     # Generate the colormaps
-    neuron_cmap, dotprop_cmap, volumes_cmap = \
-                        prepare_colormap(color,
-                                         skdata,
-                                         dotprops,
-                                         volumes,
-                                         use_neuron_color=use_neuron_color,
-                                         color_range=1)
+    (neuron_cmap,
+     dotprop_cmap,
+     volumes_cmap) = prepare_colormap(color, skdata, dotprops, volumes,
+                                      use_neuron_color=use_neuron_color,
+                                      color_range=1)
 
     # Make sure axes are projected orthogonally
     if method in ['3d', '3d_complex']:
@@ -368,8 +368,6 @@ def plot2d(x: Union[core.NeuronObject,
             continue
 
         if not connectors_only:
-            soma = neuron.nodes[neuron.nodes.radius > 1]
-
             # Now make traces (invert y axis)
             coords = segments_to_coords(neuron,
                                         neuron.segments,
@@ -400,14 +398,18 @@ def plot2d(x: Union[core.NeuronObject,
                     lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.uuid}')
                     line = ax.add_collection(lc)
 
-                for n in soma.itertuples():
-                    if depth_coloring:
-                        this_color = mpl.cm.jet(norm(n.z))
+                if plot_soma and not isinstance(neuron.soma, type(None)):
+                    soma = utils.make_iterable(neuron.soma)
+                    for s in soma:
+                        n = neuron.nodes.set_index('node_id').loc[s]
 
-                    s = mpatches.Circle((int(n.x), int(-n.y)), radius=n.radius,
-                                        alpha=alpha, fill=True, fc=this_color,
-                                        zorder=4, edgecolor='none')
-                    ax.add_patch(s)
+                        if depth_coloring:
+                            this_color = mpl.cm.jet(norm(n.z))
+
+                        s = mpatches.Circle((int(n.x), int(-n.y)), radius=n.radius,
+                                            alpha=alpha, fill=True, fc=this_color,
+                                            zorder=4, edgecolor='none')
+                        ax.add_patch(s)
 
             elif method in ['3d', '3d_complex']:
                 cmap = mpl.cm.jet if depth_coloring else None
@@ -451,20 +453,23 @@ def plot2d(x: Union[core.NeuronObject,
                 lim.append(coords.min(axis=0))
 
                 surf3D_collections.append([])
-                for n in soma.itertuples():
-                    resolution = 20
-                    u = np.linspace(0, 2 * np.pi, resolution)
-                    v = np.linspace(0, np.pi, resolution)
-                    x = n.radius * np.outer(np.cos(u), np.sin(v)) + n.x
-                    y = n.radius * np.outer(np.sin(u), np.sin(v)) - n.y
-                    z = n.radius * \
-                        np.outer(np.ones(np.size(u)), np.cos(v)) + n.z
-                    surf = ax.plot_surface(
-                        x, z, y, color=this_color, shade=False, alpha=alpha)
-                    if group_neurons:
-                        surf.set_gid(neuron.uuid)
 
-                    surf3D_collections[-1].append(surf)
+                if plot_soma and not isinstance(neuron.soma, type(None)):
+                    soma = utils.make_iterable(neuron.soma)
+                    for s in soma:
+                        n = neuron.nodes.set_index('node_id').loc[s]
+                        resolution = 20
+                        u = np.linspace(0, 2 * np.pi, resolution)
+                        v = np.linspace(0, np.pi, resolution)
+                        x = n.radius * np.outer(np.cos(u), np.sin(v)) + n.x
+                        y = n.radius * np.outer(np.sin(u), np.sin(v)) - n.y
+                        z = n.radius * np.outer(np.ones(np.size(u)), np.cos(v)) + n.z
+                        surf = ax.plot_surface(
+                            x, z, y, color=this_color, shade=False, alpha=alpha)
+                        if group_neurons:
+                            surf.set_gid(neuron.uuid)
+
+                        surf3D_collections[-1].append(surf)
 
         if (connectors or connectors_only) and neuron.has_connectors:
             if not cn_mesh_colors:
@@ -534,10 +539,11 @@ def plot2d(x: Union[core.NeuronObject,
             ax.add_line(this_line)
 
             # Add soma
-            s = mpatches.Circle((neuron.X, -neuron.Y), radius=2,
-                                alpha=alpha, fill=True, fc=this_color,
-                                zorder=4, edgecolor='none')
-            ax.add_patch(s)
+            if plot_soma:
+                s = mpatches.Circle((neuron.X, -neuron.Y), radius=2,
+                                    alpha=alpha, fill=True, fc=this_color,
+                                    zorder=4, edgecolor='none')
+                ax.add_patch(s)
         elif method in ['3d', '3d_complex']:
                 # Combine coords by weaving starts and ends together
             coords = np.empty((starts.shape[0] * 2, 3), dtype=starts.dtype)
