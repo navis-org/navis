@@ -144,8 +144,10 @@ class TreeNeuron:
             self.uuid = uuid.uuid4()
 
     def __getattr__(self, key):
-        """ We will use this magic method to calculate some attributes
-        on-demand. """
+        """We will use this magic method to calculate some attributes on-demand."""
+        # Note that we're mixing @property and __getattr__ which causes problems:
+        # if a @property raises an Exception, Python falls back to __getattr__
+        # and traceback is lost!
         if key == 'igraph':
             self.igraph = self.get_igraph()
             return self.igraph
@@ -541,13 +543,12 @@ class TreeNeuron:
     def resample(self, resample_to: int, inplace: Literal[True]) -> None: ...
 
     def resample(self, resample_to, inplace=False):
-        """Resample the neuron to given resolution [nm].
+        """Resample the neuron to given resolution.
 
         Parameters
         ----------
         resample_to :           int
-                                Resolution in nanometer to which to resample
-                                the neuron.
+                                Resolution to which to resample the neuron.
         inplace :               bool, optional
                                 If True, operation will be performed on
                                 itself. If False, operation is performed on
@@ -1016,8 +1017,6 @@ class TreeNeuron:
                filename: Optional[str] = None,
                **kwargs) -> None:
         """ Generate SWC file from this neuron.
-
-        This converts navis nanometer coordinates into microns.
 
         Parameters
         ----------
