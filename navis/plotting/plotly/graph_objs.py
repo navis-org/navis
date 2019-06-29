@@ -123,7 +123,7 @@ def neuron2plotly(x, **kwargs):
                         alphahull=.5,
                         color=c,
                         name=name,
-                        hoverlabel='name'))
+                        hoverinfo='name'))
 
         # Add connectors
         if kwargs.get('connectors', False) or \
