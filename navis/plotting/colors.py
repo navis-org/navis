@@ -165,7 +165,7 @@ def map_colors(colors: Optional[Union[str,
 
 
 def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
-    """ Looks for "label" or "type" column in connector tables and generates
+    """Look for "label" or "type" column in connector tables and generates
     a color for every unique type. See ``navis.set_default_connector_colors``.
 
     Returns
@@ -264,7 +264,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
                                    eval_color(config.default_color,
                                               color_range=color_range))
                         for s in dotprops.gene_name.values]
-        volumes_cmap = [colors.get(s.getattr('name', None),
+        volumes_cmap = [colors.get(getattr(s, 'name', None),
                                    eval_color((1, 1, 1, .5),
                                               color_range=color_range))
                         for s in volumes]
@@ -291,9 +291,9 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
 
     # Override neuron cmap if we are supposed to use neuron colors
     if use_neuron_color:
-        neuron_cmap = [n.getattr('color',
-                                 eval_color(config.default_color,
-                                            color_range))
+        neuron_cmap = [getattr(n, 'color',
+                               eval_color(config.default_color,
+                                          color_range))
                        for i, n in enumerate(skdata)]
 
     return neuron_cmap, dotprop_cmap, volumes_cmap
@@ -331,7 +331,7 @@ def eval_color(x, color_range=255):
 
 
 def hex_to_rgb(value: str) -> Tuple[int, int, int]:
-    """ Converts hex to rgb. """
+    """Convert hex to rgb."""
     value = value.lstrip('#')
     lv = len(value)
     return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))  # type: ignore
