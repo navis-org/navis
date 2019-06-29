@@ -214,9 +214,32 @@ class TreeNeuron:
                                                     restrict=False)
 
     @property
+    def datatables(self) -> List[str]:
+        """ Returns the names of all pandas DataFrames attached to this
+        neuron.
+        """
+        return [k for k, v in self.__dict__.items() if isinstance(v, pd.DataFrame)]
+
+    @property
     def n_trees(self) -> int:
         """ Number of connected trees in this neuron. """
         return len(self.subtrees)
+
+    @property
+    def is_tree(self) -> bool:
+        """Returns whether neuron is a tree. Alsos returns True if neuron
+        consists of multiple separate trees.
+
+        See also
+        --------
+        networkx.is_forest()
+                    Function used to test whether neuron is a tree.
+        :attr:`TreeNeuron.cycles`
+                    If your neuron is not a tree, this will help you identify
+                    cycles.
+
+        """
+        return nx.is_forest(self.graph)
 
     @property
     def subtrees(self) -> List[List[int]]:
@@ -225,13 +248,31 @@ class TreeNeuron:
         return list(comp)
 
     @property
+    def cycles(self) -> Optional[List[int]]:
+        """Returns cycles in neuron if any.
+
+        See also
+        --------
+        networkx.find_cycles()
+                    Function used to find cycles.
+
+        """
+        try:
+            c = nx.find_cycle(self.graph,
+                              source=self.nodes[self.nodes.type == 'end'].node_id.values)
+            return c
+        except nx.exception.NetworkXNoCycle:
+            return None
+        except BaseException:
+            raise
+
+    @property
     def simple(self) -> 'TreeNeuron':
         """ Neuron representation consisting only of root, branch points and
         leafs.
         """
         if not hasattr(self, '_simple'):
             self._simple = self.downsample(float('inf'),
-                                           preserve_cn_treenodes=False,
                                            inplace=False)
         return self._simple
 
