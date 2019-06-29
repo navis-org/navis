@@ -519,7 +519,8 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                    master: Union[Literal['SOMA'],
                                  Literal['LARGEST'],
                                  Literal['FIRST']] = 'SOMA',
-                   tn_to_stitch: Optional[Sequence[int]] = None
+                   tn_to_stitch: Optional[Sequence[int]] = None,
+                   suggest_only: bool = False,
                    ) -> 'core.TreeNeuron':
     """ Stitch multiple neurons together.
 
@@ -557,6 +558,9 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                         If provided, these treenodes will be preferentially
                         used to stitch neurons together. Overrides methods
                         ``'ALL'`` or ``'LEAFS'``.
+    suggest_only :      bool, optional
+                        If True, will only return list of edges to add instead
+                        of actually stitching the neuron.
 
     Returns
     -------
@@ -724,6 +728,9 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     # Edges that need adding are those that were newly added
     to_add = [e for e in edges if e[2]['new']]
+
+    if suggest_only:
+        return to_add
 
     # Keep track of original master root
     master_root = m.root[0]
