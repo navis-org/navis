@@ -97,6 +97,11 @@ class TreeNeuron:
 
     name: str
 
+    # Attributes for __eq__:
+    # make sure to go from simple to computationally expensive
+    EQ_ATTRIBUTES = ['n_nodes', 'n_connectors', 'soma', 'root',
+                     'n_branches', 'n_leafs', 'cable_length', 'name']
+
     def __init__(self,
                  x: Union[pd.DataFrame,
                           BufferedIOBase,
@@ -898,14 +903,9 @@ class TreeNeuron:
     def __eq__(self, other):
         """Implements neuron comparison."""
         if isinstance(other, TreeNeuron):
-            # Make some morphological comparisons and make sure to go
-            # from simple to computationally expensive
-            to_comp = ['uuid', 'n_nodes', 'n_connectors', 'soma', 'root',
-                       'n_branches', 'n_leafs', 'cable_length']
-
             # We will do this sequentially and stop as soon as we find a
             # discrepancy -> this saves tons of time!
-            for at in to_comp:
+            for at in self.EQ_ATTRIBUTES:
                 comp = getattr(self, at) == getattr(other, at)
                 if isinstance(comp, np.ndarray) and not all(comp):
                     return False
