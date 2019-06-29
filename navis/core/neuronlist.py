@@ -17,6 +17,7 @@ import multiprocessing as mp
 import numbers
 import os
 import random
+import re
 import types
 
 import networkx as nx
@@ -199,7 +200,7 @@ class NeuronList:
         pandas DataFrame
 
         """
-        cols = ['type', 'n_nodes', 'n_connectors', 'n_branches', 'n_leafs',
+        cols = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches', 'n_leafs',
                 'cable_length', 'soma']
         cols += add_cols
 
@@ -297,23 +298,33 @@ class NeuronList:
         return x in self.neurons
 
     def __getitem__(self, key):
-        if isinstance(key, np.ndarray) and key.dtype == 'bool':
-            subset = [n for i, n in enumerate(self.neurons) if key[i]]
-        elif utils.is_iterable(key):
-            if False not in [isinstance(k, bool) for k in key]:
+        if utils.is_iterable(key):
+            if all([isinstance(k, (bool, np.bool_)) for k in key]):
                 subset = [n for i, n in enumerate(self.neurons) if key[i]]
             else:
-                subset = [self.neurons[i] for i in key]
-        else:
+                subset = [self[i] for i in key]
+        elif isinstance(key, str):
+            subset = [n for n in self.neurons if re.fullmatch(key, getattr(n, 'name', ''))]
+        elif isinstance(key, (int, slice)):
             subset = self.neurons[key]
+        else:
+            raise NotImplementedError(f'Indexing NeuronList by {type(key)} not implemented')
 
         if isinstance(subset, core.TreeNeuron):
             return subset
 
+        # Make sure we unpack neurons
+        subset = utils.unpack_neurons(subset)
+        # Make sure each neuron shows up only once
+        subset = list(set(subset))
+
+        if not subset:
+            # This will call __missing__
+            return self.__missing__(key)
+
         return NeuronList(subset, make_copy=self.copy_on_subset)
 
     def __missing__(self, key):
-        logger.error('No neuron matching the search critera.')
         raise AttributeError('No neuron matching the search critera.')
 
     def __add__(self, to_add):
