@@ -214,9 +214,11 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     """ Maps color(s) to neuron/dotprop colorlists.
     """
 
-    # Prepare dummies in case either no skdata or no dotprops
+    # Prepare dummies in case either no skdata, no dotprops or no volumes
     if isinstance(skdata, type(None)):
         skdata = core.NeuronList([])
+    elif not isinstance(skdata, core.NeuronList):
+        skdata = core.NeuronList((skdata))
 
     if isinstance(dotprops, type(None)):
         dotprops = core.Dotprops()
@@ -224,7 +226,8 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
 
     if isinstance(volumes, type(None)):
         volumes = np.array([])
-    elif not isinstance(volumes, np.ndarray):
+
+    if not isinstance(volumes, np.ndarray):
         volumes = np.array(volumes)
 
     colors_required = skdata.shape[0] + dotprops.shape[0] + volumes.shape[0]
@@ -253,21 +256,33 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     dotprop_cmap = []
     neuron_cmap = []
     volumes_cmap = []
+    dc = config.default_color
     if isinstance(colors, dict):
-        # We will try to get the skid first as str, then as int
-        neuron_cmap = [colors.get(n.uuid,
-                                  colors.get(int(n.uuid),
-                                             eval_color(config.default_color,
-                                                        color_range=color_range)))
-                       for n in skdata]
-        dotprop_cmap = [colors.get(s,
-                                   eval_color(config.default_color,
-                                              color_range=color_range))
+        # Try finding color first by neuron, then uuid and finally by name
+        neuron_cmap = []
+        for n in skdata:
+            this_c = dc
+            for k in [n, n.uuid, n.name]:
+                if k in colors:
+                    this_c = colors[k]
+                    break
+            neuron_cmap.append((eval_color(this_c,
+                                           color_range=color_range)))
+
+        dotprop_cmap = [eval_color(colors.get(s, dc), color_range=color_range)
                         for s in dotprops.gene_name.values]
-        volumes_cmap = [colors.get(getattr(s, 'name', None),
-                                   eval_color((1, 1, 1, .5),
-                                              color_range=color_range))
-                        for s in volumes]
+
+        # Try finding color first by volume, then uuid and finally by name
+        volumes_cmap = []
+        for v in volumes:
+            this_c = getattr(v, 'color', (.95, .95, .95, .1))
+            for k in [v, v.uuid, getattr(v, 'name', None)]:
+                if k in colors:
+                    this_c = colors[k]
+                    break
+            volumes_cmap.append(eval_color(this_c,
+                                           color_range=color_range))
+
     # If list of colors
     elif isinstance(colors, (list, tuple, np.ndarray)):
         # If color is a single color, convert to list
@@ -295,6 +310,10 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
                                eval_color(config.default_color,
                                           color_range))
                        for i, n in enumerate(skdata)]
+
+    logger.debug('Neuron colormap: ' + str(neuron_cmap))
+    logger.debug('Dotprops colormap: ' + str(dotprop_cmap))
+    logger.debug('Volumes colormap: ' + str(volumes_cmap))
 
     return neuron_cmap, dotprop_cmap, volumes_cmap
 
