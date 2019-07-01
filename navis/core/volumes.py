@@ -16,6 +16,7 @@ import json
 import math
 import numbers
 import os
+import uuid
 
 import numpy as np
 import scipy.spatial
@@ -41,7 +42,9 @@ class Volume:
                 Name of volume.
     color :     tuple, optional
                 RGB color.
-    volume_id : int, optional
+    id :        int, optional
+                If not provided, neuron will be assigned a random UUID
+                as ``.uuid``
 
     Attributes
     ----------
@@ -60,13 +63,13 @@ class Volume:
                  faces: Union[list, np.ndarray],
                  name: Optional[str] = None,
                  color: Union[str,
-                              Sequence[Union[int, float]]] = (1, 1, 1, .1),
-                 volume_id: Optional[int] = None, **kwargs):
+                              Sequence[Union[int, float]]] = (.95, .95, .95, .1),
+                 id: Optional[int] = None, **kwargs):
         self.name: Optional[str] = name
         self.vertices: np.ndarray = np.array(vertices)
         self.faces: np.ndarray = np.array(faces)
         self.color: Union[str, Sequence[Union[int, float]]] = color
-        self.volume_id: Optional[int] = volume_id
+        self.uuid: Optional[int] = id if id else uuid.uuid4()
 
     @classmethod
     def from_csv(self,
