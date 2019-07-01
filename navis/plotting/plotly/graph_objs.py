@@ -207,29 +207,27 @@ def scatter2plotly(x, **kwargs):
 
 
 def lines2plotly(x, **kwargs):
-    """ Convert DataFrame with x, y, z, x1, y2, y3 columns to line plots"""
-
-    s = kwargs.get('size', 2)
+    """Convert DataFrame with x, y, z, x1, y1, z1 columns to line plots."""
     name = kwargs.get('name', None)
     c = kwargs.get('color', (10, 10, 10))
 
-    x_coords = [n for sublist in zip(this_cn.x.values * -1, tn.x.values * -1,
-                                [None] * this_cn.shape[0]) for n in sublist]
-    y_coords = [n for sublist in zip(this_cn.y.values * -1, tn.y.values * -1,
-                                [None] * this_cn.shape[0]) for n in sublist]
-    z_coords = [n for sublist in zip(this_cn.z.values * -1, tn.z.values * -1,
-                                [None] * this_cn.shape[0]) for n in sublist]
+    x_coords = [n for sublist in zip(x.x.values, x.x1.values,
+                                     [None] * x.shape[0]) for n in sublist]
+    y_coords = [n for sublist in zip(x.y.values, x.y1.values,
+                                     [None] * x.shape[0]) for n in sublist]
+    z_coords = [n for sublist in zip(x.z.values, x.z1.values,
+                                     [None] * x.shape[0]) for n in sublist]
 
     trace_data = []
     trace_data.append(go.Scatter3d(x=x_coords,
-                                   y=y_coords,  # y and z are switched
+                                   y=y_coords,
                                    z=z_coords,
                                    mode='lines',
                                    line=dict(
-                                        color='rgb%s' % str(c),
+                                        color=f'rgb{str(c)}',
                                         width=5
                                    ),
-                                   name=syn_lay[j]['name'] + ' of ' + neuron_name,
+                                   name=name,
                                    showlegend=True,
                                    hoverinfo='none'))
 
@@ -265,11 +263,11 @@ def dotprops2plotly(x, **kwargs):
         ends = dp.points[['x', 'y', 'z']].values + halfvect.values
 
         x_coords = [n for sublist in zip(
-            starts[:, 0] * -1, ends[:, 0] * -1, [None] * starts.shape[0]) for n in sublist]
+            starts[:, 0], ends[:, 0], [None] * starts.shape[0]) for n in sublist]
         y_coords = [n for sublist in zip(
-            starts[:, 1] * -1, ends[:, 1] * -1, [None] * starts.shape[0]) for n in sublist]
+            starts[:, 1], ends[:, 1], [None] * starts.shape[0]) for n in sublist]
         z_coords = [n for sublist in zip(
-            starts[:, 2] * -1, ends[:, 2] * -1, [None] * starts.shape[0]) for n in sublist]
+            starts[:, 2], ends[:, 2], [None] * starts.shape[0]) for n in sublist]
 
         try:
             c = 'rgb{}'.format(c)
@@ -277,8 +275,8 @@ def dotprops2plotly(x, **kwargs):
             c = 'rgb(10,10,10)'
 
         trace_data.append(go.Scatter3d(x=x_coords,
-                                       y=z_coords,
-                                       z=y_coords,
+                                       y=y_coords,
+                                       z=z_coords,
                                        mode='lines',
                                        line=dict(
                                            color=c,
