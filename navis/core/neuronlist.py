@@ -612,11 +612,9 @@ class NeuronProcessor:
         # Reset logger level to previous state
         logger.setLevel(level)
 
-        if kwargs.get('inplace', True):
-            self.nl.neurons = res
-            return
-        else:
+        if not kwargs.get('inplace', False):
             return NeuronList(res)
+
 
 
 def _worker_wrapper(x: Sequence):
