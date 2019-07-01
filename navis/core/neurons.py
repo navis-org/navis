@@ -683,9 +683,9 @@ class TreeNeuron:
         node = utils.make_iterable(node, force_type=None)
 
         for n in node:
-            prox = graph.cut_neuron(x, n, ret='proximal')
+            prox = graph.cut_neuron(x, n, ret='proximal')[0]
             # Reinitialise with proximal data
-            x.__init__(prox, x.meta_data)  # type: ignore  # Cannot access "__init__" directly
+            x.__init__(prox)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
             x._clear_temp_attr(exclude=['graph', 'igraph', 'type',
                                         'classify_nodes'])
@@ -722,9 +722,9 @@ class TreeNeuron:
         node = utils.make_iterable(node, force_type=None)
 
         for n in node:
-            dist = graph.cut_neuron(x, n, ret='distal')
+            dist = graph.cut_neuron(x, n, ret='distal')[0]
             # Reinitialise with distal data
-            x.__init__(dist, x.meta_data)  # type: ignore  # Cannot access "__init__" directly
+            x.__init__(dist)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
             x._clear_temp_attr(exclude=['graph', 'igraph', 'type',
                                         'classify_nodes'])
