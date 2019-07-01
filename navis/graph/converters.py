@@ -24,7 +24,7 @@ try:
 except ImportError:
     igraph = None
 
-from .. import utils, config, core
+from .. import config, core
 
 # Set up logging
 logger = config.logger
@@ -36,15 +36,17 @@ __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
 def network2nx(x: Union[pd.DataFrame, Iterable],
                threshold: int = 1,
                group_by: Union[dict, None] = None) -> nx.DiGraph:
-    """ Generates NetworkX graph for neuron connectivity.
+    """Generates NetworkX graph for neuron connectivity.
 
     Parameters
     ----------
     x :                 pandas.DataFrame
                         Connectivity information:
+
                          1. List of edges (columns: 'source', 'target', 'weight')
-                         5. Adjacency matrix (pd.DataFrame, rows=sources,
+                         2. Adjacency matrix (pd.DataFrame, rows=sources,
                             columns=targets)
+
     threshold :         int, optional
                         Connections weaker than this will be excluded.
     group_by :          None | dict, optional
@@ -95,7 +97,7 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
 
 def network2igraph(x: Union[pd.DataFrame, Iterable],
                    threshold: int = 1) -> 'igraph.Graph':
-    """ Generates iGraph graph for neuron connectivity.
+    """Generates iGraph graph for neuron connectivity.
 
     Requires iGraph to be installed.
 
@@ -103,9 +105,11 @@ def network2igraph(x: Union[pd.DataFrame, Iterable],
     ----------
     x :                 pandas.DataFrame
                         Connectivity information:
+
                          1. List of edges (columns: 'source', 'target', 'weight')
-                         5. Adjacency matrix (pd.DataFrame, rows=sources,
+                         2. Adjacency matrix (pd.DataFrame, rows=sources,
                             columns=targets)
+
     threshold :         int, optional
                         Connections weaker than this will be excluded .
 
@@ -152,8 +156,6 @@ def network2igraph(x: Union[pd.DataFrame, Iterable],
         edges = edges[edges[:, 2] >= threshold]
 
     names = list(set(np.array(edges)[:, 0]) & set(np.array(edges)[:, 1]))
-
-    indices = {int(s): i for i, s in enumerate(names)}
 
     edges_by_index = [[names.index(e[0]), names.index(e[1])] for e in edges]
 
