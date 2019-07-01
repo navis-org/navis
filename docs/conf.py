@@ -23,7 +23,7 @@ import sphinx_bootstrap_theme
 import json
 import re
 
-from tools.nb_to_doc import convert_nb
+from .tools.nb_to_doc import convert_nb
 
 import matplotlib as mpl
 mpl.use("Agg")
