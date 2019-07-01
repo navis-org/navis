@@ -24,6 +24,7 @@ import json
 import os
 import time
 import math
+import uuid
 
 import pandas as pd
 import numpy as np
@@ -65,7 +66,7 @@ class Handler:
     neurons :       returns list containing all neurons
     connectors :    returns list containing all connectors
     soma :          returns list containing all somata
-    selected :      returns list containing selected Catmaid objects
+    selected :      returns list containing selected objects
     presynapses :   returns list containing all presynapses
     postsynapses :  returns list containing all postsynapses
     gapjunctions :  returns list containing all gap junctions
@@ -121,7 +122,7 @@ class Handler:
         elif key == 'soma' or key == 'somas':
             return ObjectList(self._selection_helper('SOMA'))
         elif key == 'selected':
-            return ObjectList([ob.name for ob in bpy.context.selected_objects if 'catmaid_object' in ob])
+            return ObjectList([ob.name for ob in bpy.context.selected_objects if 'navis_object' in ob])
         elif key == 'presynapses':
             return ObjectList(self._cn_selection_helper(0))
         elif key == 'postsynapses':
@@ -141,7 +142,7 @@ class Handler:
 
         Parameters
         ----------
-        x :             CatmaidNeuron | CatmaidNeuronList | core.Volume
+        x :             TreeNeuron | NeuronList | core.Volume
                         Objects to import into Blender.
         neurites :      bool, optional
                         Plot neurites.
@@ -160,18 +161,18 @@ class Handler:
         start = time.time()
 
         if skip_existing:
-            exists = [ob.get('skeleton_id', None) for ob in bpy.data.objects]
+            exists = [ob.get('uuid', None) for ob in bpy.data.objects]
 
-        if isinstance(x, (core.CatmaidNeuron, core.CatmaidNeuronList)):
+        if isinstance(x, (core.TreeNeuron, core.NeuronList)):
             if redraw:
                 print('Set "redraw=False" to vastly speed up import!')
-            if isinstance(x, core.CatmaidNeuron):
+            if isinstance(x, core.TreeNeuron):
                 x = [x]
             wm = bpy.context.window_manager
             wm.progress_begin(0, len(x))
             for i, n in enumerate(x):
                 # Skip existing if applicable
-                if skip_existing and n.skeleton_id in exists:
+                if skip_existing and n.uuid in exists:
                     continue
                 self._create_neuron(n, neurites=neurites,
                                     soma=soma, connectors=connectors,
@@ -184,9 +185,10 @@ class Handler:
             self._create_mesh(x)
         elif isinstance(x, np.ndarray):
             self._create_scatter(x, **kwargs)
+        elif isinstance(x, core.Dotprops):
+            self._create_dotprops(x, **kwargs)
         else:
-            logger.error('Unable to interpret data type ' + str(type(x)))
-            raise AttributeError('Unable to add data of type' + str(type(x)))
+            raise AttributeError(f'Unable add data type of type {type(x)}')
 
         print(f'Import done in {time.time()-start:.2f}s')
 
@@ -232,7 +234,7 @@ class Handler:
             group = bpy.data.groups.new(group_name)
 
         for obj in objects:
-            bpy.context.scene.objects.link(obj)
+            bpy.context.scene.collection.objects.link(obj)
             group.objects.link(obj)
 
         return
@@ -275,7 +277,7 @@ class Handler:
         mesh.from_pydata(verts, [], sp_faces)
         mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
         obj = bpy.data.objects.new(kwargs.get('name', 'scatter'), mesh)
-        bpy.context.scene.objects.link(obj)
+        bpy.context.scene.collection.objects.link(obj)
         obj.location = (0, 0, 0)
         obj.show_name = False
 
@@ -285,17 +287,16 @@ class Handler:
                        use_radii=False):
         """ Create neuron object """
 
-        mat_name = ('M#' + x.neuron_name)[:59]
+        mat_name = (f'M#{x.uuid}')[:59]
 
         mat = bpy.data.materials.get(mat_name,
                                      bpy.data.materials.new(mat_name))
 
         if neurites:
             self._create_neurites(x, mat, use_radii=use_radii)
-        if soma and x.soma:
-            if isinstance(x.soma, int):
-                self._create_soma(x, mat)
-        if connectors:
+        if soma and not isinstance(x.soma, type(None)):
+            self._create_soma(x, mat)
+        if connectors and x.has_connectors:
             self._create_connectors(x)
         return
 
@@ -304,7 +305,7 @@ class Handler:
         I thought it might be faster that way but turns out no. Will keep
         this code just in case it becomes useful elsewhere.
         """
-        mesh = bpy.data.meshes.new(x.neuron_name + ' mesh')
+        mesh = bpy.data.meshes.new(f"{getattr(x, 'neuron_name', '')} mesh")
 
         nodes = x.nodes.set_index('node_id')
 
@@ -340,17 +341,17 @@ class Handler:
         mesh.update()
 
         # Generate the object
-        ob = bpy.data.objects.new('#%s - %s' %
-                                  (x.skeleton_id, x.neuron_name), mesh)
+        ob = bpy.data.objects.new(f'#{x.uuid} - {getattr(x, "neuron_name", "")}',
+                                  mesh)
         ob.location = (0, 0, 0)
         ob.show_name = True
         ob['type'] = 'NEURON'
-        ob['catmaid_object'] = True
-        ob['skeleton_id'] = x.skeleton_id
+        ob['navis_object'] = True
+        ob['uuid'] = str(x.uuid)
 
         # Link object to scene - this needs to happen BEFORE we convert to
         # curve
-        bpy.context.scene.objects.link(ob)
+        bpy.context.scene.collection.objects.link(ob)
 
         # Select and make active object
         ob.select = True
@@ -367,14 +368,14 @@ class Handler:
 
     def _create_neurites(self, x, mat, use_radii=False):
         """Create neuron branches. """
-        cu = bpy.data.curves.new(x.neuron_name + ' mesh', 'CURVE')
-        ob = bpy.data.objects.new('#%s - %s' %
-                                  (x.skeleton_id, x.neuron_name), cu)
+        cu = bpy.data.curves.new(f"{getattr(x, 'neuron_name', '')} mesh", 'CURVE')
+        ob = bpy.data.objects.new(f"#{x.uuid} - {getattr(x, 'neuron_name', '')}",
+                                  cu)
         ob.location = (0, 0, 0)
         ob.show_name = True
         ob['type'] = 'NEURON'
-        ob['catmaid_object'] = True
-        ob['skeleton_id'] = x.skeleton_id
+        ob['navis_object'] = True
+        ob['uuid'] = str(x.uuid)
         cu.dimensions = '3D'
         cu.fill_mode = 'FULL'
         cu.bevel_resolution = 5
@@ -411,38 +412,94 @@ class Handler:
 
         ob.active_material = mat
 
-        bpy.context.scene.objects.link(ob)
+        bpy.context.scene.collection.objects.link(ob)
+
+        return
+
+    def _create_dotprops(self, x, scale_vect=1):
+        """Create neuron branches. """
+        # Generate uuid
+        object_id = str(uuid.uuid4())
+
+        mat_name = (f'M#{object_id}')[:59]
+        mat = bpy.data.materials.get(mat_name,
+                                     bpy.data.materials.new(mat_name))
+
+        cu = bpy.data.curves.new(f"{getattr(x, 'dotprop', '')} mesh", 'CURVE')
+        ob = bpy.data.objects.new(f"#{object_id} - {getattr(x, 'neuron_name', '')}",
+                                  cu)
+        ob.location = (0, 0, 0)
+        ob.show_name = True
+        ob['type'] = 'DOTPROP'
+        ob['navis_object'] = True
+        ob['uuid'] = object_id
+        cu.dimensions = '3D'
+        cu.fill_mode = 'FULL'
+        cu.bevel_resolution = 5
+        cu.bevel_depth = 0.007
+
+        # Prepare lines - this is based on nat:::plot3d.dotprops
+        halfvect = (np.vstack(x.vector) / 2 * scale_vect)
+        starts = (np.vstack(x.point) - halfvect)
+        ends = (np.vstack(x.point) + halfvect)
+
+        halfvect *= self.conversion
+        starts *= self.conversion
+        ends *= self.conversion
+
+        halfvect = halfvect[:, [0, 2, 1]] * [1, 1, -1]
+        starts = starts[:, [0, 2, 1]] * [1, 1, -1]
+        ends = ends[:, [0, 2, 1]] * [1, 1, -1]
+
+        segments = list(zip(starts, ends))
+
+        for s in segments:
+            sp = cu.splines.new('POLY')
+
+            # Add points
+            sp.points.add(1)
+
+            # Add this weird fourth coordinate
+            coords = np.c_[s, [0, 0]]
+
+            # Set point coordinates
+            sp.points.foreach_set('co', coords.ravel())
+
+        ob.active_material = mat
+
+        bpy.context.scene.collection.objects.link(ob)
 
         return
 
     def _create_soma(self, x, mat):
         """ Create soma """
-        s = x.nodes.set_index('node_id').ix[x.soma]
-        loc = s[['x', 'z', 'y']].values * self.conversion * [1, 1, -1]
-        rad = s.radius * self.conversion
+        for s in utils.make_iterable(x.soma):
+            s = x.nodes[x.nodes.node_id == s]
+            loc = s[['x', 'z', 'y']].values * self.conversion * [1, 1, -1]
+            rad = s.radius * self.conversion
 
-        mesh = bpy.data.meshes.new(f'Soma of #{x.uuid} - mesh')
-        soma_ob = bpy.data.objects.new(f'Soma of #{x.uuid}', mesh)
+            mesh = bpy.data.meshes.new(f'Soma of #{x.uuid} - mesh')
+            soma_ob = bpy.data.objects.new(f'Soma of #{x.uuid}', mesh)
 
-        soma_ob.location = loc
+            soma_ob.location = loc[0]
 
-        # Construct the bmesh cube and assign it to the blender mesh.
-        bm = bmesh.new()
-        bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, diameter=rad)
-        bm.to_mesh(mesh)
-        bm.free()
+            # Construct the bmesh cube and assign it to the blender mesh.
+            bm = bmesh.new()
+            bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, diameter=rad)
+            bm.to_mesh(mesh)
+            bm.free()
 
-        mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
+            mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
 
-        soma_ob.name = f'Soma of #{x.uuid}'
-        soma_ob['type'] = 'SOMA'
-        soma_ob['catmaid_object'] = True
-        soma_ob['skeleton_id'] = x.skeleton_id
+            soma_ob.name = f'Soma of #{x.uuid}'
+            soma_ob['type'] = 'SOMA'
+            soma_ob['navis_object'] = True
+            soma_ob['uuid'] = str(x.uuid)
 
-        soma_ob.active_material = mat
+            soma_ob.active_material = mat
 
-        # Add the object into the scene.
-        bpy.context.scene.objects.link(soma_ob)
+            # Add the object into the scene.
+            bpy.context.scene.collection.objects.link(soma_ob)
 
         return
 
@@ -473,14 +530,14 @@ class Handler:
             # (see below)
             coords = np.dstack([cn_coords, tn_coords])
 
-            ob_name = '%s of %s' % (self.cn_dict[i]['name'], x.skeleton_id)
+            ob_name = f'{self.cn_dict[i]["name"]} of {x.uuid}'
 
             cu = bpy.data.curves.new(ob_name + ' mesh', 'CURVE')
             ob = bpy.data.objects.new(ob_name, cu)
             ob['type'] = 'CONNECTORS'
-            ob['catmaid_object'] = True
+            ob['navis_object'] = True
             ob['cn_type'] = i
-            ob['skeleton_id'] = x.skeleton_id
+            ob['uuid'] = str(x.uuid)
             ob.location = (0, 0, 0)
             ob.show_name = False
             cu.dimensions = '3D'
@@ -489,7 +546,6 @@ class Handler:
             cu.bevel_depth = 0.007
             cu.resolution_u = 0
 
-            #for cn in zip(cn_coords, tn_coords):
             for cn in coords:
                 sp = cu.splines.new('POLY')
 
@@ -499,15 +555,14 @@ class Handler:
                 # Move points
                 sp.points.foreach_set('co', cn.T.ravel())
 
-            mat_name = '%s of #%s' % (
-                self.cn_dict[i]['name'], str(x.skeleton_id))
+            mat_name = f'{self.cn_dict[i]["name"]} of #{str(x.uuid)}'
 
             mat = bpy.data.materials.get(mat_name,
                                          bpy.data.materials.new(mat_name))
             mat.diffuse_color = self.cn_dict[i]['color']
             ob.active_material = mat
 
-            bpy.context.scene.objects.link(ob)
+            bpy.context.scene.collection.objects.link(ob)
 
         return
 
@@ -537,9 +592,7 @@ class Handler:
         ob = bpy.data.objects.new(mesh_name, me)
 
         scn = bpy.context.scene
-        scn.objects.link(ob)
-        scn.objects.active = ob
-        ob.select = True
+        scn.collection.objects.link(ob)
 
         me.from_pydata(list(blender_verts), [], list(volume.faces))
         me.update()
@@ -551,7 +604,7 @@ class Handler:
 
         Parameters
         ----------
-        x :     list of skeleton IDs | CatmaidNeuron/List | pd Dataframe
+        x :     list of skeleton IDs | TreeNeuron/List | pd Dataframe
 
         Returns
         -------
@@ -577,8 +630,8 @@ class Handler:
 
         for ob in bpy.data.objects:
             ob.select = False
-            if 'skeleton_id' in ob:
-                if ob['skeleton_id'] in skids:
+            if 'uuid' in ob:
+                if ob['uuid'] in skids:
                     ob.select = True
                     names.append(ob.name)
         return ObjectList(names, handler=self)
@@ -678,7 +731,7 @@ class ObjectList:
     postsynapses :  returns list containing all postsynapses
     gapjunctions :  returns list containing all gap junctions
     abutting :      returns list containing all abutting connectors
-    skeleton_id :   returns list of skeleton IDs
+    uuid :          returns list of UUID
 
     Examples
     --------
@@ -716,8 +769,8 @@ class ObjectList:
             return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 2])
         elif key == 'abutting':
             return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 3])
-        elif key in ['skeleton_id', 'skeleton_ids', 'skeletonid', 'skeletonids', 'skid', 'skids']:
-            return [bpy.data.objects[n]['skeleton_id'] for n in self.object_names if n in bpy.data.objects]
+        elif key.lower() in ['uuid', 'uuids', 'id']:
+            return [bpy.data.objects[n]['uuid'] for n in self.object_names if n in bpy.data.objects]
         else:
             raise AttributeError('Unknown attribute ' + key)
 
@@ -845,7 +898,7 @@ class ObjectList:
 
     def to_json(self, fname='selection.json'):
         """ Saves neuron selection as json file which can be loaded
-        in CATMAID selection table.
+        in navis selection table.
 
         Parameters
         ----------
@@ -856,7 +909,7 @@ class ObjectList:
         neuron_objects = [
             n for n in bpy.data.objects if n.name in self.object_names and n['type'] == 'NEURON']
 
-        data = [dict(skeleton_id=int(n['skeleton_id']),
+        data = [dict(uuid=int(n['uuid']),
                      color="#{:02x}{:02x}{:02x}".format(int(255 * n.active_material.diffuse_color[0]),
                                                         int(255 *
                                                             n.active_material.diffuse_color[1]),
@@ -867,7 +920,7 @@ class ObjectList:
         with open(fname, 'w') as outfile:
             json.dump(data, outfile)
 
-        logger.info('Selection saved as %s in %s' % (fname, os.getcwd()))
+        logger.info(f'Selection saved as {fname} in {os.getcwd()}')
         print(f'Selection saved as {fname} in {os.getcwd()}')
 
 
