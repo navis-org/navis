@@ -23,8 +23,6 @@ import sphinx_bootstrap_theme
 import json
 import re
 
-from .tools.nb_to_doc import convert_nb
-
 import matplotlib as mpl
 mpl.use("Agg")
 
@@ -35,6 +33,9 @@ import sys
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('tools'))
+
+from nb_to_doc import convert_nb
 
 #This needs to be removed in order to built locally
 import mock
