@@ -245,12 +245,15 @@ def dotprops2plotly(x, **kwargs):
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
 
+    scale_vect = kwargs.get('dps_scale_vec', 1)
+
     _, colormap, _ = prepare_colormap(colors,
-                                      x, None,
+                                      dotprops=x,
                                       use_neuron_color=kwargs.get('use_neuron_color', False),
                                       color_range=255)
 
-    for i, dp in enumerate(x):
+    trace_data = []
+    for i, dp in enumerate(x.itertuples()):
         # Get Name
         name = getattr(dp, 'name', getattr(dp, 'gene_name', None))
         c = colormap[i]
@@ -298,7 +301,7 @@ def volume2plotly(x, **kwargs):
                                    kwargs.get('colors', None)))
 
     _, _, colormap = prepare_colormap(colors,
-                                      x, None,
+                                      volumes=x,
                                       use_neuron_color=kwargs.get('use_neuron_color', False),
                                       color_range=255)
 
