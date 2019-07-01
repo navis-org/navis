@@ -315,8 +315,8 @@ class NeuronList:
 
         # Make sure we unpack neurons
         subset = utils.unpack_neurons(subset)
-        # Make sure each neuron shows up only once
-        subset = list(set(subset))
+        # Make sure each neuron shows up only once but keep original order
+        subset = sorted(set(subset), key=lambda x: subset.index(x))
 
         if not subset:
             # This will call __missing__
