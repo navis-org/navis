@@ -331,23 +331,29 @@ def volume2plotly(x, **kwargs):
 
 def layout2plotly(**kwargs):
     """ Generate layout for plotly figures."""
-    layout = dict(width=kwargs.get('width', 1000),
+    layout = dict(width=kwargs.get('width', 1200),
                   height=kwargs.get('height', 600),
                   autosize=kwargs.get('fig_autosize', False),
                   title=kwargs.get('pl_title', None),
                   scene=dict(xaxis=dict(gridcolor='rgb(255, 255, 255)',
                                         zerolinecolor='rgb(255, 255, 255)',
-                                        showbackground=True,
+                                        showbackground=False,
+                                        showline=False,
+                                        showgrid=False,
                                         backgroundcolor='rgb(240, 240, 240)'
                                         ),
                              yaxis=dict(gridcolor='rgb(255, 255, 255)',
                                         zerolinecolor='rgb(255, 255, 255)',
-                                        showbackground=True,
+                                        showbackground=False,
+                                        showline=False,
+                                        showgrid=False,
                                         backgroundcolor='rgb(240, 240, 240)'
                                         ),
                              zaxis=dict(gridcolor='rgb(255, 255, 255)',
                                         zerolinecolor='rgb(255, 255, 255)',
-                                        showbackground=True,
+                                        showbackground=False,
+                                        showline=False,
+                                        showgrid=False,
                                         backgroundcolor='rgb(240, 240, 240)'
                                         ),
                              camera=dict(up=dict(x=0,
