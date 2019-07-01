@@ -1037,3 +1037,38 @@ class TreeNeuron:
         """
 
         return io.to_swc(self, filename, **kwargs)  # type: ignore  # double import of "io"
+
+
+    def reload(self,
+               inplace: bool = False,
+               ) -> Optional['TreeNeuron']:
+        """Reload neuron - must have filename + path as ``.file`` as attribute.
+
+        Returns
+        -------
+        TreeNeuron
+                If ``inplace=False``.
+        """
+
+        file = getattr(self, 'file', None)
+        if not file:
+            raise AttributeError('To reload TreeNeuron must have .file attribute')
+
+        kwargs = {}
+        if getattr(self, 'soma_label'):
+            kwargs['soma_label'] = self.soma_label
+        if getattr(self, 'connector_labels'):
+            kwargs['connector_labels'] = self.connector_labels
+
+        x = io.from_swc(file, **kwargs)
+
+        if inplace:
+            self.__dict__.update(x.__dict__)
+            self._clear_temp_attr()
+        else:
+            # This makes sure that we keep any additional data stored after
+            # this neuron has been loaded
+            x2 = self.copy()
+            x2.__dict__.update(x.__dict__)
+            x2._clear_temp_attr()
+            return x
