@@ -137,7 +137,7 @@ def plot1d(x: 'core.NeuronObject',
     ax.set_ylim(0, len(x))
 
     ax.set_yticks(np.array(range(0, len(x))) + .5)
-    ax.set_yticklabels(x.uuid)
+    ax.set_yticklabels(x.name)
 
     ax.set_xlabel('distance [um]')
 
