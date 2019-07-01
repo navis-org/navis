@@ -233,7 +233,7 @@ def plot2d(x: Union[core.NeuronObject,
 
     plot_soma = kwargs.get('soma', True)
 
-    connectors = kwargs.get('connectors', True)
+    connectors = kwargs.get('connectors', False)
     connectors_only = kwargs.get('connectors_only', False)
     cn_mesh_colors = kwargs.get('cn_mesh_colors', False)
     use_neuron_color = kwargs.get('use_neuron_color', False)
