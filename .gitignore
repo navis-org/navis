@@ -9,6 +9,11 @@ __pycache__/
 # Test config
 /navis/tests/config_test.py
 
+# Ignore generated RST files in docs
+/docs/source/tutorials/*.rst
+/docs/source/tutorials/*_files
+
+
 # Coverage
 /navis/tests/htmlcov
 

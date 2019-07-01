@@ -17,6 +17,8 @@ on Github.
      -  1. Download and extract the PyOctree Github `repository <https://github.com/mhogg/pyoctree>`_.
         2. Open ``setup.py`` and set ``BUILD_ARGS['mingw32'] = [ ]`` and ``LINK_ARGS['unix'] = [ ]``
         3. Open a terminal, navigate to the directory containing ``setup.py`` and run ``python setup.py install`` (if your default Python is 2.7, use ``python3``)
+   * - Installing PyOctree for Blender fails with "Python.h" not found.
+     - Manually download and copy required files into Blender's Python directory. Follow the instructions `here <https://blender.stackexchange.com/questions/81740/python-h-missing-in-blender-python>`_.
    * - **Fetching data**
      -
    * - Fetching any data throws an exception ``<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate very failed>``.

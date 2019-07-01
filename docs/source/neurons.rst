@@ -11,143 +11,64 @@ Single neurons and lists of neurons are represented in ``navis`` by:
  	~navis.TreeNeuron
  	~navis.NeuronList
 
-They can be minimally initialized with just skeleton IDs. So you can do
-something like this::
+Navis comes with a couple example neurons from the FAFB project published
+in `Zheng et al <http://www.cell.com/cell/retrieve/pii/S0092867418307876?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS0092867418307876%3Fshowall%3Dtrue>`_
+, Cell (2018)::
 
-	>>> n = navis.TreeNeuron(16)
+	>>> n = navis.example_neurons(1)
 	>>> n
-	type              <class 'navis.core.TreeNeuron'>
-	neuron_name                                        NA
-	skeleton_id                                        16
-	n_nodes                                            NA
-	n_connectors                                       NA
-	n_branch_nodes                                     NA
-	n_end_nodes                                        NA
-	n_open_ends                                        NA
-	cable_length                                       NA
-	review_status                                      NA
-	soma                                               NA
+	type              TreeNeuron
+	name            neuron_38885
+	n_nodes                 6365
+	n_connectors               0
+	n_branches               235
+	n_leafs                  243
+	cable_length     1.21335e+06
+	soma                  [3490]
 	dtype: object
 
+:class:`~navis.TreeNeuron` stores nodes and other data as attached DataFrames:
 
-This gives you an **empty** neuron (note ``NA`` entries) which you can
-use to retrieve more data. Ordinarily, however, you would get neurons from
-functions like :func:`~navis.get_neuron` that already contain some data::
-
-	>>> n = navis.get_neuron(16)
-	>>> n
-	type              <class 'navis.core.TreeNeuron'>
-	neuron_name                  PN glomerulus VA6 017 DB
-	skeleton_id                                        16
-	n_nodes                                         12743
-	n_connectors                                     2028
-	n_branch_nodes                                    774
-	n_end_nodes                                       823
-	n_open_ends                                       280
-	cable_length                                  2866.11
-	review_status                                      NA
-	soma                                          2941309
-
-:func:`navis.get_neuron` returned a :class:`~navis.TreeNeuron` with name,
-nodes, connectors and tags::
-
-	>>> n.nodes
-	   treenode_id parent_id  creator_id       x       y       z  radius  \
-	0     17909304  26337791         123  355710  153742  152440      -1
-	1     26337791  26337787         117  355738  153802  152400      -1
-	2     26337787   3148134         117  355790  153922  152320      -1
-	3      6532788  25728462          94  349025  160905  154160      -1
-	4     25728462   6532787         117  349059  160783  154360      -1
-
-	   confidence  type
-	0           5   end
-	1           5  slab
-	2           5  slab
-	3           5  slab
-	4           5  slab
+	>>> n.nodes.head()
+	   node_id label         x         y         z  radius  parent_id  type
+	0        1     0  489192.0  186290.0  138040.0     0.0         -1  root
+	1        2     0  489233.0  186198.0  138080.0     0.0          1  slab
+	2        3     0  489235.0  186174.0  138120.0     0.0          2  slab
+	3        4     0  489229.0  186200.0  138160.0     0.0          3  slab
+	4        5     0  489251.0  186141.0  138200.0     0.0          4  slab
 
 
-Missing data, e.g. the review status or annotations, are either fetched and
-stored automatically upon first accessing the respective attributes (see also
-list below)::
 
-	>>> n.annotations
-	['test_cremi_c',
-	 'WTPN2017_AL_PN',
-	 ...
-	 'right',
- 	 'right excitatory']
+List of neurons are represented as :class:`~navis.NeuronList`::
 
-Or by calling the respective function explicitly. This serves also to update
-data from the server::
-
-	>>> n.get_annotations()
-	['test_cremi_c',
-	 'WTPN2017_AL_PN',
-	 ...
-	 'right',
- 	 'glomerulus DA1 right excitatory']
-
-
-Functions such as :func:`~navis.get_neuron` return multiple neurons as
-:class:`~navis.NeuronList`::
-
-	>>> nl = navis.get_neuron([16, 27295])
+	>>> nl = navis.example_neurons(2)
 	>>> nl
-	<class 'navis.core.NeuronList'> of 2 neurons
-                 	  neuron_name skeleton_id  n_nodes  n_connectors  \
-	0    PN glomerulus VA6 017 DB          16    12743          2028
-	1  PN glomerulus DA1 27296 BH       27295     9973           469
-
-	   n_branch_nodes  n_end_nodes  open_ends  cable_length review_status  soma
-	0             774          823        280   2866.105439            NA  True
-	1             212          219         58   1591.519821            NA  True
+	<class 'navis.core.neuronlist.NeuronList'> of 2 neurons
+	          type  n_nodes  n_connectors  n_branches  n_leafs  cable_length    soma
+	0  TreeNeuron     6365             0         235      243  1.213347e+06  [3490]
+	1  TreeNeuron     8187             0         305      322  1.447682e+06  [3604]
 
 A :class:`~navis.NeuronList` works similar to normal lists with a few
 additional perks::
 
 	>>> nl[0]
-	type              <class 'navis.core.TreeNeuron'>
-	neuron_name                  PN glomerulus VA6 017 DB
-	skeleton_id                                        16
-	n_nodes                                         12743
-	n_connectors                                     2028
-	n_branch_nodes                                    774
-	n_end_nodes                                       823
-	n_open_ends                                       280
-	cable_length                                  2866.11
-	review_status                                      NA
-	soma                                          2941309
-
-	>>> nl.skid[27295]
-	type              <class 'navis.core.TreeNeuron'>
-	neuron_name                  PN glomerulus VA6 017 DB
-	skeleton_id                                        16
-	n_nodes                                         12743
-	n_connectors                                     2028
-	n_branch_nodes                                    774
-	n_end_nodes                                       823
-	n_open_ends                                       280
-	cable_length                                  2866.11
-	review_status                                      NA
-	soma                                          2941309
-
-	>>> nl.has_annotations('glomerulus VA6')
-	<class 'navis.core.NeuronList'> of 1 neurons
-                 	  neuron_name skeleton_id  n_nodes  n_connectors  \
-	0    PN glomerulus VA6 017 DB          16    12743          2028
-
-	   n_branch_nodes  n_end_nodes  open_ends  cable_length review_status  soma
-	0             774          823        280   2866.105439            NA  True
-
+	type              TreeNeuron
+	name            neuron_38885
+	n_nodes                 6365
+	n_connectors               0
+	n_branches               235
+	n_leafs                  243
+	cable_length     1.21335e+06
+	soma                  [3490]
+	dtype: object
 
 They allow easy and fast access to data across all neurons::
 
-	>>> nl.skeleton_id
-	array(['16', '27295'], dtype='<U5')
+	>>> nl.n_nodes
+	array([6365, 8187])
 
 	>>> nl.cable_length
-	array([2866.10543944, 1591.51982146])
+	array([1213347.43506801, 1447681.63642537])
 
 
 In addition to these **attributes**, both :class:`~navis.TreeNeuron` and
@@ -165,13 +86,14 @@ other navis functions. These lines of code are equivalent::
 
 The ``inplace`` parameter is part of many navis functions and works like that
 in the excellent pandas library. If ``inplace=True`` operations are performed
-on the original. Ff ``inplace=False`` operations are performed on a copy of the
+on the original. If ``inplace=False`` operations are performed on a copy of the
 original which is then returned::
 
-	>>> n = navis.get_neuron(16)
-	>>> n_lh = n.prune_by_volume('LH_R', inplace=False)
+	>>> n = navis.example_neurons(1)
+	>>> lh = navis.example_volume('LH')
+	>>> n_lh = n.prune_by_volume(lh, inplace=False)
 	>>> n.n_nodes, n_lh.n_nodes
-	(12743, 3564)
+	(6365, 1299)
 
 Please see other sections and the docstrings of
 :class:`~navis.TreeNeuron` and :class:`~navis.NeuronList` for
@@ -183,20 +105,12 @@ Neuron attributes
 This is a *selection* of :class:`~navis.TreeNeuron` and
 :class:`~navis.NeuronList` class attributes:
 
-- ``skeleton_id``: neurons' skeleton ID(s)
-- ``neuron_name``: neurons' name(s)
-- ``nodes``: treenode table
-- ``connectors``: connector table
-- ``presynapses``: connector table for presynapses only
-- ``postsynapses``: connector table for postsynapses only
-- ``gap_junctions``: connector table for gap junctions only
-- ``partners``: connectivity table
-- ``tags``: node tags (dict)
-- ``annotations``: list of neurons' annotations
-- ``cable_length``: cable length(s) in nm
-- ``review_status``: review status of neuron(s)
-- ``soma``: treenode ID of soma (if applicable)
-- ``root``: root treenode ID
+- ``uuid``: a unique identified
+- ``nodes``: node table
+- ``connectors``: connector table (optional)
+- ``cable_length``: cable length(s)
+- ``soma``: node ID(s) of soma (if applicable)
+- ``root``: root node ID(s)
 - ``segments``: list of linear segments
 - ``graph``: NetworkX graph representation of the neuron
 - ``igraph``: iGraph representation of the neuron (if library available)

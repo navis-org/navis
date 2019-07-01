@@ -23,6 +23,8 @@ import sphinx_bootstrap_theme
 import json
 import re
 
+from tools.nb_to_doc import convert_nb
+
 import matplotlib as mpl
 mpl.use("Agg")
 
@@ -37,14 +39,14 @@ sys.path.insert(0, os.path.abspath('../..'))
 #This needs to be removed in order to built locally
 import mock
 MOCK_MODULES = ['sklearn', 'igraph', 'tqdm', 'pyoctree',
-                'png', 'mathutils', 'imageio',
+                'png', 'imageio',
 
                 #'numpy',
                 #'pandas',
 
                 'PyQt5', 'pyqt5',
 
-                'bpy', 'bmesh',
+                'bpy', 'bmesh', 'mathutils',
 
                 'scipy.sparse', 'scipy.cluster', 'scipy.spatial.ConvexHull',
                 'scipy.cluster.hierarchy', 'scipy.interpolate',
@@ -85,31 +87,41 @@ MOCK_MODULES = ['sklearn', 'igraph', 'tqdm', 'pyoctree',
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
-import navis
-from navis.interfaces import cytoscape
-from navis.interfaces import blender
-from navis.interfaces import r
+# import navis
+# from navis.interfaces import cytoscape
+# import navis.interfaces.blender
+# from navis.interfaces import r
 
 
 # -- Make execution numbers in Jupyter notebooks ascending -------------------
 source_path = os.path.dirname(os.path.abspath(__file__)) + '/source'
-all_nb = [f for f in os.listdir(source_path) if f.endswith('.ipynb')]
+all_nb = list()
+for (dirpath, dirnames, filenames) in os.walk(source_path):
+    # Skip checkpoints
+    if 'checkpoint' in dirpath:
+        continue
+    all_nb += [os.path.join(dirpath, file) for file in filenames if file.endswith('.ipynb')]
 
 for nb in all_nb:
-    with open(os.path.join(source_path, nb), 'r') as f:
+    convert_nb(nb)
+
+"""
+for nb in all_nb:
+    with open(nb, 'r') as f:
         data = json.load(f)
         i = 1
         for c in data['cells']:
             if c['cell_type'] == 'code':
                 if 'execution_count' in c:
-                    c['execution_count'] = i
+                    c['execution_count'] = None
                 for o in c['outputs']:
                     if 'execution_count' in o:
-                        o['execution_count'] = i
+                        o['execution_count'] = None
                 i += 1
 
-    with open(os.path.join(source_path, nb), 'w') as f:
+    with open(nb, 'w') as f:
         json.dump(data, f, indent=3)
+"""
 
 # -- General configuration ------------------------------------------------
 
@@ -121,7 +133,7 @@ for nb in all_nb:
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'nbsphinx',
+    #'nbsphinx',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     #'sphinx.ext.viewcode',
@@ -129,6 +141,7 @@ extensions = [
     #'sphinx.ext.mathjax', # mathjax is interactive and configurable but can also misbehave when rendering - switched to imgmath instead
     'sphinx.ext.imgmath',
     'matplotlib.sphinxext.plot_directive',
+    'sphinx_autodoc_typehints',
     #'numpydoc'
 ]
 
@@ -141,6 +154,12 @@ plot_html_show_source_link = False
 # generate autosummary pages
 autosummary_generate = True
 autoclass_content = 'both'
+
+# Typehint autodoc options
+set_type_checking_flag = False
+
+# Other autodoc options
+autodoc_mock_imports = MOCK_MODULES
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -252,14 +271,12 @@ html_theme_options = {
     'bootswatch_theme': "paper",
     'navbar_sidebarrel': False,
     'bootstrap_version': "3",
-    'navbar_links': [
-                     ("Install", "source/install"),
-                     ("Tutorial", "source/intro"),
-                     ("Examples", "source/example_gallery"),
+    'navbar_links': [("Install", "source/install"),
+                     ("Quickstart", "source/tutorials/quickstart"),
+                     ("Tutorials", "source/gallery"),
                      ("API", "source/api"),
                      ],
-
-    }
+                     }
 
 # Add any paths that contain custom themes here, relative to this directory.
 html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()

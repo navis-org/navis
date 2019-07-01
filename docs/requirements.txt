@@ -1,5 +1,7 @@
 ###### Requirements without Version Specifiers ######
 ipykernel==5.1.0
 nbsphinx==0.4.2
+nbconvert
 numpydoc==0.9.1
 sphinx_bootstrap_theme==0.7.1
+sphinx-autodoc-typehints

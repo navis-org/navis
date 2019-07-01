@@ -206,7 +206,7 @@ Optional
     pip3 install rpy2
 
 `Shapely <https://shapely.readthedocs.io/en/latest/>`_
-  This is used to get 2D outlines of CATMAID volumes.
+  This is used to get 2D outlines of navis.Volumes.
 
   ::
 
@@ -217,7 +217,7 @@ Advanced users: more speed with iGraph
 --------------------------------------
 
 By default navis uses the `NetworkX <https://networkx.github.io>`_ graph
-library for most of the computationally expensive function. NetworkX is
+library for most of the computationally expensive functions. NetworkX is
 written in pure Python, well maintained and easy to install.
 
 If you need that extra bit of speed, consider manually installing
