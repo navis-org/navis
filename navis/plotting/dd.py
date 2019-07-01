@@ -329,7 +329,7 @@ def plot2d(x: Union[core.NeuronObject,
                                           lw=0,
                                           fill=True,
                                           fc=c,
-                                          alpha=1)
+                                          alpha=c[3] if len(c) == 4 else 1)
                 ax.add_patch(vpatch)
             elif method in ['3d', '3d_complex']:
                 verts = np.vstack(v.vertices)
