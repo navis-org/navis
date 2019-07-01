@@ -181,7 +181,10 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
                                         os.path.basename(f).replace('.swc', '')),
                         filename=os.path.basename(f),
                         pathname=os.path.dirname(f),
+                        file=f,
                         header=header,
+                        soma_label=soma_label,
+                        connector_labels=connector_labels,
                         created_at=str(datetime.datetime.now()),
                         **kwargs)
 
