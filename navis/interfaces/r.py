@@ -40,9 +40,12 @@ from rpy2.robjects import pandas2ri, numpy2ri
 from .. import cluster as pyclust
 from .. import core, plotting, config, utils
 
-cl = robjects.r('class')
-names = robjects.r('names')
-attributes = robjects.r('attributes')
+try:
+    cl = robjects.r('class')
+    names = robjects.r('names')
+    attributes = robjects.r('attributes')
+except BaseException:
+    pass
 
 # Set up logging
 logger = config.logger
@@ -221,7 +224,7 @@ def data2py(data, **kwargs):
         else:
             return {n: float(data[i]) for i, n in enumerate(names(data))}
     elif cl(data)[0] == 'data.frame':
-        return pandas2ri.rpy2py(data)
+        return pandas2ri.ri2py(data)
     elif cl(data)[0] == 'matrix':
         mat = np.array(data)
         df = pd.DataFrame(data=mat)
@@ -295,6 +298,10 @@ def neuron2py(x,
         nl = nl.applymap(data2py)
     else:
         raise TypeError(f'Must be neuron or neuronlist, got "{cl(x)[0]}"')
+
+    # Raise Error if this is a dotprops:
+    if all([c in nl.columns for c in ['points', 'alpha', 'vect']]):
+        raise TypeError('This looks to be dotprops. Try using dotprops2py instead.')
 
     add_attributes = utils.make_iterable(add_attributes)
 
@@ -432,7 +439,7 @@ def dotprops2py(dp,
     -------
     core.Dotprops
         Subclass of pandas DataFrame. Contains dotprops.
-        Can be passed to `plotting.plot3d( dotprops )`
+        Can be passed to `plotting.plot3d(dotprops)`
     """
 
     # Check if list is on demand
@@ -482,7 +489,7 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
                         not strictly necessary but highly recommended.
     resample :          int | bool, optional
                         Resampling factor. This makes sure that the neurons
-                        are evenly sampled.
+                        are evenly sampled. Applied after micron conversion!
     normalize :         bool, optional
                         If True, matrix is normalized using z-score.
     n_cores :           int, optional
@@ -650,8 +657,8 @@ def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores de
 
     if db is None:
         if not os.path.isfile(datadir + '/dpscanon.rds'):
-            raise ValueError('Unable to find default DPS database dpscanon.rds'
-                             ' in flycircuit.datadir. Please provide database '
+            raise ValueError('Unable to find default DPS database dpscanon.rds '
+                             'in flycircuit.datadir. Please provide database '
                              'using db parameter.')
         logger.info('DPS database not explicitly provided. Loading local '
                     'FlyCircuit DB from dpscanon.rds')
@@ -765,11 +772,17 @@ def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores de
 
     logger.info(f'Blasting done in {time.time() - start_time:.1f} seconds')
 
-    return NBLASTresults(df, sc, scr, rn, xdp, dps, {'mirror': mirror,
-                                                     'reference': reference,
-                                                     'UseAlpha': UseAlpha,
-                                                     'normalised': normalised,
-                                                     'reverse': reverse})
+    return NBLASTresults(results=df,
+                         sc=sc,
+                         scr=scr,
+                         neuron=rn,
+                         xdp=xdp,
+                         dps_db=dps,
+                         nblast_param={'mirror': mirror,
+                                       'reference': reference,
+                                       'UseAlpha': UseAlpha,
+                                       'normalised': normalised,
+                                       'reverse': reverse})
 
 
 class NBLASTresults:
@@ -880,8 +893,8 @@ class NBLASTresults:
         if plot_brain:
             ref_brain = robjects.r(self.param['reference'][8][0] + '.surf')
 
-            verts = data2py(ref_brain[0])[['X', 'Y', 'Z']].as_matrix().tolist()
-            faces = data2py(ref_brain[1][0]).as_matrix()
+            verts = data2py(ref_brain[0])[['X', 'Y', 'Z']].values.tolist()
+            faces = data2py(ref_brain[1][0]).values
             faces -= 1  # reduce indices by 1
             faces = faces.tolist()
 
