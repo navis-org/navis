@@ -595,6 +595,8 @@ class ClustResults:
 
     _PERM_MAT_TYPES = ['similarity', 'distance']
 
+    neurons: Optional['NeuronList']
+
     def __init__(self,
                  mat: Union[np.ndarray, pd.DataFrame],
                  labels: Optional[List[str]] = None,
@@ -880,7 +882,7 @@ class ClustResults:
         D = self.dist_mat.copy()
 
         if isinstance(D, pd.DataFrame):
-            D = D.as_matrix()
+            D = D.values
 
         D = D[idx1, :]
         D = D[:, idx2]
