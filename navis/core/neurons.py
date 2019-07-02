@@ -102,6 +102,11 @@ class TreeNeuron:
     EQ_ATTRIBUTES = ['n_nodes', 'n_connectors', 'soma', 'root',
                      'n_branches', 'n_leafs', 'cable_length', 'name']
 
+    # Temporary attributes that need to be removed on change:
+    TEMP_ATTR = ['igraph', 'graph', 'segments', 'small_segments',
+                 'nodes_geodesic_distance_matrix', 'dps',
+                 'centrality_method', '_simple']
+
     def __init__(self,
                  x: Union[pd.DataFrame,
                           BufferedIOBase,
@@ -134,8 +139,8 @@ class TreeNeuron:
         elif isinstance(x, TreeNeuron):
             self.__dict__.update(x.copy().__dict__)
         else:
-            raise TypeError('Unable to construct TreeNeuron from data '
-                            'type %s' % str(type(x)))
+            raise TypeError(f'Unable to construct TreeNeuron from "{type(x)}"')
+
 
         for k, v in metadata.items():
             setattr(self, k, v)
@@ -408,10 +413,8 @@ class TreeNeuron:
 
     def _clear_temp_attr(self, exclude: list = []) -> None:
         """Clear temporary attributes."""
-        temp_att = ['igraph', 'graph', 'segments', 'small_segments',
-                    'nodes_geodesic_distance_matrix', 'dps',
-                    'centrality_method', '_simple']
-        for a in [at for at in temp_att if at not in exclude]:
+
+        for a in [at for at in self.TEMP_ATTR if at not in exclude]:
             try:
                 delattr(self, a)
                 logger.debug(f'Neuron {id(self)}: {a} cleared')
@@ -420,11 +423,6 @@ class TreeNeuron:
                 pass
 
         temp_node_cols = ['flow_centrality', 'strahler_index']
-
-        # Remove type only if we do not classify -> this speeds up things
-        # b/c we don't have to recreate the column, just change the values
-        # if 'classify_nodes' in exclude:
-        #    temp_node_cols.append('type')
 
         # Remove temporary node values
         self.nodes = self.nodes[[
