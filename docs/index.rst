@@ -41,8 +41,8 @@ If you have any questions, please contact me: pms70@cam.ac.uk
 
    source/whats_new
    source/install
-   source/intro.ipynb
-   examples/examples_index
+   tutorials/quickstart
+   source/gallery
    source/troubleshooting
    source/api
 
