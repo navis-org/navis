@@ -18,7 +18,7 @@ TreeNeuron/List
     ~navis.NeuronList
 
 TreeNeuron/List methods
---------------------------
+-----------------------
 
 .. autosummary::
     :toctree: generated/
@@ -39,10 +39,11 @@ TreeNeuron/List methods
     ~navis.TreeNeuron.summary
 
 NeuronList-specific
---------------------------
+-------------------
 .. autosummary::
     :toctree: generated/
 
+    navis.NeuronList.apply
     navis.NeuronList.head
     navis.NeuronList.itertuples
     navis.NeuronList.mean

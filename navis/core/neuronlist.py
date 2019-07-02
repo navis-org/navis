@@ -294,6 +294,41 @@ class NeuronList:
                 # a progress bar and use multiprocessing (if applicable)
                 return NeuronProcessor(self, values, key)
 
+    def apply(self, func, **kwargs):
+        """Apply function across all neurons in this NeuronList.
+
+        This will use multiprocessing if ``.use_parallel=True``
+
+        Parameters
+        ----------
+        func :      callable
+                    Function to be applied. Must accept :class:`~navis.TreeNeuron`
+                    as first argument.
+        **kwargs
+                    Will be passed to function.
+
+        Returns
+        -------
+        Results
+
+        Examples
+        --------
+        >>> import navis
+        >>> nl = navis.example_neurons()
+        >>> # Activate multiprocessing
+        >>> nl.use_parallel = True
+        >>> # Apply resampling function
+        >>> nl_rs = nl.apply(navis.resample_neuron, resample_to=1000, inplace=False)
+        """
+        if not callable(func):
+            raise TypeError('"func" must be callable')
+
+        proc = NeuronProcessor(self,
+                               func,
+                               desc='Processing')
+
+        return proc(self.neurons, **kwargs)
+
     def __contains__(self, x):
         return x in self.neurons
 
@@ -560,8 +595,12 @@ class NeuronProcessor:
         self.funcs = funcs
         self.desc = None
 
+        # Copy function for each neuron in neuronlist
+        if not utils.is_iterable(self.funcs):
+            self.funcs = [self.funcs] * len(nl)
+
         # This makes sure that help and name match the functions being called
-        functools.update_wrapper(self, funcs[0])
+        functools.update_wrapper(self, self.funcs[0])
 
     def __call__(self, *args, **kwargs):
         # We will check for each argument if it matches the number of
