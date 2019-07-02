@@ -299,10 +299,10 @@ def neuron2vispy(x, **kwargs):
             soma = utils.make_iterable(neuron.soma)
             if any(soma):
                 for s in soma:
-                    node = neuron.nodes.set_index('node_id').loc[s]
-                    radius = node.radius
-                    sp = create_sphere(7, 7, radius=radius)
-                    verts = sp.get_vertices() + node[['x', 'y', 'z']].values
+                    n = neuron.nodes.set_index('node_id').loc[s]
+                    r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius                    
+                    sp = create_sphere(7, 7, radius=r)
+                    verts = sp.get_vertices() + n[['x', 'y', 'z']].values
                     s = scene.visuals.Mesh(vertices=verts,
                                            shading='smooth',
                                            faces=sp.get_faces(),
@@ -616,4 +616,3 @@ def combine_visuals(visuals):
             combined += by_type[ty]
 
     return combined
-

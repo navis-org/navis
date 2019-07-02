@@ -67,11 +67,15 @@ class TreeNeuron:
     """ Object representing neurons as hierarchical trees.
     """
 
-    # Minimum radius for soma detection - set to None if no tag needed
+    #: Minimum radius for soma detection. Set to ``None`` if no tag needed.
+    #: Default = .5
     soma_detection_radius: Union[float, int] = .5
-    # Label for soma detection - set to None if no tag needed
+    #: Label for soma detection. Set to ``None`` if no tag needed. Default = 1.
     soma_detection_label: Union[float, int, str] = 1
-    # Set default function for soma finding
+    #: Soma radius (e.g. for plotting). If string, must be column in nodes
+    #: table. Default = 'radius'.
+    soma_radius: Union[float, int, str] = 'radius'
+    # Set default function for soma finding. Default = :func:`navis.morpho.find_soma`
     _soma: Union[Callable[['TreeNeuron'], Sequence[int]],
                  int] = morpho.find_soma
 

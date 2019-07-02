@@ -110,15 +110,16 @@ def neuron2plotly(x, **kwargs):
             if not isinstance(neuron.soma, type(None)):
                 for s in neuron.soma:
                     n = neuron.nodes.set_index('node_id').loc[s]
+                    r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
                     try:
                         c = 'rgb{}'.format(color)
                     except BaseException:
                         c = 'rgb(10,10,10)'
                     trace_data.append(go.Mesh3d(
-                        x=[(v[0] * n.radius) + n.x for v in fib_points],
+                        x=[(v[0] * r) + n.x for v in fib_points],
                         # y and z are switched
-                        y=[(v[1] * n.radius) + n.y for v in fib_points],
-                        z=[(v[2] * n.radius) + n.z for v in fib_points],
+                        y=[(v[1] * r) + n.y for v in fib_points],
+                        z=[(v[2] * r) + n.z for v in fib_points],
 
                         alphahull=.5,
                         color=c,

@@ -402,11 +402,12 @@ def plot2d(x: Union[core.NeuronObject,
                     soma = utils.make_iterable(neuron.soma)
                     for s in soma:
                         n = neuron.nodes.set_index('node_id').loc[s]
+                        r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
 
                         if depth_coloring:
                             this_color = mpl.cm.jet(norm(n.z))
 
-                        s = mpatches.Circle((int(n.x), int(-n.y)), radius=n.radius,
+                        s = mpatches.Circle((int(n.x), int(-n.y)), radius=r,
                                             alpha=alpha, fill=True, fc=this_color,
                                             zorder=4, edgecolor='none')
                         ax.add_patch(s)
@@ -458,12 +459,14 @@ def plot2d(x: Union[core.NeuronObject,
                     soma = utils.make_iterable(neuron.soma)
                     for s in soma:
                         n = neuron.nodes.set_index('node_id').loc[s]
+                        r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
+
                         resolution = 20
                         u = np.linspace(0, 2 * np.pi, resolution)
                         v = np.linspace(0, np.pi, resolution)
-                        x = n.radius * np.outer(np.cos(u), np.sin(v)) + n.x
-                        y = n.radius * np.outer(np.sin(u), np.sin(v)) - n.y
-                        z = n.radius * np.outer(np.ones(np.size(u)), np.cos(v)) + n.z
+                        x = r * np.outer(np.cos(u), np.sin(v)) + n.x
+                        y = r * np.outer(np.sin(u), np.sin(v)) - n.y
+                        z = r * np.outer(np.ones(np.size(u)), np.cos(v)) + n.z
                         surf = ax.plot_surface(
                             x, z, y, color=this_color, shade=False, alpha=alpha)
                         if group_neurons:
@@ -525,11 +528,6 @@ def plot2d(x: Union[core.NeuronObject,
                 starts[:, 0], ends[:, 0], [None] * starts.shape[0]) for n in sublist]
             y_coords = [n for sublist in zip(
                 starts[:, 1] * -1, ends[:, 1] * -1, [None] * starts.shape[0]) for n in sublist]
-
-            """
-            z_coords = [n for sublist in zip(
-                starts[:, 2], ends[:, 2], [None] * starts.shape[0]) for n in sublist]
-            """
 
             this_line = mlines.Line2D(x_coords, y_coords,
                                       lw=linewidth, ls=linestyle,
@@ -724,15 +722,17 @@ def plot2d(x: Union[core.NeuronObject,
             # No need for normaliser - already happened
             lc.set_norm(None)
 
-            # Get depth of soma(s)
-            soma_co = neuron.nodes[neuron.nodes.radius > 1][['x', 'z', 'y']].values
-            soma_proj = mpl_toolkits.mplot3d.proj3d.proj_points(soma_co * modifier,
-                                                                ax.get_proj())
-            soma_cs = norm(soma_proj[:, 2]).data
+            if not isinstance(neuron.soma, type(None)):
+                # Get depth of soma(s)
+                soma = utils.make_iterable(neuron.soma)
+                soma_co = neuron.nodes.set_index('node_id').loc[soma][['x', 'z', 'y']].values
+                soma_proj = mpl_toolkits.mplot3d.proj3d.proj_points(soma_co * modifier,
+                                                                    ax.get_proj())
+                soma_cs = norm(soma_proj[:, 2]).data
 
-            # Set soma color
-            for cs, s in zip(soma_cs, surf):
-                s.set_color(cmap(cs))
+                # Set soma color
+                for cs, s in zip(soma_cs, surf):
+                    s.set_color(cmap(cs))
 
     def Update(event):
         set_depth()
