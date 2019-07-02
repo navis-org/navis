@@ -37,34 +37,46 @@ logger = config.logger
 
 
 class NeuronList:
-    """ Compilation of :class:`~navis.core.TreeNeuron` that allow quick
-    access to neurons' attributes/functions. They are designed to work in many
-    ways much like a pandas.DataFrames by, for example, supporting
-    ``.itertuples()``, ``.empty`` or ``.copy()``.
+    """ Compilation of :class:`~navis.TreeNeuron`.
+
+    Gives quick access to neurons' attributes and functions.
+
+    Parameters
+    ----------
+    x :                 list | array | TreeNeuron | NeuronList
+                        Data to construct neuronlist from. Can be either:
+
+                        1. TreeNeuron(s)
+                        2. NeuronList(s)
+                        3. Anything that constructs a TreeNeuron
+                        4. List of the above
+
+    make_copy :         bool, optional
+                        If True, Neurons are deepcopied before being
+                        assigned to the NeuronList.
+    use_parallel :      bool, optional
+                        If True, will use parallel processing for
+                        operations performed across all neuron in this
+                        NeuronList. This is very memory heavy!
 
     Attributes
     ----------
-    nodes :             ``pandas.DataFrame``
-                        Merged node table.
-    connectors :        ``pandas.DataFrame``
-                        Merged connector table. This also works for
-                        `presynapses`, `postsynapses` and `gap_junctions`.
-    graph :             np.array of ``networkx`` graph objects
-    igraph :            np.array of ``igraph`` graph objects
-    review_status :     np.array of int
-    n_connectors :      np.array of int
-    n_branch_nodes :    np.array of int
-    n_end_nodes :       np.array of int
-    cable_length :      np.array of float
-                        Cable lengths in micrometers [um].
-    soma :              np.array of node_ids
-    root :              np.array of node_ids
+
+    use_parallel :      bool (default=False)
+                        If True, will use parallel (multi-)processing when
+                        applying functions across the entire NeuronList.
+                        Neurons have to be copied into separate processes for
+                        this which creates overhead and is memory intensive.
+                        It is therefore suggested only for long-running,
+                        CPU-heavy  operations.
+    use_threading :     bool (default=True)
+                        If True, will use parallel threads when initialising the
+                        NeuronList. Should be slightly up to a lot faster
+                        depending on the numbers of cores. Switch off if you
+                        experience performance issues.
     n_cores :           int
-                        Number of cores to use. Default ``os.cpu_count()-1``.
-    use_threading :    bool (default=True)
-                        If True, will use parallel threads. Should be slightly
-                        up to a lot faster depending on the numbers of cores.
-                        Switch off if you experience performance issues.
+                        Number of cores to use for threading and parallel
+                        processing. Default = ``os.cpu_count()-1``.
 
     """
 
@@ -95,27 +107,6 @@ class NeuronList:
                           pd.DataFrame],
                  make_copy: bool = False,
                  use_parallel: bool = False):
-        """ Initialize NeuronList.
-
-        Parameters
-        ----------
-        x :                 list | array | TreeNeuron | NeuronList
-                            Data to construct neuronlist from. Can be either:
-
-                            1. TreeNeuron(s)
-                            2. NeuronList(s)
-                            3. Anything that constructs a TreeNeuron
-                            4. List of the above
-
-        make_copy :         bool, optional
-                            If True, Neurons are deepcopied before being
-                            assigned to the neuronlist.
-        use_parallel :      bool, optional
-                            If True, will use parallel processing for
-                            operations performed across all neuron in this
-                            neuronlist. This is very memory heavy!
-        """
-
         # Set number of cores
         self.n_cores: int = max(1, os.cpu_count())
 
@@ -460,7 +451,7 @@ class NeuronList:
                           make_copy=self.copy_on_subset)
 
     def plot3d(self, **kwargs):
-        """Plot neuron in 3D.
+        """Plot neuron in 3D using :func:`~navis.plot3d`.
 
         Parameters
         ----------
@@ -479,7 +470,7 @@ class NeuronList:
         return plot3d(self, **kwargs)
 
     def plot2d(self, **kwargs):
-        """Plot neuron in 2D.
+        """Plot neuron in 2D using :func:`~navis.plot2d`.
 
         Parameters
         ----------

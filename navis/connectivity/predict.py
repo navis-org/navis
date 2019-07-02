@@ -50,8 +50,11 @@ def cable_overlap(a: NeuronObject,
                 Maximum distance.
     method :    'min' | 'max' | 'avg'
                 Method by which to calculate the overlapping cable between
-                two cables. Assuming that neurons A and B have 300 and 150
-                um of cable within given distances, respectively:
+                two cables::
+
+                  Assuming that neurons A and B have 300 and 150 um of cable
+                  within given distances:
+
                     1. 'min' returns 150
                     2. 'max' returns 300
                     3. 'avg' returns 225
@@ -70,7 +73,7 @@ def cable_overlap(a: NeuronObject,
 
     See Also
     --------
-    func:`navis.resample_neuron`
+    :func:`navis.resample_neuron`
                 Use to resample neurons before calculating overlap.
 
     Examples

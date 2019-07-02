@@ -101,12 +101,11 @@ class TreeNeuron:
 
     name: str
 
-    # Attributes for __eq__:
-    # make sure to go from simple to computationally expensive
+    #: Attributes to be used when comparing two neurons.
     EQ_ATTRIBUTES = ['n_nodes', 'n_connectors', 'soma', 'root',
                      'n_branches', 'n_leafs', 'cable_length', 'name']
 
-    # Temporary attributes that need to be removed on change:
+    #: Temporary attributes that need to be regenerated when data changes.
     TEMP_ATTR = ['igraph', 'graph', 'segments', 'small_segments',
                  'nodes_geodesic_distance_matrix', 'dps',
                  'centrality_method', '_simple']
@@ -184,6 +183,7 @@ class TreeNeuron:
 
     @property
     def name(self) -> str:
+        """Neuron name."""
         return getattr(self, '_name', None)
 
     @name.setter
@@ -289,10 +289,9 @@ class TreeNeuron:
 
     @property
     def soma(self) -> Optional[Union[str, int]]:
-        """ Search for soma and return node ID(s) of soma or ``None`` if no
-        soma - You can set this ``.soma`` property to either a function that
-        accepts a TreeNeuron as input or a fix value - Default is
-        ``navis.utils.find_soma``.
+        """ Search for soma and return node ID(s) of soma (``None`` if no
+        soma). You can assign either a function that accepts a TreeNeuron
+        as input or a fix value. The default is :func:`navis.utils.find_soma`.
         """
 
         if callable(self._soma):
