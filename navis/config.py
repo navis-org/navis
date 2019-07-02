@@ -51,7 +51,7 @@ except BaseException:
 
 
 def _type_of_script():
-    """ Returns context in which navis is run. """
+    """Returns context in which navis is run. """
     try:
         ipy_str = str(type(get_ipython()))
         if 'zmqshell' in ipy_str:
@@ -63,7 +63,7 @@ def _type_of_script():
 
 
 def is_jupyter():
-    """ Test if navis is run in a Jupyter notebook."""
+    """Test if navis is run in a Jupyter notebook."""
     return _type_of_script() == 'jupyter'
 
 # Here, we import tqdm and determine whether we use classic notebook tbars

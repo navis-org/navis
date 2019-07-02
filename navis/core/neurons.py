@@ -1014,7 +1014,7 @@ class TreeNeuron:
     def to_swc(self,
                filename: Optional[str] = None,
                **kwargs) -> None:
-        """ Generate SWC file from this neuron.
+        """Generate SWC file from this neuron.
 
         Parameters
         ----------

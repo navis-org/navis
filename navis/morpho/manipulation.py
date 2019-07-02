@@ -1188,10 +1188,10 @@ def smooth_neuron(x: NeuronObject,
 
 
 def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
-    """ Break neuron into continuous fragments.
+    """Break neuron into continuous fragments.
 
     Neurons can consists of several disconnected fragments. This function
-    breaks neuron(s) into disconnected components.
+    turn these fragments into separate neurons.
 
     Parameters
     ----------

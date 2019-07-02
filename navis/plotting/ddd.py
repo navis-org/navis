@@ -53,8 +53,10 @@ def plot3d(x: Union[core.NeuronObject,
 
     Uses either `vispy <http://vispy.org>`_ or `plotly <http://plot.ly>`_.
     By default choice depends on context::
+
       terminal: vispy
       Jupyter: plotly
+
     See ``backend`` parameter on how to change default behavior.
 
     Parameters
@@ -115,7 +117,7 @@ def plot3d(x: Union[core.NeuronObject,
     --------
     If ``backend='vispy'``
 
-       Opens a 3D window and returns :class:`navis.Viewer`.
+        Opens a 3D window and returns :class:`navis.Viewer`.
 
     If ``backend='plotly'``
 
