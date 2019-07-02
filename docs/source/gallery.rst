@@ -1,10 +1,10 @@
 .. _example_gallery:
 
-Example gallery
-===============
-These examples are small code snippets meant to illustrate certain navis
-functions. As per usual: have a look at the :ref:`API reference <api>` to
-find out details about a given function.
+Tutorials
+=========
+These tutorials are meant to illustrate certain NAVis functions. As per usual:
+have a look at the :ref:`API reference <api>` to find out details about a given
+function. There you will also find more examples.
 
 .. raw:: html
 

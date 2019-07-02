@@ -23,6 +23,8 @@ TreeNeuron/List methods
 .. autosummary::
     :toctree: generated/
 
+    ~navis.TreeNeuron.downsample
+    ~navis.TreeNeuron.copy
     ~navis.TreeNeuron.plot3d
     ~navis.TreeNeuron.plot2d
     ~navis.TreeNeuron.prune_by_strahler
@@ -31,26 +33,25 @@ TreeNeuron/List methods
     ~navis.TreeNeuron.prune_proximal_to
     ~navis.TreeNeuron.prune_by_longest_neurite
     ~navis.TreeNeuron.prune_twigs
+    ~navis.TreeNeuron.reload
     ~navis.TreeNeuron.reroot
-    ~navis.TreeNeuron.summary
     ~navis.TreeNeuron.resample
-    ~navis.TreeNeuron.downsample
-    ~navis.TreeNeuron.copy
+    ~navis.TreeNeuron.summary
 
 NeuronList-specific
 --------------------------
 .. autosummary::
     :toctree: generated/
 
-    navis.NeuronList.sample
-    navis.NeuronList.remove_duplicates
     navis.NeuronList.head
-    navis.NeuronList.tail
     navis.NeuronList.itertuples
-    navis.NeuronList.summary
     navis.NeuronList.mean
+    navis.NeuronList.remove_duplicates
+    navis.NeuronList.sample
+    navis.NeuronList.summary
     navis.NeuronList.sum
     navis.NeuronList.sort_values
+    navis.NeuronList.tail
 
 
 .. _api_plot:
@@ -97,19 +98,21 @@ Manipulation
 .. autosummary::
     :toctree: generated/
 
+    navis.average_neurons
+    navis.break_fragments
+    navis.despike_neuron
     navis.cut_neuron
-    navis.reroot_neuron
-    navis.stitch_neurons
-    navis.split_axon_dendrite
-    navis.split_into_fragments
+    navis.guess_radius
+    navis.heal_fragmented_neuron
     navis.longest_neurite
     navis.prune_by_strahler
     navis.prune_twigs
+    navis.reroot_neuron
+    navis.split_axon_dendrite
+    navis.split_into_fragments
+    navis.stitch_neurons
     navis.subset_neuron
-    navis.average_neurons
-    navis.despike_neuron
     navis.smooth_neuron
-    navis.guess_radius
     navis.tortuosity
 
 Resampling
@@ -138,9 +141,9 @@ Distances
     :toctree: generated/
 
     navis.cable_overlap
-    navis.geodesic_matrix
     navis.distal_to
     navis.dist_between
+    navis.geodesic_matrix
     navis.segment_length
 
 Intersection
@@ -297,8 +300,6 @@ Not imported at top level! Must be imported explicitly::
 
     navis.interfaces.cytoscape.generate_network
     navis.interfaces.cytoscape.get_client
-    navis.interfaces.cytoscape.watch_network
-
 
 R interface
 +++++++++++
@@ -310,21 +311,24 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.r.init_rcatmaid
     navis.interfaces.r.data2py
+    navis.interfaces.r.dotprops2py
+    navis.interfaces.r.get_neuropil
+    navis.interfaces.r.init_rcatmaid
     navis.interfaces.r.nblast
     navis.interfaces.r.nblast_allbyall
-    navis.interfaces.r.neuron2py
-    navis.interfaces.r.dotprops2py
-    navis.interfaces.r.neuron2r
     navis.interfaces.r.NBLASTresults
-    navis.interfaces.r.get_neuropil
+    navis.interfaces.r.neuron2py
+    navis.interfaces.r.neuron2r
+    navis.interfaces.r.xform_brain
+
 
 Utility
 +++++++
 .. autosummary::
     :toctree: generated/
 
+    navis.health_check
     navis.set_pbars
     navis.set_loggers
     navis.set_default_connector_colors

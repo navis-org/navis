@@ -28,7 +28,7 @@ Alternatively click on the *launch binder* badge above to try out navis hosted b
 This code is under GNU GPL V3
 
 ## TO-DOs:
-Navis is a generalization of [pymaid](https://github.com/schlegelp/pyMaid) and
+NAVis is a generalization of [pymaid](https://github.com/schlegelp/pyMaid) and
 some of the code is still being refactored. Basic functionality is implemented
 but there are still some TO-DOs:
 
