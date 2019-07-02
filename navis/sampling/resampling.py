@@ -250,10 +250,10 @@ def resample_neuron(x: 'core.NeuronObject',
         # 1. Get position of old synapse-bearing treenodes
         old_tn_position = x.nodes.set_index('node_id',
                                             inplace=False).loc[x.connectors.node_id,
-                                                              ['x', 'y', 'z']].values
+                                                               ['x', 'y', 'z']].values
         # 2. Get closest neighbours
-        distances = scipy.spatial.distance.cdist(
-            old_tn_position, new_nodes[['x', 'y', 'z']].values)
+        distances = scipy.spatial.distance.cdist(old_tn_position,
+                                                 new_nodes[['x', 'y', 'z']].values)
         min_ix = np.argmin(distances, axis=1)
         # 3. Map back onto neuron
         x.connectors['node_id'] = new_nodes.iloc[min_ix].node_id.values
