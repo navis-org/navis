@@ -10,7 +10,6 @@ install:
   - pip install pyoctree # additional requirement for fast intersections
   - pip install shapely # additional requirement for 2d shapes
   - pip install pytest-cov # to get .coverage report via pytest
-  - pip install imageio # necessary for pymaid.tiles
 # initialise a display
 before_script:
   - "export DISPLAY=:99.0"
