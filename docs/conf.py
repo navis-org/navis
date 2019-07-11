@@ -137,7 +137,8 @@ extensions = [
     #'nbsphinx',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
-    #'sphinx.ext.viewcode',
+    'sphinx.ext.viewcode', # This will add links to source code to autodoc
+    #'sphinx.ext.linkcode', # This is similar to viewcode but links to external source -> need to define a function for this
     'sphinx.ext.napoleon',
     #'sphinx.ext.mathjax', # mathjax is interactive and configurable but can also misbehave when rendering - switched to imgmath instead
     'sphinx.ext.imgmath',
