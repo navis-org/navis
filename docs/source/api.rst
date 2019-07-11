@@ -9,7 +9,9 @@ i.e. after ``import navis``.
 .. _api_neurons:
 
 TreeNeuron/List
-++++++++++++++++++
++++++++++++++++
+TreeNeurons and NeuronLists are the classes representing neurons and
+lists thereof respectively.
 
 .. autosummary::
     :toctree: generated/
@@ -19,6 +21,8 @@ TreeNeuron/List
 
 TreeNeuron/List methods
 -----------------------
+These are class methods available for both TreeNeurons and NeuronLists. They
+are simply short-hands for the other navis functions.
 
 .. autosummary::
     :toctree: generated/
@@ -40,6 +44,8 @@ TreeNeuron/List methods
 
 NeuronList-specific
 -------------------
+These functions are specific to NeuronLists.
+
 .. autosummary::
     :toctree: generated/
 
@@ -59,6 +65,7 @@ NeuronList-specific
 
 Plotting
 ++++++++
+Various functions for plotting neurons and volumes.
 
 .. autosummary::
     :toctree: generated/
@@ -73,6 +80,9 @@ Plotting
     navis.Volume
 
 Vispy 3D viewer
+---------------
+Using :func:`navis.plot3d` from a terminal will spawn a Vispy 3D viewer object
+which has a bunch of useful methods:
 
 .. autosummary::
     :toctree: generated/
@@ -93,9 +103,12 @@ Vispy 3D viewer
 
 Neuron Morphology
 +++++++++++++++++
+Collection of functions to analyse and manipulate neuronal morphology.
 
 Manipulation
 ------------
+Functions to edit morphology:
+
 .. autosummary::
     :toctree: generated/
 
@@ -118,6 +131,8 @@ Manipulation
 
 Resampling
 ----------
+Functions to down- or resample neurons.
+
 .. autosummary::
     :toctree: generated/
 
@@ -126,6 +141,8 @@ Resampling
 
 Analysis
 --------
+Functions to analyse morphology.
+
 .. autosummary::
     :toctree: generated/
 
@@ -138,6 +155,8 @@ Analysis
 
 Distances
 ---------
+Functions to calculate eucledian and geodesic ("along-the-arbor") distances.
+
 .. autosummary::
     :toctree: generated/
 
@@ -149,6 +168,8 @@ Distances
 
 Intersection
 ------------
+Functions to intersect points and neurons with volumes.
+
 .. autosummary::
     :toctree: generated/
 
@@ -159,9 +180,12 @@ Intersection
 
 Connectivity
 ++++++++++++
+Collection of functions to work with graphs and adjacency matrices.
 
 Graphs
 ------
+Functions to convert neurons and networkx to iGraph or networkX graphs.
+
 .. autosummary::
     :toctree: generated/
 
@@ -174,6 +198,8 @@ Graphs
 
 Adjacency matrices
 ------------------
+Functions to work with adjacency matrices.
+
 .. autosummary::
     :toctree: generated/
 
@@ -181,6 +207,8 @@ Adjacency matrices
 
 Connectivity clustering
 -----------------------
+Functions to cluster neurons based on connectivity.
+
 .. autosummary::
     :toctree: generated/
 
@@ -191,6 +219,8 @@ Connectivity clustering
 
 Import/Export
 +++++++++++++
+Functions to import/export neurons.
+
 .. autosummary::
     :toctree: generated/
 
@@ -199,11 +229,19 @@ Import/Export
     navis.neuron2json
     navis.json2neuron
 
+.. _api_interfaces:
+
+Interfaces
+++++++++++
+Interfaces with various external tools/websites. These modules have to be
+imported explicitly as they are not imported at top level.
 
 .. _api_interfaces.neuromorpho:
 
 NeuroMorpho API
 +++++++++++++++
+Set of functions to grab data from `NeuroMorpho <http://neuromorpho.org>`_
+which hosts thousands of neurons (see Tutorials).
 
 Not imported at top level! Must be imported explicitly::
 
@@ -222,6 +260,8 @@ Not imported at top level! Must be imported explicitly::
 
 InsectBrain DB API
 ++++++++++++++++++
+Set of functions to grab data from `InsectBrain <https://www.insectbraindb.org>`_
+which hosts some neurons and standard brains (see Tutorials).
 
 Not imported at top level! Must be imported explicitly::
 
@@ -240,10 +280,22 @@ Not imported at top level! Must be imported explicitly::
 
 Blender API
 +++++++++++
+Functions to be run inside `Blender 3D <https://www.blender.org/>`_ and import
+CATMAID data (see Examples). Please note that this requires Blender >2.8 as
+earlier versions are shipped with Python <3.6.
 
 Not imported at top level! Must be imported explicitly::
 
     from navis.interfaces import blender
+
+The interface is realised through a :class:`~navis.interfaces.blender.Handler`
+object. It is used to import objects and facilitate working with them
+programmatically once they are imported.
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.interfaces.blender.Handler
 
 Objects
 -------
@@ -291,6 +343,7 @@ Selections
 
 Cytoscape API
 +++++++++++++
+Functions to use `Cytoscape <https://cytoscape.org/>`_ via the cyREST API.
 
 Not imported at top level! Must be imported explicitly::
 
@@ -304,6 +357,7 @@ Not imported at top level! Must be imported explicitly::
 
 R interface
 +++++++++++
+Bundle of functions to use R libraries.
 
 Not imported at top level! Must be imported explicitly::
 
@@ -326,6 +380,8 @@ Not imported at top level! Must be imported explicitly::
 
 Utility
 +++++++
+Various utility functions.
+
 .. autosummary::
     :toctree: generated/
 
