@@ -688,8 +688,7 @@ class TreeNeuron:
             # Reinitialise with proximal data
             x.__init__(prox)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
-            x._clear_temp_attr(exclude=['graph', 'igraph', 'type',
-                                        'classify_nodes'])
+            x._clear_temp_attr()
 
         if not inplace:
             return x
@@ -727,8 +726,7 @@ class TreeNeuron:
             # Reinitialise with distal data
             x.__init__(dist)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
-            x._clear_temp_attr(exclude=['graph', 'igraph', 'type',
-                                        'classify_nodes'])
+            x._clear_temp_attr()
 
         # Clear temporary attributes is done by cut_neuron
         # x._clear_temp_attr()
