@@ -1,3 +1,7 @@
+dist: xenial
+# initialise a display
+services:
+  - xvfb
 language: python
 python:
   - "3.6"
@@ -10,11 +14,6 @@ install:
   - pip install pyoctree # additional requirement for fast intersections
   - pip install shapely # additional requirement for 2d shapes
   - pip install pytest-cov # to get .coverage report via pytest
-# initialise a display
-before_script:
-  - "export DISPLAY=:99.0"
-  - "sh -e /etc/init.d/xvfb start"
-  - sleep 3 # give xvfb some time to start
 # command to run tests
 script: pytest --cov=./ --verbose
 # push coverage results to coverall
