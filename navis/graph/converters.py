@@ -280,13 +280,14 @@ def neuron2igraph(x: 'core.NeuronObject') -> 'igraph.Graph':
 def nx2neuron(g: nx.Graph,
               root: Optional[Union[int, str]] = None
               ) -> pd.DataFrame:
-    """ Generate treenode table from NetworkX Graph.
+    """Generate node table from NetworkX Graph.
 
     This function will try to generate a neuron-like tree structure from
     the Graph. Therefore the graph may not contain loops!
 
-    Treenode attributes (``x``, ``y``, ``z``, ``radius``, ``confidence``) need
-    to be properties of the graph's nodes.
+    Node attributes (e.g. ``x``, ``y``, ``z``, ``radius``, ``confidence``) need
+    to be properties of the graph's nodes. All node property will be added to
+    the neuron's ``.nodes`` table.
 
     Parameters
     ----------
@@ -298,8 +299,8 @@ def nx2neuron(g: nx.Graph,
     Returns
     -------
     pandas.DataFrame
-    """
 
+    """
     # First some sanity checks
     if not isinstance(g, nx.Graph):
         raise TypeError(f'g must be NetworkX Graph, not "{type(g)}"')
@@ -343,16 +344,22 @@ def nx2neuron(g: nx.Graph,
     except BaseException:
         raise
 
-    # Add coordinates
-    x = nx.get_node_attributes(g, 'x')
-    tn_table['x'] = tn_table.index.map(lambda a: x.get(a, 0))
-    y = nx.get_node_attributes(g, 'y')
-    tn_table['y'] = tn_table.index.map(lambda a: y.get(a, 0))
-    z = nx.get_node_attributes(g, 'z')
-    tn_table['z'] = tn_table.index.map(lambda a: z.get(a, 0))
+    # Add additional generic attribute -> will skip treenode_id and parent_id
+    # if they exist
+    all_attr = set([k for n in g.nodes for k in g.nodes[n].keys()])
 
-    radii = nx.get_node_attributes(g, 'radius')
-    tn_table['radius'] = tn_table.index.map(lambda x: radii.get(x, None))
+    # Remove some that we don't need
+    all_attr -= set(['parent_id', 'treenode_id'])
+    # Add some that we want as columns even if they don't exist
+    all_attr |= set(['x', 'y', 'z', 'confidence', 'radius'])
+
+    # For some we want to have set default values
+    defaults = {'x': 0, 'y': 0, 'z': 0, 'confidence': 5, 'radius': -1}
+
+    # Now map the attributes onto node table
+    for at in all_attr:
+        vals = nx.get_node_attributes(g, at)
+        tn_table[at] = tn_table.index.map(lambda a: vals.get(a, defaults.get(at)))
 
     return tn_table.reset_index(drop=False, inplace=False)
 
