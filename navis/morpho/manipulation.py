@@ -303,7 +303,7 @@ def prune_twigs(x: NeuronObject,
     # Find out which to delete
     segs_to_delete = segs[seg_lengths <= size]
 
-    if any(segs_to_delete):
+    if segs_to_delete.any():
         # Unravel the into list of node IDs -> skip the last parent
         nodes_to_delete = [n for s in segs_to_delete for n in s[:-1]]
 
