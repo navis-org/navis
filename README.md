@@ -24,20 +24,27 @@ See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for de
 
 Alternatively click on the *launch binder* badge above to try out navis hosted by [mybinder](https://mybinder.org)!
 
-## License:
+## License
 This code is under GNU GPL V3
 
-## TO-DOs:
+
+## TO-DOs
 NAVis is a generalization of [pymaid](https://github.com/schlegelp/pyMaid) and
 some of the code is still being refactored. Basic functionality is implemented
 but there are still some TO-DOs:
 
-- [ ] update example notebooks and docs
+- [x] update example notebooks and docs
 - [ ] update Cytoscape interface
-- [ ] update Blender interface to Blender 2.8
+- [x] update Blender interface to Blender 2.8
 - [ ] write new tests
 
-## References:
+## Acknowledgments
+NAVis is inspired by and inherits much of its design from the excellent
+[nat](http://jefferislab.github.io/) & friends R packages by
+[Greg Jefferis](https://github.com/jefferis), [Alex Bates](https://github.com/alexanderbates),
+[James Manton](https://github.com/ajdm) and others.
+
+## References
 NAVis implements or provides interfaces with algorithms described in:
 
 1. **Comparison of neurons based on morphology**: Neuron. 2016 doi: 10.1016/j.neuron.2016.06.012
@@ -56,4 +63,3 @@ Schlegel P, Texada MJ, Miroschnikow A, Schoofs A, Hückesfeld S, Peters M, … P
 *Quantitative neuroanatomy for connectomics in Drosophila.*
 Schneider-Mizell CM, Gerhard S, Longair M, Kazimiers T, Li, Feng L, Zwart M … Cardona A.
 [link](https://elifesciences.org/articles/12059)
-
