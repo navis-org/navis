@@ -130,6 +130,13 @@ class Viewer:
                         bgcolor='black')
         defaults.update(kwargs)
 
+        # Set border rim -> this depends on how the framework (e.g. QT5)
+        # renders the window
+        self._rim_bot = 15
+        self._rim_top = 20
+        self._rim_left = 10
+        self._rim_right = 10
+
         # Generate canvas
         self.canvas = scene.SceneCanvas(**defaults)
 
@@ -210,20 +217,24 @@ class Viewer:
 
         shorts_text = 'SHORTCUTS: ' + ' | '.join([f"<{k}> {v}" for k, v in self._key_shortcuts.items()])
         self._shortcuts = scene.visuals.Text(shorts_text,
-                                             pos=(10, overlay.size[1]),
+                                             pos=(self._rim_left,
+                                                  overlay.size[1] - self._rim_bot),
                                              anchor_x='left',
                                              anchor_y='bottom',
                                              name='permanent',
+                                             method='gpu',
                                              parent=overlay,
                                              color=text_color,
                                              font_size=6)
 
         # FPS (hidden at start)
         self._fps_text = scene.visuals.Text('FPS',
-                                            pos=(overlay.size[0] / 2, 10),
+                                            pos=(overlay.size[0] / 2,
+                                                 self._rim_top),
                                             anchor_x='center',
                                             anchor_y='top',
                                             name='permanent',
+                                            method='gpu',
                                             parent=overlay,
                                             color=(0, 0, 0), font_size=6)
         self._fps_text.visible = False
@@ -242,11 +253,12 @@ class Viewer:
 
         shorts_text = 'PICKING: ' + ' | '.join(['<{k}> {v}' for k, v in self._picking_shortcuts.items()])
         self._picking_text = scene.visuals.Text(shorts_text,
-                                                pos=(10,
-                                                     overlay.size[1] - 10),
+                                                pos=(self._rim_left,
+                                                     overlay.size[1] - self._rim_bot - 10),
                                                 anchor_x='left',
                                                 anchor_y='bottom',
                                                 name='permanent',
+                                                method='gpu',
                                                 parent=overlay,
                                                 color=text_color,
                                                 font_size=6)
@@ -254,10 +266,12 @@ class Viewer:
 
         # Text box in top right to display arbitrary data
         self._data_text = scene.visuals.Text('',
-                                             pos=(overlay.size[0] - 10, 10),
+                                             pos=(overlay.size[0] - self._rim_right,
+                                                  self._rim_top),
                                              anchor_x='right',
                                              anchor_y='top',
                                              name='permanent',
+                                             method='gpu',
                                              parent=overlay,
                                              color=text_color,
                                              font_size=6)
@@ -315,6 +329,23 @@ class Viewer:
             self.canvas.connect(on_mouse_press)
         else:
             self.canvas.events.mouse_press.disconnect(on_mouse_press)
+
+    def _render_fb(self, crop=None):
+        """Render framebuffer. """
+        if not crop:
+            crop=(0, 0,
+                  self.canvas.size[0] * self.canvas.pixel_scale,
+                  self.canvas.size[1] * self.canvas.pixel_scale)
+
+        # We have to temporarily deactivate the overlay and view3d
+        # otherwise we won't be able to see what's on the 3D or might
+        # see holes in the framebuffer
+        self.view3d.interactive = False
+        self.overlay.interactive = False
+        p = self.canvas._render_picking(crop=crop)
+        self.view3d.interactive = True
+        self.overlay.interactive = True
+        return p
 
     @property
     def visible(self):
@@ -490,6 +521,7 @@ class Viewer:
                                      anchor_x='left',
                                      anchor_y='top',
                                      parent=self.overlay,
+                                     method='gpu',
                                      font_size=self.legend_font_size)
             txt.interactive = True
             txt.unfreeze()
@@ -933,10 +965,13 @@ class Viewer:
         pos = tr.map(pos)
 
         # Render framebuffer in picking mode
-        p = self.canvas._render_picking(region=(pos[0] - self._picking_radius / 2,
-                                                pos[1] - self._picking_radius / 2,
-                                                self._picking_radius,
-                                                self._picking_radius))
+        p = self._render_fb(crop=(pos[0] - self._picking_radius / 2,
+                                  pos[1] - self._picking_radius / 2,
+                                  self._picking_radius,
+                                  self._picking_radius))
+
+        logger.debug('Picking framebuffer:')
+        logger.debug(p)
 
         # List visuals in order from distance to center
         ids = []
