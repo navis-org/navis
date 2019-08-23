@@ -40,7 +40,7 @@ from nb_to_doc import convert_nb
 #This needs to be removed in order to built locally
 import mock
 MOCK_MODULES = ['sklearn', 'igraph', 'tqdm', 'pyoctree',
-                'png', 'imageio',
+                'png',
 
                 #'numpy',
                 #'pandas',
@@ -162,6 +162,7 @@ set_type_checking_flag = False
 
 # Other autodoc options
 autodoc_mock_imports = MOCK_MODULES
+autodoc_typehints = 'none'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
