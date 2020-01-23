@@ -465,7 +465,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
 
     Returns
     -------
-    pd.SparseDataFrame
+    pd.DataFrame
                 Geodesic distance matrix. Distances in nanometres.
 
     See Also
@@ -528,8 +528,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
 
     dmat = csgraph.dijkstra(m, directed=directed, indices=tn_indices)
 
-    return pd.SparseDataFrame(dmat, columns=nodeList, index=ix,  # type: ignore  # no stubs
-                              default_fill_value=float('inf'))
+    return pd.DataFrame(dmat, columns=nodeList, index=ix)  # type: ignore  # no stubs
 
 
 def segment_length(x: 'core.TreeNeuron',
