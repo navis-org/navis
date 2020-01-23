@@ -241,6 +241,14 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     if not isinstance(x, list):
         x = [x]
 
+    # If any list in x, flatten first
+    if any([isinstance(i, list) for i in x]):
+        # We need to be careful to preserve order because of colors
+        y = []
+        for i in x:
+            y += i if isinstance(i, list) else [i]
+        x = y
+
     # Collect neuron objects and collate to single Neuronlist
     neuron_obj = [ob for ob in x if isinstance(ob,
                                                (core.TreeNeuron,
@@ -266,8 +274,8 @@ def parse_objects(x) -> Tuple['core.NeuronList',
 
     # Collect dataframes with X/Y/Z coordinates
     # Note: dotprops and volumes are instances of pd.DataFrames
-    dataframes = [ob for ob in x if isinstance(ob, pd.DataFrame) and
-                  not isinstance(ob, (core.Dotprops, core.Volume))]
+    dataframes = [ob for ob in x if isinstance(ob, pd.DataFrame)
+                  and not isinstance(ob, (core.Dotprops, core.Volume))]
     if [d for d in dataframes if False in [c in d.columns for c in ['x', 'y', 'z']]]:
         logger.warning('DataFrames must have x, y and z columns.')
     # Filter to and extract x/y/z coordinates
@@ -287,7 +295,7 @@ def parse_objects(x) -> Tuple['core.NeuronList',
 
 
 def make_url(baseurl, *args: str, **GET) -> str:
-    """ Generates URL.
+    """Generate URL.
 
     Parameters
     ----------
