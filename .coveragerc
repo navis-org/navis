@@ -1,6 +1,7 @@
 [run]
 omit =
     navis/__init__.py
+    navis/__version__.py
     navis/interfaces/blender.py
     navis/interfaces/cytoscape.py
     navis/interfaces/r.py
