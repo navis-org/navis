@@ -46,7 +46,6 @@ def validate_options(x: 'core.TreeNeuron',
     None
 
     """
-
     options = make_iterable(options)
 
     for o in options:
@@ -63,9 +62,10 @@ def validate_options(x: 'core.TreeNeuron',
 
 def validate_table(x: pd.DataFrame,
                    required: List[Union[str, Tuple[str]]],
+                   rename: bool = False,
                    restrict: bool = False,
                    optional: dict = {}) -> pd.DataFrame:
-    """ Validates DataFrame.
+    """Validate DataFrame.
 
     Parameters
     ----------
@@ -75,6 +75,9 @@ def validate_table(x: pd.DataFrame,
                 Columns to check for. If column is given as tuple (e.g.
                 ``('type', 'relation', 'label')`` one of these columns
                 has to exist)
+    rename :    bool, optional
+                If True and a required column is given as tuple, will rename
+                that column to the first entry in tuple.
     restrict :  bool, optional
                 If True, will return only ``required`` columns.
     optional :  dict, optional
@@ -103,7 +106,6 @@ def validate_table(x: pd.DataFrame,
             If any of the required columns are not in the table.
 
     """
-
     if not isinstance(x, pd.DataFrame):
         raise TypeError(f'Need DataFrame, got "{type(x)}"')
 
@@ -115,6 +117,14 @@ def validate_table(x: pd.DataFrame,
         else:
             if r not in x.columns:
                 raise ValueError(f'Table missing required column: {r}')
+
+    # Rename columns if necessary
+    if rename:
+        # Generate mapping
+        new_name = {c: t[0] for t in required if isinstance(t, tuple) for c in t[1:]}
+
+        # Apply mapping
+        x.columns = [new_name.get(c, c) for c in x.columns]
 
     if restrict:
         flat_req = [r for r in required if not isinstance(r, (list, tuple))]
