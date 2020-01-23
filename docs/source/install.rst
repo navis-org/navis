@@ -3,7 +3,7 @@
 Install
 =======
 
-Installation instructions come in two flavors:
+Installation instructions come in two flavours:
 
 1. **Quick install**: if you know what you are doing
 2. **Step-by-step instructions** : if you are new to Python
@@ -19,6 +19,8 @@ Installation instructions come in two flavors:
 
 Quick install
 -------------
+
+Requires Python 3.6 or later.
 
 If you don't already have it, get the Python package manager `PIP <https://pip.pypa.io/en/stable/installing/>`_.
 
@@ -115,9 +117,8 @@ Step-by-step instructions
 .. topic:: Installing Python 3
 
    On **Linux** and **OSX (Mac)**, simply go to https://www.python.org to
-   download + install Python3. I recommend getting Python 3.5 or 3.6 as newer
-   versions may still have compatibility problems with some of navis's
-   dependencies.
+   download + install Python3 (version 3.6 or later). I recommend getting 3.7 as
+   3.8 may still cause problems with some of navis' dependencies.
 
    On **Windows**, things are bit more tricky. While navis is written in pure
    Python, some of its dependencies are written in C for speed and need to be
@@ -225,4 +226,3 @@ If you need that extra bit of speed, consider manually installing
 available, navis will try using iGraph over NetworkX. iGraph is difficult to
 install though because you have to install the C core first and then its
 Python bindings, ``python-igraph``.
-
