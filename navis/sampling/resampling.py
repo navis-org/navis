@@ -63,7 +63,7 @@ def resample_neuron(x: 'core.NeuronObject',
     """ Resamples neuron(s) to given resolution.
 
     Preserves root, leafs, branchpoints. Connectors (if they exist) are mapped
-    onto the closest new treenode.
+    onto the closest new node.
 
     Important
     ---------
@@ -116,7 +116,7 @@ def resample_neuron(x: 'core.NeuronObject',
                         This function reduces the number of nodes instead of
                         resample to certain resolution. Useful if you are
                         just after some simplification e.g. for speeding up
-                        your calculations or you want to preserve treenode IDs.
+                        your calculations or you want to preserve node IDs.
     """
 
     if isinstance(x, core.NeuronList):
@@ -165,7 +165,7 @@ def resample_neuron(x: 'core.NeuronObject',
         path = np.cumsum(np.linalg.norm(vecs, axis=0))
         path = np.insert(path, 0, 0)
 
-        # If path is too short, just keep the first and last treenode
+        # If path is too short, just keep the first and last node
         if path[-1] < resample_to or (method == 'cubic' and len(seg) <= 3):
             new_nodes += [[seg[0], seg[-1],
                            coords[0][0], coords[0][1], coords[0][2],
@@ -242,12 +242,12 @@ def resample_neuron(x: 'core.NeuronObject',
     for k, v in dtypes.items():
         new_nodes[k] = new_nodes[k].astype(v)
 
-    # Remove duplicate treenodes (branch points)
+    # Remove duplicate nodes (branch points)
     new_nodes = new_nodes[~new_nodes.node_id.duplicated()]
 
     if x.has_connectors:
         # Map connectors back:
-        # 1. Get position of old synapse-bearing treenodes
+        # 1. Get position of old synapse-bearing nodes
         old_tn_position = x.nodes.set_index('node_id',
                                             inplace=False).loc[x.connectors.node_id,
                                                                ['x', 'y', 'z']].values

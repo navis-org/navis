@@ -35,7 +35,7 @@ def sparseness(x: Union[pd.DataFrame, np.ndarray],
 
     .. math::
 
-        S = \\Bigg\\{ \\frac{1}{N} \\sum^M_{i=1} \\Big[ \\frac{r_i - \\overline{r}}{\\sigma_r} \\Big] ^4  \\Bigg\\} - 3
+        S = \\Bigg\\{ \\frac{1}{N} \\sum^N_{i=1} \\Big[ \\frac{r_i - \\overline{r}}{\\sigma_r} \\Big] ^4  \\Bigg\\} - 3
 
     where :math:`N` is the number of observations, :math:`r_i` the value of
     observation :math:`i`, and :math:`\\overline{r}` and

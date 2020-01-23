@@ -233,7 +233,7 @@ def _edge_count_to_root(x: 'core.TreeNeuron') -> dict:
 def classify_nodes(x: 'core.NeuronObject',
                    inplace: bool = True
                    ) -> Optional['core.NeuronObject']:
-    """ Classifies neuron's treenodes into end nodes, branches, slabs
+    """ Classifies neuron's nodes into end nodes, branches, slabs
     or root.
 
     Adds ``'type'`` column to ``x.nodes``.
@@ -347,16 +347,16 @@ def distal_to(x: 'core.TreeNeuron',
     Parameters
     ----------
     x :     TreeNeuron
-    a,b :   single treenode ID | list of treenode IDs | None, optional
-            If no treenode IDs are provided, will consider all treenodes.
+    a,b :   single node ID | list of node IDs | None, optional
+            If no node IDs are provided, will consider all node.
 
     Returns
     -------
     bool
-            If ``a`` and ``b`` are single treenode IDs respectively.
+            If ``a`` and ``b`` are single node IDs respectively.
     pd.DataFrame
-            If ``a`` and/or ``b`` are lists of treenode IDs. Columns and rows
-            (index) represent treenode IDs. Neurons ``a`` are rows, neurons
+            If ``a`` and/or ``b`` are lists of node IDs. Columns and rows
+            (index) represent node IDs. Neurons ``a`` are rows, neurons
             ``b`` are columns.
 
     Examples
@@ -364,7 +364,7 @@ def distal_to(x: 'core.TreeNeuron',
     >>> import navis
     >>> # Get a neuron
     >>> x = navis.example_neurons(1)
-    >>> # Get a random treenode
+    >>> # Get a random node
     >>> n = x.nodes.iloc[100].node_id
     >>> # Check all nodes if they are distal or proximal to that node
     >>> df = navis.distal_to(x, n)
@@ -374,7 +374,6 @@ def distal_to(x: 'core.TreeNeuron',
     101
 
     """
-
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
@@ -399,11 +398,11 @@ def distal_to(x: 'core.TreeNeuron',
         tnB = x.nodes.node_id.values
 
     if x.igraph and config.use_igraph:
-        # Map treenodeID to index
+        # Map node ID to index
         id2ix = {n: v for v, n in zip(x.igraph.vs.indices,
                                       x.igraph.vs['node_id'])}
 
-        # Convert treenode IDs to indices
+        # Convert node IDs to indices
         tnA = [id2ix[n] for n in tnA]  # type: ignore
         tnB = [id2ix[n] for n in tnB]  # type: ignore
 
@@ -446,7 +445,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
                     tn_ids: Optional[Iterable[int]] = None,
                     directed: bool = False,
                     weight: Optional[str] = 'weight') -> pd.DataFrame:
-    """ Generates geodesic ("along-the-arbor") distance matrix for treenodes
+    """ Generates geodesic ("along-the-arbor") distance matrix for nodes
     of given neuron.
 
     Parameters
@@ -454,7 +453,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
     x :         TreeNeuron | NeuronList
                 If list, must contain a SINGLE neuron.
     tn_ids :    list | numpy.ndarray, optional
-                Treenode IDs. If provided, will compute distances only FROM
+                Node IDs. If provided, will compute distances only FROM
                 this subset to all other nodes.
     directed :  bool, optional
                 If True, pairs without a child->parent path will be returned
@@ -571,14 +570,14 @@ def segment_length(x: 'core.TreeNeuron',
 def dist_between(x: 'core.NeuronObject',
                  a: int,
                  b: int) -> float:
-    """ Returns the geodesic distance between treenodes in nanometers.
+    """Return the geodesic distance between nodes in nanometers.
 
     Parameters
     ----------
     x :             TreeNeuron | NeuronList
                     Neuron containing the nodes.
-    a,b :           treenode IDs
-                    Treenodes to check.
+    a,b :           node IDs
+                    Nodes to check.
 
     Returns
     -------
@@ -605,7 +604,6 @@ def dist_between(x: 'core.NeuronObject',
     108
 
     """
-
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
             x = x[0]
@@ -625,7 +623,7 @@ def dist_between(x: 'core.NeuronObject',
 
     if ((utils.is_iterable(a) and len(a) > 1) or  # type: ignore  # this is just a check
         (utils.is_iterable(b) and len(b) > 1)):   # type: ignore  # this is just a check
-        raise ValueError('Can only process single treenodes. Use '
+        raise ValueError('Can only process single nodes. Use '
                          'navis.geodesic_matrix instead.')
 
     a = utils.make_non_iterable(a)
@@ -635,7 +633,7 @@ def dist_between(x: 'core.NeuronObject',
         _ = int(a)
         _ = int(b)
     except BaseException:
-        raise ValueError('a, b need to be treenode IDs!')
+        raise ValueError('a, b need to be node IDs!')
 
     # If we're working with network X DiGraph
     if isinstance(g, nx.DiGraph):
@@ -663,7 +661,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
 
     Returns
     -------
-    treenode ID
+    node ID
 
     Examples
     --------
@@ -719,7 +717,7 @@ def split_into_fragments(x: 'core.NeuronObject',
                          n: int = 2,
                          min_size: Optional[float] = None,
                          reroot_to_soma: bool = False) -> 'core.NeuronList':
-    """ Splits neuron into fragments.
+    """Split neuron into fragments.
 
     Cuts are based on longest neurites: the first cut is made where the second
     largest neurite merges onto the largest neurite, the second cut is made
@@ -774,7 +772,7 @@ def split_into_fragments(x: 'core.NeuronObject',
     if reroot_to_soma and x.soma:
         x.reroot(x.soma, inplace=True)
 
-    # Collect treenodes of the n longest neurites
+    # Collect nodes of the n longest neurites
     tn_to_preserve: List[int] = []
     fragments = []
     i = 0
@@ -803,7 +801,7 @@ def split_into_fragments(x: 'core.NeuronObject',
 
         i += 1
 
-    # Next, make some virtual cuts and get the complement of treenodes for
+    # Next, make some virtual cuts and get the complement of nodes for
     # each fragment
     graphs = [x.graph.copy()]
     for fr in fragments[1:]:
@@ -811,7 +809,7 @@ def split_into_fragments(x: 'core.NeuronObject',
 
         graphs.append(this_g)
 
-    # Next, we need to remove treenodes that are in subsequent graphs from
+    # Next, we need to remove nodes that are in subsequent graphs from
     # those graphs
     for i, g in enumerate(graphs):
         for g2 in graphs[i + 1:]:
@@ -1079,7 +1077,7 @@ def reroot_neuron(x: 'core.NeuronObject',
         # Get degree of old root for later categorisation
         old_root_deg = len(x.igraph.es.select(_target=path[-1]))
 
-        # Translate path indices to treenode IDs
+        # Translate path indices to node IDs
         ix2id = {ix: n for ix, n in zip(x.igraph.vs.indices,
                                         x.igraph.vs.get_attribute_values('node_id'))}
         path = [ix2id[i] for i in path]
@@ -1121,7 +1119,7 @@ def reroot_neuron(x: 'core.NeuronObject',
         # Get degree of old root for later categorisation
         old_root_deg = g.in_degree(path[-1])
 
-    # Propagate changes in graph back to treenode table
+    # Propagate changes in graph back to node table
     x.nodes.set_index('node_id', inplace=True)
     # Assign new node type to old root
     x.nodes.loc[path[1:], 'parent_id'] = path[:-1]
@@ -1192,7 +1190,7 @@ def cut_neuron(x: 'core.NeuronObject',
     :func:`navis.TreeNeuron.prune_proximal_to`
             ``TreeNeuron/List`` shorthands to this function.
     :func:`navis.subset_neuron`
-            Returns a neuron consisting of a subset of its treenodes.
+            Returns a neuron consisting of a subset of its nodes.
 
     Examples
     --------
@@ -1451,7 +1449,7 @@ def subset_neuron(x: 'core.TreeNeuron',
                   keep_disc_cn: bool = False,
                   prevent_fragments: bool = False
                   ) -> Optional['core.TreeNeuron']:
-    """ Subsets a neuron to a set of treenodes.
+    """Subset a neuron to a set of nodes.
 
     Parameters
     ----------
@@ -1465,7 +1463,7 @@ def subset_neuron(x: 'core.TreeNeuron',
                           leave this at ``True``.
     keep_disc_cn :        bool, optional
                           If False, will remove disconnected connectors that
-                          have "lost" their parent treenode.
+                          have "lost" their parent node.
     prevent_fragments :   bool, optional
                           If True, will add nodes to ``subset`` required to
                           keep neuron from fragmenting.
@@ -1525,7 +1523,7 @@ def subset_neuron(x: 'core.TreeNeuron',
     if not inplace:
         x = x.copy(deepcopy=False)
 
-    # Filter treenodes
+    # Filter nodes
     x.nodes = x.nodes[x.nodes.node_id.isin(subset)]
 
     # Make sure that there are root nodes
@@ -1575,7 +1573,7 @@ def subset_neuron(x: 'core.TreeNeuron',
 
 
 def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
-    """ Returns list of childs.
+    """Returns list of childs.
 
     Parameters
     ----------
@@ -1585,7 +1583,7 @@ def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
     Returns
     -------
     dict
-        ``{node_id: [child_treenode, child_treenode, ...]}``
+        ``{parent_id: [child_id, child_id, ...]}``
 
     """
 
@@ -1593,7 +1591,7 @@ def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
 
 
 def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
-    """ Returns treenodes ordered by node label sorting according to Cuntz
+    """Return nodes ordered by node label sorting according to Cuntz
     et al., PLoS Computational Biology (2010).
 
     Parameters

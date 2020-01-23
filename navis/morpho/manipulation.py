@@ -98,8 +98,8 @@ def prune_by_strahler(x: NeuronObject,
                             If True, will force update of Strahler order even
                             if already exists in node table.
     relocate_connectors : bool, optional
-                          If True, connectors on removed treenodes will be
-                          reconnected to the closest still existing treenode.
+                          If True, connectors on removed nodes will be
+                          reconnected to the closest still existing node.
                           Works only in child->parent direction.
 
     Returns
@@ -358,7 +358,7 @@ def split_axon_dendrite(x: NeuronObject,
                         If True, will make sure neuron is rooted to soma if at
                         all possible.
     return_point :      bool, optional
-                        If True, will only return treenode ID of the node at
+                        If True, will only return node ID of the node at
                         which to split the neuron.
 
     Returns
@@ -541,7 +541,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                         Set stitching method:
                             (1) 'LEAFS': Only leaf (including root) nodes will
                                 be allowed to make new edges.
-                            (2) 'ALL': All treenodes are considered.
+                            (2) 'ALL': All nodes are considered.
                             (3) 'NONE': Node and connector tables will simply
                                 be combined without generating any new edges.
                                 The resulting neuron will have multiple roots.
@@ -554,8 +554,8 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                                 master neuron.
                             (3) 'FIRST': The first fragment provided becomes
                                 the master neuron.
-    tn_to_stitch :      List of treenode IDs, optional
-                        If provided, these treenodes will be preferentially
+    tn_to_stitch :      List of node IDs, optional
+                        If provided, these nodes will be preferentially
                         used to stitch neurons together. Overrides methods
                         ``'ALL'`` or ``'LEAFS'``.
     suggest_only :      bool, optional
@@ -693,7 +693,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     # Now iterate over every possible combination of fragments
     for a, b in itertools.combinations(nl, 2):
-        # Collect relevant treenodes
+        # Collect relevant nodes
         if not isinstance(tn_to_stitch, type(None)):
             tnA = a.nodes.loc[a.nodes.node_id.isin(tn_to_stitch)]
             tnB = b.nodes.loc[a.nodes.node_id.isin(tn_to_stitch)]
@@ -712,7 +712,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
             else:
                 tnB = b.nodes
 
-        # Get distance between treenodes in A and B
+        # Get distance between nodes in A and B
         d = scipy.spatial.distance.cdist(tnA[['x', 'y', 'z']].values,
                                          tnB[['x', 'y', 'z']].values,
                                          metric='euclidean')
@@ -817,7 +817,7 @@ def average_neurons(x: 'core.NeuronList',
     for n in x:
         n.tree = graph.neuron2KDTree(n, tree_type='c', data='treenodes')  # type: ignore  # TreeNeuron has no tree
 
-    # Set base for average: we will use this neurons treenodes to query
+    # Set base for average: we will use this neurons nodes to query
     # the KDTrees
     if isinstance(base_neuron, core.TreeNeuron):
         bn = base_neuron.copy()
@@ -884,7 +884,7 @@ def despike_neuron(x: NeuronObject,
                    reverse: bool = False) -> Optional[NeuronObject]:
     """ Removes spikes in neuron traces (e.g. from jumps in image data).
 
-    For each treenode A, the euclidean distance to its next successor (parent)
+    For each node A, the euclidean distance to its next successor (parent)
     B and that node's successor is computed. If
     :math:`\\frac{dist(A,B)}{dist(A,C)}>sigma`, node B is considered a spike
     and realigned between A and C.
@@ -1061,21 +1061,21 @@ def guess_radius(x: NeuronObject,
     mmetrics.parent_dist(x, root_dist=0)
     nodes = x.nodes.set_index('node_id', inplace=False)
 
-    # For each connector (pre and post), get the X/Y distance to its treenode
+    # For each connector (pre and post), get the X/Y distance to its node
     cn_locs = cn[['x', 'y']].values
     tn_locs = nodes.loc[cn.node_id.values,
                         ['x', 'y']].values
     dist = np.sqrt(np.sum((tn_locs - cn_locs) ** 2, axis=1).astype(int))
     cn['dist'] = dist
 
-    # Get max distance per treenode (in case of multiple connectors per
-    # treenode)
+    # Get max distance per node (in case of multiple connectors per
+    # node)
     cn_grouped = cn.groupby('node_id').max()
 
     # Set undefined radii to None
     nodes.loc[nodes.radius <= 0, 'radius'] = None
 
-    # Assign radii to treenodes
+    # Assign radii to nodes
     nodes.loc[cn_grouped.index, 'radius'] = cn_grouped.dist.values
 
     # Go over each segment and interpolate radii
@@ -1260,7 +1260,7 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
                 Method used to heal fragments:
                         (1) 'LEAFS': Only leaf (including root) nodes will
                             be used to heal gaps.
-                        (2) 'ALL': All treenodes can be used to reconnect
+                        (2) 'ALL': All nodes can be used to reconnect
                             fragments.
     inplace :   bool, optional
                 If False, will perform healing on and return a copy.

@@ -329,7 +329,7 @@ def nx2neuron(g: nx.Graph,
     # Note that we assign -1 as root's parent
     lop = {k: v[0] if v else -1 for k, v in lop.items()}
 
-    # Generate treenode table
+    # Generate node table
     tn_table = pd.DataFrame(index=list(g.nodes))
     tn_table.index = tn_table.index.set_names('node_id', inplace=False)
 
