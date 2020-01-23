@@ -433,17 +433,17 @@ class Viewer:
         Returns
         -------
         dict
-                    {uuid: [neurites, soma]}
+                    {id: [neurites, soma]}
         """
         # Collect neuron objects
         neuron_obj = [c for c in self.visuals if 'neuron' in getattr(
             c, '_object_type', '')]
 
         # Collect skeleton IDs
-        skids = set([ob._uuid for ob in neuron_obj])
+        skids = set([ob._id for ob in neuron_obj])
 
         # Map visuals to unique skids
-        return {s: [ob for ob in neuron_obj if ob._uuid == s] for s in skids}
+        return {s: [ob for ob in neuron_obj if ob._id == s] for s in skids}
 
     @property
     def _neuron_obj(self):
@@ -517,7 +517,7 @@ class Viewer:
         # Generate new labels
         to_add = [s for s in self._neuron_obj if s not in labels]
         for s in to_add:
-            txt = scene.visuals.Text(f'{self._neuron_obj[s][0]._name} - #{self._neuron_obj[s][0]._uuid}',
+            txt = scene.visuals.Text(f'{self._neuron_obj[s][0]._name} - #{self._neuron_obj[s][0]._id}',
                                      anchor_x='left',
                                      anchor_y='top',
                                      parent=self.overlay,
@@ -526,7 +526,7 @@ class Viewer:
             txt.interactive = True
             txt.unfreeze()
             txt._object_id = s
-            txt._uuid = self._neuron_obj[s][0]._uuid
+            txt._id = self._neuron_obj[s][0]._id
             txt.freeze()
 
         # Position and color labels
@@ -901,7 +901,7 @@ class Viewer:
 
         # Map canvas pos back to world coordinates
         self.cursor_pos = np.array(verts[ix])
-        self.cursor_active_skeleton = getattr(visual, '_uuid', None)
+        self.cursor_active_skeleton = getattr(visual, '_id', None)
 
         # Generate arrow coords
         vec_to_center = np.array(self.camera3d.center) - self.cursor_pos
@@ -1048,12 +1048,12 @@ def on_mouse_press(event):
             break
         # If shift modifier, add to/remove from current selection
         elif isinstance(v, scene.visuals.VisualNode) and \
-             getattr(v, '_uuid', None) and 'Shift' in modifiers:
-            if v._uuid not in set(viewer.selected):
-                viewer.selected = np.append(viewer.selected, v._uuid)
+             getattr(v, '_id', None) and 'Shift' in modifiers:
+            if v._id not in set(viewer.selected):
+                viewer.selected = np.append(viewer.selected, v._id)
             else:
                 viewer.selected = viewer.selected[viewer.selected !=
-                                                  v._uuid]
+                                                  v._id]
             break
 
 

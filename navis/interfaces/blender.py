@@ -161,7 +161,7 @@ class Handler:
         start = time.time()
 
         if skip_existing:
-            exists = [ob.get('uuid', None) for ob in bpy.data.objects]
+            exists = [ob.get('id', None) for ob in bpy.data.objects]
 
         if isinstance(x, (core.TreeNeuron, core.NeuronList)):
             if redraw:
@@ -172,7 +172,7 @@ class Handler:
             wm.progress_begin(0, len(x))
             for i, n in enumerate(x):
                 # Skip existing if applicable
-                if skip_existing and n.uuid in exists:
+                if skip_existing and n.id in exists:
                     continue
                 self._create_neuron(n, neurites=neurites,
                                     soma=soma, connectors=connectors,
@@ -287,7 +287,7 @@ class Handler:
                        use_radii=False):
         """ Create neuron object """
 
-        mat_name = (f'M#{x.uuid}')[:59]
+        mat_name = (f'M#{x.id}')[:59]
 
         mat = bpy.data.materials.get(mat_name,
                                      bpy.data.materials.new(mat_name))
@@ -341,13 +341,13 @@ class Handler:
         mesh.update()
 
         # Generate the object
-        ob = bpy.data.objects.new(f'#{x.uuid} - {getattr(x, "neuron_name", "")}',
+        ob = bpy.data.objects.new(f'#{x.id} - {getattr(x, "neuron_name", "")}',
                                   mesh)
         ob.location = (0, 0, 0)
         ob.show_name = True
         ob['type'] = 'NEURON'
         ob['navis_object'] = True
-        ob['uuid'] = str(x.uuid)
+        ob['id'] = str(x.id)
 
         # Link object to scene - this needs to happen BEFORE we convert to
         # curve
@@ -369,13 +369,13 @@ class Handler:
     def _create_neurites(self, x, mat, use_radii=False):
         """Create neuron branches. """
         cu = bpy.data.curves.new(f"{getattr(x, 'neuron_name', '')} mesh", 'CURVE')
-        ob = bpy.data.objects.new(f"#{x.uuid} - {getattr(x, 'neuron_name', '')}",
+        ob = bpy.data.objects.new(f"#{x.id} - {getattr(x, 'neuron_name', '')}",
                                   cu)
         ob.location = (0, 0, 0)
         ob.show_name = True
         ob['type'] = 'NEURON'
         ob['navis_object'] = True
-        ob['uuid'] = str(x.uuid)
+        ob['id'] = str(x.id)
         cu.dimensions = '3D'
         cu.fill_mode = 'FULL'
         cu.bevel_resolution = 5
@@ -432,7 +432,7 @@ class Handler:
         ob.show_name = True
         ob['type'] = 'DOTPROP'
         ob['navis_object'] = True
-        ob['uuid'] = object_id
+        ob['id'] = object_id
         cu.dimensions = '3D'
         cu.fill_mode = 'FULL'
         cu.bevel_resolution = 5
@@ -478,8 +478,8 @@ class Handler:
             loc = s[['x', 'z', 'y']].values * self.conversion * [1, 1, -1]
             rad = s.radius * self.conversion
 
-            mesh = bpy.data.meshes.new(f'Soma of #{x.uuid} - mesh')
-            soma_ob = bpy.data.objects.new(f'Soma of #{x.uuid}', mesh)
+            mesh = bpy.data.meshes.new(f'Soma of #{x.id} - mesh')
+            soma_ob = bpy.data.objects.new(f'Soma of #{x.id}', mesh)
 
             soma_ob.location = loc[0]
 
@@ -491,10 +491,10 @@ class Handler:
 
             mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
 
-            soma_ob.name = f'Soma of #{x.uuid}'
+            soma_ob.name = f'Soma of #{x.id}'
             soma_ob['type'] = 'SOMA'
             soma_ob['navis_object'] = True
-            soma_ob['uuid'] = str(x.uuid)
+            soma_ob['id'] = str(x.id)
 
             soma_ob.active_material = mat
 
@@ -506,7 +506,7 @@ class Handler:
     def _create_connectors(self, x):
         """ Create connectors """
         for i in self.cn_dict:
-            con = x.connectors[x.connectors.relation == i]
+            con = x.connectors[x.connectors.type == i]
 
             if con.empty:
                 continue
@@ -530,14 +530,14 @@ class Handler:
             # (see below)
             coords = np.dstack([cn_coords, tn_coords])
 
-            ob_name = f'{self.cn_dict[i]["name"]} of {x.uuid}'
+            ob_name = f'{self.cn_dict[i]["name"]} of {x.id}'
 
             cu = bpy.data.curves.new(ob_name + ' mesh', 'CURVE')
             ob = bpy.data.objects.new(ob_name, cu)
             ob['type'] = 'CONNECTORS'
             ob['navis_object'] = True
             ob['cn_type'] = i
-            ob['uuid'] = str(x.uuid)
+            ob['id'] = str(x.id)
             ob.location = (0, 0, 0)
             ob.show_name = False
             cu.dimensions = '3D'
@@ -555,7 +555,7 @@ class Handler:
                 # Move points
                 sp.points.foreach_set('co', cn.T.ravel())
 
-            mat_name = f'{self.cn_dict[i]["name"]} of #{str(x.uuid)}'
+            mat_name = f'{self.cn_dict[i]["name"]} of #{str(x.id)}'
 
             mat = bpy.data.materials.get(mat_name,
                                          bpy.data.materials.new(mat_name))
@@ -630,8 +630,8 @@ class Handler:
 
         for ob in bpy.data.objects:
             ob.select = False
-            if 'uuid' in ob:
-                if ob['uuid'] in skids:
+            if 'id' in ob:
+                if ob['id'] in skids:
                     ob.select = True
                     names.append(ob.name)
         return ObjectList(names, handler=self)
@@ -731,7 +731,7 @@ class ObjectList:
     postsynapses :  returns list containing all postsynapses
     gapjunctions :  returns list containing all gap junctions
     abutting :      returns list containing all abutting connectors
-    uuid :          returns list of UUID
+    id :            returns list of IDs
 
     Examples
     --------
@@ -769,8 +769,8 @@ class ObjectList:
             return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 2])
         elif key == 'abutting':
             return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 3])
-        elif key.lower() in ['uuid', 'uuids', 'id']:
-            return [bpy.data.objects[n]['uuid'] for n in self.object_names if n in bpy.data.objects]
+        elif key.lower() in ['id', 'ids']:
+            return [bpy.data.objects[n]['id'] for n in self.object_names if n in bpy.data.objects]
         else:
             raise AttributeError('Unknown attribute ' + key)
 
@@ -909,7 +909,7 @@ class ObjectList:
         neuron_objects = [
             n for n in bpy.data.objects if n.name in self.object_names and n['type'] == 'NEURON']
 
-        data = [dict(uuid=int(n['uuid']),
+        data = [dict(id=int(n['id']),
                      color="#{:02x}{:02x}{:02x}".format(int(255 * n.active_material.diffuse_color[0]),
                                                         int(255 *
                                                             n.active_material.diffuse_color[1]),
@@ -983,4 +983,3 @@ def CalcSphere(radius, nrPolar, nrAzimuthal):
                       iAzimuthalStart + iNextAzimuthal])
 
     return np.vstack(verts), faces
-

@@ -19,6 +19,7 @@ import os
 import random
 import re
 import types
+import uuid
 
 import networkx as nx
 
@@ -171,13 +172,16 @@ class NeuronList:
                                      leave=config.pbar_leave):
                     self.neurons[n[2]] = core.TreeNeuron(n[0])
 
+        # Add ID-based indexer
+        self.idx = _IdIndexer(self.neurons)
+
     def _convert_helper(self, x: Any) -> core.TreeNeuron:
-        """ Helper function to convert x to core.TreeNeuron."""
+        """Helper function to convert x to core.TreeNeuron."""
         return core.TreeNeuron(x[0])
 
     def summary(self,
                 N: Optional[Union[int, slice]] = None,
-                add_cols: list = []
+                add_props: list = []
                 ) -> pd.DataFrame:
         """ Get summary over all neurons in this NeuronList.
 
@@ -185,8 +189,8 @@ class NeuronList:
         ----------
         N :         int | slice, optional
                     If int, get only first N entries.
-        add_cols :  list, optional
-                    Additional columns for the summary. If attribute not
+        add_props : list, optional
+                    Additional properties to add to summary. If attribute not
                     available will return 'NA'.
 
         Returns
@@ -194,16 +198,22 @@ class NeuronList:
         pandas DataFrame
 
         """
-        cols = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches', 'n_leafs',
-                'cable_length', 'soma']
-        cols += add_cols
+        props = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches', 'n_leafs',
+                 'cable_length', 'soma']
+
+        # Add ID to properties - unless all are generic UUIDs
+        if any([not isinstance(n.id, uuid.UUID) for n in self.neurons]):
+            props.insert(2, 'id')
+
+        if add_props:
+            props = np.append(props, add_props)
 
         if not isinstance(N, slice):
             N = slice(N)
 
-        return pd.DataFrame(data=[[getattr(n, a, 'NA') for a in cols]
+        return pd.DataFrame(data=[[getattr(n, a, 'NA') for a in props]
                                   for n in self.neurons[N]],
-                            columns=cols)
+                            columns=props)
 
     def __str__(self):
         return self.__repr__()
@@ -649,7 +659,31 @@ class NeuronProcessor:
             return NeuronList(res)
 
 
-
 def _worker_wrapper(x: Sequence):
     f, args, kwargs = x
     return f(*args, **kwargs)
+
+
+class _IdIndexer():
+    """ID-based indexer for NeuronLists to access their neurons by ID."""
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __getitem__(self, ids):
+        # Turn into list and force strings
+        ids = utils.make_iterable(ids, force_type=str)
+
+        # Get objects that match skid
+        sel = [n for n in self.obj if str(n.id) in ids]
+
+        # Reorder to keep in the order requested
+        sel = sorted(sel, key=lambda x: np.where(ids == str(x.id))[0][0])
+
+        if len(sel) != len(ids):
+            miss = list(set(ids) - set(sel.id))
+            raise ValueError(f'No neuron(s) with ID(s): {", ".join(miss)}')
+        elif len(sel) == 1:
+            return sel[0]
+        else:
+            return NeuronList(sel)

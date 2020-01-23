@@ -477,7 +477,7 @@ def cluster_by_synapse_placement(x: Union[NeuronList,
     if not isinstance(restrict_cn, type(None)):
         restrict_cn = utils.make_iterable(restrict_cn)
 
-    neurons = x.uuid if isinstance(x, NeuronList) else list(x.keys())
+    neurons = x.id if isinstance(x, NeuronList) else list(x.keys())
 
     sim_matrix = pd.DataFrame(np.zeros((len(neurons), len(neurons))),
                               index=neurons,
@@ -486,7 +486,7 @@ def cluster_by_synapse_placement(x: Union[NeuronList,
     if isinstance(x, NeuronList):
         combinations = [(nA.connectors, nB.connectors, sigma, omega, restrict_cn)
                         for nA in x for nB in x]
-        comb_names = [(nA.uuid, nB.uuid) for nA in neurons for nB in neurons]
+        comb_names = [(nA.id, nB.id) for nA in neurons for nB in neurons]
     else:
         combinations = [(nA, nB, sigma, omega, restrict_cn) for nA in x.values() for nB in x.values()]
         comb_names = [(nA, nB) for nA in x.keys() for nB in x.keys()]

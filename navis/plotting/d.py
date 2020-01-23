@@ -93,7 +93,7 @@ def plot1d(x: 'core.NeuronObject',
                                        disable=config.pbar_hide,
                                        leave=config.pbar_leave)):
         if isinstance(color, dict):
-            this_c = color[n.uuid]
+            this_c = color[n.id]
         else:
             this_c = color
 

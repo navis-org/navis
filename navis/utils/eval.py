@@ -40,24 +40,23 @@ def eval_conditions(x) -> Tuple[List[bool], List[bool]]:
 
 def eval_uuid(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
               warn_duplicates: bool = True) -> List[uuid.UUID]:
-    """ Evaluate neurons' UUIDs.
+    """Evaluate neurons' ID(s).
 
     Parameters
     ----------
     x :                str | uuid.UUID | TreeNeuron | NeuronList | DataFrame
                        For Neuron/List or pandas.DataFrames/Series will
-                       look for ``uuid`` attribute/column.
+                       look for ``id`` attribute/column.
     warn_duplicates :  bool, optional
-                       If True, will warn if duplicate UUIDs are found.
+                       If True, will warn if duplicate IDs are found.
                        Only applies to NeuronLists.
 
     Returns
     -------
     list
-                    List containing UUIDs.
+                    List containing IDs.
 
     """
-
     if isinstance(x, uuid.UUID):
         return [x]
     elif isinstance(x, (str, np.str)):
@@ -72,30 +71,30 @@ def eval_uuid(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
                 uu.append(temp)  # type: ignore
         return sorted(set(uu), key=uu.index)
     elif isinstance(x, core.TreeNeuron):
-        return [x.uuid]
+        return [x.id]
     elif isinstance(x, core.NeuronList):
-        if len(x.uuid) != len(set(x.uuid)) and warn_duplicates:
-            logger.warning('Duplicate UUIDs found in NeuronList.'
+        if len(x.id) != len(set(x.id)) and warn_duplicates:
+            logger.warning('Duplicate IDs found in NeuronList.'
                            'The function you are using might not respect '
                            'fragments of the same neuron. For explanation see '
                            'http://navis.readthedocs.io/en/latest/source/conn'
                            'ectivity_analysis.html.')
-        return list(x.uuid)
+        return list(x.id)
     elif isinstance(x, pd.DataFrame):
-        if 'uuid' not in x.columns:
-            raise ValueError('Expect "uuid" column in pandas DataFrames')
-        return x.uuid.tolist()
+        if 'id' not in x.columns:
+            raise ValueError('Expect "id" column in pandas DataFrames')
+        return x.id.tolist()
     elif isinstance(x, pd.Series):
-        if x.name == 'uuid':
+        if x.name == 'id':
             return x.tolist()
-        elif 'uuid' in x:
-            return [x.uuid]
+        elif 'id' in x:
+            return [x.id]
         else:
-            raise ValueError(f'Unable to extract UUID from pandas series {x}')
+            raise ValueError(f'Unable to extract ID from pandas series {x}')
     elif isinstance(x, type(None)):
         return None
     else:
-        msg = f'Unable to extract UUID(s) from data of type "{type(x)}"'
+        msg = f'Unable to extract ID(s) from data of type "{type(x)}"'
         logger.error(msg)
         raise TypeError(msg)
 
@@ -139,8 +138,8 @@ def eval_neurons(x: Any,
     elif isinstance(x, core.TreeNeuron):
         return [x]
     elif isinstance(x, core.NeuronList):
-        if len(x.uuid) != len(set(x.uuid)) and warn_duplicates:
-            logger.warning('Duplicate UUIDs found in NeuronList.'
+        if len(x.id) != len(set(x.id)) and warn_duplicates:
+            logger.warning('Duplicate IDs found in NeuronList.'
                            'The function you are using might not respect '
                            'fragments of the same neuron. For explanation see '
                            'http://navis.readthedocs.io/en/latest/source/conn'

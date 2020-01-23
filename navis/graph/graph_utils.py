@@ -996,11 +996,11 @@ def reroot_neuron(x: 'core.NeuronObject',
     # If new root is a tag, rather than a ID, try finding that node
     if isinstance(new_root, str):
         if new_root not in x.tags:
-            raise ValueError(f'#{x.uuid}: Found no treenodes with tag {new_root}'
+            raise ValueError(f'#{x.id}: Found no nodes with tag {new_root}'
                              ' - please double check!')
 
         elif len(x.tags[new_root]) > 1:
-            raise ValueError(f'#{x.uuid}: Found multiple treenodes with tag '
+            raise ValueError(f'#{x.id}: Found multiple node with tag '
                              f'{new_root} - please double check!')
         else:
             new_root = x.tags[new_root][0]
@@ -1216,11 +1216,13 @@ def cut_neuron(x: 'core.NeuronObject',
         # If cut_node is a tag (rather than an ID), try finding that node
         if isinstance(cn, str):
             if cn not in x.tags:
-                raise ValueError(f'#{x.uuid}: Found no treenode with tag {cn}'
+                raise ValueError(f'#{x.id}: Found no node with tag {cn}'
                                  ' - please double check!')
             cn_ids += x.tags[cn]
         elif cn not in x.nodes.node_id.values:
-            raise ValueError(f'No treenode with ID "{cn}" found.')
+            raise ValueError(f'No node with ID "{cn}" found.')
+        elif cn in x.root:
+            raise ValueError(f'Unable to cut at treenode "{cn}" - node is root')
         else:
             cn_ids.append(cn)
 

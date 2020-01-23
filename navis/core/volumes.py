@@ -44,7 +44,7 @@ class Volume:
                 RGB color.
     id :        int, optional
                 If not provided, neuron will be assigned a random UUID
-                as ``.uuid``
+                as ``.id``
 
     Attributes
     ----------
@@ -69,7 +69,7 @@ class Volume:
         self.vertices: np.ndarray = np.array(vertices)
         self.faces: np.ndarray = np.array(faces)
         self.color: Union[str, Sequence[Union[int, float]]] = color
-        self.uuid: Optional[int] = id if id else uuid.uuid4()
+        self.id: Optional[int] = id if id else uuid.uuid4()
 
     @classmethod
     def from_csv(self,

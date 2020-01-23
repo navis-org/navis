@@ -431,7 +431,7 @@ def bending_flow(x: 'core.NeuronObject') -> None:
         raise ValueError('Neuron must have connectors.')
 
     if x.soma and x.soma not in x.root:
-        logger.warning(f'Neuron {x.uuid} is not rooted to its soma!')
+        logger.warning(f'Neuron {x.id} is not rooted to its soma!')
 
     # We will be processing a super downsampled version of the neuron to speed
     # up calculations
@@ -558,7 +558,7 @@ def flow_centrality(x: 'core.NeuronObject',
         return
 
     if x.soma and x.soma not in x.root:
-        logger.warning(f'Neuron {x.uuid} is not rooted to its soma!')
+        logger.warning(f'Neuron {x.id} is not rooted to its soma!')
 
     # We will be processing a super downsampled version of the neuron to
     # speed up calculations
@@ -679,7 +679,7 @@ def tortuosity(x: 'core.NeuronObject',
         if not isinstance(seg_length, (list, np.ndarray, tuple)):
             seg_length = [seg_length]  # type: ignore
         df = pd.DataFrame([tortuosity(n, seg_length) for n in config.tqdm(x, desc='Tortuosity', disable=config.pbar_hide, leave=config.pbar_leave)],
-                          index=x.uuid, columns=seg_length).T
+                          index=x.id, columns=seg_length).T
         df.index.name = 'seg_length'
         return df
 

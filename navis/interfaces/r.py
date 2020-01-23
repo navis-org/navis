@@ -371,13 +371,13 @@ def neuron2r(x: 'core.NeuronObject',
         In rpy2, attributes are assigned using the .slots['df'] function.
         """
 
-        nlist = {str(n.uuid): neuron2r(n, unit_conversion=unit_conversion) for
+        nlist = {str(n.id): neuron2r(n, unit_conversion=unit_conversion) for
                  n in config.tqdm(x, desc='Conv.',
                                   leave=config.pbar_leave,
                                   disable=config.pbar_hide)}
 
         nlist = robjects.ListVector(nlist)
-        nlist.rownames = [str(n.uuid) for n in x]
+        nlist.rownames = [str(n.id) for n in x]
 
         nlist.rclass = robjects.r('c("neuronlist","list")')
 
@@ -882,7 +882,7 @@ class NBLASTresults:
         n_py = neuron2py(self.neuron)
 
         # Create colormap with the query neuron being black
-        cmap = {n_py.uuid: (0, 0, 0)}
+        cmap = {n_py.id: (0, 0, 0)}
 
         colors = np.linspace(0, 1, len(nl) + 1)
         colors = np.array([hsv_to_rgb(c, 1, 1) for c in colors])
@@ -1023,7 +1023,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
 
 def get_brain_template_mesh(x: str) -> core.Volume:
-    """ Fetches brain surface model from ``nat.flybrains``, ``flycircuit`` or
+    """Fetch brain surface model from ``nat.flybrains``, ``flycircuit`` or
     ``elmr`` and converts to :class:`navis.Volume`.
 
     Parameters

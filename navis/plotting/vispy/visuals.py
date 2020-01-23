@@ -246,8 +246,8 @@ def neuron2vispy(x, **kwargs):
                     t.unfreeze()
                     t._object_type = 'neuron'
                     t._neuron_part = 'neurites'
-                    t._uuid = neuron.uuid
-                    t._name = str(getattr(neuron, 'name', neuron.uuid))
+                    t._id = neuron.id
+                    t._name = str(getattr(neuron, 'name', neuron.id))
                     t._object_id = object_id
                     t.freeze()
 
@@ -270,8 +270,8 @@ def neuron2vispy(x, **kwargs):
                     t.unfreeze()
                     t._object_type = 'neuron'
                     t._neuron_part = 'neurites'
-                    t._uuid = neuron.uuid
-                    t._name = str(getattr(neuron, 'name', neuron.uuid))
+                    t._id = neuron.id
+                    t._name = str(getattr(neuron, 'name', neuron.id))
                     t._object_id = object_id
                     t.freeze()
 
@@ -287,7 +287,7 @@ def neuron2vispy(x, **kwargs):
             if any(soma):
                 for s in soma:
                     n = neuron.nodes.set_index('node_id').loc[s]
-                    r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius                    
+                    r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
                     sp = create_sphere(7, 7, radius=r)
                     verts = sp.get_vertices() + n[['x', 'y', 'z']].values
                     s = scene.visuals.Mesh(vertices=verts,
@@ -303,8 +303,8 @@ def neuron2vispy(x, **kwargs):
                     s.unfreeze()
                     s._object_type = 'neuron'
                     s._neuron_part = 'soma'
-                    s._uuid = neuron.uuid
-                    s._name = str(getattr(neuron, 'name', neuron.uuid))
+                    s._id = neuron.id
+                    s._name = str(getattr(neuron, 'name', neuron.id))
                     s._object_id = object_id
                     s.freeze()
 
@@ -357,8 +357,8 @@ def neuron2vispy(x, **kwargs):
                     t.unfreeze()
                     t._object_type = 'neuron'
                     t._neuron_part = 'connectors'
-                    t._uuid = neuron.uuid
-                    t._name = str(getattr(neuron, 'name', neuron.uuid))
+                    t._id = neuron.id
+                    t._name = str(getattr(neuron, 'name', neuron.id))
                     t._object_id = object_id
                     t.freeze()
 
@@ -564,7 +564,7 @@ def combine_visuals(visuals):
             t.unfreeze()
             t._object_type = 'neuron'
             t._neuron_part = 'neurites'
-            t._uuid = 'NA'
+            t._id = 'NA'
             t._object_id = uuid.uuid4()
             t._name = 'NeuronCollection'
             t.freeze()
@@ -593,7 +593,7 @@ def combine_visuals(visuals):
             t.unfreeze()
             t._object_type = 'neuron'
             t._neuron_part = 'neurites'
-            t._uuid = 'NA'
+            t._id = 'NA'
             t._name = 'MeshNeuronCollection'
             t._object_id = uuid.uuid4()
             t.freeze()

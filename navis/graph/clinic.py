@@ -51,10 +51,10 @@ def health_check(x: 'core.NeuronObject', verbose: bool = True) -> None:
 
     if verbose:
         if issues:
-            print(f'Neuron {str(x.uuid)} has issues:')
+            print(f'Neuron {str(x.id)} has issues:')
             for i in issues:
                 print(f' - {i}')
         else:
-            print(f'Neuron {str(x.uuid)} seems perfectly fine.')
+            print(f'Neuron {str(x.id)} seems perfectly fine.')
 
     return issues if issues else None

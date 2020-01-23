@@ -410,7 +410,7 @@ def plot2d(x: Union[core.NeuronObject,
                     lc.set_linewidth(linewidth)
                     lc.set_alpha(alpha)
                     lc.set_linestyle(linestyle)
-                    lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.uuid}')
+                    lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
                     line = ax.add_collection(lc)
 
                 if plot_soma and not isinstance(neuron.soma, type(None)):
@@ -441,13 +441,13 @@ def plot2d(x: Union[core.NeuronObject,
 
                     lc = Line3DCollection(this_coords,
                                           color=this_color,
-                                          label=neuron.uuid,
+                                          label=neuron.id,
                                           alpha=alpha,
                                           cmap=cmap,
                                           lw=linewidth,
                                           linestyle=linestyle)
                     if group_neurons:
-                        lc.set_gid(neuron.uuid)
+                        lc.set_gid(neuron.id)
                     # Need to get this before adding data
                     ax.add_collection3d(lc)
                     # Update data bounds
@@ -466,7 +466,7 @@ def plot2d(x: Union[core.NeuronObject,
                                               alpha=alpha,
                                               linestyle=linestyle)
                         if group_neurons:
-                            lc.set_gid(neuron.uuid)
+                            lc.set_gid(neuron.id)
                         ax.add_collection3d(lc)
                     ax_had_data = _update_axes3d_bounds(ax,
                                                         neuron.nodes[['x', 'z', 'y']].values * [1, 1, -1],
@@ -488,7 +488,7 @@ def plot2d(x: Union[core.NeuronObject,
                         surf = ax.plot_surface(
                             x, z, y, color=this_color, shade=False, alpha=alpha)
                         if group_neurons:
-                            surf.set_gid(neuron.uuid)
+                            surf.set_gid(neuron.id)
 
                         surf3D_collections[-1].append(surf)
 
@@ -506,7 +506,7 @@ def plot2d(x: Union[core.NeuronObject,
                                c=cn_lay[c], alpha=alpha, zorder=4,
                                edgecolor='none', s=cn_size)
                     ax.get_children(
-                    )[-1].set_gid(f'CN_{neuron.uuid}')
+                    )[-1].set_gid(f'CN_{neuron.id}')
             elif method in ['3d', '3d_complex']:
                 all_cn = neuron.connectors
                 c = [cn_lay[i] for i in all_cn.type.values]

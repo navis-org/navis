@@ -155,8 +155,8 @@ class TreeNeuron:
         for k, v in metadata.items():
             setattr(self, k, v)
 
-        if not getattr(self, 'uuid', None):
-            self.uuid = uuid.uuid4()
+        if not getattr(self, 'id', None):
+            self.id = uuid.uuid4()
 
         self.units = units
 
@@ -344,18 +344,18 @@ class TreeNeuron:
 
     @property
     def root(self) -> Sequence:
-        """ Root node(s)."""
+        """Root node(s)."""
         roots = self.nodes[self.nodes.parent_id < 0].node_id.values
         return roots
 
     @property
     def n_nodes(self) -> int:
-        """ Number of nodes."""
+        """Number of nodes."""
         return self.nodes.shape[0]
 
     @property
     def n_connectors(self) -> int:
-        """ Number of connectors."""
+        """Number of connectors."""
         if self.has_connectors:
             return self.connectors.shape[0]
         else:
@@ -426,10 +426,10 @@ class TreeNeuron:
         """
         # Generate new neuron
         x = Neuron(self.nodes)
-        # Remove everything but then new UUID
-        x.__dict__ = {'uuid': x.uuid}
+        # Remove everything but the UUID
+        x.__dict__ = {'id': x.id}
         # Override with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k != 'uuid'})
+        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k != 'id'})
 
         if 'graph' in self.__dict__:
             x.graph = self.graph.copy(as_view=deepcopy is not True)
@@ -470,6 +470,7 @@ class TreeNeuron:
         See Also
         --------
         :func:`navis.neuron2nx`
+
         """
         self.graph = graph.neuron2nx(self)
         return self.graph
@@ -487,20 +488,21 @@ class TreeNeuron:
         See Also
         --------
         :func:`navis.neuron2igraph`
+
         """
         self.igraph = graph.neuron2igraph(self)
         return self.igraph
 
     def get_dps(self) -> pd.DataFrame:
-        """Calculates/updates dotproduct representation of the neuron.
+        """Calculates/updates dotprops representation of the neuron.
 
         Once calculated stored as ``.dps``.
 
         See Also
         --------
-        :func:`navis.to_dotproduct`
-        """
+        :func:`navis.neuron2dps`
 
+        """
         self.dps = graph.neuron2dps(self)
         return self.dps
 
@@ -531,7 +533,6 @@ class TreeNeuron:
                     Function called to generate 2d plot.
 
         """
-
         from ..plotting import plot2d
 
         return plot2d(self, **kwargs)
@@ -558,7 +559,6 @@ class TreeNeuron:
         >>> nl.plot3d(connectors=True)
 
         """
-
         from ..plotting import plot3d
 
         return plot3d(core.NeuronList(self, make_copy=False), **kwargs)
@@ -1021,9 +1021,8 @@ class TreeNeuron:
         else:
             return NotImplemented
 
-    def summary(self) -> pd.Series:
+    def summary(self, add_props=None) -> pd.Series:
         """Get a summary of this neuron."""
-
         # Set logger to warning only - otherwise you might get tons of
         # "skeleton data not available" messages
         lvl = logger.level
@@ -1032,6 +1031,16 @@ class TreeNeuron:
         # Look up these values without requesting them
         props = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
                  'n_leafs', 'cable_length', 'soma']
+
+        # Add .id to summary if not a generic UUID
+        if not isinstance(self.id, uuid.UUID):
+            props.insert(2, 'id')
+
+        if add_props:
+            props = np.append(props, add_props)
+
+        print(props)
+
         s = pd.Series([getattr(self, at, 'NA') for at in props],
                       index=props)
 
