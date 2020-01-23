@@ -37,7 +37,7 @@ logger = config.logger
 
 
 class NeuronList:
-    """ Compilation of :class:`~navis.TreeNeuron`.
+    """Compilation of :class:`~navis.TreeNeuron`.
 
     Gives quick access to neurons' attributes and functions.
 
@@ -77,9 +77,10 @@ class NeuronList:
     n_cores :           int
                         Number of cores to use for threading and parallel
                         processing. Default = ``os.cpu_count()-1``.
+    **kwargs
+                        Will be passed to constructor of TreeNeuron.
 
     """
-
     neurons: List[core.TreeNeuron]
 
     nodes: pd.DataFrame
@@ -106,7 +107,8 @@ class NeuronList:
                           core.TreeNeuron,
                           pd.DataFrame],
                  make_copy: bool = False,
-                 use_parallel: bool = False):
+                 use_parallel: bool = False,
+                 **kwargs):
         # Set number of cores
         self.n_cores: int = max(1, os.cpu_count())
 
@@ -151,7 +153,8 @@ class NeuronList:
         if to_convert:
             if self.use_threading:
                 with ThreadPoolExecutor(max_workers=self.n_cores) as e:
-                    futures = e.map(core.TreeNeuron, [n[0] for n in to_convert])
+                    futures = e.map(lambda x: core.TreeNeuron(x, **kwargs),
+                                    [n[0] for n in to_convert])
 
                     converted = [n for n in config.tqdm(futures,
                                                         total=len(to_convert),
@@ -164,7 +167,7 @@ class NeuronList:
 
             else:
                 for n in config.tqdm(to_convert, desc='Make nrn',
-                                     disable=config.pbar_hide,
+                                     disable=config.pbar_hide or len(to_convert) == 1,
                                      leave=config.pbar_leave):
                     self.neurons[n[2]] = core.TreeNeuron(n[0])
 

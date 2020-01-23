@@ -86,9 +86,9 @@ def example_neurons(n: Optional[int] = None,
 
     if source == 'gml':
         graphs = [nx.read_gml(os.path.join(gml_path, g)) for g in gml[:n]]
-        nl = NeuronList([nx2neuron(g) for g in graphs])
+        nl = NeuronList([nx2neuron(g) for g in graphs], units='nm')
     elif source == 'swc':
-        nl = NeuronList([from_swc(os.path.join(swc_path, f)) for f in swc[:n]])
+        nl = NeuronList([from_swc(os.path.join(swc_path, f), units='nm') for f in swc[:n]])
     else:
         raise ValueError(f'Source must be "swc" or "gml", not "{source}"')
 

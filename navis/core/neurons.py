@@ -12,8 +12,8 @@
 #    GNU General Public License for more details.
 
 import copy
-import io
 import numbers
+import pint
 import types
 import uuid
 
@@ -37,7 +37,7 @@ logger = config.logger
 
 def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron'], **metadata):
     """ Constructor for Neuron objects. Depending on the input, either a
-    ``TreeNeuron`` or a ``VolumeNeuron`` is returned.
+    ``TreeNeuron`` or a ``VolumeNeuron`` (in preparation) is returned.
 
     Parameters
     ----------
@@ -68,8 +68,8 @@ class TreeNeuron:
     """
 
     #: Minimum radius for soma detection. Set to ``None`` if no tag needed.
-    #: Default = .5
-    soma_detection_radius: Union[float, int] = .5
+    #: Default = .5 microns
+    soma_detection_radius: Union[float, int, pint.Quantity] = 0.5 * config.ureg.um
     #: Label for soma detection. Set to ``None`` if no tag needed. Default = 1.
     soma_detection_label: Union[float, int, str] = 1
     #: Soma radius (e.g. for plotting). If string, must be column in nodes
@@ -80,6 +80,11 @@ class TreeNeuron:
                  int] = morpho.find_soma
 
     name: str
+
+    #: Unit space for this neuron. Some functions, like soma detection are
+    #: sensitive to units (if provided)
+    #: Default = micrometers
+    units: pint.Unit
 
     nodes: pd.DataFrame
     connectors: pd.DataFrame
@@ -116,9 +121,10 @@ class TreeNeuron:
                           str,
                           'TreeNeuron',
                           nx.DiGraph],
+                 units: Union[pint.Unit, str] = 'um',
                  **metadata
                  ):
-        """ Initialize Skeleton Neuron.
+        """Initialize Skeleton Neuron.
 
         Parameters
         ----------
@@ -128,10 +134,12 @@ class TreeNeuron:
                          - `str` is treated as SWC file name
                          - `BufferedIOBase` e.g. from `open(filename)`
                          - `networkx.DiGraph` parsed by `navis.nx2neuron`
+        units :         pint.Units
+                        Units for coordinates. Defaults to micrometers.
         **metadata
                         Any additional data to attach to neuron.
-        """
 
+        """
         if isinstance(x, pd.DataFrame):
             self.nodes = x
         elif isinstance(x, nx.Graph):
@@ -144,12 +152,13 @@ class TreeNeuron:
         else:
             raise TypeError(f'Unable to construct TreeNeuron from "{type(x)}"')
 
-
         for k, v in metadata.items():
             setattr(self, k, v)
 
         if not getattr(self, 'uuid', None):
             self.uuid = uuid.uuid4()
+
+        self.units = units
 
     def __getattr__(self, key):
         """We will use this magic method to calculate some attributes on-demand."""
@@ -191,23 +200,40 @@ class TreeNeuron:
         self._name = v
 
     @property
+    def units(self) -> str:
+        """Units for coordinate space."""
+        return getattr(self, '_units', None)
+
+    @units.setter
+    def units(self, v: Union[pint.Unit, str]):
+        if isinstance(v, str):
+            self._units = config.ureg(v)
+        elif isinstance(v, pint.Unit):
+            self._units = v
+        else:
+            raise TypeError(f'Expect str or pint.Unit, got "{type(v)}"')
+
+    @property
     def nodes(self) -> pd.DataFrame:
-        """ Node table. """
+        """Node table."""
         return self._nodes
 
     @nodes.setter
     def nodes(self, v):
         self._nodes = utils.validate_table(v,
-                                           required=['node_id',
-                                                     'parent_id',
-                                                     'x', 'y', 'z'],
+                                           required=[('node_id', 'rowId', 'node'),
+                                                     ('parent_id', 'link', 'parent'),
+                                                     'x',
+                                                     'y',
+                                                     'z'],
+                                           rename=True,
                                            optional={'radius': 0},
                                            restrict=False)
         graph.classify_nodes(self)
 
     @property
     def connectors(self) -> pd.DataFrame:
-        """ Connector table. If none, will return ``None``. """
+        """Connector table. If none, will return ``None``."""
         return getattr(self, '_connectors', None)
 
     @connectors.setter
