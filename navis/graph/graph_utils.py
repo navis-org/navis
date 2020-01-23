@@ -824,10 +824,18 @@ def split_into_fragments(x: 'core.NeuronObject',
 
 
 @overload
-def longest_neurite(x: 'core.NeuronObject',
+def longest_neurite(x: 'core.TreeNeuron',
                     n: int = 1,
                     reroot_to_soma: bool = False,
                     inplace: Literal[False] = False) -> 'core.TreeNeuron':
+    pass
+
+
+@overload
+def longest_neurite(x: 'core.NeuronList',
+                    n: int = 1,
+                    reroot_to_soma: bool = False,
+                    inplace: Literal[False] = False) -> 'core.NeuronList':
     pass
 
 
@@ -849,7 +857,7 @@ def longest_neurite(x: 'core.NeuronObject',
     Parameters
     ----------
     x :                 TreeNeuron | NeuronList
-                        Must be a single neuron.
+                        Neuron(s) to prune.
     n :                 int | slice, optional
                         Number of longest neurites to preserve. For example:
                          - ``n=1`` keeps the longest neurites
@@ -863,7 +871,7 @@ def longest_neurite(x: 'core.NeuronObject',
 
     Returns
     -------
-    TreeNeuron
+    TreeNeuron/List
                         Pruned neuron. Only if ``inplace=False``.
 
     See Also
@@ -887,10 +895,22 @@ def longest_neurite(x: 'core.NeuronObject',
     if isinstance(x, core.TreeNeuron):
         pass
     elif isinstance(x, core.NeuronList):
-        if x.shape[0] == 1:
-            x = x[0]
+        if not inplace:
+            x = x.copy()
+
+        _ = [longest_neurite(i,
+                             n=n,
+                             inplace=True,
+                             reroot_to_soma=reroot_to_soma)
+             for i in config.tqdm(x,
+                                  desc='Pruning',
+                                  disable=config.pbar_hide,
+                                  leave=config.pbar_leave)]
+
+        if not inplace:
+            return x
         else:
-            raise ValueError('Please provide only a single neuron.')
+            return
     else:
         raise TypeError(f'Unable to process data of type "{type(x)}"')
 
