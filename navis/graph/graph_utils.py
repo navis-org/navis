@@ -51,7 +51,7 @@ def _generate_segments(x: 'core.NeuronObject',
     Returns
     -------
     list
-                Segments as list of lists containing treenode ids. List is
+                Segments as list of lists containing node IDs. List is
                 sorted by segment lengths.
     """
 
@@ -139,7 +139,7 @@ def _break_segments(x: 'core.NeuronObject') -> list:
     Returns
     -------
     list
-                Segments as list of lists containing treenode IDs.
+                Segments as list of lists containing node IDs.
 
     """
 
@@ -159,7 +159,12 @@ def _break_segments(x: 'core.NeuronObject') -> list:
         end = g.vs.select(_indegree=0).indices
         branch = g.vs.select(_indegree_gt=1, _outdegree=1).indices
         root = g.vs.select(_outdegree=0).indices
+
+        # Get seeds
         seeds = branch + end
+        # Remove seeds that are also roots (=disconnected single nodes)
+        seeds = set(seeds) - set(root)
+
         # Converting to set speeds up the "parent in stops" check
         stops = set(branch + root)
         seg_list = []
@@ -170,7 +175,7 @@ def _break_segments(x: 'core.NeuronObject') -> list:
                 parent = g.successors(parent)[0]
                 seg.append(parent)
             seg_list.append(seg)
-        # Translate indices to treenode IDs
+        # Translate indices to node IDs
         ix_id = {v: n for v, n in zip(g.vs.indices,
                                       g.vs.get_attribute_values('node_id'))}
         seg_list = [[ix_id[n] for n in s] for s in seg_list]
@@ -218,7 +223,7 @@ def _edge_count_to_root(x: 'core.TreeNeuron') -> dict:
         current_level, next_level = next_level, current_level  # type: ignore
         count += 1
 
-    # Map vertex index to treenode ID
+    # Map vertex index to node ID
     if x.igraph and config.use_igraph:
         dist = {x.igraph.vs[k]['node_id']: v for k, v in dist.items()}
 
