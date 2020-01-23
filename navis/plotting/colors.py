@@ -18,6 +18,7 @@ import colorsys
 import numbers
 
 import matplotlib.colors as mcl
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -38,7 +39,7 @@ def generate_colors(N: int,
                     color_range: Union[Literal[1],
                                        Literal[255]] = 1
                     ) -> List[Tuple[float, float, float]]:
-    """ Divides colorspace into N evenly distributed colors.
+    """Divide colorspace into N evenly distributed colors.
 
     Returns
     -------
@@ -184,7 +185,7 @@ def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
         elif 'label' in connectors:
             unique = connectors.label.unique()
         elif 'relation' in connectors:
-            unique = connectors.label.unique()
+            unique = connectors.relation.unique()
         else:
             unique = []
     else:
@@ -232,21 +233,21 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
 
     colors_required = skdata.shape[0] + dotprops.shape[0] + volumes.shape[0]
 
+    if not colors_required:
+        # If no neurons to plot, just return None
+        # This happens when there is only a scatter plot
+        return [None], [None], [None]
+
     # If no colors, generate random colors
     if isinstance(colors, type(None)):
-        if colors_required > 0:
-            colors = []
-            colors += generate_colors(colors_required - volumes.shape[0],
-                                      color_space='RGB',
-                                      color_range=color_range)
-            colors += eval_color([getattr(v, 'color', (1, 1, 1)) for v in volumes],
-                                 color_range=color_range)
-        else:
-            # If no neurons to plot, just return None
-            # This happens when there is only a scatter plot
-            return [None], [None], [None]
-    else:
-        colors = eval_color(colors, color_range=color_range)
+        colors = []
+        colors += generate_colors(colors_required - volumes.shape[0],
+                                  color_space='RGB',
+                                  color_range=color_range)
+        colors += [getattr(v, 'color', (1, 1, 1)) for v in volumes]
+
+    # We need to parse once here to convert named colours to rgb
+    colors = eval_color(colors, color_range=color_range)
 
     # In order to cater for duplicate skeleton IDs in skdata (e.g. from
     # splitting into fragments), we will not map skids to colors but instead
@@ -262,27 +263,31 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
         neuron_cmap = []
         for n in skdata:
             this_c = dc
-            for k in [n, n.uuid, n.name]:
+            for k in [n, n.id, n.name]:
                 if k in colors:
                     this_c = colors[k]
                     break
-            neuron_cmap.append((eval_color(this_c,
-                                           color_range=color_range)))
+            neuron_cmap.append(this_c)
 
-        dotprop_cmap = [eval_color(colors.get(s, dc), color_range=color_range)
-                        for s in dotprops.gene_name.values]
+        dotprop_cmap = [colors.get(s, dc) for s in dotprops.gene_name.values]
 
         # Try finding color first by volume, then uuid and finally by name
+        # If no color found, fall back to color property
         volumes_cmap = []
         for v in volumes:
             this_c = getattr(v, 'color', (.95, .95, .95, .1))
-            for k in [v, v.uuid, getattr(v, 'name', None)]:
-                if k in colors:
+            for k in [v, v.id, getattr(v, 'name', None)]:
+                if k and k in colors:
                     this_c = colors[k]
                     break
-            volumes_cmap.append(eval_color(this_c,
-                                           color_range=color_range))
+            volumes_cmap.append(this_c)
+    elif isinstance(colors, mcl.Colormap):
+        # Generate colors for neurons and dotprops
+        neuron_cmap = [colors(i/len(skdata)) for i in range(len(skdata))]
+        dotprop_cmap = [colors(i/dotprops.shape[0]) for i in range(dotprops.shape[0])]
 
+        # Colormaps are not applied to volumes
+        volumes_cmap = [getattr(v, 'color', (.95, .95, .95, .1)) for v in volumes]
     # If list of colors
     elif isinstance(colors, (list, tuple, np.ndarray)):
         # If color is a single color, convert to list
@@ -302,14 +307,20 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
         if volumes.shape[0]:
             volumes_cmap = [colors[i + skdata.shape[0] + dotprops.shape[0]] for i in range(volumes.shape[0])]
     else:
-        raise TypeError(f'Got colors of type "{type(colors)}"')
+        raise TypeError(f'Unable to parse colors of type "{type(colors)}"')
 
     # Override neuron cmap if we are supposed to use neuron colors
     if use_neuron_color:
-        neuron_cmap = [getattr(n, 'color',
-                               eval_color(config.default_color,
-                                          color_range))
+        neuron_cmap = [getattr(n, 'color', config.default_color)
                        for i, n in enumerate(skdata)]
+
+    # Make sure colour range checks out
+    neuron_cmap = [eval_color(c, color_range=color_range)
+                   for c in neuron_cmap]
+    dotprop_cmap = [eval_color(c, color_range=color_range)
+                    for c in dotprop_cmap]
+    volumes_cmap = [eval_color(c, color_range=color_range)
+                    for c in volumes_cmap]
 
     logger.debug('Neuron colormap: ' + str(neuron_cmap))
     logger.debug('Dotprops colormap: ' + str(dotprop_cmap))
@@ -319,14 +330,23 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
 
 
 def eval_color(x, color_range=255):
-    """ Helper to evaluate colors. Always returns tuples.
-    """
+    """Helper to evaluate colors. Always returns tuples."""
 
     if color_range not in [1, 255]:
         raise ValueError('"color_range" must be 1 or 255')
 
     if isinstance(x, str):
-        c = mcl.to_rgb(x)
+        # Check if named color
+        if mcl.is_color_like(x):
+            c = mcl.to_rgb(x)
+        # Assume it's a matplotlib color map
+        else:
+            try:
+                c = plt.get_cmap(x)
+            except ValueError:
+                raise ValueError('Unable to interpret color "{}"'.format(x))
+            except BaseException:
+                raise
     elif isinstance(x, dict):
         return {k: eval_color(v, color_range=color_range) for k, v in x.items()}
     elif isinstance(x, (list, tuple, np.ndarray)):
@@ -340,13 +360,15 @@ def eval_color(x, color_range=255):
     else:
         raise TypeError(f'Unable to interpret color of type "{type(x)}"')
 
-    # Check if we need to convert
-    if not any([v > 1 for v in c]) and color_range == 255:
-        c = [int(v * 255) for v in c]
-    elif any([v > 1 for v in c]) and color_range == 1:
-        c = [v / 255 for v in c]
+    if not isinstance(c, mcl.Colormap):
+        # Check if we need to convert
+        if not any([v > 1 for v in c]) and color_range == 255:
+            c = [int(v * 255) for v in c]
+        elif any([v > 1 for v in c]) and color_range == 1:
+            c = [v / 255 for v in c]
+        c = tuple(c)
 
-    return tuple(c)
+    return c
 
 
 def hex_to_rgb(value: str) -> Tuple[int, int, int]:
