@@ -351,21 +351,21 @@ def _calc_synapse_similarity(cnA: pd.DataFrame,
     # Get the connector types that we want to compare between neuron A and B
     if isinstance(restrict_cn, type(None)):
         # If no restrictions, get all cn types in neuron A
-        cn_to_check = cnA.relation.unique()
+        cn_to_check = cnA.type.unique()
     else:
         # Intersect restricted connectors and actually available types
-        cn_to_check = set(cnA.relation.unique()) & set(restrict_cn)
+        cn_to_check = set(cnA.type.unique()) & set(restrict_cn)
 
     # Iterate over all types of connectors
     for r in cn_to_check:
         # Skip if either neuronA or neuronB don't have this synapse type
-        if cnB[cnB.relation == r].empty:
-            all_values += [0] * cnA[cnA.relation == r].shape[0]
+        if cnB[cnB.type == r].empty:
+            all_values += [0] * cnA[cnA.type == r].shape[0]
             continue
 
         # Get inter-neuron matrix
-        dist_mat = scipy.spatial.distance.cdist(cnA[cnA.relation == r][['x', 'y', 'z']],
-                                                cnB[cnB.relation == r][['x', 'y', 'z']])
+        dist_mat = scipy.spatial.distance.cdist(cnA[cnA.type == r][['x', 'y', 'z']],
+                                                cnB[cnB.type == r][['x', 'y', 'z']])
 
         # Get index of closest synapse in neuron B
         closest_ix = np.argmin(dist_mat, axis=1)
@@ -375,10 +375,10 @@ def _calc_synapse_similarity(cnA: pd.DataFrame,
 
         # Get intra-neuron matrices for synapse density checking
         distA = scipy.spatial.distance.pdist(
-            cnA[cnA.relation == r][['x', 'y', 'z']])
+            cnA[cnA.type == r][['x', 'y', 'z']])
         distA = scipy.spatial.distance.squareform(distA)
         distB = scipy.spatial.distance.pdist(
-            cnB[cnB.relation == r][['x', 'y', 'z']])
+            cnB[cnB.type == r][['x', 'y', 'z']])
         distB = scipy.spatial.distance.squareform(distB)
 
         # Calculate number of synapses closer than OMEGA. This does count itself!

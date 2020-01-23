@@ -440,9 +440,18 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     y = x.downsample(factor=float('inf'), inplace=False)
     logger.setLevel(current_level)
 
+    # Figure out how connector types are labeled
+    cn_types = y.connector.type.unique()
+    if all(np.isin(['pre', 'post'], cn_types)):
+        pre, post = 'pre', 'post'
+    elif all(np.isin([0, 1], cn_types)):
+        pre, post = 0, 1
+    else:
+        raise ValueError(f'Unable to parse connector types for neuron {y.id}')
+
     # Get list of nodes with pre/postsynapses
-    pre_node_ids = y.connectors[y.connectors.relation == 0].node_id.values
-    post_node_ids = y.connectors[y.connectors.relation == 1].node_id.values
+    pre_node_ids = y.connectors[y.connectors.type == pre].node_id.values
+    post_node_ids = y.connectors[y.connectors.type == post].node_id.values
 
     # Get list of branch_points
     bp_node_ids = y.nodes[y.nodes.type == 'branch'].node_id.values.tolist()
@@ -573,11 +582,18 @@ def flow_centrality(x: 'core.NeuronObject',
     logger.setLevel(current_level)
     config.pbar_hide = current_state
 
+    # Figure out how connector types are labeled
+    cn_types = y.connector.type.unique()
+    if all(np.isin(['pre', 'post'], cn_types)):
+        pre, post = 'pre', 'post'
+    elif all(np.isin([0, 1], cn_types)):
+        pre, post = 0, 1
+    else:
+        raise ValueError(f'Unable to parse connector types for neuron {y.id}')
+
     # Get list of nodes with pre/postsynapses
-    pre_node_ids = y.connectors[y.connectors.relation ==
-                                0].node_id.unique()
-    post_node_ids = y.connectors[y.connectors.relation ==
-                                 1].node_id.unique()
+    pre_node_ids = y.connectors[y.connectors.type == pre].node_id.unique()
+    post_node_ids = y.connectors[y.connectors.type == post].node_id.unique()
     total_post = len(post_node_ids)
 
     # Get list of points to calculate flow centrality for:

@@ -129,13 +129,13 @@ def neuron2plotly(x, **kwargs):
         # Add connectors
         if kwargs.get('connectors', False) or \
            kwargs.get('connectors_only', False):
-            for j in neuron.connectors.relation.unique():
+            for j in neuron.connectors.type.unique():
                 if cn_mesh_colors:
                     c = color
                 else:
                     c = syn_lay.get(j, {'color': (10, 10, 10)})['color']
 
-                this_cn = neuron.connectors[neuron.connectors.relation == j]
+                this_cn = neuron.connectors[neuron.connectors.type == j]
 
                 if syn_lay['display'] == 'circles':
                     trace_data.append(go.Scatter3d(

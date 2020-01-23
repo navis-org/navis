@@ -248,6 +248,7 @@ class TreeNeuron:
                                                               ('type',
                                                                'relation',
                                                                'label')],
+                                                    rename=True,
                                                     restrict=False)
 
     @property
