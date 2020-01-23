@@ -1702,6 +1702,7 @@ def connected_subgraph(x: 'core.TreeNeuron',
         raise TypeError('Input must be a single TreeNeuron.')
 
     missing = set(ss) - set(x.nodes.node_id.values)
+    missing = np.array(list(missing)).astype(str)  # do NOT remove list() here!
     if missing:
         raise ValueError(f'Nodes not found: {",".join(missing)}')
 
