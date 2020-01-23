@@ -344,12 +344,12 @@ def nx2neuron(g: nx.Graph,
     except BaseException:
         raise
 
-    # Add additional generic attribute -> will skip treenode_id and parent_id
+    # Add additional generic attribute -> will skip node_id and parent_id
     # if they exist
     all_attr = set([k for n in g.nodes for k in g.nodes[n].keys()])
 
     # Remove some that we don't need
-    all_attr -= set(['parent_id', 'treenode_id'])
+    all_attr -= set(['parent_id', 'node_id'])
     # Add some that we want as columns even if they don't exist
     all_attr |= set(['x', 'y', 'z', 'confidence', 'radius'])
 
@@ -405,7 +405,7 @@ def _find_all_paths(g: nx.DiGraph,
 
 def neuron2KDTree(x: 'core.TreeNeuron',
                   tree_type: str = 'c',
-                  data: str = 'treenodes',
+                  data: str = 'nodes',
                   **kwargs) -> Union[scipy.spatial.cKDTree,
                                      scipy.spatial.KDTree]:
     """ Turns a neuron into scipy KDTree.
@@ -417,7 +417,7 @@ def neuron2KDTree(x: 'core.TreeNeuron',
                 Type of KDTree:
                   1. ``'c'`` = ``scipy.spatial.cKDTree`` (faster)
                   2. ``'normal'`` = ``scipy.spatial.KDTree`` (more functions)
-    data :      'treenodes' | 'connectors', optional
+    data :      'nodes' | 'connectors', optional
                 Data to use to generate tree.
     **kwargs
                 Keyword arguments passed at KDTree initialization.
@@ -432,9 +432,9 @@ def neuron2KDTree(x: 'core.TreeNeuron',
     if tree_type not in ['c', 'normal']:
         raise ValueError('"tree_type" needs to be either "c" or "normal"')
 
-    if data not in ['treenodes', 'connectors']:
+    if data not in ['nodes', 'connectors']:
         raise ValueError(
-            '"data" needs to be either "treenodes" or "connectors"')
+            '"data" needs to be either "nodes" or "connectors"')
 
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
@@ -444,7 +444,7 @@ def neuron2KDTree(x: 'core.TreeNeuron',
     elif not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Need TreeNeuron, got "{type(x)}"')
 
-    if data == 'treenodes':
+    if data == 'nodes':
         d = x.nodes[['x', 'y', 'z']].values
     else:
         d = x.connectors[['x', 'y', 'z']].values
@@ -456,10 +456,10 @@ def neuron2KDTree(x: 'core.TreeNeuron',
 
 
 def neuron2dps(x: 'core.TreeNeuron') -> pd.DataFrame:
-    """ Converts a neuron's neurites into dotproducts.
+    """Convert neuron to point clouds with tangent vectors (but no connectivity).
 
-    Dotproducts consist of a point and a vector. This works by (1) finding the
-    center between child->parent treenodes and (2) getting the vector between
+    Dotprops consist of a point and a vector. This works by (1) finding the
+    center between child->parent nodes and (2) getting the vector between
     them. Also returns the length of the vector.
 
     Parameters
@@ -471,7 +471,7 @@ def neuron2dps(x: 'core.TreeNeuron') -> pd.DataFrame:
     -------
     pandas.DataFrame
             DataFrame in which each row represents a segments between two
-            treenodes::
+            nodes::
 
                 point  vector  vec_length
              1
@@ -482,13 +482,14 @@ def neuron2dps(x: 'core.TreeNeuron') -> pd.DataFrame:
     --------
     >>> import navis
     >>> x = navis.example_neurons()
-    >>> dps = navis.to_dotproduct(x)
+    >>> dps = navis.neuron2dps(x)
     >>> # Get array of all locations
     >>> locs = numpy.vstack(dps.point.values)
 
     See Also
     --------
     navis.TreeNeuron.dps
+            Shorthand to the dotprops representation of neuron.
 
     """
 

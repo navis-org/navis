@@ -815,7 +815,7 @@ def average_neurons(x: 'core.NeuronList',
 
     # Generate KDTrees for each neuron
     for n in x:
-        n.tree = graph.neuron2KDTree(n, tree_type='c', data='treenodes')  # type: ignore  # TreeNeuron has no tree
+        n.tree = graph.neuron2KDTree(n, tree_type='c', data='nodes')  # type: ignore  # TreeNeuron has no tree
 
     # Set base for average: we will use this neurons nodes to query
     # the KDTrees
@@ -940,8 +940,8 @@ def despike_neuron(x: NeuronObject,
     if not inplace:
         x = x.copy()
 
-    # Index treenodes table by treenode ID
-    this_treenodes = x.nodes.set_index('node_id', inplace=False)
+    # Index nodes table by node ID
+    this_nodes = x.nodes.set_index('node_id', inplace=False)
 
     segs_to_walk = x.segments
 
@@ -954,9 +954,9 @@ def despike_neuron(x: NeuronObject,
         # Go over all segments
         for seg in x.segments:
             # Get nodes A, B and C of this segment
-            this_A = this_treenodes.loc[seg[:-l - 1]]
-            this_B = this_treenodes.loc[seg[l:-1]]
-            this_C = this_treenodes.loc[seg[l + 1:]]
+            this_A = this_nodes.loc[seg[:-l - 1]]
+            this_B = this_nodes.loc[seg[l:-1]]
+            this_C = this_nodes.loc[seg[l + 1:]]
 
             # Get coordinates
             A = this_A[['x', 'y', 'z']].values
@@ -975,10 +975,10 @@ def despike_neuron(x: NeuronObject,
                 # Interpolate new position(s) between A and C
                 new_positions = A[spikes_ix] + (C[spikes_ix] - A[spikes_ix]) / 2
 
-                this_treenodes.loc[spikes.index, ['x', 'y', 'z']] = new_positions
+                this_nodes.loc[spikes.index, ['x', 'y', 'z']] = new_positions
 
-    # Reassign treenode table
-    x.nodes = this_treenodes.reset_index(drop=False, inplace=False)
+    # Reassign node table
+    x.nodes = this_nodes.reset_index(drop=False, inplace=False)
 
     # The weights in the graph have changed, we need to update that
     x._clear_temp_attr(exclude=['segments', 'small_segments',
@@ -995,10 +995,10 @@ def guess_radius(x: NeuronObject,
                  limit: Optional[int] = None,
                  smooth: bool = True,
                  inplace: bool = False) -> Optional[NeuronObject]:
-    """ Tries guessing radii for all treenodes.
+    """ Tries guessing radii for all nodes.
 
-    Uses distance between connectors and treenodes and interpolate for all
-    treenodes. Fills in ``radius`` column in treenode table.
+    Uses distance between connectors and nodes and interpolate for all
+    nodes. Fills in ``radius`` column in node table.
 
     Parameters
     ----------
