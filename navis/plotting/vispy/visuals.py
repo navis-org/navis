@@ -124,7 +124,8 @@ def neuron2vispy(x, **kwargs):
     cn_mesh_colors :  bool, optional
                       If True, connectors will have same color as the neuron.
     synapse_layout :  dict, optional
-                      Sets synapse layout. Default settings::
+                      Sets synapse layout. For example::
+
                         {
                             0: {
                                 'name': 'Presynapses',
@@ -138,7 +139,7 @@ def neuron2vispy(x, **kwargs):
                                 'name': 'Gap junctions',
                                 'color': (0, 255, 0)
                                 },
-                            'display': 'lines'  # 'circles'
+                            'display': 'lines'  # can also be 'circles'
                         }
 
     Returns
@@ -165,22 +166,8 @@ def neuron2vispy(x, **kwargs):
                                       use_neuron_color=kwargs.get('use_neuron_color', False),
                                       color_range=1)
 
-    syn_lay = {
-        0: {
-            'name': 'Presynapses',
-            'color': (1, 0, 0)
-        },
-        1: {
-            'name': 'Postsynapses',
-            'color': (0, 0, 1)
-        },
-        2: {
-            'name': 'Gap junctions',
-            'color': (0, 1, 0)
-        },
-        'display': 'lines'  # 'circle'
-    }
-    syn_lay.update(kwargs.get('synapse_layout', {}))
+    cn_lay = config.default_connector_colors
+    cn_lay.update(kwargs.get('synapse_layout', {}))
 
     # List to fill with vispy visuals
     visuals = []
@@ -325,16 +312,16 @@ def neuron2vispy(x, **kwargs):
 
         if kwargs.get('connectors', False) or kwargs.get('connectors_only',
                                                          False):
-            for j in neuron.connectors.relation.unique():
+            for j in neuron.connectors.type.unique():
                 if kwargs.get('cn_mesh_colors', False):
                     color = neuron_color
                 else:
-                    color = syn_lay.get(j, {'color': (.1, .1, .1)})['color']
+                    color = cn_lay.get(j, {'color': (.1, .1, .1)})['color']
 
                 if max(color) > 1:
                     color = np.array(color) / 255
 
-                this_cn = neuron.connectors[neuron.connectors.relation == j]
+                this_cn = neuron.connectors[neuron.connectors.type == j]
 
                 if this_cn.empty:
                     continue
@@ -342,17 +329,17 @@ def neuron2vispy(x, **kwargs):
                 pos = this_cn[['x', 'y', 'z']].apply(
                     pd.to_numeric).values
 
-                if syn_lay['display'] == 'circles':
+                if cn_lay['display'] == 'circles':
                     con = scene.visuals.Markers()
 
                     con.set_data(pos=np.array(pos),
                                  face_color=color, edge_color=color,
-                                 size=syn_lay.get('size', 1))
+                                 size=cn_lay.get('size', 1))
 
                     visuals.append(con)
 
-                elif syn_lay['display'] == 'lines':
-                    tn_coords = neuron.nodes.set_index('node_id').ix[this_cn.node_id.values][['x', 'y', 'z']].apply(pd.to_numeric).values
+                elif cn_lay['display'] == 'lines':
+                    tn_coords = neuron.nodes.set_index('node_id').loc[this_cn.node_id.values][['x', 'y', 'z']].apply(pd.to_numeric).values
 
                     segments = [item for sublist in zip(
                         pos, tn_coords) for item in sublist]

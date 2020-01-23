@@ -14,6 +14,7 @@
 import logging
 import matplotlib.cm as mcl
 import numpy as np
+import pint
 
 logger = logging.getLogger('navis')
 logger.setLevel(logging.INFO)
@@ -42,12 +43,25 @@ use_igraph = True
 # Default color for neurons
 default_color = (.95, .65, .04)
 
-try:
-    # Default connector color palette
-    default_connector_colors = mcl.get_cmap('Set1')(np.linspace(0, 1, 10))
-except BaseException:
-    # Above will fail in docs
-    default_connector_colors = None
+# Unit registry
+ureg = pint.UnitRegistry()
+
+# Default connector color palette
+default_connector_colors = {
+    0: {'name': 'Presynapses',
+        'color': (1, 0, 0)},
+    1: {'name': 'Postsynapses',
+        'color': (0, 0, 1)},
+    2: {'name': 'Gap junctions',
+        'color': (0, 1, 0)},
+    'display': 'lines'  # can also be 'circle'
+                        }
+# Set some synonyms
+default_connector_colors['pre'] = default_connector_colors['Pre'] = default_connector_colors[0]
+default_connector_colors['post'] = default_connector_colors['Post'] = default_connector_colors[1]
+default_connector_colors['gap'] = default_connector_colors['Gap'] = default_connector_colors[0]
+default_connector_colors['gap_junction'] = default_connector_colors['Gap_junction'] = default_connector_colors[0]
+default_connector_colors['gap_junctions'] = default_connector_colors['Gap_junctions'] = default_connector_colors[0]
 
 
 def _type_of_script():

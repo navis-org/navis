@@ -494,22 +494,22 @@ def plot2d(x: Union[core.NeuronObject,
 
         if (connectors or connectors_only) and neuron.has_connectors:
             if not cn_mesh_colors:
-                cn_types = {0: 'red', 1: 'blue', 2: 'green', 3: 'magenta'}
+                cn_lay = config.default_connector_colors
             else:
-                cn_types = {0: this_color, 1: this_color,
-                            2: this_color, 3: this_color}
+                cn_lay = {{'name': c, 'color': this_color}
+                          for c in neuron.connectors.type.unique()}
             if method == '2d':
-                for c in cn_types:
-                    this_cn = neuron.connectors[neuron.connectors.relation == c]
+                for c in neuron.connectors.type.unique():
+                    this_cn = neuron.connectors[neuron.connectors.type == c]
                     ax.scatter(this_cn.x.values,
                                (-this_cn.y).values,
-                               c=cn_types[c], alpha=alpha, zorder=4,
+                               c=cn_lay[c], alpha=alpha, zorder=4,
                                edgecolor='none', s=cn_size)
                     ax.get_children(
                     )[-1].set_gid(f'CN_{neuron.uuid}')
             elif method in ['3d', '3d_complex']:
                 all_cn = neuron.connectors
-                c = [cn_types[i] for i in all_cn.relation.values]
+                c = [cn_lay[i] for i in all_cn.type.values]
                 ax.scatter(all_cn.x.values, all_cn.z.values, -all_cn.y.values,
                            c=c, s=cn_size, depthshade=False, edgecolor='none',
                            alpha=alpha)
