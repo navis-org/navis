@@ -1667,21 +1667,21 @@ def _igraph_to_sparse(graph, weight_attr=None):
 
 def connected_subgraph(x: 'core.TreeNeuron',
                        ss: Sequence[Union[str, int]]) -> Tuple[np.ndarray, Union[int, str]]:
-    """ Returns set of nodes necessary to connect all nodes in subset ``ss``.
+    """Return set of nodes necessary to connect all nodes in subset ``ss``.
 
     Parameters
     ----------
     x :         navis.TreeNeuron
                 Neuron to get subgraph for.
     ss :        list | array-like
-                Treenode IDs of node to subset to.
+                Node IDs of node to subset to.
 
     Returns
     -------
     np.ndarray
-                Treenode IDs of connected subgraph.
+                Node IDs of connected subgraph.
     root ID
-                ID of the treenode most proximal to the old root in the
+                ID of the node most proximal to the old root in the
                 connected subgraph.
 
     Examples
@@ -1712,46 +1712,56 @@ def connected_subgraph(x: 'core.TreeNeuron',
     disconnected = x.nodes[(~x.nodes.node_id.isin(ss)) & (x.nodes.parent_id.isin(ss))]
     leafs = np.append(leafs, disconnected.parent_id.values)
 
-    # Walk from each node to root and keep track of path
-    g = x.graph
-    paths = []
-    for n in leafs:
-        this_path = []
-        while n:
-            this_path.append(n)
-            n = next(g.successors(n), None)
-        paths.append(this_path)
-
-    # Find the nodes that all paths have in common
-    common = set.intersection(*[set(p) for p in paths])
-
-    # Now find the first (most distal from root) common node
-    longest_path = sorted(paths, key=lambda x: len(x))[-1]
-    first_common = sorted(common, key=lambda x: longest_path.index(x))[0]
-
-    # Now go back to paths and collect all nodes until this first common node
+    # Run this for each connected component of the neuron
     include = set()
-    for p in paths:
-        it = iter(p)
-        n = next(it, None)
-        while n:
-            if n in include:
-                break
-            if n == first_common:
-                include.add(n)
-                break
-            include.add(n)
+    new_roots = []
+    for cc in nx.connected_components(x.graph.to_undirected()):
+        # Walk from each node to root and keep track of path
+        g = x.graph
+        paths = []
+        for n in leafs[np.isin(leafs, list(cc))]:
+            this_path = []
+            while n:
+                this_path.append(n)
+                n = next(g.successors(n), None)
+            paths.append(this_path)
+
+        # If none of these cc in subset there won't be paths
+        if not paths:
+            continue
+
+        # Find the nodes that all paths have in common
+        common = set.intersection(*[set(p) for p in paths])
+
+        # Now find the first (most distal from root) common node
+        longest_path = sorted(paths, key=lambda x: len(x))[-1]
+        first_common = sorted(common, key=lambda x: longest_path.index(x))[0]
+
+        # Now go back to paths and collect all nodes until this first common node
+        include = set()
+        for p in paths:
+            it = iter(p)
             n = next(it, None)
+            while n:
+                if n in include:
+                    break
+                if n == first_common:
+                    include.add(n)
+                    break
+                include.add(n)
+                n = next(it, None)
 
-    # In cases where there are even more distal common ancestors
-    # (first common will typically be a branch point)
-    if set(ss) - set(include):
-        # Make sure the new root is set correctly
-        new_root = sorted(set(ss) - set(include),
-                          key=lambda x: longest_path.index(x))[-1]
-        # Add those nodes to be included
-        include = set.union(include, ss)
-    else:
-        new_root = first_common
+        # In cases where there are even more distal common ancestors
+        # (first common will typically be a branch point)
+        this_ss = ss[np.isin(ss, list(cc))]
+        if set(this_ss) - set(include):
+            # Make sure the new root is set correctly
+            nr = sorted(set(this_ss) - set(include),
+                        key=lambda x: longest_path.index(x))[-1]
+            new_roots.append(nr)
+            # Add those nodes to be included
+            include = set.union(include, this_ss)
+        else:
+            new_roots.append(first_common)
 
-    return np.array(list(include)), new_root
+    return np.array(list(include)), new_roots
