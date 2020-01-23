@@ -246,7 +246,9 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
             return x2
         return None
     elif isinstance(x, core.NeuronList):
-        for n in x:
+        for n in config.tqdm(x, desc='Subsetting',
+                             leave=config.pbar_leave,
+                             disable=config.pbar_hide):
             in_volume(n, vol, inplace=True, mode=mode, method=method,
                       prevent_fragments=prevent_fragments)
 

@@ -271,7 +271,10 @@ def prune_twigs(x: NeuronObject,
         [prune_twigs(n,
                      size=size,
                      inplace=True,
-                     recursive=recursive) for n in x]
+                     recursive=recursive) for n in tqdm(x,
+                                                        desc='Pruning',
+                                                        disable=config.pbar_hide,
+                                                        leave=config.pbar_leave)]
 
         if not inplace:
             return x
