@@ -11,6 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+import pint
 
 from .. import config, core
 
@@ -21,10 +22,11 @@ logger = config.logger
 
 
 def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
-    """ Tries finding a neuron's soma.
+    """Try finding a neuron's soma.
 
     Will use the ``.soma_detection_radius`` and ``.soma_detection_label``
     attribute of a neuron to search for the soma in the node table.
+
     If attributes don't exists, will fallback to defaults: ``None`` and
     ``1``, respectively.
 
@@ -42,8 +44,8 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     >>> n = navis.example_neurons(1)
     >>> navis.find_soma(n)
     array([3490])
-    """
 
+    """
     if not isinstance(x, core.TreeNeuron):
         raise TypeError('Input must be neuron, not "{}"'.format(type(x)))
 
@@ -53,7 +55,13 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     soma_nodes = x.nodes
 
     if not isinstance(soma_radius, type(None)):
-        soma_nodes = soma_nodes[soma_nodes.radius >= soma_radius]
+        if isinstance(soma_radius, pint.Quantity):
+            # Do NOT remove the .values here -> otherwise conversion to units won't work
+            is_large = soma_nodes.radius.values * x.units >= soma_radius
+        else:
+            is_large = soma_nodes.radius >= soma_radius
+
+        soma_nodes = soma_nodes[is_large]
 
     if not isinstance(soma_label, type(None)) and 'label' in soma_nodes.columns:
         soma_nodes = soma_nodes[soma_nodes.label.astype(str) == str(soma_label)]

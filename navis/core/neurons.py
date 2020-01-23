@@ -306,8 +306,10 @@ class TreeNeuron:
 
     @property
     def simple(self) -> 'TreeNeuron':
-        """ Neuron representation consisting only of root, branch points and
-        leafs.
+        """Simple neuron representation.
+
+        Consists only of root, branch points and leafs.
+
         """
         if not hasattr(self, '_simple'):
             self._simple = self.downsample(float('inf'),
@@ -316,11 +318,13 @@ class TreeNeuron:
 
     @property
     def soma(self) -> Optional[Union[str, int]]:
-        """ Search for soma and return node ID(s) of soma (``None`` if no
-        soma). You can assign either a function that accepts a TreeNeuron
-        as input or a fix value. The default is :func:`navis.utils.find_soma`.
-        """
+        """ Search for soma and return node ID(s).
 
+        ``None`` if no soma. You can assign either a function that accepts a
+        TreeNeuron as input or a fix value. The default is
+        :func:`navis.utils.find_soma`.
+
+        """
         if callable(self._soma):
             soma = self._soma.__call__()  # type: ignore  # say int not callable
         else:
