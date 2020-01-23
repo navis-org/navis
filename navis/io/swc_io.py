@@ -34,7 +34,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
              soma_label: Union[str, int] = 1,
              include_subdirs: bool = False,
              **kwargs) -> 'core.NeuronObject':
-    """ Creates Neuron/List from SWC file.
+    """Create Neuron/List from SWC file.
 
     This import is following format specified
     `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_
@@ -58,8 +58,10 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
     Returns
     -------
     navis.TreeNeuron
-                        If generated from SWC file, will have file header
-                        as ``.swc_header`` attribute.
+                        Contains SWC file header as ``.swc_header`` attribute.
+    navis.NeuronList
+                        If import of multiple SWCs, will return NeuronList of
+                        TreeNeurons.
 
     See Also
     --------
@@ -70,7 +72,8 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
     if utils.is_iterable(f):
         return core.NeuronList([from_swc(x,
                                          connector_labels=connector_labels,
-                                         include_subdirs=include_subdirs)
+                                         include_subdirs=include_subdirs,
+                                         **kwargs)
                                 for x in config.tqdm(f, desc='Importing',
                                                      disable=config.pbar_hide,
                                                      leave=config.pbar_leave)])
@@ -196,7 +199,7 @@ def to_swc(x: 'core.NeuronObject',
            header: Optional[str] = None,
            labels: bool = True,
            export_synapses: bool = False) -> None:
-    """ Generate SWC file from neuron(s).
+    """Generate SWC file from neuron(s).
 
     Follows the format specified
     `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_.
@@ -205,7 +208,7 @@ def to_swc(x: 'core.NeuronObject',
     ----------
     x :                 TreeNeuron | NeuronList
                         If multiple neurons, will generate a single SWC file
-                        for each neurons (see also ``filename``).
+                        for each neuron (see also ``filename``).
     filename :          None | str | list, optional
                         If ``None``, will use "neuron_{skeletonID}.swc". Pass
                         filenames as list when processing multiple neurons.
@@ -222,8 +225,8 @@ def to_swc(x: 'core.NeuronObject',
                         If True, will label nodes with pre- ("7") and
                         postsynapse ("8"). Because only one label can be given
                         this might drop synapses (i.e. in case of multiple
-                        pre- or postsynapses on a single treenode)! ``labels``
-                        must be ``True`` for this to have any effect..
+                        pre- or postsynapses on a single node)! ``labels``
+                        must be ``True`` for this to have any effect.
 
     Returns
     -------
@@ -266,11 +269,11 @@ def to_swc(x: 'core.NeuronObject',
         filename += '.swc'
 
     # Make copy of nodes and reorder such that the parent is always before a
-    # treenode
+    # node
     nodes_ordered = [n for seg in x.segments for n in seg[::-1]]
     this_tn = x.nodes.set_index('node_id', inplace=False).loc[nodes_ordered]
 
-    # Because the last treenode ID of each segment is a duplicate
+    # Because the last node ID of each segment is a duplicate
     # (except for the first segment ), we have to remove these
     this_tn = this_tn[~this_tn.index.duplicated(keep='first')]
 
