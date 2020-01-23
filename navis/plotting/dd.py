@@ -23,6 +23,7 @@ from mpl_toolkits.mplot3d import proj3d
 from matplotlib.collections import LineCollection
 
 import numpy as np
+import pint
 
 from typing import Union, List, Tuple
 from typing_extensions import Literal
@@ -157,8 +158,10 @@ def plot2d(x: Union[core.NeuronObject,
     ``autoscale`` (bool, default=True)
        If True, will scale the axes to fit the data.
 
-    ``scalebar`` (int | float, default=False)
-       Adds scale bar. Provide integer/float to set size of scalebar.
+    ``scalebar`` (int | float | str | pint.Quantity, default=False)
+       Adds scale bar. Provide integer, float or str to set size of scalebar.
+       Int|float are assumed to be in same units as data. You can specify
+       units in as string: e.g. "1 um".
        For methods '3d' and '3d_complex', this will create an axis object.
 
     ``ax`` (matplotlib ax, default=None)
@@ -200,6 +203,9 @@ def plot2d(x: Union[core.NeuronObject,
     ``view`` (tuple, default = ("x", "y"))
       Sets view for ``method='2d'``.
 
+    ``volume_outlines`` (bool, default=True)
+      If True will plot volume outline with no fill.
+
 
     See Also
     --------
@@ -217,7 +223,7 @@ def plot2d(x: Union[core.NeuronObject,
                         'cn_mesh_colors', 'linewidth', 'cn_size',
                         'group_neurons', 'scatter_kws', 'figsize', 'linestyle',
                         'alpha', 'depth_coloring', 'autoscale', 'depth_scale',
-                        'use_neuron_color', 'ls', 'lw']
+                        'use_neuron_color', 'ls', 'lw', 'volume_outlines']
     wrong_kwargs = [a for a in kwargs if a not in _ACCEPTED_KWARGS]
     if wrong_kwargs:
         raise KeyError(f'Unknown kwarg(s): {",".join(wrong_kwargs)}. '
@@ -310,6 +316,9 @@ def plot2d(x: Union[core.NeuronObject,
             if ax.name == '3d':
                 raise TypeError('Axis must be 2d.')
 
+    # Kep track of whether ax already has data
+    ax_had_data = ax.has_data()
+
     # Prepare some stuff for depth coloring
     if depth_coloring and method == '3d_complex':
         raise Exception(f'Depth coloring unavailable for method "{method}"')
@@ -322,14 +331,20 @@ def plot2d(x: Union[core.NeuronObject,
         for i, v in enumerate(volumes):
             c = volumes_cmap[i]
 
+            if len(c) == 4:
+                this_alpha = c[3]
+            else:
+                this_alpha = 1
+
+            if kwargs.get('volume_outlines', False):
+                fill, lw, fc, ec = False, 1, 'none', c
+            else:
+                fill, lw, fc, ec = True, 0, c, 'none'
+
             if method == '2d':
-                vpatch = mpatches.Polygon(v.to_2d(view=f'{axis1}{axis2}',
-                                                  invert_y=True),
-                                          closed=True,
-                                          lw=0,
-                                          fill=True,
-                                          fc=c,
-                                          alpha=c[3] if len(c) == 4 else 1)
+                verts = v.to_2d(view=f'{axis1}{axis2}', invert_y=True)
+                vpatch = mpatches.Polygon(verts, closed=True, lw=lw, fill=fill,
+                                          fc=fc, ec=ec, alpha=this_alpha, zorder=0)
                 ax.add_patch(vpatch)
             elif method in ['3d', '3d_complex']:
                 verts = np.vstack(v.vertices)
@@ -349,9 +364,9 @@ def plot2d(x: Union[core.NeuronObject,
                                      color=c)
                 ts.set_gid(v.name)
 
-                # Keep track of limits
-                lim.append(verts.max(axis=0))
-                lim.append(verts.min(axis=0))
+                ax_had_data = _update_axes3d_bounds(ax,
+                                                    verts[:, [0, 2, 1]],
+                                                    had_data=ax_had_data)
 
     # Create lines from segments
     line3D_collections = []
@@ -364,7 +379,7 @@ def plot2d(x: Union[core.NeuronObject,
         this_color = neuron_cmap[i]
 
         if neuron.nodes.empty:
-            logger.warning(f'Skipping neuron w/o nodes: {neuron.uuid}')
+            logger.warning(f'Skipping neuron w/o nodes: {neuron.id}')
             continue
 
         if not connectors_only:
@@ -383,7 +398,7 @@ def plot2d(x: Union[core.NeuronObject,
                     this_line = mlines.Line2D(coords[:, 0], coords[:, 1],
                                               lw=linewidth, ls=linestyle,
                                               alpha=alpha, color=this_color,
-                                              label=f'{getattr(neuron, "name", "NA")} - #{neuron.uuid}')
+                                              label=f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
                     ax.add_line(this_line)
                 else:
                     coords = tn_pairs_to_coords(neuron, modifier=(1, -1, 1))
@@ -433,7 +448,12 @@ def plot2d(x: Union[core.NeuronObject,
                                           linestyle=linestyle)
                     if group_neurons:
                         lc.set_gid(neuron.uuid)
+                    # Need to get this before adding data
                     ax.add_collection3d(lc)
+                    # Update data bounds
+                    ax_had_data = _update_axes3d_bounds(ax,
+                                                        neuron.nodes[['x', 'z', 'y']].values * [1, 1, -1],
+                                                        had_data=ax_had_data)
                     line3D_collections.append(lc)
 
                 # For complex scenes, add each segment as a single collection
@@ -448,13 +468,11 @@ def plot2d(x: Union[core.NeuronObject,
                         if group_neurons:
                             lc.set_gid(neuron.uuid)
                         ax.add_collection3d(lc)
-
-                coords = np.vstack(coords)
-                lim.append(coords.max(axis=0))
-                lim.append(coords.min(axis=0))
+                    ax_had_data = _update_axes3d_bounds(ax,
+                                                        neuron.nodes[['x', 'z', 'y']].values * [1, 1, -1],
+                                                        had_data=ax_had_data)
 
                 surf3D_collections.append([])
-
                 if plot_soma and not isinstance(neuron.soma, type(None)):
                     soma = utils.make_iterable(neuron.soma)
                     for s in soma:
@@ -495,13 +513,11 @@ def plot2d(x: Union[core.NeuronObject,
                 ax.scatter(all_cn.x.values, all_cn.z.values, -all_cn.y.values,
                            c=c, s=cn_size, depthshade=False, edgecolor='none',
                            alpha=alpha)
-                ax.get_children(
-                )[-1].set_gid(f'CN_{neuron.uuid}')
-
-            coords = neuron.connectors[['x', 'y', 'z']].values
-            coords[:, 1] *= -1
-            lim.append(coords.max(axis=0))
-            lim.append(coords.min(axis=0))
+                ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
+                # Update data bounds
+                ax_had_data = _update_axes3d_bounds(ax,
+                                                    all_cn[['x', 'z', 'y']].values * [1, 1, -1],
+                                                    had_data=ax_had_data)
 
     for i, neuron in enumerate(config.tqdm(dotprops.itertuples(),
                                            desc='Plt dotprops',
@@ -543,7 +559,7 @@ def plot2d(x: Union[core.NeuronObject,
                                     zorder=4, edgecolor='none')
                 ax.add_patch(s)
         elif method in ['3d', '3d_complex']:
-                # Combine coords by weaving starts and ends together
+            # Combine coords by weaving starts and ends together
             coords = np.empty((starts.shape[0] * 2, 3), dtype=starts.dtype)
             coords[0::2] = starts
             coords[1::2] = ends
@@ -577,6 +593,10 @@ def plot2d(x: Union[core.NeuronObject,
                     if group_neurons:
                         lc.set_gid(neuron.gene_name)
                     ax.add_collection3d(lc)
+
+            ax_had_data = _update_axes3d_bounds(ax,
+                                                coords[:, [0, 2, 1]],
+                                                had_data=ax_had_data)
 
             lim.append(coords.max(axis=0))
             lim.append(coords.min(axis=0))
@@ -620,54 +640,72 @@ def plot2d(x: Union[core.NeuronObject,
                 ax.scatter(p[:, 0], p[:, 2], p[:, 1] * -1,
                            **default_settings
                            )
-
-            coords = p
-            coords[:, 1] *= -1
-            lim.append(coords.max(axis=0))
-            lim.append(coords.min(axis=0))
+                ax_had_data = _update_axes3d_bounds(ax,
+                                                    p[:, [0, 2, 1]] * [1, 1, -1],
+                                                    had_data=ax_had_data)
 
     if autoscale:
         if method == '2d':
-            ax.autoscale()
+            ax.autoscale(tight=True)
         elif method in ['3d', '3d_complex']:
-            lim = np.vstack(lim)
-            lim_min = lim.min(axis=0)
-            lim_max = lim.max(axis=0)
-
-            center = lim_min + (lim_max - lim_min) / 2
-            max_dim = (lim_max - lim_min).max()
+            # First autoscale
+            ax.autoscale()
+            # Now we need to set equal aspect manually
+            lim = np.array([ax.get_xlim(),
+                            ax.get_ylim(),
+                            ax.get_zlim()])
+            dim = lim[:, 1] - lim[:, 0]
+            center = lim[:, 0] + dim / 2
+            max_dim = dim.max()
 
             new_min = center - max_dim / 2
             new_max = center + max_dim / 2
 
             ax.set_xlim(new_min[0], new_max[0])
-            ax.set_ylim(new_min[2], new_max[2])
-            ax.set_zlim(new_min[1], new_max[1])
+            ax.set_ylim(new_min[1], new_max[1])
+            ax.set_zlim(new_min[2], new_max[2])
 
     if scalebar is not None:
-        # Convert sc size to nm
-        sc_size = scalebar * 1000
+        if isinstance(scalebar, bool):
+            scalebar = '1 um'
+
+        if isinstance(scalebar, str):
+            scalebar = config.ureg(scalebar)
+
+        if isinstance(scalebar, pint.Quantity):
+            # If we have neurons as points of reference convert
+            if skdata:
+                scalebar = scalebar.to(skdata[0].units).magnitude
+            # If no reference, use assume it's the same units
+            else:
+                scalebar = scalebar.magnitude
 
         # Hard-coded offset from figure boundaries
-        ax_offset = 1000
+        ax_offset = (ax.get_xlim()[1] - ax.get_xlim()[0]) / 100 * 5
 
         if method == '2d':
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
 
             coords = np.array([[xlim[0] + ax_offset, ylim[0] + ax_offset],
-                               [xlim[0] + ax_offset + sc_size, ylim[0] + ax_offset]
+                               [xlim[0] + ax_offset + scalebar, ylim[0] + ax_offset]
                                ])
+
+            print(coords)
 
             sbar = mlines.Line2D(
                 coords[:, 0], coords[:, 1], lw=3, alpha=.9, color='black')
-            sbar.set_gid(f'{scalebar}_um')
+            sbar.set_gid(f'{scalebar}_scalebar')
 
             ax.add_line(sbar)
         elif method in ['3d', '3d_complex']:
-            left = lim_min[0] + ax_offset
-            bottom = lim_min[1] + ax_offset
-            front = lim_min[2] + ax_offset
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
+            zlim = ax.get_zlim()
+
+            left = xlim[0] + ax_offset
+            bottom = zlim[0] + ax_offset
+            front = ylim[0] + ax_offset
 
             sbar = [np.array([[left, front, bottom],
                               [left, front, bottom]]),
@@ -675,12 +713,12 @@ def plot2d(x: Union[core.NeuronObject,
                               [left, front, bottom]]),
                     np.array([[left, front, bottom],
                               [left, front, bottom]])]
-            sbar[0][1][0] += sc_size
-            sbar[1][1][1] += sc_size
-            sbar[2][1][2] += sc_size
+            sbar[0][1][0] += scalebar
+            sbar[1][1][1] += scalebar
+            sbar[2][1][2] += scalebar
 
             lc = Line3DCollection(sbar, color='black', lw=1)
-            lc.set_gid(f'{scalebar}_um')
+            lc.set_gid(f'{scalebar}_scalebar')
             ax.add_collection3d(lc)
 
     def set_depth():
@@ -749,6 +787,31 @@ def plot2d(x: Union[core.NeuronObject,
     logger.debug('Done. Use matplotlib.pyplot.show() to show plot.')
 
     return fig, ax
+
+
+def _update_axes3d_bounds(ax, points, had_data=False):
+    """Update axis bounds and remove default points (0,0,0) and (1,1,1)."""
+    if not isinstance(points, np.ndarray):
+        points = np.ndarray(points)
+
+    # If this is the first set of points, we need to overwrite the defaults
+    # That should happen automatically but for some reason doesn't for 3d axes
+    if not had_data:
+        mn = points.min(axis=0)
+        mx = points.max(axis=0)
+        new_xybounds = np.array([[mn[0], mn[1]],
+                                 [mx[0], mx[1]]])
+        new_zzbounds = np.array([[mn[2], mn[2]],
+                                 [mx[2], mx[2]]])
+        ax.xy_dataLim.set_points(new_xybounds)
+        ax.zz_dataLim.set_points(new_zzbounds)
+    else:
+        ax.auto_scale_xyz(points[:, 0].tolist(),
+                          points[:, 1].tolist(),
+                          points[:, 2].tolist(),
+                          had_data=True)
+
+    return True
 
 
 def _fix_default_dict(x):
