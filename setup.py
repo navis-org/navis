@@ -21,7 +21,7 @@ Visualization with focus on hierarchical tree-like neuron data.
 
 Features:
 
-  - interactive 2D (matplotlib) and 3D (vispy or plotly) plotting of neurons
+  - interactive 2D (matplotlib) and 3D (vispy/plotly) plotting of neurons
   - virtual neuron surgery: cutting, pruning, rerooting
   - clustering methods (e.g. by connectivity or synapse placement)
   - R bindings (e.g. for libraries nat, rcatmaid, elmr)
@@ -54,8 +54,8 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     install_requires=requirements,
-    extras_require={'extras': ['pyoctree==0.2.10',
-                               'trimesh==2.35.2']},
+    extras_require={'extras': ['pyoctree~=0.2.10',
+                               'trimesh~=3.4']},
     python_requires='>=3.6',
     zip_safe=False,
 
