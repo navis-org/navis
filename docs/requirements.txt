@@ -1,8 +1,9 @@
 ###### Requirements without Version Specifiers ######
-ipykernel==5.1.0
-nbsphinx==0.4.2
+ipykernel
+nbsphinx
+mock
 nbconvert
-numpydoc==0.9.1
-sphinx_bootstrap_theme==0.7.1
+numpydoc
+sphinx-bootstrap-theme
 sphinx-autodoc-typehints
 PyQt5~=5.13.0

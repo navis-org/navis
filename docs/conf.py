@@ -72,7 +72,7 @@ MOCK_MODULES = ['sklearn', 'igraph', 'tqdm', 'pyoctree',
 
                 'networkx', 'nx',
 
-                'py2cytoscape', 'py2cytoscape.data.cyrest_client', 'CyRestClient',
+                'py2cytoscape', 'py2cytoscape.data', 'py2cytoscape.data.cyrest_client', 'CyRestClient',
 
                 'requests_futures.sessions', 'requests_futures.sessions.FuturesSession',
                 'requests', 'requests-futures', 'requests.exceptions',
@@ -143,7 +143,7 @@ extensions = [
     #'sphinx.ext.mathjax', # mathjax is interactive and configurable but can also misbehave when rendering - switched to imgmath instead
     'sphinx.ext.imgmath',
     'matplotlib.sphinxext.plot_directive',
-    'sphinx_autodoc_typehints',
+    #'sphinx_autodoc_typehints',  # unfortunately this does not play nicely with mocking
     #'numpydoc'
 ]
 
