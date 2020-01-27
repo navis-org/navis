@@ -788,7 +788,7 @@ def average_neurons(x: 'core.NeuronList',
                     Neurons to be averaged.
     limit :         int, optional
                     Max distance for nearest neighbour search.
-    base_neuron :   uuid | TreeNeuron, optional
+    base_neuron :   neuron id | TreeNeuron, optional
                     Neuron to use as template for averaging. If not provided,
                     the first neuron in the list is used as template!
 

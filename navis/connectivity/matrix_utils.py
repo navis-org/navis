@@ -39,8 +39,10 @@ def group_matrix(mat: Union[pd.DataFrame, np.ndarray],
                         Matrix to group.
     row_groups :        dict, optional
                         Row groups to be formed. Can be either:
+                        
                           1. ``{group1: [neuron1, neuron2, ...], ...}``
                           2. ``{neuron1: group1, neuron2:group2, ...}``
+
                         If grouping numpy arrays, use indices!
     col_groups :        dict, optional
                         Col groups. See ``row_groups`` for details.
@@ -53,8 +55,8 @@ def group_matrix(mat: Union[pd.DataFrame, np.ndarray],
     Returns
     -------
     pandas.DataFrame
-    """
 
+    """
     PERMISSIBLE_METHODS = ['AVERAGE', 'MIN', 'MAX', 'SUM']
     if method not in PERMISSIBLE_METHODS:
         raise ValueError('Unknown method "{0}". Please use either {1}'.format(

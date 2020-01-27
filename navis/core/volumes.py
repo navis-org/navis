@@ -203,7 +203,7 @@ class Volume:
                   **init_kwargs) -> 'Volume':
         """ Load volume from file containing vertices and faces.
 
-        For OBJ and STL files this function requires the optional
+        For OBJ and STL files this function requires the optional trimesh
         library.
 
         Parameters

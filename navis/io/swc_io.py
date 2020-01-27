@@ -217,10 +217,11 @@ def to_swc(x: 'core.NeuronObject',
                         generic header.
     labels :            str | dict | bool, optional
                         Node labels. Can be::
+
                             str : column name in node table
                             dict: must be of format {node_id: 'label', ...}.
-                            bool: if True, will generate automatic labels, if
-                                  false all nodes have label "0".
+                            bool: if True, will generate automatic labels, if False all nodes have label "0".
+
     export_connectors : bool, optional
                         If True, will label nodes with pre- ("7") and
                         postsynapse ("8"). Because only one label can be given
