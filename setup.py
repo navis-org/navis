@@ -37,7 +37,7 @@ setup(
     license='GNU GPL V3',
     description='Neuron Analysis and Visualization Library',
     long_description=LONG_DESCRIPTION,
-    url='https://github.com/schlegelp/navis',
+    url='http://navis.readthedocs.io',
     author='Philipp Schlegel',
     author_email='pms70@cam.ac.uk',
     keywords='Neuron Analysis Visualization Anatomy Connectivity',
