@@ -511,15 +511,13 @@ class TreeNeuron:
 
         Returns
         -------
-        copy
+        TreeNeuron
 
         """
         # Generate new neuron
         x = Neuron(self.nodes)
-        # Remove everything but the UUID
-        x.__dict__ = {'id': x.id}
         # Override with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k != 'id'})
+        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items()})
 
         if 'graph' in self.__dict__:
             x.graph = self.graph.copy(as_view=deepcopy is not True)
