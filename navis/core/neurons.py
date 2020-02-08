@@ -256,21 +256,76 @@ class TreeNeuron:
                                                     restrict=False)
 
     @property
-    def datatables(self) -> List[str]:
-        """ Returns the names of all pandas DataFrames attached to this
-        neuron.
+    def presynapses(self):
+        """Return table with presynapses.
+
+        Requires a "type" column in connector table. Will look for type labels
+        that include "pre" or that equal 0 or "0".
         """
+        if not self.has_connectors:
+            raise ValueError('No connector table found.')
+        # Make an educated guess what presynapses are
+        types = self.connectors['type'].unique()
+        pre = [t for t in types if 'pre' in t or t in [0, "0"]]
+
+        if len(pre) == 0:
+            logger.debug(f'Unable to find presynapses in types: {types}')
+            return self.connectors.iloc[0:0]  # return empty DataFrame
+        elif len(pre) > 1:
+            raise ValueError(f'Found ambigous presynapse labels: {pre}')
+
+        return self.connectors[self.connectors['type'] == pre[0]]
+
+    @property
+    def n_presynapses(self):
+        """Return number of presynapses."""
+        if self.has_connectors:
+            return self.presynapses.shape[0]
+        return None
+
+    @property
+    def postsynapses(self):
+        """Return table with postsynapses.
+
+        Requires a "type" column in connector table. Will look for type labels
+        that include "post" or that equal 1 or "1".
+        """
+        if not self.has_connectors:
+            raise ValueError('No connector table found.')
+        # Make an educated guess what presynapses are
+        types = self.connectors['type'].unique()
+        post = [t for t in types if 'post' in t or t in [1, "1"]]
+
+        if len(post) == 0:
+            logger.debug(f'Unable to find postsynapses in types: {types}')
+            return self.connectors.iloc[0:0]  # return empty DataFrame
+        elif len(post) > 1:
+            raise ValueError(f'Found ambigous postsynapse labels: {post}')
+
+        return self.connectors[self.connectors['type'] == post[0]]
+
+    @property
+    def n_postsynapses(self):
+        """Return number of postsynapses."""
+        if self.has_connectors:
+            return self.postsynapses.shape[0]
+        return None
+
+    @property
+    def datatables(self) -> List[str]:
+        """Return names of all DataFrames attached to this neuron."""
         return [k for k, v in self.__dict__.items() if isinstance(v, pd.DataFrame)]
 
     @property
     def n_trees(self) -> int:
-        """ Number of connected trees in this neuron. """
+        """Return number of connected trees in this neuron."""
         return len(self.subtrees)
 
     @property
     def is_tree(self) -> bool:
-        """Returns whether neuron is a tree. Alsos returns True if neuron
-        consists of multiple separate trees.
+        """Return whether neuron is a tree.
+
+        Also returns True if neuron consists of multiple separate trees!
 
         See also
         --------
