@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import numpy as np
+import pandas as pd
 
 from typing import Optional, overload, Union, List
 from typing_extensions import Literal
@@ -53,15 +54,15 @@ def downsample_neuron(x: 'core.NeuronObject',
                       inplace: bool = False,
                       preserve_nodes: Optional[List[int]] = None
                       ) -> Optional['core.NeuronObject']:
-    """ Downsamples neuron(s) by a given factor.
+    """Downsample neuron(s) by a given factor.
 
     Preserves root, leafs, branchpoints by default. Preservation of treenodes
-    with synapses can be toggled.
+    with synapses can be toggled - see ``preserve_nodes`` parameter.
 
     Notes
     -----
-    Use ``downsampling_factor=float('inf')`` and ``preserve_cn_treenodes=False``
-    to get a neuron consisting only of root, branch and end points.
+    Use ``downsampling_factor=float('inf')`` to get a neuron consisting only
+    of root, branch and end points.
 
     Parameters
     ----------
@@ -69,8 +70,11 @@ def downsample_neuron(x: 'core.NeuronObject',
                              Neuron(s) to downsample.
     downsampling_factor :    int | float('inf')
                              Factor by which to reduce the node count.
-    preserve_nodes :         List, optional
-                             List of node IDs to exclude from downsampling.
+    preserve_nodes :         str | list, optional
+                             Can be either list of node IDs to exclude from
+                             downsampling or a string to a DataFrame attached
+                             to the neuron (e.g. "connectors"). DataFrame must
+                             have `node_id`` column.
     inplace :                bool, optional
                              If True, will modify original neuron. If False, a
                              downsampled copy is returned.
@@ -115,10 +119,21 @@ def downsample_neuron(x: 'core.NeuronObject',
     if downsampling_factor <= 1:
         raise ValueError('Downsampling factor must be greater than 1.')
 
-    if not isinstance(preserve_nodes, type(None)) and \
-       not isinstance(preserve_nodes, (list, set, np.ndarray)):
-        raise TypeError('Expected "preserve_nodes" to be list-like, got '
-                        f'"{type(preserve_nodes)}"')
+    if not isinstance(preserve_nodes, type(None)):
+        if isinstance(preserve_nodes, str):
+            table = getattr(x, preserve_nodes)
+            if not isinstance(table, pd.DataFrame):
+                raise TypeError(f'Expected "{preserve_nodes}" to be a '
+                                f'DataFrame - got {type(table)}')
+            if 'node_id' not in table.columns:
+                raise IndexError(f'DataFrame {preserve_nodes} has no "node_id"'
+                                 ' column.')
+
+            preserve_nodes = table['node_id'].values
+
+        if not isinstance(preserve_nodes, (list, set, np.ndarray)):
+            raise TypeError('Expected "preserve_nodes" to be list-like, got '
+                            f'"{type(preserve_nodes)}"')
 
     if x.nodes.shape[0] <= 1:
         logger.warning(f'No nodes in neuron {x.id}. Skipping.')
