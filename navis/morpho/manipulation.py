@@ -332,7 +332,8 @@ def split_axon_dendrite(x: NeuronObject,
                                       Literal['centerpetal'],
                                       Literal['sum'],
                                       Literal['bending']] = 'bending',
-                        split_pnt: bool = True,
+                        split: Union[Literal['prepost'],
+                                     Literal['distance']] = 'prepost',
                         reroot_soma: bool = True,
                         return_point: bool = False) -> 'core.NeuronList':
     """ Split a neuron into axon, dendrite and primary neurite.
@@ -345,7 +346,7 @@ def split_axon_dendrite(x: NeuronObject,
     ----------
     x :                 TreeNeuron | NeuronList
                         Neuron(s) to split into axon, dendrite (and primary
-                        neurite). MUST HAVE CONNECTORS.
+                        neurite if possible). MUST HAVE CONNECTORS.
     method :            'centrifugal' | 'centripetal' | 'sum' | 'bending', optional
                         Type of flow centrality to use to split the neuron.
                         There are four flavors: the first three refer to
@@ -353,10 +354,15 @@ def split_axon_dendrite(x: NeuronObject,
                         refers to :func:`~navis.bending_flow`.
 
                         Will try using stored centrality, if possible.
-    split_pnt :         bool, optional
-                        If True and the split point is at a branch point, will
-                        try splittig into axon, dendrite and primary neurite
-                        tract. Works only with ``method=bending``!
+    split :             "prepost" | "distance"
+                        Method for determining which compartment is axon and
+                        which is the dendrites:
+
+                            - "prepost" uses number of in- vs. outputs
+                            - "distance" assumes the compartment closer to the
+                              soma is the dendrites
+
+
     reroot_soma :       bool, optional
                         If True, will make sure neuron is rooted to soma if at
                         all possible.
@@ -367,7 +373,8 @@ def split_axon_dendrite(x: NeuronObject,
     Returns
     -------
     NeuronList
-                        Axon, dendrite and primary neurite.
+                        Axon, dendrite and primary neurite. Fragments will
+                        have a new property ``compartment`` (see example).
 
     Examples
     --------
@@ -378,15 +385,20 @@ def split_axon_dendrite(x: NeuronObject,
     >>> split
     <class 'navis.NeuronList'> of 3 neurons
                           neuron_name skeleton_id  n_nodes  n_connectors
-    0  neuron 123457_primary_neurite          16      148             0
-    1             neuron 123457_axon          16     9682          1766
-    2         neuron 123457_dendrite          16     2892           113
+    0                  neuron 123457          16      148             0
+    1                  neuron 123457          16     9682          1766
+    2                  neuron 123457          16     2892           113
     >>> # For convenience, split_axon_dendrite assigns colors to the resulting
     >>> # fragments: axon = red, dendrites = blue, primary neurite = green
     >>> split.plot3d(color=split.color)
 
-    """
+    See Also
+    --------
+    :func:`navis.heal_fragmented_neuron`
+            Axon/dendrite split works only on neurons consisting of a single
+            tree. Use this function to heal fragmented neurons.
 
+    """
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
     elif isinstance(x, core.NeuronList):
@@ -395,7 +407,7 @@ def split_axon_dendrite(x: NeuronObject,
                              leave=config.pbar_leave):
             nl.append(split_axon_dendrite(n,
                                           method=method,
-                                          split_pnt=split_pnt,
+                                          split=split,
                                           reroot_soma=reroot_soma,
                                           return_point=return_point))
         return core.NeuronList([n for l in nl for n in l])
@@ -407,20 +419,21 @@ def split_axon_dendrite(x: NeuronObject,
         raise ValueError('Neuron must have connectors.')
 
     if method not in ['centrifugal', 'centripetal', 'sum', 'bending']:
-        raise ValueError(f'Unknown parameter for mode: "{method}"')
+        raise ValueError(f'"{method}" not allowed for parameter `method`.')
 
-    if split_pnt and method != 'bending':
-        logger.warning('Primary neurite splits only works well with '
-                       'method "bending"')
+    if split not in ['prepost', 'distance']:
+        raise ValueError(f'"{split}" not allowed for parameter `split`.')
+
+    if len(x.root) > 1:
+        raise ValueError(f'Unable to split neuron {x.id}: multiple roots. '
+                         'Try navis.heal_fragmented_neuron(x) to merged '
+                         'disconnected fragments.')
 
     if x.soma and x.soma not in x.root and reroot_soma:
-        x.reroot(x.soma)
+        x.reroot(x.soma, inplace=True)
 
     # Calculate flow centrality if necessary
-    try:
-        last_method = x.centrality_method
-    except BaseException:
-        last_method = None
+    last_method = getattr(x, 'centrality_method', None)
 
     if last_method != method:
         if method == 'bending':
@@ -431,21 +444,17 @@ def split_axon_dendrite(x: NeuronObject,
                           Literal['centrifugal'],
                           Literal['sum']]
             mmetrics.flow_centrality(x, mode=method)
-        else:
-            raise ValueError('Unknown method "{}"'.format(method))
 
     # Make copy, so that we don't screw things up
     x = x.copy()
 
     # Now get the node point with the highest flow centrality.
-    cut = x.nodes[x.nodes.flow_centrality ==
-                  x.nodes.flow_centrality.max()].node_id.values
+    cut = x.nodes[x.nodes.flow_centrality
+                  == x.nodes.flow_centrality.max()].node_id.values
 
-    # If there is more than one point we need to get one closest to the soma
-    # (root)
+    # If more than one point we need to get one closest to the soma (root)
     if len(cut) > 1:
-        cut = sorted(cut, key=lambda y: graph.dist_between(
-            x.graph, y, x.root[0]))[0]
+        cut = sorted(cut, key=lambda y: graph.dist_between(x.graph, y, x.root[0]))[0]
     else:
         cut = cut[0]
 
@@ -453,7 +462,7 @@ def split_axon_dendrite(x: NeuronObject,
         return cut
 
     # If cut node is a branch point, we will try cutting off main neurite
-    if x.graph.degree(cut) > 2 and split_pnt:
+    if x.graph.degree(cut) > 2:
         # First make sure that there are no other branch points with flow
         # between this one and the soma
         path_to_root = nx.shortest_path(x.graph, cut, x.root[0])
@@ -480,10 +489,9 @@ def split_axon_dendrite(x: NeuronObject,
             # The new cut node has to be a child of the original cut node
             cut = next(x.graph.predecessors(cut))
 
-        # Change name and color
-        primary_neurite.name = x.name + '_primary_neurite'
+        # Change compartment and color
         primary_neurite.color = (0, 255, 0)  # type: ignore
-        primary_neurite.type = 'primary_neurite'  # type: ignore
+        primary_neurite._register_attr('compartment', 'primary_neurite')  # type: ignore
     else:
         rest = x
         primary_neurite = None
@@ -491,19 +499,18 @@ def split_axon_dendrite(x: NeuronObject,
     # Next, cut the rest into axon and dendrite
     a, b = graph.cut_neuron(rest, cut)
 
-    # Figure out which one is which by comparing fraction of in- to outputs
-    a_inout = a.n_postsynapses / a.n_presynapses if a.n_presynapses else float('inf')
-    b_inout = b.n_postsynapses / b.n_presynapses if b.n_presynapses else float('inf')
-    if a_inout > b_inout:
-        dendrite, axon = a, b
-    else:
-        dendrite, axon = b, a
+    # Figure out which one is which
+    if split == 'prepost' or split == 'distance':
+        a_inout = a.n_postsynapses / a.n_presynapses if a.n_presynapses else float('inf')
+        b_inout = b.n_postsynapses / b.n_presynapses if b.n_presynapses else float('inf')
+        if a_inout > b_inout:
+            dendrite, axon = a, b
+        else:
+            dendrite, axon = b, a
 
-    axon.name = x.name + '_axon'
-    dendrite.name = x.name + '_dendrite'
-
-    axon.type = 'axon'  # type: ignore
-    dendrite.type = 'dendrite'  # type: ignore
+    # Add compartment property
+    axon._register_attr('compartment', 'axon')  # type: ignore
+    dendrite._register_attr('compartment', 'dendrite')  # type: ignore
 
     # Change colors
     axon.color = (255, 0, 0)  # type: ignore
@@ -525,16 +532,16 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                    tn_to_stitch: Optional[Sequence[int]] = None,
                    suggest_only: bool = False,
                    ) -> 'core.TreeNeuron':
-    """ Stitch multiple neurons together.
+    """Stitch multiple neurons together.
 
     Uses minimum spanning tree to determine a way to connect all fragments
     while minimizing length (eucledian distance) of the new edges. Nodes
-    that have been stitched will be get a "stitched" tag.
+    that have been stitched will get a "stitched" tag.
 
     Important
     ---------
     If duplicate node IDs are found across the fragments to stitch they will
-    be remapped to new, unique values!
+    be remapped to new unique values!
 
     Parameters
     ----------
@@ -552,7 +559,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                         Sets the master neuron:
                             (1) 'SOMA': The largest fragment with a soma
                                 becomes the master neuron. If no neuron with
-                                soma, will pick the largest.
+                                soma, will pick the largest (option 2).
                             (2) 'LARGEST': The largest fragment becomes the
                                 master neuron.
                             (3) 'FIRST': The first fragment provided becomes

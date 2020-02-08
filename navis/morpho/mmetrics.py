@@ -386,7 +386,7 @@ def segregation_index(x: 'core.NeuronObject',
 
 
 def bending_flow(x: 'core.NeuronObject') -> None:
-    """ Variation of the algorithm for calculating synapse flow from
+    """Variation of the algorithm for calculating synapse flow from
     Schneider-Mizell et al. (eLife, 2016).
 
     The way this implementation works is by iterating over each branch point
@@ -419,7 +419,6 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     only).
 
     """
-
     if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
         raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
 
@@ -437,11 +436,13 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     # up calculations
     current_level = logger.level
     logger.setLevel('ERROR')
-    y = x.downsample(factor=float('inf'), inplace=False)
+    y = x.downsample(factor=float('inf'),
+                     preserve_nodes='connectors',
+                     inplace=False)
     logger.setLevel(current_level)
 
     # Figure out how connector types are labeled
-    cn_types = y.connector.type.unique()
+    cn_types = y.connectors.type.unique()
     if all(np.isin(['pre', 'post'], cn_types)):
         pre, post = 'pre', 'post'
     elif all(np.isin([0, 1], cn_types)):
@@ -458,7 +459,7 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     # Add root if it is also a branch point
     for root in y.root:
         if y.graph.degree(root) > 1:
-            bp_node_ids += list(root)
+            bp_node_ids += [root]
 
     # Get list of childs of each branch point
     bp_childs = {t: [e[0] for e in y.graph.in_edges(t)] for t in bp_node_ids}
@@ -583,13 +584,13 @@ def flow_centrality(x: 'core.NeuronObject',
     config.pbar_hide = current_state
 
     # Figure out how connector types are labeled
-    cn_types = y.connector.type.unique()
+    cn_types = y.connectors.type.unique()
     if all(np.isin(['pre', 'post'], cn_types)):
         pre, post = 'pre', 'post'
     elif all(np.isin([0, 1], cn_types)):
         pre, post = 0, 1
     else:
-        raise ValueError(f'Unable to parse connector types for neuron {y.id}')
+        raise ValueError(f'Unable to parse connector types "{cn_types} for neuron {y.id}')
 
     # Get list of nodes with pre/postsynapses
     pre_node_ids = y.connectors[y.connectors.type == pre].node_id.unique()
@@ -598,8 +599,9 @@ def flow_centrality(x: 'core.NeuronObject',
 
     # Get list of points to calculate flow centrality for:
     # branches and nodes with synapses
-    calc_node_ids = y.nodes[(y.nodes.type == 'branch') | (
-        y.nodes.node_id.isin(y.connectors.node_id))].node_id.values
+    is_bp = y.nodes.type == 'branch'
+    is_cn = y.nodes.node_id.isin(y.connectors.node_id)
+    calc_node_ids = y.nodes[is_bp | is_cn].node_id.values
 
     # Get number of pre/postsynapses distal to each branch's childs
     distal_pre = graph.distal_to(y, pre_node_ids, calc_node_ids)
@@ -613,16 +615,15 @@ def flow_centrality(x: 'core.NeuronObject',
     if mode != 'centripetal':
         # Centrifugal is the flow from all non-distal postsynapses to all
         # distal presynapses
-        centrifugal = {
-            n: (total_post - distal_post[n]) * distal_pre[n] for n in calc_node_ids}
+        centrifugal = {n: (total_post - distal_post[n]) * distal_pre[n] for n in calc_node_ids}
 
     if mode != 'centrifugal':
         # Centripetal is the flow from all distal postsynapses to all
         # non-distal presynapses
-        centripetal = {
-            n: distal_post[n] * (total_post - distal_pre[n]) for n in calc_node_ids}
+        centripetal = {n: distal_post[n] * (total_post - distal_pre[n]) for n in calc_node_ids}
 
     # Now map this onto our neuron
+    x.nodes['flow_centrality'] = None
     if mode == 'centrifugal':
         x.nodes['flow_centrality'] = x.nodes.node_id.map(centrifugal)
     elif mode == 'centripetal':
