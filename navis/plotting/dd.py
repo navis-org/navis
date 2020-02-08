@@ -508,13 +508,13 @@ def plot2d(x: Union[core.NeuronObject,
                     this_cn = neuron.connectors[neuron.connectors.type == c]
                     ax.scatter(this_cn.x.values,
                                (-this_cn.y).values,
-                               c=cn_lay[c], alpha=alpha, zorder=4,
+                               c=cn_lay[c]['color'], alpha=alpha, zorder=4,
                                edgecolor='none', s=cn_size)
                     ax.get_children(
                     )[-1].set_gid(f'CN_{neuron.id}')
             elif method in ['3d', '3d_complex']:
                 all_cn = neuron.connectors
-                c = [cn_lay[i] for i in all_cn.type.values]
+                c = [cn_lay[i]['color'] for i in all_cn.type.values]
                 ax.scatter(all_cn.x.values, all_cn.z.values, -all_cn.y.values,
                            c=c, s=cn_size, depthshade=False, edgecolor='none',
                            alpha=alpha)
