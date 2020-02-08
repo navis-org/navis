@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import pint
+import warnings
 
 from .. import config, core
 
@@ -20,6 +21,9 @@ from typing import Sequence
 # Set up logging
 logger = config.logger
 
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    pint.Quantity([])
 
 def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     """Try finding a neuron's soma.

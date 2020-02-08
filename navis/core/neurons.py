@@ -16,6 +16,7 @@ import numbers
 import pint
 import types
 import uuid
+import warnings
 
 import networkx as nx
 import numpy as np
@@ -33,6 +34,11 @@ __all__ = ['Neuron', 'TreeNeuron']
 
 # Set up logging
 logger = config.logger
+
+# This is to prevent pint to throw a warning about numpy integration
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    pint.Quantity([])
 
 
 def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron'], **metadata):

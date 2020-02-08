@@ -24,6 +24,7 @@ from matplotlib.collections import LineCollection
 
 import numpy as np
 import pint
+import warnings
 
 from typing import Union, List, Tuple
 from typing_extensions import Literal
@@ -35,6 +36,10 @@ from .plot_utils import segments_to_coords, tn_pairs_to_coords
 __all__ = ['plot2d']
 
 logger = config.logger
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    pint.Quantity([])
 
 
 def plot2d(x: Union[core.NeuronObject,
