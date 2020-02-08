@@ -18,7 +18,7 @@ import plotly.graph_objs as go
 
 from ..colors import *
 from ..plot_utils import *
-from ... import core
+from ... import core, utils
 
 __all__ = ['neuron2plotly', 'scatter2plotly', 'dotprops2plotly',
            'volume2plotly', 'layout2plotly']
@@ -107,8 +107,9 @@ def neuron2plotly(x, **kwargs):
                                            ))
 
             # Add soma(s):
-            if not isinstance(neuron.soma, type(None)):
-                for s in neuron.soma:
+            soma = utils.make_iterable(neuron.soma)
+            if any(soma):
+                for s in soma:
                     n = neuron.nodes.set_index('node_id').loc[s]
                     r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
                     try:
