@@ -239,7 +239,8 @@ def plot3d_vispy(x, **kwargs):
     # Make sure viewer is visible
     viewer.show()
 
-    if kwargs.get('clear3d', False) or kwargs.get('clear', False):
+    # We need to pop clear/clear3d to prevent clearing again later
+    if kwargs.pop('clear3d', False) or kwargs.pop('clear', False):
         viewer.clear()
 
     if skdata:
