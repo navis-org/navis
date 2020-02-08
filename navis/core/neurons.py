@@ -389,8 +389,20 @@ class TreeNeuron:
         else:
             soma = self._soma
 
-        if utils.is_iterable(soma) and not any(soma):
-            soma = None
+        # Sanity check to make sure that the soma node actually exists
+        if isinstance(soma, type(None)):
+            # Return immmediately without expensive checks
+            return soma
+        elif utils.is_iterable(soma):
+            if not any(soma):
+                soma = None
+            elif not any(self.nodes.node_id.isin(soma)):
+                logger.warning(f'Soma(s) {soma} not found in node table.')
+                soma = None
+        else:
+            if soma not in self.nodes.node_id.values:
+                logger.warning(f'Soma {soma} not found in node table.')
+                soma = None
 
         return soma
 
