@@ -198,8 +198,8 @@ class NeuronList:
         pandas DataFrame
 
         """
-        props = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches', 'n_leafs',
-                 'cable_length', 'soma']
+        # Fetch a union of all summary props
+        props = list(set.union(*[set(n.SUMMARY_PROPS) for n in self.neurons]))
 
         # Add ID to properties - unless all are generic UUIDs
         if any([not isinstance(n.id, uuid.UUID) for n in self.neurons]):

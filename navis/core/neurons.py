@@ -115,6 +115,10 @@ class TreeNeuron:
                  'nodes_geodesic_distance_matrix', 'dps',
                  'centrality_method', '_simple']
 
+    #: Attributes used for neuron summary
+    SUMMARY_PROPS = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
+                     'n_leafs', 'cable_length', 'soma']
+
     def __init__(self,
                  x: Union[pd.DataFrame,
                           BufferedIOBase,
@@ -406,6 +410,20 @@ class TreeNeuron:
     def type(self) -> str:
         """ Returns 'TreeNeuron'"""
         return 'TreeNeuron'
+
+    def _register_attr(self, name, value):
+        """Set and register attribute for summary."""
+        setattr(self, name, value)
+
+        # If this is an easy to summarize attribute, add to summary
+        if isinstance(value, (numbers.Number, str)):
+            self.SUMMARY_PROPS.append(name)
+
+    def _unregister_attr(self, name):
+        """Remove and unregister attribute."""
+        if name in self.SUMMARY_PROPS:
+            self.SUMMARY_PROPS = [v for v in self.SUMMARY_PROPS if v != name]
+        delattr(self, name)
 
     def __copy__(self):
         return self.copy(deepcopy=False)
@@ -1033,18 +1051,15 @@ class TreeNeuron:
         lvl = logger.level
         logger.setLevel('WARNING')
 
-        # Look up these values without requesting them
-        props = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
-                 'n_leafs', 'cable_length', 'soma']
+        # Do not remove the list -> otherwise we might change the original!
+        props = list(self.SUMMARY_PROPS)
 
         # Add .id to summary if not a generic UUID
         if not isinstance(self.id, uuid.UUID):
             props.insert(2, 'id')
 
         if add_props:
-            props = np.append(props, add_props)
-
-        print(props)
+            props = np.unique(np.append(props, add_props))
 
         s = pd.Series([getattr(self, at, 'NA') for at in props],
                       index=props)
