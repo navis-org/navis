@@ -681,7 +681,7 @@ class _IdIndexer():
         sel = sorted(sel, key=lambda x: np.where(ids == str(x.id))[0][0])
 
         if len(sel) != len(ids):
-            miss = list(set(ids) - set(sel.id))
+            miss = list(set(ids) - set([n.id for n in sel]))
             raise ValueError(f'No neuron(s) with ID(s): {", ".join(miss)}')
         elif len(sel) == 1:
             return sel[0]
