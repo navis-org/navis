@@ -22,6 +22,7 @@ import numpy as np
 import scipy.spatial
 
 from typing import Union, Optional, Sequence, List, Dict, Any
+from typing_extensions import Literal
 
 from .. import utils, config
 
@@ -296,7 +297,7 @@ class Volume:
                 color: Union[str,
                              Sequence[Union[int, float]]] = (1, 1, 1, .1)
                 ) -> 'Volume':
-        """ Merges multiple volumes into a single object.
+        """Merge multiple volumes into a single object.
 
         Parameters
         ----------
@@ -309,8 +310,8 @@ class Volume:
         Returns
         -------
         :class:`~navis.Volume`
-        """
 
+        """
         if isinstance(x, Volume):
             return x
 
@@ -399,7 +400,7 @@ class Volume:
                f'{self.vertices.shape[0]} vertices, {self.faces.shape[0]} faces'
 
     def __truediv__(self, other):
-        """Implements division for vertex coordinates."""
+        """Implement division for vertex coordinates."""
         if isinstance(other, numbers.Number):
             # If a number, consider this an offset for coordinates
             return self.__mul__(1 / other)
@@ -407,7 +408,7 @@ class Volume:
             return NotImplemented
 
     def __mul__(self, other):
-        """Implements multiplication for vertex coordinates."""
+        """Implement multiplication for vertex coordinates."""
         if isinstance(other, numbers.Number):
             # If a number, consider this an offset for coordinates
             v = self.copy()
@@ -418,42 +419,90 @@ class Volume:
 
     def resize(self,
                x: Union[float, int],
-               inplace: bool = False
-               ) -> Optional['Volume']:
-        """ Resize volume by given factor.
-
-        Resize is from center of mass, not origin.
+               method: Union[Literal['center'],
+                             Literal['centroid'],
+                             Literal['normals'],
+                             Literal['origin']] = 'center',
+               inplace: bool = True) -> Optional['Volume']:
+        """Resize volume.
 
         Parameters
         ----------
-        x :         int
-                    Resizing factor
+        x :         int | float
+                    Resizing factor. For methods "center", "centroid" and
+                    "origin" this is the fraction of original size (e.g.
+                    ``.5`` for half size). For method "normals", this is
+                    is the absolute displacement (e.g. ``-1000`` to shrink
+                    volume by that many units)!
+        method :    "center" | "centroid" | "normals" | "origin"
+                    Point in space to use for resizing.
+
+                    .. list-table::
+                        :widths: 15 75
+                        :header-rows: 1
+
+                        * - method
+                          - explanation
+                        * - center
+                          - average of all vertices
+                        * - centroid
+                          - average of the triangle centroids weighted by the
+                            area of each triangle. Requires ``trimesh``.
+                        * - origin
+                          - resizes relative to origin of coordinate system
+                            (0, 0, 0)
+                        * - normals
+                          - resize using face normals. Note that this method
+                            uses absolute displacement for parameter ``x``.
+                            Requires ``trimesh``.
+
         inplace :   bool, optional
                     If False, will return resized copy.
 
         Returns
         -------
         :class:`navis.Volume`
-                    Resized copy of original volume. Only if ``inplace=True``.
+                    Resized copy of original volume. Only if ``inplace=False``.
         None
-                    If ``inplace=False``.
+                    If ``inplace=True``.
+
         """
+        assert isinstance(method, str)
+
+        method = method.lower()
+
+        perm_methods = ['center', 'origin', 'normals', 'centroid']
+        if method not in perm_methods:
+            raise ValueError('Unknown method "{}". Allowed '
+                             'methods: {}'.format(method,
+                                                  ', '.join(perm_methods)))
+
         if not inplace:
             v = self.copy()
         else:
             v = self
 
-        # Get the center
-        cn = np.mean(v.vertices, axis=0)
+        if method == 'normals':
+            tm = v.to_trimesh()
+            v.vertices = tm.vertices + (tm.vertex_normals * x)
+            v.faces = tm.faces
+        else:
+            # Get the center
+            if method == 'center':
+                cn = np.mean(v.vertices, axis=0)
+            elif method == 'centroid':
+                cn = v.to_trimesh().centroid
+            elif method == 'origin':
+                cn = np.array([0, 0, 0])
 
-        # Get vector from center to each vertex
-        vec = v.vertices - cn
+            # Get vector from center to each vertex
+            vec = v.vertices - cn
 
-        # Multiply vector by resize factor
-        vec *= x
+            # Multiply vector by resize factor
+            vec *= x
 
-        # Recalculate vertex positions
-        v.vertices = vec + cn
+            # Recalculate vertex positions
+            v.vertices = vec + cn
 
         # Make sure to reset any pyoctree data on this volume
         try:
@@ -463,7 +512,6 @@ class Volume:
 
         if not inplace:
             return v
-        return None
 
     def plot3d(self, **kwargs):
         """Plot volume using :func:`navis.plot3d`.
