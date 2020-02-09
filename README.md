@@ -15,7 +15,7 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 * clustering methods (e.g. by connectivity or synapse placement)
 * fetch neurons directly from [neuromorpho.org](http://neuromorpho.org)
 * Python bindings for R neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
-* interfaces with Blender 3D and Cytoscape
+* interfaces with Blender 3D and neuprint
 
 ## Getting started
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:
