@@ -40,7 +40,7 @@ but there are still some TO-DOs:
 
 ## Acknowledgments
 NAVis is inspired by and inherits much of its design from the excellent
-[nat](http://jefferislab.github.io/) & friends R packages by
+[natverse](http://natverse.org) R packages by
 [Greg Jefferis](https://github.com/jefferis), [Alex Bates](https://github.com/alexanderbates),
 [James Manton](https://github.com/ajdm) and others.
 
