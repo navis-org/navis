@@ -72,6 +72,7 @@ function. There you will also find more examples.
 
    tutorials/r_doc
    blender
+   tutorials/neuprint
 
 
 

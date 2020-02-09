@@ -256,6 +256,27 @@ Not imported at top level! Must be imported explicitly::
     navis.interfaces.neuromorpho.get_available_field_values
 
 
+.. _api_interfaces.neuprint:
+
+neuprint API
+++++++++++++
+NAVis wraps `neuprint-python <https://github.com/connectome-neuprint/neuprint-python>`_
+and adds a few navis-specific functions. You must have `neuprint-python`
+installed for this to work::
+
+    pip install neuprint-python
+
+You can then import neuprint from navis like so::
+
+    import navis.interfaces.neuprint as neu
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.interfaces.neuprint.fetch_roi
+    navis.interfaces.neuprint.fetch_skeleton
+
+
 .. _api_interfaces.neuromorpho:
 
 InsectBrain DB API
@@ -273,7 +294,6 @@ Not imported at top level! Must be imported explicitly::
     navis.interfaces.insectbrain_db.get_brain_meshes
     navis.interfaces.insectbrain_db.get_species_info
     navis.interfaces.insectbrain_db.get_available_species
-    navis.interfaces.insectbrain_db.
 
 
 .. _api_interfaces.blender:
