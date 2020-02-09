@@ -13,7 +13,7 @@
 
 """ Interface with neuprint. This module is wrapping neuprint-python
 (https://github.com/connectome-neuprint/neuprint-python) and adding some
-navis-specific functions
+navis-specific functions.
 """
 
 from textwrap import dedent
@@ -152,7 +152,7 @@ def fetch_skeletons(x, with_synapses=True, *, client=None):
         # Add some missing meta data
         n.id = r.bodyId
 
-        if 'instance' in r:
+        if hasattr(r, 'instance'):
             n.name = r.instance
 
         n.n_voxels = r.size
