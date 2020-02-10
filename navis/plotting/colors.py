@@ -231,7 +231,9 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     if not isinstance(volumes, np.ndarray):
         volumes = np.array(volumes)
 
-    colors_required = skdata.shape[0] + dotprops.shape[0] + volumes.shape[0]
+    # Only dotprops and neurons REQUIRE a color
+    # Volumes are second class citiziens here
+    colors_required = skdata.shape[0] + dotprops.shape[0]
 
     if not colors_required:
         # If no neurons to plot, just return None
@@ -241,7 +243,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     # If no colors, generate random colors
     if isinstance(colors, type(None)):
         colors = []
-        colors += generate_colors(colors_required - volumes.shape[0],
+        colors += generate_colors(colors_required,
                                   color_space='RGB',
                                   color_range=color_range)
         colors += [getattr(v, 'color', (1, 1, 1)) for v in volumes]
@@ -292,7 +294,8 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     elif isinstance(colors, (list, tuple, np.ndarray)):
         # If color is a single color, convert to list
         if all([isinstance(elem, numbers.Number) for elem in colors]):
-            colors = [colors] * colors_required
+            # Generate at least one color
+            colors = [colors] * max(colors_required, 1)
         elif len(colors) < colors_required:
             raise ValueError(f'Need colors for {colors_required} neurons/'
                              f'dotprops, got {len(colors)}')
@@ -301,11 +304,17 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
                          f'needed {colors_required}')
 
         if skdata.shape[0]:
-            neuron_cmap = [colors[i] for i in range(skdata.shape[0])]
+            neuron_cmap = [colors.pop(0) for i in range(skdata.shape[0])]
         if dotprops.shape[0]:
-            dotprop_cmap = [colors[i + skdata.shape[0]] for i in range(dotprops.shape[0])]
+            dotprop_cmap = [colors.pop(0) for i in range(dotprops.shape[0])]
         if volumes.shape[0]:
-            volumes_cmap = [colors[i + skdata.shape[0] + dotprops.shape[0]] for i in range(volumes.shape[0])]
+            # Volume have their own color property as fallback
+            volumes_cmap = []
+            for v in volumes:
+                if colors:
+                    volumes_cmap.append(colors.pop(0))
+                else:
+                    volumes_cmap.append(getattr(v, 'color', (.8, .8, .8, .2)))
     else:
         raise TypeError(f'Unable to parse colors of type "{type(colors)}"')
 
