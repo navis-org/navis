@@ -131,7 +131,7 @@ def neuron2plotly(x, **kwargs):
         if kwargs.get('connectors', False) or \
            kwargs.get('connectors_only', False):
             for j in neuron.connectors.type.unique():
-                if cn_mesh_colors:
+                if kwargs.get('cn_mesh_colors', False):
                     c = color
                 else:
                     c = syn_lay.get(j, {'color': (10, 10, 10)})['color']
