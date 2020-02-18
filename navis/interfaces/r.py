@@ -942,7 +942,7 @@ class NBLASTresults:
             elif isinstance(entries[0], str):
                 return self.db.rx(robjects.StrVector(entries))
         else:
-            logger.error('Unable to intepret entries provided. See '
+            logger.error('Unable to interpret entries provided. See '
                          'help(NBLASTresults.plot3d) for details.')
             return None
 
@@ -954,7 +954,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 **kwargs) -> Union['core.NeuronObject',
                                    'pd.DataFrame',
                                    'np.ndarray']:
-    """ Transform 3D data between template brains. This is just a wrapper for
+    """Transform 3D data between template brains. This is just a wrapper for
     ``nat.templatebrains:xform_brain``.
 
     Parameters
@@ -978,7 +978,22 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     -------
     same type as ``x``
                 Copy of input with transformed coordinates.
+
     """
+    if isinstance(x, core.NeuronList):
+        if len(x) == 1:
+            x = x[0]
+        else:
+            xf = []
+            for n in config.tqdm(x, desc='Xforming',
+                                 disable=config.pbar_hide,
+                                 leave=config.pbar_leave):
+                xf.append(xform_brain(n,
+                                      source=source,
+                                      target=target,
+                                      fallback=fallback,
+                                      **kwargs))
+            return core.NeuronList(xf)
 
     if not isinstance(x, (core.TreeNeuron, np.ndarray, pd.DataFrame)):
         raise TypeError(f'Unable to transform data of type "{type(x)}"')
@@ -1011,7 +1026,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     # We need to convert numpy arrays explicitly
     if isinstance(x, np.ndarray):
-        x = numpy2ri.py2rpy(x)
+        x = numpy2ri.py2ro(x)
 
     xf = nat_templatebrains.xform_brain(x,
                                         sample=source,
