@@ -169,7 +169,7 @@ class NeuronList:
                 N: Optional[Union[int, slice]] = None,
                 add_props: list = []
                 ) -> pd.DataFrame:
-        """ Get summary over all neurons in this NeuronList.
+        """Get summary over all neurons in this NeuronList.
 
         Parameters
         ----------
@@ -185,7 +185,7 @@ class NeuronList:
 
         """
         # Fetch a union of all summary props
-        props = list(set.union(*[set(n.SUMMARY_PROPS) for n in self.neurons]))
+        props = list(set.union(*[set(p) for p in self.SUMMARY_PROPS]))
 
         # Add ID to properties - unless all are generic UUIDs
         if any([not isinstance(n.id, uuid.UUID) for n in self.neurons]):
@@ -248,6 +248,8 @@ class NeuronList:
         elif key == 'empty':
             return len(self.neurons) == 0
         else:
+            if self.empty:
+                raise AttributeError(f'Neuronlist is empty - "{key}" not found')
             # Dynamically check if the requested attribute/function exists in
             # all neurons
             values = [getattr(n, key, NotImplemented) for n in self.neurons]
@@ -257,8 +259,8 @@ class NeuronList:
             # First check if there is any reason why we can't collect this
             # attribute across all neurons
             if all([isinstance(v, type(NotImplemented)) for v in values]):
-                raise AttributeError(f'Attribute "{key}" not found in in '
-                                     'NeuronList nor in contained neurons')
+                raise AttributeError(f'Attribute "{key}" not found in '
+                                     'NeuronList or its neurons')
             elif any([isinstance(v, type(NotImplemented)) for v in values]):
                 raise AttributeError(f'Attribute or function "{key}" missing '
                                      'for some neurons')
