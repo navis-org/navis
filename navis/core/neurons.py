@@ -231,7 +231,7 @@ class TreeNeuron:
     @nodes.setter
     def nodes(self, v):
         self._nodes = utils.validate_table(v,
-                                           required=[('node_id', 'rowId', 'node'),
+                                           required=[('node_id', 'rowId', 'node', 'treenode_id'),
                                                      ('parent_id', 'link', 'parent'),
                                                      'x',
                                                      'y',
