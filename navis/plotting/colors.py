@@ -235,7 +235,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     # Volumes are second class citiziens here
     colors_required = skdata.shape[0] + dotprops.shape[0]
 
-    if not colors_required:
+    if not colors_required and len(volumes) == 0:
         # If no neurons to plot, just return None
         # This happens when there is only a scatter plot
         return [None], [None], [None]
