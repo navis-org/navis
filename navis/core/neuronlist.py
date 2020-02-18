@@ -55,21 +55,9 @@ class NeuronList:
     make_copy :         bool, optional
                         If True, Neurons are deepcopied before being
                         assigned to the NeuronList.
-    use_parallel :      bool, optional
-                        If True, will use parallel processing for
-                        operations performed across all neuron in this
-                        NeuronList. This is very memory heavy!
 
     Attributes
     ----------
-
-    use_parallel :      bool (default=False)
-                        If True, will use parallel (multi-)processing when
-                        applying functions across the entire NeuronList.
-                        Neurons have to be copied into separate processes for
-                        this which creates overhead and is memory intensive.
-                        It is therefore suggested only for long-running,
-                        CPU-heavy  operations.
     use_threading :     bool (default=True)
                         If True, will use parallel threads when initialising the
                         NeuronList. Should be slightly up to a lot faster
@@ -108,7 +96,6 @@ class NeuronList:
                           core.TreeNeuron,
                           pd.DataFrame],
                  make_copy: bool = False,
-                 use_parallel: bool = False,
                  **kwargs):
         # Set number of cores
         self.n_cores: int = max(1, os.cpu_count())
@@ -117,7 +104,6 @@ class NeuronList:
         # which speeds them up quite a bit. Unfortunately, this uses A TON of
         # memory - for large lists this might make your system run out of
         # memory. In these cases, leave this property at False
-        self.use_parallel: bool = use_parallel
         self.use_threading: bool = True
 
         # Determines if subsetting this NeuronList will copy the neurons
@@ -298,16 +284,19 @@ class NeuronList:
                 # a progress bar and use multiprocessing (if applicable)
                 return NeuronProcessor(self, values, key)
 
-    def apply(self, func, **kwargs):
+    def apply(self, func, parallel=True, n_cores=os.cpu_count(), **kwargs):
         """Apply function across all neurons in this NeuronList.
-
-        This will use multiprocessing if ``.use_parallel=True``
 
         Parameters
         ----------
         func :      callable
                     Function to be applied. Must accept :class:`~navis.TreeNeuron`
                     as first argument.
+        parallel :  bool
+                    If True (default) will use multiprocessing.
+        n_cores :   int
+                    Number of CPUs to use for multiprocessing.
+
         **kwargs
                     Will be passed to function.
 
@@ -319,16 +308,17 @@ class NeuronList:
         --------
         >>> import navis
         >>> nl = navis.example_neurons()
-        >>> # Activate multiprocessing
-        >>> nl.use_parallel = True
         >>> # Apply resampling function
         >>> nl_rs = nl.apply(navis.resample_neuron, resample_to=1000, inplace=False)
+        
         """
         if not callable(func):
             raise TypeError('"func" must be callable')
 
         proc = NeuronProcessor(self,
                                func,
+                               parallel=parallel,
+                               n_cores=n_cores,
                                desc='Processing')
 
         return proc(self.neurons, **kwargs)
@@ -537,8 +527,7 @@ class NeuronList:
                                                                           desc='Copy',
                                                                           leave=False,
                                                                           disable=config.pbar_hide | len(self) < 20)],
-                          make_copy=False,
-                          use_parallel=self.use_parallel)
+                          make_copy=False)
 
     def head(self, N: int = 5) -> pd.DataFrame:
         """Return summary for top N neurons."""
@@ -594,10 +583,14 @@ class NeuronProcessor:
     def __init__(self,
                  nl: NeuronList,
                  funcs: Callable,
+                 parallel: bool = True,
+                 n_cores: int = os.cpu_count() - 1,
                  desc: Optional[str] = None):
         self.nl = nl
         self.funcs = funcs
         self.desc = None
+        self.parallel = parallel
+        self.n_cores = n_cores
 
         # Copy function for each neuron in neuronlist
         if not utils.is_iterable(self.funcs):
@@ -632,9 +625,8 @@ class NeuronProcessor:
         level = logger.getEffectiveLevel()
 
         logger.setLevel('ERROR')
-
-        if self.nl.use_parallel:
-            pool = mp.Pool(self.nl.n_cores)
+        if self.parallel:
+            pool = mp.Pool(self.n_cores)
             combinations = list(zip(self.funcs, parsed_args, parsed_kwargs))
             res = list(config.tqdm(pool.imap(_worker_wrapper,
                                              combinations,
