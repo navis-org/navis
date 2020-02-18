@@ -18,6 +18,8 @@ navis-specific functions.
 
 from textwrap import dedent
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 try:
     from neuprint import *
     from neuprint.client import inject_client
@@ -34,13 +36,17 @@ except BaseException:
 
 import io
 
-from tqdm import tqdm
+from requests.exceptions import HTTPError
 
 import numpy as np
 import pandas as pd
 
+from .. import config
+
 from ..core import Volume, TreeNeuron, NeuronList
 from ..graph import neuron2KDTree
+
+logger = config.logger
 
 # Define some integer types
 int_types = (int, np.int32, np.int64, np.int, np.int0)
@@ -94,7 +100,8 @@ def fetch_roi(roi, *, client=None):
 
 
 @inject_client
-def fetch_skeletons(x, with_synapses=True, *, client=None):
+def fetch_skeletons(x, with_synapses=True, *, missing_swc='raise',
+                    parallel=True, max_threads=5, client=None):
     """Construct navis.TreeNeuron/List from neuprint neurons.
 
     Notes
@@ -108,6 +115,17 @@ def fetch_skeletons(x, with_synapses=True, *, client=None):
                     DataFrame with "bodyId" column.
     with_synapses : bool, optional
                     If True will also attach synapses as ``.connectors``.
+    missing_swc :   'raise' | 'warn' | 'skip'
+                    What to do if no skeleton is found for a given body ID::
+
+                        "raise" (default) will raise an exception
+                        "warn" will throw a warning but continue
+                        "skip" will skip without any message
+
+    parallel :      bool
+                    If True, will use parallel threads to fetch data.
+    max_threads :   int
+                    Max number of parallel threads to use.
     client :        neuprint.Client, optional
                     If ``None`` will try using global client.
 
@@ -130,65 +148,99 @@ def fetch_skeletons(x, with_synapses=True, *, client=None):
     # Fetch names, etc
     meta, roi_info = fetch_neurons(query, client=client)
 
+    if meta.empty:
+        raise ValueError('No neurons matching the given criteria found!')
+
     # Make sure there is a somaLocation and somaRadius column
     if 'somaLocation' not in meta.columns:
         meta['somaLocation'] = None
         meta['somaRadius'] = None
 
-    # Add data to skeletons
     nl = []
-    for r in tqdm(meta.itertuples(), desc='Fetching', total=meta.shape[0],
-                  leave=False, disable=meta.shape[0] == 1):
+    with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
+        futures = {}
+        for r in meta.itertuples():
+            f = executor.submit(__fetch_skeleton,
+                                r,
+                                client=client,
+                                with_synapses=with_synapses,
+                                missing_swc=missing_swc)
+            futures[f] = r.bodyId
 
-        # Fetch skeleton SWC
-        data = client.fetch_skeleton(r.bodyId, format='pandas')
-
-        # Convert from raw to nanometers
-        # TODO!!!
-
-        # Generate neuron
-        n = TreeNeuron(data, units='nm')
-
-        # Add some missing meta data
-        n.id = r.bodyId
-
-        if hasattr(r, 'instance'):
-            n.name = r.instance
-
-        n.n_voxels = r.size
-        n.status = r.status
-
-        # Make KDE tree for NN
-        if r.somaLocation or with_synapses:
-            tree = neuron2KDTree(n, data='nodes')
-
-        # Set soma
-        if r.somaLocation:
-            d, i = tree.query([r.somaLocation])
-            n.soma = int(n.nodes.iloc[i[0]].node_id)
-            n.soma_radius = r.somaRadius
-
-        if with_synapses:
-            # Fetch synapses
-            syn = fetch_synapses(r.bodyId, client=client)
-
-            if not syn.empty:
-                # Process synapses
-                syn['connector_id'] = syn.index.values
-                locs = syn[['x', 'y', 'z']].values
-                d, i = tree.query(locs)
-
-                syn['node_id'] = n.nodes.iloc[i].node_id.values
-                syn['x'] = locs[:, 0]
-                syn['y'] = locs[:, 1]
-                syn['z'] = locs[:, 2]
-
-                # Keep only relevant columns
-                syn = syn[['connector_id', 'node_id', 'type',
-                           'x', 'y', 'z', 'roi', 'confidence']]
-
-                n.connectors = syn
-
-        nl.append(n)
+        with config.tqdm(desc='Fetching',
+                         total=meta.shape[0],
+                         leave=config.pbar_leave,
+                         disable=meta.shape[0] == 1 or config.pbar_hide) as pbar:
+            for f in as_completed(futures):
+                bodyId = futures[f]
+                pbar.update(1)
+                try:
+                    nl.append(f.result())
+                except Exception as exc:
+                    print(f'{bodyId} generated an exception:', exc)
 
     return NeuronList(nl)
+
+
+def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise'):
+    """Fetch a single skeleton + synapses and turn into CATMAID neuron."""
+    # Fetch skeleton SWC
+    try:
+        data = client.fetch_skeleton(r.bodyId, format='pandas')
+    except HTTPError as err:
+        if err.response.status_code == 400:
+            if missing_swc in ['warn', 'skip']:
+                if missing_swc == 'warn':
+                    logger.warning(f'No SWC found for {r.bodyId}')
+            else:
+                raise
+        else:
+            raise
+
+    # Convert from raw to nanometers
+    # TODO!!!
+
+    # Generate neuron
+    n = TreeNeuron(data, units='nm')
+
+    # Add some missing meta data
+    n.id = r.bodyId
+
+    if hasattr(r, 'instance'):
+        n.name = r.instance
+
+    n.n_voxels = r.size
+    n.status = r.status
+
+    # Make KDE tree for NN
+    if r.somaLocation or with_synapses:
+        tree = neuron2KDTree(n, data='nodes')
+
+    # Set soma
+    if r.somaLocation:
+        d, i = tree.query([r.somaLocation])
+        n.soma = int(n.nodes.iloc[i[0]].node_id)
+        n.soma_radius = r.somaRadius
+
+    if with_synapses:
+        # Fetch synapses
+        syn = fetch_synapses(r.bodyId, client=client)
+
+        if not syn.empty:
+            # Process synapses
+            syn['connector_id'] = syn.index.values
+            locs = syn[['x', 'y', 'z']].values
+            d, i = tree.query(locs)
+
+            syn['node_id'] = n.nodes.iloc[i].node_id.values
+            syn['x'] = locs[:, 0]
+            syn['y'] = locs[:, 1]
+            syn['z'] = locs[:, 2]
+
+            # Keep only relevant columns
+            syn = syn[['connector_id', 'node_id', 'type',
+                       'x', 'y', 'z', 'roi', 'confidence']]
+
+            n.connectors = syn
+
+    return n
