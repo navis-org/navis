@@ -181,7 +181,7 @@ def neuron2plotly(x, **kwargs):
 def scatter2plotly(x, **kwargs):
     """ Converts DataFrame with x,y,z columns to plotly scatter plot."""
 
-    c = eval_colors(kwargs.get('color', (10, 10, 10)), color_range=255)
+    c = eval_color(kwargs.get('color', (10, 10, 10)), color_range=255)
     s = kwargs.get('size', 2)
     name = kwargs.get('name', None)
 
