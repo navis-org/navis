@@ -142,8 +142,9 @@ def downsample_neuron(x: 'core.NeuronObject',
         else:
             return None
 
-    list_of_parents = {n.node_id: n.parent_id for n in x.nodes.itertuples()}
-    list_of_parents[-1] = None  # type: ignore  # doesn't know that node_id is int
+    list_of_parents = {n: p for n, p in zip(x.nodes.node_id.values,
+                                            x.nodes.parent_id.values)}
+    list_of_parents[-1] = -1  # type: ignore  # doesn't know that node_id is int
 
     if 'type' not in x.nodes:
         graph.classify_nodes(x)
@@ -155,9 +156,11 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     fix_points = x.nodes[selection].node_id.values
 
-    # Add soma node
-    if not isinstance(x.soma, type(None)) and x.soma not in fix_points:
-        fix_points = np.append(fix_points, x.soma)
+    # Add soma node(s)
+    if not isinstance(x.soma, type(None)):
+        for s in x.soma:
+            if s not in fix_points:
+                fix_points = np.append(fix_points, s)
 
     # Walk from all fix points to the root - jump N nodes on the way
     new_parents = {}
@@ -168,7 +171,7 @@ def downsample_neuron(x: 'core.NeuronObject',
         while True:
             stop = False
             new_p = list_of_parents[this_node]
-            if new_p:
+            if new_p > 0:
                 i = 0
                 while i < downsampling_factor:
                     if new_p in fix_points or not new_p:
@@ -184,7 +187,7 @@ def downsample_neuron(x: 'core.NeuronObject',
                     new_parents[this_node] = new_p
                     this_node = new_p
             else:
-                new_parents[this_node] = None  # type: ignore
+                new_parents[this_node] = -1  # type: ignore
                 break
 
     new_nodes = x.nodes[x.nodes.node_id.isin(list(new_parents.keys()))].copy()
