@@ -616,11 +616,11 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
             m = has_soma[0]
         else:
             m = sorted(nl.neurons,
-                       key=lambda x: nl.cable_length,
+                       key=lambda x: list(nl.cable_length),
                        reverse=True)[0]
     elif master == 'LARGEST':
         m = sorted(nl.neurons,
-                   key=lambda x: nl.cable_length,
+                   key=lambda x: list(nl.cable_length),
                    reverse=True)[0]
     else:
         # Simply pick the first neuron
