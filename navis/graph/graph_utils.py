@@ -1225,6 +1225,10 @@ def cut_neuron(x: 'core.NeuronObject',
     else:
         raise TypeError(f'Unable to process data of type "{type(x)}"')
 
+    assert x.n_trees == 1, f'Unable to cut: neuron {x.id} consists of multiple ' \
+                           'disconnected trees. Use navis.heal_fragmented_neuron' \
+                           ' to fix.'
+
     # At this point x is TreeNeuron
     x: core.TreeNeuron
 
