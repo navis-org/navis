@@ -388,8 +388,8 @@ class Handler:
 
         # DO NOT touch this: lookup via dict is >10X faster!
         tn_coords = {r.node_id: (r.x * self.conversion,
-                                 r.z * self.conversion,
-                                 r.y * -self.conversion) for r in x.nodes.itertuples()}
+                                 r.y * self.conversion,
+                                 r.z * self.conversion) for r in x.nodes.itertuples()}
         if use_radii:
             tn_radii = {r.node_id: r.radius * self.conversion for r in x.nodes.itertuples()}
 
@@ -397,6 +397,8 @@ class Handler:
             sp = cu.splines.new('POLY')
 
             coords = np.array([tn_coords[tn] for tn in s])
+            coords = coords[:, self.axes_order]
+            coords *= self.ax_translate
 
             # Add points
             sp.points.add(len(coords) - 1)
@@ -479,7 +481,8 @@ class Handler:
             s = x.nodes[x.nodes.node_id == s]
             loc = s[['x', 'y', 'z']].values
             loc = loc[:, self.axes_order]
-            loc *= self.conversion * self.ax_translate
+            loc *= self.conversion
+            loc *= self.ax_translate
 
             rad = s.radius * self.conversion
 
@@ -581,19 +584,16 @@ class Handler:
         volume :    core.Volume | dict
                     Must contain 'faces', 'vertices'
         """
-        mesh_name = getattr(volume, 'name', 'mesh')
+        mesh_name = str(getattr(volume, 'name', 'mesh'))
 
-        verts = volume.vertices
+        verts = volume.vertices.copy()
 
-        if not isinstance(verts, pd.DataFrame):
-            verts = pd.DataFrame(verts)
-
-        # Convert to Blender space and invert Y
+        # Convert to Blender space
         verts *= self.conversion
-        verts[1] *= -1
+        verts = verts[:, self.axes_order]
+        verts *= self.ax_translate
 
-        # Switch y and z
-        blender_verts = verts[[0, 2, 1]].values.tolist()
+        blender_verts = verts.tolist()
 
         me = bpy.data.meshes.new(mesh_name + '_mesh')
         ob = bpy.data.objects.new(mesh_name, me)
