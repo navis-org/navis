@@ -104,9 +104,11 @@ class Handler:
                 color=(1, 0, 1))
     }  # : defines default colours/names for different connector types
 
-    def __init__(self, conversion=1 / 10000):
+    def __init__(self, conversion=1 / 10000, axes_order=[0, 1, 2], ax_translate=[1, 1, 1]):
         self.conversion = conversion
         self.cn_dict = Handler.cn_dict
+        self.axes_order = axes_order
+        self.ax_translate = ax_translate
 
     def _selection_helper(self, type):
         return [ob.name for ob in bpy.data.objects if 'type' in ob and ob['type'] == type]
@@ -206,9 +208,9 @@ class Handler:
             raise ValueError('Array must be of shape N,3')
 
         # Get & scale coordinates and invert y
-        coords = x.astype(float)[:, [0, 2, 1]]
+        coords = x.astype(float)[:, self.axes_order]
         coords *= float(self.conversion)
-        coords *= [1, 1, -1]
+        coords *= self.ax_translate
 
         verts, faces = CalcSphere(kwargs.get('size', 0.02),
                                   kwargs.get('sp_res', 7),
@@ -246,9 +248,9 @@ class Handler:
             raise ValueError('Array must be of shape N,3')
 
         # Get & scale coordinates and invert y
-        coords = x.astype(float)[:, [0, 2, 1]]
+        coords = x.astype(float)[:, self.axes_order]
         coords *= float(self.conversion)
-        coords *= [1, 1, -1]
+        coords *= self.ax_translate
 
         base_verts, base_faces = CalcSphere(kwargs.get('size', 0.02),
                                             kwargs.get('sp_res', 7),
@@ -334,7 +336,7 @@ class Handler:
         edges = np.vstack(edges)
 
         # Swap z and y and invert y coords
-        verts = verts[:, [0, 2, 1]] * np.array([1, 1, -1])
+        verts = verts[:, self.axes_order]  * np.array(self.ax_translate)
 
         # Add all data at once
         mesh.from_pydata(verts, edges.astype(int), [])
@@ -447,9 +449,9 @@ class Handler:
         starts *= self.conversion
         ends *= self.conversion
 
-        halfvect = halfvect[:, [0, 2, 1]] * [1, 1, -1]
-        starts = starts[:, [0, 2, 1]] * [1, 1, -1]
-        ends = ends[:, [0, 2, 1]] * [1, 1, -1]
+        halfvect = halfvect[:, self.axes_order] * self.ax_translate
+        starts = starts[:, self.axes_order] * self.ax_translate
+        ends = ends[:, self.axes_order] * self.ax_translate
 
         segments = list(zip(starts, ends))
 
@@ -475,7 +477,10 @@ class Handler:
         """ Create soma """
         for s in utils.make_iterable(x.soma):
             s = x.nodes[x.nodes.node_id == s]
-            loc = s[['x', 'z', 'y']].values * self.conversion * [1, 1, -1]
+            loc = s[['x', 'y', 'z']].values
+            loc = loc[:, self.axes_order]
+            loc *= self.conversion * self.ax_translate
+
             rad = s.radius * self.conversion
 
             mesh = bpy.data.meshes.new(f'Soma of #{x.id} - mesh')
@@ -512,14 +517,16 @@ class Handler:
                 continue
 
             # Get & scale coordinates and invert y
-            cn_coords = con[['x', 'z', 'y']].values.astype(float)
+            cn_coords = con[['x', 'y', 'z']].values.astype(float)
+            cn_coords = cn_coords[:, self.axes_order]
             cn_coords *= float(self.conversion)
-            cn_coords *= [1, 1, -1]
+            cn_coords *= self.ax_translate
 
             tn_coords = x.nodes.set_index('node_id').loc[con.node_id.values,
-                                                         ['x', 'z', 'y']].values.astype(float)
+                                                         ['x', 'y', 'z']].values.astype(float)
+            tn_coords = tn_coords[:, self.axes_order]
             tn_coords *= float(self.conversion)
-            tn_coords *= [1, 1, -1]
+            tn_coords *= self.ax_translate
 
             # Add 4th coordinate for blender
             cn_coords = np.c_[cn_coords, [0] * con.shape[0]]
