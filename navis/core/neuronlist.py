@@ -286,6 +286,19 @@ class NeuronList:
                 # a progress bar and use multiprocessing (if applicable)
                 return NeuronProcessor(self, values, key)
 
+    def __setattr__(self, key, value):
+        # Check if this attribute exists in the neurons
+        if any([hasattr(n, key) for n in self.neurons]):
+            logger.warning('It looks like you are trying to add a TreeNeuron '
+                           f'attribute to a NeuronList. "{key}" will not '
+                           'propagated to the neurons it contains!')
+
+        self.__dict__[key] = value
+
+    @property
+    def neurons(self):
+        return self.__dict__.get('neurons', [])
+
     def apply(self, func, parallel=False, n_cores=os.cpu_count(), **kwargs):
         """Apply function across all neurons in this NeuronList.
 
