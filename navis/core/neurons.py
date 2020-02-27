@@ -212,14 +212,18 @@ class TreeNeuron:
     @property
     def units(self) -> str:
         """Units for coordinate space."""
-        return getattr(self, '_units', None)
+        # Note that we are regenerating the pint.Quantity from the string
+        # That is to avoid problems with pickling .e.g when using multiprocessing
+        return config.ureg(getattr(self, '_unit_str', None))
 
     @units.setter
     def units(self, v: Union[pint.Unit, str]):
+        # Note that we are storing the string, not the actual pint.Quantity
+        # That is to avoid problems with pickling .e.g when using multiprocessing
         if isinstance(v, str):
-            self._units = config.ureg(v)
+            self._unit_str = str(config.ureg(v))
         elif isinstance(v, pint.Unit):
-            self._units = v
+            self._unit_str = str(v)
         else:
             raise TypeError(f'Expect str or pint.Unit, got "{type(v)}"')
 
