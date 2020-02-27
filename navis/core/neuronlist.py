@@ -286,7 +286,7 @@ class NeuronList:
                 # a progress bar and use multiprocessing (if applicable)
                 return NeuronProcessor(self, values, key)
 
-    def apply(self, func, parallel=True, n_cores=os.cpu_count(), **kwargs):
+    def apply(self, func, parallel=False, n_cores=os.cpu_count(), **kwargs):
         """Apply function across all neurons in this NeuronList.
 
         Parameters
@@ -295,7 +295,10 @@ class NeuronList:
                     Function to be applied. Must accept :class:`~navis.TreeNeuron`
                     as first argument.
         parallel :  bool
-                    If True (default) will use multiprocessing.
+                    If True (default) will use multiprocessing. Spawning the
+                    processes takes time (and memory). So using ``parallel=True``
+                    makes only sense if the NeuronList is large or the function
+                    takes a long time.
         n_cores :   int
                     Number of CPUs to use for multiprocessing.
 
