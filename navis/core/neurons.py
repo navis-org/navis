@@ -552,8 +552,12 @@ class TreeNeuron:
         temp_node_cols = ['flow_centrality', 'strahler_index']
 
         # Remove temporary node values
-        self.nodes = self.nodes[[
-            c for c in self.nodes.columns if c not in temp_node_cols]]
+        self.nodes = self.nodes[[c for c in self.nodes.columns if c not in temp_node_cols]]
+
+        # Remove soma if it was manually assigned and is not present anymore
+        if not callable(self._soma) and not isinstance(self._soma, type(None)):
+            if self._soma not in self.nodes.node_id.values:
+                self.soma = None
 
         if 'classify_nodes' not in exclude:
             # Reclassify nodes
