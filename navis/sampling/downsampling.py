@@ -98,18 +98,24 @@ def downsample_neuron(x: 'core.NeuronObject',
     --------
     :func:`navis.resample_neuron`
                              This function resamples a neuron to given
-                             resolution. This will not preserve treenode IDs!
+                             resolution. This will change node IDs!
 
     """
     if isinstance(x, core.NeuronList):
-        res = [downsample_neuron(n,
-                                 downsampling_factor=downsampling_factor,
-                                 preserve_nodes=preserve_nodes,
-                                 inplace=inplace) for n in x]
         if not inplace:
-            return core.NeuronList(res)
-        else:
-            return None
+            x = x.copy()
+        results = [downsample_neuron(x[i],
+                                     downsampling_factor=downsampling_factor,
+                                     preserve_nodes=preserve_nodes,
+                                     inplace=True)
+                   for i in config.trange(x.shape[0],
+                                          desc='Downsampling',
+                                          disable=config.pbar_hide,
+                                          leave=config.pbar_leave)]
+        if not inplace:
+            return core.NeuronList(results)
+        return None
+
     elif isinstance(x, core.TreeNeuron):
         if not inplace:
             x = x.copy()
