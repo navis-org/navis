@@ -102,12 +102,12 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     """
     if isinstance(x, core.NeuronList):
-        res = core.NeuronList([downsample_neuron(n,
-                                                 downsampling_factor=downsampling_factor,
-                                                 preserve_nodes=preserve_nodes,
-                                                 inplace=inplace) for n in x])
+        res = [downsample_neuron(n,
+                                 downsampling_factor=downsampling_factor,
+                                 preserve_nodes=preserve_nodes,
+                                 inplace=inplace) for n in x]
         if not inplace:
-            return res
+            return core.NeuronList(res)
         else:
             return None
     elif isinstance(x, core.TreeNeuron):
