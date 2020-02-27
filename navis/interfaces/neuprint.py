@@ -45,6 +45,7 @@ from .. import config
 
 from ..core import Volume, TreeNeuron, NeuronList
 from ..graph import neuron2KDTree
+from ..morpho import heal_fragmented_neuron
 
 logger = config.logger
 
@@ -100,7 +101,7 @@ def fetch_roi(roi, *, client=None):
 
 
 @inject_client
-def fetch_skeletons(x, with_synapses=True, *, missing_swc='raise',
+def fetch_skeletons(x, with_synapses=True, *, heal=False, missing_swc='raise',
                     parallel=True, max_threads=5, client=None):
     """Construct navis.TreeNeuron/List from neuprint neurons.
 
@@ -115,6 +116,9 @@ def fetch_skeletons(x, with_synapses=True, *, missing_swc='raise',
                     DataFrame with "bodyId" column.
     with_synapses : bool, optional
                     If True will also attach synapses as ``.connectors``.
+    heal :          bool, optional
+                    If True, will automatically heal fragmented skeletons using
+                    :func:`navis.heal_fragmented_neuron`.
     missing_swc :   'raise' | 'warn' | 'skip'
                     What to do if no skeleton is found for a given body ID::
 
@@ -179,7 +183,12 @@ def fetch_skeletons(x, with_synapses=True, *, missing_swc='raise',
                 except Exception as exc:
                     print(f'{bodyId} generated an exception:', exc)
 
-    return NeuronList(nl)
+    nl = NeuronList(nl)
+
+    if heal:
+        heal_fragmented_neuron(nl, inplace=True)
+
+    return nl
 
 
 def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise'):
