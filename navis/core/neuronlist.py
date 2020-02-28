@@ -284,7 +284,7 @@ class NeuronList:
             else:
                 # Return function but wrap it in a function that will show
                 # a progress bar and use multiprocessing (if applicable)
-                return NeuronProcessor(self, values, key)
+                return NeuronProcessor(self, values, parallel=False, desc=key)
 
     def __setattr__(self, key, value):
         # Check if this attribute exists in the neurons
@@ -328,7 +328,7 @@ class NeuronList:
         >>> nl = navis.example_neurons()
         >>> # Apply resampling function
         >>> nl_rs = nl.apply(navis.resample_neuron, resample_to=1000, inplace=False)
-        
+
         """
         if not callable(func):
             raise TypeError('"func" must be callable')
