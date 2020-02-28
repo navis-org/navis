@@ -296,7 +296,7 @@ def classify_nodes(x: 'core.NeuronObject',
 
         # Make sure there are nodes to classify
         if x.nodes.shape[0] != 0:
-            if x.igraph and config.use_igraph:
+            if config.use_igraph and x.igraph:
                 # Get graph representation of neuron
                 vs = x.igraph.vs
                 # Get branch/end nodes based on their degree of connectivity
