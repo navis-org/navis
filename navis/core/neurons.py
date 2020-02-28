@@ -350,9 +350,8 @@ class TreeNeuron:
 
     @property
     def subtrees(self) -> List[List[int]]:
-        """ List of subtrees as node IDs. """
-        comp = nx.connected_components(self.graph.to_undirected())
-        return list(comp)
+        """List of subtrees as node IDs."""
+        return graph._connected_components(self)
 
     @property
     def cycles(self) -> Optional[List[int]]:
