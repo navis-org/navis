@@ -70,8 +70,7 @@ def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron'], **metadata):
 
 
 class TreeNeuron:
-    """ Object representing neurons as hierarchical trees.
-    """
+    """Object representing neurons as hierarchical trees."""
 
     #: Minimum radius for soma detection. Set to ``None`` if no tag needed.
     #: Default = .5 microns
@@ -479,12 +478,12 @@ class TreeNeuron:
 
     @property
     def n_skeletons(self) -> int:
-        """ Returns number of seperate skeletons in this neuron. """
-        return self.nodes[self.nodes.parent_id < 0].shape[0]
+        """Return number of seperate skeletons in this neuron."""
+        return len(self.root)
 
     @property
     def type(self) -> str:
-        """ Returns 'TreeNeuron'"""
+        """Returns 'TreeNeuron'."""
         return 'TreeNeuron'
 
     def _register_attr(self, name, value):
