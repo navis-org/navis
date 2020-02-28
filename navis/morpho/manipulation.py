@@ -329,14 +329,14 @@ def prune_twigs(x: NeuronObject,
 
 def split_axon_dendrite(x: NeuronObject,
                         method: Union[Literal['centrifugal'],
-                                      Literal['centerpetal'],
+                                      Literal['centripetal'],
                                       Literal['sum'],
                                       Literal['bending']] = 'bending',
                         split: Union[Literal['prepost'],
                                      Literal['distance']] = 'prepost',
                         reroot_soma: bool = True,
                         return_point: bool = False) -> 'core.NeuronList':
-    """ Split a neuron into axon, dendrite and primary neurite.
+    """Split a neuron into axon, dendrite and primary neurite.
 
     The result is highly dependent on the method and on your neuron's
     morphology and works best for "typical" neurons, i.e. those where the
@@ -531,6 +531,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                                  Literal['FIRST']] = 'SOMA',
                    tn_to_stitch: Optional[Sequence[int]] = None,
                    suggest_only: bool = False,
+                   max_dist: Optional[float] = None,
                    ) -> 'core.TreeNeuron':
     """Stitch multiple neurons together.
 
@@ -571,6 +572,10 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     suggest_only :      bool, optional
                         If True, will only return list of edges to add instead
                         of actually stitching the neuron.
+    max_dist :          float,  optional
+                        Max distance at which to stitch nodes. Setting this can
+                        drastically speed up the process but can also lead to
+                        failed stitching.
 
     Returns
     -------
@@ -690,55 +695,48 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
         # Make sure we're working with integers
         tn_to_stitch = [int(tn) for tn in tn_to_stitch]
 
-    # Generate a union of all graphs
-    g = nx.union_all([n.graph for n in nl]).to_undirected()
+    # Generate a list of potential new edges
+    # Collect relevant nodes
+    if not isinstance(tn_to_stitch, type(None)):
+        tn = nl.nodes.loc[nl.nodes.node_id.isin(tn_to_stitch)]
+    elif method == 'LEAFS':
+        tn = nl.nodes.loc[nl.nodes['type'].isin(['end', 'root'])]
+    else:
+        tn = nl.nodes
 
-    # Set existing edges to zero weight to make sure they remain when
-    # calculating the minimum spanning tree
-    nx.set_edge_attributes(g, 0, 'weight')
+    # Get pairwise distance between nodes
+    # cdist
+    d = scipy.spatial.distance.cdist(tn[['x', 'y', 'z']].values,
+                                     tn[['x', 'y', 'z']].values,
+                                     metric='euclidean')
+    d = pd.DataFrame(d, index=tn.node_id.values, columns=tn.node_id.values)
 
-    # If two nodes occupy the same position (e.g. after if fragments are the
-    # result of cutting), they will have a distance of 0. Hence, we won't be
-    # able to simply filter by distance
-    nx.set_edge_attributes(g, False, 'new')
+    # Mask for the upper triangle
+    mask = np.triu(np.ones(d.shape)).astype(np.bool)
 
-    # Now iterate over every possible combination of fragments
-    for a, b in itertools.combinations(nl, 2):
-        # Collect relevant nodes
-        if not isinstance(tn_to_stitch, type(None)):
-            tnA = a.nodes.loc[a.nodes.node_id.isin(tn_to_stitch)]
-            tnB = b.nodes.loc[a.nodes.node_id.isin(tn_to_stitch)]
-        else:
-            tnA = pd.DataFrame([])
-            tnB = pd.DataFrame([])
+    # Set lower triangle to NaN
+    d = d.where(mask)
 
-        if tnA.empty:
-            if method == 'LEAFS':
-                tnA = a.nodes.loc[a.nodes['type'].isin(['end', 'root'])]
-            else:
-                tnA = a.nodes
-        if tnB.empty:
-            if method == 'LEAFS':
-                tnB = b.nodes.loc[b.nodes['type'].isin(['end', 'root'])]
-            else:
-                tnB = b.nodes
+    # Stack
+    new_edges = d.stack().reset_index(drop=False)
+    new_edges.columns = ['source', 'target', 'weight']
 
-        # Get distance between nodes in A and B
-        d = scipy.spatial.distance.cdist(tnA[['x', 'y', 'z']].values,
-                                         tnB[['x', 'y', 'z']].values,
-                                         metric='euclidean')
+    # Kick stuff that's too far away
+    if max_dist:
+        new_edges = new_edges[new_edges.weight <= max_dist]
 
-        # List of edges
-        tn_comb = itertools.product(tnA.node_id.values, tnB.node_id.values)
+    # Remove self edges
+    new_edges = new_edges[new_edges.source != new_edges.target]
 
-        # Add edges to union graph
-        g.add_edges_from([(a, b, {'weight': w, 'new': True}) for (a, b), w in zip(tn_comb, d.ravel())])
+    # Remove edges that are within the same neuron
+    id2ix = tn.set_index('node_id').neuron
+    new_edges = new_edges[new_edges.source.map(id2ix) != new_edges.target.map(id2ix)]
 
-    # Get minimum spanning tree
-    edges = nx.minimum_spanning_edges(g)
-
-    # Edges that need adding are those that were newly added
-    to_add = [e for e in edges if e[2]['new']]
+    # Extract edges that need to be added to connect fragments
+    if config.use_igraph and all([n.igraph for n in nl]):
+        to_add = _mst_igraph(nl, new_edges)
+    else:
+        to_add = _mst_nx(nl, new_edges)
 
     if suggest_only:
         return to_add
@@ -767,17 +765,105 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
         # Connect the nodes
         m.nodes.loc[m.nodes.node_id == e[0], 'parent_id'] = e[1]
 
+        # Add edge to graphs
+        if config.use_igraph and m.igraph:
+            m.igraph.add_edge(m.igraph.vs.find(node_id=e[0]),
+                              m.igraph.vs.find(node_id=e[1]),
+                              **e[2])
+        # We only really need to update this graph if we need it for reroot
+        else:
+            m.graph.add_edge(e[0], e[1], **e[2])
+
         # Add node tags
         m.tags = getattr(m, 'tags', {})  # type: ignore  # TreeNeuron has no tags
         m.tags['stitched'] = m.tags.get('stitched', []) + [e[0], e[1]]
 
-        # We need to regenerate the graph
-        m._clear_temp_attr()
+        # We don't need this because reroot is taking care of this already
+        # m._clear_temp_attr(exclude=['graph', 'igraph'])
 
     # Reroot to original root
     m.reroot(master_root, inplace=True)
 
     return m
+
+
+def _mst_igraph(nl: 'core.NeuronList',
+                new_edges: pd.DataFrame) -> List[List[int]]:
+    """Compute edges necessary to connect a fragmented neuron using igraph."""
+    # Generate a union of all graphs
+    g = nl[0].igraph.disjoint_union(nl[1:].igraph)
+
+    # We have to manually set the node IDs again
+    nids = np.concatenate([n.igraph.vs['node_id'] for n in nl])
+    g.vs['node_id'] = nids
+
+    # Set existing edges to zero weight to make sure they have priority when
+    # calculating the minimum spanning tree
+    g.es['weight'] = 0
+
+    # If two nodes occupy the same position (e.g. after if fragments are the
+    # result of cutting), they will have a distance of 0. Hence, we won't be
+    # able to simply filter by distance
+    g.es['new'] = False
+
+    # Convert node IDs in new_edges to vertex IDs and add to graph
+    name2ix = dict(zip(g.vs['node_id'], range(len(g.vs))))
+    new_edges['source_ix'] = new_edges.source.map(name2ix)
+    new_edges['target_ix'] = new_edges.target.map(name2ix)
+
+    # Add new edges
+    g.add_edges(new_edges[['source_ix', 'target_ix']].values.tolist())
+
+    # Add edge weight to new edges
+    g.es[-new_edges.shape[0]:]['weight'] = new_edges.weight.values
+
+    # Keep track of new edges
+    g.es[-new_edges.shape[0]:]['new'] = True
+
+    # Compute the minimum spanning tree
+    mst = g.spanning_tree(weights='weight')
+
+    # Extract the new edges
+    to_add = mst.es.select(new=True)
+
+    # Convert to node IDs
+    to_add = [(g.vs[e.source]['node_id'],
+               g.vs[e.target]['node_id'],
+               {'weight': e['weight']})
+              for e in to_add]
+
+    return to_add
+
+
+def _mst_nx(nl: 'core.NeuronList',
+            new_edges: pd.DataFrame) -> List[List[int]]:
+    """Compute edges necessary to connect a fragmented neuron using networkX."""
+    # Generate a union of all graphs
+    g = nx.union_all([n.graph for n in nl]).to_undirected()
+
+    # Set existing edges to zero weight to make sure they have priority when
+    # calculating the minimum spanning tree
+    nx.set_edge_attributes(g, 0, 'weight')
+
+    # If two nodes occupy the same position (e.g. after if fragments are the
+    # result of cutting), they will have a distance of 0. Hence, we won't be
+    # able to simply filter by distance
+    nx.set_edge_attributes(g, False, 'new')
+
+    # Convert new edges in the right format
+    edges_nx = [(r.source, r.target, {'weight': r.weight, 'new': True})
+                for r in new_edges.itertuples()]
+
+    # Add edges to union graph
+    g.add_edges_from(edges_nx)
+
+    # Get minimum spanning tree
+    edges = nx.minimum_spanning_edges(g)
+
+    # Edges that need adding are those that were newly added
+    to_add = [e for e in edges if e[2]['new']]
+
+    return to_add
 
 
 def average_neurons(x: 'core.NeuronList',
@@ -928,7 +1014,6 @@ def despike_neuron(x: NeuronObject,
     >>> despiked = navis.despike_neuron(n)
 
     """
-
     # TODO:
     # - flattening all segments first before Spike detection should speed up
     #   quite a lot
@@ -1034,7 +1119,6 @@ def guess_radius(x: NeuronObject,
                     If ``inplace=False``.
 
     """
-
     if isinstance(x, core.NeuronList):
         if not inplace:
             x = x.copy()
@@ -1240,7 +1324,7 @@ def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
     # Don't do anything if not actually fragmented
     if x.n_skeletons > 1:
         # Get connected components
-        comp = list(nx.connected_components(x.graph.to_undirected()))
+        comp = graph._connected_components(x)
         # Sort so that the first component is the largest
         comp = sorted(comp, key=len, reverse=True)
 
@@ -1255,6 +1339,7 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
                            min_size: int = 0,
                            method: Union[Literal['LEAFS'],
                                          Literal['ALL']] = 'LEAFS',
+                           max_dist: Optional[float] = None,
                            inplace: bool = False) -> Optional[NeuronObject]:
     """ Heal fragmented neuron(s).
 
@@ -1273,6 +1358,10 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
                             be used to heal gaps.
                         (2) 'ALL': All nodes can be used to reconnect
                             fragments.
+    max_dist :  float, optional
+                Max distance at which to merge fragments. Setting this to a
+                reasonable value can dramatically speed things up. If too low,
+                this can lead to failed healing.
     inplace :   bool, optional
                 If False, will perform healing on and return a copy.
 
@@ -1315,7 +1404,10 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     if isinstance(x, core.NeuronList):
         if not inplace:
             x = x.copy()
-        healed = [heal_fragmented_neuron(n, min_size=min_size, method=method,
+        healed = [heal_fragmented_neuron(n,
+                                         min_size=min_size,
+                                         method=method,
+                                         max_dist=max_dist,
                                          inplace=True)
                   for n in config.tqdm(x,
                                        desc='Healing',
@@ -1333,6 +1425,7 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     if x.n_skeletons > 1:
         frags = break_fragments(x)
         healed = stitch_neurons(*[f for f in frags if f.n_nodes > min_size],
+                                max_dist=max_dist,
                                 method=method)
         if not inplace:
             return healed
