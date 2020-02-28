@@ -97,7 +97,7 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
 
 def network2igraph(x: Union[pd.DataFrame, Iterable],
                    threshold: int = 1) -> 'igraph.Graph':
-    """Generates iGraph graph for neuron connectivity.
+    """Generate iGraph graph for neuron connectivity.
 
     Requires iGraph to be installed.
 
@@ -252,14 +252,14 @@ def neuron2igraph(x: 'core.NeuronObject') -> 'igraph.Graph':
     vlist = nodes.node_id.values
 
     # Get list of edges as indices (needs to exclude root node)
-    tn_index_with_parent = nodes.loc[nodes.parent_id >= 0].index.values
-    parent_ids = nodes.loc[nodes.parent_id >= 0].parent_id.values
+    tn_index_with_parent = nodes.index.values[nodes.parent_id >= 0]
+    parent_ids = nodes.parent_id.values[nodes.parent_id >= 0]
     nodes['temp_index'] = nodes.index  # add temporary index column
     parent_index = nodes.set_index('node_id', inplace=False).loc[parent_ids,
                                                                  'temp_index'].values
 
     # Generate list of edges based on index of vertices
-    elist = list(zip(tn_index_with_parent, parent_index.astype(int)))
+    elist = np.vstack((tn_index_with_parent, parent_index)).T
 
     # Generate graph and assign custom properties
     g = igraph.Graph(elist, n=len(vlist), directed=True)
@@ -268,10 +268,10 @@ def neuron2igraph(x: 'core.NeuronObject') -> 'igraph.Graph':
     g.vs['parent_id'] = nodes.parent_id.values
 
     # Generate weights by calculating edge lengths = distance between nodes
-    tn_coords = nodes.loc[[e[0] for e in elist], ['x', 'y', 'z']].values
-    parent_coords = nodes.loc[[e[1] for e in elist], ['x', 'y', 'z']].values
+    tn_coords = nodes[['x', 'y', 'z']].values[tn_index_with_parent, :]
+    parent_coords = nodes[['x', 'y', 'z']].values[parent_index.astype(int), :]
 
-    w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1).astype(int))
+    w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1))
     g.es['weight'] = w
 
     return g
