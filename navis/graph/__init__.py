@@ -18,5 +18,6 @@ from .graph_utils import (classify_nodes, cut_neuron, longest_neurite,
                           dist_between, find_main_branchpoint,
                           generate_list_of_childs, geodesic_matrix,
                           subset_neuron, node_label_sorting, _break_segments,
-                          _generate_segments, segment_length)
-from .clinic import (health_check)        
+                          _generate_segments, segment_length,
+                          _connected_components)
+from .clinic import (health_check)

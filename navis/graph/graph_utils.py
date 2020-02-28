@@ -128,6 +128,36 @@ def _generate_segments(x: 'core.NeuronObject',
     return sequences
 
 
+def _connected_components(x: 'core.TreeNeuron') -> List[Set[int]]:
+    """Extract the connected components within a neuron.
+
+    Parameters
+    ----------
+    x :         TreeNeuron
+
+    Returns
+    -------
+    list
+                List containing sets of node IDs for each subgraph.
+
+    """
+    assert isinstance(x, core.TreeNeuron)
+
+    if config.use_igraph and x.igraph:
+        g: igraph.Graph = x.igraph
+        # Get the vertex clustering
+        vc = g.components(mode='WEAK')
+        # Extract subgraphs
+        sg = vc.subgraphs()
+        # Extract node IDs for each component
+        cc = [set(c.vs['node_id']) for c in sg]
+    else:
+        g: nx.DiGraph = x.graph
+        cc = nx.connected_components(g.to_undirected())
+        cc = list(cc)
+
+    return cc
+
 def _break_segments(x: 'core.NeuronObject') -> list:
     """ Break neuron into small segments connecting ends, branches and root.
 
