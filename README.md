@@ -10,12 +10,13 @@ with focus on hierarchical tree-like neuron data.
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
 ## Features
+* fetch data directly from [neuprint](https://neuprint.janelia.org/), [insectbraindb](https://insectbraindb.org/) or [neuromorpho](http://neuromorpho.org)
+* SWC import
 * interactive 2D (matplotlib) and 3D (vispy or plotly) plotting of neurons
 * virtual neuron surgery: cutting, pruning, rerooting
-* clustering methods (e.g. by connectivity or synapse placement)
-* fetch neurons directly from [neuromorpho.org](http://neuromorpho.org)
+* clustering (e.g. by connectivity or synapse placement)
 * Python bindings for R neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
-* interfaces with Blender 3D and neuprint
+* interfaces with [Blender3d](https://www.blender.org) and [Cytoscape](https://cytoscape.org)
 
 ## Getting started
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:
