@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import csv
+import functools
 import json
 import math
 import numbers
@@ -20,6 +21,7 @@ import uuid
 
 import numpy as np
 import scipy.spatial
+import trimesh
 
 from typing import Union, Optional, Sequence, List, Dict, Any
 from typing_extensions import Literal
@@ -30,8 +32,10 @@ from .. import utils, config
 logger = config.logger
 
 
-class Volume:
-    """ Class representing meshes.
+class Volume(trimesh.Trimesh):
+    """Mesh consisting of vertices and faces.
+
+    Subclass of ``trimesh.Trimesh`` with a few additional methods.
 
     Parameters
     ----------
@@ -46,11 +50,8 @@ class Volume:
     id :        int, optional
                 If not provided, neuron will be assigned a random UUID
                 as ``.id``
-
-    Attributes
-    ----------
-    bbox :      array
-                Bounding box of the volume.
+    **kwargs
+                Keyword arguments passed through to ``trimesh.Trimesh``
 
     See Also
     --------
@@ -66,11 +67,50 @@ class Volume:
                  color: Union[str,
                               Sequence[Union[int, float]]] = (.95, .95, .95, .1),
                  id: Optional[int] = None, **kwargs):
+
+        super().__init__(vertices=vertices, faces=faces, **kwargs)
+
         self.name: Optional[str] = name
-        self.vertices: np.ndarray = np.array(vertices)
-        self.faces: np.ndarray = np.array(faces)
         self.color: Union[str, Sequence[Union[int, float]]] = color
         self.id: Optional[int] = id if id else uuid.uuid4()
+
+        # This is very hackish but we want to make sure that parent methods of
+        # Trimesh return a navis.Volume instead of a trimesh.Trimesh
+        for f in dir(trimesh.Trimesh):
+            # Don't mess with magic/private methods
+            if f.startswith('_'):
+                continue
+            # Skip properties
+            if not callable(getattr(trimesh.Trimesh, f)):
+                continue
+            setattr(self, f, _force_volume(getattr(self, f)))
+
+    @property
+    def name(self):
+        """Name of this volume."""
+        return self.metadata.get('name')
+
+    @name.setter
+    def name(self, value):
+        self.metadata['name'] = value
+
+    @property
+    def color(self):
+        """Color used for plotting."""
+        return self.metadata.get('color')
+
+    @color.setter
+    def color(self, value):
+        self.metadata['color'] = value
+
+    @property
+    def id(self):
+        """ID of this volume."""
+        return self.metadata.get('id')
+
+    @id.setter
+    def id(self, value):
+        self.metadata['id'] = value
 
     @classmethod
     def from_csv(self,
@@ -80,7 +120,7 @@ class Volume:
                  color: Union[str,
                               Sequence[Union[int, float]]] = (1, 1, 1, .1),
                  volume_id: Optional[int] = None, **kwargs) -> 'Volume':
-        """ Load volume from csv files containing vertices and faces.
+        """Load volume from csv files containing vertices and faces.
 
         Parameters
         ----------
@@ -96,7 +136,6 @@ class Volume:
         navis.Volume
 
         """
-
         if not os.path.isfile(vertices) or not os.path.isfile(faces):
             raise ValueError('File(s) not found.')
 
@@ -112,8 +151,7 @@ class Volume:
                       volume_id=volume_id)
 
     def to_csv(self, filename: str, **kwargs) -> None:
-        """ Save volume as two separated csv files containing vertices and
-        faces.
+        """Save volume as two separated csv files containing vertices and faces.
 
         Parameters
         ----------
@@ -122,8 +160,8 @@ class Volume:
                         ``_faces.csv`` suffix.
         **kwargs
                         Keyword arguments passed to ``csv.reader``.
-        """
 
+        """
         for data, suffix in zip([self.faces, self.vertices],
                                 ['_faces.csv', '_vertices.csv']):
             with open(filename + suffix, 'w') as csvfile:
@@ -138,7 +176,7 @@ class Volume:
                                Sequence[Union[int, float]]] = (1, 1, 1, .1),
                   import_kwargs: Dict = {},
                   **init_kwargs) -> 'Volume':
-        """ Load volume from json file containing vertices and faces.
+        """Load volume from json file containing vertices and faces.
 
         Parameters
         ----------
@@ -154,7 +192,6 @@ class Volume:
         navis.Volume
 
         """
-
         if not os.path.isfile(filename):
             raise ValueError('File not found.')
 
@@ -172,7 +209,7 @@ class Volume:
                     color: Union[str,
                                  Sequence[Union[int, float]]] = (1, 1, 1, .1),
                     **init_kwargs) -> 'Volume':
-        """ Load volume from generic object that has ``.vertices`` and
+        """Load volume from generic object that has ``.vertices`` and
         ``.faces`` attributes.
 
         Parameters
@@ -187,7 +224,6 @@ class Volume:
         navis.Volume
 
         """
-
         if not hasattr(obj, 'vertices') or not hasattr(obj, 'faces'):
             raise ValueError('Object must have faces and vertices attributes.')
 
@@ -202,10 +238,7 @@ class Volume:
                                Sequence[Union[int, float]]] = (1, 1, 1, .1),
                   import_kwargs: Dict = {},
                   **init_kwargs) -> 'Volume':
-        """ Load volume from file containing vertices and faces.
-
-        For OBJ and STL files this function requires the optional trimesh
-        library.
+        """Load volume from file.
 
         Parameters
         ----------
@@ -245,46 +278,14 @@ class Volume:
 
         return self.from_object(tm, name=name, color=color, **init_kwargs)
 
-    def export(self,
-               filename: str,
-               **export_kwargs) -> None:
-        """ Export volume using trimesh.
-
-        See ``trimesh.export`` for available formats.
-
-
-        Parameters
-        ----------
-        filename :      str
-                        File to save to. Format will be extracted from
-                        file extension.
-        export_kwargs
-                        Keyword arguments passed to ``trimesh.export``.
-        """
-
-        try:
-            import trimesh
-        except ImportError:
-            raise ImportError('Unable to import: trimesh missing - please '
-                              'install: "pip install trimesh"')
-        except BaseException:
-            raise
-
-        tm = trimesh.Trimesh(self.vertices, self.faces)
-
-        tm.export(filename, **export_kwargs)
-
-        return None
-
     def to_json(self, filename: str) -> None:
-        """ Save volume as json file.
+        """Save volume as json file.
 
         Parameters
         ----------
         filename :      str
                         Filename to use.
         """
-
         with open(filename, 'w') as f:
             json.dump({'vertices': self.vertices.tolist(),
                        'faces': self.faces.tolist()},
@@ -338,23 +339,8 @@ class Volume:
 
     @property
     def bbox(self) -> np.ndarray:
-        """ Bounding box of this volume. """
-        return np.array([self.vertices.min(axis=0),
-                         self.vertices.max(axis=0)]).T
-
-    @property
-    def vertices(self) -> np.ndarray:
-        return self.__vertices
-
-    @vertices.setter
-    def vertices(self, v):
-        if not isinstance(v, np.ndarray):
-            v = np.array(v)
-
-        if not v.shape[1] == 3:
-            raise ValueError('Vertices must be of shape N,3.')
-
-        self.__vertices = v
+        """Bounding box of this volume. """
+        return self.bounds
 
     @property
     def verts(self) -> np.ndarray:
@@ -366,38 +352,35 @@ class Volume:
         self.vertices = v
 
     @property
-    def faces(self) -> np.ndarray:
-        """Legacy access to ``.vertices``."""
-        return self.__faces
-
-    @faces.setter
-    def faces(self, v):
-        if not isinstance(v, np.ndarray):
-            v = np.array(v)
-        self.__faces = v
-
-    @property
     def center(self) -> np.ndarray:
-        """ Center of mass."""
+        """Center of mass."""
         return np.mean(self.vertices, axis=0)
-
-    def __deepcopy__(self):
-        return self.copy()
-
-    def __copy__(self):
-        return self.copy()
-
-    def copy(self) -> 'Volume':
-        """Return copy of this volume. Does not maintain generic values."""
-        return Volume(self.vertices, self.faces, self.name,
-                      self.color, self.volume_id)
 
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
-        return f'{type(self)} "{self.name}" at {hex(id(self))}: ' \
-               f'{self.vertices.shape[0]} vertices, {self.faces.shape[0]} faces'
+        """
+        Print quick summary of the current geometry without
+        computing properties.
+        """
+        elements = []
+        if hasattr(self, 'name'):
+            # for Trimesh
+            elements.append(f'name={self.name}')
+        if hasattr(self, 'id') and not isinstance(self.id, uuid.UUID):
+            # for Trimesh
+            elements.append(f'id={self.id}')
+        if hasattr(self, 'color'):
+            # for Trimesh
+            elements.append(f'color={self.color}')
+        if hasattr(self, 'vertices'):
+            # for Trimesh and PointCloud
+            elements.append(f'vertices.shape={self.vertices.shape}')
+        if hasattr(self, 'faces'):
+            # for Trimesh
+            elements.append(f'faces.shape={self.faces.shape}')
+        return f'<navis.Volume({", ".join(elements)})>'
 
     def __truediv__(self, other):
         """Implement division for vertex coordinates."""
@@ -447,14 +430,13 @@ class Volume:
                           - average of all vertices
                         * - centroid
                           - average of the triangle centroids weighted by the
-                            area of each triangle. Requires ``trimesh``.
+                            area of each triangle.
                         * - origin
                           - resizes relative to origin of coordinate system
                             (0, 0, 0)
                         * - normals
                           - resize using face normals. Note that this method
                             uses absolute displacement for parameter ``x``.
-                            Requires ``trimesh``.
 
         inplace :   bool, optional
                     If False, will return resized copy.
@@ -483,9 +465,7 @@ class Volume:
             v = self
 
         if method == 'normals':
-            tm = v.to_trimesh()
-            v.vertices = tm.vertices + (tm.vertex_normals * x)
-            v.faces = tm.faces
+            v.vertices = v.vertices + (v.vertex_normals * x)
         else:
             # Get the center
             if method == 'center':
@@ -505,10 +485,8 @@ class Volume:
             v.vertices = vec + cn
 
         # Make sure to reset any pyoctree data on this volume
-        try:
+        if hasattr(v, 'pyoctree'):
             delattr(v, 'pyoctree')
-        except BaseException:
-            pass
 
         if not inplace:
             return v
@@ -540,25 +518,12 @@ class Volume:
 
         return plotting.plot3d(self, **kwargs)
 
-    def to_trimesh(self) -> 'trimesh.Trimesh':
-        """ Returns trimesh representation of this volume.
-
-        See Also
-        --------
-        https://github.com/mikedh/trimesh
-                trimesh GitHub page.
-        """
-
-        try:
-            import trimesh
-        except ImportError:
-            raise ImportError('Unable to import trimesh. Please make sure it '
-                              'is installed properly')
-
-        return trimesh.Trimesh(vertices=self.vertices, faces=self.faces)  # type ignore
+    def show(self, **kwargs):
+        """See ``.plot3d``."""
+        return self.plot3d(**kwargs)
 
     def _outlines_3d(self, view='xy', **kwargs):
-        """ Generate 3d outlines along a given view (see ``.to_2d()``).
+        """Generate 3d outlines along a given view (see ``.to_2d()``).
 
         Parameters
         ----------
@@ -570,9 +535,9 @@ class Volume:
         list
                     Coordinates of 2d circumference.
                     e.g. ``[(x1, y1, z1), (x2, y2, z2), (x3, y3, z3), ...]``
-                    Third dimension is averaged
-        """
+                    Third dimension is averaged.
 
+        """
         co2d = np.array(self.to_2d(view=view, **kwargs))
 
         if view in ['xy', 'yx']:
@@ -588,7 +553,7 @@ class Volume:
               alpha: float = 0.00017,
               view: str = 'xy',
               invert_y: bool = False) -> Sequence[Union[float, int]]:
-        """ Computes the 2d alpha shape (concave hull) this volume.
+        """Compute the 2d alpha shape (concave hull) this volume.
 
         Uses Scipy Delaunay and shapely.
 
@@ -608,11 +573,8 @@ class Volume:
                     e.g. ``[(x1, y1), (x2, y2), (x3, y3), ...]``
 
         """
-
         def add_edge(edges, edge_points, coords, i, j):
-            """ Add a line between the i-th and j-th points,
-            if not in the list already.
-            """
+            """Add line between the i-th and j-th points."""
             if (i, j) in edges or (j, i) in edges:
                 # already added
                 return
@@ -680,3 +642,14 @@ class Volume:
             return self.to_2d(alpha=alpha / 10, view=view, invert_y=invert_y)
         except BaseException:
             raise
+
+
+def _force_volume(f):
+    """Convert result from ``trimesh.Trimesh`` to ``navis.Volume``."""
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        res = f(*args, **kwargs)
+        if isinstance(res, trimesh.Trimesh):
+            res = Volume(res.vertices, res.faces)
+        return res
+    return wrapper

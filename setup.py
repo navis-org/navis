@@ -54,8 +54,7 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     install_requires=requirements,
-    extras_require={'extras': ['pyoctree~=0.2.10',
-                               'trimesh~=3.4']},
+    extras_require={'extras': ['pyoctree~=0.2.10']},
     python_requires='>=3.6',
     zip_safe=False,
 

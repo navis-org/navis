@@ -16,11 +16,11 @@ six~=1.11
 tqdm~=4.30
 vispy~=0.6.0
 typing-extensions~=3.7.4
+trimesh~=3.4.4
 
 # Below are optional dependencies
 # py2cytoscape~=0.7.0
 # pyoctree~=0.2.10
 # ete3~=3.0.0b35
-# trimesh~=2.35.2
 # rpy2~=2.9.4
 # fuzzywuzzy[speedup]~=0.17.0
