@@ -261,6 +261,10 @@ def neuron2igraph(x: 'core.NeuronObject') -> 'igraph.Graph':
     # Generate list of edges based on index of vertices
     elist = np.vstack((tn_index_with_parent, parent_index)).T
 
+    # iGraph < 0.8.0 does not like arrays as edge list
+    if getattr(igraph, '__version_info__', (0, 0, 0))[1] < 8:
+        elist = elist.tolist()
+
     # Generate graph and assign custom properties
     g = igraph.Graph(elist, n=len(vlist), directed=True)
 
