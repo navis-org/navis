@@ -601,7 +601,7 @@ class NeuronProcessor:
     def __init__(self,
                  nl: NeuronList,
                  funcs: Callable,
-                 parallel: bool = True,
+                 parallel: bool = False,
                  n_cores: int = os.cpu_count() - 1,
                  desc: Optional[str] = None):
         self.nl = nl
