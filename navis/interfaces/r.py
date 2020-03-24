@@ -1000,16 +1000,27 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     if isinstance(x, core.TreeNeuron):
         x = x.copy()
-        x.nodes = xform_brain(x.nodes, source, target)
+        x.nodes = xform_brain(x.nodes,
+                              source=source,
+                              target=target,
+                              fallback=fallback,
+                              **kwargs)
         if x.has_connectors:
-            x.connectors = xform_brain(x.connectors, source, target)
+            x.connectors = xform_brain(x.connectors,
+                                       source=source,
+                                       target=target,
+                                       fallback=fallback,
+                                       **kwargs)
         return x
     elif isinstance(x, pd.DataFrame):
         if any([c not in x.columns for c in ['x', 'y', 'z']]):
             raise ValueError('DataFrame must have x, y and z columns.')
         x = x.copy()
         x.loc[:, ['x', 'y', 'z']] = xform_brain(x[['x', 'y', 'z']].values.astype(float),
-                                                source, target)
+                                                source=source,
+                                                target=target,
+                                                fallback=fallback,
+                                                **kwargs)
         return x
     elif x.shape[1] != 3:
         raise ValueError('Array must be of shape (N, 3).')
