@@ -64,9 +64,9 @@ except BaseException:
 
 __all__ = sorted(['neuron2r', 'neuron2py', 'init_rcatmaid', 'dotprops2py',
                   'data2py', 'NBLASTresults', 'nblast', 'nblast_allbyall',
-                  'get_neuropil', 'xform_brain'])
+                  'get_neuropil', 'xform_brain', 'mirror_brain'])
 
-# Do not use this! It will convert stuff inadvertently. E.g.
+# Do not use this! It will convert stuff in unexpected ways. E.g.
 # dps = robjects.r(f'read.neuronlistfh("{datadir}/dpscanon.rds")')
 # will turn out as just an array
 
@@ -1044,6 +1044,103 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                         reference=target,
                                         FallBackToAffine=fallback == 'AFFINE',
                                         **kwargs)
+
+    return np.array(xf)
+
+
+def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
+                 template: str,
+                 mirror_axis: Union['X', 'Y', 'Z'] = 'X',
+                 transform: Union['warp', 'affine', 'flip'] = 'warp',
+                 **kwargs) -> Union['core.NeuronObject',
+                                   'pd.DataFrame',
+                                   'np.ndarray']:
+    """Mirror 3D object along given axixs. This is just a wrapper for
+    ``nat.templatebrains:mirror_brain``.
+
+    Parameters
+    ----------
+    x :             Neuron/List | numpy.ndarray | pandas.DataFrame
+                    Data to transform. Dataframe must contain ``['x', 'y', 'z']``
+                    columns. Numpy array must be shape ``(N, 3)``.
+    template :      str
+                    Source template brain space that the data is in.
+    mirror_axis :   'X' | 'Y' | 'Z', optional
+                    Axis to mirror.
+    transform :     'warp' | 'affine' | 'flip', optional
+                    Which kind of transform to use.
+    **kwargs
+                    Keyword arguments passed to
+                    ``nat.templatebrains:mirror_brain``.
+
+    Returns
+    -------
+    same type as ``x``
+                Copy of input with transformed coordinates.
+
+    """
+    assert transform in ['warp', 'affine', 'flip']
+    assert mirror_axis in ['X', 'Y', 'Z']
+
+    if isinstance(x, core.NeuronList):
+        if len(x) == 1:
+            x = x[0]
+        else:
+            xf = []
+            for n in config.tqdm(x, desc='Mirroring',
+                                 disable=config.pbar_hide,
+                                 leave=config.pbar_leave):
+                xf.append(mirror_brain(n,
+                                       template=template,
+                                       mirror_axis=mirror_axis,
+                                       transform=transform,
+                                       **kwargs))
+            return core.NeuronList(xf)
+
+    if not isinstance(x, (core.TreeNeuron, np.ndarray, pd.DataFrame)):
+        raise TypeError(f'Unable to transform data of type "{type(x)}"')
+
+    if isinstance(x, core.TreeNeuron):
+        x = x.copy()
+        x.nodes = mirror_brain(x.nodes,
+                               template=template,
+                               mirror_axis=mirror_axis,
+                               transform=transform,
+                               **kwargs)
+        if x.has_connectors:
+            x.connectors = mirror_brain(x.connectors,
+                                        template=template,
+                                        mirror_axis=mirror_axis,
+                                        transform=transform,
+                                        **kwargs)
+        return x
+    elif isinstance(x, pd.DataFrame):
+        if any([c not in x.columns for c in ['x', 'y', 'z']]):
+            raise ValueError('DataFrame must have x, y and z columns.')
+        x = x.copy()
+        x.loc[:, ['x', 'y', 'z']] = mirror_brain(x[['x', 'y', 'z']].values.astype(float),
+                                                 template=template,
+                                                 mirror_axis=mirror_axis,
+                                                 transform=transform,
+                                                 **kwargs)
+        return x
+    elif x.shape[1] != 3:
+        raise ValueError('Array must be of shape (N, 3).')
+
+    if isinstance(template, str):
+        template = robjects.r(template)
+    else:
+        TypeError(f'Expected template of type str, got "{type(template)}"')
+
+    # We need to convert numpy arrays explicitly
+    if isinstance(x, np.ndarray):
+        x = numpy2ri.py2ro(x)
+
+    xf = nat_templatebrains.mirror_brain(x,
+                                         brain=template,
+                                         mirrorAxis=mirror_axis,
+                                         transform=transform,
+                                         **kwargs)
 
     return np.array(xf)
 
