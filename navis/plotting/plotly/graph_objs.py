@@ -140,29 +140,26 @@ def neuron2plotly(x, **kwargs):
 
                 if syn_lay['display'] == 'circles':
                     trace_data.append(go.Scatter3d(
-                        x=this_cn.x.values * -1,
-                        y=this_cn.z.values * -1,  # y and z are switched
-                        z=this_cn.y.values * -1,
+                        x=this_cn.x.values,
+                        y=this_cn.zy.values,
+                        z=this_cn.z.values,
                         mode='markers',
-                        marker=dict(
-                            color='rgb%s' % str(c),
-                            size=2
-                        ),
+                        marker=dict(color='rgb%s' % str(c), size=2),
                         name=syn_lay.get(j, {'name': 'connector'})['name'] + ' of ' + name,
                         showlegend=True,
                         hoverinfo='none'
                     ))
                 elif syn_lay['display'] == 'lines':
                     # Find associated treenode
-                    tn = neuron.nodes.set_index('node_id').ix[this_cn.node_id.values]
-                    x_coords = [n for sublist in zip(this_cn.x.values * -1, tn.x.values * -1, [None] * this_cn.shape[0]) for n in sublist]
-                    y_coords = [n for sublist in zip(this_cn.y.values * -1, tn.y.values * -1, [None] * this_cn.shape[0]) for n in sublist]
-                    z_coords = [n for sublist in zip(this_cn.z.values * -1, tn.z.values * -1, [None] * this_cn.shape[0]) for n in sublist]
+                    tn = neuron.nodes.set_index('node_id').loc[this_cn.node_id.values]
+                    x_coords = [n for sublist in zip(this_cn.x.values, tn.x.values, [None] * this_cn.shape[0]) for n in sublist]
+                    y_coords = [n for sublist in zip(this_cn.y.values, tn.y.values, [None] * this_cn.shape[0]) for n in sublist]
+                    z_coords = [n for sublist in zip(this_cn.z.values, tn.z.values, [None] * this_cn.shape[0]) for n in sublist]
 
                     trace_data.append(go.Scatter3d(
                         x=x_coords,
-                        y=z_coords,  # y and z are switched
-                        z=y_coords,
+                        y=y_coords,
+                        z=z_coords,
                         mode='lines',
                         line=dict(
                             color='rgb%s' % str(c),
