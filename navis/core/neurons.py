@@ -255,11 +255,10 @@ class TreeNeuron:
             self.__connectors = None
         else:
             self._connectors = utils.validate_table(v,
-                                                    required=['connector_id',
-                                                              'node_id',
+                                                    required=[('connector_id', 'id'),
+                                                              ('node_id', 'rowId', 'node', 'treenode_id'),
                                                               'x', 'y', 'z',
-                                                              ('type',
-                                                               'relation',
+                                                              ('type', 'relation',
                                                                'label')],
                                                     rename=True,
                                                     restrict=False)
