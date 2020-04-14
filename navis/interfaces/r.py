@@ -547,16 +547,12 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
     xdp = nat.dotprops(rn, k=5, resample=resample)
 
     # Calculate scores
-    scores = r_nblast.nblast(xdp, xdp, **{'normalised': False,
+    scores = r_nblast.nblast(xdp, xdp, **{'normalised': normalize,
                                           '.parallel': True,
                                           'UseAlpha': use_alpha})
 
     # The order is the same as in original NeuronList!
     matrix = pd.DataFrame(np.array(scores))
-
-    if normalize:
-        # Perform z-score normalization
-        matrix = (matrix - matrix.mean()) / matrix.std()
 
     if isinstance(x, core.NeuronList):
         res = pyclust.ClustResults(matrix, mat_type='similarity',
