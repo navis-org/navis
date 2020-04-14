@@ -409,9 +409,16 @@ def neuron2r(x: 'core.NeuronObject',
 
         meta = {}
         if x.has_connectors:
+            try:
+                prepost = robjects.IntVector(x.connectors['type'].astype(int).tolist())
+            except ValueError:
+                prepost = robjects.StrVector(x.connectors['type'].tolist())
+            except BaseException:
+                raise
+
             meta['connectors'] = robjects.DataFrame({'node_id': robjects.IntVector(x.connectors.node_id.tolist()),
                                                      'connector_id': robjects.IntVector(x.connectors.connector_id.tolist()),
-                                                     'prepost': robjects.IntVector(x.connectors.relation.tolist()),
+                                                     'prepost': prepost,
                                                      'x': robjects.IntVector(x.connectors.x.tolist()),
                                                      'y': robjects.IntVector(x.connectors.y.tolist()),
                                                      'z': robjects.IntVector(x.connectors.z.tolist())
