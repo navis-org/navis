@@ -164,7 +164,8 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     # Add soma node(s)
     if not isinstance(x.soma, type(None)):
-        for s in x.soma:
+        soma = utils.make_iterable(x.soma)
+        for s in soma:
             if s not in fix_points:
                 fix_points = np.append(fix_points, s)
 
