@@ -338,7 +338,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     return neuron_cmap, dotprop_cmap, volumes_cmap
 
 
-def eval_color(x, color_range=255):
+def eval_color(x, color_range=255, force_alpha=False):
     """Helper to evaluate colors. Always returns tuples."""
 
     if color_range not in [1, 255]:
@@ -371,11 +371,17 @@ def eval_color(x, color_range=255):
 
     if not isinstance(c, mcl.Colormap):
         # Check if we need to convert
-        if not any([v > 1 for v in c]) and color_range == 255:
-            c = [int(v * 255) for v in c]
-        elif any([v > 1 for v in c]) and color_range == 1:
-            c = [v / 255 for v in c]
+        if not any([v > 1 for v in c[:3]]) and color_range == 255:
+            c = np.array(c, dtype=float)
+            c[:3] = (c[:3] * 255).astype(int)
+        elif any([v > 1 for v in c[:3]]) and color_range == 1:
+            c = np.array(c, dtype=float)
+            c[:3] = c[:3] / 255
+
         c = tuple(c)
+
+    if force_alpha and len(c) == 3:
+        c = (c[0], c[1], c[2], 1)
 
     return c
 
