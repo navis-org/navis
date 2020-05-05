@@ -354,23 +354,20 @@ def plot2d(x: Union[core.NeuronObject,
             elif method in ['3d', '3d_complex']:
                 verts = np.vstack(v.vertices)
 
-                # Invert y-axis
-                verts[:, 1] *= -1
-
                 # Add alpha
                 if len(c) == 3:
                     c = (c[0], c[1], c[2], .1)
 
                 ts = ax.plot_trisurf(verts[:, 0],
-                                     verts[:, 2],
-                                     v.faces,
                                      verts[:, 1],
+                                     v.faces,
+                                     verts[:, 2],
                                      label=v.name,
                                      color=c)
                 ts.set_gid(v.name)
 
                 ax_had_data = _update_axes3d_bounds(ax,
-                                                    verts[:, [0, 2, 1]],
+                                                    verts[:, [0, 1, 2]],
                                                     had_data=ax_had_data)
 
     # Create lines from segments
@@ -391,7 +388,7 @@ def plot2d(x: Union[core.NeuronObject,
             # Now make traces (invert y axis)
             coords = segments_to_coords(neuron,
                                         neuron.segments,
-                                        modifier=(1, -1, 1))
+                                        modifier=(1, 1, 1))
 
             if method == '2d':
                 if not depth_coloring:
@@ -406,12 +403,11 @@ def plot2d(x: Union[core.NeuronObject,
                                               label=f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
                     ax.add_line(this_line)
                 else:
-                    coords = tn_pairs_to_coords(neuron, modifier=(1, -1, 1))
+                    coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
                     lc = LineCollection(coords[:, :, [0, 1]],
                                         cmap='jet',
                                         norm=norm)
-                    lc.set_array(neuron.nodes.loc[neuron.nodes.parent_id >= 0,
-                                                  'z'].values)
+                    lc.set_array(neuron.nodes.loc[neuron.nodes.parent_id >= 0, 'z'].values)
                     lc.set_linewidth(linewidth)
                     lc.set_alpha(alpha)
                     lc.set_linestyle(linestyle)
@@ -427,7 +423,7 @@ def plot2d(x: Union[core.NeuronObject,
                         if depth_coloring:
                             this_color = mpl.cm.jet(norm(n.z))
 
-                        s = mpatches.Circle((int(n.x), int(-n.y)), radius=r,
+                        s = mpatches.Circle((int(n.x), int(n.y)), radius=r,
                                             alpha=alpha, fill=True, fc=this_color,
                                             zorder=4, edgecolor='none')
                         ax.add_patch(s)
@@ -440,9 +436,9 @@ def plot2d(x: Union[core.NeuronObject,
                 if method == '3d':
                     if depth_coloring:
                         this_coords = tn_pairs_to_coords(neuron,
-                                                         modifier=(1, -1, 1))[:, :, [0, 2, 1]]
+                                                         modifier=(1, 1, 1))[:, :, [0, 1, 2]]
                     else:
-                        this_coords = [c[:, [0, 2, 1]] for c in coords]
+                        this_coords = [c[:, [0, 1, 2]] for c in coords]
 
                     lc = Line3DCollection(this_coords,
                                           color=this_color,
@@ -457,15 +453,15 @@ def plot2d(x: Union[core.NeuronObject,
                     ax.add_collection3d(lc)
                     # Update data bounds
                     ax_had_data = _update_axes3d_bounds(ax,
-                                                        neuron.nodes[['x', 'z', 'y']].values * [1, 1, -1],
+                                                        neuron.nodes[['x', 'y', 'z']].values,
                                                         had_data=ax_had_data)
                     line3D_collections.append(lc)
 
                 # For complex scenes, add each segment as a single collection
-                # -> help preventing Z-order errors
+                # -> helps preventing Z-order errors
                 elif method == '3d_complex':
                     for c in coords:
-                        lc = Line3DCollection([c[:, [0, 2, 1]]],
+                        lc = Line3DCollection([c],
                                               color=this_color,
                                               lw=linewidth,
                                               alpha=alpha,
@@ -474,7 +470,7 @@ def plot2d(x: Union[core.NeuronObject,
                             lc.set_gid(neuron.id)
                         ax.add_collection3d(lc)
                     ax_had_data = _update_axes3d_bounds(ax,
-                                                        neuron.nodes[['x', 'z', 'y']].values * [1, 1, -1],
+                                                        neuron.nodes[['x', 'y', 'z']].values,
                                                         had_data=ax_had_data)
 
                 surf3D_collections.append([])
@@ -488,10 +484,12 @@ def plot2d(x: Union[core.NeuronObject,
                         u = np.linspace(0, 2 * np.pi, resolution)
                         v = np.linspace(0, np.pi, resolution)
                         x = r * np.outer(np.cos(u), np.sin(v)) + n.x
-                        y = r * np.outer(np.sin(u), np.sin(v)) - n.y
+                        y = r * np.outer(np.sin(u), np.sin(v)) + n.y
                         z = r * np.outer(np.ones(np.size(u)), np.cos(v)) + n.z
-                        surf = ax.plot_surface(
-                            x, z, y, color=this_color, shade=False, alpha=alpha)
+                        surf = ax.plot_surface(x, y, z,
+                                               color=this_color,
+                                               shade=False,
+                                               alpha=alpha)
                         if group_neurons:
                             surf.set_gid(neuron.id)
 
@@ -507,21 +505,20 @@ def plot2d(x: Union[core.NeuronObject,
                 for c in neuron.connectors.type.unique():
                     this_cn = neuron.connectors[neuron.connectors.type == c]
                     ax.scatter(this_cn.x.values,
-                               (-this_cn.y).values,
+                               this_cn.y.values,
                                c=cn_lay[c]['color'], alpha=alpha, zorder=4,
                                edgecolor='none', s=cn_size)
-                    ax.get_children(
-                    )[-1].set_gid(f'CN_{neuron.id}')
+                    ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
             elif method in ['3d', '3d_complex']:
                 all_cn = neuron.connectors
                 c = [cn_lay[i]['color'] for i in all_cn.type.values]
-                ax.scatter(all_cn.x.values, all_cn.z.values, -all_cn.y.values,
+                ax.scatter(all_cn.x.values, all_cn.y.values, all_cn.z.values,
                            c=c, s=cn_size, depthshade=False, edgecolor='none',
                            alpha=alpha)
                 ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
                 # Update data bounds
                 ax_had_data = _update_axes3d_bounds(ax,
-                                                    all_cn[['x', 'z', 'y']].values * [1, 1, -1],
+                                                    all_cn[['x', 'y', 'z']].values,
                                                     had_data=ax_had_data)
 
     for i, neuron in enumerate(config.tqdm(dotprops.itertuples(),
@@ -530,13 +527,10 @@ def plot2d(x: Union[core.NeuronObject,
                                            leave=False,
                                            disable=config.pbar_hide | len(dotprops) == 0)):
         # Prepare lines - this is based on nat:::plot3d.dotprops
-        halfvect = neuron.points[
-            ['x_vec', 'y_vec', 'z_vec']] / 2
+        halfvect = neuron.points[['x_vec', 'y_vec', 'z_vec']] / 2
 
-        starts = neuron.points[['x', 'y', 'z']
-                               ].values - halfvect.values
-        ends = neuron.points[['x', 'y', 'z']
-                             ].values + halfvect.values
+        starts = neuron.points[['x', 'y', 'z']].values - halfvect.values
+        ends = neuron.points[['x', 'y', 'z']].values + halfvect.values
 
         try:
             this_color = dotprop_cmap[i]
@@ -545,10 +539,12 @@ def plot2d(x: Union[core.NeuronObject,
 
         if method == '2d':
             # Add None between segments
-            x_coords = [n for sublist in zip(
-                starts[:, 0], ends[:, 0], [None] * starts.shape[0]) for n in sublist]
-            y_coords = [n for sublist in zip(
-                starts[:, 1] * -1, ends[:, 1] * -1, [None] * starts.shape[0]) for n in sublist]
+            x_coords = [n for sublist in zip(starts[:, 0],
+                                             ends[:, 0],
+                                             [None] * starts.shape[0]) for n in sublist]
+            y_coords = [n for sublist in zip(starts[:, 1],
+                                             ends[:, 1],
+                                             [None] * starts.shape[0]) for n in sublist]
 
             this_line = mlines.Line2D(x_coords, y_coords,
                                       lw=linewidth, ls=linestyle,
@@ -559,7 +555,7 @@ def plot2d(x: Union[core.NeuronObject,
 
             # Add soma
             if plot_soma:
-                s = mpatches.Circle((neuron.X, -neuron.Y), radius=2,
+                s = mpatches.Circle((neuron.X, neuron.Y), radius=2,
                                     alpha=alpha, fill=True, fc=this_color,
                                     zorder=4, edgecolor='none')
                 ax.add_patch(s)
@@ -570,12 +566,12 @@ def plot2d(x: Union[core.NeuronObject,
             coords[1::2] = ends
 
             # Invert y-axis
-            coords[:, 1] *= -1
+            # coords[:, 1] *= -1
 
             # For simple scenes, add whole neurons at a time
             # -> will speed up rendering
             if method == '3d':
-                lc = Line3DCollection(np.split(coords[:, [0, 2, 1]],
+                lc = Line3DCollection(np.split(coords,
                                                starts.shape[0]),
                                       color=this_color,
                                       label=neuron.gene_name,
@@ -589,7 +585,7 @@ def plot2d(x: Union[core.NeuronObject,
             # For complex scenes, add each segment as a single collection
             # -> help preventing Z-order errors
             elif method == '3d_complex':
-                for c in np.split(coords[:, [0, 2, 1]], starts.shape[0]):
+                for c in np.split(coords, starts.shape[0]):
                     lc = Line3DCollection([c],
                                           color=this_color,
                                           lw=linewidth,
@@ -600,7 +596,7 @@ def plot2d(x: Union[core.NeuronObject,
                     ax.add_collection3d(lc)
 
             ax_had_data = _update_axes3d_bounds(ax,
-                                                coords[:, [0, 2, 1]],
+                                                coords,
                                                 had_data=ax_had_data)
 
             lim.append(coords.max(axis=0))
@@ -610,10 +606,12 @@ def plot2d(x: Union[core.NeuronObject,
             u = np.linspace(0, 2 * np.pi, resolution)
             v = np.linspace(0, np.pi, resolution)
             x = 2 * np.outer(np.cos(u), np.sin(v)) + neuron.X
-            y = 2 * np.outer(np.sin(u), np.sin(v)) - neuron.Y
+            y = 2 * np.outer(np.sin(u), np.sin(v)) + neuron.Y
             z = 2 * np.outer(np.ones(np.size(u)), np.cos(v)) + neuron.Z
-            surf = ax.plot_surface(
-                x, z, y, color=this_color, shade=False, alpha=alpha)
+            surf = ax.plot_surface(x, y, z,
+                                   color=this_color,
+                                   shade=False,
+                                   alpha=alpha)
             if group_neurons:
                 surf.set_gid(neuron.gene_name)
 
@@ -630,7 +628,7 @@ def plot2d(x: Union[core.NeuronObject,
                 default_settings = _fix_default_dict(default_settings)
 
                 ax.scatter(p[:, 0],
-                           p[:, 1] * -1,
+                           p[:, 1],
                            **default_settings)
             elif method in ['3d', '3d_complex']:
                 default_settings = dict(
@@ -642,11 +640,11 @@ def plot2d(x: Union[core.NeuronObject,
                 default_settings.update(scatter_kws)
                 default_settings = _fix_default_dict(default_settings)
 
-                ax.scatter(p[:, 0], p[:, 2], p[:, 1] * -1,
+                ax.scatter(p[:, 0], p[:, 1], p[:, 2],
                            **default_settings
                            )
                 ax_had_data = _update_axes3d_bounds(ax,
-                                                    p[:, [0, 2, 1]] * [1, 1, -1],
+                                                    p[:, [0, 1, 2]],
                                                     had_data=ax_had_data)
 
     if autoscale:
@@ -730,7 +728,7 @@ def plot2d(x: Union[core.NeuronObject,
         """Sets depth information for neurons according to camera position."""
 
         # Modifier for soma coordinates
-        modifier = np.array([1, 1, -1])
+        modifier = np.array([1, 1, 1])
 
         # Get all coordinates
         all_co = np.concatenate([lc._segments3d[:, 0, :] for lc in line3D_collections],
@@ -768,7 +766,7 @@ def plot2d(x: Union[core.NeuronObject,
             if not isinstance(neuron.soma, type(None)):
                 # Get depth of soma(s)
                 soma = utils.make_iterable(neuron.soma)
-                soma_co = neuron.nodes.set_index('node_id').loc[soma][['x', 'z', 'y']].values
+                soma_co = neuron.nodes.set_index('node_id').loc[soma][['x', 'y', 'z']].values
                 soma_proj = mpl_toolkits.mplot3d.proj3d.proj_points(soma_co * modifier,
                                                                     ax.get_proj())
                 soma_cs = norm(soma_proj[:, 2]).data
@@ -825,7 +823,7 @@ def _fix_default_dict(x):
     """
 
     # The first entry is the "survivor"
-    duplicates = [['color', 'c'], ['size', 's']]
+    duplicates = [['color', 'c'], ['size', 's'], ['alpha', 'a']]
 
     for dupl in duplicates:
         if sum([v in x for v in dupl]) > 1:
