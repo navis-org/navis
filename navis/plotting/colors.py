@@ -391,3 +391,25 @@ def hex_to_rgb(value: str) -> Tuple[int, int, int]:
     value = value.lstrip('#')
     lv = len(value)
     return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))  # type: ignore
+
+
+def vary_colors(color: AnyColor,
+                by_max: float = .1) -> np.ndarray:
+    """Add small variance to color"""
+    if isinstance(color, str):
+        color = mcl.to_rgb(color)
+
+    if not isinstance(color, np.ndarray):
+        color = np.array(color)
+
+    if color.ndim == 1:
+        color = color.reshape(1, color.shape[0])
+
+    variance = (np.random.randint(0, 100, color.shape) / 100) * by_max
+    variance = variance - by_max / 2
+
+    # We need to make sure color is array of floats
+    color = color.astype(float)
+    color[:, :3] = color[:, :3] + variance[:, :3]
+
+    return np.clip(color, 0, 1)

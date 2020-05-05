@@ -15,3 +15,5 @@ from .d import *
 from .dd import *
 from .ddd import *
 from .vispy import *
+
+from .colors import vary_colors
