@@ -1652,11 +1652,11 @@ def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
     # Set distance between unreachable points to None
     # Need to reinitialise SparseMatrix to replace float('inf') with NaN
     # dist_mat[geo == float('inf')] = None
-    dist_mat = pd.SparseDataFrame(np.where(geo == float('inf'),  # type: ignore  # no stubs for SparseDataFrame
-                                           np.nan,
-                                           geo),
-                                  columns=geo.columns,
-                                  index=geo.index)
+    dist_mat = pd.DataFrame(np.where(geo == float('inf'),  # type: ignore  # no stubs for SparseDataFrame
+                                     np.nan,
+                                     geo),
+                            columns=geo.columns,
+                            index=geo.index)
 
     # Get starting points and sort by longest path to a terminal
     curr_points = sorted(list(x.simple.graph.predecessors(x.root[0])),
