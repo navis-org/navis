@@ -22,16 +22,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from typing import Union, List, Tuple, Optional, Dict, Any, Sequence
+from typing import Union, List, Tuple, Optional, Dict, Any, Sequence, overload
 from typing_extensions import Literal
 
 from .. import core, config, utils
 
 __all__ = ['generate_colors', 'prepare_connector_cmap', 'prepare_colormap',
-           'eval_color', 'hex_to_rgb']
+           'eval_color', 'hex_to_rgb', 'vary_colors']
 
 logger = config.logger
 
+# Some definitions for mypy
+RGB_color = Tuple[float, float, float]
+RGBA_color = Tuple[float, float, float, float]
+Str_color = str
+ColorList = Sequence[Union[RGB_color, RGBA_color, Str_color]]
+AnyColor = Union[RGB_color, RGBA_color, Str_color, ColorList]
 
 def generate_colors(N: int,
                     color_space: Union[Literal['RGB'],
