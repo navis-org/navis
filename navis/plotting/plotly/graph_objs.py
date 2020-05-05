@@ -304,8 +304,6 @@ def volume2plotly(x, **kwargs):
 
     trace_data = []
     for i, v in enumerate(x):
-        name = getattr(v, 'name', None)
-        c = colormap[i]
         # Skip empty data
         if isinstance(v.vertices, np.ndarray):
             if not v.vertices.any():
@@ -313,15 +311,19 @@ def volume2plotly(x, **kwargs):
         elif not v.vertices:
             continue
 
+        name = getattr(v, 'name', None)
+
+        c = colormap[i]
+        if len(c) == 3:
+            c = (c[0], c[1], c[2], .5)
+
         trace_data.append(go.Mesh3d(x=v.vertices[:, 0],
                                     y=v.vertices[:, 1],
                                     z=v.vertices[:, 2],
                                     i=v.faces[:, 0],
                                     j=v.faces[:, 1],
                                     k=v.faces[:, 2],
-
-                                    opacity=.5,
-                                    color='rgb' + str(c),
+                                    color=f'rgba{str(c)}',
                                     name=name,
                                     hoverinfo='none'))
 
