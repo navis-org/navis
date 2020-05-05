@@ -1025,6 +1025,13 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                                 fallback=fallback,
                                                 **kwargs)
         return x
+    elif isinstance(x, core.Volume):
+        x = x.copy()
+        x.vertices = xform_brain(x.nodes,
+                                 source=source,
+                                 target=target,
+                                 fallback=fallback,
+                                 **kwargs)
     elif x.shape[1] != 3:
         raise ValueError('Array must be of shape (N, 3).')
 
