@@ -14,7 +14,6 @@ insect brains and neurons.
 import os
 import requests
 import tempfile
-import urllib
 
 import pandas as pd
 
@@ -22,8 +21,7 @@ from tqdm import tqdm
 
 from typing import Union, Optional, List
 
-from ..core import TreeNeuron, NeuronList, Volume
-from ..io.swc_io import from_swc
+from ..core import Volume
 from ..utils import make_url
 from ..config import logger
 from ..plotting.colors import hex_to_rgb
