@@ -113,7 +113,7 @@ class Volume(trimesh.Trimesh):
         self.metadata['id'] = value
 
     @classmethod
-    def from_csv(self,
+    def from_csv(cls,
                  vertices: str,
                  faces: str,
                  name: Optional[str] = None,
@@ -147,8 +147,8 @@ class Volume(trimesh.Trimesh):
             reader = csv.reader(f, **kwargs)
             faces = np.array([r for r in reader]).astype(int)
 
-        return Volume(faces=faces, vertices=vertices, name=name, color=color,
-                      volume_id=volume_id)
+        return cls(faces=faces, vertices=vertices, name=name, color=color,
+                   volume_id=volume_id)
 
     def to_csv(self, filename: str, **kwargs) -> None:
         """Save volume as two separated csv files containing vertices and faces.
@@ -169,7 +169,7 @@ class Volume(trimesh.Trimesh):
                 writer.writerows(data)
 
     @classmethod
-    def from_json(self,
+    def from_json(cls,
                   filename: str,
                   name: Optional[str] = None,
                   color: Union[str,
@@ -198,12 +198,12 @@ class Volume(trimesh.Trimesh):
         with open(filename, 'r') as f:
             data = json.load(f, **import_kwargs)
 
-        return Volume(faces=data['faces'],
-                      vertices=data['vertices'],
-                      name=name, color=color, **init_kwargs)
+        return cls(faces=data['faces'],
+                   vertices=data['vertices'],
+                   name=name, color=color, **init_kwargs)
 
     @classmethod
-    def from_object(self,
+    def from_object(cls,
                     obj: Any,
                     name: Optional[str] = None,
                     color: Union[str,
@@ -227,11 +227,11 @@ class Volume(trimesh.Trimesh):
         if not hasattr(obj, 'vertices') or not hasattr(obj, 'faces'):
             raise ValueError('Object must have faces and vertices attributes.')
 
-        return Volume(faces=obj.faces, vertices=obj.vertices,
-                      name=name, color=color, **init_kwargs)
+        return cls(faces=obj.faces, vertices=obj.vertices,
+                   name=name, color=color, **init_kwargs)
 
     @classmethod
-    def from_file(self,
+    def from_file(cls,
                   filename: str,
                   name: Optional[str] = None,
                   color: Union[str,
@@ -263,8 +263,8 @@ class Volume(trimesh.Trimesh):
         f, ext = os.path.splitext(filename)
 
         if ext == '.json':
-            return self.from_json(filename=filename, name=name, color=color,
-                                  import_kwargs=import_kwargs, **init_kwargs)
+            return cls.from_json(filename=filename, name=name, color=color,
+                                 import_kwargs=import_kwargs, **init_kwargs)
 
         try:
             import trimesh
@@ -276,7 +276,7 @@ class Volume(trimesh.Trimesh):
 
         tm = trimesh.load_mesh(filename, **import_kwargs)
 
-        return self.from_object(tm, name=name, color=color, **init_kwargs)
+        return cls.from_object(tm, name=name, color=color, **init_kwargs)
 
     def to_json(self, filename: str) -> None:
         """Save volume as json file.
@@ -292,7 +292,7 @@ class Volume(trimesh.Trimesh):
                       f)
 
     @classmethod
-    def combine(self,
+    def combine(cls,
                 x: Sequence['Volume'],
                 name: str = 'comb_vol',
                 color: Union[str,
@@ -335,7 +335,7 @@ class Volume(trimesh.Trimesh):
             faces += [[f[0] + offs, f[1] + offs, f[2] + offs]
                       for f in vol.faces]
 
-        return Volume(vertices=vertices, faces=faces, name=name, color=color)
+        return cls(vertices=vertices, faces=faces, name=name, color=color)
 
     @property
     def bbox(self) -> np.ndarray:
