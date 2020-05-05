@@ -118,7 +118,7 @@ def fetch_skeletons(x, with_synapses=True, *, heal=False, missing_swc='raise',
                     If True will also attach synapses as ``.connectors``.
     heal :          bool, optional
                     If True, will automatically heal fragmented skeletons using
-                    :func:`navis.heal_fragmented_neuron`.
+                    neuprint-python's heal function.
     missing_swc :   'raise' | 'warn' | 'skip'
                     What to do if no skeleton is found for a given body ID::
 
@@ -168,7 +168,8 @@ def fetch_skeletons(x, with_synapses=True, *, heal=False, missing_swc='raise',
                                 r,
                                 client=client,
                                 with_synapses=with_synapses,
-                                missing_swc=missing_swc)
+                                missing_swc=missing_swc,
+                                heal=heal)
             futures[f] = r.bodyId
 
         with config.tqdm(desc='Fetching',
@@ -185,17 +186,19 @@ def fetch_skeletons(x, with_synapses=True, *, heal=False, missing_swc='raise',
 
     nl = NeuronList(nl)
 
+    """
     if heal:
-        heal_fragmented_neuron(nl, inplace=True)
-
+        # max_dist of 1000 corresponds to 8um
+        heal_fragmented_neuron(nl, max_dist=1000, inplace=True)
+    """
     return nl
 
 
-def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise'):
+def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise', heal=False):
     """Fetch a single skeleton + synapses and turn into CATMAID neuron."""
     # Fetch skeleton SWC
     try:
-        data = client.fetch_skeleton(r.bodyId, format='pandas')
+        data = client.fetch_skeleton(r.bodyId, format='pandas', heal=heal)
     except HTTPError as err:
         if err.response.status_code == 400:
             if missing_swc in ['warn', 'skip']:
