@@ -38,7 +38,7 @@ def eval_conditions(x) -> Tuple[List[bool], List[bool]]:
     return [i for i in x if not i.startswith('~')], [i[1:] for i in x if i.startswith('~')]
 
 
-def eval_uuid(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
+def eval_id(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
               warn_duplicates: bool = True) -> List[uuid.UUID]:
     """Evaluate neurons' ID(s).
 
@@ -57,14 +57,12 @@ def eval_uuid(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
                     List containing IDs.
 
     """
-    if isinstance(x, uuid.UUID):
+    if isinstance(x, (uuid.UUID, str, np.str, int, np.int64, np.int)):
         return [x]
-    elif isinstance(x, (str, np.str)):
-        return [uuid.UUID(x)]
     elif isinstance(x, (list, np.ndarray, set)):
         uu: List[uuid.UUID] = []
         for e in x:
-            temp = eval_uuid(e, warn_duplicates=warn_duplicates)
+            temp = eval_id(e, warn_duplicates=warn_duplicates)
             if isinstance(temp, (list, np.ndarray)):
                 uu += temp
             else:
