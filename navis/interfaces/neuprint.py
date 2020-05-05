@@ -57,10 +57,6 @@ int_types = (int, np.int32, np.int64, np.int, np.int0)
 def fetch_roi(roi, *, client=None):
     """Fetch given ROI.
 
-    Requires `trimesh <https://trimsh.org/>`_::
-
-        pip3 install navis trimesh
-
     Parameters
     ----------
     roi :           str
@@ -74,19 +70,7 @@ def fetch_roi(roi, *, client=None):
 
     """
     if not isinstance(roi, str):
-        raise TypeError(f'Expect ROI name as string, got "{type(x)}"')
-
-    try:
-        import trimesh
-    except ImportError:
-        msg = """
-              Unable to find trimesh (https://trimsh.org) library.
-              To install using pip:
-
-                pip3 install trimesh
-
-              """
-        raise ImportError(msg)
+        raise TypeError(f'Expect ROI name as string, got "{type(roi)}"')
 
     # Fetch data
     data = client.fetch_roi_mesh(roi, export_path=None)
