@@ -92,6 +92,13 @@ def example_neurons(n: Optional[int] = None,
     else:
         raise ValueError(f'Source must be "swc" or "gml", not "{source}"')
 
+    # Invert the y-axis
+    # This is necessary because CATMAID neurons have their origin
+    # in the top left corner but e.g. matplotlib plots have it
+    # in the bottom left corner
+    for n in nl:
+        n.nodes['y'] *= -1
+
     if n == 1:
         return nl[0]
     return nl
