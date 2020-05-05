@@ -480,7 +480,7 @@ class Viewer:
             if isinstance(vis, scene.visuals.VisualNode):
                 vis.parent = None
             else:
-                uuids = utils.eval_uuid(to_remove)
+                uuids = utils.eval_id(to_remove)
                 for u in uuids:
                     for v in self.neurons.get(u, []):
                         v.parent = None
