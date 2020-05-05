@@ -30,6 +30,7 @@ import pandas as pd
 import numpy as np
 
 from .. import core, utils, config
+from ..plotting.colors import eval_color
 
 logger = config.logger
 
@@ -49,8 +50,8 @@ class Handler:
 
     Parameters
     ----------
-    conversion :   float, optional
-                   Conversion factor between navis and Blender coordinates.
+    scaling :   float, optional
+                   scaling factor between navis and Blender coordinates.
 
     Notes
     -----
@@ -102,10 +103,17 @@ class Handler:
                 color=(0, 1, 0)),
         3: dict(name='abutting',
                 color=(1, 0, 1))
+
     }  # : defines default colours/names for different connector types
 
-    def __init__(self, conversion=1 / 10000, axes_order=[0, 1, 2], ax_translate=[1, 1, 1]):
-        self.conversion = conversion
+    # Some synonyms
+    cn_dict['pre'] = cn_dict[0]
+    cn_dict['post'] = cn_dict[1]
+    cn_dict['gap'] = cn_dict['gapjunction'] = cn_dict[2]
+    cn_dict['abutting'] = cn_dict[3]
+
+    def __init__(self, scaling=1 / 10000, axes_order=[0, 1, 2], ax_translate=[1, 1, 1]):
+        self.scaling = scaling
         self.cn_dict = Handler.cn_dict
         self.axes_order = axes_order
         self.ax_translate = ax_translate
@@ -139,7 +147,7 @@ class Handler:
             raise AttributeError('Unknown attribute ' + key)
 
     def add(self, x, neurites=True, soma=True, connectors=True, redraw=False,
-            use_radii=False, skip_existing=False, **kwargs):
+            use_radii=False, skip_existing=False, collection=None, **kwargs):
         """ Add neuron(s) to scene.
 
         Parameters
@@ -159,6 +167,9 @@ class Handler:
                         If True, will use treenode radii.
         skip_existing : bool, optional
                         If True, will skip neurons that are already loaded.
+        collection :    str, optional
+                        Only for Blender 2.8: add object(s) to given collection.
+                        If collection does not exist, will be created.
         """
         start = time.time()
 
@@ -178,17 +189,18 @@ class Handler:
                     continue
                 self._create_neuron(n, neurites=neurites,
                                     soma=soma, connectors=connectors,
+                                    collection=collection,
                                     use_radii=use_radii)
                 if redraw:
                     bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
                 wm.progress_update(i)
             wm.progress_end()
         elif isinstance(x, core.Volume):
-            self._create_mesh(x)
+            self._create_mesh(x, collection=collection)
         elif isinstance(x, np.ndarray):
-            self._create_scatter(x, **kwargs)
+            self._create_scatter(x, collection=collection, **kwargs)
         elif isinstance(x, core.Dotprops):
-            self._create_dotprops(x, **kwargs)
+            self._create_dotprops(x, collection=collection, **kwargs)
         else:
             raise AttributeError(f'Unable add data type of type {type(x)}')
 
@@ -200,7 +212,7 @@ class Handler:
         """ Clear all neurons """
         self.all.delete()
 
-    def _create_scatter2(self, x, **kwargs):
+    def _create_scatter2(self, x, collection=None, **kwargs):
         """ Create scatter by reusing mesh data. This generate an individual
         objects for each data point. This is slower! """
 
@@ -209,7 +221,7 @@ class Handler:
 
         # Get & scale coordinates and invert y
         coords = x.astype(float)[:, self.axes_order]
-        coords *= float(self.conversion)
+        coords *= float(self.scaling)
         coords *= self.ax_translate
 
         verts, faces = CalcSphere(kwargs.get('size', 0.02),
@@ -235,13 +247,21 @@ class Handler:
         else:
             group = bpy.data.groups.new(group_name)
 
+        if not collection:
+            col = bpy.context.scene.collection
+        elif collection in bpy.data.collections:
+            col = bpy.data.collections[collection]
+        else:
+            col = bpy.data.collections.new(collection)
+            bpy.context.scene.collection.children.link(col)
+
         for obj in objects:
-            bpy.context.scene.collection.objects.link(obj)
+            col.objects.link(obj)
             group.objects.link(obj)
 
         return
 
-    def _create_scatter(self, x, **kwargs):
+    def _create_scatter(self, x, collection=None, **kwargs):
         """ Create scatter. """
 
         if x.ndim != 2 or x.shape[1] != 3:
@@ -249,7 +269,7 @@ class Handler:
 
         # Get & scale coordinates and invert y
         coords = x.astype(float)[:, self.axes_order]
-        coords *= float(self.conversion)
+        coords *= float(self.scaling)
         coords *= self.ax_translate
 
         base_verts, base_faces = CalcSphere(kwargs.get('size', 0.02),
@@ -279,14 +299,24 @@ class Handler:
         mesh.from_pydata(verts, [], sp_faces)
         mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
         obj = bpy.data.objects.new(kwargs.get('name', 'scatter'), mesh)
-        bpy.context.scene.collection.objects.link(obj)
+
+        if not collection:
+            col = bpy.context.scene.collection
+        elif collection in bpy.data.collections:
+            col = bpy.data.collections[collection]
+        else:
+            col = bpy.data.collections.new(collection)
+            bpy.context.scene.collection.children.link(col)
+
+        col.objects.link(obj)
+
         obj.location = (0, 0, 0)
         obj.show_name = False
 
         return
 
     def _create_neuron(self, x, neurites=True, soma=True, connectors=True,
-                       use_radii=False):
+                       use_radii=False, collection=None):
         """ Create neuron object """
 
         mat_name = (f'M#{x.id}')[:59]
@@ -295,14 +325,15 @@ class Handler:
                                      bpy.data.materials.new(mat_name))
 
         if neurites:
-            self._create_neurites(x, mat, use_radii=use_radii)
+            self._create_neurites(x, mat,
+                                  use_radii=use_radii, collection=collection)
         if soma and not isinstance(x.soma, type(None)):
-            self._create_soma(x, mat)
+            self._create_soma(x, mat, collection=collection)
         if connectors and x.has_connectors:
-            self._create_connectors(x)
+            self._create_connectors(x, collection=collection)
         return
 
-    def _create_neurites2(self, x, mat, use_radii=False):
+    def _create_neurites2(self, x, mat, use_radii=False, collection=None):
         """ This function generates a mesh first, then converts to curve.
         I thought it might be faster that way but turns out no. Will keep
         this code just in case it becomes useful elsewhere.
@@ -317,7 +348,7 @@ class Handler:
         for i, s in enumerate(x.segments):
             # Get and convert coordinates
             coords = nodes.loc[s, ['x', 'y', 'z']].values.astype(float)
-            coords *= float(self.conversion)
+            coords *= float(self.scaling)
 
             # Compute edge indices
             eg = list(zip(range(0, coords.shape[0]),
@@ -353,7 +384,15 @@ class Handler:
 
         # Link object to scene - this needs to happen BEFORE we convert to
         # curve
-        bpy.context.scene.collection.objects.link(ob)
+        if not collection:
+            col = bpy.context.scene.collection
+        elif collection in bpy.data.collections:
+            col = bpy.data.collections[collection]
+        else:
+            col = bpy.data.collections.new(collection)
+            bpy.context.scene.collection.children.link(col)
+
+        col.objects.link(ob)
 
         # Select and make active object
         ob.select = True
@@ -368,7 +407,7 @@ class Handler:
         ob.data.bevel_depth = 0.007
         ob.active_material = mat
 
-    def _create_neurites(self, x, mat, use_radii=False):
+    def _create_neurites(self, x, mat, use_radii=False, collection=None):
         """Create neuron branches. """
         cu = bpy.data.curves.new(f"{getattr(x, 'neuron_name', '')} mesh", 'CURVE')
         ob = bpy.data.objects.new(f"#{x.id} - {getattr(x, 'neuron_name', '')}",
@@ -387,11 +426,11 @@ class Handler:
             cu.bevel_depth = 1
 
         # DO NOT touch this: lookup via dict is >10X faster!
-        tn_coords = {r.node_id: (r.x * self.conversion,
-                                 r.y * self.conversion,
-                                 r.z * self.conversion) for r in x.nodes.itertuples()}
+        tn_coords = {r.node_id: (r.x * self.scaling,
+                                 r.y * self.scaling,
+                                 r.z * self.scaling) for r in x.nodes.itertuples()}
         if use_radii:
-            tn_radii = {r.node_id: r.radius * self.conversion for r in x.nodes.itertuples()}
+            tn_radii = {r.node_id: r.radius * self.scaling for r in x.nodes.itertuples()}
 
         for s in x.segments:
             sp = cu.splines.new('POLY')
@@ -416,11 +455,19 @@ class Handler:
 
         ob.active_material = mat
 
-        bpy.context.scene.collection.objects.link(ob)
+        if not collection:
+            col = bpy.context.scene.collection
+        elif collection in bpy.data.collections:
+            col = bpy.data.collections[collection]
+        else:
+            col = bpy.data.collections.new(collection)
+            bpy.context.scene.collection.children.link(col)
+
+        col.objects.link(ob)
 
         return
 
-    def _create_dotprops(self, x, scale_vect=1):
+    def _create_dotprops(self, x, scale_vect=1, collection=None):
         """Create neuron branches. """
         # Generate uuid
         object_id = str(uuid.uuid4())
@@ -447,9 +494,9 @@ class Handler:
         starts = (np.vstack(x.point) - halfvect)
         ends = (np.vstack(x.point) + halfvect)
 
-        halfvect *= self.conversion
-        starts *= self.conversion
-        ends *= self.conversion
+        halfvect *= self.scaling
+        starts *= self.scaling
+        ends *= self.scaling
 
         halfvect = halfvect[:, self.axes_order] * self.ax_translate
         starts = starts[:, self.axes_order] * self.ax_translate
@@ -471,20 +518,36 @@ class Handler:
 
         ob.active_material = mat
 
-        bpy.context.scene.collection.objects.link(ob)
+        if not collection:
+            col = bpy.context.scene.collection
+        elif collection in bpy.data.collections:
+            col = bpy.data.collections[collection]
+        else:
+            col = bpy.data.collections.new(collection)
+            bpy.context.scene.collection.children.link(col)
+
+        col.objects.link(ob)
 
         return
 
-    def _create_soma(self, x, mat):
+    def _create_soma(self, x, mat, collection=None):
         """ Create soma """
+        if not collection:
+            col = bpy.context.scene.collection
+        elif collection in bpy.data.collections:
+            col = bpy.data.collections[collection]
+        else:
+            col = bpy.data.collections.new(collection)
+            bpy.context.scene.collection.children.link(col)
+
         for s in utils.make_iterable(x.soma):
             s = x.nodes[x.nodes.node_id == s]
             loc = s[['x', 'y', 'z']].values
             loc = loc[:, self.axes_order]
-            loc *= self.conversion
+            loc *= self.scaling
             loc *= self.ax_translate
 
-            rad = s.radius * self.conversion
+            rad = s.radius * self.scaling
 
             mesh = bpy.data.meshes.new(f'Soma of #{x.id} - mesh')
             soma_ob = bpy.data.objects.new(f'Soma of #{x.id}', mesh)
@@ -507,14 +570,28 @@ class Handler:
             soma_ob.active_material = mat
 
             # Add the object into the scene.
-            bpy.context.scene.collection.objects.link(soma_ob)
+            col.objects.link(soma_ob)
 
         return
 
-    def _create_connectors(self, x):
+    def _create_connectors(self, x, collection=None):
         """ Create connectors """
-        for i in self.cn_dict:
+        if not x.has_connectors:
+            return
+
+        if not collection:
+            col = bpy.context.scene.collection
+        elif collection in bpy.data.collections:
+            col = bpy.data.collections[collection]
+        else:
+            col = bpy.data.collections.new(collection)
+            bpy.context.scene.collection.children.link(col)
+
+        for i in x.connectors['type'].unique():
             con = x.connectors[x.connectors.type == i]
+
+            # See if we have pre-defined names/colors for this
+            meta = self.cn_dict.get(i, {'name': i, 'color': (0, 0, 0)})
 
             if con.empty:
                 continue
@@ -522,13 +599,13 @@ class Handler:
             # Get & scale coordinates and invert y
             cn_coords = con[['x', 'y', 'z']].values.astype(float)
             cn_coords = cn_coords[:, self.axes_order]
-            cn_coords *= float(self.conversion)
+            cn_coords *= float(self.scaling)
             cn_coords *= self.ax_translate
 
             tn_coords = x.nodes.set_index('node_id').loc[con.node_id.values,
                                                          ['x', 'y', 'z']].values.astype(float)
             tn_coords = tn_coords[:, self.axes_order]
-            tn_coords *= float(self.conversion)
+            tn_coords *= float(self.scaling)
             tn_coords *= self.ax_translate
 
             # Add 4th coordinate for blender
@@ -540,7 +617,7 @@ class Handler:
             # (see below)
             coords = np.dstack([cn_coords, tn_coords])
 
-            ob_name = f'{self.cn_dict[i]["name"]} of {x.id}'
+            ob_name = f'{meta["name"]} of {x.id}'
 
             cu = bpy.data.curves.new(ob_name + ' mesh', 'CURVE')
             ob = bpy.data.objects.new(ob_name, cu)
@@ -565,18 +642,20 @@ class Handler:
                 # Move points
                 sp.points.foreach_set('co', cn.T.ravel())
 
-            mat_name = f'{self.cn_dict[i]["name"]} of #{str(x.id)}'
+            mat_name = f'{meta["name"]} of #{str(x.id)}'
 
             mat = bpy.data.materials.get(mat_name,
                                          bpy.data.materials.new(mat_name))
-            mat.diffuse_color = self.cn_dict[i]['color']
+            mat.diffuse_color = eval_color(meta['color'],
+                                           color_range=1,
+                                           force_alpha=True)
             ob.active_material = mat
 
-            bpy.context.scene.collection.objects.link(ob)
+            col.objects.link(ob)
 
         return
 
-    def _create_mesh(self, volume):
+    def _create_mesh(self, volume, collection=None):
         """ Create mesh from volume.
 
         Parameters
@@ -589,7 +668,7 @@ class Handler:
         verts = volume.vertices.copy()
 
         # Convert to Blender space
-        verts *= self.conversion
+        verts *= self.scaling
         verts = verts[:, self.axes_order]
         verts *= self.ax_translate
 
@@ -820,8 +899,8 @@ class ObjectList:
             elif unselect_others:
                 ob.select = False
 
-    def color(self, r, g, b):
-        """ Assign color to all objects in the list
+    def color(self, r, g, b, a=1):
+        """Assign color to all objects in the list.
 
         Parameters
         ----------
@@ -831,18 +910,23 @@ class ObjectList:
                 Green value, range 0-1
         b :     float
                 Blue value, range 0-1
+        a :     float
+                Alpha value, range 0-1
         """
         for ob in bpy.data.objects:
             if ob.name in self.object_names:
-                ob.active_material.diffuse_color = (r, g, b)
+                ob.active_material.diffuse_color = eval_color((r, g, b, a),
+                                                              color_range=1,
+                                                              force_alpha=True)
 
     def colorize(self):
-        """ Assign colors across the color spectrum
-        """
+        """Assign colors across the color spectrum."""
         for i, n in enumerate(self.object_names):
             c = colorsys.hsv_to_rgb(1 / (len(self) + 1) * i, 1, 1)
             if n in bpy.data.objects:
-                bpy.data.objects[n].active_material.diffuse_color = c
+                bpy.data.objects[n].active_material.diffuse_color = eval_color(c,
+                                                                               color_range=1,
+                                                                               force_alpha=True)
 
     def emit(self, e):
         """ Change emit value.
