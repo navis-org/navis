@@ -16,6 +16,8 @@
 navis-specific functions.
 """
 
+import trimesh
+
 from textwrap import dedent
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
