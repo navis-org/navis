@@ -14,12 +14,17 @@
 import csv
 import datetime
 import os
+import io
 import requests
 
 import pandas as pd
 import numpy as np
 
 from glob import glob
+
+from textwrap import dedent
+
+import multiprocessing as mp
 
 from typing import Union, Iterable, Dict, Optional, Any
 
@@ -33,6 +38,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
              connector_labels: Optional[Dict[str, Union[str, int]]] = {},
              soma_label: Union[str, int] = 1,
              include_subdirs: bool = False,
+             parallel: Union[bool, int] = True,
              **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from SWC file.
 
@@ -51,6 +57,10 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
     include_subdirs :   bool, optional
                         If True and ``f`` is a folder, will also search
                         subdirectories for ``.swc`` files.
+    parallel :          bool | int,
+                        Whether to use multiple threads to load SWCs (highly
+                        recommended). Can be used to set the number of cores
+                        used (otherwise defaults to ``os.cpu_count() - 2``).
 
     **kwargs
                         Keyword arguments passed to ``navis.TreeNeuron``
@@ -60,7 +70,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
     navis.TreeNeuron
                         Contains SWC file header as ``.swc_header`` attribute.
     navis.NeuronList
-                        If import of multiple SWCs, will return NeuronList of
+                        If import of multiple SWCs will return NeuronList of
                         TreeNeurons.
 
     See Also
@@ -69,81 +79,107 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
                         Export neurons as SWC files.
 
     """
+    # If is directory, compile list of filenames
+    if isinstance(f, str) and os.path.isdir(f):
+        if not include_subdirs:
+            f = [os.path.join(f, x) for x in os.listdir(f) if
+                 os.path.isfile(os.path.join(f, x)) and x.endswith('.swc')]
+        else:
+            f = [y for x in os.walk(f) for y in glob(os.path.join(x[0], '*.swc'))]
+
     if utils.is_iterable(f):
+        if parallel:
+            # Do not swap this as isinstance(True, int) is True
+            if isinstance(parallel, bool):
+                n_cores = os.cpu_count() - 2
+            else:
+                n_cores = int(parallel)
+
+            with mp.Pool(processes=n_cores) as pool:
+                results = pool.imap(_worker_wrapper, [dict(f=x,
+                                                           connector_labels=connector_labels,
+                                                           include_subdirs=include_subdirs,
+                                                           parallel=False) for x in f],
+                                    chunksize=1)
+                nl = list(config.tqdm(results,
+                                      desc='Importing',
+                                      total=len(f),
+                                      disable=config.pbar_hide,
+                                      leave=config.pbar_leave))
+
+                return core.NeuronList(nl)
+
         return core.NeuronList([from_swc(x,
                                          connector_labels=connector_labels,
                                          include_subdirs=include_subdirs,
+                                         parallel=parallel,
                                          **kwargs)
                                 for x in config.tqdm(f, desc='Importing',
                                                      disable=config.pbar_hide,
                                                      leave=config.pbar_leave)])
 
     header = []
+    attributes = dict(created_at=str(datetime.datetime.now()),
+                      connector_labels=connector_labels,
+                      soma_label=soma_label)
+
     if isinstance(f, pd.DataFrame):
         nodes = f
-        f = 'SWC'
-    elif isinstance(f, str) and os.path.isdir(f):
-        if not include_subdirs:
-            swc = [os.path.join(f, x) for x in os.listdir(f) if
-                   os.path.isfile(os.path.join(f, x)) and x.endswith('.swc')]
-        else:
-            swc = [y for x in os.walk(f) for y in glob(os.path.join(x[0], '*.swc'))]
-
-        return core.NeuronList([from_swc(x,
-                                         connector_labels=connector_labels)
-                                for x in config.tqdm(swc,
-                                                     desc='Reading {}'.format(f.split('/')[-1]),
-                                                     disable=config.pbar_hide,
-                                                     leave=config.pbar_leave)])
+        # Generic name and origin
+        attributes['name'] = 'SWC'
+        attributes['origin'] = 'DataFrame'
     elif isinstance(f, str):
-        data = []
-        if os.path.isfile(f):
-            with open(f) as file:
-                reader = csv.reader(file, delimiter=' ')
-                for row in reader:
-                    # skip empty rows
-                    if not row:
-                        continue
-                    # skip comments
-                    if not row[0].startswith('#'):
-                        data.append(row)
-                    else:
-                        header.append(' '.join(row))
-
-        # If not file, assume it's a SWC string or a URL
-        else:
+        try:
+            # If file, open it
+            if os.path.isfile(f):
+                file = open(f, mode='r')
+                attributes['name'] = os.path.basename(f)
+                attributes['origin'] = f
             # Check if is url
-            if utils.is_url(f):
+            elif utils.is_url(f):
+                # Fetch data
                 r = requests.get(f)
                 r.raise_for_status()
+                # Decode and turn into a streamable object
+                file = io.StringIO(r.content.decode())
+                attributes['name'] = os.path.basename(f)
+                attributes['origin'] = f
+            else:
+                # Assume it's already a SWC string
+                file = io.StringIO(f)
+                attributes['name'] = 'SWC'
+                attributes['origin'] = 'string'
 
-                f = r.content.decode()
+            # Parse header for safekeeping
+            line = file.readline()
+            while line.startswith('#'):
+                header.append(line)
+                line = file.readline()
 
-            # Note that with .split(), the last row will be empty
-            rows = f.split('\n')[:-1]
-            for r in rows:
-                if not r.startswith('#'):
-                    data.append(r.split(' '))
-                else:
-                    header.append(r)
+            # Seek back to beginning
+            _ = file.seek(0)
 
-            # Change f to generic name so that we can use it as name
-            f = 'SWC'
+            # Load into pandas DataFrame
+            nodes = pd.read_csv(file,
+                                delimiter=' ',
+                                skiprows=len(header),
+                                header=None)
+            nodes.columns = ['node_id', 'label', 'x', 'y', 'z',
+                             'radius', 'parent_id']
+        except BaseException:
+            raise
+        finally:
+            # Make sure we close the stream
+            _ = file.close()
 
-        if not data:
+        if nodes.empty:
             raise ValueError('No data found in SWC.')
-
-        # Remove empty entries and generate nodes DataFrame
-        nodes = pd.DataFrame([[e for e in row if e != ''] for row in data],
-                             columns=['node_id', 'label', 'x', 'y', 'z',
-                                      'radius', 'parent_id'],
-                             dtype=object)
     else:
         raise TypeError('"f" must be filename, SWC string or DataFrame, not '
                         f'{type(f)}')
 
     # Turn header back into single string
-    header = '\n'.join(header)
+    attributes['swc_header'] = '\n'.join(header)
 
     # If any invalid nodes are found
     if np.any(nodes[['node_id', 'parent_id', 'x', 'y', 'z']].isnull()):
@@ -178,18 +214,12 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
     else:
         connectors = None
 
+    # Make sure kwargs override attributes
+    _ = attributes.update(kwargs)
+
     n = core.TreeNeuron(nodes,
                         connectors=connectors,
-                        name=kwargs.pop('name',
-                                        os.path.basename(f).replace('.swc', '')),
-                        filename=os.path.basename(f),
-                        pathname=os.path.dirname(f),
-                        file=f,
-                        header=header,
-                        soma_label=soma_label,
-                        connector_labels=connector_labels,
-                        created_at=str(datetime.datetime.now()),
-                        **kwargs)
+                        **attributes)
 
     return n
 
@@ -313,22 +343,26 @@ def to_swc(x: 'core.NeuronObject',
     # Adjust column titles
     swc.columns = ['PointNo', 'Label', 'X', 'Y', 'Z', 'Radius', 'Parent']
 
+    # Generate header if not provided
+    if not isinstance(header, str):
+        header = dedent(f"""\
+        # SWC format file
+        # based on specifications at http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html
+        # Created on {datetime.date.today()} using navis (https://github.com/schlegelp/navis)
+        # PointNo Label X Y Z Radius Parent
+        # Labels:
+        # 0 = undefined, 1 = soma, 5 = fork point, 6 = end point
+        """)
+        if export_synapses:
+            header += dedent("""\
+            # 7 = presynapses, 8 = postsynapses
+            """)
+
     with open(filename, 'w') as file:
         # Write header
-        if not isinstance(header, str):
-            file.write('# SWC format file\n')
-            file.write('# based on specifications at http://research.mssm.edu/cnic/swc.html\n')
-            file.write('# Created on {} using navis (https://github.com/schlegelp/navis)\n'.format(str(datetime.date.today())))
-            file.write('# PointNo Label X Y Z Radius Parent\n')
-            file.write('# Labels:\n')
-            for l in ['0 = undefined', '1 = soma', '5 = fork point', '6 = end point']:
-                file.write('# {}\n'.format(l))
-            if export_synapses:
-                for l in ['7 = presynapse', '8 = postsynapse']:
-                    file.write('# {}\n'.format(l))
-        else:
-            file.write(header)
+        file.write(header)
 
+        # Write data
         writer = csv.writer(file, delimiter=' ')
         writer.writerows(swc.astype(str).values)
 
@@ -349,3 +383,7 @@ def to_int(x: Any) -> Optional[int]:
         return int(x)
     except BaseException:
         return None
+
+def _worker_wrapper(kwargs):
+    """Helper for importing SWCs using multiple processes."""
+    return from_swc(**kwargs)
