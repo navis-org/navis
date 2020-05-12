@@ -414,7 +414,8 @@ class TreeNeuron:
         return soma
 
     @soma.setter
-    def soma(self, value):
+    def soma(self, value: Union[Callable, int, None]) -> None:
+        """Set soma."""
         if hasattr(value, '__call__'):
             self._soma = types.MethodType(value, self)
         elif isinstance(value, type(None)):
@@ -430,6 +431,11 @@ class TreeNeuron:
         """Root node(s)."""
         roots = self.nodes[self.nodes.parent_id < 0].node_id.values
         return roots
+
+    @root.setter
+    def root(self, value: Union[int, List[int]]) -> None:
+        """Reroot neuron to given node."""
+        self.reroot(value, inplace=True)
 
     @property
     def n_nodes(self) -> int:
