@@ -38,7 +38,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
              connector_labels: Optional[Dict[str, Union[str, int]]] = {},
              soma_label: Union[str, int] = 1,
              include_subdirs: bool = False,
-             parallel: Union[bool, int] = True,
+             parallel: Union[bool, int] = 'auto',
              **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from SWC file.
 
@@ -57,10 +57,14 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
     include_subdirs :   bool, optional
                         If True and ``f`` is a folder, will also search
                         subdirectories for ``.swc`` files.
-    parallel :          bool | int,
-                        Whether to use multiple threads to load SWCs (highly
-                        recommended). Can be used to set the number of cores
-                        used (otherwise defaults to ``os.cpu_count() - 2``).
+    parallel :          "auto" | bool | int,
+                        Defaults to ``auto`` which means only use parallel
+                        processing if more than 200 SWC are imported. Spawning
+                        and joining processes causes overhead and is
+                        considerably slower for imports of small numbers of
+                        neurons. Integer will be interpreted as the
+                        number of cores (otherwise defaults to
+                        ``os.cpu_count() - 2``).
 
     **kwargs
                         Keyword arguments passed to ``navis.TreeNeuron``
@@ -88,9 +92,14 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
             f = [y for x in os.walk(f) for y in glob(os.path.join(x[0], '*.swc'))]
 
     if utils.is_iterable(f):
+        # Do not use if there is only a small batch to import
+        if isinstance(parallel, str) and parallel.lower() == 'auto':
+            if len(f) < 200:
+                parallel = False
+
         if parallel:
-            # Do not swap this as isinstance(True, int) is True
-            if isinstance(parallel, bool):
+            # Do not swap this as ``isinstance(True, int)`` returns ``True``
+            if isinstance(parallel, (bool, str)):
                 n_cores = os.cpu_count() - 2
             else:
                 n_cores = int(parallel)
@@ -109,6 +118,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
 
                 return core.NeuronList(nl)
 
+        # If not parallel just import the good 'ole way: sequentially
         return core.NeuronList([from_swc(x,
                                          connector_labels=connector_labels,
                                          include_subdirs=include_subdirs,
@@ -133,7 +143,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
             # If file, open it
             if os.path.isfile(f):
                 file = open(f, mode='r')
-                attributes['name'] = os.path.basename(f)
+                attributes['name'] = os.path.basename(f).split('.')[0]
                 attributes['origin'] = f
             # Check if is url
             elif utils.is_url(f):
@@ -142,7 +152,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
                 r.raise_for_status()
                 # Decode and turn into a streamable object
                 file = io.StringIO(r.content.decode())
-                attributes['name'] = os.path.basename(f)
+                attributes['name'] = f.split('/')[-1]
                 attributes['origin'] = f
             else:
                 # Assume it's already a SWC string
