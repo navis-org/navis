@@ -998,7 +998,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                       **kwargs))
             return core.NeuronList(xf)
 
-    if not isinstance(x, (core.TreeNeuron, np.ndarray, pd.DataFrame)):
+    if not isinstance(x, (core.TreeNeuron, np.ndarray, pd.DataFrame, core.Volume)):
         raise TypeError(f'Unable to transform data of type "{type(x)}"')
 
     if isinstance(x, core.TreeNeuron):
@@ -1027,11 +1027,12 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         return x
     elif isinstance(x, core.Volume):
         x = x.copy()
-        x.vertices = xform_brain(x.nodes,
+        x.vertices = xform_brain(x.vertices,
                                  source=source,
                                  target=target,
                                  fallback=fallback,
                                  **kwargs)
+        return x
     elif x.shape[1] != 3:
         raise ValueError('Array must be of shape (N, 3).')
 
