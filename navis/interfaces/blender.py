@@ -112,7 +112,14 @@ class Handler:
     cn_dict['gap'] = cn_dict['gapjunction'] = cn_dict[2]
     cn_dict['abutting'] = cn_dict[3]
 
-    def __init__(self, scaling=1 / 10000, axes_order=[0, 1, 2], ax_translate=[1, 1, 1]):
+    defaults = dict(bevel_depth=0.007,
+                    bevel_resolution=5,
+                    resolution_u=10)
+
+    def __init__(self,
+                 scaling=1 / 10000,
+                 axes_order=[0, 1, 2],
+                 ax_translate=[1, 1, 1]):
         self.scaling = scaling
         self.cn_dict = Handler.cn_dict
         self.axes_order = axes_order
@@ -147,8 +154,9 @@ class Handler:
             raise AttributeError('Unknown attribute ' + key)
 
     def add(self, x, neurites=True, soma=True, connectors=True, redraw=False,
-            use_radii=False, skip_existing=False, collection=None, **kwargs):
-        """ Add neuron(s) to scene.
+            use_radii=False, skip_existing=False, downsample=False,
+            collection=None, **kwargs):
+        """Add neuron(s) to scene.
 
         Parameters
         ----------
@@ -167,6 +175,9 @@ class Handler:
                         If True, will use treenode radii.
         skip_existing : bool, optional
                         If True, will skip neurons that are already loaded.
+        downsample :    False | int, optional
+                        If integer < 1, will downsample neurites upon import.
+                        Preserves branch point/roots.
         collection :    str, optional
                         Only for Blender 2.8: add object(s) to given collection.
                         If collection does not exist, will be created.
@@ -190,6 +201,7 @@ class Handler:
                 self._create_neuron(n, neurites=neurites,
                                     soma=soma, connectors=connectors,
                                     collection=collection,
+                                    downsample=downsample,
                                     use_radii=use_radii)
                 if redraw:
                     bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
@@ -316,7 +328,7 @@ class Handler:
         return
 
     def _create_neuron(self, x, neurites=True, soma=True, connectors=True,
-                       use_radii=False, collection=None):
+                       use_radii=False, downsample=False, collection=None):
         """ Create neuron object """
 
         mat_name = (f'M#{x.id}')[:59]
@@ -326,7 +338,9 @@ class Handler:
 
         if neurites:
             self._create_neurites(x, mat,
-                                  use_radii=use_radii, collection=collection)
+                                  use_radii=use_radii,
+                                  downsample=downsample,
+                                  collection=collection)
         if soma and not isinstance(x.soma, type(None)):
             self._create_soma(x, mat, collection=collection)
         if connectors and x.has_connectors:
@@ -403,11 +417,12 @@ class Handler:
 
         ob.data.dimensions = '3D'
         ob.data.fill_mode = 'FULL'
-        ob.data.bevel_resolution = 5
-        ob.data.bevel_depth = 0.007
+        ob.data.bevel_resolution = self.defaults.get('bevel_resolution', 5)
+        ob.data.bevel_depth = self.defaults.get('bevel_depth', 0.007)
         ob.active_material = mat
 
-    def _create_neurites(self, x, mat, use_radii=False, collection=None):
+    def _create_neurites(self, x, mat, use_radii=False, downsample=False,
+                         collection=None):
         """Create neuron branches. """
         cu = bpy.data.curves.new(f"{getattr(x, 'neuron_name', '')} mesh", 'CURVE')
         ob = bpy.data.objects.new(f"#{x.id} - {getattr(x, 'neuron_name', '')}",
@@ -419,11 +434,13 @@ class Handler:
         ob['id'] = str(x.id)
         cu.dimensions = '3D'
         cu.fill_mode = 'FULL'
-        cu.bevel_resolution = 5
-        cu.bevel_depth = 0.007
+        cu.bevel_resolution = self.defaults.get('bevel_resolution', 5)
+        cu.resolution_u = self.defaults.get('resolution_u', 10)
 
         if use_radii:
             cu.bevel_depth = 1
+        else:
+            cu.bevel_depth = self.defaults.get('bevel_depth', 0.007)
 
         # DO NOT touch this: lookup via dict is >10X faster!
         tn_coords = {r.node_id: (r.x * self.scaling,
@@ -433,6 +450,14 @@ class Handler:
             tn_radii = {r.node_id: r.radius * self.scaling for r in x.nodes.itertuples()}
 
         for s in x.segments:
+            if isinstance(downsample, int) and downsample > 1:
+                mask = np.zeros(len(s), dtype=bool)
+                mask[downsample::downsample] = True
+
+                keep = np.isin(s, x.nodes[x.nodes['type'] != 'slab'].node_id.values)
+
+                s = np.array(s)[mask | keep]
+
             sp = cu.splines.new('POLY')
 
             coords = np.array([tn_coords[tn] for tn in s])
@@ -924,9 +949,12 @@ class ObjectList:
         for i, n in enumerate(self.object_names):
             c = colorsys.hsv_to_rgb(1 / (len(self) + 1) * i, 1, 1)
             if n in bpy.data.objects:
-                bpy.data.objects[n].active_material.diffuse_color = eval_color(c,
-                                                                               color_range=1,
-                                                                               force_alpha=True)
+                try:
+                    bpy.data.objects[n].active_material.diffuse_color = eval_color(c,
+                                                                                   color_range=1,
+                                                                                   force_alpha=True)
+                except BaseException:
+                    logger.warning(f'Error changing color of object "{n}"')
 
     def emit(self, e):
         """ Change emit value.
