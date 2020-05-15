@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .__version__ import __version__
+from .__version__ import __version__, __version_vector__
 
 from .core import *
 from .data import *
