@@ -98,7 +98,7 @@ class NeuronList:
                  make_copy: bool = False,
                  **kwargs):
         # Set number of cores
-        self.n_cores: int = max(1, os.cpu_count())
+        self.n_cores: int = max(1, os.cpu_count() - 2)
 
         # If below parameter is True, most calculations will be parallelized
         # which speeds them up quite a bit. Unfortunately, this uses A TON of
