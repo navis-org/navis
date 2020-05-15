@@ -33,34 +33,67 @@ from typing_extensions import Literal
 import pandas as pd
 import numpy as np
 
+import rpy2
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
+
 from rpy2.robjects import pandas2ri, numpy2ri
+
+if rpy2.__version_vector__[0] >= 3:
+    from rpy2.robjects.conversion import localconverter
 
 from .. import cluster as pyclust
 from .. import core, plotting, config, utils
 
-try:
-    cl = robjects.r('class')
-    names = robjects.r('names')
-    attributes = robjects.r('attributes')
-except BaseException:
-    pass
 
 # Set up logging
 logger = config.logger
 
-try:
-    nat = importr('nat')
-    r_nblast = importr('nat.nblast')
-    nat_templatebrains = importr('nat.templatebrains')
-    nat_flybrains = importr('nat.flybrains')
-    # Even if not used, these packages are important e.g. for template brains!
-    flycircuit = importr('flycircuit')
-    elmr = importr('elmr')
-except BaseException:
-    logger.error(
-        'R library "nat" not found! Please install from within R.')
+
+def try_importr(x):
+    """Try importing R library. Log error on exception."""
+    try:
+        return importr(x)
+    except BaseException:
+        logger.error(f'Failed to import R library "{x}"! Some functions might '
+                     'not work as expected. Please install from within R.')
+        # Return dummy class
+        return FailedImport(x)
+
+
+class FailedImport:
+    """Dummy class for failed imports from R. Throws meaningful exceptions.
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+    def raise_error(self):
+        raise Exception(f'R library "{self.name}" was not properly imported. '
+                        'Please make sure it is properly installed.')
+
+    def __call__(self):
+        self.raise_error()
+
+    def __getattr__(self, name):
+        self.raise_error()
+
+
+cl = robjects.r('class')
+names = robjects.r('names')
+attributes = robjects.r('attributes')
+
+# Load the entire natverse
+nat = try_importr("nat")
+r_nblast = try_importr('nat.nblast')
+nat_templatebrains = try_importr('nat.templatebrains')
+flycircuit = try_importr('flycircuit')
+
+# These are mainly relevant for exposing transforms
+nat_flybrains = try_importr('nat.flybrains')
+elmr = try_importr('elmr')
+nat_jrcbrains = try_importr('nat.jrcbrains')
+
 
 __all__ = sorted(['neuron2r', 'neuron2py', 'init_rcatmaid', 'dotprops2py',
                   'data2py', 'NBLASTresults', 'nblast', 'nblast_allbyall',
@@ -170,7 +203,7 @@ def init_rcatmaid(**kwargs):
 
 
 def data2py(data, **kwargs):
-    """ Takes data object from rcatmaid (e.g. ``catmaidneuron`` from
+    """Takes data object from rcatmaid (e.g. ``catmaidneuron`` from
     ``read.neuron.catmaid``) and converts into Python Data.
 
     Notes
@@ -224,7 +257,11 @@ def data2py(data, **kwargs):
         else:
             return {n: float(data[i]) for i, n in enumerate(names(data))}
     elif cl(data)[0] == 'data.frame':
-        return pandas2ri.ri2py(data)
+        if rpy2.__version_vector__[0] < 3:
+            return pandas2ri.ri2py(data)
+        else:
+            with localconverter(robjects.default_converter + pandas2ri.converter):
+                return robjects.conversion.rpy2py(data)
     elif cl(data)[0] == 'matrix':
         mat = np.array(data)
         df = pd.DataFrame(data=mat)
@@ -1036,19 +1073,18 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     elif x.shape[1] != 3:
         raise ValueError('Array must be of shape (N, 3).')
 
-    if isinstance(source, str):
-        source = robjects.r(source)
-    else:
+    if not isinstance(source, str):
         TypeError(f'Expected source of type str, got "{type(source)}"')
 
-    if isinstance(target, str):
-        target = robjects.r(target)
-    else:
+    if not isinstance(target, str):
         TypeError(f'Expected target of type str, got "{type(target)}"')
 
     # We need to convert numpy arrays explicitly
     if isinstance(x, np.ndarray):
-        x = numpy2ri.py2ro(x)
+        if rpy2.__version_vector__[0] < 3:
+            x = numpy2ri.py2ro(x)
+        else:
+            x = numpy2ri.py2rpy(x)
 
     xf = nat_templatebrains.xform_brain(x,
                                         sample=source,
@@ -1138,14 +1174,15 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     elif x.shape[1] != 3:
         raise ValueError('Array must be of shape (N, 3).')
 
-    if isinstance(template, str):
-        template = robjects.r(template)
-    else:
+    if not isinstance(template, str):
         TypeError(f'Expected template of type str, got "{type(template)}"')
 
     # We need to convert numpy arrays explicitly
     if isinstance(x, np.ndarray):
-        x = numpy2ri.py2ro(x)
+        if rpy2.__version_vector__[0] < 3:
+            x = numpy2ri.py2ro(x)
+        else:
+            x = numpy2ri.py2rpy(x)
 
     xf = nat_templatebrains.mirror_brain(x,
                                          brain=template,
