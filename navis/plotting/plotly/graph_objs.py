@@ -109,6 +109,10 @@ def neuron2plotly(x, **kwargs):
             # Add soma(s):
             soma = utils.make_iterable(neuron.soma)
             if any(soma):
+                # If soma detection is messed up we might end up producing
+                # dozens of soma which will freeze the kernel
+                if len(soma >= 10):
+                    logger.warning(f'{neuron.id}: {len(soma)} somas found.')
                 for s in soma:
                     n = neuron.nodes.set_index('node_id').loc[s]
                     r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius

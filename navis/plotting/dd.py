@@ -416,6 +416,10 @@ def plot2d(x: Union[core.NeuronObject,
 
                 if plot_soma and not isinstance(neuron.soma, type(None)):
                     soma = utils.make_iterable(neuron.soma)
+                    # If soma detection is messed up we might end up producing
+                    # dozens of soma which will freeze the kernel
+                    if len(soma >= 10):
+                        logger.warning(f'{neuron.id}: {len(soma)} somas found.')
                     for s in soma:
                         n = neuron.nodes.set_index('node_id').loc[s]
                         r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
@@ -476,6 +480,10 @@ def plot2d(x: Union[core.NeuronObject,
                 surf3D_collections.append([])
                 if plot_soma and not isinstance(neuron.soma, type(None)):
                     soma = utils.make_iterable(neuron.soma)
+                    # If soma detection is messed up we might end up producing
+                    # dozens of soma which will freeze the kernel
+                    if len(soma >= 10):
+                        logger.warning(f'{neuron.id}: {len(soma)} somas found.')
                     for s in soma:
                         n = neuron.nodes.set_index('node_id').loc[s]
                         r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
