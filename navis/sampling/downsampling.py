@@ -113,7 +113,7 @@ def downsample_neuron(x: 'core.NeuronObject',
                                           disable=config.pbar_hide,
                                           leave=config.pbar_leave)]
         if not inplace:
-            return core.NeuronList(results)
+            return x
         return None
 
     elif isinstance(x, core.TreeNeuron):
