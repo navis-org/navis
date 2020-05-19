@@ -18,7 +18,9 @@ import plotly.graph_objs as go
 
 from ..colors import *
 from ..plot_utils import *
-from ... import core, utils
+from ... import core, utils, config
+
+logger = config.logger
 
 __all__ = ['neuron2plotly', 'scatter2plotly', 'dotprops2plotly',
            'volume2plotly', 'layout2plotly']
