@@ -240,10 +240,10 @@ def prune_twigs(x: NeuronObject,
     inplace :       bool, optional
                     If False, pruning is performed on copy of original neuron
                     which is then returned.
-    recursive :     int | bool | float("inf"), optional
+    recursive :     int | bool, optional
                     If `int` will undergo that many rounds of recursive
-                    pruning. Use `float(`"inf")`` to prune until no more twigs
-                    under the given size are left.
+                    pruning. If True will prune iteratively until no more
+                    terminal twigs under the given size are left.
 
     Returns
     -------
