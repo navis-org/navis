@@ -421,7 +421,7 @@ class NeuronList:
             for n in nl:
                 n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
 
-                if self.has_connectors:
+                if n.has_connectors:
                     n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
                 n._clear_temp_attr(exclude=['classify_nodes'])
