@@ -352,7 +352,7 @@ class NeuronList:
                 subset = [self[i] for i in key]
         elif isinstance(key, str):
             subset = [n for n in self.neurons if re.fullmatch(key, getattr(n, 'name', ''))]
-        elif isinstance(key, (int, slice)):
+        elif isinstance(key, (np.integer, slice)):
             subset = self.neurons[key]
         else:
             raise NotImplementedError(f'Indexing NeuronList by {type(key)} not implemented')
