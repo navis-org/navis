@@ -127,6 +127,8 @@ def fetch_skeletons(x, with_synapses=True, *, heal=False, missing_swc='raise',
     if isinstance(x, pd.DataFrame):
         if 'bodyId' in x.columns:
             x = x['bodyId'].values
+        elif 'bodyid' in x.columns:
+            x = x['bodyid'].values
         else:
             raise ValueError('DataFrame must have "bodyId" column.')
 
