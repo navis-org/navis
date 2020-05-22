@@ -641,7 +641,7 @@ class Viewer:
 
     def hide_neurons(self, n):
         """ Hide given neuron(s). """
-        skids = utils.eval_skids(n)
+        skids = utils.eval_id(n)
 
         neurons = self.neurons
 
@@ -662,7 +662,7 @@ class Viewer:
         Use ``n`` to unhide specific neurons.
         """
         if not isinstance(n, type(None)):
-            skids = utils.eval_skids(n)
+            skids = utils.eval_id(n)
         else:
             skids = list(self.neurons.keys())
 
@@ -688,7 +688,7 @@ class Viewer:
         if False not in [isinstance(u, uuid.UUID) for u in n]:
             obj = self._neuron_obj
         else:
-            n = utils.eval_skids(n)
+            n = utils.eval_id(n)
             obj = self.neurons
 
         for s in n:
@@ -699,7 +699,7 @@ class Viewer:
 
     def toggle_select(self, n):
         """ Toggle selected of given neuron. """
-        skids = utils.eval_skids(n)
+        skids = utils.eval_id(n)
 
         neurons = self.neurons
 
