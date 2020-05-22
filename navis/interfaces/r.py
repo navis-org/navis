@@ -381,7 +381,7 @@ def neuron2r(x: 'core.NeuronObject',
     ----------
     x :                 TreeNeuron | NeuronList
     unit_conversion :   bool | int | float, optional
-                        If not ``False`` will convert units by given factor.
+                        If not ``False`` will multiply units by given factor.
     add_metadata :      bool, optional
                         If False, will use minimal data necessary to construct
                         the R neuron. If True, will add additional data
@@ -516,10 +516,10 @@ def dotprops2py(dp,
 
 
 def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_cores defau
-                    micron_conversion: float,
+                    micron_conversion: float = False,
                     normalize: bool = True,
                     resample: int = 1,
-                    n_cores: int = os.cpu_count(),
+                    n_cores: int = os.cpu_count() - 2,
                     use_alpha: bool = False) -> 'pyclust.ClustResults':
     """ Wrapper to use R's ``nat:nblast_allbyall``
     (https://github.com/jefferislab/nat.nblast/).
@@ -538,7 +538,7 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
                         If True, matrix is normalized using z-score.
     n_cores :           int, optional
                         Number of cores to use for nblasting. Default is
-                        ``os.cpu_count()``.
+                        ``os.cpu_count() - 2``.
     use_alpha :         bool, optional
                         Emphasises neurons' straight parts (backbone) over
                         parts that have lots of branches.
@@ -991,6 +991,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 source: str,
                 target: str,
                 fallback: Optional[Literal['AFFINE']] = None,
+                verbose: bool = False,
                 **kwargs) -> Union['core.NeuronObject',
                                    'pd.DataFrame',
                                    'np.ndarray']:
@@ -1032,6 +1033,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                       source=source,
                                       target=target,
                                       fallback=fallback,
+                                      verbose=verbose,
                                       **kwargs))
             return core.NeuronList(xf)
 
@@ -1044,12 +1046,14 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                               source=source,
                               target=target,
                               fallback=fallback,
+                              verbose=verbose,
                               **kwargs)
         if x.has_connectors:
             x.connectors = xform_brain(x.connectors,
                                        source=source,
                                        target=target,
                                        fallback=fallback,
+                                       verbose=verbose,
                                        **kwargs)
         return x
     elif isinstance(x, pd.DataFrame):
@@ -1060,6 +1064,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                                 source=source,
                                                 target=target,
                                                 fallback=fallback,
+                                                verbose=verbose,
                                                 **kwargs)
         return x
     elif isinstance(x, core.Volume):
@@ -1068,6 +1073,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                  source=source,
                                  target=target,
                                  fallback=fallback,
+                                 verbose=verbose,
                                  **kwargs)
         return x
     elif x.shape[1] != 3:
@@ -1090,6 +1096,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                         sample=source,
                                         reference=target,
                                         FallBackToAffine=fallback == 'AFFINE',
+                                        Verbose=verbose,
                                         **kwargs)
 
     return np.array(xf)
