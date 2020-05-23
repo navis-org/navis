@@ -87,7 +87,7 @@ def fetch_roi(roi, *, client=None):
 
 
 @inject_client
-def fetch_skeletons(x, with_synapses=True, *, heal=False, missing_swc='raise',
+def fetch_skeletons(x, *, with_synapses=True, heal=False, missing_swc='raise',
                     parallel=True, max_threads=5, client=None):
     """Construct navis.TreeNeuron/List from neuprint neurons.
 
@@ -224,7 +224,9 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise', heal=Fa
 
     if with_synapses:
         # Fetch synapses
-        syn = fetch_synapses(r.bodyId, client=client)
+        syn = fetch_synapses(r.bodyId,
+                             synapse_criteria=SynapseCriteria(primary_only=True),
+                             client=client)
 
         if not syn.empty:
             # Process synapses
