@@ -270,15 +270,19 @@ class NeuronList:
             # Concatenate if dealing with DataFrame
             elif not all(is_method):
                 if all(is_frame):
-                    data = []
-                    for i, v in enumerate(values):
+                    df = pd.concat([v for v in values if isinstance(v, pd.DataFrame)],
+                                   axis=0,
+                                   ignore_index=True,
+                                   join='outer',
+                                   sort=True)
+                    df['neuron'] = None
+                    ix = 0
+                    for k, v in enumerate(values):
                         if isinstance(v, pd.DataFrame):
-                            v['neuron'] = i
-                            data.append(v)
-                    return pd.concat(data,
-                                     axis=0,
-                                     ignore_index=True,
-                                     sort=True)
+                            df.iloc[ix:ix:v.shape[0],
+                                    df.columns.get_loc('neuron')] = k
+                            ix += v.shape[0]
+                    return df
                 else:
                     return np.array(values)
             else:
