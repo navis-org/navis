@@ -288,7 +288,11 @@ class NeuronList:
             else:
                 # Return function but wrap it in a function that will show
                 # a progress bar and use multiprocessing (if applicable)
-                return NeuronProcessor(self, values, parallel=False, desc=key)
+                return NeuronProcessor(self,
+                                       values,
+                                       parallel=self.use_threading,
+                                       n_cores=self.n_cores,
+                                       desc=key)
 
     def __setattr__(self, key, value):
         # Check if this attribute exists in the neurons
