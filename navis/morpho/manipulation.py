@@ -750,6 +750,9 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     if any(nl.has_connectors):
         m.connectors = nl.connectors
 
+        if 'neuron' in m.connectors.columns:
+            m.connectors.drop('neuron', axis=1, inplace=True)
+
     if any([hasattr(n, 'tags') for n in nl]):
         m.tags = {}  # type: ignore  # TreeNeuron has no tags
         for n in nl:
