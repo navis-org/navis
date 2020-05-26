@@ -127,7 +127,10 @@ def prune_by_strahler(x: NeuronObject,
                            reroot_soma=reroot_soma,
                            force_strahler_update=force_strahler_update,
                            relocate_connectors=relocate_connectors
-                           ) for n in x]
+                           ) for n in config.tqdm(x,
+                                                  desc='Pruning',
+                                                  disable=config.pbar_hide,
+                                                  leave=config.pbar_leave)]
         if not inplace:
             return x
         else:
