@@ -409,7 +409,7 @@ class Handler:
         col.objects.link(ob)
 
         # Select and make active object
-        ob.select = True
+        ob.select_set(True)
         bpy.context.scene.objects.active = ob
 
         # Convert from mesh to curve
@@ -711,11 +711,11 @@ class Handler:
         me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
 
     def select(self, x, *args):
-        """ Select given neurons.
+        """Select given neurons.
 
         Parameters
         ----------
-        x :     list of skeleton IDs | TreeNeuron/List | pd Dataframe
+        x :     list of neuron IDs | TreeNeuron/List | pd Dataframe
 
         Returns
         -------
@@ -730,20 +730,20 @@ class Handler:
         >>> cn.hide_others()
         >>> # Change color of presynapses
         >>> selection.presynapses.color(0, 1, 0)
+
         """
+        ids = utils.eval_id(x)
 
-        skids = utils.eval_skids(x)
-
-        if not skids:
-            logger.error('No skids found.')
+        if not ids:
+            logger.error('No ids found.')
 
         names = []
 
         for ob in bpy.data.objects:
-            ob.select = False
+            ob.select_set(False)
             if 'id' in ob:
-                if ob['id'] in skids:
-                    ob.select = True
+                if ob['id'] in ids:
+                    ob.select_set(True)
                     names.append(ob.name)
         return ObjectList(names, handler=self)
 
@@ -920,9 +920,9 @@ class ObjectList:
         """
         for ob in bpy.data.objects:
             if ob.name in self.object_names:
-                ob.select = True
+                ob.select_set(True)
             elif unselect_others:
-                ob.select = False
+                ob.select_set(False)
 
     def color(self, r, g, b, a=1):
         """Assign color to all objects in the list.
