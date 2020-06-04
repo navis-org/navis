@@ -274,7 +274,7 @@ You can then import neuprint from navis like so::
     :toctree: generated/
 
     navis.interfaces.neuprint.fetch_roi
-    navis.interfaces.neuprint.fetch_skeleton
+    navis.interfaces.neuprint.fetch_skeletons
 
 
 .. _api_interfaces.neuromorpho:
@@ -396,6 +396,7 @@ Not imported at top level! Must be imported explicitly::
     navis.interfaces.r.neuron2py
     navis.interfaces.r.neuron2r
     navis.interfaces.r.xform_brain
+    navis.interfaces.r.mirror_brain
 
 
 Utility
