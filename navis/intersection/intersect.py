@@ -21,7 +21,7 @@ import numpy as np
 from typing import Union, List, Dict, Sequence, Optional, overload, Any
 from typing_extensions import Literal
 
-from .. import config, graph, core
+from .. import config, graph, core, utils
 
 from .ray import *
 from .convex import *
@@ -33,18 +33,35 @@ try:
     from pyoctree import pyoctree
 except ImportError:
     pyoctree = None
-    logger.warning("Module pyoctree not found. Falling back to scipy's"
-                   "ConvexHull for intersection calculations.")
+    logger.debug("Package pyoctree not found.")
+
+try:
+    import ncollpyde
+except ImportError:
+    ncollpyde = None
+    logger.debug("Package ncollpyde not found.")
+
 
 __all__ = sorted(['in_volume', 'intersection_matrix'])
+
+Modes = Union[Literal['IN'], Literal['OUT']]
+
+Backends = Union[Literal['ncollpyde'],
+                 Literal['pyoctree'],
+                 Literal['scipy'],
+                 Sequence[Union[Literal['ncollpyde'],
+                                Literal['pyoctree'],
+                                Literal['scipy']]]
+                 ]
 
 
 @overload
 def in_volume(x: 'core.NeuronObject',
               volume: core.Volume,
               inplace: Literal[True],
-              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
-              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              mode: Modes = 'IN',
+              backend: Backends = ('ncollpyde', 'pyoctree'),
+              n_rays: Optional[int] = None,
               prevent_fragments: bool = False) -> None: ...
 
 
@@ -52,8 +69,9 @@ def in_volume(x: 'core.NeuronObject',
 def in_volume(x: 'core.TreeNeuron',
               volume: core.Volume,
               inplace: Literal[False],
-              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
-              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              mode: Modes = 'IN',
+              backend: Backends = ('ncollpyde', 'pyoctree'),
+              n_rays: Optional[int] = None,
               prevent_fragments: bool = False) -> 'core.TreeNeuron': ...
 
 
@@ -61,8 +79,9 @@ def in_volume(x: 'core.TreeNeuron',
 def in_volume(x: 'core.NeuronList',
               volume: core.Volume,
               inplace: Literal[False],
-              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
-              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              mode: Modes = 'IN',
+              backend: Backends = ('ncollpyde', 'pyoctree'),
+              n_rays: Optional[int] = None,
               prevent_fragments: bool = False) -> 'core.NeuronList': ...
 
 
@@ -70,8 +89,9 @@ def in_volume(x: 'core.NeuronList',
 def in_volume(x: Union[Sequence, pd.DataFrame],
               volume: core.Volume,
               inplace: bool = False,
-              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
-              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              mode: Modes = 'IN',
+              backend: Backends = ('ncollpyde', 'pyoctree'),
+              n_rays: Optional[int] = None,
               prevent_fragments: bool = False) -> Sequence[bool]: ...
 
 
@@ -80,8 +100,9 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
               volume: Union[Dict[str, core.Volume],
                             Sequence[core.Volume]],
               inplace: bool = False,
-              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
-              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              mode: Modes = 'IN',
+              backend: Backends = ('ncollpyde', 'pyoctree'),
+              n_rays: Optional[int] = None,
               prevent_fragments: bool = False) -> Dict[str,
                                                        Union[Sequence[bool],
                                                              'core.NeuronObject']]: ...
@@ -95,8 +116,9 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                             Dict[str, core.Volume],
                             Sequence[core.Volume]],
               inplace: bool = False,
-              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
-              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
+              mode: Modes = 'IN',
+              backend: Backends = ('ncollpyde', 'pyoctree'),
+              n_rays: Optional[int] = None,
               prevent_fragments: bool = False) -> Optional[Union['core.NeuronObject',
                                                                  Sequence[bool],
                                                                  Dict[str, Union[Sequence[bool],
@@ -108,22 +130,25 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
               volume: Union[core.Volume,
                             Dict[str, core.Volume],
                             Sequence[core.Volume]],
-              inplace: bool = False,
-              mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
-              method: Union[Literal['FAST'], Literal['SAFE']] = 'FAST',
-              prevent_fragments: bool = False) -> Optional[Union['core.NeuronObject',
-                                                                 Sequence[bool],
-                                                                 Dict[str, Union[Sequence[bool],
-                                                                                 'core.NeuronObject']]
-                                                                 ]]:
-    """ Test if points/neurons are within a given volume.
+              mode: Modes = 'IN',
+              backend: Backends = ('ncollpyde', 'pyoctree'),
+              n_rays: Optional[int] = None,
+              prevent_fragments: bool = False,
+              inplace: bool = False,) -> Optional[Union['core.NeuronObject',
+                                                        Sequence[bool],
+                                                        Dict[str, Union[Sequence[bool],
+                                                                        'core.NeuronObject']]
+                                                        ]]:
+    """Test if points/neurons are within a given volume.
 
-    Important
-    ---------
-    This function requires `pyoctree <https://github.com/mhogg/pyoctree>`_
-    which is only an optional dependency of navis. If pyoctree is not
-    installed, we will fall back to using scipy ConvexHull instead. This is
-    slower and may give wrong positives for concave meshes!
+    Notes
+    -----
+    This function requires `ncollpyde <https://github.com/clbarnes/ncollpyde>`_
+    (recommended) or `pyoctree <https://github.com/mhogg/pyoctree>`_ as backends
+    for raycasting. These are currently optional dependencies for navis and
+    hence have to be installed separatetly. If neither is installed, we can fall
+    back to using scipy's ConvexHull instead. However: this is slower and will
+    give wrong positives for concave meshes!
 
     Parameters
     ----------
@@ -139,23 +164,27 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                         :class:`navis.Volume` to test. Multiple volumes can
                         be given as list (``[volume1, volume2, ...]``) or dict
                         (``{'label1': volume1, ...}``).
-    inplace :           bool, optional
-                        If False, a copy of the original DataFrames/Neuron is
-                        returned. Does only apply to TreeNeuron or
-                        NeuronList objects. Does apply if multiple
-                        volumes are provided.
     mode :              'IN' | 'OUT', optional
                         If 'IN', parts of the neuron that are within the volume
                         are kept.
-    method :            'FAST' | 'SAFE', optional
-                        Method used for raycasting. "FAST" will cast only a
-                        single ray to check for intersections. If you
-                        experience problems, set method to "SAFE" to use
-                        multiple rays (slower).
+    backend :           'ncollpyde' | 'pyoctree' | 'scipy' | iterable thereof
+                        Which backend so be used (see Notes). If multiple
+                        backends are given, will use the first backend that is
+                        available.
+    n_rays :            int | None, optional
+                        Number of rays used to determine if a point is inside
+                        a volume. More rays give more reliable results but are
+                        slower (especially with pyoctree backend). If ``None``
+                        will use default number of rays (3 for ncollpyde, 1 for
+                        pyoctree).
     prevent_fragments : bool, optional
-                        Only relevant if input is Neuron/List: if True,
-                        will add nodes required to keep neuron from
-                        fragmenting.
+                        Only relevant if input is Neuron/List. If True, will add
+                        nodes required to keep neuron from fragmenting.
+    inplace :           bool, optional
+                        Only relevant if input is Neuron/List. If False, a copy
+                        of the original DataFrames/Neuron is returned. Does
+                        apply if multiple volumes are provided.
+
 
     Returns
     -------
@@ -193,8 +222,15 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     soma                    None
     dtype: object
 
-
     """
+    allowed_backends = ('ncollpyde', 'pyoctree', 'scipy')
+
+    if not utils.is_iterable(backend):
+        backend = [backend]
+
+    if any(set(backend) - set(allowed_backends)):
+        raise ValueError(f'Unknown backend in "{backend}". Allowed backends: '
+                         f'{allowed_backends}')
 
     # If we are given multiple volumes
     if isinstance(volume, (list, dict, np.ndarray)):
@@ -216,8 +252,9 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
             data[v] = in_volume(x,
                                 volume=volume[v],
                                 inplace=False,
+                                n_rays=n_rays,
                                 mode=mode,
-                                method=method)
+                                backend=backend)
         return data
 
     # From here on out volume is a single core.Volume
@@ -231,7 +268,9 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     if isinstance(x, core.TreeNeuron):
         in_v = in_volume(x.nodes[['x', 'y', 'z']],
                          vol,
-                         method=method)
+                         mode='IN',
+                         n_rays=n_rays,
+                         backend=backend)
 
         # If mode is OUT, invert selection
         if mode == 'OUT':
@@ -249,8 +288,8 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         for n in config.tqdm(x, desc='Subsetting',
                              leave=config.pbar_leave,
                              disable=config.pbar_hide):
-            in_volume(n, vol, inplace=True, mode=mode, method=method,
-                      prevent_fragments=prevent_fragments)
+            in_volume(n, vol, inplace=True, mode=mode, backend=backend,
+                      n_rays=n_rays, prevent_fragments=prevent_fragments)
 
         if inplace is False:
             return x
@@ -265,23 +304,26 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     if points.ndim != 2 or points.shape[1] != 3:  # type: ignore  # does not know about numpy
         raise ValueError('Points must be array of shape (N,3).')
 
-    if pyoctree:
-        return ray_in_volume(points, vol,
-                             multi_ray=method.upper() == 'SAFE')
-    else:
-        logger.warning(
-            'Package pyoctree not found. Falling back to ConvexHull.')
-        return in_volume_convex(points, vol, approximate=False)
+    for b in backend:
+        if b == 'ncollpyde' and ncollpyde:
+            return in_volume_ncoll(points, vol,
+                                   n_rays=n_rays)
+        elif b == 'pyoctree' and pyoctree:
+            return in_volume_pyoc(points, vol,
+                                  n_rays=n_rays)
+        elif b == 'scipy':
+            return in_volume_convex(points, vol, approximate=False)
+
+    raise ValueError(f'None of the specified backends were available: {backend}')
 
 
 def intersection_matrix(x: 'core.NeuronObject',
                         volumes: Union[List[core.Volume],
                                        Dict[str, core.Volume]],
                         attr: Optional[str] = None,
-                        method: Union[Literal['FAST'],
-                                      Literal['SAFE']] = 'FAST'
+                        **kwargs
                         ) -> pd.DataFrame:
-    """ Computes intersection matrix between a set of neurons and a set of
+    """Compute intersection matrix between a set of neurons and a set of
     volumes.
 
     Parameters
@@ -292,14 +334,14 @@ def intersection_matrix(x: 'core.NeuronObject',
     attr :            str | None, optional
                       Attribute to return for intersected neurons (e.g.
                       'cable_length'). If None, will return TreeNeuron.
-    method :          'FAST' | 'SAFE', optional
-                      See :func:`navis.intersect.in_volume`.
+    **kwargs
+                      Keyword arguments passed to :func:`navis.in_volume`.
 
     Returns
     -------
     pandas DataFrame
-    """
 
+    """
     # Volumes should be a dict at some point
     volumes_dict: Dict[str, core.Volume]
 
@@ -322,7 +364,7 @@ def intersection_matrix(x: 'core.NeuronObject',
         if not isinstance(v, core.Volume):
             raise TypeError(f'Wrong data type found in volumes: "{type(v)}"')
 
-    data = in_volume(x, volumes_dict, inplace=False, mode='IN', method=method)
+    data = in_volume(x, volumes_dict, inplace=False, **kwargs)
 
     if not attr:
         df = pd.DataFrame([[n for n in data[v]] for v in data],

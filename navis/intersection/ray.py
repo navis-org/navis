@@ -17,7 +17,7 @@
 
 import numpy as np
 
-from typing import Sequence
+from typing import Sequence, Optional
 
 from ..core import Volume
 
@@ -26,13 +26,42 @@ try:
 except ImportError:
     pyoctree = None
 
+try:
+    import ncollpyde
+except ImportError:
+    ncollpyde = None
 
-def ray_in_volume(points: np.ndarray,
-                  volume: Volume,
-                  multi_ray: bool = False) -> Sequence[bool]:
-    """ Uses pyoctree's raycsasting to test if points are within a given
-    volume.
-    """
+
+def in_volume_ncoll(points: np.ndarray,
+                    volume: Volume,
+                    n_rays: Optional[int] = 3) -> Sequence[bool]:
+    """Use ncollpyde to test if points are within a given volume."""
+    if isinstance(n_rays, type(None)):
+        n_rays = 3
+
+    if not isinstance(n_rays, (int, np.integer)):
+        raise TypeError(f'n_rays must be integer, got "{type(n_rays)}"')
+
+    if n_rays <= 0:
+        raise ValueError('n_rays must be > 0')
+
+    coll = ncollpyde.Volume(volume.vertices, volume.faces, n_rays=n_rays)
+
+    return coll.contains(points)
+
+
+def in_volume_pyoc(points: np.ndarray,
+                   volume: Volume,
+                   n_rays: Optional[int] = 1) -> Sequence[bool]:
+    """Use pyoctree's raycasting to test if points are within a given volume."""
+    if isinstance(n_rays, type(None)):
+        n_rays = 1
+
+    if not isinstance(n_rays, (int, np.integer)):
+        raise TypeError(f'n_rays must be integer, got "{type(n_rays)}"')
+
+    if n_rays <= 0:
+        raise ValueError('n_rays must be > 0')
 
     tree = getattr(volume, 'pyoctree', None)
 
@@ -46,57 +75,47 @@ def ray_in_volume(points: np.ndarray,
     # Get min max of volume
     mx = np.array(volume.vertices).max(axis=0)
     mn = np.array(volume.vertices).min(axis=0)
+    dm = mx - mn
 
-    # Get points outside of bounding box
-    bbox_out = (points > mx).any(axis=1) | (points < mn).any(axis=1)
-    isin = ~bbox_out
-    in_points = points[isin]
+    # Remove points outside of bounding box
+    is_out = (points > mx).any(axis=1) | (points < mn).any(axis=1)
 
-    # Perform ray intersection on points inside bounding box
-    rayPointList = np.array([[[p[0], mn[1], mn[2]], p] for p in in_points],
-                            dtype=np.float32)
+    # Cast rays
+    # There is no point of vectorizing this because pyoctree's rayIntersection
+    # does only take a single ray at a time...
+    for i in range(n_rays):
+        # Process only point that we think could be in
+        in_points = points[~is_out]
 
-    # Get intersections and extract coordinates of intersection
-    intersections = [np.array([i.p for i in tree.rayIntersection(ray)]) for ray in rayPointList]
+        # If no in points left, break out
+        if in_points.size == 0:
+            break
 
-    # In a few odd cases we can get the multiple intersections at the exact
-    # same coordinate (something funny with the faces).
-    unique_int = [np.unique(np.round(i), axis=0) if np.any(i) else i for i in intersections]
+        # Pick a random point inside the volumes bounding box as origin
+        origin = np.random.rand(3) * dm + mn
 
-    # Unfortunately rays are bidirectional -> we have to filter intersections
-    # to those that occur "above" the point we are querying
-    unilat_int = [i[i[:, 2] >= p] if np.any(i) else i for i, p in zip(unique_int, in_points[:, 2])]
-
-    # Count intersections
-    int_count = [i.shape[0] for i in unilat_int]
-
-    # Get odd (= in volume) numbers of intersections
-    is_odd = np.remainder(int_count, 2) != 0
-
-    # If we want to play it safe, run the above again with two additional rays
-    # and decide by majority
-    if multi_ray:
-        # Run ray from left back
-        rayPointList = np.array([[[mn[0], p[1], mn[2]], p] for p in in_points],
+        # Generate ray point list:
+        rayPointList = np.array([[origin, p] for p in in_points],
                                 dtype=np.float32)
+
+        # Get intersections and extract coordinates of intersection
         intersections = [np.array([i.p for i in tree.rayIntersection(ray)]) for ray in rayPointList]
-        unique_int = [np.unique(i, axis=0) if np.any(i) else i for i in intersections]
-        unilat_int = [i[i[:, 0] >= p] if np.any(i) else i for i, p in zip(unique_int, in_points[:, 0])]
+
+        # In a few odd cases we can get the multiple intersections at the exact
+        # same coordinate (something funny with the faces).
+        unique_int = [np.unique(np.round(i), axis=0) if np.any(i) else i for i in intersections]
+
+        # Unfortunately rays are bidirectional -> we have to filter intersections
+        # to those that occur "above" the point we are querying
+        unilat_int = [i[i[:, 2] >= p] if np.any(i) else i for i, p in zip(unique_int, in_points[:, 2])]
+
+        # Count intersections
         int_count = [i.shape[0] for i in unilat_int]
-        is_odd2 = np.remainder(int_count, 2) != 0
 
-        # Run ray from lower left
-        rayPointList = np.array([[[mn[0], mn[1], p[2]], p] for p in in_points],
-                                dtype=np.float32)
-        intersections = [np.array([i.p for i in tree.rayIntersection(ray)]) for ray in rayPointList]
-        unique_int = [np.unique(i, axis=0) if np.any(i) else i for i in intersections]
-        unilat_int = [i[i[:, 1] >= p] if np.any(i) else i for i, p in zip(unique_int, in_points[:, 1])]
-        int_count = [i.shape[0] for i in unilat_int]
-        is_odd3 = np.remainder(int_count, 2) != 0
+        # Get even (= outside volume) numbers of intersections
+        is_even = np.remainder(int_count, 2) == 0
 
-        # Find majority consensus
-        is_odd = is_odd.astype(int) + is_odd2.astype(int) + is_odd3.astype(int)
-        is_odd = is_odd >= 2
+        # Set outside points
+        is_out[~is_out] = is_even
 
-    isin[isin] = is_odd
-    return isin
+    return ~is_out
