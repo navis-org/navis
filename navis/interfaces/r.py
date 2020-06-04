@@ -1104,11 +1104,15 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
 def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                  template: str,
-                 mirror_axis: Union['X', 'Y', 'Z'] = 'X',
-                 transform: Union['warp', 'affine', 'flip'] = 'warp',
+                 mirror_axis: Union[Literal['X'],
+                                    Literal['Y'],
+                                    Literal['Z']] = 'X',
+                 transform: Union[Literal['warp'],
+                                  Literal['affine'],
+                                  Literal['flip']] = 'warp',
                  **kwargs) -> Union['core.NeuronObject',
-                                   'pd.DataFrame',
-                                   'np.ndarray']:
+                                    'pd.DataFrame',
+                                    'np.ndarray']:
     """Mirror 3D object along given axixs. This is just a wrapper for
     ``nat.templatebrains:mirror_brain``.
 
