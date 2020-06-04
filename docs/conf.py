@@ -39,6 +39,7 @@ from nb_to_doc import convert_nb
 
 #This needs to be removed in order to built locally
 import mock
+"""
 MOCK_MODULES = ['sklearn', 'igraph', 'tqdm', 'pyoctree',
                 'png',
 
@@ -84,9 +85,20 @@ MOCK_MODULES = ['sklearn', 'igraph', 'tqdm', 'pyoctree',
                 'vispy.color.ColorArray', 'vispy.visuals.MeshVisual',
                 'vispy.gloo.util._screenshot', 'vispy.util.quaternion',
                 'vispy.util.transforms', 'vispy.util.transforms.rotate']
+"""
+MOCK_MODULES = ['py2cytoscape.data.cyrest_client.CyRestClient',
+                'rpy2.robjects.packages.importr'
+                'rpy2.robjects.pandas2ri',
+                'rpy2.robjects.numpy2ri',
+                'rpy2.robjects.conversion.localconverter']
 
-for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = mock.Mock()
+for module in MOCK_MODULES:
+    split = module.split('.')
+    for i in range(len(split)):
+        m = '.'.join(split[:i+1])
+        sys.modules[m] = mock.Mock()
+
+sys.modules['rpy2'].__version_vector__ = (3, 0, 0)
 
 # import navis
 # from navis.interfaces import cytoscape
