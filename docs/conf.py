@@ -92,6 +92,7 @@ for mod_name in MOCK_MODULES:
 # from navis.interfaces import cytoscape
 # import navis.interfaces.blender
 # from navis.interfaces import r
+import navis.interfaces.neuprint
 
 
 # -- Make execution numbers in Jupyter notebooks ascending -------------------
