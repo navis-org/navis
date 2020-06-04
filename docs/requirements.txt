@@ -7,3 +7,4 @@ numpydoc
 sphinx-bootstrap-theme
 sphinx-autodoc-typehints
 PyQt5~=5.13.0
+neuprint-python
