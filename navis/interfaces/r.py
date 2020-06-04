@@ -61,6 +61,15 @@ def try_importr(x):
         return FailedImport(x)
 
 
+def try_loadr(x):
+    """Try finding robject. Will postpone exception until use time."""
+    try:
+        return robjects.r(x)
+    except BaseException:
+        # Return dummy class
+        return FailedObject(x)
+
+
 class FailedImport:
     """Dummy class for failed imports from R. Throws meaningful exceptions.
     """
@@ -79,9 +88,14 @@ class FailedImport:
         self.raise_error()
 
 
-cl = robjects.r('class')
-names = robjects.r('names')
-attributes = robjects.r('attributes')
+class FailedObject(FailedImport):
+    def raise_error(self):
+        raise Exception(f'R object "{self.name}" was not found.')
+
+
+cl = try_loadr(robjects.r('class'))
+names = try_loadr(robjects.r('names'))
+attributes = try_loadr(robjects.r('attributes'))
 
 # Load the entire natverse
 nat = try_importr("nat")
