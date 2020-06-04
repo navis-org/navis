@@ -471,6 +471,25 @@ class TreeNeuron:
         return np.nansum(list(w))
 
     @property
+    def volume(self) -> float:
+        """Radius-based volume."""
+        if 'radius' not in self.nodes.columns:
+            raise ValueError(f'Neuron {self.id} does not have radius information')
+
+        if any(self.nodes.radius < 0):
+            logger.warning(f'Neuron {self.id} has negative radii - volume will not be correct.')
+
+        if any(self.nodes.radius.isnull()):
+            logger.warning(f'Neuron {self.id} has NaN radii - volume will not be correct.')
+
+        # Get distance for every child -> parent pair
+        dist = morpho.mmetrics.parent_dist(self, root_dist=0)
+        # Get cylindric volume for each segment
+        vols = (self.nodes.radius ** 2) * dist * np.pi
+        # Sum up and return
+        return vols.sum()
+
+    @property
     def bbox(self) -> np.ndarray:
         """ Bounding box."""
         return self.nodes.describe().loc[['min', 'max'],

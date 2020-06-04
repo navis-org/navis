@@ -1159,7 +1159,7 @@ def guess_radius(x: NeuronObject,
     cn = x.connectors.copy()
 
     # Prepare nodes (add parent_dist for later, set index)
-    mmetrics.parent_dist(x, root_dist=0)
+    x.nodes['parent_dist'] = mmetrics.parent_dist(x, root_dist=0)
     nodes = x.nodes.set_index('node_id', inplace=False)
 
     # For each connector (pre and post), get the X/Y distance to its node

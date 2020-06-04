@@ -36,7 +36,7 @@ __all__ = sorted(['strahler_index', 'bending_flow',
 
 def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
                 root_dist: Optional[int] = None) -> None:
-    """Add ``parent_dist`` [nm] column to the treenode table.
+    """Get child->parent distances for nodes.
 
     Parameters
     ----------
@@ -47,10 +47,10 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
 
     Returns
     -------
-    Nothing
+    np.ndarray
+                Array with distances in same order and size as node table.
 
     """
-
     if isinstance(x, core.TreeNeuron):
         nodes = x.nodes
     elif isinstance(x, pd.DataFrame):
@@ -58,22 +58,19 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
     else:
         raise TypeError('Need TreeNeuron or DataFrame, got "{}"'.format(type(x)))
 
-    # Calculate distance to parent for each node
-    not_root = nodes[nodes.parent_id >= 0]
-    tn_coords = not_root[['x', 'y', 'z']].values
+    # Extract node coordinates
+    tn_coords = nodes[['x', 'y', 'z']].values
 
-    # Ready treenode table to be indexes by node_id
-    this_tn = nodes.set_index('node_id', inplace=False)
-    parent_coords = this_tn.loc[not_root.parent_id.values,
-                                ['x', 'y', 'z']].values
+    # Get parent coordinates
+    parent_coords = nodes.set_index('node_id').reindex(nodes.parent_id.values)[['x', 'y', 'z']].values
 
     # Calculate distances between nodes and their parents
     w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1))
 
-    nodes['parent_dist'] = root_dist
-    nodes.loc[nodes.parent_id >= 0, 'parent_dist'] = w
+    # Replace root dist (nan by default)
+    w[np.isnan(w)] = root_dist
 
-    return None
+    return w
 
 
 @overload
