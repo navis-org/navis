@@ -32,7 +32,7 @@ colortype = Union[str,
 
 
 def plot1d(x: 'core.NeuronObject',
-           ax: Optional['matplotlib.ax'] = None,
+           ax: Optional[mpl.axes.Axes] = None,
            color: Optional[Union['str',
                                  colortype,
                                  Dict[Any, colortype],
