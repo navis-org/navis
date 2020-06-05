@@ -11,32 +11,49 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-""" Set of functions to interface with the neuromorpho.org database of
-neurons.
+"""Set of functions to interface with the neuromorpho.org database o neurons.
 
 See http://neuromorpho.org/apiReference.html for documentation.
 """
 
 import requests
-import urllib
 
 import pandas as pd
 
-from tqdm import tqdm
 from typing import List, Dict, Union
 
 from ..core import TreeNeuron, NeuronList
 from ..io.swc_io import from_swc
-from .. import utils
+from .. import utils, config
 
 
 baseurl = 'http://neuromorpho.org'
 
 
-def list_neurons(**filters) -> pd.DataFrame:
-    """ List neurons filtered by given criteria
-    """
+def find_neurons(page_limit=None, **filters) -> pd.DataFrame:
+    """Find neurons matching by given criteria.
 
+    Parameters
+    ----------
+    page_limit :    int | None, optional
+                    Use this to limit the results if you are running a big query.
+    **filters
+                    Search criteria as ``field=value``. See
+                    :func:`navis.interfaces.neuromorpho.get_neuron_fields` and
+                    :func:`navis.interfaces.neuromorpho.get_available_field_values`
+                    for available fields and values.
+
+    Returns
+    -------
+    pandas.DataFrame
+
+    Examples
+    --------
+    >>> import navis.interfaces.neuromorpho as nm
+    >>> rat_neurons = nm.find_neurons(species='rat')
+    >>> rat_or_mouse = nm.find_neurons(species=['rat', 'mouse'])
+
+    """
     if not filters:
         answer = ""
         while answer not in ["y", "n"]:
@@ -45,18 +62,45 @@ def list_neurons(**filters) -> pd.DataFrame:
         if answer != 'y':
             return  # type: ignore
 
-    # Turn lists into strings
-    filters = {k: ','.join(v) if isinstance(v, list) else v for k, v in filters.items()}
+    # Turn strings into lists
+    filters = {k: list(utils.make_iterable(v)) for k, v in filters.items()}
 
-    # Turn filters into str
-    fstring = '&'.join([f'{k}:{v}' for k, v in filters.items()])
+    url = utils.make_url(baseurl, 'api', 'neuron', 'select')
 
-    url = utils.make_url(baseurl, 'neuron', 'select', q=str(filters))
+    if isinstance(page_limit, type(None)):
+        page_limit = float('inf')
+
+    data: List[str] = []
+    page = 0
+    with config.tqdm(total=1,
+                     disable=config.pbar_hide,
+                     leave=config.pbar_leave,
+                     desc='Fetching') as pbar:
+        while page < page_limit:
+            resp = requests.post(f'{url}?page={page}', json=filters)
+
+            resp.raise_for_status()
+
+            content = resp.json()
+
+            data += content['_embedded']['neuronResources']
+
+            if page == (content['page']['totalPages'] - 1):
+                break
+
+            if page_limit == float('inf'):
+                pbar.total = content['page']['totalPages']
+            else:
+                pbar.total = page_limit
+
+            pbar.update(1)
+            page += 1
+
+    return pd.DataFrame.from_records(data)
 
 
 def get_neuron_info(x: Union[str, int]) -> pd.Series:
-    """ Fetch neuron info by ID or by name.
-
+    """Fetch neuron info by ID or by name.
 
     Parameters
     ----------
@@ -71,8 +115,8 @@ def get_neuron_info(x: Union[str, int]) -> pd.Series:
     >>> info = nm.get_neuron_info(1)
     >>> # Get info by Name
     >>> info = nm.get_neuron_info('cnic_001')
-    """
 
+    """
     try:
         x = int(x)
     except BaseException:
@@ -93,15 +137,14 @@ def get_neuron_info(x: Union[str, int]) -> pd.Series:
 
 
 def get_neuron(x: Union[str, int, Dict[str, str]], **kwargs) -> TreeNeuron:
-    """ Fetch neuron by ID or by name.
-
+    """Fetch neuron by ID or by name.
 
     Parameters
     ----------
-    x :         int | str | dict
+    x :         int | str | dict | pandas.DataFrame
                 Integer is intepreted as ID, string as neuron name. Dictionary
-                must contain 'archive' (e.g. "Wearne_Hof") and 'neuron_name'
-                (e.g. "cnic_001").
+                and DataFrame must contain 'archive' (e.g. "Wearne_Hof") and
+                'neuron_name' (e.g. "cnic_001").
     **kwargs
                 Keyword arguments passed on to :func:`navis.from_swc`.
 
@@ -123,7 +166,13 @@ def get_neuron(x: Union[str, int, Dict[str, str]], **kwargs) -> TreeNeuron:
     n_leafs                 54
     cable_length       4792.21
     soma                  None
+
     """
+    if isinstance(x, pd.DataFrame):
+        return NeuronList([get_neuron(r) for r in config.tqdm(x.to_dict(orient='records'),
+                                                              desc='Fetching',
+                                                              disable=config.pbar_hide,
+                                                              leave=config.pbar_leave)])
 
     if not isinstance(x, (pd.Series, dict)):
         info = get_neuron_info(x)
@@ -135,19 +184,29 @@ def get_neuron(x: Union[str, int, Dict[str, str]], **kwargs) -> TreeNeuron:
 
     url = utils.make_url(baseurl, 'dableFiles', archive.lower(), 'CNG version', name + '.CNG.swc')
 
-    return from_swc(url, **kwargs)
+    n = from_swc(url, **kwargs)
+
+    n.id = x.get('neuron_id', n.id)
+    n.name = x.get('name', getattr(n, 'name'))
+
+    return n
 
 
 def get_neuron_fields() -> Dict[str, List[str]]:
-    """ Returns a list of neuron fields avaialble.
+    """List all available neuron fields.
 
     Examples
     --------
     >>> import navis.interfaces.neuromorpho as nm
     >>> fields = nm.get_neuron_fields()
+    >>> fields
+    ['neuron_id',
+     'neuron_name',
+     'archive',
+     'age_scale',
+     ...
 
     """
-
     url = utils.make_url(baseurl, 'api', 'neuron', 'fields')
     resp = requests.get(url)
 
@@ -157,25 +216,34 @@ def get_neuron_fields() -> Dict[str, List[str]]:
 
 
 def get_available_field_values(field: str) -> List[str]:
-    """ Returns a list of values present in the repository for the neuron
-    field requested.
+    """List all possible values for given neuron field.
 
     Parameters
     ----------
     field :     str
-                Field to search for
+                Field to search for.
 
     Examples
     --------
     >>> import navis.interfaces.neuromorpho as nm
     >>> # Get availalbe values for "species" field
     >>> species = nm.get_available_field_values('species')
+    >>> species
+    ['rat',
+     'mouse',
+     'drosophila melanogaster',
+     'human',
+     'monkey',
+     ...
+
     """
-
     data: List[str] = []
-    page = 1
+    page = 0
 
-    with tqdm(total=1, desc='Fetching') as pbar:
+    with config.tqdm(total=1,
+                     disable=config.pbar_hide,
+                     leave=config.pbar_leave,
+                     desc='Fetching') as pbar:
         while True:
             url = utils.make_url(baseurl, 'api', 'neuron', 'fields', field, page=page)
 
