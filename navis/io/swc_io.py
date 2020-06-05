@@ -172,6 +172,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
             # Load into pandas DataFrame
             nodes = pd.read_csv(file,
                                 delimiter=' ',
+                                skipinitialspace=True,
                                 skiprows=len(header),
                                 header=None)
             nodes.columns = ['node_id', 'label', 'x', 'y', 'z',
