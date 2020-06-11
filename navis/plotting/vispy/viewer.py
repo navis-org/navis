@@ -331,11 +331,11 @@ class Viewer:
             self.canvas.events.mouse_press.disconnect(on_mouse_press)
 
     def _render_fb(self, crop=None):
-        """Render framebuffer. """
+        """Render framebuffer."""
         if not crop:
-            crop=(0, 0,
-                  self.canvas.size[0] * self.canvas.pixel_scale,
-                  self.canvas.size[1] * self.canvas.pixel_scale)
+            crop = (0, 0,
+                    self.canvas.size[0] * self.canvas.pixel_scale,
+                    self.canvas.size[1] * self.canvas.pixel_scale)
 
         # We have to temporarily deactivate the overlay and view3d
         # otherwise we won't be able to see what's on the 3D or might
@@ -349,12 +349,12 @@ class Viewer:
 
     @property
     def visible(self):
-        """ Returns skeleton IDs of currently selected visible. """
+        """IDs of currently selected visible."""
         return [s for s in self.neurons if self.neurons[s][0].visible]
 
     @property
     def selected(self):
-        """ Skeleton IDs of currently selected neurons. """
+        """IDs of currently selected neurons."""
         return self.__selected
 
     @selected.setter
@@ -366,8 +366,7 @@ class Viewer:
 
         neurons = self.neurons
 
-        logger.debug('{0} neurons selected ({1} previously)'.format(
-            len(n), len(self.selected)))
+        logger.debug(f'{len(n)} neurons selected ({len(self.selected)} previously)')
 
         # First un-highlight neurons no more selected
         for s in [s for s in self.__selected if s not in set(n)]:
@@ -427,23 +426,28 @@ class Viewer:
 
     @property
     def neurons(self):
-        """ Returns visible and invisible neuron visuals currently on the
+        """Returns visible and invisible neuron visuals currently on the
         canvas.
 
         Returns
         -------
-        dict
+        OrderedDict
                     {id: [neurites, soma]}
+
         """
-        # Collect neuron objects
-        neuron_obj = [c for c in self.visuals if 'neuron' in getattr(
-            c, '_object_type', '')]
+        # Collect neuron objects (neurites + somata)
+        neuron_obj = [c for c in self.visuals if 'neuron' in getattr(c,
+                                                                     '_object_type',
+                                                                     '')]
 
-        # Collect skeleton IDs
-        skids = set([ob._id for ob in neuron_obj])
+        # Collect IDs
+        neuron_ids = set([ob._id for ob in neuron_obj])
 
-        # Map visuals to unique skids
-        return {s: [ob for ob in neuron_obj if ob._id == s] for s in skids}
+        # Collect somata and neurites by ID
+        coll = OrderedDict()
+        for ob in neuron_ids:
+            coll[ob] = [v for v in self.visuals if getattr(v, '_id') == ob]
+        return coll
 
     @property
     def _neuron_obj(self):
@@ -801,29 +805,32 @@ class Viewer:
         self.set_colors(cmap, include_connectors=include_connectors)
 
     def set_bgcolor(self, c):
-        """ Set background color. """
+        """Set background color."""
         self.canvas.bgcolor = c
 
     def _cycle_neurons(self, increment):
-        """ Cycle through neurons. """
+        """Cycle through neurons."""
         self._cycle_index += increment
 
         # If mode is 'hide' cycle over all neurons
         if self._cycle_mode == 'hide':
             to_cycle = self.neurons
         # If mode is 'alpha' ignore all hidden neurons
+        elif self._cycle_mode == 'alpha':
+            # Make sure to keep the order
+            to_cycle = OrderedDict()
+            for s in self.visible:
+                to_cycle[s] = self.neurons[s]
         else:
-            to_cycle = {s: self.neurons[s] for s in self.visible}
+            raise ValueError(f'Unknown cycle mode "{self._cycle_mode}".')
 
         if self._cycle_index < 0:
             self._cycle_index = len(to_cycle) - 1
         elif self._cycle_index > len(to_cycle) - 1:
             self._cycle_index = 0
 
-        neurons_sorted = sorted(to_cycle.keys())
-
-        to_hide = [n for i, n in enumerate(neurons_sorted) if i != self._cycle_index]
-        to_show = [neurons_sorted[self._cycle_index]]
+        to_hide = [n for i, n in enumerate(to_cycle) if i != self._cycle_index]
+        to_show = [list(to_cycle.keys())[self._cycle_index]]
 
         # Depending on background color, we have to use different alphas
         v = self.canvas.bgcolor.hsv[2]
@@ -855,10 +862,17 @@ class Viewer:
                              '"alpha"!'.format(self._cycle_mode))
 
         self.active_neuron = to_show
-        names = [getattr(self.neurons[u][0], 'name', 'NA') for u in to_show]
-        self._data_text.text = '{} [{}/{}]'.format('|'.join(names),
-                                                   self._cycle_index + 1,
-                                                   len(self.neurons))
+
+        # Generate names
+        names = []
+        for u in to_show:
+            n = getattr(self.neurons[u][0], "name", "NA")
+            if not isinstance(u, uuid.UUID):
+                n += f' ({u})'
+            names.append(n)
+
+        self._data_text.text = f'{"|".join(names)}' \
+                               f' [{self._cycle_index + 1}/{len(self.neurons)}]'
 
     def _draw_fps(self, fps):
         """ Callback for ``canvas.measure_fps``. """
