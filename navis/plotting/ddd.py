@@ -290,7 +290,7 @@ def plot3d_plotly(x, **kwargs):
     if volumes:
         trace_data += volume2plotly(volumes, **kwargs)
     if points:
-        trace_data += scatter2plotly(points, scatter_kws=scatter_kws)
+        trace_data += scatter2plotly(points, **scatter_kws)
 
     layout = layout2plotly(**kwargs)
 
