@@ -122,7 +122,7 @@ class TreeNeuron:
 
     #: Attributes used for neuron summary
     SUMMARY_PROPS = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
-                     'n_leafs', 'cable_length', 'soma']
+                     'n_leafs', 'cable_length', 'soma', 'units']
 
     def __init__(self,
                  x: Union[pd.DataFrame,
@@ -218,7 +218,7 @@ class TreeNeuron:
         return config.ureg(getattr(self, '_unit_str', None))
 
     @units.setter
-    def units(self, v: Union[pint.Unit, str]):
+    def units(self, v: Union[pint.Unit, str, None]):
         # Note that we are storing the string, not the actual pint.Quantity
         # That is to avoid problems with pickling .e.g when using multiprocessing
         if isinstance(v, str):
