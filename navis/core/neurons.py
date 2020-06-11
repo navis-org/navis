@@ -130,7 +130,7 @@ class TreeNeuron:
                           str,
                           'TreeNeuron',
                           nx.DiGraph],
-                 units: Union[pint.Unit, str] = 'um',
+                 units: Union[pint.Unit, str] = '1',
                  **metadata
                  ):
         """Initialize Skeleton Neuron.
@@ -143,8 +143,10 @@ class TreeNeuron:
                          - `str` is treated as SWC file name
                          - `BufferedIOBase` e.g. from `open(filename)`
                          - `networkx.DiGraph` parsed by `navis.nx2neuron`
-        units :         pint.Units
-                        Units for coordinates. Defaults to micrometers.
+        units :         str | pint.Units
+                        Units for coordinates. Defaults to "1" (dimensionless).
+                        Strings must be parsable by pint: e.g. "nm", "um",
+                        "micrometer" or "8 nanometers".
         **metadata
                         Any additional data to attach to neuron.
 
