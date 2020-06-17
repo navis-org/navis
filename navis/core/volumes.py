@@ -356,6 +356,14 @@ class Volume(trimesh.Trimesh):
         """Center of mass."""
         return np.mean(self.vertices, axis=0)
 
+    def __getstate__(self):
+        """Custom pickler."""
+        return {k: v for k,v in self.__dict__.items() if not callable(v)}
+
+    def __setstate__(self, d):
+        """Custom unpickler."""
+        self.__dict__.update(d)
+
     def __str__(self):
         return self.__repr__()
 
