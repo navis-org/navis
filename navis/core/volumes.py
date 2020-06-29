@@ -62,11 +62,14 @@ class Volume(trimesh.Trimesh):
 
     def __init__(self,
                  vertices: Union[list, np.ndarray],
-                 faces: Union[list, np.ndarray],
+                 faces: Union[list, np.ndarray] = None,
                  name: Optional[str] = None,
                  color: Union[str,
                               Sequence[Union[int, float]]] = (.95, .95, .95, .1),
                  id: Optional[int] = None, **kwargs):
+
+        if hasattr(vertices, 'vertices') and hasattr(vertices, 'faces'):
+            vertices, faces = vertices.vertices, vertices.faces
 
         super().__init__(vertices=vertices, faces=faces, **kwargs)
 
