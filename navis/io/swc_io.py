@@ -297,16 +297,15 @@ def to_swc(x: 'core.NeuronObject',
 
     # If not specified, generate generic filename
     if isinstance(filename, type(None)):
-        filename = 'neuron_{}.swc'.format(x.skeleton_id)
+        filename = f'neuron_{x.id}.swc'
 
     # Check if filename is of correct type
     if not isinstance(filename, str):
-        raise ValueError('Filename must be str or None, '
-                         'got "{}"'.format(type(filename)))
+        raise ValueError(f'Filename must be str or None, got "{type(filename)}"')
 
     # Make sure file ending is correct
     if os.path.isdir(filename):
-        filename += 'neuron_{}.swc'.format(x.skeleton_id)
+        filename += f'neuron_{x.id}.swc'
     elif not filename.endswith('.swc'):
         filename += '.swc'
 
