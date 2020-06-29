@@ -263,8 +263,7 @@ def _edge_count_to_root(x: 'core.TreeNeuron') -> dict:
 def classify_nodes(x: 'core.NeuronObject',
                    inplace: bool = True
                    ) -> Optional['core.NeuronObject']:
-    """ Classifies neuron's nodes into end nodes, branches, slabs
-    or root.
+    """Classify neuron's nodes into end nodes, branches, slabs or root.
 
     Adds ``'type'`` column to ``x.nodes``.
 
@@ -282,7 +281,6 @@ def classify_nodes(x: 'core.NeuronObject',
                 Copy of original neuron. Only if ``inplace=False``.
 
     """
-
     if not inplace:
         x = x.copy()
 
@@ -290,41 +288,41 @@ def classify_nodes(x: 'core.NeuronObject',
     if isinstance(x, core.NeuronList):
         for i in config.trange(x.shape[0], desc='Classifying'):
             classify_nodes(x[i], inplace=True)
-    elif isinstance(x, core.TreeNeuron):
-        # At this point x is TreeNeuron
-        x: core.TreeNeuron
+    elif not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron, got "{type(x)}"')
 
-        # Make sure there are nodes to classify
-        if x.nodes.shape[0] != 0:
-            if config.use_igraph and x.igraph:
-                # Get graph representation of neuron
-                vs = x.igraph.vs
-                # Get branch/end nodes based on their degree of connectivity
-                ends = vs.select(_indegree=0).get_attribute_values('node_id')
-                branches = vs.select(
-                    _indegree_gt=1).get_attribute_values('node_id')
-            else:
-                # Get graph representation of neuron
-                g = x.graph
-                # Get branch/end nodes based on their degree of connectivity
-                deg = pd.DataFrame.from_dict(dict(g.degree()), orient='index')
-                # [ n for n in g.nodes if g.degree(n) == 1 ]
-                ends = deg[deg.iloc[:, 0] == 1].index.values
-                # [ n for n in g.nodes if g.degree(n) > 2 ]
-                branches = deg[deg.iloc[:, 0] > 2].index.values
+    # At this point x is TreeNeuron
+    x: core.TreeNeuron
 
-            if 'type' not in x.nodes:
-                x.nodes['type'] = 'slab'
-            else:
-                x.nodes.loc[:, 'type'] = 'slab'
-
-            x.nodes.loc[x.nodes.node_id.isin(ends), 'type'] = 'end'
-            x.nodes.loc[x.nodes.node_id.isin(branches), 'type'] = 'branch'
-            x.nodes.loc[x.nodes.parent_id < 0, 'type'] = 'root'
+    # Make sure there are nodes to classify
+    if x.nodes.shape[0] != 0:
+        if config.use_igraph and x.igraph:
+            # Get graph representation of neuron
+            vs = x.igraph.vs
+            # Get branch/end nodes based on their degree of connectivity
+            ends = vs.select(_indegree=0).get_attribute_values('node_id')
+            branches = vs.select(
+                _indegree_gt=1).get_attribute_values('node_id')
         else:
-            x.nodes['type'] = None
+            # Get graph representation of neuron
+            g = x.graph
+            # Get branch/end nodes based on their degree of connectivity
+            deg = pd.DataFrame.from_dict(dict(g.degree()), orient='index')
+            # [ n for n in g.nodes if g.degree(n) == 1 ]
+            ends = deg[deg.iloc[:, 0] == 1].index.values
+            # [ n for n in g.nodes if g.degree(n) > 2 ]
+            branches = deg[deg.iloc[:, 0] > 2].index.values
+
+        if 'type' not in x.nodes:
+            x.nodes['type'] = 'slab'
+        else:
+            x.nodes.loc[:, 'type'] = 'slab'
+
+        x.nodes.loc[x.nodes.node_id.isin(ends), 'type'] = 'end'
+        x.nodes.loc[x.nodes.node_id.isin(branches), 'type'] = 'branch'
+        x.nodes.loc[x.nodes.parent_id < 0, 'type'] = 'root'
     else:
-        raise TypeError('Unknown neuron type "%s"' % str(type(x)))
+        x.nodes['type'] = None
 
     if not inplace:
         return x
