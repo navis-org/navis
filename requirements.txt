@@ -17,6 +17,7 @@ tqdm~=4.45
 vispy~=0.6.0
 typing-extensions~=3.7.4
 trimesh~=3.4.4
+ncollpyde~=0.9.0
 
 # Below are optional dependencies
 # py2cytoscape~=0.7.0
