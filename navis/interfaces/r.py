@@ -20,6 +20,9 @@ Notes
 See https://github.com/jefferis
 
 """
+# Exclude from pytest if rpy2 can't be imported
+import pytest
+_ = pytest.importorskip("rpy2")
 
 import os
 import sys
@@ -71,8 +74,7 @@ def try_loadr(x):
 
 
 class FailedImport:
-    """Dummy class for failed imports from R. Throws meaningful exceptions.
-    """
+    """Dummy class for failed imports from R. Throws meaningful exceptions."""
 
     def __init__(self, name):
         self.name = name
@@ -122,7 +124,7 @@ __all__ = sorted(['neuron2r', 'neuron2py', 'init_rcatmaid', 'dotprops2py',
 
 
 def init_rcatmaid(**kwargs):
-    """ Initialize the R Catmaid package.
+    """Initialize the R Catmaid package.
 
     R package by Greg Jefferis: https://github.com/jefferis/rcatmaid
 
@@ -164,8 +166,8 @@ def init_rcatmaid(**kwargs):
     [ListSexpVector]
     16: <class 'rpy2.rinterface.ListSexpVector'>
     <rpy2.rinterface.ListSexpVector object at 0x123d46708> [RTYPES.VECSXP]
-    """
 
+    """
     remote_instance = kwargs.get('remote_instance', None)
     server = kwargs.get('server', None)
     authname = kwargs.get('authname', None)
@@ -217,7 +219,7 @@ def init_rcatmaid(**kwargs):
 
 
 def data2py(data, **kwargs):
-    """Takes data object from rcatmaid (e.g. ``catmaidneuron`` from
+    """Convert data from rcatmaid (e.g. ``catmaidneuron`` from
     ``read.neuron.catmaid``) and converts into Python Data.
 
     Notes
@@ -236,8 +238,8 @@ def data2py(data, **kwargs):
     Returns
     -------
     Converted data or 'Not converted' if conversion failed.
-    """
 
+    """
     if 'neuronlistfh' in cl(data):
         logger.error('On-demand neuronlist found. Conversion cancelled to '
                      'prevent loading large datasets in memory. Please use '
@@ -317,7 +319,7 @@ def neuron2py(x,
               unit_conversion: Union[bool, int, float] = False,
               add_attributes: bool = None
               ) -> 'core.NeuronObject':
-    """ Converts an rcatmaid ``neuron`` or ``neuronlist`` object to
+    """Convert an rcatmaid ``neuron`` or ``neuronlist`` object to
     :class:`~navs.TreeNeuron` or :class:`~navis.NeuronList`, respectively.
 
     Parameters
@@ -335,8 +337,8 @@ def neuron2py(x,
     Returns
     -------
     TreeNeuron/NeuronList
-    """
 
+    """
     if 'rpy2' not in str(type(x)):
         raise TypeError(f'This does not look like R object: "{type(x)}"')
 
@@ -388,7 +390,7 @@ def neuron2py(x,
 def neuron2r(x: 'core.NeuronObject',
              unit_conversion: Union[bool, int, float] = None,
              add_metadata: bool = False):
-    """ Converts a neuron or neuronlist to the corresponding
+    """Convert a neuron or neuronlist to the corresponding
     neuron/neuronlist object in R.
 
     Parameters
@@ -406,8 +408,8 @@ def neuron2r(x: 'core.NeuronObject',
     -------
     R neuron
         Either R neuron or neuronlist depending on input.
-    """
 
+    """
     if isinstance(x, core.NeuronList):
         """
         The way neuronlist are constructed is a bit more complicated:
@@ -484,7 +486,7 @@ def neuron2r(x: 'core.NeuronObject',
 def dotprops2py(dp,
                 subset: Optional[Union[List[str], List[int]]] = None
                 ) -> 'core.Dotprops':
-    """ Converts dotprops into pandas DataFrame.
+    """Convert dotprops into pandas DataFrame.
 
     Parameters
     ----------
@@ -498,8 +500,8 @@ def dotprops2py(dp,
     core.Dotprops
         Subclass of pandas DataFrame. Contains dotprops.
         Can be passed to `plotting.plot3d(dotprops)`
-    """
 
+    """
     # Check if list is on demand
     if 'neuronlistfh' in cl(dp) and not subset:
         dp = dp.rx(robjects.IntVector([i + 1 for i in range(len(dp))]))
@@ -535,13 +537,13 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
                     resample: int = 1,
                     n_cores: int = os.cpu_count() - 2,
                     use_alpha: bool = False) -> 'pyclust.ClustResults':
-    """ Wrapper to use R's ``nat:nblast_allbyall``
+    """Wrapper to use R's ``nat:nblast_allbyall``
     (https://github.com/jefferislab/nat.nblast/).
 
     Parameters
     ----------
-    x :                 NeuronList | RCatmaid neurons
-                        Neurons to blast.
+    x :                 NeuronList | nat.neurons
+                        (Tree)Neurons to blast.
     micron_conversion : int | float
                         Conversion factor to microns. Units in microns is
                         not strictly necessary but highly recommended.
@@ -575,8 +577,8 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
     >>> res.cluster(method='ward')
     >>> res.plot_matrix()
     >>> plt.show()
-    """
 
+    """
     domc = importr('doMC')
     cores = robjects.r(f'registerDoMC({n_cores})')
 
@@ -624,7 +626,7 @@ def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores de
            reverse: bool = False,
            normalised: bool = True,
            UseAlpha: bool = False) -> 'NBLASTresults':
-    """ Wrapper to use R's nblast (https://github.com/jefferis/nat).
+    """Run R's nblast (https://github.com/jefferis/nat).
 
 
     Parameters
@@ -694,7 +696,6 @@ def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores de
     >>> nbl.plot3d(hits=5)
 
     """
-
     start_time = time.time()
 
     domc = importr('doMC')
@@ -840,8 +841,7 @@ def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores de
 
 
 class NBLASTresults:
-    """ Class that holds nblast results and contains wrappers that allow easy
-    plotting.
+    """Class holding nblast results and wrappers that allow easy plotting.
 
     Attributes
     ----------
@@ -877,6 +877,7 @@ class NBLASTresults:
     >>> import matplotlib.pyplot as plt
     >>> nbl.results.hist( layout=(3,1), sharex=True)
     >>> plt.show()
+
     """
 
     def __init__(self, results, sc, scr, neuron, xdp, dps_db, nblast_param):
@@ -900,7 +901,7 @@ class NBLASTresults:
                plot_neuron: bool = True,
                plot_brain: bool = True,
                **kwargs):
-        """ Wrapper to plot nblast hits using ``navis.plot3d()``
+        """Plot nblast hits using ``navis.plot3d()``.
 
         Parameters
         ----------
@@ -929,8 +930,8 @@ class NBLASTresults:
 
         You can specify the backend by using e.g. ``backend='plotly'`` in
         **kwargs. See ``help(navis.plot3d)`` for details.
-        """
 
+        """
         nl = self.get_dps(hits)
 
         n_py = neuron2py(self.neuron)
@@ -966,8 +967,7 @@ class NBLASTresults:
                 return plotting.plot3d([dotprops2py(nl), volumes], **kwargs)
 
     def get_dps(self, entries: Union[int, str, List[str], List[int]]):
-        """ Wrapper to retrieve dotproducts from DPS database (neuronlistfh)
-        as neuronslist.
+        """Retrieve dotproducts from DPS database (neuronlistfh) as neuronslist.
 
         Parameters
         ----------
@@ -984,8 +984,8 @@ class NBLASTresults:
         Returns
         -------
         neuronlist of dotproduct neurons
-        """
 
+        """
         if isinstance(entries, int):
             return self.db.rx(robjects.StrVector(self.results.ix[:entries - 1].gene_name.tolist()))
         elif isinstance(entries, str):
@@ -1009,8 +1009,9 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 **kwargs) -> Union['core.NeuronObject',
                                    'pd.DataFrame',
                                    'np.ndarray']:
-    """Transform 3D data between template brains. This is just a wrapper for
-    ``nat.templatebrains:xform_brain``.
+    """Transform 3D data between template brains.
+
+    This is a simple wrapper for ``nat.templatebrains:xform_brain``.
 
     Parameters
     ----------
@@ -1054,14 +1055,25 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     if not isinstance(x, (core.TreeNeuron, np.ndarray, pd.DataFrame, core.Volume)):
         raise TypeError(f'Unable to transform data of type "{type(x)}"')
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.BaseNeuron):
         x = x.copy()
-        x.nodes = xform_brain(x.nodes,
-                              source=source,
-                              target=target,
-                              fallback=fallback,
-                              verbose=verbose,
-                              **kwargs)
+        if isinstance(x, core.TreeNeuron):
+            x.nodes = xform_brain(x.nodes,
+                                  source=source,
+                                  target=target,
+                                  fallback=fallback,
+                                  verbose=verbose,
+                                  **kwargs)
+        elif isinstance(core.MeshNeuron):
+            x.vertices = xform_brain(x.vertices,
+                                     source=source,
+                                     target=target,
+                                     fallback=fallback,
+                                     verbose=verbose,
+                                     **kwargs)
+        else:
+            raise TypeError(f"Don't know how to transform neuron of type '{type(x)}'")
+
         if x.has_connectors:
             x.connectors = xform_brain(x.connectors,
                                        source=source,
@@ -1127,8 +1139,9 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                  **kwargs) -> Union['core.NeuronObject',
                                     'pd.DataFrame',
                                     'np.ndarray']:
-    """Mirror 3D object along given axixs. This is just a wrapper for
-    ``nat.templatebrains:mirror_brain``.
+    """Mirror 3D object along given axixs.
+
+    This is a simple wrapper for ``nat.templatebrains:mirror_brain``.
 
     Parameters
     ----------
@@ -1172,13 +1185,23 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     if not isinstance(x, (core.TreeNeuron, np.ndarray, pd.DataFrame)):
         raise TypeError(f'Unable to transform data of type "{type(x)}"')
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.BaseNeuron):
         x = x.copy()
-        x.nodes = mirror_brain(x.nodes,
-                               template=template,
-                               mirror_axis=mirror_axis,
-                               transform=transform,
-                               **kwargs)
+        if isinstance(x, core.TreeNeuron):
+            x.nodes = mirror_brain(x.nodes,
+                                   template=template,
+                                   mirror_axis=mirror_axis,
+                                   transform=transform,
+                                   **kwargs)
+        elif isinstance(x, core.MeshNeuron):
+            x.vertices = mirror_brain(x.vertices,
+                                      template=template,
+                                      mirror_axis=mirror_axis,
+                                      transform=transform,
+                                      **kwargs)
+        else:
+            raise TypeError(f"Don't know how to transform neuron of type '{type(x)}'")
+
         if x.has_connectors:
             x.connectors = mirror_brain(x.connectors,
                                         template=template,
@@ -1219,8 +1242,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
 
 def get_brain_template_mesh(x: str) -> core.Volume:
-    """Fetch brain surface model from ``nat.flybrains``, ``flycircuit`` or
-    ``elmr`` and converts to :class:`navis.Volume`.
+    """Fetch brain surface model from ``nat.flybrains``, ``flycircuit`` or ``elmr``.
 
     Parameters
     ----------
@@ -1231,8 +1253,8 @@ def get_brain_template_mesh(x: str) -> core.Volume:
     Returns
     -------
     navis.Volume
-    """
 
+    """
     if not x.endswith('.surf'):
         x += '.surf'
 
@@ -1256,8 +1278,7 @@ def get_brain_template_mesh(x: str) -> core.Volume:
 
 
 def get_neuropil(x: str, template: str = 'FCWB') -> core.Volume:
-    """ Fetches given neuropil from ``nat.flybrains``, ``flycircuit`` or
-    ``elmr`` and converts to :class:`navis.Volume`.
+    """Fetch given neuropil from ``nat.flybrains``, ``flycircuit`` or ``elmr``.
 
     Parameters
     ----------
@@ -1269,8 +1290,8 @@ def get_neuropil(x: str, template: str = 'FCWB') -> core.Volume:
     Returns
     -------
     navis.Volume
-    """
 
+    """
     if not template.endswith('NP.surf'):
         template += 'NP.surf'
 
