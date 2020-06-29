@@ -163,6 +163,9 @@ installed automatically.
   Graph analysis library written in pure Python. This is the standard library
   used by navis.
 
+`ncollpyde <https://pypi.org/project/ncollpyde>`_
+  Used to check e.g. if objects are within volume.
+
 `SciPy <http://scipy.org>`_
   Provides tons of scientific computing tools: sparse matrix representation
   of graphs, pairwose distance computation, hierarchical clustering, etc.
@@ -186,9 +189,8 @@ Optional
 
 .. _pyoc:
 
-`PyOctree <https://pypi.python.org/pypi/pyoctree/>`_ (highly recommended)
-  Provides octrees from meshes to perform ray casting. Used to check e.g. if
-  objects are within volume.
+`PyOctree <https://pypi.python.org/pypi/pyoctree/>`_
+  Slower alternative to ncollpyde.
 
   ::
 
