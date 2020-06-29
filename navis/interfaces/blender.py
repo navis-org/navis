@@ -21,9 +21,10 @@ not automatically imported as it only works from within Blender.
 
 import colorsys
 import json
-import os
-import time
 import math
+import os
+import pytest
+import time
 import uuid
 
 import pandas as pd
@@ -33,6 +34,9 @@ from .. import core, utils, config
 from ..plotting.colors import eval_color
 
 logger = config.logger
+
+# Exclude from pytest if bpy can't be imported
+_ = pytest.importorskip("bpy")
 
 try:
     import bpy
@@ -46,7 +50,7 @@ except BaseException:
 
 
 class Handler:
-    """ Class that interfaces with scene in Blender.
+    """Class that interfaces with scene in Blender.
 
     Parameters
     ----------
@@ -93,6 +97,7 @@ class Handler:
     >>> h.clear()
     >>> # Add only soma
     >>> h.add(nl, neurites=False, connectors=False)
+
     """
     cn_dict = {
         0: dict(name='presynapses',
@@ -111,6 +116,10 @@ class Handler:
     cn_dict['post'] = cn_dict[1]
     cn_dict['gap'] = cn_dict['gapjunction'] = cn_dict[2]
     cn_dict['abutting'] = cn_dict[3]
+
+    # Some other parameters
+    cn_dict['display'] = 'lines'  # "lines" or "spheres", overriden if MeshNeuron
+    cn_dict['size'] = 0.01  # sets size of spheres only
 
     defaults = dict(bevel_depth=0.007,
                     bevel_resolution=5,
@@ -160,37 +169,49 @@ class Handler:
 
         Parameters
         ----------
-        x :             TreeNeuron | NeuronList | core.Volume
+        x :             TreeNeuron | MeshNeuron | NeuronList | core.Volume
                         Objects to import into Blender.
         neurites :      bool, optional
-                        Plot neurites.
+                        Plot neurites. TreeNeurons only.
         soma :          bool, optional
-                        Plot somas.
+                        Plot somas. TreeNeurons only.
         connectors :    bool, optional
-                        Plot connectors.
+                        Plot connectors. Uses a defaults dictionary to set
+                        color/type. See Examples on how to change.
         redraw :        bool, optional
                         If True, will redraw window after each neuron. This
                         will slow down loading!
         use_radii :     bool, optional
-                        If True, will use treenode radii.
+                        If True, will use treenode radii. TreeNeurons only.
         skip_existing : bool, optional
                         If True, will skip neurons that are already loaded.
         downsample :    False | int, optional
                         If integer < 1, will downsample neurites upon import.
-                        Preserves branch point/roots.
+                        Preserves branch point/roots. TreeNeurons only.
         collection :    str, optional
                         Only for Blender 2.8: add object(s) to given collection.
                         If collection does not exist, will be created.
+
+        Examples
+        --------
+        >>> h = navis.interfaces.blender.Handler()
+        >>> n = navis.example_neurons(1)
+        >>> h.add(n, connectors=True)
+
+        Change connector settings
+        >>> h.cn_dict['display'] = 'sphere'
+        >>> h.cn_dict[0]['color'] = (1, 1, 0)
+
         """
         start = time.time()
 
         if skip_existing:
             exists = [ob.get('id', None) for ob in bpy.data.objects]
 
-        if isinstance(x, (core.TreeNeuron, core.NeuronList)):
+        if isinstance(x, (core.BaseNeuron, core.NeuronList)):
             if redraw:
                 print('Set "redraw=False" to vastly speed up import!')
-            if isinstance(x, core.TreeNeuron):
+            if isinstance(x, core.BaseNeuron):
                 x = [x]
             wm = bpy.context.window_manager
             wm.progress_begin(0, len(x))
@@ -198,8 +219,10 @@ class Handler:
                 # Skip existing if applicable
                 if skip_existing and n.id in exists:
                     continue
-                self._create_neuron(n, neurites=neurites,
-                                    soma=soma, connectors=connectors,
+                self._create_neuron(n,
+                                    neurites=neurites,
+                                    soma=soma,
+                                    connectors=connectors,
                                     collection=collection,
                                     downsample=downsample,
                                     use_radii=use_radii)
@@ -208,7 +231,7 @@ class Handler:
                 wm.progress_update(i)
             wm.progress_end()
         elif isinstance(x, core.Volume):
-            self._create_mesh(x, collection=collection)
+            self._create_volume(x, collection=collection)
         elif isinstance(x, np.ndarray):
             self._create_scatter(x, collection=collection, **kwargs)
         elif isinstance(x, core.Dotprops):
@@ -221,13 +244,15 @@ class Handler:
         return
 
     def clear(self):
-        """ Clear all neurons """
+        """Clear all neurons """
         self.all.delete()
 
     def _create_scatter2(self, x, collection=None, **kwargs):
-        """ Create scatter by reusing mesh data. This generate an individual
-        objects for each data point. This is slower! """
+        """Create scatter by reusing mesh data.
 
+        This generate an individual objects for each data point. This is slower!
+
+        """
         if x.ndim != 2 or x.shape[1] != 3:
             raise ValueError('Array must be of shape N,3')
 
@@ -236,9 +261,9 @@ class Handler:
         coords *= float(self.scaling)
         coords *= self.ax_translate
 
-        verts, faces = CalcSphere(kwargs.get('size', 0.02),
-                                  kwargs.get('sp_res', 7),
-                                  kwargs.get('sp_res', 7))
+        verts, faces = calc_sphere(kwargs.get('size', 0.02),
+                                   kwargs.get('sp_res', 7),
+                                   kwargs.get('sp_res', 7))
 
         mesh = bpy.data.meshes.new(kwargs.get('name', 'scatter'))
         mesh.from_pydata(verts, [], faces)
@@ -274,8 +299,7 @@ class Handler:
         return
 
     def _create_scatter(self, x, collection=None, **kwargs):
-        """ Create scatter. """
-
+        """Create scatter."""
         if x.ndim != 2 or x.shape[1] != 3:
             raise ValueError('Array must be of shape N,3')
 
@@ -284,9 +308,9 @@ class Handler:
         coords *= float(self.scaling)
         coords *= self.ax_translate
 
-        base_verts, base_faces = CalcSphere(kwargs.get('size', 0.02),
-                                            kwargs.get('sp_res', 7),
-                                            kwargs.get('sp_res', 7))
+        base_verts, base_faces = calc_sphere(kwargs.get('size', 0.02),
+                                             kwargs.get('sp_res', 7),
+                                             kwargs.get('sp_res', 7))
 
         n_verts = base_verts.shape[0]
         sp_verts = []
@@ -325,79 +349,62 @@ class Handler:
         obj.location = (0, 0, 0)
         obj.show_name = False
 
-        return
+        return obj
 
     def _create_neuron(self, x, neurites=True, soma=True, connectors=True,
                        use_radii=False, downsample=False, collection=None):
-        """ Create neuron object """
-
+        """Create neuron object."""
         mat_name = (f'M#{x.id}')[:59]
 
         mat = bpy.data.materials.get(mat_name,
                                      bpy.data.materials.new(mat_name))
 
-        if neurites:
-            self._create_neurites(x, mat,
-                                  use_radii=use_radii,
-                                  downsample=downsample,
-                                  collection=collection)
-        if soma and not isinstance(x.soma, type(None)):
-            self._create_soma(x, mat, collection=collection)
+        if isinstance(x, core.TreeNeuron):
+            if neurites:
+                self._create_skeleton(x, mat,
+                                      use_radii=use_radii,
+                                      downsample=downsample,
+                                      collection=collection)
+            if soma and not isinstance(x.soma, type(None)):
+                self._create_soma(x, mat, collection=collection)
+        elif isinstance(x, core.MeshNeuron):
+            self._create_mesh(x, mat)
+        else:
+            raise TypeError(f'Expected Mesh/TreeNeuron, got "{type(x)}"')
+
         if connectors and x.has_connectors:
             self._create_connectors(x, collection=collection)
+
         return
 
-    def _create_neurites2(self, x, mat, use_radii=False, collection=None):
-        """ This function generates a mesh first, then converts to curve.
-        I thought it might be faster that way but turns out no. Will keep
-        this code just in case it becomes useful elsewhere.
-        """
-        mesh = bpy.data.meshes.new(f"{getattr(x, 'neuron_name', '')} mesh")
+    def _create_mesh(self, x, mat, collection=None):
+        """Create mesh from MeshNeuron."""
+        name = getattr(x, 'name', '')
 
-        nodes = x.nodes.set_index('node_id')
+        # Make copy of vertices as we are potentially modifying them
+        verts = x.vertices.copy()
 
-        verts = []
-        edges = []
-        n_verts = 0
-        for i, s in enumerate(x.segments):
-            # Get and convert coordinates
-            coords = nodes.loc[s, ['x', 'y', 'z']].values.astype(float)
-            coords *= float(self.scaling)
+        # Convert to Blender space
+        verts *= self.scaling
+        verts = verts[:, self.axes_order]
+        verts *= self.ax_translate
 
-            # Compute edge indices
-            eg = list(zip(range(0, coords.shape[0]),
-                          range(1, coords.shape[0]))
-                      )
-
-            # Offset indices by existing verts
-            eg = np.array(eg) + n_verts
-
-            verts.append(coords)
-            edges.append(eg)
-            n_verts += coords.shape[0]
-
-        # Convert to array of shape (N,3) and (N,2) respectively
-        verts = np.vstack(verts)
-        edges = np.vstack(edges)
-
-        # Swap z and y and invert y coords
-        verts = verts[:, self.axes_order]  * np.array(self.ax_translate)
-
-        # Add all data at once
-        mesh.from_pydata(verts, edges.astype(int), [])
-        mesh.update()
-
-        # Generate the object
-        ob = bpy.data.objects.new(f'#{x.id} - {getattr(x, "neuron_name", "")}',
-                                  mesh)
+        me = bpy.data.meshes.new(f'{name} mesh')
+        ob = bpy.data.objects.new(f"#{x.id} - {name}", me)
         ob.location = (0, 0, 0)
         ob.show_name = True
         ob['type'] = 'NEURON'
         ob['navis_object'] = True
         ob['id'] = str(x.id)
 
-        # Link object to scene - this needs to happen BEFORE we convert to
-        # curve
+        blender_verts = verts.tolist()
+        me.from_pydata(list(blender_verts), [], list(x.faces))
+        me.update()
+
+        me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
+
+        ob.active_material = mat
+
         if not collection:
             col = bpy.context.scene.collection
         elif collection in bpy.data.collections:
@@ -408,25 +415,13 @@ class Handler:
 
         col.objects.link(ob)
 
-        # Select and make active object
-        ob.select_set(True)
-        bpy.context.scene.objects.active = ob
-
-        # Convert from mesh to curve
-        bpy.ops.object.convert(target='CURVE')
-
-        ob.data.dimensions = '3D'
-        ob.data.fill_mode = 'FULL'
-        ob.data.bevel_resolution = self.defaults.get('bevel_resolution', 5)
-        ob.data.bevel_depth = self.defaults.get('bevel_depth', 0.007)
-        ob.active_material = mat
-
-    def _create_neurites(self, x, mat, use_radii=False, downsample=False,
+    def _create_skeleton(self, x, mat, use_radii=False, downsample=False,
                          collection=None):
-        """Create neuron branches. """
-        cu = bpy.data.curves.new(f"{getattr(x, 'neuron_name', '')} mesh", 'CURVE')
-        ob = bpy.data.objects.new(f"#{x.id} - {getattr(x, 'neuron_name', '')}",
-                                  cu)
+        """Create neuron branches."""
+        name = getattr(x, 'name', '')
+
+        cu = bpy.data.curves.new(f"{name} mesh", 'CURVE')
+        ob = bpy.data.objects.new(f"#{x.id} - {name}", cu)
         ob.location = (0, 0, 0)
         ob.show_name = True
         ob['type'] = 'NEURON'
@@ -493,7 +488,7 @@ class Handler:
         return
 
     def _create_dotprops(self, x, scale_vect=1, collection=None):
-        """Create neuron branches. """
+        """Create neuron branches."""
         # Generate uuid
         object_id = str(uuid.uuid4())
 
@@ -556,7 +551,7 @@ class Handler:
         return
 
     def _create_soma(self, x, mat, collection=None):
-        """ Create soma """
+        """Create soma."""
         if not collection:
             col = bpy.context.scene.collection
         elif collection in bpy.data.collections:
@@ -600,7 +595,7 @@ class Handler:
         return
 
     def _create_connectors(self, x, collection=None):
-        """ Create connectors """
+        """Create connectors."""
         if not x.has_connectors:
             return
 
@@ -612,81 +607,88 @@ class Handler:
             col = bpy.data.collections.new(collection)
             bpy.context.scene.collection.children.link(col)
 
-        for i in x.connectors['type'].unique():
-            con = x.connectors[x.connectors.type == i]
+        for t in x.connectors['type'].unique():
+            con = x.connectors[x.connectors.type == t]
 
             # See if we have pre-defined names/colors for this
-            meta = self.cn_dict.get(i, {'name': i, 'color': (0, 0, 0)})
+            settings = self.cn_dict.get(t, {'name': t, 'color': (0, 0, 0)})
 
             if con.empty:
                 continue
 
             # Get & scale coordinates and invert y
             cn_coords = con[['x', 'y', 'z']].values.astype(float)
-            cn_coords = cn_coords[:, self.axes_order]
-            cn_coords *= float(self.scaling)
-            cn_coords *= self.ax_translate
 
-            tn_coords = x.nodes.set_index('node_id').loc[con.node_id.values,
-                                                         ['x', 'y', 'z']].values.astype(float)
-            tn_coords = tn_coords[:, self.axes_order]
-            tn_coords *= float(self.scaling)
-            tn_coords *= self.ax_translate
+            ob_name = f'{settings["name"]} of {x.id}'
 
-            # Add 4th coordinate for blender
-            cn_coords = np.c_[cn_coords, [0] * con.shape[0]]
-            tn_coords = np.c_[tn_coords, [0] * con.shape[0]]
+            # Only plot as lines if this is a TreeNeuron
+            if self.cn_dict.get('display', 'lines') and isinstance(x, core.TreeNeuron):
+                cn_coords = cn_coords[:, self.axes_order]
+                cn_coords *= float(self.scaling)
+                cn_coords *= self.ax_translate
 
-            # Combine cn and tn coords in pairs
-            # This will have to be transposed to get pairs of cn and tn
-            # (see below)
-            coords = np.dstack([cn_coords, tn_coords])
+                tn_coords = x.nodes.set_index('node_id').loc[con.node_id.values,
+                                                             ['x', 'y', 'z']].values.astype(float)
+                tn_coords = tn_coords[:, self.axes_order]
+                tn_coords *= float(self.scaling)
+                tn_coords *= self.ax_translate
 
-            ob_name = f'{meta["name"]} of {x.id}'
+                # Add 4th coordinate for blender
+                cn_coords = np.c_[cn_coords, [0] * con.shape[0]]
+                tn_coords = np.c_[tn_coords, [0] * con.shape[0]]
 
-            cu = bpy.data.curves.new(ob_name + ' mesh', 'CURVE')
-            ob = bpy.data.objects.new(ob_name, cu)
+                # Combine cn and tn coords in pairs
+                # This will have to be transposed to get pairs of cn and tn
+                # (see below)
+                coords = np.dstack([cn_coords, tn_coords])
+                cu = bpy.data.curves.new(ob_name + ' mesh', 'CURVE')
+                ob = bpy.data.objects.new(ob_name, cu)
+                cu.dimensions = '3D'
+                cu.fill_mode = 'FULL'
+                cu.bevel_resolution = 0
+                cu.bevel_depth = 0.007
+                cu.resolution_u = 0
+
+                for cn in coords:
+                    sp = cu.splines.new('POLY')
+
+                    # Add a second point
+                    sp.points.add(1)
+
+                    # Move points
+                    sp.points.foreach_set('co', cn.T.ravel())
+                col.objects.link(ob)
+            else:
+                ob = self._create_scatter(cn_coords,
+                                          collection=collection,
+                                          size=self.cn_dict.get('size', 0.01))
+                ob.name = ob_name
+
             ob['type'] = 'CONNECTORS'
             ob['navis_object'] = True
-            ob['cn_type'] = i
+            ob['cn_type'] = t
             ob['id'] = str(x.id)
             ob.location = (0, 0, 0)
             ob.show_name = False
-            cu.dimensions = '3D'
-            cu.fill_mode = 'FULL'
-            cu.bevel_resolution = 0
-            cu.bevel_depth = 0.007
-            cu.resolution_u = 0
 
-            for cn in coords:
-                sp = cu.splines.new('POLY')
-
-                # Add a second point
-                sp.points.add(1)
-
-                # Move points
-                sp.points.foreach_set('co', cn.T.ravel())
-
-            mat_name = f'{meta["name"]} of #{str(x.id)}'
-
+            mat_name = f'{settings["name"]} of #{str(x.id)}'
             mat = bpy.data.materials.get(mat_name,
                                          bpy.data.materials.new(mat_name))
-            mat.diffuse_color = eval_color(meta['color'],
+            mat.diffuse_color = eval_color(settings['color'],
                                            color_range=1,
                                            force_alpha=True)
             ob.active_material = mat
 
-            col.objects.link(ob)
-
         return
 
-    def _create_mesh(self, volume, collection=None):
-        """ Create mesh from volume.
+    def _create_volume(self, volume, collection=None):
+        """Create mesh from volume.
 
         Parameters
         ----------
         volume :    core.Volume | dict
                     Must contain 'faces', 'vertices'
+
         """
         mesh_name = str(getattr(volume, 'name', 'mesh'))
 
@@ -748,7 +750,7 @@ class Handler:
         return ObjectList(names, handler=self)
 
     def color(self, r, g, b):
-        """ Assign color to all neurons.
+        """Assign color to all neurons.
 
         Parameters
         ----------
@@ -765,11 +767,12 @@ class Handler:
         color of e.g. connectors, use:
 
         >>> handler.connectors.color(r, g, b)
+
         """
         self.neurons.color(r, g, b)
 
     def colorize(self):
-        """ Randomly colorize ALL neurons.
+        """Randomly colorize ALL neurons.
 
         Notes
         -----
@@ -777,6 +780,7 @@ class Handler:
         color of e.g. connectors, use:
 
         >>> handler.connectors.colorize()
+
         """
         self.neurons.colorize()
 
@@ -785,7 +789,7 @@ class Handler:
         self.neurons.emit(v)
 
     def use_transparency(self, v):
-        """ Change transparency (True/False)"""
+        """Change transparency (True/False)."""
         self.neurons.use_transparency(v)
 
     def alpha(self, v):
@@ -806,24 +810,24 @@ class Handler:
         bevel of e.g. connectors, use:
 
         >>> handler.connectors.bevel(.02)
+
         """
         self.neurons.bevel_depth(r)
 
     def hide(self):
-        """ Hide all neuron-related objects"""
+        """Hide all neuron-related objects."""
         self.all.hide()
 
     def unhide(self):
-        """ Unide all neuron-related objects"""
+        """Unide all neuron-related objects."""
         self.all.unhide()
 
 
 class ObjectList:
-    """ Collection of Blender objects.
+    """Collection of Blender objects.
 
     Notes
     -----
-
     1.  ObjectLists should normally be constructed via the handler
         (see :class:`navis.b3d.Handler`)!
     2.  List works with object NAMES to prevent Blender from crashing when
@@ -857,7 +861,6 @@ class ObjectList:
     >>> handler.select('annotation:uPN right').presynapses.color(0, 1, 0)
 
     """
-
     def __init__(self, object_names, handler=None):
         if not isinstance(object_names, list):
             object_names = [object_names]
@@ -911,12 +914,13 @@ class ObjectList:
                           handler=self.handler)
 
     def select(self, unselect_others=True):
-        """ Select objects in 3D viewer
+        """Select objects in 3D viewer
 
         Parameters
         ----------
         unselect_others :   bool, optional
-                            If False, will not unselect other objects
+                            If False, will not unselect other objects.
+
         """
         for ob in bpy.data.objects:
             if ob.name in self.object_names:
@@ -937,6 +941,7 @@ class ObjectList:
                 Blue value, range 0-1
         a :     float
                 Alpha value, range 0-1
+
         """
         for ob in bpy.data.objects:
             if ob.name in self.object_names:
@@ -957,22 +962,19 @@ class ObjectList:
                     logger.warning(f'Error changing color of object "{n}"')
 
     def emit(self, e):
-        """ Change emit value.
-        """
+        """Change emit value."""
         for ob in bpy.data.objects:
             if ob.name in self.object_names:
                 ob.active_material.emit = e
 
     def use_transparency(self, t):
-        """ Change transparency (True/False)
-        """
+        """Change transparency (True/False)."""
         for ob in bpy.data.objects:
             if ob.name in self.object_names:
                 ob.active_material.use_transparency = t
 
     def alpha(self, a):
-        """ Change alpha (0-1).
-        """
+        """Change alpha (0-1)."""
         for ob in bpy.data.objects:
             if ob.name in self.object_names:
                 ob.active_material.alpha = a
@@ -983,7 +985,8 @@ class ObjectList:
         Parameters
         ----------
         r :         float
-                    New bevel radius
+                    New bevel radius.
+
         """
         for n in self.object_names:
             if n in bpy.data.objects:
@@ -991,19 +994,19 @@ class ObjectList:
                     bpy.data.objects[n].data.bevel_depth = r
 
     def hide(self):
-        """Hide objects"""
+        """Hide objects."""
         for i, n in enumerate(self.object_names):
             if n in bpy.data.objects:
                 bpy.data.objects[n].hide = True
 
     def unhide(self):
-        """Unhide objects"""
+        """Unhide objects."""
         for i, n in enumerate(self.object_names):
             if n in bpy.data.objects:
                 bpy.data.objects[n].hide = False
 
     def hide_others(self):
-        """Hide everything BUT these objects"""
+        """Hide everything BUT these objects."""
         for ob in bpy.data.objects:
             if ob.name in self.object_names:
                 ob.hide = False
@@ -1011,20 +1014,20 @@ class ObjectList:
                 ob.hide = True
 
     def delete(self):
-        """Delete neurons in the selection"""
+        """Delete neurons in the selection."""
         self.select(unselect_others=True)
         bpy.ops.object.delete()
 
     def to_json(self, fname='selection.json'):
-        """ Saves neuron selection as json file which can be loaded
+        """Save neuron selection as json file which can be loaded
         in navis selection table.
 
         Parameters
         ----------
         fname :     str, optional
-                    Filename to save selection to
-        """
+                    Filename to save selection to.
 
+        """
         neuron_objects = [
             n for n in bpy.data.objects if n.name in self.object_names and n['type'] == 'NEURON']
 
@@ -1043,8 +1046,8 @@ class ObjectList:
         print(f'Selection saved as {fname} in {os.getcwd()}')
 
 
-def CalcSphere(radius, nrPolar, nrAzimuthal):
-    """ Calculates vertices and faces for a sphere. """
+def calc_sphere(radius, nrPolar, nrAzimuthal):
+    """Calculate vertices and faces for a sphere."""
     dPolar = math.pi / (nrPolar - 1)
     dAzimuthal = 2.0 * math.pi / (nrAzimuthal)
 
