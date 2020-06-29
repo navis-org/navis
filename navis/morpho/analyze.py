@@ -51,7 +51,7 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
 
     """
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError('Input must be neuron, not "{}"'.format(type(x)))
+        raise TypeError(f'Input must be neuron, not "{type(x)}"')
 
     soma_radius = getattr(x, 'soma_detection_radius', None)
     soma_label = getattr(x, 'soma_detection_label', 1)
@@ -60,8 +60,13 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
 
     if not isinstance(soma_radius, type(None)):
         if isinstance(soma_radius, pint.Quantity):
-            # Do NOT remove the .values here -> otherwise conversion to units won't work
-            is_large = soma_nodes.radius.values * x.units >= soma_radius
+            if isinstance(x.units, (pint.Quantity, pint.Unit)) and \
+               not x.units.dimensionless:
+                # Do NOT remove the .values here -> otherwise conversion to units won't work
+                is_large = soma_nodes.radius.values * x.units >= soma_radius
+            else:
+                # If neurons has no units, assume they are the same as the soma radius
+                is_large = soma_nodes.radius.values * soma_radius.units >= soma_radius
         else:
             is_large = soma_nodes.radius >= soma_radius
 
