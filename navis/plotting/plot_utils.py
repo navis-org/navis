@@ -36,7 +36,7 @@ def tn_pairs_to_coords(x: core.TreeNeuron,
                                                 float,
                                                 float]] = (1, 1, 1)
                        ) -> np.ndarray:
-    """Returns pairs of treenode -> parent node coordinates.
+    """Return pairs of treenode -> parent node coordinates.
 
     Parameters
     ----------
@@ -51,7 +51,6 @@ def tn_pairs_to_coords(x: core.TreeNeuron,
                 ``[[[x1, y1, z1], [x2, y2, z2]], [[x3, y3, y4], [x4, y4, z4]]]``
 
     """
-
     if not isinstance(modifier, np.ndarray):
         modifier = np.array(modifier)
 
@@ -76,7 +75,7 @@ def segments_to_coords(x: core.TreeNeuron,
                                                 float,
                                                 float]] = (1, 1, 1)
                        ) -> List[np.ndarray]:
-    """ Turns lists of node IDs into coordinates.
+    """Turn lists of node IDs into coordinates.
 
     Parameters
     ----------
@@ -92,7 +91,6 @@ def segments_to_coords(x: core.TreeNeuron,
                 [(x, y, z), (x, y, z), ... ]
 
     """
-
     if not isinstance(modifier, np.ndarray):
         modifier = np.array(modifier)
 
@@ -106,8 +104,7 @@ def segments_to_coords(x: core.TreeNeuron,
 
 def fibonacci_sphere(samples: int = 1,
                      randomize: bool = True) -> list:
-    """ Calculates points on a sphere
-    """
+    """Generate points on a sphere."""
     rnd = 1.
     if randomize:
         rnd = random.random() * samples

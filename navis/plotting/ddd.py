@@ -49,7 +49,7 @@ def plot3d(x: Union[core.NeuronObject,
                     List[Union[core.NeuronObject, np.ndarray, core.Volume]]
                     ],
            **kwargs) -> Optional[Union[Viewer, dict]]:
-    """ Generate 3D plot.
+    """Generate 3D plot.
 
     Uses either `vispy <http://vispy.org>`_ or `plotly <http://plot.ly>`_.
     By default choice depends on context::
@@ -168,7 +168,6 @@ def plot3d(x: Union[core.NeuronObject,
     >>> navis.plot3d(nl1, clear3d=True, by_strahler)
 
     """
-
     """
     TO-DO:
     - allow generic "plot_{}" arguments:
@@ -182,7 +181,6 @@ def plot3d(x: Union[core.NeuronObject,
 
               }
     """
-
     # Backend
     backend = kwargs.pop('backend', 'auto')
     allowed_backends = ['auto', 'vispy', 'plotly']
@@ -202,13 +200,13 @@ def plot3d(x: Union[core.NeuronObject,
 
 
 def plot3d_vispy(x, **kwargs):
-    """ Plot3d() helper function to generate vispy 3D plots. This is just to
+    """Plot3d() helper function to generate vispy 3D plots. This is just to
     improve readability. It's only purpose is to find the existing viewer
     or generate a new one.
     """
 
     # Parse objects to plot
-    skdata, dotprops, volumes, points, visual = utils.parse_objects(x)
+    (neurons, dotprops, volumes, points, visuals) = utils.parse_objects(x)
 
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
@@ -243,8 +241,8 @@ def plot3d_vispy(x, **kwargs):
     if kwargs.pop('clear3d', False) or kwargs.pop('clear', False):
         viewer.clear()
 
-    if skdata:
-        viewer.add(skdata, **kwargs)
+    if neurons:
+        viewer.add(neurons, **kwargs)
     if not dotprops.empty:
         viewer.add(dotprops, **kwargs)
     if volumes:
@@ -277,14 +275,14 @@ def plot3d_plotly(x, **kwargs):
                          f'arguments: {",".join(ALLOWED)}')
 
     # Parse objects to plot
-    skdata, dotprops, volumes, points, visual = utils.parse_objects(x)
+    (neurons, dotprops, volumes, points, visual) = utils.parse_objects(x)
 
     trace_data = []
 
     scatter_kws = kwargs.pop('scatter_kws', {})
 
-    if skdata:
-        trace_data += neuron2plotly(skdata, **kwargs)
+    if neurons:
+        trace_data += neuron2plotly(neurons, **kwargs)
     if not dotprops.empty:
         trace_data += dotprops2plotly(dotprops, **kwargs)
     if volumes:

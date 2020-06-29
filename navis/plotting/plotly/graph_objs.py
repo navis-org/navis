@@ -18,7 +18,7 @@ import plotly.graph_objs as go
 
 from ..colors import *
 from ..plot_utils import *
-from ... import core, utils, config
+from ... import core, utils, config, morpho
 
 logger = config.logger
 
@@ -30,13 +30,10 @@ fib_points = fibonacci_sphere(samples=30)
 
 
 def neuron2plotly(x, **kwargs):
-    """ Converts TreeNeurons to plotly objects."""
-
-    if isinstance(x, core.TreeNeuron):
+    """Convert neurons to plotly objects."""
+    if isinstance(x, core.BaseNeuron):
         x = core.NeuronList(x)
-    elif isinstance(x, core.NeuronList):
-        pass
-    else:
+    elif not isinstance(x, core.NeuronList):
         raise TypeError('Unable to process data of type "{}"'.format(type(x)))
 
     colors = kwargs.get('color',
@@ -44,94 +41,37 @@ def neuron2plotly(x, **kwargs):
                                    kwargs.get('colors', None)))
 
     colormap, _, _ = prepare_colormap(colors,
-                                      x, None,
+                                      neurons=x,
                                       use_neuron_color=kwargs.get('use_neuron_color', False),
                                       color_range=255)
 
-    linewidth = kwargs.get('linewidth', 1)
-
     syn_lay = {
-        0: {
-            'name': 'Presynapses',
-            'color': (1, 0, 0)
-        },
-        1: {
-            'name': 'Postsynapses',
-            'color': (0, 0, 1)
-        },
-        2: {
-            'name': 'Gap junctions',
-            'color': (0, 1, 0)
-        },
-        'display': 'lines'  # 'circle'
+        0: {'name': 'Presynapses',
+            'color': (255, 0, 0)},
+        1: {'name': 'Postsynapses',
+            'color': (0, 0, 255)},
+        2: {'name': 'Gap junctions',
+            'color': (0, 255, 0)},
+        'display': 'lines',  # 'circles'
+        'size': 2  # for circles only
     }
+    syn_lay['pre'] = syn_lay[0]
+    syn_lay['post'] = syn_lay[1]
+    syn_lay['gap_junction'] = syn_lay['gapjunction'] = syn_lay[2]
     syn_lay.update(kwargs.get('synapse_layout', {}))
 
     trace_data = []
     for i, neuron in enumerate(x):
+        name = str(getattr(neuron, 'name', neuron.id))
         color = colormap[i]
-        name = str(getattr(neuron, 'name', None))
 
         if not kwargs.get('connectors_only', False):
-            coords = segments_to_coords(neuron, neuron.segments)
-
-            # We have to add (None, None, None) to the end of each slab to
-            # make that line discontinuous there
-            coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
-
-            if kwargs.get('by_strahler', False):
-                s_index = morpho.strahler_index(neuron, return_dict=True)
-                c = []
-                for k, s in enumerate(coords):
-                    this_c = 'rgba(%i,%i,%i,%f)' % (color[0],
-                                                    color[1],
-                                                    color[2],
-                                                    s_index[s[0]] / max(s_index.values()))
-                    # Slabs are separated by a <None> coordinate -> this is
-                    # why we need one more color entry
-                    c += [this_c] * (len(s) + 1)
+            if isinstance(neuron, core.TreeNeuron):
+                trace_data += skeleton2plotly(neuron, color, **kwargs)
+            elif isinstance(neuron, core.MeshNeuron):
+                trace_data += mesh2plotly(neuron, color, **kwargs)
             else:
-                try:
-                    c = 'rgb{}'.format(color)
-                except BaseException:
-                    c = 'rgb(10,10,10)'
-
-            trace_data.append(go.Scatter3d(x=coords[:, 0],
-                                           y=coords[:, 1],
-                                           z=coords[:, 2],
-                                           mode='lines',
-                                           line=dict(color=c,
-                                                     width=linewidth),
-                                           name=name,
-                                           legendgroup=name,
-                                           showlegend=True,
-                                           hoverinfo='none'
-                                           ))
-
-            # Add soma(s):
-            soma = utils.make_iterable(neuron.soma)
-            if any(soma):
-                # If soma detection is messed up we might end up producing
-                # dozens of soma which will freeze the kernel
-                if len(soma) >= 10:
-                    logger.warning(f'{neuron.id}: {len(soma)} somas found.')
-                for s in soma:
-                    n = neuron.nodes.set_index('node_id').loc[s]
-                    r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
-                    try:
-                        c = 'rgb{}'.format(color)
-                    except BaseException:
-                        c = 'rgb(10,10,10)'
-                    trace_data.append(go.Mesh3d(
-                        x=[(v[0] * r) + n.x for v in fib_points],
-                        # y and z are switched
-                        y=[(v[1] * r) + n.y for v in fib_points],
-                        z=[(v[2] * r) + n.z for v in fib_points],
-
-                        alphahull=.5,
-                        color=c,
-                        name=name,
-                        hoverinfo='name'))
+                raise TypeError(f'Unable to plot neurons of type "{type(neuron)}"')
 
         # Add connectors
         if kwargs.get('connectors', False) or \
@@ -144,19 +84,19 @@ def neuron2plotly(x, **kwargs):
 
                 this_cn = neuron.connectors[neuron.connectors.type == j]
 
-                if syn_lay['display'] == 'circles':
+                if syn_lay['display'] == 'circles' or isinstance(neuron, core.MeshNeuron):
                     trace_data.append(go.Scatter3d(
                         x=this_cn.x.values,
-                        y=this_cn.zy.values,
+                        y=this_cn.y.values,
                         z=this_cn.z.values,
                         mode='markers',
-                        marker=dict(color='rgb%s' % str(c), size=2),
-                        name=syn_lay.get(j, {'name': 'connector'})['name'] + ' of ' + name,
+                        marker=dict(color=f'rgb{c}', size=syn_lay.get('size', 2)),
+                        name=f'{syn_lay.get(j, {"name": "connector"})["name"]} of {name}',
                         showlegend=True,
                         hoverinfo='none'
                     ))
                 elif syn_lay['display'] == 'lines':
-                    # Find associated treenode
+                    # Find associated treenodes
                     tn = neuron.nodes.set_index('node_id').loc[this_cn.node_id.values]
                     x_coords = [n for sublist in zip(this_cn.x.values, tn.x.values, [None] * this_cn.shape[0]) for n in sublist]
                     y_coords = [n for sublist in zip(this_cn.y.values, tn.y.values, [None] * this_cn.shape[0]) for n in sublist]
@@ -171,19 +111,115 @@ def neuron2plotly(x, **kwargs):
                             color='rgb%s' % str(c),
                             width=5
                         ),
-                        name=syn_lay.get(j, {'name': 'connector'})['name'] + ' of ' + name,
+                        name=f'{syn_lay.get(j, {"name": "connector"})["name"]} of {name}',
                         showlegend=True,
                         hoverinfo='none'
                     ))
                 else:
-                    raise ValueError('Unknown display type for connectors "{}"'.format(syn_lay['display']))
+                    raise ValueError(f'Unknown display type for connectors "{syn_lay["display"]}"')
+
+    return trace_data
+
+
+def mesh2plotly(neuron, color, **kwargs):
+    """Convert MeshNeuron to plotly object."""
+    name = str(getattr(neuron, 'name', neuron.id))
+
+    # Skip empty neurons
+    if neuron.n_vertices == 0:
+        return []
+
+    try:
+        if len(color) == 3:
+            c = 'rgb{}'.format(color)
+        elif len(color) == 4:
+            c = 'rgba{}'.format(color)
+    except BaseException:
+        c = 'rgb(10,10,10)'
+
+    trace_data = [go.Mesh3d(x=neuron.vertices[:, 0],
+                            y=neuron.vertices[:, 1],
+                            z=neuron.vertices[:, 2],
+                            i=neuron.faces[:, 0],
+                            j=neuron.faces[:, 1],
+                            k=neuron.faces[:, 2],
+                            color=c,
+                            name=name,
+                            legendgroup=name,
+                            showlegend=True,
+                            hoverinfo='none')]
+
+    return trace_data
+
+
+def skeleton2plotly(neuron, color, **kwargs):
+    """Convert skeleton (i.e. TreeNeuron) to plotly line plot."""
+    coords = segments_to_coords(neuron, neuron.segments)
+    name = str(getattr(neuron, 'name', neuron.id))
+    linewidth = kwargs.get('linewidth', 1)
+
+    # We have to add (None, None, None) to the end of each slab to
+    # make that line discontinuous there
+    coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
+
+    if kwargs.get('by_strahler', False):
+        s_index = morpho.strahler_index(neuron, return_dict=True)
+        max_strahler = max(s_index.values())
+        c = []
+        for k, s in enumerate(coords):
+            this_c = f'rgba({color[0]},{color[1]},{color[2]},{s_index[s[0]] / max_strahler})'
+            # Slabs are separated by a <None> coordinate -> this is
+            # why we need one more color entry
+            c += [this_c] * (len(s) + 1)
+    else:
+        try:
+            c = 'rgb{}'.format(color)
+        except BaseException:
+            c = 'rgb(10,10,10)'
+
+    trace_data = [go.Scatter3d(x=coords[:, 0],
+                               y=coords[:, 1],
+                               z=coords[:, 2],
+                               mode='lines',
+                               line=dict(color=c,
+                                         width=linewidth),
+                               name=name,
+                               legendgroup=name,
+                               showlegend=True,
+                               hoverinfo='none'
+                               )]
+
+    # Add soma(s):
+    soma = utils.make_iterable(neuron.soma)
+    if any(soma):
+        # If soma detection is messed up we might end up producing
+        # dozens of soma which will freeze the kernel
+        if len(soma) >= 5:
+            logger.warning(f'{neuron.id}: {len(soma)} somas found - ignoring.')
+        else:
+            for s in soma:
+                n = neuron.nodes.set_index('node_id').loc[s]
+                r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
+                try:
+                    c = 'rgb{}'.format(color)
+                except BaseException:
+                    c = 'rgb(10,10,10)'
+                trace_data.append(go.Mesh3d(
+                    x=[(v[0] * r) + n.x for v in fib_points],
+                    # y and z are switched
+                    y=[(v[1] * r) + n.y for v in fib_points],
+                    z=[(v[2] * r) + n.z for v in fib_points],
+
+                    alphahull=.5,
+                    color=c,
+                    name=name,
+                    hoverinfo='name'))
 
     return trace_data
 
 
 def scatter2plotly(x, **kwargs):
-    """ Converts DataFrame with x,y,z columns to plotly scatter plot."""
-
+    """Convert DataFrame with x,y,z columns to plotly scatter plot."""
     c = eval_color(kwargs.get('color', (10, 10, 10)), color_range=255)
     s = kwargs.get('size', 2)
     name = kwargs.get('name', None)
@@ -241,7 +277,6 @@ def lines2plotly(x, **kwargs):
 
 def dotprops2plotly(x, **kwargs):
     """ Converts dotprops to plotly objects."""
-
     linewidth = kwargs.get('linewidth', 5)
 
     colors = kwargs.get('color',
@@ -297,8 +332,7 @@ def dotprops2plotly(x, **kwargs):
 
 
 def volume2plotly(x, **kwargs):
-    """ Convert Volumes to plotly objects. """
-
+    """Convert Volumes to plotly objects."""
     colors = kwargs.get('color',
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
@@ -337,7 +371,7 @@ def volume2plotly(x, **kwargs):
 
 
 def layout2plotly(**kwargs):
-    """ Generate layout for plotly figures."""
+    """Generate layout for plotly figures."""
     layout = dict(width=kwargs.get('width', 1200),
                   height=kwargs.get('height', 600),
                   autosize=kwargs.get('fig_autosize', False),

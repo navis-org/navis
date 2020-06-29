@@ -111,7 +111,7 @@ def map_colors(colors: Optional[Union[str,
                objects: Sequence[Any],
                color_range: Union[Literal[1], Literal[255]] = 255
                ) -> List[Tuple[float, float, float]]:
-    """ Maps color(s) onto list of objects.
+    """Map color(s) onto list of objects.
 
     Parameters
     ----------
@@ -136,8 +136,8 @@ def map_colors(colors: Optional[Union[str,
     -------
     list of tuples
                     Will match length of ``objects``.
-    """
 
+    """
     if not utils.is_iterable(objects):
         objects = [objects]
 
@@ -179,8 +179,8 @@ def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
     -------
     dict
             Maps type to color. Will be empty if no types.
-    """
 
+    """
     if isinstance(x, (core.NeuronList, core.TreeNeuron)):
         connectors = x.get('connectors', None)
 
@@ -216,16 +216,14 @@ def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
                         f'not {type(config.default_color)}')
 
 
-def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
+def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
                      use_neuron_color=False, color_range=255):
-    """ Maps color(s) to neuron/dotprop colorlists.
-    """
-
-    # Prepare dummies in case either no skdata, no dotprops or no volumes
-    if isinstance(skdata, type(None)):
-        skdata = core.NeuronList([])
-    elif not isinstance(skdata, core.NeuronList):
-        skdata = core.NeuronList((skdata))
+    """Map color(s) to neuron/dotprop colorlists."""
+    # Prepare dummies in case either no neuron data, no dotprops or no volumes
+    if isinstance(neurons, type(None)):
+        neurons = core.NeuronList([])
+    elif not isinstance(neurons, core.NeuronList):
+        neurons = core.NeuronList((neurons))
 
     if isinstance(dotprops, type(None)):
         dotprops = core.Dotprops()
@@ -239,7 +237,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
 
     # Only dotprops and neurons REQUIRE a color
     # Volumes are second class citiziens here
-    colors_required = skdata.shape[0] + dotprops.shape[0]
+    colors_required = neurons.shape[0] + dotprops.shape[0]
 
     if not colors_required and len(volumes) == 0:
         # If no neurons to plot, just return None
@@ -257,10 +255,6 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     # We need to parse once here to convert named colours to rgb
     colors = eval_color(colors, color_range=color_range)
 
-    # In order to cater for duplicate skeleton IDs in skdata (e.g. from
-    # splitting into fragments), we will not map skids to colors but instead
-    # keep colors as a list. That way users can pass a simple list of colors.
-
     # If dictionary, map skids to dotprops gene names and neuron skeleton IDs
     dotprop_cmap = []
     neuron_cmap = []
@@ -269,7 +263,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     if isinstance(colors, dict):
         # Try finding color first by neuron, then uuid and finally by name
         neuron_cmap = []
-        for n in skdata:
+        for n in neurons:
             this_c = dc
             for k in [n, n.id, n.name]:
                 if k in colors:
@@ -291,7 +285,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
             volumes_cmap.append(this_c)
     elif isinstance(colors, mcl.Colormap):
         # Generate colors for neurons and dotprops
-        neuron_cmap = [colors(i/len(skdata)) for i in range(len(skdata))]
+        neuron_cmap = [colors(i/len(neurons)) for i in range(len(neurons))]
         dotprop_cmap = [colors(i/dotprops.shape[0]) for i in range(dotprops.shape[0])]
 
         # Colormaps are not applied to volumes
@@ -309,8 +303,8 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
             logger.debug(f'More colors than required: got {len(colors)}, '
                          f'needed {colors_required}')
 
-        if skdata.shape[0]:
-            neuron_cmap = [colors.pop(0) for i in range(skdata.shape[0])]
+        if neurons.shape[0]:
+            neuron_cmap = [colors.pop(0) for i in range(neurons.shape[0])]
         if dotprops.shape[0]:
             dotprop_cmap = [colors.pop(0) for i in range(dotprops.shape[0])]
         if volumes.shape[0]:
@@ -327,7 +321,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
     # Override neuron cmap if we are supposed to use neuron colors
     if use_neuron_color:
         neuron_cmap = [getattr(n, 'color', config.default_color)
-                       for i, n in enumerate(skdata)]
+                       for i, n in enumerate(neurons)]
 
     # Make sure colour range checks out
     neuron_cmap = [eval_color(c, color_range=color_range)
@@ -345,8 +339,7 @@ def prepare_colormap(colors, skdata=None, dotprops=None, volumes=None,
 
 
 def eval_color(x, color_range=255, force_alpha=False):
-    """Helper to evaluate colors. Always returns tuples."""
-
+    """Evaluate colors and return tuples."""
     if color_range not in [1, 255]:
         raise ValueError('"color_range" must be 1 or 255')
 
@@ -359,7 +352,7 @@ def eval_color(x, color_range=255, force_alpha=False):
             try:
                 c = plt.get_cmap(x)
             except ValueError:
-                raise ValueError('Unable to interpret color "{}"'.format(x))
+                raise ValueError(f'Unable to interpret color "{x}"')
             except BaseException:
                 raise
     elif isinstance(x, dict):
@@ -401,7 +394,7 @@ def hex_to_rgb(value: str) -> Tuple[int, int, int]:
 
 def vary_colors(color: AnyColor,
                 by_max: float = .1) -> np.ndarray:
-    """Add small variance to color"""
+    """Add small variance to color."""
     if isinstance(color, str):
         color = mcl.to_rgb(color)
 

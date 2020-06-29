@@ -39,7 +39,7 @@ def plot1d(x: 'core.NeuronObject',
                                  ]
                            ] = None,
            **kwargs) -> mpl.axes.Axes:
-    """ Plot neuron topology in 1D according to Cuntz et al. (2010).
+    """Plot neuron topology in 1D according to Cuntz et al. (2010).
 
     This function breaks a neurons into segments between branch points.
     See Cuntz et al., PLoS Computational Biology (2010) for detailed
@@ -69,13 +69,13 @@ def plot1d(x: 'core.NeuronObject',
     >>> plt.show()
 
     """
-
     if isinstance(x, core.NeuronList):
-        pass
+        if x.is_mixed:
+            raise TypeError('NeuronList contains MeshNeuron(s). Unable to plot1d.')
     elif isinstance(x, core.TreeNeuron):
         x = core.NeuronList(x)
     else:
-        raise TypeError(f'Unable to work with data of type "{type(x)}"')
+        raise TypeError(f'Unable plot1d data of type "{type(x)}"')
 
     if isinstance(color, type(None)):
         color = (0.56, 0.86, 0.34)

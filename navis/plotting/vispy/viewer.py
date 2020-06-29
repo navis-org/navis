@@ -81,7 +81,7 @@ def block_canvas(function):
 
 
 class Viewer:
-    """ Vispy 3D viewer.
+    """Vispy 3D viewer.
 
     Parameters
     ----------
@@ -112,6 +112,8 @@ class Viewer:
 
     >>> # Open a 3D viewer
     >>> v = navis.Viewer()
+    >>> # Close the 3D viewer
+    >>> v.close()
 
     You can change the background color from the start or on-the-go:
 
@@ -119,6 +121,8 @@ class Viewer:
     >>> v = navis.Viewer(bgcolor='green')
     >>> # Set background back to white
     >>> v.canvas.bgcolor = (1, 1, 1)
+    >>> # Alternative to v.close():
+    >>> navis.close3d()
 
     """
 
@@ -129,6 +133,9 @@ class Viewer:
                         title='navis Viewer',
                         bgcolor='black')
         defaults.update(kwargs)
+
+        if getattr(config, 'headless'):
+            defaults['show'] = False
 
         # Set border rim -> this depends on how the framework (e.g. QT5)
         # renders the window
@@ -280,7 +287,7 @@ class Viewer:
 
     @property
     def show_legend(self):
-        """ Set to ``True`` to hide neuron legend."""
+        """Set to ``True`` to hide neuron legend."""
         return self.__show_legend
 
     @show_legend.setter
@@ -295,7 +302,7 @@ class Viewer:
 
     @property
     def legend_font_size(self):
-        """ Change legend's font size."""
+        """Change legend's font size."""
         return self.__legend_font_size
 
     @legend_font_size.setter
@@ -306,11 +313,11 @@ class Viewer:
 
     @property
     def picking(self):
-        """ Set to ``True`` to allow picking."""
+        """Set to ``True`` to allow picking."""
         return self.__picking
 
     def toggle_picking(self):
-        """ Toggle picking and overlay text."""
+        """Toggle picking and overlay text."""
         if self.picking:
             self.picking = False
             self._picking_text.visible = False
@@ -349,12 +356,12 @@ class Viewer:
 
     @property
     def visible(self):
-        """IDs of currently selected visible."""
+        """List IDs of currently visible neurons."""
         return [s for s in self.neurons if self.neurons[s][0].visible]
 
     @property
     def selected(self):
-        """IDs of currently selected neurons."""
+        """Return IDs of or set selected neurons."""
         return self.__selected
 
     @selected.setter
@@ -398,26 +405,23 @@ class Viewer:
         # Update data text
         # Currently nly the development version of vispy supports escape
         # character (e.g. \n)
-        t = '| '.join(['{} - #{}'.format(self.neurons[s][0]._name,
-                                         s) for s in self.__selected])
+        t = '| '.join([f'{self.neurons[s][0]._name} - #{s}' for s in self.__selected])
         self._data_text.text = t
 
     @property
     def visuals(self):
-        """ Returns list of all 3D visuals on this canvas. """
+        """List of all 3D visuals on this canvas."""
         return [v for v in self.view3d.children[0].children if isinstance(v, scene.visuals.VisualNode)]
 
     @property
     def _object_ids(self):
-        """ Returns all object IDs on this canvas in order of addition."""
+        """All object IDs on this canvas in order of addition."""
         obj_ids = [getattr(v, '_object_id') for v in self.visuals]
         return sorted(set(obj_ids), key=lambda x: obj_ids.index(x))
 
     @property
     def objects(self):
-        """ Returns dict {uuid->[visuals]} of all objects on this canvas in
-        order of addition.
-        """
+        """Ordered dictionary {uuid->[visuals]} of all objects in order of addition."""
         objects = OrderedDict()
         for ob in self._object_ids:
             objects[ob] = [v for v in self.visuals if getattr(v, '_object_id') == ob]
@@ -426,13 +430,12 @@ class Viewer:
 
     @property
     def neurons(self):
-        """Returns visible and invisible neuron visuals currently on the
-        canvas.
+        """Return visible and invisible neuron visuals currently on the canvas.
 
         Returns
         -------
         OrderedDict
-                    {id: [neurites, soma]}
+                    ``{id: [neurites, soma]}``
 
         """
         # Collect neuron objects (neurites + somata)
@@ -451,7 +454,7 @@ class Viewer:
 
     @property
     def _neuron_obj(self):
-        """ Returns neurons by their object id. """
+        """Return neurons by their object id."""
         # Collect neuron objects
         neuron_obj = [c for c in self.visuals if 'neuron' in getattr(
             c, '_object_type', '')]
@@ -463,21 +466,20 @@ class Viewer:
         return {s: [ob for ob in neuron_obj if ob._object_id == s] for s in obj_ids}
 
     def clear_legend(self):
-        """ Clear legend. """
+        """Clear legend."""
         # Clear legend except for title
         for l in [l for l in self.overlay.children if isinstance(l, scene.visuals.Text) and l.name != 'permanent']:
             l.parent = None
 
     def clear(self):
-        """ Clear canvas. """
+        """Clear canvas."""
         for v in self.visuals:
             v.parent = None
 
         self.clear_legend()
 
     def remove(self, to_remove):
-        """ Remove given neurons/visuals from canvas.
-        """
+        """Remove given neurons/visuals from canvas."""
         to_remove = utils.make_iterable(to_remove)
 
         for vis in to_remove:
@@ -490,15 +492,13 @@ class Viewer:
                         v.parent = None
 
     def pop(self, N=1):
-        """ Remove the most recently added N visuals.
-        """
+        """Remove the most recently added N visuals."""
         for vis in list(self.objects.values())[-N:]:
             self.remove(vis)
 
     @block_canvas
     def update_legend(self):
-        """ Update legend. """
-
+        """Update legend."""
         # Get existing labels
         labels = {l._object_id: l for l in self.overlay.children if getattr(l, '_object_id', None)}
 
@@ -549,11 +549,11 @@ class Viewer:
             labels[s].font_size = self.legend_font_size
 
     def toggle_overlay(self):
-        """ Toggle legend on and off. """
+        """Toggle legend on and off."""
         self.overlay.visible = self.overlay.visible is False
 
     def center_camera(self):
-        """ Center camera on visuals. """
+        """Center camera on visuals."""
         if not self.visuals:
             return
 
@@ -566,11 +566,11 @@ class Viewer:
                                 (zbounds.min(), zbounds.max()))
 
     def add(self, x, center=True, clear=False, combine=False, **kwargs):
-        """ Add objects to canvas.
+        """Add objects to canvas.
 
         Parameters
         ----------
-        x :         skeleton IDs | Neuron/List | Dotprops | Volumes | Points | vispy Visuals
+        x :         Neuron/List | Dotprops | Volumes | Points | vispy Visuals
                     Object(s) to add to the canvas.
         center :    bool, optional
                     If True, re-center camera to all objects on canvas.
@@ -588,9 +588,9 @@ class Viewer:
         Returns
         -------
         None
-        """
 
-        skdata, dotprops, volumes, points, visuals = utils.parse_objects(x)
+        """
+        (neurons, dotprops, volumes, points, visuals) = utils.parse_objects(x)
 
         if len(set(kwargs) & set(['c', 'color', 'colors'])) > 1:
             raise ValueError('Must not provide colors via multiple arguments')
@@ -601,12 +601,14 @@ class Viewer:
          volumes_cmap) = prepare_colormap(kwargs.pop('color',
                                                      kwargs.pop('colors',
                                                                 kwargs.pop('c', None))),
-                                          skdata, dotprops, volumes,
+                                          neurons=neurons,
+                                          dotprops=dotprops,
+                                          volumes=volumes,
                                           color_range=1,
                                           use_neuron_color=kwargs.pop('use_neuron_color', False))
 
-        if skdata:
-            visuals += neuron2vispy(skdata, color=neuron_cmap, **kwargs)
+        if neurons:
+            visuals += neuron2vispy(neurons, color=neuron_cmap, **kwargs)
         if not dotprops.empty:
             visuals += dotprop2vispy(dotprops, color=dotprops_cmap, **kwargs)
         if volumes:
@@ -634,17 +636,21 @@ class Viewer:
             self.update_legend()
 
     def show(self):
-        """ Show viewer. """
-        self.canvas.show()
+        """Show viewer."""
+        # This is for e.g. headless testing
+        if not getattr(config, 'headless', False):
+            self.canvas.show()
+        else:
+            logger.info("Viewer widget not shown - navis running in headless mode. ")
 
     def close(self):
-        """ Close viewer. """
+        """Close viewer."""
         if self == getattr(config, 'primary_viewer', None):
             del config.primary_viewer
         self.canvas.close()
 
     def hide_neurons(self, n):
-        """ Hide given neuron(s). """
+        """Hide given neuron(s)."""
         skids = utils.eval_id(n)
 
         neurons = self.neurons
@@ -657,13 +663,14 @@ class Viewer:
         self.update_legend()
 
     def hide_selected(self):
-        """ Hide currently selected neuron(s). """
+        """Hide currently selected neuron(s)."""
         self.hide_neurons(self.selected)
 
     def unhide_neurons(self, n=None, check_alpha=False):
-        """ Unhide given neuron(s).
+        """Unhide given neuron(s).
 
         Use ``n`` to unhide specific neurons.
+
         """
         if not isinstance(n, type(None)):
             skids = utils.eval_id(n)
@@ -685,8 +692,7 @@ class Viewer:
         self.update_legend()
 
     def toggle_neurons(self, n):
-        """ Toggle neuron(s) visibility. """
-
+        """Toggle neuron(s) visibility."""
         n = utils.make_iterable(n)
 
         if False not in [isinstance(u, uuid.UUID) for u in n]:
@@ -702,7 +708,7 @@ class Viewer:
         self.update_legend()
 
     def toggle_select(self, n):
-        """ Toggle selected of given neuron. """
+        """Toggle selected of given neuron."""
         skids = utils.eval_id(n)
 
         neurons = self.neurons
@@ -722,7 +728,7 @@ class Viewer:
 
     @block_all
     def set_colors(self, c, include_connectors=False):
-        """ Set neuron color.
+        """Set neuron color.
 
         Parameters
         ----------
@@ -732,7 +738,6 @@ class Viewer:
                    2. Dictionary mapping skeleton IDs to colors.
 
         """
-
         if isinstance(c, (tuple, list, np.ndarray, str)):
             cmap = {s: c for s in self.neurons}
         elif isinstance(c, dict):
@@ -756,7 +761,7 @@ class Viewer:
 
     @block_all
     def set_alpha(self, a, include_connectors=True):
-        """ Set neuron color alphas.
+        """Set neuron color alphas.
 
         Parameters
         ----------
@@ -766,7 +771,6 @@ class Viewer:
                    2. Dictionary mapping skeleton IDs to alpha.
 
         """
-
         if isinstance(a, (tuple, list, np.ndarray, str)):
             amap = {s: a for s in self.neurons}
         elif isinstance(a, dict):
@@ -797,8 +801,7 @@ class Viewer:
             self.update_legend()
 
     def colorize(self, palette='hls', include_connectors=False):
-        """ Colorize neurons using a seaborn color palette."""
-
+        """Colorize neurons using a seaborn color palette."""
         colors = sns.color_palette(palette, len(self.neurons))
         cmap = {s: colors[i] for i, s in enumerate(self.neurons)}
 
@@ -857,9 +860,8 @@ class Viewer:
                     new_amap[n] = 1
             self.set_alpha(new_amap)
         else:
-            raise ValueError('Unknown cycle mode '
-                             '"{}". Use "hide" or '
-                             '"alpha"!'.format(self._cycle_mode))
+            raise ValueError(f'Unknown cycle mode: "{self._cycle_mode}". Use '
+                             '"hide" or "alpha"!')
 
         self.active_neuron = to_show
 
@@ -875,11 +877,11 @@ class Viewer:
                                f' [{self._cycle_index + 1}/{len(self.neurons)}]'
 
     def _draw_fps(self, fps):
-        """ Callback for ``canvas.measure_fps``. """
-        self._fps_text.text = '{:.2f} FPS'.format(fps)
+        """Callback for ``canvas.measure_fps``."""
+        self._fps_text.text = f'{fps:.2f} FPS'
 
     def _toggle_fps(self):
-        """ Switch FPS measurement on and off. """
+        """Switch FPS measurement on and off."""
         if not self._fps_text.visible:
             self.canvas.measure_fps(1, self._draw_fps)
             self._fps_text.visible = True
@@ -888,7 +890,7 @@ class Viewer:
             self._fps_text.visible = False
 
     def _snap_cursor(self, pos, visual, open_browser=False):
-        """ Snap cursor to clostest vertex of visual."""
+        """Snap cursor to clostest vertex of visual."""
         if not getattr(self, '_cursor', None):
             self._cursor = scene.visuals.Arrow(pos=np.array([(0, 0, 0), (1000, 0, 0)]),
                                                color=(1, 0, 0, 1),
@@ -927,11 +929,11 @@ class Viewer:
         self._cursor.set_data(pos=np.array([start, self.cursor_pos]),
                               arrows=arrows)
 
-        logger.debug('World coordinates: {}'.format(self.cursor_pos))
+        logger.debug(f'World coordinates: {self.cursor_pos}')
 
     def screenshot(self, filename='screenshot.png', pixel_scale=2,
                    alpha=True, hide_overlay=True):
-        """ Save a screenshot of this viewer.
+        """Save a screenshot of this viewer.
 
         Parameters
         ----------
@@ -944,8 +946,8 @@ class Viewer:
                         If True, will export transparent background.
         hide_overlay :  bool, optional
                         If True, will hide overlay for screenshot.
-        """
 
+        """
         if alpha:
             bgcolor = list(self.canvas.bgcolor.rgb) + [0]
         else:
@@ -967,8 +969,7 @@ class Viewer:
         im.save(filename)
 
     def visuals_at(self, pos):
-        """ Returns visuals at given canvas position. """
-
+        """List visuals at given canvas position."""
         # There appears to be some odd y offset - perhaps because of the
         # window's top bar? On OSX this is about 15px
         pos = (pos[0], pos[1] - 15)
@@ -1002,14 +1003,13 @@ class Viewer:
         return [v for v in visuals if v is not None]
 
     def set_view(self, view):
-        """ Reset camera position.
+        """(Re-)set camera position.
 
         Parameters
         ----------
         view :      XY | XZ | YZ
 
         """
-
         if isinstance(view, Quaternion):
             q = view
         elif view == 'XY':
@@ -1027,7 +1027,7 @@ class Viewer:
 
 
 def on_mouse_press(event):
-    """ Manage picking on canvas. """
+    """Manage picking on canvas."""
     canvas = event.source
     viewer = canvas._wrapper
 
@@ -1040,11 +1040,11 @@ def on_mouse_press(event):
         viewer.interactive = True
         canvas._overlay.interactive = True
 
-    logger.debug('Mouse press at {0}: {1}'.format(event.pos, vis_at))
+    logger.debug(f'Mouse press at {event.pos}: {vis_at}')
 
     modifiers = [key.name for key in event.modifiers]
     if event.modifiers:
-        logger.debug('Modifiers found: {0}'.format(modifiers))
+        logger.debug(f'Modifiers found: {modifiers}')
 
     # Iterate over visuals in this canvas at cursor position
     for v in vis_at:
@@ -1061,19 +1061,18 @@ def on_mouse_press(event):
                                 open_browser='Shift' in modifiers)
             break
         # If shift modifier, add to/remove from current selection
-        elif isinstance(v, scene.visuals.VisualNode) and \
-             getattr(v, '_id', None) and 'Shift' in modifiers:
+        elif (isinstance(v, scene.visuals.VisualNode)
+              and getattr(v, '_id', None)
+              and 'Shift' in modifiers):
             if v._id not in set(viewer.selected):
                 viewer.selected = np.append(viewer.selected, v._id)
             else:
-                viewer.selected = viewer.selected[viewer.selected !=
-                                                  v._id]
+                viewer.selected = viewer.selected[viewer.selected != v._id]
             break
 
 
 def on_key_press(event):
-    """ Manage keyboard shortcuts for canvas. """
-
+    """Manage keyboard shortcuts for canvas."""
     canvas = event.source
     viewer = canvas._wrapper
 
@@ -1104,7 +1103,7 @@ def on_key_press(event):
 
 
 def on_resize(event):
-    """ Keep overlay in place upon resize. """
+    """Keep overlay in place upon resize."""
     viewer = event.source._wrapper
     viewer._shortcuts.pos = (10, event.size[1])
     viewer._picking_text.pos = (10, event.size[1] - 10)

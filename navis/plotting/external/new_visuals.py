@@ -175,6 +175,7 @@ class TubeVisual(MeshVisual):
     The tube mesh is corrected following its Frenet curvature and
     torsion such that it varies smoothly along the curve, including if
     the tube is closed.
+
     Parameters
     ----------
     points : ndarray
