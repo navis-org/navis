@@ -140,4 +140,13 @@ def example_volume(name: str) -> Volume:
 
     with open(os.path.join(vols_path, name), 'r') as f:
         data = json.load(f)
-        return Volume(**data)
+
+    vol = Volume(**data)
+
+    # Invert the y-axis
+    # This is necessary because CATMAID has its origin
+    # in the top left corner but e.g. matplotlib plots have it
+    # in the bottom left corner
+    vol.vertices *= [1, -1, 1]
+
+    return vol
