@@ -16,7 +16,11 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
+
+# Exclude module from testing
+import pytest
+pytestmark = pytest.mark.skip("Doc config is not tested.")
+
 import os
 import numpydoc
 import sphinx_bootstrap_theme
@@ -35,57 +39,8 @@ sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../..'))
 sys.path.insert(0, os.path.abspath('tools'))
 
-from nb_to_doc import convert_nb
-
 #This needs to be removed in order to built locally
 import mock
-"""
-MOCK_MODULES = ['sklearn', 'igraph', 'tqdm', 'pyoctree',
-                'png',
-
-                #'numpy',
-                #'pandas',
-
-                'PyQt5', 'pyqt5',
-
-                'bpy', 'bmesh', 'mathutils',
-
-                'scipy.sparse', 'scipy.cluster', 'scipy.spatial.ConvexHull',
-                'scipy.cluster.hierarchy', 'scipy.interpolate',
-                'scipy.spatial.distance', 'scipy.stats',
-                'scipy', 'scipy.spatial', 'ConvexHull',
-
-                'rpy2', 'rpy2.robjects', 'rpy2.robjects.packages',
-                'rpy2.robjects.packages.importr', 'rpy2.robjects.pandas2ri',
-
-                'plotly', 'plotly.plotly', 'plotly.offline',
-                'plotly.graph_objs',
-
-                'matplotlib.pyplot', 'plt', 'matplotlib.externals',
-                'matplotlib.externals.six', 'matplotlib.externals.six.moves',
-                'matplotlib.collections', 'matplotlib.collections.PolyCollection',
-                'matplotlib.lines', 'matplotlib.patches', 'matplotlib.colors',
-                'mpl_toolkits.mplot3d', 'mpl_toolkits.mplot3d.proj3d',
-                'matplotlib.colors', 'mpl_toolkits.mplot3d.art3d', 'proj3d',
-                'pylab', 'mpl_toolkits.mplot3d.art3d.Line3DCollection',
-                'mlines', 'mpatches', 'mcollections', 'mcl',
-                'Line3DCollection', 'seaborn',
-
-                'networkx', 'nx',
-
-                'py2cytoscape', 'py2cytoscape.data', 'py2cytoscape.data.cyrest_client', 'CyRestClient',
-
-                'requests_futures.sessions', 'requests_futures.sessions.FuturesSession',
-                'requests', 'requests-futures', 'requests.exceptions',
-
-                'vispy', 'vispy.color', 'vispy.scene',
-                'vispy.geometry', 'vispy.gloo.util', 'vispy.visuals',
-                'vispy.scene.visuals', 'vispy.visuals.tube',
-                'vispy.scene.visuals.create_visual_node',
-                'vispy.color.ColorArray', 'vispy.visuals.MeshVisual',
-                'vispy.gloo.util._screenshot', 'vispy.util.quaternion',
-                'vispy.util.transforms', 'vispy.util.transforms.rotate']
-"""
 MOCK_MODULES = ['py2cytoscape.data.cyrest_client.CyRestClient',
                 'rpy2.robjects.packages.importr'
                 'rpy2.robjects.pandas2ri',
@@ -116,8 +71,14 @@ for (dirpath, dirnames, filenames) in os.walk(source_path):
         continue
     all_nb += [os.path.join(dirpath, file) for file in filenames if file.endswith('.ipynb')]
 
-for nb in all_nb:
-    convert_nb(nb)
+try:
+    import convert_nb
+    for nb in all_nb:
+        convert_nb(nb)
+except ImportError:
+    pass
+except BaseException:
+    raise
 
 """
 for nb in all_nb:
