@@ -25,6 +25,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     pint.Quantity([])
 
+
 def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     """Try finding a neuron's soma.
 

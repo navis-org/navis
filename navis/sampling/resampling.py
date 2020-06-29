@@ -60,7 +60,7 @@ def resample_neuron(x: 'core.NeuronObject',
                     method: str = 'linear',
                     skip_errors: bool = True
                     ) -> Optional['core.NeuronObject']:
-    """ Resamples neuron(s) to given resolution.
+    """Resample neuron(s) to given resolution.
 
     Preserves root, leafs, branchpoints. Connectors (if they exist) are mapped
     onto the closest new node.
@@ -117,8 +117,8 @@ def resample_neuron(x: 'core.NeuronObject',
                         resample to certain resolution. Useful if you are
                         just after some simplification e.g. for speeding up
                         your calculations or you want to preserve node IDs.
-    """
 
+    """
     if isinstance(x, core.NeuronList):
         if not inplace:
             x = x.copy()

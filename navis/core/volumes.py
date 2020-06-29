@@ -40,7 +40,9 @@ class Volume(trimesh.Trimesh):
     Parameters
     ----------
     vertices :  list | array
-                Vertices coordinates. Must be shape (N,3).
+                Vertices coordinates. Must be shape (N,3). Can also be an object
+                that has ``.vertices`` and ``.faces`` attributes in which case
+                ``faces`` parameter will be ignored.
     faces :     list | array
                 Indexed faceset.
     name :      str, optional
@@ -288,6 +290,7 @@ class Volume(trimesh.Trimesh):
         ----------
         filename :      str
                         Filename to use.
+
         """
         with open(filename, 'w') as f:
             json.dump({'vertices': self.vertices.tolist(),
@@ -342,7 +345,7 @@ class Volume(trimesh.Trimesh):
 
     @property
     def bbox(self) -> np.ndarray:
-        """Bounding box of this volume. """
+        """Bounding box of this volume."""
         return self.bounds
 
     @property
@@ -360,20 +363,21 @@ class Volume(trimesh.Trimesh):
         return np.mean(self.vertices, axis=0)
 
     def __getstate__(self):
-        """Custom pickler."""
-        return {k: v for k,v in self.__dict__.items() if not callable(v)}
+        """Get state (used e.g. for pickling)."""
+        return {k: v for k, v in self.__dict__.items() if not callable(v)}
 
     def __setstate__(self, d):
-        """Custom unpickler."""
+        """Update state (used e.g. for pickling)."""
         self.__dict__.update(d)
 
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
-        """
-        Print quick summary of the current geometry without
-        computing properties.
+        """Return quick summary of the current geometry.
+
+        Avoids computing properties.
+
         """
         elements = []
         if hasattr(self, 'name'):
@@ -466,9 +470,8 @@ class Volume(trimesh.Trimesh):
 
         perm_methods = ['center', 'origin', 'normals', 'centroid']
         if method not in perm_methods:
-            raise ValueError('Unknown method "{}". Allowed '
-                             'methods: {}'.format(method,
-                                                  ', '.join(perm_methods)))
+            raise ValueError(f'Unknown method "{method}". Allowed '
+                             f'methods: {", ".join(perm_methods)}')
 
         if not inplace:
             v = self.copy()
@@ -520,8 +523,8 @@ class Volume(trimesh.Trimesh):
         --------
         >>> vol = navis.get_volume('v14.LH_R')
         >>> vol.plot3d(color = (255, 0, 0))
-        """
 
+        """
         from .. import plotting
 
         if 'color' in kwargs:

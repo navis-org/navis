@@ -56,7 +56,7 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
     elif isinstance(x, pd.DataFrame):
         nodes = x
     else:
-        raise TypeError('Need TreeNeuron or DataFrame, got "{}"'.format(type(x)))
+        raise TypeError(f'Need TreeNeuron or DataFrame, got "{type(x)}"')
 
     # Extract node coordinates
     tn_coords = nodes[['x', 'y', 'z']].values
@@ -102,7 +102,7 @@ def strahler_index(x: 'core.NeuronObject',
                    to_ignore: list = [],
                    min_twig_size: Optional[int] = None
                    ) -> Optional['core.NeuronObject']:
-    """ Calculates Strahler Index (SI).
+    """Calculate Strahler Index (SI).
 
     Starts with SI of 1 at each leaf and walks to root. At forks with different
     incoming SIs, the highest index is continued. At forks with the same
@@ -140,7 +140,6 @@ def strahler_index(x: 'core.NeuronObject',
                         ``strahler_index``.
 
     """
-
     if isinstance(x, core.NeuronList):
         if x.shape[0] == 1:
             x = x[0]
@@ -291,7 +290,7 @@ def segregation_index(x: 'core.NeuronObject',
                                                Literal['bending'],
                                                Literal['sum']] = 'centrifugal',
                       ) -> float:
-    """ Calculates segregation index (SI).
+    """Calculate segregation index (SI).
 
     The segregation index as established by Schneider-Mizell et al. (eLife,
     2016) is a measure for how polarized a neuron is. SI of 1 indicates total
@@ -329,10 +328,8 @@ def segregation_index(x: 'core.NeuronObject',
                         Segregation Index (SI).
 
     """
-
     if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
-        raise ValueError('Must pass TreeNeuron or NeuronList, '
-                         'not {0}'.format(type(x)))
+        raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
 
     if isinstance(x, core.NeuronList) and x.shape[0] == 1:
         x = x[0]
@@ -383,7 +380,9 @@ def segregation_index(x: 'core.NeuronObject',
 
 
 def bending_flow(x: 'core.NeuronObject') -> None:
-    """Variation of the algorithm for calculating synapse flow from
+    """Calculate bending flow.
+
+    This is a variation of the algorithm for calculating synapse flow from
     Schneider-Mizell et al. (eLife, 2016).
 
     The way this implementation works is by iterating over each branch point
@@ -502,7 +501,7 @@ def flow_centrality(x: 'core.NeuronObject',
                                 Literal['centripetal'],
                                 Literal['sum']] = 'centrifugal'
                     ) -> None:
-    """ Calculates synapse flow centrality (SFC).
+    """Calculate synapse flow centrality (SFC).
 
     From Schneider-Mizell et al. (2016): "We use flow centrality for
     four purposes. First, to split an arbor into axon and dendrite at the
@@ -550,9 +549,8 @@ def flow_centrality(x: 'core.NeuronObject',
     branchpoints and synapse-holding nodes).
 
     """
-
     if mode not in ['centrifugal', 'centripetal', 'sum']:
-        raise ValueError('Unknown parameter for mode: {0}'.format(mode))
+        raise ValueError(f'Unknown "mode" parameter: {mode}')
 
     if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
         raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
@@ -641,7 +639,7 @@ def tortuosity(x: 'core.NeuronObject',
                ) -> Union[float,
                           Sequence[float],
                           pd.DataFrame]:
-    """ Calculates tortuosity for a neurons.
+    """Calculate tortuosity of a neuron.
 
     See Stepanyants et al., Neuron (2004) for detailed explanation. Briefly,
     tortuosity index `T` is defined as the ratio of the branch segment length
@@ -684,7 +682,6 @@ def tortuosity(x: 'core.NeuronObject',
     1.163
 
     """
-
     # TODO:
     # - try as angles between dotproduct vectors
     #
@@ -698,7 +695,7 @@ def tortuosity(x: 'core.NeuronObject',
         return df
 
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError('Need TreeNeuron, got {0}'.format(type(x)))
+        raise TypeError(f'Need TreeNeuron, got {type(x)}')
 
     if isinstance(seg_length, (list, np.ndarray)):
         return [tortuosity(x, l) for l in seg_length]  # type: ignore  # would need to overload to fix this

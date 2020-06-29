@@ -36,7 +36,7 @@ __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
 def network2nx(x: Union[pd.DataFrame, Iterable],
                threshold: int = 1,
                group_by: Union[dict, None] = None) -> nx.DiGraph:
-    """Generates NetworkX graph for neuron connectivity.
+    """Generate NetworkX graph for neuron connectivity.
 
     Parameters
     ----------
@@ -59,7 +59,6 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
                         NetworkX representation of the network.
 
     """
-
     if isinstance(x, pd.DataFrame):
         miss = [c not in x.columns for c in ['source', 'target', 'weight']]
         if all(miss):
@@ -172,7 +171,7 @@ def network2igraph(x: Union[pd.DataFrame, Iterable],
 
 
 def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
-    """ Turn TreeNeuron into an NetworkX DiGraph.
+    """Turn TreeNeuron into an NetworkX DiGraph.
 
     Parameters
     ----------
@@ -185,10 +184,9 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
                 if x is multiple neurons.
 
     """
-
-    if isinstance(x, (pd.DataFrame, core.NeuronList)):
+    if isinstance(x, core.NeuronList):
         return [neuron2nx(x.loc[i]) for i in range(x.shape[0])]
-    elif isinstance(x, (pd.Series, core.TreeNeuron)):
+    elif isinstance(x, core.TreeNeuron):
         pass
     else:
         raise ValueError(f'Wrong input type "{type(x)}"')
@@ -198,8 +196,8 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
     # Collect edges
     edges = x.nodes[x.nodes.parent_id >= 0][['node_id', 'parent_id']].values
     # Collect weight
-    weights = np.sqrt(np.sum((nodes.loc[edges[:, 0], ['x', 'y', 'z']].values.astype(float) -
-                              nodes.loc[edges[:, 1], ['x', 'y', 'z']].values.astype(float)) ** 2, axis=1))
+    weights = np.sqrt(np.sum((nodes.loc[edges[:, 0], ['x', 'y', 'z']].values.astype(float)
+                              - nodes.loc[edges[:, 1], ['x', 'y', 'z']].values.astype(float)) ** 2, axis=1))
     # Generate weight dictionary
     edge_dict = np.array([{'weight': w} for w in weights])
     # Add weights to dictionary
@@ -214,14 +212,18 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
     return g
 
 
-def neuron2igraph(x: 'core.NeuronObject') -> 'igraph.Graph':
-    """ Turns TreeNeuron(s) into an iGraph graph.
+def neuron2igraph(x: 'core.NeuronObject',
+                  raise_not_installed: bool = True) -> 'igraph.Graph':
+    """Turn TreeNeuron(s) into an iGraph graph.
 
     Requires iGraph to be installed.
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :                     TreeNeuron | NeuronList
+    raise_not_installed :   bool
+                            If False and igraph is not installed will silently
+                            return ``None``.
 
     Returns
     -------
@@ -234,16 +236,18 @@ def neuron2igraph(x: 'core.NeuronObject') -> 'igraph.Graph':
     """
     # If iGraph is not installed return nothing
     if igraph is None:
-        return None
+        if not raise_not_installed:
+            return None
+        else:
+            raise ImportError('iGraph appears to not be installed (properly). '
+                              'Make sure "import igraph" works.')
 
-    if isinstance(x, (pd.DataFrame, core.NeuronList)):
+    if isinstance(x, core.NeuronList):
         return [neuron2igraph(x.loc[i]) for i in range(x.shape[0])]
-    elif isinstance(x, (pd.Series, core.TreeNeuron)):
+    elif isinstance(x, core.TreeNeuron):
         pass
     else:
         raise ValueError(f'Unable input type "{type(x)}"')
-
-    logger.debug('Generating graph from skeleton data...')
 
     # Make sure we have correctly numbered indices
     nodes = x.nodes.reset_index(inplace=False, drop=True)
@@ -307,14 +311,14 @@ def nx2neuron(g: nx.Graph,
     """
     # First some sanity checks
     if not isinstance(g, nx.Graph):
-        raise TypeError(f'g must be NetworkX Graph, not "{type(g)}"')
+        raise TypeError(f'`g` must be NetworkX Graph, not "{type(g)}"')
 
     # We need an undirected Graph
     if isinstance(g, nx.DiGraph):
         g = g.to_undirected(as_view=True)
 
     if not nx.is_tree(g):
-        raise TypeError("g must be tree-like. Please check for loops.")
+        raise TypeError("Graph must be tree-like. Please check for loops.")
 
     # Pick a randon root if not explicitly provided
     if not root:
@@ -373,11 +377,12 @@ def _find_all_paths(g: nx.DiGraph,
                     end,
                     mode: str = 'OUT',
                     maxlen: Optional[int] = None) -> list:
-    """ Find all paths between two vertices in an iGraph object. For some reason
-    this function exists in R iGraph but not Python iGraph. This is rather slow
-    and should not be used for large graphs.
-    """
+    """Find all paths between two vertices in an iGraph object.
 
+    For some reason this function exists in R iGraph but not Python iGraph. This
+    is rather slow and should not be used for large graphs.
+
+    """
     def find_all_paths_aux(adjlist: List[set],
                            start: int,
                            end: int,
@@ -412,7 +417,7 @@ def neuron2KDTree(x: 'core.TreeNeuron',
                   data: str = 'nodes',
                   **kwargs) -> Union[scipy.spatial.cKDTree,
                                      scipy.spatial.KDTree]:
-    """ Turns a neuron into scipy KDTree.
+    """Turn neuron into scipy KDTree.
 
     Parameters
     ----------
@@ -432,13 +437,11 @@ def neuron2KDTree(x: 'core.TreeNeuron',
     ``scipy.spatial.cKDTree`` or ``scipy.spatial.KDTree``
 
     """
-
     if tree_type not in ['c', 'normal']:
         raise ValueError('"tree_type" needs to be either "c" or "normal"')
 
     if data not in ['nodes', 'connectors']:
-        raise ValueError(
-            '"data" needs to be either "nodes" or "connectors"')
+        raise ValueError('"data" needs to be either "nodes" or "connectors"')
 
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
@@ -496,7 +499,6 @@ def neuron2dps(x: 'core.TreeNeuron') -> pd.DataFrame:
             Shorthand to the dotprops representation of neuron.
 
     """
-
     if isinstance(x, core.NeuronList):
         if x.shape[0] == 1:
             x = x[0]

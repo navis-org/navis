@@ -26,7 +26,7 @@ def sparseness(x: Union[pd.DataFrame, np.ndarray],
                which: Union[Literal['LTS'],
                             Literal['LTK'],
                             Literal['activity_ratio']] = 'LTS') -> Union[pd.Series, np.ndarray]:
-    """ Calculate sparseness.
+    r"""Calculate sparseness.
 
     Sparseness comes in three flavors:
 
@@ -88,7 +88,7 @@ def sparseness(x: Union[pd.DataFrame, np.ndarray],
     >>> import matplotlib.pyplot as plt
     >>> # Get ORN response matrix from DoOR database
     >>> url = 'https://raw.githubusercontent.com/ropensci/DoOR.data/master/data/door_response_matrix.csv'
-    >>> adj = c=pd.read_csv(url, delimiter=';')
+    >>> adj = pd.read_csv(url, delimiter=';')
     >>> # Calculate lifetime sparseness
     >>> S = navis.sparseness(adj, which='LTS')
     >>> # Plot distribution
@@ -97,7 +97,6 @@ def sparseness(x: Union[pd.DataFrame, np.ndarray],
     >>> plt.show()
 
     """
-
     if not isinstance(x, (pd.DataFrame, np.ndarray)):
         x = np.array(x)
 

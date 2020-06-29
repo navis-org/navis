@@ -14,6 +14,9 @@
 """ Set of functions to interface with Cytoscape using its CyREST API. This
 module requires py2cytoscape (https://github.com/cytoscape/py2cytoscape)
 """
+# Exclude from pytest if py2cytoscape can't be imported
+import pytest
+_ = pytest.importorskip("py2cytoscape")
 
 import logging
 
@@ -83,7 +86,7 @@ def get_navis_style():
 
 def generate_network(x, layout='fruchterman-rheingold', apply_style=True,
                      clear_session=True):
-    """ Loads a CATMAID network into Cytoscape.
+    """Load network into Cytoscape.
 
     Parameters
     ----------
@@ -102,8 +105,8 @@ def generate_network(x, layout='fruchterman-rheingold', apply_style=True,
     Returns
     -------
     cytoscape Network
-    """
 
+    """
     # Initialise connection with Cytoscape
     cy = get_client()
 

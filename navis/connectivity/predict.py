@@ -37,7 +37,7 @@ def cable_overlap(a: NeuronObject,
                   dist: float = 2,
                   method: Union[Literal['min'], Literal['max'], Literal['avg']] = 'min'
                   ) -> pd.DataFrame:
-    """ Calculates the amount of cable of neuron A within distance of neuron B.
+    """Calculate the amount of cable of neuron A within distance of neuron B.
 
     Uses dotproduct representation of a neuron! It is recommended to
     resample neurons first.
@@ -86,7 +86,6 @@ def cable_overlap(a: NeuronObject,
     >>> ol = navis.cable_overlap(nl, nl, dist=2000)
 
     """
-
     if not isinstance(a, (TreeNeuron, NeuronList)) \
        or not isinstance(b, (TreeNeuron, NeuronList)):
         raise TypeError('Need to pass CatmaidNeurons')
@@ -99,8 +98,8 @@ def cable_overlap(a: NeuronObject,
 
     allowed_methods = ['min', 'max', 'avg']
     if method not in allowed_methods:
-        raise ValueError('Unknown method "{0}". Allowed methods: "{0}"'.format(
-            method, ','.join(allowed_methods)))
+        raise ValueError(f'Unknown method "{method}". Allowed methods: '
+                         f'"{",".join(allowed_methods)}"')
 
     matrix = pd.DataFrame(np.zeros((a.shape[0], b.shape[0])),
                           index=a.name, columns=b.name)

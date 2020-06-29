@@ -47,7 +47,7 @@ def cluster_by_connectivity(adjacency: Union[pd.DataFrame, np.ndarray],
                                               ] = 'vertex_normalized',
                             threshold: int = 1,
                             cluster_kws: dict = {}) -> 'ClustResults':
-    """ Calculate connectivity similarity.
+    r"""Calculate connectivity similarity.
 
     This functions offers a selection of metrics to compare connectivity:
 
@@ -110,8 +110,8 @@ def cluster_by_connectivity(adjacency: Union[pd.DataFrame, np.ndarray],
     :class:`navis.ClustResults`
                          Custom cluster results class holding the distance
                          matrix and contains wrappers e.g. to plot dendograms.
-    """
 
+    """
     ALLOWED_METHODS = ['matching_index', 'matching_index_synapses',
                        'matching_index_weighted_synapses', 'vertex',
                        'vertex_normalized']
@@ -171,7 +171,7 @@ def _calc_connectivity_matching_index(neuronA: int,
                                       vertex_score: bool = True,
                                       **kwargs) -> Dict[str,
                                                         Union[float, int]]:
-    """ Calculates and returns various matching indices between two neurons.
+    """Calculate and return various matching indices between two neurons.
 
     Parameters
     ----------
@@ -324,7 +324,7 @@ def _calc_synapse_similarity(cnA: pd.DataFrame,
                              omega: int = 2,
                              restrict_cn: Optional[List[str]] = None
                              ) -> float:
-    """ Calculates synapses similarity score.
+    """Calculates synapse similarity score.
 
     Synapse similarity score is calculated by calculating for each synapse of
     neuron A: (1) the distance to the closest (eucledian) synapse in neuron B
@@ -345,7 +345,6 @@ def _calc_synapse_similarity(cnA: pd.DataFrame,
     synapse_similarity_score
 
     """
-
     all_values = []
 
     # Get the connector types that we want to compare between neuron A and B
@@ -403,7 +402,7 @@ def cluster_by_synapse_placement(x: Union[NeuronList,
                                  mu_score: bool = True,
                                  restrict_cn: Optional[List[str]] = None
                                  ) -> 'ClustResults':
-    """ Clusters neurons based on their synapse placement.
+    r"""Cluster neurons based on their synapse placement.
 
     Distances score is calculated by calculating for each synapse of
     neuron A: (1) the distance to the closest (eucledian) synapse in neuron B
@@ -461,7 +460,6 @@ def cluster_by_synapse_placement(x: Union[NeuronList,
                 dendrograms.
 
     """
-
     if isinstance(x, dict):
         if any([not isinstance(d, pd.DataFrame) for d in x.values()]):
             raise TypeError('Values in dict must be pandas.DataFrames.')
@@ -516,7 +514,7 @@ def cluster_by_synapse_placement(x: Union[NeuronList,
 def cluster_xyz(x: Union[pd.DataFrame, np.ndarray],
                 labels: Optional[List[str]] = None
                 ) -> 'ClustResults':
-    """ Thin wrapper for ``scipy.scipy.spatial.distance``.
+    """Thin wrapper for ``scipy.scipy.spatial.distance``.
 
     Takes a list of x,y,z coordinates and calculates EUCLEDIAN distance matrix.
 
@@ -566,7 +564,7 @@ def cluster_xyz(x: Union[pd.DataFrame, np.ndarray],
 
 
 class ClustResults:
-    """ Class to handle, analyze and plot similarity/distance matrices.
+    """Class to handle, analyze and plot similarity/distance matrices.
 
     Contains thin wrappers for ``scipy.cluster``.
 
@@ -603,7 +601,7 @@ class ClustResults:
                  mat_type: Union[Literal['distance'],
                                  Literal['similarity']] = 'distance'
                  ):
-        """ Initialize class instance.
+        """Initialize class instance.
 
         Parameters
         ----------
@@ -651,7 +649,7 @@ class ClustResults:
             return self.calc_agg_coeff()
 
     def get_leafs(self, use_labels: bool = False) -> Sequence:
-        """ Use to retrieve labels.
+        """Use to retrieve labels.
 
         Parameters
         ----------
@@ -671,7 +669,7 @@ class ClustResults:
             return scipy.cluster.hierarchy.leaves_list(self.linkage)
 
     def calc_cophenet(self) -> float:
-        """ Returns Cophenetic Correlation coefficient of your clustering.
+        """Returns Cophenetic Correlation coefficient of your clustering.
 
         This (very very briefly) compares (correlates) the actual pairwise
         distances of all your samples to those implied by the hierarchical
@@ -679,12 +677,11 @@ class ClustResults:
         preserves the original distances.
 
         """
-
         return scipy.cluster.hierarchy.cophenet(self.linkage,
                                                 self.condensed_dist_mat)
 
     def calc_agg_coeff(self) -> float:
-        """ Returns the agglomerative coefficient.
+        """Return the agglomerative coefficient.
 
         This measures the clustering structure of the linkage matrix. Because
         it grows with the number of observations, this measure should not be
@@ -696,7 +693,6 @@ class ClustResults:
         the average of all 1 - m(i).
 
         """
-
         # Turn into pandas DataFrame for fancy indexing
         Z = pd.DataFrame(self.linkage, columns=['obs1', 'obs2', 'dist', 'n_org'])
 
@@ -712,14 +708,14 @@ class ClustResults:
         return coeff
 
     def _invert_mat(self, sim_mat: pd.DataFrame) -> pd.DataFrame:
-        """ Inverts matrix."""
+        """Invert matrix."""
         if isinstance(sim_mat, pd.DataFrame):
             return (sim_mat - sim_mat.max().max()) * -1
         else:
             return (sim_mat - sim_mat.max()) * -1
 
     def cluster(self, method: str = 'ward') -> None:
-        """ Cluster distance matrix.
+        """Cluster distance matrix.
 
         This will automatically be called when attribute linkage is requested
         for the first time.
@@ -731,7 +727,6 @@ class ClustResults:
                     for reference)
 
         """
-
         # Use condensed distance matrix - otherwise clustering thinks we are
         # passing observations instead of final scores
         self.linkage = scipy.cluster.hierarchy.linkage(self.condensed_dist_mat,
@@ -748,7 +743,7 @@ class ClustResults:
                         labels: Optional[List[str]] = None,
                         fig: Optional['matplotlib.figure.Figure'] = None,
                         **kwargs):
-        """ Plot dendrogram using matplotlib.
+        """Plot dendrogram using matplotlib.
 
         Parameters
         ----------
@@ -807,9 +802,8 @@ class ClustResults:
         else:
             return fig
 
-    def plot_matrix2(self, **kwargs):
-        """ Plot distance matrix and dendrogram using seaborn. This package
-        needs to be installed manually.
+    def plot_clustermap(self, **kwargs):
+        """Plot distance matrix and dendrogram using seaborn.
 
         Parameters
         ----------
@@ -823,7 +817,6 @@ class ClustResults:
         seaborn.clustermap
 
         """
-
         import matplotlib.pyplot as plt
 
         try:
@@ -851,7 +844,7 @@ class ClustResults:
         return cg
 
     def plot_matrix(self) -> 'matplotlib.figure.Figure':
-        """ Plot distance matrix and dendrogram using matplotlib.
+        """Plot distance matrix and dendrogram using matplotlib.
 
         Returns
         -------
@@ -904,8 +897,9 @@ class ClustResults:
                k: Union[int, float] = 5,
                criterion: str = 'maxclust',
                **kwargs):
-        """Plot neuron using :func:`navis.plot.plot3d`. Will only work if
-        instance has neurons attached to it.
+        """Plot neuron using :func:`navis.plot.plot3d`.
+
+        Will only work if instance has neurons attached to it.
 
         Parameters
         ----------
@@ -950,10 +944,9 @@ class ClustResults:
         Returns
         -------
         dict
-                    {'skeleton_id': (r,g,b),...}
+                    ``{id: (r, g, b), ...}``
 
         """
-
         cl = self.get_clusters(k, criterion, return_type='indices')
 
         cl = [[self.dist_mat.index.tolist()[i] for i in l] for l in cl]
@@ -967,7 +960,9 @@ class ClustResults:
                      k: Union[int, float],
                      criterion: str = 'maxclust',
                      return_type: str = 'labels') -> List[list]:
-        """ Wrapper for ``scipy.cluster.hierarchy.fcluster`` to get clusters.
+        """Get clusters.
+
+        Just a thin wrapper for ``scipy.cluster.hierarchy.fcluster``.
 
         Parameters
         ----------
@@ -988,7 +983,6 @@ class ClustResults:
                     list of clusters ``[[leaf1, leaf5], [leaf2, ...], ...]``
 
         """
-
         cl = scipy.cluster.hierarchy.fcluster(
             self.linkage, k, criterion=criterion)
 
@@ -1002,7 +996,7 @@ class ClustResults:
             return [[j for j in range(len(cl)) if cl[j] == i] for i in range(min(cl), max(cl) + 1)]
 
     def to_tree(self):
-        """ Turns linkage to ete3 tree.
+        """Turn linkage to ete3 tree.
 
         See Also
         --------

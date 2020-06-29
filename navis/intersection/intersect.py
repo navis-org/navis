@@ -323,8 +323,7 @@ def intersection_matrix(x: 'core.NeuronObject',
                         attr: Optional[str] = None,
                         **kwargs
                         ) -> pd.DataFrame:
-    """Compute intersection matrix between a set of neurons and a set of
-    volumes.
+    """Compute intersection matrix between a set of neurons and volumes.
 
     Parameters
     ----------

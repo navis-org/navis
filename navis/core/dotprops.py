@@ -22,7 +22,7 @@ logger = config.logger
 
 
 class Dotprops(pd.DataFrame):
-    """ Class to hold dotprops. This is essentially a pandas DataFrame - we
+    """Class to hold dotprops. This is essentially a pandas DataFrame - we
     just use it to tell dotprops from other objects.
 
     See Also

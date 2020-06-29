@@ -44,7 +44,7 @@ def example_neurons(n: Optional[int] = None,
                     source: Union[Literal['swc'],
                                   Literal['gml']] = 'swc'
                     ) -> NeuronObject:
-    """ Load example neuron(s).
+    """Load example neuron(s).
 
     These example neurons are olfactory projection neurons from the DA2
     glomerulus that have been manually reconstructed from an EM volume of an
@@ -77,7 +77,6 @@ def example_neurons(n: Optional[int] = None,
     >>> nl = navis.example_neurons()
 
     """
-
     if not isinstance(n, (int, type(None))):
         raise TypeError(f'Expected int or None, got "{type(n)}"')
 
@@ -105,15 +104,15 @@ def example_neurons(n: Optional[int] = None,
 
 
 def example_volume(name: str) -> Volume:
-    """ Load an example volume.
+    """Load an example volume.
 
     Parameters
     ----------
     name :      str
                 Name of available volume. Currently available::
+
                   "LH" = lateral horn in FAFB v14 space
                   'neuropil' = neuropil of FAFB v14 volume
-
 
     Returns
     -------
@@ -124,6 +123,7 @@ def example_volume(name: str) -> Volume:
     Load LH volume
     >>> import navis
     >>> lh = navis.example_volume('LH')
+
     """
     if not isinstance(name, str):
         raise TypeError(f'Expected string, got "{type(name)}"')

@@ -72,8 +72,7 @@ def prune_by_strahler(x: NeuronObject,
                       reroot_soma: bool = True,
                       force_strahler_update: bool = False,
                       relocate_connectors: bool = False) -> Optional[NeuronObject]:
-    """ Prune neuron based on `Strahler order
-    <https://en.wikipedia.org/wiki/Strahler_number>`_.
+    """Prune neuron based on `Strahler order<https://en.wikipedia.org/wiki/Strahler_number>`_.
 
     Parameters
     ----------
@@ -116,7 +115,6 @@ def prune_by_strahler(x: NeuronObject,
     True
 
     """
-
     if isinstance(x, core.NeuronList):
         if not inplace:
             x = x.copy()
@@ -233,7 +231,7 @@ def prune_twigs(x: NeuronObject,
                 inplace: bool = False,
                 recursive: Union[int, bool, float] = False
                 ) -> Optional[NeuronObject]:
-    """ Prune terminal twigs under a given size.
+    """Prune terminal twigs under a given size.
 
     Parameters
     ----------
@@ -266,7 +264,6 @@ def prune_twigs(x: NeuronObject,
     True
 
     """
-
     if isinstance(x, core.NeuronList):
         if not inplace:
             x = x.copy()
@@ -876,7 +873,7 @@ def average_neurons(x: 'core.NeuronList',
                     limit: int = 10,
                     base_neuron: Optional[Union[int, 'core.TreeNeuron']] = None
                     ) -> 'core.TreeNeuron':
-    """ Computes an average from a list of neurons.
+    """Compute an average from a list of neurons.
 
     This is a very simple implementation which may give odd results if used
     on complex neurons. Works fine on e.g. backbones or tracts.
@@ -909,7 +906,6 @@ def average_neurons(x: 'core.NeuronList',
     >>> da2_avg.plot3d()
 
     """
-
     if not isinstance(x, core.NeuronList):
         raise TypeError(f'Need NeuronList, got "{type(x)}"')
 
@@ -929,8 +925,7 @@ def average_neurons(x: 'core.NeuronList',
     elif isinstance(base_neuron, type(None)):
         bn = x[0].copy()
     else:
-        raise ValueError('Unable to interpret base_neuron of '
-                         'type "{0}"'.format(type(base_neuron)))
+        raise ValueError(f'Unable to interpret base_neuron of type "{type(base_neuron)}"')
 
     base_nodes = bn.nodes[['x', 'y', 'z']].values
     other_neurons = x[1:]
@@ -985,7 +980,7 @@ def despike_neuron(x: NeuronObject,
                    max_spike_length: int = 1,
                    inplace: bool = False,
                    reverse: bool = False) -> Optional[NeuronObject]:
-    """ Removes spikes in neuron traces (e.g. from jumps in image data).
+    """Remove spikes in skeleton (e.g. from jumps in image data).
 
     For each node A, the euclidean distance to its next successor (parent)
     B and that node's successor is computed. If
@@ -1097,7 +1092,7 @@ def guess_radius(x: NeuronObject,
                  limit: Optional[int] = None,
                  smooth: bool = True,
                  inplace: bool = False) -> Optional[NeuronObject]:
-    """ Tries guessing radii for all nodes.
+    """Guess radii for all nodes.
 
     Uses distance between connectors and nodes and interpolate for all
     nodes. Fills in ``radius`` column in node table.
@@ -1217,7 +1212,7 @@ def guess_radius(x: NeuronObject,
 def smooth_neuron(x: NeuronObject,
                   window: int = 5,
                   inplace: bool = False) -> Optional[NeuronObject]:
-    """ Smooth neuron using rolling windows.
+    """Smooth neuron using rolling windows.
 
     Parameters
     ----------
@@ -1241,7 +1236,6 @@ def smooth_neuron(x: NeuronObject,
     >>> smoothed = navis.smooth_neuron(n, window=10)
 
     """
-
     if isinstance(x, core.NeuronList):
         if not inplace:
             x = x.copy()
@@ -1347,7 +1341,7 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
                                          Literal['ALL']] = 'LEAFS',
                            max_dist: Optional[float] = None,
                            inplace: bool = False) -> Optional[NeuronObject]:
-    """ Heal fragmented neuron(s).
+    """Heal fragmented neuron(s).
 
     Tries to heal a fragmented neuron (i.e. a neuron with multiple roots)
     using a minimum spanning tree.
@@ -1400,8 +1394,8 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     >>> healed = navis.heal_fragmented_neuron(n)
     >>> len(healed.root)
     1
-    """
 
+    """
     method = str(method).upper()
 
     if method not in ['LEAFS', 'ALL']:

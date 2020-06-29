@@ -34,7 +34,7 @@ def get_brain_meshes(species: Union[str, int],
                      save_to: Optional[str] = None,
                      combine_vols: bool = False
                      ) -> Optional[List[Volume]]:
-    """ Fetch brain meshes for given species.given
+    """Fetch brain meshes for given species.
 
     Parameters
     ----------
@@ -63,7 +63,6 @@ def get_brain_meshes(species: Union[str, int],
     >>> navis.plot3d(v)
 
     """
-
     if isinstance(save_to, str):
         if not os.path.isdir(save_to):
             raise ValueError('"save_to" must be None or valid path.')
@@ -123,7 +122,7 @@ def get_brain_meshes(species: Union[str, int],
 
 
 def get_species_info(species: Union[str, int]) -> pd.Series:
-    """ Get all info for given species.
+    """Get all info for given species.
 
     Parameters
     ----------
@@ -139,8 +138,8 @@ def get_species_info(species: Union[str, int]) -> pd.Series:
     --------
     >>> import navis.interfaces.insectbrain_db as ibd
     >>> info = ibd.get_species_info()
-    """
 
+    """
     # First get species ID
     if not isinstance(species, int):
         all_species = get_available_species()
@@ -166,12 +165,7 @@ def get_species_info(species: Union[str, int]) -> pd.Series:
 
 
 def get_available_species() -> pd.DataFrame:
-    """ Get all info for given species.
-
-    Examples
-    --------
-    >>> import navis.interfaces.insectbrain_db as ibd
-    >>> specs = ibd.get_available_species()
+    """Get all info for given species.
 
     Returns
     -------
@@ -182,8 +176,8 @@ def get_available_species() -> pd.DataFrame:
     --------
     >>> import navis.interfaces.insectbrain_db as ibd
     >>> species = ibd.get_available_species()
-    """
 
+    """
     url = make_url(baseurl, 'api', 'species', 'min')
 
     resp = requests.get(url)

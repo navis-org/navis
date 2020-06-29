@@ -46,6 +46,9 @@ default_color = (.95, .65, .04)
 # Unit registry
 ureg = pint.UnitRegistry()
 
+# Set to true to prevent Viewer from ever showing
+headless = False
+
 # Default connector color palette
 default_connector_colors = {
     0: {'name': 'Presynapses',

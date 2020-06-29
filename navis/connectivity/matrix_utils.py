@@ -31,7 +31,7 @@ def group_matrix(mat: Union[pd.DataFrame, np.ndarray],
                  col_groups: Optional[dict] = {},
                  drop_ungrouped: bool = False,
                  method: str = 'SUM') -> pd.DataFrame:
-    """ Groups adjacency matrix into neuron groups.
+    """Group adjacency matrix into neuron groups.
 
     Parameters
     ----------
@@ -39,7 +39,7 @@ def group_matrix(mat: Union[pd.DataFrame, np.ndarray],
                         Matrix to group.
     row_groups :        dict, optional
                         Row groups to be formed. Can be either:
-                        
+
                           1. ``{group1: [neuron1, neuron2, ...], ...}``
                           2. ``{neuron1: group1, neuron2:group2, ...}``
 
@@ -59,8 +59,8 @@ def group_matrix(mat: Union[pd.DataFrame, np.ndarray],
     """
     PERMISSIBLE_METHODS = ['AVERAGE', 'MIN', 'MAX', 'SUM']
     if method not in PERMISSIBLE_METHODS:
-        raise ValueError('Unknown method "{0}". Please use either {1}'.format(
-            method, ','.join(PERMISSIBLE_METHODS)))
+        raise ValueError(f'Unknown method "{method}". Please use either '
+                         f'{",".join(PERMISSIBLE_METHODS)}')
 
     if not row_groups and not col_groups:
         logger.warning('No column/row groups provided - skipping.')
@@ -73,8 +73,7 @@ def group_matrix(mat: Union[pd.DataFrame, np.ndarray],
     elif isinstance(mat, pd.DataFrame):
         mat = mat.copy()
     else:
-        raise TypeError('Can only work with numpy arrays or pandas '
-                        'DataFrames, got "{}"'.format(type(mat)))
+        raise TypeError(f'Expected numpy array or pandas DataFrames, got "{type(mat)}"')
 
     # Convert to neuron->group format if necessary
     if col_groups and utils.is_iterable(list(col_groups.values())[0]):

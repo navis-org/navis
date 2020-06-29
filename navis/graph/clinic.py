@@ -15,7 +15,7 @@ from .. import core
 
 
 def health_check(x: 'core.NeuronObject', verbose: bool = True) -> None:
-    """Run a health check on neuron and flag potential issues.
+    """Run a health check on TreeNeurons and flag potential issues.
 
     Parameters
     ----------

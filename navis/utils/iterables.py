@@ -23,8 +23,9 @@ from typing import Optional, Any
 def make_iterable(x,
                   force_type: Optional[type] = None
                   ) -> np.ndarray:
-    """ Helper function. Turns x into a np.ndarray, if it isn't already. For
-    dicts, keys will be turned into array.
+    """Force input into a numpy array.
+
+    For dicts, keys will be turned into array.
 
     Examples
     --------
@@ -35,6 +36,7 @@ def make_iterable(x,
     array(['a'])
     >>> make_iterable([1])
     array([1])
+
     """
     if not isinstance(x, collections.Iterable) or isinstance(x, six.string_types):
         x = [x]
@@ -48,8 +50,9 @@ def make_iterable(x,
 
 
 def make_non_iterable(x):
-    """ Helper function. Turns x into non-iterable, if it isn't already. Will
-    raise error if len(x) > 1.
+    """Turns input into non-iterable, if it isn't already.
+
+    Will raise error if ``len(x) > 1``.
 
     Examples
     --------
@@ -60,6 +63,7 @@ def make_non_iterable(x):
     1
     >>> make_non_iterable([1, 2])
     ValueError ...
+
     """
     if not is_iterable(x):
         return x
@@ -70,7 +74,7 @@ def make_non_iterable(x):
 
 
 def is_iterable(x: Any) -> bool:
-    """ Helper function. Returns True if x is an iterable but not str.
+    """Test if input is iterable (but not str).
 
     Examples
     --------
@@ -81,6 +85,7 @@ def is_iterable(x: Any) -> bool:
     False
     >>> is_iterable({'a': 1})
     True
+
     """
     if isinstance(x, collections.Iterable) and not isinstance(x, (six.string_types, pd.DataFrame)):
         return True

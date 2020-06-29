@@ -27,8 +27,9 @@ def validate_options(x: 'core.TreeNeuron',
                      options: Union[List[str], str],
                      kwargs: dict,
                      raise_on_error: bool = True) -> None:
-    """ Checks if neuron contains the relevant data e.g. for
-    ``plot3d(plot_connectors=True)``.
+    """Check if neuron contains all required data.
+
+    E.g. for ``plot3d(plot_connectors=True)``.
 
     Parameters
     ----------

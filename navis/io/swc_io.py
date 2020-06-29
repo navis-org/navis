@@ -292,8 +292,7 @@ def to_swc(x: 'core.NeuronObject',
         return
 
     if not isinstance(x, core.TreeNeuron):
-        raise ValueError('Can only process TreeNeurons, '
-                         'got "{}"'.format(type(x)))
+        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     # If not specified, generate generic filename
     if isinstance(filename, type(None)):
@@ -309,8 +308,8 @@ def to_swc(x: 'core.NeuronObject',
     elif not filename.endswith('.swc'):
         filename += '.swc'
 
-    # Make copy of nodes and reorder such that the parent is always before a
-    # node
+    # Make copy of nodes and reorder such that the parent comes always before
+    # its child(s)
     nodes_ordered = [n for seg in x.segments for n in seg[::-1]]
     this_tn = x.nodes.set_index('node_id', inplace=False).loc[nodes_ordered]
 
@@ -378,8 +377,7 @@ def to_swc(x: 'core.NeuronObject',
 
 
 def to_float(x: Any) -> Optional[float]:
-    """ Helper to try to convert to float.
-    """
+    """Try to convert to float."""
     try:
         return float(x)
     except BaseException:
@@ -387,8 +385,7 @@ def to_float(x: Any) -> Optional[float]:
 
 
 def to_int(x: Any) -> Optional[int]:
-    """ Helper to try to convert to float.
-    """
+    """Try to convert to int."""
     try:
         return int(x)
     except BaseException:

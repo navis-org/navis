@@ -38,7 +38,7 @@ __all__ = sorted(['classify_nodes', 'cut_neuron', 'longest_neurite',
 
 def _generate_segments(x: 'core.NeuronObject',
                        weight: Optional[str] = None) -> list:
-    """ Generate segments maximizing segment lengths.
+    """Generate segments maximizing segment lengths.
 
     Parameters
     ----------
@@ -53,16 +53,15 @@ def _generate_segments(x: 'core.NeuronObject',
     list
                 Segments as list of lists containing node IDs. List is
                 sorted by segment lengths.
-    """
 
+    """
     if isinstance(x, core.NeuronList):
         return [_generate_segments(x.loc[i],
                                    weight=weight) for i in range(x.shape[0])]
     elif isinstance(x, core.TreeNeuron):
         pass
     else:
-        logger.error('Unexpected datatype: %s' % str(type(x)))
-        raise ValueError
+        raise ValueError(f'Expected TreeNeuron, got "{type(x)}"')
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
@@ -159,7 +158,7 @@ def _connected_components(x: 'core.TreeNeuron') -> List[Set[int]]:
     return cc
 
 def _break_segments(x: 'core.NeuronObject') -> list:
-    """ Break neuron into small segments connecting ends, branches and root.
+    """Break neuron into small segments connecting ends, branches and root.
 
     Parameters
     ----------
@@ -172,7 +171,6 @@ def _break_segments(x: 'core.NeuronObject') -> list:
                 Segments as list of lists containing node IDs.
 
     """
-
     if isinstance(x, core.NeuronList):
         return [_break_segments(x.loc[i]) for i in range(x.shape[0])]
     elif isinstance(x, core.TreeNeuron):
@@ -228,8 +226,10 @@ def _break_segments(x: 'core.NeuronObject') -> list:
 
 
 def _edge_count_to_root(x: 'core.TreeNeuron') -> dict:
-    """ Return a map of nodeID vs number of edges from the first node that
-    lacks successors (aka the root).
+    """Return a map of nodeID vs number of edges.
+
+    Starts from the first node that lacks successors (aka the root).
+
     """
     current_level: List[int]
     g: Union['igraph.Graph', 'nx.DiGraph']
@@ -360,7 +360,7 @@ def distal_to(x: 'core.TreeNeuron',
               a: Optional[Union[str, int, List[Union[str, int]]]] = None,
               b: Optional[Union[str, int, List[Union[str, int]]]] = None,
               ) -> Union[bool, pd.DataFrame]:
-    """ Checks if nodes A are distal to nodes B.
+    """Check if nodes A are distal to nodes B.
 
     Important
     ---------
@@ -406,7 +406,7 @@ def distal_to(x: 'core.TreeNeuron',
         x = x[0]
 
     if not isinstance(x, core.TreeNeuron):
-        raise ValueError('Please pass a SINGLE TreeNeuron')
+        raise ValueError(f'Please pass a single TreeNeuron, got {type(x)}')
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
@@ -473,8 +473,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
                     tn_ids: Optional[Iterable[int]] = None,
                     directed: bool = False,
                     weight: Optional[str] = 'weight') -> pd.DataFrame:
-    """ Generates geodesic ("along-the-arbor") distance matrix for nodes
-    of given neuron.
+    """Generate geodesic ("along-the-arbor") distance matrix between treenodes.
 
     Parameters
     ----------
@@ -518,16 +517,14 @@ def geodesic_matrix(x: 'core.NeuronObject',
     >>> # Get mean
     >>> round(l_dist.mean().mean())
     182018.0
-    """
 
+    """
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
             x = x[0]
         else:
             raise ValueError('Cannot process more than a single neuron.')
-    elif isinstance(x, core.TreeNeuron):
-        pass
-    else:
+    elif not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     # At this point x is TreeNeuron
@@ -560,7 +557,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
 
 def segment_length(x: 'core.TreeNeuron',
                    segment: List[int]) -> float:
-    """ Get length of a linear segment.
+    """Get length of a linear segment.
 
     This function is superfast but has no checks - you must provide a
     valid segment.
@@ -590,6 +587,9 @@ def segment_length(x: 'core.TreeNeuron',
     213336.0
 
     """
+    if not isinstance(x, core.TreeNeuron):
+        raise ValueError(f'Unable to process data of type "{type(x)}"')
+
     dist = np.array([x.graph.edges[(c, p)]['weight']
                      for c, p in zip(segment[:-1], segment[1:])])
     return sum(dist)
@@ -598,7 +598,7 @@ def segment_length(x: 'core.TreeNeuron',
 def dist_between(x: 'core.NeuronObject',
                  a: int,
                  b: int) -> float:
-    """Return the geodesic distance between nodes in nanometers.
+    """Get the geodesic distance between nodes in nanometers.
 
     Parameters
     ----------
@@ -678,7 +678,7 @@ def dist_between(x: 'core.NeuronObject',
 
 def find_main_branchpoint(x: 'core.NeuronObject',
                           reroot_to_soma: bool = False) -> int:
-    """ Returns the branch point at which the two largest branches converge.
+    """Return the branch point at which the two largest branches converge.
 
     Parameters
     ----------
@@ -710,7 +710,6 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     2  TreeNeuron     3656             0          63       66  648285.745750    None
 
     """
-
     # Make a copy
     x = x.copy()
 
@@ -727,13 +726,13 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     g = graph.neuron2nx(x)
 
     # First, find longest path
-    longest = nx.dag_longest_path(g)
+    longest = nx.dag_longest_path(g, weight='weight')
 
     # Remove longest path
     g.remove_nodes_from(longest)
 
     # Find second longst path
-    sc_longest = nx.dag_longest_path(g)
+    sc_longest = nx.dag_longest_path(g, weight='weight')
 
     # Parent of the last node in sc_longest is the common branch point
     bp = list(x.graph.successors(sc_longest[-1]))[0]
@@ -779,7 +778,6 @@ def split_into_fragments(x: 'core.NeuronObject',
     >>> cut2 = navis.split_into_fragments(x, n=float('inf'), min_size=10e3)
 
     """
-
     if isinstance(x, core.TreeNeuron):
         pass
     elif isinstance(x, core.NeuronList):
@@ -877,7 +875,7 @@ def longest_neurite(x: 'core.NeuronObject',
                     n: int = 1,
                     reroot_to_soma: bool = False,
                     inplace: bool = False) -> Optional['core.TreeNeuron']:
-    """ Returns a neuron consisting of only the longest neurite(s) based on
+    """Return a neuron consisting of only the longest neurite(s) based on
     geodesic distance.
 
     Parameters
@@ -917,10 +915,7 @@ def longest_neurite(x: 'core.NeuronObject',
     >>> ln3 = navis.longest_neurite(n, n=slice(1, None), reroot_to_soma=True)
 
     """
-
-    if isinstance(x, core.TreeNeuron):
-        pass
-    elif isinstance(x, core.NeuronList):
+    if isinstance(x, core.NeuronList):
         if not inplace:
             x = x.copy()
 
@@ -937,12 +932,11 @@ def longest_neurite(x: 'core.NeuronObject',
             return x
         else:
             return
-    else:
+    elif not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Unable to process data of type "{type(x)}"')
 
     if isinstance(n, numbers.Number) and n < 1:
-        raise ValueError('Number of longest neurites to preserve must be at '
-                         'least 1.')
+        raise ValueError('Number of longest neurites to preserve must be >=1')
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
@@ -986,7 +980,7 @@ def reroot_neuron(x: 'core.NeuronObject',
 def reroot_neuron(x: 'core.NeuronObject',
                   new_root: Union[int, str],
                   inplace: bool = False) -> Optional['core.TreeNeuron']:
-    """ Reroot neuron to new root.
+    """Reroot neuron to new root.
 
     Parameters
     ----------
@@ -1016,7 +1010,6 @@ def reroot_neuron(x: 'core.NeuronObject',
     >>> n2 = navis.reroot_neuron(n, n.soma)
 
     """
-
     # if root is a list of new roots (e.g. if neuron consists of disconnected
     # skeletons)
     if utils.is_iterable(new_root):
@@ -1033,14 +1026,12 @@ def reroot_neuron(x: 'core.NeuronObject',
     if new_root is None:
         raise ValueError('New root can not be <None>')
 
-    if isinstance(x, core.TreeNeuron):
-        pass
-    elif isinstance(x, core.NeuronList):
+    if isinstance(x, core.NeuronList):
         if x.shape[0] == 1:
             x = x.loc[0]
         else:
             raise ValueError(f'Please provide only a single neuron, not {x.shape[0]}')
-    else:
+    elif not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     # If new root is a tag, rather than a ID, try finding that node
@@ -1164,6 +1155,7 @@ def reroot_neuron(x: 'core.NeuronObject',
     # Set new root's parent to None
     x.nodes.loc[x.nodes.node_id == new_root, 'parent_id'] = -1
 
+    # Only reset non-graph related attributes
     if x.igraph and config.use_igraph:
         x._clear_temp_attr(exclude=['igraph', 'classify_nodes'])
     else:
@@ -1180,7 +1172,7 @@ def cut_neuron(x: 'core.NeuronObject',
                           Literal['proximal'],
                           Literal['distal']] = 'both'
                ) -> 'core.NeuronList':
-    """ Split neuron at given point and returns two new neurons.
+    """Split neuron at given point and returns two new neurons.
 
     Split is performed between cut node and its parent node. However, cut node
     will still be present in both resulting neurons.
@@ -1240,17 +1232,13 @@ def cut_neuron(x: 'core.NeuronObject',
     if ret not in ['proximal', 'distal', 'both']:
         raise ValueError('ret must be either "proximal", "distal" or "both"!')
 
-    if isinstance(x, core.TreeNeuron):
-        pass
-    elif isinstance(x, core.NeuronList):
+    if isinstance(x, core.NeuronList):
         if x.shape[0] == 1:
             x = x[0]
         else:
-            logger.error('%i neurons provided. Please provide '
-                         'only a single neuron!' % x.shape[0])
-            raise Exception('%i neurons provided. Please provide '
-                            'only a single neuron!' % x.shape[0])
-    else:
+            raise Exception(f'{x.shape[0]} neurons provided. Please provide '
+                            'only a single neuron!')
+    elif not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Unable to process data of type "{type(x)}"')
 
     assert x.n_trees == 1, f'Unable to cut: neuron {x.id} consists of multiple ' \
@@ -1320,7 +1308,7 @@ def _cut_igraph(x: 'core.TreeNeuron',
                 ret: str) -> Union['core.TreeNeuron',
                                    Tuple['core.TreeNeuron',
                                          'core.TreeNeuron']]:
-    """Uses iGraph to cut a neuron."""
+    """Use iGraph to cut a neuron."""
     # Make a copy
     g = x.igraph.copy()
 
@@ -1385,8 +1373,7 @@ def _cut_networkx(x: 'core.TreeNeuron',
                   ret: str) -> Union['core.TreeNeuron',
                                      Tuple['core.TreeNeuron',
                                            'core.TreeNeuron']]:
-    """Uses networkX graph to cut a neuron."""
-
+    """Use networkX graph to cut a neuron."""
     # Get subgraphs consisting of nodes distal to cut node
     dist_graph: nx.DiGraph = nx.bfs_tree(x.graph, cut_node, reverse=True)
 
@@ -1481,7 +1468,7 @@ def subset_neuron(x: 'core.TreeNeuron',
                   keep_disc_cn: bool = False,
                   prevent_fragments: bool = False
                   ) -> Optional['core.TreeNeuron']:
-    """Subset a neuron to a set of nodes.
+    """Subset a neuron to a given set of nodes.
 
     Parameters
     ----------
@@ -1532,7 +1519,7 @@ def subset_neuron(x: 'core.TreeNeuron',
         x = x[0]
 
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expecte "TreeNeuron", not {type(x)}')
+        raise TypeError(f'Expected "TreeNeuron", got "{type(x)}"')
 
     if isinstance(subset, np.ndarray):
         pass
@@ -1605,7 +1592,7 @@ def subset_neuron(x: 'core.TreeNeuron',
 
 
 def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
-    """Returns list of childs.
+    """Return list of childs.
 
     Parameters
     ----------
@@ -1618,7 +1605,7 @@ def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
         ``{parent_id: [child_id, child_id, ...]}``
 
     """
-
+    assert isinstance(x, core.TreeNeuron)
     return {n: [e[0] for e in x.graph.in_edges(n)] for n in x.graph.nodes}
 
 
@@ -1728,8 +1715,9 @@ def connected_subgraph(x: 'core.TreeNeuron',
     """
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError('Input must be a single TreeNeuron.')
+
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Input must be a single TreeNeuron, got "{type(x)}".')
 
     missing = set(ss) - set(x.nodes.node_id.values)
     missing = np.array(list(missing)).astype(str)  # do NOT remove list() here!

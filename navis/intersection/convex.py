@@ -27,11 +27,12 @@ def in_volume_convex(points: np.ndarray,
                      volume: Volume,
                      approximate: bool = False,
                      ignore_axis: list = []) -> np.ndarray:
-    """ Uses scipy to test if points are within a given volume.
+    """Use scipy to test if points are within a given volume.
+
     The idea is to test if adding the point to the pointcloud changes the
     convex hull -> if yes, that point is outside the convex hull.
-    """
 
+    """
     verts = volume.vertices
 
     if not approximate:
