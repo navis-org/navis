@@ -275,6 +275,7 @@ You can then import neuprint from navis like so::
 
     navis.interfaces.neuprint.fetch_roi
     navis.interfaces.neuprint.fetch_skeletons
+    navis.interfaces.neuprint.fetch_mesh_neuron
 
 
 .. _api_interfaces.neuromorpho:
