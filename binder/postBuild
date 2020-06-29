@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Install pyoctree: will fail during build due to numpy missing
-pip install pyoctree
+# Install ncollpyde: will fail during build due to numpy missing
+pip install ncollpyde
 
 # Install a JupyterLab extension for demonstration purposes
 pip install ipywidgets --upgrade
