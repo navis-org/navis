@@ -19,13 +19,14 @@ import urllib
 from typing import Optional, Union, List, Iterable, Dict, Tuple
 
 from .. import config, core
+from .eval import is_mesh
 
 # Set up logging
 logger = config.logger
 
 
 def is_url(x: str) -> bool:
-    """ Returns True if str is URL.
+    """Return True if str is URL.
 
     Examples
     --------
@@ -34,6 +35,7 @@ def is_url(x: str) -> bool:
     False
     >>> is_url('http://www.google.com')
     True
+
     """
     parsed = urllib.parse.urlparse(x)
 
@@ -44,7 +46,7 @@ def is_url(x: str) -> bool:
 
 
 def _type_of_script() -> str:
-    """ Returns context in which navis is run. """
+    """Return context (terminal, jupyter, iPython) in which navis is run."""
     try:
         ipy_str = str(type(get_ipython()))  # type: ignore
         if 'zmqshell' in ipy_str:
@@ -56,7 +58,7 @@ def _type_of_script() -> str:
 
 
 def is_jupyter() -> bool:
-    """ Test if navis is run in a Jupyter notebook.
+    """Test if navis is run in a Jupyter notebook.
 
     Examples
     --------
@@ -64,12 +66,13 @@ def is_jupyter() -> bool:
     >>> # If run outside a Jupyter environment
     >>> is_jupyter()
     False
+
     """
     return _type_of_script() == 'jupyter'
 
 
 def set_loggers(level: str = 'INFO'):
-    """Helper function to set levels for all associated module loggers.
+    """Set levels for all associated module loggers.
 
     Examples
     --------
@@ -81,6 +84,7 @@ def set_loggers(level: str = 'INFO'):
     >>> set_loggers('INFO')
     >>> # Revert to old level
     >>> set_loggers(lvl)
+
     """
     config.logger.setLevel(level)
 
@@ -88,7 +92,7 @@ def set_loggers(level: str = 'INFO'):
 def set_pbars(hide: Optional[bool] = None,
               leave: Optional[bool] = None,
               jupyter: Optional[bool] = None) -> None:
-    """ Set global progress bar behaviors.
+    """Set global progress bar behaviors.
 
     Parameters
     ----------
@@ -113,8 +117,8 @@ def set_pbars(hide: Optional[bool] = None,
     >>> set_pbars(hide=True)
     >>> # Never use Jupyter widget progress bars
     >>> set_pbars(juyter=False)
-    """
 
+    """
     if isinstance(hide, bool):
         config.pbar_hide = hide
 
@@ -138,7 +142,7 @@ def set_pbars(hide: Optional[bool] = None,
 def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.TreeNeuron'],
                    raise_on_error: bool = True
                    ) -> List['core.TreeNeuron']:
-    """ Unpacks neurons and returns a list of individual neurons.
+    """Unpack neurons and returns a list of individual neurons.
 
     Examples
     --------
@@ -157,8 +161,8 @@ def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.TreeNeuron'],
     navis.core.neurons.TreeNeuron
     >>> len(unpacked)
     6
-    """
 
+    """
     neurons: list = []
 
     if isinstance(x, (list, np.ndarray, tuple)):
@@ -176,7 +180,7 @@ def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.TreeNeuron'],
 
 def set_default_connector_colors(x: Union[List[tuple], Dict[str, tuple]]
                                  ) -> None:
-    """ Set default connector colors.
+    """Set default connector colors.
 
     Parameters
     ----------
@@ -185,8 +189,8 @@ def set_default_connector_colors(x: Union[List[tuple], Dict[str, tuple]]
 
                    list : [(r, g, b), (r, g, b), ..]
                    dict : {'cn_label': (r, g, b), ..}
-    """
 
+    """
     if not isinstance(x, (dict, list, np.ndarray)):
         raise TypeError(f'Expect dict, list or numpy array, got "{type(x)}"')
 
@@ -200,13 +204,13 @@ def parse_objects(x) -> Tuple['core.NeuronList',
                               List['core.Volume'],
                               List[np.ndarray],
                               List]:
-    """ Helper class to categorize objects e.g. for plotting.
+    """Categorize objects e.g. for plotting.
 
     Returns
     -------
-    TreeNeurons :   navis.NeuronList
+    Neurons :       navis.NeuronList
     Dotprops :      pd.DataFrame
-    Volumes :       list
+    Volume :        list of navis.Volume
     Points :        list of arrays
     Visuals :       list of vispy visuals
 
@@ -220,14 +224,14 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     >>> nl = example_neurons(3)
     >>> v = example_volume('LH')
     >>> p = nl[0].nodes[['x', 'y', 'z']].values
-    >>> n, dps, vols, points, vis = parse_objects([nl, v, p])
+    >>> n, dps, meshes, points, vis = parse_objects([nl, v, p])
     >>> type(n), len(n)
     (navis.core.neuronlist.NeuronList, 3)
     >>> type(dps), len(dps)
     (navis.core.dotprops.Dotprops, 0)
     >>> type(vols), len(vols)
     (list, 1)
-    >>> type(vols[0])
+    >>> type(meshes[0])
     navis.core.volumes.Volume
     >>> type(points), len(points)
     (list, 1)
@@ -235,8 +239,8 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     numpy.ndarray
     >>> type(vis), len(points)
     (list, 1)
-    """
 
+    """
     # Make sure this is a list.
     if not isinstance(x, list):
         x = [x]
@@ -249,11 +253,11 @@ def parse_objects(x) -> Tuple['core.NeuronList',
             y += i if isinstance(i, list) else [i]
         x = y
 
-    # Collect neuron objects and collate to single Neuronlist
-    neuron_obj = [ob for ob in x if isinstance(ob,
-                                               (core.TreeNeuron,
-                                                core.NeuronList))]
-    skdata = core.NeuronList(neuron_obj, make_copy=False)
+    # Collect neuron objects, make a single NeuronList and split into types
+    neurons = core.NeuronList([ob for ob in x if isinstance(ob,
+                                                            (core.BaseNeuron,
+                                                             core.NeuronList))],
+                              make_copy=False)
 
     # Collect visuals
     visuals = [ob for ob in x if 'vispy' in str(type(ob))]
@@ -291,7 +295,7 @@ def parse_objects(x) -> Tuple['core.NeuronList',
 
     points = dataframes + arrays
 
-    return skdata, dotprops, volumes, points, visuals
+    return neurons, dotprops, volumes, points, visuals
 
 
 def make_url(baseurl, *args: str, **GET) -> str:
@@ -336,5 +340,5 @@ def make_url(baseurl, *args: str, **GET) -> str:
         relative = arg_str[1:] if arg_str.startswith('/') else arg_str
         url = requests.compat.urljoin(url + joiner, relative)
     if GET:
-        url += '?{}'.format(urllib.parse.urlencode(GET))
+        url += f'?{urllib.parse.urlencode(GET)}'
     return url

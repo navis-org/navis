@@ -13,6 +13,7 @@
 
 import copy
 import numbers
+import os
 import pint
 import types
 import uuid
@@ -21,10 +22,11 @@ import warnings
 import networkx as nx
 import numpy as np
 import pandas as pd
+import trimesh as tm
 
 from io import BufferedIOBase, StringIO
 
-from typing import Union, Callable, List, Sequence, Optional, Dict, overload
+from typing import Union, Callable, List, Sequence, Optional, Dict, overload, Any
 from typing_extensions import Literal
 
 from .. import graph, morpho, utils, config, core, sampling, intersection
@@ -41,14 +43,16 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
-def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron'], **metadata):
-    """ Constructor for Neuron objects. Depending on the input, either a
-    ``TreeNeuron`` or a ``VolumeNeuron`` (in preparation) is returned.
+def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
+           **metadata):
+    """Constructor for Neuron objects. Depending on the input, either a
+    ``TreeNeuron`` or a ``MeshNeuron`` is returned.
 
     Parameters
     ----------
-    x                   networkx.Graph | str | file-like | pandas.DataFrame | Neuron
-                        Data to construct neuron from.
+    x
+                        Anything that can construct a :class:`~navis.TreeNeuron`
+                        or :class:`~navis.MeshNeuron`.
     **metadata
                         Any additional data to attach to neuron.
 
@@ -59,40 +63,511 @@ def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron'], **metadata):
                         SWC file.
     :func:`navis.example_neurons`
                         Loads some example neurons provided.
+
     """
-
-    if isinstance(x, (nx.Graph, str, pd.DataFrame)):
+    try:
         return TreeNeuron(x, **metadata)
-    # elif isinstance(x, (Volume, trimesh.Trimesh, dict)):
-    #    return VolumeNeuron(x, **metadata)
-    else:
-        raise TypeError(f'Unable to construct neuron from "{type(x)}"')
+    except utils.ConstructionError:
+        try:
+            return MeshNeuron(x, **metadata)
+        except utils.ConstructionError:
+            pass
+        except BaseException:
+            raise
+    except BaseException:
+        raise
+
+    raise utils.ConstructionError(f'Unable to construct neuron from "{type(x)}"')
 
 
-class TreeNeuron:
-    """Object representing neurons as hierarchical trees."""
+class BaseNeuron:
+    """Base Neuron."""
 
-    #: Minimum radius for soma detection. Set to ``None`` if no tag needed.
-    #: Default = .5 microns
-    soma_detection_radius: Union[float, int, pint.Quantity] = 0.5 * config.ureg.um
-    #: Label for soma detection. Set to ``None`` if no tag needed. Default = 1.
-    soma_detection_label: Union[float, int, str] = 1
-    #: Soma radius (e.g. for plotting). If string, must be column in nodes
-    #: table. Default = 'radius'.
-    soma_radius: Union[float, int, str] = 'radius'
-    # Set default function for soma finding. Default = :func:`navis.morpho.find_soma`
-    _soma: Union[Callable[['TreeNeuron'], Sequence[int]],
-                 int] = morpho.find_soma
-
-    name: str
+    name: Optional[str]
+    id: Union[int, str, uuid.UUID]
 
     #: Unit space for this neuron. Some functions, like soma detection are
     #: sensitive to units (if provided)
     #: Default = micrometers
-    units: pint.Unit
+    units: Union[pint.Unit, pint.Quantity]
+
+    volume: Union[int, float]
+
+    connectors: Optional[pd.DataFrame]
+
+    #: Attributes used for neuron summary
+    SUMMARY_PROPS = ['type', 'name', 'units']
+
+    #: Attributes to be used when comparing two neurons.
+    EQ_ATTRIBUTES = ['name']
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def __getattr__(self, key):
+        """Get attribute."""
+        if key.startswith('has_'):
+            key = key[key.index('_'):]
+            if hasattr(self, key):
+                data = getattr(self, key)
+                if isinstance(data, pd.DataFrame) and not data.empty:
+                    return True
+            return False
+        elif key.startswith('n_'):
+            return len(getattr(self, key[2:]))
+
+        raise AttributeError(f'Attribute "{key}" not found')
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return str(self.summary())
+
+    def __copy__(self):
+        return self.copy(deepcopy=False)
+
+    def __deepcopy__(self):
+        return self.copy(deepcopy=True)
+
+    def __eq__(self, other):
+        """Implement neuron comparison."""
+        if isinstance(other, TreeNeuron):
+            # We will do this sequentially and stop as soon as we find a
+            # discrepancy -> this saves tons of time!
+            for at in self.EQ_ATTRIBUTES:
+                comp = getattr(self, at) == getattr(other, at)
+                if isinstance(comp, np.ndarray) and not all(comp):
+                    return False
+                elif comp is False:
+                    return False
+            # If all comparisons have passed, return True
+            return True
+        else:
+            return NotImplemented
+
+    def __hash__(self):
+        """Generate a hashable value."""
+        # We will simply use the neuron's memory address
+        return id(self)
+
+    def __add__(self, other):
+        """Implement addition."""
+        if isinstance(other, TreeNeuron):
+            return core.NeuronList([self, other])
+        else:
+            return NotImplemented
+
+    def _repr_html_(self):
+        frame = self.summary().to_frame()
+        frame.columns = ['']
+        # return self._gen_svg_thumbnail() + frame._repr_html_()
+        return frame._repr_html_()
+
+    def _gen_svg_thumbnail(self):
+        """Generate 2D plot for thumbnail."""
+        import matplotlib.pyplot as plt
+        # Store some previous states
+        prev_level = logger.getEffectiveLevel()
+        prev_pbar = config.pbar_hide
+        prev_int = plt.isinteractive()
+
+        plt.ioff()  # turn off interactive mode
+        logger.setLevel('WARNING')
+        config.pbar_hide = True
+        fig = plt.figure(figsize=(2, 2))
+        ax = fig.add_subplot(111)
+        fig, ax = self.plot2d(connectors=False, ax=ax)
+        output = StringIO()
+        fig.savefig(output, format='svg')
+
+        if prev_int:
+            plt.ion()  # turn on interactive mode
+        logger.setLevel(prev_level)
+        config.pbar_hide = prev_pbar
+        _ = plt.clf()
+        return output.getvalue()
+
+    def _register_attr(self, name, value):
+        """Set and register attribute for summary."""
+        setattr(self, name, value)
+
+        # If this is an easy to summarize attribute, add to summary
+        if isinstance(value, (numbers.Number, str)):
+            self.SUMMARY_PROPS.append(name)
+
+    def _unregister_attr(self, name):
+        """Remove and unregister attribute."""
+        if name in self.SUMMARY_PROPS:
+            self.SUMMARY_PROPS = [v for v in self.SUMMARY_PROPS if v != name]
+        delattr(self, name)
+
+    @property
+    def datatables(self) -> List[str]:
+        """Names of all DataFrames attached to this neuron."""
+        return [k for k, v in self.__dict__.items() if isinstance(v, pd.DataFrame)]
+
+    @property
+    def id(self) -> Any:
+        """Hashable ID."""
+        return getattr(self, '_id', None)
+
+    @id.setter
+    def id(self, value):
+        try:
+            hash(value)
+        except BaseException:
+            raise ValueError('id must be hashable')
+        self._id = value
+
+    @property
+    def name(self) -> str:
+        """Neuron name."""
+        return getattr(self, '_name', None)
+
+    @name.setter
+    def name(self, v: str):
+        self._name = v
+
+    @property
+    def connectors(self) -> pd.DataFrame:
+        """Connector table. If none, will return ``None``."""
+        return getattr(self, '_connectors', None)
+
+    @connectors.setter
+    def connectors(self, v):
+        if isinstance(v, type(None)):
+            self.__connectors = None
+        else:
+            self._connectors = utils.validate_table(v,
+                                                    required=['x', 'y', 'z'],
+                                                    rename=True,
+                                                    restrict=False)
+
+    @property
+    def presynapses(self):
+        """Table with presynapses.
+
+        Requires a "type" column in connector table. Will look for type labels
+        that include "pre" or that equal 0 or "0".
+        """
+        if not self.has_connectors:
+            raise ValueError('No connector table found.')
+        # Make an educated guess what presynapses are
+        types = self.connectors['type'].unique()
+        pre = [t for t in types if 'pre' in t or t in [0, "0"]]
+
+        if len(pre) == 0:
+            logger.debug(f'Unable to find presynapses in types: {types}')
+            return self.connectors.iloc[0:0]  # return empty DataFrame
+        elif len(pre) > 1:
+            raise ValueError(f'Found ambigous presynapse labels: {pre}')
+
+        return self.connectors[self.connectors['type'] == pre[0]]
+
+    @property
+    def postsynapses(self):
+        """Table with postsynapses.
+
+        Requires a "type" column in connector table. Will look for type labels
+        that include "post" or that equal 1 or "1".
+        """
+        if not self.has_connectors:
+            raise ValueError('No connector table found.')
+        # Make an educated guess what presynapses are
+        types = self.connectors['type'].unique()
+        post = [t for t in types if 'post' in t or t in [1, "1"]]
+
+        if len(post) == 0:
+            logger.debug(f'Unable to find postsynapses in types: {types}')
+            return self.connectors.iloc[0:0]  # return empty DataFrame
+        elif len(post) > 1:
+            raise ValueError(f'Found ambigous postsynapse labels: {post}')
+
+        return self.connectors[self.connectors['type'] == post[0]]
+
+    @property
+    def units(self) -> str:
+        """Units for coordinate space."""
+        # Note that we are regenerating the pint.Quantity from the string
+        # That is to avoid problems with pickling .e.g when using multiprocessing
+        return config.ureg(getattr(self, '_unit_str', None))
+
+    @units.setter
+    def units(self, v: Union[pint.Unit, pint.Quantity, str, None]):
+        # Note that we are storing the string, not the actual pint.Quantity
+        # That is to avoid problems with pickling .e.g when using multiprocessing
+        if isinstance(v, str):
+            self._unit_str = str(config.ureg(v))
+        elif isinstance(v, (pint.Unit, pint.Quantity)):
+            self._unit_str = str(v)
+        elif isinstance(v, type(None)):
+            self._unit_str = None
+        else:
+            raise TypeError(f'Expect str or pint Unit/Quantity, got "{type(v)}"')
+
+    @property
+    def type(self) -> str:
+        """Return type."""
+        return 'BaseNeuron'
+
+    def copy(self) -> 'BaseNeuron':
+        """Return a copy of the neuron."""
+        # Generate new neuron
+        x = BaseNeuron()
+        # Override with this neuron's data
+        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items()})
+
+        return x
+
+    def summary(self, add_props=None) -> pd.Series:
+        """Get a summary of this neuron."""
+        # Do not remove the list -> otherwise we might change the original!
+        props = list(self.SUMMARY_PROPS)
+
+        # Add .id to summary if not a generic UUID
+        if not isinstance(self.id, uuid.UUID):
+            props.insert(2, 'id')
+
+        if add_props:
+            props, ix = np.unique(np.append(props, add_props),
+                                  return_inverse=True)
+            props = props[ix]
+
+        s = pd.Series([getattr(self, at, 'NA') for at in props],
+                      index=props)
+
+        return s
+
+    def plot2d(self, **kwargs):
+        """Plot neuron using :func:`navis.plot2d`.
+
+        Parameters
+        ----------
+        **kwargs
+                Will be passed to :func:`navis.plot2d`.
+                See ``help(navis.plot2d)`` for a list of keywords.
+
+        See Also
+        --------
+        :func:`navis.plot2d`
+                    Function called to generate 2d plot.
+
+        """
+        from ..plotting import plot2d
+
+        return plot2d(self, **kwargs)
+
+    def plot3d(self, **kwargs):
+        """Plot neuron using :func:`navis.plot3d`.
+
+        Parameters
+        ----------
+        **kwargs
+                Keyword arguments. Will be passed to :func:`navis.plot3d`.
+                See ``help(navis.plot3d)`` for a list of keywords.
+
+        See Also
+        --------
+        :func:`navis.plot3d`
+                    Function called to generate 3d plot.
+
+        Examples
+        --------
+        >>> import navis
+        >>> nl = navis.example_neurons()
+        >>> #Plot with connectors
+        >>> nl.plot3d(connectors=True)
+
+        """
+        from ..plotting import plot3d
+
+        return plot3d(core.NeuronList(self, make_copy=False), **kwargs)
+
+
+class MeshNeuron(BaseNeuron):
+    """Object representing a neuron as mesh."""
+
+    connectors: Optional[pd.DataFrame]
+
+    vertices: np.ndarray
+    faces: np.ndarray
+
+    soma: Optional[Union[list, np.ndarray]]
+
+    #: Attributes used for neuron summary
+    SUMMARY_PROPS = ['type', 'name', 'units', 'n_vertices', 'n_faces']
+
+    #: Attributes to be used when comparing two neurons.
+    EQ_ATTRIBUTES = ['name', 'n_vertices', 'n_faces']
+
+    #: Temporary attributes that need clearing when neuron data changes
+    TEMP_ATTR = ['trimesh']
+
+    def __init__(self,
+                 x: Union[pd.DataFrame,
+                          BufferedIOBase,
+                          str,
+                          'TreeNeuron',
+                          nx.DiGraph],
+                 units: Union[pint.Unit, str] = None,
+                 **metadata
+                 ):
+        """Initialize Mesh Neuron.
+
+        Parameters
+        ----------
+        x
+                        Data to construct neuron from:
+                         - any object that has ``.vertices`` and ``.faces``
+                           properties (e.g. a trimesh.Trimesh)
+                         - a dictionary ``{"vertices": (N,3), "faces": (M, 3)}``
+                         - filepath to a file that can be read by ``trimesh.load``
+        units :         str | pint.Units | pint.Quantity
+                        Units for coordinates. Defaults to ``None`` (dimensionless).
+                        Strings must be parsable by pint: e.g. "nm", "um",
+                        "micrometer" or "8 nanometers".
+        **metadata
+                        Any additional data to attach to neuron.
+
+        """
+        super().__init__()
+
+        if isinstance(x, MeshNeuron):
+            self.__dict__.update(x.copy().__dict__)
+            self.vertices, self.faces = x.vertices, x.faces
+        elif hasattr(x, 'faces') and hasattr(x, 'vertices'):
+            self.vertices, self.faces = x.vertices, x.faces
+        elif isinstance(x, dict):
+            if 'faces' not in x or 'vertices' not in x:
+                raise ValueError('Dictionary must contain "vertices" and "faces"')
+            self.vertices, self.faces = x['vertices'], x['faces']
+        elif isinstance(x, str) and os.path.isfile(x):
+            m = tm.load(x)
+            self.vertices, self.faces = m.vertices, m.faces
+        else:
+            raise utils.ConstructionError(f'Unable to construct TreeNeuron from "{type(x)}"')
+
+        for k, v in metadata.items():
+            setattr(self, k, v)
+
+        if not getattr(self, 'id', None):
+            self.id = uuid.uuid4()
+
+        self.units = units
+
+    def __getattr__(self, key):
+        """We will use this magic method to calculate some attributes on-demand."""
+        # Note that we're mixing @property and __getattr__ which causes problems:
+        # if a @property raises an Exception, Python falls back to __getattr__
+        # and traceback is lost!
+
+        if key == 'trimesh':
+            self.trimesh = tm.Trimesh(vertices=self.vertices, faces=self.faces)
+            return self.trimesh
+
+        # See if trimesh can help us
+        if hasattr(self.trimesh, key):
+            return getattr(self.trimesh, key)
+
+        # Last ditch effort - maybe the base class knows the key?
+        return super().__getattr__(key)
+
+    def __truediv__(self, other):
+        """Implement division for coordinates (vertices, connectors)."""
+        if isinstance(other, numbers.Number):
+            # If a number, consider this an offset for coordinates
+            n = self.copy()
+            n.vertices /= other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+
+            # Convert units
+            n.units = (n.units / other).to_compact()
+
+            return n
+        else:
+            return NotImplemented
+
+    def __mul__(self, other):
+        """Implement multiplication for coordinates (vertices, connectors)."""
+        if isinstance(other, numbers.Number):
+            # If a number, consider this an offset for coordinates
+            n = self.copy()
+            n.vertices *= other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+
+            # Convert units
+            n.units = (n.units * other).to_compact()
+
+            return n
+        else:
+            return NotImplemented
+
+    def _clear_temp_attr(self, exclude: list = []) -> None:
+        """Clear temporary attributes."""
+        for a in [at for at in self.TEMP_ATTR if at not in exclude]:
+            try:
+                delattr(self, a)
+                logger.debug(f'Neuron {id(self)}: {a} cleared')
+            except BaseException:
+                logger.debug(f'Neuron {id(self)}: Unable to clear temporary attribute "{a}"')
+                pass
+
+    @property
+    def bbox(self) -> np.ndarray:
+        """Bounding box."""
+        mn = np.min(self.vertices, axis=1)
+        mx = np.max(self.vertices, axis=1)
+        return np.append(mn, mx, axis=0).T
+
+    @property
+    def vertices(self):
+        return self._vertices
+
+    @vertices.setter
+    def vertices(self, verts):
+        if not isinstance(verts, np.ndarray):
+            raise TypeError(f'Vertices must be numpy array, got "{type(verts)}"')
+        if verts.ndim != 2:
+            raise ValueError('Vertices must be 2-dimensional array')
+        self._vertices = verts
+        self._clear_temp_attr()
+
+    @property
+    def faces(self):
+        return self._faces
+
+    @faces.setter
+    def faces(self, faces):
+        if not isinstance(faces, np.ndarray):
+            raise TypeError(f'Faces must be numpy array, got "{type(faces)}"')
+        if faces.ndim != 2:
+            raise ValueError('Faces must be 2-dimensional array')
+        self._faces = faces
+        self._clear_temp_attr()
+
+    @property
+    def type(self) -> str:
+        """Return type."""
+        return 'MeshNeuron'
+
+    def copy(self) -> 'MeshNeuron':
+        """Return a copy of the neuron."""
+        # Generate new neuron
+        x = MeshNeuron({'vertices': self.vertices, 'faces': self.faces})
+        # Override with this neuron's data
+        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items()})
+
+        return x
+
+
+class TreeNeuron(BaseNeuron):
+    """Object representing neurons as hierarchical trees."""
 
     nodes: pd.DataFrame
-    connectors: pd.DataFrame
 
     graph: 'nx.DiGraph'
     igraph: 'igraph.Graph'  # type: ignore  # doesn't know iGraph
@@ -106,10 +581,20 @@ class TreeNeuron:
     segments: List[list]
     small_segments: List[list]
 
-    soma: Union[int, str]
     root: np.ndarray
 
-    name: str
+    soma: Optional[Union[int, str]]
+
+    #: Minimum radius for soma detection. Set to ``None`` if no tag needed.
+    #: Default = 1 micron
+    soma_detection_radius: Union[float, int, pint.Quantity] = 1 * config.ureg.um
+    #: Label for soma detection. Set to ``None`` if no tag needed. Default = 1.
+    soma_detection_label: Union[float, int, str] = 1
+    #: Soma radius (e.g. for plotting). If string, must be column in nodes
+    #: table. Default = 'radius'.
+    soma_radius: Union[float, int, str] = 'radius'
+    # Set default function for soma finding. Default = :func:`navis.morpho.find_soma`
+    _soma: Union[Callable[['TreeNeuron'], Sequence[int]], int] = morpho.find_soma
 
     #: Attributes to be used when comparing two neurons.
     EQ_ATTRIBUTES = ['n_nodes', 'n_connectors', 'soma', 'root',
@@ -130,7 +615,7 @@ class TreeNeuron:
                           str,
                           'TreeNeuron',
                           nx.DiGraph],
-                 units: Union[pint.Unit, str] = '1',
+                 units: Union[pint.Unit, str] = None,
                  **metadata
                  ):
         """Initialize Skeleton Neuron.
@@ -143,14 +628,16 @@ class TreeNeuron:
                          - `str` is treated as SWC file name
                          - `BufferedIOBase` e.g. from `open(filename)`
                          - `networkx.DiGraph` parsed by `navis.nx2neuron`
-        units :         str | pint.Units
-                        Units for coordinates. Defaults to "1" (dimensionless).
+        units :         str | pint.Units | pint.Quantity
+                        Units for coordinates. Defaults to ``None`` (dimensionless).
                         Strings must be parsable by pint: e.g. "nm", "um",
                         "micrometer" or "8 nanometers".
         **metadata
                         Any additional data to attach to neuron.
 
         """
+        super().__init__()
+
         if isinstance(x, pd.DataFrame):
             self.nodes = x
         elif isinstance(x, nx.Graph):
@@ -161,7 +648,7 @@ class TreeNeuron:
         elif isinstance(x, TreeNeuron):
             self.__dict__.update(x.copy().__dict__)
         else:
-            raise TypeError(f'Unable to construct TreeNeuron from "{type(x)}"')
+            raise utils.ConstructionError(f'Unable to construct TreeNeuron from "{type(x)}"')
 
         for k, v in metadata.items():
             setattr(self, k, v)
@@ -191,42 +678,43 @@ class TreeNeuron:
         elif key == 'dps':
             self.dps = self.get_dps()
             return self.dps
-        elif key.startswith('has_'):
-            key = key[key.index('_'):]
-            if hasattr(self, key):
-                data = getattr(self, key)
-                if isinstance(data, pd.DataFrame) and not data.empty:
-                    return True
-            return False
+
+        # Last ditch effort - maybe the base class knows the key?
+        return super().__getattr__(key)
+
+    def __truediv__(self, other):
+        """Implement division for coordinates (nodes, connectors)."""
+        if isinstance(other, numbers.Number):
+            # If a number, consider this an offset for coordinates
+            n = self.copy()
+            n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+
+            # Convert units
+            n.units = (n.units / other).to_compact()
+
+            n._clear_temp_attr(exclude=['classify_nodes'])
+            return n
         else:
-            raise AttributeError('Attribute "%s" not found' % key)
+            return NotImplemented
 
-    @property
-    def name(self) -> str:
-        """Neuron name."""
-        return getattr(self, '_name', None)
+    def __mul__(self, other):
+        """Implement multiplication for coordinates (nodes, connectors)."""
+        if isinstance(other, numbers.Number):
+            # If a number, consider this an offset for coordinates
+            n = self.copy()
+            n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
-    @name.setter
-    def name(self, v: str):
-        self._name = v
+            # Convert units
+            n.units = (n.units * other).to_compact()
 
-    @property
-    def units(self) -> str:
-        """Units for coordinate space."""
-        # Note that we are regenerating the pint.Quantity from the string
-        # That is to avoid problems with pickling .e.g when using multiprocessing
-        return config.ureg(getattr(self, '_unit_str', None))
-
-    @units.setter
-    def units(self, v: Union[pint.Unit, str, None]):
-        # Note that we are storing the string, not the actual pint.Quantity
-        # That is to avoid problems with pickling .e.g when using multiprocessing
-        if isinstance(v, str):
-            self._unit_str = str(config.ureg(v))
-        elif isinstance(v, pint.Unit):
-            self._unit_str = str(v)
+            n._clear_temp_attr(exclude=['classify_nodes'])
+            return n
         else:
-            raise TypeError(f'Expect str or pint.Unit, got "{type(v)}"')
+            return NotImplemented
 
     @property
     def nodes(self) -> pd.DataFrame:
@@ -245,6 +733,33 @@ class TreeNeuron:
                                            optional={'radius': 0},
                                            restrict=False)
         graph.classify_nodes(self)
+
+    @property
+    def n_trees(self) -> int:
+        """Count number of connected trees in this neuron."""
+        return len(self.subtrees)
+
+    @property
+    def is_tree(self) -> bool:
+        """Whether neuron is a tree.
+
+        Also returns True if neuron consists of multiple separate trees!
+
+        See also
+        --------
+        networkx.is_forest()
+                    Function used to test whether neuron is a tree.
+        :attr:`TreeNeuron.cycles`
+                    If your neuron is not a tree, this will help you identify
+                    cycles.
+
+        """
+        return nx.is_forest(self.graph)
+
+    @property
+    def subtrees(self) -> List[List[int]]:
+        """List of subtrees as node IDs."""
+        return graph._connected_components(self)
 
     @property
     def connectors(self) -> pd.DataFrame:
@@ -266,96 +781,8 @@ class TreeNeuron:
                                                     restrict=False)
 
     @property
-    def presynapses(self):
-        """Return table with presynapses.
-
-        Requires a "type" column in connector table. Will look for type labels
-        that include "pre" or that equal 0 or "0".
-        """
-        if not self.has_connectors:
-            raise ValueError('No connector table found.')
-        # Make an educated guess what presynapses are
-        types = self.connectors['type'].unique()
-        pre = [t for t in types if 'pre' in t or t in [0, "0"]]
-
-        if len(pre) == 0:
-            logger.debug(f'Unable to find presynapses in types: {types}')
-            return self.connectors.iloc[0:0]  # return empty DataFrame
-        elif len(pre) > 1:
-            raise ValueError(f'Found ambigous presynapse labels: {pre}')
-
-        return self.connectors[self.connectors['type'] == pre[0]]
-
-    @property
-    def n_presynapses(self):
-        """Return number of presynapses."""
-        if self.has_connectors:
-            return self.presynapses.shape[0]
-        return None
-
-    @property
-    def postsynapses(self):
-        """Return table with postsynapses.
-
-        Requires a "type" column in connector table. Will look for type labels
-        that include "post" or that equal 1 or "1".
-        """
-        if not self.has_connectors:
-            raise ValueError('No connector table found.')
-        # Make an educated guess what presynapses are
-        types = self.connectors['type'].unique()
-        post = [t for t in types if 'post' in t or t in [1, "1"]]
-
-        if len(post) == 0:
-            logger.debug(f'Unable to find postsynapses in types: {types}')
-            return self.connectors.iloc[0:0]  # return empty DataFrame
-        elif len(post) > 1:
-            raise ValueError(f'Found ambigous postsynapse labels: {post}')
-
-        return self.connectors[self.connectors['type'] == post[0]]
-
-    @property
-    def n_postsynapses(self):
-        """Return number of postsynapses."""
-        if self.has_connectors:
-            return self.postsynapses.shape[0]
-        return None
-
-    @property
-    def datatables(self) -> List[str]:
-        """Return names of all DataFrames attached to this neuron."""
-        return [k for k, v in self.__dict__.items() if isinstance(v, pd.DataFrame)]
-
-    @property
-    def n_trees(self) -> int:
-        """Return number of connected trees in this neuron."""
-        return len(self.subtrees)
-
-    @property
-    def is_tree(self) -> bool:
-        """Return whether neuron is a tree.
-
-        Also returns True if neuron consists of multiple separate trees!
-
-        See also
-        --------
-        networkx.is_forest()
-                    Function used to test whether neuron is a tree.
-        :attr:`TreeNeuron.cycles`
-                    If your neuron is not a tree, this will help you identify
-                    cycles.
-
-        """
-        return nx.is_forest(self.graph)
-
-    @property
-    def subtrees(self) -> List[List[int]]:
-        """List of subtrees as node IDs."""
-        return graph._connected_components(self)
-
-    @property
     def cycles(self) -> Optional[List[int]]:
-        """Returns cycles in neuron if any.
+        """Cycles in neuron if any.
 
         See also
         --------
@@ -386,7 +813,7 @@ class TreeNeuron:
 
     @property
     def soma(self) -> Optional[Union[str, int]]:
-        """ Search for soma and return node ID(s).
+        """Search for soma and return node ID(s).
 
         ``None`` if no soma. You can assign either a function that accepts a
         TreeNeuron as input or a fix value. The default is
@@ -440,31 +867,23 @@ class TreeNeuron:
         self.reroot(value, inplace=True)
 
     @property
-    def n_nodes(self) -> int:
-        """Number of nodes."""
-        return self.nodes.shape[0]
-
-    @property
-    def n_connectors(self) -> int:
-        """Number of connectors."""
-        if self.has_connectors:
-            return self.connectors.shape[0]
-        else:
-            return 0
+    def type(self) -> str:
+        """Return type."""
+        return 'TreeNeuron'
 
     @property
     def n_branches(self) -> int:
-        """ Number of branch points."""
+        """Number of branch points."""
         return self.nodes[self.nodes.type == 'branch'].shape[0]
 
     @property
     def n_leafs(self) -> int:
-        """ Number of leafs."""
+        """Number of leafs."""
         return self.nodes[self.nodes.type == 'end'].shape[0]
 
     @property
     def cable_length(self) -> Union[int, float]:
-        """ Cable length."""
+        """Cable length."""
         # Simply sum up edge weight of all graph edges
         if self.igraph and config.use_igraph:
             w = self.igraph.es.get_attribute_values('weight')  # type: ignore # doesn't know iGraph
@@ -493,13 +912,13 @@ class TreeNeuron:
 
     @property
     def bbox(self) -> np.ndarray:
-        """ Bounding box."""
+        """Bounding box."""
         return self.nodes.describe().loc[['min', 'max'],
                                          ['x', 'y', 'z']].values.T
 
     @property
     def sampling_resolution(self) -> float:
-        """ Average cable length between 2 nodes. """
+        """Average cable length between 2 nodes. """
         return self.cable_length / self.n_nodes
 
     @property
@@ -507,30 +926,43 @@ class TreeNeuron:
         """Return number of seperate skeletons in this neuron."""
         return len(self.root)
 
-    @property
-    def type(self) -> str:
-        """Returns 'TreeNeuron'."""
-        return 'TreeNeuron'
+    def _clear_temp_attr(self, exclude: list = []) -> None:
+        """Clear temporary attributes."""
 
-    def _register_attr(self, name, value):
-        """Set and register attribute for summary."""
-        setattr(self, name, value)
+        for a in [at for at in self.TEMP_ATTR if at not in exclude]:
+            try:
+                delattr(self, a)
+                logger.debug(f'Neuron {id(self)}: {a} cleared')
+            except BaseException:
+                logger.debug(f'Neuron {id(self)}: Unable to clear temporary attribute "{a}"')
+                pass
 
-        # If this is an easy to summarize attribute, add to summary
-        if isinstance(value, (numbers.Number, str)):
-            self.SUMMARY_PROPS.append(name)
+        temp_node_cols = ['flow_centrality', 'strahler_index']
 
-    def _unregister_attr(self, name):
-        """Remove and unregister attribute."""
-        if name in self.SUMMARY_PROPS:
-            self.SUMMARY_PROPS = [v for v in self.SUMMARY_PROPS if v != name]
-        delattr(self, name)
+        # Remove temporary node values
+        if any(np.isin(temp_node_cols, self.nodes.columns)):
+            self.nodes = self.nodes[[c for c in self.nodes.columns if c not in temp_node_cols]]
 
-    def __copy__(self):
-        return self.copy(deepcopy=False)
+        # Remove soma if it was manually assigned and is not present anymore
+        if not callable(self._soma) and not isinstance(self._soma, type(None)):
+            if self._soma not in self.nodes.node_id.values:
+                self.soma = None
 
-    def __deepcopy__(self):
-        return self.copy(deepcopy=True)
+        if 'classify_nodes' not in exclude:
+            # Reclassify nodes
+            graph.classify_nodes(self, inplace=True)
+
+    def _get_segments(self,
+                      how: Union[Literal['length'],
+                                 Literal['break']] = 'length'
+                      ) -> List[list]:
+        """Generate segments for neuron."""
+        if how == 'length':
+            return graph._generate_segments(self)
+        elif how == 'break':
+            return graph._break_segments(self)
+        else:
+            raise ValueError(f'Unknown how: "{how}"')
 
     def copy(self, deepcopy: bool = False) -> 'TreeNeuron':
         """Returns a copy of the neuron.
@@ -562,34 +994,8 @@ class TreeNeuron:
 
         return x
 
-    def _clear_temp_attr(self, exclude: list = []) -> None:
-        """Clear temporary attributes."""
-
-        for a in [at for at in self.TEMP_ATTR if at not in exclude]:
-            try:
-                delattr(self, a)
-                logger.debug(f'Neuron {id(self)}: {a} cleared')
-            except BaseException:
-                logger.debug(f'Neuron {id(self)}: Unable to clear temporary attribute "{a}"')
-                pass
-
-        temp_node_cols = ['flow_centrality', 'strahler_index']
-
-        # Remove temporary node values
-        if any(np.isin(temp_node_cols, self.nodes.columns)):
-            self.nodes = self.nodes[[c for c in self.nodes.columns if c not in temp_node_cols]]
-
-        # Remove soma if it was manually assigned and is not present anymore
-        if not callable(self._soma) and not isinstance(self._soma, type(None)):
-            if self._soma not in self.nodes.node_id.values:
-                self.soma = None
-
-        if 'classify_nodes' not in exclude:
-            # Reclassify nodes
-            graph.classify_nodes(self, inplace=True)
-
     def get_graph_nx(self) -> nx.DiGraph:
-        """Calculates networkX representation of neuron.
+        """Calculate and return networkX representation of neuron.
 
         Once calculated stored as ``.graph``. Call function again to update
         graph.
@@ -603,7 +1009,7 @@ class TreeNeuron:
         return self.graph
 
     def get_igraph(self) -> 'igraph.Graph':  # type: ignore
-        """Calculates iGraph representation of neuron.
+        """Calculate and return iGraph representation of neuron.
 
         Once calculated stored as ``.igraph``. Call function again to update
         iGraph.
@@ -617,11 +1023,11 @@ class TreeNeuron:
         :func:`navis.neuron2igraph`
 
         """
-        self.igraph = graph.neuron2igraph(self)
+        self.igraph = graph.neuron2igraph(self, raise_not_installed=False)
         return self.igraph
 
     def get_dps(self) -> pd.DataFrame:
-        """Calculates/updates dotprops representation of the neuron.
+        """Calculate and return dotprops representation of the neuron.
 
         Once calculated stored as ``.dps``.
 
@@ -633,63 +1039,6 @@ class TreeNeuron:
         self.dps = graph.neuron2dps(self)
         return self.dps
 
-    def _get_segments(self,
-                      how: Union[Literal['length'],
-                                 Literal['break']] = 'length'
-                      ) -> List[list]:
-        """Generate segments for neuron."""
-        if how == 'length':
-            return graph._generate_segments(self)
-        elif how == 'break':
-            return graph._break_segments(self)
-        else:
-            raise ValueError(f'Unknown how: "{how}"')
-
-    def plot2d(self, **kwargs):
-        """Plot neuron using :func:`navis.plot2d`.
-
-        Parameters
-        ----------
-        **kwargs
-                Will be passed to :func:`navis.plot2d`.
-                See ``help(navis.plot2d)`` for a list of keywords.
-
-        See Also
-        --------
-        :func:`navis.plot2d`
-                    Function called to generate 2d plot.
-
-        """
-        from ..plotting import plot2d
-
-        return plot2d(self, **kwargs)
-
-    def plot3d(self, **kwargs):
-        """Plot neuron using :func:`navis.plot3d`.
-
-        Parameters
-        ----------
-        **kwargs
-                Keyword arguments. Will be passed to :func:`navis.plot3d`.
-                See ``help(navis.plot3d)`` for a list of keywords.
-
-        See Also
-        --------
-        :func:`navis.plot3d`
-                    Function called to generate 3d plot.
-
-        Examples
-        --------
-        >>> import navis
-        >>> nl = navis.example_neurons()
-        >>> #Plot with connectors
-        >>> nl.plot3d(connectors=True)
-
-        """
-        from ..plotting import plot3d
-
-        return plot3d(core.NeuronList(self, make_copy=False), **kwargs)
-
     @overload
     def resample(self, resample_to: int, inplace: Literal[False]) -> 'TreeNeuron': ...
 
@@ -697,7 +1046,7 @@ class TreeNeuron:
     def resample(self, resample_to: int, inplace: Literal[True]) -> None: ...
 
     def resample(self, resample_to, inplace=False):
-        """Resample the neuron to given resolution.
+        """Resample neuron to given resolution.
 
         Parameters
         ----------
@@ -779,7 +1128,7 @@ class TreeNeuron:
     def reroot(self,
                new_root: Union[int, str],
                inplace: bool = False) -> Optional['TreeNeuron']:
-        """ Reroot neuron to given node ID or node tag.
+        """Reroot neuron to given node ID or node tag.
 
         Parameters
         ----------
@@ -795,7 +1144,6 @@ class TreeNeuron:
             Base function. See for details and examples.
 
         """
-
         if inplace:
             x = self
         else:
@@ -827,8 +1175,8 @@ class TreeNeuron:
         --------
         :func:`~navis.cut_neuron`
             Base function. See for details and examples.
-        """
 
+        """
         if inplace:
             x = self
         else:
@@ -866,7 +1214,6 @@ class TreeNeuron:
             Base function. See for details and examples.
 
         """
-
         if inplace:
             x = self
         else:
@@ -891,7 +1238,7 @@ class TreeNeuron:
     def prune_by_strahler(self,
                           to_prune: Union[int, List[int], slice],
                           inplace: bool = False) -> Optional['TreeNeuron']:
-        """ Prune neuron based on `Strahler order
+        """Prune neuron based on `Strahler order
         <https://en.wikipedia.org/wiki/Strahler_number>`_.
 
         Will reroot neuron to soma if possible.
@@ -919,7 +1266,6 @@ class TreeNeuron:
             This is the base function. See for details and examples.
 
         """
-
         if inplace:
             x = self
         else:
@@ -940,7 +1286,7 @@ class TreeNeuron:
                     inplace: bool = False,
                     recursive: Union[int, bool, float] = False
                     ) -> Optional['TreeNeuron']:
-        """ Prune terminal twigs under a given size.
+        """Prune terminal twigs under a given size.
 
         Parameters
         ----------
@@ -960,7 +1306,6 @@ class TreeNeuron:
             This is the base function. See for details and examples.
 
         """
-
         if inplace:
             x = self
         else:
@@ -977,7 +1322,7 @@ class TreeNeuron:
                                  reroot_to_soma: bool = False,
                                  inplace: bool = False
                                  ) -> Optional['TreeNeuron']:
-        """ Prune neuron down to the longest neurite.
+        """Prune neuron down to the longest neurite.
 
         Parameters
         ----------
@@ -996,7 +1341,6 @@ class TreeNeuron:
             This is the base function. See for details and examples.
 
         """
-
         if inplace:
             x = self
         else:
@@ -1020,7 +1364,7 @@ class TreeNeuron:
                         prevent_fragments: bool = False,
                         inplace: bool = False
                         ) -> Optional['TreeNeuron']:
-        """ Prune neuron by intersection with given volume(s).
+        """Prune neuron by intersection with given volume(s).
 
         Parameters
         ----------
@@ -1041,8 +1385,8 @@ class TreeNeuron:
         --------
         :func:`~navis.in_volume`
             Base function. See for details and examples.
-        """
 
+        """
         if inplace:
             x = self
         else:
@@ -1059,117 +1403,59 @@ class TreeNeuron:
             return x
         return None
 
-    def __str__(self):
-        return self.__repr__()
+    def convert_units(self,
+                      to: Union[pint.Unit, str],
+                      inplace: bool = False) -> Optional['TreeNeuron']:
+        """Convert coordinates to different unit.
 
-    def __repr__(self):
-        return str(self.summary())
+        Only works if neuron's ``.units`` is not dimensionless.
 
-    def _repr_html_(self):
-        frame = self.summary().to_frame()
-        frame.columns = ['']
-        # return self._gen_svg_thumbnail() + frame._repr_html_()
-        return frame._repr_html_()
+        Parameters
+        ----------
+        to :        pint.Unit | str
+                    Units to convert to. If string, must be parsable by pint.
+                    See examples.
+        inplace :   bool, optional
+                    If True will convert in place. If not will return a
+                    copy.
 
-    def _gen_svg_thumbnail(self):
-        import matplotlib.pyplot as plt
-        # Store some previous states
-        prev_level = logger.getEffectiveLevel()
-        prev_pbar = config.pbar_hide
-        prev_int = plt.isinteractive()
+        Examples
+        --------
+        >>> n = navis.example_neurons(1)
+        >>> n.units
+        1 <Unit('nanometer')>
+        >>> n.cable_length
+        1213347.4350680097
+        >>> n2 = n.convert_units('um')
+        >>> n2.units
+        >>> n2.cable_length
+        1213.3474350680106
 
-        plt.ioff()  # turn off interactive mode
-        logger.setLevel('WARNING')
-        config.pbar_hide = True
-        fig = plt.figure(figsize=(2, 2))
-        ax = fig.add_subplot(111)
-        fig, ax = self.plot2d(connectors=False, ax=ax)
-        output = StringIO()
-        fig.savefig(output, format='svg')
+        """
+        if not isinstance(self.units, (pint.Unit, pint.Quantity)):
+            raise ValueError("Unable to convert: neuron has no units set.")
 
-        if prev_int:
-            plt.ion()  # turn on interactive mode
-        logger.setLevel(prev_level)
-        config.pbar_hide = prev_pbar
-        _ = plt.clf()
-        return output.getvalue()
-
-    def __eq__(self, other):
-        """Implements neuron comparison."""
-        if isinstance(other, TreeNeuron):
-            # We will do this sequentially and stop as soon as we find a
-            # discrepancy -> this saves tons of time!
-            for at in self.EQ_ATTRIBUTES:
-                comp = getattr(self, at) == getattr(other, at)
-                if isinstance(comp, np.ndarray) and not all(comp):
-                    return False
-                elif comp is False:
-                    return False
-            # If all comparisons have passed, return True
-            return True
+        if inplace:
+            n = self
         else:
-            return NotImplemented
-
-    def __hash__(self):
-        """Generate a hashable value."""
-        # We will simply use the neuron's memory address
-        return id(self)
-
-    def __add__(self, other):
-        """ Implements addition. """
-        if isinstance(other, TreeNeuron):
-            return core.NeuronList([self, other])
-        else:
-            return NotImplemented
-
-    def __truediv__(self, other):
-        """Implements division for coordinates (nodes, connectors)."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
             n = self.copy()
-            n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
+
+        # Catch pint's UnitStrippedWarning
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Must perform on numpy array and reassign
+            locs = n.nodes[['x', 'y', 'z']].values
+            n.nodes[['x', 'y', 'z']] = locs * n.units.to(to)
+
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other
-            n._clear_temp_attr(exclude=['classify_nodes'])
+                locs = n.connectors[['x', 'y', 'z']].values
+                n.connectors[['x', 'y', 'z']] = locs * n.units.to(to)
+
+        n.units = n.units.to(to)
+        n._clear_temp_attr(exclude=['classify_nodes'])
+
+        if not inplace:
             return n
-        else:
-            return NotImplemented
-
-    def __mul__(self, other):
-        """Implements multiplication for coordinates (nodes, connectors)."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
-            n = self.copy()
-            n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
-            if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other
-            n._clear_temp_attr(exclude=['classify_nodes'])
-            return n
-        else:
-            return NotImplemented
-
-    def summary(self, add_props=None) -> pd.Series:
-        """Get a summary of this neuron."""
-        # Set logger to warning only - otherwise you might get tons of
-        # "skeleton data not available" messages
-        lvl = logger.level
-        logger.setLevel('WARNING')
-
-        # Do not remove the list -> otherwise we might change the original!
-        props = list(self.SUMMARY_PROPS)
-
-        # Add .id to summary if not a generic UUID
-        if not isinstance(self.id, uuid.UUID):
-            props.insert(2, 'id')
-
-        if add_props:
-            props = np.unique(np.append(props, add_props))
-
-        s = pd.Series([getattr(self, at, 'NA') for at in props],
-                      index=props)
-
-        logger.setLevel(lvl)
-        return s
 
     def to_swc(self,
                filename: Optional[str] = None,
@@ -1193,9 +1479,7 @@ class TreeNeuron:
                 See this function for further details.
 
         """
-
         return io.to_swc(self, filename, **kwargs)  # type: ignore  # double import of "io"
-
 
     def reload(self,
                inplace: bool = False,
@@ -1206,8 +1490,8 @@ class TreeNeuron:
         -------
         TreeNeuron
                 If ``inplace=False``.
-        """
 
+        """
         file = getattr(self, 'file', None)
         if not file:
             raise AttributeError('To reload TreeNeuron must have .file attribute')

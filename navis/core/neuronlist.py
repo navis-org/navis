@@ -38,18 +38,18 @@ logger = config.logger
 
 
 class NeuronList:
-    """Compilation of :class:`~navis.TreeNeuron`.
+    """Compilation of :class:`~navis.TreeNeuron` or :class`~navis.MeshNeuron`.
 
     Gives quick access to neurons' attributes and functions.
 
     Parameters
     ----------
-    x :                 list | array | TreeNeuron | NeuronList
+    x :                 list | array | TreeNeuron | MeshNeuron | NeuronList
                         Data to construct neuronlist from. Can be either:
 
-                        1. TreeNeuron(s)
+                        1. Tree/MeshNeuron(s)
                         2. NeuronList(s)
-                        3. Anything that constructs a TreeNeuron
+                        3. Anything that constructs a Tree/MeshNeuron
                         4. List of the above
 
     make_copy :         bool, optional
@@ -67,18 +67,10 @@ class NeuronList:
                         Number of cores to use for threading and parallel
                         processing. Default = ``os.cpu_count()-1``.
     **kwargs
-                        Will be passed to constructor of TreeNeuron.
+                        Will be passed to constructor of Tree/MeshNeuron.
 
     """
-    neurons: List[core.TreeNeuron]
-
-    nodes: pd.DataFrame
-    connectors: pd.DataFrame
-
-    n_connectors: Sequence[int]
-    n_nodes: Sequence[int]
-    n_branch_nodes: Sequence[int]
-    n_end_nodes: Sequence[int]
+    neurons: List['core.NeuronObject']
 
     cable_length: Sequence[int]
 
@@ -89,11 +81,11 @@ class NeuronList:
     igraph: 'igraph.Graph'  # type: ignore  # doesn't know iGraph
 
     def __init__(self,
-                 x: Union[Iterable[Union[core.TreeNeuron,
+                 x: Union[Iterable[Union[core.BaseNeuron,
                                          'NeuronList',
                                          pd.DataFrame]],
                           'NeuronList',
-                          core.TreeNeuron,
+                          core.BaseNeuron,
                           pd.DataFrame],
                  make_copy: bool = False,
                  **kwargs):
@@ -123,15 +115,18 @@ class NeuronList:
             # We have to convert from numpy ndarray to list
             # Do NOT remove list() here!
             self.neurons = list(x)  # type: ignore
+        elif isinstance(x, type(None)):
+            # Empty Neuronlist
+            self.neurons = []
         else:
             # Any other datatype will simply be assumed to be accepted by
-            # core.TreeNeuron() - if not this will throw an error
+            # core.Neuron() - if not this will throw an error
             self.neurons = [x]  # type: ignore
 
         # Now convert and/or make copies if necessary
         to_convert = []
         for i, n in enumerate(self.neurons):
-            if not isinstance(n, core.TreeNeuron) or make_copy is True:
+            if not isinstance(n, core.BaseNeuron) or make_copy is True:
                 # The `i` keeps track of the original index so that after
                 # conversion to Neurons, the objects will occupy the same
                 # position
@@ -140,7 +135,7 @@ class NeuronList:
         if to_convert:
             if self.use_threading:
                 with ThreadPoolExecutor(max_workers=self.n_cores) as e:
-                    futures = e.map(lambda x: core.TreeNeuron(x, **kwargs),
+                    futures = e.map(lambda x: core.Neuron(x, **kwargs),
                                     [n[0] for n in to_convert])
 
                     converted = [n for n in config.tqdm(futures,
@@ -156,50 +151,47 @@ class NeuronList:
                 for n in config.tqdm(to_convert, desc='Make nrn',
                                      disable=config.pbar_hide or len(to_convert) == 1,
                                      leave=config.pbar_leave):
-                    self.neurons[n[2]] = core.TreeNeuron(n[0])
+                    self.neurons[n[2]] = core.Neuron(n[0])
 
         # Add ID-based indexer
         self.idx = _IdIndexer(self.neurons)
 
-    def _convert_helper(self, x: Any) -> core.TreeNeuron:
-        """Helper function to convert x to core.TreeNeuron."""
-        return core.TreeNeuron(x[0])
+    @property
+    def neurons(self):
+        return self.__dict__.get('neurons', [])
 
-    def summary(self,
-                N: Optional[Union[int, slice]] = None,
-                add_props: list = []
-                ) -> pd.DataFrame:
-        """Get summary over all neurons in this NeuronList.
+    @property
+    def is_mixed(self):
+        """Return True if contains more than one type of neuron."""
+        return len(self.types) > 1
 
-        Parameters
-        ----------
-        N :         int | slice, optional
-                    If int, get only first N entries.
-        add_props : list, optional
-                    Additional properties to add to summary. If attribute not
-                    available will return 'NA'.
+    @property
+    def is_degenerated(self):
+        """Return True if contains Neurons with non-unique IDs."""
+        return len(set(self.id)) < len(self.neurons)
 
-        Returns
-        -------
-        pandas DataFrame
+    @property
+    def types(self):
+        """Return neurontypes present in this list."""
+        return tuple(set([type(n) for n in self.neurons]))
 
-        """
-        # Fetch a union of all summary props
-        props = list(set.union(*[set(p) for p in self.SUMMARY_PROPS]))
+    @property
+    def shape(self):
+        """Shape of neuronlist (N, )."""
+        return (self.__len__(),)
 
-        # Add ID to properties - unless all are generic UUIDs
-        if any([not isinstance(n.id, uuid.UUID) for n in self.neurons]):
-            props.insert(2, 'id')
+    @property
+    def bbox(self):
+        """Shape of neuronlist (N, )."""
+        bboxes = np.hstack([n.bbox for n in self.neurons])
+        mn = np.min(bboxes, axis=1)
+        mx = np.max(bboxes, axis=1)
+        return np.append(mn, mx, axis=0).T
 
-        if add_props:
-            props = np.append(props, add_props)
-
-        if not isinstance(N, slice):
-            N = slice(N)
-
-        return pd.DataFrame(data=[[getattr(n, a, 'NA') for a in props]
-                                  for n in self.neurons[N]],
-                            columns=props)
+    @property
+    def empty(self):
+        """Return True if neuronlist is empty."""
+        return len(self.neurons) == 0
 
     def __str__(self):
         return self.__repr__()
@@ -210,16 +202,16 @@ class NeuronList:
     def _repr_html_(self):
         return self.summary()._repr_html_()
 
-    def __iter__(self) -> Iterator['core.TreeNeuron']:
+    def __iter__(self) -> Iterator['core.NeuronObject']:
         """ Iterator instanciates a new class everytime it is called.
         This allows the use of nested loops on the same neuronlist object.
         """
-        class prange_iter(Iterator['core.TreeNeuron']):
+        class prange_iter(Iterator['core.NeuronObject']):
             def __init__(self, neurons, start):
                 self.iter = start
                 self.neurons = neurons
 
-            def __next__(self) -> 'core.TreeNeuron':
+            def __next__(self) -> 'core.NeuronObject':
                 if self.iter >= len(self.neurons):
                     raise StopIteration
                 to_return = self.neurons[self.iter]
@@ -241,71 +233,182 @@ class NeuronList:
         return list(set(super().__dir__() + list(add_attr)))
 
     def __getattr__(self, key):
-        if key == 'shape':
-            return (self.__len__(),)
-        elif key == 'bbox':
-            return self.nodes.describe().loc[['min', 'max'], ['x', 'y', 'z']].values.T
-        elif key == 'empty':
-            return len(self.neurons) == 0
-        else:
-            if self.empty:
-                raise AttributeError(f'Neuronlist is empty - "{key}" not found')
-            # Dynamically check if the requested attribute/function exists in
-            # all neurons
-            values = [getattr(n, key, NotImplemented) for n in self.neurons]
-            is_method = [isinstance(v, types.MethodType) for v in values]
-            is_frame = [isinstance(v, (pd.DataFrame, type(None))) for v in values]
+        if self.empty:
+            raise AttributeError(f'Neuronlist is empty - "{key}" not found')
+        # Dynamically check if the requested attribute/function exists in
+        # all neurons
+        values = [getattr(n, key, NotImplemented) for n in self.neurons]
+        is_method = [isinstance(v, types.MethodType) for v in values]
+        is_frame = [isinstance(v, (pd.DataFrame, type(None))) for v in values]
+        is_quantity = [isinstance(v, config.ureg.Quantity) for v in values]
 
-            # First check if there is any reason why we can't collect this
-            # attribute across all neurons
-            if all([isinstance(v, type(NotImplemented)) for v in values]):
-                raise AttributeError(f'Attribute "{key}" not found in '
-                                     'NeuronList or its neurons')
-            elif any([isinstance(v, type(NotImplemented)) for v in values]):
-                raise AttributeError(f'Attribute or function "{key}" missing '
-                                     'for some neurons')
-            elif len(set(is_method)) > 1:
-                raise TypeError('Found both methods and attributes with name '
-                                f'"{key}" among neurons.')
-            # Concatenate if dealing with DataFrame
-            elif not all(is_method):
-                if all(is_frame):
-                    df = pd.concat([v for v in values if isinstance(v, pd.DataFrame)],
-                                   axis=0,
-                                   ignore_index=True,
-                                   join='outer',
-                                   sort=True)
-                    df['neuron'] = None
-                    ix = 0
-                    for k, v in enumerate(values):
-                        if isinstance(v, pd.DataFrame):
-                            df.iloc[ix:ix:v.shape[0],
-                                    df.columns.get_loc('neuron')] = k
-                            ix += v.shape[0]
-                    return df
+        # First check if there is any reason why we can't collect this
+        # attribute across all neurons
+        if all([isinstance(v, type(NotImplemented)) for v in values]):
+            raise AttributeError(f'Attribute "{key}" not found in '
+                                 'NeuronList or its neurons')
+        elif any([isinstance(v, type(NotImplemented)) for v in values]):
+            raise AttributeError(f'Attribute or function "{key}" missing '
+                                 'for some neurons')
+        elif len(set(is_method)) > 1:
+            raise TypeError('Found both methods and attributes with name '
+                            f'"{key}" among neurons.')
+        # Concatenate if dealing with DataFrame
+        elif not all(is_method):
+            if all(is_frame):
+                df = pd.concat([v for v in values if isinstance(v, pd.DataFrame)],
+                               axis=0,
+                               ignore_index=True,
+                               join='outer',
+                               sort=True)
+                df['neuron'] = None
+                ix = 0
+                for k, v in enumerate(values):
+                    if isinstance(v, pd.DataFrame):
+                        df.iloc[ix:ix:v.shape[0],
+                                df.columns.get_loc('neuron')] = k
+                        ix += v.shape[0]
+                return df
+            elif all(is_quantity):
+                # See if units are all compatible
+                is_compatible = [values[0].is_compatible_with(v) for v in values]
+                if all(is_compatible):
+                    # Convert all to the same units
+                    conv = [v.to(values[0]).magnitude for v in values]
+                    # Return pint array
+                    return config.ureg.Quantity(np.array(conv), values[0].units)
                 else:
-                    return np.array(values)
+                    logger.warning(f'"{key}" contains incompatible units. '
+                                   'Returning unitless values.')
+                    return np.array([v.magnitude for v in values])
+            elif any(is_quantity):
+                logger.warning(f'"{key}" contains data with and without '
+                               'units. Removing units.')
+                return np.array([getattr(v, 'magnitude', v) for v in values])
             else:
-                # Return function but wrap it in a function that will show
-                # a progress bar and use multiprocessing (if applicable)
-                return NeuronProcessor(self,
-                                       values,
-                                       parallel=self.use_threading,
-                                       n_cores=self.n_cores,
-                                       desc=key)
+                return np.array(values)
+        else:
+            # Return function but wrap it in a function that will show
+            # a progress bar and use multiprocessing (if applicable)
+            return NeuronProcessor(self,
+                                   values,
+                                   parallel=self.use_threading,
+                                   n_cores=self.n_cores,
+                                   desc=key)
 
     def __setattr__(self, key, value):
         # Check if this attribute exists in the neurons
         if any([hasattr(n, key) for n in self.neurons]):
-            logger.warning('It looks like you are trying to add a TreeNeuron '
+            logger.warning('It looks like you are trying to add a Neuron '
                            f'attribute to a NeuronList. "{key}" will not '
                            'propagated to the neurons it contains!')
 
         self.__dict__[key] = value
 
-    @property
-    def neurons(self):
-        return self.__dict__.get('neurons', [])
+    def __contains__(self, x):
+        return x in self.neurons
+
+    def __copy__(self):
+        return self.copy(deepcopy=False)
+
+    def __deepcopy__(self):
+        return self.copy(deepcopy=True)
+
+    def __getitem__(self, key):
+        if utils.is_iterable(key):
+            if all([isinstance(k, (bool, np.bool_)) for k in key]):
+                subset = [n for i, n in enumerate(self.neurons) if key[i]]
+            else:
+                subset = [self[i] for i in key]
+        elif isinstance(key, str):
+            subset = [n for n in self.neurons if re.fullmatch(key, getattr(n, 'name', ''))]
+        elif isinstance(key, (int, np.integer, slice)):
+            subset = self.neurons[key]
+        else:
+            raise NotImplementedError(f'Indexing NeuronList by {type(key)} not implemented')
+
+        if isinstance(subset, core.BaseNeuron):
+            return subset
+
+        # Make sure we unpack neurons
+        subset = utils.unpack_neurons(subset)
+        # Make sure each neuron shows up only once but keep original order
+        subset = sorted(set(subset), key=lambda x: subset.index(x))
+
+        if not subset:
+            # This will call __missing__
+            return self.__missing__(key)
+
+        return NeuronList(subset, make_copy=self.copy_on_subset)
+
+    def __missing__(self, key):
+        raise AttributeError('No neuron matching the search critera.')
+
+    def __add__(self, to_add):
+        """Implements addition. """
+        if isinstance(to_add, core.BaseNeuron):
+            return NeuronList(self.neurons + [to_add],
+                              make_copy=self.copy_on_subset)
+        elif isinstance(to_add, NeuronList):
+            return NeuronList(self.neurons + to_add.neurons,
+                              make_copy=self.copy_on_subset)
+        elif utils.is_iterable(to_add):
+            if False not in [isinstance(n, core.BaseNeuron) for n in to_add]:
+                return NeuronList(self.neurons + list(to_add),
+                                  make_copy=self.copy_on_subset)
+            else:
+                return NeuronList(self.neurons + [core.BaseNeuron[n] for n in to_add],
+                                  make_copy=self.copy_on_subset)
+        else:
+            return NotImplemented
+
+    def __eq__(self, other):
+        """Implements equality. """
+        if isinstance(other, NeuronList):
+            if len(self) != len(other):
+                return False
+            else:
+                return all([n1 == n2 for n1, n2 in zip(self, other)])
+        else:
+            return NotImplemented
+
+    def __sub__(self, to_sub):
+        """Implements substraction. """
+        if isinstance(to_sub, core.BaseNeuron):
+            return NeuronList([n for n in self.neurons if n != to_sub],
+                              make_copy=self.copy_on_subset)
+        elif isinstance(to_sub, NeuronList):
+            return NeuronList([n for n in self.neurons if n not in to_sub],
+                              make_copy=self.copy_on_subset)
+        else:
+            return NotImplemented
+
+    def __truediv__(self, other):
+        """Implements division for coordinates (nodes, connectors)."""
+        if isinstance(other, numbers.Number):
+            # If a number, consider this an offset for coordinates
+            return NeuronList([n / other for n in self.neurons])
+        else:
+            return NotImplemented
+
+    def __mul__(self, other):
+        """Implements multiplication for coordinates (nodes, connectors)."""
+        if isinstance(other, numbers.Number):
+            # If a number, consider this an offset for coordinates
+            return NeuronList([n * other for n in self.neurons])
+        else:
+            return NotImplemented
+
+    def __and__(self, other):
+        """Implements bitwise AND using the & operator. """
+        if isinstance(other, core.BaseNeuron):
+            return NeuronList([n for n in self.neurons if n == other],
+                              make_copy=self.copy_on_subset)
+        elif isinstance(other, NeuronList):
+            return NeuronList([n for n in self.neurons if n in other],
+                              make_copy=self.copy_on_subset)
+        else:
+            return NotImplemented
 
     def apply(self, func, parallel=False, n_cores=os.cpu_count(), **kwargs):
         """Apply function across all neurons in this NeuronList.
@@ -313,7 +416,7 @@ class NeuronList:
         Parameters
         ----------
         func :      callable
-                    Function to be applied. Must accept :class:`~navis.TreeNeuron`
+                    Function to be applied. Must accept :class:`~navis.BaseNeuron`
                     as first argument.
         parallel :  bool
                     If True (default) will use multiprocessing. Spawning the
@@ -348,121 +451,6 @@ class NeuronList:
                                desc='Processing')
 
         return proc(self.neurons, **kwargs)
-
-    def __contains__(self, x):
-        return x in self.neurons
-
-    def __getitem__(self, key):
-        if utils.is_iterable(key):
-            if all([isinstance(k, (bool, np.bool_)) for k in key]):
-                subset = [n for i, n in enumerate(self.neurons) if key[i]]
-            else:
-                subset = [self[i] for i in key]
-        elif isinstance(key, str):
-            subset = [n for n in self.neurons if re.fullmatch(key, getattr(n, 'name', ''))]
-        elif isinstance(key, (int, np.integer, slice)):
-            subset = self.neurons[key]
-        else:
-            raise NotImplementedError(f'Indexing NeuronList by {type(key)} not implemented')
-
-        if isinstance(subset, core.TreeNeuron):
-            return subset
-
-        # Make sure we unpack neurons
-        subset = utils.unpack_neurons(subset)
-        # Make sure each neuron shows up only once but keep original order
-        subset = sorted(set(subset), key=lambda x: subset.index(x))
-
-        if not subset:
-            # This will call __missing__
-            return self.__missing__(key)
-
-        return NeuronList(subset, make_copy=self.copy_on_subset)
-
-    def __missing__(self, key):
-        raise AttributeError('No neuron matching the search critera.')
-
-    def __add__(self, to_add):
-        """Implements addition. """
-        if isinstance(to_add, core.TreeNeuron):
-            return NeuronList(self.neurons + [to_add],
-                              make_copy=self.copy_on_subset)
-        elif isinstance(to_add, NeuronList):
-            return NeuronList(self.neurons + to_add.neurons,
-                              make_copy=self.copy_on_subset)
-        elif utils.is_iterable(to_add):
-            if False not in [isinstance(n, core.TreeNeuron) for n in to_add]:
-                return NeuronList(self.neurons + list(to_add),
-                                  make_copy=self.copy_on_subset)
-            else:
-                return NeuronList(self.neurons + [core.TreeNeuron[n] for n in to_add],
-                                  make_copy=self.copy_on_subset)
-        else:
-            return NotImplemented
-
-    def __eq__(self, other):
-        """Implements equality. """
-        if isinstance(other, NeuronList):
-            if len(self) != len(other):
-                return False
-            else:
-                return all([n1 == n2 for n1, n2 in zip(self, other)])
-        else:
-            return NotImplemented
-
-    def __sub__(self, to_sub):
-        """Implements substraction. """
-        if isinstance(to_sub, core.TreeNeuron):
-            return NeuronList([n for n in self.neurons if n != to_sub],
-                              make_copy=self.copy_on_subset)
-        elif isinstance(to_sub, NeuronList):
-            return NeuronList([n for n in self.neurons if n not in to_sub],
-                              make_copy=self.copy_on_subset)
-        else:
-            return NotImplemented
-
-    def __truediv__(self, other):
-        """Implements division for coordinates (nodes, connectors)."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
-            nl = self.copy()
-            for n in nl:
-                n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
-
-                if n.has_connectors:
-                    n.connectors.loc[:, ['x', 'y', 'z']] /= other
-
-                n._clear_temp_attr(exclude=['classify_nodes'])
-            return nl
-        else:
-            return NotImplemented
-
-    def __mul__(self, other):
-        """Implements multiplication for coordinates (nodes, connectors)."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
-            nl = self.copy()
-            for n in nl:
-                n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
-
-                if n.has_connectors:
-                    n.connectors.loc[:, ['x', 'y', 'z']] *= other
-
-                n._clear_temp_attr(exclude=['classify_nodes'])
-            return nl
-        else:
-            return NotImplemented
-
-    def __and__(self, other):
-        """Implements bitwise AND using the & operator. """
-        if isinstance(other, core.TreeNeuron):
-            return NeuronList([n for n in self.neurons if n == other],
-                              make_copy=self.copy_on_subset)
-        elif isinstance(other, NeuronList):
-            return NeuronList([n for n in self.neurons if n in other],
-                              make_copy=self.copy_on_subset)
-        else:
-            return NotImplemented
 
     def sum(self) -> pd.DataFrame:
         """Returns sum numeric and boolean values over all neurons. """
@@ -517,6 +505,48 @@ class NeuronList:
 
         return plot2d(self, **kwargs)
 
+
+    def summary(self,
+                N: Optional[Union[int, slice]] = None,
+                add_props: list = []
+                ) -> pd.DataFrame:
+        """Get summary over all neurons in this NeuronList.
+
+        Parameters
+        ----------
+        N :         int | slice, optional
+                    If int, get only first N entries.
+        add_props : list, optional
+                    Additional properties to add to summary. If attribute not
+                    available will return 'NA'.
+
+        Returns
+        -------
+        pandas DataFrame
+
+        """
+        if not self.empty:
+            # Fetch a union of all summary props (keep order)
+            all_props = [p for l in self.SUMMARY_PROPS for p in l]
+            props = np.unique(all_props)
+            props = sorted(props, key=lambda x: all_props.index(x))
+        else:
+            props = []
+
+        # Add ID to properties - unless all are generic UUIDs
+        if any([not isinstance(n.id, uuid.UUID) for n in self.neurons]):
+            props = np.insert(props, 2, 'id')
+
+        if add_props:
+            props = np.append(props, add_props)
+
+        if not isinstance(N, slice):
+            N = slice(N)
+
+        return pd.DataFrame(data=[[getattr(n, a, 'NA') for a in props]
+                                  for n in self.neurons[N]],
+                            columns=props)
+
     def itertuples(self):
         """Helper class to mimic ``pandas.DataFrame`` ``itertuples()``."""
         return self.neurons
@@ -524,35 +554,32 @@ class NeuronList:
     def sort_values(self, key: str, ascending: bool = False):
         """Sort neurons by given key.
 
-        Needs to be an attribute of all neurons: for example ``n_nodes``.
+        Needs to be an attribute of all neurons: for example ``name``.
         Also works with custom attributes.
         """
         self.neurons = sorted(self.neurons,
                               key=lambda x: getattr(x, key),
                               reverse=ascending is False)
 
-    def __copy__(self):
-        return self.copy(deepcopy=False)
-
-    def __deepcopy__(self):
-        return self.copy(deepcopy=True)
-
-    def copy(self, deepcopy: bool = False) -> 'NeuronList':
+    def copy(self, **kwargs) -> 'NeuronList':
         """Return copy of this NeuronList.
 
         Parameters
         ----------
-        deepcopy :  bool, optional
-                    If False, ``.graph`` (NetworkX DiGraphs) will be returned
-                    as views - changes to nodes/edges can progagate back!
-                    ``.igraph`` (iGraph) - if available - will always be
-                    deepcopied.
+        **kwargs
+                    Keyword arguments passed to neuron's `.copy()` method::
+
+                    deepcopy :  bool, for TreeNeurons only
+                                If False, ``.graph`` (NetworkX DiGraphs) will be
+                                returned as views - changes to nodes/edges can
+                                progagate back! ``.igraph`` (iGraph) - if
+                                available - will always be deepcopied.
 
         """
-        return NeuronList([n.copy(deepcopy=deepcopy) for n in config.tqdm(self.neurons,
-                                                                          desc='Copy',
-                                                                          leave=False,
-                                                                          disable=config.pbar_hide | len(self) < 20)],
+        return NeuronList([n.copy(**kwargs) for n in config.tqdm(self.neurons,
+                                                                 desc='Copy',
+                                                                 leave=False,
+                                                                 disable=config.pbar_hide | len(self) < 20)],
                           make_copy=False)
 
     def head(self, N: int = 5) -> pd.DataFrame:
@@ -599,6 +626,18 @@ class NeuronList:
         if not inplace:
             return x
         return None
+
+    def unmix(self):
+        """Split into NeuronLists of the same neuron type.
+
+        Returns
+        -------
+        dict
+                Dictionary of ``{Neurontype: NeuronList}``
+
+        """
+        return {t: NeuronList([n for n in self.neurons if isinstance(n, t)])
+                for t in self.types}
 
 
 class NeuronProcessor:

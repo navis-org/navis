@@ -10,9 +10,6 @@
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along
 
 import uuid
 
@@ -22,6 +19,7 @@ import numpy as np
 from typing import Tuple, Iterable, List, Union, Any, Optional, Sequence
 
 from .. import config, core
+from .iterables import is_iterable
 
 from .iterables import *
 
@@ -29,10 +27,37 @@ from .iterables import *
 logger = config.logger
 
 
-def eval_conditions(x) -> Tuple[List[bool], List[bool]]:
-    """ Splits list of strings into positive (no ~) and negative (~) conditions
-    """
+def is_mesh(x) -> Tuple[List[bool], List[bool]]:
+    """Check if object(s) is mesh (i.e. contains vertices and faces).
 
+    Examples
+    --------
+    >>> is_mesh(navis.example_neurons(1))
+    False
+    >>> is_mesh(navis.example_volume('LH'))
+    True
+
+    """
+    if is_iterable(x):
+        return np.array([is_mesh(o) for o in x])
+
+    if hasattr(x, 'vertices') and hasattr(x, 'faces'):
+        return True
+
+    return False
+
+
+def eval_conditions(x) -> Tuple[List[bool], List[bool]]:
+    """Split list of strings into positive (no "~") and negative ("~").
+
+    Examples
+    --------
+    >>> eval_conditions('~negative condition')
+    (([], ['negative condition'])
+    >>> eval_conditions(['positive cond1', '~negative cond1', 'positive cond2'])
+    (['positive cond1', 'positive cond2'], ['negative cond1'])
+
+    """
     x = make_iterable(x, force_type=str)
 
     return [i for i in x if not i.startswith('~')], [i[1:] for i in x if i.startswith('~')]
@@ -40,11 +65,11 @@ def eval_conditions(x) -> Tuple[List[bool], List[bool]]:
 
 def eval_id(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
               warn_duplicates: bool = True) -> List[uuid.UUID]:
-    """Evaluate neurons' ID(s).
+    """Evaluate neuron ID(s).
 
     Parameters
     ----------
-    x :                str | uuid.UUID | TreeNeuron | NeuronList | DataFrame
+    x :                str | uuid.UUID | Tree/MeshNeuron | NeuronList | DataFrame
                        For Neuron/List or pandas.DataFrames/Series will
                        look for ``id`` attribute/column.
     warn_duplicates :  bool, optional
@@ -100,7 +125,7 @@ def eval_id(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
 def eval_neurons(x: Any,
                  warn_duplicates: bool = True,
                  raise_other: bool = True) -> Optional[List['core.TreeNeuron']]:
-    """ Evaluate neurons.
+    """Extract neurons.
 
     Parameters
     ----------
@@ -120,11 +145,10 @@ def eval_neurons(x: Any,
                     If no neurons found.
 
     """
-
     if isinstance(x, core.TreeNeuron):
         return [x]
     elif isinstance(x, (list, np.ndarray, set)):
-        neurons: List['core.TreeNeuron'] = []
+        neurons: List['core.BaseNeuron'] = []
         for e in x:
             temp = eval_neurons(e, warn_duplicates=warn_duplicates,
                                 raise_other=raise_other)
@@ -133,7 +157,7 @@ def eval_neurons(x: Any,
             elif temp:
                 neurons.append(temp)
         return sorted(set(neurons), key=neurons.index)
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.BaseNeuron):
         return [x]
     elif isinstance(x, core.NeuronList):
         if len(x.id) != len(set(x.id)) and warn_duplicates:
@@ -157,7 +181,7 @@ def eval_node_ids(x: Union[int, str,
                            'core.NeuronObject',
                            pd.DataFrame]
                   ) -> List[int]:
-    """ Extract node IDs from data.
+    """Extract node IDs from data.
 
     Parameters
     ----------
@@ -174,7 +198,6 @@ def eval_node_ids(x: Union[int, str,
                     List containing node IDs (integer)
 
     """
-
     if isinstance(x, (int, np.int64, np.int32, np.int)):
         return [x]
     elif isinstance(x, (str, np.str)):
