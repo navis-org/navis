@@ -24,6 +24,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     from neuprint import *
+    from neuprint.utils import heal_skeleton
     from neuprint.client import inject_client
 except ImportError:
     msg = dedent("""
