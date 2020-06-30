@@ -248,9 +248,9 @@ def plot2d(x: Union[core.NeuronObject,
     connectors_only = kwargs.get('connectors_only', False)
     use_neuron_color = kwargs.get('use_neuron_color', False)
     ax = kwargs.pop('ax', None)
-    color = kwargs.get('color',
-                       kwargs.get('c',
-                                  kwargs.get('colors', None)))
+    color = kwargs.pop('color',
+                       kwargs.pop('c',
+                                  kwargs.pop('colors', None)))
     scalebar = kwargs.get('scalebar', None)
 
     # Depth coloring
