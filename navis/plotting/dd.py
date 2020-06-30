@@ -247,7 +247,7 @@ def plot2d(x: Union[core.NeuronObject,
     connectors = kwargs.get('connectors', False)
     connectors_only = kwargs.get('connectors_only', False)
     use_neuron_color = kwargs.get('use_neuron_color', False)
-    ax = kwargs.get('ax', None)
+    ax = kwargs.pop('ax', None)
     color = kwargs.get('color',
                        kwargs.get('c',
                                   kwargs.get('colors', None)))
