@@ -189,18 +189,33 @@ class BaseNeuron:
         _ = plt.clf()
         return output.getvalue()
 
-    def _register_attr(self, name, value):
-        """Set and register attribute for summary."""
+    def _register_attr(self, name, value, summary=True, temporary=False):
+        """Set and register attribute.
+
+        Use this if you want an attribute to be used for the summary or cleared
+        when temporary attributes are cleared.
+        """
         setattr(self, name, value)
 
         # If this is an easy to summarize attribute, add to summary
-        if isinstance(value, (numbers.Number, str)):
-            self.SUMMARY_PROPS.append(name)
+        if summary and name not in self.SUMMARY_PROPS:
+            if isinstance(value, (numbers.Number, str)):
+                self.SUMMARY_PROPS.append(name)
+            else:
+                logger.error(f'Attributes of type "{type(value)}" can not be '
+                             'added to summary')
+
+        if temporary:
+            self.TEMP_ATTR.append(name)
 
     def _unregister_attr(self, name):
         """Remove and unregister attribute."""
         if name in self.SUMMARY_PROPS:
-            self.SUMMARY_PROPS = [v for v in self.SUMMARY_PROPS if v != name]
+            self.SUMMARY_PROPS.remove(name)
+
+        if name in self.TEMP_ATTR:
+            self.TEMP_ATTR.remove(name)
+
         delattr(self, name)
 
     @property
