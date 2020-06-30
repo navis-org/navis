@@ -267,8 +267,9 @@ def __fetch_mesh(r, *, vol, lod, client, with_synapses=True, missing_mesh='raise
 
 
 @inject_client
-def fetch_skeletons(x, *, with_synapses=True, heal=False, max_distance = 1000, missing_swc='raise',
-                    parallel=True, max_threads=5, client=None):
+def fetch_skeletons(x, *, with_synapses=True, heal=False, max_distance=None,
+                    missing_swc='raise', parallel=True, max_threads=5,
+                    client=None):
     """Construct navis.TreeNeuron/List from neuprint neurons.
 
     Notes
@@ -285,9 +286,10 @@ def fetch_skeletons(x, *, with_synapses=True, heal=False, max_distance = 1000, m
     heal :          bool, optional
                     If True, will automatically heal fragmented skeletons using
                     neuprint-python's heal function.
-    max_distance :  int, optional
-                    This parameter specifies the maximum length of new edges introduced by the healing procedure in
-                    neuprint-python's heal function.
+    max_distance :  int | float, optional
+                    This parameter specifies the maximum length of new edges
+                    introduced by the healing procedure in neuprint-python's
+                    (requires >= 0.4.11) heal function.
     missing_swc :   'raise' | 'warn' | 'skip'
                     What to do if no skeleton is found for a given body ID::
 
@@ -366,13 +368,19 @@ def fetch_skeletons(x, *, with_synapses=True, heal=False, max_distance = 1000, m
     return nl
 
 
-def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise', heal=False, max_distance = 1000):
+def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
+                     heal=False, max_distance=None):
     """Fetch a single skeleton + synapses and construct navis TreeNeuron."""
     # Fetch skeleton SWC
     try:
         data = client.fetch_skeleton(r.bodyId, format='pandas', heal=False)
-        if heal != False:
-        	data = heal_skeleton(data, max_distance = max_distance)
+        if heal:
+            # Only pass max_distance if specified -> preserves compability
+            # with previous versions
+            kwargs = dict()
+            if not isinstance(max_distance, type(None)):
+                kwargs['max_distance'] = max_distance
+            data = heal_skeleton(data, **kwargs)
     except HTTPError as err:
         if err.response.status_code == 400:
             if missing_swc in ['warn', 'skip']:
@@ -382,9 +390,6 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise', heal=Fa
                 raise
         else:
             raise
-
-    # Convert from raw to nanometers
-    # TODO!!!
 
     # Generate neuron
     n = TreeNeuron(data, units='8 nm')
