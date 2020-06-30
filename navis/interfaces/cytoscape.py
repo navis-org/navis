@@ -14,9 +14,6 @@
 """ Set of functions to interface with Cytoscape using its CyREST API. This
 module requires py2cytoscape (https://github.com/cytoscape/py2cytoscape)
 """
-# Exclude from pytest if py2cytoscape can't be imported
-import pytest
-_ = pytest.importorskip("py2cytoscape")
 
 import logging
 

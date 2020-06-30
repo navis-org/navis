@@ -23,7 +23,6 @@ import colorsys
 import json
 import math
 import os
-import pytest
 import time
 import uuid
 
@@ -34,9 +33,6 @@ from .. import core, utils, config
 from ..plotting.colors import eval_color
 
 logger = config.logger
-
-# Exclude from pytest if bpy can't be imported
-_ = pytest.importorskip("bpy")
 
 try:
     import bpy

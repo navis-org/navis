@@ -17,10 +17,6 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
-# Exclude module from testing
-import pytest
-pytestmark = pytest.mark.skip("Doc config is not tested.")
-
 import os
 import numpydoc
 import sphinx_bootstrap_theme

@@ -20,10 +20,6 @@ Notes
 See https://github.com/jefferis
 
 """
-# Exclude from pytest if rpy2 can't be imported
-import pytest
-_ = pytest.importorskip("rpy2")
-
 import os
 import sys
 import time
