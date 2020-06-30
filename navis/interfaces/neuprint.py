@@ -370,11 +370,9 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise', heal=Fa
     """Fetch a single skeleton + synapses and construct navis TreeNeuron."""
     # Fetch skeleton SWC
     try:
-        if heal == False:
-        	data = client.fetch_skeleton(r.bodyId, format='pandas', heal=False)
-        else:
-            data = client.fetch_skeleton(r.bodyId, format='pandas', heal=False)
-            data = heal_skeleton(data, max_distance = max_distance)
+        data = client.fetch_skeleton(r.bodyId, format='pandas', heal=False)
+        if heal != False:
+        	data = heal_skeleton(data, max_distance = max_distance)
     except HTTPError as err:
         if err.response.status_code == 400:
             if missing_swc in ['warn', 'skip']:
