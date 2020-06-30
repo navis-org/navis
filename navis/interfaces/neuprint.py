@@ -24,7 +24,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     from neuprint import *
-    from neuprint.utils import heal_skeleton
     from neuprint.client import inject_client
 except ImportError:
     msg = dedent("""
@@ -228,7 +227,7 @@ def __fetch_mesh(r, *, vol, lod, client, with_synapses=True, missing_mesh='raise
         else:
             raise
 
-    # Meshes come out in units (e.g. nanometers) but most other data (synaspes,
+    # Meshes come out in units (e.g. nanometers) but most other data (synapses,
     # skeletons, etc) come out in voxels, we will therefore scale meshes down
     mesh.vertices /= np.array(client.meta['voxelSize']).reshape(1, 3)
 
@@ -268,9 +267,8 @@ def __fetch_mesh(r, *, vol, lod, client, with_synapses=True, missing_mesh='raise
 
 
 @inject_client
-def fetch_skeletons(x, *, with_synapses=True, heal=False, max_distance=None,
-                    missing_swc='raise', parallel=True, max_threads=5,
-                    client=None):
+def fetch_skeletons(x, *, with_synapses=True, heal=False, missing_swc='raise',
+                    parallel=True, max_threads=5, client=None):
     """Construct navis.TreeNeuron/List from neuprint neurons.
 
     Notes
@@ -284,13 +282,11 @@ def fetch_skeletons(x, *, with_synapses=True, heal=False, max_distance=None,
                     DataFrame with "bodyId"  or "bodyid" column.
     with_synapses : bool, optional
                     If True will also attach synapses as ``.connectors``.
-    heal :          bool, optional
+    heal :          bool | int | float, optional
                     If True, will automatically heal fragmented skeletons using
-                    neuprint-python's heal function.
-    max_distance :  int | float, optional
-                    This parameter specifies the maximum length of new edges
-                    introduced by the healing procedure in neuprint-python's
-                    (requires >= 0.4.11) heal function.
+                    neuprint-python's ``heal_skeleton`` function. Pass a float
+                    or an int to limit the max distance at which nodes are
+                    allowed to be re-connected (requires neuprint-python >= 0.4.11).
     missing_swc :   'raise' | 'warn' | 'skip'
                     What to do if no skeleton is found for a given body ID::
 
@@ -343,8 +339,7 @@ def fetch_skeletons(x, *, with_synapses=True, heal=False, max_distance=None,
                                 client=client,
                                 with_synapses=with_synapses,
                                 missing_swc=missing_swc,
-                                heal=heal,
-                                max_distance = max_distance)
+                                heal=heal)
             futures[f] = r.bodyId
 
         with config.tqdm(desc='Fetching',
@@ -361,11 +356,6 @@ def fetch_skeletons(x, *, with_synapses=True, heal=False, max_distance=None,
 
     nl = NeuronList(nl)
 
-    """
-    if heal:
-        # max_dist of 1000 corresponds to 8um
-        heal_fragmented_neuron(nl, max_dist=1000, inplace=True)
-    """
     return nl
 
 
@@ -374,14 +364,7 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
     """Fetch a single skeleton + synapses and construct navis TreeNeuron."""
     # Fetch skeleton SWC
     try:
-        data = client.fetch_skeleton(r.bodyId, format='pandas', heal=False)
-        if heal:
-            # Only pass max_distance if specified -> preserves compability
-            # with previous versions
-            kwargs = dict()
-            if not isinstance(max_distance, type(None)):
-                kwargs['max_distance'] = max_distance
-            data = heal_skeleton(data, **kwargs)
+        data = client.fetch_skeleton(r.bodyId, format='pandas', heal=heal)
     except HTTPError as err:
         if err.response.status_code == 400:
             if missing_swc in ['warn', 'skip']:
@@ -393,7 +376,9 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
             raise
 
     # Generate neuron
-    n = TreeNeuron(data, units='8 nm')
+    # Note that we are currently assuming that the x/y/z data is isotropic
+    n = TreeNeuron(data,
+                   units=f'{client.meta["voxelSize"][0]} {client.meta["voxelUnits"]}')
 
     # Add some missing meta data
     n.id = r.bodyId
