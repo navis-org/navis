@@ -134,6 +134,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
               backend: Backends = ('ncollpyde', 'pyoctree'),
               n_rays: Optional[int] = None,
               prevent_fragments: bool = False,
+              validate: bool = True,
               inplace: bool = False,) -> Optional[Union['core.NeuronObject',
                                                         Sequence[bool],
                                                         Dict[str, Union[Sequence[bool],
@@ -180,6 +181,10 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     prevent_fragments : bool, optional
                         Only relevant if input is Neuron/List. If True, will add
                         nodes required to keep neuron from fragmenting.
+    validate :          bool, optional
+                        If True, validate mesh and try to fix issues using
+                        trimesh. Will raise ValueError if issue could not be
+                        fixed.
     inplace :           bool, optional
                         Only relevant if input is Neuron/List. If False, a copy
                         of the original DataFrames/Neuron is returned. Does
@@ -246,6 +251,11 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
 
             volume = {v.name: v for v in volume if isinstance(v, core.Volume)}
 
+        # Validate now - this might safe us troubles later
+        if validate:
+            for v in volume.values():
+                v.validate()
+
         data: Dict[str, Any] = dict()
         for v in config.tqdm(volume, desc='Volumes', disable=config.pbar_hide,
                              leave=config.pbar_leave):
@@ -254,11 +264,18 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                                 inplace=False,
                                 n_rays=n_rays,
                                 mode=mode,
+                                validate=False,
                                 backend=backend)
         return data
 
+    if not isinstance(volume, core.Volume):
+        raise TypeError(f'Expected navis.Volume, got "{type(volume)}"')
+
     # From here on out volume is a single core.Volume
     vol: 'core.Volume' = volume  # type: ignore
+
+    if validate:
+        vol.validate()
 
     # Make copy if necessary
     if isinstance(x, (core.NeuronList, core.TreeNeuron)):
