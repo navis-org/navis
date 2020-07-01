@@ -534,6 +534,7 @@ class Volume(trimesh.Trimesh):
 
     def show(self, **kwargs):
         """See ``.plot3d``."""
+        # This is mostly to override trimesh.Trimesh method
         return self.plot3d(**kwargs)
 
     def _outlines_3d(self, view='xy', **kwargs):
@@ -656,6 +657,17 @@ class Volume(trimesh.Trimesh):
             return self.to_2d(alpha=alpha / 10, view=view, invert_y=invert_y)
         except BaseException:
             raise
+
+    def validate(self):
+        """Use trimesh to try and fix issues (holes/normals)."""
+        if not self.is_volume:
+            logger.info("Mesh not valid, attempting to fix")
+            self.fill_holes()
+            self.fix_normals()
+            if not self.is_volume:
+                raise ValueError("Mesh is not a volume "
+                                 "(e.g. not watertight, incorrect winding) "
+                                 "and could not be fixed")
 
 
 def _force_volume(f):
