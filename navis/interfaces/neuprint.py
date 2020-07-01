@@ -159,7 +159,8 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
 
         seg_source = segs[0]['source']
         if len(segs) > 1:
-            logger.warning(f'{len(segs)} found. Using the first entry: "f{seg_source}"')
+            logger.warning(f'{len(segs)} segmentation sources found. Using the '
+                           f'first entry: "f{seg_source}"')
 
     # Initialize volume
     vol = CloudVolume(seg_source, **kwargs)
