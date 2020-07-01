@@ -15,6 +15,7 @@ import json
 import os
 
 import networkx as nx
+import numpy as np
 
 from typing import Union, Optional
 from typing_extensions import Literal
@@ -148,5 +149,7 @@ def example_volume(name: str) -> Volume:
     # in the top left corner but e.g. matplotlib plots have it
     # in the bottom left corner
     vol.vertices *= [1, -1, 1]
+    # Need to also flip faces to prevent winding issues
+    vol.faces = np.fliplr(vol.faces)
 
     return vol
