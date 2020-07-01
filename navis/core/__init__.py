@@ -5,4 +5,4 @@ from .neuronlist import NeuronList
 
 from typing import Union
 
-NeuronObject = Union[NeuronList, TreeNeuron, BaseNeuron]
+NeuronObject = Union[NeuronList, TreeNeuron, BaseNeuron, MeshNeuron]
