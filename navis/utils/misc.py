@@ -139,9 +139,9 @@ def set_pbars(hide: Optional[bool] = None,
     return
 
 
-def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.TreeNeuron'],
+def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.NeuronObject'],
                    raise_on_error: bool = True
-                   ) -> List['core.TreeNeuron']:
+                   ) -> List['core.NeuronObject']:
     """Unpack neurons and returns a list of individual neurons.
 
     Examples
@@ -168,7 +168,7 @@ def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.TreeNeuron'],
     if isinstance(x, (list, np.ndarray, tuple)):
         for l in x:
             neurons += unpack_neurons(l)
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.BaseNeuron):
         neurons.append(x)
     elif isinstance(x, core.NeuronList):
         neurons += x.neurons
