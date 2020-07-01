@@ -539,8 +539,8 @@ class MeshNeuron(BaseNeuron):
     @property
     def bbox(self) -> np.ndarray:
         """Bounding box."""
-        mn = np.min(self.vertices, axis=1)
-        mx = np.max(self.vertices, axis=1)
+        mn = np.min(self.vertices, axis=0)
+        mx = np.max(self.vertices, axis=0)
         return np.append(mn, mx, axis=0).T
 
     @property
