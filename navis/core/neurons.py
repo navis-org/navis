@@ -745,6 +745,8 @@ class TreeNeuron(BaseNeuron):
         if 'graph' in state and nx.is_frozen(state['graph']):
             state['graph'] = state['graph'].copy()
 
+        return state
+
     @property
     def nodes(self) -> pd.DataFrame:
         """Node table."""
