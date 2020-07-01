@@ -115,7 +115,12 @@ class BaseNeuron:
                     return True
             return False
         elif key.startswith('n_'):
-            return len(getattr(self, key[2:]))
+            key = key[key.index('_'):]
+            if hasattr(self, key):
+                data = getattr(self, key)
+                if hasattr(data, '__len__'):
+                    return len(data)
+            return None
 
         raise AttributeError(f'Attribute "{key}" not found')
 
