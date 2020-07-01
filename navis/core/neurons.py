@@ -736,6 +736,15 @@ class TreeNeuron(BaseNeuron):
         else:
             return NotImplemented
 
+    def __getstate__(self):
+        """Get state (used e.g. for pickling)."""
+        state = {k: v for k, v in self.__dict__.items() if not callable(v)}
+
+        # We need to prevent read-only networkx Graphs (SubGraphViews)
+        # as they cause issues for pickling
+        if 'graph' in state and nx.is_frozen(state['graph']):
+            state['graph'] = state['graph'].copy()
+
     @property
     def nodes(self) -> pd.DataFrame:
         """Node table."""
