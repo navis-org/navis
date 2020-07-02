@@ -10,7 +10,7 @@ NAVis comes with an interface to import neurons into
 `Blender 3D <https://www.blender.org>`_: :mod:`navis.interfaces.blender`
 
 Because NAVis requires Python at least 3.6 and only the most recent version of
-Blender comes with Python >=3.5, we require Blender *2.8*!
+Blender comes with Python >=3.5, we require Blender 2.8x!
 
 Installation
 ============
@@ -27,25 +27,40 @@ built-in Python. IMHO the easiest way is this:
     >>> bpy.app.binary_path_python
     '[..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m'
 
-    The same directory also has Blender's PIP: simply replace `python3.7m`
-    with `pip` in the next steps.
-
-2. Get pip by downloading ``get-pip.py`` from <here `https://pip.pypa.io/en/stable/installing/`>_
-   and install by executing with your Python distribution::
+2. Get `pip` by downloading ``get-pip.py`` from
+   `here <https://pip.pypa.io/en/stable/installing/>`_ and install by executing
+   with your Python distribution::
 
     [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m get-pip.py
 
-3. Use PIP to install NAVis (or any other package for that
-   matter). Please note we have to - again - specify that we want to install
-   for Blender's Python::
+3. Use PIP to install NAVis (or any other package for that matter). Please note
+   we have to - again - specify that we want to install for Blender's Python::
 
-    [..]/blender.app/Contents/Resources/2.80/python/bin/pip install navis
+    [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m -m pip install navis
+
+.. important::
+   It's possible that this install fails with an error message along the lines
+   of :red:`'Python.h' file not found`. The reason for this is that Blender
+   ships with a Python "light" and you have to manually provide the Python
+   header files:
+
+   First, find out the *exact* Blender Python version::
+
+    [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m -V
+
+   Next point your browser at https://www.python.org/downloads/source/ and
+   download the Gzipped source tarball from the exact same Python version,
+   i.e. ``Python-3.X.X.tgz`` and save it to your Downloads directory.
+
+   Finally you need to copy everything in the ``Include`` folder inside that
+   tarball into the corresponding ``include`` folder in your Blender's Python.
+   In a terminal run::
+
+    cd ~/Downloads/
+    tar -xzf Python-3.X.X.tgz
+    cp Python-3.X.X/Include/* [..]/blender.app/Contents/Resources/2.80/python/include/python3.7/
 
 4. You should now be all set to use NAVis in Blender. Check out Quickstart!
-
-.. note::
-   If any of the above steps fails with a *Permission* error, try the same
-   command but prefixed with "``sudo``".
 
 Quickstart
 ==========
@@ -64,22 +79,28 @@ Now initialise the interface with Blender and import the neurons.
 >>> # The blender interface has be imported explicitly
 >>> import navis.interfaces.blender as b3d
 >>> # Initialise handler
->>> handler = b3d.handler()
+>>> h = b3d.Handler()
 >>> # Load neurons into scene
->>> handler.add(nl)
+>>> h.add(nl)
+
+|
+
+.. image:: tutorials/figures/b3d_screenshot.jpg
+
+|
 
 The interface lets you manipulate neurons in Blender too.
 
 >>> # Colorise neurons
->>> handler.colorize()
+>>> h.colorize()
 >>> # Change thickness of all neurons
->>> handler.neurons.bevel(.02)
+>>> h.neurons.bevel(.02)
 >>> # Select subset
->>> subset = handler.select(nl[:2])
+>>> subset = h.select(nl[:2])
 >>> # Make subset red
 >>> subset.color(1, 0, 0)
 >>> # Clear all objects
->>> handler.clear()
+>>> h.clear()
 
 .. note::
    Blender's Python console does not show all outputs. Please check the terminal
