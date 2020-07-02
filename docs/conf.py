@@ -57,6 +57,31 @@ sys.modules['rpy2'].__version_vector__ = (3, 0, 0)
 # from navis.interfaces import r
 import navis.interfaces.neuprint
 
+from subprocess import check_call as sh
+
+
+def convert_nb(nbname, execute=False):
+    """Remove tags."""
+    if execute:
+        # Execute the notebook
+        sh(["jupyter", "nbconvert", "--to", "notebook",
+        "--execute", "--inplace", nbname])
+
+    # Convert to .rst for Sphinx
+    sh(["jupyter", "nbconvert", "--to", "rst", nbname,
+        "--TagRemovePreprocessor.remove_cell_tags={'hide'}",
+        "--TagRemovePreprocessor.remove_input_tags={'hide-input'}",
+        "--TagRemovePreprocessor.remove_all_outputs_tags={'hide-output'}"])
+
+    if execute:
+        # Clear notebook output
+        sh(["jupyter", "nbconvert", "--to", "notebook", "--inplace",
+            "--ClearOutputPreprocessor.enabled=True", nbname])
+
+    # Touch the .rst file so it has a later modify time than the source
+    sh(["touch", nbname.replace('.ipynb', '') + ".rst"])
+
+
 # -- Make execution numbers in Jupyter notebooks ascending -------------------
 source_path = os.path.dirname(os.path.abspath(__file__)) + '/source'
 all_nb = list()
@@ -66,27 +91,8 @@ for (dirpath, dirnames, filenames) in os.walk(source_path):
         continue
     all_nb += [os.path.join(dirpath, file) for file in filenames if file.endswith('.ipynb')]
 
-from .tools import convert_nb
 for nb in all_nb:
     convert_nb(nb)
-
-"""
-for nb in all_nb:
-    with open(nb, 'r') as f:
-        data = json.load(f)
-        i = 1
-        for c in data['cells']:
-            if c['cell_type'] == 'code':
-                if 'execution_count' in c:
-                    c['execution_count'] = None
-                for o in c['outputs']:
-                    if 'execution_count' in o:
-                        o['execution_count'] = None
-                i += 1
-
-    with open(nb, 'w') as f:
-        json.dump(data, f, indent=3)
-"""
 
 # -- General configuration ------------------------------------------------
 
