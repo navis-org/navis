@@ -248,6 +248,7 @@ html_theme_options = {
                      ("Quickstart", "source/tutorials/quickstart"),
                      ("Tutorials", "source/gallery"),
                      ("API", "source/api"),
+                     ("Github", "https://github.com/schlegelp/navis", True),
                      ],
                      }
 
