@@ -16,7 +16,7 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 * virtual neuron surgery: cutting, pruning, rerooting
 * clustering (e.g. by connectivity or synapse placement)
 * Python bindings for R neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
-* interfaces with [Blender3d](https://www.blender.org) and [Cytoscape](https://cytoscape.org)
+* interfaces with [Blender3d](https://www.blender.org), [Cytoscape](https://cytoscape.org) and [neuprint](https://neuprint.janelia.org)
 
 ## Getting started
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:
@@ -27,17 +27,6 @@ Alternatively click on the *launch binder* badge above to try out navis hosted b
 
 ## License
 This code is under GNU GPL V3
-
-
-## TO-DOs
-NAVis is a generalization of [pymaid](https://github.com/schlegelp/pyMaid) and
-some of the code is still being refactored. Basic functionality is implemented
-but there are still some TO-DOs:
-
-- [x] update example notebooks and docs
-- [ ] update Cytoscape interface
-- [x] update Blender interface to Blender 2.8
-- [ ] write new tests
 
 ## Acknowledgments
 NAVis is inspired by and inherits much of its design from the excellent
