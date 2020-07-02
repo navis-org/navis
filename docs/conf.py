@@ -57,7 +57,6 @@ sys.modules['rpy2'].__version_vector__ = (3, 0, 0)
 # from navis.interfaces import r
 import navis.interfaces.neuprint
 
-
 # -- Make execution numbers in Jupyter notebooks ascending -------------------
 source_path = os.path.dirname(os.path.abspath(__file__)) + '/source'
 all_nb = list()
@@ -67,14 +66,9 @@ for (dirpath, dirnames, filenames) in os.walk(source_path):
         continue
     all_nb += [os.path.join(dirpath, file) for file in filenames if file.endswith('.ipynb')]
 
-try:
-    import convert_nb
-    for nb in all_nb:
-        convert_nb(nb)
-except ImportError:
-    pass
-except BaseException:
-    raise
+from .tools import convert_nb
+for nb in all_nb:
+    convert_nb(nb)
 
 """
 for nb in all_nb:
