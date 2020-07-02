@@ -22,7 +22,7 @@ from typing_extensions import Literal
 
 from ..core.volumes import Volume
 from ..core.neuronlist import NeuronList
-from ..core.neurons import TreeNeuron
+from ..core.neurons import TreeNeuron, MeshNeuron
 from ..io import *
 from ..graph import *
 
@@ -33,40 +33,57 @@ fp = os.path.dirname(__file__)
 gml_path = os.path.join(fp, 'gml')
 swc_path = os.path.join(fp, 'swc')
 vols_path = os.path.join(fp, 'volumes')
+obj_path = os.path.join(fp, 'obj')
 
-gml = [f for f in os.listdir(gml_path) if f.endswith('.gml')]
-swc = [f for f in os.listdir(swc_path) if f.endswith('.swc')]
-vols = [f for f in os.listdir(vols_path) if f.endswith('.json')]
+gml = sorted([f for f in os.listdir(gml_path) if f.endswith('.gml')])
+swc = sorted([f for f in os.listdir(swc_path) if f.endswith('.swc')])
+vols = sorted([f for f in os.listdir(vols_path) if f.endswith('.obj')])
+obj = sorted([f for f in os.listdir(obj_path) if f.endswith('.obj')])
 
-NeuronObject = Union[TreeNeuron, NeuronList]
+NeuronObject = Union[TreeNeuron, MeshNeuron, NeuronList]
 
 
 def example_neurons(n: Optional[int] = None,
+                    kind : Union[Literal['mesh'],
+                                 Literal['skeleton'],
+                                 Literal['mix']] = 'skeleton',
                     source: Union[Literal['swc'],
                                   Literal['gml']] = 'swc'
                     ) -> NeuronObject:
     """Load example neuron(s).
 
-    These example neurons are olfactory projection neurons from the DA2
-    glomerulus that have been manually reconstructed from an EM volume of an
-    entire fruit fly brain (see Zheng et al., Cell 2018).
+    These example neurons are skeletons and meshes of the same olfactory
+    projection neurons from the DA1 glomerulus which have been automatically
+    segmented in the Janelia hemibrain data set [1]. See also
+    `https://neuprint.janelia.org`.
+
+    Coordinates are in voxels which equal 8 x 8 x 8 nanometers.
 
     Parameters
     ----------
-    n :         int, None, optional
-                Number of neurons to return. If None, will return all example
-                neurons.
+    n :         int | None, optional
+                Number of neurons to return. If None, will return all available
+                example neurons. Can never return more than the maximum number
+                of example neurons.
+    kind :      "skeleton" | "mesh" | "mix"
+                Example neurons What kind of neurons to return.
     source :    'swc' | 'gml', optional
-                Neurons can be generated from SWC files or GML graphs. This
-                is only relevant for testing.
+                Only relevant for skeletons. Skeletons can be generated from SWC
+                files or GML graphs (this is really only used for testing).
 
     Returns
     -------
     TreeNeuron
-                If ``n=1``.
+                If ``n=1`` and ``kind='skeleton'``.
+    MeshNeuron
+                If ``n=1`` and ``kind='mesh'``.
     NeuronList
-                If ``n>1``.
+                List of the above neuron types if ``n>1``.
 
+    References
+    ----------
+    [1] Louis K. Scheffer et al., bioRxiv. 2020. doi: https://doi.org/10.1101/2020.04.07.030213
+    A Connectome and Analysis of the Adult Drosophila Central Brain.
 
     Examples
     --------
@@ -84,36 +101,54 @@ def example_neurons(n: Optional[int] = None,
     if isinstance(n, int) and n < 1:
         raise ValueError("Unable to return less than 1 neuron.")
 
-    if source == 'gml':
-        graphs = [nx.read_gml(os.path.join(gml_path, g)) for g in gml[:n]]
-        nl = NeuronList([nx2neuron(g) for g in graphs], units='nm')
-    elif source == 'swc':
-        nl = NeuronList([from_swc(os.path.join(swc_path, f), units='nm') for f in swc[:n]])
+    if kind not in ['skeleton', 'mesh', 'mix']:
+        raise ValueError(f'Unknown value for `kind`: "{kind}"')
+
+    if kind == 'mix':
+        n_mesh = round(n/2)
+        n_skel = n - n_mesh
     else:
-        raise ValueError(f'Source must be "swc" or "gml", not "{source}"')
+        n_mesh = n_skel = n
 
-    # Invert the y-axis
-    # This is necessary because CATMAID neurons have their origin
-    # in the top left corner but e.g. matplotlib plots have it
-    # in the bottom left corner
-    for neuron in nl:
-        neuron.nodes['y'] *= -1
+    nl = []
+    if kind in ['skeleton', 'mix']:
+        if source == 'gml':
+            graphs = [nx.read_gml(os.path.join(gml_path, g)) for g in gml[:n_skel]]
+            nl += [nx2neuron(g,
+                             units='8 nm',
+                             id=int(f.split('.')[0])) for f, g in zip(gml, graphs)]
+        elif source == 'swc':
+            nl += [from_swc(os.path.join(swc_path, f),
+                            units='8 nm',
+                            id=int(f.split('.')[0])) for f in swc[:n_skel]]
+        else:
+            raise ValueError(f'Source must be "swc" or "gml", not "{source}"')
 
-    if n == 1:
+    if kind in ['mesh', 'mix']:
+        files = [os.path.join(obj_path, f) for f in obj[:n_mesh]]
+        nl += [MeshNeuron(fp,
+                          units='8 nm',
+                          name=f.split('.')[0],
+                          id=int(f.split('.')[0])) for f, fp in zip(obj, files)]
+
+    if len(nl) == 1:
         return nl[0]
-    return nl
+    return NeuronList(nl)
 
 
 def example_volume(name: str) -> Volume:
     """Load an example volume.
+
+    Volumes are in hemibrain space which means coordinates are in voxels
+    at 8 x 8 x 8 nanometers/voxel.
 
     Parameters
     ----------
     name :      str
                 Name of available volume. Currently available::
 
-                  "LH" = lateral horn in FAFB v14 space
-                  'neuropil' = neuropil of FAFB v14 volume
+                  "LH" = lateral horn in hemibrain space
+                  "neuropil" = neuropil in hemibrain space
 
     Returns
     -------
@@ -133,23 +168,13 @@ def example_volume(name: str) -> Volume:
     name = name.lower()
 
     # Make sure extension is correct
-    if not name.endswith('.json'):
-        name += '.json'
+    if not name.endswith('.obj'):
+        name += '.obj'
 
     if name not in vols:
         raise ValueError(f'No volume named "{name}". Available volumes: {",".join(vols)}')
 
-    with open(os.path.join(vols_path, name), 'r') as f:
-        data = json.load(f)
-
-    vol = Volume(**data)
-
-    # Invert the y-axis
-    # This is necessary because CATMAID has its origin
-    # in the top left corner but e.g. matplotlib plots have it
-    # in the bottom left corner
-    vol.vertices *= [1, -1, 1]
-    # Need to also flip faces to prevent winding issues
-    vol.faces = np.fliplr(vol.faces)
+    vol = Volume.from_file(os.path.join(vols_path, name),
+                           name=name.split('.')[0])
 
     return vol
