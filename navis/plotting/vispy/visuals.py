@@ -160,6 +160,7 @@ def neuron2vispy(x, **kwargs):
     colormap, _, _ = prepare_colormap(colors,
                                       neurons=x,
                                       use_neuron_color=kwargs.get('use_neuron_color', False),
+                                      alpha=kwargs.get('alpha', None),
                                       color_range=1)
 
     # List to fill with vispy visuals
@@ -169,10 +170,6 @@ def neuron2vispy(x, **kwargs):
         object_id = uuid.uuid4()
 
         neuron_color = colormap[i]
-
-        # Convert color 0-1
-        if max(neuron_color) > 1:
-            neuron_color = np.array(neuron_color) / 255
 
         if not kwargs.get('connectors_only', False):
             if isinstance(neuron, core.TreeNeuron):
@@ -188,8 +185,7 @@ def neuron2vispy(x, **kwargs):
             else:
                 logger.warning(f"Don't know how to plot neuron of type '{type(neuron)}'")
 
-        if (kwargs.get('connectors', False)
-            or kwargs.get('connectors_only', False)) and neuron.has_connectors:
+        if (kwargs.get('connectors', False) or kwargs.get('connectors_only', False)) and neuron.has_connectors:
             visuals += connectors2vispy(neuron,
                                         neuron_color,
                                         object_id,
@@ -455,6 +451,7 @@ def dotprop2vispy(x, **kwargs):
     _, colormap, _ = prepare_colormap(colors,
                                       dotprops=x,
                                       use_neuron_color=False,
+                                      alpha=kwargs.get('alpha', None),
                                       color_range=1)
 
     scale_vect = kwargs.get('scale_vect', 1)

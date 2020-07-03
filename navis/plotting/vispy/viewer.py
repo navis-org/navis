@@ -605,6 +605,7 @@ class Viewer:
                                           dotprops=dotprops,
                                           volumes=volumes,
                                           color_range=1,
+                                          alpha=kwargs.get('alpha', None),
                                           use_neuron_color=kwargs.pop('use_neuron_color', False))
 
         if neurons:

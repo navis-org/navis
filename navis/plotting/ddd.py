@@ -211,7 +211,7 @@ def plot3d_vispy(x, **kwargs):
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
                'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
-               'dps_scale_vec', 'title', 'width', 'height',
+               'dps_scale_vec', 'title', 'width', 'height', 'alpha',
                'auto_limits', 'autolimits', 'viewer', 'radius',
                'clear', 'clear3d', 'connectors', 'connectors_only'}
 
@@ -263,7 +263,7 @@ def plot3d_plotly(x, **kwargs):
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
                'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
-               'plotly_inline',
+               'plotly_inline', 'alpha',
                'connectors', 'connectors_only'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)

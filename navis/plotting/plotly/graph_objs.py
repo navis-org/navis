@@ -42,6 +42,7 @@ def neuron2plotly(x, **kwargs):
 
     colormap, _, _ = prepare_colormap(colors,
                                       neurons=x,
+                                      alpha=kwargs.get('alpha', None),
                                       use_neuron_color=kwargs.get('use_neuron_color', False),
                                       color_range=255)
 
@@ -287,6 +288,7 @@ def dotprops2plotly(x, **kwargs):
 
     _, colormap, _ = prepare_colormap(colors,
                                       dotprops=x,
+                                      alpha=kwargs.get('alpha', None),
                                       use_neuron_color=kwargs.get('use_neuron_color', False),
                                       color_range=255)
 
@@ -339,6 +341,7 @@ def volume2plotly(x, **kwargs):
 
     _, _, colormap = prepare_colormap(colors,
                                       volumes=x,
+                                      alpha=kwargs.get('alpha', None),
                                       use_neuron_color=kwargs.get('use_neuron_color', False),
                                       color_range=255)
 
