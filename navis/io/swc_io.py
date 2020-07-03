@@ -67,7 +67,9 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
                         ``os.cpu_count() - 2``).
 
     **kwargs
-                        Keyword arguments passed to ``navis.TreeNeuron``
+                        Keyword arguments passed to the construction of
+                        ``navis.TreeNeuron``. You can use this to e.g. set
+                        meta data.
 
     Returns
     -------

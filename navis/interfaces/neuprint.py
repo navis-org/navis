@@ -92,7 +92,9 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
                       client=None, **kwargs):
     """Fetch mesh neuron.
 
-    Requires `cloudvolume<https://github.com/seung-lab/cloud-volume>`_.
+    Requires `cloudvolume <https://github.com/seung-lab/cloud-volume>`_::
+
+        pip3 install cloud-volume
 
     Notes
     -----
@@ -120,18 +122,18 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
                     Max number of parallel threads to use.
     seg_source :    str, optional
                     Segmentation source that can be parsed by
-                    cloudvolume.CloudVolume. If not provided will try to extract
-                    from neuprint ``client`` meta data.
+                    ``cloudvolume.CloudVolume``. If not provided will try to
+                    extract from neuprint ``client`` meta data.
     client :        neuprint.Client, optional
                     If ``None`` will try using global client.
     **kwargs
-                    Will be passed to cloudvolume.CloudVolume.
+                    Will be passed to ``cloudvolume.CloudVolume``.
 
     Returns
     -------
     navis.Neuronlist
-                    Containing navis.MeshNeuron. Note that meshes are resized
-                    to raw voxel size to match other spatial data from
+                    Containing :class:`navis.MeshNeuron`. Note that meshes are
+                    resized to raw voxel size to match other spatial data from
                     neuprint (synapses, skeletons, etc).
 
     """
@@ -160,7 +162,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
         seg_source = segs[0]['source']
         if len(segs) > 1:
             logger.warning(f'{len(segs)} segmentation sources found. Using the '
-                           f'first entry: "f{seg_source}"')
+                           f'first entry: "{seg_source}"')
 
     # Initialize volume
     vol = CloudVolume(seg_source, **kwargs)
