@@ -25,7 +25,7 @@ Features:
   - virtual neuron surgery: cutting, pruning, rerooting
   - clustering methods (e.g. by connectivity or synapse placement)
   - R bindings (e.g. for libraries nat, rcatmaid, elmr)
-  - interfaces with Blender 3D and Cytoscape
+  - interfaces with neurint, Blender 3D and Cytoscape
 
 Check out the `Documentation <http://navis.readthedocs.io/>`_.
 """
@@ -54,7 +54,7 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     install_requires=requirements,
-    extras_require={'extras': ['pyoctree~=0.2.10']},
+    extras_require={'extras': []},
     python_requires='>=3.6',
     zip_safe=False,
 
