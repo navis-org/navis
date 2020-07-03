@@ -10,56 +10,141 @@ i.e. after ``import navis``.
 
 TreeNeuron/List
 +++++++++++++++
-TreeNeurons and NeuronLists are the classes representing neurons and
-lists thereof respectively.
+``TreeNeurons``, ``MeshNeurons`` and ``NeuronLists`` are the classes
+representing neurons and lists thereof respectively.
 
 .. autosummary::
     :toctree: generated/
 
     ~navis.TreeNeuron
+    ~navis.MeshNeuron
     ~navis.NeuronList
 
-TreeNeuron/List methods
------------------------
-These are class methods available for both TreeNeurons and NeuronLists. They
-are simply short-hands for the other navis functions.
+Neuron methods
+--------------
+Despite being fundamentally different data types, ``TreeNeurons`` and
+``MeshNeurons`` share some fundamental methods (i.e. functions).
 
 .. autosummary::
     :toctree: generated/
 
-    ~navis.TreeNeuron.downsample
     ~navis.TreeNeuron.copy
     ~navis.TreeNeuron.plot3d
     ~navis.TreeNeuron.plot2d
+    ~navis.TreeNeuron.summary
+
+In addition to these methods, neurons also have properties. These are
+properties common to both ``TreeNeurons`` and ``MeshNeurons``.
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.TreeNeuron.bbox
+    ~navis.TreeNeuron.connectors
+    ~navis.TreeNeuron.datatables
+    ~navis.TreeNeuron.id
+    ~navis.TreeNeuron.name
+    ~navis.TreeNeuron.units
+    ~navis.TreeNeuron.soma
+    ~navis.TreeNeuron.type
+    ~navis.TreeNeuron.volume
+
+
+TreeNeuron-specific methods
+---------------------------
+These are class methods available only for ``TreeNeurons``. Most of them are  simply
+short-hands for the other navis functions.
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.TreeNeuron.convert_units
+    ~navis.TreeNeuron.downsample
+    ~navis.TreeNeuron.get_dps
+    ~navis.TreeNeuron.get_graph_nx
+    ~navis.TreeNeuron.get_igraph
+    ~navis.TreeNeuron.prune_by_longest_neurite
     ~navis.TreeNeuron.prune_by_strahler
     ~navis.TreeNeuron.prune_by_volume
     ~navis.TreeNeuron.prune_distal_to
     ~navis.TreeNeuron.prune_proximal_to
-    ~navis.TreeNeuron.prune_by_longest_neurite
     ~navis.TreeNeuron.prune_twigs
     ~navis.TreeNeuron.reload
     ~navis.TreeNeuron.reroot
     ~navis.TreeNeuron.resample
-    ~navis.TreeNeuron.summary
 
-NeuronList-specific
--------------------
-These functions are specific to NeuronLists.
+In addition ``TreeNeurons`` have a range of different attributes:
 
 .. autosummary::
     :toctree: generated/
 
-    navis.NeuronList.apply
-    navis.NeuronList.head
-    navis.NeuronList.itertuples
-    navis.NeuronList.mean
-    navis.NeuronList.remove_duplicates
-    navis.NeuronList.sample
-    navis.NeuronList.summary
-    navis.NeuronList.sum
-    navis.NeuronList.sort_values
-    navis.NeuronList.tail
 
+    ~navis.TreeNeuron.cable_length
+    ~navis.TreeNeuron.created_at
+    ~navis.TreeNeuron.cycles
+    ~navis.TreeNeuron.downsample
+    ~navis.TreeNeuron.igraph
+    ~navis.TreeNeuron.is_tree
+    ~navis.TreeNeuron.n_branches
+    ~navis.TreeNeuron.n_leafs
+    ~navis.TreeNeuron.n_skeletons
+    ~navis.TreeNeuron.n_trees
+    ~navis.TreeNeuron.nodes
+    ~navis.TreeNeuron.postsynapses
+    ~navis.TreeNeuron.presynapses
+    ~navis.TreeNeuron.root
+    ~navis.TreeNeuron.sampling_resolution
+    ~navis.TreeNeuron.segments
+    ~navis.TreeNeuron.simple
+    ~navis.TreeNeuron.subtrees
+
+
+MeshNeuron-specific methods
+---------------------------
+These are properties only for ``MeshNeurons``.
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.MeshNeuron.bbox
+    ~navis.MeshNeuron.faces
+    ~navis.MeshNeuron.trimesh
+    ~navis.MeshNeuron.vertices
+
+NeuronList methods
+------------------
+``NeuronLists`` let you access all the properties and methods of the neuron they
+contain. In addition there are a few ``NeuronList``-specific methods and
+properties.
+
+Methods:
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.NeuronList.apply
+    ~navis.NeuronList.head
+    ~navis.NeuronList.itertuples
+    ~navis.NeuronList.mean
+    ~navis.NeuronList.remove_duplicates
+    ~navis.NeuronList.sum
+    ~navis.NeuronList.summary
+    ~navis.NeuronList.tail
+    ~navis.NeuronList.unmix
+
+Properties:
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.NeuronList.bbox
+    ~navis.NeuronList.empty
+    ~navis.NeuronList.id
+    ~navis.NeuronList.idx
+    ~navis.NeuronList.is_degenerated
+    ~navis.NeuronList.is_mixed
+    ~navis.NeuronList.shape
+    ~navis.NeuronList.types
 
 .. _api_plot:
 
