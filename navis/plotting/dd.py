@@ -21,7 +21,8 @@ import mpl_toolkits
 from mpl_toolkits.mplot3d.art3d import (Line3DCollection, Poly3DCollection,
                                         Path3DCollection, Patch3DCollection)
 from mpl_toolkits.mplot3d import proj3d
-from matplotlib.collections import LineCollection
+from matplotlib.collections import LineCollection, PatchCollection
+from matplotlib.cm import ScalarMappable
 
 import numpy as np
 import pint
@@ -76,10 +77,10 @@ def plot2d(x: Union[core.NeuronObject,
                         - numpy array of shape (n,3) is intepreted as scatter
     method :          '2d' | '3d' | '3d_complex'
                       Method used to generate plot. Comes in three flavours:
-                        1. '2d' uses normal matplotlib. Neurons are plotted in
-                           the order their are provided. Well behaved when
-                           plotting neuropils and connectors. Always gives
-                           frontal view. This does not work for MeshNeurons!
+                        1. '2d' uses normal matplotlib. Neurons are plotted on
+                           top of one another in the order their are passed to
+                           the function. Use the ``view`` parameter (below) to
+                           set the view (default = xy).
                         2. '3d' uses matplotlib's 3D axis. Here, matplotlib
                            decide the depth order (zorder) of plotting. Can
                            change perspective either interacively or by code
@@ -316,7 +317,10 @@ def plot2d(x: Union[core.NeuronObject,
         elif method == '2d':
             bbox = neurons.bbox
             # Add to kwargs
-            kwargs['norm'] = plt.Normalize(vmin=bbox[-1, 0], vmax=bbox[-1, 1])
+            xy = [v.replace('-', '').replace('+', '') for v in kwargs.get('view', ('x', 'y'))]
+            z_ix = [v[1] for v in [('x', 0), ('y', 1), ('z', 2)] if v[0] not in xy]
+
+            kwargs['norm'] = plt.Normalize(vmin=bbox[z_ix, 0], vmax=bbox[z_ix, 1])
 
     # Plot volumes first
     if volumes:
@@ -328,8 +332,7 @@ def plot2d(x: Union[core.NeuronObject,
                              **kwargs)
 
     # Create lines from segments
-    line3D_collections = []
-    surf3D_collections = []
+    visuals = {}
     for i, neuron in enumerate(config.tqdm(neurons.itertuples(),
                                            desc='Plot neurons',
                                            total=neurons.shape[0],
@@ -341,9 +344,12 @@ def plot2d(x: Union[core.NeuronObject,
             elif isinstance(neuron, core.MeshNeuron) and neuron.faces.size == 0:
                 logger.warning(f'Skipping MeshNeuron w/o faces: {neuron.id}')
             elif isinstance(neuron, core.TreeNeuron):
-                _ = _plot_skeleton(neuron, neuron_cmap[i], method, ax, **kwargs)
+                lc, sc = _plot_skeleton(neuron, neuron_cmap[i], method, ax, **kwargs)
+                # Keep track of visuals related to this neuron
+                visuals[neuron] = {'skeleton': lc, 'somata': sc}
             elif isinstance(neuron, core.MeshNeuron):
-                _ = _plot_mesh(neuron, neuron_cmap[i], method, ax, **kwargs)
+                m = _plot_mesh(neuron, neuron_cmap[i], method, ax, **kwargs)
+                visuals[neuron] = {'mesh': m}
             else:
                 raise TypeError(f"Don't know how to plot neuron of type '{type(neuron)}' ")
 
@@ -363,7 +369,7 @@ def plot2d(x: Union[core.NeuronObject,
         _ = _plot_dotprops(dp, this_color, method, ax, **kwargs)
 
     for p in points:
-        _ = _plot_scatter(p, method, ax, **scatter_kws)
+        _ = _plot_scatter(p, method, ax, kwargs, **scatter_kws)
 
     if autoscale:
         if method == '2d':
@@ -393,13 +399,6 @@ def plot2d(x: Union[core.NeuronObject,
 
     def set_depth():
         """Set depth information for neurons according to camera position."""
-        # Modifier for soma coordinates
-        modifier = np.array([1, 1, 1])
-
-        # Get all coordinates
-        all_co = np.concatenate([lc._segments3d[:, 0, :] for lc in line3D_collections],
-                                axis=0)
-
         # Get projected coordinates
         proj_co = mpl_toolkits.mplot3d.proj3d.proj_points(all_co, ax.get_proj())
 
@@ -410,11 +409,18 @@ def plot2d(x: Union[core.NeuronObject,
         norm = plt.Normalize(vmin=z_min, vmax=z_max)
 
         # Go over all neurons and update Z information
-        for neuron, lc, surf in zip(neurons,
-                                    line3D_collections,
-                                    surf3D_collections):
-            # Get this neurons coordinates
-            this_co = lc._segments3d[:, 0, :]
+        for neuron in visuals:
+            # Get this neurons colletion and coordinates
+            if 'skeleton' in visuals[neuron]:
+                c = visuals[neuron]['skeleton']
+                this_co = c._segments3d[:, 0, :]
+            elif 'mesh' in visuals[neuron]:
+                c = visuals[neuron]['mesh']
+                # Note that we only get every third position -> that's because
+                # these vectors actually represent faces, i.e. each vertex
+                this_co = c._vec.T[::3, [0, 1, 2]]
+            else:
+                raise ValueError(f'Neither mesh nor skeleton found for neuron {neuron.id}')
 
             # Get projected coordinates
             this_proj = mpl_toolkits.mplot3d.proj3d.proj_points(this_co,
@@ -424,37 +430,45 @@ def plot2d(x: Union[core.NeuronObject,
             ns = norm(this_proj[:, 2]).data
 
             # Set array
-            lc.set_array(ns)
+            c.set_array(ns)
 
             # No need for normaliser - already happened
-            lc.set_norm(None)
+            c.set_norm(None)
 
-            if not isinstance(neuron.soma, type(None)):
+            if isinstance(neuron, core.TreeNeuron) and not isinstance(neuron.soma, type(None)):
                 # Get depth of soma(s)
                 soma = utils.make_iterable(neuron.soma)
                 soma_co = neuron.nodes.set_index('node_id').loc[soma][['x', 'y', 'z']].values
-                soma_proj = mpl_toolkits.mplot3d.proj3d.proj_points(soma_co * modifier,
+                soma_proj = mpl_toolkits.mplot3d.proj3d.proj_points(soma_co,
                                                                     ax.get_proj())
                 soma_cs = norm(soma_proj[:, 2]).data
 
                 # Set soma color
-                for cs, s in zip(soma_cs, surf):
+                for cs, s in zip(soma_cs, visuals[neuron]['somata']):
                     s.set_color(cmap(cs))
 
     def Update(event):
         set_depth()
 
     if depth_coloring:
-        cmap = mpl.cm.jet if depth_coloring else None
+        cmap = mpl.cm.jet
         if method == '2d' and depth_scale:
-            fig.colorbar(cmap, ax=ax, fraction=.075, shrink=.5, label='Depth')
+            sm = ScalarMappable(norm=kwargs['norm'], cmap=cmap)
+            fig.colorbar(sm, ax=ax, fraction=.075, shrink=.5, label='Depth')
         elif method == '3d':
+            # Collect all coordinates
+            all_co = []
+            for n in visuals:
+                if 'skeleton' in visuals[n]:
+                    all_co.append(visuals[n]['skeleton']._segments3d[:, 0, :])
+                if 'mesh' in visuals[n]:
+                    all_co.append(visuals[n]['mesh']._vec.T[:, [0, 1, 2]])
+
+            all_co = np.concatenate(all_co, axis=0)
             fig.canvas.mpl_connect('draw_event', Update)
             set_depth()
 
     plt.axis('off')
-
-    logger.debug('Done. Use matplotlib.pyplot.show() to show plot.')
 
     return fig, ax
 
@@ -486,8 +500,6 @@ def _add_scalebar(scalebar, neurons, method, ax):
                            [xlim[0] + ax_offset + scalebar, ylim[0] + ax_offset]
                            ])
 
-        print(coords)
-
         sbar = mlines.Line2D(
             coords[:, 0], coords[:, 1], lw=3, alpha=.9, color='black')
         sbar.set_gid(f'{scalebar}_scalebar')
@@ -517,7 +529,7 @@ def _add_scalebar(scalebar, neurons, method, ax):
         ax.add_collection3d(lc)
 
 
-def _plot_scatter(points, method, ax, **scatter_kws):
+def _plot_scatter(points, method, ax, kwargs, **scatter_kws):
     """Plot dotprops."""
     if method == '2d':
         default_settings = dict(
@@ -528,9 +540,11 @@ def _plot_scatter(points, method, ax, **scatter_kws):
         )
         default_settings.update(scatter_kws)
         default_settings = _fix_default_dict(default_settings)
-        ax.scatter(points[:, 0],
-                   points[:, 1],
-                   **default_settings)
+
+        view = kwargs.get('view', ('x', 'y'))
+        x, y = _parse_view2d(points, view)
+
+        ax.scatter(x, y, **default_settings)
     elif method in ['3d', '3d_complex']:
         default_settings = dict(
             c='black',
@@ -555,6 +569,7 @@ def _plot_dotprops(dp, color, method, ax, **kwargs):
     alpha = kwargs.get('alpha', .9)
     group_neurons = kwargs.get('group_neurons', False)
     plot_soma = kwargs.get('soma', True)
+    view = kwargs.get('view', ('x', 'y'))
 
     # Prepare lines - this is based on nat:::plot3d.dotprops
     halfvect = dp.points[['x_vec', 'y_vec', 'z_vec']] / 2
@@ -563,15 +578,14 @@ def _plot_dotprops(dp, color, method, ax, **kwargs):
     ends = dp.points[['x', 'y', 'z']].values + halfvect.values
 
     if method == '2d':
-        # Add None between segments
-        x_coords = [n for sublist in zip(starts[:, 0],
-                                         ends[:, 0],
-                                         [None] * starts.shape[0]) for n in sublist]
-        y_coords = [n for sublist in zip(starts[:, 1],
-                                         ends[:, 1],
-                                         [None] * starts.shape[0]) for n in sublist]
+        # We have to add (None, None, None) to the end of each
+        # slab to make that line discontinuous
+        nones = np.full(starts.shape, fill_value=None)
+        coords = np.dstack((starts, ends, nones))
+        coords = coords.reshape((3, starts.shape[0] * 3)).T
+        x, y = _parse_view2d(coords, view)
 
-        this_line = mlines.Line2D(x_coords, y_coords,
+        this_line = mlines.Line2D(x, y,
                                   lw=linewidth,
                                   ls=linestyle,
                                   alpha=alpha, color=color,
@@ -581,7 +595,8 @@ def _plot_dotprops(dp, color, method, ax, **kwargs):
 
         # Add soma
         if plot_soma:
-            s = mpatches.Circle((dp.X, dp.Y), radius=2,
+            sx, sy = _parse_view2d(np.array([[dp.X, dp.Y, dp.Z]]), view)
+            s = mpatches.Circle((sx[0], sy[0]), radius=2,
                                 alpha=alpha, fill=True, fc=color,
                                 zorder=4, edgecolor='none')
             ax.add_patch(s)
@@ -590,9 +605,6 @@ def _plot_dotprops(dp, color, method, ax, **kwargs):
         coords = np.empty((starts.shape[0] * 2, 3), dtype=starts.dtype)
         coords[0::2] = starts
         coords[1::2] = ends
-
-        # Invert y-axis
-        # coords[:, 1] *= -1
 
         # For simple scenes, add whole neurons at a time
         # -> will speed up rendering
@@ -640,6 +652,7 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
     """Plot connectors."""
     alpha = kwargs.get('alpha', .9)
     cn_size = kwargs.get('cn_size', .9)
+    view = kwargs.get('view', ('x', 'y'))
 
     if not kwargs.get('cn_mesh_colors', False):
         cn_lay = config.default_connector_colors
@@ -650,8 +663,10 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
     if method == '2d':
         for c in neuron.connectors.type.unique():
             this_cn = neuron.connectors[neuron.connectors.type == c]
-            ax.scatter(this_cn.x.values,
-                       this_cn.y.values,
+
+            x, y = _parse_view2d(this_cn[['x', 'y', 'z']].values, view)
+
+            ax.scatter(x, y,
                        c=cn_lay[c]['color'], alpha=alpha, zorder=4,
                        edgecolor='none', s=cn_size)
             ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
@@ -666,29 +681,81 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
 
 def _plot_mesh(neuron, color, method, ax, **kwargs):
     """Plot mesh (i.e. MeshNeuron)."""
-    if method == '2d':
-        raise ValueError('MeshNeurons can not be plotted using method "2d"')
-
     name = getattr(neuron, 'name')
     depth_coloring = kwargs.get('depth_coloring', False)
-    alpha = kwargs.get('alpha', .9)
+    alpha = kwargs.get('alpha', None)
     norm = kwargs.get('norm')
     group_neurons = kwargs.get('group_neurons', False)
-
+    view = kwargs.get('view', ('x', 'y'))
 
     # Add alpha
     if alpha:
         color = (color[0], color[1], color[2], alpha)
 
-    ts = ax.plot_trisurf(neuron.vertices[:, 0],
-                         neuron.vertices[:, 1],
-                         neuron.faces,
-                         neuron.vertices[:, 2],
-                         label=name,
-                         color=color)
+    ts = None
+    if method == '2d':
+        # Generate 2d representation
+        xy = np.dstack(_parse_view2d(neuron.vertices, view))[0]
 
-    if group_neurons:
-        ts.set_gid(neuron.id)
+        # Generate a patch for each face
+        patches = []
+        for f in neuron.faces:
+            p = mpatches.Polygon(xy[f], closed=True, fill=color)
+            patches.append(p)
+        pc = PatchCollection(patches, linewidth=0, facecolor=color,
+                             edgecolor='none', alpha=alpha)
+        ax.add_collection(pc)
+    else:
+        ts = ax.plot_trisurf(neuron.vertices[:, 0],
+                             neuron.vertices[:, 1],
+                             neuron.faces,
+                             neuron.vertices[:, 2],
+                             label=name,
+                             cmap=mpl.cm.jet if depth_coloring else None,
+                             color=color)
+
+        if group_neurons:
+            ts.set_gid(neuron.id)
+    return ts
+
+
+def _get_depth_axis(view):
+    """Return index of axis which is not used for x/y."""
+    view = [v.replace('-', '').replace('+', '') for v in view]
+    depth = [ax for ax in ['x', 'y', 'z']][0]
+    map = {'x': 0, 'y': 1, 'z': 2}
+    return map[depth]
+
+
+def _parse_view2d(co, view):
+    """Parse view parameter and returns x/y parameter."""
+    if not isinstance(co, np.ndarray):
+        co = np.array(co)
+
+    map = {'x': 0, 'y': 1, 'z': 2}
+
+    x_ix = map[view[0].replace('-', '').replace('+', '')]
+    y_ix = map[view[1].replace('-', '').replace('+', '')]
+
+    x_mod = -1 if '-' in view[0] else 1
+    y_mod = -1 if '-' in view[1] else 1
+
+    if co.ndim == 2:
+        x = co[:, x_ix]
+        y = co[:, y_ix]
+
+        # Multiply only where co is not None
+        x = np.multiply(x, x_mod, where=x != None, subok=False)
+        y = np.multiply(y, y_mod, where=y != None, subok=False)
+
+        # Do NOT remove the list() here - for some reason the multiplication
+        # above causes issues in matplotlib
+        return (list(x), list(y))
+    elif co.ndim == 3:
+        xy = co[:, :, [x_ix, y_ix]] * [x_mod, y_mod]
+        return xy
+    else:
+        raise ValueError(f'Expect coordinates to have 2 or 3 dimensions, got {co.ndim}')
 
 
 def _plot_skeleton(neuron, color, method, ax, **kwargs):
@@ -700,6 +767,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
     norm = kwargs.get('norm')
     plot_soma = kwargs.get('soma', True)
     group_neurons = kwargs.get('group_neurons', False)
+    view = kwargs.get('view', ('x', 'y'))
 
     # Generate by-segment coordinates
     coords = segments_to_coords(neuron,
@@ -710,17 +778,19 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
         if not depth_coloring:
             # We have to add (None, None, None) to the end of each
             # slab to make that line discontinuous there
-            coords = np.vstack(
-                [np.append(t, [[None] * 3], axis=0) for t in coords])
+            coords = np.vstack([np.append(t, [[None] * 3],
+                                          axis=0) for t in coords])
 
-            this_line = mlines.Line2D(coords[:, 0], coords[:, 1],
+            x, y = _parse_view2d(coords, view)
+            this_line = mlines.Line2D(x, y,
                                       lw=linewidth, ls=linestyle,
                                       alpha=alpha, color=color,
                                       label=f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
             ax.add_line(this_line)
         else:
             coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
-            lc = LineCollection(coords[:, :, [0, 1]],
+            xy = _parse_view2d(coords, view)
+            lc = LineCollection(xy,
                                 cmap='jet',
                                 norm=norm)
             lc.set_array(neuron.nodes.loc[neuron.nodes.parent_id >= 0, 'z'].values)
@@ -741,12 +811,14 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                 r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
 
                 if depth_coloring:
-                    color = mpl.cm.jet(norm(n.z))
+                    d = [n.x, n.y, n.z][_get_depth_axis(view)]
+                    color = mpl.cm.jet(norm(d))
 
-                s = mpatches.Circle((int(n.x), int(n.y)), radius=r,
+                sx, sy = _parse_view2d(np.array([[n.x, n.y, n.z]]), view)
+                c = mpatches.Circle((sx[0], sy[0]), radius=r,
                                     alpha=alpha, fill=True, fc=color,
                                     zorder=4, edgecolor='none')
-                ax.add_patch(s)
+                ax.add_patch(c)
         return None, None
 
     elif method in ['3d', '3d_complex']:
@@ -755,9 +827,9 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
         if method == '3d':
             if depth_coloring:
                 this_coords = tn_pairs_to_coords(neuron,
-                                                 modifier=(1, 1, 1))[:, :, [0, 1, 2]]
+                                                 modifier=(1, 1, 1))
             else:
-                this_coords = [c[:, [0, 1, 2]] for c in coords]
+                this_coords = coords
 
             lc = Line3DCollection(this_coords,
                                   color=color,
@@ -769,7 +841,8 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             if group_neurons:
                 lc.set_gid(neuron.id)
             # Need to get this before adding data
-            line3D_collection = ax.add_collection3d(lc)
+            line3D_collection = lc
+            ax.add_collection3d(lc)
 
         # For complex scenes, add each segment as a single collection
         # -> helps preventing Z-order errors
@@ -831,12 +904,26 @@ def _plot_volume(volume, color, method, ax, **kwargs):
         fill, lw, fc, ec = True, 0, color, 'none'
 
     if method == '2d':
-        # Generate 2d representation
-        axis1, axis2 = kwargs.get('view', ('x', 'y'))
-        verts = volume.to_2d(view=f'{axis1}{axis2}', invert_y=True)
-        vpatch = mpatches.Polygon(verts, closed=True, lw=lw, fill=fill,
-                                  fc=fc, ec=ec, alpha=this_alpha, zorder=0)
-        ax.add_patch(vpatch)
+        view = kwargs.get('view', ('x', 'y'))
+
+        if not kwargs.get('volume_outlines', False):
+            # Generate 2d representation
+            xy = np.dstack(_parse_view2d(volume.verts, view))[0]
+
+            # Generate a patch for each face
+            patches = []
+            for f in volume.faces:
+                p = mpatches.Polygon(xy[f], closed=True, fill=fill)
+                patches.append(p)
+            pc = PatchCollection(patches, linewidth=lw, facecolor=fc,
+                                 edgecolor=ec, alpha=this_alpha, zorder=0)
+            ax.add_collection(pc)
+        else:
+            verts = volume.to_2d(view=view)
+            vpatch = mpatches.Polygon(verts, closed=True, lw=lw, fill=fill,
+                                      fc=fc, ec=ec, alpha=this_alpha, zorder=0)
+            ax.add_patch(vpatch)
+
     elif method in ['3d', '3d_complex']:
         verts = np.vstack(volume.vertices)
 
