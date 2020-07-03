@@ -217,7 +217,7 @@ def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
 
 
 def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
-                     use_neuron_color=False, color_range=255):
+                     alpha=None, use_neuron_color=False, color_range=255):
     """Map color(s) to neuron/dotprop colorlists."""
     # Prepare dummies in case either no neuron data, no dotprops or no volumes
     if isinstance(neurons, type(None)):
@@ -323,6 +323,12 @@ def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
         neuron_cmap = [getattr(n, 'color', config.default_color)
                        for i, n in enumerate(neurons)]
 
+    # If alpha is given, we will override all values
+    if not isinstance(alpha, type(None)):
+        neuron_cmap = [add_alpha(c, alpha) for c in neuron_cmap]
+        dotprop_cmap = [add_alpha(c, alpha) for c in dotprop_cmap]
+        volumes_cmap = [add_alpha(c, alpha) for c in volumes_cmap]
+
     # Make sure colour range checks out
     neuron_cmap = [eval_color(c, color_range=color_range)
                    for c in neuron_cmap]
@@ -336,6 +342,11 @@ def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
     logger.debug('Volumes colormap: ' + str(volumes_cmap))
 
     return neuron_cmap, dotprop_cmap, volumes_cmap
+
+
+def add_alpha(c, alpha):
+    """Add/adjust alpha for color."""
+    return (c[0], c[1], c[2], alpha)
 
 
 def eval_color(x, color_range=255, force_alpha=False):
