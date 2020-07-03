@@ -286,7 +286,8 @@ def neuron2igraph(x: 'core.NeuronObject',
 
 
 def nx2neuron(g: nx.Graph,
-              root: Optional[Union[int, str]] = None
+              root: Optional[Union[int, str]] = None,
+              **kwargs
               ) -> pd.DataFrame:
     """Generate node table from NetworkX Graph.
 
@@ -303,10 +304,13 @@ def nx2neuron(g: nx.Graph,
     root :          str | int, optional
                     Node in graph to use as root for neuron. If not provided,
                     will use first node in ``g.nodes``.
+    **kwargs
+                    Keyword arguments are passed to the construction of
+                    :class:`~navis.TreeNeuron`.
 
     Returns
     -------
-    pandas.DataFrame
+    TreeNeuron
 
     """
     # First some sanity checks
@@ -369,7 +373,8 @@ def nx2neuron(g: nx.Graph,
         vals = nx.get_node_attributes(g, at)
         tn_table[at] = tn_table.index.map(lambda a: vals.get(a, defaults.get(at)))
 
-    return tn_table.reset_index(drop=False, inplace=False)
+    return core.TreeNeuron(tn_table.reset_index(drop=False, inplace=False),
+                           **kwargs)
 
 
 def _find_all_paths(g: nx.DiGraph,
