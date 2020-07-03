@@ -556,7 +556,7 @@ class Volume(trimesh.Trimesh):
 
     def to_2d(self,
               alpha: float = 0.00017,
-              view: str = 'xy',
+              view: tuple = ('x', 'y'),
               invert_y: bool = False) -> Sequence[Union[float, int]]:
         """Compute the 2d alpha shape (concave hull) this volume.
 
@@ -568,8 +568,9 @@ class Volume(trimesh.Trimesh):
                     Alpha value to influence the gooeyness of the border.
                     Smaller numbers don't fall inward as much as larger
                     numbers. Too large, and you lose everything!
-        view :      'xy' | 'xz' | 'yz', optional
-                    Determines if frontal, lateral or top view.
+        view :      tuple
+                    Determines axis. Can be prefixed with a '-' to invert
+                    the axis.
 
         Returns
         -------
@@ -586,7 +587,11 @@ class Volume(trimesh.Trimesh):
             edges.add((i, j))
             edge_points.append(coords[[i, j]])
 
-        accepted_views = ['xy', 'xz', 'yz']
+        accepted_views = ['x', 'z', 'y', '-x', '-z', '-y']
+
+        for ax in view:
+            if ax not in accepted_views:
+                raise ValueError(f'Unable to parse "{ax}" view')
 
         try:
             from shapely.ops import cascaded_union, polygonize  # type: ignore
@@ -596,19 +601,14 @@ class Volume(trimesh.Trimesh):
 
         coords: np.ndarray
 
-        if view in['xy', 'yx']:
-            coords = self.vertices[:, [0, 1]]  # type: ignore
-            if invert_y:
-                coords[:, 1] = coords[:, 1] * -1  # type: ignore
+        map = {'x': 0, 'y': 1, 'z': 2}
 
-        elif view in ['xz', 'zx']:
-            coords = self.vertices[:, [0, 2]]  # type: ignore
-        elif view in ['yz', 'zy']:
-            coords = self.vertices[:, [1, 2]]  # type: ignore
-            if invert_y:
-                coords[:, 0] = coords[:, 0] * -1  # type: ignore
-        else:
-            raise ValueError(f'View {view} unknown. Please use either: {accepted_views}')
+        x_ix = map[view[0].replace('-', '').replace('+', '')]
+        y_ix = map[view[1].replace('-', '').replace('+', '')]
+
+        xmod = -1 if '-' in view[0] else 1
+        ymod = -1 if '-' in view[1] else 1
+        coords = self.vertices[:, [x_ix, y_ix]] * np.array([xmod, ymod])
 
         tri = scipy.spatial.Delaunay(coords)
         edges: set = set()
