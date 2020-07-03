@@ -182,11 +182,14 @@ class NeuronList:
 
     @property
     def bbox(self):
-        """Shape of neuronlist (N, )."""
+        """Bounding box across all neurons in the list."""
+        if self.empty:
+            raise ValueError('No bounding box - neuronlist is empty.')
+
         bboxes = np.hstack([n.bbox for n in self.neurons])
         mn = np.min(bboxes, axis=1)
         mx = np.max(bboxes, axis=1)
-        return np.append(mn, mx, axis=0).T
+        return np.vstack((mn, mx)).T
 
     @property
     def empty(self):
@@ -594,7 +597,7 @@ class NeuronList:
                           key: str = 'neuron_name',
                           inplace: bool = False
                           ) -> Optional['NeuronList']:
-        """Removes duplicate neurons from list.
+        """Remove duplicate neurons from list.
 
         Parameters
         ----------

@@ -541,10 +541,11 @@ class MeshNeuron(BaseNeuron):
         """Bounding box."""
         mn = np.min(self.vertices, axis=0)
         mx = np.max(self.vertices, axis=0)
-        return np.append(mn, mx, axis=0).T
+        return np.vstack((mn, mx)).T
 
     @property
     def vertices(self):
+        """Vertices making up the neuron."""
         return self._vertices
 
     @vertices.setter
