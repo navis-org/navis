@@ -67,7 +67,7 @@ class Volume(trimesh.Trimesh):
                  faces: Union[list, np.ndarray] = None,
                  name: Optional[str] = None,
                  color: Union[str,
-                              Sequence[Union[int, float]]] = (.95, .95, .95, .1),
+                              Sequence[Union[int, float]]] = (.85, .85, .85, .2),
                  id: Optional[int] = None, **kwargs):
 
         if hasattr(vertices, 'vertices') and hasattr(vertices, 'faces'):
@@ -176,9 +176,6 @@ class Volume(trimesh.Trimesh):
     @classmethod
     def from_json(cls,
                   filename: str,
-                  name: Optional[str] = None,
-                  color: Union[str,
-                               Sequence[Union[int, float]]] = (1, 1, 1, .1),
                   import_kwargs: Dict = {},
                   **init_kwargs) -> 'Volume':
         """Load volume from json file containing vertices and faces.
@@ -204,15 +201,11 @@ class Volume(trimesh.Trimesh):
             data = json.load(f, **import_kwargs)
 
         return cls(faces=data['faces'],
-                   vertices=data['vertices'],
-                   name=name, color=color, **init_kwargs)
+                   vertices=data['vertices'], **init_kwargs)
 
     @classmethod
     def from_object(cls,
                     obj: Any,
-                    name: Optional[str] = None,
-                    color: Union[str,
-                                 Sequence[Union[int, float]]] = (1, 1, 1, .1),
                     **init_kwargs) -> 'Volume':
         """Load volume from generic object that has ``.vertices`` and
         ``.faces`` attributes.
@@ -232,15 +225,11 @@ class Volume(trimesh.Trimesh):
         if not hasattr(obj, 'vertices') or not hasattr(obj, 'faces'):
             raise ValueError('Object must have faces and vertices attributes.')
 
-        return cls(faces=obj.faces, vertices=obj.vertices,
-                   name=name, color=color, **init_kwargs)
+        return cls(faces=obj.faces, vertices=obj.vertices, **init_kwargs)
 
     @classmethod
     def from_file(cls,
                   filename: str,
-                  name: Optional[str] = None,
-                  color: Union[str,
-                               Sequence[Union[int, float]]] = (1, 1, 1, .1),
                   import_kwargs: Dict = {},
                   **init_kwargs) -> 'Volume':
         """Load volume from file.
@@ -268,8 +257,9 @@ class Volume(trimesh.Trimesh):
         f, ext = os.path.splitext(filename)
 
         if ext == '.json':
-            return cls.from_json(filename=filename, name=name, color=color,
-                                 import_kwargs=import_kwargs, **init_kwargs)
+            return cls.from_json(filename=filename,
+                                 import_kwargs=import_kwargs,
+                                 **init_kwargs)
 
         try:
             import trimesh
@@ -281,7 +271,7 @@ class Volume(trimesh.Trimesh):
 
         tm = trimesh.load_mesh(filename, **import_kwargs)
 
-        return cls.from_object(tm, name=name, color=color, **init_kwargs)
+        return cls.from_object(tm, **init_kwargs)
 
     def to_json(self, filename: str) -> None:
         """Save volume as json file.
