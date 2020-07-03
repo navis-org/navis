@@ -10,12 +10,15 @@ What's new?
    * - Version
      - Date
      -
-   * - 0.1.17
+   * - 0.2.0
      - 29/06/20
-     - - new :class:`~navis.TreeNeuron` property ``.volume``
+       - new neuron class :class:`~navis.MeshNeuron` that consists of vertices and faces
+       - new :class:`~navis.TreeNeuron` property ``.volume``
        - we now use `ncollpyde <https://pypi.org/project/ncollpyde>`_ for ray casting (intersections)
        - clean-up in neuromorpho interface
        - fix bugs in :class:`~navis.Volume` pickling
+       - new example data from the Janelia hemibrain data set
+       - breaking changes: :func:``~navis.nx2neuron`` now returns a :class:`~navis.TreeNeuron` instead of a ``DataFrame``
    * - 0.1.16
      - 26/05/20
      - - many small bugfixes
