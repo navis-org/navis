@@ -24,9 +24,10 @@ function. There you will also find more examples.
 
 .. raw:: html
 
-
                </div>
             </div>
+         </div>
+         <div class="col-md-3">
             <div class="panel panel-default">
                <div class="panel-heading">
                   <h3 class="panel-title">Plotting</h3>
@@ -42,8 +43,6 @@ function. There you will also find more examples.
 
                </div>
             </div>
-         </div>
-         <div class="col-md-3">
             <div class="panel panel-default">
                <div class="panel-heading">
                   <h3 class="panel-title">Morphology</h3>
@@ -73,7 +72,6 @@ function. There you will also find more examples.
    tutorials/r_doc
    blender
    tutorials/neuprint
-
 
 
 .. raw:: html
