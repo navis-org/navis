@@ -618,7 +618,7 @@ class Handler:
             ob_name = f'{settings["name"]} of {x.id}'
 
             # Only plot as lines if this is a TreeNeuron
-            if self.cn_dict.get('display', 'lines') and isinstance(x, core.TreeNeuron):
+            if self.cn_dict.get('display', 'lines') == 'lines' and isinstance(x, core.TreeNeuron):
                 cn_coords = cn_coords[:, self.axes_order]
                 cn_coords *= float(self.scaling)
                 cn_coords *= self.ax_translate
