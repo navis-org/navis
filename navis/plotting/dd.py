@@ -215,6 +215,10 @@ def plot2d(x: Union[core.NeuronObject,
     ``view`` (tuple, default = ("x", "y"))
       Sets view for ``method='2d'``.
 
+     ``orthogonal`` (bool, default=True)
+      Whether to use orthogonal or perspective view for methods '3d' and
+      '3d_complex'.
+
     ``volume_outlines`` (bool, default=True)
       If True will plot volume outline with no fill.
 
@@ -231,7 +235,7 @@ def plot2d(x: Union[core.NeuronObject,
     # Filter kwargs
     _ACCEPTED_KWARGS = ['soma', 'connectors', 'connectors_only',
                         'ax', 'color', 'colors', 'c', 'view', 'scalebar',
-                        'cn_mesh_colors', 'linewidth', 'cn_size',
+                        'cn_mesh_colors', 'linewidth', 'cn_size', 'orthogonal',
                         'group_neurons', 'scatter_kws', 'figsize', 'linestyle',
                         'alpha', 'depth_coloring', 'autoscale', 'depth_scale',
                         'use_neuron_color', 'ls', 'lw', 'volume_outlines']
@@ -275,9 +279,12 @@ def plot2d(x: Union[core.NeuronObject,
                                       use_neuron_color=use_neuron_color,
                                       color_range=1)
 
-    # Make sure axes are projected orthogonally
+    # Set axis projection
     if method in ['3d', '3d_complex']:
-        proj3d.persp_transformation = _orthogonal_proj
+        if kwargs.get('orthogonal', True):
+            proj3d.persp_transformation = _orthogonal_proj
+        else:
+            proj3d.persp_transformation = _perspective_proj
 
     # Generate axes
     if not ax:
@@ -1012,6 +1019,16 @@ def _fix_default_dict(x):
             _ = [x.pop(v) for v in to_delete]
 
     return x
+
+
+def _perspective_proj(zfront, zback):
+    """Copy of the original matplotlib perspective projection."""
+    a = (zfront + zback) / (zfront - zback)
+    b = -2 * (zfront * zback) / (zfront - zback)
+    return np.array([[1, 0, 0, 0],
+                     [0, 1, 0, 0],
+                     [0, 0, a, b],
+                     [0, 0, -1, 0]])
 
 
 def _orthogonal_proj(zfront, zback):
