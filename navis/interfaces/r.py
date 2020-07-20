@@ -38,12 +38,14 @@ from rpy2.robjects.packages import importr
 
 from rpy2.robjects import pandas2ri, numpy2ri
 
-if rpy2.__version_vector__[0] >= 3:
+# Inconventiently, rpy2's version vector differs in the way it's constructed
+# between 2.X ``((2, 9, 4), '')`` and 3.X (3, 3, 2)
+rpy2_major_version = int(rpy2.__version__.split('.')[0])
+if rpy2_major_version >= 3:
     from rpy2.robjects.conversion import localconverter
 
 from .. import cluster as pyclust
 from .. import core, plotting, config, utils
-
 
 # Set up logging
 logger = config.logger
@@ -54,8 +56,8 @@ def try_importr(x):
     try:
         return importr(x)
     except BaseException:
-        logger.error(f'Failed to import R library "{x}"! Some functions might '
-                     'not work as expected. Please install from within R.')
+        logger.warning(f'Failed to import R library "{x}"! Some functions might'
+                        ' not work as expected. Please install from within R.')
         # Return dummy class
         return FailedImport(x)
 
@@ -76,7 +78,7 @@ class FailedImport:
         self.name = name
 
     def raise_error(self):
-        raise Exception(f'R library "{self.name}" was not properly imported. '
+        raise Exception(f'R library "{self.name}" could not be imported. '
                         'Please make sure it is properly installed.')
 
     def __call__(self):
