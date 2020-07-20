@@ -16,6 +16,7 @@ import networkx as nx
 import math
 import pandas as pd
 import scipy.spatial
+import scipy.sparse
 
 from typing import Union, Optional, List, Iterable
 
@@ -244,9 +245,8 @@ def neuron2igraph(x: 'core.NeuronObject',
 
     if isinstance(x, core.NeuronList):
         return [neuron2igraph(x.loc[i]) for i in range(x.shape[0])]
-    elif isinstance(x, core.TreeNeuron):
-        pass
-    else:
+
+    if not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Unable input type "{type(x)}"')
 
     # Make sure we have correctly numbered indices
@@ -287,6 +287,7 @@ def neuron2igraph(x: 'core.NeuronObject',
 
 def nx2neuron(g: nx.Graph,
               root: Optional[Union[int, str]] = None,
+              break_cycles: bool = False,
               **kwargs
               ) -> pd.DataFrame:
     """Generate node table from NetworkX Graph.
@@ -294,16 +295,20 @@ def nx2neuron(g: nx.Graph,
     This function will try to generate a neuron-like tree structure from
     the Graph. Therefore the graph may not contain loops!
 
-    Node attributes (e.g. ``x``, ``y``, ``z``, ``radius``, ``confidence``) need
+    Node attributes (e.g. ``x``, ``y``, ``z``, ``radius``) need
     to be properties of the graph's nodes. All node property will be added to
     the neuron's ``.nodes`` table.
 
     Parameters
     ----------
     g :             networkx.Graph
-    root :          str | int, optional
+    root :          str | int | list, optional
                     Node in graph to use as root for neuron. If not provided,
-                    will use first node in ``g.nodes``.
+                    will use first node in ``g.nodes``. Ignored if graph
+                    consists of several disconnected components.
+    break_cycles :  bool
+                    The input graph must not contain cycles. We can break them
+                    up at risk of disconnecting parts of the graph.
     **kwargs
                     Keyword arguments are passed to the construction of
                     :class:`~navis.TreeNeuron`.
@@ -321,25 +326,53 @@ def nx2neuron(g: nx.Graph,
     if isinstance(g, nx.DiGraph):
         g = g.to_undirected(as_view=True)
 
+    if not nx.is_forest(g):
+        if not break_cycles:
+            raise TypeError("Graph must be tree-like. You can try setting "
+                            "the `cut_cycles` parameter to True.")
+        else:
+            if break_cycles:
+                while True:
+                    try:
+                        # Find cycle
+                        cycle = nx.find_cycle(g)
+                    except nx.exception.NetworkXNoCycle:
+                        break
+                    except BaseException:
+                        raise
+
+                    # Sort by degree
+                    cycle = sorted(cycle, key=lambda x: g.degree[x[0]])
+
+                    # Remove the edge with the lowest degree
+                    g.remove_edge(cycle[0][0], cycle[0][1])
+
+    # Ignore root if this is a forest
     if not nx.is_tree(g):
-        raise TypeError("Graph must be tree-like. Please check for loops.")
+        root = None
 
-    # Pick a randon root if not explicitly provided
-    if not root:
-        root = list(g.nodes)[0]
-    elif root not in g.nodes:
-        raise ValueError(f'Node "{root}" not in graph.')
+    # This effectively makes sure that all edges point in the same direction
+    lop = {}
+    for c in nx.connected_components(g):
+        sg = nx.subgraph(g, c)
+        # Pick a random root if not explicitly provided
+        if not root:
+            r = list(sg.nodes)[0]
+        elif root not in sg.nodes:
+            raise ValueError(f'Node "{root}" not in graph.')
+        else:
+            r = root
 
-    # Generate parent->child dictionary
-    lop = nx.predecessor(g, root)
+        # Generate parent->child dictionary
+        this_lop = nx.predecessor(sg, r)
 
-    # Make sure no node has more than one parent
-    if max([len(v) for v in lop.values()]) > 1:
-        raise ValueError('Nodes with multiple parents found. Make sure graph '
-                         'is tree-like.')
+        # Make sure no node has more than one parent
+        if max([len(v) for v in this_lop.values()]) > 1:
+            raise ValueError('Nodes with multiple parents found. Make sure graph '
+                             'is tree-like.')
 
-    # Note that we assign -1 as root's parent
-    lop = {k: v[0] if v else -1 for k, v in lop.items()}
+        # Note that we assign -1 as root's parent
+        lop.update({k: v[0] if v else -1 for k, v in this_lop.items()})
 
     # Generate node table
     tn_table = pd.DataFrame(index=list(g.nodes))
