@@ -120,10 +120,11 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
                     If True, will use parallel threads to fetch data.
     max_threads :   int
                     Max number of parallel threads to use.
-    seg_source :    str, optional
+    seg_source :    str | cloudvolume.CloudVolume
                     Segmentation source that can be parsed by
-                    ``cloudvolume.CloudVolume``. If not provided will try to
-                    extract from neuprint ``client`` meta data.
+                    ``cloudvolume.CloudVolume`` or a ``CloudVolume`` itself. If
+                    not provided will try to extract from neuprint ``client``
+                    meta data.
     client :        neuprint.Client, optional
                     If ``None`` will try using global client.
     **kwargs
@@ -165,7 +166,10 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
                            f'first entry: "{seg_source}"')
 
     # Initialize volume
-    vol = CloudVolume(seg_source, **kwargs)
+    if isinstance(seg_source, CloudVolume):
+        vol = seg_source
+    else:
+        vol = CloudVolume(seg_source, **kwargs)
 
     if isinstance(x, NeuronCriteria):
         query = x
