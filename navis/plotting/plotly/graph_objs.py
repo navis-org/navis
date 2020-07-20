@@ -213,10 +213,9 @@ def skeleton2plotly(neuron, color, **kwargs):
                     # y and z are switched
                     y=[(v[1] * r) + n.y for v in fib_points],
                     z=[(v[2] * r) + n.z for v in fib_points],
-
+                    legendgroup=name,
                     alphahull=.5,
                     color=c,
-                    name=name,
                     hoverinfo='name'))
 
     return trace_data
