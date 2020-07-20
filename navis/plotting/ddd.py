@@ -263,7 +263,7 @@ def plot3d_plotly(x, **kwargs):
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
                'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
-               'plotly_inline', 'alpha',
+               'plotly_inline', 'alpha', 'radius',
                'connectors', 'connectors_only'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
@@ -271,7 +271,7 @@ def plot3d_plotly(x, **kwargs):
 
     if any(notallowed):
         raise ValueError(f'Arguments "{",".join(notallowed)}" are not allowed '
-                         'for plot3d using vispy. Allowed keyword '
+                         'for plot3d using plotly. Allowed keyword '
                          f'arguments: {",".join(ALLOWED)}')
 
     # Parse objects to plot

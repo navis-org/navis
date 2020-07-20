@@ -18,7 +18,7 @@ import plotly.graph_objs as go
 
 from ..colors import *
 from ..plot_utils import *
-from ... import core, utils, config, morpho
+from ... import core, utils, config, morpho, conversion
 
 logger = config.logger
 
@@ -67,6 +67,9 @@ def neuron2plotly(x, **kwargs):
         color = colormap[i]
 
         if not kwargs.get('connectors_only', False):
+            if kwargs.get('radius', False):
+                neuron = conversion.tree2meshneuron(neuron)
+
             if isinstance(neuron, core.TreeNeuron):
                 trace_data += skeleton2plotly(neuron, color, **kwargs)
             elif isinstance(neuron, core.MeshNeuron):
