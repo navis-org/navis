@@ -363,10 +363,10 @@ def nx2neuron(g: nx.Graph,
     # Remove some that we don't need
     all_attr -= set(['parent_id', 'node_id'])
     # Add some that we want as columns even if they don't exist
-    all_attr |= set(['x', 'y', 'z', 'confidence', 'radius'])
+    all_attr |= set(['x', 'y', 'z', 'radius'])
 
     # For some we want to have set default values
-    defaults = {'x': 0, 'y': 0, 'z': 0, 'confidence': 5, 'radius': -1}
+    defaults = {'x': 0, 'y': 0, 'z': 0, 'radius': -1}
 
     # Now map the attributes onto node table
     for at in all_attr:
