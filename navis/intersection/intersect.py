@@ -287,6 +287,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                          vol,
                          mode='IN',
                          n_rays=n_rays,
+                         validate=False,
                          backend=backend)
 
         # If mode is OUT, invert selection
@@ -306,7 +307,8 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                              leave=config.pbar_leave,
                              disable=config.pbar_hide):
             in_volume(n, vol, inplace=True, mode=mode, backend=backend,
-                      n_rays=n_rays, prevent_fragments=prevent_fragments)
+                      validate=False, n_rays=n_rays,
+                      prevent_fragments=prevent_fragments)
 
         if inplace is False:
             return x
