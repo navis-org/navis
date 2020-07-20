@@ -17,6 +17,7 @@
 import warnings
 
 import plotly.offline
+import plotly.graph_objs as go
 import numpy as np
 
 from typing import Union, List, Optional
@@ -61,7 +62,6 @@ def plot3d(x: Union[core.NeuronObject,
 
     Parameters
     ----------
-
     x :               TreeNeuron/List| navis.Dotprops | navis.Volume | numpy.array
                         - ``numpy.array (N,3)`` is plotted as scatter plot
                         - multiple objects can be passed as list (see examples)
@@ -90,6 +90,9 @@ def plot3d(x: Union[core.NeuronObject,
                       colors to assign colors: ``['red', (1, 0, 1), ...].
                       Use ``dict`` to map colors to neurons:
                       ``{uuid: (r, g, b), ...}``. RGB must be 0-255.
+    radius :          bool, default=False
+                      If True, will plot TreeNeurons as 3D tubes using the
+                      ``radius`` column in their node tables.
     use_neuron_color : bool, default=False
                       If True, will try using the ``.color`` attribute of
                       each neuron.
@@ -102,6 +105,9 @@ def plot3d(x: Union[core.NeuronObject,
 
     Plotly only
 
+    fig :             plotly.graph_objs.Figure
+                      Pass to add graph objects to existing plotly figure. Will
+                      not change layout.
     title :           str, default=None
                       For plotly only! Change plot title.
     fig_autosize :    bool, default=False
@@ -114,7 +120,7 @@ def plot3d(x: Union[core.NeuronObject,
                       a html with an embedded 3D plot.
 
     Returns
-    --------
+    -------
     If ``backend='vispy'``
 
         Opens a 3D window and returns :class:`navis.Viewer`.
@@ -263,7 +269,7 @@ def plot3d_plotly(x, **kwargs):
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
                'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
-               'plotly_inline', 'alpha', 'radius',
+               'plotly_inline', 'alpha', 'radius', 'fig',
                'connectors', 'connectors_only'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
@@ -277,22 +283,29 @@ def plot3d_plotly(x, **kwargs):
     # Parse objects to plot
     (neurons, dotprops, volumes, points, visual) = utils.parse_objects(x)
 
-    trace_data = []
+    data = []
 
     scatter_kws = kwargs.pop('scatter_kws', {})
 
     if neurons:
-        trace_data += neuron2plotly(neurons, **kwargs)
+        data += neuron2plotly(neurons, **kwargs)
     if not dotprops.empty:
-        trace_data += dotprops2plotly(dotprops, **kwargs)
+        data += dotprops2plotly(dotprops, **kwargs)
     if volumes:
-        trace_data += volume2plotly(volumes, **kwargs)
+        data += volume2plotly(volumes, **kwargs)
     if points:
-        trace_data += scatter2plotly(points, **scatter_kws)
+        data += scatter2plotly(points, **scatter_kws)
 
     layout = layout2plotly(**kwargs)
 
-    fig = dict(data=trace_data, layout=layout)
+    # If not provided generate a figure dictionary
+    fig = kwargs.get('fig', dict(layout=layout))
+    if not isinstance(fig, (dict, go.Figure)):
+        raise TypeError('`fig` must be plotly.graph_objects.Figure or dict, got '
+                        f'{type(fig)}')
+
+    # Add data
+    fig['data'] = fig.get('data', []) + data
 
     if kwargs.get('plotly_inline', True) and utils.is_jupyter():
         plotly.offline.iplot(fig)
