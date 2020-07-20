@@ -16,6 +16,9 @@
 
 """ Module contains functions to plot neurons in 2D and 3D.
 """
+from ... import core, config, utils, morpho
+from ..colors import *
+from ..plot_utils import segments_to_coords, make_tube
 
 import uuid
 import warnings
@@ -28,11 +31,6 @@ with warnings.catch_warnings():
     import vispy
     from vispy import scene
     from vispy.geometry import create_sphere
-
-from ... import core, config, utils, morpho
-from ..colors import *
-from ..plot_utils import segments_to_coords
-from .vputils import make_tube
 
 __all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy',
            'points2vispy', 'combine_visuals']
