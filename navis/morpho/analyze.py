@@ -14,6 +14,8 @@
 import pint
 import warnings
 
+import numpy as np
+
 from .. import config, core
 
 from typing import Sequence
@@ -60,18 +62,23 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     soma_nodes = x.nodes
 
     if not isinstance(soma_radius, type(None)):
-        if isinstance(soma_radius, pint.Quantity):
-            if isinstance(x.units, (pint.Quantity, pint.Unit)) and \
-               not x.units.dimensionless:
-                # Do NOT remove the .values here -> otherwise conversion to units won't work
-                is_large = soma_nodes.radius.values * x.units >= soma_radius
-            else:
-                # If neurons has no units, assume they are the same as the soma radius
-                is_large = soma_nodes.radius.values * soma_radius.units >= soma_radius
-        else:
-            is_large = soma_nodes.radius >= soma_radius
+        # Drop nodes that don't have a radius
+        soma_nodes = soma_nodes.loc[~soma_nodes.radius.isnull()]
 
-        soma_nodes = soma_nodes[is_large]
+        # Filter further to nodes that have a large enough radius
+        if not soma_nodes.empty:
+            if isinstance(soma_radius, pint.Quantity):
+                if isinstance(x.units, (pint.Quantity, pint.Unit)) and \
+                   not x.units.dimensionless:
+                    # Do NOT remove the .values here -> otherwise conversion to units won't work
+                    is_large = soma_nodes.radius.values * x.units >= soma_radius
+                else:
+                    # If neurons has no units, assume they are the same as the soma radius
+                    is_large = soma_nodes.radius.values * soma_radius.units >= soma_radius
+            else:
+                is_large = soma_nodes.radius >= soma_radius
+
+            soma_nodes = soma_nodes[is_large]
 
     if not isinstance(soma_label, type(None)) and 'label' in soma_nodes.columns:
         soma_nodes = soma_nodes[soma_nodes.label.astype(str) == str(soma_label)]
