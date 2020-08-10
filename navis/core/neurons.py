@@ -678,9 +678,15 @@ class TreeNeuron(BaseNeuron):
         x
                         Data to construct neuron from:
                          - `pandas.DataFrame` is expected to be SWC table
+                         - `pandas.Series` is expected to have a DataFrame as
+                           `.nodes` - additional properties will be attached
+                           as meta data
                          - `str` is treated as SWC file name
                          - `BufferedIOBase` e.g. from `open(filename)`
                          - `networkx.DiGraph` parsed by `navis.nx2neuron`
+                         - `None` will initialize an empty neuron
+                         - `TreeNeuron` - in this case we will try to copy every
+                           attribute
         units :         str | pint.Units | pint.Quantity
                         Units for coordinates. Defaults to ``None`` (dimensionless).
                         Strings must be parsable by pint: e.g. "nm", "um",
@@ -696,6 +702,13 @@ class TreeNeuron(BaseNeuron):
 
         if isinstance(x, pd.DataFrame):
             self.nodes = x
+        elif isinstance(x, pd.Series):
+            if not hasattr(x, 'nodes'):
+                raise ValueError('pandas.Series must have `nodes` entry.')
+            elif not isinstance(x.nodes, pd.DataFrame):
+                raise TypeError(f'Nodes must be pandas DataFrame, got "{type(x.nodes)}"')
+            self.nodes = x.nodes
+            metadata.update(x.to_dict())
         elif isinstance(x, nx.Graph):
             self.nodes = graph.nx2neuron(x).nodes
         elif isinstance(x, BufferedIOBase) or isinstance(x, str):
@@ -703,6 +716,15 @@ class TreeNeuron(BaseNeuron):
             self.__dict__.update(x.__dict__)
         elif isinstance(x, TreeNeuron):
             self.__dict__.update(x.copy().__dict__)
+            # Try to copy every attribute
+            for at in self.__dict__:
+                try:
+                    setattr(self, at, copy.copy(getattr(self, at)))
+                except BaseException:
+                    logger.warning(f'Unable to deep-copy attribute "{at}"')
+        elif isinstance(x, type(None)):
+            # This is a essentially an empty neuron
+            pass
         else:
             raise utils.ConstructionError(f'Unable to construct TreeNeuron from "{type(x)}"')
 
