@@ -55,6 +55,15 @@ class NeuronList:
     make_copy :         bool, optional
                         If True, Neurons are deepcopied before being
                         assigned to the NeuronList.
+    make_using :        function | class, optional
+                        Function or class used to construct neurons from
+                        elements in ``x`` if they aren't already neurons.
+                        By default, will use ``navis.Neuron`` to try to infer
+                        what kind of neuron can be constructed.
+    **kwargs
+                        Will be passed to constructor of Tree/MeshNeuron (see
+                        ``make_using``).
+
 
     Attributes
     ----------
@@ -66,13 +75,11 @@ class NeuronList:
     n_cores :           int
                         Number of cores to use for threading and parallel
                         processing. Default = ``os.cpu_count()-1``.
-    **kwargs
-                        Will be passed to constructor of Tree/MeshNeuron.
 
     """
     neurons: List['core.NeuronObject']
 
-    cable_length: Sequence[int]
+    cable_length: Sequence[float]
 
     soma: Sequence[int]
     root: Sequence[int]
@@ -88,6 +95,7 @@ class NeuronList:
                           core.BaseNeuron,
                           pd.DataFrame],
                  make_copy: bool = False,
+                 make_using: Optional[type] = None,
                  **kwargs):
         # Set number of cores
         self.n_cores: int = max(1, os.cpu_count() - 2)
@@ -133,9 +141,14 @@ class NeuronList:
                 to_convert.append((n, i))
 
         if to_convert:
+            if not make_using:
+                make_using = core.Neuron
+            elif not isinstance(make_using, type) and not callable(make_using):
+                make_using = make_using.__class__
+
             if self.use_threading:
                 with ThreadPoolExecutor(max_workers=self.n_cores) as e:
-                    futures = e.map(lambda x: core.Neuron(x, **kwargs),
+                    futures = e.map(lambda x: make_using(x, **kwargs),
                                     [n[0] for n in to_convert])
 
                     converted = [n for n in config.tqdm(futures,
