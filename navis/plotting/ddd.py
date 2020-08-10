@@ -218,7 +218,7 @@ def plot3d_vispy(x, **kwargs):
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
                'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'alpha',
-               'auto_limits', 'autolimits', 'viewer', 'radius',
+               'auto_limits', 'autolimits', 'viewer', 'radius', 'center',
                'clear', 'clear3d', 'connectors', 'connectors_only'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
@@ -247,14 +247,16 @@ def plot3d_vispy(x, **kwargs):
     if kwargs.pop('clear3d', False) or kwargs.pop('clear', False):
         viewer.clear()
 
+    center = kwargs.pop('center', True)
+
     if neurons:
-        viewer.add(neurons, **kwargs)
+        viewer.add(neurons, center=center, **kwargs)
     if not dotprops.empty:
-        viewer.add(dotprops, **kwargs)
+        viewer.add(dotprops, center=center, **kwargs)
     if volumes:
-        viewer.add(volumes, **kwargs)
+        viewer.add(volumes, center=center, **kwargs)
     if points:
-        viewer.add(points, scatter_kws=scatter_kws)
+        viewer.add(points, center=center, scatter_kws=scatter_kws)
 
     return viewer
 
