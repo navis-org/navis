@@ -13,7 +13,7 @@ else:
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
-    requirements = [l for l in requirements if not l.startswith('#')]
+    requirements = [l for l in requirements if l and not l.startswith('#')]
 
 LONG_DESCRIPTION = """
 NAVis is a Python 3 library for Neuron Analysis and
