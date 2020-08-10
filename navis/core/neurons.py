@@ -501,7 +501,7 @@ class MeshNeuron(BaseNeuron):
 
     def __truediv__(self, other):
         """Implement division for coordinates (vertices, connectors)."""
-        if isinstance(other, numbers.Number):
+        if isinstance(other, (numbers.Number, list, np.ndarray)):
             # If a number, consider this an offset for coordinates
             n = self.copy()
             n.vertices /= other
@@ -509,7 +509,15 @@ class MeshNeuron(BaseNeuron):
                 n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
             # Convert units
-            n.units = (n.units / other).to_compact()
+            # If division is isometric
+            if isinstance(other, numbers.Number):
+                n.units = (n.units * other).to_compact()
+            # If other is iterable but division is still isometric
+            elif len(set(other)) == 1:
+                n.units = (n.units * other[0]).to_compact()
+            # If non-isometric remove units
+            else:
+                n.units = None
 
             return n
         else:
@@ -517,7 +525,7 @@ class MeshNeuron(BaseNeuron):
 
     def __mul__(self, other):
         """Implement multiplication for coordinates (vertices, connectors)."""
-        if isinstance(other, numbers.Number):
+        if isinstance(other, (numbers.Number, list, np.ndarray)):
             # If a number, consider this an offset for coordinates
             n = self.copy()
             n.vertices *= other
@@ -525,7 +533,15 @@ class MeshNeuron(BaseNeuron):
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
             # Convert units
-            n.units = (n.units * other).to_compact()
+            # If multiplication is isometric
+            if isinstance(other, numbers.Number):
+                n.units = (n.units / other).to_compact()
+            # If other is iterable but multiplication is still isometric
+            elif len(set(other)) == 1:
+                n.units = (n.units / other[0]).to_compact()
+            # If non-isometric remove units
+            else:
+                n.units = None
 
             return n
         else:
@@ -711,15 +727,27 @@ class TreeNeuron(BaseNeuron):
 
     def __truediv__(self, other):
         """Implement division for coordinates (nodes, connectors)."""
-        if isinstance(other, numbers.Number):
+        if isinstance(other, (numbers.Number, list, np.ndarray)):
+            if isinstance(other, (list, np.ndarray)) and len(other) != 4:
+                raise ValueError('Division by list/array requires divisors '
+                                 f'for x/y/z and radius - got {len(other)}')
+
             # If a number, consider this an offset for coordinates
             n = self.copy()
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+                n.connectors.loc[:, ['x', 'y', 'z']] /= other[:3]
 
             # Convert units
-            n.units = (n.units / other).to_compact()
+            # If division is isometric
+            if isinstance(other, numbers.Number):
+                n.units = (n.units * other).to_compact()
+            # If other is iterable but division is still isometric
+            elif len(set(other)) == 1:
+                n.units = (n.units * other[0]).to_compact()
+            # If non-isometric remove units
+            else:
+                n.units = None
 
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
@@ -728,15 +756,27 @@ class TreeNeuron(BaseNeuron):
 
     def __mul__(self, other):
         """Implement multiplication for coordinates (nodes, connectors)."""
-        if isinstance(other, numbers.Number):
+        if isinstance(other, (numbers.Number, list, np.ndarray)):
+            if isinstance(other, (list, np.ndarray)) and len(other) != 4:
+                raise ValueError('Multiplication by list/array requires multipliers'
+                                 f' for x/y/z and radius - got {len(other)}')
+
             # If a number, consider this an offset for coordinates
             n = self.copy()
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+                n.connectors.loc[:, ['x', 'y', 'z']] *= other[:3]
 
             # Convert units
-            n.units = (n.units * other).to_compact()
+            # If multiplication is isometric
+            if isinstance(other, numbers.Number):
+                n.units = (n.units / other).to_compact()
+            # If other is iterable but multiplication is still isometric
+            elif len(set(other)) == 1:
+                n.units = (n.units / other[0]).to_compact()
+            # If non-isometric remove units
+            else:
+                n.units = None
 
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
