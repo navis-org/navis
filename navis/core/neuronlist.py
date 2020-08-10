@@ -426,6 +426,14 @@ class NeuronList:
         else:
             return NotImplemented
 
+    def append(self, v):
+        """Add Neuron(s) to this list."""
+        if isinstance(v, core.BaseNeuron):
+            self.neurons.append(v)
+        elif isinstance(v, NeuronList):
+            self.neurons += v.neurons
+        raise NotImplementedError
+
     def apply(self, func, parallel=False, n_cores=os.cpu_count(), **kwargs):
         """Apply function across all neurons in this NeuronList.
 
