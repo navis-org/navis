@@ -444,6 +444,8 @@ class MeshNeuron(BaseNeuron):
                            properties (e.g. a trimesh.Trimesh)
                          - a dictionary ``{"vertices": (N,3), "faces": (M, 3)}``
                          - filepath to a file that can be read by ``trimesh.load``
+                         - ``None`` will initialize an empty MeshNeuron
+
         units :         str | pint.Units | pint.Quantity
                         Units for coordinates. Defaults to ``None`` (dimensionless).
                         Strings must be parsable by pint: e.g. "nm", "um",
@@ -466,8 +468,11 @@ class MeshNeuron(BaseNeuron):
         elif isinstance(x, str) and os.path.isfile(x):
             m = tm.load(x)
             self.vertices, self.faces = m.vertices, m.faces
+        elif isinstance(x, type(None)):
+            # Empty neuron
+            self.vertices, self.faces = np.zeros((0, 3))
         else:
-            raise utils.ConstructionError(f'Unable to construct TreeNeuron from "{type(x)}"')
+            raise utils.ConstructionError(f'Unable to construct MeshNeuron from "{type(x)}"')
 
         for k, v in metadata.items():
             setattr(self, k, v)
