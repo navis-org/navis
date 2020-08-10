@@ -25,7 +25,7 @@ Features:
   - virtual neuron surgery: cutting, pruning, rerooting
   - clustering methods (e.g. by connectivity or synapse placement)
   - R bindings (e.g. for libraries nat, rcatmaid, elmr)
-  - interfaces with neurint, Blender 3D and Cytoscape
+  - interfaces with neuprint, Blender 3D and Cytoscape
 
 Check out the `Documentation <http://navis.readthedocs.io/>`_.
 """
