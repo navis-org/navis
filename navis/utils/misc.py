@@ -16,6 +16,7 @@ import numpy as np
 import requests
 import urllib
 
+from functools import wraps
 from typing import Optional, Union, List, Iterable, Dict, Tuple
 
 from .. import config, core
@@ -23,6 +24,32 @@ from .eval import is_mesh
 
 # Set up logging
 logger = config.logger
+
+
+def lock_neuron(function):
+    """Lock neuron while function is executed.
+
+    This makes sure that temporary attributes aren't re-calculated as changes
+    are being made.
+
+    """
+    @wraps(function)
+    def wrapper(*args, **kwargs):
+        # Lock if first argument is a neuron
+        if isinstance(args[0], core.BaseNeuron):
+            args[0]._lock = getattr(args[0], '_lock', 0) + 1
+        try:
+            # Execute function
+            res = function(*args, **kwargs)
+        except BaseException:
+            raise
+        finally:
+            # Unlock neuron
+            if isinstance(args[0], core.BaseNeuron):
+                args[0]._lock -= 1
+        # Return result
+        return res
+    return wrapper
 
 
 def is_url(x: str) -> bool:
@@ -289,9 +316,10 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     # Collect arrays
     arrays = [ob.copy() for ob in x if isinstance(ob, np.ndarray)]
     # Remove arrays with wrong dimensions
-    if [ob for ob in arrays if ob.shape[1] != 3]:
-        logger.warning('Point objects need to be of shape (n,3).')
-    arrays = [ob for ob in arrays if ob.shape[1] == 3]
+    if [ob for ob in arrays if ob.shape[1] != 3 and ob.shape[0] != 2]:
+        logger.warning('Arrays need to be of shape (N,3) for scatter or (2, N) '
+                       'for line plots.')
+    arrays = [ob for ob in arrays if any(np.isin(ob.shape, [2, 3]))]
 
     points = dataframes + arrays
 

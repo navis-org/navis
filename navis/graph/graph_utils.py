@@ -157,6 +157,7 @@ def _connected_components(x: 'core.TreeNeuron') -> List[Set[int]]:
 
     return cc
 
+
 def _break_segments(x: 'core.NeuronObject') -> list:
     """Break neuron into small segments connecting ends, branches and root.
 
@@ -976,7 +977,7 @@ def reroot_neuron(x: 'core.NeuronObject',
                   inplace: Literal[True] = True) -> None:
     pass
 
-
+@utils.lock_neuron
 def reroot_neuron(x: 'core.NeuronObject',
                   new_root: Union[int, str],
                   inplace: bool = False) -> Optional['core.TreeNeuron']:
@@ -1010,7 +1011,7 @@ def reroot_neuron(x: 'core.NeuronObject',
     >>> n2 = navis.reroot_neuron(n, n.soma)
 
     """
-    # if root is a list of new roots (e.g. if neuron consists of disconnected
+    # If root is list of new roots (e.g. if neuron consists of disconnected
     # skeletons)
     if utils.is_iterable(new_root):
         if not inplace:
@@ -1020,8 +1021,7 @@ def reroot_neuron(x: 'core.NeuronObject',
 
         if not inplace:
             return x
-        else:
-            return
+        return
 
     if new_root is None:
         raise ValueError('New root can not be <None>')
@@ -1052,7 +1052,11 @@ def reroot_neuron(x: 'core.NeuronObject',
     new_root: int
 
     if not inplace:
+        # Make a copy
         x = x.copy()
+        # Run this in a separate function so that the lock is applied to copy
+        reroot_neuron(x, new_root=r, inplace=True)
+        return x
 
     # Skip if new root is old root
     if any(x.root == new_root):
@@ -1459,12 +1463,12 @@ def subset_neuron(x: 'core.TreeNeuron',
     pass
 
 
+@utils.lock_neuron
 def subset_neuron(x: 'core.TreeNeuron',
                   subset: Union[Sequence[Union[int, str]],
                                 nx.DiGraph,
                                 pd.DataFrame],
                   inplace: bool = False,
-                  clear_temp: bool = True,
                   keep_disc_cn: bool = False,
                   prevent_fragments: bool = False
                   ) -> Optional['core.TreeNeuron']:
@@ -1476,10 +1480,6 @@ def subset_neuron(x: 'core.TreeNeuron',
     subset :              np.ndarray | NetworkX.Graph | pandas.DataFrame
                           Node IDs to subset the neuron to. If DataFrame
                           must have `node_id` column.
-    clear_temp :          bool, optional
-                          If True, will reset temporary attributes (graph,
-                          node classification, etc. ). In general, you should
-                          leave this at ``True``.
     keep_disc_cn :        bool, optional
                           If False, will remove disconnected connectors that
                           have "lost" their parent node.
@@ -1521,6 +1521,17 @@ def subset_neuron(x: 'core.TreeNeuron',
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected "TreeNeuron", got "{type(x)}"')
 
+    # Make a copy of the neuron
+    if not inplace:
+        x = x.copy(deepcopy=False)
+        # We have to run this in a separate function so that the lock is applied
+        subset_neuron(x,
+                      subset=subset,
+                      inplace=True,
+                      keep_disc_cn=keep_disc_cn,
+                      prevent_fragments=prevent_fragments)
+        return x
+
     if isinstance(subset, np.ndarray):
         pass
     elif isinstance(subset, (list, set)):
@@ -1537,10 +1548,6 @@ def subset_neuron(x: 'core.TreeNeuron',
         subset, new_root = connected_subgraph(x, subset)
     else:
         new_root = None  # type: ignore # new_root has already type from before
-
-    # Make a copy of the neuron
-    if not inplace:
-        x = x.copy(deepcopy=False)
 
     # Filter nodes
     x.nodes = x.nodes[x.nodes.node_id.isin(subset)]
@@ -1566,15 +1573,15 @@ def subset_neuron(x: 'core.TreeNeuron',
         x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}  # type: ignore  # TreeNeuron has no tags
 
     # Fix graph representations
-    if 'graph' in x.__dict__:
-        x.graph = x.graph.subgraph(x.nodes.node_id.values)
-    if 'igraph' in x.__dict__:
+    if '_graph_nx' in x.__dict__:
+        x._graph_nx = x.graph.subgraph(x.nodes.node_id.values)
+    if '_igraph' in x.__dict__:
         if x.igraph and config.use_igraph:
             id2ix = {n: ix for ix, n in zip(x.igraph.vs.indices,
                                             x.igraph.vs.get_attribute_values('node_id'))}
             indices = [id2ix[n] for n in x.nodes.node_id.values]
             vs = x.igraph.vs[indices]
-            x.igraph = x.igraph.subgraph(vs)
+            x._igraph = x.igraph.subgraph(vs)
 
     # Reset indices of data tables
     x.nodes.reset_index(inplace=True, drop=True)
@@ -1582,12 +1589,6 @@ def subset_neuron(x: 'core.TreeNeuron',
     if new_root:
         x.reroot(new_root, inplace=True)
 
-    # Clear temporary attributes
-    if clear_temp:
-        x._clear_temp_attr(exclude=['graph', 'igraph'])
-
-    if not inplace:
-        return x
     return None
 
 
