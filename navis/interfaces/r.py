@@ -1134,6 +1134,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                  transform: Union[Literal['warp'],
                                   Literal['affine'],
                                   Literal['flip']] = 'warp',
+                 via: Optional[str] = None,
                  **kwargs) -> Union['core.NeuronObject',
                                     'pd.DataFrame',
                                     'np.ndarray']:
@@ -1152,6 +1153,11 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                     Axis to mirror.
     transform :     'warp' | 'affine' | 'flip', optional
                     Which kind of transform to use.
+    via :           str | None
+                    If a template brain (e.g. "FCWB") is given will first
+                    transform coordinates into that space, then mirror and
+                    transform back. Use this if there is no mirror registration
+                    for the original template.
     **kwargs
                     Keyword arguments passed to
                     ``nat.templatebrains:mirror_brain``.
@@ -1164,6 +1170,21 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     """
     assert transform in ['warp', 'affine', 'flip']
     assert mirror_axis in ['X', 'Y', 'Z']
+
+    # If we go via another brain space
+    if via:
+        # Xform to "via" space
+        xf = xform_brain(x, source=template, target=via)
+        # Mirror
+        xfm = mirror_brain(xf,
+                           template=via,
+                           mirror_axis=mirror_axis,
+                           transform=transform,
+                           via=None,
+                           **kwargs)
+        # Xform back to original template space
+        xfm_inv = xform_brain(xfm, source=via, target=template)
+        return xfm_inv
 
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
@@ -1230,8 +1251,12 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         else:
             x = numpy2ri.py2rpy(x)
 
+    # It appears we need to fetch the brain template first -> passing the string
+    # causes an error
+    brain = robjects.r(template)
+
     xf = nat_templatebrains.mirror_brain(x,
-                                         brain=template,
+                                         brain=brain,
                                          mirrorAxis=mirror_axis,
                                          transform=transform,
                                          **kwargs)
