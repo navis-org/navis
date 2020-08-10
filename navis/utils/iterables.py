@@ -11,13 +11,13 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import collections
 import six
 
 import numpy as np
 import pandas as pd
 
 from typing import Optional, Any
+from collections.abc import Iterable
 
 
 def make_iterable(x,
@@ -38,7 +38,7 @@ def make_iterable(x,
     array([1])
 
     """
-    if not isinstance(x, collections.Iterable) or isinstance(x, six.string_types):
+    if not isinstance(x, Iterable) or isinstance(x, six.string_types):
         x = [x]
 
     if isinstance(x, dict):
@@ -87,7 +87,7 @@ def is_iterable(x: Any) -> bool:
     True
 
     """
-    if isinstance(x, collections.Iterable) and not isinstance(x, (six.string_types, pd.DataFrame)):
+    if isinstance(x, Iterable) and not isinstance(x, (six.string_types, pd.DataFrame)):
         return True
     else:
         return False
