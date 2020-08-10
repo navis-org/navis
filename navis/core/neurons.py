@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import copy
+import hashlib
 import numbers
 import os
 import pint
@@ -328,16 +329,24 @@ class BaseNeuron:
             raise TypeError(f'Expect str or pint Unit/Quantity, got "{type(v)}"')
 
     @property
+    def is_stale(self):
+        """Test if temporary attributes might be outdated."""
+        # Always returns False for BaseNeurons
+        return False
+
+    @property
     def type(self) -> str:
         """Return type."""
         return 'BaseNeuron'
 
     def copy(self) -> 'BaseNeuron':
         """Return a copy of the neuron."""
+        # Attributes not to copy
+        no_copy = ['_lock']
         # Generate new neuron
         x = BaseNeuron()
         # Override with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items()})
+        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
 
         return x
 
@@ -599,10 +608,12 @@ class MeshNeuron(BaseNeuron):
 
     def copy(self) -> 'MeshNeuron':
         """Return a copy of the neuron."""
+        no_copy = ['_lock']
+
         # Generate new neuron
         x = MeshNeuron({'vertices': self.vertices, 'faces': self.faces})
         # Override with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items()})
+        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
 
         return x
 
@@ -681,6 +692,9 @@ class TreeNeuron(BaseNeuron):
         """
         super().__init__()
 
+        # Lock neuron during construction
+        self._lock = 1
+
         if isinstance(x, pd.DataFrame):
             self.nodes = x
         elif isinstance(x, nx.Graph):
@@ -700,6 +714,9 @@ class TreeNeuron(BaseNeuron):
             self.id = uuid.uuid4()
 
         self.units = units
+        self._current_md5 = self.core_md5
+
+        self._lock = 0
 
     def __getattr__(self, key):
         """We will use this magic method to calculate some attributes on-demand."""
@@ -795,6 +812,10 @@ class TreeNeuron(BaseNeuron):
         return state
 
     @property
+    @property
+    def is_stale(self) -> bool:
+        """Test if temporary attributes (e.g. ``.graph``) might be outdated."""
+        return self._current_md5 != self.core_md5
     def nodes(self) -> pd.DataFrame:
         """Node table."""
         return self._nodes
@@ -1006,6 +1027,9 @@ class TreeNeuron(BaseNeuron):
 
     def _clear_temp_attr(self, exclude: list = []) -> None:
         """Clear temporary attributes."""
+        # Must set checksum before recalculating e.g. node types
+        # -> otherwise we run into a recursive loop
+        self._current_md5 = self.core_md5
 
         for a in [at for at in self.TEMP_ATTR if at not in exclude]:
             try:
@@ -1060,8 +1084,9 @@ class TreeNeuron(BaseNeuron):
         """
         # Generate new neuron
         x = Neuron(self.nodes)
+        no_copy = ['_lock']
         # Override with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items()})
+        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
 
         if 'graph' in self.__dict__:
             x.graph = self.graph.copy(as_view=deepcopy is not True)
