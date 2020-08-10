@@ -603,11 +603,11 @@ class NeuronList:
                                 available - will always be deepcopied.
 
         """
-        return NeuronList([n.copy(**kwargs) for n in config.tqdm(self.neurons,
-                                                                 desc='Copy',
-                                                                 leave=False,
-                                                                 disable=config.pbar_hide | len(self) < 20)],
-                          make_copy=False)
+        return self.__class__([n.copy(**kwargs) for n in config.tqdm(self.neurons,
+                                                                     desc='Copy',
+                                                                     leave=False,
+                                                                     disable=config.pbar_hide | len(self) < 20)],
+                              make_copy=False)
 
     def head(self, N: int = 5) -> pd.DataFrame:
         """Return summary for top N neurons."""
