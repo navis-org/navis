@@ -655,9 +655,8 @@ class TreeNeuron(BaseNeuron):
                      'n_branches', 'n_leafs', 'cable_length', 'name']
 
     #: Temporary attributes that need to be regenerated when data changes.
-    TEMP_ATTR = ['igraph', 'graph', 'segments', 'small_segments',
-                 'nodes_geodesic_distance_matrix', 'dps',
-                 'centrality_method', '_simple']
+    TEMP_ATTR = ['_igraph', '_graph_nx', 'segments', 'small_segments',
+                 '_geodesic_matrix', 'dps', 'centrality_method', '_simple']
 
     #: Attributes used for neuron summary
     SUMMARY_PROPS = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
@@ -723,13 +722,7 @@ class TreeNeuron(BaseNeuron):
         # Note that we're mixing @property and __getattr__ which causes problems:
         # if a @property raises an Exception, Python falls back to __getattr__
         # and traceback is lost!
-        if key == 'igraph':
-            self.igraph = self.get_igraph()
-            return self.igraph
-        elif key == 'graph':
-            self.graph = self.get_graph_nx()
-            return self.graph
-        elif key == 'segments':
+        if key == 'segments':
             self.segments = self._get_segments(how='length')
             return self.segments
         elif key == 'small_segments':
@@ -812,16 +805,141 @@ class TreeNeuron(BaseNeuron):
         return state
 
     @property
+    def edges(self) -> np.ndarray:
+        """Edges between nodes.
+
+        See Also
+        --------
+        edge_coords
+                Same but with x/y/z coordinates instead of node IDs.
+
+        """
+        not_root = self.nodes[self.nodes.parent_id >= 0]
+        return not_root[['node_id', 'parent_id']].values
+
+    @property
+    def edge_coords(self) -> np.ndarray:
+        """Coordinates of edges between nodes.
+
+        See Also
+        --------
+        edges
+                Same but with node IDs instead of x/y/z coordinates.
+
+        """
+        locs = self.nodes.set_index('node_id')[['x', 'y', 'z']]
+        edges = self.edges
+        edges_co = np.zeros((edges.shape[0], 2, 3))
+        edges_co[:, 0, :] = locs.loc[edges[:, 0]].values
+        edges_co[:, 1, :] = locs.loc[edges[:, 1]].values
+        return edges_co
+
+    @property
+    def igraph(self) -> 'igraph.Graph':
+        """iGraph representation of this neuron."""
+        # If this igraph does not exist, create and return
+        if not hasattr(self, '_igraph'):
+            # This also sets the attribute
+            return self.get_igraph()
+        # If neuron is locked, return cached igraph
+        elif getattr(self, '_lock', 0) > 0:
+            return self._igraph
+        # If not locked, make sure data is not stale
+        elif self.is_stale:
+            # If stale, clear all temporary attributes...
+            self._clear_temp_attr()
+            # ... and regenerate igraph
+            _ = self.get_igraph()
+
+        return self._igraph
+
+    @property
+    def graph(self) -> nx.DiGraph:
+        """Networkx Graph representation of this neuron."""
+        # If this igraph does not exist, create and return
+        if not hasattr(self, '_graph_nx'):
+            # This also sets the attribute
+            return self.get_graph_nx()
+        # If neuron is locked, return cached igraph
+        elif getattr(self, '_lock', 0) > 0:
+            return self._graph_nx
+        # If not locked, make sure cache is not stale
+        elif self.is_stale:
+            # If stale, clear all temporary attributes...
+            self._clear_temp_attr()
+            # ... and regenerate igraph
+            _ = self.get_graph_nx()
+
+        return self._graph_nx
+
+    @property
+    def geodesic_matrix(self):
+        """Matrix with geodesic (along-the-arbor) distance between nodes."""
+        if self.is_stale and getattr(self, '_lock', 0) == 0:
+            self._clear_temp_attr()
+
+        # If matrix has not yet been generated or needs update
+        if not hasattr(self, '_geodesic_matrix'):
+            # (Re-)generate matrix
+            self._geodesic_matrix = graph.geodesic_matrix(self)
+
+        return self._geodesic_matrix
+
     @property
     def is_stale(self) -> bool:
         """Test if temporary attributes (e.g. ``.graph``) might be outdated."""
         return self._current_md5 != self.core_md5
+
+    @property
+    def core_md5(self) -> str:
+        """MD5 of core information for the neuron.
+
+        Generated from ``nodes`` table.
+
+        Returns
+        -------
+        md5 :   string
+                MD5 of node table. None if no node data.
+
+        """
+        if self.has_nodes:
+            data = np.ascontiguousarray(self.nodes[['node_id', 'parent_id',
+                                                    'x', 'y', 'z']].values)
+            return hashlib.md5(data).hexdigest()
+
+    @property
+    def leafs(self) -> pd.DataFrame:
+        """Leaf node table."""
+        return self.nodes[self.nodes['type'] == 'end']
+
+    @property
+    def ends(self):
+        """End node table (same as leafs)."""
+        return self.leafs
+
+    @property
+    def branch_points(self):
+        """Branch node table."""
+        return self.nodes[self.nodes['type'] == 'branch']
+
+    @property
     def nodes(self) -> pd.DataFrame:
         """Node table."""
+        return self._get_nodes()
+
+    def _get_nodes(self) -> pd.DataFrame:
+        # Redefine this function in subclass to change how nodes are retrieved
         return self._nodes
 
     @nodes.setter
     def nodes(self, v):
+        """Validate and set node table."""
+        # We are refering to an extra function to facilitate subclassing:
+        # Redefine _set_nodes() to not break property
+        self._set_nodes(v)
+
+    def _set_nodes(self, v):
+        # Redefine this function in subclass to change validation
         self._nodes = utils.validate_table(v,
                                            required=[('node_id', 'rowId', 'node', 'treenode_id'),
                                                      ('parent_id', 'link', 'parent'),
@@ -863,10 +981,21 @@ class TreeNeuron(BaseNeuron):
     @property
     def connectors(self) -> pd.DataFrame:
         """Connector table. If none, will return ``None``."""
-        return getattr(self, '_connectors', None)
+        return self._get_connectors()
+
+    def _get_connectors(self) -> pd.DataFrame:
+        # Redefine this function in subclass to change how nodes are retrieved
+        getattr(self, '_connectors', None)
 
     @connectors.setter
     def connectors(self, v):
+        """Validate and set connector table."""
+        # We are refering to an extra function to facilitate subclassing:
+        # Redefine _set_connectors() to not break property
+        self._set_connectors(v)
+
+    def _set_connectors(self, v):
+        # Redefine this function in subclass to change validation
         if isinstance(v, type(None)):
             self.__connectors = None
         else:
@@ -900,7 +1029,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def simple(self) -> 'TreeNeuron':
-        """Simple neuron representation.
+        """Return simple neuron representation.
 
         Consists only of root, branch points and leafs.
 
@@ -1067,7 +1196,7 @@ class TreeNeuron(BaseNeuron):
             raise ValueError(f'Unknown how: "{how}"')
 
     def copy(self, deepcopy: bool = False) -> 'TreeNeuron':
-        """Returns a copy of the neuron.
+        """Return a copy of the neuron.
 
         Parameters
         ----------
@@ -1108,8 +1237,8 @@ class TreeNeuron(BaseNeuron):
         :func:`navis.neuron2nx`
 
         """
-        self.graph = graph.neuron2nx(self)
-        return self.graph
+        self._graph_nx = graph.neuron2nx(self)
+        return self._graph_nx
 
     def get_igraph(self) -> 'igraph.Graph':  # type: ignore
         """Calculate and return iGraph representation of neuron.
@@ -1126,8 +1255,8 @@ class TreeNeuron(BaseNeuron):
         :func:`navis.neuron2igraph`
 
         """
-        self.igraph = graph.neuron2igraph(self, raise_not_installed=False)
-        return self.igraph
+        self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
+        return self._igraph
 
     def get_dps(self) -> pd.DataFrame:
         """Calculate and return dotprops representation of the neuron.
@@ -1423,7 +1552,7 @@ class TreeNeuron(BaseNeuron):
     def prune_by_longest_neurite(self,
                                  n: int = 1,
                                  reroot_to_soma: bool = False,
-                                 inplace: bool = False
+                                 inplace: bool = False,
                                  ) -> Optional['TreeNeuron']:
         """Prune neuron down to the longest neurite.
 
@@ -1587,7 +1716,7 @@ class TreeNeuron(BaseNeuron):
     def reload(self,
                inplace: bool = False,
                ) -> Optional['TreeNeuron']:
-        """Reload neuron - must have filename + path as ``.file`` as attribute.
+        """Reload neuron. Must have filepath as ``.file`` as attribute.
 
         Returns
         -------
