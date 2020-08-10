@@ -481,11 +481,14 @@ class NeuronList:
         return self.summary().sum(numeric_only=True)
 
     def mean(self) -> pd.DataFrame:
-        """Returns mean numeric and boolean values over all neurons. """
+        """Return mean numeric and boolean values over all neurons."""
         return self.summary().mean(numeric_only=True)
 
-    def sample(self, N: int = 1) -> 'NeuronList':
-        """Returns random subset of neurons."""
+    def sample(self, N: Union[int, float] = 1) -> 'NeuronList':
+        """Return random subset of neurons."""
+        if N < 1 and N > 0:
+            N = int(len(self.neurons) * N)
+
         indices = list(range(len(self.neurons)))
         random.shuffle(indices)
         return NeuronList([n for i, n in enumerate(self.neurons) if i in indices[:N]],
