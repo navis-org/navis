@@ -24,3 +24,4 @@ ncollpyde~=0.10
 # ete3~=3.0.0b35
 # rpy2~=2.9.4
 # fuzzywuzzy[speedup]~=0.17.0
+# python-igraph~=0.8.2

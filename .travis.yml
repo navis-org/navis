@@ -13,6 +13,7 @@ install:
   - pip install coveralls
   - pip install ncollpyde # additional requirement for fast intersections
   - pip install pyoctree # additional requirement for fast intersections
+  - pip install python-igraph # additional requirement for fast graph function
   - pip install shapely # additional requirement for 2d shapes
   - pip install pytest-cov # to get .coverage report via pytest
 # command to run tests
