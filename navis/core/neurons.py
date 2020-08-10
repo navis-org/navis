@@ -276,7 +276,7 @@ class BaseNeuron:
             raise ValueError('No connector table found.')
         # Make an educated guess what presynapses are
         types = self.connectors['type'].unique()
-        pre = [t for t in types if 'pre' in t or t in [0, "0"]]
+        pre = [t for t in types if 'pre' in str(t) or t in [0, "0"]]
 
         if len(pre) == 0:
             logger.debug(f'Unable to find presynapses in types: {types}')
@@ -297,7 +297,7 @@ class BaseNeuron:
             raise ValueError('No connector table found.')
         # Make an educated guess what presynapses are
         types = self.connectors['type'].unique()
-        post = [t for t in types if 'post' in t or t in [1, "1"]]
+        post = [t for t in types if 'post' in str(t) or t in [1, "1"]]
 
         if len(post) == 0:
             logger.debug(f'Unable to find postsynapses in types: {types}')
