@@ -1007,7 +1007,7 @@ class TreeNeuron(BaseNeuron):
 
     def _get_connectors(self) -> pd.DataFrame:
         # Redefine this function in subclass to change how nodes are retrieved
-        getattr(self, '_connectors', None)
+        return getattr(self, '_connectors', None)
 
     @connectors.setter
     def connectors(self, v):
@@ -1019,7 +1019,7 @@ class TreeNeuron(BaseNeuron):
     def _set_connectors(self, v):
         # Redefine this function in subclass to change validation
         if isinstance(v, type(None)):
-            self.__connectors = None
+            self._connectors = None
         else:
             self._connectors = utils.validate_table(v,
                                                     required=[('connector_id', 'id'),
