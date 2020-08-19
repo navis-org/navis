@@ -10,14 +10,14 @@ requests~=2.20
 requests-futures~=1.0.0
 Shapely~=1.6.0
 seaborn~=0.10
-setuptools~=47.3
+setuptools~=49.6
 scipy~=1.5
 six~=1.11
 tqdm~=4.45
 vispy~=0.6.4
 typing-extensions~=3.7.4
 trimesh~=3.7
-ncollpyde~=0.10
+ncollpyde~=0.11
 # Below are optional dependencies
 # py2cytoscape~=0.7.0
 # pyoctree~=0.2.10
