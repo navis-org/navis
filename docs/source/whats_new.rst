@@ -10,9 +10,24 @@ What's new?
    * - Version
      - Date
      -
+   * - 0.2.2
+     - 15/08/20
+     - - new ``plot3d`` parameter: with plotly backend, use ``fig`` to add data to existing plotly figure
+       - new ``plot3d`` parameter: with vispy backend, use ``center=False`` to not re-center camera on adding new data
+       - new ``r.mirror_brain`` parameter: use e.g. ``via='FCWB'`` if source space does not have mirror transform
+       - new ``NeuronList`` method: ``append()`` works like ``list.append()``
+       - first implementation of smarter (re-)calculation of temporary Neuron properties using ``.is_stale`` property
+       - Neurons can now be multiplied/divided by array/list of x/y/z coordinates for non-isometric transforms
+       - fix issues with newer rpy2 versions
+       - various improvements and bug fixes
+   * - 0.2.1
+     - 20/07/20
+     - - new ``plot3d`` parameter: with plotly backend, use ``radius=True`` plots TreeNeurons with radius
+       - new ``plot2d`` parameter: ``orthogonal=False`` sets view to perspective
+       - various improvements to e.g. ```nx2neuron``
    * - 0.2.0
      - 29/06/20
-       - new neuron class :class:`~navis.MeshNeuron` that consists of vertices and faces
+     - - new neuron class :class:`~navis.MeshNeuron` that consists of vertices and faces
        - new :class:`~navis.TreeNeuron` property ``.volume``
        - we now use `ncollpyde <https://pypi.org/project/ncollpyde>`_ for ray casting (intersections)
        - clean-up in neuromorpho interface
