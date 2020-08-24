@@ -277,12 +277,14 @@ class NeuronList:
                                ignore_index=True,
                                join='outer',
                                sort=True)
+
+                # For each row label which neuron (id) it belongs to
                 df['neuron'] = None
                 ix = 0
                 for k, v in enumerate(values):
                     if isinstance(v, pd.DataFrame):
-                        df.iloc[ix:ix:v.shape[0],
-                                df.columns.get_loc('neuron')] = k
+                        df.iloc[ix:v.shape[0],
+                                df.columns.get_loc('neuron')] = self.neurons[k].id
                         ix += v.shape[0]
                 return df
             elif all(is_quantity):
