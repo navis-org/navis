@@ -521,7 +521,15 @@ class Viewer:
         # Generate new labels
         to_add = [s for s in self._neuron_obj if s not in labels]
         for s in to_add:
-            txt = scene.visuals.Text(f'{self._neuron_obj[s][0]._name} - #{self._neuron_obj[s][0]._id}',
+            # Fallback is name or in lieu of that the object's type
+            lbl = getattr(self._neuron_obj[s][0], '_name',
+                          str(type(self._neuron_obj[s][0])))
+            # See if we find a "label" property
+            if hasattr(self._neuron_obj[s][0], '_object'):
+                if hasattr(self._neuron_obj[s][0]._object, 'label'):
+                    lbl = self._neuron_obj[s][0]._object.label
+
+            txt = scene.visuals.Text(lbl,
                                      anchor_x='left',
                                      anchor_y='top',
                                      parent=self.overlay,
