@@ -243,13 +243,50 @@ class BaseNeuron:
         self._id = value
 
     @property
+    def label(self) -> str:
+        """Label (e.g. for legends)."""
+        # If explicitly set return that label
+        if getattr(self, '_label', None):
+            return self._label
+
+        # If no label set, produce one from name + id (optional)
+        name = getattr(self, 'name', None)
+        id = getattr(self, 'id', None)
+
+        # If no name, use type
+        if not name:
+            name = self.type
+
+        label = name
+
+        # Use ID only if not a UUID
+        if not isinstance(id, uuid.UUID):
+            # And if it can be turned into a string
+            try:
+                id = str(id)
+            except BaseException:
+                id = ''
+
+            # Only use ID if it is not the same as name
+            if id and name != id:
+                label += f' ({id})'
+
+        return label
+
+    @label.setter
+    def label(self, value: str):
+        if not isinstance(value, str):
+            raise TypeError(f'label must be string, got "{type(value)}"')
+        self._label = value
+
+    @property
     def name(self) -> str:
         """Neuron name."""
         return getattr(self, '_name', None)
 
     @name.setter
-    def name(self, v: str):
-        self._name = v
+    def name(self, value: str):
+        self._name = value
 
     @property
     def connectors(self) -> pd.DataFrame:
