@@ -41,7 +41,7 @@ def make_iterable(x,
     if not isinstance(x, Iterable) or isinstance(x, six.string_types):
         x = [x]
 
-    if isinstance(x, dict):
+    if isinstance(x, (dict, set)):
         x = list(x)
 
     if force_type:
@@ -50,7 +50,7 @@ def make_iterable(x,
 
 
 def make_non_iterable(x):
-    """Turns input into non-iterable, if it isn't already.
+    """Turn input into non-iterable, if it isn't already.
 
     Will raise error if ``len(x) > 1``.
 
