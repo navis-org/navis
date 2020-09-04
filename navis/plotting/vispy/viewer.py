@@ -360,6 +360,11 @@ class Viewer:
         return [s for s in self.neurons if self.neurons[s][0].visible]
 
     @property
+    def pinned(self):
+        """List IDs of currently pinned neurons."""
+        return [s for s in self.neurons if getattr(self.neurons[s][0], 'pinned', False)]
+
+    @property
     def selected(self):
         """Return IDs of or set selected neurons."""
         return self.__selected
@@ -403,7 +408,7 @@ class Viewer:
             self.update_legend()
 
         # Update data text
-        # Currently nly the development version of vispy supports escape
+        # Currently only the development version of vispy supports escape
         # character (e.g. \n)
         t = '| '.join([f'{self.neurons[s][0]._name} - #{s}' for s in self.__selected])
         self._data_text.text = t
@@ -660,12 +665,14 @@ class Viewer:
 
     def hide_neurons(self, n):
         """Hide given neuron(s)."""
-        skids = utils.eval_id(n)
+        ids = utils.eval_id(n)
 
         neurons = self.neurons
 
-        for s in skids:
+        for s in ids:
             for v in neurons[s]:
+                if getattr(v, 'pinned', False):
+                    continue
                 if v.visible:
                     v.visible = False
 
@@ -682,14 +689,16 @@ class Viewer:
 
         """
         if not isinstance(n, type(None)):
-            skids = utils.eval_id(n)
+            ids = utils.eval_id(n)
         else:
-            skids = list(self.neurons.keys())
+            ids = list(self.neurons.keys())
 
         neurons = self.neurons
 
-        for s in skids:
+        for s in ids:
             for v in neurons[s]:
+                if getattr(v, 'pinned', False):
+                    continue
                 if not v.visible:
                     v.visible = True
             if check_alpha:
@@ -699,6 +708,43 @@ class Viewer:
                     self.set_colors({s: c})
 
         self.update_legend()
+
+    def pin_neurons(self, n):
+        """Pin given neuron(s).
+
+        Changes to the color or visibility of pinned neurons are silently
+        ignored. You can use this to keep specific neurons visible while
+        cycling through the rest - useful for comparisons.
+
+        """
+        ids = utils.eval_id(n)
+
+        neurons = self.neurons
+
+        for s in ids:
+            for v in neurons[s]:
+                v.unfreeze()
+                v.pinned = True
+                v.freeze()
+
+    def unpin_neurons(self, n=None):
+        """Unpin given neuron(s).
+
+        Use ``n`` to unhide specific neurons.
+
+        """
+        if not isinstance(n, type(None)):
+            ids = utils.eval_id(n)
+        else:
+            ids = list(self.neurons.keys())
+
+        neurons = self.neurons
+
+        for s in ids:
+            for v in neurons[s]:
+                v.unfreeze()
+                v.pinned = False
+                v.freeze()
 
     def toggle_neurons(self, n):
         """Toggle neuron(s) visibility."""
@@ -757,6 +803,8 @@ class Viewer:
         for n in self.neurons:
             if n in cmap:
                 for v in self.neurons[n]:
+                    if getattr(v, 'pinned', False):
+                        continue
                     if v._neuron_part == 'connectors' and not include_connectors:
                         continue
                     new_c = mcl.to_rgba(cmap[n])
@@ -790,6 +838,8 @@ class Viewer:
         for n in self.neurons:
             if n in amap:
                 for v in self.neurons[n]:
+                    if getattr(v, 'pinned', False):
+                        continue
                     if v._neuron_part == 'connectors' and not include_connectors:
                         continue
                     try:
