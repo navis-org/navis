@@ -648,7 +648,7 @@ class MeshNeuron(BaseNeuron):
         no_copy = ['_lock']
 
         # Generate new neuron
-        x = self.__class__()
+        x = self.__class__(None)
         # Override with this neuron's data
         x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
 
