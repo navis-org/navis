@@ -516,7 +516,7 @@ class MeshNeuron(BaseNeuron):
             self.vertices, self.faces = m.vertices, m.faces
         elif isinstance(x, type(None)):
             # Empty neuron
-            self.vertices, self.faces = np.zeros((0, 3))
+            self.vertices, self.faces = np.zeros((0, 3)), np.zeros((0, 3))
         else:
             raise utils.ConstructionError(f'Unable to construct MeshNeuron from "{type(x)}"')
 
