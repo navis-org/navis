@@ -93,7 +93,7 @@ def eval_id(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
             else:
                 uu.append(temp)  # type: ignore
         return sorted(set(uu), key=uu.index)
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.BaseNeuron):
         return [x.id]
     elif isinstance(x, core.NeuronList):
         if len(x.id) != len(set(x.id)) and warn_duplicates:
