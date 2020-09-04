@@ -87,6 +87,7 @@ def volume2vispy(x, **kwargs):
         s.unfreeze()
         s._object_type = 'volume'
         s._volume_name = getattr(v, 'name', None)
+        s._object = v
         s._object_id = object_id
         s.freeze()
 
@@ -243,6 +244,7 @@ def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
         con._id = neuron.id
         con._name = str(getattr(neuron, 'name', neuron.id))
         con._object_id = object_id
+        con._object = neuron
         con.freeze()
 
         visuals.append(con)
@@ -268,6 +270,7 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
     m._id = neuron.id
     m._name = str(getattr(neuron, 'name', neuron.id))
     m._object_id = object_id
+    m._object = neuron
     m.freeze()
     return [m]
 
@@ -338,6 +341,7 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
             t._neuron_part = 'neurites'
             t._id = neuron.id
             t._name = str(getattr(neuron, 'name', neuron.id))
+            t._object = neuron
             t._object_id = object_id
             t.freeze()
 
@@ -373,6 +377,7 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
             t._neuron_part = 'neurites'
             t._id = neuron.id
             t._name = str(getattr(neuron, 'name', neuron.id))
+            t._object = neuron
             t._object_id = object_id
             t.freeze()
 
@@ -410,6 +415,7 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
                 s._neuron_part = 'soma'
                 s._id = neuron.id
                 s._name = str(getattr(neuron, 'name', neuron.id))
+                s._object = neuron
                 s._object_id = object_id
                 s.freeze()
 
@@ -484,6 +490,7 @@ def dotprop2vispy(x, **kwargs):
         t._object_type = 'dotprop'
         t._neuron_part = 'neurites'
         t._name = getattr(n, 'gene_name', getattr(n, 'name', 'NoName'))
+        t._object = n
         t._object_id = object_id
         t.freeze()
 
@@ -502,6 +509,7 @@ def dotprop2vispy(x, **kwargs):
             s._object_type = 'dotprop'
             s._neuron_part = 'soma'
             s._name = n.gene_name
+            s._object = n
             s._object_id = object_id
             s.freeze()
 
