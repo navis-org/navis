@@ -58,9 +58,8 @@ def _generate_segments(x: 'core.NeuronObject',
     if isinstance(x, core.NeuronList):
         return [_generate_segments(x.loc[i],
                                    weight=weight) for i in range(x.shape[0])]
-    elif isinstance(x, core.TreeNeuron):
-        pass
-    else:
+
+    if not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Expected TreeNeuron, got "{type(x)}"')
 
     # At this point x is TreeNeuron
@@ -78,7 +77,7 @@ def _generate_segments(x: 'core.NeuronObject',
                                    inplace=False,
                                    ascending=False).index.values
     elif not weight:
-        d = _edge_count_to_root(x)
+        d = _edge_count_to_root(x, igraph_indices=False)
         endNodeIDs = x.nodes[x.nodes.type == 'end'].node_id.values
         endNodeIDs = sorted(endNodeIDs, key=d.get, reverse=True)
     else:
@@ -87,8 +86,7 @@ def _generate_segments(x: 'core.NeuronObject',
     if config.use_igraph and x.igraph:
         g: igraph.Graph = x.igraph
         # Convert endNodeIDs to indices
-        id2ix = {n: ix for ix, n in zip(g.vs.indices,
-                                        g.vs.get_attribute_values('node_id'))}
+        id2ix = dict(zip(x.igraph.vs['node_id'], range(len(x.igraph.vs))))
         endNodeIDs = [id2ix[n] for n in endNodeIDs]
     else:
         g: nx.DiGraph = x.graph
@@ -226,7 +224,26 @@ def _break_segments(x: 'core.NeuronObject') -> list:
     return seg_list
 
 
-def _edge_count_to_root(x: 'core.TreeNeuron') -> dict:
+def _edge_count_to_root(x: 'core.TreeNeuron',
+                        igraph_indices: bool = False) -> dict:
+    """Return a map of nodeID vs number of edges to the root.
+
+    Starts from the first node that lacks successors (aka the root).
+
+    """
+    dist = {}
+    for root in x.root:
+        dist.update(nx.shortest_path_length(x.graph, target=root))
+
+    # Map node ID to vertex index for igraph
+    if igraph_indices:
+        id2ix = dict(zip(x.igraph.vs['node_id'], range(len(x.igraph.vs))))
+        dist = {id2ix[k]: v for k, v in dist.items()}
+
+    return dist
+
+
+def _edge_count_to_root_old(x: 'core.TreeNeuron') -> dict:
     """Return a map of nodeID vs number of edges.
 
     Starts from the first node that lacks successors (aka the root).
