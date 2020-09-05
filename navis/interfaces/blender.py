@@ -28,6 +28,7 @@ import uuid
 
 import pandas as pd
 import numpy as np
+import trimesh as tm
 
 from .. import core, utils, config
 from ..plotting.colors import eval_color
@@ -304,31 +305,28 @@ class Handler:
         coords *= float(self.scaling)
         coords *= self.ax_translate
 
-        base_verts, base_faces = calc_sphere(kwargs.get('size', 0.02),
-                                             kwargs.get('sp_res', 7),
-                                             kwargs.get('sp_res', 7))
+        # Generate a base sphere
+        base_sphere = tm.creation.uv_sphere(radius=kwargs.get('size', 0.02),
+                                            count=[kwargs.get('sp_res', 7),
+                                                   kwargs.get('sp_res', 7)])
+        base_verts, base_faces = base_sphere.vertices, base_sphere.faces
 
-        n_verts = base_verts.shape[0]
-        sp_verts = []
-        sp_faces = []
-        wm = bpy.context.window_manager
-        wm.progress_begin(0, coords.shape[0])
-        for i, co in enumerate(coords):
-            this_verts = base_verts.copy()
-            # Offset spatially
-            this_verts += co
-            # Offset face indices
-            this_faces = [[ix + i * n_verts for ix in f] for f in base_faces]
+        # Repeat sphere vertices
+        sp_verts = np.tile(base_verts.T, coords.shape[0]).T
+        # Add coords offsets to each sphere
+        offsets = np.repeat(coords, base_verts.shape[0], axis=0)
+        sp_verts += offsets
 
-            sp_verts.append(this_verts)
-            sp_faces += this_faces
-            wm.progress_update(i)
-        wm.progress_end()
+        # Repeat sphere faces and offset vertex indices
+        sp_faces = np.tile(base_faces.T, coords.shape[0]).T
+        face_offsets = np.repeat(np.arange(coords.shape[0]),
+                                 base_faces.shape[0], axis=0)
+        face_offsets *= base_verts.shape[0]
+        sp_faces += face_offsets.reshape((face_offsets.size, 1))
 
-        verts = np.concatenate(sp_verts, axis=0)
-
+        # Generate mesh
         mesh = bpy.data.meshes.new(kwargs.get('name', 'scatter'))
-        mesh.from_pydata(verts, [], sp_faces)
+        mesh.from_pydata(sp_verts, [], sp_faces.tolist())
         mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
         obj = bpy.data.objects.new(kwargs.get('name', 'scatter'), mesh)
 
