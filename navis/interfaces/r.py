@@ -1356,3 +1356,41 @@ def get_neuropil(x: str, template: str = 'FCWB') -> core.Volume:
                        faces=faces.values,
                        name=x,
                        color=color)
+
+
+def load_rda(fp: str, convert: bool = True):
+    """Load and convert R data file (.rda).
+
+    This function should be able to deal with the common data types used in the 
+    natverse.
+
+    Parameters
+    ----------
+    fp :        str
+                Filepath to rda file.
+    convert :   bool | function
+                If True, will attempt to convert data from R to Python. If
+                ``convert`` is a function, we expect it to accept the raw R data
+                and return the converted.
+
+    Returns
+    -------
+    data
+
+    """
+    if not isinstance(fp, str):
+        raise TypeError(f'Expected filepath as string, got "{type(fp)}"')
+
+    if not os.path.isfile(fp):
+        raise ValueError(f'File not found: {fp}')
+
+    load = robjects.r('load')
+    object_names = load(fp)
+    data = robjects.r(object_names[0])
+
+    if convert is True:
+        data = data2py(data)
+    elif callable(convert):
+        data = convert(data)
+
+    return data
