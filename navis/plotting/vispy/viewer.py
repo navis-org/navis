@@ -702,7 +702,9 @@ class Viewer:
                 if not v.visible:
                     v.visible = True
             if check_alpha:
-                c = list(mcl.to_rgba(neurons[s][0].color))
+                # Make sure color has an alpha channel
+                c = list(to_rgba(neurons[s][0].color))
+                # Make sure alpha is 1
                 if c[3] != 1:
                     c[3] = 1
                     self.set_colors({s: c})
@@ -905,7 +907,7 @@ class Viewer:
             # Get current colors
             new_amap = {}
             for n in to_cycle:
-                this_c = list(to_cycle[n][0].color)
+                this_c = list(to_rgba(to_cycle[n][0].color))
                 # Make sure colors are (r, g, b, a)
                 if len(this_c) < 4:
                     this_a = 1
@@ -1172,3 +1174,24 @@ def on_resize(event):
     # Render canvas to framebuffer via `_render_picking` and with region
     # outside the current canvas size: if a text ID shows up, we have to
     # resize
+
+
+def to_rgba(c):
+    """Convert color to RGBA.
+
+    matplotlib.colors.to_rgba can't deal with vispy color arrays.
+    """
+    # Vispy color arrays (used on meshes) have an _rgba property
+    if hasattr(c, '_rgba'):
+        c = c._rgba
+
+    # Make sure we deal with only one RGB(A) color
+    if not isinstance(c, np.ndarray):
+        c = np.array(c)
+
+    if c.ndim > 1:
+        if c.shape[0] > 1:
+            raise ValueError(f'Expected single RGB(A) color, found array of shape {c.shape}')
+        c = c[0]
+
+    return mcl.to_rgba(c)
