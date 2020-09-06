@@ -93,9 +93,9 @@ class FailedObject(FailedImport):
         raise Exception(f'R object "{self.name}" was not found.')
 
 
-cl = try_loadr(robjects.r('class'))
-names = try_loadr(robjects.r('names'))
-attributes = try_loadr(robjects.r('attributes'))
+cl = try_loadr('class')
+names = try_loadr('names')
+attributes = try_loadr('attributes')
 
 # Load the entire natverse
 nat = try_importr("nat")
