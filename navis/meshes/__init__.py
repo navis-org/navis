@@ -11,17 +11,5 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .__version__ import __version__, __version_vector__
-
-from .core import *
-from .data import *
-from .clustering import *
-from .connectivity import *
-from .graph import *
-from .intersection import *
-from .io import *
-from .meshes import *
-from .morpho import *
-from .plotting import *
-from .sampling import *
-from .utils import *
+from .mesh_utils import fix_mesh
+from .operations import simplify_mesh

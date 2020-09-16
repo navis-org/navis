@@ -3,3 +3,4 @@ include navis/data/gml/*
 include navis/data/swc/*
 include navis/data/volumes/*
 include navis/data/obj/*
+include navis/meshes/templates/*

@@ -30,7 +30,7 @@ from io import BufferedIOBase, StringIO
 from typing import Union, Callable, List, Sequence, Optional, Dict, overload, Any
 from typing_extensions import Literal
 
-from .. import graph, morpho, utils, config, core, sampling, intersection
+from .. import graph, morpho, utils, config, core, sampling, intersection, meshes
 from .. import io  # type: ignore # double import
 
 __all__ = ['Neuron', 'TreeNeuron']
@@ -528,6 +528,7 @@ class MeshNeuron(BaseNeuron):
                           'TreeNeuron',
                           nx.DiGraph],
                  units: Union[pint.Unit, str] = None,
+                 validate: bool = False,
                  **metadata
                  ):
         """Initialize Mesh Neuron.
@@ -546,6 +547,9 @@ class MeshNeuron(BaseNeuron):
                         Units for coordinates. Defaults to ``None`` (dimensionless).
                         Strings must be parsable by pint: e.g. "nm", "um",
                         "micrometer" or "8 nanometers".
+        validate :      bool
+                        If True, will try to fix some common problems with
+                        meshes. See ``navis.fix_mesh`` for details.
         **metadata
                         Any additional data to attach to neuron.
 
@@ -575,6 +579,9 @@ class MeshNeuron(BaseNeuron):
 
         if not getattr(self, 'id', None):
             self.id = uuid.uuid4()
+
+        if validate:
+            self.validate()
 
         self.units = units
 
@@ -703,6 +710,14 @@ class MeshNeuron(BaseNeuron):
         x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
 
         return x
+
+    def validate(self):
+        """Use trimesh to try and fix some common issues.
+
+        See :func:`navis.fix_mesh` for details.
+
+        """
+        meshes.fix_mesh(self, inplace=True)
 
 
 class TreeNeuron(BaseNeuron):
