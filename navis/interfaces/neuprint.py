@@ -169,7 +169,9 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
     if isinstance(seg_source, CloudVolume):
         vol = seg_source
     else:
-        vol = CloudVolume(seg_source, **kwargs)
+        defaults = dict(use_https=True)
+        defaults.update(kwargs)
+        vol = CloudVolume(seg_source, **defaults)
 
     if isinstance(x, NeuronCriteria):
         query = x
