@@ -805,7 +805,10 @@ class TreeNeuron(BaseNeuron):
             n = self.copy()
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other[:3]
+                if isinstance(other, (list, np.ndarray)):
+                    n.connectors.loc[:, ['x', 'y', 'z']] /= other[:3]
+                else:
+                    n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
             # Convert units
             # If division is isometric
@@ -834,7 +837,10 @@ class TreeNeuron(BaseNeuron):
             n = self.copy()
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other[:3]
+                if isinstance(other, (list, np.ndarray)):
+                    n.connectors.loc[:, ['x', 'y', 'z']] *= other[:3]
+                else:
+                    n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
             # Convert units
             # If multiplication is isometric
