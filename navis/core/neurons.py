@@ -764,15 +764,15 @@ class TreeNeuron(BaseNeuron):
         ----------
         x
                         Data to construct neuron from:
-                         - `pandas.DataFrame` is expected to be SWC table
-                         - `pandas.Series` is expected to have a DataFrame as
-                           `.nodes` - additional properties will be attached
+                         - ``pandas.DataFrame`` is expected to be SWC table
+                         - ```pandas.Series`` is expected to have a DataFrame as
+                           ``.nodes`` - additional properties will be attached
                            as meta data
-                         - `str` is treated as SWC file name
-                         - `BufferedIOBase` e.g. from `open(filename)`
-                         - `networkx.DiGraph` parsed by `navis.nx2neuron`
-                         - `None` will initialize an empty neuron
-                         - `TreeNeuron` - in this case we will try to copy every
+                         - ``str`` is treated as SWC file name
+                         - ``BufferedIOBase`` e.g. from ``open(filename)``
+                         - ``networkx.DiGraph`` parsed by `navis.nx2neuron`
+                         - ``None`` will initialize an empty neuron
+                         - ``TreeNeuron`` - in this case we will try to copy every
                            attribute
         units :         str | pint.Units | pint.Quantity
                         Units for coordinates. Defaults to ``None`` (dimensionless).
