@@ -213,13 +213,16 @@ class NeuronList:
         return self.__repr__()
 
     def __repr__(self):
-        return f'{type(self)} of {len(self)} neurons \n {str(self.summary())}'
+        string = f'{type(self)} of {len(self)} neurons'
+        if not self.empty:
+            string += f'\n {str(self.summary())}'
+        return string
 
     def _repr_html_(self):
         return self.summary()._repr_html_()
 
     def __iter__(self) -> Iterator['core.NeuronObject']:
-        """ Iterator instanciates a new class everytime it is called.
+        """Iterator instanciates a new class everytime it is called.
         This allows the use of nested loops on the same neuronlist object.
         """
         class prange_iter(Iterator['core.NeuronObject']):
