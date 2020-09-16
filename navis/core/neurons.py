@@ -376,11 +376,61 @@ class BaseNeuron:
         """Return type."""
         return 'BaseNeuron'
 
+    def convert_units(self,
+                      to: Union[pint.Unit, str],
+                      inplace: bool = False) -> Optional['BaseNeuron']:
+        """Convert coordinates to different unit.
+
+        Only works if neuron's ``.units`` is not dimensionless.
+
+        Parameters
+        ----------
+        to :        pint.Unit | str
+                    Units to convert to. If string, must be parsable by pint.
+                    See examples.
+        inplace :   bool, optional
+                    If True will convert in place. If not will return a
+                    copy.
+
+        Examples
+        --------
+        >>> n = navis.example_neurons(1)
+        >>> n.units
+        1 <Unit('nanometer')>
+        >>> n.cable_length
+        1213347.4350680097
+        >>> n2 = n.convert_units('um')
+        >>> n2.units
+        >>> n2.cable_length
+        1213.3474350680106
+
+        """
+        if not isinstance(self.units, (pint.Unit, pint.Quantity)):
+            raise ValueError("Unable to convert: neuron has no units set.")
+
+        if inplace:
+            n = self
+        else:
+            n = self.copy()
+
+        # Catch pint's UnitStrippedWarning
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Get factor by which we have to multiply to get to target units
+            conv = n.units.to(to).magnitude
+            # Multiply by conversion factor
+            n *= conv
+
+        n._clear_temp_attr(exclude=['classify_nodes'])
+
+        if not inplace:
+            return n
+
     def copy(self) -> 'BaseNeuron':
         """Return a copy of the neuron."""
         # Attributes not to copy
         no_copy = ['_lock']
-        # Generate new neuron
+        # Generate new empty neuron
         x = self.__class__()
         # Override with this neuron's data
         x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
@@ -1700,60 +1750,6 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def convert_units(self,
-                      to: Union[pint.Unit, str],
-                      inplace: bool = False) -> Optional['TreeNeuron']:
-        """Convert coordinates to different unit.
-
-        Only works if neuron's ``.units`` is not dimensionless.
-
-        Parameters
-        ----------
-        to :        pint.Unit | str
-                    Units to convert to. If string, must be parsable by pint.
-                    See examples.
-        inplace :   bool, optional
-                    If True will convert in place. If not will return a
-                    copy.
-
-        Examples
-        --------
-        >>> n = navis.example_neurons(1)
-        >>> n.units
-        1 <Unit('nanometer')>
-        >>> n.cable_length
-        1213347.4350680097
-        >>> n2 = n.convert_units('um')
-        >>> n2.units
-        >>> n2.cable_length
-        1213.3474350680106
-
-        """
-        if not isinstance(self.units, (pint.Unit, pint.Quantity)):
-            raise ValueError("Unable to convert: neuron has no units set.")
-
-        if inplace:
-            n = self
-        else:
-            n = self.copy()
-
-        # Catch pint's UnitStrippedWarning
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # Must perform on numpy array and reassign
-            locs = n.nodes[['x', 'y', 'z']].values
-            n.nodes[['x', 'y', 'z']] = locs * n.units.to(to)
-
-            if n.has_connectors:
-                locs = n.connectors[['x', 'y', 'z']].values
-                n.connectors[['x', 'y', 'z']] = locs * n.units.to(to)
-
-        n.units = n.units.to(to)
-        n._clear_temp_attr(exclude=['classify_nodes'])
-
-        if not inplace:
-            return n
-
     def to_swc(self,
                filename: Optional[str] = None,
                **kwargs) -> None:
@@ -1762,7 +1758,7 @@ class TreeNeuron(BaseNeuron):
         Parameters
         ----------
         filename :      str | None, optional
-                        If ``None``, will use "neuron_{skeletonID}.swc".
+                        If ``None``, will use "neuron_{id}.swc".
         kwargs
                         Additional arguments passed to :func:`~navis.to_swc`.
 
