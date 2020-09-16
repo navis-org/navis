@@ -406,22 +406,15 @@ class NeuronList:
 
     def __truediv__(self, other):
         """Implements division for coordinates (nodes, connectors)."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
-            return NeuronList([n / other for n in self.neurons])
-        else:
-            return NotImplemented
+        return NeuronList([n / other for n in self.neurons])
+
 
     def __mul__(self, other):
-        """Implements multiplication for coordinates (nodes, connectors)."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
-            return NeuronList([n * other for n in self.neurons])
-        else:
-            return NotImplemented
+        """Implement multiplication for coordinates (nodes, connectors)."""
+        return NeuronList([n * other for n in self.neurons])
 
     def __and__(self, other):
-        """Implements bitwise AND using the & operator. """
+        """Implement bitwise AND using the & operator."""
         if isinstance(other, core.BaseNeuron):
             return NeuronList([n for n in self.neurons if n == other],
                               make_copy=self.copy_on_subset)
