@@ -15,3 +15,7 @@
 class ConstructionError(Exception):
     """Raised when class can't be constructed from input."""
     pass
+
+class VolumeError(Exception):
+    """Raise when volume is invalid (e.g. not watertight)."""
+    pass

@@ -655,9 +655,9 @@ class Volume(trimesh.Trimesh):
             self.fill_holes()
             self.fix_normals()
             if not self.is_volume:
-                raise ValueError("Mesh is not a volume "
-                                 "(e.g. not watertight, incorrect winding) "
-                                 "and could not be fixed")
+                raise utils.VolumeError("Mesh is not a volume "
+                                        "(e.g. not watertight, incorrect "
+                                        "winding) and could not be fixed.")
 
 
 def _force_volume(f):
