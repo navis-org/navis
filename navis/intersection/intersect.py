@@ -134,7 +134,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
               backend: Backends = ('ncollpyde', 'pyoctree'),
               n_rays: Optional[int] = None,
               prevent_fragments: bool = False,
-              validate: bool = True,
+              validate: bool = False,
               inplace: bool = False,) -> Optional[Union['core.NeuronObject',
                                                         Sequence[bool],
                                                         Dict[str, Union[Sequence[bool],
@@ -254,7 +254,17 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         # Validate now - this might safe us troubles later
         if validate:
             for v in volume.values():
-                v.validate()
+                msg = 'Mesh is not a volume ' \
+                      '(e.g. not watertight, incorrect ' \
+                      'winding) and could not be fixed. ' \
+                      'Use `validate=False` to skip validation and ' \
+                      'perform intersection regardless.'
+                try:
+                    v.validate()
+                except utils.VolumeError as e:
+                    raise utils.VolumeError(f'{v}: {msg}') from e
+                except BaseException:
+                    raise
 
         data: Dict[str, Any] = dict()
         for v in config.tqdm(volume, desc='Volumes', disable=config.pbar_hide,
@@ -275,7 +285,17 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     vol: 'core.Volume' = volume  # type: ignore
 
     if validate:
-        vol.validate()
+        msg = 'Mesh is not a volume ' \
+              '(e.g. not watertight, incorrect ' \
+              'winding) and could not be fixed. ' \
+              'Use `validate=False` to skip validation and ' \
+              'perform intersection regardless.'
+        try:
+            vol.validate()
+        except utils.VolumeError as e:
+            raise utils.VolumeError(f'{vol}: {msg}') from e
+        except BaseException:
+            raise
 
     # Make copy if necessary
     if isinstance(x, (core.NeuronList, core.TreeNeuron)):
