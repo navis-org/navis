@@ -368,31 +368,31 @@ class NeuronList:
             # This will call __missing__
             return self.__missing__(key)
 
-        return NeuronList(subset, make_copy=self.copy_on_subset)
+        return self.__class__(subset, make_copy=self.copy_on_subset)
 
     def __missing__(self, key):
         raise AttributeError('No neuron matching the search critera.')
 
     def __add__(self, to_add):
-        """Implements addition. """
+        """Implement addition."""
         if isinstance(to_add, core.BaseNeuron):
-            return NeuronList(self.neurons + [to_add],
-                              make_copy=self.copy_on_subset)
+            return self.__class__(self.neurons + [to_add],
+                                  make_copy=self.copy_on_subset)
         elif isinstance(to_add, NeuronList):
-            return NeuronList(self.neurons + to_add.neurons,
-                              make_copy=self.copy_on_subset)
+            return self.__class__(self.neurons + to_add.neurons,
+                                  make_copy=self.copy_on_subset)
         elif utils.is_iterable(to_add):
             if False not in [isinstance(n, core.BaseNeuron) for n in to_add]:
-                return NeuronList(self.neurons + list(to_add),
-                                  make_copy=self.copy_on_subset)
+                return self.__class__(self.neurons + list(to_add),
+                                       make_copy=self.copy_on_subset)
             else:
-                return NeuronList(self.neurons + [core.BaseNeuron[n] for n in to_add],
-                                  make_copy=self.copy_on_subset)
+                return self.__class__(self.neurons + [core.BaseNeuron[n] for n in to_add],
+                                      make_copy=self.copy_on_subset)
         else:
             return NotImplemented
 
     def __eq__(self, other):
-        """Implements equality. """
+        """Implement equality."""
         if isinstance(other, NeuronList):
             if len(self) != len(other):
                 return False
@@ -402,32 +402,32 @@ class NeuronList:
             return NotImplemented
 
     def __sub__(self, to_sub):
-        """Implements substraction. """
+        """Implement substraction."""
         if isinstance(to_sub, core.BaseNeuron):
-            return NeuronList([n for n in self.neurons if n != to_sub],
+            return self.__class__([n for n in self.neurons if n != to_sub],
                               make_copy=self.copy_on_subset)
         elif isinstance(to_sub, NeuronList):
-            return NeuronList([n for n in self.neurons if n not in to_sub],
+            return self.__class__([n for n in self.neurons if n not in to_sub],
                               make_copy=self.copy_on_subset)
         else:
             return NotImplemented
 
     def __truediv__(self, other):
         """Implements division for coordinates (nodes, connectors)."""
-        return NeuronList([n / other for n in self.neurons])
+        return self.__class__([n / other for n in self.neurons])
 
 
     def __mul__(self, other):
         """Implement multiplication for coordinates (nodes, connectors)."""
-        return NeuronList([n * other for n in self.neurons])
+        return self.__class__([n * other for n in self.neurons])
 
     def __and__(self, other):
         """Implement bitwise AND using the & operator."""
         if isinstance(other, core.BaseNeuron):
-            return NeuronList([n for n in self.neurons if n == other],
+            return self.__class__([n for n in self.neurons if n == other],
                               make_copy=self.copy_on_subset)
         elif isinstance(other, NeuronList):
-            return NeuronList([n for n in self.neurons if n in other],
+            return self.__class__([n for n in self.neurons if n in other],
                               make_copy=self.copy_on_subset)
         else:
             return NotImplemented
@@ -483,7 +483,7 @@ class NeuronList:
         return proc(self.neurons, **kwargs)
 
     def sum(self) -> pd.DataFrame:
-        """Returns sum numeric and boolean values over all neurons. """
+        """Return sum numeric and boolean values over all neurons."""
         return self.summary().sum(numeric_only=True)
 
     def mean(self) -> pd.DataFrame:
@@ -497,8 +497,8 @@ class NeuronList:
 
         indices = list(range(len(self.neurons)))
         random.shuffle(indices)
-        return NeuronList([n for i, n in enumerate(self.neurons) if i in indices[:N]],
-                          make_copy=self.copy_on_subset)
+        return self.__class__([n for i, n in enumerate(self.neurons) if i in indices[:N]],
+                              make_copy=self.copy_on_subset)
 
     def plot3d(self, **kwargs):
         """Plot neuron in 3D using :func:`~navis.plot3d`.
@@ -669,7 +669,7 @@ class NeuronList:
                 Dictionary of ``{Neurontype: NeuronList}``
 
         """
-        return {t: NeuronList([n for n in self.neurons if isinstance(n, t)])
+        return {t: self.__class__([n for n in self.neurons if isinstance(n, t)])
                 for t in self.types}
 
 
@@ -746,7 +746,7 @@ class NeuronProcessor:
         logger.setLevel(level)
 
         if not kwargs.get('inplace', False):
-            return NeuronList(res)
+            return self.__class__(res)
 
 
 def _worker_wrapper(x: Sequence):
@@ -776,4 +776,4 @@ class _IdIndexer():
         elif len(sel) == 1:
             return sel[0]
         else:
-            return NeuronList(sel)
+            return self.__class__(sel)
