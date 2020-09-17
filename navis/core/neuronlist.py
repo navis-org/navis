@@ -307,7 +307,15 @@ class NeuronList:
                                'units. Removing units.')
                 return np.array([getattr(v, 'magnitude', v) for v in values])
             else:
-                return np.array(values)
+                # If the result would be a ragged array specify dtype as object
+                # This avoids a depcrecation warning and future issues
+                dtype = None
+                if any([utils.is_iterable(v) for v in values]):
+                    if not all([utils.is_iterable(v) for v in values]):
+                        dtype = object
+                    elif set([len(v) for v in values]):
+                        dtype = object
+                return np.array(values, dtype=dtype)
         else:
             # Return function but wrap it in a function that will show
             # a progress bar and use multiprocessing (if applicable)
