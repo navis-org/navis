@@ -286,7 +286,7 @@ class NeuronList:
                 ix = 0
                 for k, v in enumerate(values):
                     if isinstance(v, pd.DataFrame):
-                        df.iloc[ix:v.shape[0],
+                        df.iloc[ix:ix + v.shape[0],
                                 df.columns.get_loc('neuron')] = self.neurons[k].id
                         ix += v.shape[0]
                 return df
