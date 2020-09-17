@@ -360,6 +360,11 @@ class Viewer:
         return [s for s in self.neurons if self.neurons[s][0].visible]
 
     @property
+    def invisible(self):
+        """List IDs of currently visible neurons."""
+        return [s for s in self.neurons if not self.neurons[s][0].visible]
+
+    @property
     def pinned(self):
         """List IDs of currently pinned neurons."""
         return [s for s in self.neurons if getattr(self.neurons[s][0], 'pinned', False)]
