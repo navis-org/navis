@@ -298,7 +298,7 @@ def prune_twigs(x: NeuronObject,
 
     # Find terminal segments
     segs = graph._break_segments(neuron)
-    segs = np.array([s for s in segs if s[0] in leafs])
+    segs = np.array([s for s in segs if s[0] in leafs], dtype=object)
 
     # Get segment lengths
     seg_lengths = np.array([graph.segment_length(neuron, s) for s in segs])
