@@ -167,7 +167,7 @@ class NeuronList:
                     self.neurons[n[2]] = core.Neuron(n[0])
 
         # Add ID-based indexer
-        self.idx = _IdIndexer(self.neurons)
+        self.idx = _IdIndexer(self)
 
     @property
     def neurons(self):
@@ -757,23 +757,42 @@ def _worker_wrapper(x: Sequence):
 class _IdIndexer():
     """ID-based indexer for NeuronLists to access their neurons by ID."""
 
-    def __init__(self, obj):
-        self.obj = obj
+    def __init__(self, neuronlist):
+        self.nl = neuronlist
 
     def __getitem__(self, ids):
+        # Track if a single neuron was requested
+        if not utils.is_iterable(ids):
+            single = True
+        else:
+            single = False
+
         # Turn into list and force strings
         ids = utils.make_iterable(ids, force_type=str)
 
-        # Get objects that match skid
-        sel = [n for n in self.obj if str(n.id) in ids]
+        # Generate a map
+        # Note we account for the fact we might have duplicate IDs in the list
+        map = {}
+        for n in self.nl:
+            map[str(n.id)] = map.get(str(n.id), []) + [n]
 
-        # Reorder to keep in the order requested
-        sel = sorted(sel, key=lambda x: np.where(ids == str(x.id))[0][0])
+        # Get selection
+        sel = [map.get(i, []) for i in ids]
 
-        if len(sel) != len(ids):
-            miss = list(set(ids) - set([n.id for n in sel]))
-            raise ValueError(f'No neuron(s) with ID(s): {", ".join(miss)}')
-        elif len(sel) == 1:
+        # Check for missing IDs
+        miss = [i for i, k in zip(ids, sel) if len(k) == 0]
+        if miss:
+            raise ValueError(f'No neuron(s) found for ID(s): {", ".join(miss)}')
+
+        # Check for duplicate Ids in query IDs or in resulting selection
+        dupl = [i for i, k in zip(ids, sel) if len(k) > 1]
+        if dupl or len(set(ids)) < len(ids):
+            logger.warning('Selection contains duplicate IDs.')
+
+        # Flatten selection
+        sel = [n for l in sel for n in l]
+
+        if single and len(sel) == 1:
             return sel[0]
         else:
-            return self.__class__(sel)
+            return self.nl.__class__(sel)
