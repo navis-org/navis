@@ -143,7 +143,7 @@ class BaseNeuron:
             # We will do this sequentially and stop as soon as we find a
             # discrepancy -> this saves tons of time!
             for at in self.EQ_ATTRIBUTES:
-                comp = getattr(self, at) == getattr(other, at)
+                comp = getattr(self, at, None) == getattr(other, at, None)
                 if isinstance(comp, np.ndarray) and not all(comp):
                     return False
                 elif comp is False:
