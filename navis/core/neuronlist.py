@@ -13,8 +13,8 @@
 
 from concurrent.futures import ThreadPoolExecutor
 import functools
+import math
 import multiprocessing as mp
-import numbers
 import os
 import random
 import re
@@ -171,6 +171,7 @@ class NeuronList:
 
     @property
     def neurons(self):
+        """Neurons contained in this NeuronList."""
         return self.__dict__.get('neurons', [])
 
     @property
@@ -244,9 +245,7 @@ class NeuronList:
         return len(self.neurons)
 
     def __dir__(self):
-        """ Custom __dir__ to add some parameters that we want to make
-        searchable.
-        """
+        """Custom __dir__ to add some parameters that we want to make searchable."""
         add_attr = set.union(*[set(dir(n)) for n in self.neurons])
 
         return list(set(super().__dir__() + list(add_attr)))
@@ -440,21 +439,30 @@ class NeuronList:
             self.neurons += v.neurons
         raise NotImplementedError
 
-    def apply(self, func, parallel=False, n_cores=os.cpu_count(), **kwargs):
+    def apply(self,
+              func: Callable,
+              parallel: bool = False,
+              n_cores: int = os.cpu_count() - 2,
+              initializer: Optional[Callable] = None,
+              **kwargs):
         """Apply function across all neurons in this NeuronList.
 
         Parameters
         ----------
-        func :      callable
-                    Function to be applied. Must accept :class:`~navis.BaseNeuron`
-                    as first argument.
-        parallel :  bool
-                    If True (default) will use multiprocessing. Spawning the
-                    processes takes time (and memory). So using ``parallel=True``
-                    makes only sense if the NeuronList is large or the function
-                    takes a long time.
-        n_cores :   int
-                    Number of CPUs to use for multiprocessing.
+        func :          callable
+                        Function to be applied. Must accept
+                        :class:`~navis.BaseNeuron` as first argument.
+        parallel :      bool
+                        If True (default) will use multiprocessing. Spawning the
+                        processes takes time (and memory). So using ``parallel=True``
+                        makes only sense if the NeuronList is large or the function
+                        takes a long time.
+        n_cores :       int
+                        Number of CPUs to use for multiprocessing.
+        initializer :   callable, optional
+                        If provided, this function will be called upon
+                        initialization of the worker processes. Only relevant
+                        when ``parallel=True``.
 
         **kwargs
                     Will be passed to function.
@@ -478,6 +486,7 @@ class NeuronList:
                                func,
                                parallel=parallel,
                                n_cores=n_cores,
+                               initializer=initializer,
                                desc='Processing')
 
         return proc(self.neurons, **kwargs)
@@ -638,6 +647,7 @@ class NeuronList:
         inplace :   bool, optional
                     If False will return a copy of the original with
                     duplicates removed.
+
         """
         if inplace:
             x = self
@@ -683,12 +693,14 @@ class NeuronProcessor:
                  funcs: Callable,
                  parallel: bool = False,
                  n_cores: int = os.cpu_count() - 1,
+                 initializer: Optional[Callable] = None,
                  desc: Optional[str] = None):
         self.nl = nl
         self.funcs = funcs
         self.desc = None
         self.parallel = parallel
         self.n_cores = n_cores
+        self.initializer = initializer
 
         # Copy function for each neuron in neuronlist
         if not utils.is_iterable(self.funcs):
@@ -724,17 +736,16 @@ class NeuronProcessor:
 
         logger.setLevel('ERROR')
         if self.parallel:
-            pool = mp.Pool(self.n_cores)
-            combinations = list(zip(self.funcs, parsed_args, parsed_kwargs))
-            res = list(config.tqdm(pool.imap(_worker_wrapper,
-                                             combinations,
-                                             chunksize=10),
-                                   total=len(combinations),
-                                   desc=self.desc,
-                                   disable=config.pbar_hide,
-                                   leave=config.pbar_leave))
-            pool.close()
-            pool.join()
+            with mp.Pool(self.n_cores, initializer=self.initializer) as pool:
+                combinations = list(zip(self.funcs, parsed_args, parsed_kwargs))
+                chunksize = 1 #max(int(len(combinations) / 100), 1)
+                res = list(config.tqdm(pool.imap(_worker_wrapper,
+                                                 combinations,
+                                                 chunksize=chunksize),
+                                       total=len(combinations),
+                                       desc=self.desc,
+                                       disable=config.pbar_hide,
+                                       leave=config.pbar_leave))
         else:
             res = []
             for i, f in enumerate(config.tqdm(self.funcs, desc=self.desc,
@@ -746,7 +757,7 @@ class NeuronProcessor:
         logger.setLevel(level)
 
         if not kwargs.get('inplace', False):
-            return self.__class__(res)
+            return self.nl.__class__(res)
 
 
 def _worker_wrapper(x: Sequence):
