@@ -224,6 +224,7 @@ def _break_segments(x: 'core.NeuronObject') -> list:
     return seg_list
 
 
+@utils.lock_neuron
 def _edge_count_to_root(x: 'core.TreeNeuron',
                         igraph_indices: bool = False) -> dict:
     """Return a map of nodeID vs number of edges to the root.
@@ -273,11 +274,14 @@ def _edge_count_to_root_old(x: 'core.TreeNeuron') -> dict:
 
     # Map vertex index to node ID
     if x.igraph and config.use_igraph:
-        dist = {x.igraph.vs[k]['node_id']: v for k, v in dist.items()}
+        # Grab graph once to avoid overhead from stale checks
+        g = x.igraph
+        dist = {g.vs[k]['node_id']: v for k, v in dist.items()}
 
     return dist
 
 
+@utils.lock_neuron
 def classify_nodes(x: 'core.NeuronObject',
                    inplace: bool = True
                    ) -> Optional['core.NeuronObject']:
@@ -374,6 +378,7 @@ def distal_to(x: 'core.TreeNeuron',
     pass
 
 
+@utils.lock_neuron
 def distal_to(x: 'core.TreeNeuron',
               a: Optional[Union[str, int, List[Union[str, int]]]] = None,
               b: Optional[Union[str, int, List[Union[str, int]]]] = None,
@@ -470,13 +475,15 @@ def distal_to(x: 'core.TreeNeuron',
                           columns=tnB, index=tnA)
 
         # Iterate over all targets
+        # Grab graph once to avoid overhead from stale checks
+        g = x.graph
         for nB in config.tqdm(tnB, desc='Querying paths',
                               disable=(len(tnB) < 1000) | config.pbar_hide,
                               leave=config.pbar_leave):
             # Get all paths TO this target. This function returns a dictionary:
             # { source1 : path_length, source2 : path_length, ... } containing
             # all nodes distal to this node.
-            paths = nx.shortest_path_length(x.graph, source=None, target=nB)
+            paths = nx.shortest_path_length(g, source=None, target=nB)
             # Check if sources are among our targets
             df[nB] = [nA in paths for nA in tnA]
 
@@ -573,6 +580,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
     return pd.DataFrame(dmat, columns=nodeList, index=ix)  # type: ignore  # no stubs
 
 
+@utils.lock_neuron
 def segment_length(x: 'core.TreeNeuron',
                    segment: List[int]) -> float:
     """Get length of a linear segment.
@@ -608,11 +616,14 @@ def segment_length(x: 'core.TreeNeuron',
     if not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
-    dist = np.array([x.graph.edges[(c, p)]['weight']
+    # Get graph once to avoid overhead from validation - do NOT change this
+    graph = x.graph
+    dist = np.array([graph.edges[(c, p)]['weight']
                      for c, p in zip(segment[:-1], segment[1:])])
     return sum(dist)
 
 
+@utils.lock_neuron
 def dist_between(x: 'core.NeuronObject',
                  a: int,
                  b: int) -> float:
@@ -836,7 +847,7 @@ def split_into_fragments(x: 'core.NeuronObject',
         # Check if fragment is still long enough
         if min_size:
             this_length = sum([v for k, v in nx.get_edge_attributes(
-                x.graph, 'weight').items() if k[1] in longest_path])
+                g, 'weight').items() if k[1] in longest_path])
             if this_length <= min_size:
                 break
 
@@ -848,8 +859,10 @@ def split_into_fragments(x: 'core.NeuronObject',
     # Next, make some virtual cuts and get the complement of nodes for
     # each fragment
     graphs = [x.graph.copy()]
+    # Grab graph once to avoide overhead from stale checking
+    g = x.graph
     for fr in fragments[1:]:
-        this_g = nx.bfs_tree(x.graph, fr[-1], reverse=True)
+        this_g = nx.bfs_tree(g, fr[-1], reverse=True)
 
         graphs.append(this_g)
 
@@ -1088,11 +1101,13 @@ def reroot_neuron(x: 'core.NeuronObject',
             warnings.simplefilter("ignore")
 
             # Find paths to all roots
-            path = x.igraph.get_shortest_paths(x.igraph.vs.find(node_id=new_root),
-                                               [x.igraph.vs.find(node_id=r) for r in x.root])
-            epath = x.igraph.get_shortest_paths(x.igraph.vs.find(node_id=new_root),
-                                                [x.igraph.vs.find(node_id=r) for r in x.root],
-                                                output='epath')
+            # Grab graph once to avoid overhead from stale checks
+            g = x.igraph
+            path = g.get_shortest_paths(g.vs.find(node_id=new_root),
+                                        [g.vs.find(node_id=r) for r in x.root])
+            epath = g.get_shortest_paths(g.vs.find(node_id=new_root),
+                                         [g.vs.find(node_id=r) for r in x.root],
+                                         output='epath')
 
         # Extract paths that actually worked (i.e. within a continuous fragment)
         path = [p for p in path if p][0]
@@ -1624,7 +1639,9 @@ def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
 
     """
     assert isinstance(x, core.TreeNeuron)
-    return {n: [e[0] for e in x.graph.in_edges(n)] for n in x.graph.nodes}
+    # Grab graph once to avoid overhead from stale checks
+    g = x.graph
+    return {n: [e[0] for e in g.in_edges(n)] for n in g.nodes}
 
 
 def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:

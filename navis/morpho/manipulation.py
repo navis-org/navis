@@ -454,7 +454,9 @@ def split_axon_dendrite(x: NeuronObject,
 
     # If more than one point we need to get one closest to the soma (root)
     if len(cut) > 1:
-        cut = sorted(cut, key=lambda y: graph.dist_between(x.graph, y, x.root[0]))[0]
+        # Grab graph once to avoid overhead from stale checks
+        g = x.graph
+        cut = sorted(cut, key=lambda y: graph.dist_between(g, y, x.root[0]))[0]
     else:
         cut = cut[0]
 
@@ -770,9 +772,11 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
         # Add edge to graphs
         if config.use_igraph and m.igraph:
-            m.igraph.add_edge(m.igraph.vs.find(node_id=e[0]),
-                              m.igraph.vs.find(node_id=e[1]),
-                              **e[2])
+            # Grab graph once to avoid overhead from stale checks
+            g = m.igraph
+            g.add_edge(g.vs.find(node_id=e[0]),
+                       g.vs.find(node_id=e[1]),
+                       **e[2])
         # We only really need to update this graph if we need it for reroot
         else:
             m.graph.add_edge(e[0], e[1], **e[2])
