@@ -927,10 +927,12 @@ class TreeNeuron(BaseNeuron):
         """Get state (used e.g. for pickling)."""
         state = {k: v for k, v in self.__dict__.items() if not callable(v)}
 
-        # We need to prevent read-only networkx Graphs (SubGraphViews)
-        # as they cause issues for pickling
-        if 'graph' in state and nx.is_frozen(state['graph']):
-            state['graph'] = state['graph'].copy()
+        # Pickling the graphs actually takes longer than regenerating them
+        # from scratch
+        if '_graph_nx' in state:
+            _ = state.pop('_graph_nx')
+        if '_igraph' in state:
+            _ = state.pop('_igraph')
 
         return state
 
