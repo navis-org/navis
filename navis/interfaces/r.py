@@ -1003,6 +1003,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 source: str,
                 target: str,
                 fallback: Optional[Literal['AFFINE']] = None,
+                bulk: bool = False,
                 verbose: bool = False,
                 **kwargs) -> Union['core.NeuronObject',
                                    'pd.DataFrame',
@@ -1010,6 +1011,13 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     """Transform 3D data between template brains.
 
     This is a simple wrapper for ``nat.templatebrains:xform_brain``.
+
+    Notes
+    -----
+    For Neurons only: whether there is a change in units during transformation
+    (e.g. nm -> um) is inferred by comparing distances between x/y/z coordinates
+    before and after transform. This guesstimate is then used to convert
+    ``.units`` and node radii (for TreeNeurons).
 
     Parameters
     ----------
@@ -1025,6 +1033,12 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 transformation fails. Else coordinates of points for which the
                 transformation failed (e.g. b/c they are out of bounds), will
                 be returned as ``None``.
+    bulk :      bool | int
+                If True or number and input is NeuronList, will xform all
+                coordinates in chunks (default=100k) instead of neuron-by-neuron.
+                This can be ~2x faster (due to reduced overhead) is very memory
+                intensive! If ``bulk`` is a number will process chunks of
+                given size.
     **kwargs
                 Keyword arguments passed to ``nat.templatebrains:xform_brain``
 
@@ -1038,6 +1052,82 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         if len(x) == 1:
             x = x[0]
         else:
+            if bulk:
+                xf = x.copy()
+
+                # Collect all spatial data
+                xyz = []
+                for n in xf:
+                    if isinstance(n, core.TreeNeuron):
+                        xyz.append(n.nodes[['x', 'y', 'z']].values)
+                    elif isinstance(n, core.MeshNeuron):
+                        xyz.append(n.vertices)
+                    else:
+                        raise TypeError("Don't know how to transform neuron of "
+                                        f"type '{type(n)}'")
+
+                    if n.has_connectors:
+                        xyz.append(n.connectors[['x', 'y', 'z']].values)
+
+                # Combine into big matrix
+                xyz = np.vstack(xyz)
+
+                if isinstance(bulk, bool):
+                    bulk = 100e3
+
+                # Split into chunks of max 100k coordinates
+                n_chunks = math.ceil(xyz.shape[0] / bulk)
+                chunks = np.array_split(xyz, n_chunks, axis=0)
+
+                # Xform
+                xyz_xf = []
+                with config.tqdm(desc='Xforming coordinates',
+                                 disable=config.pbar_hide,
+                                 leave=config.pbar_leave,
+                                 total=xyz.shape[0],
+                                 ) as pbar:
+                    for c in chunks:
+                        c_xf = xform_brain(c,
+                                           source=source,
+                                           target=target,
+                                           fallback=fallback,
+                                           verbose=verbose,
+                                           **kwargs)
+                        xyz_xf.append(c_xf)
+                        pbar.update(c_xf.shape[0])
+                xyz_xf = np.vstack(xyz_xf)
+
+                # Guess change in spatial units
+                sample = min(10e3 / xyz.shape[0], .1)
+                change, magnitude = _guess_change(xyz, xyz_xf, sample=sample)
+
+                # Some clean-up
+                del xyz, chunks
+
+                # Map xformed coordinates back
+                offset = 0
+                for n in xf:
+                    if isinstance(n, core.TreeNeuron):
+                        n.nodes.loc[:, ['x', 'y', 'z']] = xyz_xf[offset:offset + n.n_nodes]
+                        offset += n.n_nodes
+                        # Fix radius based on our best estimate
+                        if 'radius' in n.nodes.columns:
+                            n.nodes['radius'] *= 10**magnitude
+                    elif isinstance(n, core.MeshNeuron):
+                        n.vertices = xyz_xf[offset:offset + n.vertices.shape[0]]
+                        offset += n.vertices.shape[0]
+
+                    if n.has_connectors:
+                        n.connectors.loc[:, ['x', 'y', 'z']] = xyz_xf[offset:offset + n.n_connectors]
+                        offset += n.n_connectors
+
+                    # Make an educated guess as to whether the units have changed
+                    if hasattr(n, 'units') and magnitude != 0:
+                        if isinstance(n.units, (config.ureg.Unit, config.ureg.Quantity)):
+                            n.units = (n.units / 10**magnitude).to_compact()
+
+                return xf
+
             xf = []
             for n in config.tqdm(x, desc='Xforming',
                                  disable=config.pbar_hide,
@@ -1054,32 +1144,49 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         raise TypeError(f'Unable to transform data of type "{type(x)}"')
 
     if isinstance(x, core.BaseNeuron):
-        x = x.copy()
-        if isinstance(x, core.TreeNeuron):
-            x.nodes = xform_brain(x.nodes,
-                                  source=source,
-                                  target=target,
-                                  fallback=fallback,
-                                  verbose=verbose,
-                                  **kwargs)
-        elif isinstance(x, core.MeshNeuron):
-            x.vertices = xform_brain(x.vertices,
-                                     source=source,
-                                     target=target,
-                                     fallback=fallback,
-                                     verbose=verbose,
-                                     **kwargs)
+        xf = x.copy()
+        # We will collate spatial data to reduce overhead from calling
+        # R's xform_brain
+        if isinstance(xf, core.TreeNeuron):
+            xyz = xf.nodes[['x', 'y', 'z']].values
+        elif isinstance(xf, core.MeshNeuron):
+            xyz = xf.vertices
         else:
-            raise TypeError(f"Don't know how to transform neuron of type '{type(x)}'")
+            raise TypeError(f"Don't know how to transform neuron of type '{type(xf)}'")
 
-        if x.has_connectors:
-            x.connectors = xform_brain(x.connectors,
-                                       source=source,
-                                       target=target,
-                                       fallback=fallback,
-                                       verbose=verbose,
-                                       **kwargs)
-        return x
+        # Add connectors
+        if xf.has_connnectors:
+            xyz = np.vstack([xyz, xf.connectors[['x', 'y', 'z']].values])
+
+        # Do the xform of all spatial data
+        xyz_xf = xform_brain(xyz,
+                             source=source,
+                             target=target,
+                             fallback=fallback,
+                             verbose=verbose,
+                             **kwargs)
+
+        # Guess change in spatial units
+        change, magnitude = _guess_change(xyz, xyz_xf)
+
+        # Map xformed coordinates back
+        if isinstance(xf, core.TreeNeuron):
+            xf.nodes.loc[:, ['x', 'y', 'z']] = xyz_xf[:xf.n_nodes]
+            # Fix radius based on our best estimate
+            if 'radius' in xf.nodes.columns:
+                xf.nodes['radius'] *= 10**magnitude
+        elif isinstance(xf, core.MeshNeuron):
+            xf.vertices = xyz_xf[:xf.vertices.shape[0]]
+
+        if xf.has_connectors:
+            xf.connectors.loc[:, ['x', 'y', 'z']] = xyz_xf[-xf.connectors.shape[0]:]
+
+        # Make an educated guess as to whether the units have changed
+        if hasattr(xf, 'units') and magnitude != 0:
+            if isinstance(xf.units, (config.ureg.Unit, config.ureg.Quantity)):
+                xf.units = (xf.units / 10**magnitude).to_compact()
+
+        return xf
     elif isinstance(x, pd.DataFrame):
         if any([c not in x.columns for c in ['x', 'y', 'z']]):
             raise ValueError('DataFrame must have x, y and z columns.')
@@ -1124,6 +1231,37 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                         **kwargs)
 
     return np.array(xf)
+
+
+def _guess_change(xyz_before, xyz_after, sample=.1):
+    """Guess change in units during xforming."""
+    if isinstance(xyz_before, pd.DataFrame):
+        xyz_before = xyz_before[['x', 'y', 'z']].values
+    if isinstance(xyz_after, pd.DataFrame):
+        xyz_after = xyz_after[['x', 'y', 'z']].values
+
+    # Select the same random sample of points in both spaces
+    if sample <= 1:
+        sample = int(xyz_before.shape[0] * sample)
+    rnd_ix = np.random.choice(xyz_before.shape[0], sample, replace=False)
+    sample_bef = xyz_before[rnd_ix, :]
+    sample_aft = xyz_after[rnd_ix, :]
+
+    # Get pairwise distance between those points
+    dist_pre = pdist(sample_bef)
+    dist_post = pdist(sample_aft)
+
+    # Calculate how the distance between nodes changed and get the average
+    # Note we are ignoring nans - happens e.g. when points did not transform.
+    with np.errstate(divide='ignore', invalid='ignore'):
+        change = dist_post / dist_pre
+    # Drop infinite values in rare cases where nodes end up on top of another
+    mean_change = np.nanmean(change[change < np.inf])
+
+    # Find the order of magnitude
+    magnitude = round(math.log10(mean_change))
+
+    return mean_change, magnitude
 
 
 def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
@@ -1201,7 +1339,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                        **kwargs))
             return core.NeuronList(xf)
 
-    if not isinstance(x, (core.TreeNeuron, np.ndarray, pd.DataFrame)):
+    if not isinstance(x, (core.BaseNeuron, np.ndarray, pd.DataFrame)):
         raise TypeError(f'Unable to transform data of type "{type(x)}"')
 
     if isinstance(x, core.BaseNeuron):
