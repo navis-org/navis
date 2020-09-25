@@ -20,6 +20,7 @@ Notes
 See https://github.com/jefferis
 
 """
+import math
 import os
 import sys
 import time
@@ -28,6 +29,7 @@ from datetime import datetime
 from colorsys import hsv_to_rgb
 from typing import Union, Optional, List
 from typing_extensions import Literal
+from scipy.spatial.distance import pdist
 
 import pandas as pd
 import numpy as np
@@ -529,25 +531,26 @@ def dotprops2py(dp,
     return core.Dotprops(df)
 
 
-def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_cores defau
-                    micron_conversion: float = False,
+def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_cores defaults
                     normalize: bool = True,
-                    resample: int = 1,
+                    resample: int = None,
                     n_cores: int = os.cpu_count() - 2,
                     use_alpha: bool = False) -> 'pyclust.ClustResults':
     """Wrapper to use R's ``nat:nblast_allbyall``
     (https://github.com/jefferislab/nat.nblast/).
 
+    NBLAST is optimized for data in microns.
+
     Parameters
     ----------
     x :                 NeuronList | nat.neurons
-                        (Tree)Neurons to blast.
-    micron_conversion : int | float
-                        Conversion factor to microns. Units in microns is
-                        not strictly necessary but highly recommended.
+                        (Tree)Neurons to blast. While not strictly necessary,
+                        data should be in microns.
     resample :          int | bool, optional
-                        Resampling factor. This makes sure that the neurons
-                        are evenly sampled. Applied after micron conversion!
+                        Resampling during dotprops generation. A good value
+                        is ``1`` which means if data is in microns (which it
+                        should!) it will be resampled to 1 tangent vector per
+                        micron.
     normalize :         bool, optional
                         If True, matrix is normalized using z-score.
     n_cores :           int, optional
@@ -588,13 +591,20 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
     elif isinstance(x, core.NeuronList):
         if x.shape[0] < 2:
             raise ValueError('You have to provide more than a single neuron.')
-        rn = neuron2r(x, unit_conversion=micron_conversion)
+        # Check if query or targets are not in microns
+        # Note this test can return `None` if it can't be determined
+        if _check_microns(x) == False:
+            logger.warning('NBLAST is optimized for data in microns and it looks '
+                           'like these neurons are not in microns.')
+        rn = neuron2r(x)
     elif isinstance(x, core.TreeNeuron):
         raise ValueError('You have to provide more than a single neuron.')
     else:
         raise ValueError(f'Must provide NeuronList, not "{type(x)}"')
 
     # Make dotprops and resample
+    if isinstance(resample, type(None)) or not resample:
+        resample = robjects.r('NA')
     xdp = nat.dotprops(rn, k=5, resample=resample)
 
     # Calculate scores
@@ -615,70 +625,53 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
         return pyclust.ClustResults(matrix, mat_type='similarity')
 
 
-def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores default
-           db: Optional[str] = None,
-           resample: int = 1,
-           xform: Optional[str] = None,
-           mirror: Optional[str] = None,
+def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],  # type: ignore  # doesn't like n_cores default
+           target: Optional[str] = None,
+           resample: Optional[int] = None,
+           mean_scores: bool = False,
            n_cores: int = os.cpu_count(),
-           reverse: bool = False,
            normalised: bool = True,
-           UseAlpha: bool = False) -> 'NBLASTresults':
-    """Run R's nblast (https://github.com/jefferis/nat).
+           use_alpha: bool = False) -> 'NBLASTresults':
+    """Run R's NBLAST (https://github.com/jefferis/nat).
 
+    Please note that NBLAST is optimized for units in microns.
 
     Parameters
     ----------
-    x :             TreeNeuron | nat.neuron
-                    Neurons to nblast. This can be either.
-    db :            database, optional
-                    File containing dotproducts to blast against. This can be
+    query :         TreeNeuron | NeuronList | Dotprops | nat.neuron
+                    Query neuron(s) to NBLAST against the targets.
+    target :        TreeNeuron | NeuronList | Dotprops | nat.neuron | str
+                    Neuron(s) to run the query against. If a str, must be
                     either:
 
-                    1. the name of a file in ``'flycircuit.datadir'``,
-                    2. a path (e.g. ``'.../gmrdps.rds'``),
-                    3. an R file object (e.g. ``robjects.r("load('.../gmrdps.rds')")``)
-                    4. a URL to load the list from (e.g. ``'http://.../gmrdps.rds'``)
+                        1. the name of a file in ``'flycircuit.datadir'``
+                        2. a path (e.g. ``'.../gmrdps.rds'``)
+                        3. an R file object (e.g. ``robjects.r("load('.../gmrdps.rds')")``)
+                        4. a URL to load the list from (e.g. ``'http://.../gmrdps.rds'``)
+                        5. "flycircuit"
 
-                    If not provided, will search for a 'dpscanon.rds' file in
-                    'flycircuit.datadir'.
-    resample :      int, optional
-                    Resample to given resolution. For nblasts against light
-                    level databases, 1 micron is recommended. Note that this
-                    is done AFTER any xform-ing.
-    xform :         str, optional
-                    If provided, will convert neuron before nblasting. Must
-                    be string defining source and target brain space. For
-                    example::
-
-                        'FAFB14->JFRC2' converts from FAFB to JFRC2 space
-                        'JRC2018F->JRC2013' converts from JRC2018F to JRC2013 space
-
-    mirror :        str, optional
-                    If reference space (e.g. "FAFB14" or "JFRC2") is provided
-                    the neuron will be mirrored before nblasting. This is
-                    relevant for some database as e.g. FlyCircuit neurons are
-                    always on the fly's right.
+    resample :      int | bool, optional
+                    Resampling during dotprops generation. A good value
+                    is ``1`` which means if data is in microns (which it
+                    should!) it will be resampled to 1 tangent vector per
+                    micron.
+    mean_scores :   bool
+                    If True, will run query->target NBLAST followed by a
+                    target->query NBLAST and return the mean scores.
     n_cores :       int, optional
                     Number of cores to use for nblasting. Default is
                     ``os.cpu_count()``.
-    reverse :       bool, optional
-                    If True, treats the neuron as NBLAST target rather than
-                    neurons of database. Makes sense for partial
-                    reconstructions.
-    UseAlpha :      bool, optional
-                    Emphasises neurons' straight parts (backbone) over parts
+    use_alpha :     bool, optional
+                    Emphasizes neurons' straight parts (backbone) over parts
                     that have lots of branches.
     normalised :    bool, optional
                     Whether to return normalised NBLAST scores.
 
     Returns
     -------
-    nblast_results
-        Instance of :class:`navis.rmaid.NBLASTresults` that holds nblast
-        results and contains wrappers to plot/extract data. Please use
-        help(NBLASTresults) to learn more and see example below.
-
+    scores :        pandas.DataFrame
+                    Matrix with NBLAST scores. Rows are query neurons, columns
+                    are targets.
 
     Examples
     --------
@@ -686,9 +679,12 @@ def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores de
 
     >>> import navis
     >>> from navis.interfaces import r
-    >>> n = navis.example_neurons(1)
-    >>> # Example neurons are in FAFB space -> we need to convert and mirror
-    >>> # (this also takes care of conversion to microns)
+    >>> nl = navis.example_neurons(n=5)
+    >>> nl.units
+    array([8, 8, 8, 8, 8]) <Unit('nanometer')>
+    >>> # Convert to microns
+    >>> nl_um =
+
     >>> nbl = r.nblast(n, xform='FAFB14->FCWB', mirror='FCWB')
     >>> # Plot top 5 results
     >>> nbl.plot3d(hits=5)
@@ -702,144 +698,126 @@ def nblast(neuron: 'core.TreeNeuron',  # type: ignore  # doesn't like n_cores de
     doParallel = importr('doParallel')
     doParallel.registerDoParallel(cores=n_cores)
 
-    try:
-        flycircuit = importr('flycircuit')
-        datadir = robjects.r('getOption("flycircuit.datadir")')[0]
-    except BaseException:
-        logger.error('R Flycircuit not found.')
+    # Check if query or targets are not in microns
+    # Note this test can return `None` if it can't be determined
+    if _check_microns(query) == False:
+        logger.warning('NBLAST is optimized for data in microns and it looks '
+                       'like your queries are not in microns.')
+    if _check_microns(target) == False:
+        logger.warning('NBLAST is optimized for data in microns and it looks '
+                       'like your targets are not in microns.')
 
-    if db is None:
+    # Turn query into dotprops
+    try:
+        query_dps = _make_dotprops(query)
+    except NotImplementedError:
+        raise NotImplementedError('Unable to produce R dotprops for query of '
+                                  f'type {type(query)}')
+
+    # Turn target into dotprops
+    try:
+        target_dps = _make_dotprops(target)
+    except NotImplementedError:
+        raise NotImplementedError('Unable to produce R dotprops for target of '
+                                  f'type {type(target)}')
+
+    if 'neuronlist' not in cl(query_dps):
+        target_dps = nat.neuronlist(query_dps)
+
+    if 'neuronlist' not in cl(target_dps):
+        target_dps = nat.neuronlist(target_dps)
+
+    logger.info('Blasting neuron(s)...')
+    sc = r_nblast.nblast(query_dps, target_dps,
+                         **{'normalised': normalised,
+                            '.parallel': True,
+                            'UseAlpha': use_alpha})
+
+    res = data2py(sc).T
+
+    if mean_scores:
+        scr = r_nblast.nblast(target_dps, query_dps,
+                              **{'normalised': normalised,
+                                 '.parallel': True,
+                                 'UseAlpha': use_alpha})
+
+        res = (res + data2py(scr)) / 2
+
+    return res
+
+
+def _check_microns(x, warn=True):
+    """Check if neuron data is in microns.
+
+    Returns either [True, None (=unclear), False]
+    """
+    if isinstance(x, core.NeuronList):
+        check = np.array([_check_microns(n) for n in x])
+        if all(check):
+            return True
+        elif any(check == False):
+            return False
+        return None
+
+    if isinstance(x, core.TreeNeuron):
+        u = getattr(x, 'units', None)
+        if isinstance(u, (config.ureg.Quantity, config.ureg.Unit)):
+            if not u.unitless:
+                return u.to_compact().units == config.ureg.Unit('um')
+
+    return None
+
+
+def _make_dotprops(x, resample=None):
+    """Try to make dotprops from input data."""
+    if isinstance(resample, type(None)) or not resample:
+        resample = robjects.r('NA')
+
+    # If x is string it might be a flycircuit data type
+    if isinstance(x, str) or x is None:
+        try:
+            flycircuit = importr('flycircuit')
+            datadir = robjects.r('getOption("flycircuit.datadir")')[0]
+        except BaseException:
+            logger.error('R Flycircuit not found.')
+
+    # Fallback are the flycircuit dotprops
+    if x is None:
         if not os.path.isfile(datadir + '/dpscanon.rds'):
             raise ValueError('Unable to find default DPS database dpscanon.rds '
                              'in flycircuit.datadir. Please provide database '
-                             'using db parameter.')
+                             'using target parameter.')
         logger.info('DPS database not explicitly provided. Loading local '
                     'FlyCircuit DB from dpscanon.rds')
-        dps = robjects.r(f'read.neuronlistfh("{datadir}/dpscanon.rds")')
-    elif isinstance(db, str):
-        if db.startswith('http') or '/' in db:
-            dps = robjects.r(f'read.neuronlistfh("{db}")')
+        target_dps = robjects.r(f'read.neuronlistfh("{datadir}/dpscanon.rds")')
+
+    # If string, try to load the R object
+    if isinstance(x, str):
+        if x.startswith('http') or '/' in x:
+            x = robjects.r(f'read.neuronlistfh("{x}")')
         else:
-            dps = robjects.r(f'read.neuronlistfh("{datadir}/{db}")')
-    elif 'rpy2' in str(type(db)):
-        dps = db
+            x = robjects.r(f'read.neuronlistfh("{datadir}/{x}")')
+
+    # If navis neuron convert to R neuron/list
+    if isinstance(x, (core.TreeNeuron, core.NeuronList)):
+        x = neuron2r(x)
+
+    # At this point we are expecting an R object
+    if 'rpy2' not in str(type(x)):
+        raise NotImplementedError(f'Unable to convert target of type {type(x)} into '
+                                  'R dotprops.')
+
+    # Make sure we have dotprops
+    if 'dotprops' in cl(x):
+        dps = x
     else:
-        raise ValueError('Unable to process the DPS database you have provided. '
-                         'See help(rmaid.nblast) for details.')
+        dps = nat.dotprops(x, resample=resample, k=5)
 
-    if 'rpy2' in str(type(neuron)):
-        rn = neuron
-    elif isinstance(neuron, core.NeuronList):
-        if len(neuron) > 1:
-            logger.warning('You provided more than a single neuron. Blasting '
-                           f'only against the first: {neuron[0].neuron_name}')
-        rn = neuron2r(neuron[0])
-    elif isinstance(neuron, pd.Series) or isinstance(neuron, core.TreeNeuron):
-        rn = neuron2r(neuron)
-    else:
-        raise TypeError(f'Expected navis or R neuron, got {type(neuron)}')
-
-    # Xform neuron if necessary
-    if xform:
-        source, target = xform.split('->')
-        sample = robjects.r(source)
-        reference = robjects.r(target)
-        rn = nat_templatebrains.xform_brain(nat.neuronlist(rn),
-                                            sample=sample,
-                                            reference=reference)
-        # Make sure reference checks out if we are going to mirror
-        if mirror:
-            mirror = target
-
-    # Mirror neuron
-    if mirror:
-        if not isinstance(mirror, str):
-            raise ValueError('"mirror" must be string describing reference, '
-                             f'object but got {type(mirror)}')
-        reference = robjects.r(mirror)
-        rn = nat_templatebrains.mirror_brain(rn, reference)
-
-    # Save template brain for later
-    tb = nat_templatebrains.regtemplate(rn)
-
-    # Get neuron object out of the neuronlist
-    rn = rn.rx2(1)
-
-    # Reassign template brain
-    rn.slots['regtemplate'] = tb
-
-    # The following step are from nat.dotprops_neuron()
-    # xdp = nat.dotprops( nat.xyzmatrix(rn) )
-    xdp = nat.dotprops(rn, resample=resample, k=5)
-
-    # number of reverse scores to calculate (max 100)
-    nrev = min(100, len(dps))
-
-    logger.info('Blasting neuron...')
-    if reverse:
-        sc = r_nblast.nblast(dps, nat.neuronlist(xdp),
-                             **{'normalised': normalised,
-                                '.parallel': True,
-                                'UseAlpha': UseAlpha})
-
-        # Have to convert to dataframe to sort them -> using
-        # 'robjects.r("sort")' looses the names for some reason
-        sc_df = pd.DataFrame([[sc.names[0][i], sc[i]] for i in range(len(sc))],
-                             columns=['name', 'score'])
-        sc_df.sort_values('score', ascending=False, inplace=True)
-
-        # Use ".rx()" like "[]" and "rx2()" like "[[]]" to extract subsets of R
-        # objects
-        scr = r_nblast.nblast(nat.neuronlist(xdp),
-                              dps.rx(robjects.StrVector(sc_df.name.tolist()[:nrev])),
-                              **{'normalised': normalised,
-                                 '.parallel': True,
-                                 'UseAlpha': UseAlpha})
-    else:
-        sc = r_nblast.nblast(nat.neuronlist(xdp), dps,
-                             **{'normalised': normalised,
-                                '.parallel': True,
-                                'UseAlpha': UseAlpha})
-
-        # Have to convert to dataframe to sort them -> using
-        # 'robjects.r("sort")' looses the names for some reason
-        sc_df = pd.DataFrame([[sc.names[0][i], sc[i]] for i in range(len(sc))],
-                             columns=['name', 'score'])
-        sc_df.sort_values('score', ascending=False, inplace=True)
-
-        # Use ".rx()" like "[]" and "rx2()" like "[[]]" to extract subsets of R
-        # objects
-        scr = r_nblast.nblast(dps.rx(robjects.StrVector(sc_df.name.tolist()[:nrev])),
-                              nat.neuronlist(xdp),
-                              **{'normalised': normalised,
-                                 '.parallel': True,
-                                 'UseAlpha': UseAlpha})
-
-    sc_df.set_index('name', inplace=True, drop=True)
-
-    df = pd.DataFrame([[scr.names[i], sc_df.loc[scr.names[i]].score, scr[i], (sc_df.loc[scr.names[i]].score + scr[i]) / 2]
-                       for i in range(len(scr))],
-                      columns=['gene_name', 'forward_score',
-                               'reverse_score', 'mu_score']
-                      )
-
-    logger.info(f'Blasting done in {time.time() - start_time:.1f} seconds')
-
-    return NBLASTresults(results=df,
-                         sc=sc,
-                         scr=scr,
-                         neuron=rn,
-                         xdp=xdp,
-                         dps_db=dps,
-                         nblast_param={'mirror': mirror,
-                                       'reference': reference,
-                                       'UseAlpha': UseAlpha,
-                                       'normalised': normalised,
-                                       'reverse': reverse})
+    return dps
 
 
 class NBLASTresults:
-    """Class holding nblast results and wrappers that allow easy plotting.
+    """Class holding NBLAST results and wrappers that allow easy plotting.
 
     Attributes
     ----------
@@ -849,14 +827,12 @@ class NBLASTresults:
                 Contains original RNblast forward scores.
     scr :       Robject
                 Original R Nblast reverse scores (Top N only).
-    neuron :    R ``catmaidneuron``
-                The neuron that was nblasted transformed into reference space.
-    xdp :       robject
-                Dotproduct of the transformed neuron.
+    query :     R object
+                The original query neurons.
     param :     dict
                 Contains parameters used for nblasting.
-    db :        file robject
-                Dotproduct database as R object "neuronlistfh".
+    target :    R robject
+                The original target neurons.
     date :      datetime object
                 Time of nblasting.
 
@@ -878,14 +854,13 @@ class NBLASTresults:
 
     """
 
-    def __init__(self, results, sc, scr, neuron, xdp, dps_db, nblast_param):
+    def __init__(self, results, sc, scr, query, target, nblast_param):
         """ Init function."""
         self.results = results  # this is pandas Dataframe holding top N results
         self.sc = sc  # original Nblast forward scores
         self.scr = scr  # original Nblast reverse scores (Top N only)
-        self.neuron = neuron  # the transformed neuron that was nblasted
-        self.xdp = xdp  # dotproduct of the transformed neuron
-        self.db = dps_db  # dotproduct database as R object "neuronlistfh"
+        self.query = query  # the original query neuron(s)
+        self.target = target  # the original target neurons
         self.param = nblast_param  # parameters used for nblasting
         self.date = datetime.now()  # time of nblasting
 
@@ -1138,7 +1113,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                       fallback=fallback,
                                       verbose=verbose,
                                       **kwargs))
-            return core.NeuronList(xf)
+            return x.__class__(xf)
 
     if not isinstance(x, (core.BaseNeuron, np.ndarray, pd.DataFrame, core.Volume)):
         raise TypeError(f'Unable to transform data of type "{type(x)}"')
@@ -1499,7 +1474,7 @@ def get_neuropil(x: str, template: str = 'FCWB') -> core.Volume:
 def load_rda(fp: str, convert: bool = True):
     """Load and convert R data file (.rda).
 
-    This function should be able to deal with the common data types used in the 
+    This function should be able to deal with the common data types used in the
     natverse.
 
     Parameters
