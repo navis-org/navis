@@ -1017,8 +1017,9 @@ def reroot_neuron(x: 'core.NeuronObject',
     ----------
     x :        TreeNeuron | NeuronList
                List must contain only a SINGLE neuron.
-    new_root : int | str
-               Node ID or tag of the node to reroot to.
+    new_root : int | str | iterable
+               Node ID(s) or tag(s) of node(s) to reroot to. If multiple
+               new IDs are provided, they will be reroot in sequence.
     inplace :  bool, optional
                If True the input neuron will be rerooted.
 
@@ -1041,21 +1042,6 @@ def reroot_neuron(x: 'core.NeuronObject',
     >>> n2 = navis.reroot_neuron(n, n.soma)
 
     """
-    # If root is list of new roots (e.g. if neuron consists of disconnected
-    # skeletons)
-    if utils.is_iterable(new_root):
-        if not inplace:
-            x = x.copy()
-        for r in new_root:  # type: ignore
-            reroot_neuron(x, new_root=r, inplace=True)
-
-        if not inplace:
-            return x
-        return
-
-    if new_root is None:
-        raise ValueError('New root can not be <None>')
-
     if isinstance(x, core.NeuronList):
         if x.shape[0] == 1:
             x = x.loc[0]
@@ -1064,134 +1050,146 @@ def reroot_neuron(x: 'core.NeuronObject',
     elif not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
-    # If new root is a tag, rather than a ID, try finding that node
-    if isinstance(new_root, str):
-        if new_root not in x.tags:
-            raise ValueError(f'#{x.id}: Found no nodes with tag {new_root}'
-                             ' - please double check!')
+    # Make new root an iterable
+    new_roots = utils.make_iterable(new_root)
 
-        elif len(x.tags[new_root]) > 1:
-            raise ValueError(f'#{x.id}: Found multiple node with tag '
-                             f'{new_root} - please double check!')
-        else:
-            new_root = x.tags[new_root][0]
+    # Parse new roots
+    for i, root in enumerate(new_roots):
+        if root is None:
+            raise ValueError('New root can not be <None>')
+
+        # If new root is a tag, rather than a ID, try finding that node
+        if isinstance(root, str):
+            if root not in x.tags:
+                raise ValueError(f'#{x.id}: Found no nodes with tag {root}'
+                                 ' - please double check!')
+
+            elif len(x.tags[root]) > 1:
+                raise ValueError(f'#{x.id}: Found multiple node with tag '
+                                 f'{root} - please double check!')
+            else:
+                new_roots[i] = x.tags[root][0]
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
-    # At this point new_root is int
-    new_root: int
+    # At this point new_roots is list of int
+    new_roots: Iterable[int]
 
     if not inplace:
         # Make a copy
         x = x.copy()
         # Run this in a separate function so that the lock is applied to copy
-        reroot_neuron(x, new_root=r, inplace=True)
+        reroot_neuron(x, new_root=new_roots, inplace=True)
         return x
 
-    # Skip if new root is old root
-    if any(x.root == new_root):
-        if not inplace:
-            return x
-        return None
+    # Go over each new root
+    for new_root in new_roots:
+        # Skip if new root is old root
+        if any(x.root == new_root):
+            continue
 
-    if x.igraph and config.use_igraph:
-        # Prevent warnings in the following code - querying paths between
-        # unreachable nodes will otherwise generate a runtime warning
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-
-            # Find paths to all roots
+        if x.igraph and config.use_igraph:
             # Grab graph once to avoid overhead from stale checks
             g = x.igraph
-            path = g.get_shortest_paths(g.vs.find(node_id=new_root),
-                                        [g.vs.find(node_id=r) for r in x.root])
-            epath = g.get_shortest_paths(g.vs.find(node_id=new_root),
-                                         [g.vs.find(node_id=r) for r in x.root],
-                                         output='epath')
 
-        # Extract paths that actually worked (i.e. within a continuous fragment)
-        path = [p for p in path if p][0]
-        epath = [p for p in epath if p][0]
+            # Prevent warnings in the following code - querying paths between
+            # unreachable nodes will otherwise generate a runtime warning
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
 
-        edges = [(s, t) for s, t in zip(path[:-1], path[1:])]
+                # Find paths to all roots
+                path = g.get_shortest_paths(g.vs.find(node_id=new_root),
+                                            [g.vs.find(node_id=r) for r in x.root])
+                epath = g.get_shortest_paths(g.vs.find(node_id=new_root),
+                                             [g.vs.find(node_id=r) for r in x.root],
+                                             output='epath')
 
-        weights = [x.igraph.es[e]['weight'] for e in epath]
+            # Extract paths that actually worked (i.e. within a continuous fragment)
+            path = [p for p in path if p][0]
+            epath = [p for p in epath if p][0]
 
-        # Get all weights and append inversed new weights
-        all_weights = x.igraph.es['weight'] + weights
+            edges = [(s, t) for s, t in zip(path[:-1], path[1:])]
 
-        # Add inverse edges: old_root->new_root
-        x.igraph.add_edges([(e[1], e[0]) for e in edges])
+            weights = [g.es[e]['weight'] for e in epath]
 
-        # Re-set weights
-        x.igraph.es['weight'] = all_weights
+            # Get all weights and append inversed new weights
+            all_weights = g.es['weight'] + weights
 
-        # Remove new_root->old_root
-        x.igraph.delete_edges(edges)
+            # Add inverse edges: old_root->new_root
+            g.add_edges([(e[1], e[0]) for e in edges])
 
-        # Get degree of old root for later categorisation
-        old_root_deg = len(x.igraph.es.select(_target=path[-1]))
+            # Re-set weights
+            g.es['weight'] = all_weights
 
-        # Translate path indices to node IDs
-        ix2id = {ix: n for ix, n in zip(x.igraph.vs.indices,
-                                        x.igraph.vs.get_attribute_values('node_id'))}
-        path = [ix2id[i] for i in path]
-    else:
-        # If this NetworkX graph is just an (immutable) view, turn it into a
-        # full, independent graph
-        if float(nx.__version__) < 2.2:
-            if isinstance(x.graph, nx.classes.graphviews.ReadOnlyGraph):
-                x.graph = nx.DiGraph(x.graph)
-        elif hasattr(x.graph, '_NODE_OK'):
-            x.graph = nx.DiGraph(x.graph)
-        elif nx.is_frozen(x.graph):
-            x.graph = nx.DiGraph(x.graph)
+            # Remove new_root->old_root
+            g.delete_edges(edges)
 
-        g = x.graph
+            # Get degree of old root for later categorisation
+            old_root_deg = len(g.es.select(_target=path[-1]))
 
-        # Walk from new root to old root and remove edges along the way
-        parent = next(g.successors(new_root), None)
-        if not parent:
-            # new_root is already the root
-            if not inplace:
-                return x
-            return None
-        path = [new_root]
-        weights = []
-        while parent is not None:
-            weights.append(g[path[-1]][parent]['weight'])
-            g.remove_edge(path[-1], parent)
-            path.append(parent)
-            parent = next(g.successors(parent), None)
+            # Translate path indices to node IDs
+            ix2id = {ix: n for ix, n in zip(g.vs.indices,
+                                            g.vs.get_attribute_values('node_id'))}
+            path = [ix2id[i] for i in path]
+        else:
+            # Grab graph once to avoid overhead from stale checks
+            g = x.graph
+            # If this NetworkX graph is just an (immutable) view, turn it into a
+            # full, independent graph
+            if float(nx.__version__) < 2.2:
+                if isinstance(g, nx.classes.graphviews.ReadOnlyGraph):
+                    x.graph = g = nx.DiGraph(g)
+            elif hasattr(g, '_NODE_OK'):
+                x.graph = g = nx.DiGraph(g)
+            elif nx.is_frozen(g):
+                x.graph = g = nx.DiGraph(g)
 
-        # Invert path and add weights
-        new_edges = [(path[i + 1], path[i],
-                      {'weight': weights[i]}) for i in range(len(path) - 1)]
+            # Walk from new root to old root and remove edges along the way
+            parent = next(g.successors(new_root), None)
+            if not parent:
+                # new_root is already the root
+                continue
 
-        # Add inverted path between old and new root
-        g.add_edges_from(new_edges)
+            path = [new_root]
+            weights = []
+            while parent is not None:
+                weights.append(g[path[-1]][parent]['weight'])
+                g.remove_edge(path[-1], parent)
+                path.append(parent)
+                parent = next(g.successors(parent), None)
 
-        # Get degree of old root for later categorisation
-        old_root_deg = g.in_degree(path[-1])
+            # Invert path and add weights
+            new_edges = [(path[i + 1], path[i],
+                          {'weight': weights[i]}) for i in range(len(path) - 1)]
 
-    # Propagate changes in graph back to node table
-    x.nodes.set_index('node_id', inplace=True)
-    # Assign new node type to old root
-    x.nodes.loc[path[1:], 'parent_id'] = path[:-1]
-    if old_root_deg == 1:
-        x.nodes.loc[path[-1], 'type'] = 'slab'
-    elif old_root_deg > 1:
-        x.nodes.loc[path[-1], 'type'] = 'branch'
-    else:
-        x.nodes.loc[path[-1], 'type'] = 'end'
-    # Make new root node type "root"
-    x.nodes.loc[path[0], 'type'] = 'root'
-    x.nodes.reset_index(drop=False, inplace=True)
+            # Add inverted path between old and new root
+            g.add_edges_from(new_edges)
 
-    # Set new root's parent to None
-    x.nodes.loc[x.nodes.node_id == new_root, 'parent_id'] = -1
+            # Get degree of old root for later categorisation
+            old_root_deg = g.in_degree(path[-1])
 
-    # Only reset non-graph related attributes
+        # Set index to node ID for later
+        x.nodes.set_index('node_id', inplace=True)
+
+        # Propagate changes in graph back to node table
+        # Assign new node type to old root
+        x.nodes.loc[path[1:], 'parent_id'] = path[:-1]
+        if old_root_deg == 1:
+            x.nodes.loc[path[-1], 'type'] = 'slab'
+        elif old_root_deg > 1:
+            x.nodes.loc[path[-1], 'type'] = 'branch'
+        else:
+            x.nodes.loc[path[-1], 'type'] = 'end'
+        # Make new root node type "root"
+        x.nodes.loc[path[0], 'type'] = 'root'
+
+        # Set new root's parent to None
+        x.nodes.loc[new_root, 'parent_id'] = -1
+
+        # Reset index
+        x.nodes.reset_index(drop=False, inplace=True)
+
+    # Finally: only reset non-graph related attributes
     if x.igraph and config.use_igraph:
         x._clear_temp_attr(exclude=['igraph', 'classify_nodes'])
     else:
