@@ -33,7 +33,7 @@ __all__ = sorted(['classify_nodes', 'cut_neuron', 'longest_neurite',
                   'dist_between', 'find_main_branchpoint',
                   'generate_list_of_childs', 'geodesic_matrix',
                   'subset_neuron', 'node_label_sorting',
-                  'segment_length'])
+                  'segment_length', 'rewire_neuron'])
 
 
 def _generate_segments(x: 'core.NeuronObject',
@@ -1818,3 +1818,83 @@ def connected_subgraph(x: 'core.TreeNeuron',
             new_roots.append(first_common)
 
     return np.array(list(include)), new_roots
+
+
+def rewire_neuron(x: 'core.TreeNeuron',
+                  g: nx.Graph,
+                  root: Optional[id] = None,
+                  inplace: bool = False) -> Optional['core.TreeNeuron']:
+    """Rewire neuron from graph.
+
+    This function takes a graph representation of a neuron and rewires its
+    node table accordingly. This is useful if we made changes to the graph
+    (i.e. adding or removing edges) and want the to propagate to the node
+    table.
+
+    Parameters
+    ----------
+    x :         TreeNeuron
+                Neuron to be rewired.
+    g :         networkx.Graph
+                Graph to use for rewiring. Please note that directionality (if
+                present) is note taken into account. Nodes not included in the
+                graph will be disconnected (i.e. won't have a parent).
+    root :      int
+                Node ID for the new root. If not given, will try to use the
+                current root.
+    inplace :   bool
+                If True, will rewire the neuron inplace. If False, will return
+                a rewired copy of the neuron.
+
+    Returns
+    -------
+    TreeNeuron
+                If ``inplace=False``.
+
+    Examples
+    --------
+    >>> n = navis.example_neurons(1)
+    >>> n.n_trees
+    1
+    >>> # Drop one edge from graph
+    >>> g = n.graph.copy()
+    >>> g.remove_edge(4219, 2117)
+    >>> # Rewire neuron
+    >>> n2 = ns.rewire_neuron(n, g, inplace=False)
+    >>> n2.n_trees
+    2
+
+    """
+    assert isinstance(x, core.TreeNeuron), f'Expected TreeNeuron, got {type(x)}'
+    assert isinstance(g, nx.Graph), f'Expected networkx graph, got {type(g)}'
+
+    if not inplace:
+        x = x.copy()
+
+    if g.is_directed():
+        g = g.to_undirected()
+
+    if not root:
+        root = x.root[0] if x.root[0] in g.nodes else next(iter(g.nodes))
+
+    # Generate tree for the main component
+    tree = nx.dfs_tree(g, source=root)
+
+    # Generate list of parents
+    lop = {e[1]: e[0] for e in tree.edges}
+
+    # If the graph has more than one connected component,
+    # the remaining components have arbitrary roots
+    if len(tree.edges) != len(g.edges):
+        for cc in nx.connected_components(g):
+            if root not in cc:
+                tree = nx.dfs_tree(g, source=cc.pop())
+                lop.update({e[1]: e[0] for e in tree.edges})
+
+    # Update parent IDs
+    x.nodes['parent_id'] = x.nodes.node_id.map(lambda x: lop.get(x, -1))
+
+    x._clear_temp_attr()
+
+    if not inplace:
+        return x

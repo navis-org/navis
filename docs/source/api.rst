@@ -240,7 +240,7 @@ Functions to analyse morphology.
 
 Distances
 ---------
-Functions to calculate eucledian and geodesic ("along-the-arbor") distances.
+Functions to calculate Euclidian and geodesic ("along-the-arbor") distances.
 
 .. autosummary::
     :toctree: generated/
@@ -279,7 +279,7 @@ Functions to convert neurons and networkx to iGraph or networkX graphs.
     navis.neuron2KDTree
     navis.network2nx
     navis.network2igraph
-
+    navis.rewire_neuron
 
 Adjacency matrices
 ------------------
