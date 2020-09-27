@@ -1244,12 +1244,14 @@ class TreeNeuron(BaseNeuron):
     @property
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
-        # Simply sum up edge weight of all graph edges
-        if self.igraph and config.use_igraph:
-            w = self.igraph.es.get_attribute_values('weight')  # type: ignore # doesn't know iGraph
-        else:
-            w = nx.get_edge_attributes(self.graph, 'weight').values()
-        return np.nansum(list(w))
+        if self.is_stale or not hasattr(self, '_cable_length'):
+            # Simply sum up edge weight of all graph edges
+            if self.igraph and config.use_igraph:
+                w = self.igraph.es.get_attribute_values('weight')  # type: ignore # doesn't know iGraph
+            else:
+                w = nx.get_edge_attributes(self.graph, 'weight').values()
+            self._cable_length = np.nansum(list(w))
+        return self._cable_length
 
     @property
     def volume(self) -> float:
