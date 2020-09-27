@@ -1580,20 +1580,22 @@ def subset_neuron(x: 'core.TreeNeuron',
         new_root = None  # type: ignore # new_root has already type from before
 
     # Filter nodes
-    x.nodes = x.nodes[x.nodes.node_id.isin(subset)]
+    # Note that we are setting the nodes directly (here and later) thereby
+    # circumventing (or rather postponing) checks and safeguards.
+    x._nodes = x.nodes[x.nodes.node_id.isin(subset)]
 
     # Make sure that there are root nodes
     # This is the fastest "pandorable" way: instead of overwriting the column,
     # concatenate a new column to this DataFrame
-    x.nodes = pd.concat([x.nodes.drop('parent_id', inplace=False, axis=1),  # type: ignore  # no stubs for concat
-                         x.nodes[['parent_id']].where(x.nodes.parent_id.isin(x.nodes.node_id.values),
-                                                      -1, inplace=False)],
-                        axis=1)
+    x._nodes = pd.concat([x.nodes.drop('parent_id', inplace=False, axis=1),  # type: ignore  # no stubs for concat
+                          x.nodes[['parent_id']].where(x.nodes.parent_id.isin(x.nodes.node_id.values),
+                                                       other=-1, inplace=False)],
+                         axis=1)
 
     # Filter connectors
     if not keep_disc_cn and x.has_connectors:
-        x.connectors = x.connectors[x.connectors.node_id.isin(subset)]
-        x.connectors.reset_index(inplace=True, drop=True)
+        x._connectors = x.connectors[x.connectors.node_id.isin(subset)]
+        x._connectors.reset_index(inplace=True, drop=True)
 
     if hasattr(x, 'tags'):
         # Filter tags
