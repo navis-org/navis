@@ -15,13 +15,14 @@
 """ This module contains functions to analyse and manipulate neuron morphology.
 """
 
-import itertools
-
 import pandas as pd
 import numpy as np
 import scipy.spatial.distance
 import networkx as nx
 
+from collections import namedtuple
+from itertools import combinations
+from scipy.spatial import cKDTree
 from typing import Union, Optional, Sequence, overload, List, Set
 from typing_extensions import Literal
 
@@ -1342,7 +1343,7 @@ def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
 def heal_fragmented_neuron(x: 'core.NeuronList',
                            min_size: int = 0,
                            method: Union[Literal['LEAFS'],
-                                         Literal['ALL']] = 'LEAFS',
+                                         Literal['ALL']] = 'ALL',
                            max_dist: Optional[float] = None,
                            inplace: bool = False) -> Optional[NeuronObject]:
     """Heal fragmented neuron(s).
@@ -1355,7 +1356,8 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     x :         TreeNeuron/List
                 Fragmented neuron(s).
     min_size :  int, optional
-                Minimum size in nodes for fragments to be reattached.
+                Minimum size in nodes for fragments to be reattached. Fragments
+                smaller than min_size will be discarded.
     method :    'LEAFS' | 'ALL', optional
                 Method used to heal fragments:
                         (1) 'LEAFS': Only leaf (including root) nodes will
@@ -1380,10 +1382,9 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     See Also
     --------
     :func:`navis.stitch_neurons`
-                Function used by ``heal_fragmented_neuron`` to stitch
-                fragments.
+                Use to stitch multiple neurons together.
     :func:`navis.break_fragments`
-                Use to break a fragmented neuron into disconnected pieces.
+                Use to produce individual neurons from disconnected fragments.
 
 
     Examples
@@ -1408,15 +1409,15 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     if isinstance(x, core.NeuronList):
         if not inplace:
             x = x.copy()
-        healed = [heal_fragmented_neuron(n,
-                                         min_size=min_size,
-                                         method=method,
-                                         max_dist=max_dist,
-                                         inplace=True)
-                  for n in config.tqdm(x,
-                                       desc='Healing',
-                                       disable=config.pbar_hide,
-                                       leave=config.pbar_leave)]
+        _ = [heal_fragmented_neuron(n,
+                                    min_size=min_size,
+                                    method=method,
+                                    max_dist=max_dist,
+                                    inplace=True)
+             for n in config.tqdm(x,
+                                  desc='Healing',
+                                  disable=config.pbar_hide,
+                                  leave=config.pbar_leave)]
         if not inplace:
             return x
         else:
@@ -1425,21 +1426,99 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected CatmaidNeuron/List, got "{type(x)}"')
 
-    # Only process if actually fragmented
-    if x.n_skeletons > 1:
-        frags = break_fragments(x)
-        healed = stitch_neurons(*[f for f in frags if f.n_nodes > min_size],
-                                max_dist=max_dist,
-                                method=method)
-        if not inplace:
-            return healed
-        else:
-            x.nodes = healed.nodes  # update nodes
-            x.tags = healed.tags  # update tags
-            x._clear_temp_attr()
-            return None
-    else:
-        if not inplace:
+    return _stitch_mst(x,
+                       method=method,
+                       max_dist=max_dist,
+                       inplace=inplace)
+
+
+def _stitch_mst(x: 'core.TreeNeuron',
+                method: Union[Literal['LEAFS'],
+                              Literal['ALL']] = 'ALL',
+                max_dist: Optional[float] = np.inf,
+                inplace: bool = False) -> Optional['core.TreeNeuron']:
+    """Stitch neuron using a minimum spanning tree.
+
+    Parameters
+    ----------
+    x :             TreeNeuron
+                    Neuron to stitch.
+    method :        "LEAFS" | "ALL"
+                    Whether to allow stitching using "ALL" nodes or just between
+                    "LEAFS".
+    max_dist :      int | float
+                    If given, will only connect fragments if they are within
+                    ``max_distance``. Use this to prevent the creation of
+                    unrealisitic edges.
+    inplace :       bool
+                    If True, will stitch the original neuron in place.
+
+    Return
+    ------
+    TreeNeuron
+                    Only if ``inplace=True``.
+
+    """
+    assert isinstance(x, core.TreeNeuron)
+    # Code modified from neuprint-python:
+    # https://github.com/connectome-neuprint/neuprint-python
+    if max_dist is True or not max_dist:
+        max_dist = np.inf
+
+    g = x.graph.to_undirected()
+
+    # Extract each fragment's rows and construct a KD-Tree
+    Fragment = namedtuple('Fragment', ['frag_id', 'df', 'kd'])
+    fragments = []
+    for frag_id, cc in enumerate(nx.connected_components(g)):
+        if len(cc) == len(g.nodes):
+            # There's only one component -- no healing necessary
             return x
-        else:
-            return None
+
+        df = x.nodes.query('node_id in @cc')
+
+        # Filter to leaf nodes if applicable
+        if method == 'LEAFS':
+            df = df[df['type'] == 'end']
+
+        kd = cKDTree(df[[*'xyz']].values)
+        fragments.append(Fragment(frag_id, df, kd))
+
+    # Sort from big-to-small, so the calculations below use a
+    # KD tree for the larger point set in every fragment pair.
+    fragments = sorted(fragments, key=lambda frag: -len(frag.df))
+
+    # We could use the full graph and connect all
+    # fragment pairs at their nearest neighbors,
+    # but it's faster to treat each fragment as a
+    # single node and run MST on that quotient graph,
+    # which is tiny.
+    frag_graph = nx.Graph()
+    for frag_a, frag_b in combinations(fragments, 2):
+        coords_b = frag_b.kd.data
+        distances, indexes = frag_a.kd.query(coords_b)
+
+        index_b = np.argmin(distances)
+        index_a = indexes[index_b]
+
+        node_a = frag_a.df['node_id'].iloc[index_a]
+        node_b = frag_b.df['node_id'].iloc[index_b]
+        dist_ab = distances[index_b]
+
+        # Add edge from one fragment to another,
+        # but keep track of which fine-grained skeleton
+        # nodes were used to calculate distance.
+        frag_graph.add_edge(frag_a.frag_id, frag_b.frag_id,
+                            node_a=node_a, node_b=node_b,
+                            distance=dist_ab)
+
+    # Compute inter-fragment MST edges
+    frag_edges = nx.minimum_spanning_edges(frag_graph, weight='distance', data=True)
+
+    # For each inter-fragment edge, add the corresponding
+    # fine-grained edge between skeleton nodes in the original graph.
+    to_add = [[e[2]['node_a'], e[2]['node_b']] for e in frag_edges if e[2]['distance'] <= max_dist]
+    g.add_edges_from(to_add)
+
+    # Rewire based on graph
+    return graph.rewire_neuron(x, g, inplace=inplace)
