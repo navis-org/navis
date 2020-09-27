@@ -240,8 +240,8 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
 def to_swc(x: 'core.NeuronObject',
            filename: Optional[str] = None,
            header: Optional[str] = None,
-           labels: bool = True,
-           export_synapses: bool = False) -> None:
+           labels: Union[str, dict, bool] = True,
+           export_connectors: bool = False) -> None:
     """Generate SWC file from neuron(s).
 
     Follows the format specified
@@ -289,8 +289,8 @@ def to_swc(x: 'core.NeuronObject',
         # At this point filename is iterable
         filename: Iterable[str]
         for n, f in zip(x, filename):
-            to_swc(n, f,
-                   export_synapses=export_synapses)
+            to_swc(n, filename=f, labels=labels, header=header,
+                   export_synapses=export_connectors)
         return
 
     if not isinstance(x, core.TreeNeuron):
@@ -310,6 +310,66 @@ def to_swc(x: 'core.NeuronObject',
     elif not filename.endswith('.swc'):
         filename += '.swc'
 
+    # Generate SWC table
+    swc = make_swc_table(x, labels=labels, export_connectors=export_connectors)
+
+    # Generate header if not provided
+    if not isinstance(header, str):
+        header = dedent(f"""\
+        # SWC format file
+        # based on specifications at http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html
+        # Created on {datetime.date.today()} using navis (https://github.com/schlegelp/navis)
+        # PointNo Label X Y Z Radius Parent
+        # Labels:
+        # 0 = undefined, 1 = soma, 5 = fork point, 6 = end point
+        """)
+        if export_connectors:
+            header += dedent("""\
+            # 7 = presynapses, 8 = postsynapses
+            """)
+
+    with open(filename, 'w') as file:
+        # Write header
+        file.write(header)
+
+        # Write data
+        writer = csv.writer(file, delimiter=' ')
+        writer.writerows(swc.astype(str).values)
+
+
+def make_swc_table(x: 'core.TreeNeuron',
+                   labels: Union[str, dict, bool] = None,
+                   export_connectors: bool = False,
+                   leave_original_id: bool = False) -> pd.DataFrame:
+    """Generate a node table compliant with the SWC format.
+
+    Follows the format specified
+    `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_.
+
+    Parameters
+    ----------
+    x :                 TreeNeuron
+    labels :            str | dict | bool, optional
+                        Node labels. Can be::
+
+                        str : column name in node table
+                        dict: must be of format {node_id: 'label', ...}.
+                        bool: if True, will generate automatic labels, if False all nodes have label "0".
+
+    export_connectors : bool, optional
+                        If True, will label nodes with pre- ("7") and
+                        postsynapse ("8"). Because only one label can be given
+                        this might drop synapses (i.e. in case of multiple
+                        pre- or postsynapses on a single node)! ``labels``
+                        must be ``True`` for this to have any effect.
+    leave_original_id : bool, optional
+                        If True, will keep the original node IDs as index.
+
+    Returns
+    -------
+    pandas.DataFrame
+
+    """
     # Make copy of nodes and reorder such that the parent comes always before
     # its child(s)
     nodes_ordered = [n for seg in x.segments for n in seg[::-1]]
@@ -341,7 +401,7 @@ def to_swc(x: 'core.NeuronObject',
         # Add soma label
         if x.soma:
             this_tn.loc[x.soma, 'label'] = 1
-        if export_synapses:
+        if export_connectors:
             # Add synapse label
             this_tn.loc[x.presynapses.node_id.values, 'label'] = 7
             this_tn.loc[x.postsynapses.node_id.values, 'label'] = 8
@@ -354,28 +414,11 @@ def to_swc(x: 'core.NeuronObject',
     # Adjust column titles
     swc.columns = ['PointNo', 'Label', 'X', 'Y', 'Z', 'Radius', 'Parent']
 
-    # Generate header if not provided
-    if not isinstance(header, str):
-        header = dedent(f"""\
-        # SWC format file
-        # based on specifications at http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html
-        # Created on {datetime.date.today()} using navis (https://github.com/schlegelp/navis)
-        # PointNo Label X Y Z Radius Parent
-        # Labels:
-        # 0 = undefined, 1 = soma, 5 = fork point, 6 = end point
-        """)
-        if export_synapses:
-            header += dedent("""\
-            # 7 = presynapses, 8 = postsynapses
-            """)
+    # Drop index
+    if not leave_original_id:
+        swc.reset_index(inplace=True, drop=True)
 
-    with open(filename, 'w') as file:
-        # Write header
-        file.write(header)
-
-        # Write data
-        writer = csv.writer(file, delimiter=' ')
-        writer.writerows(swc.astype(str).values)
+    return swc
 
 
 def to_float(x: Any) -> Optional[float]:
