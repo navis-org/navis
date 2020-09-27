@@ -1020,7 +1020,13 @@ class TreeNeuron(BaseNeuron):
     @property
     def is_stale(self) -> bool:
         """Test if temporary attributes (e.g. ``.graph``) might be outdated."""
-        return self._current_md5 != self.core_md5
+        # If we know we are stale, just return True
+        if getattr(self, '_stale', False):
+            return True
+        else:
+            # Only check if we believe we are not stale
+            self._stale = self._current_md5 != self.core_md5
+        return self._stale
 
     @property
     def core_md5(self) -> str:
@@ -1293,6 +1299,7 @@ class TreeNeuron(BaseNeuron):
         # Must set checksum before recalculating e.g. node types
         # -> otherwise we run into a recursive loop
         self._current_md5 = self.core_md5
+        self._stale = False
 
         for a in [at for at in self.TEMP_ATTR if at not in exclude]:
             try:
