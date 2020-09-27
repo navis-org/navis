@@ -370,7 +370,7 @@ class NeuronList:
         return self.__class__(subset, make_copy=self.copy_on_subset)
 
     def __missing__(self, key):
-        raise AttributeError('No neuron matching the search critera.')
+        raise AttributeError('No neuron matching the search criteria.')
 
     def __add__(self, to_add):
         """Implement addition."""
