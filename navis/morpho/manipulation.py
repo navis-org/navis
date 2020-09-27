@@ -528,12 +528,11 @@ def split_axon_dendrite(x: NeuronObject,
 def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                    method: Union[Literal['LEAFS'],
                                  Literal['ALL'],
-                                 Literal['NONE']] = 'LEAFS',
+                                 Literal['NONE'],
+                                 Sequence[int]] = 'ALL',
                    master: Union[Literal['SOMA'],
                                  Literal['LARGEST'],
                                  Literal['FIRST']] = 'SOMA',
-                   tn_to_stitch: Optional[Sequence[int]] = None,
-                   suggest_only: bool = False,
                    max_dist: Optional[float] = None,
                    ) -> 'core.TreeNeuron':
     """Stitch multiple neurons together.
@@ -551,7 +550,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     ----------
     x :                 NeuronList | list of TreeNeuron/List
                         Neurons to stitch (see examples).
-    method :            'LEAFS' | 'ALL' | 'NONE', optional
+    method :            'LEAFS' | 'ALL' | 'NONE' | list of node IDs
                         Set stitching method:
                             (1) 'LEAFS': Only leaf (including root) nodes will
                                 be allowed to make new edges.
@@ -559,26 +558,23 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                             (3) 'NONE': Node and connector tables will simply
                                 be combined without generating any new edges.
                                 The resulting neuron will have multiple roots.
+                            (4) List of node IDs that are allowed to be used.
+                                Note that if these nodes are insufficient
+                                the resulting neuron will not be fully
+                                connected.
+
     master :            'SOMA' | 'LARGEST' | 'FIRST', optional
                         Sets the master neuron:
                             (1) 'SOMA': The largest fragment with a soma
                                 becomes the master neuron. If no neuron with
                                 soma, will pick the largest (option 2).
-                            (2) 'LARGEST': The largest fragment becomes the
-                                master neuron.
+                            (2) 'LARGEST': The largest (by number of nodes)
+                                fragment becomes the master neuron.
                             (3) 'FIRST': The first fragment provided becomes
                                 the master neuron.
-    tn_to_stitch :      List of node IDs, optional
-                        If provided, these nodes will be preferentially
-                        used to stitch neurons together. Overrides methods
-                        ``'ALL'`` or ``'LEAFS'``.
-    suggest_only :      bool, optional
-                        If True, will only return list of edges to add instead
-                        of actually stitching the neuron.
     max_dist :          float,  optional
-                        Max distance at which to stitch nodes. Setting this can
-                        drastically speed up the process but can also lead to
-                        failed stitching.
+                        Max distance at which to stitch nodes. This can result
+                        in a neuron with multiple roots.
 
     Returns
     -------
@@ -598,11 +594,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     >>> stitched = navis.stitch_neurons(frag, method='LEAFS')
 
     """
-    method = str(method).upper()
     master = str(master).upper()
-
-    if method not in ['LEAFS', 'ALL', 'NONE']:
-        raise ValueError(f'Unknown method: "{method}"')
 
     if master not in ['SOMA', 'LARGEST', 'FIRST']:
         raise ValueError(f'Unknown master: "{master}"')
@@ -624,11 +616,11 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
             m = has_soma[0]
         else:
             m = sorted(nl.neurons,
-                       key=lambda x: list(nl.cable_length),
+                       key=lambda x: x.n_nodes,
                        reverse=True)[0]
     elif master == 'LARGEST':
         m = sorted(nl.neurons,
-                   key=lambda x: list(nl.cable_length),
+                   key=lambda x: x.n_nodes,
                    reverse=True)[0]
     else:
         # Simply pick the first neuron
@@ -636,8 +628,14 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     # Check if we need to make any node IDs unique
     if nl.nodes.duplicated(subset='node_id').sum() > 0:
+        # Master neuron will not be changed
         seen_tn: Set[int] = set(m.nodes.node_id)
-        for n in [n for n in nl if n != m]:
+        for n in nl:
+            # Skip the master neuron
+            if n != m:
+                continue
+
+            # Grab nodes
             this_tn = set(n.nodes.node_id)
 
             # Get duplicate node IDs
@@ -671,128 +669,27 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                 # Make sure the graph is updated
                 n._clear_temp_attr()
 
-    # If method is none, we can just merge the data tables
-    if method == 'NONE' or method is None:
-        m.nodes = pd.concat([n.nodes for n in nl],  # type: ignore  # no stubs for concat
-                            ignore_index=True)
-
-        if any(nl.has_connectors):
-            m.connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
-                                     ignore_index=True)
-
-        m.tags = {}  # type: ignore  # TreeNeuron has no tags
-        for n in nl:
-            for k, v in getattr(n, 'tags', {}):
-                m.tags[k] = m.tags.get(k, []) + list(utils.make_iterable(v))
-
-        # Reset temporary attributes of our final neuron
-        m._clear_temp_attr()
-
-        return m
-
-    # Fix potential problems with tn_to_stitch
-    if not isinstance(tn_to_stitch, type(None)):
-        if not isinstance(tn_to_stitch, (list, np.ndarray)):
-            tn_to_stitch = [tn_to_stitch]
-
-        # Make sure we're working with integers
-        tn_to_stitch = [int(tn) for tn in tn_to_stitch]
-
-    # Generate a list of potential new edges
-    # Collect relevant nodes
-    if not isinstance(tn_to_stitch, type(None)):
-        tn = nl.nodes.loc[nl.nodes.node_id.isin(tn_to_stitch)]
-    elif method == 'LEAFS':
-        tn = nl.nodes.loc[nl.nodes['type'].isin(['end', 'root'])]
-    else:
-        tn = nl.nodes
-
-    # Get pairwise distance between nodes
-    # cdist
-    d = scipy.spatial.distance.cdist(tn[['x', 'y', 'z']].values,
-                                     tn[['x', 'y', 'z']].values,
-                                     metric='euclidean')
-    d = pd.DataFrame(d, index=tn.node_id.values, columns=tn.node_id.values)
-
-    # Mask for the upper triangle
-    mask = np.triu(np.ones(d.shape)).astype(np.bool)
-
-    # Set lower triangle to NaN
-    d = d.where(mask)
-
-    # Stack
-    new_edges = d.stack().reset_index(drop=False)
-    new_edges.columns = ['source', 'target', 'weight']
-
-    # Kick stuff that's too far away
-    if max_dist:
-        new_edges = new_edges[new_edges.weight <= max_dist]
-
-    # Remove self edges
-    new_edges = new_edges[new_edges.source != new_edges.target]
-
-    # Remove edges that are within the same neuron
-    id2ix = tn.set_index('node_id').neuron
-    new_edges = new_edges[new_edges.source.map(id2ix) != new_edges.target.map(id2ix)]
-
-    # Extract edges that need to be added to connect fragments
-    if config.use_igraph and all([n.igraph for n in nl]):
-        to_add = _mst_igraph(nl, new_edges)
-    else:
-        to_add = _mst_nx(nl, new_edges)
-
-    if suggest_only:
-        return to_add
-
-    # Keep track of original master root
-    master_root = m.root[0]
-
-    # Generate one big neuron
-    m.nodes = nl.nodes
+    # We will start by simply merging all neurons into one
+    m._nodes = pd.concat([n.nodes for n in nl],  # type: ignore  # no stubs for concat
+                         ignore_index=True)
 
     if any(nl.has_connectors):
-        m.connectors = nl.connectors
+        m._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
+                                  ignore_index=True)
 
-        if 'neuron' in m.connectors.columns:
-            m.connectors.drop('neuron', axis=1, inplace=True)
+    m.tags = {}  # type: ignore  # TreeNeuron has no tags
+    for n in nl:
+        for k, v in getattr(n, 'tags', {}):
+            m.tags[k] = m.tags.get(k, []) + list(utils.make_iterable(v))
 
-    if any([hasattr(n, 'tags') for n in nl]):
-        m.tags = {}  # type: ignore  # TreeNeuron has no tags
-        for n in nl:
-            m.tags.update(getattr(n, 'tags', {}))
-
-    # Clear temporary attributes
+    # Reset temporary attributes of our final neuron
     m._clear_temp_attr()
 
-    for e in to_add:
-        # Reroot to one of the nodes in the edge
-        m.reroot(e[0], inplace=True)
+    # If this is all we meant to do, return this neuron
+    if not utils.is_iterable(method) and (method == 'NONE' or method is None):
+        return m
 
-        # Connect the nodes
-        m.nodes.loc[m.nodes.node_id == e[0], 'parent_id'] = e[1]
-
-        # Add edge to graphs
-        if config.use_igraph and m.igraph:
-            # Grab graph once to avoid overhead from stale checks
-            g = m.igraph
-            g.add_edge(g.vs.find(node_id=e[0]),
-                       g.vs.find(node_id=e[1]),
-                       **e[2])
-        # We only really need to update this graph if we need it for reroot
-        else:
-            m.graph.add_edge(e[0], e[1], **e[2])
-
-        # Add node tags
-        m.tags = getattr(m, 'tags', {})  # type: ignore  # TreeNeuron has no tags
-        m.tags['stitched'] = m.tags.get('stitched', []) + [e[0], e[1]]
-
-        # We don't need this because reroot is taking care of this already
-        # m._clear_temp_attr(exclude=['graph', 'igraph'])
-
-    # Reroot to original root
-    m.reroot(master_root, inplace=True)
-
-    return m
+    return _stitch_mst(m, nodes=method, inplace=False, max_dist=max_dist)
 
 
 def _mst_igraph(nl: 'core.NeuronList',
@@ -1427,29 +1324,30 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
         raise TypeError(f'Expected CatmaidNeuron/List, got "{type(x)}"')
 
     return _stitch_mst(x,
-                       method=method,
+                       nodes=method,
                        max_dist=max_dist,
                        inplace=inplace)
 
 
 def _stitch_mst(x: 'core.TreeNeuron',
-                method: Union[Literal['LEAFS'],
-                              Literal['ALL']] = 'ALL',
+                nodes:  Union[Literal['LEAFS'],
+                              Literal['ALL'],
+                              list] = 'ALL',
                 max_dist: Optional[float] = np.inf,
                 inplace: bool = False) -> Optional['core.TreeNeuron']:
-    """Stitch neuron using a minimum spanning tree.
+    """Stitch disconnected neuron using a minimum spanning tree.
 
     Parameters
     ----------
     x :             TreeNeuron
                     Neuron to stitch.
-    method :        "LEAFS" | "ALL"
-                    Whether to allow stitching using "ALL" nodes or just between
-                    "LEAFS".
+    nodes :         "ALL" | "LEAFS" | list of IDs
+                    Nodes that can be used to stitch the neuron. Can be "ALL"
+                    nodes, just "LEAFS" or a list of node IDs.
     max_dist :      int | float
                     If given, will only connect fragments if they are within
                     ``max_distance``. Use this to prevent the creation of
-                    unrealisitic edges.
+                    unrealistic edges.
     inplace :       bool
                     If True, will stitch the original neuron in place.
 
@@ -1478,11 +1376,14 @@ def _stitch_mst(x: 'core.TreeNeuron',
         df = x.nodes.query('node_id in @cc')
 
         # Filter to leaf nodes if applicable
-        if method == 'LEAFS':
-            df = df[df['type'] == 'end']
+        if isinstance(nodes, str) and nodes == 'LEAFS':
+            df = df[df['type'].isin(['end', 'root'])]
+        if utils.is_iterable(nodes):
+            df = df[df['node_id'].isin(nodes)]
 
-        kd = cKDTree(df[[*'xyz']].values)
-        fragments.append(Fragment(frag_id, df, kd))
+        if not df.empty:
+            kd = cKDTree(df[[*'xyz']].values)
+            fragments.append(Fragment(frag_id, df, kd))
 
     # Sort from big-to-small, so the calculations below use a
     # KD tree for the larger point set in every fragment pair.
