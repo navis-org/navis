@@ -1562,14 +1562,13 @@ def subset_neuron(x: 'core.TreeNeuron',
                       prevent_fragments=prevent_fragments)
         return x
 
-    if isinstance(subset, np.ndarray):
-        pass
-    elif isinstance(subset, (list, set)):
-        subset = np.array(subset)
-    elif isinstance(subset, (nx.DiGraph, nx.Graph)):
+    if isinstance(subset, (nx.DiGraph, nx.Graph)):
         subset = subset.nodes
     elif isinstance(subset, pd.DataFrame):
         subset = subset.node_id.values
+    elif utils.is_iterable(subset):
+        # This forces subset into numpy array (important for e.g. sets)
+        subset = utils.make_iterable(subset)
     else:
         raise TypeError('Can only subset to list, set, numpy.ndarray or'
                         f'networkx.Graph, not "{type(subset)}"')
