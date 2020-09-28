@@ -1238,10 +1238,11 @@ def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
 
 
 def heal_fragmented_neuron(x: 'core.NeuronList',
-                           min_size: int = 0,
                            method: Union[Literal['LEAFS'],
                                          Literal['ALL']] = 'ALL',
                            max_dist: Optional[float] = None,
+                           min_size: Optional[float] = None,
+                           drop_disc: float = False,
                            inplace: bool = False) -> Optional[NeuronObject]:
     """Heal fragmented neuron(s).
 
@@ -1252,9 +1253,6 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     ----------
     x :         TreeNeuron/List
                 Fragmented neuron(s).
-    min_size :  int, optional
-                Minimum size in nodes for fragments to be reattached. Fragments
-                smaller than min_size will be discarded.
     method :    'LEAFS' | 'ALL', optional
                 Method used to heal fragments:
                         (1) 'LEAFS': Only leaf (including root) nodes will
@@ -1262,18 +1260,26 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
                         (2) 'ALL': All nodes can be used to reconnect
                             fragments.
     max_dist :  float, optional
-                Max distance at which to merge fragments. Setting this to a
-                reasonable value can dramatically speed things up. If too low,
-                this can lead to failed healing.
+                This effectively sets the max length for newly added edges. Use
+                it to prevent far away fragments to be forcefully connected.
+    min_size :  int, optional
+                Minimum size in nodes for fragments to be reattached. Fragments
+                smaller than ``min_size`` will be ignored during stitching and
+                hence remain disconnected.
+    drop_disc : bool
+                If True and the neuron remains fragmented after healing (i.e.
+                ``max_dist`` or ``min_size`` prevented a full connect), we will
+                keep only the largest (by number of nodes) connected component
+                and discard all other fragments.
     inplace :   bool, optional
                 If False, will perform healing on and return a copy.
 
     Returns
     -------
     None
-                If ``inplace=True``
+                If ``inplace=True``.
     CatmaidNeuron/List
-                If ``inplace=False``
+                If ``inplace=False``.
 
 
     See Also
@@ -1323,10 +1329,25 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected CatmaidNeuron/List, got "{type(x)}"')
 
-    return _stitch_mst(x,
-                       nodes=method,
-                       max_dist=max_dist,
-                       inplace=inplace)
+    if not inplace:
+        x = x.copy()
+
+    _ = _stitch_mst(x,
+                    nodes=method,
+                    max_dist=max_dist,
+                    min_size=min_size,
+                    inplace=True)
+
+    # See if we need to drop remaining disconnected fragments
+    if drop_disc:
+        # Compute this property only once
+        trees = x.subtrees
+        if len(trees) > 1:
+            # Tree is sorted such that the largest component is the first
+            _ = graph.subset_neuron(x, subset=trees[0], inplace=True)
+
+    if not inplace:
+        return x
 
 
 def _stitch_mst(x: 'core.TreeNeuron',
@@ -1334,6 +1355,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
                               Literal['ALL'],
                               list] = 'ALL',
                 max_dist: Optional[float] = np.inf,
+                min_size: Optional[float] = None,
                 inplace: bool = False) -> Optional['core.TreeNeuron']:
     """Stitch disconnected neuron using a minimum spanning tree.
 
@@ -1348,6 +1370,10 @@ def _stitch_mst(x: 'core.TreeNeuron',
                     If given, will only connect fragments if they are within
                     ``max_distance``. Use this to prevent the creation of
                     unrealistic edges.
+    min_size :      int, optional
+                    Minimum size in nodes for fragments to be reattached.
+                    Fragments smaller than ``min_size`` will be ignored during
+                    stitching and hence remain disconnected.
     inplace :       bool
                     If True, will stitch the original neuron in place.
 
@@ -1372,6 +1398,11 @@ def _stitch_mst(x: 'core.TreeNeuron',
         if len(cc) == len(g.nodes):
             # There's only one component -- no healing necessary
             return x
+
+        # Skip if fragment is smaller than threshold
+        if not isinstance(min_size, type(None)):
+            if len(cc) < min_size:
+                continue
 
         df = x.nodes.query('node_id in @cc')
 
