@@ -768,7 +768,7 @@ def _check_microns(x, warn=True):
     return None
 
 
-def _make_dotprops(x, resample=None):
+def _make_dotprops(x, resample=None, parallel=False):
     """Try to make dotprops from input data."""
     if isinstance(resample, type(None)) or not resample:
         resample = robjects.r('NA')
@@ -789,7 +789,7 @@ def _make_dotprops(x, resample=None):
                              'using target parameter.')
         logger.info('DPS database not explicitly provided. Loading local '
                     'FlyCircuit DB from dpscanon.rds')
-        target_dps = robjects.r(f'read.neuronlistfh("{datadir}/dpscanon.rds")')
+        x = robjects.r(f'read.neuronlistfh("{datadir}/dpscanon.rds")')
 
     # If string, try to load the R object
     if isinstance(x, str):
@@ -811,7 +811,12 @@ def _make_dotprops(x, resample=None):
     if 'dotprops' in cl(x):
         dps = x
     else:
-        dps = nat.dotprops(x, resample=resample, k=5)
+        dotprops = robjects.r('dotprops')
+        if not parallel:
+            dps = dotprops(x, resample=resample, k=5)
+        else:
+            nlapply = robjects.r('nlapply')
+            dps = nlapply(x, dotprops, resample=resample, k=5, **{'.parallel': True})
 
     return dps
 
