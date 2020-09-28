@@ -1113,8 +1113,9 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def subtrees(self) -> List[List[int]]:
-        """List of subtrees as node IDs."""
-        return graph._connected_components(self)
+        """List of subtrees (sorted by size) as sets of node IDs."""
+        return sorted(graph._connected_components(self),
+                      key=lambda x: -len(x))
 
     @property
     def connectors(self) -> pd.DataFrame:
