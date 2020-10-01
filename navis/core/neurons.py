@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import copy
+import functools
 import hashlib
 import numbers
 import os
@@ -44,6 +45,20 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
+def temp_property(func):
+    """Check if neuron is stale. Clear cached temporary attributes if it is."""
+    @property
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        self = args[0]
+        # Do nothing if neurons is locked
+        if not self.is_locked:
+            if self.is_stale:
+                self._clear_temp_attr()
+        return func(*args, **kwargs)
+    return wrapper
+
+
 def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
            **metadata):
     """Constructor for Neuron objects. Depending on the input, either a
@@ -60,7 +75,7 @@ def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
     See Also
     --------
     :func:`navis.from_swc`
-                        Gives you more control over how data is extraced from
+                        Gives you more control over how data is extracted from
                         SWC file.
     :func:`navis.example_neurons`
                         Loads some example neurons provided.
@@ -370,6 +385,11 @@ class BaseNeuron:
         """Test if temporary attributes might be outdated."""
         # Always returns False for BaseNeurons
         return False
+
+    @property
+    def is_locked(self):
+        """Test if neuron is locked."""
+        return getattr(self, '_lock', 0) > 0
 
     @property
     def type(self) -> str:
@@ -757,8 +777,9 @@ class TreeNeuron(BaseNeuron):
                      'n_branches', 'n_leafs', 'cable_length', 'name']
 
     #: Temporary attributes that need to be regenerated when data changes.
-    TEMP_ATTR = ['_igraph', '_graph_nx', 'segments', 'small_segments',
-                 '_geodesic_matrix', 'dps', 'centrality_method', '_simple']
+    TEMP_ATTR = ['_igraph', '_graph_nx', '_segments', '_small_segments',
+                 '_geodesic_matrix', '_dps', 'centrality_method', '_simple',
+                 '_cable_length']
 
     #: Attributes used for neuron summary
     SUMMARY_PROPS = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
@@ -846,15 +867,6 @@ class TreeNeuron(BaseNeuron):
         # Note that we're mixing @property and __getattr__ which causes problems:
         # if a @property raises an Exception, Python falls back to __getattr__
         # and traceback is lost!
-        if key == 'segments':
-            self.segments = self._get_segments(how='length')
-            return self.segments
-        elif key == 'small_segments':
-            self.small_segments = self._get_segments(how='break')
-            return self.small_segments
-        elif key == 'dps':
-            self.dps = self.get_dps()
-            return self.dps
 
         # Last ditch effort - maybe the base class knows the key?
         return super().__getattr__(key)
@@ -966,50 +978,27 @@ class TreeNeuron(BaseNeuron):
         edges_co[:, 1, :] = locs.loc[edges[:, 1]].values
         return edges_co
 
-    @property
+    @temp_property
     def igraph(self) -> 'igraph.Graph':
         """iGraph representation of this neuron."""
-        # If this igraph does not exist, create and return
+        # If igraph does not exist, create and return
         if not hasattr(self, '_igraph'):
             # This also sets the attribute
             return self.get_igraph()
-        # If neuron is locked, return cached igraph
-        elif getattr(self, '_lock', 0) > 0:
-            return self._igraph
-        # If not locked, make sure data is not stale
-        elif self.is_stale:
-            # If stale, clear all temporary attributes...
-            self._clear_temp_attr()
-            # ... and regenerate igraph
-            _ = self.get_igraph()
-
         return self._igraph
 
-    @property
+    @temp_property
     def graph(self) -> nx.DiGraph:
         """Networkx Graph representation of this neuron."""
-        # If this igraph does not exist, create and return
+        # If graph does not exist, create and return
         if not hasattr(self, '_graph_nx'):
             # This also sets the attribute
             return self.get_graph_nx()
-        # If neuron is locked, return cached igraph
-        elif getattr(self, '_lock', 0) > 0:
-            return self._graph_nx
-        # If not locked, make sure cache is not stale
-        elif self.is_stale:
-            # If stale, clear all temporary attributes...
-            self._clear_temp_attr()
-            # ... and regenerate igraph
-            _ = self.get_graph_nx()
-
         return self._graph_nx
 
-    @property
+    @temp_property
     def geodesic_matrix(self):
         """Matrix with geodesic (along-the-arbor) distance between nodes."""
-        if self.is_stale and getattr(self, '_lock', 0) == 0:
-            self._clear_temp_attr()
-
         # If matrix has not yet been generated or needs update
         if not hasattr(self, '_geodesic_matrix'):
             # (Re-)generate matrix
@@ -1037,7 +1026,7 @@ class TreeNeuron(BaseNeuron):
         Returns
         -------
         md5 :   string
-                MD5 of node table. None if no node data.
+                MD5 of node table. ``None`` if no node data.
 
         """
         if self.has_nodes:
@@ -1166,6 +1155,15 @@ class TreeNeuron(BaseNeuron):
         except BaseException:
             raise
 
+    @temp_property
+    def dps(self) -> 'core.Dotprops':
+        """Neuron broken down into small linear segments."""
+        # If graph does not exist, create and return
+        if not hasattr(self, '_dps'):
+            # This also sets the attribute
+            self._dps = self.get_dps()
+        return self._dps
+
     @property
     def simple(self) -> 'TreeNeuron':
         """Return simple neuron representation.
@@ -1248,12 +1246,12 @@ class TreeNeuron(BaseNeuron):
         """Number of leafs."""
         return self.nodes[self.nodes.type == 'end'].shape[0]
 
-    @property
+    @temp_property
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
-        if self.is_stale or not hasattr(self, '_cable_length'):
+        if not hasattr(self, '_cable_length'):
             # Simply sum up edge weight of all graph edges
-            if self.igraph and config.use_igraph:
+            if config.use_igraph and self.igraph:
                 w = self.igraph.es.get_attribute_values('weight')  # type: ignore # doesn't know iGraph
             else:
                 w = nx.get_edge_attributes(self.graph, 'weight').values()
@@ -1290,6 +1288,36 @@ class TreeNeuron(BaseNeuron):
         """Average cable length between 2 nodes. """
         return self.cable_length / self.n_nodes
 
+    @temp_property
+    def segments(self) -> List[list]:
+        """Neuron broken down into linear segments."""
+        # If graph does not exist, create and return
+        if not hasattr(self, '_segments'):
+            # This also sets the attribute
+            self._segments = self._get_segments(how='length')
+        return self._segments
+
+    @temp_property
+    def small_segments(self) -> List[list]:
+        """Neuron broken down into small linear segments."""
+        # If graph does not exist, create and return
+        if not hasattr(self, '_small_segments'):
+            # This also sets the attribute
+            self._small_segments = self._get_segments(how='break')
+        return self._small_segments
+
+    def _get_segments(self,
+                      how: Union[Literal['length'],
+                                 Literal['break']] = 'length'
+                      ) -> List[list]:
+        """Generate segments for neuron."""
+        if how == 'length':
+            return graph._generate_segments(self)
+        elif how == 'break':
+            return graph._break_segments(self)
+        else:
+            raise ValueError(f'Unknown method: "{how}"')
+
     @property
     def n_skeletons(self) -> int:
         """Return number of seperate skeletons in this neuron."""
@@ -1324,18 +1352,6 @@ class TreeNeuron(BaseNeuron):
         if 'classify_nodes' not in exclude:
             # Reclassify nodes
             graph.classify_nodes(self, inplace=True)
-
-    def _get_segments(self,
-                      how: Union[Literal['length'],
-                                 Literal['break']] = 'length'
-                      ) -> List[list]:
-        """Generate segments for neuron."""
-        if how == 'length':
-            return graph._generate_segments(self)
-        elif how == 'break':
-            return graph._break_segments(self)
-        else:
-            raise ValueError(f'Unknown how: "{how}"')
 
     def copy(self, deepcopy: bool = False) -> 'TreeNeuron':
         """Return a copy of the neuron.
@@ -1403,15 +1419,13 @@ class TreeNeuron(BaseNeuron):
     def get_dps(self) -> pd.DataFrame:
         """Calculate and return dotprops representation of the neuron.
 
-        Once calculated stored as ``.dps``.
-
         See Also
         --------
         :func:`navis.neuron2dps`
 
         """
-        self.dps = graph.neuron2dps(self)
-        return self.dps
+        self._dps = graph.neuron2dps(self)
+        return self._dps
 
     @overload
     def resample(self, resample_to: int, inplace: Literal[False]) -> 'TreeNeuron': ...
