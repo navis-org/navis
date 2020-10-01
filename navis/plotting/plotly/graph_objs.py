@@ -11,6 +11,8 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+import uuid
+
 import numpy as np
 import pandas as pd
 
@@ -36,9 +38,9 @@ def neuron2plotly(x, **kwargs):
     elif not isinstance(x, core.NeuronList):
         raise TypeError('Unable to process data of type "{}"'.format(type(x)))
 
-    colors = kwargs.get('color',
-                        kwargs.get('c',
-                                   kwargs.get('colors', None)))
+    colors = kwargs.pop('color',
+                        kwargs.pop('c',
+                                   kwargs.pop('colors', None)))
 
     colormap, _, _ = prepare_colormap(colors,
                                       neurons=x,
@@ -66,14 +68,26 @@ def neuron2plotly(x, **kwargs):
         name = str(getattr(neuron, 'name', neuron.id))
         color = colormap[i]
 
+        try:
+            # Try converting this neuron's ID
+            neuron_id = str(neuron.id)
+        except BaseException:
+            # If that doesn't work generate a new ID
+            neuron_id = str(str(uuid.uuid1()))
+        legend_group = kwargs.get('legend_group', neuron_id)
+
         if not kwargs.get('connectors_only', False):
             if kwargs.get('radius', False):
                 neuron = conversion.tree2meshneuron(neuron)
 
             if isinstance(neuron, core.TreeNeuron):
-                trace_data += skeleton2plotly(neuron, color, **kwargs)
+                trace_data += skeleton2plotly(neuron,
+                                              neuron_id=neuron_id,
+                                              color=color, **kwargs)
             elif isinstance(neuron, core.MeshNeuron):
-                trace_data += mesh2plotly(neuron, color, **kwargs)
+                trace_data += mesh2plotly(neuron,
+                                          neuron_id=neuron_id,
+                                          color=color, **kwargs)
             else:
                 raise TypeError(f'Unable to plot neurons of type "{type(neuron)}"')
 
@@ -96,7 +110,8 @@ def neuron2plotly(x, **kwargs):
                         mode='markers',
                         marker=dict(color=f'rgb{c}', size=syn_lay.get('size', 2)),
                         name=f'{syn_lay.get(j, {"name": "connector"})["name"]} of {name}',
-                        showlegend=True,
+                        showlegend=False,
+                        legendgroup=legend_group,
                         hoverinfo='none'
                     ))
                 elif syn_lay['display'] == 'lines':
@@ -116,7 +131,8 @@ def neuron2plotly(x, **kwargs):
                             width=5
                         ),
                         name=f'{syn_lay.get(j, {"name": "connector"})["name"]} of {name}',
-                        showlegend=True,
+                        showlegend=False,
+                        legendgroup=legend_group,
                         hoverinfo='none'
                     ))
                 else:
@@ -125,9 +141,10 @@ def neuron2plotly(x, **kwargs):
     return trace_data
 
 
-def mesh2plotly(neuron, color, **kwargs):
+def mesh2plotly(neuron, neuron_id, color, **kwargs):
     """Convert MeshNeuron to plotly object."""
     name = str(getattr(neuron, 'name', neuron.id))
+    legend_group = kwargs.get('legend_group', neuron_id)
 
     # Skip empty neurons
     if neuron.n_vertices == 0:
@@ -149,18 +166,19 @@ def mesh2plotly(neuron, color, **kwargs):
                             k=neuron.faces[:, 2],
                             color=c,
                             name=name,
-                            legendgroup=name,
+                            legendgroup=legend_group,
                             showlegend=True,
                             hoverinfo='none')]
 
     return trace_data
 
 
-def skeleton2plotly(neuron, color, **kwargs):
+def skeleton2plotly(neuron, neuron_id, color, **kwargs):
     """Convert skeleton (i.e. TreeNeuron) to plotly line plot."""
     coords = segments_to_coords(neuron, neuron.segments)
     name = str(getattr(neuron, 'name', neuron.id))
-    linewidth = kwargs.get('linewidth', 1)
+    linewidth = kwargs.get('linewidth', kwargs.get('lw', 2))
+    legend_group = kwargs.get('legend_group', neuron_id)
 
     # We have to add (None, None, None) to the end of each slab to
     # make that line discontinuous there
@@ -188,14 +206,14 @@ def skeleton2plotly(neuron, color, **kwargs):
                                line=dict(color=c,
                                          width=linewidth),
                                name=name,
-                               legendgroup=name,
+                               legendgroup=legend_group,
                                showlegend=True,
                                hoverinfo='none'
                                )]
 
     # Add soma(s):
     soma = utils.make_iterable(neuron.soma)
-    if any(soma):
+    if kwargs.get('soma', True) and any(soma):
         # If soma detection is messed up we might end up producing
         # dozens of soma which will freeze the kernel
         if len(soma) >= 5:
@@ -213,8 +231,9 @@ def skeleton2plotly(neuron, color, **kwargs):
                     # y and z are switched
                     y=[(v[1] * r) + n.y for v in fib_points],
                     z=[(v[2] * r) + n.z for v in fib_points],
-                    legendgroup=name,
+                    legendgroup=legend_group,
                     alphahull=.5,
+                    showlegend=False,
                     color=c,
                     hoverinfo='name'))
 
@@ -362,13 +381,14 @@ def volume2plotly(x, **kwargs):
         if len(c) == 3:
             c = (c[0], c[1], c[2], .5)
 
+        rgba_str = f'rgba({c[0]:.0f},{c[1]:.0f},{c[2]:.0f},{c[3]:.1f})'
         trace_data.append(go.Mesh3d(x=v.vertices[:, 0],
                                     y=v.vertices[:, 1],
                                     z=v.vertices[:, 2],
                                     i=v.faces[:, 0],
                                     j=v.faces[:, 1],
                                     k=v.faces[:, 2],
-                                    color=f'rgba{str(c)}',
+                                    color=rgba_str,
                                     name=name,
                                     hoverinfo='none'))
 

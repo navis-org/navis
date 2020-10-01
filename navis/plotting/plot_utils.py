@@ -41,11 +41,11 @@ def tn_pairs_to_coords(x: core.TreeNeuron,
                                                 float,
                                                 float]] = (1, 1, 1)
                        ) -> np.ndarray:
-    """Return pairs of treenode -> parent node coordinates.
+    """Return pairs of child->parent node coordinates.
 
     Parameters
     ----------
-    x :         pandas DataFrame | TreeNeuron
+    x :         TreeNeuron
                 Must contain the nodes.
     modifier :  ints, optional
                 Use to modify/invert x/y/z axes.
@@ -84,7 +84,7 @@ def segments_to_coords(x: core.TreeNeuron,
 
     Parameters
     ----------
-    x :         pandas DataFrame | TreeNeuron
+    x :         TreeNeuron
                 Must contain the nodes
     segments :  list of treenode IDs
     modifier :  ints, optional
@@ -133,7 +133,7 @@ def fibonacci_sphere(samples: int = 1,
 
 
 def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
-    """Generate tube mesh (vertices +faces) from lines.
+    """Generate tube mesh (vertices + faces) from lines.
 
     This code was modified from the vispy library.
 

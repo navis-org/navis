@@ -102,6 +102,8 @@ def plot3d(x: Union[core.NeuronObject,
                       Use to modify scatter plots. Accepted parameters are
                         - ``size`` to adjust size of dots
                         - ``color`` to adjust color
+    soma :            bool, default=True
+                      Whether to plot soma if it exists (TreeNeurons only).
 
     Plotly only
 
@@ -219,15 +221,15 @@ def plot3d_vispy(x, **kwargs):
                'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'alpha',
                'auto_limits', 'autolimits', 'viewer', 'radius', 'center',
-               'clear', 'clear3d', 'connectors', 'connectors_only'}
+               'clear', 'clear3d', 'connectors', 'connectors_only', 'soma'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - ALLOWED
 
     if any(notallowed):
-        raise ValueError(f'Arguments "{",".join(notallowed)}" are not allowed '
+        raise ValueError(f'Arguments "{", ".join(notallowed)}" are not allowed '
                          'for plot3d using vispy. Allowed keyword '
-                         f'arguments: {",".join(ALLOWED)}')
+                         f'arguments: {", ".join(ALLOWED)}')
 
     scatter_kws = kwargs.pop('scatter_kws', {})
 
@@ -269,26 +271,24 @@ def plot3d_plotly(x, **kwargs):
 
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
-               'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
+               'cn_mesh_colors', 'linewidth', 'lw', 'scatter_kws',
+               'synapse_layout', 'legend_group',
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
-               'plotly_inline', 'alpha', 'radius', 'fig',
+               'plotly_inline', 'alpha', 'radius', 'fig', 'soma',
                'connectors', 'connectors_only'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - ALLOWED
 
     if any(notallowed):
-        raise ValueError(f'Arguments "{",".join(notallowed)}" are not allowed '
+        raise ValueError(f'Arguments "{", ".join(notallowed)}" are not allowed '
                          'for plot3d using plotly. Allowed keyword '
-                         f'arguments: {",".join(ALLOWED)}')
+                         f'arguments: {", ".join(ALLOWED)}')
 
     # Parse objects to plot
     (neurons, dotprops, volumes, points, visual) = utils.parse_objects(x)
 
     data = []
-
-    scatter_kws = kwargs.pop('scatter_kws', {})
-
     if neurons:
         data += neuron2plotly(neurons, **kwargs)
     if not dotprops.empty:
@@ -296,12 +296,16 @@ def plot3d_plotly(x, **kwargs):
     if volumes:
         data += volume2plotly(volumes, **kwargs)
     if points:
+        scatter_kws = kwargs.pop('scatter_kws', {})
         data += scatter2plotly(points, **scatter_kws)
 
     layout = layout2plotly(**kwargs)
 
     # If not provided generate a figure dictionary
-    fig = kwargs.get('fig', dict(layout=layout))
+    fig = kwargs.get('fig')
+    if not fig:
+        fig = dict(layout=layout)
+
     if not isinstance(fig, (dict, go.Figure)):
         raise TypeError('`fig` must be plotly.graph_objects.Figure or dict, got '
                         f'{type(fig)}')

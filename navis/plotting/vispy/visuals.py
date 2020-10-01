@@ -390,7 +390,7 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
 
         # Extract and plot soma
         soma = utils.make_iterable(neuron.soma)
-        if any(soma):
+        if kwargs.get('soma', True) and any(soma):
             # If soma detection is messed up we might end up producing
             # dozens of soma which will freeze the kernel
             if len(soma) >= 10:
