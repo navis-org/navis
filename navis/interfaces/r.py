@@ -1,3 +1,4 @@
+
 #    This script is part of navis (http://www.github.com/schlegelp/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
@@ -23,7 +24,6 @@ See https://github.com/jefferis
 import math
 import os
 import sys
-import time
 
 from datetime import datetime
 from colorsys import hsv_to_rgb
@@ -390,8 +390,7 @@ def neuron2py(x,
 def neuron2r(x: 'core.NeuronObject',
              unit_conversion: Union[bool, int, float] = None,
              add_metadata: bool = False):
-    """Convert a neuron or neuronlist to the corresponding
-    neuron/neuronlist object in R.
+    """Convert TreeNeuron/List to corresponding R neuron/neuronlist object.
 
     Parameters
     ----------
@@ -414,7 +413,7 @@ def neuron2r(x: 'core.NeuronObject',
         """
         The way neuronlist are constructed is a bit more complicated:
         They are essentially named lists {'neuronA': neuronobject, ...} BUT
-        they also contain a dataframe that as attribute ( attr('df') = df )
+        they also contain a dataframe as attribute ( attr('df') = df )
         This dataframe looks like this
 
                 pid   skid     name
@@ -425,7 +424,7 @@ def neuron2r(x: 'core.NeuronObject',
         """
 
         nlist = {str(n.id): neuron2r(n, unit_conversion=unit_conversion) for
-                 n in config.tqdm(x, desc='Conv.',
+                 n in config.tqdm(x, desc='Neurons to R',
                                   leave=config.pbar_leave,
                                   disable=config.pbar_hide)}
 
@@ -444,7 +443,7 @@ def neuron2r(x: 'core.NeuronObject',
 
         # Prepare list of parents -> root node's parent "None" has to be
         # replaced with -1
-        parents = np.array(x.nodes.parent_id.values)
+        parents = x.nodes.parent_id.values
         # should technically be robjects.r('-1L')
         parents[parents == None] = -1 # DO NOT turn this into "parents is None"!
 
@@ -532,7 +531,7 @@ def dotprops2py(dp,
 
 
 def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_cores defaults
-                    normalize: bool = True,
+                    normalized: bool = True,
                     resample: int = None,
                     n_cores: int = os.cpu_count() - 2,
                     use_alpha: bool = False) -> 'pyclust.ClustResults':
@@ -551,40 +550,32 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
                         is ``1`` which means if data is in microns (which it
                         should!) it will be resampled to 1 tangent vector per
                         micron.
-    normalize :         bool, optional
+    normalized :        bool, optional
                         If True, matrix is normalized using z-score.
     n_cores :           int, optional
                         Number of cores to use for nblasting. Default is
                         ``os.cpu_count() - 2``.
     use_alpha :         bool, optional
-                        Emphasises neurons' straight parts (backbone) over
+                        Emphasizes neurons' straight parts (backbone) over
                         parts that have lots of branches.
 
     Returns
     -------
-    nblast_results
-        Instance of :class:`navis.ClustResults` that holds distance
-        matrix and contains wrappers to cluster and plot data. Please use
-        ``help(nblast_results)`` to learn more and see example below.
+    pandas.DataFrame
+                        DataFrame containing the results.
 
     Examples
     --------
     >>> import navis
-    >>> import matplotlib.pyplot as plt
+    >>> from navis.interfaces import r
     >>> nl = navis.example_neurons()
-    >>> # Blast against each other
-    >>> res = navis.nblast_allbyall( nl )
-    >>> # Cluster and create simple dendrogram
-    >>> res.cluster(method='ward')
-    >>> res.plot_matrix()
-    >>> plt.show()
+    >>> # Blast against each other (note the division to get to microns)
+    >>> scores = r.nblast_allbyall(nl / 1000)
 
     """
-    domc = importr('doMC')
-    cores = robjects.r(f'registerDoMC({n_cores})')
-
-    doParallel = importr('doParallel')
-    doParallel.registerDoParallel(cores=n_cores)
+    if n_cores > 1:
+        doMC = importr('doMC')
+        doMC.registerDoMC(int(n_cores))
 
     if 'rpy2' in str(type(x)):
         rn = x
@@ -593,46 +584,43 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
             raise ValueError('You have to provide more than a single neuron.')
         # Check if query or targets are not in microns
         # Note this test can return `None` if it can't be determined
-        if _check_microns(x) == False:
-            logger.warning('NBLAST is optimized for data in microns and it looks '
-                           'like these neurons are not in microns.')
+        if not _check_microns(x):
+            logger.warning('NBLAST is optimized for data in microns and it looks'
+                           ' like these neurons are not in microns.')
         rn = neuron2r(x)
     elif isinstance(x, core.TreeNeuron):
         raise ValueError('You have to provide more than a single neuron.')
     else:
         raise ValueError(f'Must provide NeuronList, not "{type(x)}"')
 
-    # Make dotprops and resample
-    if isinstance(resample, type(None)) or not resample:
-        resample = robjects.r('NA')
-    xdp = nat.dotprops(rn, k=5, resample=resample)
+    # Generate dotprops
+    logger.info('Generating dotprops for neurons.')
+    xdp = _make_dotprops(rn,
+                         resample=resample,
+                         parallel=n_cores > 1)
 
     # Calculate scores
-    scores = r_nblast.nblast(xdp, xdp, **{'normalised': normalize,
-                                          '.parallel': True,
+    logger.info('Running all-by-all nblast.')
+    pbar = 'text' if n_cores <= 1 else "none"
+    scores = r_nblast.nblast(xdp, xdp, **{'normalised': normalized,
+                                          '.parallel': n_cores > 1,
+                                          '.progress': pbar,
                                           'UseAlpha': use_alpha})
 
-    # The order is the same as in original NeuronList!
-    matrix = pd.DataFrame(np.array(scores))
+    # Generate DataFrame from scores
+    res = data2py(scores).T
 
-    if isinstance(x, core.NeuronList):
-        res = pyclust.ClustResults(matrix, mat_type='similarity',
-                                   labels=x.name if isinstance(x, core.NeuronList) else None,
-                                   )
-        res.neurons = x
-        return res
-    else:
-        return pyclust.ClustResults(matrix, mat_type='similarity')
+    return res
 
 
 def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],  # type: ignore  # doesn't like n_cores default
            target: Optional[str] = None,
            resample: Optional[int] = None,
            mean_scores: bool = False,
-           n_cores: int = os.cpu_count(),
-           normalised: bool = True,
+           n_cores: int = os.cpu_count() - 2,
+           normalized: bool = True,
            use_alpha: bool = False) -> 'NBLASTresults':
-    """Run R's NBLAST (https://github.com/jefferis/nat).
+    """Run nat's NBLAST (https://github.com/jefferis/nat).
 
     Please note that NBLAST is optimized for units in microns.
 
@@ -660,12 +648,12 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
                     target->query NBLAST and return the mean scores.
     n_cores :       int, optional
                     Number of cores to use for nblasting. Default is
-                    ``os.cpu_count()``.
+                    ``os.cpu_count() - 2``.
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
                     that have lots of branches.
-    normalised :    bool, optional
-                    Whether to return normalised NBLAST scores.
+    normalized :    bool, optional
+                    Whether to return normalized NBLAST scores.
 
     Returns
     -------
@@ -683,62 +671,70 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
     >>> nl.units
     array([8, 8, 8, 8, 8]) <Unit('nanometer')>
     >>> # Convert to microns
-    >>> nl_um =
-
-    >>> nbl = r.nblast(n, xform='FAFB14->FCWB', mirror='FCWB')
-    >>> # Plot top 5 results
-    >>> nbl.plot3d(hits=5)
+    >>> nl_um = nl / 1000
+    >>> # Run the nblast
+    >>> scores = r.nblast(nl_um)
 
     """
-    start_time = time.time()
-
-    domc = importr('doMC')
-    cores = robjects.r(f'registerDoMC({int(n_cores)})')
-
-    doParallel = importr('doParallel')
-    doParallel.registerDoParallel(cores=n_cores)
+    if n_cores > 1:
+        doMC = importr('doMC')
+        doMC.registerDoMC(int(n_cores))
+    #_ = robjects.r(f'registerDoMC({int(n_cores)})')
 
     # Check if query or targets are not in microns
     # Note this test can return `None` if it can't be determined
-    if _check_microns(query) == False:
+    if _check_microns(query) is False:
         logger.warning('NBLAST is optimized for data in microns and it looks '
                        'like your queries are not in microns.')
-    if _check_microns(target) == False:
+    if _check_microns(target) is False:
         logger.warning('NBLAST is optimized for data in microns and it looks '
                        'like your targets are not in microns.')
 
     # Turn query into dotprops
     try:
-        query_dps = _make_dotprops(query)
+        query_dps = _make_dotprops(query,
+                                   resample=resample,
+                                   parallel=n_cores > 1)
     except NotImplementedError:
         raise NotImplementedError('Unable to produce R dotprops for query of '
                                   f'type {type(query)}')
 
     # Turn target into dotprops
     try:
-        target_dps = _make_dotprops(target)
+        target_dps = _make_dotprops(target,
+                                    resample=resample,
+                                    parallel=n_cores > 1)
     except NotImplementedError:
         raise NotImplementedError('Unable to produce R dotprops for target of '
                                   f'type {type(target)}')
 
+    # Make sure dotprops are in neuronlists
     if 'neuronlist' not in cl(query_dps):
+        logger.info('Generating dotprops for query neurons.')
         target_dps = nat.neuronlist(query_dps)
 
     if 'neuronlist' not in cl(target_dps):
+        logger.info('Generating dotprops for target neurons.')
         target_dps = nat.neuronlist(target_dps)
 
-    logger.info('Blasting neuron(s)...')
+    logger.info('Running nblast.')
+    pbar = 'text' if n_cores <= 1 else "none"
     sc = r_nblast.nblast(query_dps, target_dps,
-                         **{'normalised': normalised,
-                            '.parallel': True,
+                         **{'normalised': normalized,
+                            '.parallel': n_cores > 1,
+                            '.progress': pbar,
                             'UseAlpha': use_alpha})
 
+    # Generate DataFrame from scores
     res = data2py(sc).T
 
+    # Calculate reverse scores
     if mean_scores:
+        logger.info('Running reverse nblast.')
         scr = r_nblast.nblast(target_dps, query_dps,
-                              **{'normalised': normalised,
-                                 '.parallel': True,
+                              **{'normalised': normalized,
+                                 '.parallel': n_cores > 1,
+                                 '.progress': pbar,
                                  'UseAlpha': use_alpha})
 
         res = (res + data2py(scr)) / 2
@@ -755,7 +751,7 @@ def _check_microns(x, warn=True):
         check = np.array([_check_microns(n) for n in x])
         if all(check):
             return True
-        elif any(check == False):
+        elif any(check is False):
             return False
         return None
 
@@ -816,7 +812,9 @@ def _make_dotprops(x, resample=None, parallel=False):
             dps = dotprops(x, resample=resample, k=5)
         else:
             nlapply = robjects.r('nlapply')
-            dps = nlapply(x, dotprops, resample=resample, k=5, **{'.parallel': True})
+            dps = nlapply(x, dotprops,
+                          resample=resample, k=5,
+                          **{'.parallel': True, '.progress': 'none'})
 
     return dps
 
