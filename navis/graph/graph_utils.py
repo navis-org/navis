@@ -873,7 +873,7 @@ def split_into_fragments(x: 'core.NeuronObject',
             g.remove_nodes_from(g2.nodes)
 
     # Now make neurons
-    nl = core.NeuronList([subset_neuron(x, g, clear_temp=True) for g in graphs])
+    nl = core.NeuronList([subset_neuron(x, g) for g in graphs])
 
     return nl
 
@@ -1372,8 +1372,7 @@ def _cut_igraph(x: 'core.TreeNeuron',
     if ret == 'distal' or ret == 'both':
         dist = subset_neuron(x,
                              subset=dist_graph.vs['node_id'],
-                             inplace=False,
-                             clear_temp=False)
+                             inplace=False)
 
         # Change new root for dist
         dist.nodes.loc[dist.nodes.node_id == cut_node, 'type'] = 'root'
@@ -1385,8 +1384,7 @@ def _cut_igraph(x: 'core.TreeNeuron',
         ss: Sequence[int] = prox_graph.vs['node_id'] + [cut_node]
         prox = subset_neuron(x,
                              subset=ss,
-                             inplace=False,
-                             clear_temp=False)
+                             inplace=False)
 
         # Change new root for dist
         prox.nodes.loc[prox.nodes.node_id == cut_node, 'type'] = 'end'
@@ -1420,8 +1418,7 @@ def _cut_networkx(x: 'core.TreeNeuron',
         # This is the actual bottleneck of the function: ~70% of time
         dist = subset_neuron(x,
                              subset=dist_graph,
-                             inplace=False,
-                             clear_temp=False)  # type: ignore  # doesn't know nx.DiGraph
+                             inplace=False)  # type: ignore  # doesn't know nx.DiGraph
 
         # Change new root for dist
         dist.nodes.loc[dist.nodes.node_id == cut_node, 'parent_id'] = -1
@@ -1444,8 +1441,7 @@ def _cut_networkx(x: 'core.TreeNeuron',
         # This is the actual bottleneck of the function: ~70% of time
         prox = subset_neuron(x,
                              subset=prox_graph,
-                             inplace=False,
-                             clear_temp=False)
+                             inplace=False)
 
         # Change cut node to end node for prox
         prox.nodes.loc[prox.nodes.node_id == cut_node, 'type'] = 'end'
@@ -1473,7 +1469,6 @@ def subset_neuron(x: 'core.TreeNeuron',
                                 nx.DiGraph,
                                 pd.DataFrame],
                   inplace: Literal[False],
-                  clear_temp: bool = True,
                   keep_disc_cn: bool = False,
                   prevent_fragments: bool = False
                   ) -> 'core.TreeNeuron':
@@ -1486,7 +1481,6 @@ def subset_neuron(x: 'core.TreeNeuron',
                                 nx.DiGraph,
                                 pd.DataFrame],
                   inplace: Literal[True],
-                  clear_temp: bool = True,
                   keep_disc_cn: bool = False,
                   prevent_fragments: bool = False
                   ) -> None:
@@ -1507,9 +1501,9 @@ def subset_neuron(x: 'core.TreeNeuron',
     Parameters
     ----------
     x :                   TreeNeuron
-    subset :              np.ndarray | NetworkX.Graph | pandas.DataFrame
+    subset :              list-like | set | NetworkX.Graph | pandas.DataFrame
                           Node IDs to subset the neuron to. If DataFrame
-                          must have `node_id` column.
+                          must have ``node_id`` column.
     keep_disc_cn :        bool, optional
                           If False, will remove disconnected connectors that
                           have "lost" their parent node.
@@ -1555,6 +1549,7 @@ def subset_neuron(x: 'core.TreeNeuron',
     if not inplace:
         x = x.copy(deepcopy=False)
         # We have to run this in a separate function so that the lock is applied
+        # to the copy
         subset_neuron(x,
                       subset=subset,
                       inplace=True,
