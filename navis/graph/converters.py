@@ -35,9 +35,9 @@ __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
 
 
 def network2nx(x: Union[pd.DataFrame, Iterable],
-               threshold: int = 1,
+               threshold: Optional[float] = None,
                group_by: Union[dict, None] = None) -> nx.DiGraph:
-    """Generate NetworkX graph for neuron connectivity.
+    """Generate NetworkX graph from edge list or adjacency.
 
     Parameters
     ----------
@@ -48,7 +48,7 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
                          2. Adjacency matrix (pd.DataFrame, rows=sources,
                             columns=targets)
 
-    threshold :         int, optional
+    threshold :         float | int, optional
                         Connections weaker than this will be excluded.
     group_by :          None | dict, optional
                         Provide a dictionary ``{group_name: [skid1, skid2, ...]}``
@@ -61,21 +61,23 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
 
     """
     if isinstance(x, pd.DataFrame):
-        miss = [c not in x.columns for c in ['source', 'target', 'weight']]
-        if all(miss):
+        present = [c in x.columns for c in ['source', 'target', 'weight']]
+        if all(present):
             edges = x[['source', 'target', 'weight']].values
         else:
             edges = x.reset_index(inplace=False,
                                   drop=False).melt(id_vars='index',
                                                    inplace=False).values
     elif isinstance(x, (list, np.ndarray)):
-        if any([len(e) != 3 for e in x]):
-            raise ValueError('Edges must be [source, target, weight]')
-        edges = x
+        edges = np.array(x)
+    else:
+        raise TypeError(f'Expected numpy array or pandas DataFrame, got "{type(x)}"')
 
-    edges = np.array(edges)
+    if edges.ndim != 2 or edges.shape[1] != 3:
+        raise ValueError('Edges must be (N, 3) array containing source, '
+                         'target, weight')
 
-    if threshold:
+    if not isinstance(threshold, (type(None), bool)):
         edges = edges[edges[:, 2] >= threshold]
 
     # Generate graph and assign custom properties
@@ -96,66 +98,53 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
 
 
 def network2igraph(x: Union[pd.DataFrame, Iterable],
-                   threshold: int = 1) -> 'igraph.Graph':
-    """Generate iGraph graph for neuron connectivity.
+                   threshold: Optional[float] = None) -> 'igraph.Graph':
+    """Generate iGraph graph from edge list or adjacency.
 
     Requires iGraph to be installed.
 
     Parameters
     ----------
-    x :                 pandas.DataFrame
+    x :                 pandas.DataFrame | np.array
                         Connectivity information:
 
                          1. List of edges (columns: 'source', 'target', 'weight')
                          2. Adjacency matrix (pd.DataFrame, rows=sources,
                             columns=targets)
 
-    threshold :         int, optional
-                        Connections weaker than this will be excluded .
+    threshold :         float | int, optional
+                        Connections weaker than this will be excluded.
 
     Returns
     -------
     igraph.Graph(directed=True)
                         iGraph representation of the network.
 
-    Examples
-    --------
-    >>> import navis
-    >>> import igraph
-    >>> g = navis.network2igraph('annotation:large network',
-    ...                           remote_instance=rm)
-    >>> # Plot graph
-    >>> igraph.plot(g)
-    >>> # Plot with edge width
-    >>> igraph.plot(g, **{'edge_width': [ w/10 for w in g.es['weight'] ] })
-    >>> # Plot with edge label
-    >>> igraph.plot(g, **{'edge_label': g.es['weight'] })
-    >>> # Save as graphml to import into e.g. Cytoscape
-    >>> g.save('graph.graphml')
-
     """
     if igraph is None:
         raise ImportError('igraph must be installed to use this function.')
 
     if isinstance(x, pd.DataFrame):
-        miss = [c not in x.columns for c in ['source', 'target', 'weight']]
-        if all(miss):
+        present = [c in x.columns for c in ['source', 'target', 'weight']]
+        if all(present):
             edges = x[['source', 'target', 'weight']].values
         else:
             edges = x.reset_index(inplace=False,
                                   drop=False).melt(id_vars='index',
                                                    inplace=False).values
     elif isinstance(x, (list, np.ndarray)):
-        if any([len(e) != 3 for e in x]):
-            raise ValueError('Edges must be [source, target, weight]')
-        edges = x
+        edges = np.array(x)
+    else:
+        raise TypeError(f'Expected numpy array or pandas DataFrame, got "{type(x)}"')
 
-    edges = np.array(edges)
+    if edges.ndim != 2 or edges.shape[1] != 3:
+        raise ValueError('Edges must be (N, 3) array containing source, '
+                         'target, weight')
 
-    if threshold:
+    if not isinstance(threshold, (type(None), bool)):
         edges = edges[edges[:, 2] >= threshold]
 
-    names = list(set(np.array(edges)[:, 0]) & set(np.array(edges)[:, 1]))
+    names = list(set(np.array(edges)[:, 0]) | set(np.array(edges)[:, 1]))
 
     edges_by_index = [[names.index(e[0]), names.index(e[1])] for e in edges]
 
