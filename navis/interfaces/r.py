@@ -22,6 +22,7 @@ See https://github.com/jefferis
 
 """
 import math
+import numbers
 import os
 import sys
 
@@ -1163,6 +1164,10 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         if hasattr(xf, 'units') and magnitude != 0:
             if isinstance(xf.units, (config.ureg.Unit, config.ureg.Quantity)):
                 xf.units = (xf.units / 10**magnitude).to_compact()
+
+        # Fix soma radius if applicable
+        if hasattr(xf, 'soma_radius') and isinstance(xf.soma_radius, numbers.Number):
+            xf.soma_radius *= 10**magnitude
 
         return xf
     elif isinstance(x, pd.DataFrame):
