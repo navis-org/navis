@@ -46,7 +46,7 @@ import pandas as pd
 from .. import config
 
 from ..core import Volume, TreeNeuron, MeshNeuron, NeuronList
-from ..graph import neuron2KDTree
+from ..graph import neuron2KDTree, subset_neuron
 from ..morpho import heal_fragmented_neuron
 
 logger = config.logger
@@ -221,7 +221,6 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
 
 def __fetch_mesh(r, *, vol, lod, client, with_synapses=True, missing_mesh='raise'):
     """Fetch a single mesh (+ synapses) and construct navis MeshNeuron."""
-
     # Fetch mesh
     import cloudvolume
     try:
@@ -434,3 +433,52 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
             n.connectors = syn
 
     return n
+
+
+def remove_soma_hairball(x: 'core.TreeNeuron',
+                         radius: float = 500,
+                         inplace: bool = False):
+    """Remove hairball around soma.
+
+    Parameters
+    ----------
+    x :         core.TreeNeuron
+    radius :    float
+                Radius around the soma to check for hairball
+    """
+    if not inplace:
+        x = x.copy()
+    if not x.soma:
+        if not inplace:
+            return x
+        return
+    # Get all nodes within given radius of soma nodes
+    soma_loc = x.nodes.set_index('node_id').loc[[x.soma],
+                                                ['x', 'y', 'z']].values
+    tree = neuron2KDTree(x)
+    dist, ix = tree.query(soma_loc, k=x.n_nodes, distance_upper_bound=radius)
+
+    # Subset to nodes within range
+    to_check = set(list(ix[0, dist[0, :] <= radius]))
+
+    # Get the segments that have nodes in the soma
+    segs = [seg for seg in x.segments if set(seg) & to_check]
+
+    # Unless these segments end in a root node, we will keep the last node
+    # (which will be a branch point)
+    segs = [s[:-1] if s[-1] not in x.root else s for s in segs]
+
+    # This is already sorted by length -> we will keep the first (i.e. longest)
+    # segment and remove the rest
+    to_remove = [n for s in segs[1:] for n in s]
+
+    to_keep = x.nodes.loc[~x.nodes.node_id.isin(to_remove), 'node_id'].values
+
+    # Move soma if required
+    if x.soma in to_remove:
+        x.soma = list(to_check & set(to_keep))[0]
+
+    subset_neuron(x, to_keep, inplace=True)
+
+    if not inplace:
+        return x
