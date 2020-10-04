@@ -258,7 +258,7 @@ def __fetch_mesh(r, *, vol, lod, client, with_synapses=True, missing_mesh='raise
     # Set soma
     n.somaLocation = r.somaLocation
     if r.somaLocation:
-        n.soma_radius = r.somaRadius
+        n.soma_radius = r.somaRadius / n.units.to('nm').magnitude
         n.soma = r.somaLocation
 
     if with_synapses:
