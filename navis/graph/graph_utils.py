@@ -1138,11 +1138,11 @@ def reroot_neuron(x: 'core.NeuronObject',
             # full, independent graph
             if float(nx.__version__) < 2.2:
                 if isinstance(g, nx.classes.graphviews.ReadOnlyGraph):
-                    x.graph = g = nx.DiGraph(g)
+                    x._graph_nx = g = nx.DiGraph(g)
             elif hasattr(g, '_NODE_OK'):
-                x.graph = g = nx.DiGraph(g)
+                x._graph_nx = g = nx.DiGraph(g)
             elif nx.is_frozen(g):
-                x.graph = g = nx.DiGraph(g)
+                x._graph_nx = g = nx.DiGraph(g)
 
             # Walk from new root to old root and remove edges along the way
             parent = next(g.successors(new_root), None)
@@ -1425,7 +1425,7 @@ def _cut_networkx(x: 'core.TreeNeuron',
         dist.nodes.loc[dist.nodes.node_id == cut_node, 'type'] = 'root'
 
         # Reassign graphs
-        dist.graph = dist_graph
+        dist._graph_nx = dist_graph
 
         # Clear other temporary attributes
         dist._clear_temp_attr(exclude=['graph', 'type', 'classify_nodes'])
@@ -1447,7 +1447,7 @@ def _cut_networkx(x: 'core.TreeNeuron',
         prox.nodes.loc[prox.nodes.node_id == cut_node, 'type'] = 'end'
 
         # Reassign graphs
-        prox.graph = prox_graph
+        prox._graph_nx = prox_graph
 
         # Clear other temporary attributes
         prox._clear_temp_attr(exclude=['graph', 'type', 'classify_nodes'])
