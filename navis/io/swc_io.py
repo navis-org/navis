@@ -241,7 +241,8 @@ def to_swc(x: 'core.NeuronObject',
            filename: Optional[str] = None,
            header: Optional[str] = None,
            labels: Union[str, dict, bool] = True,
-           export_connectors: bool = False) -> None:
+           export_connectors: bool = False,
+           return_node_map : bool = False) -> None:
     """Generate SWC file from neuron(s).
 
     Follows the format specified
@@ -271,6 +272,9 @@ def to_swc(x: 'core.NeuronObject',
                         this might drop synapses (i.e. in case of multiple
                         pre- or postsynapses on a single node)! ``labels``
                         must be ``True`` for this to have any effect.
+    return_node_map :   bool
+                        If True, will return a dictionary mapping the old node
+                        ID to the new reindexed node IDs in the file.
 
     Returns
     -------
@@ -311,7 +315,16 @@ def to_swc(x: 'core.NeuronObject',
         filename += '.swc'
 
     # Generate SWC table
-    swc = make_swc_table(x, labels=labels, export_connectors=export_connectors)
+    res = make_swc_table(x,
+                         labels=labels,
+                         export_connectors=export_connectors,
+                         return_node_map=return_node_map,
+                         leave_original_id=True)
+
+    if return_node_map:
+        swc, node_map = res[0], res[1]
+    else:
+        swc = res
 
     # Generate header if not provided
     if not isinstance(header, str):
@@ -336,11 +349,15 @@ def to_swc(x: 'core.NeuronObject',
         writer = csv.writer(file, delimiter=' ')
         writer.writerows(swc.astype(str).values)
 
+    if return_node_map:
+        return node_map
+
 
 def make_swc_table(x: 'core.TreeNeuron',
                    labels: Union[str, dict, bool] = None,
                    export_connectors: bool = False,
-                   leave_original_id: bool = False) -> pd.DataFrame:
+                   leave_original_id: bool = False,
+                   return_node_map: bool = False) -> pd.DataFrame:
     """Generate a node table compliant with the SWC format.
 
     Follows the format specified
@@ -364,10 +381,15 @@ def make_swc_table(x: 'core.TreeNeuron',
                         must be ``True`` for this to have any effect.
     leave_original_id : bool, optional
                         If True, will keep the original node IDs as index.
+    return_node_map :   bool
+                        If True, will return a dictionary mapping the old node
+                        ID to the new reindexed node IDs in the file.
 
     Returns
     -------
-    pandas.DataFrame
+    SWC table :         pandas.DataFrame
+    node map :          dict
+                        Only if ``return_node_map=True``.
 
     """
     # Make copy of nodes and reorder such that the parent comes always before
@@ -414,9 +436,15 @@ def make_swc_table(x: 'core.TreeNeuron',
     # Adjust column titles
     swc.columns = ['PointNo', 'Label', 'X', 'Y', 'Z', 'Radius', 'Parent']
 
+    if return_node_map:
+        node_map = dict(zip(swc.index.values, swc.PointNo.values))
+
     # Drop index
     if not leave_original_id:
         swc.reset_index(inplace=True, drop=True)
+
+    if return_node_map:
+        return swc, node_map
 
     return swc
 
