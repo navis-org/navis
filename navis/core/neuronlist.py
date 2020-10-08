@@ -257,7 +257,8 @@ class NeuronList:
         # all neurons
         values = [getattr(n, key, NotImplemented) for n in self.neurons]
         is_method = [isinstance(v, types.MethodType) for v in values]
-        is_frame = [isinstance(v, (pd.DataFrame, type(None))) for v in values]
+        is_none = [isinstance(v, type(None)) for v in values]
+        is_frame = [isinstance(v, pd.DataFrame) for v in values]
         is_quantity = [isinstance(v, config.ureg.Quantity) for v in values]
 
         # First check if there is any reason why we can't collect this
@@ -273,7 +274,7 @@ class NeuronList:
                             f'"{key}" among neurons.')
         # Concatenate if dealing with DataFrame
         elif not all(is_method):
-            if all(is_frame):
+            if any(is_frame):
                 df = pd.concat([v for v in values if isinstance(v, pd.DataFrame)],
                                axis=0,
                                ignore_index=True,
@@ -312,7 +313,7 @@ class NeuronList:
                 if any([utils.is_iterable(v) for v in values]):
                     if not all([utils.is_iterable(v) for v in values]):
                         dtype = object
-                    elif set([len(v) for v in values]):
+                    elif len(set([len(v) for v in values])) > 1:
                         dtype = object
                 return np.array(values, dtype=dtype)
         else:
