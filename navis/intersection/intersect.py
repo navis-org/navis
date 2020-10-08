@@ -314,13 +314,15 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         if mode == 'OUT':
             in_v = ~np.array(in_v)
 
-        x2 = graph.subset_neuron(x,
-                                 subset=x.nodes[in_v].node_id.values,
-                                 inplace=inplace,
-                                 prevent_fragments=prevent_fragments)
+        # Only subset if there are actually nodes to remove
+        if not all(in_v):
+            x = graph.subset_neuron(x,
+                                    subset=x.nodes[in_v].node_id.values,
+                                    inplace=inplace,
+                                    prevent_fragments=prevent_fragments)
 
         if inplace is False:
-            return x2
+            return x
         return None
     elif isinstance(x, core.NeuronList):
         for n in config.tqdm(x, desc='Subsetting',
