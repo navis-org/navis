@@ -727,7 +727,16 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
                             'UseAlpha': use_alpha})
 
     # Generate DataFrame from scores
-    res = data2py(sc).T
+    res = data2py(sc)
+
+    # When nblasting with only 1 query or 1 target neuron the data
+    # returned will be a dictionary {'ID1.ID2': score, ...}
+    if isinstance(res, dict):
+        # Turn dict into DataFrame
+        res = _parse_nblast_dict(res)
+
+    # Transpose so that query neurons are rows
+    res = res.T
 
     # Calculate reverse scores
     if mean_scores:
@@ -738,9 +747,23 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
                                  '.progress': pbar,
                                  'UseAlpha': use_alpha})
 
-        res = (res + data2py(scr)) / 2
+        scr = data2py(scr)
+        if isinstance(scr, dict):
+            scr = _parse_nblast_dict(scr)
+
+        res = (res + scr) / 2
 
     return res
+
+
+def _parse_nblast_dict(x):
+    """Parse dict of NBLAST results."""
+    # Parsing dict of this format: {'ID1.ID2': score, ...}
+    edges = pd.DataFrame([[*k.split('.'), v] for k, v in x.items()],
+                         columns=['query', 'target', 'score'])
+    mat = edges.pivot(index='target', columns='query', values='score')
+    mat.index.name, mat.columns.name = None, None
+    return mat
 
 
 def _check_microns(x, warn=True):
