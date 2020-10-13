@@ -411,18 +411,19 @@ def make_swc_table(x: 'core.TreeNeuron',
     this_tn['parent_ix'] = this_tn.parent_id.map(lambda x: tn2ix.get(x, -1))
 
     # Add labels
+    this_tn['label'] = 0
     if isinstance(labels, dict):
         this_tn['label'] = this_tn.index.map(labels)
     elif isinstance(labels, str):
         this_tn['label'] = this_tn[labels]
-    else:
-        this_tn['label'] = 0
+    elif labels:
         # Add end/branch labels
         this_tn.loc[this_tn.type == 'branch', 'label'] = 5
         this_tn.loc[this_tn.type == 'end', 'label'] = 6
         # Add soma label
-        if x.soma:
-            this_tn.loc[x.soma, 'label'] = 1
+        if not isinstance(x.soma, type(None)):
+            soma = utils.make_iterable(x.soma)
+            this_tn.loc[soma, 'label'] = 1
         if export_connectors:
             # Add synapse label
             this_tn.loc[x.presynapses.node_id.values, 'label'] = 7
