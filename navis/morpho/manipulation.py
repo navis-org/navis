@@ -679,7 +679,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     m.tags = {}  # type: ignore  # TreeNeuron has no tags
     for n in nl:
-        for k, v in getattr(n, 'tags', {}):
+        for k, v in getattr(n, 'tags', {}).items():
             m.tags[k] = m.tags.get(k, []) + list(utils.make_iterable(v))
 
     # Reset temporary attributes of our final neuron
