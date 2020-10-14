@@ -301,7 +301,9 @@ def parse_objects(x) -> Tuple['core.NeuronList',
         dotprops = pd.concat(dps)
 
     # Collect and parse volumes
-    volumes = [ob for ob in x if isinstance(ob, core.Volume)]
+    volumes = [ob for ob in x if isinstance(ob, tm.Trimesh)]
+    # Converts trimeshes into Volumes
+    volumes = [core.Volume(v) if not isinstance(v, core.Volume) else v for v in volumes]
 
     # Collect dataframes with X/Y/Z coordinates
     # Note: dotprops and volumes are instances of pd.DataFrames
