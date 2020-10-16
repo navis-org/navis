@@ -161,9 +161,9 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                         - ``pandas.DataFrame`` needs to have ``x, y, z``
                           columns
 
-    volume :            navis.Volume | dict or list of navis.Volume
-                        :class:`navis.Volume` to test. Multiple volumes can
-                        be given as list (``[volume1, volume2, ...]``) or dict
+    volume :            navis.Volume | navis.MeshNeuron | any mesh-like object
+                        Multiple volumes can be given as list
+                        (``[volume1, volume2, ...]``) or dict
                         (``{'label1': volume1, ...}``).
     mode :              'IN' | 'OUT', optional
                         If 'IN', parts of the neuron that are within the volume
@@ -242,14 +242,17 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         # Force into dict
         if not isinstance(volume, dict):
             # Make sure all Volumes can be uniquely indexed
-            vnames = [v.name for v in volume if isinstance(v, core.Volume)]
+            vnames = [getattr(v, 'name', i) for i, v in enumerate(volume)]
             dupli = [v for v in set(vnames) if vnames.count(v) > 1]
             if dupli:
                 raise ValueError('Duplicate Volume names detected: '
                                  f'{",".join(dupli)}. Volume.name must be '
                                  'unique.')
 
-            volume = {v.name: v for v in volume if isinstance(v, core.Volume)}
+            volume = {getattr(v, 'name', i): v for i, v in enumerate(volume)}
+
+        # Make sure everything is a volume
+        volume = {k: utils.make_volume(v) for k, v in enumerate(volume)}
 
         # Validate now - this might safe us troubles later
         if validate:
@@ -277,6 +280,9 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                                 validate=False,
                                 backend=backend)
         return data
+
+    # Coerce volume into navis.Volume
+    volume = utils.make_volume(volume)
 
     if not isinstance(volume, core.Volume):
         raise TypeError(f'Expected navis.Volume, got "{type(volume)}"')

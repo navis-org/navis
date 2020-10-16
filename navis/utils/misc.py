@@ -11,19 +11,35 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import pandas as pd
-import numpy as np
 import requests
 import urllib
 
+import numpy as np
+import pandas as pd
+import trimesh as tm
+
 from functools import wraps
-from typing import Optional, Union, List, Iterable, Dict, Tuple
+from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
 
 from .. import config, core
 from .eval import is_mesh
 
 # Set up logging
 logger = config.logger
+
+
+def make_volume(x: Any) -> 'core.Volume':
+    """Try making a navis.Volume from input object."""
+    if isinstance(x, core.Volume):
+        return x
+    if is_mesh(x):
+        inits = dict(vertices=x.vertices, faces=x.faces)
+        for p in ['name', 'id', 'color']:
+            if hasattr(x, p):
+                inits[p] = getattr(x, p, None)
+        return core.Volume(**inits)
+
+    raise TypeError(f'Unable to coerce input of type "{type(x)}" to navis.Volume')
 
 
 def lock_neuron(function):
@@ -237,7 +253,7 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     -------
     Neurons :       navis.NeuronList
     Dotprops :      pd.DataFrame
-    Volume :        list of navis.Volume
+    Volume :        list of navis.Volume (trimesh.Trimesh will be converted)
     Points :        list of arrays
     Visuals :       list of vispy visuals
 
