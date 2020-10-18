@@ -1586,6 +1586,11 @@ def subset_neuron(x: 'core.TreeNeuron',
                                                        other=-1, inplace=False)],
                          axis=1)
 
+    # Make sure any new roots or leafs are properly typed
+    # We won't produce new slabs but roots and leaves might change
+    x.nodes.loc[x.nodes.parent_id < 0, 'type'] = 'root'
+    x.nodes.loc[~x.nodes.node_id.isin(x.nodes.parent_id.values), 'type'] = 'end'
+
     # Filter connectors
     if not keep_disc_cn and x.has_connectors:
         x._connectors = x.connectors[x.connectors.node_id.isin(subset)]
