@@ -54,7 +54,7 @@ default_connector_colors = {
     0: {'name': 'Presynapses',
         'color': (1, 0, 0)},
     1: {'name': 'Postsynapses',
-        'color': (0, 0, 1)},
+        'color': (0, .75, .75)},
     2: {'name': 'Gap junctions',
         'color': (0, 1, 0)},
     'display': 'lines'  # can also be 'circle'
