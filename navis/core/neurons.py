@@ -332,7 +332,7 @@ class BaseNeuron:
         Requires a "type" column in connector table. Will look for type labels
         that include "pre" or that equal 0 or "0".
         """
-        if not self.has_connectors:
+        if not isinstance(getattr(self, 'connectors', None), pd.DataFrame):
             raise ValueError('No connector table found.')
         # Make an educated guess what presynapses are
         types = self.connectors['type'].unique()
@@ -353,7 +353,7 @@ class BaseNeuron:
         Requires a "type" column in connector table. Will look for type labels
         that include "post" or that equal 1 or "1".
         """
-        if not self.has_connectors:
+        if not isinstance(getattr(self, 'connectors', None), pd.DataFrame):
             raise ValueError('No connector table found.')
         # Make an educated guess what presynapses are
         types = self.connectors['type'].unique()
