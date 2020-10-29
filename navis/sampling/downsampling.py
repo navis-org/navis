@@ -197,12 +197,11 @@ def downsample_neuron(x: 'core.NeuronObject',
                 new_parents[this_node] = -1  # type: ignore
                 break
 
+    # Subset to kept nodes
     new_nodes = x.nodes[x.nodes.node_id.isin(list(new_parents.keys()))].copy()
-    new_nodes.loc[:, 'parent_id'] = [new_parents[tn]
-                                     for tn in new_nodes.node_id.values]
 
     # Assign new parent IDs
-    new_nodes.loc[:, 'parent_id'] = new_nodes.parent_id.values.astype(int)
+    new_nodes['parent_id'] = new_nodes.node_id.map(new_parents).astype(int)
 
     logger.debug(f'Nodes before/after: {len(x.nodes)}/{len(new_nodes)}')
 
