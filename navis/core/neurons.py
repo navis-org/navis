@@ -129,16 +129,18 @@ class BaseNeuron:
     def __getattr__(self, key):
         """Get attribute."""
         if key.startswith('has_'):
-            key = key[key.index('_'):]
+            key = key[key.index('_') + 1:]
             if hasattr(self, key):
                 data = getattr(self, key)
                 if isinstance(data, pd.DataFrame) and not data.empty:
                     return True
+                elif np.any(data):
+                    return True
             return False
         elif key.startswith('n_'):
-            key = key[key.index('_'):]
+            key = key[key.index('_') + 1:]
             if hasattr(self, key):
-                data = getattr(self, key)
+                data = getattr(self, key, None)
                 if hasattr(data, '__len__'):
                     return len(data)
             return None
@@ -316,7 +318,7 @@ class BaseNeuron:
     @connectors.setter
     def connectors(self, v):
         if isinstance(v, type(None)):
-            self.__connectors = None
+            self._connectors = None
         else:
             self._connectors = utils.validate_table(v,
                                                     required=['x', 'y', 'z'],
