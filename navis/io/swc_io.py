@@ -34,7 +34,7 @@ from .. import config, utils, core
 logger = config.logger
 
 
-def from_swc(f: Union[str, pd.DataFrame, Iterable],
+def read_swc(f: Union[str, pd.DataFrame, Iterable],
              connector_labels: Optional[Dict[str, Union[str, int]]] = {},
              soma_label: Union[str, int] = 1,
              include_subdirs: bool = False,
@@ -81,7 +81,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
 
     See Also
     --------
-    :func:`navis.to_swc`
+    :func:`navis.write_swc`
                         Export neurons as SWC files.
 
     """
@@ -121,7 +121,7 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
                 return core.NeuronList(nl)
 
         # If not parallel just import the good 'ole way: sequentially
-        return core.NeuronList([from_swc(x,
+        return core.NeuronList([read_swc(x,
                                          connector_labels=connector_labels,
                                          include_subdirs=include_subdirs,
                                          parallel=parallel,
@@ -237,12 +237,12 @@ def from_swc(f: Union[str, pd.DataFrame, Iterable],
     return n
 
 
-def to_swc(x: 'core.NeuronObject',
-           filename: Optional[str] = None,
-           header: Optional[str] = None,
-           labels: Union[str, dict, bool] = True,
-           export_connectors: bool = False,
-           return_node_map : bool = False) -> None:
+def write_swc(x: 'core.NeuronObject',
+              filename: Optional[str] = None,
+              header: Optional[str] = None,
+              labels: Union[str, dict, bool] = True,
+              export_connectors: bool = False,
+              return_node_map : bool = False) -> None:
     """Generate SWC file from neuron(s).
 
     Follows the format specified
@@ -282,8 +282,8 @@ def to_swc(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.from_swc`
-                        Import SWC files.
+    :func:`navis.read_swc`
+                        Import skeleton from SWC files.
 
     """
     if isinstance(x, core.NeuronList):
@@ -293,8 +293,8 @@ def to_swc(x: 'core.NeuronObject',
         # At this point filename is iterable
         filename: Iterable[str]
         for n, f in zip(x, filename):
-            to_swc(n, filename=f, labels=labels, header=header,
-                   export_synapses=export_connectors)
+            write_swc(n, filename=f, labels=labels, header=header,
+                      export_synapses=export_connectors)
         return
 
     if not isinstance(x, core.TreeNeuron):
@@ -467,4 +467,4 @@ def to_int(x: Any) -> Optional[int]:
 
 def _worker_wrapper(kwargs):
     """Helper for importing SWCs using multiple processes."""
-    return from_swc(**kwargs)
+    return read_swc(**kwargs)

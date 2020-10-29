@@ -8,22 +8,24 @@ i.e. after ``import navis``.
 
 .. _api_neurons:
 
-TreeNeuron/List
-+++++++++++++++
-``TreeNeurons``, ``MeshNeurons`` and ``NeuronLists`` are the classes
-representing neurons and lists thereof respectively.
+Neuron/List
++++++++++++
+``TreeNeurons``, ``MeshNeurons`` and ``Dotprops`` are neuron classes.
+``NeuronLists`` are containers thereof.
 
 .. autosummary::
     :toctree: generated/
 
     ~navis.TreeNeuron
     ~navis.MeshNeuron
+    ~navis.Dotprops
+    ~navis.make_dotprops
     ~navis.NeuronList
 
 Neuron methods
 --------------
-Despite being fundamentally different data types, ``TreeNeurons`` and
-``MeshNeurons`` share some fundamental methods (i.e. functions).
+Despite being fundamentally different data types, ``TreeNeurons``,
+``MeshNeurons`` and ``Dotprops`` share some fundamental methods (i.e. functions).
 
 .. autosummary::
     :toctree: generated/
@@ -34,7 +36,7 @@ Despite being fundamentally different data types, ``TreeNeurons`` and
     ~navis.TreeNeuron.summary
 
 In addition to these methods, neurons also have properties. These are
-properties common to both ``TreeNeurons`` and ``MeshNeurons``.
+properties common to all neurons.
 
 .. autosummary::
     :toctree: generated/
@@ -52,7 +54,7 @@ properties common to both ``TreeNeurons`` and ``MeshNeurons``.
 
 TreeNeuron-specific methods
 ---------------------------
-These are class methods available only for ``TreeNeurons``. Most of them are  simply
+These are class methods available only for ``TreeNeurons``. Most of them are simply
 short-hands for the other navis functions.
 
 .. autosummary::
@@ -309,8 +311,9 @@ Functions to import/export neurons.
 .. autosummary::
     :toctree: generated/
 
-    navis.from_swc
-    navis.to_swc
+    navis.read_swc
+    navis.write_swc
+    navis.read_nrrd
     navis.neuron2json
     navis.json2neuron
 
@@ -473,7 +476,6 @@ Not imported at top level! Must be imported explicitly::
     :toctree: generated/
 
     navis.interfaces.r.data2py
-    navis.interfaces.r.dotprops2py
     navis.interfaces.r.get_neuropil
     navis.interfaces.r.init_rcatmaid
     navis.interfaces.r.load_rda

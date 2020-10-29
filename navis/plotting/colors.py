@@ -216,8 +216,7 @@ def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
                         f'not {type(config.default_color)}')
 
 
-def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
-                     alpha=None, use_neuron_color=False, color_range=255):
+def prepare_colormap(colors, neurons=None, volumes=None, alpha=None, color_range=255):
     """Map color(s) to neuron/dotprop colorlists."""
     # Prepare dummies in case either no neuron data, no dotprops or no volumes
     if isinstance(neurons, type(None)):
@@ -225,24 +224,20 @@ def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
     elif not isinstance(neurons, core.NeuronList):
         neurons = core.NeuronList((neurons))
 
-    if isinstance(dotprops, type(None)):
-        dotprops = core.Dotprops()
-        dotprops['gene_name'] = []
-
     if isinstance(volumes, type(None)):
         volumes = np.array([])
 
     if not isinstance(volumes, np.ndarray):
         volumes = np.array(volumes)
 
-    # Only dotprops and neurons REQUIRE a color
-    # Volumes are second class citiziens here
-    colors_required = neurons.shape[0] + dotprops.shape[0]
+    # Only neurons REQUIRE a color
+    # Volumes are second class citiziens here :(
+    colors_required = neurons.shape[0]
 
     if not colors_required and len(volumes) == 0:
         # If no neurons to plot, just return None
         # This happens when there is only a scatter plot
-        return [None], [None], [None]
+        return [None], [None]
 
     # If no colors, generate random colors
     if isinstance(colors, type(None)):
@@ -255,8 +250,7 @@ def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
     # We need to parse once here to convert named colours to rgb
     colors = eval_color(colors, color_range=color_range)
 
-    # If dictionary, map skids to dotprops gene names and neuron skeleton IDs
-    dotprop_cmap = []
+    # If dictionary, map colors to neuron IDs
     neuron_cmap = []
     volumes_cmap = []
     dc = config.default_color
@@ -271,8 +265,6 @@ def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
                     break
             neuron_cmap.append(this_c)
 
-        dotprop_cmap = [colors.get(s, dc) for s in dotprops.gene_name.values]
-
         # Try finding color first by volume, then uuid and finally by name
         # If no color found, fall back to color property
         volumes_cmap = []
@@ -285,8 +277,7 @@ def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
             volumes_cmap.append(this_c)
     elif isinstance(colors, mcl.Colormap):
         # Generate colors for neurons and dotprops
-        neuron_cmap = [colors(i/len(neurons)) for i in range(len(neurons))]
-        dotprop_cmap = [colors(i/dotprops.shape[0]) for i in range(dotprops.shape[0])]
+        neuron_cmap = [colors(i / len(neurons)) for i in range(len(neurons))]
 
         # Colormaps are not applied to volumes
         volumes_cmap = [getattr(v, 'color', (.95, .95, .95, .1)) for v in volumes]
@@ -305,8 +296,6 @@ def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
 
         if neurons.shape[0]:
             neuron_cmap = [colors.pop(0) for i in range(neurons.shape[0])]
-        if dotprops.shape[0]:
-            dotprop_cmap = [colors.pop(0) for i in range(dotprops.shape[0])]
         if volumes.shape[0]:
             # Volume have their own color property as fallback
             volumes_cmap = []
@@ -318,30 +307,21 @@ def prepare_colormap(colors, neurons=None, dotprops=None, volumes=None,
     else:
         raise TypeError(f'Unable to parse colors of type "{type(colors)}"')
 
-    # Override neuron cmap if we are supposed to use neuron colors
-    if use_neuron_color:
-        neuron_cmap = [getattr(n, 'color', config.default_color)
-                       for i, n in enumerate(neurons)]
-
     # If alpha is given, we will override all values
     if not isinstance(alpha, type(None)):
         neuron_cmap = [add_alpha(c, alpha) for c in neuron_cmap]
-        dotprop_cmap = [add_alpha(c, alpha) for c in dotprop_cmap]
         volumes_cmap = [add_alpha(c, alpha) for c in volumes_cmap]
 
     # Make sure colour range checks out
     neuron_cmap = [eval_color(c, color_range=color_range)
                    for c in neuron_cmap]
-    dotprop_cmap = [eval_color(c, color_range=color_range)
-                    for c in dotprop_cmap]
     volumes_cmap = [eval_color(c, color_range=color_range)
                     for c in volumes_cmap]
 
     logger.debug('Neuron colormap: ' + str(neuron_cmap))
-    logger.debug('Dotprops colormap: ' + str(dotprop_cmap))
     logger.debug('Volumes colormap: ' + str(volumes_cmap))
 
-    return neuron_cmap, dotprop_cmap, volumes_cmap
+    return neuron_cmap, volumes_cmap
 
 
 def add_alpha(c, alpha):

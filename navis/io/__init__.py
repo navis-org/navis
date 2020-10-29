@@ -12,4 +12,5 @@
 #    GNU General Public License for more details.
 
 from .json_io import neuron2json, json2neuron
-from .swc_io import from_swc, to_swc
+from .swc_io import read_swc, write_swc
+from .nrrd_io import read_nrrd

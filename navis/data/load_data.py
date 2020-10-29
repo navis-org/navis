@@ -118,7 +118,7 @@ def example_neurons(n: Optional[int] = None,
                              units='8 nm',
                              id=int(f.split('.')[0])) for f, g in zip(gml, graphs)]
         elif source == 'swc':
-            nl += [from_swc(os.path.join(swc_path, f),
+            nl += [read_swc(os.path.join(swc_path, f),
                             units='8 nm',
                             id=int(f.split('.')[0])) for f in swc[:n_skel]]
         else:

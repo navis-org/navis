@@ -42,11 +42,10 @@ def neuron2plotly(x, **kwargs):
                         kwargs.pop('c',
                                    kwargs.pop('colors', None)))
 
-    colormap, _, _ = prepare_colormap(colors,
-                                      neurons=x,
-                                      alpha=kwargs.get('alpha', None),
-                                      use_neuron_color=kwargs.get('use_neuron_color', False),
-                                      color_range=255)
+    colormap, _ = prepare_colormap(colors,
+                                   neurons=x,
+                                   alpha=kwargs.get('alpha', None),
+                                   color_range=255)
 
     syn_lay = {
         0: {'name': 'Presynapses',
@@ -76,10 +75,10 @@ def neuron2plotly(x, **kwargs):
             neuron_id = str(str(uuid.uuid1()))
         legend_group = kwargs.get('legend_group', neuron_id)
 
-        if not kwargs.get('connectors_only', False):
-            if kwargs.get('radius', False):
-                neuron = conversion.tree2meshneuron(neuron)
+        if kwargs.get('radius', False):
+            neuron = conversion.tree2meshneuron(neuron)
 
+        if not kwargs.get('connectors_only', False):
             if isinstance(neuron, core.TreeNeuron):
                 trace_data += skeleton2plotly(neuron,
                                               neuron_id=neuron_id,
@@ -88,12 +87,16 @@ def neuron2plotly(x, **kwargs):
                 trace_data += mesh2plotly(neuron,
                                           neuron_id=neuron_id,
                                           color=color, **kwargs)
+            elif isinstance(neuron, core.Dotprops):
+                trace_data += dotprops2plotly(neuron,
+                                              neuron_id=neuron_id,
+                                              color=color, **kwargs)
             else:
                 raise TypeError(f'Unable to plot neurons of type "{type(neuron)}"')
 
         # Add connectors
-        if kwargs.get('connectors', False) or \
-           kwargs.get('connectors_only', False):
+        if (kwargs.get('connectors', False)
+            or kwargs.get('connectors_only', False)) and neuron.has_connectors:
             for j in neuron.connectors.type.unique():
                 if kwargs.get('cn_mesh_colors', False):
                     c = color
@@ -215,9 +218,11 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
     soma = utils.make_iterable(neuron.soma)
     if kwargs.get('soma', True) and any(soma):
         # If soma detection is messed up we might end up producing
-        # dozens of soma which will freeze the kernel
-        if len(soma) >= 5:
-            logger.warning(f'{neuron.id}: {len(soma)} somas found - ignoring.')
+        # hundrets of soma which will freeze the session
+        if len(soma) >= 10:
+            logger.warning(f'Neuron {neuron.id} appears to have {len(soma)}'
+                           'somas. That does not look right - will ignore '
+                           'them for plotting.')
         else:
             for s in soma:
                 n = neuron.nodes.set_index('node_id').loc[s]
@@ -297,61 +302,12 @@ def lines2plotly(x, **kwargs):
     return trace_data
 
 
-def dotprops2plotly(x, **kwargs):
+def dotprops2plotly(x, neuron_id, color, **kwargs):
     """ Converts dotprops to plotly objects."""
-    linewidth = kwargs.get('linewidth', 5)
+    scale_vec = kwargs.get('dps_scale_vec', 1)
+    tn = x.to_skeleton(scale_vec=scale_vec)
 
-    colors = kwargs.get('color',
-                        kwargs.get('c',
-                                   kwargs.get('colors', None)))
-
-    scale_vect = kwargs.get('dps_scale_vec', 1)
-
-    _, colormap, _ = prepare_colormap(colors,
-                                      dotprops=x,
-                                      alpha=kwargs.get('alpha', None),
-                                      use_neuron_color=kwargs.get('use_neuron_color', False),
-                                      color_range=255)
-
-    trace_data = []
-    for i, dp in enumerate(x.itertuples()):
-        # Get Name
-        name = getattr(dp, 'name', getattr(dp, 'gene_name', None))
-        c = colormap[i]
-
-        # Prepare lines - this is based on nat:::plot3d.dotprops
-        halfvect = dp.points[['x_vec', 'y_vec', 'z_vec']] / 2 * scale_vect
-
-        starts = dp.points[['x', 'y', 'z']].values - halfvect.values
-        ends = dp.points[['x', 'y', 'z']].values + halfvect.values
-
-        x_coords = [n for sublist in zip(
-            starts[:, 0], ends[:, 0], [None] * starts.shape[0]) for n in sublist]
-        y_coords = [n for sublist in zip(
-            starts[:, 1], ends[:, 1], [None] * starts.shape[0]) for n in sublist]
-        z_coords = [n for sublist in zip(
-            starts[:, 2], ends[:, 2], [None] * starts.shape[0]) for n in sublist]
-
-        try:
-            c = 'rgb{}'.format(c)
-        except BaseException:
-            c = 'rgb(10,10,10)'
-
-        trace_data.append(go.Scatter3d(x=x_coords,
-                                       y=y_coords,
-                                       z=z_coords,
-                                       mode='lines',
-                                       line=dict(
-                                           color=c,
-                                           width=linewidth
-                                       ),
-                                       name=name,
-                                       legendgroup=name,
-                                       showlegend=True,
-                                       hoverinfo='none'
-                                       ))
-
-    return trace_data
+    return skeleton2plotly(tn, neuron_id, color, **kwargs)
 
 
 def volume2plotly(x, **kwargs):
@@ -363,7 +319,6 @@ def volume2plotly(x, **kwargs):
     _, _, colormap = prepare_colormap(colors,
                                       volumes=x,
                                       alpha=kwargs.get('alpha', None),
-                                      use_neuron_color=kwargs.get('use_neuron_color', False),
                                       color_range=255)
 
     trace_data = []

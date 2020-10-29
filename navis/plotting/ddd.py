@@ -62,7 +62,7 @@ def plot3d(x: Union[core.NeuronObject,
 
     Parameters
     ----------
-    x :               TreeNeuron/List| navis.Dotprops | navis.Volume | numpy.array
+    x :               Neuron/List | Volume | numpy.array
                         - ``numpy.array (N,3)`` is plotted as scatter plot
                         - multiple objects can be passed as list (see examples)
     backend :         'auto' | 'vispy' | 'plotly', default='auto'
@@ -93,9 +93,6 @@ def plot3d(x: Union[core.NeuronObject,
     radius :          bool, default=False
                       If True, will plot TreeNeurons as 3D tubes using the
                       ``radius`` column in their node tables.
-    use_neuron_color : bool, default=False
-                      If True, will try using the ``.color`` attribute of
-                      each neuron.
     width/height :    int, default=600
                       Use to define figure/window size.
     scatter_kws :     dict, optional
@@ -208,13 +205,14 @@ def plot3d(x: Union[core.NeuronObject,
 
 
 def plot3d_vispy(x, **kwargs):
-    """Plot3d() helper function to generate vispy 3D plots. This is just to
-    improve readability. It's only purpose is to find the existing viewer
-    or generate a new one.
-    """
+    """Plot3d() helper function to generate vispy 3D plots.
 
+    This is just to improve readability. Its only purpose is to find the
+    existing viewer or generate a new one.
+
+    """
     # Parse objects to plot
-    (neurons, dotprops, volumes, points, visuals) = utils.parse_objects(x)
+    (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
@@ -249,12 +247,12 @@ def plot3d_vispy(x, **kwargs):
     if kwargs.pop('clear3d', False) or kwargs.pop('clear', False):
         viewer.clear()
 
+    # Do not pass this on parameter on
     center = kwargs.pop('center', True)
 
+    # Add object (the viewer currently takes care of producing the visuals)
     if neurons:
         viewer.add(neurons, center=center, **kwargs)
-    if not dotprops.empty:
-        viewer.add(dotprops, center=center, **kwargs)
     if volumes:
         viewer.add(volumes, center=center, **kwargs)
     if points:
@@ -286,13 +284,11 @@ def plot3d_plotly(x, **kwargs):
                          f'arguments: {", ".join(ALLOWED)}')
 
     # Parse objects to plot
-    (neurons, dotprops, volumes, points, visual) = utils.parse_objects(x)
+    (neurons, volumes, points, visual) = utils.parse_objects(x)
 
     data = []
     if neurons:
         data += neuron2plotly(neurons, **kwargs)
-    if not dotprops.empty:
-        data += dotprops2plotly(dotprops, **kwargs)
     if volumes:
         data += volume2plotly(volumes, **kwargs)
     if points:

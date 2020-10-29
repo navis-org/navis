@@ -243,7 +243,6 @@ def set_default_connector_colors(x: Union[List[tuple], Dict[str, tuple]]
 
 
 def parse_objects(x) -> Tuple['core.NeuronList',
-                              pd.DataFrame,
                               List['core.Volume'],
                               List[np.ndarray],
                               List]:
@@ -252,7 +251,6 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     Returns
     -------
     Neurons :       navis.NeuronList
-    Dotprops :      pd.DataFrame
     Volume :        list of navis.Volume (trimesh.Trimesh will be converted)
     Points :        list of arrays
     Visuals :       list of vispy visuals
@@ -267,11 +265,9 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     >>> nl = example_neurons(3)
     >>> v = example_volume('LH')
     >>> p = nl[0].nodes[['x', 'y', 'z']].values
-    >>> n, dps, meshes, points, vis = parse_objects([nl, v, p])
+    >>> n, meshes, points, vis = parse_objects([nl, v, p])
     >>> type(n), len(n)
     (navis.core.neuronlist.NeuronList, 3)
-    >>> type(dps), len(dps)
-    (navis.core.dotprops.Dotprops, 0)
     >>> type(vols), len(vols)
     (list, 1)
     >>> type(meshes[0])
@@ -305,27 +301,14 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     # Collect visuals
     visuals = [ob for ob in x if 'vispy' in str(type(ob))]
 
-    # Collect dotprops
-    dps = [ob for ob in x if isinstance(ob, core.Dotprops)]
-
-    if len(dps) == 1:
-        dotprops = dps[0]
-    elif len(dps) == 0:
-        dotprops = core.Dotprops()
-        dotprops['gene_name'] = []
-    else:
-        dotprops = pd.concat(dps)
-
     # Collect and parse volumes
     volumes = [ob for ob in x if isinstance(ob, tm.Trimesh)]
     # Converts trimeshes into Volumes
     volumes = [core.Volume(v) if not isinstance(v, core.Volume) else v for v in volumes]
 
     # Collect dataframes with X/Y/Z coordinates
-    # Note: dotprops and volumes are instances of pd.DataFrames
-    dataframes = [ob for ob in x if isinstance(ob, pd.DataFrame)
-                  and not isinstance(ob, (core.Dotprops, core.Volume))]
-    if [d for d in dataframes if False in [c in d.columns for c in ['x', 'y', 'z']]]:
+    dataframes = [ob for ob in x if isinstance(ob, pd.DataFrame)]
+    if [d for d in dataframes if False in np.isin(['x', 'y', 'z'], d.columns)]:
         logger.warning('DataFrames must have x, y and z columns.')
     # Filter to and extract x/y/z coordinates
     dataframes = [d for d in dataframes if False not in [c in d.columns for c in ['x', 'y', 'z']]]
@@ -335,13 +318,13 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     arrays = [ob.copy() for ob in x if isinstance(ob, np.ndarray)]
     # Remove arrays with wrong dimensions
     if [ob for ob in arrays if ob.shape[1] != 3 and ob.shape[0] != 2]:
-        logger.warning('Arrays need to be of shape (N,3) for scatter or (2, N) '
-                       'for line plots.')
+        logger.warning('Arrays need to be of shape (N, 3) for scatter or (2, N)'
+                       ' for line plots.')
     arrays = [ob for ob in arrays if any(np.isin(ob.shape, [2, 3]))]
 
     points = dataframes + arrays
 
-    return neurons, dotprops, volumes, points, visuals
+    return neurons, volumes, points, visuals
 
 
 def make_url(baseurl, *args: str, **GET) -> str:

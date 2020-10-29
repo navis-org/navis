@@ -25,6 +25,7 @@ from matplotlib.collections import LineCollection, PatchCollection
 from matplotlib.cm import ScalarMappable
 
 import numpy as np
+
 import pint
 import warnings
 
@@ -189,10 +190,7 @@ def plot2d(x: Union[core.NeuronObject,
 
     ``alpha`` (float [0-1], default = .9)
       Alpha value for neurons. Overriden if alpha is provided as fourth value
-      in ``color``.
-
-    ``use_neuron_color`` (bool, default = False)
-      If True, will attempt to use ``.color`` attribute of neurons.
+      in ``color`` (rgb*a*).
 
     ``depth_coloring`` (bool, default = False)
       If True, will color encode depth (Z). Overrides ``color``. Does not work
@@ -222,6 +220,9 @@ def plot2d(x: Union[core.NeuronObject,
     ``volume_outlines`` (bool, default=True)
       If True will plot volume outline with no fill.
 
+     ``dps_scale_vec`` (float)
+      Scale vector for dotprops.
+
 
     See Also
     --------
@@ -238,11 +239,12 @@ def plot2d(x: Union[core.NeuronObject,
                         'cn_mesh_colors', 'linewidth', 'cn_size', 'orthogonal',
                         'group_neurons', 'scatter_kws', 'figsize', 'linestyle',
                         'alpha', 'depth_coloring', 'autoscale', 'depth_scale',
-                        'use_neuron_color', 'ls', 'lw', 'volume_outlines']
+                        'ls', 'lw', 'volume_outlines',
+                        'dps_scale_vec']
     wrong_kwargs = [a for a in kwargs if a not in _ACCEPTED_KWARGS]
     if wrong_kwargs:
-        raise KeyError(f'Unknown kwarg(s): {",".join(wrong_kwargs)}. '
-                       f'Currently accepted: {",".join(_ACCEPTED_KWARGS)}')
+        raise KeyError(f'Unknown kwarg(s): {", ".join(wrong_kwargs)}. '
+                       f'Currently accepted: {", ".join(_ACCEPTED_KWARGS)}')
 
     _METHOD_OPTIONS = ['2d', '3d', '3d_complex']
     if method not in _METHOD_OPTIONS:
@@ -251,7 +253,6 @@ def plot2d(x: Union[core.NeuronObject,
 
     connectors = kwargs.get('connectors', False)
     connectors_only = kwargs.get('connectors_only', False)
-    use_neuron_color = kwargs.get('use_neuron_color', False)
     ax = kwargs.pop('ax', None)
     color = kwargs.pop('color',
                        kwargs.pop('c',
@@ -266,17 +267,13 @@ def plot2d(x: Union[core.NeuronObject,
     autoscale = kwargs.get('autoscale', True)
 
     # Parse objects
-    (neurons, dotprops,
-     volumes, points, visuals) = utils.parse_objects(x)
+    (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
     # Generate the colormaps
     (neuron_cmap,
-     dotprop_cmap,
      volumes_cmap) = prepare_colormap(color,
                                       neurons=neurons,
-                                      dotprops=dotprops,
                                       volumes=volumes,
-                                      use_neuron_color=use_neuron_color,
                                       color_range=1)
 
     # Set axis projection
@@ -340,16 +337,17 @@ def plot2d(x: Union[core.NeuronObject,
 
     # Create lines from segments
     visuals = {}
-    for i, neuron in enumerate(config.tqdm(neurons.itertuples(),
+    for i, neuron in enumerate(config.tqdm(neurons,
                                            desc='Plot neurons',
-                                           total=neurons.shape[0],
                                            leave=False,
-                                           disable=config.pbar_hide | len(dotprops) == 0)):
+                                           disable=config.pbar_hide | len(neurons) < 2)):
         if not connectors_only:
             if isinstance(neuron, core.TreeNeuron) and neuron.nodes.empty:
                 logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.id}')
             elif isinstance(neuron, core.MeshNeuron) and neuron.faces.size == 0:
                 logger.warning(f'Skipping MeshNeuron w/o faces: {neuron.id}')
+            elif isinstance(neuron, core.Dotprops) and neuron.points.size == 0:
+                logger.warning(f'Skipping Dotprops w/o points: {neuron.id}')
             elif isinstance(neuron, core.TreeNeuron):
                 lc, sc = _plot_skeleton(neuron, neuron_cmap[i], method, ax, **kwargs)
                 # Keep track of visuals related to this neuron
@@ -357,23 +355,14 @@ def plot2d(x: Union[core.NeuronObject,
             elif isinstance(neuron, core.MeshNeuron):
                 m = _plot_mesh(neuron, neuron_cmap[i], method, ax, **kwargs)
                 visuals[neuron] = {'mesh': m}
+            elif isinstance(neuron, core.Dotprops):
+                dp = _plot_dotprops(neuron, neuron_cmap[i], method, ax, **kwargs)
+                visuals[neuron] = {'dotprop': dp}
             else:
                 raise TypeError(f"Don't know how to plot neuron of type '{type(neuron)}' ")
 
         if (connectors or connectors_only) and neuron.has_connectors:
             _ = _plot_connectors(neuron, neuron_cmap[i], method, ax, **kwargs)
-
-    for i, dp in enumerate(config.tqdm(dotprops.itertuples(),
-                                       desc='Plt dotprops',
-                                       total=dotprops.shape[0],
-                                       leave=False,
-                                       disable=config.pbar_hide | len(dotprops) < 2)):
-        try:
-            this_color = dotprop_cmap[i]
-        except BaseException:
-            this_color = (.1, .1, .1)
-
-        _ = _plot_dotprops(dp, this_color, method, ax, **kwargs)
 
     for p in points:
         _ = _plot_scatter(p, method, ax, kwargs, **scatter_kws)
@@ -571,88 +560,11 @@ def _plot_scatter(points, method, ax, kwargs, **scatter_kws):
 
 def _plot_dotprops(dp, color, method, ax, **kwargs):
     """Plot dotprops."""
-    linewidth = kwargs.get('linewidth', kwargs.get('lw', .5))
-    linestyle = kwargs.get('linestyle', kwargs.get('ls', '-'))
-    alpha = kwargs.get('alpha', .9)
-    group_neurons = kwargs.get('group_neurons', False)
-    plot_soma = kwargs.get('soma', True)
-    view = kwargs.get('view', ('x', 'y'))
+    # Here, we will effectively cheat and turn the dotprops into a skeleton
+    # which we can then pass to _plot_skeleton
+    tn = dp.to_skeleton(scale_vec=kwargs.get('dps_scale_vec', 1))
 
-    # Prepare lines - this is based on nat:::plot3d.dotprops
-    halfvect = dp.points[['x_vec', 'y_vec', 'z_vec']] / 2
-
-    starts = dp.points[['x', 'y', 'z']].values - halfvect.values
-    ends = dp.points[['x', 'y', 'z']].values + halfvect.values
-
-    if method == '2d':
-        # We have to add (None, None, None) to the end of each
-        # slab to make that line discontinuous
-        nones = np.full(starts.shape, fill_value=None)
-        coords = np.dstack((starts, ends, nones))
-        coords = coords.reshape((3, starts.shape[0] * 3)).T
-        x, y = _parse_view2d(coords, view)
-
-        this_line = mlines.Line2D(x, y,
-                                  lw=linewidth,
-                                  ls=linestyle,
-                                  alpha=alpha, color=color,
-                                  label='%s' % (dp.gene_name))
-
-        ax.add_line(this_line)
-
-        # Add soma
-        if plot_soma:
-            sx, sy = _parse_view2d(np.array([[dp.X, dp.Y, dp.Z]]), view)
-            s = mpatches.Circle((sx[0], sy[0]), radius=2,
-                                alpha=alpha, fill=True, fc=color,
-                                zorder=4, edgecolor='none')
-            ax.add_patch(s)
-    elif method in ['3d', '3d_complex']:
-        # Combine coords by weaving starts and ends together
-        coords = np.empty((starts.shape[0] * 2, 3), dtype=starts.dtype)
-        coords[0::2] = starts
-        coords[1::2] = ends
-
-        # For simple scenes, add whole neurons at a time
-        # -> will speed up rendering
-        if method == '3d':
-            lc = Line3DCollection(np.split(coords,
-                                           starts.shape[0]),
-                                  color=color,
-                                  label=dp.gene_name,
-                                  lw=linewidth,
-                                  alpha=alpha,
-                                  linestyle=linestyle)
-            if group_neurons:
-                lc.set_gid(dp.gene_name)
-            ax.add_collection3d(lc)
-
-        # For complex scenes, add each segment as a single collection
-        # -> help preventing Z-order errors
-        elif method == '3d_complex':
-            for c in np.split(coords, starts.shape[0]):
-                lc = Line3DCollection([c],
-                                      color=color,
-                                      lw=linewidth,
-                                      alpha=alpha,
-                                      linestyle=linestyle)
-                if group_neurons:
-                    lc.set_gid(dp.gene_name)
-                ax.add_collection3d(lc)
-
-        # This is the soma
-        resolution = 20
-        u = np.linspace(0, 2 * np.pi, resolution)
-        v = np.linspace(0, np.pi, resolution)
-        x = 2 * np.outer(np.cos(u), np.sin(v)) + dp.X
-        y = 2 * np.outer(np.sin(u), np.sin(v)) + dp.Y
-        z = 2 * np.outer(np.ones(np.size(u)), np.cos(v)) + dp.Z
-        surf = ax.plot_surface(x, y, z,
-                               color=color,
-                               shade=False,
-                               alpha=alpha)
-        if group_neurons:
-            surf.set_gid(dp.gene_name)
+    return _plot_skeleton(tn, color, method, ax, **kwargs)
 
 
 def _plot_connectors(neuron, color, method, ax, **kwargs):
@@ -691,7 +603,6 @@ def _plot_mesh(neuron, color, method, ax, **kwargs):
     name = getattr(neuron, 'name')
     depth_coloring = kwargs.get('depth_coloring', False)
     alpha = kwargs.get('alpha', None)
-    norm = kwargs.get('norm')
     group_neurons = kwargs.get('group_neurons', False)
     view = kwargs.get('view', ('x', 'y'))
 
@@ -807,7 +718,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
             ax.add_collection(lc)
 
-        if plot_soma and not isinstance(neuron.soma, type(None)):
+        if plot_soma and np.any(neuron.soma):
             soma = utils.make_iterable(neuron.soma)
             # If soma detection is messed up we might end up producing
             # dozens of soma which will freeze the kernel

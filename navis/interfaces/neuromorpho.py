@@ -23,7 +23,7 @@ import pandas as pd
 from typing import List, Dict, Union
 
 from ..core import TreeNeuron, NeuronList
-from ..io.swc_io import from_swc
+from ..io.swc_io import read_swc
 from .. import utils, config
 
 
@@ -146,7 +146,7 @@ def get_neuron(x: Union[str, int, Dict[str, str]], **kwargs) -> TreeNeuron:
                 and DataFrame must contain 'archive' (e.g. "Wearne_Hof") and
                 'neuron_name' (e.g. "cnic_001").
     **kwargs
-                Keyword arguments passed on to :func:`navis.from_swc`.
+                Keyword arguments passed on to :func:`navis.read_swc`.
 
     Returns
     -------
@@ -184,7 +184,7 @@ def get_neuron(x: Union[str, int, Dict[str, str]], **kwargs) -> TreeNeuron:
 
     url = utils.make_url(baseurl, 'dableFiles', archive.lower(), 'CNG version', name + '.CNG.swc')
 
-    n = from_swc(url, **kwargs)
+    n = read_swc(url, **kwargs)
 
     n.id = x.get('neuron_id', n.id)
     n.name = x.get('name', getattr(n, 'name'))

@@ -608,28 +608,23 @@ class Viewer:
         None
 
         """
-        (neurons, dotprops, volumes, points, visuals) = utils.parse_objects(x)
+        (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
         if len(set(kwargs) & set(['c', 'color', 'colors'])) > 1:
             raise ValueError('Must not provide colors via multiple arguments')
 
         # Parse colors for neurons and dotprops
         (neuron_cmap,
-         dotprops_cmap,
          volumes_cmap) = prepare_colormap(kwargs.pop('color',
                                                      kwargs.pop('colors',
                                                                 kwargs.pop('c', None))),
                                           neurons=neurons,
-                                          dotprops=dotprops,
                                           volumes=volumes,
                                           color_range=1,
-                                          alpha=kwargs.get('alpha', None),
-                                          use_neuron_color=kwargs.pop('use_neuron_color', False))
+                                          alpha=kwargs.get('alpha', None))
 
         if neurons:
             visuals += neuron2vispy(neurons, color=neuron_cmap, **kwargs)
-        if not dotprops.empty:
-            visuals += dotprop2vispy(dotprops, color=dotprops_cmap, **kwargs)
         if volumes:
             visuals += volume2vispy(volumes, color=volumes_cmap, **kwargs)
         if points:

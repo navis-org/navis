@@ -34,7 +34,12 @@ from typing_extensions import Literal
 from .. import graph, morpho, utils, config, core, sampling, intersection, meshes
 from .. import io  # type: ignore # double import
 
-__all__ = ['Neuron', 'TreeNeuron']
+try:
+    import xxhash
+except ImportError:
+    xxhash = None
+
+__all__ = ['Neuron', 'TreeNeuron', 'MeshNeuron', 'Dotprops']
 
 # Set up logging
 logger = config.logger
@@ -74,7 +79,7 @@ def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
 
     See Also
     --------
-    :func:`navis.from_swc`
+    :func:`navis.read_swc`
                         Gives you more control over how data is extracted from
                         SWC file.
     :func:`navis.example_neurons`
@@ -394,7 +399,7 @@ class BaseNeuron:
     @property
     def type(self) -> str:
         """Return type."""
-        return 'BaseNeuron'
+        return 'navis.BaseNeuron'
 
     def convert_units(self,
                       to: Union[pint.Unit, str],
@@ -718,7 +723,7 @@ class MeshNeuron(BaseNeuron):
     @property
     def type(self) -> str:
         """Return type."""
-        return 'MeshNeuron'
+        return 'navis.MeshNeuron'
 
     def copy(self) -> 'MeshNeuron':
         """Return a copy of the neuron."""
@@ -732,7 +737,7 @@ class MeshNeuron(BaseNeuron):
         return x
 
     def validate(self):
-        """Use trimesh to try and fix some common issues.
+        """Use trimesh to try and fix some common mesh issues.
 
         See :func:`navis.fix_mesh` for details.
 
@@ -835,7 +840,7 @@ class TreeNeuron(BaseNeuron):
         elif isinstance(x, nx.Graph):
             self.nodes = graph.nx2neuron(x).nodes
         elif isinstance(x, BufferedIOBase) or isinstance(x, str):
-            x = io.from_swc(x)  # type: ignore
+            x = io.read_swc(x)  # type: ignore
             self.__dict__.update(x.__dict__)
         elif isinstance(x, TreeNeuron):
             self.__dict__.update(x.copy().__dict__)
@@ -1076,13 +1081,13 @@ class TreeNeuron(BaseNeuron):
     def _set_nodes(self, v):
         # Redefine this function in subclass to change validation
         self._nodes = utils.validate_table(v,
-                                           required=[('node_id', 'rowId', 'node', 'treenode_id'),
-                                                     ('parent_id', 'link', 'parent'),
-                                                     'x',
-                                                     'y',
-                                                     'z'],
+                                           required=[('node_id', 'rowId', 'node', 'treenode_id', 'PointNo'),
+                                                     ('parent_id', 'link', 'parent', 'Parent'),
+                                                     ('x', 'X'),
+                                                     ('y', 'Y'),
+                                                     ('z', 'Z')],
                                            rename=True,
-                                           optional={'radius': 0},
+                                           optional={('radius', 'W'): 0},
                                            restrict=False)
         graph.classify_nodes(self)
 
@@ -1138,9 +1143,10 @@ class TreeNeuron(BaseNeuron):
             self._connectors = utils.validate_table(v,
                                                     required=[('connector_id', 'id'),
                                                               ('node_id', 'rowId', 'node', 'treenode_id'),
-                                                              'x', 'y', 'z',
-                                                              ('type', 'relation',
-                                                               'label')],
+                                                              ('x', 'X'),
+                                                              ('y', 'Y'),
+                                                              ('z', 'Z'),
+                                                              ('type', 'relation', 'label', 'prepost')],
                                                     rename=True,
                                                     restrict=False)
 
@@ -1242,7 +1248,7 @@ class TreeNeuron(BaseNeuron):
     @property
     def type(self) -> str:
         """Return type."""
-        return 'TreeNeuron'
+        return 'navis.TreeNeuron'
 
     @property
     def n_branches(self) -> int:
@@ -1809,7 +1815,7 @@ class TreeNeuron(BaseNeuron):
         filename :      str | None, optional
                         If ``None``, will use "neuron_{id}.swc".
         kwargs
-                        Additional arguments passed to :func:`~navis.to_swc`.
+                        Additional arguments passed to :func:`~navis.write_swc`.
 
         Returns
         -------
@@ -1817,11 +1823,11 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.to_swc`
+        :func:`~navis.write_swc`
                 See this function for further details.
 
         """
-        return io.to_swc(self, filename, **kwargs)  # type: ignore  # double import of "io"
+        return io.write_swc(self, filename, **kwargs)  # type: ignore  # double import of "io"
 
     def reload(self,
                inplace: bool = False,
@@ -1844,7 +1850,7 @@ class TreeNeuron(BaseNeuron):
         if getattr(self, 'connector_labels'):
             kwargs['connector_labels'] = self.connector_labels
 
-        x = io.from_swc(file, **kwargs)
+        x = io.read_swc(file, **kwargs)
 
         if inplace:
             self.__dict__.update(x.__dict__)
@@ -1856,3 +1862,282 @@ class TreeNeuron(BaseNeuron):
             x2.__dict__.update(x.__dict__)
             x2._clear_temp_attr()
             return x
+
+
+class Dotprops(BaseNeuron):
+    """Object representing a neuron as dotprops.
+
+    Dotprops consist of points with x/y/z coordinates, a tangent vector and an
+    alpha value describing the immediate neighbourhood. See References.
+
+    Typically constructed from a point cloud using :func:`navis.make_dotprops`.
+
+    References
+    ----------
+    Masse N.Y., Cachero S., Ostrovsky A., and Jefferis G.S.X.E. (2012). A mutual
+    information approach to automate identification of neuronal clusters in
+    Drosophila brain images. Frontiers in Neuroinformatics 6 (00021).
+    doi: 10.3389/fninf.2012.00021
+
+    """
+    connectors: Optional[pd.DataFrame]
+
+    points: np.ndarray
+    alpha: np.ndarray
+    vect:  np.ndarray
+
+    soma: Optional[Union[list, np.ndarray]]
+
+    #: Attributes used for neuron summary
+    SUMMARY_PROPS = ['type', 'name', 'units', 'n_points']
+
+    #: Attributes to be used when comparing two neurons.
+    EQ_ATTRIBUTES = ['name', 'n_points']
+
+    #: Temporary attributes that need clearing when neuron data changes
+    TEMP_ATTR = []
+
+    def __init__(self,
+                 points: np.ndarray,
+                 alpha: np.ndarray,
+                 vect: np.ndarray,
+                 units: Union[pint.Unit, str] = None,
+                 **metadata
+                 ):
+        """Initialize Dotprops Neuron.
+
+        Parameters
+        ----------
+        points :        numpy array
+                        (N, 3) array of x/y/z coordinates.
+        alpha :         numpy array
+                        (N, ) array of alpha values.
+        vect :          numpy array
+                        (N, 3) array of vectors.
+        units :         str | pint.Units | pint.Quantity
+                        Units for coordinates. Defaults to ``None`` (dimensionless).
+                        Strings must be parsable by pint: e.g. "nm", "um",
+                        "micrometer" or "8 nanometers".
+        **metadata
+                        Any additional data to attach to neuron.
+
+
+        """
+        super().__init__()
+
+        self.points = points
+        self.alpha = alpha
+        self.vect = vect
+
+        self.soma = None
+
+        for k, v in metadata.items():
+            setattr(self, k, v)
+
+        if not getattr(self, 'id', None):
+            self.id = uuid.uuid4()
+
+        self.units = units
+
+    def __truediv__(self, other):
+        """Implement division for coordinates."""
+        if isinstance(other, (numbers.Number, list, np.ndarray)):
+            # If a number, consider this an offset for coordinates
+            n = self.copy()
+            n.points /= other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+
+            # Convert units
+            # If division is isometric
+            if isinstance(other, numbers.Number):
+                n.units = (n.units * other).to_compact()
+            # If other is iterable but division is still isometric
+            elif len(set(other)) == 1:
+                n.units = (n.units * other[0]).to_compact()
+            # If non-isometric remove units
+            else:
+                n.units = None
+
+            return n
+        return NotImplemented
+
+    def __mul__(self, other):
+        """Implement multiplication for coordinates."""
+        if isinstance(other, (numbers.Number, list, np.ndarray)):
+            # If a number, consider this an offset for coordinates
+            n = self.copy()
+            n.points *= other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+
+            # Convert units
+            # If multiplication is isometric
+            if isinstance(other, numbers.Number):
+                n.units = (n.units / other).to_compact()
+            # If other is iterable but multiplication is still isometric
+            elif len(set(other)) == 1:
+                n.units = (n.units / other[0]).to_compact()
+            # If non-isometric remove units
+            else:
+                n.units = None
+
+            return n
+        return NotImplemented
+
+    @property
+    def alpha(self):
+        """Alpha value for tangent vectors."""
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, value):
+        if isinstance(value, type(None)):
+            value = np.zeros(0)
+        value = np.asarray(value)
+        if value.ndim != 1:
+            raise ValueError(f'alpha must be (N, ) array, got {value.shape}')
+        self._alpha = value
+
+    @property
+    def bbox(self) -> np.ndarray:
+        """Bounding box."""
+        mn = np.min(self.points, axis=0)
+        mx = np.max(self.points, axis=0)
+        return np.vstack((mn, mx)).T
+
+    @property
+    def datatables(self) -> List[str]:
+        """Names of all DataFrames attached to this neuron."""
+        return [k for k, v in self.__dict__.items() if isinstance(v, pd.DataFrame, np.ndarray)]
+
+    @property
+    def points(self):
+        """Center of tangent vectors."""
+        return self._points
+
+    @points.setter
+    def points(self, value):
+        if isinstance(value, type(None)):
+            value = np.zeros((0, 3))
+        value = np.asarray(value)
+        if value.ndim != 2 or value.shape[1] != 3:
+            raise ValueError(f'points must be (N, 3) array, got {value.shape}')
+        self._points = value
+
+    @property
+    def vect(self):
+        """Tangent vectos."""
+        return self._vect
+
+    @vect.setter
+    def vect(self, value):
+        if isinstance(value, type(None)):
+            value = np.zeros((0, 3))
+        value = np.asarray(value)
+        if value.ndim != 2 or value.shape[1] != 3:
+            raise ValueError(f'vectors must be (N, 3) array, got {value.shape}')
+        self._vect = value
+
+    @property
+    def soma(self) -> Optional[int]:
+        """Index of soma point.
+
+        ``None`` if no soma. You can assign either a function that accepts a
+        Dotprops as input or a fix value. Default is None.
+        """
+        if callable(self._soma):
+            soma = self._soma.__call__()  # type: ignore  # say int not callable
+        else:
+            soma = self._soma
+
+        # Sanity check to make sure that the soma node actually exists
+        if isinstance(soma, type(None)):
+            # Return immmediately without expensive checks
+            return soma
+        elif utils.is_iterable(soma):
+            if not any(soma):
+                soma = None
+            elif any(np.array(soma) < 0) or any(np.array(soma) > self.points.shape[0]):
+                logger.warning(f'Soma(s) {soma} not found in points.')
+                soma = None
+        else:
+            if 0 < soma < self.points.shape[0]:
+                logger.warning(f'Soma {soma} not found in node table.')
+                soma = None
+
+        return soma
+
+    @soma.setter
+    def soma(self, value: Union[Callable, int, None]) -> None:
+        """Set soma."""
+        if hasattr(value, '__call__'):
+            self._soma = types.MethodType(value, self)
+        elif isinstance(value, type(None)):
+            self._soma = None
+        else:
+            if 0 < value < self.points.shape[0]:
+                self._soma = value
+            else:
+                raise ValueError('Soma must be function, None or a valid point index.')
+
+    @property
+    def type(self) -> str:
+        """Return type."""
+        return 'navis.Dotprops'
+
+    def copy(self) -> 'Dotprops':
+        """Return a copy of the dotprops.
+
+        Returns
+        -------
+        Dotprops
+
+        """
+        no_copy = ['_lock']
+        # Generate new empty neuron
+        x = self.__class__(None, None, None)
+        # Populate with this neuron's data
+        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
+
+        return x
+
+    def to_skeleton(self, scale_vec: float = 1) -> TreeNeuron:
+        """Turn dotprops into a skeleton.
+
+        Parameters
+        ----------
+        scale_vec :     float
+                        Factor by which to scale each tangent vector when
+                        generating the line segments.
+
+        Returns
+        -------
+        TreeNeuron
+
+        """
+        # Prepare segments - this is based on nat:::plot3d.dotprops
+        halfvect = self.vect / 2 * scale_vec
+        starts = self.points - halfvect
+        ends = self.points + halfvect
+
+        # Interweave starts and ends
+        segs = np.zeros((starts.shape[0] * 2, 3))
+        segs[::2] = starts
+        segs[1::2] = ends
+
+        # Generate node table
+        nodes = pd.DataFrame(segs, columns=['x', 'y', 'z'])
+        nodes['node_id'] = nodes.index
+        nodes['parent_id'] = -1
+        nodes.loc[1::2, 'parent_id'] = nodes.index.values[::2]
+
+        # Produce a minimal TreeNeuron
+        tn = TreeNeuron(nodes, units=self.units, id=self.id)
+
+        # Add some other relevant attributes directly
+        if self.has_connectors:
+            tn._connectors = self._connectors
+        tn._soma = tn._soma
+
+        return tn

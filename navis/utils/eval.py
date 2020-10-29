@@ -1,3 +1,4 @@
+
 #    This script is part of navis (http://www.github.com/schlegelp/navis).
 #    Copyright (C) 2017 Philipp Schlegel
 #
@@ -25,6 +26,40 @@ from .iterables import *
 
 # Set up logging
 logger = config.logger
+
+# Boolean, unsigned integer, signed integer, float, complex.
+_NUMERIC_KINDS = set('buifc')
+
+
+def is_numeric(array):
+    """Determine whether the argument has a numeric datatype.
+
+    Booleans, unsigned integers, signed integers, floats and complex
+    numbers are the kinds of numeric datatype.
+
+    Arrays with "dtype=object" will return True if data can be cast to floats.
+
+    Parameters
+    ----------
+    array : array-like
+        The array to check.
+
+    Returns
+    -------
+    is_numeric : `bool`
+        True if the array has a numeric datatype, False if not.
+
+    """
+    array = np.asarray(array)
+
+    # If array
+    if array.dtype.kind == 'O':
+        try:
+            array = array.astype(float)
+        except ValueError:
+            pass
+
+    return array.dtype.kind in _NUMERIC_KINDS
 
 
 def is_mesh(x) -> Tuple[List[bool], List[bool]]:
@@ -145,7 +180,7 @@ def eval_neurons(x: Any,
                     If no neurons found.
 
     """
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.BaseNeuron):
         return [x]
     elif isinstance(x, (list, np.ndarray, set)):
         neurons: List['core.BaseNeuron'] = []
@@ -157,8 +192,6 @@ def eval_neurons(x: Any,
             elif temp:
                 neurons.append(temp)
         return sorted(set(neurons), key=neurons.index)
-    elif isinstance(x, core.BaseNeuron):
-        return [x]
     elif isinstance(x, core.NeuronList):
         if len(x.id) != len(set(x.id)) and warn_duplicates:
             logger.warning('Duplicate IDs found in NeuronList.'

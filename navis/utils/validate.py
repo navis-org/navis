@@ -83,7 +83,8 @@ def validate_table(x: pd.DataFrame,
                 If True, will return only ``required`` columns.
     optional :  dict, optional
                 Optional columns. If column not present will be generated.
-                Dictionary must map column name to default value.
+                Dictionary must map column name to default value. Keys can also
+                be tuples - like ``required``.
 
     Returns
     -------
@@ -112,7 +113,7 @@ def validate_table(x: pd.DataFrame,
 
     for r in required:
         if isinstance(r, (tuple, list)):
-            if not any([c in x.columns for c in r]):
+            if not any(set(r) & set(x.columns)):
                 raise ValueError('Table must contain either of these columns'
                                  f' {", ".join(r)}')
         else:
@@ -121,8 +122,10 @@ def validate_table(x: pd.DataFrame,
 
     # Rename columns if necessary
     if rename:
-        # Generate mapping
-        new_name = {c: t[0] for t in required if isinstance(t, tuple) for c in t[1:]}
+        # Generate mapping. Order makes sure that required columns take
+        # precedence in case of a name clash
+        new_name = {c: t[0] for t in optional if isinstance(t, (tuple, list)) for c in t[1:]}
+        new_name.update({c: t[0] for t in required if isinstance(t, (tuple, list)) for c in t[1:]})
 
         # Apply mapping
         x.columns = [new_name.get(c, c) for c in x.columns]
@@ -134,7 +137,11 @@ def validate_table(x: pd.DataFrame,
         x = x[[r for r in flat_req if r in x.columns]]
 
     for c, v in optional.items():
-        if c not in x.columns:
+        # Convert to tuples
+        if not isinstance(c, (tuple, list)):
+            c = (c, )
+
+        if not any(set(c) & set(x.columns)):
             x[c] = v
 
     return x

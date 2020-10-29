@@ -13,13 +13,8 @@
 #    GNU General Public License for more details.
 
 """
-A collection of tools to interace with Neuron-related R libraries (e.g. nat,
-nblast, elmr).
-
-Notes
------
-See https://github.com/jefferis
-
+A collection of tools to interface with R natverse libraries (e.g. nat,
+nblast, elmr, rcatmaid). See https://github.com/natverse.
 """
 import math
 import numbers
@@ -60,7 +55,7 @@ def try_importr(x):
         return importr(x)
     except BaseException:
         logger.warning(f'Failed to import R library "{x}"! Some functions might'
-                        ' not work as expected. Please install from within R.')
+                       ' not work as expected. Please install from within R.')
         # Return dummy class
         return FailedImport(x)
 
@@ -105,6 +100,7 @@ nat = try_importr("nat")
 r_nblast = try_importr('nat.nblast')
 nat_templatebrains = try_importr('nat.templatebrains')
 flycircuit = try_importr('flycircuit')
+rcatmaid = try_importr('catmaid')
 
 # These are mainly relevant for exposing transforms
 nat_flybrains = try_importr('nat.flybrains')
@@ -112,7 +108,7 @@ elmr = try_importr('elmr')
 nat_jrcbrains = try_importr('nat.jrcbrains')
 
 
-__all__ = sorted(['neuron2r', 'neuron2py', 'init_rcatmaid', 'dotprops2py',
+__all__ = sorted(['neuron2r', 'neuron2py', 'init_rcatmaid',
                   'data2py', 'NBLASTresults', 'nblast', 'nblast_allbyall',
                   'get_neuropil', 'xform_brain', 'mirror_brain'])
 
@@ -138,13 +134,13 @@ def init_rcatmaid(**kwargs):
     server :            str, optional
                         Use this to set server URL if no remote_instance is
                         provided
-    authname :          str, optional
+    http_user :         str, optional
                         Use this to set http user if no remote_instance is
                         provided
-    authpassword :      str, optional
+    http_password :     str, optional
                         Use this to set http password if no remote_instance
                         is provided
-    authtoken :         str, optional
+    api_token :         str, optional
                         Use this to set user token if no remote_instance is
                         provided
 
@@ -171,9 +167,9 @@ def init_rcatmaid(**kwargs):
     """
     remote_instance = kwargs.get('remote_instance', None)
     server = kwargs.get('server', None)
-    authname = kwargs.get('authname', None)
-    authpassword = kwargs.get('authpassword', None)
-    authtoken = kwargs.get('authtoken', None)
+    authname = kwargs.get('http_user', None)
+    authpassword = kwargs.get('http_password', None)
+    authtoken = kwargs.get('api_token', None)
 
     if remote_instance is None:
         if 'remote_instance' in sys.modules:
@@ -183,40 +179,30 @@ def init_rcatmaid(**kwargs):
 
     if remote_instance:
         server = remote_instance.server
-        authname = remote_instance.authname
-        authpassword = remote_instance.authpassword
-        authtoken = remote_instance.authtoken
+        authname = remote_instance.http_user
+        authpassword = remote_instance.http_password
+        authtoken = remote_instance.api_token
     elif not remote_instance and None in (server, authname, authpassword, authtoken):
-        logger.error('Unable to initialize. Missing credentials: %s' % ''.join(
-            [n for n in ['server', 'authname', 'authpassword', 'authtoken'] if n not in kwargs]))
-        return None
-
-    # Import R Catmaid
-    try:
-        catmaid = importr('catmaid')
-    except BaseException:
-        logger.error(
-            'RCatmaid not found. Please install before proceeding.')
-        return None
+        raise ValueError('Unable to initialize connection: missing credentials')
 
     # Use remote_instance's credentials
-    catmaid.server = server
-    catmaid.authname = authname
-    catmaid.authpassword = authpassword
-    catmaid.token = authtoken
+    rcatmaid.server = server
+    rcatmaid.authname = authname
+    rcatmaid.authpassword = authpassword
+    rcatmaid.token = authtoken
 
     # Create the connection
-    con = catmaid.catmaid_connection(server=catmaid.server,
-                                     authname=catmaid.authname,
-                                     authpassword=catmaid.authpassword,
-                                     token=catmaid.token)
+    con = rcatmaid.catmaid_connection(server=rcatmaid.server,
+                                      authname=rcatmaid.authname,
+                                      authpassword=rcatmaid.authpassword,
+                                      token=rcatmaid.token)
 
     # Login
-    catmaid.catmaid_login(con)
+    rcatmaid.catmaid_login(con)
 
     logger.info('Rcatmaid successfully initiated.')
 
-    return catmaid
+    return rcatmaid
 
 
 def data2py(data, **kwargs):
@@ -244,20 +230,14 @@ def data2py(data, **kwargs):
     if 'neuronlistfh' in cl(data):
         logger.error('On-demand neuronlist found. Conversion cancelled to '
                      'prevent loading large datasets in memory. Please use '
-                     'rmaid.dotprops2py() and its "subset" parameter.')
+                     'r.neuron2py() and its "subset" parameter.')
         return None
     elif 'neuronlist' in cl(data):
-        if 'neuron' in cl(data):
-            return neuron2py(data)
-        elif 'dotprops' in cl(data):
-            return dotprops2py(data)
-        else:
-            logger.debug(f'Unable to convert R data of type "{cl(data)}"')
-            return 'Not converted'
+        return neuron2py(data)
     elif 'neuron' in cl(data):
         return neuron2py(data)
     elif 'dotprops' in cl(data):
-        return dotprops2py(data)
+        return neuron2py(data)
     elif cl(data)[0] == 'integer':
         if not names(data):
             return [int(n) for n in data]
@@ -316,86 +296,79 @@ def data2py(data, **kwargs):
         return 'Not converted'
 
 
-def neuron2py(x,
-              unit_conversion: Union[bool, int, float] = False,
-              add_attributes: bool = None
-              ) -> 'core.NeuronObject':
-    """Convert an rcatmaid ``neuron`` or ``neuronlist`` object to
-    :class:`~navs.TreeNeuron` or :class:`~navis.NeuronList`, respectively.
+def neuron2py(x) -> 'core.NeuronObject':
+    """Convert R neuron objects (dotprops, neurons, etc) to navis Neuron/Lists.
 
     Parameters
     ----------
-    x :                 R neuron | R neuronlist
-                        Neuron to convert to Python
-    unit_conversion :   bool | int | float, optional
-                        If True will convert units by given factor.
-    add_attributes :    None | str | iterable
-                        Give additional attributes that should be carried over
-                        to TreeNeuron. If ``None``, will only use minimal
-                        information to create TreeNeuron. Must match R
-                        ``names`` exactly - see examples.
+    x :                 R dotprops | neuron | catmaidneuron | neuronlist
+                        Neuron to convert to is navis analog.
 
     Returns
     -------
-    TreeNeuron/NeuronList
+    Neuron/NeuronList
 
     """
     if 'rpy2' not in str(type(x)):
         raise TypeError(f'This does not look like R object: "{type(x)}"')
 
-    if cl(x)[0] == 'neuronlist':
-        nl = pd.DataFrame(data=[[data2py(e) for e in n] for n in x],
-                          columns=list(x[0].names))
-    elif cl(x)[0] == 'neuron':
-        nl = pd.DataFrame(data=[[e for e in x]],
-                          columns=x.names)
-        nl = nl.applymap(data2py)
+    # If neuronlist
+    if 'neuronlist' in cl(x):
+        data = [neuron2py(n) for n in x]
+        return core.NeuronList(data)
+    # If dotprops
+    elif 'dotprops' in cl(x):
+        # Convert data to Python
+        data = {n: data2py(d) for n, d in zip(x.names, x)}
+        # Make and return Dotprops
+        return core.Dotprops(**data)
+    # If neuron
+    elif 'neuron' in cl(x):
+        do_not_use = ['nTrees', 'SegList', 'NumPoints', 'StartPoint', 'EndPoints',
+                      'BranchPoints', 'NumSegs']
+
+        # Convert data to Python
+        data = {n: data2py(d) for n, d in zip(x.names, x)
+                if n not in do_not_use and isinstance(n, str)}
+
+        # Construct neuron from just the nodes
+        n = core.TreeNeuron(data.pop('d'))
+
+        # R give node width, not radius - let's fix that
+        if 'radius' in n.nodes.columns:
+            has_rad = n.nodes.radius > 0
+            n.nodes.loc[has_rad, 'radius'] = n.nodes.loc[has_rad, 'radius'] / 2
+
+        # If this is a CATMAID neuron, we assume it's in nanometers
+        if 'catmaidneuron' in cl(x):
+            n.units = 'nm'
+
+        # Reuse Id
+        if 'skid' in data:
+            if utils.is_iterable(data['skid']):
+                n.id = data['skid'][0]
+            else:
+                n.id = data['skid']
+
+        # Try attaching other data
+        for k, v in data.items():
+            try:
+                setattr(n, k, v)
+            except BaseException:
+                pass
+        return n
     else:
-        raise TypeError(f'Must be neuron or neuronlist, got "{cl(x)[0]}"')
-
-    # Raise Error if this is a dotprops:
-    if all([c in nl.columns for c in ['points', 'alpha', 'vect']]):
-        raise TypeError('This looks to be dotprops. Try using dotprops2py instead.')
-
-    add_attributes = utils.make_iterable(add_attributes)
-
-    # Now that we (should) have all data in Python, we need to extract
-    # information relevant to create a `navis.TreeNeuron`
-    neurons = []
-    for r in nl.itertuples():
-        add_data = {}
-        if any(add_attributes):
-            add_data.update({getattr(r, at, None) for at in add_attributes})
-
-        # Need to convert column titles for R neuron
-        new_cols = [c.lower() for c in r.d.columns]
-        for k, v in {'pointno': 'node_id', 'w': 'radius', 'parent': 'parent_id'}.items():
-            new_cols = [c if c != k else v for c in new_cols]
-        r.d.columns = new_cols
-
-        # Set parent to -1 if negative
-        r.d.loc[r.d.parent_id < 0, 'parent_id'] = -1
-
-        neurons.append(core.TreeNeuron(r.d, **add_data))
-
-    if isinstance(unit_conversion, (float, int)):
-        for n in neurons:
-            n *= unit_conversion
-
-    if len(neurons) == 1:
-        return neurons[0]
-
-    return core.NeuronList(neurons)
+        raise TypeError(f'Unable to convert object of class "{cl(x)}"')
 
 
 def neuron2r(x: 'core.NeuronObject',
              unit_conversion: Union[bool, int, float] = None,
              add_metadata: bool = False):
-    """Convert TreeNeuron/List to corresponding R neuron/neuronlist object.
+    """Convert Neuron/List to corresponding R neuron/neuronlist object.
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 TreeNeuron | Dotprops | NeuronList
     unit_conversion :   bool | int | float, optional
                         If not ``False`` will multiply units by given factor.
     add_metadata :      bool, optional
@@ -432,7 +405,7 @@ def neuron2r(x: 'core.NeuronObject',
         nlist = robjects.ListVector(nlist)
         nlist.rownames = [str(n.id) for n in x]
 
-        nlist.rclass = robjects.r('c("neuronlist","list")')
+        nlist.rclass = robjects.r('c("neuronlist", "list")')
 
         return nlist
 
@@ -446,7 +419,7 @@ def neuron2r(x: 'core.NeuronObject',
         # replaced with -1
         parents = x.nodes.parent_id.values
         # should technically be robjects.r('-1L')
-        parents[parents == None] = -1 # DO NOT turn this into "parents is None"!
+        parents[parents == None] = -1  # DO NOT turn this into "parents is None"!
 
         swc = robjects.DataFrame({'PointNo': robjects.IntVector(x.nodes.node_id.tolist()),
                                   'Label': robjects.IntVector([0] * x.nodes.shape[0]),
@@ -479,14 +452,38 @@ def neuron2r(x: 'core.NeuronObject',
 
         # Generate nat neuron - will reroot to soma (I think)
         return nat.as_neuron(swc, origin=soma_id, **meta)
+    elif isinstance(x, core.Dotprops):
+        # Convert units if applicable
+        if isinstance(unit_conversion, (float, int)) and \
+           not isinstance(unit_conversion, bool):
+            x = x * unit_conversion
+
+        # Generate matrices for points
+        points = robjects.r.matrix(robjects.FloatVector(x.points.T.flatten().tolist()),
+                                   nrow=x.points.shape[0], ncol=3,
+                                   dimnames=[robjects.r('NULL'), ['X', 'Y', 'Z']])
+        vect = robjects.r.matrix(robjects.FloatVector(x.vect.T.flatten().tolist()),
+                                 nrow=x.vect.shape[0], ncol=3)
+        alpha = robjects.FloatVector(x.alpha.tolist())
+
+        rlist = robjects.ListVector({'points': points,
+                                     'alpha': alpha,
+                                     'vect': vect})
+
+        rlist.slots['labels'] = robjects.r('NULL')
+        rlist.slots['k'] = getattr(x, 'k', 0)
+
+        as_dotprops = robjects.r('as.dotprops')
+
+        return as_dotprops(rlist)
     else:
-        raise TypeError(f'Unable to convert data of type "{type(x)}" into R neuron.')
+        raise TypeError(f'Unable to convert data of type "{type(x)}" to R neuron.')
 
 
 def dotprops2py(dp,
                 subset: Optional[Union[List[str], List[int]]] = None
                 ) -> 'core.Dotprops':
-    """Convert dotprops into pandas DataFrame.
+    """LEGACY FUNCTION: Convert dotprops to pandas DataFrame.
 
     Parameters
     ----------
@@ -498,7 +495,8 @@ def dotprops2py(dp,
     Returns
     -------
     core.Dotprops
-        Subclass of pandas DataFrame. Contains dotprops.
+        Sub
+         of pandas DataFrame. Contains dotprops.
         Can be passed to `plotting.plot3d(dotprops)`
 
     """
@@ -589,16 +587,16 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
             logger.warning('NBLAST is optimized for data in microns and it looks'
                            ' like these neurons are not in microns.')
         rn = neuron2r(x)
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.BaseNeuron):
         raise ValueError('You have to provide more than a single neuron.')
     else:
         raise ValueError(f'Must provide NeuronList, not "{type(x)}"')
 
     # Generate dotprops
     logger.info('Generating dotprops for neurons.')
-    xdp = _make_dotprops(rn,
-                         resample=resample,
-                         parallel=n_cores > 1)
+    xdp = _make_R_dotprops(rn,
+                           resample=resample,
+                           parallel=n_cores > 1)
 
     # Calculate scores
     logger.info('Running all-by-all nblast.')
@@ -693,18 +691,18 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
 
     # Turn query into dotprops
     try:
-        query_dps = _make_dotprops(query,
-                                   resample=resample,
-                                   parallel=n_cores > 1)
+        query_dps = _make_R_dotprops(query,
+                                     resample=resample,
+                                     parallel=n_cores > 1)
     except NotImplementedError:
         raise NotImplementedError('Unable to produce R dotprops for query of '
                                   f'type {type(query)}')
 
     # Turn target into dotprops
     try:
-        target_dps = _make_dotprops(target,
-                                    resample=resample,
-                                    parallel=n_cores > 1)
+        target_dps = _make_R_dotprops(target,
+                                      resample=resample,
+                                      parallel=n_cores > 1)
     except NotImplementedError:
         raise NotImplementedError('Unable to produce R dotprops for target of '
                                   f'type {type(target)}')
@@ -773,22 +771,22 @@ def _check_microns(x, warn=True):
     """
     if isinstance(x, core.NeuronList):
         check = np.array([_check_microns(n) for n in x])
-        if all(check):
+        if np.all(check):
             return True
-        elif any(check is False):
+        # Do NOT change the "check == False" to "check is False" here!
+        elif np.any(check == False):
             return False
         return None
 
-    if isinstance(x, core.TreeNeuron):
-        u = getattr(x, 'units', None)
-        if isinstance(u, (config.ureg.Quantity, config.ureg.Unit)):
-            if not u.unitless:
-                return u.to_compact().units == config.ureg.Unit('um')
+    u = getattr(x, 'units', None)
+    if isinstance(u, (config.ureg.Quantity, config.ureg.Unit)):
+        if not u.unitless:
+            return u.to_compact().units == config.ureg.Unit('um')
 
     return None
 
 
-def _make_dotprops(x, resample=None, parallel=False):
+def _make_R_dotprops(x, resample=None, parallel=False):
     """Try to make dotprops from input data."""
     if isinstance(resample, type(None)) or not resample:
         resample = robjects.r('NA')
@@ -819,7 +817,7 @@ def _make_dotprops(x, resample=None, parallel=False):
             x = robjects.r(f'read.neuronlistfh("{datadir}/{x}")')
 
     # If navis neuron convert to R neuron/list
-    if isinstance(x, (core.TreeNeuron, core.NeuronList)):
+    if isinstance(x, (core.BaseNeuron, core.NeuronList)):
         x = neuron2r(x)
 
     # At this point we are expecting an R object
@@ -827,9 +825,10 @@ def _make_dotprops(x, resample=None, parallel=False):
         raise NotImplementedError(f'Unable to convert target of type {type(x)} into '
                                   'R dotprops.')
 
-    # Make sure we have dotprops
-    if 'dotprops' in cl(x):
-        dps = x
+    # Convert to dotprops if required
+    # Note: this logic should be improved at some point
+    if all(['dotprops' in cl(n) for n in x]):
+        return x
     else:
         dotprops = robjects.r('dotprops')
         if not parallel:
@@ -962,9 +961,9 @@ class NBLASTresults:
 
         if nl:
             if plot_neuron is True:
-                return plotting.plot3d([n_py, dotprops2py(nl), volumes], **kwargs)
+                return plotting.plot3d([n_py, neuron2py(nl), volumes], **kwargs)
             else:
-                return plotting.plot3d([dotprops2py(nl), volumes], **kwargs)
+                return plotting.plot3d([neuron2py(nl), volumes], **kwargs)
 
     def get_dps(self, entries: Union[int, str, List[str], List[int]]):
         """Retrieve dotproducts from DPS database (neuronlistfh) as neuronslist.

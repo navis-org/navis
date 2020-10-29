@@ -156,11 +156,10 @@ def neuron2vispy(x, **kwargs):
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
 
-    colormap, _, _ = prepare_colormap(colors,
-                                      neurons=x,
-                                      use_neuron_color=kwargs.get('use_neuron_color', False),
-                                      alpha=kwargs.get('alpha', None),
-                                      color_range=1)
+    colormap, _ = prepare_colormap(colors,
+                                   neurons=x,
+                                   alpha=kwargs.get('alpha', None),
+                                   color_range=1)
 
     # List to fill with vispy visuals
     visuals = []
@@ -169,7 +168,6 @@ def neuron2vispy(x, **kwargs):
         object_id = uuid.uuid4()
 
         neuron_color = colormap[i]
-
         if not kwargs.get('connectors_only', False):
             if isinstance(neuron, core.TreeNeuron):
                 visuals += skeleton2vispy(neuron,
@@ -181,10 +179,16 @@ def neuron2vispy(x, **kwargs):
                                       neuron_color,
                                       object_id,
                                       **kwargs)
+            elif isinstance(neuron, core.Dotprops):
+                visuals += dotprop2vispy(neuron,
+                                         neuron_color,
+                                         object_id,
+                                         **kwargs)
             else:
                 logger.warning(f"Don't know how to plot neuron of type '{type(neuron)}'")
 
-        if (kwargs.get('connectors', False) or kwargs.get('connectors_only', False)) and neuron.has_connectors:
+        if (kwargs.get('connectors', False)
+            or kwargs.get('connectors_only', False)) and neuron.has_connectors:
             visuals += connectors2vispy(neuron,
                                         neuron_color,
                                         object_id,
@@ -392,50 +396,48 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
         soma = utils.make_iterable(neuron.soma)
         if kwargs.get('soma', True) and any(soma):
             # If soma detection is messed up we might end up producing
-            # dozens of soma which will freeze the kernel
+            # hundrets of soma which will freeze the session
             if len(soma) >= 10:
-                logger.warning(f'{neuron.id}: {len(soma)} somas found.')
-            for s in soma:
-                n = neuron.nodes.set_index('node_id').loc[s]
-                r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
-                sp = create_sphere(7, 7, radius=r)
-                verts = sp.get_vertices() + n[['x', 'y', 'z']].values
-                s = scene.visuals.Mesh(vertices=verts,
-                                       shading='smooth',
-                                       faces=sp.get_faces(),
-                                       color=neuron_color)
-                s.ambient_light_color = vispy.color.Color('white')
+                logger.warning(f'Neuron {neuron.id} appears to have {len(soma)}'
+                               'somas. That does not look right - will ignore '
+                               'them for plotting.')
+            else:
+                for s in soma:
+                    n = neuron.nodes.set_index('node_id').loc[s]
+                    r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
+                    sp = create_sphere(7, 7, radius=r)
+                    verts = sp.get_vertices() + n[['x', 'y', 'z']].values
+                    s = scene.visuals.Mesh(vertices=verts,
+                                           shading='smooth',
+                                           faces=sp.get_faces(),
+                                           color=neuron_color)
+                    s.ambient_light_color = vispy.color.Color('white')
 
-                # Make visual discoverable
-                s.interactive = True
+                    # Make visual discoverable
+                    s.interactive = True
 
-                # Add custom attributes
-                s.unfreeze()
-                s._object_type = 'neuron'
-                s._neuron_part = 'soma'
-                s._id = neuron.id
-                s._name = str(getattr(neuron, 'name', neuron.id))
-                s._object = neuron
-                s._object_id = object_id
-                s.freeze()
+                    # Add custom attributes
+                    s.unfreeze()
+                    s._object_type = 'neuron'
+                    s._neuron_part = 'soma'
+                    s._id = neuron.id
+                    s._name = str(getattr(neuron, 'name', neuron.id))
+                    s._object = neuron
+                    s._object_id = object_id
+                    s.freeze()
 
-                visuals.append(s)
+                    visuals.append(s)
 
     return visuals
 
 
-def dotprop2vispy(x, **kwargs):
-    """Converts dotprops(s) to vispy visuals.
+def dotprop2vispy(x, neuron_color, object_id, **kwargs):
+    """Convert dotprops(s) to vispy visuals.
 
     Parameters
     ----------
-    x :             core.Dotprops | pd.DataFrame
+    x :             navis.Dotprops | pd.DataFrame
                     Dotprop(s) to plot.
-    colormap :      tuple | dict | array
-                    Color to use for plotting. Dictionaries should be mapped
-                    to gene names.
-    scale_vect :    int, optional
-                    Vector to scale dotprops by.
 
     Returns
     -------
@@ -443,83 +445,14 @@ def dotprop2vispy(x, **kwargs):
                     Contains vispy visuals for each dotprop.
 
     """
-    if not isinstance(x, (core.Dotprops, pd.DataFrame)):
-        raise TypeError(f'Unable to process data of type "{type(x)}"')
-
-    visuals = []
-
-    # Parse colors for dotprops
-    colors = kwargs.get('color',
-                        kwargs.get('c',
-                                   kwargs.get('colors', None)))
-    _, colormap, _ = prepare_colormap(colors,
-                                      dotprops=x,
-                                      use_neuron_color=False,
-                                      alpha=kwargs.get('alpha', None),
-                                      color_range=1)
-
-    scale_vect = kwargs.get('scale_vect', 1)
-
-    for i, n in enumerate(x.itertuples()):
-        # Generate random ID -> we need this in case we have duplicate IDs
-        object_id = uuid.uuid4()
-
-        color = colormap[i]
-
-        # Prepare lines - this is based on nat:::plot3d.dotprops
-        halfvect = n.points[
-            ['x_vec', 'y_vec', 'z_vec']] / 2 * scale_vect
-
-        starts = n.points[['x', 'y', 'z']
-                          ].values - halfvect.values
-        ends = n.points[['x', 'y', 'z']
-                        ].values + halfvect.values
-
-        segments = [item for sublist in zip(
-            starts, ends) for item in sublist]
-
-        t = scene.visuals.Line(pos=np.array(segments),
-                               color=color,
-                               width=2,
-                               connect='segments',
-                               antialias=False,
-                               method='gl')  # method can also be 'agg'
-
-        # Add custom attributes
-        t.unfreeze()
-        t._object_type = 'dotprop'
-        t._neuron_part = 'neurites'
-        t._name = getattr(n, 'gene_name', getattr(n, 'name', 'NoName'))
-        t._object = n
-        t._object_id = object_id
-        t.freeze()
-
-        visuals.append(t)
-
-        # Add soma (if provided as X/Y/Z)
-        if all([hasattr(n, v) for v in ['X', 'Y', 'Z']]):
-            sp = create_sphere(5, 5, radius=4)
-            s = scene.visuals.Mesh(vertices=sp.get_vertices()
-                                            + np.array([n.X, n.Y, n.Z]),
-                                   faces=sp.get_faces(),
-                                   color=color)
-
-            # Add custom attributes
-            s.unfreeze()
-            s._object_type = 'dotprop'
-            s._neuron_part = 'soma'
-            s._name = n.gene_name
-            s._object = n
-            s._object_id = object_id
-            s.freeze()
-
-            visuals.append(s)
-
-    return visuals
+    # Generate TreeNeuron
+    scale_vec = kwargs.get('dps_scale_vec', 1)
+    tn = x.to_skeleton(scale_vec=scale_vec)
+    return skeleton2vispy(tn, neuron_color, object_id, **kwargs)
 
 
 def points2vispy(x, **kwargs):
-    """ Converts points to vispy visuals.
+    """Convert points to vispy visuals.
 
     Parameters
     ----------
