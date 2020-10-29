@@ -1362,7 +1362,12 @@ class TreeNeuron(BaseNeuron):
 
         # Remove soma if it was manually assigned and is not present anymore
         if not callable(self._soma) and not isinstance(self._soma, type(None)):
-            if self._soma not in self.nodes.node_id.values:
+            if utils.is_iterable(self._soma):
+                exists = np.isin(self._soma, self.nodes.node_id.values)
+                self._soma = np.asarray(self._soma)[exists]
+                if not np.any(self._soma):
+                    self._soma = None
+            elif self._soma not in self.nodes.node_id.values:
                 self.soma = None
 
         if 'classify_nodes' not in exclude:
