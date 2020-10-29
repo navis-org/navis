@@ -1393,15 +1393,19 @@ class TreeNeuron(BaseNeuron):
         no_copy = ['_lock']
         # Generate new empty neuron
         x = self.__class__(None)
-        # Override with this neuron's data
+        # Populate with this neuron's data
         x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
 
-        if '_graph_nx' in self.__dict__:
-            x._graph_nx = self._graph_nx.copy(as_view=deepcopy is not True)
-        if '_igraph' in self.__dict__:
-            if self._igraph is not None:
-                # This is pretty cheap, so we will always make a deep copy
-                x._igraph = self._igraph.copy()
+        # Copy graphs only if neuron is not stale
+        if not self.is_stale:
+            if '_graph_nx' in self.__dict__:
+                x._graph_nx = self._graph_nx.copy(as_view=deepcopy is not True)
+            if '_igraph' in self.__dict__:
+                if self._igraph is not None:
+                    # This is pretty cheap, so we will always make a deep copy
+                    x._igraph = self._igraph.copy()
+        else:
+            x._clear_temp_attr()
 
         return x
 
