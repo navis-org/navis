@@ -528,6 +528,34 @@ class BaseNeuron:
 
         return plot3d(core.NeuronList(self, make_copy=False), **kwargs)
 
+    def memory_usage(self, deep=False):
+        """Return estimated memory usage of this neuron.
+
+        Works by going over attached data (numpy arrays and pandas DataFrames
+        such as vertices, nodes, etc) and summing up their size in memory.
+
+        Parameters
+        ----------
+        deep :      bool
+                    Pass to pandas DataFrames. If True will inspect data of
+                    object type too.
+
+        Returns
+        -------
+        int
+                    Memory usage in bytes.
+
+        """
+        size = 0
+        for k, v in self.__dict__.items():
+            if isinstance(v, np.ndarray):
+                size += v.nbytes
+            elif isinstance(v, pd.DataFrame):
+                size += v.memory_usage(deep=deep).sum()
+            elif isinstance(v, pd.Series):
+                size += v.memory_usage(deep=deep)
+        return size
+
 
 class MeshNeuron(BaseNeuron):
     """Object representing a neuron as mesh."""

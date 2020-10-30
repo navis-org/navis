@@ -346,6 +346,9 @@ def classify_nodes(x: 'core.NeuronObject',
     else:
         x.nodes['type'] = None
 
+    # Turn into categorical data - saves tons of memory
+    x.nodes['type'] = x.nodes['type'].astype('category')
+
     if not inplace:
         return x
     return None

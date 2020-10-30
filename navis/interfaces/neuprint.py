@@ -430,6 +430,10 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
             syn = syn[['connector_id', 'node_id', 'type',
                        'x', 'y', 'z', 'roi', 'confidence']]
 
+            # Manually make the "roi" column of the synapse table into a 
+            # categorical to save some memory
+            syn['roi'] = syn.roi.astype('category')
+
             n.connectors = syn
 
     return n

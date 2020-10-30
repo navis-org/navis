@@ -204,21 +204,14 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
         nodes.loc[~nodes.parent_id.isin(nodes.node_id), 'parent_id'] = -1
 
     # Convert data to respective dtypes
-    dtypes = {'node_id': int, 'parent_id': int, 'label': str,
+    dtypes = {'node_id': int, 'parent_id': int, 'label': 'category',
               'x': float, 'y': float, 'z': float, 'radius': float}
-
-    for k, v in dtypes.items():
-        if isinstance(v, type):
-            nodes[k] = nodes[k].astype(v, errors='ignore')
-        else:
-            nodes[k] = nodes[k].map(v)
-            nodes[k] = nodes[k].astype(object)
+    nodes = nodes.astype(dtypes, errors='ignore', copy=False)
 
     # Take care of connectors
     if connector_labels:
         connectors = pd.DataFrame([], columns=['node_id', 'connector_id',
-                                               'type', 'x', 'y', 'z'],
-                                  dtype=object)
+                                               'type', 'x', 'y', 'z'])
         for t, l in connector_labels.items():
             cn = nodes[nodes.label == l][['node_id', 'x', 'y', 'z']].copy()
             cn['connector_id'] = None
