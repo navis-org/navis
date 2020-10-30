@@ -717,6 +717,11 @@ class NeuronProcessor:
         parsed_args = []
         parsed_kwargs = []
 
+        # inplace=True does not really work if using parallel threads - we will
+        # have to fix this behind the scenes -> we need functions to return
+        # something!
+        inplace = kwargs.pop('kwargs', False)
+
         for i in range(len(self.funcs)):
             parsed_args.append([])
             parsed_kwargs.append({})
@@ -736,7 +741,7 @@ class NeuronProcessor:
         level = logger.getEffectiveLevel()
 
         logger.setLevel('ERROR')
-        if self.parallel:
+        if self.parallel and len(self.funcs) > 1:
             with mp.Pool(self.n_cores, initializer=self.initializer) as pool:
                 combinations = list(zip(self.funcs, parsed_args, parsed_kwargs))
                 chunksize = 1 #max(int(len(combinations) / 100), 1)
@@ -757,8 +762,16 @@ class NeuronProcessor:
         # Reset logger level to previous state
         logger.setLevel(level)
 
-        if not kwargs.get('inplace', False):
+        # If result is not a NeuronList return straight away
+        if not isinstance(res, NeuronList):
+            return res
+
+        # If result is a NeuronList check if we it is was mean to be "inplace"
+        if not inplace:
             return self.nl.__class__(res)
+        else:
+            self.nl.neurons = res.neurons
+
 
 
 def _worker_wrapper(x: Sequence):
