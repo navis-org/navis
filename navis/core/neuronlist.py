@@ -346,6 +346,11 @@ class NeuronList:
     def __getitem__(self, key):
         if utils.is_iterable(key):
             if all([isinstance(k, (bool, np.bool_)) for k in key]):
+                if len(key) != len(self.neurons):
+                    raise IndexError('boolean index did not match indexed '
+                                     f'neuronlist; dimension is {len(self.neurons)}'
+                                     ' but corresponding boolean dimension is'
+                                     f'{len(key)}')
                 subset = [n for i, n in enumerate(self.neurons) if key[i]]
             else:
                 subset = [self[i] for i in key]
@@ -361,8 +366,6 @@ class NeuronList:
 
         # Make sure we unpack neurons
         subset = utils.unpack_neurons(subset)
-        # Make sure each neuron shows up only once but keep original order
-        subset = sorted(set(subset), key=lambda x: subset.index(x))
 
         if not subset:
             # This will call __missing__
