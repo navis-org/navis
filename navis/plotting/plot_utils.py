@@ -99,10 +99,15 @@ def segments_to_coords(x: core.TreeNeuron,
     if not isinstance(modifier, np.ndarray):
         modifier = np.array(modifier)
 
+    # Using a dictionary here is orders of manitude faster than .loc[]!
     locs: Dict[int, Tuple[float, float, float]]
+    # Oddly, this is also the fastest way to generate the dictionary
     locs = {r.node_id: (r.x, r.y, r.z) for r in x.nodes.itertuples()}  # type: ignore
 
-    coords = ([np.array([locs[tn] for tn in s]) * modifier for s in segments])
+    coords = ([np.array([locs[tn] for tn in s]) for s in segments])
+
+    if any(modifier != 1):
+        coords = [c * modifier for c in coords]
 
     return coords
 
