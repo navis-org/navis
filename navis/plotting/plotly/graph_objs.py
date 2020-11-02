@@ -178,29 +178,26 @@ def mesh2plotly(neuron, neuron_id, color, **kwargs):
 
 def skeleton2plotly(neuron, neuron_id, color, **kwargs):
     """Convert skeleton (i.e. TreeNeuron) to plotly line plot."""
+    if neuron.nodes.empty:
+        logger.warning(f'Skipping empty neuron: {neuron.label}')
+        return []
+
     coords = segments_to_coords(neuron, neuron.segments)
     name = str(getattr(neuron, 'name', neuron.id))
     linewidth = kwargs.get('linewidth', kwargs.get('lw', 2))
     legend_group = kwargs.get('legend_group', neuron_id)
 
-    # We have to add (None, None, None) to the end of each slab to
-    # make that line discontinuous there
+    # We have to add (None, None, None) to the end of each segment to
+    # make that line discontinuous
     coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
 
-    if kwargs.get('by_strahler', False):
-        s_index = morpho.strahler_index(neuron, return_dict=True)
-        max_strahler = max(s_index.values())
-        c = []
-        for k, s in enumerate(coords):
-            this_c = f'rgba({color[0]},{color[1]},{color[2]},{s_index[s[0]] / max_strahler})'
-            # Slabs are separated by a <None> coordinate -> this is
-            # why we need one more color entry
-            c += [this_c] * (len(s) + 1)
+    if isinstance(color, np.ndarray) and color.ndim == 2:
+        if color.shape[1] == 4:
+            c = [f'rgba({c[0]:.0f},{c[1]:.0f},{c[2]:.0f},{c[3]:.4f})' for c in color]
+        else:
+            c = [f'rgb({c[0]:.0f},{c[1]:.0f},{c[2]:.0f})' for c in color]
     else:
-        try:
-            c = 'rgb{}'.format(color)
-        except BaseException:
-            c = 'rgb(10,10,10)'
+        c = f'rgb({color[0]:.0f},{color[1]:.0f},{color[2]:.0f})'
 
     trace_data = [go.Scatter3d(x=coords[:, 0],
                                y=coords[:, 1],
