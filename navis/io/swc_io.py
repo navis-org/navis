@@ -39,6 +39,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
              soma_label: Union[str, int] = 1,
              include_subdirs: bool = False,
              parallel: Union[bool, int] = 'auto',
+             precision: int = 32,
              **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from SWC file.
 
@@ -57,7 +58,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     include_subdirs :   bool, optional
                         If True and ``f`` is a folder, will also search
                         subdirectories for ``.swc`` files.
-    parallel :          "auto" | bool | int,
+    parallel :          "auto" | bool | int
                         Defaults to ``auto`` which means only use parallel
                         processing if more than 200 SWC are imported. Spawning
                         and joining processes causes overhead and is
@@ -65,7 +66,10 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
                         ``os.cpu_count() - 2``).
-
+    precision :         int [8, 16, 32, 64] | None
+                        Precision for data. Defaults to 32 bit integers/floats.
+                        If ``None`` will let pandas infer data types - this
+                        typically leads to higher than necessary precision.
     **kwargs
                         Keyword arguments passed to the construction of
                         ``navis.TreeNeuron``. You can use this to e.g. set
@@ -85,6 +89,13 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         Export neurons as SWC files.
 
     """
+    INT_DTYPES = {16: np.int16, 32: np.int32, 64: np.int64, None: None}
+    FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
+
+    if precision not in INT_DTYPES:
+        raise ValueError(f'Unknown precision {precision}. Expected on of the '
+                         'following: 16, 32 (default), 64 or None')
+
     # If is directory, compile list of filenames
     if isinstance(f, str) and os.path.isdir(f):
         if not include_subdirs:
@@ -204,8 +215,10 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
         nodes.loc[~nodes.parent_id.isin(nodes.node_id), 'parent_id'] = -1
 
     # Convert data to respective dtypes
-    dtypes = {'node_id': int, 'parent_id': int, 'label': 'category',
-              'x': float, 'y': float, 'z': float, 'radius': float}
+    int_ = INT_DTYPES[precision]
+    float_ = FLOAT_DTYPES[precision]
+    dtypes = {'node_id': int_, 'parent_id': int_, 'label': 'category',
+              'x': float_, 'y': float_, 'z': float_, 'radius': float_}
     nodes = nodes.astype(dtypes, errors='ignore', copy=False)
 
     # Take care of connectors
