@@ -688,7 +688,7 @@ class NeuronList:
 
 
 class NeuronProcessor:
-    """ Helper class to allow processing of arbitrary functions of
+    """Helper class to allow processing of arbitrary functions of
     all neurons in a neuronlist.
     """
 
@@ -720,11 +720,6 @@ class NeuronProcessor:
         parsed_args = []
         parsed_kwargs = []
 
-        # inplace=True does not really work if using parallel threads - we will
-        # have to fix this behind the scenes -> we need functions to return
-        # something!
-        inplace = kwargs.pop('kwargs', False)
-
         for i in range(len(self.funcs)):
             parsed_args.append([])
             parsed_kwargs.append({})
@@ -745,9 +740,19 @@ class NeuronProcessor:
 
         logger.setLevel('ERROR')
         if self.parallel and len(self.funcs) > 1:
+            # ``inplace=True`` does not really work if using parallel threads.
+            if kwargs.get('inplace', False):
+                raise ValueError('It looks like you are trying to modify neuron '
+                                 'inplace `inplace=True` in combination with '
+                                 'parallel processing. This is currently not '
+                                 'possible as changes to the neurons do not '
+                                 'propagate back from the forked processes. '
+                                 'Either use `inplace=False` or '
+                                 '`parallel=False`.')
+
             with mp.Pool(self.n_cores, initializer=self.initializer) as pool:
                 combinations = list(zip(self.funcs, parsed_args, parsed_kwargs))
-                chunksize = 1 #max(int(len(combinations) / 100), 1)
+                chunksize = 1  # max(int(len(combinations) / 100), 1)
                 res = list(config.tqdm(pool.imap(_worker_wrapper,
                                                  combinations,
                                                  chunksize=chunksize),
@@ -765,16 +770,16 @@ class NeuronProcessor:
         # Reset logger level to previous state
         logger.setLevel(level)
 
-        # If result is not a NeuronList return straight away
-        if not isinstance(res, NeuronList):
-            return res
-
-        # If result is a NeuronList check if we it is was mean to be "inplace"
-        if not inplace:
-            return self.nl.__class__(res)
-        else:
-            self.nl.neurons = res.neurons
-
+        # If result is a NeuronList check if it is was mean to be "inplace"
+        is_neuron = [isinstance(r, (NeuronList, core.BaseNeuron)) for r in res]
+        if all(is_neuron):
+            return self.nl.__class__(utils.unpack_neurons(res))
+        # If results is all null (e.g. if not parallel and inplace=True)
+        # just return nothing
+        if not np.any(res):
+            return
+        # If not all neurons simply return results and let user deal with it
+        return res
 
 
 def _worker_wrapper(x: Sequence):
