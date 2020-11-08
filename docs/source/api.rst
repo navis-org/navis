@@ -224,6 +224,7 @@ Functions to down- or resample neurons.
     :toctree: generated/
 
     navis.resample_neuron
+    navis.resample_along_axis
     navis.downsample_neuron
 
 Analysis
@@ -282,6 +283,8 @@ Functions to convert neurons and networkx to iGraph or networkX graphs.
     navis.network2nx
     navis.network2igraph
     navis.rewire_neuron
+    navis.insert_nodes
+    navis.remove_nodes
 
 Adjacency matrices
 ------------------
@@ -466,7 +469,7 @@ Not imported at top level! Must be imported explicitly::
 
 R interface
 +++++++++++
-Bundle of functions to use R libraries.
+Bundle of functions to use R natverse libraries.
 
 Not imported at top level! Must be imported explicitly::
 
