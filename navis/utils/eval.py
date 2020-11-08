@@ -31,7 +31,55 @@ logger = config.logger
 _NUMERIC_KINDS = set('buifc')
 
 
-def is_numeric(array):
+def eval_param(value: Any,
+               name: str,
+               allowed_values: Optional[tuple] = None,
+               allowed_types: Optional[tuple] = None,
+               on_error: str = 'raise'):
+    """Check if parameter has expected type and/or value.
+
+    Parameters
+    ----------
+    value :             any
+                        Value to be checked.
+    name :              str
+                        Name of the parameter. Used for warnings/exceptions.
+    allowed_values :    tuple
+                        Iterable containing the allowed values.
+    allowed_types  :    tuple
+                        Iterable containing the allowed types.
+    on_error :          "raise" | "warn"
+                        What to do if ``value`` is not in ``allowed_values``.
+
+    Returns
+    -------
+    None
+
+    """
+    assert on_error in ('raise', 'warn')
+    assert isinstance(allowed_values, (tuple, type(None)))
+    assert isinstance(allowed_types, (tuple, type(None)))
+
+    if allowed_types:
+        if not isinstance(value, allowed_types):
+            msg = (f'Unexpected type for "{name}": {type(value)}. ',
+                   f'Allowed type(s): {", ".join([str(t) for t in allowed_types])}')
+            if on_error == 'raise':
+                raise ValueError(msg)
+            elif on_error == 'warn':
+                logger.warning(msg)
+
+    if allowed_values:
+        if value not in allowed_values:
+            msg = (f'Unexpected value for "{name}": {value}. ',
+                   f'Allowed value(s): {", ".join([str(t) for t in allowed_values])}')
+            if on_error == 'raise':
+                raise ValueError(msg)
+            elif on_error == 'warn':
+                logger.warning(msg)
+
+
+def is_numeric(array: np.ndarray, bool_numeric: bool = True) -> bool:
     """Determine whether the argument has a numeric datatype.
 
     Booleans, unsigned integers, signed integers, floats and complex
@@ -41,13 +89,15 @@ def is_numeric(array):
 
     Parameters
     ----------
-    array : array-like
-        The array to check.
+    array :         array-like
+                    The array to check.
+    bool_numeric :  bool
+                    If True (default), we count booleans as numeric data types.
 
     Returns
     -------
-    is_numeric : `bool`
-        True if the array has a numeric datatype, False if not.
+    is_numeric :    `bool`
+                    True if the array has a numeric datatype, False if not.
 
     """
     array = np.asarray(array)
@@ -58,6 +108,11 @@ def is_numeric(array):
             array = array.astype(float)
         except ValueError:
             pass
+
+    if not bool_numeric:
+        _NUMERIC_KINDS_NO_BOOL = _NUMERIC_KINDS.copy()
+        _NUMERIC_KINDS_NO_BOOL.remove('b')
+        return array.dtype.kind in _NUMERIC_KINDS_NO_BOOL
 
     return array.dtype.kind in _NUMERIC_KINDS
 

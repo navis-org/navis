@@ -4,5 +4,5 @@ from .misc import (is_jupyter, set_loggers, set_pbars, unpack_neurons,
                    is_url, make_url, lock_neuron, make_volume)
 from .validate import validate_options, validate_table
 from .eval import (eval_node_ids, eval_neurons, eval_id, eval_conditions,
-                   is_mesh, is_numeric)
+                   is_mesh, is_numeric, eval_param)
 from .exceptions import (ConstructionError, VolumeError)
