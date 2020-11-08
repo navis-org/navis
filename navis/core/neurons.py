@@ -1382,11 +1382,9 @@ class TreeNeuron(BaseNeuron):
                 logger.debug(f'Neuron {id(self)}: Unable to clear temporary attribute "{a}"')
                 pass
 
-        temp_node_cols = ['flow_centrality', 'strahler_index']
-
         # Remove temporary node values
-        if any(np.isin(temp_node_cols, self.nodes.columns)):
-            self.nodes = self.nodes[[c for c in self.nodes.columns if c not in temp_node_cols]]
+        # temp_node_cols = ['flow_centrality', 'strahler_index', 'SI', 'bending_flow']
+        # self._nodes.drop(columns=temp_node_cols, errors='ignore', inplace=True)
 
         # Remove soma if it was manually assigned and is not present anymore
         if not callable(self._soma) and not isinstance(self._soma, type(None)):
