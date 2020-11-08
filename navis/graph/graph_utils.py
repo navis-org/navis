@@ -1719,14 +1719,14 @@ def _igraph_to_sparse(graph, weight_attr=None):
                       shape=(len(graph.vs), len(graph.vs)))
 
 
-def connected_subgraph(x: 'core.TreeNeuron',
+def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
                        ss: Sequence[Union[str, int]]) -> Tuple[np.ndarray, Union[int, str]]:
     """Return set of nodes necessary to connect all nodes in subset ``ss``.
 
     Parameters
     ----------
-    x :         navis.TreeNeuron
-                Neuron to get subgraph for.
+    x :         navis.TreeNeuron | nx.DiGraph
+                Neuron (or graph thereof) to get subgraph for.
     ss :        list | array-like
                 Node IDs of node to subset to.
 
@@ -1750,31 +1750,34 @@ def connected_subgraph(x: 'core.TreeNeuron',
     True
 
     """
-    if isinstance(x, core.NeuronList) and len(x) == 1:
-        x = x[0]
+    if isinstance(x, core.NeuronList):
+        if len(x) == 1:
+            g = x[0].graph
+    elif isinstance(x, core.TreeNeuron):
+        g = x.graph
+    elif isinstance(x, nx.DiGraph):
+        g = x
+    else:
+        raise TypeError(f'Input must be a single TreeNeuron or graph, got "{type(x)}".')
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Input must be a single TreeNeuron, got "{type(x)}".')
-
-    missing = set(ss) - set(x.nodes.node_id.values)
+    ss = set(ss)
+    missing = ss - set(g.nodes)
     missing = np.array(list(missing)).astype(str)  # do NOT remove list() here!
     if missing:
         raise ValueError(f'Nodes not found: {",".join(missing)}')
 
-    # Find leaf nodes in subset (real leafs and simply disconnected slabs)
-    ss_nodes = x.nodes[x.nodes.node_id.isin(ss)]
-    leafs = ss_nodes[(ss_nodes.type == 'end')].node_id.values
-    disconnected = x.nodes[(~x.nodes.node_id.isin(ss)) & (x.nodes.parent_id.isin(ss))]
-    leafs = np.append(leafs, disconnected.parent_id.values)
+    # Find nodes that are leafs WITHIN the subset
+    g_ss = g.subgraph(ss)
+    in_degree = dict(g_ss.in_degree)
+    leafs = ss & {n for n, d in in_degree.items() if not d}
 
     # Run this for each connected component of the neuron
     include = set()
     new_roots = []
-    for cc in nx.connected_components(x.graph.to_undirected()):
+    for cc in nx.connected_components(g.to_undirected()):
         # Walk from each node to root and keep track of path
-        g = x.graph
         paths = []
-        for n in leafs[np.isin(leafs, list(cc))]:
+        for n in leafs & cc:
             this_path = []
             while n:
                 this_path.append(n)
@@ -1793,7 +1796,6 @@ def connected_subgraph(x: 'core.TreeNeuron',
         first_common = sorted(common, key=lambda x: longest_path.index(x))[0]
 
         # Now go back to paths and collect all nodes until this first common node
-        include = set()
         for p in paths:
             it = iter(p)
             n = next(it, None)
@@ -1808,10 +1810,10 @@ def connected_subgraph(x: 'core.TreeNeuron',
 
         # In cases where there are even more distal common ancestors
         # (first common will typically be a branch point)
-        this_ss = ss[np.isin(ss, list(cc))]
-        if set(this_ss) - set(include):
+        this_ss = ss & cc
+        if this_ss - include:
             # Make sure the new root is set correctly
-            nr = sorted(set(this_ss) - set(include),
+            nr = sorted(this_ss - include,
                         key=lambda x: longest_path.index(x))[-1]
             new_roots.append(nr)
             # Add those nodes to be included
