@@ -12,4 +12,4 @@
 #    GNU General Public License for more details.
 
 from .downsampling import downsample_neuron
-from .resampling import resample_neuron
+from .resampling import resample_neuron, resample_along_axis 
