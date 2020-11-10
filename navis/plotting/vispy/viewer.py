@@ -111,6 +111,7 @@ class Viewer:
     Instead of :func:`navis.plot3d` we can interact with the viewer directly:
 
     >>> # Open a 3D viewer
+    >>> import navis
     >>> v = navis.Viewer()
     >>> # Close the 3D viewer
     >>> v.close()
@@ -178,7 +179,7 @@ class Viewer:
 
         # Legend settings
         self.__show_legend = False
-        self.__selected = []
+        self.__selected = np.array([], dtype='object')
         self._cycle_index = -1
         self.__legend_font_size = 7
 
@@ -376,15 +377,10 @@ class Viewer:
 
     @selected.setter
     def selected(self, val):
-        n = utils.eval_neurons(val)
-
-        if not isinstance(n, np.ndarray):
-            n = np.array(n)
+        n = np.asarray(val).astype('object')
 
         neurons = self.neurons
-
         logger.debug(f'{len(n)} neurons selected ({len(self.selected)} previously)')
-
         # First un-highlight neurons no more selected
         for s in [s for s in self.__selected if s not in set(n)]:
             for v in neurons[s]:
@@ -613,23 +609,12 @@ class Viewer:
         if len(set(kwargs) & set(['c', 'color', 'colors'])) > 1:
             raise ValueError('Must not provide colors via multiple arguments')
 
-        # Parse colors for neurons and dotprops
-        (neuron_cmap,
-         volumes_cmap) = prepare_colormap(kwargs.pop('color',
-                                                     kwargs.pop('colors',
-                                                                kwargs.pop('c', None))),
-                                          neurons=neurons,
-                                          volumes=volumes,
-                                          color_range=1,
-                                          alpha=kwargs.get('alpha', None))
-
         if neurons:
-            visuals += neuron2vispy(neurons, color=neuron_cmap, **kwargs)
+            visuals += neuron2vispy(neurons, **kwargs)
         if volumes:
-            visuals += volume2vispy(volumes, color=volumes_cmap, **kwargs)
+            visuals += volume2vispy(volumes, **kwargs)
         if points:
-            visuals += points2vispy(points,
-                                    **kwargs.get('scatter_kws', {}))
+            visuals += points2vispy(points, **kwargs.get('scatter_kws', {}))
 
         if not visuals:
             raise ValueError('No visuals created.')
@@ -849,14 +834,32 @@ class Viewer:
                     except BaseException:
                         this_c = v.color
 
-                    if len(this_c) == 4 and this_c[3] == amap[n]:
-                        continue
+                    this_c = np.asarray(this_c)
 
-                    new_c = tuple([this_c[0], this_c[1], this_c[2], amap[n]])
-                    if isinstance(v, scene.visuals.Mesh):
-                        v.color = mcl.to_rgba(new_c)
+                    # For arrays of colors
+                    if this_c.ndim == 2:
+                        # If no alpha channel yet, add one
+                        if this_c.shape[1] == 3:
+                            this_c = np.insert(this_c,
+                                               3,
+                                               np.ones(this_c.shape[0]),
+                                               axis=1)
+
+                        # If already the correct alpha value
+                        if np.all(this_c[:, 3] == amap[n]):
+                            continue
+                        else:
+                            this_c[:, 3] = amap[n]
                     else:
-                        v.set_data(color=mcl.to_rgba(new_c))
+                        if len(this_c) == 4 and this_c[3] == amap[n]:
+                            continue
+                        else:
+                            this_c = tuple([this_c[0], this_c[1], this_c[2], amap[n]])
+
+                    if isinstance(v, scene.visuals.Mesh):
+                        v.color = this_c
+                    else:
+                        v.set_data(color=this_c)
 
         if self.show_legend:
             self.update_legend()
@@ -907,12 +910,18 @@ class Viewer:
             # Get current colors
             new_amap = {}
             for n in to_cycle:
-                this_c = list(to_rgba(to_cycle[n][0].color))
-                # Make sure colors are (r, g, b, a)
-                if len(this_c) < 4:
-                    this_a = 1
+                this_c = np.asarray(to_cycle[n][0].color)
+
+                if this_c.ndim == 2:
+                    if this_c.shape[1] == 4:
+                        this_a = this_c[0, 3]
+                    else:
+                        this_a = 1
                 else:
-                    this_a = this_c[3]
+                    if this_c.shape[0] == 4:
+                        this_a = this_c[3]
+                    else:
+                        this_a = 1
 
                 # If neuron needs to be hidden, add to cmap
                 if n in to_hide and this_a != out_alpha:
@@ -1126,7 +1135,7 @@ def on_mouse_press(event):
               and getattr(v, '_id', None)
               and 'Shift' in modifiers):
             if v._id not in set(viewer.selected):
-                viewer.selected = np.append(viewer.selected, v._id)
+                viewer.selected = np.append(viewer.selected, v._id).astype('object')
             else:
                 viewer.selected = viewer.selected[viewer.selected != v._id]
             break
