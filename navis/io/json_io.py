@@ -14,6 +14,7 @@
 import json
 
 import pandas as pd
+import numpy as np
 
 from .. import config, core
 
@@ -48,28 +49,24 @@ def neuron2json(x: 'core.NeuronObject', **kwargs) -> str:
     if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
         raise TypeError(f'Unable to convert data of type "{type(x)}"')
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.BaseNeuron):
         x = core.NeuronList([x])
 
     data = []
     for n in x:
         this_data = {'id': n.id}
-
-        if 'nodes' in n.__dict__:
-            this_data['nodes'] = n.nodes.to_json()
-
-        if 'connectors' in n.__dict__:
-            this_data['connectors'] = n.connectors.to_json(**kwargs)
-
-        for k in n.__dict__:
-            if k in ['nodes', 'connectors', 'graph', 'igraph', '_remote_instance',
-                     'segments', 'small_segments', 'nodes_geodesic_distance_matrix',
-                     'dps', 'simple']:
+        for k, v in n.__dict__.items():
+            if not isinstance(k, str):
                 continue
-            try:
-                this_data[k] = n.__dict__[k]
-            except BaseException:
-                logger.error(f'Lost attribute "{k}"')
+            if k.startswith('_') and k not in ['_nodes', '_connectors']:
+                continue
+
+            if isinstance(v, pd.DataFrame):
+                this_data[k] = v.to_json()
+            elif isinstance(v, np.ndarray):
+                this_data[k] = v.tolist()
+            else:
+                this_data[k] = v
 
         data.append(this_data)
 
@@ -96,6 +93,12 @@ def json2neuron(s: str, **kwargs) -> 'core.NeuronList':
     :func:`~navis.neuron2json`
                 Turn neuron into json.
 
+    Examples
+    --------
+    >>> n = navis.example_neurons(1)
+    >>> js = navis.neuron2json(n)
+    >>> n2 = navis.json2neuron(js)
+
     """
     if not isinstance(s, str):
         raise TypeError(f'Expected str, got "{type(s)}"')
@@ -105,22 +108,22 @@ def json2neuron(s: str, **kwargs) -> 'core.NeuronList':
     nl = core.NeuronList([])
 
     for n in data:
-        # Make sure we have all we need
-        REQUIRED = ['id']
+        cn = core.TreeNeuron(None)
 
-        missing = [p for p in REQUIRED if p not in n]
+        if '_nodes' in n:
+            try:
+                cn._nodes = pd.read_json(n['_nodes'])
+            except ValueError:
+                cn._connectors = None
 
-        if missing:
-            raise ValueError(f'Missing data: {", ".join(missing)}')
-
-        cn = core.TreeNeuron(int(n['id']))
-
-        if 'nodes' in n:
-            cn.nodes = pd.read_json(n['nodes'])
-            cn.connectors = pd.read_json(n['connectors'])
+        if '_connectors' in n:
+            try:
+                cn._connectors = pd.read_json(n['_connectors'])
+            except ValueError:
+                cn._connectors = None
 
         for key in n:
-            if key in ['id', 'nodes', 'connectors']:
+            if key in ['_nodes', '_connectors']:
                 continue
             setattr(cn, key, n[key])
 
