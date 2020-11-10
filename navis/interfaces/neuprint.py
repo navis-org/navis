@@ -47,7 +47,6 @@ from .. import config
 
 from ..core import Volume, TreeNeuron, MeshNeuron, NeuronList
 from ..graph import neuron2KDTree, subset_neuron
-from ..morpho import heal_fragmented_neuron
 
 logger = config.logger
 
@@ -387,6 +386,11 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
     # Note that we are currently assuming that the x/y/z data is isotropic
     n = TreeNeuron(data,
                    units=f'{client.meta["voxelSize"][0]} {client.meta["voxelUnits"]}')
+
+    # Reduce precision
+    n._nodes = n._nodes.astype({'node_id': np.int32, 'parent_id': np.int32,
+                                'x': np.float32, 'y': np.float32,
+                                'z': np.float32, 'radius': np.float32})
 
     # Add some missing meta data
     n.id = r.bodyId
