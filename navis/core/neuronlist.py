@@ -317,6 +317,12 @@ class NeuronList:
                         dtype = object
                 return np.array(values, dtype=dtype)
         else:
+            # To avoid confusion we will not allow calling of magic methods
+            # via the NeuronProcessor as those are generally expected to
+            # be the NeuronList's
+            if key.startswith('__') and key.endswith('__'):
+                raise AttributeError(f"'NeuronList' object has no attribute '{key}'")
+
             # Return function but wrap it in a function that will show
             # a progress bar and use multiprocessing (if applicable)
             return NeuronProcessor(self,
@@ -326,6 +332,18 @@ class NeuronList:
                                    desc=key)
 
     def __setattr__(self, key, value):
+        # We have cater for the situation when we want to replace the whole
+        # dictionary - e.g. when unpickling (see __setstate__)
+        # Below code for setting the dictionary looks complicated and
+        # unnecessary but is really complicated and VERY necessary
+        if key == '__dict__':
+            if not isinstance(value, dict):
+                raise TypeErr(f'__dict__ must be dict, got {type(value)}')
+            self.__dict__.clear()
+            for k, v in value.items():
+                self.__dict__[k] = v
+            return
+
         # Check if this attribute exists in the neurons
         if any([hasattr(n, key) for n in self.neurons]):
             logger.warning('It looks like you are trying to add a Neuron '
@@ -333,6 +351,19 @@ class NeuronList:
                            'propagated to the neurons it contains!')
 
         self.__dict__[key] = value
+
+    def __getstate__(self):
+        """Get state (used e.g. for pickling)."""
+        # We have to implement this to make sure that we don't accidentally
+        # call __getstate__ of each neuron via the NeuronProcessor
+        state = {k: v for k, v in self.__dict__.items() if not callable(v)}
+        return state
+
+    def __setstate__(self, d):
+        """Set state (used e.g. for unpickling)."""
+        # We have to implement this to make sure that we don't accidentally
+        # call __setstate__ of each neuron via the NeuronProcessor
+        self.__dict__ = d
 
     def __contains__(self, x):
         return x in self.neurons
@@ -372,6 +403,29 @@ class NeuronList:
             return self.__missing__(key)
 
         return self.__class__(subset, make_copy=self.copy_on_subset)
+
+    def __setitem__(self, key, value):
+        if isinstance(key, str):
+            if not utils.is_iterable(value):
+                for n in self.neurons:
+                    setattr(n, key, value)
+            elif len(value) == len(self.neurons):
+                for n, v in zip(self.neurons, value):
+                    setattr(n, key, v)
+            else:
+                raise ValueError('Length of values does not match number of '
+                                 'neurons in NeuronList.')
+        else:
+            msg = ('Itemsetter can only be used to set attributes of the '
+                   'neurons contained in the NeuronList. For example:\n'
+                   '  >>> nl = navis.example_neurons(3)\n'
+                   '  >>> nl["propertyA"] = 1\n'
+                   '  >>> nl[0].propertyA\n'
+                   '  1\n'
+                   '  >>> nl["propertyB"] = ["a", "b", "c"]\n'
+                   '  >>> nl[2].propertyB\n'
+                   '  "c"')
+            raise NotImplementedError(msg)
 
     def __missing__(self, key):
         raise AttributeError('No neuron matching the search criteria.')
