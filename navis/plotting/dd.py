@@ -33,7 +33,7 @@ from typing import Union, List, Tuple
 from typing_extensions import Literal
 
 from .. import utils, config, core
-from .colors import prepare_colormap
+from .colors import prepare_colormap, vertex_colors
 from .plot_utils import segments_to_coords, tn_pairs_to_coords
 
 __all__ = ['plot2d']
