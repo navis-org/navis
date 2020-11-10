@@ -16,7 +16,7 @@
 
 """ Module contains functions to plot neurons in 2D and 3D.
 """
-from ... import core, config, utils, morpho
+from ... import core, config, utils, morpho, conversion
 from ..colors import *
 from ..plot_utils import segments_to_coords, make_tube
 
