@@ -130,6 +130,9 @@ autoclass_content = 'both'
 # Typehint autodoc options
 set_type_checking_flag = False
 
+# Drop doctest directives
+trim_doctest_flags = True
+
 # Other autodoc options
 autodoc_mock_imports = MOCK_MODULES
 autodoc_typehints = 'none'
