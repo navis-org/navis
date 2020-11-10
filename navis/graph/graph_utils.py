@@ -33,7 +33,8 @@ __all__ = sorted(['classify_nodes', 'cut_neuron', 'longest_neurite',
                   'dist_between', 'find_main_branchpoint',
                   'generate_list_of_childs', 'geodesic_matrix',
                   'subset_neuron', 'node_label_sorting',
-                  'segment_length', 'rewire_neuron'])
+                  'segment_length', 'rewire_neuron', 'insert_nodes',
+                  'remove_nodes'])
 
 
 def _generate_segments(x: 'core.NeuronObject',
@@ -1762,8 +1763,8 @@ def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
 
     ss = set(ss)
     missing = ss - set(g.nodes)
-    missing = np.array(list(missing)).astype(str)  # do NOT remove list() here!
-    if missing:
+    if np.any(missing):
+        missing = np.array(list(missing)).astype(str)  # do NOT remove list() here!
         raise ValueError(f'Nodes not found: {",".join(missing)}')
 
     # Find nodes that are leafs WITHIN the subset
@@ -1824,6 +1825,189 @@ def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
     return np.array(list(include)), new_roots
 
 
+def insert_nodes(x: 'core.TreeNeuron',
+                 where: List[tuple],
+                 coords: List[tuple] = None,
+                 validate: bool = True,
+                 inplace: bool = False) -> Optional['core.TreeNeuron']:
+    """Insert new nodes between existing nodes.
+
+    Parameters
+    ----------
+    x :         TreeNeuron
+                Neuron to insert new nodes into.
+    where :     list of node pairs
+                Must be a list of node ID pairs. A new node will be added
+                between the nodes of each pair (see examples).
+    coords :    None | list of (x, y, z) coordinates
+                Coordinates for the newly inserted nodes. If ``None`` new
+                nodes will be inserted exactly between the two nodes.
+    validate :  bool
+                If True, will make sure that pairs in ``where`` are always
+                in (parent, child) order. If you know this to already be the
+                case, set ``validate=False`` to save some time.
+    inplace :   bool
+                If True, will rewire the neuron inplace. If False, will return
+                a rewired copy of the neuron.
+
+    Returns
+    -------
+    TreeNeuron
+                If ``inplace=False``.
+
+    Examples
+    --------
+    Insert new nodes between some random points
+    >>> n = navis.example_neurons(1)
+    >>> n.n_nodes
+    4465
+    >>> where = n.nodes[['parent_id', 'node_id']].values[100:200]
+    >>> navis.insert_nodes(n, where=where, inplace=True)
+    >>> n.n_nodes
+    4565
+
+    """
+    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+
+    where = np.asarray(where)
+    if where.ndim != 2 or where.shape[1] != 2:
+        raise ValueError('Expected `where` to be a (N, 2) list of pairs. '
+                         f'Got {where.shape}')
+
+    # Validate if that's desired
+    if validate:
+        # Setup to get parents
+        parent = x.nodes.set_index('node_id').parent_id
+
+        # Get parents of the left and the right nodes of each pair
+        parent_left = parent.loc[where[:, 0]].values
+        parent_right = parent.loc[where[:, 1]].values
+
+        # Check if the right node is parent of the left or the other way around
+        correct_order = where[:, 0] == parent_right
+        swapped = where[:, 1] == parent_left
+        not_connected = ~(correct_order | swapped)
+
+        if np.any(not_connected):
+            raise ValueError('The following pairs are not connected: '
+                             f'{where[not_connected]}')
+
+        # Flip nodes where necessary to sure we have (parent, child) order
+        if np.any(swapped):
+            where[swapped, :] = where[swapped][:, [1, 0]]
+
+    # If not provided, generate coordinates in the center between each node pair
+    if isinstance(coords, type(None)):
+        node_locs = x.nodes.set_index('node_id')[['x', 'y', 'z']]
+        left_loc = node_locs.loc[where[:, 0]].values
+        right_loc = node_locs.loc[where[:, 1]].values
+
+        # Find center between each node
+        coords = left_loc + (right_loc - left_loc) / 2
+
+    # Make sure we have correct coordinates
+    coords = np.asarray(coords)
+    if coords.ndim != 2 or coords.shape[1] != 3:
+        raise ValueError('Expected `coords` to be a (N, 3) array of x/y/z '
+                         f'coords - got {coords.shape}')
+    if coords.shape[0] != where.shape[0]:
+        raise ValueError(f'Expected {where.shape[0]} coordinates, '
+                         f'got {coords.shape[0]}')
+
+    # For the moment, we will interpolate the radius
+    rad = x.nodes.set_index('node_id').radius
+    new_rad = (rad.loc[where[:, 0]].values + rad.loc[where[:, 1]].values) / 2
+
+    # Generate table for new nodes
+    new_nodes = pd.DataFrame()
+    max_id = x.nodes.node_id.max() + 1
+    new_nodes['node_id'] = np.arange(max_id, max_id + where.shape[0]).astype(int)
+    new_nodes['parent_id'] = where[:, 0]
+    new_nodes['x'] = coords[:, 0]
+    new_nodes['y'] = coords[:, 1]
+    new_nodes['z'] = coords[:, 2]
+    new_nodes['radius'] = new_rad
+
+    # Merge tables
+    nodes = pd.concat([x.nodes, new_nodes],
+                      join='outer', axis=0, sort=True, ignore_index=True)
+
+    # Remap nodes
+    new_parents = dict(zip(where[:, 1], new_nodes.node_id.values))
+    to_rewire = nodes.node_id.isin(new_parents)
+    nodes.loc[to_rewire, 'parent_id'] = nodes.loc[to_rewire, 'node_id'].map(new_parents)
+
+    if not inplace:
+        x = x.copy()
+
+    x._nodes = nodes
+
+    if not inplace:
+        return x
+
+
+def remove_nodes(x: 'core.TreeNeuron',
+                 which: List[int],
+                 inplace: bool = False) -> Optional['core.TreeNeuron']:
+    """Drop nodes from neuron while keeping connectivity intact.
+
+    Dropping node 2 from 1->2->3 will lead to connectivity 1->3.
+
+    Parameters
+    ----------
+    x :         TreeNeuron
+                Neuron to remove nodes from.
+    which :     list of node IDs
+                IDs of nodes to remove.
+    inplace :   bool
+                If True, will rewire the neuron inplace. If False, will return
+                a rewired copy of the neuron.
+
+    Returns
+    -------
+    TreeNeuron
+                If ``inplace=False``.
+
+    Examples
+    --------
+    Drop points from a neuron
+    >>> n = navis.example_neurons(1)
+    >>> n.n_nodes
+    4565
+    >>> n2 = navis.remove_nodes(n, n.nodes.node_id.values[10:100])
+    4475
+
+    """
+    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+
+    if not utils.is_iterable(which):
+        which = [which]
+    which = np.asarray(which)
+
+    miss = ~np.isin(which, x.nodes.node_id.values)
+    if np.any(miss):
+        raise ValueError(f'{len(miss)} node IDs not found in neuron')
+
+    if not inplace:
+        x = x.copy()
+
+    # Generate new list of parents
+    lop = dict(zip(x.nodes.node_id.values, x.nodes.parent_id.values))
+
+    # Rewire to skip the to-be-removed nodes
+    for n in which:
+        lop.update({c: lop[n] for c, p in lop.items() if p == n})
+
+    # Rewire neuron
+    x.nodes['parent_id'] = x.nodes.node_id.map(lop)
+
+    # Drop nodes
+    x.nodes = x.nodes[~x.nodes.node_id.isin(which)]
+
+    if not inplace:
+        return x
+
+
 def rewire_neuron(x: 'core.TreeNeuron',
                   g: nx.Graph,
                   root: Optional[id] = None,
@@ -1832,7 +2016,7 @@ def rewire_neuron(x: 'core.TreeNeuron',
 
     This function takes a graph representation of a neuron and rewires its
     node table accordingly. This is useful if we made changes to the graph
-    (i.e. adding or removing edges) and want the to propagate to the node
+    (i.e. adding or removing edges) and want those to propagate to the node
     table.
 
     Parameters
