@@ -78,7 +78,7 @@ Step-by-step instructions
                   No Python 3 installed. See below box on how to install Python 3.
               </li>
               <li>
-                  <pre>Python 3.6.4 :: Anaconda, Inc.</pre>
+                  <pre>Python 3.7.4 :: Anaconda, Inc.</pre>
                   Python 3 is already installed. Nice! Proceed with step 2.
               </li>
           </ol>
@@ -128,9 +128,8 @@ Step-by-step instructions
    that comes with its own package manager ``conda``.
 
 .. note::
-   There are two optional dependencies that you might want to install manually:
-   :ref:`pyoctree <pyoc>` and :ref:`rpy2 <rpy>`. The latter is only relevant if
-   you intend to use navis's R bindings.
+   If you intend to use navis' interface with R, you need to install the
+   optional dependency :ref:`rpy2 <rpy>`.
 
 
 Dependencies
