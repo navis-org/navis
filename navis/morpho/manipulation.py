@@ -14,7 +14,6 @@
 
 """ This module contains functions to analyse and manipulate neuron morphology.
 """
-
 import pandas as pd
 import numpy as np
 import scipy.spatial.distance
@@ -329,59 +328,87 @@ def prune_twigs(x: NeuronObject,
 
 
 def split_axon_dendrite(x: NeuronObject,
-                        method: Union[Literal['centrifugal'],
+                        metric: Union[Literal['centrifugal'],
                                       Literal['centripetal'],
                                       Literal['sum'],
-                                      Literal['bending']] = 'bending',
+                                      Literal['bending'],
+                                      Literal['segregation']] = 'segregation',
+                        flow_thresh: float = .9,
                         split: Union[Literal['prepost'],
                                      Literal['distance']] = 'prepost',
+                        cellbodyfiber: Union[Literal['soma'],
+                                             Literal['root'],
+                                             bool] = 'soma',
                         reroot_soma: bool = True,
-                        return_point: bool = False) -> 'core.NeuronList':
-    """Split a neuron into axon, dendrite and primary neurite.
+                        labels: Union[Literal['only'],
+                                      bool] = False
+                        ) -> 'core.NeuronList':
+    """Split a neuron into axon, dendrite, linker and cell body fiber.
 
     The result is highly dependent on the method and on your neuron's
-    morphology and works best for "typical" neurons, i.e. those where the
-    primary neurite branches into axon and dendrites.
+    morphology and works best for "typical" insect neurons, i.e. those where the
+    cell body fiber branches into axon and dendrites.
 
     Parameters
     ----------
     x :                 TreeNeuron | NeuronList
-                        Neuron(s) to split into axon, dendrite (and primary
-                        neurite if possible). MUST HAVE CONNECTORS.
-    method :            'centrifugal' | 'centripetal' | 'sum' | 'bending', optional
-                        Type of flow centrality to use to split the neuron.
-                        There are four flavors: the first three refer to
-                        :func:`~navis.flow_centrality`, the last
-                        refers to :func:`~navis.bending_flow`.
+                        Neuron(s) to split into axon, dendrite (and cell body
+                        fiber if possible). MUST HAVE CONNECTORS.
+    metric :            'flow_centrality' | 'bending_flow' | 'segregation_index', optional
+                        Defines which flow metric we will try to maximize when
+                        splitting the neuron(s). There are five flavors:
 
-                        Will try using stored centrality, if possible.
-    split :             "prepost" | "distance"
+                         - `flow_centrality` in :func:`~navis.flow_centrality`
+                         - 'bending_flow' uses to :func:`~navis.bending_flow`
+                         - 'segregation_index' uses :func:`~navis.arbor_segregation_index`
+
+                        Will try using existing columns in the node table. If
+                        not present, will invoke the respective functions with
+                        default parameters.
+    flow_thresh :       float [0-1]
+                        The "linker" between axon and dendrites will be the part
+                        of the neuron with the highest flow (see metric). We
+                        define it by ``max(flow) * flow_thresh``. You might have
+                        to decrease this value for atypical or not well
+                        segregated neurons.
+    split :             'prepost' | 'distance'
                         Method for determining which compartment is axon and
                         which is the dendrites:
 
-                            - "prepost" uses number of in- vs. outputs
-                            - "distance" assumes the compartment closer to the
+                            - 'prepost' uses number of in- vs. outputs
+                            - 'distance' assumes the compartment proximal to the
                               soma is the dendrites
 
+    cellbodyfiber :     "soma" | "root" | False
+                        Determines whether we will try to find the cell body
+                        fiber (CBF):
 
-    reroot_soma :       bool, optional
-                        If True, will make sure neuron is rooted to soma if at
-                        all possible.
-    return_point :      bool, optional
-                        If True, will only return node ID of the node at
-                        which to split the neuron.
+                            - "soma" will try finding the CBF only if the neuron
+                              has a soma
+                            - "root" will consider the root to be the source
+                              of the CBF as fallback if there is no soma
+                            - `False` will not attempt to extract the CBF
+
+    reroot_soma :       bool,
+                        If True and neuron has a soma, will make sure the neuron
+                        is rooted to its soma.
+    labels :            bool | "only",
+                        If True, will add a "compartment" column to the node
+                        table of the input neuron. If "only" will only add that
+                        column and not return the split.
 
     Returns
     -------
     NeuronList
-                        Axon, dendrite and primary neurite. Fragments will
-                        have a new property ``compartment`` (see example).
+                        Axon, dendrite, linker and CBF (the latter two aren't
+                        guaranteed). Fragments will have a new property
+                        ``compartment`` (see example).
 
     Examples
     --------
     >>> import navis
     >>> x = navis.example_neurons(1)
-    >>> split = navis.split_axon_dendrite(x, method='centrifugal',
+    >>> split = navis.split_axon_dendrite(x, metric='centrifugal',
     ...                                   reroot_soma=True)
     >>> split
     <class 'navis.NeuronList'> of 3 neurons
@@ -390,16 +417,22 @@ def split_axon_dendrite(x: NeuronObject,
     1                  neuron 123457   16     9682          1766
     2                  neuron 123457   16     2892           113
     >>> # For convenience, split_axon_dendrite assigns colors to the resulting
-    >>> # fragments: axon = red, dendrites = blue, primary neurite = green
+    >>> # fragments: axon = red, dendrites = blue, CBF = green
     >>> split.plot3d(color=split.color)
 
     See Also
     --------
     :func:`navis.heal_fragmented_neuron`
             Axon/dendrite split works only on neurons consisting of a single
-            tree. Use this function to heal fragmented neurons.
+            tree. Use this function to heal fragmented neurons before trying
+            the axon/dendrite split.
 
     """
+    COLORS = {'axon': (255, 0, 0),
+              'dendrite': (0, 0, 255),
+              'cellbodyfiber': (50, 50, 50),
+              'linker': (150, 150, 150)}
+
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
     elif isinstance(x, core.NeuronList):
@@ -407,10 +440,12 @@ def split_axon_dendrite(x: NeuronObject,
         for n in config.tqdm(x, desc='Splitting', disable=config.pbar_hide,
                              leave=config.pbar_leave):
             nl.append(split_axon_dendrite(n,
-                                          method=method,
+                                          metric=metric,
                                           split=split,
+                                          flow_thresh=flow_thresh,
+                                          cellbodyfiber=cellbodyfiber,
                                           reroot_soma=reroot_soma,
-                                          return_point=return_point))
+                                          labels=labels))
         return core.NeuronList([n for l in nl for n in l])
 
     if not isinstance(x, core.TreeNeuron):
@@ -419,110 +454,189 @@ def split_axon_dendrite(x: NeuronObject,
     if not x.has_connectors:
         raise ValueError('Neuron must have connectors.')
 
-    if method not in ['centrifugal', 'centripetal', 'sum', 'bending']:
-        raise ValueError(f'"{method}" not allowed for parameter `method`.')
-
-    if split not in ['prepost', 'distance']:
-        raise ValueError(f'"{split}" not allowed for parameter `split`.')
+    _METRIC = ('flow_centrality', 'bending_flow', 'segregation_index')
+    utils.eval_param(metric, 'metric', allowed_values=_METRIC)
+    utils.eval_param(split, 'split', allowed_values=('prepost', 'distance'))
+    utils.eval_param(cellbodyfiber, 'cellbodyfiber',
+                     allowed_values=('soma', 'root'))
 
     if len(x.root) > 1:
         raise ValueError(f'Unable to split neuron {x.id}: multiple roots. '
-                         'Try navis.heal_fragmented_neuron(x) to merged '
+                         'Try `navis.heal_fragmented_neuron(x)` to merged '
                          'disconnected fragments.')
 
-    if x.soma and x.soma not in x.root and reroot_soma:
-        x.reroot(x.soma, inplace=True)
-
-    # Calculate flow centrality if necessary
-    last_method = getattr(x, 'centrality_method', None)
-
-    if last_method != method:
-        if method == 'bending':
-            mmetrics.bending_flow(x)
-        elif method in ['centripetal', 'centrifugal', 'sum']:
-            # At this point method is not "bending"
-            method: Union[Literal['centripetal'],
-                          Literal['centrifugal'],
-                          Literal['sum']]
-            mmetrics.flow_centrality(x, mode=method)
-
     # Make copy, so that we don't screw things up
+    original = x
     x = x.copy()
 
-    # Now get the node point with the highest flow centrality.
-    cut = x.nodes[x.nodes.flow_centrality
-                  == x.nodes.flow_centrality.max()].node_id.values
+    if np.any(x.soma) and not np.all(np.isin(x.soma, x.root)) and reroot_soma:
+        x.reroot(x.soma, inplace=True)
 
-    # If more than one point we need to get one closest to the soma (root)
-    if len(cut) > 1:
-        # Grab graph once to avoid overhead from stale checks
-        g = x.graph
-        cut = sorted(cut, key=lambda y: graph.dist_between(g, y, x.root[0]))[0]
-    else:
-        cut = cut[0]
+    if metric == 'bending_flow':
+        if 'bending_flow' not in x.nodes.columns:
+            mmetrics.bending_flow(x)
+        col = 'bending_flow'
+    elif metric == 'flow_centrality':
+        if 'flow_centrality' not in x.nodes.columns:
+            mmetrics.flow_centrality(x)
+        col = 'flow_centrality'
+    elif metric == 'segregation':
+        if 'SI' not in x.nodes.columns:
+            mmetrics.arbor_segregation_index(x)
+        col = 'segregation_index'
 
-    if return_point:
-        return cut
+    # We can lock this neuron indefinitely since we are not returning it
+    x._lock = 1
 
-    # If cut node is a branch point, we will try cutting off main neurite
-    if x.graph.degree(cut) > 2:
-        # First make sure that there are no other branch points with flow
-        # between this one and the soma
-        path_to_root = nx.shortest_path(x.graph, cut, x.root[0])
+    # Make sure we have a metric for every single node
+    if np.any(np.isnan(x.nodes[col].values)):
+        raise ValueError(f'NaN values encountered in "{col}"')
 
-        # Get flow centrality along the path
-        flows = x.nodes.set_index('node_id', inplace=False).loc[path_to_root]
+    # The first step is to remove the linker -> that's the bit that connects
+    # the axon and dendrite
+    is_linker = x.nodes[col] >= x.nodes[col].max() * flow_thresh
+    linker = set(x.nodes.loc[is_linker, 'node_id'].values)
 
-        # Subset to those that are branches (exclude mere synapses)
-        flows = flows[flows.type == 'branch']
+    # We try to perform processing on the graph to avoid overhead from
+    # (re-)generating neurons
+    g = x.graph.copy()
 
-        # Find the first branch point from the soma with no flow (fillna is
-        # important!)
-        last_with_flow = np.where(flows.flow_centrality.fillna(0).values > 0)[0][-1]
+    # Drop linker nodes
+    g.remove_nodes_from(linker)
 
-        if method != 'bending':
-            last_with_flow += 1
-
-        to_cut = flows.iloc[last_with_flow].name
-
-        # Cut off primary neurite
-        rest, primary_neurite = graph.cut_neuron(x, to_cut)
-
-        if method == 'bending':
-            # The new cut node has to be a child of the original cut node
-            cut = next(x.graph.predecessors(cut))
-
-        # Change compartment and color
-        primary_neurite.color = (0, 255, 0)  # type: ignore
-        primary_neurite._register_attr('compartment', 'primary_neurite')  # type: ignore
-    else:
-        rest = x
-        primary_neurite = None
-
-    # Next, cut the rest into axon and dendrite
-    a, b = graph.cut_neuron(rest, cut)
+    # Break into connected components
+    cc = list(nx.connected_components(g.to_undirected()))
 
     # Figure out which one is which
-    if split == 'prepost' or split == 'distance':
-        a_inout = a.n_postsynapses / a.n_presynapses if a.n_presynapses else float('inf')
-        b_inout = b.n_postsynapses / b.n_presynapses if b.n_presynapses else float('inf')
-        if a_inout > b_inout:
-            dendrite, axon = a, b
-        else:
-            dendrite, axon = b, a
+    axon = set()
+    if split == 'prepost':
+        # Collect # of pre- and postsynapses on each of the connected components
+        sm = pd.DataFrame()
+        sm['n_nodes'] = [len(c) for c in cc]
+        pre = x.presynapses
+        post = x.postsynapses
+        sm['n_pre'] = [pre[pre.node_id.isin(c)].shape[0] for c in cc]
+        sm['n_post'] = [post[post.node_id.isin(c)].shape[0] for c in cc]
+        sm['prepost'] = (sm.n_pre / sm.n_post)
+        sm['frac_post'] = sm.n_post / sm.n_post.sum()  # this is for debugging
+        sm['frac_pre'] = sm.n_pre / sm.n_pre.sum()
+        sm['frac_prepost'] = (sm.frac_pre / sm.frac_post)
 
-    # Add compartment property
-    axon._register_attr('compartment', 'axon')  # type: ignore
-    dendrite._register_attr('compartment', 'dendrite')  # type: ignore
+        sm.loc[sm[['frac_pre', 'frac_post']].max(axis=1) < 0.01,
+               ['prepost', 'frac_prepost']] = np.nan
+        # Above code makes it so that prepost is NaN if there are either no pre-
+        # OR postsynapses on a given fragment or the fragment is small.
+        # These fragments are typically small sidebranches of the linker.
+        # We will disregard them for now because they just introduce noise
+        # and will connect them onto their parent compartment later.
+        logger.debug(sm)
 
-    # Change colors
-    axon.color = (255, 0, 0)  # type: ignore
-    dendrite.color = (0, 0, 255)  # type: ignore
-
-    if primary_neurite:
-        return core.NeuronList([primary_neurite, axon, dendrite])
+        # Each fragment is considered separately as either giver or recipient
+        # of flow:
+        # - prepost < 1 = dendritic
+        # - prepost > 1 = axonic
+        dendrite = set.union(*[cc[i] for i in sm[sm.frac_prepost < 1].index.values])
+        axon = set.union(*[cc[i] for i in sm[sm.frac_prepost >= 1].index.values])
     else:
-        return core.NeuronList([axon, dendrite])
+        for c in cc:
+            # If original root present assume it's the proximal dendrites
+            if x.root[0] in c:
+                dendrite = c
+            else:
+                axon = axon | c
+
+    # Now that we have in princple figured out what's what we need to do some
+    # clean-up
+    # First: it is quite likely that the axon(s) and or the dendrites fragmented
+    # and we need to stitch them back together using linker but not dendrites!
+    g = x.graph.copy()
+    g.remove_nodes_from(dendrite)
+    axon = graph.connected_subgraph(g, axon)[0]
+
+    # Remove nodes that were re-assigned to axon from linker
+    linker = linker - set(axon)
+
+    g = x.graph.copy()
+    g.remove_nodes_from(axon)
+    dendrite = graph.connected_subgraph(g, dendrite)[0]
+
+    # Remove nodes that were re-assigned to axon from linker
+    linker = linker - set(dendrite)
+
+    # Next up: finding the CBF
+    # The CBF is defined as the part of the neuron between the soma (or root)
+    # and the first branch point with sizeable synapse flow
+    cbf = set()
+    if cellbodyfiber and (np.any(x.soma) or cellbodyfiber == 'root'):
+        # To excise the CBF, we subset the neuron to those parts with
+        # no/hardly any flow and find the part that contains the soma
+        no_flow = x.nodes[x.nodes[col] <= x.nodes[col].max() * 0.05]
+        g = x.graph.subgraph(no_flow.node_id.values)
+
+        # Find the connected component containing the soma
+        for c in nx.connected_components(g.to_undirected()):
+            if x.root[0] in c:
+                cbf = c
+                dendrite = set(dendrite) - set(cbf)
+                axon = set(axon) - set(cbf)
+                linker = set(linker) - set(cbf)
+                break
+
+    # Add labels
+    if labels:
+        original.nodes['compartment'] = None
+        is_linker = original.nodes.node_id.isin(linker)
+        is_axon = original.nodes.node_id.isin(axon)
+        is_dend = original.nodes.node_id.isin(dendrite)
+        is_cbf = original.nodes.node_id.isin(cbf)
+        original.nodes.loc[is_linker, 'compartment'] = 'linker'
+        original.nodes.loc[is_dend, 'compartment'] = 'dendrite'
+        original.nodes.loc[is_axon, 'compartment'] = 'axon'
+        original.nodes.loc[is_cbf, 'compartment'] = 'cellbodyfiber'
+
+        # There might be small branches w/o synapses (i.e. without flow) that
+        # have not yet been assigned. We will attribute them to whatever
+        # they connect to
+        to_fix = original.nodes.loc[original.nodes.compartment.isnull()]
+
+        # Find branch points proximal to these that have a compartment
+        has_type = ~original.nodes.compartment.isnull()
+        bps = original.nodes.loc[(original.nodes['type'] == 'branch') & has_type,
+                                 'node_id'].values
+        to_fix_branch_child = to_fix[to_fix.parent_id.isin(bps)]
+        parent_type = original.nodes.set_index('node_id').loc[to_fix_branch_child.parent_id.values,
+                                                              'compartment'].values
+
+        g = original.graph
+        for source, cmp in zip(to_fix_branch_child.node_id.values, parent_type):
+            nodes = nx.bfs_tree(g, source=source, reverse=True).nodes
+            original.nodes.loc[original.nodes.node_id.isin(nodes),
+                               'compartment'] = cmp
+
+        # For some reason the original root sometimes does not get a compartment
+        # and above code won't fix it because we are looking at upstream branch
+        # points. In that case, we need to look for its childs
+        root_cmp = original.nodes.loc[original.nodes.parent_id == original.root[0],
+                                      'compartment'].values[0]
+        original.nodes.loc[original.nodes.compartment.isnull() & (original.nodes.parent_id < 0),
+                           'compartment'] = root_cmp
+
+        # Turn into categorical data
+        original.nodes['compartment'] = original.nodes.compartment.astype('category')
+
+        if labels == 'only':
+            return
+
+    # Generate the actual splits
+    nl = []
+    for label, nodes in zip(['cellbodyfiber', 'dendrite', 'linker', 'axon'],
+                            [cbf, dendrite, linker, axon]):
+        n = graph.subset_neuron(original, nodes)
+        n.color = COLORS.get(label, (100, 100, 100))
+        n._register_attr('compartment', label)
+        nl.append(n)
+
+    return core.NeuronList(nl)
 
 
 def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],

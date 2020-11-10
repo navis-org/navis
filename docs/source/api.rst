@@ -234,12 +234,19 @@ Functions to analyse morphology.
 .. autosummary::
     :toctree: generated/
 
-    navis.bending_flow
     navis.classify_nodes
     navis.find_main_branchpoint
-    navis.flow_centrality
-    navis.segregation_index
     navis.strahler_index
+
+Polarity metrics
+----------------
+.. autosummary::
+    :toctree: generated/
+
+    navis.bending_flow
+    navis.flow_centrality
+    navis.arbor_segregation_index
+    navis.segregation_index
 
 Distances
 ---------

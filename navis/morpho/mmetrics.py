@@ -118,17 +118,15 @@ def strahler_index(x: 'core.NeuronObject',
                         will use the method described above; 'greedy' will
                         always increase the index at converging branches
                         whether these branches have the same index or not.
-                        This is useful e.g. if you want to cut the neuron at
-                        the first branch point.
     to_ignore :         iterable, optional
                         List of node IDs to ignore. Must be the FIRST node
                         of the branch. Excluded branches will not contribute
                         to Strahler index calculations and instead be assigned
                         the SI of their parent branch.
     min_twig_size :     int, optional
-                        If provided, will ignore terminal (!) twigs with
-                        fewer nodes. Instead, they will be assigned the SI of
-                        their parent branch.
+                        If provided, will ignore twigs with fewer nodes than
+                        this. Instead, they will be assigned the SI of their
+                        parent branch.
 
     Returns
     -------
@@ -139,19 +137,29 @@ def strahler_index(x: 'core.NeuronObject',
                         Returns copy of original neuron with new column
                         ``strahler_index``.
 
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> n.reroot(n.soma, inplace=True)
+    >>> navis.strahler_index(n)
+    6
+
     """
     if isinstance(x, core.NeuronList):
-        if x.shape[0] == 1:
-            x = x[0]
-        else:
-            res = []
-            for n in config.tqdm(x):
-                res.append(strahler_index(n, inplace=inplace, method=method))  # type: ignore
+        res = []
+        for n in config.tqdm(x, desc='Calc. SI',
+                             disable=config.pbar_hide or len(x) == 1,
+                             leave=config.pbar_leave):
+            res.append(strahler_index(n, inplace=inplace,
+                                      method=method,
+                                      to_ignore=to_ignore,
+                                      min_twig_size=min_twig_size))  # type: ignore
 
-            if not inplace:
-                return core.NeuronList(res)
-            else:
-                return None
+        if not inplace:
+            return core.NeuronList(res)
+        else:
+            return None
 
     if not inplace:
         x = x.copy()
@@ -176,107 +184,82 @@ def strahler_index(x: 'core.NeuronObject',
     # Generate dicts for childs and parents
     list_of_childs = graph.generate_list_of_childs(x)
 
-    # Reindex according to node_id
-    this_tn = x.nodes.set_index('node_id', inplace=False)
+    # Get a node ID -> parent ID dictionary for FAST lookups
+    parents = x.nodes.set_index('node_id').parent_id.to_dict()
 
-    # Do NOT name anything strahler_index - this overwrites the function!
+    # Do NOT name any parameter `strahler_index` - this overwrites the function!
     SI: Dict[int, int] = {}
 
     starting_points = end_nodes
-
-    nodes_processed = []
-
+    seen = set()
     while starting_points:
         logger.debug(f'New starting point. Remaining: {len(starting_points)}')
-        new_starting_points = []
-        starting_points_done = []
+        this_node = starting_points.pop()
 
-        for i, this_node in enumerate(starting_points):
-            logger.debug(f'{i} of {len(starting_points)}')
+        # Get upstream indices for this branch
+        previous_indices = [SI.get(c, None) for c in list_of_childs[this_node]]
 
-            # Calculate index for this branch
-            previous_indices = []
-            for child in list_of_childs[this_node]:
-                if SI.get(child, None):
-                    previous_indices.append(SI[child])
+        # If this is a not-a-branch branch
+        if this_node in to_ignore:
+            this_branch_index = None
+        # If this is an end node: start at 1
+        elif len(previous_indices) == 0:
+            this_branch_index = 1
+        # If this is a slab: assign SI of predecessor
+        elif len(previous_indices) == 1:
+            this_branch_index = previous_indices[0]
+        # If this is a branch point at which similar indices collide: +1
+        elif method == 'greedy' or previous_indices.count(max(previous_indices)) >= 2:
+            this_branch_index = max(previous_indices) + 1
+        # If just a branch point: continue max SI
+        else:
+            this_branch_index = max(previous_indices)
 
-            # If this is a not-a-branch branch
-            if this_node in to_ignore:
-                this_branch_index = None
-            # If this is an end node: start at 1
-            elif len(previous_indices) == 0:
-                this_branch_index = 1
-            # If this is a slab: assign SI of predecessor
-            elif len(previous_indices) == 1:
-                this_branch_index = previous_indices[0]
-            # If this is a branch point at which similar indices collide: +1
-            elif previous_indices.count(max(previous_indices)) >= 2 or method == 'greedy':
-                this_branch_index = max(previous_indices) + 1
-            # If just a branch point: continue max SI
-            else:
-                this_branch_index = max(previous_indices)
+        # Keep track of that this node has been processed
+        seen.add(this_node)
 
-            nodes_processed.append(this_node)
-            starting_points_done.append(this_node)
+        # Now walk down this segment
+        # Find parent
+        segment = [this_node]
+        parent_node = parents[this_node]
+        while parent_node >= 0 and parent_node not in branch_nodes:
+            this_node = parent_node
+            parent_node = parents[this_node]
+            segment.append(this_node)
+            seen.add(this_node)
 
-            # Now walk down this spine
-            # Find parent
-            spine = [this_node]
+        # Update indices for the entire segment
+        SI.update({n: this_branch_index for n in segment})
 
-            parent_node = this_tn.loc[this_node, 'parent_id']
-
-            while parent_node not in branch_nodes and parent_node is not None:
-                this_node = parent_node
-                parent_node = None
-
-                spine.append(this_node)
-                nodes_processed.append(this_node)
-
-                # Find next parent
-                try:
-                    parent_node = this_tn.loc[this_node, 'parent_id']
-                except BaseException:
-                    # Will fail if at root (no parent)
+        # The last `this_node` is either a branch node or the root
+        # If a branch point: check, if all its childs have already been
+        # processed
+        if parent_node > 0:
+            node_ready = True
+            for child in list_of_childs[parent_node]:
+                if child not in seen:
+                    node_ready = False
                     break
 
-            SI.update({n: this_branch_index for n in spine})
-
-            # The last this_node is either a branch node or the root
-            # If a branch point: check, if all its childs have already been
-            # processed
-            if parent_node is not None:
-                node_ready = True
-                for child in list_of_childs[parent_node]:
-                    if child not in nodes_processed:
-                        node_ready = False
-
-                if node_ready is True and parent_node is not None:
-                    new_starting_points.append(parent_node)
-
-        # Remove those starting_points that were successfully processed in this
-        # run before the next iteration
-        for node in starting_points_done:
-            starting_points.remove(node)
-
-        # Add new starting points
-        starting_points = starting_points | set(new_starting_points)
-
-    # Disconnected single nodes (e.g. after pruning) will end up w/o an entry
-    # --> we will give them an SI of 1
-    x.nodes['strahler_index'] = [SI.get(n, 1)
-                                 for n in x.nodes.node_id.values]
+            if node_ready is True:
+                starting_points.add(parent_node)
 
     # Fix branches that were ignored
     if to_ignore:
-        this_tn = x.nodes.set_index('node_id', inplace=False)
         # Go over all terminal branches with the tag
-        for tn in x.nodes[(x.nodes.type == 'end') & (x.nodes.node_id.isin(to_ignore))].node_id.values:
+        for tn in x.nodes[(x.nodes.type == 'end') & x.nodes.node_id.isin(to_ignore)].node_id.values:
             # Get this terminal's segment
             this_seg = [s for s in x.small_segments if s[0] == tn][0]
             # Get strahler index of parent branch
-            new_SI = this_tn.loc[this_seg[-1]].strahler_index
-            # Set these nodes strahler index to that of the last branch point
-            x.nodes.loc[x.nodes.node_id.isin(this_seg), 'strahler_index'] = new_SI
+            this_SI = SI.get(this_seg[-1], 1)
+            SI.update({n: this_SI for n in this_seg})
+
+    # Disconnected single nodes (e.g. after pruning) will end up w/o an entry
+    # --> we will give them an SI of 1
+    x.nodes['strahler_index'] = x.nodes.node_id.map(lambda x: SI.get(x, 1))
+
+    # Set correct data type
+    x.nodes['strahler_index'] = x.nodes.strahler_index.astype(np.int16)
 
     if not inplace:
         return x
@@ -284,12 +267,7 @@ def strahler_index(x: 'core.NeuronObject',
     return None
 
 
-def segregation_index(x: 'core.NeuronObject',
-                      centrality_method: Union[Literal['centrifugal'],
-                                               Literal['centripetal'],
-                                               Literal['bending'],
-                                               Literal['sum']] = 'centrifugal',
-                      ) -> float:
+def segregation_index(x: Union['core.NeuronObject', dict]) -> float:
     """Calculate segregation index (SI).
 
     The segregation index as established by Schneider-Mizell et al. (eLife,
@@ -299,19 +277,15 @@ def segregation_index(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
-                        Neuron to calculate segregation index (SI). If a
-                        NeuronList is provided, will assume that it contains
+    x :                 NeuronList | list
+                        Neuron to calculate segregation index (SI) for. If a
+                        NeuronList, will assume that it contains
                         fragments (e.g. from axon/ dendrite splits) of a
-                        single neuron.
-    centrality_method : 'centrifugal' | 'centripetal' | 'sum' | 'bending'
-                        Type of flow centrality to use to split into axon +
-                        dendrite of ``x`` is only a single neuron.
-                        There are four flavors:
-                            - for the first three, see :func:`~navis.flow_centrality`
-                            - for `bending`, see :func:`~navis.bending_flow`
+                        single neuron. If list, must be records containing
+                        number of pre- and postsynapses for each fragment::
 
-                        Will try using stored centrality, if possible.
+                            [{'presynapses': 10, 'postsynapses': 320},
+                             {'presynapses': 103, 'postsynapses': 21}]
 
     Notes
     -----
@@ -328,32 +302,32 @@ def segregation_index(x: 'core.NeuronObject',
                         Segregation Index (SI).
 
     """
-    if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
-        raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
+    if not isinstance(x, (core.NeuronList, list)):
+        raise ValueError(f'Expected NeuronList or list got "{type(x)}"')
 
-    if isinstance(x, core.NeuronList) and x.shape[0] == 1:
-        x = x[0]
+    if isinstance(x, core.NeuronList) and len(x) <= 1:
+        raise ValueError(f'Expected multiple neurons, got {len(x)}')
 
-    if not isinstance(x, core.NeuronList):
-        # Get the branch point with highest flow centrality
-        split_point = split_axon_dendrite(
-            x, reroot_soma=True, return_point=True)
+    # Turn NeuronList into records
+    if isinstance(x, core.NeuronList):
+        x = [{'presynapses': n.n_presynapses, 'postsynapses': n.n_postsynapses}
+             for n in x]
 
-        # Now make a virtual split (downsampled neuron to speed things up)
-        temp = x.copy()
-        temp.downsample(factor=float('inf'), inplace=True)
-
-        # Get one of its children
-        child = temp.nodes[temp.nodes.parent_id == split_point].node_id.values[0]
-
-        # This will leave the proximal split with the primary neurite but
-        # since that should not have synapses, we don't care at this point.
-        x = core.NeuronList(list(graph.cut_neuron(temp, child)))
+    # Extract the total number of pre- and postsynapses
+    total_pre = sum([n['presynapses'] for n in x])
+    total_post = sum([n['postsynapses'] for n in x])
+    total_syn = total_pre + total_post
 
     # Calculate entropy for each fragment
     entropy = []
     for n in x:
-        p = n.n_postsynapses / n.n_connectors
+        n['total_syn'] = n['postsynapses'] + n['presynapses']
+
+        # This is to avoid warnings
+        if n['total_syn']:
+            p = n['postsynapses'] / n['total_syn']
+        else:
+            p = float('inf')
 
         if 0 < p < 1:
             S = - (p * math.log(p) + (1 - p) * math.log(1 - p))
@@ -363,20 +337,147 @@ def segregation_index(x: 'core.NeuronObject',
         entropy.append(S)
 
     # Calc entropy between fragments
-    S = 1 / sum(x.n_connectors) * \
-        sum([e * x[i].n_connectors for i, e in enumerate(entropy)])
+    S = 1 / total_syn * sum([e * n['total_syn'] for n, e in zip(x, entropy)])
 
     # Normalize to entropy in whole neuron
-    p_norm = sum(x.n_postsynapses) / sum(x.n_connectors)
+    p_norm = total_post / total_syn
     if 0 < p_norm < 1:
-        S_norm = - (p_norm * math.log(p_norm) +
-                    (1 - p_norm) * math.log(1 - p_norm))
+        S_norm = -(p_norm * math.log(p_norm) + (1 - p_norm) * math.log(1 - p_norm))
         H = 1 - S / S_norm
     else:
         S_norm = 0
         H = 0
 
     return H
+
+
+def arbor_segregation_index(x: 'core.NeuronObject') -> None:
+    """Per arbor seggregation index (SI).
+
+    The segregation index (SI) as established by Schneider-Mizell et al. (eLife,
+    2016) is a measure for how polarized a neuron is. SI of 1 indicates total
+    segregation of inputs and outputs into dendrites and axon, respectively.
+    SI of 0 indicates homogeneous distribution. Here, we apply this to
+    each arbour within a neuron by asking "If we were to cut a neuron at this
+    node, what would the SI of the two resulting fragments be?"
+
+    Parameters
+    ----------
+    x :         TreeNeuron | NeuronList
+                Neuron(s) to calculate segregation indices for. Must have
+                connectors!
+
+    See Also
+    --------
+    :func:`~navis.segregation_index`
+            Calculate segregation score (polarity) between two fragments of
+            a neuron.
+    :func:`~navis.flow_centrality`
+            Calculate synapse flow centrality after Schneider-Mizell et al.
+    :func:`~navis.bending_flow`
+            Variation on the Schneider-Mizell et al. synapse flow.
+    :func:`~navis.split_axon_dendrite`
+            Split the neuron into axon, dendrite and primary neurite.
+
+    Returns
+    -------
+    Adds a new column ``'segregation_index'`` to the nodes table.
+
+    """
+    if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
+        raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
+
+    if isinstance(x, core.NeuronList):
+        for n in config.tqdm(x,
+                             desc='Calc. seg.',
+                             disable=config.pbar_hide,
+                             leave=config.pbar_leave):
+            _ = arbor_segregation_index(n)  # type: ignore
+        return
+
+    if not x.has_connectors:
+        raise ValueError('Neuron must have connectors.')
+
+    # Figure out how connector types are labeled
+    cn_types = x.connectors.type.unique()
+    if all(np.isin(['pre', 'post'], cn_types)):
+        pre, post = 'pre', 'post'
+    elif all(np.isin([0, 1], cn_types)):
+        pre, post = 0, 1
+    else:
+        raise ValueError(f'Unable to parse connector types for neuron {x.id}')
+
+    # Get list of nodes with pre/postsynapses
+    pre_node_ids = x.connectors[x.connectors.type == pre].node_id.values
+    post_node_ids = x.connectors[x.connectors.type == post].node_id.values
+
+    # Get list of points to calculate SI for:
+    # branches points and their children plus nodes with connectors
+    is_bp = x.nodes['type'].isin(['branch', 'root'])
+    is_bp_child = x.nodes.parent_id.isin(x.nodes.loc[is_bp, 'node_id'].values)
+    is_cn = x.nodes.node_id.isin(x.connectors.node_id)
+    calc_node_ids = x.nodes[is_bp | is_bp_child | is_cn].node_id.values
+
+    # We will be processing a super downsampled version of the neuron to speed
+    # up calculations
+    current_level = logger.level
+    logger.setLevel('ERROR')
+    y = x.downsample(factor=float('inf'),
+                     preserve_nodes=calc_node_ids,
+                     inplace=False)
+    logger.setLevel(current_level)
+
+    # Get number of pre/postsynapses distal to each branch's childs
+    distal = graph.distal_to(y, np.append(pre_node_ids, post_node_ids),
+                             calc_node_ids)
+
+    # Since nodes can have multiple pre-/postsynapses but they show up only
+    # once in distal, we have to reindex to reflect the correct number of synapes
+    distal_pre = distal.loc[pre_node_ids]
+    distal_post = distal.loc[post_node_ids]
+
+    # Sum up columns: now each row represents the number of pre/postsynapses
+    # distal to that node
+    distal_pre_sum = distal_pre.sum(axis=0)
+    distal_post_sum = distal_post.sum(axis=0)
+
+    # Now go over all branch points and check flow between branches
+    # (centrifugal) vs flow from branches to root (centripetal)
+    SI = {}
+    total_pre = pre_node_ids.shape[0]
+    total_post = post_node_ids.shape[0]
+    for n in calc_node_ids:
+        # Get the SI if we were to cut at this point
+        post = distal_post_sum[n]
+        pre = distal_pre_sum[n]
+        n_syn = [{'presynapses': pre, 'postsynapses': post},
+                 {'presynapses': total_pre - pre, 'postsynapses': total_post - post}]
+        SI[n] = segregation_index(n_syn)
+
+    # At this point there are only segregation indices for branch points and
+    # their childs. Let's complete that mapping by adding SI for the nodes
+    # between branch points.
+    for s in x.small_segments:
+        # Segments' orientation goes from distal -> proximal
+        # Each segment will have at least its last (branch point) and
+        # second last (branch point's child) node mapped
+
+        # Drop first (distal) node if it is not a leaf
+        if s[0] in SI:
+            s = s[1:]
+
+        # If shorter than 3 nodes all nodes should already have an SI
+        if len(s) <= 2:
+            continue
+
+        # Update remaining nodes with the SI of the first child
+        this_SI = SI[s[-2]]
+        SI.update({n: this_SI for n in s[:-2]})
+
+    # Add segregation index to node table
+    x.nodes['segregation_index'] = x.nodes.node_id.map(SI)
+
+    return None
 
 
 def bending_flow(x: 'core.NeuronObject') -> None:
@@ -404,28 +505,33 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     --------
     :func:`~navis.flow_centrality`
             Calculate synapse flow centrality after Schneider-Mizell et al.
-    :func:`~navis.segregation_score`
-            Uses flow centrality to calculate segregation score (polarity).
+    :func:`~navis.segregation_index`
+            Calculate segregation score (polarity).
+    :func:`~navis.arbor_segregation_index`
+            Calculate the a by-arbor segregation index.
     :func:`~navis.split_axon_dendrite`
             Split the neuron into axon, dendrite and primary neurite.
 
     Returns
     -------
-    Adds a new column ``'flow_centrality'`` to the nodes table (branch points
-    only).
+    Adds a new column ``'bending_flow'`` to the nodes table.
 
     """
     if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
         raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
 
     if isinstance(x, core.NeuronList):
-        [bending_flow(n) for n in x]  # type: ignore
+        for n in config.tqdm(x,
+                             desc='Calc. flow',
+                             disable=config.pbar_hide,
+                             leave=config.pbar_leave):
+            _ = bending_flow(n)  # type: ignore
         return
 
     if not x.has_connectors:
         raise ValueError('Neuron must have connectors.')
 
-    if x.soma and x.soma not in x.root:
+    if np.any(x.soma) and not np.all(np.isin(x.soma, x.root)):
         logger.warning(f'Neuron {x.id} is not rooted to its soma!')
 
     # We will be processing a super downsampled version of the neuron to speed
@@ -457,18 +563,25 @@ def bending_flow(x: 'core.NeuronObject') -> None:
         if y.graph.degree(root) > 1:
             bp_node_ids += [root]
 
-    # Get list of childs of each branch point
+    # Get a list of childs of each branch point
     bp_childs = {t: [e[0] for e in y.graph.in_edges(t)] for t in bp_node_ids}
     childs = [tn for l in bp_childs.values() for tn in l]
 
     # Get number of pre/postsynapses distal to each branch's childs
-    distal_pre = graph.distal_to(y, pre_node_ids, childs)
-    distal_post = graph.distal_to(y, post_node_ids, childs)
+    distal = graph.distal_to(y,
+                             np.append(pre_node_ids, post_node_ids),
+                             childs)
 
-    # Sum up axis - now each row represents the number of pre/postsynapses
+    # Since nodes can have multiple pre-/postsynapses but they show up only
+    # once in distal, we have to reindex to reflect the correct
+    # number of synapes
+    distal_pre = distal.loc[pre_node_ids]
+    distal_post = distal.loc[post_node_ids]
+
+    # Sum up columns: now each row represents the number of pre/postsynapses
     # distal to that node
-    distal_pre_sum = distal_pre.T.sum(axis=1)
-    distal_post_sum = distal_post.T.sum(axis=1)
+    distal_pre_sum = distal_pre.sum(axis=0)
+    distal_post_sum = distal_post.sum(axis=0)
 
     # Now go over all branch points and check flow between branches
     # (centrifugal) vs flow from branches to root (centripetal)
@@ -479,19 +592,21 @@ def bending_flow(x: 'core.NeuronObject') -> None:
         for left, right in itertools.permutations(bp_childs[bp], r=2):
             flow[bp] += distal_post_sum.loc[left] * distal_pre_sum.loc[right]
 
+    # At this point there are only flows for the childs of branch points.
+    # Let's complete that mapping by adding flow for the nodes
+    # between branch points.
+    for s in x.small_segments:
+        # Segments' orientation goes from distal -> proximal
+        # Drop first (distal) node if it is not a leaf
+        if s[0] in flow:
+            s = s[1:]
+
+        # Update remaining nodes with the flow of the first child
+        this_flow = flow.get(s[-1], 0)
+        flow.update({n: this_flow for n in s})
+
     # Set flow centrality to None for all nodes
-    x.nodes['flow_centrality'] = None
-
-    # Change index to node_id
-    x.nodes.set_index('node_id', inplace=True)
-
-    # Add flow (make sure we use igraph of y to get node ids!)
-    x.nodes.loc[list(flow.keys()), 'flow_centrality'] = list(flow.values())
-
-    # Add little info on method used for flow centrality
-    x.centrality_method = 'bending'  # type: ignore
-
-    x.nodes.reset_index(inplace=True)
+    x.nodes['bending_flow'] = x.nodes.node_id.map(flow)
 
     return None
 
@@ -499,7 +614,7 @@ def bending_flow(x: 'core.NeuronObject') -> None:
 def flow_centrality(x: 'core.NeuronObject',
                     mode: Union[Literal['centrifugal'],
                                 Literal['centripetal'],
-                                Literal['sum']] = 'centrifugal'
+                                Literal['sum']] = 'sum'
                     ) -> None:
     """Calculate synapse flow centrality (SFC).
 
@@ -513,14 +628,12 @@ def flow_centrality(x: 'core.NeuronObject',
     by measuring the amount of cable with the maximum centrifugal SFC value.
     Third, to measure the cable length of the main dendritic shafts using
     centripetal SFC, which applies only to insect neurons with at least one
-    output syn- apse in their dendritic arbor. And fourth, to weigh the color
+    output synapse in their dendritic arbor. And fourth, to weigh the color
     of each skeleton node in a 3d view, providing a characteristic signature of
     the arbor that enables subjective evaluation of its identity."
 
-    Losely based on Alex Bate's implemention in `catnat
+    Losely based on Alex Bates' implemention in `catnat
     <https://github.com/alexanderbates/catnat>`_.
-
-    Catmaid uses the equivalent of ``mode='sum'`` and ``polypre=True``.
 
     Parameters
     ----------
@@ -529,24 +642,24 @@ def flow_centrality(x: 'core.NeuronObject',
                 connectors!
     mode :      'centrifugal' | 'centripetal' | 'sum', optional
                 Type of flow centrality to calculate. There are three flavors::
-                (1) centrifugal, counts paths from proximal inputs to distal outputs
-                (2) centripetal, counts paths from distal inputs to proximal outputs
-                (3) the sum of both
+                (1) centrifugal counts paths from proximal inputs to distal outputs
+                (2) centripetal counts paths from distal inputs to proximal outputs
+                (3) the sum of both - this is the original implementation
 
     See Also
     --------
     :func:`~navis.bending_flow`
             Variation of flow centrality: calculates bending flow.
+    :func:`~navis.arbor_segregation_index`
+            By-arbor segregation index.
     :func:`~navis.segregation_index`
-            Calculates segregation score (polarity) of a neuron
-    :func:`~navis.flow_centrality_split`
-            Tries splitting a neuron into axon, dendrite and primary neurite.
-
+            Calculates segregation score (polarity) of a neuron.
+    :func:`~navis.split_axon_dendrite`
+            Tries splitting a neuron into axon and dendrite.
 
     Returns
     -------
-    Adds a new column 'flow_centrality' to nodes table (only processes
-    branchpoints and synapse-holding nodes).
+    Adds a new column 'flow_centrality' to nodes table .
 
     """
     if mode not in ['centrifugal', 'centripetal', 'sum']:
@@ -555,15 +668,40 @@ def flow_centrality(x: 'core.NeuronObject',
     if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
         raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
 
+    if isinstance(x, core.NeuronList):
+        for n in config.tqdm(x,
+                             desc='Calc. flow',
+                             disable=config.pbar_hide,
+                             leave=config.pbar_leave):
+            _ = flow_centrality(n, mode=mode)
+        return
+
     if not x.has_connectors:
         raise ValueError('Neuron must have connectors.')
 
-    if isinstance(x, core.NeuronList):
-        _ = [flow_centrality(n, mode=mode) for n in x]  # type: ignore  # does not like assigment
-        return
-
-    if x.soma and x.soma not in x.root:
+    if np.any(x.soma) and not np.all(np.isin(x.soma, x.root)):
         logger.warning(f'Neuron {x.id} is not rooted to its soma!')
+
+    # Figure out how connector types are labeled
+    cn_types = x.connectors.type.unique()
+    if any(np.isin(['pre', 'post'], cn_types)):
+        pre, post = 'pre', 'post'
+    elif any(np.isin([0, 1], cn_types)):
+        pre, post = 0, 1
+    else:
+        raise ValueError(f'Unable to parse connector types "{cn_types}" for neuron {x.id}')
+
+    # Get list of nodes with pre/postsynapses
+    pre_node_ids = x.connectors[x.connectors.type == pre].node_id.values
+    post_node_ids = x.connectors[x.connectors.type == post].node_id.values
+    total_post = len(post_node_ids)
+    total_pre = len(pre_node_ids)
+
+    # Get list of points to calculate flow centrality for:
+    # branches and and their children
+    is_bp = x.nodes['type'] == 'branch'
+    is_cn = x.nodes.node_id.isin(x.connectors.node_id)
+    calc_node_ids = x.nodes[is_bp | is_cn].node_id.values
 
     # We will be processing a super downsampled version of the neuron to
     # speed up calculations
@@ -574,58 +712,52 @@ def flow_centrality(x: 'core.NeuronObject',
     y = sampling.downsample_neuron(x=x,
                                    downsampling_factor=float('inf'),
                                    inplace=False,
-                                   preserve_nodes=x.connectors.node_id.values)
+                                   preserve_nodes=calc_node_ids)
     logger.setLevel(current_level)
     config.pbar_hide = current_state
 
-    # Figure out how connector types are labeled
-    cn_types = y.connectors.type.unique()
-    if all(np.isin(['pre', 'post'], cn_types)):
-        pre, post = 'pre', 'post'
-    elif all(np.isin([0, 1], cn_types)):
-        pre, post = 0, 1
-    else:
-        raise ValueError(f'Unable to parse connector types "{cn_types} for neuron {y.id}')
-
-    # Get list of nodes with pre/postsynapses
-    pre_node_ids = y.connectors[y.connectors.type == pre].node_id.unique()
-    post_node_ids = y.connectors[y.connectors.type == post].node_id.unique()
-    total_post = len(post_node_ids)
-
-    # Get list of points to calculate flow centrality for:
-    # branches and nodes with synapses
-    is_bp = y.nodes.type == 'branch'
-    is_cn = y.nodes.node_id.isin(y.connectors.node_id)
-    calc_node_ids = y.nodes[is_bp | is_cn].node_id.values
-
     # Get number of pre/postsynapses distal to each branch's childs
-    distal_pre = graph.distal_to(y, pre_node_ids, calc_node_ids)
-    distal_post = graph.distal_to(y, post_node_ids, calc_node_ids)
+    distal = graph.distal_to(y,
+                             np.append(pre_node_ids, post_node_ids),
+                             calc_node_ids)
+
+    # Since nodes can have multiple pre-/postsynapses but they show up only
+    # once in distal, we have to reindex to reflect the correct number of synapes
+    distal_pre = distal.loc[pre_node_ids]
+    distal_post = distal.loc[post_node_ids]
 
     # Sum up axis - now each row represents the number of pre/postsynapses
     # that are distal to that node
-    distal_pre = distal_pre.T.sum(axis=1)
-    distal_post = distal_post.T.sum(axis=1)
+    distal_pre = distal_pre.sum(axis=0)
+    distal_post = distal_post.sum(axis=0)
 
     if mode != 'centripetal':
-        # Centrifugal is the flow from all non-distal postsynapses to all
+        # Centrifugal is the flow from all proximal postsynapses to all
         # distal presynapses
         centrifugal = {n: (total_post - distal_post[n]) * distal_pre[n] for n in calc_node_ids}
 
     if mode != 'centrifugal':
         # Centripetal is the flow from all distal postsynapses to all
         # non-distal presynapses
-        centripetal = {n: distal_post[n] * (total_post - distal_pre[n]) for n in calc_node_ids}
+        centripetal = {n: distal_post[n] * (total_pre - distal_pre[n]) for n in calc_node_ids}
 
     # Now map this onto our neuron
-    x.nodes['flow_centrality'] = None
     if mode == 'centrifugal':
-        x.nodes['flow_centrality'] = x.nodes.node_id.map(centrifugal)
+        flow = centrifugal
     elif mode == 'centripetal':
-        x.nodes['flow_centrality'] = x.nodes.node_id.map(centripetal)
+        flow = centripetal
     elif mode == 'sum':
-        combined = {n: centrifugal[n] + centripetal[n] for n in centrifugal}
-        x.nodes['flow_centrality'] = x.nodes.node_id.map(combined)
+        flow = {n: centrifugal[n] + centripetal[n] for n in centrifugal}
+
+    # At this point there is only flow for branch points and
+    # their childs. Let's complete that mapping by adding flow
+    # for the nodes between branch points.
+    for s in x.small_segments:
+        # Segments' orientation goes from distal -> proximal
+        # Each non-terminal segment will have its first node mapped
+        flow.update({n: flow.get(s[0], 0) for n in s[:-1]})
+
+    x.nodes['flow_centrality'] = x.nodes.node_id.map(lambda x: flow.get(x, 0))
 
     # Add info on method/mode used for flow centrality
     x.centrality_method = mode  # type: ignore
@@ -679,7 +811,7 @@ def tortuosity(x: 'core.NeuronObject',
     >>> # Calculate tortuosity with 1 micron seg lengths
     >>> T = navis.tortuosity(n, seg_length=1e3)
     >>> round(T, 3)
-    1.163
+    1.072
 
     """
     # TODO:
@@ -689,7 +821,10 @@ def tortuosity(x: 'core.NeuronObject',
     if isinstance(x, core.NeuronList):
         if not isinstance(seg_length, (list, np.ndarray, tuple)):
             seg_length = [seg_length]  # type: ignore
-        df = pd.DataFrame([tortuosity(n, seg_length) for n in config.tqdm(x, desc='Tortuosity', disable=config.pbar_hide, leave=config.pbar_leave)],
+        df = pd.DataFrame([tortuosity(n, seg_length) for n in config.tqdm(x,
+                                                                          desc='Tortuosity',
+                                                                          disable=config.pbar_hide,
+                                                                          leave=config.pbar_leave)],
                           index=x.id, columns=seg_length).T
         df.index.name = 'seg_length'
         return df

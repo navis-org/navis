@@ -12,7 +12,7 @@
 #    GNU General Public License for more details.
 
 from .mmetrics import (strahler_index, bending_flow, flow_centrality,
-                      segregation_index, tortuosity)
+                      segregation_index, arbor_segregation_index, tortuosity)
 from .manipulation import (prune_by_strahler, stitch_neurons,
                            split_axon_dendrite, average_neurons,
                            despike_neuron, guess_radius, smooth_neuron,
