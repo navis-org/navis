@@ -72,24 +72,33 @@ def plot3d(x: Union[core.NeuronObject,
                           3D plots. Works in terminals.
                         - ``plotly`` generates 3D plots using WebGL. Works in
                           Jupyter notebooks. For Jupyter lab, you need to
-                          have the Plotly lab extension installed.
+                          have the Plotly labextension installed.
     connectors :      bool, default=False
                       Plot connectors (e.g. synapses) if available.
-    by_strahler :     bool, default=False
-                      Will shade neuron(s) by strahler index.
-    by_confidence :   bool, default=False
-                      Will shade neuron(s) by arbor confidence.
     cn_mesh_colors :  bool, default=False
                       Plot connectors using mesh colors.
-    clear3d :         bool, default=False
-                      If True, canvas is cleared before plotting (only for
-                      vispy).
-    color :           None | str | tuple | list | dict, default=None (random)
+    color :           None | str | tuple | list | dict, default=None
                       Use single str (e.g. ``'red'``) or ``(r, g, b)`` tuple
                       to give all neurons the same color. Use ``list`` of
                       colors to assign colors: ``['red', (1, 0, 1), ...].
                       Use ``dict`` to map colors to neurons:
                       ``{uuid: (r, g, b), ...}``. RGB must be 0-255.
+    palette :         str | array | list of arrays, default=None
+                      Name of a matplotlib or seaborn palette. If ``color`` is
+                      not specified will pick colors from this palette.
+    color_by :        str | array | list of arrays, default = None
+                      Can be the name of a column in the node table of
+                      ``TreeNeurons`` or an array of (numerical or categorical)
+                      values for each node. Numerical values will be normalized.
+                      You can control the normalization by passing a ``vmin``
+                      and/or ``vmax`` parameter.
+    shade_by :        str | array | list of arrays, default=None
+                      Similar to ``color_by`` but will affect only the alpha
+                      channel of the color. If ``shade_by='strahler'`` will
+                      compute Strahler order if not already part of the node
+                      table (TreeNeurons only). Numerical values will be
+                      normalized. You can control the normalization by passing
+                      a ``smin`` and/or ``smax`` parameter.
     radius :          bool, default=False
                       If True, will plot TreeNeurons as 3D tubes using the
                       ``radius`` column in their node tables.
@@ -118,6 +127,14 @@ def plot3d(x: Union[core.NeuronObject,
                       plotly figure dictionary that can be used to generate
                       a html with an embedded 3D plot.
 
+    Vispy only
+
+    clear :           bool, default = False
+                      If True, will clear the viewer before adding the new
+                      objects.
+    center :          bool, default = True
+                      If True, will center camera on the newly added objects.
+
     Returns
     -------
     If ``backend='vispy'``
@@ -144,14 +161,14 @@ def plot3d(x: Union[core.NeuronObject,
     In a Jupyter notebook using plotly as backend.
 
     >>> import plotly.offline
-    >>> plotly.offline.init_notebook_mode()
+    >>> plotly.offline.init_notebook_mode()  # doctest: +SKIP
     >>> nl = navis.example_neurons()
     >>> # Backend is automatically chosen but we can set it explicitly
     >>> # Plot inline
-    >>> nl.plot3d(backend='plotly')
+    >>> nl.plot3d(backend='plotly')  # doctest: +SKIP
     >>> # Plot as separate html in a new window
     >>> fig = nl.plot3d(backend='plotly', plotly_inline=False)
-    >>> plotly.offline.plot(fig)
+    >>> _ = plotly.offline.plot(fig)
 
     In a terminal using vispy as backend.
 
@@ -170,7 +187,7 @@ def plot3d(x: Union[core.NeuronObject,
     >>> # This plots a neuronlists, a single neuron and a volume
     >>> navis.plot3d([nl[0:2], nl[3], vol])
     >>> # Pass kwargs
-    >>> navis.plot3d(nl1, clear3d=True, by_strahler)
+    >>> navis.plot3d(nl1, clear3d=True)
 
     """
     """
@@ -219,13 +236,15 @@ def plot3d_vispy(x, **kwargs):
                'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'alpha',
                'auto_limits', 'autolimits', 'viewer', 'radius', 'center',
-               'clear', 'clear3d', 'connectors', 'connectors_only', 'soma'}
+               'clear', 'clear3d', 'connectors', 'connectors_only', 'soma',
+               'palette', 'color_by', 'shade_by', 'vmin', 'vmax', 'smin',
+               'smax'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - ALLOWED
 
     if any(notallowed):
-        raise ValueError(f'Arguments "{", ".join(notallowed)}" are not allowed '
+        raise ValueError(f'Argument(s) "{", ".join(notallowed)}" not allowed '
                          'for plot3d using vispy. Allowed keyword '
                          f'arguments: {", ".join(ALLOWED)}')
 
@@ -273,13 +292,14 @@ def plot3d_plotly(x, **kwargs):
                'synapse_layout', 'legend_group',
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
                'plotly_inline', 'alpha', 'radius', 'fig', 'soma',
-               'connectors', 'connectors_only'}
+               'connectors', 'connectors_only', 'palette', 'color_by',
+               'shade_by', 'vmin', 'vmax', 'smin', 'smax'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - ALLOWED
 
     if any(notallowed):
-        raise ValueError(f'Arguments "{", ".join(notallowed)}" are not allowed '
+        raise ValueError(f'Argument(s) "{", ".join(notallowed)}" not allowed '
                          'for plot3d using plotly. Allowed keyword '
                          f'arguments: {", ".join(ALLOWED)}')
 

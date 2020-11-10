@@ -18,9 +18,9 @@ import pandas as pd
 
 import plotly.graph_objs as go
 
-from ..colors import *
-from ..plot_utils import *
-from ... import core, utils, config, morpho, conversion
+from ..colors import vertex_colors, prepare_colormap, eval_color
+from ..plot_utils import segments_to_coords, fibonacci_sphere
+from ... import core, utils, config, conversion
 
 logger = config.logger
 
@@ -38,14 +38,63 @@ def neuron2plotly(x, **kwargs):
     elif not isinstance(x, core.NeuronList):
         raise TypeError('Unable to process data of type "{}"'.format(type(x)))
 
-    colors = kwargs.pop('color',
-                        kwargs.pop('c',
-                                   kwargs.pop('colors', None)))
+    colors = kwargs.get('color',
+                        kwargs.get('c',
+                                   kwargs.get('colors', None)))
 
-    colormap, _ = prepare_colormap(colors,
-                                   neurons=x,
-                                   alpha=kwargs.get('alpha', None),
-                                   color_range=255)
+    palette = kwargs.get('palette', None)
+    color_by = kwargs.get('color_by', None)
+    shade_by = kwargs.get('shade_by', None)
+
+    if not isinstance(color_by, type(None)):
+        if not palette:
+            raise ValueError('Must provide `palette` (e.g. "viridis") argument '
+                             'if using `color_by`')
+
+        colormap = vertex_colors(x,
+                                 by=color_by,
+                                 alpha=False,
+                                 palette=palette,
+                                 vmin=kwargs.get('vmin', None),
+                                 vmax=kwargs.get('vmax', None),
+                                 na=kwargs.get('na', 'raise'),
+                                 color_range=255)
+    else:
+        colormap, _ = prepare_colormap(colors,
+                                       neurons=x,
+                                       palette=palette,
+                                       alpha=kwargs.get('alpha', None),
+                                       color_range=255)
+
+    if not isinstance(shade_by, type(None)):
+        logger.warning('`shade_by` is currently not working due to an bug in '
+                       'plotly.')
+        """
+        alphamap = vertex_colors(x,
+                                 by=shade_by,
+                                 alpha=True,
+                                 palette='viridis',  # palette is irrelevant here
+                                 vmin=kwargs.get('smin', None),
+                                 vmax=kwargs.get('smax', None),
+                                 na=kwargs.get('na', 'raise'),
+                                 color_range=255)
+
+        new_colormap = []
+        for c, a in zip(colormap, alphamap):
+            if not (isinstance(c, np.ndarray) and c.ndim == 2):
+                c = np.tile(c, (a.shape[0],  1))
+
+            if not c.dtype in (np.float16, np.float32, np.float64):
+                c = c.astype(np.float16)
+
+            if c.shape[1] == 4:
+                c[:, 3] = a[:, 3]
+            else:
+                c = np.insert(c, 3, a[:, 3], axis=1)
+
+            new_colormap.append(c)
+        colormap = new_colormap
+        """
 
     syn_lay = {
         0: {'name': 'Presynapses',
@@ -192,10 +241,17 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
     coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
 
     if isinstance(color, np.ndarray) and color.ndim == 2:
+        # Change colors to rgb/a strings
         if color.shape[1] == 4:
-            c = [f'rgba({c[0]:.0f},{c[1]:.0f},{c[2]:.0f},{c[3]:.4f})' for c in color]
+            c = [f'rgba({c[0]:.0f},{c[1]:.0f},{c[2]:.0f},{c[3]:.3f})' for c in color]
         else:
             c = [f'rgb({c[0]:.0f},{c[1]:.0f},{c[2]:.0f})' for c in color]
+
+        # Next we have to make colors match the segments in `coords`
+        c = np.asarray(c)
+        ix = dict(zip(neuron.nodes.node_id.values, np.arange(neuron.n_nodes)))
+        c = [col for s in neuron.segments for col in np.append(c[[ix[n] for n in s]], 'rgb(0,0,0)')]
+
     else:
         c = f'rgb({color[0]:.0f},{color[1]:.0f},{color[2]:.0f})'
 
@@ -222,12 +278,18 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
                            'them for plotting.')
         else:
             for s in soma:
+                # If we have colors for every vertex, we need to find the
+                # color that corresponds to this root (or it's parent to be
+                # precise)
+                if isinstance(c, list):
+                    s_ix = np.where(neuron.nodes.node_id == s)[0][0]
+                    soma_color = c[s_ix]
+                else:
+                    soma_color = c
+
                 n = neuron.nodes.set_index('node_id').loc[s]
                 r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
-                try:
-                    c = 'rgb{}'.format(color)
-                except BaseException:
-                    c = 'rgb(10,10,10)'
+
                 trace_data.append(go.Mesh3d(
                     x=[(v[0] * r) + n.x for v in fib_points],
                     # y and z are switched
@@ -236,7 +298,7 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
                     legendgroup=legend_group,
                     alphahull=.5,
                     showlegend=False,
-                    color=c,
+                    color=soma_color,
                     hoverinfo='name'))
 
     return trace_data
@@ -300,7 +362,7 @@ def lines2plotly(x, **kwargs):
 
 
 def dotprops2plotly(x, neuron_id, color, **kwargs):
-    """ Converts dotprops to plotly objects."""
+    """Convert Dotprops to plotly graph object."""
     scale_vec = kwargs.get('dps_scale_vec', 1)
     tn = x.to_skeleton(scale_vec=scale_vec)
 

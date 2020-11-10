@@ -97,11 +97,11 @@ def volume2vispy(x, **kwargs):
 
 
 def neuron2vispy(x, **kwargs):
-    """Convert a TreeNeuron/List to vispy visuals.
+    """Convert a Neuron/List to vispy visuals.
 
     Parameters
     ----------
-    x :               TreeNeuron | MeshNeuron | NeuronList
+    x :               TreeNeuron | MeshNeuron | Dotprops | NeuronList
                       Neuron(s) to plot.
     color :           list | tuple | array | str
                       Color to use for plotting.
@@ -155,17 +155,61 @@ def neuron2vispy(x, **kwargs):
     colors = kwargs.get('color',
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
+    palette = kwargs.get('palette', None)
+    color_by = kwargs.get('color_by', None)
+    shade_by = kwargs.get('shade_by', None)
 
-    colormap, _ = prepare_colormap(colors,
-                                   neurons=x,
-                                   alpha=kwargs.get('alpha', None),
-                                   color_range=1)
+    if not isinstance(color_by, type(None)):
+        if not palette:
+            raise ValueError('Must provide `palette` (e.g. "viridis") argument '
+                             'if using `color_by`')
+
+        colormap = vertex_colors(x,
+                                 by=color_by,
+                                 alpha=False,
+                                 palette=palette,
+                                 vmin=kwargs.get('vmin', None),
+                                 vmax=kwargs.get('vmax', None),
+                                 na=kwargs.get('na', 'raise'),
+                                 color_range=1)
+    else:
+        colormap, _ = prepare_colormap(colors,
+                                       neurons=x,
+                                       palette=palette,
+                                       alpha=kwargs.get('alpha', None),
+                                       color_range=1)
+
+    if not isinstance(shade_by, type(None)):
+        alphamap = vertex_colors(x,
+                                 by=shade_by,
+                                 alpha=True,
+                                 palette='viridis',  # palette is irrelevant here
+                                 vmin=kwargs.get('smin', None),
+                                 vmax=kwargs.get('smax', None),
+                                 na=kwargs.get('na', 'raise'),
+                                 color_range=1)
+
+        new_colormap = []
+        for c, a in zip(colormap, alphamap):
+            if not (isinstance(c, np.ndarray) and c.ndim == 2):
+                c = np.tile(c, (a.shape[0],  1))
+
+            if c.shape[1] == 4:
+                c[:, 3] = a[:, 3]
+            else:
+                c = np.insert(c, 3, a[:, 3], axis=1)
+
+            new_colormap.append(c)
+        colormap = new_colormap
 
     # List to fill with vispy visuals
     visuals = []
     for i, neuron in enumerate(x):
         # Generate random ID -> we need this in case we have duplicate IDs
         object_id = uuid.uuid4()
+
+        if kwargs.get('radius', False):
+            neuron = conversion.tree2meshneuron(neuron)
 
         neuron_color = colormap[i]
         if not kwargs.get('connectors_only', False):
@@ -283,114 +327,42 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
     """Convert skeleton (i.e. TreeNeuron) into vispy visuals."""
     visuals = []
     if not kwargs.get('connectors_only', False) and not neuron.nodes.empty:
-        # Get root node indices (may be more than one if neuron has been
-        # cut weirdly)
-        root_ix = neuron.nodes[neuron.nodes.parent_id < 0].index.tolist()
+        # Make sure we have one color for each node
+        neuron_color = np.asarray(neuron_color)
+        if neuron_color.ndim == 1:
+            neuron_color = np.tile(neuron_color, (neuron.nodes.shape[0],  1))
 
         # Get nodes
-        nodes = neuron.nodes[neuron.nodes.parent_id >= 0]
+        non_roots = neuron.nodes[neuron.nodes.parent_id >= 0]
+        connect = np.zeros((non_roots.shape[0], 2), dtype=int)
+        node_ix = pd.Series(np.arange(neuron.nodes.shape[0]),
+                            index=neuron.nodes.node_id.values)
+        connect[:, 0] = node_ix.loc[non_roots.node_id].values
+        connect[:, 1] = node_ix.loc[non_roots.parent_id].values
 
-        # Extract treenode_coordinates and their parent's coordinates
-        tn_coords = nodes[['x', 'y', 'z']].apply(pd.to_numeric).values
-        parent_coords = neuron.nodes.set_index('node_id').loc[nodes.parent_id.values][['x', 'y', 'z']].apply(pd.to_numeric).values
+        # Create line plot from segments.
+        t = scene.visuals.Line(pos=neuron.nodes[['x', 'y', 'z']].values,
+                               color=neuron_color,
+                               # Can only be used with method 'agg'
+                               width=kwargs.get('linewidth', 1),
+                               connect=connect,
+                               antialias=True,
+                               method='gl')
+        # method can also be 'agg' -> has to use connect='strip'
+        # Make visual discoverable
+        t.interactive = True
 
-        # Add alpha to color based on strahler
-        if kwargs.get('by_strahler', False) \
-                or kwargs.get('by_confidence', False):
-            if kwargs.get('by_strahler', False):
-                if 'strahler_index' not in neuron.nodes:
-                    morpho.strahler_index(neuron)
+        # Add custom attributes
+        t.unfreeze()
+        t._object_type = 'neuron'
+        t._neuron_part = 'neurites'
+        t._id = neuron.id
+        t._name = str(getattr(neuron, 'name', neuron.id))
+        t._object = neuron
+        t._object_id = object_id
+        t.freeze()
 
-                # Generate list of alpha values
-                alpha = neuron.nodes['strahler_index'].values
-
-            if kwargs.get('by_confidence', False):
-                if 'arbor_confidence' not in neuron.nodes:
-                    morpho.arbor_confidence(neuron)
-
-                # Generate list of alpha values
-                alpha = neuron.nodes['arbor_confidence'].values
-
-            # Pop root from coordinate lists
-            alpha = np.delete(alpha, root_ix, axis=0)
-
-            alpha = alpha / (max(alpha) + 1)
-            # Duplicate values (start and end of each segment!)
-            alpha = np.array([v for l in zip(alpha, alpha) for v in l])
-
-            # Turn color into array
-            # (need 2 colors per segment for beginning and end)
-            neuron_color = np.array(
-                [neuron_color] * (tn_coords.shape[0] * 2), dtype=float)
-            neuron_color = np.insert(neuron_color, 3, alpha, axis=1)
-
-        if not kwargs.get('radius', False):
-            # Turn coordinates into segments
-            segments = [item for sublist in zip(tn_coords, parent_coords) for item in sublist]
-            # Create line plot from segments.
-            t = scene.visuals.Line(pos=np.array(segments),
-                                   color=list(neuron_color),
-                                   # Can only be used with method 'agg'
-                                   width=kwargs.get('linewidth', 1),
-                                   connect='segments',
-                                   antialias=True,
-                                   method='gl')
-            # method can also be 'agg' -> has to use connect='strip'
-            # Make visual discoverable
-            t.interactive = True
-
-            # Add custom attributes
-            t.unfreeze()
-            t._object_type = 'neuron'
-            t._neuron_part = 'neurites'
-            t._id = neuron.id
-            t._name = str(getattr(neuron, 'name', neuron.id))
-            t._object = neuron
-            t._object_id = object_id
-            t.freeze()
-
-            visuals.append(t)
-        else:
-            # Generate coordinates
-            coords = segments_to_coords(neuron,
-                                        neuron.segments,
-                                        modifier=(1, 1, 1))
-            # For each point of each segment get the radius
-            nodes = neuron.nodes.set_index('node_id')
-            radii = [nodes.loc[s, 'radius'].values.astype(float) for s in neuron.segments]
-
-            # Generate faces and vertices for the tube
-            verts, faces = make_tube(segments=coords,
-                                     radii=radii,
-                                     use_normals=kwargs.get('use_normals', True),
-                                     tube_points=kwargs.get('tube_points', 3))
-
-            vertex_colors = np.resize(neuron_color,
-                                      (verts.shape[0],
-                                       kwargs.get('tube_points', 3)))
-
-            t = scene.visuals.Mesh(vertices=verts,
-                                   faces=faces,
-                                   vertex_colors=vertex_colors,
-                                   shading='smooth',
-                                   mode='triangles')
-
-            # Add custom attributes
-            t.unfreeze()
-            t._object_type = 'neuron'
-            t._neuron_part = 'neurites'
-            t._id = neuron.id
-            t._name = str(getattr(neuron, 'name', neuron.id))
-            t._object = neuron
-            t._object_id = object_id
-            t.freeze()
-
-            visuals.append(t)
-
-        if kwargs.get('by_strahler', False) or \
-           kwargs.get('by_confidence', False):
-            # Convert array back to a single color without alpha
-            neuron_color = neuron_color[0][:3]
+        visuals.append(t)
 
         # Extract and plot soma
         soma = utils.make_iterable(neuron.soma)
@@ -403,6 +375,15 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
                                'them for plotting.')
             else:
                 for s in soma:
+                    # If we have colors for every vertex, we need to find the
+                    # color that corresponds to this root (or it's parent to be
+                    # precise)
+                    if isinstance(neuron_color, np.ndarray) and neuron_color.ndim > 1:
+                        s_ix = np.where(neuron.nodes.node_id == s)[0][0]
+                        soma_color = neuron_color[s_ix]
+                    else:
+                        soma_color = neuron_color
+
                     n = neuron.nodes.set_index('node_id').loc[s]
                     r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
                     sp = create_sphere(7, 7, radius=r)
@@ -410,7 +391,7 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
                     s = scene.visuals.Mesh(vertices=verts,
                                            shading='smooth',
                                            faces=sp.get_faces(),
-                                           color=neuron_color)
+                                           color=soma_color)
                     s.ambient_light_color = vispy.color.Color('white')
 
                     # Make visual discoverable

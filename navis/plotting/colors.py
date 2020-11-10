@@ -21,14 +21,15 @@ import matplotlib.colors as mcl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 from typing import Union, List, Tuple, Optional, Dict, Any, Sequence, overload
 from typing_extensions import Literal
 
-from .. import core, config, utils
+from .. import core, config, utils, morpho
 
 __all__ = ['generate_colors', 'prepare_connector_cmap', 'prepare_colormap',
-           'eval_color', 'hex_to_rgb', 'vary_colors']
+           'eval_color', 'hex_to_rgb', 'vary_colors', 'vertex_colors']
 
 logger = config.logger
 
@@ -39,9 +40,9 @@ Str_color = str
 ColorList = Sequence[Union[RGB_color, RGBA_color, Str_color]]
 AnyColor = Union[RGB_color, RGBA_color, Str_color, ColorList]
 
+
 def generate_colors(N: int,
-                    color_space: Union[Literal['RGB'],
-                                       Literal['Grayscale']] = 'RGB',
+                    palette: str = 'hls',
                     color_range: Union[Literal[1],
                                        Literal[255]] = 1
                     ) -> List[Tuple[float, float, float]]:
@@ -58,45 +59,15 @@ def generate_colors(N: int,
     elif N == 0:
         return []
 
-    # Make count_color an even number
-    if N % 2 != 0:
-        color_count = N + 1
-    else:
-        color_count = N
+    if not isinstance(palette, str):
+        palette = 'hls'
 
-    colormap = []
-    interval = 2 / color_count
-    runs = int(color_count / 2)
+    colormap = sns.color_palette(palette, N)
 
-    # Create first half with low brightness; second half with high brightness
-    # and slightly shifted hue
-    if color_space == 'RGB':
-        for i in range(runs):
-            # High brightness
-            h = interval * i
-            s = 1
-            v = 1
-            hsv = colorsys.hsv_to_rgb(h, s, v)
-            colormap.append(tuple(v * color_range for v in hsv))
+    if color_range == 255:
+        colormap = [(int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)) for c in colormap]
 
-            # Lower brightness, but shift hue by half an interval
-            h = interval * (i + 0.5)
-            s = 1
-            v = 0.5
-            hsv = colorsys.hsv_to_rgb(h, s, v)
-            colormap.append(tuple(v * color_range for v in hsv))
-    elif color_space == 'Grayscale':
-        h = 0
-        s = 0
-        for i in range(color_count):
-            v = 1 / color_count * i
-            hsv = colorsys.hsv_to_rgb(h, s, v)
-            colormap.append(tuple(v * color_range for v in hsv))
-
-    logger.debug(f'{color_count} random colors created: {colormap}')
-
-    # Make sure we return exactly N colors
-    return colormap[:N]
+    return colormap
 
 
 def map_colors(colors: Optional[Union[str,
@@ -146,7 +117,6 @@ def map_colors(colors: Optional[Union[str,
         if len(objects) == 1:
             return [eval_color(config.default_color, color_range)]
         return generate_colors(len(objects),
-                               color_space='RGB',
                                color_range=color_range)
 
     # Bring colors in the right space
@@ -216,7 +186,210 @@ def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
                         f'not {type(config.default_color)}')
 
 
-def prepare_colormap(colors, neurons=None, volumes=None, alpha=None, color_range=255):
+def vertex_colors(neurons, by, palette, alpha=False, vmin=None, vmax=None,
+                  na='raise', norm_global=True, color_range=255):
+    """Generate a color and/or alpha values for each node/face/point of a neuron.
+
+    Parameters
+    ----------
+    neurons :   NeuronList | Neuron | pandas.DataFrame
+                Neurons to generate colors for.
+    by :        str | iterable | list of iterables
+                Must provide a vector for each node/face of a neuron or map to
+                a column in node table. Data can be numerical or categorical.
+    palette :   str | list of colors | dict
+                Name of a matplotlib or seaborn color palette, list of colors
+                or (for caterogical) data a dict mapping colors to values. If
+                data is numerical must be a matplotlib palette.
+    alpha :     bool
+                If True will also map the alpha channel. Applies only if data
+                is numerical.
+    vmin|vmax : float, optional
+                Min/Max values for normalizing numerical data.
+    na :        "raise" | color
+                Determine what to do if ``by`` is missing for a given neuron or
+                a node:
+                 - "raise" will raise ValueError
+                 - color (str, rgb tuple) will be used to fill missing values
+    norm_global : bool
+                If True and no vmin/vmax is provided, will normalize across
+                all ``neurons``. If False, will normalize neurons individually.
+
+    Returns
+    -------
+    List of (N, 4) arrays
+                One list per neuron. Each array contains a color for each of the
+                N faces/nodes.
+
+    """
+    if not isinstance(neurons, core.NeuronList):
+        neurons = core.NeuronList(neurons)
+
+    if not isinstance(palette, (str, dict)) and not utils.is_iterable(palette):
+        raise TypeError('Expected palette as name (str), list of '
+                        f'colors or dictionary, got "{type(palette)}"')
+
+    # If by points to column collect values
+    if isinstance(by, str):
+        # Make sure we are dealing only with TreeNeurons
+        if not all([isinstance(n, core.TreeNeuron) for n in neurons]):
+            raise TypeError('Can only generate colors from a column if all '
+                            'neurons are TreeNeurons.')
+
+        # For convenience we will compute this if required
+        if by == 'strahler_index':
+            for n in neurons:
+                if 'strahler_index' not in n.nodes:
+                    _ = morpho.strahler_index(n)
+
+        values = []
+        for n in neurons:
+            # If column exists add to values
+            if by in n.nodes.columns:
+                values.append(n.nodes[by].values)
+            elif na == 'raise':
+                raise ValueError(f'Column {by} does not exists in neuron {n.id}')
+            # If column does not exists, add a bunch of NaNs - we will worry
+            # about it later
+            else:
+                values.append(np.repeat(np.nan, n.nodes.shape[0]))
+    # If by already contains the actual values
+    else:
+        # Make sure values are list of lists (in case we started with a single
+        # neuron)
+        if len(neurons) == 1 and len(by) != len(neurons):
+            values = [by]
+        else:
+            values = by
+
+    # At this point we expect to have values for each neuron
+    if len(values) != len(neurons):
+        raise ValueError(f'Got {len(values)} values for {len(neurons)} neurons.')
+
+    # We also expect to have a value for every single node/face
+    for n, v in zip(neurons, values):
+        if isinstance(n, core.TreeNeuron):
+            if len(v) != n.n_nodes:
+                raise ValueError(f'Got {len(v)} for {neurons.n_nodes} nodes '
+                                 f'for neuron {n.id}')
+        elif isinstance(n, core.MeshNeuron):
+            if len(v) != n.n_faces:
+                raise ValueError(f'Got {len(v)} for {neurons.n_faces} faces '
+                                 f'for neuron {n.id}')
+        else:
+            raise TypeError(f'Unable to map colors for neurons of type {type(n)}')
+
+    # Now check for NaNs
+    has_nan = False
+    for v in values:
+        if any(pd.isnull(v)):
+            has_nan = True
+            break
+
+    if has_nan:
+        if na == 'raise':
+            raise ValueError('Values contain NaNs.')
+        else:
+            # Make sure na is a valid color
+            try:
+                na = mcl.to_rgba(na, alpha=1)
+            except ValueError:
+                raise ValueError('`na` must be either "raise" or a valid color '
+                                 f'to replace NA values. Unable to convert {na}'
+                                 ' to a color.')
+
+    # First check if data is numerical or categorical
+    is_num = [utils.is_numeric(a, bool_numeric=False) for a in values]
+    # If numerical
+    if all(is_num):
+        # Get min/max values
+        if not vmin:
+            vmin = [np.nanmin(v) for v in values]
+
+            if norm_global:
+                vmin = np.repeat(np.min(vmin), len(values))
+        else:
+            vmin = np.repeat(vmin, len(values))
+
+        if not vmax:
+            vmax = [np.nanmax(v) for v in values]
+
+            if norm_global:
+                vmax = np.repeat(np.max(vmax), len(values))
+        else:
+            vmax = np.repeat(vmax, len(values))
+
+        # Normalize values
+        values = [(np.asarray(v) - mn) / (mx - mn) for v, mn, mx in zip(values, vmin, vmax)]
+
+        # Get the colormap
+        if not isinstance(palette, str):
+            raise TypeError('Expected name of matplotlib colormap for numerical'
+                            f' data, got {type(palette)}')
+        cmap = plt.get_cmap(palette)
+        colors = []
+        for v in values:
+            c = np.zeros((len(v), 4))
+            if any(pd.isnull(v)):
+                c[pd.isnull(v), :] = na
+            c[~pd.isnull(v), :] = cmap(v[~pd.isnull(v)], alpha=1)
+
+            if color_range == 255:
+                c[:, :3] = (c[:, :3] * 255).astype(int)
+
+            # Add alpha - note that we slightly clip the value to prevent
+            # any color from being entirely invisible
+            if alpha:
+                c[:, 3] = np.clip(v + 0.05, a_max=1, a_min=0)
+
+            colors.append(c)
+    # We don't want to deal with mixed data
+    elif any(is_num):
+        raise ValueError('Data appears to be mixed numeric and non-numeric.')
+    else:
+        # Find unique values
+        unique_v = np.unique([np.unique(v) for v in values])
+
+        if isinstance(palette, str):
+            palette = sns.color_palette(palette, len(unique_v))
+
+        if not isinstance(palette, dict):
+            if len(palette) != len(unique_v):
+                raise ValueError(f'Got {len(palette)} colors for '
+                                 f'{len(unique_v)} unique values.')
+            palette = dict(zip(unique_v, palette))
+
+        # Check if dict palette contains all possible values
+        miss = [v for v in unique_v if v not in palette]
+        if any(miss):
+            raise ValueError('Value(s) missing from palette dictionary: '
+                             ', '.join(miss))
+
+        # Make sure colors are what we need
+        palette = {v: mcl.to_rgba(c, alpha=1) for v, c in palette.items()}
+
+        # Alpha values doesn't exactly make sense for categorical data but
+        # who am I to judge? We will simply use the alphanumerical order.
+        alpha_map = {v: (i + 1)/(len(palette) + 1) for i, v in enumerate(palette.keys())}
+
+        colors = []
+        for v in values:
+            c = [palette.get(x, na) for x in v]
+            c = np.array(c)
+
+            if color_range == 255:
+                c[:, :3] = (c[:, :3] * 255).astype(int)
+
+            if alpha:
+                c[:, 3] = [alpha_map.get(x, 0) for x in v]
+
+            colors.append(c)
+
+    return colors
+
+
+def prepare_colormap(colors, neurons=None, volumes=None, alpha=None,
+                     palette=None, color_range=255):
     """Map color(s) to neuron/dotprop colorlists."""
     # Prepare dummies in case either no neuron data, no dotprops or no volumes
     if isinstance(neurons, type(None)):
@@ -243,7 +416,7 @@ def prepare_colormap(colors, neurons=None, volumes=None, alpha=None, color_range
     if isinstance(colors, type(None)):
         colors = []
         colors += generate_colors(colors_required,
-                                  color_space='RGB',
+                                  palette=palette,
                                   color_range=color_range)
         colors += [getattr(v, 'color', (1, 1, 1)) for v in volumes]
 
@@ -310,7 +483,10 @@ def prepare_colormap(colors, neurons=None, volumes=None, alpha=None, color_range
     # If alpha is given, we will override all values
     if not isinstance(alpha, type(None)):
         neuron_cmap = [add_alpha(c, alpha) for c in neuron_cmap]
-        volumes_cmap = [add_alpha(c, alpha) for c in volumes_cmap]
+
+        # Only apply to volumes if there aren't any neurons
+        if not neuron_cmap:
+            volumes_cmap = [add_alpha(c, alpha) for c in volumes_cmap]
 
     # Make sure colour range checks out
     neuron_cmap = [eval_color(c, color_range=color_range)

@@ -62,14 +62,13 @@ def tn_pairs_to_coords(x: core.TreeNeuron,
     nodes = x.nodes[x.nodes.parent_id >= 0]
 
     tn_co = nodes.loc[:, ['x', 'y', 'z']].values
-    parent_co = x.nodes.set_index('node_id',
-                                  inplace=False).loc[nodes.parent_id.values,
-                                                     ['x', 'y', 'z']].values
-
-    tn_co *= modifier
-    parent_co *= modifier
+    parent_co = x.nodes.set_index('node_id').loc[nodes.parent_id.values,
+                                                 ['x', 'y', 'z']].values
 
     coords = np.append(tn_co, parent_co, axis=1)
+
+    if any(modifier != 1):
+        coords *= modifier
 
     return coords.reshape((coords.shape[0], 2, 3))
 
@@ -78,22 +77,29 @@ def segments_to_coords(x: core.TreeNeuron,
                        segments: List[List[int]],
                        modifier: Optional[Tuple[float,
                                                 float,
-                                                float]] = (1, 1, 1)
+                                                float]] = (1, 1, 1),
+                       node_colors: Optional[np.ndarray] = None,
                        ) -> List[np.ndarray]:
     """Turn lists of node IDs into coordinates.
 
     Parameters
     ----------
-    x :         TreeNeuron
-                Must contain the nodes
-    segments :  list of treenode IDs
-    modifier :  ints, optional
-                Use to modify/invert x/y/z axes.
+    x :             TreeNeuron
+                    Must contain the nodes
+    segments :      list of lists node IDs
+    node_colors :   numpy.ndarray, optional
+                    A color for each node in ``x.nodes``. If provided, will
+                    also return a list of colors sorted to match coordinates.
+    modifier :      ints, optional
+                    Use to modify/invert x/y/z axes.
 
     Returns
     -------
-    coords :    list of tuples
-                [(x, y, z), (x, y, z), ... ]
+    coords :        list of tuples
+                    [(x, y, z), (x, y, z), ... ]
+    colors :        list of colors
+                    If ``node_colors`` provided will return a copy of it sorted
+                    to match ``coords``.
 
     """
     if not isinstance(modifier, np.ndarray):
@@ -103,11 +109,17 @@ def segments_to_coords(x: core.TreeNeuron,
     locs: Dict[int, Tuple[float, float, float]]
     # Oddly, this is also the fastest way to generate the dictionary
     locs = {r.node_id: (r.x, r.y, r.z) for r in x.nodes.itertuples()}  # type: ignore
-
-    coords = ([np.array([locs[tn] for tn in s]) for s in segments])
+    coords = [np.array([locs[tn] for tn in s]) for s in segments]
 
     if any(modifier != 1):
         coords = [c * modifier for c in coords]
+
+    if not isinstance(node_colors, type(None)):
+        ilocs = dict(zip(x.nodes.node_id.values,
+                         np.arange(x.nodes.shape[0])))
+        colors = [node_colors[[ilocs[tn] for tn in s]] for s in segments]
+
+        return coords, colors
 
     return coords
 

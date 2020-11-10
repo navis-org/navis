@@ -188,9 +188,27 @@ def plot2d(x: Union[core.NeuronObject,
       colors that will be applied to all neurons. Dicts will be mapped onto
       neurons by ID.
 
+    ``palette`` (str | array | list of arrays, default=None)
+      Name of a matplotlib or seaborn palette. If ``color`` is
+      not specified will pick colors from this palette.
+
+    ``color_by`` (str | array | list of arrays, default = None)
+      Can be the name of a column in the node table of ``TreeNeurons`` or an
+      array of (numerical or categorical) values for each node. Numerical values
+      will be normalized. You can control the normalization by passing a ``vmin``
+      and/or ``vmax`` parameter.
+
+    ``shade_by`` (str | array | list of arrays, default=None)
+      Similar to ``color_by`` but will affect only the alpha channel of the
+      color. If ``shade_by='strahler'`` will compute Strahler order if not
+      already part of the node table (TreeNeurons only). Numerical values will
+      be normalized. You can control the normalization by passing a ``smin``
+      and/or ``smax`` parameter.
+
     ``alpha`` (float [0-1], default = .9)
       Alpha value for neurons. Overriden if alpha is provided as fourth value
-      in ``color`` (rgb*a*).
+      in ``color`` (rgb*a*). You can override alpha value for connectors by
+      using ``cn_alpha``.
 
     ``depth_coloring`` (bool, default = False)
       If True, will color encode depth (Z). Overrides ``color``. Does not work
@@ -236,11 +254,13 @@ def plot2d(x: Union[core.NeuronObject,
     # Filter kwargs
     _ACCEPTED_KWARGS = ['soma', 'connectors', 'connectors_only',
                         'ax', 'color', 'colors', 'c', 'view', 'scalebar',
-                        'cn_mesh_colors', 'linewidth', 'cn_size', 'orthogonal',
-                        'group_neurons', 'scatter_kws', 'figsize', 'linestyle',
+                        'cn_mesh_colors', 'linewidth', 'cn_size', 'cn_alpha',
+                        'orthogonal', 'group_neurons', 'scatter_kws', 'figsize',
+                        'linestyle',
                         'alpha', 'depth_coloring', 'autoscale', 'depth_scale',
                         'ls', 'lw', 'volume_outlines',
-                        'dps_scale_vec']
+                        'dps_scale_vec', 'palette', 'color_by', 'shade_by',
+                        'vmin', 'vmax', 'smin', 'smax', 'norm_global']
     wrong_kwargs = [a for a in kwargs if a not in _ACCEPTED_KWARGS]
     if wrong_kwargs:
         raise KeyError(f'Unknown kwarg(s): {", ".join(wrong_kwargs)}. '
@@ -254,9 +274,6 @@ def plot2d(x: Union[core.NeuronObject,
     connectors = kwargs.get('connectors', False)
     connectors_only = kwargs.get('connectors_only', False)
     ax = kwargs.pop('ax', None)
-    color = kwargs.pop('color',
-                       kwargs.pop('c',
-                                  kwargs.pop('colors', None)))
     scalebar = kwargs.get('scalebar', None)
 
     # Depth coloring
@@ -267,14 +284,62 @@ def plot2d(x: Union[core.NeuronObject,
     autoscale = kwargs.get('autoscale', True)
 
     # Parse objects
-    (neurons, volumes, points, visuals) = utils.parse_objects(x)
+    (neurons, volumes, points, _) = utils.parse_objects(x)
+
+    # Generate colors
+    colors = kwargs.pop('color',
+                        kwargs.pop('c',
+                                   kwargs.pop('colors', None)))
+    palette = kwargs.get('palette', None)
+    color_by = kwargs.get('color_by', None)
+    shade_by = kwargs.get('shade_by', None)
 
     # Generate the colormaps
     (neuron_cmap,
-     volumes_cmap) = prepare_colormap(color,
+     volumes_cmap) = prepare_colormap(colors,
                                       neurons=neurons,
                                       volumes=volumes,
+                                      palette=palette,
+                                      alpha=kwargs.get('alpha', None),
                                       color_range=1)
+
+    if not isinstance(color_by, type(None)):
+        if not palette:
+            raise ValueError('Must provide `palette` (e.g. "viridis") argument '
+                             'if using `color_by`')
+        neuron_cmap = vertex_colors(neurons,
+                                    by=color_by,
+                                    alpha=False,
+                                    palette=palette,
+                                    norm_global=kwargs.get('norm_global', True),
+                                    vmin=kwargs.get('vmin', None),
+                                    vmax=kwargs.get('vmax', None),
+                                    na=kwargs.get('na', 'raise'),
+                                    color_range=1)
+
+    if not isinstance(shade_by, type(None)):
+        alphamap = vertex_colors(neurons,
+                                 by=shade_by,
+                                 alpha=True,
+                                 palette='viridis',  # palette is irrelevant here
+                                 norm_global=kwargs.get('norm_global', True),
+                                 vmin=kwargs.get('smin', None),
+                                 vmax=kwargs.get('smax', None),
+                                 na=kwargs.get('na', 'raise'),
+                                 color_range=1)
+
+        new_colormap = []
+        for c, a in zip(neuron_cmap, alphamap):
+            if not (isinstance(c, np.ndarray) and c.ndim == 2):
+                c = np.tile(c, (a.shape[0],  1))
+
+            if c.shape[1] == 4:
+                c[:, 3] = a[:, 3]
+            else:
+                c = np.insert(c, 3, a[:, 3], axis=1)
+
+            new_colormap.append(c)
+        neuron_cmap = new_colormap
 
     # Set axis projection
     if method in ['3d', '3d_complex']:
@@ -569,7 +634,7 @@ def _plot_dotprops(dp, color, method, ax, **kwargs):
 
 def _plot_connectors(neuron, color, method, ax, **kwargs):
     """Plot connectors."""
-    alpha = kwargs.get('alpha', .9)
+    cn_alpha = kwargs.get('cn_alpha', kwargs.get('alpha', .9))
     cn_size = kwargs.get('cn_size', .9)
     view = kwargs.get('view', ('x', 'y'))
 
@@ -586,15 +651,18 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
             x, y = _parse_view2d(this_cn[['x', 'y', 'z']].values, view)
 
             ax.scatter(x, y,
-                       c=cn_lay[c]['color'], alpha=alpha, zorder=4,
-                       edgecolor='none', s=cn_size)
+                       c=cn_lay[c]['color'],
+                       alpha=cn_alpha,
+                       zorder=4,
+                       edgecolor='none',
+                       s=cn_size)
             ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
     elif method in ['3d', '3d_complex']:
         all_cn = neuron.connectors
         c = [cn_lay[i]['color'] for i in all_cn.type.values]
         ax.scatter(all_cn.x.values, all_cn.y.values, all_cn.z.values,
                    c=c, s=cn_size, depthshade=False, edgecolor='none',
-                   alpha=alpha)
+                   alpha=cn_alpha)
         ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
 
 
@@ -687,13 +755,13 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
     group_neurons = kwargs.get('group_neurons', False)
     view = kwargs.get('view', ('x', 'y'))
 
-    # Generate by-segment coordinates
-    coords = segments_to_coords(neuron,
-                                neuron.segments,
-                                modifier=(1, 1, 1))
-
     if method == '2d':
-        if not depth_coloring:
+        if not depth_coloring and not (isinstance(color, np.ndarray) and color.ndim == 2):
+            # Generate by-segment coordinates
+            coords = segments_to_coords(neuron,
+                                        neuron.segments,
+                                        modifier=(1, 1, 1))
+
             # We have to add (None, None, None) to the end of each
             # slab to make that line discontinuous there
             coords = np.vstack([np.append(t, [[None] * 3],
@@ -707,15 +775,27 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             ax.add_line(this_line)
         else:
             coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
+
             xy = _parse_view2d(coords, view)
             lc = LineCollection(xy,
-                                cmap='jet',
-                                norm=norm)
-            lc.set_array(neuron.nodes.loc[neuron.nodes.parent_id >= 0, 'z'].values)
+                                cmap='jet' if depth_coloring else None,
+                                norm=norm if depth_coloring else None,
+                                joinstyle='round')
+
             lc.set_linewidth(linewidth)
-            lc.set_alpha(alpha)
             lc.set_linestyle(linestyle)
             lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
+
+            if depth_coloring:
+                lc.set_alpha(alpha)
+                lc.set_array(neuron.nodes.loc[neuron.nodes.parent_id >= 0, 'z'].values)
+            elif (isinstance(color, np.ndarray) and color.ndim == 2):
+                # If we have a color for each node, we need to drop the roots
+                if color.shape[1] != coords.shape[0]:
+                    lc.set_color(color[neuron.nodes.parent_id.values >= 0])
+                else:
+                    lc.set_color(color)
+
             ax.add_collection(lc)
 
         if plot_soma and np.any(neuron.soma):
@@ -725,36 +805,51 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             if len(soma) >= 10:
                 logger.warning(f'{neuron.id} - {len(soma)} somas found.')
             for s in soma:
+                if isinstance(color, np.ndarray) and color.ndim > 1:
+                    s_ix = np.where(neuron.nodes.node_id == s)[0][0]
+                    soma_color = color[s_ix]
+                else:
+                    soma_color = color
+
                 n = neuron.nodes.set_index('node_id').loc[s]
                 r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
 
                 if depth_coloring:
                     d = [n.x, n.y, n.z][_get_depth_axis(view)]
-                    color = mpl.cm.jet(norm(d))
+                    soma_color = mpl.cm.jet(norm(d))
 
                 sx, sy = _parse_view2d(np.array([[n.x, n.y, n.z]]), view)
                 c = mpatches.Circle((sx[0], sy[0]), radius=r,
-                                    alpha=alpha, fill=True, fc=color,
+                                    alpha=alpha, fill=True, fc=soma_color,
                                     zorder=4, edgecolor='none')
                 ax.add_patch(c)
         return None, None
 
     elif method in ['3d', '3d_complex']:
-        # For simple scenes, add whole neurons at a time -> will speed
-        # up rendering
+        # For simple scenes, add whole neurons at a time to speed up rendering
         if method == '3d':
-            if depth_coloring:
-                this_coords = tn_pairs_to_coords(neuron,
-                                                 modifier=(1, 1, 1))
+            if (isinstance(color, np.ndarray) and color.ndim == 2) or depth_coloring:
+                coords = tn_pairs_to_coords(neuron,
+                                            modifier=(1, 1, 1))
+                # If we have a color for each node, we need to drop the roots
+                if isinstance(color, np.ndarray) and color.shape[1] != coords.shape[0]:
+                    line_color = color[neuron.nodes.parent_id.values >= 0]
+                else:
+                    line_color = color
             else:
-                this_coords = coords
+                # Generate by-segment coordinates
+                coords = segments_to_coords(neuron,
+                                            neuron.segments,
+                                            modifier=(1, 1, 1))
+                line_color = color
 
-            lc = Line3DCollection(this_coords,
-                                  color=color,
+            lc = Line3DCollection(coords,
+                                  color=line_color,
                                   label=neuron.id,
-                                  alpha=alpha,
+                                  alpha=alpha if not kwargs.get('shade_by', False) else None,
                                   cmap=mpl.cm.jet if depth_coloring else None,
                                   lw=linewidth,
+                                  joinstyle='round',
                                   linestyle=linestyle)
             if group_neurons:
                 lc.set_gid(neuron.id)
@@ -763,8 +858,12 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             ax.add_collection3d(lc)
 
         # For complex scenes, add each segment as a single collection
-        # -> helps preventing Z-order errors
+        # -> helps reducing Z-order errors
         elif method == '3d_complex':
+            # Generate by-segment coordinates
+            coords = segments_to_coords(neuron,
+                                        neuron.segments,
+                                        modifier=(1, 1, 1))
             for c in coords:
                 lc = Line3DCollection([c],
                                       color=color,
@@ -786,6 +885,12 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                                ' somas. Skipping plotting its somas.')
             else:
                 for s in soma:
+                    if isinstance(color, np.ndarray) and color.ndim > 1:
+                        s_ix = np.where(neuron.nodes.node_id == s)[0][0]
+                        soma_color = color[s_ix]
+                    else:
+                        soma_color = color
+
                     n = neuron.nodes.set_index('node_id').loc[s]
                     r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
 
@@ -796,7 +901,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                     y = r * np.outer(np.sin(u), np.sin(v)) + n.y
                     z = r * np.outer(np.ones(np.size(u)), np.cos(v)) + n.z
                     surf = ax.plot_surface(x, y, z,
-                                           color=color,
+                                           color=soma_color,
                                            shade=False,
                                            alpha=alpha)
                     if group_neurons:
