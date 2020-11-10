@@ -302,8 +302,10 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     visuals = [ob for ob in x if 'vispy' in str(type(ob))]
 
     # Collect and parse volumes
-    volumes = [ob for ob in x if isinstance(ob, tm.Trimesh)]
-    # Converts trimeshes into Volumes
+    volumes = [ob for ob in x if not isinstance(ob, (core.BaseNeuron,
+                                                     core.NeuronList))
+                                 and is_mesh(ob)]
+    # Converts any non navis meshes into Volumes
     volumes = [core.Volume(v) if not isinstance(v, core.Volume) else v for v in volumes]
 
     # Collect dataframes with X/Y/Z coordinates
