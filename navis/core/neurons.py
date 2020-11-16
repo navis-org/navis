@@ -64,6 +64,20 @@ def temp_property(func):
     return wrapper
 
 
+def requires_nodes(func):
+    """Return ``None`` if neuron has no nodes."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        self = args[0]
+        # Return 0
+        if isinstance(self.nodes, str) and self.nodes == 'NA':
+            return 'NA'
+        if not isinstance(self.nodes, pd.DataFrame):
+            return None
+        return func(*args, **kwargs)
+    return wrapper
+
+
 def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
            **metadata):
     """Constructor for Neuron objects. Depending on the input, either a
@@ -134,6 +148,11 @@ class BaseNeuron:
                 data = getattr(self, key)
                 if isinstance(data, pd.DataFrame) and not data.empty:
                     return True
+                # This is necessary because np.any does not like strings
+                elif isinstance(data, str):
+                    if data == 'NA' or not data:
+                        return False
+                    return True
                 elif np.any(data):
                     return True
             return False
@@ -141,8 +160,12 @@ class BaseNeuron:
             key = key[key.index('_') + 1:]
             if hasattr(self, key):
                 data = getattr(self, key, None)
-                if hasattr(data, '__len__'):
+                if isinstance(data, pd.DataFrame):
+                    return data.shape[0]
+                elif utils.is_iterable(data):
                     return len(data)
+                elif isinstance(data, str) and data == 'NA':
+                    return 'NA'
             return None
 
         raise AttributeError(f'Attribute "{key}" not found')
@@ -992,6 +1015,7 @@ class TreeNeuron(BaseNeuron):
         return state
 
     @property
+    @requires_nodes
     def edges(self) -> np.ndarray:
         """Edges between nodes.
 
@@ -1075,19 +1099,24 @@ class TreeNeuron(BaseNeuron):
         if self.has_nodes:
             data = np.ascontiguousarray(self.nodes[['node_id', 'parent_id',
                                                     'x', 'y', 'z']].values)
+            if xxhash:
+                return xxhash.xxh128(data).hexdigest()
             return hashlib.md5(data).hexdigest()
 
     @property
+    @requires_nodes
     def leafs(self) -> pd.DataFrame:
         """Leaf node table."""
         return self.nodes[self.nodes['type'] == 'end']
 
     @property
+    @requires_nodes
     def ends(self):
         """End node table (same as leafs)."""
         return self.leafs
 
     @property
+    @requires_nodes
     def branch_points(self):
         """Branch node table."""
         return self.nodes[self.nodes['type'] == 'branch']
@@ -1145,7 +1174,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def subtrees(self) -> List[List[int]]:
-        """List of subtrees (sorted by size) as sets of node IDs."""
+        """List of subtrees. Sorted by size as sets of node IDs."""
         return sorted(graph._connected_components(self),
                       key=lambda x: -len(x))
 
@@ -1181,6 +1210,7 @@ class TreeNeuron(BaseNeuron):
                                                     restrict=False)
 
     @property
+    @requires_nodes
     def cycles(self) -> Optional[List[int]]:
         """Cycles in neuron if any.
 
@@ -1265,6 +1295,7 @@ class TreeNeuron(BaseNeuron):
                 raise ValueError('Soma must be function, None or a valid node ID.')
 
     @property
+    @requires_nodes
     def root(self) -> Sequence:
         """Root node(s)."""
         roots = self.nodes[self.nodes.parent_id < 0].node_id.values
@@ -1281,13 +1312,17 @@ class TreeNeuron(BaseNeuron):
         return 'navis.TreeNeuron'
 
     @property
-    def n_branches(self) -> int:
+    @requires_nodes
+    def n_branches(self) -> Optional[int]:
         """Number of branch points."""
         return self.nodes[self.nodes.type == 'branch'].shape[0]
 
     @property
-    def n_leafs(self) -> int:
+    @requires_nodes
+    def n_leafs(self) -> Optional[int]:
         """Number of leafs."""
+        if not not isinstance(self.nodes, pd.DataFrame):
+            return None
         return self.nodes[self.nodes.type == 'end'].shape[0]
 
     @temp_property
@@ -2175,6 +2210,6 @@ class Dotprops(BaseNeuron):
         # Add some other relevant attributes directly
         if self.has_connectors:
             tn._connectors = self._connectors
-        tn._soma = tn._soma
+        tn._soma = self._soma
 
         return tn
