@@ -24,8 +24,7 @@ import numpy as np
 from typing import Union, Optional, Sequence, List, Dict, overload
 from typing_extensions import Literal
 
-from .. import config, graph, sampling, core
-from .manipulation import split_axon_dendrite
+from .. import config, graph, sampling, core, utils
 
 # Set up logging
 logger = config.logger
@@ -146,6 +145,9 @@ def strahler_index(x: 'core.NeuronObject',
     6
 
     """
+    utils.eval_param(x, name='x',
+                     allowed_types=(core.TreeNeuron, core.NeuronList))
+
     if isinstance(x, core.NeuronList):
         res = []
         for n in config.tqdm(x, desc='Calc. SI',
