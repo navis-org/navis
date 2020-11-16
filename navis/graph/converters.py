@@ -66,8 +66,7 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
             edges = x[['source', 'target', 'weight']].values
         else:
             edges = x.reset_index(inplace=False,
-                                  drop=False).melt(id_vars='index',
-                                                   inplace=False).values
+                                  drop=False).melt(id_vars='index').values
     elif isinstance(x, (list, np.ndarray)):
         edges = np.array(x)
     else:
