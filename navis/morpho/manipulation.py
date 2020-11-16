@@ -142,7 +142,7 @@ def prune_by_strahler(x: NeuronObject,
     if not inplace:
         neuron = neuron.copy()
 
-    if reroot_soma and neuron.soma:
+    if reroot_soma and np.any(neuron.soma):
         neuron.reroot(neuron.soma, inplace=True)
 
     if 'strahler_index' not in neuron.nodes or force_strahler_update:
@@ -696,7 +696,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     Examples
     --------
     Stitching neuronlist by simply combining data tables:
-
+    >>> import navis
     >>> nl = navis.example_neurons(2)
     >>> stitched = navis.stitch_neurons(nl, method='NONE')
 
@@ -707,9 +707,8 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     """
     master = str(master).upper()
-
-    if master not in ['SOMA', 'LARGEST', 'FIRST']:
-        raise ValueError(f'Unknown master: "{master}"')
+    ALLOWED_MASTER = ('SOMA', 'LARGEST', 'FIRST')
+    utils.eval_param(master, 'master', allowed_values=ALLOWED_MASTER)
 
     # Compile list of individual neurons
     neurons = utils.unpack_neurons(x)
@@ -909,15 +908,18 @@ def average_neurons(x: 'core.NeuronList',
     Examples
     --------
     >>> # Get a bunch of neurons
+    >>> import navis
     >>> da2 = navis.example_neurons()
     >>> # Prune down to longest neurite
-    >>> da2.reroot(da2.soma)
+    >>> for n in da2:
+    ...    if numpy.any(n.soma):
+    ...         n.reroot(n.soma, inplace=True)
     >>> da2_pr = da2.prune_by_longest_neurite(inplace=False)
     >>> # Make average
     >>> da2_avg = navis.average_neurons(da2_pr, limit=10e3)
     >>> # Plot
-    >>> da2.plot3d()
-    >>> da2_avg.plot3d()
+    >>> da2.plot3d() # doctest: +SKIP
+    >>> da2_avg.plot3d() # doctest: +SKIP
 
     """
     if not isinstance(x, core.NeuronList):
@@ -942,7 +944,7 @@ def average_neurons(x: 'core.NeuronList',
         raise ValueError(f'Unable to interpret base_neuron of type "{type(base_neuron)}"')
 
     base_nodes = bn.nodes[['x', 'y', 'z']].values
-    other_neurons = x[1:]
+    other_neurons = x[[n != bn for n in x]]
 
     # Make sure these stay 2-dimensional arrays -> will add a colum for each
     # "other" neuron
@@ -997,7 +999,7 @@ def despike_neuron(x: NeuronObject,
     """Remove spikes in skeleton (e.g. from jumps in image data).
 
     For each node A, the euclidean distance to its next successor (parent)
-    B and that node's successor is computed. If
+    B and that node's successor C (i.e A->B->C) is computed. If
     :math:`\\frac{dist(A,B)}{dist(A,C)}>sigma`, node B is considered a spike
     and realigned between A and C.
 
