@@ -65,8 +65,10 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
         if all(present):
             edges = x[['source', 'target', 'weight']].values
         else:
+            # Assume it's an adjacency matrix
+            ix_name = x.index.name if x.index.name else 'index'
             edges = x.reset_index(inplace=False,
-                                  drop=False).melt(id_vars='index').values
+                                  drop=False).melt(id_vars=ix_name).values
     elif isinstance(x, (list, np.ndarray)):
         edges = np.array(x)
     else:
