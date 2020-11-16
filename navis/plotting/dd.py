@@ -134,11 +134,14 @@ def plot2d(x: Union[core.NeuronObject,
     >>> ax.elev = 45
     >>> # Move camera closer (will make image bigger)
     >>> ax.dist = 5
-    >>> plt.show()
+    >>> plt.show() # doctest: +SKIP
 
     Plot using depth-coloring
     >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True)
-    >>> plt.show()
+    >>> plt.show() # doctest: +SKIP
+
+    To close all figures
+    >>> plt.close('all')
 
 
     Returns
@@ -496,7 +499,8 @@ def plot2d(x: Union[core.NeuronObject,
             # No need for normaliser - already happened
             c.set_norm(None)
 
-            if isinstance(neuron, core.TreeNeuron) and not isinstance(neuron.soma, type(None)):
+            if (isinstance(neuron, core.TreeNeuron)
+                and not isinstance(getattr(neuron, 'soma', None), type(None))):
                 # Get depth of soma(s)
                 soma = utils.make_iterable(neuron.soma)
                 soma_co = neuron.nodes.set_index('node_id').loc[soma][['x', 'y', 'z']].values
@@ -876,7 +880,8 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             line3D_collection = None
 
         surf3D_collections = []
-        if plot_soma and not isinstance(neuron.soma, type(None)):
+        if plot_soma and not isinstance(getattr(neuron, 'soma', None),
+                                        type(None)):
             soma = utils.make_iterable(neuron.soma)
             # If soma detection is messed up we might end up producing
             # dozens of soma which will freeze the kernel
