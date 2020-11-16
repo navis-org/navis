@@ -358,17 +358,20 @@ class Viewer:
     @property
     def visible(self):
         """List IDs of currently visible neurons."""
-        return [s for s in self.neurons if self.neurons[s][0].visible]
+        neurons = self.neurons  # grab this only once to speed things up
+        return [s for s in neurons if neurons[s][0].visible]
 
     @property
     def invisible(self):
         """List IDs of currently visible neurons."""
-        return [s for s in self.neurons if not self.neurons[s][0].visible]
+        neurons = self.neurons  # grab this only once to speed things up
+        return [s for s in neurons if not neurons[s][0].visible]
 
     @property
     def pinned(self):
         """List IDs of currently pinned neurons."""
-        return [s for s in self.neurons if getattr(self.neurons[s][0], 'pinned', False)]
+        neurons = self.neurons  # grab this only once to speed things up
+        return [s for s in neurons if getattr(neurons[s][0], 'pinned', False)]
 
     @property
     def selected(self):
@@ -379,7 +382,7 @@ class Viewer:
     def selected(self, val):
         n = np.asarray(val).astype('object')
 
-        neurons = self.neurons
+        neurons = self.neurons  # grab once to speed things up
         logger.debug(f'{len(n)} neurons selected ({len(self.selected)} previously)')
         # First un-highlight neurons no more selected
         for s in [s for s in self.__selected if s not in set(n)]:
@@ -411,7 +414,7 @@ class Viewer:
         # Update data text
         # Currently only the development version of vispy supports escape
         # character (e.g. \n)
-        t = '| '.join([f'{self.neurons[s][0]._name} - #{s}' for s in self.__selected])
+        t = '| '.join([f'{neurons[s][0]._name} - #{s}' for s in self.__selected])
         self._data_text.text = t
 
     @property
@@ -445,9 +448,10 @@ class Viewer:
 
         """
         # Collect neuron objects (neurites + somata)
-        neuron_obj = [c for c in self.visuals if 'neuron' in getattr(c,
-                                                                     '_object_type',
-                                                                     '')]
+        visuals = self.visuals  # Get this only once to speed things up
+        neuron_obj = [c for c in visuals if 'neuron' in getattr(c,
+                                                                '_object_type',
+                                                                '')]
 
         # Collect IDs
         neuron_ids = set([ob._id for ob in neuron_obj])
@@ -455,7 +459,7 @@ class Viewer:
         # Collect somata and neurites by ID
         coll = OrderedDict()
         for ob in neuron_ids:
-            coll[ob] = [v for v in self.visuals if getattr(v, '_id') == ob]
+            coll[ob] = [v for v in visuals if getattr(v, '_id') == ob]
         return coll
 
     @property
@@ -488,13 +492,14 @@ class Viewer:
         """Remove given neurons/visuals from canvas."""
         to_remove = utils.make_iterable(to_remove)
 
+        neurons = self.neurons  # grab this only once to speed things up
         for vis in to_remove:
             if isinstance(vis, scene.visuals.VisualNode):
                 vis.parent = None
             else:
                 uuids = utils.eval_id(to_remove)
                 for u in uuids:
-                    for v in self.neurons.get(u, []):
+                    for v in neurons.get(u, []):
                         v.parent = None
 
     def pop(self, N=1):
@@ -520,20 +525,21 @@ class Viewer:
                     v.visible = True
 
         # Labels to be removed
-        to_remove = [s for s in labels if s not in self._neuron_obj]
+        neuron_obj = self._neuron_obj  # grab only once to speed things up
+        to_remove = [s for s in labels if s not in neuron_obj]
         for s in to_remove:
             labels[s].parent = None
 
         # Generate new labels
-        to_add = [s for s in self._neuron_obj if s not in labels]
+        to_add = [s for s in _neuron_obj if s not in labels]
         for s in to_add:
             # Fallback is name or in lieu of that the object's type
-            lbl = getattr(self._neuron_obj[s][0], '_name',
-                          str(type(self._neuron_obj[s][0])))
+            lbl = getattr(_neuron_obj[s][0], '_name',
+                          str(type(_neuron_obj[s][0])))
             # See if we find a "label" property
-            if hasattr(self._neuron_obj[s][0], '_object'):
-                if hasattr(self._neuron_obj[s][0]._object, 'label'):
-                    lbl = self._neuron_obj[s][0]._object.label
+            if hasattr(_neuron_obj[s][0], '_object'):
+                if hasattr(_neuron_obj[s][0]._object, 'label'):
+                    lbl = _neuron_obj[s][0]._object.label
 
             txt = scene.visuals.Text(lbl,
                                      anchor_x='left',
@@ -544,15 +550,15 @@ class Viewer:
             txt.interactive = True
             txt.unfreeze()
             txt._object_id = s
-            txt._id = self._neuron_obj[s][0]._id
+            txt._id = _neuron_obj[s][0]._id
             txt.freeze()
 
         # Position and color labels
         labels = {l._object_id: l for l in self.overlay.children if getattr(
             l, '_object_id', None)}
-        for i, s in enumerate(sorted(self._neuron_obj)):
-            if self._neuron_obj[s][0].visible:
-                color = self._neuron_obj[s][0].color
+        for i, s in enumerate(sorted(_neuron_obj)):
+            if _neuron_obj[s][0].visible:
+                color = _neuron_obj[s][0].color
             else:
                 color = (.3, .3, .3)
 
@@ -568,12 +574,13 @@ class Viewer:
 
     def center_camera(self):
         """Center camera on visuals."""
-        if not self.visuals:
+        visuals = self.visuals  # Get this only once to speed things up
+        if not visuals:
             return
 
-        xbounds = np.array([v.bounds(0) for v in self.visuals]).flatten()
-        ybounds = np.array([v.bounds(1) for v in self.visuals]).flatten()
-        zbounds = np.array([v.bounds(2) for v in self.visuals]).flatten()
+        xbounds = np.array([v.bounds(0) for v in visuals]).flatten()
+        ybounds = np.array([v.bounds(1) for v in visuals]).flatten()
+        zbounds = np.array([v.bounds(2) for v in visuals]).flatten()
 
         self.camera3d.set_range((xbounds.min(), xbounds.max()),
                                 (ybounds.min(), ybounds.max()),
@@ -652,8 +659,7 @@ class Viewer:
         """Hide given neuron(s)."""
         ids = utils.eval_id(n)
 
-        neurons = self.neurons
-
+        neurons = self.neurons   # grab once to speed things up
         for s in ids:
             for v in neurons[s]:
                 if getattr(v, 'pinned', False):
@@ -673,12 +679,11 @@ class Viewer:
         Use ``n`` to unhide specific neurons.
 
         """
+        neurons = self.neurons  # grab once to speed things up
         if not isinstance(n, type(None)):
             ids = utils.eval_id(n)
         else:
-            ids = list(self.neurons.keys())
-
-        neurons = self.neurons
+            ids = list(neurons.keys())
 
         for s in ids:
             for v in neurons[s]:
@@ -688,10 +693,13 @@ class Viewer:
                     v.visible = True
             if check_alpha:
                 # Make sure color has an alpha channel
-                c = list(to_rgba(neurons[s][0].color))
+                c = to_rgba(neurons[s][0].color)
                 # Make sure alpha is 1
-                if c[3] != 1:
+                if c.ndim == 1 and c[3] != 1:
                     c[3] = 1
+                    self.set_colors({s: c})
+                elif c.ndim == 2 and np.any(c[:, 3] != 1):
+                    c[:, 3] = 1
                     self.set_colors({s: c})
 
         self.update_legend()
@@ -706,7 +714,7 @@ class Viewer:
         """
         ids = utils.eval_id(n)
 
-        neurons = self.neurons
+        neurons = self.neurons  # grab only once to speed things up
 
         for s in ids:
             for v in neurons[s]:
@@ -720,12 +728,11 @@ class Viewer:
         Use ``n`` to unhide specific neurons.
 
         """
+        neurons = self.neurons  # grab once to speed things up
         if not isinstance(n, type(None)):
             ids = utils.eval_id(n)
         else:
-            ids = list(self.neurons.keys())
-
-        neurons = self.neurons
+            ids = list(neurons.keys())
 
         for s in ids:
             for v in neurons[s]:
@@ -753,7 +760,7 @@ class Viewer:
         """Toggle selected of given neuron."""
         skids = utils.eval_id(n)
 
-        neurons = self.neurons
+        neurons = self.neurons  # grab once to speed things up
 
         for s in skids:
             if self.selected != s:
@@ -780,16 +787,17 @@ class Viewer:
                    2. Dictionary mapping skeleton IDs to colors.
 
         """
+        neurons = self.neurons  # grab once to speed things up
         if isinstance(c, (tuple, list, np.ndarray, str)):
-            cmap = {s: c for s in self.neurons}
+            cmap = {s: c for s in neurons}
         elif isinstance(c, dict):
             cmap = c
         else:
             raise TypeError(f'Unable to use colors of type "{type(c)}"')
 
-        for n in self.neurons:
+        for n in neurons:
             if n in cmap:
-                for v in self.neurons[n]:
+                for v in neurons[n]:
                     if getattr(v, 'pinned', False):
                         continue
                     if v._neuron_part == 'connectors' and not include_connectors:
@@ -815,16 +823,17 @@ class Viewer:
                    2. Dictionary mapping skeleton IDs to alpha.
 
         """
+        neurons = self.neurons  # grab once to speed things up
         if isinstance(a, (tuple, list, np.ndarray, str)):
-            amap = {s: a for s in self.neurons}
+            amap = {s: a for s in neurons}
         elif isinstance(a, dict):
             amap = a
         else:
             raise TypeError(f'Unable to use colors of type "{type(a)}"')
 
-        for n in self.neurons:
+        for n in neurons:
             if n in amap:
-                for v in self.neurons[n]:
+                for v in neurons[n]:
                     if getattr(v, 'pinned', False):
                         continue
                     if v._neuron_part == 'connectors' and not include_connectors:
@@ -866,8 +875,9 @@ class Viewer:
 
     def colorize(self, palette='hls', include_connectors=False):
         """Colorize neurons using a seaborn color palette."""
-        colors = sns.color_palette(palette, len(self.neurons))
-        cmap = {s: colors[i] for i, s in enumerate(self.neurons)}
+        neurons = self.neurons  # grab once to speed things up
+        colors = sns.color_palette(palette, len(neurons))
+        cmap = {s: colors[i] for i, s in enumerate(neurons)}
 
         self.set_colors(cmap, include_connectors=include_connectors)
 
@@ -880,14 +890,15 @@ class Viewer:
         self._cycle_index += increment
 
         # If mode is 'hide' cycle over all neurons
+        neurons = self.neurons  # grab once to speed things up
         if self._cycle_mode == 'hide':
-            to_cycle = self.neurons
+            to_cycle = neurons
         # If mode is 'alpha' ignore all hidden neurons
         elif self._cycle_mode == 'alpha':
             # Make sure to keep the order
             to_cycle = OrderedDict()
             for s in self.visible:
-                to_cycle[s] = self.neurons[s]
+                to_cycle[s] = neurons[s]
         else:
             raise ValueError(f'Unknown cycle mode "{self._cycle_mode}".')
 
@@ -938,13 +949,13 @@ class Viewer:
         # Generate names
         names = []
         for u in to_show:
-            n = getattr(self.neurons[u][0], "name", "NA")
+            n = getattr(neurons[u][0], "name", "NA")
             if not isinstance(u, uuid.UUID):
                 n += f' ({u})'
             names.append(n)
 
         self._data_text.text = f'{"|".join(names)}' \
-                               f' [{self._cycle_index + 1}/{len(self.neurons)}]'
+                               f' [{self._cycle_index + 1}/{len(neurons)}]'
 
     def _draw_fps(self, fps):
         """Callback for ``canvas.measure_fps``."""
@@ -1185,8 +1196,8 @@ def on_resize(event):
     # resize
 
 
-def to_rgba(c):
-    """Convert color to RGBA.
+def to_rgba(c, alpha=None):
+    """Convert color or array of colors to RGBA.
 
     matplotlib.colors.to_rgba can't deal with vispy color arrays.
     """
@@ -1194,13 +1205,25 @@ def to_rgba(c):
     if hasattr(c, '_rgba'):
         c = c._rgba
 
-    # Make sure we deal with only one RGB(A) color
-    if not isinstance(c, np.ndarray):
-        c = np.array(c)
+    # Make sure we deal with an array
+    c = np.asarray(c)
 
-    if c.ndim > 1:
-        if c.shape[0] > 1:
-            raise ValueError(f'Expected single RGB(A) color, found array of shape {c.shape}')
-        c = c[0]
+    if c.ndim == 2:
+        if c.shape[1] == 3:
+            c = np.insert(c,
+                          3,
+                          np.ones(c.shape[0]),
+                          axis=1)
 
-    return mcl.to_rgba(c)
+        if not isinstance(alpha, type(None)):
+            c[:, 3] = alpha
+    elif c.ndim == 1:
+        if c.shape[0] == 3:
+            c = np.insert(c, 3, 1)
+
+        if not isinstance(alpha, type(None)):
+            c[3] = alpha
+    else:
+        raise ValueError(f'Got {c.ndim} dimensional array of colors.')
+
+    return c
