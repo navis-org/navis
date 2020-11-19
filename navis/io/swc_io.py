@@ -38,6 +38,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
              connector_labels: Optional[Dict[str, Union[str, int]]] = {},
              soma_label: Union[str, int] = 1,
              include_subdirs: bool = False,
+             delimiter: str = ' ',
              parallel: Union[bool, int] = 'auto',
              precision: int = 32,
              **kwargs) -> 'core.NeuronObject':
@@ -58,6 +59,8 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     include_subdirs :   bool, optional
                         If True and ``f`` is a folder, will also search
                         subdirectories for ``.swc`` files.
+    delimiter :         str
+                        Delimiter to use. Passed to ``pandas.read_csv``.
     parallel :          "auto" | bool | int
                         Defaults to ``auto`` which means only use parallel
                         processing if more than 200 SWC are imported. Spawning
@@ -184,7 +187,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
 
             # Load into pandas DataFrame
             nodes = pd.read_csv(file,
-                                delimiter=' ',
+                                delimiter=delimiter,
                                 skipinitialspace=True,
                                 skiprows=len(header),
                                 header=None)
