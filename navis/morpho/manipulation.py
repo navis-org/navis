@@ -205,6 +205,7 @@ def prune_by_strahler(x: NeuronObject,
 @overload
 def prune_twigs(x: NeuronObject,
                 size: float,
+                exact: bool,
                 inplace: Literal[True],
                 recursive: Union[int, bool, float] = False
                 ) -> None: ...
@@ -213,6 +214,7 @@ def prune_twigs(x: NeuronObject,
 @overload
 def prune_twigs(x: NeuronObject,
                 size: float,
+                exact: bool,
                 inplace: Literal[False],
                 recursive: Union[int, bool, float] = False
                 ) -> NeuronObject: ...
@@ -221,6 +223,7 @@ def prune_twigs(x: NeuronObject,
 @overload
 def prune_twigs(x: NeuronObject,
                 size: float,
+                exact: bool,
                 inplace: bool = False,
                 recursive: Union[int, bool, float] = False
                 ) -> Optional[NeuronObject]: ...
@@ -228,23 +231,33 @@ def prune_twigs(x: NeuronObject,
 
 def prune_twigs(x: NeuronObject,
                 size: float,
+                exact: bool = False,
                 inplace: bool = False,
                 recursive: Union[int, bool, float] = False
                 ) -> Optional[NeuronObject]:
     """Prune terminal twigs under a given size.
+
+    By default this function will simply drop all terminal twigs shorter than
+    ``size``. This is very fast but rather stupid: for example, if a twig is
+    just 1 nanometer longer than ``size`` it will not be touched at all. If you
+    require precision, set ``exact=True`` which will prune *exactly* ``size``
+    off the terminals but is about an order of magnitude slower.
 
     Parameters
     ----------
     x :             TreeNeuron | NeuronList
     size :          int | float
                     Twigs shorter than this will be pruned.
+    exact:          bool
+                    See notes above.
     inplace :       bool, optional
                     If False, pruning is performed on copy of original neuron
                     which is then returned.
     recursive :     int | bool, optional
                     If `int` will undergo that many rounds of recursive
                     pruning. If True will prune iteratively until no more
-                    terminal twigs under the given size are left.
+                    terminal twigs under the given size are left. Only
+                    relevant if ``exact=False``.
 
     Returns
     -------
@@ -253,12 +266,25 @@ def prune_twigs(x: NeuronObject,
 
     Examples
     --------
+    Simple pruning
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> # Prune twigs smaller than 5 microns (example neurons are in nm)
+    >>> # Prune twigs smaller than 5 microns
+    >>> # (example neuron are in 8x8x8nm units)
     >>> n_pr = navis.prune_twigs(n,
-    ...                          size=5000,
+    ...                          size=5000 / 8,
     ...                          recursive=float('inf'),
+    ...                          inplace=False)
+    >>> n.n_nodes > n_pr.n_nodes
+    True
+
+    Exact pruning
+    >>> n = navis.example_neurons(1)
+    >>> # Prune twigs by exactly 5 microns
+    >>> # (example neuron are in 8x8x8nm units)
+    >>> n_pr = navis.prune_twigs(n,
+    ...                          size=5000 / 8,
+    ...                          exact=True,
     ...                          inplace=False)
     >>> n.n_nodes > n_pr.n_nodes
     True
@@ -270,6 +296,7 @@ def prune_twigs(x: NeuronObject,
 
         [prune_twigs(n,
                      size=size,
+                     exact=exact,
                      inplace=True,
                      recursive=recursive) for n in config.tqdm(x,
                                                                desc='Pruning',
@@ -284,6 +311,26 @@ def prune_twigs(x: NeuronObject,
         neuron = x
     else:
         raise TypeError(f'Expected Neuron/List, got {type(x)}')
+
+    if not exact:
+        return _prune_twigs_simple(neuron,
+                                   size=size,
+                                   inplace=inplace,
+                                   recursive=recursive)
+    else:
+        return _prune_twigs_precise(neuron,
+                                    size=size,
+                                    inplace=inplace)
+
+
+def _prune_twigs_simple(neuron: 'core.TreeNeuron',
+                        size: float,
+                        inplace: bool = False,
+                        recursive: Union[int, bool, float] = False
+                        ) -> Optional[NeuronObject]:
+    """Prune twigs using simple method."""
+    if not isinstance(neuron, core.TreeNeuron):
+        raise TypeError(f'Expected Neuron/List, got {type(neuron)}')
 
     # If people set recursive=True, assume that they mean float("inf")
     if isinstance(recursive, bool) and recursive:
@@ -320,6 +367,107 @@ def prune_twigs(x: NeuronObject,
         if recursive:
             recursive -= 1
             prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
+
+    if not inplace:
+        return neuron
+    else:
+        return None
+
+
+def _prune_twigs_precise(neuron: 'core.TreeNeuron',
+                         size: float,
+                         inplace: bool = False,
+                         recursive: Union[int, bool, float] = False
+                         ) -> Optional[NeuronObject]:
+    """Prune twigs using precise method."""
+    if not isinstance(neuron, core.TreeNeuron):
+        raise TypeError(f'Expected Neuron/List, got {type(neuron)}')
+
+    if size <= 0:
+        raise ValueError('`length` must be > 0')
+
+    # Make a copy if necessary before making any changes
+    if not inplace:
+        neuron = neuron.copy()
+
+    # Find terminal nodes
+    leafs = neuron.leafs.node_id.values
+
+    # Find all nodes that could possibly be within distance to a leaf
+    tree = graph.neuron2KDTree(neuron)
+    res = tree.query_ball_point(neuron.leafs[['x', 'y', 'z']].values,
+                                r=size)
+    candidates = neuron.nodes.node_id.values[np.unique(np.concatenate(res))]
+
+    # For each node in neuron find out which leafs are directly distal to it
+    # `distal` is a matrix with all nodes in columns and leafs in rows
+    distal = graph.distal_to(neuron, a=leafs, b=candidates)
+    # Turn matrix into dictionary {'node': [leafs, distal, to, it]}
+    melted = distal.reset_index(drop=False).melt(id_vars='index')
+    melted = melted[melted.value]
+    melted.groupby('variable')['index'].apply(list)
+    # `distal` is now a dictionary for {'node_id': [leaf1, leaf2, ..], ..}
+    distal = melted.groupby('variable')['index'].apply(list).to_dict()
+
+    # For each node find the distance to any leaf - note we are using `length`
+    # as cutoff here
+    # `path_len` is a dict mapping {nodeA: {nodeB: length, ...}, ...}
+    # if nodeB is not in dictionary, it's not within reach
+    path_len = dict(nx.all_pairs_dijkstra_path_length(neuron.graph.reverse(),
+                                                      cutoff=size, weight='weight'))
+
+    # For each leaf in `distal` check if it's within length
+    not_in_length = {k: set(v) - set(path_len[k]) for k, v in distal.items()}
+
+    # For a node to be deleted its PARENT has to be within
+    # `length` to ALL edges that are distal do it
+    in_range = {k for k, v in not_in_length.items() if not any(v)}
+    nodes_to_keep = neuron.nodes.loc[~neuron.nodes.parent_id.isin(in_range),
+                                     'node_id'].values
+
+    if len(nodes_to_keep) < neuron.n_nodes:
+        # Subset neuron
+        graph.subset_neuron(neuron,
+                            nodes_to_keep,
+                            inplace=True)
+
+    # For each of the new leafs check their shortest distance to the
+    # original leafs to get the remainder
+    is_new_leaf = (neuron.nodes.type == 'end').values
+    new_leafs = neuron.nodes[is_new_leaf].node_id.values
+    max_len = [max([path_len[l1][l2] for l2 in distal[l1]]) for l1 in new_leafs]
+
+    # For each of the new leafs check how much we need to take of the existing
+    # edge
+    len_to_prune = size - np.array(max_len)
+
+    # Get vectors from leafs to their parents
+    nodes = neuron.nodes.set_index('node_id')
+    parents = nodes.loc[new_leafs, 'parent_id'].values
+    loc1 = neuron.leafs[['x', 'y', 'z']].values
+    loc2 = nodes.loc[parents, ['x', 'y', 'z']].values
+    vec = loc1 - loc2
+    vec_len = np.linalg.norm(vec, axis=1)
+    vec_norm = vec / vec_len.reshape(-1, 1)
+
+    # If `vec_len` is greater than the remaining pruning length we just remove
+    # that node, if it is lower, we will move the node the given distance
+    to_remove = vec_len < len_to_prune
+
+    # First move nodes -> we can safely move all leaf nodes as the others
+    # will be deleted anyway
+    if not all(to_remove):
+        new_loc = loc1 - vec_norm * len_to_prune.reshape(-1, 1)
+        neuron.nodes.loc[is_new_leaf, ['x', 'y', 'z']] = new_loc
+
+    if any(to_remove):
+        leafs_to_remove = new_leafs[to_remove]
+        nodes_to_keep = neuron.nodes.loc[~neuron.nodes.node_id.isin(leafs_to_remove),
+                                         'node_id'].values
+        # Subset neuron
+        graph.subset_neuron(neuron,
+                            nodes_to_keep,
+                            inplace=True)
 
     if not inplace:
         return neuron
