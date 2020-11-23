@@ -375,10 +375,10 @@ def volume2plotly(x, **kwargs):
                         kwargs.get('c',
                                    kwargs.get('colors', None)))
 
-    _, _, colormap = prepare_colormap(colors,
-                                      volumes=x,
-                                      alpha=kwargs.get('alpha', None),
-                                      color_range=255)
+    _, colormap = prepare_colormap(colors,
+                                   volumes=x,
+                                   alpha=kwargs.get('alpha', None),
+                                   color_range=255)
 
     trace_data = []
     for i, v in enumerate(x):
