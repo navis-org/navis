@@ -257,7 +257,7 @@ class NeuronList:
         # all neurons
         values = [getattr(n, key, NotImplemented) for n in self.neurons]
         is_method = [isinstance(v, types.MethodType) for v in values]
-        is_none = [isinstance(v, type(None)) for v in values]
+        # is_none = [isinstance(v, type(None)) for v in values]
         is_frame = [isinstance(v, pd.DataFrame) for v in values]
         is_quantity = [isinstance(v, config.ureg.Quantity) for v in values]
 
