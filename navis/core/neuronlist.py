@@ -338,7 +338,7 @@ class NeuronList:
         # unnecessary but is really complicated and VERY necessary
         if key == '__dict__':
             if not isinstance(value, dict):
-                raise TypeErr(f'__dict__ must be dict, got {type(value)}')
+                raise TypeError(f'__dict__ must be dict, got {type(value)}')
             self.__dict__.clear()
             for k, v in value.items():
                 self.__dict__[k] = v
