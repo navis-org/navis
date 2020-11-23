@@ -336,10 +336,10 @@ def classify_nodes(x: 'core.NeuronObject',
             # [ n for n in g.nodes if g.degree(n) > 2 ]
             branches = deg[deg.iloc[:, 0] > 2].index.values
 
-        if 'type' not in x.nodes:
-            x.nodes['type'] = 'slab'
-        else:
-            x.nodes.loc[:, 'type'] = 'slab'
+        # This also resets the column if it already exists. This is important
+        # because an existing column will be categorical and if we try setting
+        # types that didn't previously exist, it will throw exceptions.
+        x.nodes['type'] = 'slab'
 
         x.nodes.loc[x.nodes.node_id.isin(ends), 'type'] = 'end'
         x.nodes.loc[x.nodes.node_id.isin(branches), 'type'] = 'branch'
