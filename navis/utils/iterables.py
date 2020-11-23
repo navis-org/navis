@@ -33,9 +33,9 @@ def make_iterable(x,
     >>> make_iterable(1)
     array([1])
     >>> make_iterable({'a': 1})
-    array(['a'])
+    array(['a'], dtype='<U1')
     >>> make_iterable([1])
-    array([1])
+    array(['a'], dtype='<U1')
 
     """
     if not isinstance(x, Iterable) or isinstance(x, six.string_types):
@@ -45,8 +45,8 @@ def make_iterable(x,
         x = list(x)
 
     if force_type:
-        return np.array(x).astype(force_type)
-    return np.array(x)
+        return np.asarray(x).astype(force_type)
+    return np.asarray(x)
 
 
 def make_non_iterable(x):
