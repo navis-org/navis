@@ -39,7 +39,7 @@ env/
 build/
 generated/
 develop-eggs/
-#dist/
+dist/
 downloads/
 eggs/
 .eggs/
