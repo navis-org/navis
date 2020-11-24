@@ -15,9 +15,10 @@ import numbers
 
 import pandas as pd
 import numpy as np
+import trimesh as tm
 
 from scipy.spatial import cKDTree
-from typing import Union, Optional
+from typing import Union
 
 from .neurons import TreeNeuron, MeshNeuron, Dotprops
 from .neuronlist import NeuronList
@@ -31,7 +32,7 @@ logger = config.logger
 
 def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.MeshNeuron'],
                   k: int = 20,
-                  sample: Optional[float] = None) -> Dotprops:
+                  resample: Union[float, int, bool] = False) -> Dotprops:
     """Produce dotprops from x/y/z points.
 
     This is following the implementation in R's nat library.
@@ -40,24 +41,32 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     ----------
     x :         pandas.DataFrame | numpy.ndarray | TreeNeuron | MeshNeuron
                 Data/object to generate dotprops from. DataFrame must have
-                 'x', 'y' and 'z' columns.
+                'x', 'y' and 'z' columns.
     k :         int
                 Number of nearest neighbours to use for tangent vector
                 calculation.
-    sample :    float, optional
-                If provided will evenly sample only fraction of data points.
+    resample :  float | int, optional
+                If provided will resample neurons to the given resolution. For
+                ``MeshNeurons``, we are using ``trimesh.points.remove_close`` to
+                remove surface vertices closer than the given resolution. Note
+                that this is only approximate and it also means that
+                ``MeshNeurons`` can not be up-sampled!
 
     Returns
     -------
     navis.Dotprops
 
     """
+    if resample:
+        if not isinstance(resample, numbers.Number):
+            raise TypeError(f'`resample` must be None, False or a Number, got "{type(resample)}"')
+
     if isinstance(x, NeuronList):
         res = []
         for n in config.tqdm(x, desc='Dotprops',
                              leave=config.pbar_leave,
                              disable=config.pbar_hide):
-            res.append(make_dotprops(n, k=k, sample=sample))
+            res.append(make_dotprops(n, k=k, resample=resample))
         return NeuronList(res)
 
     properties = {'k': k}
@@ -66,11 +75,15 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
             raise ValueError('DataFrame must contain "x", "y" and "z" columns.')
         x = x[['x', 'y', 'z']].values
     elif isinstance(x, TreeNeuron):
+        if resample:
+            x = x.resample(resample_to=resample, inplace=False)
         properties.update({'units': x.units, 'name': x.name, 'id': x.id})
         x = x.nodes[['x', 'y', 'z']].values
     elif isinstance(x, MeshNeuron):
         properties.update({'units': x.units, 'name': x.name, 'id': x.id})
         x = x.vertices
+        if resample:
+            x, _ = tm.points.remove_close(x, resample)
     elif not isinstance(x, np.ndarray):
         raise TypeError(f'Unable to generate dotprops from data of type "{type(x)}"')
 
@@ -79,13 +92,6 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
 
     # Drop rows with NAs
     x = x[~np.any(np.isnan(x), axis=1)]
-
-    # Sample
-    if sample:
-        if not isinstance(sample, numbers.Number) or (0 >= sample > 1):
-            raise ValueError('If provided, `sample` must be between 0 and 1.')
-        ix = np.arange(0, x.shape[0], int(x.shape[0] * sample))
-        x = x[ix]
 
     # Checks and balances
     n_points = x.shape[0]
@@ -113,4 +119,4 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     vect = vh[:, 0, :]
     alpha = (s[:, 0] - s[:, 1]) / np.sum(s, axis=1)
 
-    return Dotprops(centers, alpha, vect, **properties)
+    return Dotprops(points=x, alpha=alpha, vect=vect, **properties)
