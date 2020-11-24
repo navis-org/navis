@@ -27,6 +27,7 @@ import pandas as pd
 import trimesh as tm
 
 from io import BufferedIOBase, StringIO
+from scipy.spatial import cKDTree
 
 from typing import Union, Callable, List, Sequence, Optional, Dict, overload, Any
 from typing_extensions import Literal
@@ -1961,18 +1962,19 @@ class Dotprops(BaseNeuron):
     soma: Optional[Union[list, np.ndarray]]
 
     #: Attributes used for neuron summary
-    SUMMARY_PROPS = ['type', 'name', 'units', 'n_points']
+    SUMMARY_PROPS = ['type', 'name', 'k', 'units', 'n_points']
 
     #: Attributes to be used when comparing two neurons.
-    EQ_ATTRIBUTES = ['name', 'n_points']
+    EQ_ATTRIBUTES = ['name', 'n_points', 'k']
 
     #: Temporary attributes that need clearing when neuron data changes
     TEMP_ATTR = []
 
     def __init__(self,
                  points: np.ndarray,
-                 alpha: np.ndarray,
-                 vect: np.ndarray,
+                 k: int,
+                 vect: Optional[np.ndarray] = None,
+                 alpha: Optional[np.ndarray] = None,
                  units: Union[pint.Unit, str] = None,
                  **metadata
                  ):
@@ -1982,10 +1984,15 @@ class Dotprops(BaseNeuron):
         ----------
         points :        numpy array
                         (N, 3) array of x/y/z coordinates.
-        alpha :         numpy array
-                        (N, ) array of alpha values.
-        vect :          numpy array
-                        (N, 3) array of vectors.
+        k :             int
+                        Number of nearest neighbors for tangent vector
+                        calculation.
+        vect :          numpy array, optional
+                        (N, 3) array of vectors. If not provided will
+                        recalculate both ``vect`` and ``alpha`` using ``k``.
+        alpha :         numpy array, optional
+                        (N, ) array of alpha values. If not provided will
+                        recalculate both ``alpha`` and ``vect`` using ``k``.
         units :         str | pint.Units | pint.Quantity
                         Units for coordinates. Defaults to ``None`` (dimensionless).
                         Strings must be parsable by pint: e.g. "nm", "um",
@@ -1997,9 +2004,14 @@ class Dotprops(BaseNeuron):
         """
         super().__init__()
 
+        self.k = k
         self.points = points
-        self.alpha = alpha
-        self.vect = vect
+
+        if isinstance(alpha, type(None)) or isinstance(vect, type(None)):
+            self.recalculate_tangents(k=self.k, inplace=True)
+        else:
+            self.alpha = alpha
+            self.vect = vect
 
         self.soma = None
 
@@ -2167,12 +2179,69 @@ class Dotprops(BaseNeuron):
 
         """
         no_copy = ['_lock']
-        # Generate new empty neuron
-        x = self.__class__(None, None, None)
+        # Generate new empty neuron - note we pass vect and alpha as True to
+        # prevent calculation on initialization
+        x = self.__class__(points=np.zeros((0, 3)), k=1,
+                           vect=np.zeros((0, 3)), alpha=np.zeros(0))
         # Populate with this neuron's data
         x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
 
         return x
+
+    def recalculate_tangents(self, k: int, inplace=False) -> None:
+        """Recalculate tangent vectors and alpha with a new ``k``.
+
+        Parameters
+        ----------
+        k :         int
+                    Number of nearest neighbours to use for tangent vector
+                    calculation.
+        inplace :   bool
+                    If False, will return a copy and leave the original data
+                    unmodified.
+
+        Returns
+        -------
+        Dotprops
+                    Only if ``inplace=False``.
+
+        """
+        if not inplace:
+            x = self.copy()
+        else:
+            x = self
+
+        # Checks and balances
+        n_points = x.points.shape[0]
+        if n_points < k:
+            raise ValueError(f"Too few points ({n_points}) to calculate properties.")
+
+        # Create the KDTree and get the k-nearest neighbors for each point
+        tree = cKDTree(x.points)
+        dist, ix = tree.query(x.points, k=k)
+
+        # Get points: array of (N, k, 3)
+        pt = x.points[ix]
+
+        # Generate centers for each cloud of k nearest neighbors
+        centers = np.mean(pt, axis=1)
+
+        # Generate vector from center
+        cpt = pt - centers.reshape((pt.shape[0], 1, 3))
+
+        # Get innertia (N, 3, 3)
+        inertia = cpt.transpose((0, 2, 1)) @ cpt
+
+        # Extract vector and alpha
+        u, s, vh = np.linalg.svd(inertia)
+        x.vect = vh[:, 0, :]
+        x.alpha = (s[:, 0] - s[:, 1]) / np.sum(s, axis=1)
+
+        # Keep track of k
+        x.k = k
+
+        if not inplace:
+            return x
 
     def to_skeleton(self, scale_vec: float = 1) -> TreeNeuron:
         """Turn dotprops into a skeleton.
