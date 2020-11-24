@@ -531,7 +531,8 @@ def dotprops2py(dp,
 
 def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_cores defaults
                     normalized: bool = True,
-                    resample: int = None,
+                    k: int = 5,
+                    resample: Optional[int] = None,
                     n_cores: int = os.cpu_count() - 2,
                     use_alpha: bool = False) -> 'pyclust.ClustResults':
     """Wrapper to use R's ``nat:nblast_allbyall``
@@ -544,11 +545,15 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
     x :                 NeuronList | nat.neurons
                         (Tree)Neurons to blast. While not strictly necessary,
                         data should be in microns.
+    k :                 int, optional
+                        Number of nearest neighbors to use for dotprops generation.
+                        Only relevant if input data is not already ``Dotprops``.
     resample :          int | bool, optional
                         Resampling during dotprops generation. A good value
                         is ``1`` which means if data is in microns (which it
                         should!) it will be resampled to 1 tangent vector per
-                        micron.
+                        micron. Only relevant if input data is not already
+                        ``Dotprops``.
     normalized :        bool, optional
                         If True, matrix is normalized using z-score.
     n_cores :           int, optional
@@ -596,6 +601,7 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
     logger.info('Generating dotprops for neurons.')
     xdp = _make_R_dotprops(rn,
                            resample=resample,
+                           k=k,
                            parallel=n_cores > 1)
 
     # Calculate scores
@@ -614,11 +620,12 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
 
 def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],  # type: ignore  # doesn't like n_cores default
            target: Optional[str] = None,
-           resample: Optional[int] = None,
            mean_scores: bool = False,
            n_cores: int = os.cpu_count() - 2,
            normalized: bool = True,
-           use_alpha: bool = False) -> 'NBLASTresults':
+           use_alpha: bool = False,
+           k: int = 5,
+           resample: Optional[int] = None) -> 'NBLASTresults':
     """Run nat's NBLAST (https://github.com/jefferis/nat).
 
     Please note that NBLAST is optimized for units in microns.
@@ -636,12 +643,6 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
                         3. an R file object (e.g. ``robjects.r("load('.../gmrdps.rds')")``)
                         4. a URL to load the list from (e.g. ``'http://.../gmrdps.rds'``)
                         5. "flycircuit"
-
-    resample :      int | bool, optional
-                    Resampling during dotprops generation. A good value
-                    is ``1`` which means if data is in microns (which it
-                    should!) it will be resampled to 1 tangent vector per
-                    micron.
     mean_scores :   bool
                     If True, will run query->target NBLAST followed by a
                     target->query NBLAST and return the mean scores.
@@ -653,6 +654,15 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
                     that have lots of branches.
     normalized :    bool, optional
                     Whether to return normalized NBLAST scores.
+    k :             int, optional
+                    Number of nearest neighbors to use for dotprops generation.
+                    Only relevant if input data is not already ``Dotprops``.
+    resample :      int | bool, optional
+                    Resampling during dotprops generation. A good value
+                    is ``1`` which means if data is in microns (which it
+                    should!) it will be resampled to 1 tangent vector per
+                    micron. Only relevant if input data is not already
+                    ``Dotprops``.
 
     Returns
     -------
@@ -693,6 +703,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
     try:
         query_dps = _make_R_dotprops(query,
                                      resample=resample,
+                                     k=k,
                                      parallel=n_cores > 1)
     except NotImplementedError:
         raise NotImplementedError('Unable to produce R dotprops for query of '
@@ -702,6 +713,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
     try:
         target_dps = _make_R_dotprops(target,
                                       resample=resample,
+                                      k=k,
                                       parallel=n_cores > 1)
     except NotImplementedError:
         raise NotImplementedError('Unable to produce R dotprops for target of '
@@ -786,7 +798,7 @@ def _check_microns(x, warn=True):
     return None
 
 
-def _make_R_dotprops(x, resample=None, parallel=False):
+def _make_R_dotprops(x, k=5, resample=None, parallel=False):
     """Try to make dotprops from input data."""
     if isinstance(resample, type(None)) or not resample:
         resample = robjects.r('NA')
@@ -832,11 +844,11 @@ def _make_R_dotprops(x, resample=None, parallel=False):
     else:
         dotprops = robjects.r('dotprops')
         if not parallel:
-            dps = dotprops(x, resample=resample, k=5)
+            dps = dotprops(x, resample=resample, k=k)
         else:
             nlapply = robjects.r('nlapply')
             dps = nlapply(x, dotprops,
-                          resample=resample, k=5,
+                          resample=resample, k=k,
                           **{'.parallel': True, '.progress': 'none'})
 
     return dps
