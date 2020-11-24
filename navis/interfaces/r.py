@@ -1061,6 +1061,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 for n in xf:
                     if isinstance(n, core.TreeNeuron):
                         xyz.append(n.nodes[['x', 'y', 'z']].values)
+                    elif isinstance(n, core.Dotprops):
+                        xyz.append(n.points)
                     elif isinstance(n, core.MeshNeuron):
                         xyz.append(n.vertices)
                     else:
@@ -1114,6 +1116,10 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                         # Fix radius based on our best estimate
                         if 'radius' in n.nodes.columns:
                             n.nodes['radius'] *= 10**magnitude
+                    elif isinstance(n, core.Dotprops):
+                        n.points = xyz_xf[offset:offset + n.points.shape[0]]
+                        n.recalculate_tangents(k=n.k, inplace=True)
+                        offset += n.points.shape[0]
                     elif isinstance(n, core.MeshNeuron):
                         n.vertices = xyz_xf[offset:offset + n.vertices.shape[0]]
                         offset += n.vertices.shape[0]
@@ -1152,6 +1158,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             xyz = xf.nodes[['x', 'y', 'z']].values
         elif isinstance(xf, core.MeshNeuron):
             xyz = xf.vertices
+        elif isinstance(xf, core.Dotprops):
+            xyz = xf.points
         else:
             raise TypeError(f"Don't know how to transform neuron of type '{type(xf)}'")
 
@@ -1176,6 +1184,9 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             # Fix radius based on our best estimate
             if 'radius' in xf.nodes.columns:
                 xf.nodes['radius'] *= 10**magnitude
+        elif isinstance(xf, core.Dotprops):
+            xf.points = xyz_xf[:xf.points.shape[0]]
+            xf.recalculate_tangents(k=xf.k, inplace=True)
         elif isinstance(xf, core.MeshNeuron):
             xf.vertices = xyz_xf[:xf.vertices.shape[0]]
 
@@ -1355,6 +1366,13 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                    mirror_axis=mirror_axis,
                                    transform=transform,
                                    **kwargs)
+        elif isinstance(x, core.Dotprops):
+            x.points = mirror_brain(x.points,
+                                    template=template,
+                                    mirror_axis=mirror_axis,
+                                    transform=transform,
+                                    **kwargs)
+            x.recalculate_tangents(k=x.k, inplace=True)
         elif isinstance(x, core.MeshNeuron):
             x.vertices = mirror_brain(x.vertices,
                                       template=template,
