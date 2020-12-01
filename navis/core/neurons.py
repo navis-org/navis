@@ -946,9 +946,9 @@ class TreeNeuron(BaseNeuron):
                 else:
                     n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
-            if hasattr(self, 'soma_radius'):
-                if isinstance(self.soma_radius, numbers.Number):
-                    self.soma_radius /= other
+            if hasattr(n, 'soma_radius'):
+                if isinstance(n.soma_radius, numbers.Number):
+                    n.soma_radius /= other
 
             # Convert units
             # If division is isometric
@@ -982,9 +982,9 @@ class TreeNeuron(BaseNeuron):
                 else:
                     n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
-            if hasattr(self, 'soma_radius'):
-                if isinstance(self.soma_radius, numbers.Number):
-                    self.soma_radius *= other
+            if hasattr(n, 'soma_radius'):
+                if isinstance(n.soma_radius, numbers.Number):
+                    n.soma_radius *= other
 
             # Convert units
             # If multiplication is isometric
