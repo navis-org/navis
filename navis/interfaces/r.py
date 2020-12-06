@@ -1130,7 +1130,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                             n.nodes['radius'] *= 10**magnitude
                     elif isinstance(n, core.Dotprops):
                         n.points = xyz_xf[offset:offset + n.points.shape[0]]
-                        n.recalculate_tangents(k=n.k, inplace=True)
+                        # Set tangent vectors and alpha to None so they will be regenerated
+                        x._vect = x._alpha = None
                         offset += n.points.shape[0]
                     elif isinstance(n, core.MeshNeuron):
                         n.vertices = xyz_xf[offset:offset + n.vertices.shape[0]]
@@ -1198,7 +1199,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 xf.nodes['radius'] *= 10**magnitude
         elif isinstance(xf, core.Dotprops):
             xf.points = xyz_xf[:xf.points.shape[0]]
-            xf.recalculate_tangents(k=xf.k, inplace=True)
+            # Set tangent vectors and alpha to None so they will be regenerated
+            xf._vect = xf._alpha = None
         elif isinstance(xf, core.MeshNeuron):
             xf.vertices = xyz_xf[:xf.vertices.shape[0]]
 
@@ -1384,7 +1386,8 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                     mirror_axis=mirror_axis,
                                     transform=transform,
                                     **kwargs)
-            x.recalculate_tangents(k=x.k, inplace=True)
+            # Set tangent vectors and alpha to None so they will be regenerated
+            x._vect = x._alpha = None
         elif isinstance(x, core.MeshNeuron):
             x.vertices = mirror_brain(x.vertices,
                                       template=template,
