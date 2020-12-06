@@ -411,7 +411,7 @@ class Volume(trimesh.Trimesh):
                              Literal['centroid'],
                              Literal['normals'],
                              Literal['origin']] = 'center',
-               inplace: bool = True) -> Optional['Volume']:
+               inplace: bool = False) -> Optional['Volume']:
         """Resize volume.
 
         Parameters
