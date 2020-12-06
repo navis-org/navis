@@ -126,6 +126,8 @@ def plot3d(x: Union[core.NeuronObject,
                       render plotly plots inline. Else, will generate a
                       plotly figure dictionary that can be used to generate
                       a html with an embedded 3D plot.
+    hover_id :        bool, default=False
+                      If True, hovering over skeleton nodes will show their ID.
 
     Vispy only
 
@@ -293,7 +295,7 @@ def plot3d_plotly(x, **kwargs):
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
                'plotly_inline', 'alpha', 'radius', 'fig', 'soma',
                'connectors', 'connectors_only', 'palette', 'color_by',
-               'shade_by', 'vmin', 'vmax', 'smin', 'smax'}
+               'shade_by', 'vmin', 'vmax', 'smin', 'smax', 'hover_id'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - ALLOWED

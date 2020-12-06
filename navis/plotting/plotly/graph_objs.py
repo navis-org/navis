@@ -255,6 +255,13 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
     else:
         c = f'rgb({color[0]:.0f},{color[1]:.0f},{color[2]:.0f})'
 
+    if kwargs.get('hover_id', False):
+        hoverinfo = 'text'
+        hovertext = [str(i) for seg in neuron.segments for i in seg + [None]]
+    else:
+        hoverinfo = 'none'
+        hovertext = ' '
+
     trace_data = [go.Scatter3d(x=coords[:, 0],
                                y=coords[:, 1],
                                z=coords[:, 2],
@@ -264,7 +271,8 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
                                name=name,
                                legendgroup=legend_group,
                                showlegend=True,
-                               hoverinfo='none'
+                               hoverinfo=hoverinfo,
+                               hovertext=hovertext
                                )]
 
     # Add soma(s):
