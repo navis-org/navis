@@ -53,6 +53,7 @@ function. There you will also find more examples.
    :maxdepth: 2
 
    tutorials/morph_analysis
+   tutorials/nblast
 
 .. raw:: html
 
