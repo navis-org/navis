@@ -237,6 +237,8 @@ Functions to analyse morphology.
     navis.classify_nodes
     navis.find_main_branchpoint
     navis.strahler_index
+    navis.nblast
+    navis.nblast_allbyall
 
 Polarity metrics
 ----------------

@@ -27,9 +27,8 @@ import pandas as pd
 import trimesh as tm
 
 from io import BufferedIOBase, StringIO
-from scipy.spatial import cKDTree
 
-from typing import Union, Callable, List, Sequence, Optional, Dict, overload, Any
+from typing import Union, Callable, List, Sequence, Optional, Dict, overload, Any, Tuple
 from typing_extensions import Literal
 
 from .. import graph, morpho, utils, config, core, sampling, intersection, meshes
@@ -39,6 +38,11 @@ try:
     import xxhash
 except ImportError:
     xxhash = None
+
+try:
+    from pykdtree.kdtree import KDTree
+except ImportError:
+    from scipy.spatial import cKDTree as KDTree
 
 __all__ = ['Neuron', 'TreeNeuron', 'MeshNeuron', 'Dotprops']
 
@@ -2006,12 +2010,8 @@ class Dotprops(BaseNeuron):
 
         self.k = k
         self.points = points
-
-        if isinstance(alpha, type(None)) or isinstance(vect, type(None)):
-            self.recalculate_tangents(k=self.k, inplace=True)
-        else:
-            self.alpha = alpha
-            self.vect = vect
+        self.alpha = alpha
+        self.vect = vect
 
         self.soma = None
 
@@ -2031,6 +2031,10 @@ class Dotprops(BaseNeuron):
             n.points /= other
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] /= other
+
+            # Force recomputing of KDTree
+            if hasattr(n, '_tree'):
+                delattr(n, '_tree')
 
             # Convert units
             # If division is isometric
@@ -2055,6 +2059,10 @@ class Dotprops(BaseNeuron):
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
+            # Force recomputing of KDTree
+            if hasattr(n, '_tree'):
+                delattr(n, '_tree')
+
             # Convert units
             # If multiplication is isometric
             if isinstance(other, numbers.Number):
@@ -2069,18 +2077,32 @@ class Dotprops(BaseNeuron):
             return n
         return NotImplemented
 
+    def __getstate__(self):
+        """Get state (used e.g. for pickling)."""
+        state = {k: v for k, v in self.__dict__.items() if not callable(v)}
+
+        # The KDTree from pykdtree does not like being pickled
+        # We will have to remove it which will force it to be regenerated
+        # after unpickling
+        if '_tree' in state:
+            if 'pykdtree' in str(type(state['_tree'])):
+                _ = state.pop('_tree')
+
+        return state
+
     @property
     def alpha(self):
         """Alpha value for tangent vectors."""
+        if isinstance(self._alpha, type(None)):
+            self.recalculate_tangents(self.k, inplace=True)
         return self._alpha
 
     @alpha.setter
     def alpha(self, value):
-        if isinstance(value, type(None)):
-            value = np.zeros(0)
-        value = np.asarray(value)
-        if value.ndim != 1:
-            raise ValueError(f'alpha must be (N, ) array, got {value.shape}')
+        if not isinstance(value, type(None)):
+            value = np.asarray(value)
+            if value.ndim != 1:
+                raise ValueError(f'alpha must be (N, ) array, got {value.shape}')
         self._alpha = value
 
     @property
@@ -2094,6 +2116,13 @@ class Dotprops(BaseNeuron):
     def datatables(self) -> List[str]:
         """Names of all DataFrames attached to this neuron."""
         return [k for k, v in self.__dict__.items() if isinstance(v, pd.DataFrame, np.ndarray)]
+
+    @property
+    def kdtree(self):
+        """KDTree for points."""
+        if not hasattr(self, '_tree'):
+            self._tree = KDTree(self.points)
+        return self._tree
 
     @property
     def points(self):
@@ -2111,16 +2140,17 @@ class Dotprops(BaseNeuron):
 
     @property
     def vect(self):
-        """Tangent vectos."""
+        """Tangent vectors."""
+        if isinstance(self._vect, type(None)):
+            self.recalculate_tangents(self.k, inplace=True)
         return self._vect
 
     @vect.setter
     def vect(self, value):
-        if isinstance(value, type(None)):
-            value = np.zeros((0, 3))
-        value = np.asarray(value)
-        if value.ndim != 2 or value.shape[1] != 3:
-            raise ValueError(f'vectors must be (N, 3) array, got {value.shape}')
+        if not isinstance(value, type(None)):
+            value = np.asarray(value)
+            if value.ndim != 2 or value.shape[1] != 3:
+                raise ValueError(f'vectors must be (N, 3) array, got {value.shape}')
         self._vect = value
 
     @property
@@ -2170,6 +2200,48 @@ class Dotprops(BaseNeuron):
         """Return type."""
         return 'navis.Dotprops'
 
+    def dist_dots(self,
+                  other: 'Dotprops',
+                  alpha: bool = False,
+                  **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+        """Query this Dotprops against another.
+
+        This function is mainly for ``navis.nblast``.
+
+        Parameters
+        ----------
+        other :     Dotprops
+        alpha :     bool
+                    If True, will also return the product of the product
+                    of the alpha values of matched points.
+        kwargs
+                    Keyword arguments are passed to the KDTree's ``query()``
+                    method. Note that we are using ``pykdtree.kdtree.KDTree``
+                    if available and fall back to ``scipy.spatial.cKDTree`` if
+                    pykdtree is not installed.
+
+        Returns
+        -------
+        dist :          np.ndarray
+                        For each point in ``self``, the distance to the closest
+                        point in ``other``.
+        dotprops :      np.ndarray
+                        Dotproduct of each pair of closest points between
+                        ``self`` and ``other``.
+        alpha_prod :    np.ndarray
+                        Dotproduct of each pair of closest points between
+                        ``self`` and ``other``.
+
+        """
+        fast_dists, fast_idxs = other.kdtree.query(self.points, **kwargs)
+        fast_dotprods = np.abs((self.vect * other.vect[fast_idxs]).sum(axis=1))
+
+        if not alpha:
+            return fast_dists, fast_dotprods
+        else:
+            fast_alpha = self.alpha * other.alpha[fast_idxs]
+            return fast_dists, fast_dotprods, fast_alpha
+
     def copy(self) -> 'Dotprops':
         """Return a copy of the dotprops.
 
@@ -2217,8 +2289,7 @@ class Dotprops(BaseNeuron):
             raise ValueError(f"Too few points ({n_points}) to calculate properties.")
 
         # Create the KDTree and get the k-nearest neighbors for each point
-        tree = cKDTree(x.points)
-        dist, ix = tree.query(x.points, k=k)
+        dist, ix = self.tree.query(x.points, k=k)
 
         # Get points: array of (N, k, 3)
         pt = x.points[ix]

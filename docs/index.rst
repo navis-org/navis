@@ -12,16 +12,16 @@ with a focus on tree-like skeleton data. It stands on the shoulders of the
 excellent `natverse <http://natverse.org>`_.
 
 For a brief introduction to the library, please read the
-:ref:`tutorial <tutorial>`. Visit the
-:ref:`installation page <installing>` to learn how to download the
-package. You can browse the :ref:`example gallery <example_gallery>` and
-:ref:`API reference <api>` to see what you can do with navis.
+:ref:`tutorial <tutorial>`. Visit the :ref:`installation page <installing>` to
+learn how to download the package. You can browse the
+:ref:`example gallery <example_gallery>` and :ref:`API reference <api>` to see
+what you can do with navis.
 
 NAVis is licensed under the GNU GPL v3+ license. The source code is hosted
 at `Github <https://github.com/schlegelp/navis>`_. Feedback, feature requests
 and bug reports are very welcome and best placed in
 `issues <https://github.com/schlegelp/navis/issues>`_.
-If you have any questions, please contact me: pms70@cam.ac.uk
+If you have any questions, please get in touch: pms70@cam.ac.uk
 
 
 .. raw:: html
@@ -59,6 +59,7 @@ If you have any questions, please contact me: pms70@cam.ac.uk
 
 * 2D (matplotlib) and 3D (vispy or plotly) plotting
 * virtual neuron surgery (cutting, stitching, pruning, rerooting)
+* analyse morphology (NBLAST) and connectivity
 * Python bindings for R neuron libraries (e.g. nat, nat.nblast and elmr)
 * load neurons directly from `neuromorpho.org <http://neuromorpho.org>`_ or :ref:`neuprint <neuprint_intro>`
 * interface with :ref:`Blender 3D <blender3d>`

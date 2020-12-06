@@ -186,6 +186,16 @@ installed automatically.
 Optional
 ++++++++
 
+.. _pykd:
+
+`pykdtree <https://github.com/storpipfugl/pykdtree>`_
+  Faster than scipy's cKDTree implementation. If available, will be used to
+  speed up e.g. NBLAST.
+
+  ::
+
+    pip3 install pykdtree
+
 .. _pyoc:
 
 `PyOctree <https://pypi.python.org/pypi/pyoctree/>`_
