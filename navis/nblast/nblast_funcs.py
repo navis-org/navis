@@ -250,7 +250,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                     If True, will run query->target NBLAST followed by a
                     target->query NBLAST and return the mean scores.
     n_cores :       int, optional
-                    Number of cores to use for nblasting. Default is
+                    Max number of cores to use for nblasting. Default is
                     ``os.cpu_count() - 2``. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
@@ -352,7 +352,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                                        this.targets,
                                        mean_scores=mean_scores)
 
-    with ProcessPoolExecutor(max_workers=n_cores) as pool:
+    with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
         # Each nblaster is passed to it's own process
         futures = [pool.submit(this.multi_query_target,
                                q_idx=this.queries,
@@ -389,7 +389,7 @@ def nblast_allbyall(x: NeuronList,
                     similar sampling resolutions. Non-Dotprops will be converted
                     to Dotprops (see parameters below).
     n_cores :       int, optional
-                    Number of cores to use for nblasting. Default is
+                    Max number of cores to use for nblasting. Default is
                     ``os.cpu_count() - 2``. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
@@ -488,7 +488,7 @@ def nblast_allbyall(x: NeuronList,
     if n_cores == 1:
         return this.all_by_all()
 
-    with ProcessPoolExecutor(max_workers=n_cores) as pool:
+    with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
         # Each nblaster is passed to it's own process
         futures = [pool.submit(this.multi_query_target,
                                q_idx=this.queries,
@@ -518,9 +518,7 @@ def find_optimal_partition(n_cores, q, t):
         if n_rows > len(q):
             continue
 
-        n_cols = int(n_cores / n_rows)
-        if n_cols > len(t):
-            continue
+        n_cols = min(int(n_cores / n_rows), len(t))
 
         n_queries = len(q) / n_rows
         n_targets = len(t) / n_cols
@@ -531,7 +529,7 @@ def find_optimal_partition(n_cores, q, t):
     neurons_per_query = np.array(neurons_per_query)
     n_rows, n_cols = neurons_per_query[np.argmin(neurons_per_query[:, 2]), :2]
 
-    return n_rows, n_cols
+    return int(n_rows), int(n_cols)
 
 
 def force_dotprops(x, k, resample, progress=False):
