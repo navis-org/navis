@@ -1,2 +1,2 @@
-__version__ = "0.4.0"
-__version_vector__ = (0, 4, 0)
+__version__ = "0.4.1"
+__version_vector__ = (0, 4, 1)
