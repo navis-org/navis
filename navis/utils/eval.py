@@ -118,19 +118,17 @@ def is_numeric(array: np.ndarray, bool_numeric: bool = True) -> bool:
 
 
 def is_mesh(x) -> Tuple[List[bool], List[bool]]:
-    """Check if object(s) is mesh (i.e. contains vertices and faces).
+    """Check if object is mesh (i.e. contains vertices and faces).
 
     Examples
     --------
+    >>> import navis
     >>> is_mesh(navis.example_neurons(1))
     False
     >>> is_mesh(navis.example_volume('LH'))
     True
 
     """
-    if is_iterable(x):
-        return np.array([is_mesh(o) for o in x])
-
     if hasattr(x, 'vertices') and hasattr(x, 'faces'):
         return True
 
@@ -143,7 +141,7 @@ def eval_conditions(x) -> Tuple[List[bool], List[bool]]:
     Examples
     --------
     >>> eval_conditions('~negative condition')
-    (([], ['negative condition'])
+    ([], ['negative condition'])
     >>> eval_conditions(['positive cond1', '~negative cond1', 'positive cond2'])
     (['positive cond1', 'positive cond2'], ['negative cond1'])
 
