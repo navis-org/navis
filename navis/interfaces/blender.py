@@ -186,7 +186,7 @@ class Handler:
                         If integer < 1, will downsample neurites upon import.
                         Preserves branch point/roots. TreeNeurons only.
         collection :    str, optional
-                        Only for Blender 2.8: add object(s) to given collection.
+                        Only for Blender >2.8: add object(s) to given collection.
                         If collection does not exist, will be created.
 
         Examples
@@ -362,7 +362,7 @@ class Handler:
             if soma and not isinstance(x.soma, type(None)):
                 self._create_soma(x, mat, collection=collection)
         elif isinstance(x, core.MeshNeuron):
-            self._create_mesh(x, mat)
+            self._create_mesh(x, mat, collection=collection)
         else:
             raise TypeError(f'Expected Mesh/TreeNeuron, got "{type(x)}"')
 
