@@ -531,15 +531,15 @@ class Viewer:
             labels[s].parent = None
 
         # Generate new labels
-        to_add = [s for s in _neuron_obj if s not in labels]
+        to_add = [s for s in neuron_obj if s not in labels]
         for s in to_add:
             # Fallback is name or in lieu of that the object's type
-            lbl = getattr(_neuron_obj[s][0], '_name',
-                          str(type(_neuron_obj[s][0])))
+            lbl = getattr(neuron_obj[s][0], '_name',
+                          str(type(neuron_obj[s][0])))
             # See if we find a "label" property
-            if hasattr(_neuron_obj[s][0], '_object'):
-                if hasattr(_neuron_obj[s][0]._object, 'label'):
-                    lbl = _neuron_obj[s][0]._object.label
+            if hasattr(neuron_obj[s][0], '_object'):
+                if hasattr(neuron_obj[s][0]._object, 'label'):
+                    lbl = neuron_obj[s][0]._object.label
 
             txt = scene.visuals.Text(lbl,
                                      anchor_x='left',
@@ -550,15 +550,15 @@ class Viewer:
             txt.interactive = True
             txt.unfreeze()
             txt._object_id = s
-            txt._id = _neuron_obj[s][0]._id
+            txt._id = neuron_obj[s][0]._id
             txt.freeze()
 
         # Position and color labels
         labels = {l._object_id: l for l in self.overlay.children if getattr(
             l, '_object_id', None)}
-        for i, s in enumerate(sorted(_neuron_obj)):
-            if _neuron_obj[s][0].visible:
-                color = _neuron_obj[s][0].color
+        for i, s in enumerate(sorted(neuron_obj)):
+            if neuron_obj[s][0].visible:
+                color = neuron_obj[s][0].color
             else:
                 color = (.3, .3, .3)
 
