@@ -19,3 +19,7 @@ class ConstructionError(Exception):
 class VolumeError(Exception):
     """Raise when volume is invalid (e.g. not watertight)."""
     pass
+
+class CMTKError(Exception):
+    """Raise on CMTK transform error."""
+    pass
