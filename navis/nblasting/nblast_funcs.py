@@ -19,9 +19,10 @@ import os
 import numpy as np
 import pandas as pd
 
+from concurrent.futures import ProcessPoolExecutor
 from tqdm.auto import tqdm
 from typing import Union, Optional
-from concurrent.futures import ProcessPoolExecutor
+from typing_extensions import Literal
 
 from ..core import NeuronList, Dotprops, make_dotprops
 from .. import config
@@ -160,7 +161,7 @@ class NBlaster:
             dots = np.repeat(1, len(dotprops.points)) * np.sqrt(alpha)
             return self.score_fn(dists, dots).sum()
 
-    def single_query_target(self, q_idx, t_idx, mean_score=False):
+    def single_query_target(self, q_idx, t_idx, scores='forward'):
         """Query single target against single target."""
         # Take a short-cut if this is a self-self comparison
         if q_idx == t_idx:
@@ -177,20 +178,25 @@ class NBlaster:
         else:
             dists, dots = data
 
-        score = self.score_fn(dists, dots).sum()
+        scr = self.score_fn(dists, dots).sum()
 
         # Normalize against best hit
         if self.normalized:
-            score /= self.self_hits[q_idx]
+            scr /= self.self_hits[q_idx]
 
         # For the mean score we also have to produce the reverse score
-        if mean_score:
-            reverse = self.single_query_target(t_idx, q_idx, mean_score=False)
-            score = (score + reverse) / 2
+        if scores in ('mean', 'min', 'max'):
+            reverse = self.single_query_target(t_idx, q_idx, score='forward')
+            if scores == 'mean':
+                scr = (scr + reverse) / 2
+            elif scores == 'min':
+                scr = min(scr, reverse)
+            elif scores == 'max':
+                scr = max(scr, reverse)
 
-        return score
+        return scr
 
-    def multi_query_target(self, q_idx, t_idx, mean_scores=False):
+    def multi_query_target(self, q_idx, t_idx, scores='forward'):
         """NBLAST multiple queries against multiple targets."""
         rows = []
         for q in tqdm(q_idx,
@@ -200,7 +206,7 @@ class NBlaster:
                       disable=not self.progress):
             rows.append([])
             for t in t_idx:
-                score = self.single_query_target(q, t, mean_score=mean_scores)
+                score = self.single_query_target(q, t, scores=scores)
                 rows[-1].append(score)
 
         # Generate results
@@ -210,23 +216,30 @@ class NBlaster:
 
         return res
 
-    def all_by_all(self, mean_scores=False):
+    def all_by_all(self, scores='forward'):
         """NBLAST all-by-all neurons."""
         res = self.multi_query_target(range(len(self.dotprops)),
                                       range(len(self.dotprops)),
-                                      mean_scores=False)
+                                      scores='forward')
 
         # For all-by-all NBLAST we can get the mean score by
         # transposing the scores
-        if mean_scores:
+        if scores == 'mean':
             res = (res + res.T) / 2
+        elif scores == 'min':
+            res.loc[:, :] = np.dstack((res, res.T)).min(axis=2)
+        elif scores == 'max':
+            res.loc[:, :] = np.dstack((res, res.T)).max(axis=2)
 
         return res
 
 
 def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
            target: Optional[str] = None,
-           mean_scores: bool = False,
+           scores: Union[Literal['forward'],
+                         Literal['mean'],
+                         Literal['min'],
+                         Literal['max']] = 'forward',
            normalized: bool = True,
            use_alpha: bool = False,
            n_cores: int = os.cpu_count() - 2,
@@ -246,9 +259,14 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                     be in microns as NBLAST is optimized for that and have
                     similar sampling resolutions. Non-Dotprops will be converted
                     to Dotprops (see parameters below).
-    mean_scores :   bool
-                    If True, will run query->target NBLAST followed by a
-                    target->query NBLAST and return the mean scores.
+    scores :        'forward' | 'mean' | 'min' | 'max'
+                    Determines the final scores:
+
+                        - 'forward' (default) returns query->target scores
+                        - 'mean' returns the mean of query->target and target->query scores
+                        - 'min' returns the minium between query->target and target->query scores
+                        - 'max' returns the maximum between query->target and target->query scores
+
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
                     ``os.cpu_count() - 2``. This should ideally be an even
@@ -262,7 +280,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
     progress :      bool
                     Whether to show progress bars.
 
-    Dotprop-conversion (Only relevant if input data is not already ``Dotprops``)
+    Dotprop-conversion
 
     k :             int, optional
                     Number of nearest neighbors to use for dotprops generation.
@@ -350,14 +368,14 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
     if n_cores == 1:
         return this.multi_query_target(this.queries,
                                        this.targets,
-                                       mean_scores=mean_scores)
+                                       scores=scores)
 
     with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
         # Each nblaster is passed to it's own process
         futures = [pool.submit(this.multi_query_target,
                                q_idx=this.queries,
                                t_idx=this.targets,
-                               mean_scores=mean_scores) for this in nblasters]
+                               scores=scores) for this in nblasters]
 
         results = [f.result() for f in futures]
 
@@ -401,7 +419,7 @@ def nblast_allbyall(x: NeuronList,
     progress :      bool
                     Whether to show progress bars.
 
-    Dotprop-conversion (Only relevant if input data is not already ``Dotprops``)
+    Dotprop-conversion
 
     k :             int, optional
                     Number of nearest neighbors to use for dotprops generation.
@@ -493,7 +511,7 @@ def nblast_allbyall(x: NeuronList,
         futures = [pool.submit(this.multi_query_target,
                                q_idx=this.queries,
                                t_idx=this.targets,
-                               mean_scores=False) for this in nblasters]
+                               scores='forward') for this in nblasters]
 
         results = [f.result() for f in futures]
 
