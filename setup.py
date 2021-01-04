@@ -16,16 +16,21 @@ with open('requirements.txt') as f:
     requirements = [l for l in requirements if l and not l.startswith('#')]
 
 LONG_DESCRIPTION = """
-NAVis is a Python 3 library for Neuron Analysis and
-Visualization with focus on hierarchical tree-like neuron data.
+NAVis library is a Python 3 library for analysis and visualization of neuron
+morphology.
 
-Features:
+Features include:
 
-  - interactive 2D (matplotlib) and 3D (vispy/plotly) plotting of neurons
-  - virtual neuron surgery: cutting, pruning, rerooting
-  - clustering methods (e.g. by connectivity or synapse placement)
-  - R bindings (e.g. for libraries nat, rcatmaid, elmr)
-  - interfaces with neuprint, Blender 3D and Cytoscape
+* work with various neuron types: skeletons, meshes, dotprops
+* 2D (matplotlib) and 3D (vispy or plotly) plotting
+* virtual neuron surgery (cutting, stitching, pruning, rerooting, ...)
+* analyse morphology (e.g. NBLAST) and connectivity
+* transform neurons between template brains
+* Python bindings for R neuron libraries (e.g. nat, nat.nblast and elmr)
+* load neurons directly from `neuromorpho.org <http://neuromorpho.org>`_ or :ref:`neuPrint<neuprint_intro>`
+* interface with Blender 3D
+* import-export from/to SWC
+* extensible - see for example `pymaid <https://pymaid.readthedocs.io/en/latest/>`_
 
 Check out the `Documentation <http://navis.readthedocs.io/>`_.
 """
