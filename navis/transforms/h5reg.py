@@ -26,6 +26,7 @@ from .affine import AffineTransform
 
 from .. import config
 
+logger = config.logger
 
 class H5transform(BaseTransform):
     """Class to run h5 xform.
@@ -239,24 +240,38 @@ class H5transform(BaseTransform):
 
         # The RegularGridInterpolator is the fastest one but the results are
         # are ever so slightly (4th decimal) different from the Java impl
-        xinterp = RegularGridInterpolator((zz, yy, xx),
-                                          xgrid)
-        yinterp = RegularGridInterpolator((zz, yy, xx),
-                                          ygrid)
-        zinterp = RegularGridInterpolator((zz, yy, xx),
-                                          zgrid)
+        xinterp = RegularGridInterpolator((zz, yy, xx), xgrid,
+                                          bounds_error=False, fill_value=0)
+        yinterp = RegularGridInterpolator((zz, yy, xx), ygrid,
+                                          bounds_error=False, fill_value=0)
+        zinterp = RegularGridInterpolator((zz, yy, xx), zgrid,
+                                          bounds_error=False, fill_value=0)
+
+        # Before we interpolate check how many points are outside the
+        # deformation field -> these will only receive the affine part of the
+        # transform
+        is_out = (xf_voxel.min(axis=1) < 0) | np.any(xf_voxel >= self.shape[:-1][::-1], axis=1)
+
+        # If more than 20% (arbitrary number) of voxels are out, there is
+        # something suspicious going on
+        frac_out = is_out.sum() / xf_voxel.shape[0]
+        if frac_out > 0.2:
+            logger.warning(f'A suspiciously a large fraction ({frac_out:.1%}) '
+                           'of points to be transformed are outside the H5 '
+                           'deformation field. Please make doubly sure '
+                           'that the input coordinates are in the correct '
+                           'space/units')
 
         # Interpolate coordinats and re-combine to an x/y/z array
-        offset_vxl = np.vstack((xinterp(xf_voxel[:, [2, 1, 0]], method='linear'),
-                                yinterp(xf_voxel[:, [2, 1, 0]], method='linear'),
-                                zinterp(xf_voxel[:, [2, 1, 0]], method='linear'))).T
+        offset_vxl = np.vstack((xinterp(xf_voxel[:, ::-1], method='linear'),
+                                yinterp(xf_voxel[:, ::-1], method='linear'),
+                                zinterp(xf_voxel[:, ::-1], method='linear'))).T
 
         # Turn offsets into real-world coordinates
         offset_real = offset_vxl * quantization_multiplier
 
         # Apply offsets
-        has_offset = ~np.any(np.isnan(offset_real), axis=1)
-        xf[has_offset] += offset_real[has_offset]
+        xf += offset_real
 
         # For inverse direction, the affine part is applied second
         if self.direction == 'forward' and affine:
