@@ -26,6 +26,17 @@ See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for de
 
 Alternatively click on the *launch binder* badge above to try out navis hosted by [mybinder](https://mybinder.org)!
 
+## NAVis & friends
+<p align="center">
+<img src="https://github.com/schlegelp/navis/blob/master/docs/_static/navis_ecosystem.png?raw=true" width="700">
+</p>
+
+NAVis comes with batteries included but is also highly extensible. Some
+libraries built on top of NAVis:
+* [flybrains](https://github.com/schlegelp/navis-flybrains) provides templates and transforms to use with navis
+* [pymaid](https://pymaid.readthedocs.io/en/latest/) pulls and pushes data to/from CATMAID servers
+* [fafbseg](https://fafbseg-py.readthedocs.io/en/latest/index.html) contains tools to work with autosegmented data for the FAFB EM dataset
+
 ## License
 This code is under GNU GPL V3
 
