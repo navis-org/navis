@@ -35,6 +35,7 @@ from .. import config, core, utils
 from . import factory
 
 from .base import TransformSequence, BaseTransform
+from .affine import AffineTransform
 
 __all__ = ['xform_brain', 'mirror_brain']
 
@@ -63,19 +64,18 @@ class TemplateRegistry:
                     If True will scan paths on initialization.
 
     """
+    def __init__(self, scan_paths: bool = True):
+        # Paths to scan for transforms
+        self._transpaths = _os_transpaths
+        # Transforms
+        self._transforms = []
+        # Template brains
+        self._templates = []
 
-    # Paths to scan for transforms
-    _transpaths = _os_transpaths
-    # Transforms
-    _transforms = []
-    # Template brains
-    _templates = []
-
-    def __init__(self, scan_paths=True):
         if scan_paths:
             self.scan_paths()
 
-    def __contains__(self, other):
+    def __contains__(self, other) -> bool:
         """Check if transform is in registry.
 
         Parameters
@@ -91,7 +91,7 @@ class TemplateRegistry:
         else:
             return other in [t.transform for t in self.transforms]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.transforms)
 
     def __repr__(self):
@@ -101,7 +101,7 @@ class TemplateRegistry:
         return f'TemplateRegistry with {len(self)} transforms'
 
     @property
-    def transpaths(self):
+    def transpaths(self) -> list:
         """Paths searched for transforms.
 
         Use `.scan_paths` to trigger a scan. Use `.register_path` to add
@@ -110,24 +110,23 @@ class TemplateRegistry:
         return self._transpaths
 
     @property
-    def templates(self) -> dict:
-        """Template (brains) searched for transforms.
-
-        Use `.scan_paths` to trigger a scan. Use `.register_path` to add
-        more path(s).
-        """
+    def templates(self) -> list:
+        """Registered template (brains)."""
         return self._templates
 
     @property
-    def transforms(self):
+    def transforms(self) -> list:
+        """Registered transforms (bridging + mirror)."""
         return self._transforms
 
     @property
-    def bridges(self):
+    def bridges(self) -> list:
+        """Registered bridging transforms."""
         return [t for t in self.transforms if t.type == 'bridging']
 
     @property
-    def mirrors(self):
+    def mirrors(self) ->list:
+        """Registered mirror transforms."""
         return [t for t in self.transforms if t.type == 'mirror']
 
     def clear_caches(self):
@@ -139,7 +138,7 @@ class TemplateRegistry:
         """Generate summary of available transforms."""
         return pd.DataFrame(self.transforms)
 
-    def register_path(self, paths, trigger_scan=True):
+    def register_path(self, paths: str, trigger_scan: bool = True):
         """Register path(s) to scan for transforms.
 
         Parameters
@@ -162,8 +161,31 @@ class TemplateRegistry:
         if trigger_scan:
             self.scan_paths()
 
-    def register_transform(self, transform, source, target, transform_type,
-                           invertible=True, skip_existing=True, weight=1):
+    def register_templatebrain(self, template: 'TemplateBrain',
+                               skip_existing=True):
+        """Register a template brain.
+
+        This is used, for example, by navis.mirror_brain.
+
+        Parameters
+        ----------
+        template :      TemplateBrain
+                        TemplateBrain to register.
+        skip_existing : bool
+                        If True, will skip existing template brains.
+
+        """
+        utils.eval_param(template,
+                         name='template',
+                         allowed_types=(TemplateBrain, ))
+
+        if template not in self._templates or not skip_existing:
+            self._templates.append(template)
+
+    def register_transform(self, transform: BaseTransform, source: str,
+                           target: str, transform_type: str,
+                           invertible: bool = True, skip_existing: bool = True,
+                           weight: int = 1):
         """Register a transform.
 
         Parameters
@@ -208,7 +230,7 @@ class TemplateRegistry:
         # Clear cached functions
         self.clear_caches()
 
-    def register_transformfile(self, path, **kwargs):
+    def register_transformfile(self, path: str, **kwargs):
         """Parse and register a transform file.
 
         File/Directory name must follow the a ``{TARGET}_{SOURCE}.{ext}``
@@ -343,7 +365,8 @@ class TemplateRegistry:
 
         return G
 
-    def find_bridging_path(self, source: str, target: str, reciprocal=True):
+    def find_bridging_path(self, source: str,
+                           target: str, reciprocal=True) -> tuple:
         """Find bridging path from source to target.
 
         Parameters
@@ -407,7 +430,7 @@ class TemplateRegistry:
     @functools.lru_cache()
     def shortest_bridging_seq(self, source: str, target: str,
                               via: Optional[str] = None,
-                              inverse_weight: float = .5):
+                              inverse_weight: float = .5) -> tuple:
         """Find shortest bridging sequence to get from source to target.
 
         Parameters
@@ -455,7 +478,7 @@ class TemplateRegistry:
 
         return seq, transform_seq
 
-    def find_mirror_reg(self, template, non_found='raise'):
+    def find_mirror_reg(self, template: str, non_found: str = 'raise') -> tuple:
         """Search for a mirror transformation for given template.
 
         Typically a mirror transformation specifies a non-rigid transformation
@@ -466,17 +489,55 @@ class TemplateRegistry:
         template :  str
                     Name of the template to find a mirror transformation for.
         non_found : "raise" | "ignore"
-                    What to do if no mirror transformation is found.
+                    What to do if no mirror transformation is found. If "ignore"
+                    and no mirror transformation found, will silently return
+                    ``None``.
+
+        Returns
+        -------
+        tuple
+                    Named tuple containing a mirror transformation. Will only
+                    ever return one - even if multiple are available.
 
         """
-        this_tr = [tr for tr in self.mirrors if tr.source == template]
+        for tr in self.mirrors:
+            if tr.source == template:
+                return tr
 
-        if not this_tr and non_found == 'raise':
+        if non_found == 'raise':
             raise ValueError(f'No mirror transformation found for {template}')
+        return None
 
-        return this_tr[0]
+    def find_template(self, name: str, non_found: str = 'raise') -> 'TemplateBrain':
+        """Search for a given template (brain).
 
-    def plot_bridging_graph(self, edge_labels=False, **kwargs):
+        Parameters
+        ----------
+        name :      str
+                    Name of the template to find a mirror transformation for.
+                    Searches against `name` and `label` (short name) properties
+                    of registered templates.
+        non_found : "raise" | "ignore"
+                    What to do if no mirror transformation is found. If "ignore"
+                    and no mirror transformation found, will silently return
+                    ``None``.
+
+        Returns
+        -------
+        TemplateBrain
+
+        """
+        for tmp in self.templates:
+            if getattr(tmp, 'label', None) == name:
+                return tmp
+            if getattr(tmp, 'name', None) == name:
+                return tmp
+
+        if non_found == 'raise':
+            raise ValueError(f'No template brain registered that matches "{name}"')
+        return None
+
+    def plot_bridging_graph(self, edge_labels: bool = False, **kwargs):
         """Draw bridging graph using networkX.
 
         Parameters
@@ -506,10 +567,9 @@ class TemplateRegistry:
 def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 source: str,
                 target: str,
-                affine_fallback: bool = True,
-                **kwargs) -> Union['core.NeuronObject',
-                                   'pd.DataFrame',
-                                   'np.ndarray']:
+                affine_fallback: bool = True) -> Union['core.NeuronObject',
+                                                       'pd.DataFrame',
+                                                       'np.ndarray']:
     """Transform 3D data between template brains.
 
     This requires the appropriate transforms to be registered with ``navis``.
@@ -576,7 +636,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         else:
             raise TypeError(f"Don't know how to transform neuron of type '{type(xf)}'")
 
-        # Add connectors
+        # Add connectors if they exist
         if xf.has_connnectors:
             xyz = np.vstack([xyz, xf.connectors[['x', 'y', 'z']].values])
 
@@ -647,7 +707,9 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     return trans_seq.xform(x, affine_fallback=affine_fallback)
 
 
-def _guess_change(xyz_before, xyz_after, sample=.1):
+def _guess_change(xyz_before: np.ndarray,
+                  xyz_after: np.ndarray,
+                  sample: float = .1) -> tuple:
     """Guess change in units during xforming."""
     if isinstance(xyz_before, pd.DataFrame):
         xyz_before = xyz_before[['x', 'y', 'z']].values
@@ -679,7 +741,7 @@ def _guess_change(xyz_before, xyz_after, sample=.1):
 
 
 def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
-                 template: str,
+                 template: Union[str, 'TemplateBrain'],
                  mirror_axis: Union[Literal['x'],
                                     Literal['y'],
                                     Literal['z']] = 'x',
@@ -687,7 +749,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                  via: Optional[str] = None) -> Union['core.NeuronObject',
                                                      'pd.DataFrame',
                                                      'np.ndarray']:
-    """Mirror 3D object (neuron, coordinates) about given axixs.
+    """Mirror 3D object (neuron, coordinates) about given axis.
 
     The way this works is:
      1. Look up the length of the template space along the given axis. For this,
@@ -700,11 +762,10 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     x :             Neuron/List | numpy.ndarray | pandas.DataFrame
                     Data to transform. Dataframe must contain ``['x', 'y', 'z']``
                     columns. Numpy array must be shape ``(N, 3)``.
-    template :      str
-                    Source template brain space that the data is in. The name
-                    will be used to look up how we need to mirror the object.
-                    The template must be registered for this to work.
-                    Alternatively, check out :func:`navis.transforms.mirror`
+    template :      str | TemplateBrain
+                    Source template brain space that the data is in. If string
+                    will be searched against registered template brains.
+                    Alternatively check out :func:`navis.transforms.mirror`
                     for a lower level interface.
     mirror_axis :   'x' | 'y' | 'z', optional
                     Axis to mirror. Defaults to `x`.
@@ -721,12 +782,15 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     Returns
     -------
-    same type as ``x``
-                Copy of input with transformed coordinates.
+    xf
+                    Same object type as input (array, neurons, etc) but with
+                    transformed coordinates.
 
     """
     utils.eval_param(mirror_axis, name='mirror_axis',
                      allowed_values=('x', 'y', 'z'), on_error='raise')
+    utils.eval_param(warp, name='warp',
+                     allowed_values=('auto', True, False), on_error='raise')
 
     # If we go via another brain space
     if via:
@@ -796,17 +860,114 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                                  mirror_axis=mirror_axis,
                                                  warp=warp)
         return x
-    elif x.shape[1] != 3:
+
+    # At this point we expect numpy arrays
+    x = np.asarray(x)
+    if not x.ndim == 2 or x.shape[1] != 3:
         raise ValueError('Array must be of shape (N, 3).')
 
     if not isinstance(template, str):
         TypeError(f'Expected template of type str, got "{type(template)}"')
 
-    # It appears we need to fetch the brain template first -> passing the string
-    # causes an error
-    xf = None
+    if warp:
+        # See if there is a mirror registration
+        mirror_trans = registry.find_mirror_reg(template, non_found='ignore')
 
-    return np.array(xf)
+        # If warp was not "auto" and we didn't find a registration, raise
+        if warp != 'auto' and not mirror_trans:
+            raise ValueError(f'No mirror transform found for "{template}"')
+    else:
+        mirror_trans = None
+
+    # Now find the meta info about the template brain
+    if isinstance(template, TemplateBrain):
+        tb = template
+    else:
+        tb = registry.find_template(template, non_found='raise')
+
+    # Get the bounding box
+    if not hasattr(tb, 'boundingbox'):
+        raise ValueError(f'Template "{tb.label}" has no bounding box info.')
+
+    # Get bounding box of template brain
+    bbox = np.asarray(tb.boundingbox)
+
+    # Reshape if flat array
+    if bbox.ndim == 1:
+        bbox = bbox.reshape(3, 2)
+
+    # Index of mirror axis
+    ix = {'x': 0, 'y': 1, 'z': 2}[mirror_axis]
+
+    if bbox.shape == (3, 2):
+        # In nat.templatebrains this is using the sum (min+max) but have a
+        # suspicion that this should be the difference (max-min)
+        mirror_axis_size = bbox[ix, :].sum()
+    elif bbox.shape == (2, 3):
+        mirror_axis_size = bbox[:, ix].sum()
+    else:
+        raise ValueError('Expected bounding box to be of shape (3, 2) or (2, 3)'
+                         f' got {bbox.shape}')
+
+    return mirror(x, mirror_axis=mirror_axis, mirror_axis_size=mirror_axis_size,
+                  warp=mirror_trans)
+
+
+def mirror(points: np.ndarray, mirror_axis_size: float,
+           mirror_axis: str = 'x',
+           warp: Optional['BaseTransform'] = None) -> np.ndarray:
+    """Mirror 3D coordinates about given axis.
+
+    This is a lower level version of `navis.mirror_brain` that:
+     1. Flip object along midpoint of axis using a affine transformation.
+     2. (Optional) Apply a warp transform that corrects asymmetries.
+
+    Parameters
+    ----------
+    points :            (N, 3) numpy array
+                        3d coordinates to mirror
+    mirror_axis_size :  int | float
+                        A single number specifying the size of the mirror axis.
+                        This is used to find the midpoint to mirror about.
+    mirror_axis :       'x' | 'y' | 'z', optional
+                        Axis to mirror. Defaults to `x`.
+    warp :              Transform, optional
+                        If provided, will apply this warp transform after the
+                        affine flipping. Typically this will be a mirror
+                        registration to compensate for left/right asymmetries.
+
+    Returns
+    -------
+    points_mirrored
+                        Mirrored coordinates.
+
+    """
+    utils.eval_param(mirror_axis, name='mirror_axis',
+                     allowed_values=('x', 'y', 'z'), on_error='raise')
+
+    # At this point we expect numpy arrays
+    points = np.asarray(points)
+    if not points.ndim == 2 or points.shape[1] != 3:
+        raise ValueError('Array must be of shape (N, 3).')
+
+    # Translate mirror axis to index
+    mirror_ix = {'x': 0, 'y': 1, 'z': 2}[mirror_axis]
+
+    # Construct homogeneous affine mirroring transform
+    mirrormat = np.eye(4, 4)
+    mirrormat[mirror_ix, 3] = mirror_axis_size
+    mirrormat[mirror_ix, mirror_ix] = -1
+
+    # Turn into affine transform
+    flip_transform = AffineTransform(mirrormat)
+
+    # Flip about mirror axis
+    points_mirrored = flip_transform.xform(points)
+
+    if isinstance(warp, (BaseTransform, TransformSequence)):
+        points_mirrored = warp.xform(points_mirrored)
+
+    return points_mirrored
 
 
 class TemplateBrain:

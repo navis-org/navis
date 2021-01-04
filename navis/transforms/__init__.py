@@ -11,4 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .templates import registry, xform_brain, mirror_brain
+from .templates import registry, xform_brain, mirror_brain, mirror
+
+# Make sure that only these functions are avaialable at top level
+__all__ = ['xform_brain', 'mirror_brain']

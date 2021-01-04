@@ -57,8 +57,9 @@ class H5transform(BaseTransform):
 
     """
 
-    def __init__(self, f, direction='forward', level=-1, cache=False,
-                 full_ingest=False):
+    def __init__(self, f: str, direction: str = 'forward',
+                 level: int = -1, cache: bool = False,
+                 full_ingest: bool = False):
         """Init class."""
         assert direction in ('forward', 'inverse'), ('`direction` must be "forward"'
                                                      f'or "inverse", not "{direction}"')
@@ -109,7 +110,7 @@ class H5transform(BaseTransform):
                 # arrays for caching to save memory
                 # See https://github.com/pydata/sparse/
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """Compare with other Transform."""
         if isinstance(other, H5transform):
             if self.reg == other.reg:
@@ -118,7 +119,7 @@ class H5transform(BaseTransform):
                         return True
         return False
 
-    def __neg__(self):
+    def __neg__(self) -> 'H5transform':
         """Invert direction."""
         # Swap direction
         new_direction = {'forward': 'inverse',
@@ -130,7 +131,7 @@ class H5transform(BaseTransform):
         return x
 
     @staticmethod
-    def from_file(filepath, **kwargs):
+    def from_file(filepath: str, **kwargs) -> 'H5transform':
         """Generate H5transform from file.
 
         Parameters
@@ -147,7 +148,7 @@ class H5transform(BaseTransform):
         """
         return H5transform(str(filepath), **kwargs)
 
-    def xform(self, points):
+    def xform(self, points: np.ndarray) -> np.ndarray:
         """Xform data.
 
         Parameters

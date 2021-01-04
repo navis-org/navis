@@ -36,15 +36,15 @@ def trigger_init(func):
 class BaseTransform:
     """Abstract base class for transforms."""
 
-    def append(self, other):
+    def append(self, other: 'BaseTransform'):
         """Append another transform to this one."""
         raise NotImplementedError(f'Unable to append {type(other)} to {type(self)}')
 
-    def check_if_possible(self, on_error='raise'):
+    def check_if_possible(self, on_error: str = 'raise'):
         """Test if running the transform is possible."""
         return
 
-    def copy(self):
+    def copy(self) -> 'BaseTransform':
         """Return copy."""
         # Attributes not to copy
         no_copy = []
@@ -66,14 +66,14 @@ class AliasTransform(BaseTransform):
         """Initialize."""
         pass
 
-    def xform(self, points):
+    def xform(self, points: np.ndarray) -> np.ndarray:
         """Pass through.
 
         Be aware that the returned points are NOT a copy but the originals.
         """
         return points
 
-    def __neg__(self):
+    def __neg__(self) -> 'AliasTransform':
         """Invert transform."""
         return self.copy()
 
@@ -93,15 +93,15 @@ class TransformSequence:
                 raise TypeError(f'Expected transform, got "{type(tr)}"')
             self.append(tr)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Count number of transforms in this sequence."""
         return len(self.transforms)
 
-    def __neg__(self):
+    def __neg__(self) -> 'TransformSequence':
         """Invert transform sequence."""
         return TransformSequence(*[-t for t in self.transforms[::-1]])
 
-    def append(self, transform):
+    def append(self, transform: 'BaseTransform'):
         """Add transform to list."""
         if isinstance(transform, TransformSequence):
             # Unpack if other is sequence of transforms
@@ -125,7 +125,9 @@ class TransformSequence:
             else:
                 self.transforms.append(tr)
 
-    def xform(self, points, affine_fallback=False, **kwargs):
+    def xform(self, points: np.ndarray,
+              affine_fallback: bool = False,
+              **kwargs) -> np.ndarray:
         """Perform transforms in sequence."""
         # First check if any of the transforms raise problems.
         for tr in self.transforms:

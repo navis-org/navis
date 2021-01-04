@@ -43,7 +43,7 @@ if platform.system() == 'Windows':
                      r'C:\Program Files\CMTK-3.3\CMTK\lib\cmtk\bin']
 
 
-def find_cmtkbin(tool='streamxform'):
+def find_cmtkbin(tool: str = 'streamxform') -> str:
     """Find directory with CMTK binaries."""
     for path in _search_path:
         path = pathlib.Path(path)
@@ -88,7 +88,8 @@ def cmtk_version(as_string=False):
 
 
 @requires_cmtk
-def xform_cmtk(points, transforms, inverse=False, affine_fallback=False, **kwargs):
+def xform_cmtk(points: np.ndarray, transforms, inverse: bool = False,
+               affine_fallback: bool = False, **kwargs) -> np.ndarray:
     """Xform 3d coordinates.
 
     Parameters
@@ -120,7 +121,7 @@ def xform_cmtk(points, transforms, inverse=False, affine_fallback=False, **kwarg
     if isinstance(inverse, bool):
         inverse = [inverse] * len(transforms)
 
-    directions = ['forward' if not i else 'reverse' for i in inverse]
+    directions = ['forward' if not i else 'inverse' for i in inverse]
 
     for i, r in enumerate(transforms):
         if not isinstance(r, CMTKtransform):
@@ -158,14 +159,14 @@ class CMTKtransform(BaseTransform):
 
     """
 
-    def __init__(self, regs, directions='forward', threads=None, command='streamxform'):
+    def __init__(self, regs: list, directions: str = 'forward', threads: int = None):
         self.directions = list(utils.make_iterable(directions))
         for d in self.directions:
-            assert d in ('forward', 'reverse'), ('`direction` must be "foward"'
-                                                 f'or "reverse", not "{d}"')
+            assert d in ('forward', 'inverse'), ('`direction` must be "foward"'
+                                                 f'or "inverse", not "{d}"')
 
         self.regs = list(utils.make_iterable(regs))
-        self.command = command
+        self.command = 'streamxform'
         self.threads = threads
 
         if len(directions) == 1 and len(regs) >= 1:
@@ -174,7 +175,7 @@ class CMTKtransform(BaseTransform):
         if len(self.regs) != len(self.directions):
             raise ValueError('Must provide one direction per regs')
 
-    def __eq__(self, other):
+    def __eq__(self, other: 'CMTKtransform') -> bool:
         """Implements equality comparison."""
         if isinstance(other, CMTKtransform):
             if len(self) == len(other):
@@ -183,10 +184,10 @@ class CMTKtransform(BaseTransform):
                         return True
         return False
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.regs)
 
-    def __neg__(self):
+    def __neg__(self) -> 'CMTKtransform':
         """Invert direction."""
         x = self.copy()
 
@@ -207,7 +208,7 @@ class CMTKtransform(BaseTransform):
         return f'CMTKtransform with {len(self)} transform(s)'
 
     @staticmethod
-    def from_file(filepath, **kwargs):
+    def from_file(filepath: str, **kwargs) -> 'CMTKtransform':
         """Generate CMTKtransform from file.
 
         Parameters
@@ -226,7 +227,7 @@ class CMTKtransform(BaseTransform):
         defaults.update(kwargs)
         return CMTKtransform(str(filepath), **defaults)
 
-    def make_args(self, affine_only=False):
+    def make_args(self, affine_only: bool = False) -> list:
         """Generate arguments passed to subprocess."""
         # Generate the arguments
         # The actual command (i.e. streamxform)
@@ -246,7 +247,7 @@ class CMTKtransform(BaseTransform):
         return args
 
     @property
-    def regargs(self):
+    def regargs(self) -> list:
         """Generate regargs."""
         regargs = []
         for reg, dir in zip(self.regs, self.directions):
@@ -256,7 +257,7 @@ class CMTKtransform(BaseTransform):
             regargs.append(f'{reg}')
         return regargs
 
-    def append(self, transform, direction=None):
+    def append(self, transform: 'CMTKtransform', direction: str = None):
         """Add another transform.
 
         Parameters
@@ -282,7 +283,7 @@ class CMTKtransform(BaseTransform):
         else:
             raise NotImplementedError(f'Unable to append {type(transform)} to {type(self)}')
 
-    def check_if_possible(self, on_error='raise'):
+    def check_if_possible(self, on_error: str = 'raise'):
         """Check if this transform is possible."""
         if not _cmtkbin:
             msg = 'Folder with CMTK binaries not found. Make sure the ' \
@@ -296,9 +297,8 @@ class CMTKtransform(BaseTransform):
                 if on_error == 'raise':
                     raise BaseException(msg)
                 return msg
-        return
 
-    def copy(self):
+    def copy(self) -> 'CMTKtransform':
         """Return copy."""
         # Attributes not to copy
         no_copy = []
@@ -309,7 +309,7 @@ class CMTKtransform(BaseTransform):
 
         return x
 
-    def parse_cmtk_output(self, output, fail_value=np.nan):
+    def parse_cmtk_output(self, output: str, fail_value=np.nan) -> np.ndarray:
         r"""Parse CMTK output.
 
         Briefly, CMTK output will be a byte literal like this:
@@ -356,7 +356,9 @@ class CMTKtransform(BaseTransform):
 
         return np.asarray(pointsx)
 
-    def xform(self, points, affine_only=False, affine_fallback=False):
+    def xform(self, points: np.ndarray,
+              affine_only: bool = False,
+              affine_fallback: bool = False) -> np.ndarray:
         """Xform data.
 
         Parameters

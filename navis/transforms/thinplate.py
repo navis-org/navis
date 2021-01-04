@@ -32,7 +32,9 @@ class TPStransform(BaseTransform):
 
     """
 
-    def __init__(self, landmarks_source, landmarks_target, direction='forward'):
+    def __init__(self, landmarks_source: np.ndarray,
+                 landmarks_target: np.ndarray,
+                 direction: str = 'forward'):
         """Initialize class."""
         assert direction in ('forward', 'inverse')
 
@@ -55,7 +57,7 @@ class TPStransform(BaseTransform):
         # Calculate coefficients
         self._calc_tps_coefs()
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """Implement equality comparison."""
         if isinstance(other, TPStransform):
             if self.source.shape[0] == other.source.shape[0]:
@@ -64,7 +66,7 @@ class TPStransform(BaseTransform):
                         return True
         return False
 
-    def __neg__(self):
+    def __neg__(self) -> 'TPStransform':
         """Invert direction."""
         x = self.copy()
 
@@ -80,7 +82,7 @@ class TPStransform(BaseTransform):
         # Calculate thinplate coefficients
         self.W, self.A = mops.tps_coefs(self.source, self.target)
 
-    def xform(self, points):
+    def xform(self, points: np.ndarray) -> np.ndarray:
         """Transform points.
 
         Parameters

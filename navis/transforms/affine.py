@@ -28,7 +28,7 @@ class AffineTransform(BaseTransform):
 
     """
 
-    def __init__(self, matrix, direction='forward'):
+    def __init__(self, matrix: np.ndarray, direction: str = 'forward'):
         """Initialize transform."""
         assert direction in ('forward', 'inverse')
 
@@ -37,7 +37,7 @@ class AffineTransform(BaseTransform):
         if direction == 'inverse':
             self.matrix = np.linalg.inv(self.matrix)
 
-    def __eq__(self, other):
+    def __eq__(self, other: 'AffineTransform') -> bool:
         """Implements equality comparison."""
         if isinstance(other, AffineTransform):
             if np.all(self.matrix == other.matrix):
@@ -53,7 +53,7 @@ class AffineTransform(BaseTransform):
 
         return x
 
-    def copy(self):
+    def copy(self) -> 'AffineTransform':
         """Return copy of transform."""
         # Attributes not to copy
         no_copy = []
@@ -64,7 +64,7 @@ class AffineTransform(BaseTransform):
 
         return x
 
-    def xform(self, points, invert=False):
+    def xform(self, points: np.ndarray, invert: bool = False) -> np.ndarray:
         """Apply transform to points.
 
         Parameters

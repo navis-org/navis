@@ -21,7 +21,7 @@ from .h5reg import H5transform
 from .thinplate import TPStransform
 
 
-def parse_json(filepath, **kwargs):
+def parse_json(filepath: str, **kwargs):
     """Parse json-encoded transform (experimental).
 
     Parameters
@@ -61,7 +61,7 @@ def parse_json(filepath, **kwargs):
     return TransformSequence(*transforms)
 
 
-def transform_factory(filepath, **kwargs):
+def transform_factory(filepath: str, **kwargs):
     """Generate appropriate transform from file.
 
     Parameters

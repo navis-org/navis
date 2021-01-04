@@ -11,7 +11,12 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-"""Functions to use the Saalfeld lab's h5 transforms. Requires jpype."""
+"""Functions to use the Saalfeld lab's h5 transforms. Requires jpype.
+
+This was written mostly for validation of the pure Python implementation. Since
+it requires the compiled java code in ./jars/ which are not packaged with the
+wheel, it will only work if you clone navis' Github repository.
+"""
 
 import os
 

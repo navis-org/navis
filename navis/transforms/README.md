@@ -35,9 +35,8 @@ bat, navis supports 4 types of transforms:
   3. `navis.transforms.cmtk.CMTKtransform` provides an interface with
      [CMTK](https://www.nitrc.org/projects/cmtk/) to use CMTK's `.list`
      transforms. CMTK needs to be installed separately.
-  4. `navis.transforms.h5reg.H5transform` provides in interface to use the
-     Saalfeld lab's h5 deformation field-based transforms. It uses `jpype`
-     (`pip install JPype1`) to talk to a Java-Virtual Machine (JVM).
+  4. `navis.transforms.h5reg.H5transform` provides an interface to use the
+     Saalfeld lab's h5 deformation field-based transforms. 
 
 You can subclass ``navis.transforms.base.BaseTransform`` to implement other
 types of transforms for navis to use.
