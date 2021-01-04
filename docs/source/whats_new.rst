@@ -2,6 +2,10 @@
 
 What's new?
 ===========
+This is a selection of features added, changes made and bugs fixed in each version.
+For a full list of changes please see the
+`commits <https://github.com/schlegelp/navis/commits/master>`_ on navis' Github
+repository.
 
 .. list-table::
    :widths: 7 7 86
@@ -10,6 +14,83 @@ What's new?
    * - Version
      - Date
      -
+   * - 0.5.0
+     - 05/01/21
+     - - new functions for transforming spatial data (locations, neurons, etc) between brain spaces:
+           - :func:`navis.xform_brain` transforms data from one space to another
+           - :func:`navis.mirror_brain` mirrors data about given axis
+           - see the new :ref:`tutorials<example_gallery>` for explanations
+           - low-level interfaces to work with affine, H5-, CMTK- and thin plate spine transforms
+       - de-cluttered top level namespace: some more obscure functions are now only available through modules
+   * - 0.4.3
+     - 22/12/20
+     - - more small bug fixes
+   * - 0.4.2
+     - 22/12/20
+     - - some small bug fixes
+   * - 0.4.1
+     - 06/12/20
+     - - hotfix for critical bug in NBLAST
+   * - 0.4.0
+     - 06/12/20
+     - - native implementation of NBLAST: :func:`navis.nblast` and :func:`navis.nblast_allbyall`!
+       - new parameter :func:`navis.plot3d` (plotly backend) with ``hover_id=True`` will show node IDs on hover
+       - :func:`navis.Volume.resize` has now ``inplace=False`` as default
+   * - 0.3.4
+     - 24/11/20
+     - - improved :class:`navis.Dotprops`:
+           - more control over generation in :func:`navis.make_dotprops`
+           - :class:`navis.Dotprops` now play nicely with R interface
+   * - 0.3.3
+     - 23/11/20
+     - - new module: ``models`` for modelling networks and neurons
+       - new functions :func:`navis.resample_along_axis`, :func:`navis.insert_nodes`, :func:`navis.remove_nodes`
+       - full rework of :class:`navis.Dotprops`:
+           - make them a subclass of BaseNeuron
+           - implement ``nat:dotprops`` in :func:`navis.make_dotprops`
+           - added :func:`navis.read_nrrd` and :func:`navis.write_nrrd`
+           - side-effect: renamed ``navis.from_swc`` -> ``read_swc`` and ``navis.to_swc`` -> ``write_swc``
+           - improved conversion between nat and navis ``Dotprops``
+       - full rework of topology-related functions:
+           - :func:`navis.strahler_index`, :func:`navis.segregation_index`, :func:`navis.bending_flow`, :func:`navis.flow_centrality` and :func:`navis.split_axon_dendrite` now work better, faster and more accurately. See their docs for details.
+           - new function: :func:`navis.arbor_segregation_index`
+       - new ``color_by`` and ``shade_by`` parameters for ``plot3d`` and ``plot2d`` that lets you color/shade a
+         neuron by custom properties (e.g. by Strahler index or compartment)
+       - neurons are now more memory efficient:
+           - pandas "categoricals" are used for connector and node "type" and "label" columns
+           - add a ``.memory_usage`` method analogous to that of ``pandas.DataFrames``
+       - :class:`navis.NeuronList` can now be pickled!
+       - made :class:`navis.Viewer` faster
+       - :func:`navis.prune_twigs` can now (optionally) prune by `exactly` the desired length
+       - improved ``navis.NeuronList.apply``
+       - small bugfixes and improvements
+   * - 0.3.2
+     - 18/10/20
+     - - :func:`navis.plot2d` and :func:`navis.plot3d` now accept ``trimesh.Trimesh`` directly
+       - :func:`navis.in_volume` now works with any mesh-like object, not just ``navis.Volumes``
+       - lots of small bugfixes and improvements
+   * - 0.3.1
+     - 07/10/20
+     - - new function :func:`navis.rewire_neuron`
+       - improve :func:`navis.heal_fragmented_neuron` and :func:`navis.stitch_neurons`: now much much faster
+       - :func:`navis.reroot_neuron` can now reroot to multiple roots in one go
+       - :func:`navis.plot3d` now accepts a ``soma`` argument
+       - improved caching for neurons
+       - improved multiplication/division of neurons
+       - faster ``r.nblast`` and ``r.nblast_allbyall``
+       - ``r.xform_brain`` now also adjusts the soma radius
+       - ``neuprint.fetch_skeletons`` now returns correct soma radius
+       - lots of small bugfixes
+   * - 0.3.0
+     - 06/10/20
+     - - started module to manipulate mesh data: see :func:`navis.simplify_mesh`
+       - improved interfaces with R NBLAST and ``xform_brain``
+       - improved attribute caching for neurons
+   * - 0.2.3
+     - 06/09/20
+     - - new Neuron property ``.label`` that if present will be used for plot legends
+       - new function for R interface: :func:`navis.interfaces.r.load_rda`
+       - Blender interface: improved scatter plot generation
    * - 0.2.2
      - 15/08/20
      - - new ``plot3d`` parameter: with plotly backend, use ``fig`` to add data to existing plotly figure
