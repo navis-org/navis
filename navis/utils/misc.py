@@ -21,7 +21,7 @@ import trimesh as tm
 from functools import wraps
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
 
-from .. import config, core
+from .. import config, core, transforms
 from .eval import is_mesh
 
 # Set up logging
@@ -305,7 +305,9 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     volumes = [ob for ob in x if not isinstance(ob, (core.BaseNeuron,
                                                      core.NeuronList))
                                  and is_mesh(ob)]
-    # Converts any non navis meshes into Volumes
+    # Add templatebrains
+    volumes += [ob.mesh for ob in x if isinstance(ob, transforms.templates.TemplateBrain)]
+    # Converts any non-navis meshes into Volumes
     volumes = [core.Volume(v) if not isinstance(v, core.Volume) else v for v in volumes]
 
     # Collect dataframes with X/Y/Z coordinates
