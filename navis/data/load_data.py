@@ -88,11 +88,13 @@ def example_neurons(n: Optional[int] = None,
     Examples
     --------
     Load a single neuron
+
     >>> import navis
     >>> n = navis.example_neuronss(n=1)
     'test'
 
     Load all example neurons
+
     >>> nl = navis.example_neurons()
 
     """
@@ -158,6 +160,7 @@ def example_volume(name: str) -> Volume:
     Examples
     --------
     Load LH volume
+
     >>> import navis
     >>> lh = navis.example_volume('LH')
 

@@ -41,7 +41,7 @@ class BaseNetworkModel:
 
     @property
     def n_nodes(self) -> int:
-        """Unique nodes in edges."""
+        """Return unique nodes in network."""
         return np.unique(self.edges[[self.source, self.target]].values.flatten()).shape[0]
 
     @property
@@ -135,8 +135,8 @@ class TraversalModel(BaseNetworkModel):
     >>> edges['weight'] = np.random.random(edges.shape[0])
     >>> # Initialize model
     >>> model = TraversalModel(edges, seeds=list(G.nodes)[:10])
-    >>> # Run model
-    >>> model.run(iterations=1000)
+    >>> # Run model on 2 cores
+    >>> model.run_parallel(n_cores=2, iterations=100)
     >>> # Get a summary
     >>> model.summary.tail()
           layer_min  layer_max  layer_mean  layer_median
@@ -156,6 +156,7 @@ class TraversalModel(BaseNetworkModel):
     ...     return random_linear_activation_function(x, max_w=10)
     >>> model = TraversalModel(edges, seeds=list(G.nodes)[:10],
     ...                        traversal_func=my_act)
+    >>> model.run_parallel(n_cores=2, iterations=100)
     >>> model.summary.tail()
           layer_min  layer_max  layer_mean  layer_median
     node

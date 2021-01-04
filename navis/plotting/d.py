@@ -71,6 +71,7 @@ def plot1d(x: 'core.NeuronObject',
     >>> plt.show() # doctest: +SKIP
 
     To close figure(s)
+    
     >>> plt.close('all')
 
     """

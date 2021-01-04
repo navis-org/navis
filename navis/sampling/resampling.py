@@ -378,6 +378,7 @@ def resample_along_axis(x: 'core.TreeNeuron',
     Examples
     --------
     Resample neuron such that we have one node in every 40nm slice along z axis
+
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.n_nodes

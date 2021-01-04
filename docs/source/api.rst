@@ -18,12 +18,12 @@ This API reference is a more or less complete account of the primary functions:
 
 In addition ``navis`` has interfaces to various external APIs and softwares:
 
-1. :ref:`Neuromorpho<api_interfaces.neuromorpho>`
-2. :ref:`neuPrint<api_interfaces.neuprint>`
-3. :ref:`InsectBrain DB<api_interfaces.insectdb>`
-4. :ref:`Blender 3D<api_interfaces.blender>`
-5. :ref:`Cytoscape<api_interfaces.cytoscape>`
-6. :ref:`R and the natverse libraries<api_interfaces.r>`
+- :ref:`Neuromorpho<api_interfaces.neuromorpho>`
+- :ref:`neuPrint<api_interfaces.neuprint>`
+- :ref:`InsectBrain DB<api_interfaces.insectdb>`
+- :ref:`Blender 3D<api_interfaces.blender>`
+- :ref:`Cytoscape<api_interfaces.cytoscape>`
+- :ref:`R and the natverse libraries<api_interfaces.r>`
 
 
 Most of these functions include examples of how to use them. Click on them to
@@ -173,8 +173,8 @@ Properties:
 
 .. _api_plot:
 
-Plotting
-++++++++
+Visualization
++++++++++++++
 Various functions for plotting neurons and volumes.
 
 .. autosummary::
@@ -188,8 +188,8 @@ Various functions for plotting neurons and volumes.
     navis.get_viewer
     navis.screenshot
 
-Volumes (meshes)
-----------------
+Plotting Volumes/Meshes
+-----------------------
 To plot meshes, you can pass ``trimesh.Trimesh`` objects directly to ``plot3d``
 or ``plot2d``. However, ``navis`` has a custom class to represent meshes that
 has some useful perks: :class:`navis.Volume`.

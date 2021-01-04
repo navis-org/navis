@@ -605,6 +605,23 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     same type as ``x``
                         Copy of input with transformed coordinates.
 
+    Examples
+    --------
+    This example requires the flybrains library to be installed:
+    ``pip3 install flybrains``
+
+    Also, you will need to have the optional transforms installed (one-off):
+    >>> import flybrains # doctest: +SKIP
+    >>> flybrains.download_jefferislab_transforms() # doctest: +SKIP
+    >>> flybrains.download_saalfeldlab_transforms() # doctest: +SKIP
+
+    >>> import navis
+    >>> import flybrains
+    >>> # navis example neurons are in raw (8nm voxel) hemibrain (JRCFIB2018F) space
+    >>> n = navis.example_neurons(1)
+    >>> # Transform to FAFB14 space (note we need to convert to microns)
+    >>> xf = navis.xform_brain(n * 8 / 1000, source='JRCFIB2018F', target='FAFB14') # doctest: +SKIP
+
     """
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
@@ -785,6 +802,20 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     xf
                     Same object type as input (array, neurons, etc) but with
                     transformed coordinates.
+
+    Examples
+    --------
+    This example requires the flybrains library to be installed:
+    ``pip3 install flybrains``
+
+    >>> import navis
+    >>> import flybrains
+    >>> # navis example neurons are in raw hemibrain (JRCFIB2018Fraw) space
+    >>> n = navis.example_neurons(1)
+    >>> # Mirror about x axis (this is a simple flip in this case)
+    >>> mirrored = navis.mirror_brain(n * 8 / 1000, tem plate='JRCFIB2018F', via='JRC2018F') # doctest: +SKIP
+    >>> # We also need to get back to raw coordinates
+    >>> mirrored = mirrored / 8 * 1000
 
     """
     utils.eval_param(mirror_axis, name='mirror_axis',

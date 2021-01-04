@@ -681,7 +681,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
 
     Examples
     --------
-    # NBLAST example neurons against flycircuit DB
+    NBLAST example neurons against flycircuit DB
 
     >>> import navis
     >>> from navis.interfaces import r

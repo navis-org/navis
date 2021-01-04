@@ -58,42 +58,109 @@ def plot2d(x: Union[core.NeuronObject,
 
     The main advantage of this is that you can save plot as vector graphics.
 
-
     Important
     ---------
     This function uses matplotlib which "fakes" 3D as it has only very limited
-    control over layering objects in 3D. Therefore neurites aren't necessarily
-    plotted in the right Z order which becomes especially troublesome when
+    control over layering objects in 3D. Therefore neurites are not necessarily
+    plotted in the right Z order. This becomes especially troublesome when
     plotting a complex scene with lots of neurons criss-crossing. See the
     ``method`` parameter for details. All methods use orthogonal projection.
 
-
     Parameters
     ----------
-    x :               TreeNeuron | MeshNeuron | NeuronList | Volume | Dotprops | np.ndarray
-                      Objects to plot::
+    x :                 TreeNeuron | MeshNeuron | NeuronList | Volume | Dotprops | np.ndarray
+                        Objects to plot::
 
-                        - str is intepreted as volume name(s)
-                        - multiple objects can be passed as list (see examples)
-                        - numpy array of shape (n,3) is intepreted as scatter
-    method :          '2d' | '3d' | '3d_complex'
-                      Method used to generate plot. Comes in three flavours:
-                        1. '2d' uses normal matplotlib. Neurons are plotted on
-                           top of one another in the order their are passed to
-                           the function. Use the ``view`` parameter (below) to
-                           set the view (default = xy).
-                        2. '3d' uses matplotlib's 3D axis. Here, matplotlib
-                           decide the depth order (zorder) of plotting. Can
-                           change perspective either interacively or by code
-                           (see examples).
-                        3. '3d_complex' same as 3d but each neuron segment is
-                           added individually. This allows for more complex
-                           zorders to be rendered correctly. Slows down
-                           rendering though.
+                          - multiple objects can be passed as list (see examples)
+                          - numpy array of shape (n,3) is intepreted as points for scatter plots
+    method :            '2d' | '3d' (default) | '3d_complex'
+                        Method used to generate plot. Comes in three flavours:
+                          1. '2d' uses normal matplotlib. Neurons are plotted on
+                             top of one another in the order their are passed to
+                             the function. Use the ``view`` parameter (below) to
+                             set the view (default = xy).
+                          2. '3d' uses matplotlib's 3D axis. Here, matplotlib
+                             decide the depth order (zorder) of plotting. Can
+                             change perspective either interacively or by code
+                             (see examples).
+                          3. '3d_complex' same as 3d but each neuron segment is
+                             added individually. This allows for more complex
+                             zorders to be rendered correctly. Slows down
+                             rendering though.
 
-    **kwargs
-                      See Notes for permissible keyword arguments.
-
+    soma :              bool, default=True
+                        Plot soma if one exists.
+    connectors :        bool, default=True
+                        Plot connectors.
+    connectors_only :   boolean, default=False
+                        Plot only connectors, not the neuron.
+    cn_size :           int | float, default = 1
+                        Size of connectors.
+    linewidth :         int | float, default=.5
+                        Width of neurites. Also accepts alias ``lw``.
+    linestyle :         str, default='-'
+                        Line style of neurites. Also accepts alias ``ls``.
+    autoscale :         bool, default=True
+                        If True, will scale the axes to fit the data.
+    scalebar :          int | float | str | pint.Quantity, default=False
+                        Adds scale bar. Provide integer, float or str to set
+                        size of scalebar. Int|float are assumed to be in same
+                        units as data. You can specify units in as string:
+                        e.g. "1 um". For methods '3d' and '3d_complex', this
+                        will create an axis object.
+    ax :                matplotlib ax, default=None
+                        Pass an ax object if you want to plot on an existing
+                        canvas. Must match ``method`` - i.e. 2D or 3D axis.
+    figsize :           tuple, default=(8, 8)
+                        Size of figure.
+    color :             None | str | tuple | list | dict, default=None
+                        Use single str (e.g. ``'red'``) or ``(r, g, b)`` tuple
+                        to give all neurons the same color. Use ``list`` of
+                        colors to assign colors: ``['red', (1, 0, 1), ...].
+                        Use ``dict`` to map colors to neuron IDs:
+                        ``{id: (r, g, b), ...}``.
+    palette :           str | array | list of arrays, default=None
+                        Name of a matplotlib or seaborn palette. If ``color`` is
+                        not specified will pick colors from this palette.
+    color_by :          str | array | list of arrays, default = None
+                        Can be the name of a column in the node table of
+                        ``TreeNeurons`` or an array of (numerical or
+                        categorical) values for each node. Numerical values will
+                        be normalized. You can control the normalization by
+                        passing a ``vmin`` and/or ``vmax`` parameter.
+    shade_by :          str | array | list of arrays, default=None
+                        Similar to ``color_by`` but will affect only the alpha
+                        channel of the color. If ``shade_by='strahler'`` will
+                        compute Strahler order if not already part of the node
+                        table (TreeNeurons only). Numerical values will be
+                        normalized. You can control the normalization by passing
+                        a ``smin`` and/or ``smax`` parameter.
+    alpha :             float [0-1], default=.9
+                        Alpha value for neurons. Overriden if alpha is provided
+                        as fourth value in ``color`` (rgb*a*). You can override
+                        alpha value for connectors by using ``cn_alpha``.
+    depth_coloring :    bool, default=False
+                        If True, will color encode depth (Z). Overrides
+                        ``color``. Does not work with ``method = '3d_complex'``.
+    depth_scale :       bool, default=True
+                        If True and ``depth_coloring=True`` will plot a scale.
+    cn_mesh_colors :    bool, default=False
+                        If True, will use the neuron's color for its connectors.
+    group_neurons :     bool, default=False
+                        If True, neurons will be grouped. Works with SVG export
+                        (not PDF). Does NOT work with ``method='3d_complex'``.
+    scatter_kws :       dict, default={}
+                        Parameters to be used when plotting points. Accepted
+                        keywords are: ``size`` and ``color``.
+    view :              tuple, default = ("x", "y")
+                        Sets view for ``method='2d'``.
+    orthogonal :        bool, default=True
+                        Whether to use orthogonal or perspective view for
+                        methods '3d' and '3d_complex'.
+    volume_outlines :   bool, default=True
+                        If True will plot volume outline with no fill.
+    dps_scale_vec :     float
+                        Scale vector for dotprops.
 
     Examples
     --------
@@ -101,27 +168,32 @@ def plot2d(x: Union[core.NeuronObject,
     >>> import matplotlib.pyplot as plt
 
     Plot list of neurons as simple 2d
+
     >>> nl = navis.example_neurons()
     >>> fig, ax = navis.plot2d(nl, method='2d')
     >>> plt.show() # doctest: +SKIP
 
     Add a volume
+
     >>> vol = navis.example_volume('LH')
     >>> fig, ax = navis.plot2d([nl, vol], method='2d')
     >>> plt.show() # doctest: +SKIP
 
     Change neuron colors
+
     >>> fig, ax = navis.plot2d(nl,
     ...                        method='2d',
     ...                        color=['r', 'g', 'b', 'm', 'c', 'y'])
     >>> plt.show() # doctest: +SKIP
 
     Plot in "fake" 3D
+
     >>> fig, ax = navis.plot2d(nl, method='3d')
     >>> plt.show() # doctest: +SKIP
     >>> # Now try dragging the plot to rotate
 
     Plot in "fake" 3D and change perspective
+
     >>> fig, ax = navis.plot2d(nl, method='3d')
     >>> # Change view to lateral
     >>> ax.azim = 0
@@ -137,113 +209,18 @@ def plot2d(x: Union[core.NeuronObject,
     >>> plt.show() # doctest: +SKIP
 
     Plot using depth-coloring
+
     >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True)
     >>> plt.show() # doctest: +SKIP
 
     To close all figures
+
     >>> plt.close('all')
 
 
     Returns
     -------
     fig, ax :      matplotlib figure and axis object
-
-
-    Notes
-    -----
-    Optional keyword arguments:
-
-    ``soma`` (bool, default = True)
-       Plot soma if one exists.
-
-    ``connectors`` (boolean, default = True)
-       Plot connectors (synapses, gap junctions, abutting)
-
-    ``connectors_only`` (boolean, default = False)
-       Plot only connectors, not the neuron.
-
-    ``cn_size`` (int | float, default = 1)
-      Size of connectors.
-
-    ``linewidth``/``lw`` (int | float, default = .5)
-      Width of neurites.
-
-    ``linestyle``/``ls`` (str, default = '-')
-      Line style of neurites.
-
-    ``autoscale`` (bool, default=True)
-       If True, will scale the axes to fit the data.
-
-    ``scalebar`` (int | float | str | pint.Quantity, default=False)
-       Adds scale bar. Provide integer, float or str to set size of scalebar.
-       Int|float are assumed to be in same units as data. You can specify
-       units in as string: e.g. "1 um".
-       For methods '3d' and '3d_complex', this will create an axis object.
-
-    ``ax`` (matplotlib ax, default=None)
-       Pass an ax object if you want to plot on an existing canvas.
-
-    ``figsize`` (tuple, default = (8, 8))
-      Size of figure.
-
-    ``color`` (tuple | list | str | dict)
-      Tuples/lists (r,g,b) and str (color name) are interpreted as a single
-      colors that will be applied to all neurons. Dicts will be mapped onto
-      neurons by ID.
-
-    ``palette`` (str | array | list of arrays, default=None)
-      Name of a matplotlib or seaborn palette. If ``color`` is
-      not specified will pick colors from this palette.
-
-    ``color_by`` (str | array | list of arrays, default = None)
-      Can be the name of a column in the node table of ``TreeNeurons`` or an
-      array of (numerical or categorical) values for each node. Numerical values
-      will be normalized. You can control the normalization by passing a ``vmin``
-      and/or ``vmax`` parameter.
-
-    ``shade_by`` (str | array | list of arrays, default=None)
-      Similar to ``color_by`` but will affect only the alpha channel of the
-      color. If ``shade_by='strahler'`` will compute Strahler order if not
-      already part of the node table (TreeNeurons only). Numerical values will
-      be normalized. You can control the normalization by passing a ``smin``
-      and/or ``smax`` parameter.
-
-    ``alpha`` (float [0-1], default = .9)
-      Alpha value for neurons. Overriden if alpha is provided as fourth value
-      in ``color`` (rgb*a*). You can override alpha value for connectors by
-      using ``cn_alpha``.
-
-    ``depth_coloring`` (bool, default = False)
-      If True, will color encode depth (Z). Overrides ``color``. Does not work
-      with ``method = '3d_complex'``.
-
-    ``depth_scale`` (bool, default = True)
-      If True and ``depth_coloring=True`` will plot a scale.
-
-    ``cn_mesh_colors`` (bool, default = False)
-      If True, will use the neuron's color for its connectors too.
-
-    ``group_neurons`` (bool, default = False)
-      If True, neurons will be grouped. Works with SVG export (not PDF).
-      Does NOT work with ``method='3d_complex'``.
-
-    ``scatter_kws`` (dict, default = {})
-      Parameters to be used when plotting points. Accepted keywords are:
-      ``size`` and ``color``.
-
-    ``view`` (tuple, default = ("x", "y"))
-      Sets view for ``method='2d'``.
-
-     ``orthogonal`` (bool, default=True)
-      Whether to use orthogonal or perspective view for methods '3d' and
-      '3d_complex'.
-
-    ``volume_outlines`` (bool, default=True)
-      If True will plot volume outline with no fill.
-
-     ``dps_scale_vec`` (float)
-      Scale vector for dotprops.
-
 
     See Also
     --------

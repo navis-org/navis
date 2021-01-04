@@ -267,6 +267,7 @@ def prune_twigs(x: NeuronObject,
     Examples
     --------
     Simple pruning
+
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> # Prune twigs smaller than 5 microns
@@ -279,6 +280,7 @@ def prune_twigs(x: NeuronObject,
     True
 
     Exact pruning
+
     >>> n = navis.example_neurons(1)
     >>> # Prune twigs by exactly 5 microns
     >>> # (example neuron are in 8x8x8nm units)
@@ -844,11 +846,13 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     Examples
     --------
     Stitching neuronlist by simply combining data tables:
+
     >>> import navis
     >>> nl = navis.example_neurons(2)
     >>> stitched = navis.stitch_neurons(nl, method='NONE')
 
     Stitching fragmented neurons:
+
     >>> a = navis.example_neurons(1)
     >>> fragments = navis.cut_neuron(a, 100)
     >>> stitched = navis.stitch_neurons(frag, method='LEAFS')

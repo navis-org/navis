@@ -56,6 +56,20 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     -------
     navis.Dotprops
 
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> dp = navis.make_dotprops(n)
+    >>> dp
+    type        navis.Dotprops
+    name            1734350788
+    id              1734350788
+    k                       20
+    units          8 nanometer
+    n_points              4465
+    dtype: object
+
     """
     if resample:
         if not isinstance(resample, numbers.Number):

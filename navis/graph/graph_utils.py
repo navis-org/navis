@@ -58,6 +58,7 @@ def _generate_segments(x: 'core.NeuronObject',
     Examples
     --------
     This is for doctests mostly
+
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> unweighted = navis.graph_utils._generate_segments(n)
@@ -149,6 +150,7 @@ def _connected_components(x: 'core.TreeNeuron') -> List[Set[int]]:
     Examples
     --------
     For doctest only
+
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> cc = navis.graph_utils._connected_components(n)
@@ -188,6 +190,7 @@ def _break_segments(x: 'core.NeuronObject') -> list:
     Examples
     --------
     For doctest only
+
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> seg = navis.graph_utils._break_segments(n)
@@ -257,6 +260,7 @@ def _edge_count_to_root(x: 'core.TreeNeuron',
     Examples
     --------
     For doctest only
+
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> seg = navis.graph_utils._edge_count_to_root(n)
@@ -1894,6 +1898,7 @@ def insert_nodes(x: 'core.TreeNeuron',
     Examples
     --------
     Insert new nodes between some random points
+
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.n_nodes
@@ -2008,6 +2013,7 @@ def remove_nodes(x: 'core.TreeNeuron',
     Examples
     --------
     Drop points from a neuron
+
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.n_nodes

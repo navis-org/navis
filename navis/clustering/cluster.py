@@ -72,7 +72,7 @@ def cluster_by_connectivity(adjacency: Union[pd.DataFrame, np.ndarray],
 
            .. math::
 
-               S = \\frac{\\text{NeuronA}_{\\text{ shared synapses}}}{\\text{NeuronA}_{\\text{ total synapses}}} \\times \\frac{\\text{NeuronB}_{\\text{ shared synapses}}}{\\text{NeuronB}_{\\text{ total synapses}}}
+               S = \frac{\text{NeuronA}_{\text{ shared synapses}}}{\text{NeuronA}_{\text{ total synapses}}} \times \frac{\text{NeuronB}_{\text{ shared synapses}}}{\text{NeuronB}_{\text{ total synapses}}}
 
        * - vertex
          - Matching index that rewards shared and punishes non-shared partners.
@@ -81,7 +81,7 @@ def cluster_by_connectivity(adjacency: Union[pd.DataFrame, np.ndarray],
 
            .. math::
 
-               f(x,y) = min(x,y) - C1 \\times max(x,y) \\times \\exp(-C2 * min(x,y))
+               f(x,y) = min(x,y) - C1 \times max(x,y) \times \exp(-C2 * min(x,y))
 
            Final score is the sum of :math:`f(x,y)` over all edges x, y between
            neurons A+B and their partners. C1 determines how negatively a case
