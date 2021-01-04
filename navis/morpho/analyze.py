@@ -50,7 +50,7 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> navis.find_soma(n)
-    array([3490])
+    array([4176], dtype=int32)
 
     """
     if not isinstance(x, core.TreeNeuron):

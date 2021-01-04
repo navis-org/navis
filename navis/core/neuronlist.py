@@ -580,8 +580,8 @@ class NeuronList:
         --------
         :func:`~navis.plot3d`
                 Base function called to generate 3d plot.
-        """
 
+        """
         from ..plotting import plot3d
 
         return plot3d(self, **kwargs)
@@ -599,12 +599,11 @@ class NeuronList:
         --------
         :func:`~navis.plot2d`
                 Base function called to generate 2d plot.
-        """
 
+        """
         from ..plotting import plot2d
 
         return plot2d(self, **kwargs)
-
 
     def summary(self,
                 N: Optional[Union[int, slice]] = None,

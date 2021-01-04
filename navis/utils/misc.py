@@ -122,7 +122,7 @@ def set_loggers(level: str = 'INFO'):
     >>> from navis.utils import set_loggers
     >>> from navis import config
     >>> # Get current level
-    >>> lvl = config.logger.getLevel()
+    >>> lvl = config.logger.level
     >>> # Set new level
     >>> set_loggers('INFO')
     >>> # Revert to old level
@@ -159,7 +159,7 @@ def set_pbars(hide: Optional[bool] = None,
     >>> # Never show progress bars
     >>> set_pbars(hide=True)
     >>> # Never use Jupyter widget progress bars
-    >>> set_pbars(juyter=False)
+    >>> set_pbars(jupyter=False)
 
     """
     if isinstance(hide, bool):
@@ -195,13 +195,13 @@ def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.NeuronObject'],
     >>> from navis.data import example_neurons
     >>> nl = example_neurons(3)
     >>> type(nl)
-    navis.core.neuronlist.NeuronList
+    <class 'navis.core.neuronlist.NeuronList'>
     >>> # Unpack list of neuronlists
     >>> unpacked = unpack_neurons([nl, nl])
     >>> type(unpacked)
-    list
+    <class 'list'>
     >>> type(unpacked[0])
-    navis.core.neurons.TreeNeuron
+    <class 'navis.core.neurons.TreeNeuron'>
     >>> len(unpacked)
     6
 
@@ -265,19 +265,19 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     >>> nl = example_neurons(3)
     >>> v = example_volume('LH')
     >>> p = nl[0].nodes[['x', 'y', 'z']].values
-    >>> n, meshes, points, vis = parse_objects([nl, v, p])
+    >>> n, vols, points, vis = parse_objects([nl, v, p])
     >>> type(n), len(n)
-    (navis.core.neuronlist.NeuronList, 3)
+    (<class 'navis.core.neuronlist.NeuronList'>, 3)
     >>> type(vols), len(vols)
-    (list, 1)
-    >>> type(meshes[0])
-    navis.core.volumes.Volume
+    (<class 'list'>, 1)
+    >>> type(vols[0])
+    <class 'navis.core.volumes.Volume'>
     >>> type(points), len(points)
-    (list, 1)
+    (<class 'list'>, 1)
     >>> type(points[0])
-    numpy.ndarray
+    <class 'numpy.ndarray'>
     >>> type(vis), len(points)
-    (list, 1)
+    (<class 'list'>, 1)
 
     """
     # Make sure this is a list.
@@ -340,15 +340,15 @@ def make_url(baseurl, *args: str, **GET) -> str:
                 Will be turned into the URL. For example::
 
                     >>> make_url('http://neuromorpho.org', 'neuron', 'fields')
-                    'http://neuromorpho.org/api/neuron/fields'
+                    'http://neuromorpho.org/neuron/fields'
 
     **GET
                 Keyword arguments are assumed to be GET request queries
                 and will be encoded in the url. For example::
 
                     >>> make_url('http://neuromorpho.org', 'neuron', 'fields',
-                    ...          page = 1)
-                    'http://neuromorpho.org/api/neuron/fields?page=1'
+                    ...          page=1)
+                    'http://neuromorpho.org/neuron/fields?page=1'
 
     Returns
     -------

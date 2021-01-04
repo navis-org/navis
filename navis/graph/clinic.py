@@ -28,6 +28,12 @@ def health_check(x: 'core.NeuronObject', verbose: bool = True) -> None:
     -------
     list of issues or None
 
+    Examples
+    --------
+    >>> n = navis.example_neurons(1)
+    >>> navis.health_check(n)
+    Neuron 1734350788 seems perfectly fine.
+
     """
     if isinstance(x, core.NeuronList):
         for n in x:

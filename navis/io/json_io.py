@@ -95,6 +95,7 @@ def json2neuron(s: str, **kwargs) -> 'core.NeuronList':
 
     Examples
     --------
+    >>> import navis
     >>> n = navis.example_neurons(1)
     >>> js = navis.neuron2json(n)
     >>> n2 = navis.json2neuron(js)

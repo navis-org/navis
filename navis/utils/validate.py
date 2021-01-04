@@ -100,7 +100,7 @@ def validate_table(x: pd.DataFrame,
     >>> n = example_neurons(1)
     >>> tbl = validate_table(n.nodes, ['x', 'y', 'z', 'node_id'])
     >>> tbl = validate_table(n.nodes, ['non_existing_column'])
-    ValueError ...
+    ValueError('Table missing required column: non_existing_column')
 
     Raises
     ------

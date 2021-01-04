@@ -108,14 +108,14 @@ def resample_neuron(x: 'core.NeuronObject',
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> # Check sampling resolution (nodes/cable)
-    >>> round(n.sampling_resolution, 3)
-    191.0
+    >>> round(n.sampling_resolution)
+    60
     >>> # Resample to 1 micron (example neurons are in nm space)
     >>> n_rs = navis.resample_neuron(n,
     ...                              resample_to=1000,
     ...                              inplace=False)
     >>> round(n_rs.sampling_resolution)
-    962.0
+    195
 
     See Also
     --------
@@ -378,6 +378,7 @@ def resample_along_axis(x: 'core.TreeNeuron',
     Examples
     --------
     Resample neuron such that we have one node in every 40nm slice along z axis
+    >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.n_nodes
     4465

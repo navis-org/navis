@@ -711,7 +711,7 @@ class Handler:
 
         Parameters
         ----------
-        x :     list of neuron IDs | TreeNeuron/List | pd Dataframe
+        x :     list of neuron IDs | Neuron/List | pd Dataframe
 
         Returns
         -------

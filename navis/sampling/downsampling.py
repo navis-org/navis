@@ -142,7 +142,7 @@ def downsample_neuron(x: 'core.NeuronObject',
                             f'"{type(preserve_nodes)}"')
 
     if x.nodes.shape[0] <= 1:
-        logger.warning(f'No nodes in neuron {x.id}. Skipping.')
+        logger.warning(f'Neuron {x.id} has no nodes. Skipping.')
         if not inplace:
             return x
         else:

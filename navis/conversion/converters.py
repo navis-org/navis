@@ -25,7 +25,7 @@ def tree2meshneuron(x: 'core.TreeNeuron',
 
     Parameters
     ----------
-    x :             TreeNeuron
+    x :             TreeNeuron | NeuronList
                     Neuron to convert.
     tube_points :   int
                     Number of points making up the circle of the cross-section

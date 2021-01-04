@@ -55,6 +55,14 @@ def _generate_segments(x: 'core.NeuronObject',
                 Segments as list of lists containing node IDs. List is
                 sorted by segment lengths.
 
+    Examples
+    --------
+    This is for doctests mostly
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> unweighted = navis.graph_utils._generate_segments(n)
+    >>> weighted = navis.graph_utils._generate_segments(n, weight='weight')
+
     """
     if isinstance(x, core.NeuronList):
         return [_generate_segments(x.loc[i],
@@ -138,6 +146,13 @@ def _connected_components(x: 'core.TreeNeuron') -> List[Set[int]]:
     list
                 List containing sets of node IDs for each subgraph.
 
+    Examples
+    --------
+    For doctest only
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> cc = navis.graph_utils._connected_components(n)
+
     """
     assert isinstance(x, core.TreeNeuron)
 
@@ -169,6 +184,13 @@ def _break_segments(x: 'core.NeuronObject') -> list:
     -------
     list
                 Segments as list of lists containing node IDs.
+
+    Examples
+    --------
+    For doctest only
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> seg = navis.graph_utils._break_segments(n)
 
     """
     if isinstance(x, core.NeuronList):
@@ -232,6 +254,13 @@ def _edge_count_to_root(x: 'core.TreeNeuron',
 
     Starts from the first node that lacks successors (aka the root).
 
+    Examples
+    --------
+    For doctest only
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> seg = navis.graph_utils._edge_count_to_root(n)
+
     """
     dist = {}
     for root in x.root:
@@ -239,6 +268,8 @@ def _edge_count_to_root(x: 'core.TreeNeuron',
 
     # Map node ID to vertex index for igraph
     if igraph_indices:
+        if not x.igraph:
+            raise ValueError('Neuron does not have an igraph representation.')
         id2ix = dict(zip(x.igraph.vs['node_id'], range(len(x.igraph.vs))))
         dist = {id2ix[k]: v for k, v in dist.items()}
 
@@ -614,7 +645,7 @@ def segment_length(x: 'core.TreeNeuron',
     >>> n = navis.example_neurons(1)
     >>> l = navis.segment_length(n, n.segments[0])
     >>> round(l)
-    213336.0
+    56331
 
     """
     if not isinstance(x, core.TreeNeuron):
@@ -1839,9 +1870,14 @@ def insert_nodes(x: 'core.TreeNeuron',
     where :     list of node pairs
                 Must be a list of node ID pairs. A new node will be added
                 between the nodes of each pair (see examples).
-    coords :    None | list of (x, y, z) coordinates
-                Coordinates for the newly inserted nodes. If ``None`` new
-                nodes will be inserted exactly between the two nodes.
+    coords :    None | list of (x, y, z) coordinates | list of fractions
+                Can be:
+                 - ``None``: new nodes will be inserted exactly between the two
+                             nodes
+                 - (N, 3) array of coordinates for the newly inserted nodes
+                 - (N, ) array of fractional distances [0-1]: e.g. 0.25 means
+                   that a new node will be inserted a quarter of the way between
+                   the two nodes (from the child's perspective)
     validate :  bool
                 If True, will make sure that pairs in ``where`` are always
                 in (parent, child) order. If you know this to already be the
@@ -1858,6 +1894,7 @@ def insert_nodes(x: 'core.TreeNeuron',
     Examples
     --------
     Insert new nodes between some random points
+    >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.n_nodes
     4465
@@ -1971,6 +2008,7 @@ def remove_nodes(x: 'core.TreeNeuron',
     Examples
     --------
     Drop points from a neuron
+    >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.n_nodes
     4565
@@ -2026,7 +2064,8 @@ def rewire_neuron(x: 'core.TreeNeuron',
     g :         networkx.Graph
                 Graph to use for rewiring. Please note that directionality (if
                 present) is note taken into account. Nodes not included in the
-                graph will be disconnected (i.e. won't have a parent).
+                graph will be disconnected (i.e. won't have a parent). Nodes
+                in the graph but not in the table are ignored!
     root :      int
                 Node ID for the new root. If not given, will try to use the
                 current root.
@@ -2041,6 +2080,7 @@ def rewire_neuron(x: 'core.TreeNeuron',
 
     Examples
     --------
+    >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.n_trees
     1
@@ -2048,7 +2088,7 @@ def rewire_neuron(x: 'core.TreeNeuron',
     >>> g = n.graph.copy()
     >>> g.remove_edge(4219, 2117)
     >>> # Rewire neuron
-    >>> n2 = ns.rewire_neuron(n, g, inplace=False)
+    >>> n2 = navis.rewire_neuron(n, g, inplace=False)
     >>> n2.n_trees
     2
 

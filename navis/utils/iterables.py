@@ -62,7 +62,8 @@ def make_non_iterable(x):
     >>> make_non_iterable(1)
     1
     >>> make_non_iterable([1, 2])
-    ValueError ...
+    Traceback (most recent call last):
+    ValueError: Iterable must not contain more than one entry.
 
     """
     if not is_iterable(x):

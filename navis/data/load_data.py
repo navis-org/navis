@@ -89,7 +89,8 @@ def example_neurons(n: Optional[int] = None,
     --------
     Load a single neuron
     >>> import navis
-    >>> n = navis.example_neurons(n=1)
+    >>> n = navis.example_neuronss(n=1)
+    'test'
 
     Load all example neurons
     >>> nl = navis.example_neurons()

@@ -217,14 +217,16 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     >>> lh = navis.example_volume('LH')
     >>> n_lh = navis.in_volume(n, lh, inplace=False)
     >>> n_lh
-    type              TreeNeuron
-    name            neuron_38885
-    n_nodes                 1299
-    n_connectors               0
-    n_branches                54
-    n_leafs                   56
-    cable_length          294836
-    soma                    None
+    type            navis.TreeNeuron
+    name                  1734350788
+    id                    1734350788
+    n_nodes                      344
+    n_connectors                None
+    n_branches                    49
+    n_leafs                       50
+    cable_length             32313.5
+    soma                        None
+    units                8 nanometer
     dtype: object
 
     """

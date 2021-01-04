@@ -103,22 +103,22 @@ def plot2d(x: Union[core.NeuronObject,
     Plot list of neurons as simple 2d
     >>> nl = navis.example_neurons()
     >>> fig, ax = navis.plot2d(nl, method='2d')
-    >>> plt.show()
+    >>> plt.show() # doctest: +SKIP
 
     Add a volume
-    >>> v = navis.example_volume('LH')
+    >>> vol = navis.example_volume('LH')
     >>> fig, ax = navis.plot2d([nl, vol], method='2d')
-    >>> plt.show()
+    >>> plt.show() # doctest: +SKIP
 
     Change neuron colors
     >>> fig, ax = navis.plot2d(nl,
     ...                        method='2d',
     ...                        color=['r', 'g', 'b', 'm', 'c', 'y'])
-    >>> plt.show()
+    >>> plt.show() # doctest: +SKIP
 
     Plot in "fake" 3D
     >>> fig, ax = navis.plot2d(nl, method='3d')
-    >>> plt.show()
+    >>> plt.show() # doctest: +SKIP
     >>> # Now try dragging the plot to rotate
 
     Plot in "fake" 3D and change perspective

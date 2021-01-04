@@ -31,6 +31,7 @@ def get_viewer():
 
     Examples
     --------
+    >>> import navis
     >>> from vispy import scene
     >>> # Get and plot neuron in 3d
     >>> n = navis.example_neurons(1)

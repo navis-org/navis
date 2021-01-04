@@ -453,6 +453,11 @@ def remove_soma_hairball(x: 'core.TreeNeuron',
     x :         core.TreeNeuron
     radius :    float
                 Radius around the soma to check for hairball
+
+    Returns
+    -------
+    TreeNeuron
+                If inplace=False.
     """
     if not inplace:
         x = x.copy()

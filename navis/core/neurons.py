@@ -586,7 +586,7 @@ class BaseNeuron:
 
 
 class MeshNeuron(BaseNeuron):
-    """Object representing a neuron as mesh."""
+    """Neuron represented a by a mesh with vertices and faces."""
 
     connectors: Optional[pd.DataFrame]
 
@@ -804,7 +804,7 @@ class MeshNeuron(BaseNeuron):
 
 
 class TreeNeuron(BaseNeuron):
-    """Object representing neurons as hierarchical trees."""
+    """Neuron represented as hierarchical tree (i.e. a skeleton)."""
 
     nodes: pd.DataFrame
 
@@ -1931,7 +1931,7 @@ class TreeNeuron(BaseNeuron):
 
 
 class Dotprops(BaseNeuron):
-    """Object representing a neuron as dotprops.
+    """Neuron represented as dotprops.
 
     Dotprops consist of points with x/y/z coordinates, a tangent vector and an
     alpha value describing the immediate neighbourhood. See References.

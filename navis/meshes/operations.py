@@ -37,7 +37,7 @@ def simplify_mesh(x, ratio, inplace=False):
     Returns
     -------
     simplified
-            Simplified object.
+                Simplified object.
 
     """
     if isinstance(x, core.NeuronList):
