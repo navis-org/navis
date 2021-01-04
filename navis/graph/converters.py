@@ -31,7 +31,7 @@ from .. import config, core
 logger = config.logger
 
 __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
-                  'neuron2nx', 'neuron2KDTree', 'neuron2dps'])
+                  'neuron2nx', 'neuron2KDTree'])
 
 
 def network2nx(x: Union[pd.DataFrame, Iterable],
@@ -488,68 +488,3 @@ def neuron2KDTree(x: 'core.TreeNeuron',
         return scipy.spatial.cKDTree(data=d, **kwargs)
     else:
         return scipy.spatial.KDTree(data=d, **kwargs)
-
-
-def neuron2dps(x: 'core.TreeNeuron') -> pd.DataFrame:
-    """Convert neuron to point clouds with tangent vectors (but no connectivity).
-
-    Dotprops consist of a point and a vector. This works by (1) finding the
-    center between child->parent nodes and (2) getting the vector between
-    them. Also returns the length of the vector.
-
-    Parameters
-    ----------
-    x :         TreeNeuron
-                Single neuron
-
-    Returns
-    -------
-    pandas.DataFrame
-            DataFrame in which each row represents a segments between two
-            nodes::
-
-                point  vector  vec_length
-             1
-             2
-             3
-
-    Examples
-    --------
-    >>> import navis
-    >>> x = navis.example_neurons()
-    >>> dps = navis.neuron2dps(x)
-    >>> # Get array of all locations
-    >>> locs = numpy.vstack(dps.point.values)
-
-    See Also
-    --------
-    navis.TreeNeuron.dps
-            Shorthand to the dotprops representation of neuron.
-
-    """
-    if isinstance(x, core.NeuronList):
-        if x.shape[0] == 1:
-            x = x[0]
-        else:
-            raise ValueError('Please pass only single TreeNeurons')
-
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError('Can only process TreeNeurons')
-
-    # First, get a list of child -> parent locs (exclude root node!)
-    tn_locs = x.nodes[x.nodes.parent_id >= 0][['x', 'y', 'z']].values
-    pn_locs = x.nodes.set_index('node_id', inplace=False).loc[x.nodes[x.nodes.parent_id >= 0].parent_id][['x', 'y', 'z']].values
-
-    # Get centers between each pair of locs
-    centers = tn_locs + (pn_locs - tn_locs) / 2
-
-    # Get vector between points
-    vec = pn_locs - tn_locs
-
-    dps = pd.DataFrame([[c, v] for c, v in zip(centers, vec)],
-                       columns=['point', 'vector'])
-
-    # Add length of vector (for convenience)
-    dps['vec_length'] = (dps.vector ** 2).apply(sum).apply(math.sqrt)
-
-    return dps

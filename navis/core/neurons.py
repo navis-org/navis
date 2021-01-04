@@ -1507,17 +1507,6 @@ class TreeNeuron(BaseNeuron):
         self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
         return self._igraph
 
-    def get_dps(self) -> pd.DataFrame:
-        """Calculate and return dotprops representation of the neuron.
-
-        See Also
-        --------
-        :func:`navis.neuron2dps`
-
-        """
-        self._dps = graph.neuron2dps(self)
-        return self._dps
-
     @overload
     def resample(self, resample_to: int, inplace: Literal[False]) -> 'TreeNeuron': ...
 
