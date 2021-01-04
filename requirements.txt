@@ -1,7 +1,9 @@
+hyp5>=3.1
 matplotlib>=3.2
 morphops>=0.1.11
-numpy>=1.16
+ncollpyde>=0.11
 networkx>=2.4
+numpy>=1.16
 pandas>=1.0
 pint>=0.10
 plotly>=4.9
@@ -15,14 +17,6 @@ setuptools>=50.6
 scipy>=1.5
 six>=1.11
 tqdm>=4.45
-vispy>=0.6.4
 typing-extensions>=3.7.4
 trimesh>=3.8
-ncollpyde>=0.11
-# Below are optional dependencies
-# py2cytoscape~=0.7.0
-# pyoctree~=0.2.10
-# ete3~=3.0.0b35
-# rpy2~=2.9.4
-# fuzzywuzzy[speedup]~=0.17.0
-# python-igraph~=0.8.2
+vispy>=0.6.4
