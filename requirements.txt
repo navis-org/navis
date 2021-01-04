@@ -1,4 +1,4 @@
-hyp5>=3.1
+h5py>=3.1
 matplotlib>=3.2
 morphops>=0.1.11
 ncollpyde>=0.11
