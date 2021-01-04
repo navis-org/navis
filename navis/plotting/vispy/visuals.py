@@ -247,14 +247,18 @@ def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
     cn_lay.update(kwargs.get('synapse_layout', {}))
 
     visuals = []
+    cn_colors = kwargs.get('cn_colors', None)
     for j in neuron.connectors.type.unique():
-        if kwargs.get('cn_mesh_colors', False):
+        if isinstance(cn_colors, dict):
+            color = cn_colors.get(j, cn_lay.get(j, {}).get('color', (.1, .1, .1)))
+        elif cn_colors == 'neuron':
             color = neuron_color
+        elif cn_colors:
+            color = cn_colors
         else:
             color = cn_lay.get(j, {}).get('color', (.1, .1, .1))
 
-        if max(color) > 1:
-            color = np.array(color) / 255
+        color = eval_color(color, color_range=1)
 
         this_cn = neuron.connectors[neuron.connectors.type == j]
 

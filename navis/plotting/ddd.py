@@ -75,14 +75,17 @@ def plot3d(x: Union[core.NeuronObject,
                           have the Plotly labextension installed.
     connectors :      bool, default=False
                       Plot connectors (e.g. synapses) if available.
-    cn_mesh_colors :  bool, default=False
-                      Plot connectors using mesh colors.
     color :           None | str | tuple | list | dict, default=None
                       Use single str (e.g. ``'red'``) or ``(r, g, b)`` tuple
                       to give all neurons the same color. Use ``list`` of
                       colors to assign colors: ``['red', (1, 0, 1), ...].
                       Use ``dict`` to map colors to neurons:
-                      ``{uuid: (r, g, b), ...}``. RGB must be 0-255.
+                      ``{uuid: (r, g, b), ...}``. 
+    cn_colors :       str | tuple | dict | "neuron"
+                      Overrides the default colors::
+                        - single color as str (e.g. ``'red'``) or rgb tuple (e.g. ``(1, 0, 0)``)
+                        - dict mapping the connectors tables ``type`` column to a color (e.g. `{0: (1, 0, 0)}`)
+                        - with "neuron", connectors will receive the same color as their neuron
     palette :         str | array | list of arrays, default=None
                       Name of a matplotlib or seaborn palette. If ``color`` is
                       not specified will pick colors from this palette.
@@ -235,7 +238,7 @@ def plot3d_vispy(x, **kwargs):
 
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
-               'cn_mesh_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
+               'cn_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'alpha',
                'auto_limits', 'autolimits', 'viewer', 'radius', 'center',
                'clear', 'clear3d', 'connectors', 'connectors_only', 'soma',
@@ -290,7 +293,7 @@ def plot3d_plotly(x, **kwargs):
 
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
-               'cn_mesh_colors', 'linewidth', 'lw', 'scatter_kws',
+               'cn_colors', 'linewidth', 'lw', 'scatter_kws',
                'synapse_layout', 'legend_group',
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
                'plotly_inline', 'alpha', 'radius', 'fig', 'soma',

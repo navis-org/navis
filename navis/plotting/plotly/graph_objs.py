@@ -96,7 +96,7 @@ def neuron2plotly(x, **kwargs):
         colormap = new_colormap
         """
 
-    syn_lay = {
+    cn_lay = {
         0: {'name': 'Presynapses',
             'color': (255, 0, 0)},
         1: {'name': 'Postsynapses',
@@ -106,10 +106,10 @@ def neuron2plotly(x, **kwargs):
         'display': 'lines',  # 'circles'
         'size': 2  # for circles only
     }
-    syn_lay['pre'] = syn_lay[0]
-    syn_lay['post'] = syn_lay[1]
-    syn_lay['gap_junction'] = syn_lay['gapjunction'] = syn_lay[2]
-    syn_lay.update(kwargs.get('synapse_layout', {}))
+    cn_lay['pre'] = cn_lay[0]
+    cn_lay['post'] = cn_lay[1]
+    cn_lay['gap_junction'] = cn_lay['gapjunction'] = cn_lay[2]
+    cn_lay.update(kwargs.get('synapse_layout', {}))
 
     trace_data = []
     for i, neuron in enumerate(x):
@@ -146,27 +146,34 @@ def neuron2plotly(x, **kwargs):
         # Add connectors
         if (kwargs.get('connectors', False)
             or kwargs.get('connectors_only', False)) and neuron.has_connectors:
+            cn_colors = kwargs.get('cn_colors', None)
             for j in neuron.connectors.type.unique():
-                if kwargs.get('cn_mesh_colors', False):
+                if isinstance(cn_colors, dict):
+                    c = cn_colors.get(j, cn_lay.get(j, {'color': (10, 10, 10)})['color'])
+                elif cn_colors == 'neuron':
                     c = color
+                elif cn_colors:
+                    c = cn_colors
                 else:
-                    c = syn_lay.get(j, {'color': (10, 10, 10)})['color']
+                    c = cn_lay.get(j, {'color': (10, 10, 10)})['color']
+
+                c = eval_color(c, color_range=255)
 
                 this_cn = neuron.connectors[neuron.connectors.type == j]
 
-                if syn_lay['display'] == 'circles' or isinstance(neuron, core.MeshNeuron):
+                if cn_lay['display'] == 'circles' or isinstance(neuron, core.MeshNeuron):
                     trace_data.append(go.Scatter3d(
                         x=this_cn.x.values,
                         y=this_cn.y.values,
                         z=this_cn.z.values,
                         mode='markers',
-                        marker=dict(color=f'rgb{c}', size=syn_lay.get('size', 2)),
-                        name=f'{syn_lay.get(j, {"name": "connector"})["name"]} of {name}',
+                        marker=dict(color=f'rgb{c}', size=cn_lay.get('size', 2)),
+                        name=f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}',
                         showlegend=False,
                         legendgroup=legend_group,
                         hoverinfo='none'
                     ))
-                elif syn_lay['display'] == 'lines':
+                elif cn_lay['display'] == 'lines':
                     # Find associated treenodes
                     tn = neuron.nodes.set_index('node_id').loc[this_cn.node_id.values]
                     x_coords = [n for sublist in zip(this_cn.x.values, tn.x.values, [None] * this_cn.shape[0]) for n in sublist]
@@ -182,7 +189,7 @@ def neuron2plotly(x, **kwargs):
                             color='rgb%s' % str(c),
                             width=5
                         ),
-                        name=f'{syn_lay.get(j, {"name": "connector"})["name"]} of {name}',
+                        name=f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}',
                         showlegend=False,
                         legendgroup=legend_group,
                         hoverinfo='none'
