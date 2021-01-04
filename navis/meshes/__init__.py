@@ -13,3 +13,5 @@
 
 from .mesh_utils import fix_mesh
 from .operations import simplify_mesh
+
+__all__ = ['fix_mesh', 'simplify_mesh']

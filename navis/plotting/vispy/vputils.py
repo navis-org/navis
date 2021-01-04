@@ -19,6 +19,8 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from vispy.gloo.util import _screenshot
 
+__all__ = ['get_viewer', 'clear3d', 'close3d', 'screenshot']
+
 
 def get_viewer():
     """Grab active 3D viewer.

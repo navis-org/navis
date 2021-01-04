@@ -12,10 +12,17 @@
 #    GNU General Public License for more details.
 
 from .mmetrics import (strahler_index, bending_flow, flow_centrality,
-                      segregation_index, arbor_segregation_index, tortuosity)
+                       segregation_index, arbor_segregation_index, tortuosity)
 from .manipulation import (prune_by_strahler, stitch_neurons,
                            split_axon_dendrite, average_neurons,
                            despike_neuron, guess_radius, smooth_neuron,
                            heal_fragmented_neuron, break_fragments,
                            prune_twigs)
 from .analyze import find_soma
+
+__all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
+           'segregation_index', 'arbor_segregation_index', 'tortuosity',
+           'prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
+           'average_neurons', 'despike_neuron', 'guess_radius', 'smooth_neuron',
+           'heal_fragmented_neuron', 'break_fragments', 'prune_twigs',
+           'find_soma']

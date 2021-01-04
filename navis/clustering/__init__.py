@@ -13,3 +13,6 @@
 
 from .cluster import (cluster_by_connectivity, cluster_by_synapse_placement,
                       cluster_xyz, ClustResults)
+
+__all__ = ['cluster_by_connectivity', 'cluster_by_synapse_placement',
+           'cluster_xyz']                      

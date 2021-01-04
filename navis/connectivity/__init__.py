@@ -14,3 +14,5 @@
 from .predict import cable_overlap
 from .matrix_utils import group_matrix
 from .cnmetrics import sparseness
+
+__all__ = ['sparseness', 'group_matrix', 'cable_overlap']

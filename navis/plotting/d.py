@@ -30,6 +30,8 @@ colortype = Union[str,
                   Tuple[float, float, float],
                   Tuple[float, float, float, float]]
 
+__all__ = ['plot1d']
+
 
 def plot1d(x: 'core.NeuronObject',
            ax: Optional[mpl.axes.Axes] = None,

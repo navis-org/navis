@@ -13,3 +13,5 @@
 
 
 from .load_data import example_neurons, example_volume
+
+__all__ = ['example_neurons', 'example_volume']

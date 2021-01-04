@@ -17,3 +17,6 @@ from .ddd import *
 from .vispy import *
 
 from .colors import vary_colors
+
+__all__ = ['plot1d', 'plot2d', 'plot3d', 'vary_colors', 'Viewer',
+           'get_viewer', 'clear3d', 'close3d', 'screenshot']

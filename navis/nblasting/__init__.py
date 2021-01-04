@@ -12,3 +12,5 @@
 #    GNU General Public License for more details.
 
 from .nblast_funcs import nblast, nblast_allbyall
+
+__all__ = ['nblast', 'nblast_allbyall']

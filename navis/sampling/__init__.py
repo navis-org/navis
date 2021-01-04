@@ -12,4 +12,6 @@
 #    GNU General Public License for more details.
 
 from .downsampling import downsample_neuron
-from .resampling import resample_neuron, resample_along_axis 
+from .resampling import resample_neuron, resample_along_axis
+
+__all__ = ['downsample_neuron', 'resample_neuron', 'resample_along_axis']
