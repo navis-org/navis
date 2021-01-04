@@ -3,8 +3,31 @@
 API Reference
 =============
 
-Unless otherwise stated below functions are available at top level import,
-i.e. after ``import navis``.
+``navis`` has grown a lot: last I looked, there were ~100 functions exposed
+at top level (e.g. ``navis.plot3d``) and easily another 100 secondary functions
+available via submodules (e.g. ``navis.morpho.find_soma``).
+
+This API reference is a more or less complete account of the primary functions:
+
+1. :ref:`Neuron- and NeuronList functions and methods <api_neurons>`
+2. :ref:`Functions for visualization<api_plot>`
+3. :ref:`Manipulate or analyze neuron morphology<api_morph>`
+4. :ref:`Analyze connectivity<api_con>`
+5. :ref:`Import/Export<io>`
+6. :ref:`Utility functions<api_utility>`
+
+In addition ``navis`` has interfaces to various external APIs and softwares:
+
+1. :ref:`Neuromorpho<api_interfaces.neuromorpho>`
+2. :ref:`neuPrint<api_interfaces.neuprint>`
+3. :ref:`InsectBrain DB<api_interfaces.insectdb>`
+4. :ref:`Blender 3D<api_interfaces.blender>`
+5. :ref:`Cytoscape<api_interfaces.cytoscape>`
+6. :ref:`R and the natverse libraries<api_interfaces.r>`
+
+
+Most of these functions include examples of how to use them. Click on them to
+learn more!
 
 .. _api_neurons:
 
@@ -16,11 +39,11 @@ Neuron/List
 .. autosummary::
     :toctree: generated/
 
-    ~navis.TreeNeuron
-    ~navis.MeshNeuron
-    ~navis.Dotprops
-    ~navis.make_dotprops
-    ~navis.NeuronList
+    navis.TreeNeuron
+    navis.MeshNeuron
+    navis.Dotprops
+    navis.make_dotprops
+    navis.NeuronList
 
 Neuron methods
 --------------
@@ -164,7 +187,20 @@ Various functions for plotting neurons and volumes.
     navis.close3d
     navis.get_viewer
     navis.screenshot
+
+Volumes (meshes)
+----------------
+To plot meshes, you can pass ``trimesh.Trimesh`` objects directly to ``plot3d``
+or ``plot2d``. However, ``navis`` has a custom class to represent meshes that
+has some useful perks: :class:`navis.Volume`.
+
+.. autosummary::
+    :toctree: generated/
+
     navis.Volume
+    navis.Volume.combine
+    navis.Volume.plot3d
+    navis.Volume.validate
 
 Vispy 3D viewer
 ---------------
@@ -190,7 +226,7 @@ which has a bunch of useful methods:
 
 Neuron Morphology
 +++++++++++++++++
-Collection of functions to analyse and manipulate neuronal morphology.
+Collection of functions to analyze and manipulate neuronal morphology.
 
 Manipulation
 ------------
@@ -229,7 +265,7 @@ Functions to down- or resample neurons.
 
 Analysis
 --------
-Functions to analyse morphology.
+Functions to analyze morphology.
 
 .. autosummary::
     :toctree: generated/
@@ -273,6 +309,17 @@ Functions to intersect points and neurons with volumes.
     navis.in_volume
     navis.intersection_matrix
 
+Transforming and Mirroring
+--------------------------
+Functions to transform spatial data between (e.g. neurons) template brains.
+Check out the `tutorials<example_gallery>` for example on how to use them.
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.xform_brain
+    navis.mirror_brain
+
 .. _api_con:
 
 Connectivity
@@ -315,6 +362,7 @@ Functions to cluster neurons based on connectivity.
     navis.cluster_by_synapse_placement
     navis.ClustResults
 
+.. _io:
 
 Import/Export
 +++++++++++++
@@ -341,7 +389,7 @@ imported explicitly as they are not imported at top level.
 NeuroMorpho API
 +++++++++++++++
 Set of functions to grab data from `NeuroMorpho <http://neuromorpho.org>`_
-which hosts thousands of neurons (see Tutorials).
+which hosts thousands of neurons (see `tutorials<example_gallery>`).
 
 Not imported at top level! Must be imported explicitly::
 
@@ -358,7 +406,7 @@ Not imported at top level! Must be imported explicitly::
 
 .. _api_interfaces.neuprint:
 
-neuprint API
+nePrint API
 ++++++++++++
 NAVis wraps `neuprint-python <https://github.com/connectome-neuprint/neuprint-python>`_
 and adds a few navis-specific functions. You must have `neuprint-python`
@@ -377,13 +425,15 @@ You can then import neuprint from navis like so::
     navis.interfaces.neuprint.fetch_skeletons
     navis.interfaces.neuprint.fetch_mesh_neuron
 
+Please also check out the :ref:`tutorials<example_gallery>` for examples of how
+to fetch and work with data from neuPrint.
 
-.. _api_interfaces.neuromorpho:
+.. _api_interfaces.insectdb:
 
 InsectBrain DB API
 ++++++++++++++++++
 Set of functions to grab data from `InsectBrain <https://www.insectbraindb.org>`_
-which hosts some neurons and standard brains (see Tutorials).
+which hosts some neurons and standard brains (see `tutorials<example_gallery>`).
 
 Not imported at top level! Must be imported explicitly::
 
@@ -403,7 +453,9 @@ Blender API
 +++++++++++
 Functions to be run inside `Blender 3D <https://www.blender.org/>`_ and import
 CATMAID data (see Examples). Please note that this requires Blender >2.8 as
-earlier versions are shipped with Python <3.6.
+earlier versions are shipped with Python <3.6. See the
+`tutorials<example_gallery>` for an introduction of how to use ``navis`` in
+Blender.
 
 Not imported at top level! Must be imported explicitly::
 
@@ -462,6 +514,8 @@ Selections
     navis.interfaces.blender.ObjectList.to_json
 
 
+.. _api_interfaces.cytoscape:
+
 Cytoscape API
 +++++++++++++
 Functions to use `Cytoscape <https://cytoscape.org/>`_ via the cyREST API.
@@ -475,6 +529,8 @@ Not imported at top level! Must be imported explicitly::
 
     navis.interfaces.cytoscape.generate_network
     navis.interfaces.cytoscape.get_client
+
+.. _api_interfaces.r:
 
 R interface
 +++++++++++
@@ -499,6 +555,7 @@ Not imported at top level! Must be imported explicitly::
     navis.interfaces.r.xform_brain
     navis.interfaces.r.mirror_brain
 
+.. _api_utility:
 
 Utility
 +++++++
