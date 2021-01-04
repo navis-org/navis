@@ -254,6 +254,7 @@ html_theme_options = {
                      ("Tutorials", "source/gallery"),
                      ("API", "source/api"),
                      ("Github", "https://github.com/schlegelp/navis", True),
+                     ("Ecosystem", "source/other_libraries"),
                      ],
                      }
 
