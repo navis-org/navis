@@ -27,4 +27,5 @@ from .clinic import (health_check)
 __all__ = ['cut_neuron', 'longest_neurite', 'split_into_fragments',
            'reroot_neuron', 'distal_to', 'dist_between',
            'find_main_branchpoint', 'geodesic_matrix', 'subset_neuron',
-           'rewire_neuron', 'insert_nodes', 'remove_nodes', 'health_check']
+           'rewire_neuron', 'insert_nodes', 'remove_nodes', 'health_check',
+           'graph_utils']

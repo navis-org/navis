@@ -13,4 +13,4 @@
 
 from .intersect import in_volume, intersection_matrix
 
-__all__ = ['in_volume', 'intersection_matrix']
+__all__ = ['in_volume', 'intersection_matrix', 'intersect']
