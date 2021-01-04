@@ -413,16 +413,16 @@ def cluster_by_synapse_placement(x: Union[NeuronList,
 
     .. math::
 
-        f(i_{s},j_{k}) = \\exp(\\frac{-d^{2}_{sk}}{2\\sigma^{2}}) \\exp(\\frac{|n(i_{s})-n(j_{k})|}{n(i_{s})+n(j_{k})})
+        f(i_{s},j_{k}) = \exp(\frac{-d^{2}_{sk}}{2\sigma^{2}}) \exp(\frac{|n(i_{s})-n(j_{k})|}{n(i_{s})+n(j_{k})})
 
     The synapse similarity score for neurons i and j being the average
     of :math:`f(i_{s},j_{k})` over all synapses s of i. Synapse k is the
     closest synapse of the same sign (pre/post) in neuron j to synapse s.
     :math:`d^{2}_{sk}` is the eucledian distance between these distances.
-    Variable :math:`\\sigma` (``sigma``) determines what distance between
+    Variable :math:`\sigma` (``sigma``) determines what distance between
     s and k is considered "close". :math:`n(i_{s})` and :math:`n(j_{k})` are
     defined as the number of synapses of neuron i/j that are within given
-    radius :math:`\\omega` (``omega``) of synapse s and j, respectively (same
+    radius :math:`\omega` (``omega``) of synapse s and j, respectively (same
     sign only). This esnures that in cases of a strong disparity between
     :math:`n(i_{s})` and :math:`n(j_{k})`, the synapse similarity will be
     close to zero even if the distance between s and k is very small.
