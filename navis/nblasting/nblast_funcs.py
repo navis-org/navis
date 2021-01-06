@@ -24,6 +24,7 @@ from tqdm.auto import tqdm
 from typing import Union, Optional
 from typing_extensions import Literal
 
+from .. import core
 from ..core import NeuronList, Dotprops, make_dotprops
 from .. import config
 
