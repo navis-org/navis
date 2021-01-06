@@ -16,8 +16,9 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 * virtual neuron surgery: cutting, pruning, rerooting
 * implements NBLAST (Costa et al., 2016)
 * clustering (e.g. by connectivity or synapse placement)
-* Python bindings for R neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
-* interfaces with [Blender3d](https://www.blender.org), [Cytoscape](https://cytoscape.org) and [neuprint](https://neuprint.janelia.org)
+* interface with [Blender3D](https://www.blender.org)
+* interface with R neuron libraries: e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr)
+* support for affine, HDF5, CMTK and thin plate spine transforms
 
 ## Getting started
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:
