@@ -49,8 +49,8 @@ class H5transform(BaseTransform):
                     highest available resolution.
     cache :         bool
                     If True, we will cache the deformation field for subsequent
-                    future transforms. This can speed up calculations in the
-                    future but will take up additional memory.
+                    future transforms. This will speed up future calculations
+                    in the future but comes at a memory cost.
     full_ingest :   bool
                     If True, will read and cache the full deformation field at
                     initialization. This additional upfront cost can pay off if
@@ -68,8 +68,6 @@ class H5transform(BaseTransform):
         self.file = f
         self.direction = direction
         self.field = {'forward': 'dfield', 'inverse': 'invdfield'}[direction]
-        self.use_cache = cache
-        self.full_ingest = full_ingest
 
         # Trying to avoid the file repeatedly so we are making these initial
         # adjustments all in one go even though it would be more Pythonic to
@@ -89,32 +87,25 @@ class H5transform(BaseTransform):
                 level = available_levels[ix]
 
             # Set level
-            self.level = str(level)
+            self._level = str(level)
 
             # Shape of deformation field
             self.shape = h5[self.level][self.field].shape
 
-            if self.full_ingest:
-                # Ingest the whole deformation field
-                self.cache = h5[self.level][self.field][:, :, :]
-                self.use_cache = True
-            elif self.use_cache:
-                # Set up for cache:
-                # This is the actual cache
-                self.cache = np.zeros(self.shape,
-                                      dtype=h5[self.level][self.field].dtype)
-                # This is a mask that tells us which values have already been cached
-                self.cached = np.zeros(self.shape[:-1],
-                                       dtype=np.bool)
+            # Data type of deformation field
+            self.dtype = h5[self.level][self.field].dtype
 
-                # Note: should explore whether we can use sparse N-dimensional
-                # arrays for caching to save memory
-                # See https://github.com/pydata/sparse/
+        # Prepare cache if applicable
+        if full_ingest:
+            # Ingest the whole deformation field
+            self.full_ingest()
+        elif cache:
+            self.use_cache = True
 
     def __eq__(self, other) -> bool:
         """Compare with other Transform."""
         if isinstance(other, H5transform):
-            if self.reg == other.reg:
+            if self.file == other.file:
                 if self.direction == other.direction:
                     if self.level == other.level:
                         return True
@@ -127,9 +118,71 @@ class H5transform(BaseTransform):
                          'inverse': 'forward'}[self.direction]
         # We will re-iniatialize
         x = H5transform(self.file, direction=new_direction, level=int(self.level),
-                        cache=self.use_cache, full_ingest=self.full_ingest)
+                        cache=self.use_cache, full_ingest=False)
 
         return x
+
+    @property
+    def level(self):
+        return self._level
+
+    @level.setter
+    def level(self, value):
+        raise ValueError('`level` can not be changed after initialization.')
+
+    @property
+    def use_cache(self):
+        """Whether to cache the deformation field."""
+        if not hasattr(self, '_use_cache'):
+            self._use_cache = False
+        return self._use_cache
+
+    @use_cache.setter
+    def use_cache(self, value):
+        """Set whether to cache the deformation field."""
+        assert isinstance(value, bool)
+
+        # If was False and now set to True, build the cache
+        if not getattr(self, '_use_cache', False) and value:
+            # This is the actual cache
+            self.cache = np.zeros(self.shape,
+                                  dtype=self.dtype)
+            # This is a mask that tells us which values have already been cached
+            self.cached = np.zeros(self.shape[:-1],
+                                   dtype=np.bool)
+            self._use_cache = True
+        # If was True and now is set to False, deconstruct cache
+        elif getattr(self, '_use_cache', False) and not value:
+            del self.cache
+            del self.cached
+            self._use_cache = False
+
+            if hasattr(self, '_fully_ingested'):
+                del self._fully_ingested
+
+        # Note: should explore whether we can use sparse N-dimensional
+        # arrays for caching to save memory
+        # See https://github.com/pydata/sparse/
+
+    def copy(self):
+        """Return copy."""
+        return H5transform(self.file,
+                           direction=self.direction,
+                           level=int(self.level),
+                           cache=self.use_cache,
+                           full_ingest=False)
+
+    def full_ingest(self):
+        """Fully ingest the deformation field."""
+        with h5py.File(self.file, 'r') as h5:
+            # Read in the entire field
+            self.cache = h5[self.level][self.field][:, :, :]
+            # Keep a flag of this
+            self._fully_ingested = True
+            # We set `cached` to True instead of using a mask
+            self.cached = True
+            # Keep track of the caching
+            self._use_cache = True
 
     @staticmethod
     def from_file(filepath: str, **kwargs) -> 'H5transform':
@@ -211,7 +264,7 @@ class H5transform(BaseTransform):
             mx = np.clip(mx, 0, self.shape[:-1][::-1])
 
             # Check if we can use cached values
-            if self.use_cache and (self.full_ingest
+            if self.use_cache and (hasattr(self, '_fully_ingested')
                                    or np.all(self.cached[mn[2]: mx[2],
                                                          mn[1]: mx[1],
                                                          mn[0]: mx[0]])):
