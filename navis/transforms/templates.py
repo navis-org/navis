@@ -593,8 +593,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     source :            str
                         Source template brain that the data currently is in.
     target :            str
-                        Target template brain that the data should be transformed
-                        into.
+                        Target template brain that the data should be
+                        transformed into.
     affine_fallback :   bool
                         In same cases the non-rigid transformation of points
                         can fail - for example if points are outside the
@@ -623,13 +623,14 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     Examples
     --------
-    This example requires the flybrains library to be installed:
-    ``pip3 install flybrains``
+    This example requires the
+    `flybrains <https://github.com/schlegelp/navis-flybrains>`_
+    library to be installed: ``pip3 install flybrains``
 
-    Also, you will need to have the optional transforms installed (one-off):
+    Also, if you haven't already, you will need to have the optional Saalfeld
+    lab transforms installed (this is a one-off):
 
     >>> import flybrains # doctest: +SKIP
-    >>> flybrains.download_jefferislab_transforms() # doctest: +SKIP
     >>> flybrains.download_saalfeldlab_transforms() # doctest: +SKIP
 
     Once ``flybrains`` is installed and you have downloaded the registrations,
@@ -637,11 +638,10 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     >>> import navis
     >>> import flybrains
-    >>> # navis example neurons are in raw (8nm voxel) hemibrain (JRCFIB2018F) space
+    >>> # navis example neurons are in raw (8nm voxel) hemibrain (JRCFIB2018Fraw) space
     >>> n = navis.example_neurons(1)
     >>> # Transform to FAFB14 space
-    >>> # Note that we need to convert to microns first because that what the transform expects
-    >>> xf = navis.xform_brain(n * 8 / 1000, source='JRCFIB2018F', target='FAFB14') # doctest: +SKIP
+    >>> xf = navis.xform_brain(n, source='JRCFIB2018Fraw', target='FAFB14') # doctest: +SKIP
 
     """
     if isinstance(x, core.NeuronList):
