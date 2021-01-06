@@ -62,11 +62,11 @@ If you have any questions, please get in touch: pms70@cam.ac.uk
 
 * supports various neuron types: skeletons, meshes, dotprops
 * 2D (matplotlib) and 3D (vispy or plotly) plotting
-* virtual neuron surgery (cutting, stitching, pruning, rerooting)
+* virtual neuron surgery: cutting, stitching, pruning, rerooting
 * analyse morphology (e.g. NBLAST) and connectivity
 * transform neurons between template brains
-* Python bindings for R neuron libraries (e.g. nat, nat.nblast and elmr)
-* load neurons directly from `neuromorpho.org <http://neuromorpho.org>`_ or :ref:`neuPrint<neuprint_intro>`
+* Python bindings for R natverse librarie
+* load neurons directly from `neuromorpho <http://neuromorpho.org>`_ or :ref:`neuPrint<neuprint_intro>`
 * interface with :ref:`Blender 3D<blender3d>`
 * import-export from/to SWC
 * highly extensible - see the :ref:`ecosystem <other_libs>`

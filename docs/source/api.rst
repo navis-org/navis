@@ -12,9 +12,10 @@ This API reference is a more or less complete account of the primary functions:
 1. :ref:`Neuron- and NeuronList functions and methods <api_neurons>`
 2. :ref:`Functions for visualization<api_plot>`
 3. :ref:`Manipulate or analyze neuron morphology<api_morph>`
-4. :ref:`Analyze connectivity<api_con>`
-5. :ref:`Import/Export<io>`
-6. :ref:`Utility functions<api_utility>`
+4. :ref:`Transforming and mirroring data<transfm>`
+5. :ref:`Analyze connectivity<api_con>`
+6. :ref:`Import/Export<io>`
+7. :ref:`Utility functions<api_utility>`
 
 In addition ``navis`` has interfaces to various external APIs and softwares:
 
@@ -309,16 +310,64 @@ Functions to intersect points and neurons with volumes.
     navis.in_volume
     navis.intersection_matrix
 
+.. _transfm:
+
 Transforming and Mirroring
---------------------------
+++++++++++++++++++++++++++
 Functions to transform spatial data between (e.g. neurons) template brains.
 Check out the `tutorials<example_gallery>` for example on how to use them.
+
+High-level functions:
 
 .. autosummary::
     :toctree: generated/
 
     navis.xform_brain
     navis.mirror_brain
+    navis.transforms.mirror
+
+``navis`` supports several types of transforms:
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.transforms.affine.AffineTransform
+    ~navis.transforms.cmtk.CMTKtransform
+    ~navis.transforms.h5reg.H5transform
+    ~navis.transforms.thinplate.TPStransform
+    ~navis.transforms.base.AliasTransform
+
+The ``TemplateRegistry`` keeps track of template brains, transforms and such:
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.transforms.templates.TemplateRegistry
+
+This relevant instance of this class is ``navis.transforms.registry``. So to
+register a new transform you would for example do this::
+
+  >>> navis.transforms.registry.register_transform(transform, ...)
+
+These are the methods and properties of ``registry``:
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.transforms.templates.TemplateRegistry.register_transform
+    ~navis.transforms.templates.TemplateRegistry.register_transformfile
+    ~navis.transforms.templates.TemplateRegistry.register_templatebrain
+    ~navis.transforms.templates.TemplateRegistry.register_path
+    ~navis.transforms.templates.TemplateRegistry.scan_paths
+    ~navis.transforms.templates.TemplateRegistry.plot_bridging_graph
+    ~navis.transforms.templates.TemplateRegistry.find_mirror_reg
+    ~navis.transforms.templates.TemplateRegistry.find_bridging_path
+    ~navis.transforms.templates.TemplateRegistry.shortest_bridging_seq
+    ~navis.transforms.templates.TemplateRegistry.clear_caches
+    ~navis.transforms.templates.TemplateRegistry.summary
+    ~navis.transforms.templates.TemplateRegistry.transforms
+    ~navis.transforms.templates.TemplateRegistry.mirrors
+    ~navis.transforms.templates.TemplateRegistry.bridges
 
 .. _api_con:
 

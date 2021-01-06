@@ -53,7 +53,6 @@ function. There you will also find more examples.
    :maxdepth: 2
 
    tutorials/morph_analysis
-   tutorials/nblast
 
 .. raw:: html
 
@@ -61,6 +60,21 @@ function. There you will also find more examples.
             </div>
          </div>
          <div class="col-md-3">
+            <div class="panel panel-default">
+               <div class="panel-heading">
+                  <h3 class="panel-title">NBLAST</h3>
+               </div>
+               <div class="panel-body">
+
+.. toctree::
+   :maxdepth: 2
+
+   tutorials/nblast
+
+.. raw:: html
+
+               </div>
+            </div>
             <div class="panel panel-default">
                <div class="panel-heading">
                   <h3 class="panel-title">Interfaces</h3>
@@ -83,12 +97,27 @@ function. There you will also find more examples.
          <div class="col-md-3">
             <div class="panel panel-default">
                <div class="panel-heading">
+                  <h3 class="panel-title">Transformations</h3>
+               </div>
+               <div class="panel-body">
+
+.. toctree::
+   :maxdepth: 2
+
+   tutorials/transforming
+
+.. raw:: html
+
+               </div>
+            </div>
+            <div class="panel panel-default">
+               <div class="panel-heading">
                   <h3 class="panel-title">Misc</h3>
                </div>
                <div class="panel-body">
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    Troubleshooting <troubleshooting>
 
