@@ -21,7 +21,7 @@ from .base import BaseTransform
 
 
 class TPStransform(BaseTransform):
-    """Class to perform thin plate spine transforms.
+    """Thin Plate Spine transforms of 3D spatial data.
 
     Parameters
     ----------

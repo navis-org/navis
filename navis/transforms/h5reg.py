@@ -29,7 +29,7 @@ from .. import config
 logger = config.logger
 
 class H5transform(BaseTransform):
-    """Class to run h5 xform.
+    """HDf5 transform of 3D spatial data.
 
     Requires ``jpype``:
 
@@ -45,8 +45,9 @@ class H5transform(BaseTransform):
     direction :     "forward" | "inverse"
                     Direction of transformation.
     level :         int
-                    What level of detail to use. Negative values default to the
-                    highest available resolution.
+                    What level of detail to use. Negative values go backwards
+                    from the highest available resolution: -1 = highest, -2 =
+                    second highest, etc.
     cache :         bool
                     If True, we will cache the deformation field for subsequent
                     future transforms. This will speed up future calculations
@@ -128,7 +129,7 @@ class H5transform(BaseTransform):
 
     @level.setter
     def level(self, value):
-        raise ValueError('`level` can not be changed after initialization.')
+        raise ValueError('`level` cannot be changed after initialization.')
 
     @property
     def use_cache(self):

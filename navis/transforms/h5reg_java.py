@@ -11,12 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-"""Functions to use the Saalfeld lab's h5 transforms. Requires jpype.
-
-This was written mostly for validation of the pure Python implementation. Since
-it requires the compiled java code in ./jars/ which are not packaged with the
-wheel, it will only work if you clone navis' Github repository.
-"""
+"""Functions to use the Saalfeld lab's h5 transforms. Requires jpype."""
 
 import os
 
@@ -42,7 +37,11 @@ jar_path = os.path.join(fp, 'jars/*')
 
 
 class H5JavaTransform(BaseTransform):
-    """Class to run h5 xform using Java.
+    """Hdf5 transform using the Saalfeld lab's Java implementation.
+
+    This was written mostly for validation of the pure Python implementation.
+    Since it requires the compiled java code in ./jars/ which is not packaged
+    with the wheel, it will only work if you cloned navis' Github repository.
 
     Requires ``jpype``:
 

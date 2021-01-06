@@ -1058,6 +1058,9 @@ def mirror(points: np.ndarray, mirror_axis_size: float,
 class TemplateBrain:
     """Generic base class for template brains.
 
+    Minimally, a template should have a `name` and `label` property. For
+    mirroring, it also needs a `boundingbox`.
+
     See `navis-flybrains <https://github.com/schlegelp/navis-flybrains>`_ for
     an example of how to use template brains.
     """
