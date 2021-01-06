@@ -34,7 +34,7 @@ from .. import config, core, utils
 
 from . import factory
 
-from .base import TransformSequence, BaseTransform
+from .base import TransformSequence, BaseTransform, TransOptimizer
 from .affine import AffineTransform
 
 __all__ = ['xform_brain', 'mirror_brain']
@@ -567,9 +567,11 @@ class TemplateRegistry:
 def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 source: str,
                 target: str,
-                affine_fallback: bool = True) -> Union['core.NeuronObject',
-                                                       'pd.DataFrame',
-                                                       'np.ndarray']:
+                affine_fallback: bool = True,
+                caching: Optional[str] = 'medium',
+                verbose = True) -> Union['core.NeuronObject',
+                                         'pd.DataFrame',
+                                         'np.ndarray']:
     """Transform 3D data between template brains.
 
     This requires the appropriate transforms to be registered with ``navis``.
@@ -580,7 +582,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     For Neurons only: whether there is a change in units during transformation
     (e.g. nm -> um) is inferred by comparing distances between x/y/z coordinates
     before and after transform. This guesstimate is then used to convert
-    ``.units`` and node radii (for TreeNeurons).
+    ``.units`` and node/soma radii. This works reasonably well with base 10
+    increments (e.g. nm -> um) but is off with odd changes in units.
 
     Parameters
     ----------
@@ -590,7 +593,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     source :            str
                         Source template brain that the data currently is in.
     target :            str
-                        Target template brain that the data should be transformed into.
+                        Target template brain that the data should be transformed
+                        into.
     affine_fallback :   bool
                         In same cases the non-rigid transformation of points
                         can fail - for example if points are outside the
@@ -599,6 +603,18 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                         ``True``, in which case we will apply only the rigid
                         affine  part of the transformation to at least get close
                         to the correct coordinates.
+    caching :           None | 'medium' | 'aggressive'
+                        Sets the level of caching:
+                          - ``None`` = no upfront cost, lowest memory footprint
+                          - ``medium`` = low upfront cost, potentially faster
+                          - ``aggressive`` = high upfront cost, most definitely faster
+                        As a rule of thumb: "medium" is sufficient for a
+                        few, spatially close neurons whereas "aggressive" is
+                        suited for very large transforms across the entire brain
+                        space. Only applies if input is NeuronList and if
+                        transforms include H5 transform.
+    verbose :           bool
+                        If True, will print some useful info on transform.
 
     Returns
     -------
@@ -611,15 +627,20 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     ``pip3 install flybrains``
 
     Also, you will need to have the optional transforms installed (one-off):
+
     >>> import flybrains # doctest: +SKIP
     >>> flybrains.download_jefferislab_transforms() # doctest: +SKIP
     >>> flybrains.download_saalfeldlab_transforms() # doctest: +SKIP
+
+    Once ``flybrains`` is installed and you have downloaded the registrations,
+    you can run this:
 
     >>> import navis
     >>> import flybrains
     >>> # navis example neurons are in raw (8nm voxel) hemibrain (JRCFIB2018F) space
     >>> n = navis.example_neurons(1)
-    >>> # Transform to FAFB14 space (note we need to convert to microns)
+    >>> # Transform to FAFB14 space
+    >>> # Note that we need to convert to microns first because that what the transform expects
     >>> xf = navis.xform_brain(n * 8 / 1000, source='JRCFIB2018F', target='FAFB14') # doctest: +SKIP
 
     """
@@ -628,13 +649,26 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             x = x[0]
         else:
             xf = []
-            for n in config.tqdm(x, desc='Xforming',
-                                 disable=config.pbar_hide,
-                                 leave=config.pbar_leave):
-                xf.append(xform_brain(n,
-                                      source=source,
-                                      target=target,
-                                      affine_fallback=affine_fallback))
+            # Get the transformation sequence
+            path, trans_seq = registry.shortest_bridging_seq(source, target)
+            if verbose:
+                # Make sure to flush to not mess with the progress bar
+                print('Transform path:', '->'.join(path), flush=True)
+
+            _caching = (None, "medium", "aggressive")
+            if caching not in _caching:
+                raise ValueError('Caching must be None, "medium" or '
+                                 f'"aggressive", got {caching}')
+
+            with TransOptimizer(trans_seq, mode=caching):
+                for i, n in enumerate(config.tqdm(x, desc='Xforming',
+                                                  disable=config.pbar_hide,
+                                                  leave=config.pbar_leave)):
+                    xf.append(xform_brain(n,
+                                          source=source,
+                                          target=target,
+                                          verbose=False,
+                                          affine_fallback=affine_fallback))
             return x.__class__(xf)
 
     if not isinstance(x, (core.BaseNeuron, np.ndarray, pd.DataFrame, core.Volume)):
@@ -661,10 +695,14 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         xyz_xf = xform_brain(xyz,
                              source=source,
                              target=target,
+                             verbose=verbose,
                              affine_fallback=affine_fallback)
 
         # Guess change in spatial units
         change, magnitude = _guess_change(xyz, xyz_xf)
+
+        # Round change -> this rounds to the first non-zero digit
+        # change = np.around(change, decimals=-magnitude)
 
         # Map xformed coordinates back
         if isinstance(xf, core.TreeNeuron):
@@ -699,6 +737,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         x.loc[:, ['x', 'y', 'z']] = xform_brain(x[['x', 'y', 'z']].values.astype(float),
                                                 source=source,
                                                 target=target,
+                                                verbose=verbose,
                                                 affine_fallback=affine_fallback)
         return x
     elif isinstance(x, core.Volume):
@@ -706,6 +745,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         x.vertices = xform_brain(x.vertices,
                                  source=source,
                                  target=target,
+                                 verbose=verbose,
                                  affine_fallback=affine_fallback)
         return x
     elif x.shape[1] != 3:
@@ -718,7 +758,10 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         TypeError(f'Expected target of type str, got "{type(target)}"')
 
     # Get the transformation sequence
-    _, trans_seq = registry.shortest_bridging_seq(source, target)
+    path, trans_seq = registry.shortest_bridging_seq(source, target)
+
+    if verbose:
+        print('Transform path:', '->'.join(path))
 
     # Apply transform and returned xformed points
     return trans_seq.xform(x, affine_fallback=affine_fallback)
