@@ -30,6 +30,19 @@ class TPStransform(BaseTransform):
     landmarks_target :  (M, 3) numpy array
                         Target landmarks as x/y/z coordinates.
 
+    Examples
+    --------
+    >>> from navis import transforms
+    >>> import numpy as np
+    >>> # Generate some mock landmarks
+    >>> src = np.array([[0, 0, 0], [10, 10, 10], [100, 100, 100], [80, 10, 30]])
+    >>> trg = np.array([[1, 15, 5], [9, 18, 21], [80, 99, 120], [5, 10, 80]])
+    >>> tr = transforms.thinplate.TPStransform(src, trg)
+    >>> points = np.array([[0, 0, 0], [50, 50, 50]])
+    >>> tr.xform(points)
+    array([[ 1.        , 15.        ,  5.        ],
+           [40.55555556, 54.        , 65.        ]])
+
     """
 
     def __init__(self, landmarks_source: np.ndarray,
@@ -68,19 +81,20 @@ class TPStransform(BaseTransform):
 
     def __neg__(self) -> 'TPStransform':
         """Invert direction."""
-        x = self.copy()
-
-        # Swap source and targets
-        x.source, x.target = x.target, x.source
-
-        # Re-calculate coefficients
-        x._calc_tps_coefs()
-
-        return x
+        # Switch source and target
+        return TPStransform(self.target, self.source)
 
     def _calc_tps_coefs(self):
         # Calculate thinplate coefficients
         self.W, self.A = mops.tps_coefs(self.source, self.target)
+
+    def copy(self):
+        """Make copy."""
+        x = TPStransform(self.source, self.target, self.direction)
+
+        x.__dict__.update(self.__dict__)
+
+        return x
 
     def xform(self, points: np.ndarray) -> np.ndarray:
         """Transform points.
