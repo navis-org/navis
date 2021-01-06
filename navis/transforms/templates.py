@@ -858,7 +858,14 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     >>> # Mirror about x axis (this is a simple flip in this case)
     >>> mirrored = navis.mirror_brain(n * 8 / 1000, tem plate='JRCFIB2018F', via='JRC2018F') # doctest: +SKIP
     >>> # We also need to get back to raw coordinates
-    >>> mirrored = mirrored / 8 * 1000
+    >>> mirrored = mirrored / 8 * 1000 # doctest: +SKIP
+
+    See Also
+    --------
+    :func:`navis.transform.mirror`
+                    Lower level function for mirroring. You can use this if
+                    you want to mirror data without having a registered
+                    template for it.
 
     """
     utils.eval_param(mirror_axis, name='mirror_axis',
@@ -963,6 +970,10 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     if not hasattr(tb, 'boundingbox'):
         raise ValueError(f'Template "{tb.label}" has no bounding box info.')
 
+    if not isinstance(tb.boundingbox, (list, tuple, np.ndarray)):
+        raise TypeError("Expected the template brain's bounding box to be a "
+                        f"list, tuple or array - got '{type(tb.boundingbox)}'")
+
     # Get bounding box of template brain
     bbox = np.asarray(tb.boundingbox)
 
@@ -993,13 +1004,13 @@ def mirror(points: np.ndarray, mirror_axis_size: float,
     """Mirror 3D coordinates about given axis.
 
     This is a lower level version of `navis.mirror_brain` that:
-     1. Flip object along midpoint of axis using a affine transformation.
-     2. (Optional) Apply a warp transform that corrects asymmetries.
+     1. Flips object along midpoint of axis using a affine transformation.
+     2. (Optional) Applies a warp transform that corrects asymmetries.
 
     Parameters
     ----------
     points :            (N, 3) numpy array
-                        3d coordinates to mirror
+                        3D coordinates to mirror.
     mirror_axis_size :  int | float
                         A single number specifying the size of the mirror axis.
                         This is used to find the midpoint to mirror about.
