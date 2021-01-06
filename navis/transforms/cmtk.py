@@ -157,6 +157,12 @@ class CMTKtransform(BaseTransform):
     threads :       int, optional
                     Number of threads to use.
 
+    Examples
+    --------
+    >>> from navis import transforms
+    >>> tr = transforms.cmtk.CMTKtransform('/path/to/CMTK_directory.list')
+    >>> tr.xform(points) # doctest: +SKIP
+
     """
 
     def __init__(self, regs: list, directions: str = 'forward', threads: int = None):

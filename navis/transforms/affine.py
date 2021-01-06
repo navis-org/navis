@@ -26,6 +26,19 @@ class AffineTransform(BaseTransform):
     matrix :        (4, 4) np.ndarray
                     Affine matrix.
 
+    Examples
+    --------
+    A simple scaling transform
+
+    >>> from navis import transforms
+    >>> import numpy as np
+    >>> M = np.diag([1e3, 1e3, 1e3, 1])
+    >>> tr = transforms.affine.AffineTransform(M)
+    >>> points = np.array([[0, 0, 0], [1, 1, 1]])
+    >>> tr.xform(points)
+    array([[   0.,    0.,    0.],
+           [1000., 1000., 1000.]])
+
     """
 
     def __init__(self, matrix: np.ndarray, direction: str = 'forward'):
