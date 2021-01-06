@@ -159,3 +159,75 @@ class TransformSequence:
                 xf[~is_nan] = tr.xform(xf[~is_nan], **kwargs)
 
         return xf
+
+
+class TransOptimizer:
+    """Optimizes a Transform or TransformSequence.
+
+    The purpose of this class is to change a bunch of settings (depending on the
+    type of transforms) before running the transformation and do a clean up
+    after it has finished.
+
+    Currently, the optimizations are very hands-on but in the future, this might
+    be delegated to the individuals `Transform` classes - e.g. by implementing
+    an `.optimize()` method which is then called by `TransOptimizer`.
+
+    Currently, it really only manages caching for H5 transforms.
+
+    Parameters
+    ----------
+    tr :        Transform | TransformSequence
+                The transform or sequence thereof to be optimized.
+    mode :      None | "medium" | "aggressive"
+                Mode for optimization:
+                  - ``None``: no optimization
+                  - "medium": some optimization but keep upfront cost low
+                  - "aggressive": high upfront cost but should be faster in the long run
+
+    Examples
+    --------
+    >>> from navis.transforms import h5reg
+    >>> from navis.transforms.base import TransOptimizer
+    >>> tr = h5reg.H5transform('path/to/reg.h5', direction='inverse')
+    >>> with TransOptimizer(tr, mode='aggressive'):
+    >>>     xf = tr.xform(pts)
+
+    """
+
+    def __init__(self, tr, mode: str):
+        """Initialize Optimizer."""
+        assert mode in (None, "medium", "aggressive")
+        self.mode = mode
+
+        if isinstance(tr, BaseTransform):
+            self.transforms = [tr]
+        elif isinstance(tr, TransformSequence):
+            self.transforms = tr.transforms
+        else:
+            raise TypeError(f'Expected Transform/Sequence, got "{type(tr)}"')
+
+    def __enter__(self):
+        """Apply optimizations."""
+        if not self.mode:
+            return
+
+        for tr in self.transforms:
+            # We are monkey patching here to avoid circular imports
+            # not pretty but works
+            if 'H5transform' in str(type(tr)):
+                if self.mode == 'medium':
+                    tr.use_cache = True
+                elif self.mode == 'aggressive':
+                    tr.full_ingest()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Revert optimizations."""
+        if not self.mode:
+            return
+
+        for tr in self.transforms:
+            # We are monkey patching here to avoid circular imports
+            # not pretty but works
+            if 'H5transform' in str(type(tr)):
+                # Clears the cache
+                tr.use_cache = False
