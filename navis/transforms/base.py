@@ -16,10 +16,10 @@ import functools
 
 import numpy as np
 
+from abc import ABC,  abstractmethod
 from inspect import signature
 
 from .. import utils
-
 
 def trigger_init(func):
     """Trigger delayed initialization."""
@@ -33,7 +33,7 @@ def trigger_init(func):
     return wrapper
 
 
-class BaseTransform:
+class BaseTransform(ABC):
     """Abstract base class for transforms."""
 
     def append(self, other: 'BaseTransform'):
@@ -44,16 +44,20 @@ class BaseTransform:
         """Test if running the transform is possible."""
         return
 
+    @abstractmethod
+    def __neg__(self) -> 'BaseTransform':
+        """Return inverse transform."""
+        pass
+
+    @abstractmethod
     def copy(self) -> 'BaseTransform':
         """Return copy."""
-        # Attributes not to copy
-        no_copy = []
-        # Generate new empty transform
-        x = self.__class__()
-        # Override with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
+        pass
 
-        return x
+    @abstractmethod
+    def xform(self, points: np.ndarray) -> np.ndarray:
+        """Return copy."""
+        pass
 
 
 class AliasTransform(BaseTransform):
@@ -66,16 +70,22 @@ class AliasTransform(BaseTransform):
         """Initialize."""
         pass
 
+    def __neg__(self) -> 'AliasTransform':
+        """Invert transform."""
+        return self.copy()
+
+    def copy(self):
+        """Return copy."""
+        x = AliasTransform()
+        x.__dict__.update(self.__dict__)
+        return x
+
     def xform(self, points: np.ndarray) -> np.ndarray:
         """Pass through.
 
         Be aware that the returned points are NOT a copy but the originals.
         """
         return points
-
-    def __neg__(self) -> 'AliasTransform':
-        """Invert transform."""
-        return self.copy()
 
 
 class TransformSequence:
