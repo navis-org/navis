@@ -29,7 +29,7 @@ from .. import config
 logger = config.logger
 
 class H5transform(BaseTransform):
-    """HDf5 transform of 3D spatial data.
+    """Hdf5 transform of 3D spatial data.
 
     Requires ``jpype``:
 
@@ -41,7 +41,7 @@ class H5transform(BaseTransform):
     Parameters
     ----------
     f :             str
-                    Path to h5 transformation.
+                    Path to Hdf5 transformation.
     direction :     "forward" | "inverse"
                     Direction of transformation.
     level :         int
