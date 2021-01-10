@@ -22,8 +22,11 @@ import pathlib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcl
 import networkx as nx
+import seaborn as sns
 
+from matplotlib.lines import Line2D
 from scipy.spatial.distance import pdist
 
 from collections import namedtuple
@@ -345,7 +348,7 @@ class TemplateRegistry:
         G = nx.MultiDiGraph()
         edges = [(t.source, t.target,
                   {'transform': t.transform,
-                   'type': str(type(t.transform)).split('.')[-1],
+                   'type': type(t.transform).__name__,
                    'weight': t.weight}) for t in bridge]
 
         if reciprocal:
@@ -537,7 +540,7 @@ class TemplateRegistry:
             raise ValueError(f'No template brain registered that matches "{name}"')
         return None
 
-    def plot_bridging_graph(self, edge_labels: bool = False, **kwargs):
+    def plot_bridging_graph(self, **kwargs):
         """Draw bridging graph using networkX.
 
         Parameters
@@ -556,12 +559,27 @@ class TemplateRegistry:
         # Draw nodes and edges
         node_labels = {n: n for n in G.nodes}
         pos = nx.kamada_kawai_layout(G)
-        nx.draw_networkx(G, pos=pos, labels=node_labels)
 
-        if edge_labels:
-            el = {(e[0], e[1]): G.edges[e]['type'] for e in G.edges}
-            nx.draw_networkx_edge_labels(G, pos=pos, ax=plt.gca(),
-                                         edge_labels=el)
+        # Draw all nodes
+        nx.draw_networkx_nodes(G, pos=pos, node_color='lightgrey',
+                               node_shape='o', node_size=300)
+        nx.draw_networkx_labels(G, pos=pos, labels=node_labels,
+                                font_color='k', font_size=10)
+
+        # Draw edges by type of transform
+        edge_types = set([e[2]['type'] for e in G.edges(data=True)])
+
+        lines = []
+        labels = []
+        for t, c in zip(edge_types,
+                        sns.color_palette('muted', len(edge_types))):
+            subset = [e for e in G.edges(data=True) if e[2]['type'] == t]
+            nx.draw_networkx_edges(G, pos=pos, edgelist=subset,
+                                   edge_color=mcl.to_hex(c), width=1.5)
+            lines.append(Line2D([0], [0], color=c, linewidth=2, linestyle='-'))
+            labels.append(t)
+
+        plt.legend(lines, labels)
 
 
 def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
