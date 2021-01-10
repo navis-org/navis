@@ -78,7 +78,9 @@ def volume2vispy(x, **kwargs):
         # Set some aesthetic parameters
         s.shininess = 0
         # Possible presets are "additive", "translucent", "opaque"
-        s.set_gl_state('additive', cull_face=True, depth_test=False)
+        s.set_gl_state('additive' if color[3] < 1 else 'opaque',
+                       cull_face=True,
+                       depth_test=False if color[3] < 1 else True)
 
         # Make sure volumes are always drawn after neurons
         s.order = kwargs.get('order', 10)
@@ -311,9 +313,12 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
                            shading=kwargs.get('shading', 'smooth'))
 
     # Set some aesthetic parameters
-    #m.shininess = 0
+    m.shininess = 0
     # Possible presets are "additive", "translucent", "opaque"
-    #m.set_gl_state('additive', cull_face=True, depth_test=False)
+    if len(neuron_color) == 4 and neuron_color[3] < 1:
+        m.set_gl_state('additive',
+                       cull_face=True,
+                       depth_test=False)
 
     # Add custom attributes
     m.unfreeze()
