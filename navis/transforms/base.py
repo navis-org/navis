@@ -11,15 +11,15 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import copy
 import functools
 
 import numpy as np
 
-from abc import ABC,  abstractmethod
+from abc import ABC, abstractmethod
 from inspect import signature
 
 from .. import utils
+
 
 def trigger_init(func):
     """Trigger delayed initialization."""
@@ -37,7 +37,12 @@ class BaseTransform(ABC):
     """Abstract base class for transforms."""
 
     def append(self, other: 'BaseTransform'):
-        """Append another transform to this one."""
+        """Append another transform to this one.
+
+        This is used to try to concatenate transforms of the same type into
+        a single step to speed things up (e.g. for CMTK transforms). If that's
+        not possible or not useful, must raise a ``NotImplementedError``.
+        """
         raise NotImplementedError(f'Unable to append {type(other)} to {type(self)}')
 
     def check_if_possible(self, on_error: str = 'raise'):
@@ -46,8 +51,12 @@ class BaseTransform(ABC):
 
     @abstractmethod
     def __neg__(self) -> 'BaseTransform':
-        """Return inverse transform."""
-        pass
+        """Return inverse transform.
+
+        If the transform can not or must not be inverted this should raise a
+        ``NotImplementedError``.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def copy(self) -> 'BaseTransform':
@@ -56,7 +65,11 @@ class BaseTransform(ABC):
 
     @abstractmethod
     def xform(self, points: np.ndarray) -> np.ndarray:
-        """Return copy."""
+        """Return copy.
+
+        Must accept a (N, 3) numpy array as first input and return the
+        transformed (N, 3) points as sole output.s
+        """
         pass
 
 
@@ -74,6 +87,12 @@ class AliasTransform(BaseTransform):
         """Invert transform."""
         return self.copy()
 
+    def __eq__(self, other):
+        """Check if the same."""
+        if isinstance(other, AliasTransform):
+            True
+        return False
+
     def copy(self):
         """Return copy."""
         x = AliasTransform()
@@ -83,7 +102,7 @@ class AliasTransform(BaseTransform):
     def xform(self, points: np.ndarray) -> np.ndarray:
         """Pass through.
 
-        Be aware that the returned points are NOT a copy but the originals.
+        Note that the returned points are NOT a copy but the originals.
         """
         return points
 
@@ -124,7 +143,7 @@ class TransformSequence:
             if not hasattr(transform, 'xform') or not callable(transform.xform):
                 raise TypeError('Transform does not appear to have a `xform` method')
 
-            # Try to merge with the last method
+            # Try to merge with the last transform in the sequence
             if len(self):
                 try:
                     self.transforms[-1].append(tr)
