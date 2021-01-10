@@ -78,15 +78,14 @@ properties common to all neurons.
 
 TreeNeuron-specific methods
 ---------------------------
-These are class methods available only for ``TreeNeurons``. Most of them are simply
-short-hands for the other navis functions.
+These are class methods available only for ``TreeNeurons``. Most of them are
+simply short-hands for the other navis functions.
 
 .. autosummary::
     :toctree: generated/
 
     ~navis.TreeNeuron.convert_units
     ~navis.TreeNeuron.downsample
-    ~navis.TreeNeuron.get_dps
     ~navis.TreeNeuron.get_graph_nx
     ~navis.TreeNeuron.get_igraph
     ~navis.TreeNeuron.prune_by_longest_neurite

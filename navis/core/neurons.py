@@ -816,8 +816,6 @@ class TreeNeuron(BaseNeuron):
     graph: 'nx.DiGraph'
     igraph: 'igraph.Graph'  # type: ignore  # doesn't know iGraph
 
-    dps: pd.DataFrame
-
     n_branches: int
     n_leafs: int
     cable_length: Union[int, float]
@@ -846,7 +844,7 @@ class TreeNeuron(BaseNeuron):
 
     #: Temporary attributes that need to be regenerated when data changes.
     TEMP_ATTR = ['_igraph', '_graph_nx', '_segments', '_small_segments',
-                 '_geodesic_matrix', '_dps', 'centrality_method', '_simple',
+                 '_geodesic_matrix', 'centrality_method', '_simple',
                  '_cable_length']
 
     #: Attributes used for neuron summary
@@ -1238,15 +1236,6 @@ class TreeNeuron(BaseNeuron):
             return None
         except BaseException:
             raise
-
-    @temp_property
-    def dps(self) -> 'core.Dotprops':
-        """Neuron broken down into small linear segments."""
-        # If graph does not exist, create and return
-        if not hasattr(self, '_dps'):
-            # This also sets the attribute
-            self._dps = self.get_dps()
-        return self._dps
 
     @property
     def simple(self) -> 'TreeNeuron':
