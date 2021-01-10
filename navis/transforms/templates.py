@@ -870,8 +870,9 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     """
     utils.eval_param(mirror_axis, name='mirror_axis',
                      allowed_values=('x', 'y', 'z'), on_error='raise')
-    utils.eval_param(warp, name='warp',
-                     allowed_values=('auto', True, False), on_error='raise')
+    if not isinstance(warp, (BaseTransform, TransformSequence)):
+        utils.eval_param(warp, name='warp',
+                         allowed_values=('auto', True, False), on_error='raise')
 
     # If we go via another brain space
     if via:
@@ -950,12 +951,17 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     if not isinstance(template, str):
         TypeError(f'Expected template of type str, got "{type(template)}"')
 
-    if warp:
+    if isinstance(warp, (BaseTransform, TransformSequence)):
+        mirror_trans = warp
+    elif warp:
         # See if there is a mirror registration
         mirror_trans = registry.find_mirror_reg(template, non_found='ignore')
 
+        # Get actual transform from tuple
+        if mirror_trans:
+            mirror_trans = mirror_trans.transform
         # If warp was not "auto" and we didn't find a registration, raise
-        if warp != 'auto' and not mirror_trans:
+        elif warp != 'auto' and not mirror_trans:
             raise ValueError(f'No mirror transform found for "{template}"')
     else:
         mirror_trans = None
