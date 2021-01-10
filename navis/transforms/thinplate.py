@@ -17,7 +17,21 @@ import morphops as mops
 import numpy as np
 import pandas as pd
 
+from scipy.spatial.distance import cdist
+
+
 from .base import BaseTransform
+
+def distance_matrix(X,Y):
+    """For (p1,k)-shaped X and (p2,k)-shaped Y, returns the (p1,p2) matrix
+    where the element at [i,j] is the distance between X[i,:] and Y[j,:].
+
+    This is a re-implementation of a morphops function using scipy to speed
+    things up ~4 orders of magnitude.
+    """
+    return cdist(X, Y)
+
+mops.lmk_util.distance_matrix = distance_matrix
 
 
 class TPStransform(BaseTransform):
