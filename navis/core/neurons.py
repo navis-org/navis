@@ -151,14 +151,19 @@ class BaseNeuron:
             key = key[key.index('_') + 1:]
             if hasattr(self, key):
                 data = getattr(self, key)
-                if isinstance(data, pd.DataFrame) and not data.empty:
-                    return True
+                if isinstance(data, pd.DataFrame):
+                    if not data.empty:
+                        return True
+                    else:
+                        return False
                 # This is necessary because np.any does not like strings
                 elif isinstance(data, str):
                     if data == 'NA' or not data:
                         return False
                     return True
-                elif np.any(data):
+                elif utils.is_iterable(data) and len(data) > 0:
+                    return True
+                elif data:
                     return True
             return False
         elif key.startswith('n_'):
