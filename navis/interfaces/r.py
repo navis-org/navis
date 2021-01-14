@@ -36,14 +36,14 @@ from rpy2.robjects.packages import importr
 
 from rpy2.robjects import pandas2ri, numpy2ri
 
+from .. import core, plotting, config, utils
+
 # Inconventiently, rpy2's version vector differs in the way it's constructed
 # between 2.X ``((2, 9, 4), '')`` and 3.X (3, 3, 2)
 rpy2_major_version = int(rpy2.__version__.split('.')[0])
 if rpy2_major_version >= 3:
     from rpy2.robjects.conversion import localconverter
 
-from .. import cluster as pyclust
-from .. import core, plotting, config, utils
 
 # Set up logging
 logger = config.logger
@@ -534,11 +534,11 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
                     k: int = 5,
                     resample: Optional[int] = None,
                     n_cores: int = os.cpu_count() - 2,
-                    use_alpha: bool = False) -> 'pyclust.ClustResults':
-    """Wrapper to use R's ``nat:nblast_allbyall``
-    (https://github.com/jefferislab/nat.nblast/).
+                    use_alpha: bool = False) -> pd.DataFrame:
+    """All-by-all NBLAST using R's ``nat:nblast_allbyall``.
 
-    NBLAST is optimized for data in microns.
+    NBLAST is optimized for data in microns. Original nat function can be found
+    `here <https://github.com/jefferislab/nat.nblast/>`_.
 
     Parameters
     ----------
@@ -628,8 +628,8 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
            normalized: bool = True,
            use_alpha: bool = False,
            k: int = 5,
-           resample: Optional[int] = None) -> 'NBLASTresults':
-    """Run nat's NBLAST (https://github.com/jefferis/nat).
+           resample: Optional[int] = None) -> pd.DataFrame:
+    """Run nat's `NBLAST<https://github.com/jefferis/nat>`_.
 
     Please note that NBLAST is optimized for units in microns.
 
