@@ -750,9 +750,17 @@ class MeshNeuron(BaseNeuron):
 
     @property
     def bbox(self) -> np.ndarray:
-        """Bounding box."""
+        """Bounding box (includes connectors)."""
         mn = np.min(self.vertices, axis=0)
         mx = np.max(self.vertices, axis=0)
+
+        if self.has_connectors:
+            cn_mn = np.min(self.connectors[['x', 'y', 'z']].values, axis=0)
+            cn_mx = np.max(self.connectors[['x', 'y', 'z']].values, axis=0)
+
+            mn = np.min(np.vstack((mn, cn_mn)), axis=0)
+            mx = np.max(np.vstack((mx, cn_mx)), axis=0)
+
         return np.vstack((mn, mx)).T
 
     @property
@@ -1357,9 +1365,18 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def bbox(self) -> np.ndarray:
-        """Bounding box."""
-        return self.nodes.describe().loc[['min', 'max'],
-                                         ['x', 'y', 'z']].values.T
+        """Bounding box (includes connectors)."""
+        mn = np.min(self.nodes[['x', 'y', 'z']].values, axis=0)
+        mx = np.max(self.nodes[['x', 'y', 'z']].values, axis=0)
+
+        if self.has_connectors:
+            cn_mn = np.min(self.connectors[['x', 'y', 'z']].values, axis=0)
+            cn_mx = np.max(self.connectors[['x', 'y', 'z']].values, axis=0)
+
+            mn = np.min(np.vstack((mn, cn_mn)), axis=0)
+            mx = np.max(np.vstack((mx, cn_mx)), axis=0)
+
+        return np.vstack((mn, mx)).T
 
     @property
     def sampling_resolution(self) -> float:
@@ -2090,9 +2107,17 @@ class Dotprops(BaseNeuron):
 
     @property
     def bbox(self) -> np.ndarray:
-        """Bounding box."""
+        """Bounding box (includes connectors)."""
         mn = np.min(self.points, axis=0)
         mx = np.max(self.points, axis=0)
+
+        if self.has_connectors:
+            cn_mn = np.min(self.connectors[['x', 'y', 'z']].values, axis=0)
+            cn_mx = np.max(self.connectors[['x', 'y', 'z']].values, axis=0)
+
+            mn = np.min(np.vstack((mn, cn_mn)), axis=0)
+            mx = np.max(np.vstack((mx, cn_mx)), axis=0)
+
         return np.vstack((mn, mx)).T
 
     @property
@@ -2176,7 +2201,7 @@ class Dotprops(BaseNeuron):
             if 0 < value < self.points.shape[0]:
                 self._soma = value
             else:
-                raise ValueError('Soma must be function, None or a valid point index.')
+                raise ValueError('Soma must be function, None or a valid node index.')
 
     @property
     def type(self) -> str:
