@@ -118,7 +118,7 @@ class TransformSequence:
         """Initialize."""
         self.transforms = []
         for tr in args:
-            if not isinstance(tr, BaseTransform):
+            if not isinstance(tr, (BaseTransform, TransformSequence)):
                 raise TypeError(f'Expected transform, got "{type(tr)}"')
             self.append(tr)
 
@@ -158,7 +158,8 @@ class TransformSequence:
               affine_fallback: bool = False,
               **kwargs) -> np.ndarray:
         """Perform transforms in sequence."""
-        # First check if any of the transforms raise problems.
+        # First check if any of the transforms raise any issues ahead of time
+        # This can e.g. be missing binaries like CMTK's streamxform
         for tr in self.transforms:
             tr.check_if_possible(on_error='raise')
 
@@ -213,10 +214,14 @@ class TransOptimizer:
 
     """
 
-    def __init__(self, tr, mode: str):
+    def __init__(self, tr, bbox, caching: bool):
         """Initialize Optimizer."""
-        assert mode in (None, "medium", "aggressive")
-        self.mode = mode
+        assert isinstance(caching, bool)
+
+        self.caching = caching
+        self.bbox = np.asarray(bbox)
+
+        assert self.bbox.ndim == 2 and self.bbox.shape == (3, 2)
 
         if isinstance(tr, BaseTransform):
             self.transforms = [tr]
@@ -227,21 +232,27 @@ class TransOptimizer:
 
     def __enter__(self):
         """Apply optimizations."""
-        if not self.mode:
+        if not self.caching:
             return
 
+        # Check if there are any transforms we can optimize
+        if not any(['H5transform' in str(type(tr)) for tr in self.transforms]):
+            return
+
+        bbox_xf = self.bbox
         for tr in self.transforms:
             # We are monkey patching here to avoid circular imports
             # not pretty but works
             if 'H5transform' in str(type(tr)):
-                if self.mode == 'medium':
-                    tr.use_cache = True
-                elif self.mode == 'aggressive':
-                    tr.full_ingest()
+                # Precache values in the bounding box
+                tr.precache(bbox_xf, padding=True)
+            # To pre-cache sequential transforms we need to xform the bounding
+            # box as we move along
+            bbox_xf = tr.xform(bbox_xf.T).T
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Revert optimizations."""
-        if not self.mode:
+        if not self.caching:
             return
 
         for tr in self.transforms:

@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from scipy.interpolate import RegularGridInterpolator
+from typing import Union
 
 from .base import BaseTransform
 from .affine import AffineTransform
@@ -184,6 +185,48 @@ class H5transform(BaseTransform):
             self.cached = True
             # Keep track of the caching
             self._use_cache = True
+
+    def precache(self, bbox: Union[list, np.ndarray], padding=True):
+        """Cache deformation field for given bounding box.
+
+        Parameters
+        ----------
+        bbox :      list | array
+                    Must be ``[[x1, x2], [y1, y2], [z1, z2]]``.
+        padding :   bool
+                    If True, will add the (required!) padding to the bounding
+                    box.
+
+        """
+        bbox = np.asarray(bbox)
+
+        if bbox.ndim != 2 or bbox.shape != (3, 2):
+            raise ValueError(f'Expected (3, 2) bounding box, got {bbox.shape}')
+
+        # Set use_cache=True -> this also prepares the cache array(s)
+        self.use_cache = True
+
+        with h5py.File(self.file, 'r') as h5:
+            spacing = h5[self.level][self.field].attrs['spacing']
+
+            # Note that we invert because spacing is given in (z, y, x)
+            bbox_vxl = (bbox.T / spacing[::-1]).T
+            # Digitize into voxels
+            bbox_vxl = bbox_vxl.round().astype(int)
+
+            if padding:
+                bbox_vxl[:, 0] -= 2
+                bbox_vxl[:, 1] += 2
+
+            # Make sure we are within bounds
+            bbox_vxl = np.clip(bbox_vxl.T, 0, self.shape[:-1][::-1]).T
+
+            # Extract values
+            x1, x2, y1, y2, z1, z2 = bbox_vxl.flatten()
+
+            # Cache values in this bounding box
+            self.cache[z1:z2, y1:y2, x1:x2] = h5[self.level][self.field][z1:z2, y1:y2, x1:x2]
+            self.cached[z1:z2, y1:y2, x1:x2] = True
 
     @staticmethod
     def from_file(filepath: str, **kwargs) -> 'H5transform':

@@ -36,9 +36,9 @@ from typing_extensions import Literal
 from .. import config, core, utils
 
 from . import factory
+from .base import TransformSequence, BaseTransform, AliasTransform
+from .xfm_funcs import mirror, xform
 
-from .base import TransformSequence, BaseTransform, TransOptimizer
-from .affine import AffineTransform
 
 __all__ = ['xform_brain', 'mirror_brain']
 
@@ -67,6 +67,7 @@ class TemplateRegistry:
                     If True will scan paths on initialization.
 
     """
+
     def __init__(self, scan_paths: bool = True):
         # Paths to scan for transforms
         self._transpaths = _os_transpaths
@@ -586,7 +587,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 source: str,
                 target: str,
                 affine_fallback: bool = True,
-                caching: Optional[str] = 'medium',
+                caching: bool = True,
                 verbose = True) -> Union['core.NeuronObject',
                                          'pd.DataFrame',
                                          'np.ndarray']:
@@ -621,16 +622,15 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                         ``True``, in which case we will apply only the rigid
                         affine  part of the transformation to at least get close
                         to the correct coordinates.
-    caching :           None | 'medium' | 'aggressive'
-                        Sets the level of caching:
-                          - ``None`` = no upfront cost, lowest memory footprint
-                          - ``medium`` = low upfront cost, potentially faster
-                          - ``aggressive`` = high upfront cost, most definitely faster
-                        As a rule of thumb: "medium" is sufficient for a
-                        few, spatially close neurons whereas "aggressive" is
-                        suited for very large transforms across the entire brain
-                        space. Only applies if input is NeuronList and if
-                        transforms include H5 transform.
+    caching :           bool
+                        If True, will (pre-)cache data for transforms whenever
+                        possible. Depending on the data and the type of
+                        transforms this can tremendously speed things up at the
+                        cost of increased memory usage:
+                          - ``False`` = no upfront cost, lower memory footprint
+                          - ``True`` = higher upfront cost, most definitely faster
+                        Only applies if input is NeuronList and if transforms
+                        include H5 transform.
     verbose :           bool
                         If True, will print some useful info on transform.
 
@@ -661,114 +661,13 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     >>> # Transform to FAFB14 space
     >>> xf = navis.xform_brain(n, source='JRCFIB2018Fraw', target='FAFB14') # doctest: +SKIP
 
+    See Also
+    --------
+    :func:`navis.xform`
+                    Lower level entry point that takes data and applies a given
+                    transform or sequence thereof.
+
     """
-    if isinstance(x, core.NeuronList):
-        if len(x) == 1:
-            x = x[0]
-        else:
-            xf = []
-            # Get the transformation sequence
-            path, trans_seq = registry.shortest_bridging_seq(source, target)
-            if verbose:
-                # Make sure to flush to not mess with the progress bar
-                print('Transform path:', '->'.join(path), flush=True)
-
-            _caching = (None, "medium", "aggressive")
-            if caching not in _caching:
-                raise ValueError('Caching must be None, "medium" or '
-                                 f'"aggressive", got {caching}')
-
-            with TransOptimizer(trans_seq, mode=caching):
-                for i, n in enumerate(config.tqdm(x, desc='Xforming',
-                                                  disable=config.pbar_hide,
-                                                  leave=config.pbar_leave)):
-                    xf.append(xform_brain(n,
-                                          source=source,
-                                          target=target,
-                                          verbose=False,
-                                          affine_fallback=affine_fallback))
-            return x.__class__(xf)
-
-    if not isinstance(x, (core.BaseNeuron, np.ndarray, pd.DataFrame, core.Volume)):
-        raise TypeError(f'Unable to transform data of type "{type(x)}"')
-
-    if isinstance(x, core.BaseNeuron):
-        xf = x.copy()
-        # We will collate spatial data to reduce overhead from calling
-        # R's xform_brain
-        if isinstance(xf, core.TreeNeuron):
-            xyz = xf.nodes[['x', 'y', 'z']].values
-        elif isinstance(xf, core.MeshNeuron):
-            xyz = xf.vertices
-        elif isinstance(xf, core.Dotprops):
-            xyz = xf.points
-        else:
-            raise TypeError(f"Don't know how to transform neuron of type '{type(xf)}'")
-
-        # Add connectors if they exist
-        if xf.has_connnectors:
-            xyz = np.vstack([xyz, xf.connectors[['x', 'y', 'z']].values])
-
-        # Do the xform of all spatial data
-        xyz_xf = xform_brain(xyz,
-                             source=source,
-                             target=target,
-                             verbose=verbose,
-                             affine_fallback=affine_fallback)
-
-        # Guess change in spatial units
-        change, magnitude = _guess_change(xyz, xyz_xf)
-
-        # Round change -> this rounds to the first non-zero digit
-        # change = np.around(change, decimals=-magnitude)
-
-        # Map xformed coordinates back
-        if isinstance(xf, core.TreeNeuron):
-            xf.nodes.loc[:, ['x', 'y', 'z']] = xyz_xf[:xf.n_nodes]
-            # Fix radius based on our best estimate
-            if 'radius' in xf.nodes.columns:
-                xf.nodes['radius'] *= 10**magnitude
-        elif isinstance(xf, core.Dotprops):
-            xf.points = xyz_xf[:xf.points.shape[0]]
-            # Set tangent vectors and alpha to None so they will be regenerated
-            xf._vect = xf._alpha = None
-        elif isinstance(xf, core.MeshNeuron):
-            xf.vertices = xyz_xf[:xf.vertices.shape[0]]
-
-        if xf.has_connectors:
-            xf.connectors.loc[:, ['x', 'y', 'z']] = xyz_xf[-xf.connectors.shape[0]:]
-
-        # Make an educated guess as to whether the units have changed
-        if hasattr(xf, 'units') and magnitude != 0:
-            if isinstance(xf.units, (config.ureg.Unit, config.ureg.Quantity)):
-                xf.units = (xf.units / 10**magnitude).to_compact()
-
-        # Fix soma radius if applicable
-        if hasattr(xf, 'soma_radius') and isinstance(xf.soma_radius, numbers.Number):
-            xf.soma_radius *= 10**magnitude
-
-        return xf
-    elif isinstance(x, pd.DataFrame):
-        if any([c not in x.columns for c in ['x', 'y', 'z']]):
-            raise ValueError('DataFrame must have x, y and z columns.')
-        x = x.copy()
-        x.loc[:, ['x', 'y', 'z']] = xform_brain(x[['x', 'y', 'z']].values.astype(float),
-                                                source=source,
-                                                target=target,
-                                                verbose=verbose,
-                                                affine_fallback=affine_fallback)
-        return x
-    elif isinstance(x, core.Volume):
-        x = x.copy()
-        x.vertices = xform_brain(x.vertices,
-                                 source=source,
-                                 target=target,
-                                 verbose=verbose,
-                                 affine_fallback=affine_fallback)
-        return x
-    elif x.shape[1] != 3:
-        raise ValueError('Array must be of shape (N, 3).')
-
     if not isinstance(source, str):
         TypeError(f'Expected source of type str, got "{type(source)}"')
 
@@ -779,10 +678,19 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     path, trans_seq = registry.shortest_bridging_seq(source, target)
 
     if verbose:
-        print('Transform path:', '->'.join(path))
+        path_str = path[0]
+        for p, tr in zip(path[1:], trans_seq.transforms):
+            if isinstance(tr, AliasTransform):
+                link = '='
+            else:
+                link = '->'
+            path_str += f' {link} {p}'
+
+        print('Transform path:', path_str)
 
     # Apply transform and returned xformed points
-    return trans_seq.xform(x, affine_fallback=affine_fallback)
+    return xform(x, transform=trans_seq, caching=caching,
+                 affine_fallback=affine_fallback)
 
 
 def _guess_change(xyz_before: np.ndarray,
@@ -880,7 +788,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     See Also
     --------
-    :func:`navis.transform.mirror`
+    :func:`navis.mirror`
                     Lower level function for mirroring. You can use this if
                     you want to mirror data without having a registered
                     template for it.
@@ -1020,63 +928,6 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     return mirror(x, mirror_axis=mirror_axis, mirror_axis_size=mirror_axis_size,
                   warp=mirror_trans)
-
-
-def mirror(points: np.ndarray, mirror_axis_size: float,
-           mirror_axis: str = 'x',
-           warp: Optional['BaseTransform'] = None) -> np.ndarray:
-    """Mirror 3D coordinates about given axis.
-
-    This is a lower level version of `navis.mirror_brain` that:
-     1. Flips object along midpoint of axis using a affine transformation.
-     2. (Optional) Applies a warp transform that corrects asymmetries.
-
-    Parameters
-    ----------
-    points :            (N, 3) numpy array
-                        3D coordinates to mirror.
-    mirror_axis_size :  int | float
-                        A single number specifying the size of the mirror axis.
-                        This is used to find the midpoint to mirror about.
-    mirror_axis :       'x' | 'y' | 'z', optional
-                        Axis to mirror. Defaults to `x`.
-    warp :              Transform, optional
-                        If provided, will apply this warp transform after the
-                        affine flipping. Typically this will be a mirror
-                        registration to compensate for left/right asymmetries.
-
-    Returns
-    -------
-    points_mirrored
-                        Mirrored coordinates.
-
-    """
-    utils.eval_param(mirror_axis, name='mirror_axis',
-                     allowed_values=('x', 'y', 'z'), on_error='raise')
-
-    # At this point we expect numpy arrays
-    points = np.asarray(points)
-    if not points.ndim == 2 or points.shape[1] != 3:
-        raise ValueError('Array must be of shape (N, 3).')
-
-    # Translate mirror axis to index
-    mirror_ix = {'x': 0, 'y': 1, 'z': 2}[mirror_axis]
-
-    # Construct homogeneous affine mirroring transform
-    mirrormat = np.eye(4, 4)
-    mirrormat[mirror_ix, 3] = mirror_axis_size
-    mirrormat[mirror_ix, mirror_ix] = -1
-
-    # Turn into affine transform
-    flip_transform = AffineTransform(mirrormat)
-
-    # Flip about mirror axis
-    points_mirrored = flip_transform.xform(points)
-
-    if isinstance(warp, (BaseTransform, TransformSequence)):
-        points_mirrored = warp.xform(points_mirrored)
-
-    return points_mirrored
 
 
 class TemplateBrain:

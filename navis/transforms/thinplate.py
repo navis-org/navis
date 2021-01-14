@@ -19,8 +19,8 @@ import pandas as pd
 
 from scipy.spatial.distance import cdist
 
-
 from .base import BaseTransform
+
 
 def distance_matrix(X,Y):
     """For (p1,k)-shaped X and (p2,k)-shaped Y, returns the (p1,p2) matrix
@@ -31,6 +31,7 @@ def distance_matrix(X,Y):
     """
     return cdist(X, Y)
 
+# Replace morphops's original slow distance_matrix function
 mops.lmk_util.distance_matrix = distance_matrix
 
 

@@ -321,6 +321,7 @@ High-level functions:
 .. autosummary::
     :toctree: generated/
 
+    navis.xform
     navis.xform_brain
     navis.mirror_brain
     navis.transforms.mirror
@@ -330,11 +331,11 @@ High-level functions:
 .. autosummary::
     :toctree: generated/
 
-    ~navis.transforms.affine.AffineTransform
-    ~navis.transforms.cmtk.CMTKtransform
-    ~navis.transforms.h5reg.H5transform
-    ~navis.transforms.thinplate.TPStransform
-    ~navis.transforms.base.AliasTransform
+    ~navis.transforms.AffineTransform
+    ~navis.transforms.CMTKtransform
+    ~navis.transforms.H5transform
+    ~navis.transforms.TPStransform
+    ~navis.transforms.AliasTransform
 
 The ``TemplateRegistry`` keeps track of template brains, transforms and such:
 
