@@ -130,7 +130,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             raise TypeError(f"Don't know how to transform neuron of type '{type(xf)}'")
 
         # Add connectors if they exist
-        if xf.has_connnectors:
+        if xf.has_connectors:
             xyz = np.vstack([xyz, xf.connectors[['x', 'y', 'z']].values])
 
         # Do the xform of all spatial data
