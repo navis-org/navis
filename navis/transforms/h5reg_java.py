@@ -145,6 +145,12 @@ class H5JavaTransform(BaseTransform):
                 levels.append(i)
         return levels
 
+    def copy(self):
+        """Return copy."""
+        return H5JavaTransform(self.reg,
+                               direction=self.direction,
+                               level=int(self.level))
+
     @staticmethod
     def from_file(filepath, **kwargs):
         """Generate H5transform from file.
