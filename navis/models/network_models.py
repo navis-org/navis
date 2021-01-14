@@ -10,7 +10,6 @@
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-
 """Module contains network models."""
 
 import multiprocessing as mp
@@ -19,7 +18,7 @@ import pandas as pd
 
 from typing import Iterable, Union, Optional, Callable
 
-from .. import utils, config
+from .. import config
 
 # Set up logging
 logger = config.logger

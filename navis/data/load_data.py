@@ -11,11 +11,9 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import json
 import os
 
 import networkx as nx
-import numpy as np
 
 from typing import Union, Optional
 from typing_extensions import Literal
@@ -23,8 +21,8 @@ from typing_extensions import Literal
 from ..core.volumes import Volume
 from ..core.neuronlist import NeuronList
 from ..core.neurons import TreeNeuron, MeshNeuron
-from ..io import *
-from ..graph import *
+from ..io import read_swc
+from ..graph import nx2neuron
 
 __all__ = ['example_neurons', 'example_volume']
 
@@ -44,7 +42,7 @@ NeuronObject = Union[TreeNeuron, MeshNeuron, NeuronList]
 
 
 def example_neurons(n: Optional[int] = None,
-                    kind : Union[Literal['mesh'],
+                    kind:  Union[Literal['mesh'],
                                  Literal['skeleton'],
                                  Literal['mix']] = 'skeleton',
                     source: Union[Literal['swc'],

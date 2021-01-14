@@ -12,8 +12,6 @@
 #    GNU General Public License for more details.
 
 import logging
-import matplotlib.cm as mcl
-import numpy as np
 import pint
 
 logger = logging.getLogger('navis')

@@ -13,7 +13,6 @@
 
 from concurrent.futures import ThreadPoolExecutor
 import functools
-import math
 import multiprocessing as mp
 import os
 import random
@@ -26,7 +25,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-from typing import (ClassVar, Sequence, Union, Iterable, List, Any,
+from typing import (Sequence, Union, Iterable, List,
                     Optional, Callable, Iterator)
 
 from .. import utils, config, core
