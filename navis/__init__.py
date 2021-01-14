@@ -22,7 +22,7 @@ from .intersection import *
 from .io import *
 from .meshes import *
 from .morpho import *
-from .nblasting import *
+from .nbl import *
 from .plotting import *
 from .sampling import *
 from .transforms import *

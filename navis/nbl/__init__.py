@@ -11,6 +11,8 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+"""Module containing a Python implementation of NBLAST."""
+
 from .nblast_funcs import nblast, nblast_allbyall
 
 __all__ = ['nblast', 'nblast_allbyall']
