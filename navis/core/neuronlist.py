@@ -63,7 +63,6 @@ class NeuronList:
                         Will be passed to constructor of Tree/MeshNeuron (see
                         ``make_using``).
 
-
     Attributes
     ----------
     use_threading :     bool (default=True)
@@ -76,6 +75,7 @@ class NeuronList:
                         processing. Default = ``os.cpu_count()-1``.
 
     """
+
     neurons: List['core.NeuronObject']
 
     cable_length: Sequence[float]

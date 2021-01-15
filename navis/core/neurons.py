@@ -591,7 +591,29 @@ class BaseNeuron:
 
 
 class MeshNeuron(BaseNeuron):
-    """Neuron represented a by a mesh with vertices and faces."""
+    """Neuron represented a by a mesh with vertices and faces.
+
+    Parameters
+    ----------
+    x
+                    Data to construct neuron from:
+                     - any object that has ``.vertices`` and ``.faces``
+                       properties (e.g. a trimesh.Trimesh)
+                     - a dictionary ``{"vertices": (N,3), "faces": (M, 3)}``
+                     - filepath to a file that can be read by ``trimesh.load``
+                     - ``None`` will initialize an empty MeshNeuron
+
+    units :         str | pint.Units | pint.Quantity
+                    Units for coordinates. Defaults to ``None`` (dimensionless).
+                    Strings must be parsable by pint: e.g. "nm", "um",
+                    "micrometer" or "8 nanometers".
+    validate :      bool
+                    If True, will try to fix some common problems with
+                    meshes. See ``navis.fix_mesh`` for details.
+    **metadata
+                    Any additional data to attach to neuron.
+
+    """
 
     connectors: Optional[pd.DataFrame]
 
@@ -619,29 +641,7 @@ class MeshNeuron(BaseNeuron):
                  validate: bool = False,
                  **metadata
                  ):
-        """Initialize Mesh Neuron.
-
-        Parameters
-        ----------
-        x
-                        Data to construct neuron from:
-                         - any object that has ``.vertices`` and ``.faces``
-                           properties (e.g. a trimesh.Trimesh)
-                         - a dictionary ``{"vertices": (N,3), "faces": (M, 3)}``
-                         - filepath to a file that can be read by ``trimesh.load``
-                         - ``None`` will initialize an empty MeshNeuron
-
-        units :         str | pint.Units | pint.Quantity
-                        Units for coordinates. Defaults to ``None`` (dimensionless).
-                        Strings must be parsable by pint: e.g. "nm", "um",
-                        "micrometer" or "8 nanometers".
-        validate :      bool
-                        If True, will try to fix some common problems with
-                        meshes. See ``navis.fix_mesh`` for details.
-        **metadata
-                        Any additional data to attach to neuron.
-
-        """
+        """Initialize Mesh Neuron."""
         super().__init__()
 
         if isinstance(x, MeshNeuron):
@@ -817,7 +817,30 @@ class MeshNeuron(BaseNeuron):
 
 
 class TreeNeuron(BaseNeuron):
-    """Neuron represented as hierarchical tree (i.e. a skeleton)."""
+    """Neuron represented as hierarchical tree (i.e. a skeleton).
+
+    Parameters
+    ----------
+    x
+                    Data to construct neuron from:
+                     - ``pandas.DataFrame`` is expected to be SWC table
+                     - ``pandas.Series`` is expected to have a DataFrame as
+                       ``.nodes`` - additional properties will be attached
+                       as meta data
+                     - ``str`` is treated as SWC file name
+                     - ``BufferedIOBase`` e.g. from ``open(filename)``
+                     - ``networkx.DiGraph`` parsed by `navis.nx2neuron`
+                     - ``None`` will initialize an empty neuron
+                     - ``TreeNeuron`` - in this case we will try to copy every
+                       attribute
+    units :         str | pint.Units | pint.Quantity
+                    Units for coordinates. Defaults to ``None`` (dimensionless).
+                    Strings must be parsable by pint: e.g. "nm", "um",
+                    "micrometer" or "8 nanometers".
+    **metadata
+                    Any additional data to attach to neuron.
+
+    """
 
     nodes: pd.DataFrame
 
@@ -868,30 +891,7 @@ class TreeNeuron(BaseNeuron):
                  units: Union[pint.Unit, str] = None,
                  **metadata
                  ):
-        """Initialize Skeleton Neuron.
-
-        Parameters
-        ----------
-        x
-                        Data to construct neuron from:
-                         - ``pandas.DataFrame`` is expected to be SWC table
-                         - ```pandas.Series`` is expected to have a DataFrame as
-                           ``.nodes`` - additional properties will be attached
-                           as meta data
-                         - ``str`` is treated as SWC file name
-                         - ``BufferedIOBase`` e.g. from ``open(filename)``
-                         - ``networkx.DiGraph`` parsed by `navis.nx2neuron`
-                         - ``None`` will initialize an empty neuron
-                         - ``TreeNeuron`` - in this case we will try to copy every
-                           attribute
-        units :         str | pint.Units | pint.Quantity
-                        Units for coordinates. Defaults to ``None`` (dimensionless).
-                        Strings must be parsable by pint: e.g. "nm", "um",
-                        "micrometer" or "8 nanometers".
-        **metadata
-                        Any additional data to attach to neuron.
-
-        """
+        """Initialize Skeleton Neuron."""
         super().__init__()
 
         # Lock neuron during construction
@@ -1956,6 +1956,25 @@ class Dotprops(BaseNeuron):
     Drosophila brain images. Frontiers in Neuroinformatics 6 (00021).
     doi: 10.3389/fninf.2012.00021
 
+    Parameters
+    ----------
+    points :        numpy array
+                    (N, 3) array of x/y/z coordinates.
+    k :             int
+                    Number of nearest neighbors for tangent vector calculation.
+    vect :          numpy array, optional
+                    (N, 3) array of vectors. If not provided will
+                    recalculate both ``vect`` and ``alpha`` using ``k``.
+    alpha :         numpy array, optional
+                    (N, ) array of alpha values. If not provided will
+                    recalculate both ``alpha`` and ``vect`` using ``k``.
+    units :         str | pint.Units | pint.Quantity
+                    Units for coordinates. Defaults to ``None`` (dimensionless).
+                    Strings must be parsable by pint: e.g. "nm", "um",
+                    "micrometer" or "8 nanometers".
+    **metadata
+                    Any additional data to attach to neuron.
+
     """
     connectors: Optional[pd.DataFrame]
 
@@ -1982,30 +2001,7 @@ class Dotprops(BaseNeuron):
                  units: Union[pint.Unit, str] = None,
                  **metadata
                  ):
-        """Initialize Dotprops Neuron.
-
-        Parameters
-        ----------
-        points :        numpy array
-                        (N, 3) array of x/y/z coordinates.
-        k :             int
-                        Number of nearest neighbors for tangent vector
-                        calculation.
-        vect :          numpy array, optional
-                        (N, 3) array of vectors. If not provided will
-                        recalculate both ``vect`` and ``alpha`` using ``k``.
-        alpha :         numpy array, optional
-                        (N, ) array of alpha values. If not provided will
-                        recalculate both ``alpha`` and ``vect`` using ``k``.
-        units :         str | pint.Units | pint.Quantity
-                        Units for coordinates. Defaults to ``None`` (dimensionless).
-                        Strings must be parsable by pint: e.g. "nm", "um",
-                        "micrometer" or "8 nanometers".
-        **metadata
-                        Any additional data to attach to neuron.
-
-
-        """
+        """Initialize Dotprops Neuron."""
         super().__init__()
 
         self.k = k
