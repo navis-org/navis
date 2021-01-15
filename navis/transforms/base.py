@@ -18,7 +18,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from inspect import signature
 
-from .. import utils
+from .. import utils, config
 
 
 def trigger_init(func):
@@ -238,6 +238,9 @@ class TransOptimizer:
         # Check if there are any transforms we can optimize
         if not any(['H5transform' in str(type(tr)) for tr in self.transforms]):
             return
+
+        if not config.pbar_hide:
+            config.logger.info('Pre-caching deformation field(s) for transforms...')
 
         bbox_xf = self.bbox
         for tr in self.transforms:
