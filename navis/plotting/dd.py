@@ -1,3 +1,4 @@
+
 #    This script is part of navis (http://www.github.com/schlegelp/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
@@ -89,7 +90,9 @@ def plot2d(x: Union[core.NeuronObject,
                              rendering though.
 
     soma :              bool, default=True
-                        Plot soma if one exists.
+                        Plot soma if one exists. Size of the soma is determined
+                        by the neuron's ``.soma_radius`` property which defaults
+                        to the "radius" column for ``TreeNeurons``. 
     connectors :        bool, default=True
                         Plot connectors.
     connectors_only :   boolean, default=False

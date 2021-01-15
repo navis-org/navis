@@ -80,7 +80,7 @@ def plot3d(x: Union[core.NeuronObject,
                       to give all neurons the same color. Use ``list`` of
                       colors to assign colors: ``['red', (1, 0, 1), ...].
                       Use ``dict`` to map colors to neurons:
-                      ``{uuid: (r, g, b), ...}``. 
+                      ``{uuid: (r, g, b), ...}``.
     cn_colors :       str | tuple | dict | "neuron"
                       Overrides the default colors::
                         - single color as str (e.g. ``'red'``) or rgb tuple (e.g. ``(1, 0, 0)``)
@@ -113,6 +113,9 @@ def plot3d(x: Union[core.NeuronObject,
                         - ``color`` to adjust color
     soma :            bool, default=True
                       Whether to plot soma if it exists (TreeNeurons only).
+                      Size of the soma is determined  by the neuron's
+                      ``.soma_radius`` property which defaults to the "radius"
+                      column for ``TreeNeurons``.
 
     Plotly only
 
