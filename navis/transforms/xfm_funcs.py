@@ -139,7 +139,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                        affine_fallback=affine_fallback)
 
         # Guess change in spatial units
-        change, magnitude = _guess_change(xyz, xyz_xf)
+        change, magnitude = _guess_change(xyz, xyz_xf, sample=1000)
 
         # Round change -> this rounds to the first non-zero digit
         # change = np.around(change, decimals=-magnitude)
@@ -203,6 +203,10 @@ def _guess_change(xyz_before: np.ndarray,
     # Select the same random sample of points in both spaces
     if sample <= 1:
         sample = int(xyz_before.shape[0] * sample)
+
+    # Make sure we don't sample more than we have
+    sample = min(xyz_before.shape[0], sample)
+
     rnd_ix = np.random.choice(xyz_before.shape[0], sample, replace=False)
     sample_bef = xyz_before[rnd_ix, :]
     sample_aft = xyz_after[rnd_ix, :]
