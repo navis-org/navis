@@ -314,7 +314,7 @@ Functions to intersect points and neurons with volumes.
 Transforming and Mirroring
 ++++++++++++++++++++++++++
 Functions to transform spatial data between (e.g. neurons) template brains.
-Check out the `tutorials<example_gallery>` for example on how to use them.
+Check out the :ref:`tutorials<example_gallery>` for example on how to use them.
 
 High-level functions:
 
@@ -455,7 +455,7 @@ Not imported at top level! Must be imported explicitly::
 
 .. _api_interfaces.neuprint:
 
-nePrint API
+neuPrint API
 ++++++++++++
 NAVis wraps `neuprint-python <https://github.com/connectome-neuprint/neuprint-python>`_
 and adds a few navis-specific functions. You must have `neuprint-python`
