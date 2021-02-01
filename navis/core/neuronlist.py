@@ -517,7 +517,7 @@ class NeuronList:
                         :class:`~navis.BaseNeuron` as first argument.
         parallel :      bool
                         If True (default) will use multiprocessing. Spawning the
-                        processes takes time (and memory). So using ``parallel=True``
+                        processes takes time (and memory). Using ``parallel=True``
                         makes only sense if the NeuronList is large or the function
                         takes a long time.
         n_cores :       int
@@ -550,7 +550,7 @@ class NeuronList:
                                parallel=parallel,
                                n_cores=n_cores,
                                initializer=initializer,
-                               desc='Processing')
+                               desc=f'Apply {func.__name__}')
 
         return proc(self.neurons, **kwargs)
 
@@ -759,7 +759,7 @@ class NeuronProcessor:
                  desc: Optional[str] = None):
         self.nl = nl
         self.funcs = funcs
-        self.desc = None
+        self.desc = desc
         self.parallel = parallel
         self.n_cores = n_cores
         self.initializer = initializer
@@ -797,7 +797,7 @@ class NeuronProcessor:
         level = logger.getEffectiveLevel()
 
         logger.setLevel('ERROR')
-        if self.parallel and len(self.funcs) > 1:
+        if self.parallel and len(self.funcs) > 1 and self.n_cores > 1:
             # ``inplace=True`` does not really work if using parallel threads.
             if kwargs.get('inplace', False):
                 raise ValueError('It looks like you are trying to modify neuron '
