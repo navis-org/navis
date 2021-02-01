@@ -2251,6 +2251,39 @@ class Dotprops(BaseNeuron):
             fast_alpha = self.alpha * other.alpha[fast_idxs]
             return fast_dists, fast_dotprods, fast_alpha
 
+    def downsample(self, factor=5, inplace=False, **kwargs):
+        """Downsample the neuron by given factor.
+
+        Parameters
+        ----------
+        factor :                int, optional
+                                Factor by which to downsample the neurons.
+                                Default = 5.
+        inplace :               bool, optional
+                                If True, operation will be performed on
+                                itself. If False, operation is performed on
+                                copy which is then returned.
+        **kwargs
+                                Additional arguments passed to
+                                :func:`~navis.downsample_neuron`.
+
+        See Also
+        --------
+        :func:`~navis.downsample_neuron`
+            Base function. See for details and examples.
+
+        """
+        if inplace:
+            x = self
+        else:
+            x = self.copy()
+
+        sampling.downsample_neuron(x, factor, inplace=True, **kwargs)
+
+        if not inplace:
+            return x
+        return None
+
     def copy(self) -> 'Dotprops':
         """Return a copy of the dotprops.
 
