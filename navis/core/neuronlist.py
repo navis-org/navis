@@ -470,21 +470,27 @@ class NeuronList:
 
     def __truediv__(self, other):
         """Implements division for coordinates (nodes, connectors)."""
-        return self.__class__([n / other for n in self.neurons])
+        return self.__class__([n / other for n in config.tqdm(self.neurons,
+                                                              desc='Dividing',
+                                                              disable=config.pbar_hide,
+                                                              leave=False)])
 
 
     def __mul__(self, other):
         """Implement multiplication for coordinates (nodes, connectors)."""
-        return self.__class__([n * other for n in self.neurons])
+        return self.__class__([n * other for n in config.tqdm(self.neurons,
+                                                              desc='Multiplying',
+                                                              disable=config.pbar_hide,
+                                                              leave=False)])
 
     def __and__(self, other):
         """Implement bitwise AND using the & operator."""
         if isinstance(other, core.BaseNeuron):
             return self.__class__([n for n in self.neurons if n == other],
-                              make_copy=self.copy_on_subset)
+                                  make_copy=self.copy_on_subset)
         elif isinstance(other, NeuronList):
             return self.__class__([n for n in self.neurons if n in other],
-                              make_copy=self.copy_on_subset)
+                                  make_copy=self.copy_on_subset)
         else:
             return NotImplemented
 
