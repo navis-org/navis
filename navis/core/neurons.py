@@ -2300,7 +2300,7 @@ class Dotprops(BaseNeuron):
             raise ValueError(f"Too few points ({n_points}) to calculate properties.")
 
         # Create the KDTree and get the k-nearest neighbors for each point
-        dist, ix = self.tree.query(x.points, k=k)
+        dist, ix = self.kdtree.query(x.points, k=k)
 
         # Get points: array of (N, k, 3)
         pt = x.points[ix]
