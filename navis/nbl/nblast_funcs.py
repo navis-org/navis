@@ -554,10 +554,10 @@ def find_optimal_partition(n_cores, q, t):
 def force_dotprops(x, k, resample, progress=False):
     """Force data into Dotprops."""
     if isinstance(x, (NeuronList, list)):
-        dp = [force_dotprops(n, k, resample) for n in tqdm(x,
-                                                           desc='Dotprops',
-                                                           disable=not progress,
-                                                           leave=False)]
+        dp = [force_dotprops(n, k, resample) for n in config.tqdm(x,
+                                                                  desc='Dotprops',
+                                                                  disable=not progress,
+                                                                  leave=False)]
         return NeuronList(dp)
 
     # Try converting non-Dotprops
