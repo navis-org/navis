@@ -2124,7 +2124,7 @@ class Dotprops(BaseNeuron):
     @property
     def kdtree(self):
         """KDTree for points."""
-        if not hasattr(self, '_tree'):
+        if not getattr(self, '_tree', None):
             self._tree = KDTree(self.points)
         return self._tree
 
@@ -2141,6 +2141,8 @@ class Dotprops(BaseNeuron):
         if value.ndim != 2 or value.shape[1] != 3:
             raise ValueError(f'points must be (N, 3) array, got {value.shape}')
         self._points = value
+        # Also reset KDtree
+        self._tree = None
 
     @property
     def vect(self):
@@ -2234,9 +2236,12 @@ class Dotprops(BaseNeuron):
                         ``self`` and ``other``.
         alpha_prod :    np.ndarray
                         Dotproduct of each pair of closest points between
-                        ``self`` and ``other``.
+                        ``self`` and ``other``. Only returned if ``alpha=True``.
 
         """
+        if not isinstance(other, Dotprops):
+            raise TypeError(f'Expected Dotprops, got "{type(other)}"')
+
         fast_dists, fast_idxs = other.kdtree.query(self.points, **kwargs)
         fast_dotprods = np.abs((self.vect * other.vect[fast_idxs]).sum(axis=1))
 
@@ -2254,7 +2259,9 @@ class Dotprops(BaseNeuron):
         Dotprops
 
         """
-        no_copy = ['_lock']
+        # Don't copy the KDtree - when using pykdtree, copy.copy throws an
+        # error and the construction is super fast anyway
+        no_copy = ['_lock', '_tree']
         # Generate new empty neuron - note we pass vect and alpha as True to
         # prevent calculation on initialization
         x = self.__class__(points=np.zeros((0, 3)), k=1,
