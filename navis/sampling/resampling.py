@@ -161,10 +161,7 @@ def resample_neuron(x: 'core.NeuronObject',
     errors = 0
 
     # Iterate over segments
-    for i, seg in enumerate(config.tqdm(x.small_segments,
-                                        desc='Proc. segments',
-                                        disable=config.pbar_hide,
-                                        leave=False)):
+    for i, seg in enumerate(x.small_segments):
         # Get coordinates
         coords = locs.loc[seg].values.astype(float)
         # Get radii
@@ -274,9 +271,11 @@ def resample_neuron(x: 'core.NeuronObject',
 
         # Map back onto neuron
         if utils.is_iterable(x.soma):
-            x.soma = [node_map[n] for n in x.soma]
+            # Use _soma to avoid checks - the new nodes have not yet been
+            # assigned to the neuron!
+            x._soma = [node_map[n] for n in x.soma]
         else:
-            x.soma = node_map[x.soma]
+            x._soma = node_map[x.soma]
     else:
         # If `._soma` was (read: is) a function but it didn't detect anything in
         # the original neurons, this makes sure that the resampled neuron
