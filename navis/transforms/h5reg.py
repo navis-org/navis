@@ -29,6 +29,7 @@ from .. import config
 
 logger = config.logger
 
+
 class H5transform(BaseTransform):
     """Hdf5 transform of 3D spatial data.
 
@@ -354,21 +355,23 @@ class H5transform(BaseTransform):
         frac_out = is_out.sum() / xf_voxel.shape[0]
         if frac_out > 0.2:
             logger.warning(f'A suspiciously a large fraction ({frac_out:.1%}) '
-                           'of points to be transformed are outside the H5 '
+                           'of points appear to be outside the H5 '
                            'deformation field. Please make doubly sure '
                            'that the input coordinates are in the correct '
                            'space/units')
 
-        # Interpolate coordinats and re-combine to an x/y/z array
-        offset_vxl = np.vstack((xinterp(xf_voxel[:, ::-1], method='linear'),
-                                yinterp(xf_voxel[:, ::-1], method='linear'),
-                                zinterp(xf_voxel[:, ::-1], method='linear'))).T
+        # If all points are outside the volume, the interpolation complains
+        if frac_out < 1:
+            # Interpolate coordinates and re-combine to an x/y/z array
+            offset_vxl = np.vstack((xinterp(xf_voxel[:, ::-1], method='linear'),
+                                    yinterp(xf_voxel[:, ::-1], method='linear'),
+                                    zinterp(xf_voxel[:, ::-1], method='linear'))).T
 
-        # Turn offsets into real-world coordinates
-        offset_real = offset_vxl * quantization_multiplier
+            # Turn offsets into real-world coordinates
+            offset_real = offset_vxl * quantization_multiplier
 
-        # Apply offsets
-        xf += offset_real
+            # Apply offsets
+            xf += offset_real
 
         # For inverse direction, the affine part is applied second
         if self.direction == 'forward' and affine:
