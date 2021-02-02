@@ -20,11 +20,10 @@ import numpy as np
 import pandas as pd
 
 from concurrent.futures import ProcessPoolExecutor
-from tqdm.auto import tqdm
 from typing import Union, Optional
 from typing_extensions import Literal
 
-from .. import core
+from .. import core, utils
 from ..core import NeuronList, Dotprops, make_dotprops
 from .. import config
 
@@ -187,7 +186,7 @@ class NBlaster:
 
         # For the mean score we also have to produce the reverse score
         if scores in ('mean', 'min', 'max'):
-            reverse = self.single_query_target(t_idx, q_idx, score='forward')
+            reverse = self.single_query_target(t_idx, q_idx, scores='forward')
             if scores == 'mean':
                 scr = (scr + reverse) / 2
             elif scores == 'min':
