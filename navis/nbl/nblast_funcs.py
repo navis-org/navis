@@ -585,6 +585,10 @@ def check_microns(x):
     u = getattr(x, 'units', None)
     if isinstance(u, (config.ureg.Quantity, config.ureg.Unit)):
         if not u.unitless:
-            return u.to_compact().units == config.ureg.Unit('um')
+            if u.to_compact().units == config.ureg.Unit('um'):
+                return True
+            elif u.to_compact().units == config.ureg.Unit('microns'):
+                return True
+            return False
 
     return None
