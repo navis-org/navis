@@ -274,6 +274,7 @@ Functions to analyze morphology.
     navis.find_main_branchpoint
     navis.strahler_index
     navis.nblast
+    navis.nblast_smart
     navis.nblast_allbyall
 
 Polarity metrics
@@ -597,7 +598,6 @@ Not imported at top level! Must be imported explicitly::
     navis.interfaces.r.init_rcatmaid
     navis.interfaces.r.load_rda
     navis.interfaces.r.nblast
-    navis.interfaces.r.nblast_smart
     navis.interfaces.r.nblast_allbyall
     navis.interfaces.r.NBLASTresults
     navis.interfaces.r.neuron2py
