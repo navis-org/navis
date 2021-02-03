@@ -196,14 +196,45 @@ class NBlaster:
 
         return scr
 
+    def pair_query_target(self, pairs, scores='forward'):
+        """NBLAST multiple pairs.
+
+        Parameters
+        ----------
+        pairs :             tuples
+                            Tuples of (query_ix, target_ix) to query.
+        scores :            "forward" | "mean" | "min" | "max"
+                            Which scores to return.
+
+        """
+        scr = []
+        for p in config.tqdm(pairs,
+                             desc='Blasting pairs',
+                             leave=False,
+                             position=getattr(self, 'pbar_position', 0),
+                             disable=not self.progress):
+            scr.append(self.single_query_target(p[0], p[1], scores=scores))
+
+        return scr
+
     def multi_query_target(self, q_idx, t_idx, scores='forward'):
-        """NBLAST multiple queries against multiple targets."""
+        """NBLAST multiple queries against multiple targets.
+
+        Parameters
+        ----------
+        q_idx,t_idx :       iterable
+                            Iterable of query/target dotprops indices to
+                            NBLAST.
+        scores :            "forward" | "mean" | "min" | "max"
+                            Which scores to return.
+
+        """
         rows = []
-        for q in tqdm(q_idx,
-                      desc='Blasting',
-                      leave=False,
-                      position=getattr(self, 'pbar_position', 0),
-                      disable=not self.progress):
+        for q in config.tqdm(q_idx,
+                             desc='Blasting',
+                             leave=False,
+                             position=getattr(self, 'pbar_position', 0),
+                             disable=not self.progress):
             rows.append([])
             for t in t_idx:
                 score = self.single_query_target(q, t, scores=scores)
