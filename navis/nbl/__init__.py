@@ -13,6 +13,6 @@
 
 """Module containing a Python implementation of NBLAST."""
 
-from .nblast_funcs import nblast, nblast_allbyall
+from .nblast_funcs import nblast, nblast_allbyall, nblast_smart
 
-__all__ = ['nblast', 'nblast_allbyall']
+__all__ = ['nblast', 'nblast_allbyall', 'nblast_smart']

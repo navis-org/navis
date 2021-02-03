@@ -27,7 +27,7 @@ from .. import core, utils
 from ..core import NeuronList, Dotprops, make_dotprops
 from .. import config
 
-__all__ = ['nblast', 'nblast_allbyall']
+__all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 
 fp = os.path.dirname(__file__)
 smat_path = os.path.join(fp, 'score_mats')
@@ -263,6 +263,274 @@ class NBlaster:
             res.loc[:, :] = np.dstack((res, res.T)).max(axis=2)
 
         return res
+
+
+def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
+                 target: Optional[str] = None,
+                 t: int = 90,
+                 criterion: Union[Literal['percentile'],
+                                  Literal['quantile'],
+                                  Literal['N']] = 'percentile',
+                 scores: Union[Literal['forward'],
+                               Literal['mean'],
+                               Literal['min'],
+                               Literal['max']] = 'forward',
+                 return_mask: bool = False,
+                 normalized: bool = True,
+                 use_alpha: bool = False,
+                 n_cores: int = os.cpu_count() - 2,
+                 progress: bool = True,
+                 k: int = 20,
+                 resample: Optional[int] = None) -> pd.DataFrame:
+    """Smart(er) NBLAST query against target neurons.
+
+    In comparison with :func:`navis.nblast`, this function will first run a
+    "pre-NBLAST" in which only 10% of the query dotprops' points are used.
+    Using those score, we select for each query the highest scoring targets and
+    run the full NBLAST only on those query-target pairs (see ``t`` and
+    ``criterion``).
+
+    Parameters
+    ----------
+    query,target :  Dotprops | TreeNeuron | MeshNeuron | NeuronList
+                    Query neuron(s) to NBLAST against the targets. Units should
+                    be in microns as NBLAST is optimized for that and have
+                    similar sampling resolutions. Non-Dotprops will be converted
+                    to Dotprops (see parameters below).
+    t :             int
+                    Value used to select query-target pairs from pre-NBLAST
+                    to run a full NBLAST on. See also ``criterion``.
+    criterion :     "percentile" | "quantile" | "N"
+                    Criterion for selecting query-target pairs for full NBLAST:
+
+                        - "percentile" runs full NBLAST on the ``t``-th percentile
+                        - "quantile" runs full NBLAST on the ``t``-th quantile
+                        - "N" runs full NBLAST on top ``t`` targets
+
+    return_mask :   bool
+                    If True, will return a boolean mask with same shape as
+                    that shows which scores are based on a full NBLAST and which
+                    ones only on the pre-NBLAST.
+    scores :        'forward' | 'mean' | 'min' | 'max'
+                    Determines the final scores:
+
+                        - 'forward' (default) returns query->target scores
+                        - 'mean' returns the mean of query->target and
+                          target->query scores
+                        - 'min' returns the minium between query->target and
+                          target->query scores
+                        - 'max' returns the maximum between query->target and
+                          target->query scores
+
+    n_cores :       int, optional
+                    Max number of cores to use for nblasting. Default is
+                    ``os.cpu_count() - 2``. This should ideally be an even
+                    number as that allows optimally splitting queries onto
+                    individual processes.
+    use_alpha :     bool, optional
+                    Emphasizes neurons' straight parts (backbone) over parts
+                    that have lots of branches.
+    normalized :    bool, optional
+                    Whether to return normalized NBLAST scores.
+    progress :      bool
+                    Whether to show progress bars.
+
+    Dotprop-conversion
+
+    k :             int, optional
+                    Number of nearest neighbors to use for dotprops generation.
+    resample :      float | int | bool, optional
+                    Resampling before dotprops generation.
+
+    Returns
+    -------
+    scores :        pandas.DataFrame
+                    Matrix with NBLAST scores. Rows are query neurons, columns
+                    are targets.
+    mask :          np.ndarray
+                    Only if ``return_mask=True``: a boolean mask with same shape
+                    as ``scores`` that shows which scores are based on a full
+                    NBLAST and which ones only on the pre-NBLAST.
+
+    References
+    ----------
+    Costa M, Manton JD, Ostrovsky AD, Prohaska S, Jefferis GS. NBLAST: Rapid,
+    Sensitive Comparison of Neuronal Structure and Construction of Neuron
+    Family Databases. Neuron. 2016 Jul 20;91(2):293-311.
+    doi: 10.1016/j.neuron.2016.06.012.
+
+    Examples
+    --------
+    >>> import navis
+    >>> nl = navis.example_neurons(n=5)
+    >>> nl.units
+    <Quantity([8 8 8 8 8], 'nanometer')>
+    >>> # Convert to microns
+    >>> nl_um = nl * (8 / 1000)
+    >>> # Run a NBLAST where only the top target from the pre-NBLAST is run
+    >>> # through a full NBLAST
+    >>> scores = navis.nblast_smart(nl_um[:3], nl_um[3:], t=1, criterion='N')
+
+    See Also
+    --------
+    :func:`navis.nblast`
+                The conventional full NBLAST.
+    :func:`navis.nblast_allbyall`
+                A more efficient way than ``nblast(query=x, target=x)``.
+
+    """
+    utils.eval_param(criterion, name='criterion',
+                     allowed_values=("percentile", "quantile", "N"))
+
+    try:
+        t = int(t)
+    except BaseException:
+        raise TypeError(f'`t` must be (convertable to) integer - got "{type(t)}"')
+
+    if criterion != 'N' and (t < 0 or t > 100):
+        raise ValueError(f'Expected `t` to be integer between 0 and 100, got "{t}"')
+    elif t > len(target):
+        raise ValueError(f'`t` of {t} is larger than the total number of '
+                         f'targets ({len(target)} targets)')
+
+    # Check if query or targets are in microns
+    # Note this test can return `None` if it can't be determined
+    if check_microns(query) is False:
+        logger.warning('NBLAST is optimized for data in microns and it looks '
+                       'like your queries are not in microns.')
+    if check_microns(target) is False:
+        logger.warning('NBLAST is optimized for data in microns and it looks '
+                       'like your targets are not in microns.')
+
+    if not isinstance(n_cores, numbers.Number) or n_cores < 1:
+        raise TypeError('`n_cores` must be an integer > 0')
+
+    n_cores = int(n_cores)
+    if n_cores > 1 and n_cores % 2:
+        logger.warning('NBLAST is most efficient if `n_cores` is an even number')
+
+    # Turn query into dotprops
+    query_dps = force_dotprops(query, resample=resample, k=k, progress=progress)
+    target_dps = force_dotprops(target, resample=resample, k=k, progress=progress)
+
+    # Make sure we're working on NeuronList
+    query_dps = NeuronList(query_dps)
+    target_dps = NeuronList(target_dps)
+
+    # Find an optimal partition that minimizes the number of neurons
+    # we have to send to each process
+    n_rows, n_cols = find_optimal_partition(n_cores, query_dps, target_dps)
+
+    # Make simplified dotprops
+    query_dps_simp = query_dps.downsample(10, inplace=False)
+    target_dps_simp = target_dps.downsample(10, inplace=False)
+
+    # First we NBLAST the highly simplified dotprops against another
+    nblasters = []
+    for qq in np.array_split(query_dps_simp, n_rows):
+        for tt in np.array_split(target_dps_simp, n_cols):
+            # Initialize NBlaster
+            this = NBlaster(use_alpha=use_alpha,
+                            normalized=normalized,
+                            progress=progress)
+            # Add queries and targets
+            for n in qq:
+                this.append(n)
+            for n in tt:
+                this.append(n)
+            # Keep track of indices of queries and targets
+            this.queries = np.arange(len(qq))
+            this.targets = np.arange(len(tt)) + len(qq)
+            this.pbar_position = len(nblasters)
+
+            nblasters.append(this)
+
+    # If only one core, we don't need to break out the multiprocessing
+    if n_cores == 1:
+        scr = this.multi_query_target(this.queries,
+                                      this.targets,
+                                      scores=scores)
+    else:
+        with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
+            # Each nblaster is passed to it's own process
+            futures = [pool.submit(this.multi_query_target,
+                                   q_idx=this.queries,
+                                   t_idx=this.targets,
+                                   scores=scores) for this in nblasters]
+
+            results = [f.result() for f in futures]
+
+        scr = pd.DataFrame(np.zeros((len(query_dps), len(target_dps))),
+                           index=query_dps.id, columns=target_dps.id)
+
+        for res in results:
+            scr.loc[res.index, res.columns] = res.values
+
+    # Now select targets of interest for each query
+    if criterion == 'percentile':
+        sel = np.percentile(scr, q=t, axis=1)
+    elif criterion == 'quantile':
+        sel = np.quantile(scr, q=t / 100, axis=1)
+    else:
+        # This is cheap and might select slightly more than the top N:
+        # Translate total N into percentile
+        t = 100 - int(t / scr.shape[1] * 100)
+        sel = np.percentile(scr, q=t, axis=1)
+
+    # Generate a mask for the scores we want to recalculate from full dotprops
+    mask = scr >= sel.reshape(-1, 1)
+
+    # Now re-generate the NBLASTERs with the full dotprops
+    nblasters = []
+    for q in np.array_split(np.arange(len(query_dps)), n_rows):
+        for t in np.array_split(np.arange(len(target_dps)), n_cols):
+            # Initialize NBlaster
+            this = NBlaster(use_alpha=use_alpha,
+                            normalized=normalized,
+                            progress=progress)
+            # Add queries and targets
+            for n in query_dps[q]:
+                this.append(n)
+            for n in target_dps[t]:
+                this.append(n)
+
+            # Find the pairs to NBLAST in this part of the matrix
+            submask = mask.loc[query_dps[q].id,
+                               target_dps[t].id]
+            # `pairs` now an array of [[query, target], []] pairs
+            this.pairs = np.vstack(np.where(submask)).T
+
+            # Offset the query indices
+            this.pairs[:, 1] += len(q)
+
+            # Track this NBLASTER's mask relative to the original big one
+            this.mask = np.zeros(mask.shape, dtype=np.bool)
+            this.mask[q[0]:q[-1]+1, t[0]:t[-1]+1] = submask
+
+            # Make sure position of progress bar checks out
+            this.pbar_position = len(nblasters)
+
+            nblasters.append(this)
+
+    # If only one core, we don't need to break out the multiprocessing
+    if n_cores == 1:
+        scr[mask] = this.pair_query_target(this.pairs, scores=scores)
+    else:
+        with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
+            # Each nblaster is passed to its own process
+            futures = [pool.submit(this.pair_query_target,
+                                   pairs=this.pairs,
+                                   scores=scores) for this in nblasters]
+
+            results = [f.result() for f in futures]
+
+        for res, nbl in zip(results, nblasters):
+            scr[nbl.mask] = res
+
+    if return_mask:
+        return scr, mask
+
+    return scr
 
 
 def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
@@ -622,3 +890,118 @@ def check_microns(x):
             return False
 
     return None
+
+
+def align_dtypes(*x, downcast=False, inplace=True):
+    """Align data types of dotprops.
+
+    Parameters
+    ----------
+    *x :        Dotprops | NeuronLists thereof
+    downcast :  bool
+                If True, will downcast all points to the lowest precision
+                dtype.
+    inplace :   bool
+                If True, will modify the original neuron objects. If False, will
+                make a copy before changing dtypes.
+
+    Returns
+    -------
+    *x
+                Input data with aligned dtypes.
+
+    """
+    dtypes = get_dtypes(x)
+
+    if len(dtypes) == 1:
+        return x
+
+    if not inplace:
+        for i in range(x):
+            x[i] = x[i].copy()
+
+    if downcast:
+        target = lowest_type(*x)
+    else:
+        target = np.result_type(*dtypes)
+
+    for n in x:
+        if isinstance(n, NeuronList):
+            for i in range(len(n)):
+                n[i].points = n[i].points.astype(target, copy=False)
+        elif isinstance(n, Dotprops):
+            n.points = n.points.astype(target, copy=False)
+        else:
+            raise TypeError(f'Unable to process "{type(n)}"')
+
+    return x
+
+
+def get_dtypes(*x):
+    """Collect data types of dotprops points."""
+    dtypes = set()
+    for n in x:
+        if isinstance(n, NeuronList):
+            dtypes = dtypes | get_dtypes(n)
+        elif isinstance(n, Dotprops):
+            dtypes.add(n.points.dtype)
+        else:
+            raise TypeError(f'Unable to process "{type(n)}"')
+    return dtypes
+
+
+def lowest_type(*x):
+    """Find the lowest data type."""
+    dtypes = get_dtypes(x)
+
+    if len(dtypes) == 1:
+        return dtypes[0]
+
+    lowest = dtypes[0]
+    for dt in dtypes[1:]:
+        lowest = demote_types(lowest, dt)
+
+    return lowest
+
+
+def demote_types(a, b):
+    """Determine the lower of two dtypes."""
+    if isinstance(a, np.ndarray):
+        a = a.dtype
+    if isinstance(b, np.ndarray):
+        b = b.dtype
+
+    # No change is same
+    if a == b:
+        return a
+
+    # First, get the "higher" type
+    higher = np.promote_types(a, b)
+    # Now get the one that's not higher
+    if a != higher:
+        return a
+    return b
+
+
+def sim_to_dist(x):
+    """Convert similarity scores to distances.
+
+    Parameters
+    ----------
+    x :     (M, M) np.ndarray | pandas.DataFrame
+            Similarity score matrix to invert.
+
+    Returns
+    -------
+    distances
+
+    """
+    if not isinstance(x, (np.ndarray, pd.DataFrame)):
+        raise TypeError(f'Expected numpy array or pandas DataFrame, got "{type(x)}"')
+
+    if isinstance(x, pd.DataFrame):
+        mx = x.values.max()
+    else:
+        mx = x.max()
+
+    return (x - mx) * -1
