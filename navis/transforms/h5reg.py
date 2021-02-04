@@ -247,13 +247,17 @@ class H5transform(BaseTransform):
         """
         return H5transform(str(filepath), **kwargs)
 
-    def xform(self, points: np.ndarray) -> np.ndarray:
+    def xform(self, points: np.ndarray, force_deform: bool = True) -> np.ndarray:
         """Xform data.
 
         Parameters
         ----------
         points :        (N, 3) numpy array | pandas.DataFrame
                         Points to xform. DataFrame must have x/y/z columns.
+        force_deform :  bool
+                        If True, points outside the deformation field be
+                        deformed using the closest point inside the deformation
+                        field.
 
         Returns
         -------
@@ -361,11 +365,20 @@ class H5transform(BaseTransform):
                            'space/units')
 
         # If all points are outside the volume, the interpolation complains
-        if frac_out < 1:
+        if frac_out < 1 or force_deform:
+            if force_deform:
+                # For the purpose of finding offsets, we will snap points
+                # outside the deformation field to the closest inside voxel
+                q_voxel = np.clip(xf_voxel,
+                                  a_min=0,
+                                  a_max=np.array(self.shape[:-1][::-1]) - 1)
+            else:
+                q_voxel = xf_voxel
+
             # Interpolate coordinates and re-combine to an x/y/z array
-            offset_vxl = np.vstack((xinterp(xf_voxel[:, ::-1], method='linear'),
-                                    yinterp(xf_voxel[:, ::-1], method='linear'),
-                                    zinterp(xf_voxel[:, ::-1], method='linear'))).T
+            offset_vxl = np.vstack((xinterp(q_voxel[:, ::-1], method='linear'),
+                                    yinterp(q_voxel[:, ::-1], method='linear'),
+                                    zinterp(q_voxel[:, ::-1], method='linear'))).T
 
             # Turn offsets into real-world coordinates
             offset_real = offset_vxl * quantization_multiplier
