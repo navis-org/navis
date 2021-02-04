@@ -475,7 +475,7 @@ class Volume(trimesh.Trimesh):
             if method == 'center':
                 cn = np.mean(v.vertices, axis=0)
             elif method == 'centroid':
-                cn = v.to_trimesh().centroid
+                cn = v.centroid
             elif method == 'origin':
                 cn = np.array([0, 0, 0])
 
@@ -511,7 +511,8 @@ class Volume(trimesh.Trimesh):
 
         Examples
         --------
-        >>> vol = navis.get_volume('v14.LH_R')
+        >>> import navis
+        >>> vol = navis.example_volume('LH')
         >>> vol.plot3d(color = (255, 0, 0))
 
         """
