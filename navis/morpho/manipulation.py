@@ -855,7 +855,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     >>> a = navis.example_neurons(1)
     >>> fragments = navis.cut_neuron(a, 100)
-    >>> stitched = navis.stitch_neurons(frag, method='LEAFS')
+    >>> stitched = navis.stitch_neurons(fragments, method='LEAFS')
 
     """
     master = str(master).upper()
@@ -895,7 +895,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
         seen_tn: Set[int] = set(m.nodes.node_id)
         for n in nl:
             # Skip the master neuron
-            if n != m:
+            if n == m:
                 continue
 
             # Grab nodes
@@ -914,17 +914,17 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                 new_map = dict(zip(non_unique, new_tn))
 
                 # Remap node IDs - if no new value, keep the old
-                n.nodes.node_id = n.nodes.node_id.map(lambda x: new_map.get(x, x))
+                n.nodes['node_id'] = n.nodes.node_id.map(lambda x: new_map.get(x, x))
 
                 if n.has_connectors:
-                    n.connectors.node_id = n.connectors.node_id.map(lambda x: new_map.get(x, x))
+                    n.connectors['node_id'] = n.connectors.node_id.map(lambda x: new_map.get(x, x))
 
                 if hasattr(n, 'tags'):
                     n.tags = {new_map.get(k, k): v for k, v in n.tags.items()}  # type: ignore
 
                 # Remap parent IDs
                 new_map[None] = -1  # type: ignore
-                n.nodes.parent_id = n.nodes.parent_id.map(lambda x: new_map.get(x, x)).astype(int)
+                n.nodes['parent_id'] = n.nodes.parent_id.map(lambda x: new_map.get(x, x)).astype(int)
 
                 # Add new nodes to seen
                 seen_tn = seen_tn | set(new_tn)
