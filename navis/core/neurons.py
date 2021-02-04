@@ -1324,14 +1324,6 @@ class TreeNeuron(BaseNeuron):
         """Number of branch points."""
         return self.nodes[self.nodes.type == 'branch'].shape[0]
 
-    @property
-    @requires_nodes
-    def n_leafs(self) -> Optional[int]:
-        """Number of leafs."""
-        if not not isinstance(self.nodes, pd.DataFrame):
-            return None
-        return self.nodes[self.nodes.type == 'end'].shape[0]
-
     @temp_property
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
