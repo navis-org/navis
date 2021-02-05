@@ -324,6 +324,7 @@ High-level functions:
 
     navis.xform
     navis.xform_brain
+    navis.symmetrize_brain
     navis.mirror_brain
     navis.transforms.mirror
 

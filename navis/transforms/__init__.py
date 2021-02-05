@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .templates import registry, xform_brain, mirror_brain
+from .templates import registry, xform_brain, mirror_brain, symmetrize_brain
 from .xfm_funcs import xform, mirror
 from .base import AliasTransform
 from .affine import AffineTransform
@@ -20,4 +20,4 @@ from .h5reg import H5transform
 from .cmtk import CMTKtransform
 
 # Make sure that only these functions are avaialable at top level
-__all__ = ['xform_brain', 'mirror_brain', 'xform', 'mirror']
+__all__ = ['xform_brain', 'mirror_brain', 'xform', 'mirror', 'symmetrize_brain']
