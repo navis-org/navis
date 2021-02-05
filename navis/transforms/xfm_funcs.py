@@ -16,6 +16,7 @@ import numbers
 
 import numpy as np
 import pandas as pd
+import trimesh as tm
 
 from scipy.spatial.distance import pdist
 from typing import Union, Optional
@@ -43,7 +44,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     Parameters
     ----------
-    x :                 Neuron/List | numpy.ndarray | pandas.DataFrame
+    x :                 Neuron/List | Volume/Trimesh | numpy.ndarray | pandas.DataFrame
                         Data to transform. Dataframe must contain ``['x', 'y', 'z']``
                         columns. Numpy array must be shape ``(N, 3)``.
     transform :         Transform/Sequence or list thereof
@@ -113,9 +114,6 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                     affine_fallback=affine_fallback))
             return x.__class__(xf)
 
-    if not isinstance(x, (core.BaseNeuron, np.ndarray, pd.DataFrame, core.Volume)):
-        raise TypeError(f'Unable to transform data of type "{type(x)}"')
-
     if isinstance(x, core.BaseNeuron):
         xf = x.copy()
         # We will collate spatial data to reduce overhead from calling
@@ -178,14 +176,21 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                           transform=transform,
                                           affine_fallback=affine_fallback)
         return x
-    elif isinstance(x, core.Volume):
+    elif isinstance(x, tm.Trimesh):
         x = x.copy()
         x.vertices = xform(x.vertices,
                            transform=transform,
                            affine_fallback=affine_fallback)
         return x
-    elif x.shape[1] != 3:
-        raise ValueError('Array must be of shape (N, 3).')
+    else:
+        try:
+            # At this point we expect numpy arrays
+            x = np.asarray(x)
+        except BaseException:
+            raise TypeError(f'Unable to transform data of type "{type(x)}"')
+
+        if not x.ndim == 2 or x.shape[1] != 3:
+            raise ValueError('Array must be of shape (N, 3).')
 
     # Apply transform and returned xformed points
     return transform.xform(x, affine_fallback=affine_fallback)
