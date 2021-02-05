@@ -19,6 +19,8 @@ import numbers
 import os
 import pathlib
 
+import fuzzywuzzy as fw
+import fuzzywuzzy.process
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -401,13 +403,28 @@ class TemplateRegistry:
         if len(G) == 0:
             raise ValueError('No bridging registrations available')
 
-        if source not in G.nodes:
-            raise ValueError(f'Source "{source}" has no known bridging registrations.')
+        # Do not remove the conversion to list - fuzzy matching does act up
+        # otherwise
+        nodes = list(G.nodes)
+        if source not in nodes:
+            best_match = fw.process.extractOne(source, nodes,
+                                               scorer=fw.fuzz.token_sort_ratio)
+            raise ValueError(f'Source "{source}" has no known bridging '
+                             f'registrations. Did you mean "{best_match[0]}" '
+                             'instead?')
         if target not in G.nodes:
-            raise ValueError(f'Target "{target}" has no known bridging registrations.')
+            best_match = fw.process.extractOne(target, nodes,
+                                               scorer=fw.fuzz.token_sort_ratio)
+            raise ValueError(f'Target "{target}" has no known bridging '
+                             f'registrations. Did you mean "{best_match[0]}" '
+                             'instead?')
 
         # This will raise a error message if no path is found
-        path = nx.shortest_path(G, source, target, weight='weight')
+        try:
+            path = nx.shortest_path(G, source, target, weight='weight')
+        except nx.NetworkXNoPath:
+            raise nx.NetworkXNoPath(f'No bridging path connecting {source} and'
+                                    f' {target} found.')
 
         # `path` holds the sequence of nodes we are traversing but not which
         # transforms (i.e. edges) to use
