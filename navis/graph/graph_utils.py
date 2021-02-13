@@ -21,6 +21,7 @@ import networkx as nx
 from typing import Union, Optional, List, Tuple, Sequence, Dict, Set, overload, Iterable
 from typing_extensions import Literal
 
+from pandas.api.types import CategoricalDtype
 from scipy.sparse import csgraph, csr_matrix
 
 from .. import graph, utils, config, core
@@ -383,7 +384,11 @@ def classify_nodes(x: 'core.NeuronObject',
         x.nodes['type'] = None
 
     # Turn into categorical data - saves tons of memory
-    x.nodes['type'] = x.nodes['type'].astype('category')
+    # Note that we have to make sure all categories are set even if they
+    # don't exist (e.g. if a neuron has no branch points)
+    cat_types = CategoricalDtype(categories=["end", "branch", "root", "slab"],
+                                 ordered=False)
+    x.nodes['type'] = x.nodes['type'].astype(cat_types)
 
     if not inplace:
         return x
