@@ -320,6 +320,7 @@ def neuron2py(x) -> 'core.NeuronObject':
     elif 'dotprops' in cl(x):
         # Convert data to Python
         data = {n: data2py(d) for n, d in zip(x.names, x)}
+        data['k'] = int(x.slots['k'][0])
         # Make and return Dotprops
         return core.Dotprops(**data)
     # If neuron
