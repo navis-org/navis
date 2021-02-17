@@ -132,6 +132,9 @@ def plot3d(x: Union[core.NeuronObject,
                       render plotly plots inline. Else, will generate a
                       plotly figure dictionary that can be used to generate
                       a html with an embedded 3D plot.
+    hover_name :      bool, default=False
+                      If True, hovering over neurons nodes will show their
+                      label.
     hover_id :        bool, default=False
                       If True, hovering over skeleton nodes will show their ID.
 
@@ -169,14 +172,14 @@ def plot3d(x: Union[core.NeuronObject,
     In a Jupyter notebook using plotly as backend.
 
     >>> import plotly.offline
-    >>> plotly.offline.init_notebook_mode()  # doctest: +SKIP
+    >>> plotly.offline.init_notebook_mode()                     # doctest: +SKIP
     >>> nl = navis.example_neurons()
     >>> # Backend is automatically chosen but we can set it explicitly
     >>> # Plot inline
-    >>> nl.plot3d(backend='plotly')  # doctest: +SKIP
+    >>> nl.plot3d(backend='plotly')                             # doctest: +SKIP
     >>> # Plot as separate html in a new window
     >>> fig = nl.plot3d(backend='plotly', plotly_inline=False)
-    >>> _ = plotly.offline.plot(fig)
+    >>> _ = plotly.offline.plot(fig)                            # doctest: +SKIP
 
     In a terminal using vispy as backend.
 
@@ -193,9 +196,9 @@ def plot3d(x: Union[core.NeuronObject,
     >>> vol = navis.example_volume('LH')
     >>> vol.color = (255, 0, 0, .5)
     >>> # This plots a neuronlists, a single neuron and a volume
-    >>> navis.plot3d([nl[0:2], nl[3], vol])
+    >>> v = navis.plot3d([nl[0:2], nl[3], vol])
     >>> # Pass kwargs
-    >>> navis.plot3d(nl1, clear3d=True)
+    >>> v = navis.plot3d(nl1, clear3d=True)
 
     """
     """
@@ -301,7 +304,8 @@ def plot3d_plotly(x, **kwargs):
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
                'plotly_inline', 'alpha', 'radius', 'fig', 'soma',
                'connectors', 'connectors_only', 'palette', 'color_by',
-               'shade_by', 'vmin', 'vmax', 'smin', 'smax', 'hover_id'}
+               'shade_by', 'vmin', 'vmax', 'smin', 'smax', 'hover_id',
+               'hover_name'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - ALLOWED

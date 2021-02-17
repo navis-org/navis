@@ -195,14 +195,13 @@ def neuron2plotly(x, **kwargs):
                         hoverinfo='none'
                     ))
                 else:
-                    raise ValueError(f'Unknown display type for connectors "{syn_lay["display"]}"')
+                    raise ValueError(f'Unknown display type for connectors "{cn_lay["display"]}"')
 
     return trace_data
 
 
 def mesh2plotly(neuron, neuron_id, color, **kwargs):
     """Convert MeshNeuron to plotly object."""
-    name = str(getattr(neuron, 'name', neuron.id))
     legend_group = kwargs.get('legend_group', neuron_id)
 
     # Skip empty neurons
@@ -217,6 +216,13 @@ def mesh2plotly(neuron, neuron_id, color, **kwargs):
     except BaseException:
         c = 'rgb(10,10,10)'
 
+    if kwargs.get('hover_name', False):
+        hoverinfo = 'text'
+        hovertext = neuron.label
+    else:
+        hoverinfo = 'none'
+        hovertext = ' '
+
     trace_data = [go.Mesh3d(x=neuron.vertices[:, 0],
                             y=neuron.vertices[:, 1],
                             z=neuron.vertices[:, 2],
@@ -224,10 +230,11 @@ def mesh2plotly(neuron, neuron_id, color, **kwargs):
                             j=neuron.faces[:, 1],
                             k=neuron.faces[:, 2],
                             color=c,
-                            name=name,
+                            name=neuron.label,
                             legendgroup=legend_group,
                             showlegend=True,
-                            hoverinfo='none')]
+                            hovertext=hovertext,
+                            hoverinfo=hoverinfo)]
 
     return trace_data
 
@@ -239,7 +246,6 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
         return []
 
     coords = segments_to_coords(neuron, neuron.segments)
-    name = str(getattr(neuron, 'name', neuron.id))
     linewidth = kwargs.get('linewidth', kwargs.get('lw', 2))
     legend_group = kwargs.get('legend_group', neuron_id)
 
@@ -265,6 +271,9 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
     if kwargs.get('hover_id', False):
         hoverinfo = 'text'
         hovertext = [str(i) for seg in neuron.segments for i in seg + [None]]
+    elif kwargs.get('hover_name', False):
+        hoverinfo = 'text'
+        hovertext = neuron.label
     else:
         hoverinfo = 'none'
         hovertext = ' '
@@ -275,7 +284,7 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
                                mode='lines',
                                line=dict(color=c,
                                          width=linewidth),
-                               name=name,
+                               name=neuron.label,
                                legendgroup=legend_group,
                                showlegend=True,
                                hoverinfo=hoverinfo,

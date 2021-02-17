@@ -2353,6 +2353,8 @@ class Dotprops(BaseNeuron):
     def to_skeleton(self, scale_vec: float = 1) -> TreeNeuron:
         """Turn dotprops into a skeleton.
 
+        Note that only minimal meta data is carried over.
+
         Parameters
         ----------
         scale_vec :     float
@@ -2382,6 +2384,10 @@ class Dotprops(BaseNeuron):
 
         # Produce a minimal TreeNeuron
         tn = TreeNeuron(nodes, units=self.units, id=self.id)
+
+        # Carry over the label
+        if getattr(self, '_label', None):
+            tn._label = self._label
 
         # Add some other relevant attributes directly
         if self.has_connectors:
