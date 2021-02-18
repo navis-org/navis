@@ -40,8 +40,8 @@ __all__ = ['plot3d']
 
 logger = config.logger
 
-if utils.is_jupyter():
-    plotly.offline.init_notebook_mode(connected=True)
+#if utils.is_jupyter():
+#    plotly.offline.init_notebook_mode(connected=True)
 
 
 def plot3d(x: Union[core.NeuronObject,
