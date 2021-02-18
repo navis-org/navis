@@ -42,6 +42,11 @@ from . import factory
 from .base import TransformSequence, BaseTransform, AliasTransform
 from .xfm_funcs import mirror, xform
 
+# Catch some stupid warning about installing python-Levenshtein
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore')
+    import fuzzywuzzy as fw
+    import fuzzywuzzy.process
 
 __all__ = ['xform_brain', 'mirror_brain', 'symmetrize_brain']
 
@@ -973,8 +978,8 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                     for the given ``template`` and apply it after the flipping.
                     You can also just pass a Transform or TransformSequence.
     via :           str | None
-                    If provided, (e.g. "FCWB") will first transform
-                    coordinates into that space, then mirror and transform back.
+                    If provided, (e.g. "FCWB") will first transform coordinates
+                    into that space, then mirror and transform back.
                     Use this if there is no mirror registration for the original
                     template, or to transform to a symmetrical template in which
                     flipping is sufficient.
