@@ -38,9 +38,11 @@ def neuron2plotly(x, **kwargs):
     elif not isinstance(x, core.NeuronList):
         raise TypeError('Unable to process data of type "{}"'.format(type(x)))
 
-    colors = kwargs.get('color',
-                        kwargs.get('c',
-                                   kwargs.get('colors', None)))
+    # Pop colors so we don't have duplicate parameters when we go into the
+    # individual ``...2plotly` functions
+    colors = kwargs.pop('color',
+                        kwargs.pop('c',
+                                   kwargs.pop('colors', None)))
 
     palette = kwargs.get('palette', None)
     color_by = kwargs.get('color_by', None)
