@@ -70,29 +70,30 @@ def plot2d(x: Union[core.NeuronObject,
     Parameters
     ----------
     x :                 TreeNeuron | MeshNeuron | NeuronList | Volume | Dotprops | np.ndarray
-                        Objects to plot::
+                        Objects to plot:
 
-                          - multiple objects can be passed as list (see examples)
-                          - numpy array of shape (n,3) is intepreted as points for scatter plots
+                        - multiple objects can be passed as list (see examples)
+                        - numpy array of shape (n,3) is intepreted as points for
+                          scatter plots
     method :            '2d' | '3d' (default) | '3d_complex'
                         Method used to generate plot. Comes in three flavours:
-                          1. '2d' uses normal matplotlib. Neurons are plotted on
-                             top of one another in the order their are passed to
-                             the function. Use the ``view`` parameter (below) to
-                             set the view (default = xy).
-                          2. '3d' uses matplotlib's 3D axis. Here, matplotlib
-                             decide the depth order (zorder) of plotting. Can
-                             change perspective either interacively or by code
-                             (see examples).
-                          3. '3d_complex' same as 3d but each neuron segment is
-                             added individually. This allows for more complex
-                             zorders to be rendered correctly. Slows down
-                             rendering though.
 
+                        1. '2d' uses normal matplotlib. Neurons are plotted on
+                           top of one another in the order their are passed to
+                           the function. Use the ``view`` parameter (below) to
+                           set the view (default = xy).
+                        2. '3d' uses matplotlib's 3D axis. Here, matplotlib
+                           decide the depth order (zorder) of plotting. Can
+                           change perspective either interacively or by code
+                           (see examples).
+                        3. '3d_complex' same as 3d but each neuron segment is
+                           added individually. This allows for more complex
+                           zorders to be rendered correctly. Slows down
+                           rendering though.
     soma :              bool, default=True
                         Plot soma if one exists. Size of the soma is determined
                         by the neuron's ``.soma_radius`` property which defaults
-                        to the "radius" column for ``TreeNeurons``. 
+                        to the "radius" column for ``TreeNeurons``.
     connectors :        bool, default=True
                         Plot connectors.
     connectors_only :   boolean, default=False

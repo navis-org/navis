@@ -58,7 +58,7 @@ def plot3d(x: Union[core.NeuronObject,
       terminal: vispy used
       Jupyter: plotly used
 
-    See ``backend`` parameter on how to change default behavior.
+    See ``backend`` parameter on how to overwrite this default behavior.
 
     Parameters
     ----------
@@ -82,10 +82,14 @@ def plot3d(x: Union[core.NeuronObject,
                       Use ``dict`` to map colors to neurons:
                       ``{uuid: (r, g, b), ...}``.
     cn_colors :       str | tuple | dict | "neuron"
-                      Overrides the default colors::
-                        - single color as str (e.g. ``'red'``) or rgb tuple (e.g. ``(1, 0, 0)``)
-                        - dict mapping the connectors tables ``type`` column to a color (e.g. `{0: (1, 0, 0)}`)
-                        - with "neuron", connectors will receive the same color as their neuron
+                      Overrides the default colors:
+
+                      - single color as str (e.g. ``'red'``) or rgb tuple (e.g.
+                        ``(1, 0, 0)``)
+                      - dict mapping the connectors tables ``type`` column to a
+                        color (e.g. `{0: (1, 0, 0)}`)
+                      - with "neuron", connectors will receive the same color as
+                        their neuron
     palette :         str | array | list of arrays, default=None
                       Name of a matplotlib or seaborn palette. If ``color`` is
                       not specified will pick colors from this palette.
@@ -108,17 +112,17 @@ def plot3d(x: Union[core.NeuronObject,
     width/height :    int, default=600
                       Use to define figure/window size.
     scatter_kws :     dict, optional
-                      Use to modify scatter plots. Accepted parameters are
-                        - ``size`` to adjust size of dots
-                        - ``color`` to adjust color
+                      Use to modify scatter plots. Accepted parameters are:
+
+                      - ``size`` to adjust size of dots
+                      - ``color`` to adjust color
     soma :            bool, default=True
-                      Whether to plot soma if it exists (TreeNeurons only).
-                      Size of the soma is determined  by the neuron's
-                      ``.soma_radius`` property which defaults to the "radius"
-                      column for ``TreeNeurons``.
+                      Whether to plot soma if it exists (TreeNeurons only). Size
+                      of the soma is determined by the neuron's ``.soma_radius``
+                      property which defaults to the "radius" column for
+                      ``TreeNeurons``.
 
-    Plotly only
-
+                      ``Below parameters are for plotly backend only:``
     fig :             plotly.graph_objs.Figure
                       Pass to add graph objects to existing plotly figure. Will
                       not change layout.
@@ -138,8 +142,7 @@ def plot3d(x: Union[core.NeuronObject,
     hover_id :        bool, default=False
                       If True, hovering over skeleton nodes will show their ID.
 
-    Vispy only
-
+                      ``Below parameters are for vispy backend only:``
     clear :           bool, default = False
                       If True, will clear the viewer before adding the new
                       objects.
