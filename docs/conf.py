@@ -52,7 +52,6 @@ for module in MOCK_MODULES:
 sys.modules['rpy2'].__version_vector__ = (3, 0, 0)
 sys.modules['rpy2'].__version__ = '3.0.0'
 
-
 # import navis
 # from navis.interfaces import cytoscape
 # import navis.interfaces.blender
@@ -67,7 +66,7 @@ def convert_nb(nbname, execute=False):
     if execute:
         # Execute the notebook
         sh(["jupyter", "nbconvert", "--to", "notebook",
-        "--execute", "--inplace", nbname])
+            "--execute", "--inplace", nbname])
 
     # Convert to .rst for Sphinx
     sh(["jupyter", "nbconvert", "--to", "rst", nbname,
@@ -84,6 +83,17 @@ def convert_nb(nbname, execute=False):
     sh(["touch", nbname.replace('.ipynb', '') + ".rst"])
 
 
+def remove_hbox(filepath):
+    """Drop 'Hbox(children... lines from .rst files."""
+    with open(filepath, 'r') as f:
+        s = f.read()
+
+    if 'HBox(children' in s:
+        s = re.sub(".. parsed-literal::\n\n.*?HTML\(value=''\)\)\)", '', s)
+        with open(filepath, 'w') as f:
+            f.write(s)
+
+
 # -- Make execution numbers in Jupyter notebooks ascending -------------------
 source_path = os.path.dirname(os.path.abspath(__file__)) + '/source'
 all_nb = list()
@@ -95,6 +105,7 @@ for (dirpath, dirnames, filenames) in os.walk(source_path):
 
 for nb in all_nb:
     convert_nb(nb)
+    remove_hbox(nb.replace('.ipynb', '.rst'))
 
 # -- General configuration ------------------------------------------------
 
