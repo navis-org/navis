@@ -137,10 +137,13 @@ def plot3d(x: Union[core.NeuronObject,
                       plotly figure dictionary that can be used to generate
                       a html with an embedded 3D plot.
     hover_name :      bool, default=False
-                      If True, hovering over neurons nodes will show their
-                      label.
+                      If True, hovering over neurons will show their label.
     hover_id :        bool, default=False
                       If True, hovering over skeleton nodes will show their ID.
+    legend_group :    dict, default=None
+                      A dictionary mapping neuron IDs to labels (strings).
+                      Use this to group neurons under a common label in the
+                      legend.
 
                       ``Below parameters are for vispy backend only:``
     clear :           bool, default = False

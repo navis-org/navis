@@ -47,6 +47,7 @@ def neuron2plotly(x, **kwargs):
     palette = kwargs.get('palette', None)
     color_by = kwargs.get('color_by', None)
     shade_by = kwargs.get('shade_by', None)
+    lg = kwargs.pop('legend_group', None)
 
     if not isinstance(color_by, type(None)):
         if not palette:
@@ -124,7 +125,21 @@ def neuron2plotly(x, **kwargs):
         except BaseException:
             # If that doesn't work generate a new ID
             neuron_id = str(str(uuid.uuid1()))
-        legend_group = kwargs.get('legend_group', neuron_id)
+
+        showlegend = True
+        label = neuron.label
+        if isinstance(lg, dict) and neuron.id in lg:
+            # Check if this the first entry for this legendgroup
+            label = legendgroup = lg[neuron.id]
+            for d in trace_data:
+                # If it is not the first entry, hide it
+                if getattr(d, 'legendgroup', None) == legendgroup:
+                    showlegend = False
+                    break
+        elif isinstance(lg, str):
+            legendgroup = lg
+        else:
+            legendgroup = neuron_id
 
         if kwargs.get('radius', False):
             neuron = conversion.tree2meshneuron(neuron)
@@ -132,15 +147,21 @@ def neuron2plotly(x, **kwargs):
         if not kwargs.get('connectors_only', False):
             if isinstance(neuron, core.TreeNeuron):
                 trace_data += skeleton2plotly(neuron,
-                                              neuron_id=neuron_id,
+                                              label=label,
+                                              legendgroup=legendgroup,
+                                              showlegend=showlegend,
                                               color=color, **kwargs)
             elif isinstance(neuron, core.MeshNeuron):
                 trace_data += mesh2plotly(neuron,
-                                          neuron_id=neuron_id,
+                                          label=label,
+                                          legendgroup=legendgroup,
+                                          showlegend=showlegend,
                                           color=color, **kwargs)
             elif isinstance(neuron, core.Dotprops):
                 trace_data += dotprops2plotly(neuron,
-                                              neuron_id=neuron_id,
+                                              label=label,
+                                              legendgroup=legendgroup,
+                                              showlegend=showlegend,
                                               color=color, **kwargs)
             else:
                 raise TypeError(f'Unable to plot neurons of type "{type(neuron)}"')
@@ -172,7 +193,7 @@ def neuron2plotly(x, **kwargs):
                         marker=dict(color=f'rgb{c}', size=cn_lay.get('size', 2)),
                         name=f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}',
                         showlegend=False,
-                        legendgroup=legend_group,
+                        legendgroup=legendgroup,
                         hoverinfo='none'
                     ))
                 elif cn_lay['display'] == 'lines':
@@ -193,7 +214,7 @@ def neuron2plotly(x, **kwargs):
                         ),
                         name=f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}',
                         showlegend=False,
-                        legendgroup=legend_group,
+                        legendgroup=legendgroup,
                         hoverinfo='none'
                     ))
                 else:
@@ -202,10 +223,8 @@ def neuron2plotly(x, **kwargs):
     return trace_data
 
 
-def mesh2plotly(neuron, neuron_id, color, **kwargs):
+def mesh2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
     """Convert MeshNeuron to plotly object."""
-    legend_group = kwargs.get('legend_group', neuron_id)
-
     # Skip empty neurons
     if neuron.n_vertices == 0:
         return []
@@ -232,16 +251,16 @@ def mesh2plotly(neuron, neuron_id, color, **kwargs):
                             j=neuron.faces[:, 1],
                             k=neuron.faces[:, 2],
                             color=c,
-                            name=neuron.label,
-                            legendgroup=legend_group,
-                            showlegend=True,
+                            name=label,
+                            legendgroup=legendgroup,
+                            showlegend=showlegend,
                             hovertext=hovertext,
                             hoverinfo=hoverinfo)]
 
     return trace_data
 
 
-def skeleton2plotly(neuron, neuron_id, color, **kwargs):
+def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
     """Convert skeleton (i.e. TreeNeuron) to plotly line plot."""
     if neuron.nodes.empty:
         logger.warning(f'Skipping empty neuron: {neuron.label}')
@@ -249,7 +268,6 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
 
     coords = segments_to_coords(neuron, neuron.segments)
     linewidth = kwargs.get('linewidth', kwargs.get('lw', 2))
-    legend_group = kwargs.get('legend_group', neuron_id)
 
     # We have to add (None, None, None) to the end of each segment to
     # make that line discontinuous
@@ -286,9 +304,9 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
                                mode='lines',
                                line=dict(color=c,
                                          width=linewidth),
-                               name=neuron.label,
-                               legendgroup=legend_group,
-                               showlegend=True,
+                               name=label,
+                               legendgroup=legendgroup,
+                               showlegend=showlegend,
                                hoverinfo=hoverinfo,
                                hovertext=hovertext
                                )]
@@ -321,7 +339,7 @@ def skeleton2plotly(neuron, neuron_id, color, **kwargs):
                     # y and z are switched
                     y=[(v[1] * r) + n.y for v in fib_points],
                     z=[(v[2] * r) + n.z for v in fib_points],
-                    legendgroup=legend_group,
+                    legendgroup=legendgroup,
                     alphahull=.5,
                     showlegend=False,
                     color=soma_color,
@@ -387,12 +405,12 @@ def lines2plotly(x, **kwargs):
     return trace_data
 
 
-def dotprops2plotly(x, neuron_id, color, **kwargs):
+def dotprops2plotly(x, legendgroup, showlegend, label, color, **kwargs):
     """Convert Dotprops to plotly graph object."""
     scale_vec = kwargs.get('dps_scale_vec', 1)
     tn = x.to_skeleton(scale_vec=scale_vec)
 
-    return skeleton2plotly(tn, neuron_id, color, **kwargs)
+    return skeleton2plotly(tn, legendgroup, showlegend, label, color, **kwargs)
 
 
 def volume2plotly(x, **kwargs):
