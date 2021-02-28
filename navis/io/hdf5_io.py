@@ -1108,4 +1108,4 @@ def neuron_nm_units(neuron):
 WRITERS = {'v1': H5WriterV1,
            'latest': H5WriterV1}
 
-READERS = {'navis_hdf5_v1': H5ReaderV1}
+READERS = {'hnf_v1': H5ReaderV1}
