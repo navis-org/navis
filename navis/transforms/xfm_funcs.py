@@ -293,4 +293,4 @@ def mirror(points: np.ndarray, mirror_axis_size: float,
     if isinstance(warp, (BaseTransform, TransformSequence)):
         points_mirrored = warp.xform(points_mirrored)
 
-    return points_mirrored
+    return points_mirrored.astype(points.dtype)
