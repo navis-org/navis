@@ -543,7 +543,7 @@ class NeuronList:
     def apply(self,
               func: Callable,
               parallel: bool = False,
-              n_cores: int = os.cpu_count() - 2,
+              n_cores: int = os.cpu_count() // 2,
               initializer: Optional[Callable] = None,
               **kwargs):
         """Apply function across all neurons in this NeuronList.
@@ -556,10 +556,11 @@ class NeuronList:
         parallel :      bool
                         If True (default) will use multiprocessing. Spawning the
                         processes takes time (and memory). Using ``parallel=True``
-                        makes only sense if the NeuronList is large or the function
-                        takes a long time.
+                        makes only sense if the NeuronList is large or the
+                        function takes a long time.
         n_cores :       int
-                        Number of CPUs to use for multiprocessing.
+                        Number of CPUs to use for multiprocessing. Defaults to
+                        half the available cores.
         initializer :   callable, optional
                         If provided, this function will be called upon
                         initialization of the worker processes. Only relevant
