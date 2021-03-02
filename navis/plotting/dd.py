@@ -200,14 +200,11 @@ def plot2d(x: Union[core.NeuronObject,
 
     >>> fig, ax = navis.plot2d(nl, method='3d')
     >>> # Change view to lateral
-    >>> ax.azim = 0
-    >>> ax.elev = 0
+    >>> ax.view_init(azim=0, elev=0)
     >>> # Change view to top
-    >>> ax.azim = -90
-    >>> ax.elev = 90
+    >>> ax.view_init(azim=-90, elev=90)
     >>> # Tilted top view
-    >>> ax.azim = -135
-    >>> ax.elev = 45
+    >>> ax.view_init(azim=-135, elev=45)
     >>> # Move camera closer (will make image bigger)
     >>> ax.dist = 5
     >>> plt.show() # doctest: +SKIP
