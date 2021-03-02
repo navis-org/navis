@@ -2269,7 +2269,12 @@ class Dotprops(BaseNeuron):
         if not isinstance(other, Dotprops):
             raise TypeError(f'Expected Dotprops, got "{type(other)}"')
 
-        fast_dists, fast_idxs = other.kdtree.query(self.points, **kwargs)
+        # If we are using pykdtree we need to make sure that self.points is
+        # of the same dtype as other.points - not a problem with scipy but
+        # it the overhead is typically only a few micro seconds
+        points = self.points.astype(other.points.dtype)
+
+        fast_dists, fast_idxs = other.kdtree.query(points, **kwargs)
         fast_dotprods = np.abs((self.vect * other.vect[fast_idxs]).sum(axis=1))
 
         if not alpha:
