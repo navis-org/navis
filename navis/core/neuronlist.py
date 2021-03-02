@@ -209,20 +209,58 @@ class NeuronList:
         """Return True if neuronlist is empty."""
         return len(self.neurons) == 0
 
+    def __reprframe__(self):
+        """Return truncated DataFrame for self representation."""
+        if self.empty:
+            return pd.DataFrame([])
+        elif len(self) < 5:
+            return self.summary()
+        else:
+            nl = self[:3] + self[-3:]
+            s = nl.summary()
+            # Fix index
+            s.index = np.append(s.index[:3], np.arange(len(self)-3, len(self)))
+            return s
+
+    def __reprheader__(self, html=False):
+        """Generate header for representation."""
+        if len(self) <= 2000:
+            size = utils.sizeof_fmt(self.memory_usage(deep=False, estimate=True))
+            head = f'{type(self)} containing {len(self)} neurons ({size})'
+        else:
+            # For larger lists, extrapolate from sampling 10% of the list
+            size = utils.sizeof_fmt(self.memory_usage(deep=False,
+                                                      sample=True,
+                                                      estimate=True))
+            head = f'{type(self)} containing {len(self)} neurons (est. {size})'
+
+        if html:
+            head = head.replace('<', '&lt;').replace('>', '&gt;')
+
+        return head
+
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
-        string = f'{type(self)} of {len(self)} neurons'
+        string = self.__reprheader__(html=False)
         if not self.empty:
-            string += f'\n {str(self.summary())}'
+            with pd.option_context("display.max_rows", 4,
+                                   "display.show_dimensions", False):
+                string += f'\n{str(self.__reprframe__())}'
+
         return string
 
     def _repr_html_(self):
-        return self.summary()._repr_html_()
+        string = self.__reprheader__(html=True)
+        if not self.empty:
+            with pd.option_context("display.max_rows", 4,
+                                   "display.show_dimensions", False):
+                string += self.__reprframe__()._repr_html_()
+        return string
 
     def __iter__(self) -> Iterator['core.NeuronObject']:
-        """Iterator instanciates a new class everytime it is called.
+        """Iterator instanciates a new class every time it is called.
         This allows the use of nested loops on the same neuronlist object.
         """
         class prange_iter(Iterator['core.NeuronObject']):
@@ -561,6 +599,48 @@ class NeuronList:
     def mean(self) -> pd.DataFrame:
         """Return mean numeric and boolean values over all neurons."""
         return self.summary().mean(numeric_only=True)
+
+    def memory_usage(self, deep=False, estimate=False, sample=False):
+        """Return estimated size in memory of this neuronlist.
+
+        Works by going over each neuron and summing up their size in memory.
+
+        Parameters
+        ----------
+        deep :          bool
+                        Pass to pandas DataFrames. If True will inspect data of
+                        object type too.
+        estimate :      bool
+                        If True, we will only estimate the size. This is
+                        considerably faster but will slightly underestimate the
+                        memory usage.
+        sample :        bool
+                        If True, we will only sample 10% of the neurons
+                        contained in the list and extrapolate an estimate from
+                        there.
+
+        Returns
+        -------
+        int
+                    Memory usage in bytes.
+
+        """
+        if self.empty:
+            return 0
+
+        if not sample:
+            try:
+                return sum([n.memory_usage(deep=deep,
+                                           estimate=estimate) for n in self.neurons])
+            except BaseException:
+                return 0
+        else:
+            try:
+                s = sum([n.memory_usage(deep=deep,
+                                        estimate=estimate) for n in self.neurons[::10]])
+                return s * (len(self.neurons) / len(self.neurons[::10]))
+            except BaseException:
+                return 0
 
     def sample(self, N: Union[int, float] = 1) -> 'NeuronList':
         """Return random subset of neurons."""
