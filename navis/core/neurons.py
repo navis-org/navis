@@ -433,7 +433,7 @@ class BaseNeuron:
 
     @property
     def type(self) -> str:
-        """Return type."""
+        """Neuron type."""
         return 'navis.BaseNeuron'
 
     def convert_units(self,
@@ -454,6 +454,7 @@ class BaseNeuron:
 
         Examples
         --------
+        >>> import navis
         >>> n = navis.example_neurons(1)
         >>> n.units
         1 <Unit('nanometer')>
@@ -554,14 +555,14 @@ class BaseNeuron:
         >>> import navis
         >>> nl = navis.example_neurons()
         >>> #Plot with connectors
-        >>> nl.plot3d(connectors=True)
+        >>> viewer = nl.plot3d(connectors=True)
 
         """
         from ..plotting import plot3d
 
         return plot3d(core.NeuronList(self, make_copy=False), **kwargs)
 
-    def memory_usage(self, deep=False):
+    def memory_usage(self, deep=False, estimate=False):
         """Return estimated memory usage of this neuron.
 
         Works by going over attached data (numpy arrays and pandas DataFrames
@@ -572,6 +573,10 @@ class BaseNeuron:
         deep :      bool
                     Pass to pandas DataFrames. If True will inspect data of
                     object type too.
+        estimate :  bool
+                    If True, we will only estimate the size. This is
+                    considerably faster but will slightly underestimate the
+                    memory usage.
 
         Returns
         -------
@@ -579,14 +584,44 @@ class BaseNeuron:
                     Memory usage in bytes.
 
         """
+        # We will use a very simply caching here
+        # We don't check whether neuron is stale because that causes
+        # additional overhead and we want this function to be as fast
+        # as possible
+        if hasattr(self, "_memory_usage"):
+            mu = self._memory_usage
+            if mu['deep'] == deep and mu['estimate'] == estimate:
+                return mu['size']
+
         size = 0
-        for k, v in self.__dict__.items():
-            if isinstance(v, np.ndarray):
-                size += v.nbytes
-            elif isinstance(v, pd.DataFrame):
-                size += v.memory_usage(deep=deep).sum()
-            elif isinstance(v, pd.Series):
-                size += v.memory_usage(deep=deep)
+        if not estimate:
+            for k, v in self.__dict__.items():
+                if isinstance(v, np.ndarray):
+                    size += v.nbytes
+                elif isinstance(v, pd.DataFrame):
+                    size += v.memory_usage(deep=deep).sum()
+                elif isinstance(v, pd.Series):
+                    size += v.memory_usage(deep=deep)
+        else:
+            for k, v in self.__dict__.items():
+                if isinstance(v, np.ndarray):
+                    size += v.dtype.itemsize * np.multiply(*v.shape)
+                elif isinstance(v, pd.DataFrame):
+                    for dt in v.dtypes.values:
+                        if isinstance(dt, pd.CategoricalDtype):
+                            size += len(dt.categories) * dt.itemsize
+                        else:
+                            size += dt.itemsize * v.shape[0]
+                elif isinstance(v, pd.Series):
+                    if isinstance(v.dtype, pd.CategoricalDtype):
+                        size += len(dt.categories) * dt.itemsize
+                    else:
+                        size += v.dtype.itemsize * v.shape[0]
+
+        self._memory_usage = {'deep': deep,
+                              'estimate': estimate,
+                              'size': size}
+
         return size
 
 
@@ -629,7 +664,7 @@ class MeshNeuron(BaseNeuron):
     EQ_ATTRIBUTES = ['name', 'n_vertices', 'n_faces']
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = ['trimesh']
+    TEMP_ATTR = ['trimesh', '_memory_usage']
 
     def __init__(self,
                  x: Union[pd.DataFrame,
@@ -793,7 +828,7 @@ class MeshNeuron(BaseNeuron):
 
     @property
     def type(self) -> str:
-        """Return type."""
+        """Neuron type."""
         return 'navis.MeshNeuron'
 
     def copy(self) -> 'MeshNeuron':
@@ -876,7 +911,7 @@ class TreeNeuron(BaseNeuron):
     #: Temporary attributes that need to be regenerated when data changes.
     TEMP_ATTR = ['_igraph', '_graph_nx', '_segments', '_small_segments',
                  '_geodesic_matrix', 'centrality_method', '_simple',
-                 '_cable_length']
+                 '_cable_length', '_memory_usage']
 
     #: Attributes used for neuron summary
     SUMMARY_PROPS = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
@@ -1315,7 +1350,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def type(self) -> str:
-        """Return type."""
+        """Neuron type."""
         return 'navis.TreeNeuron'
 
     @property
@@ -1983,7 +2018,7 @@ class Dotprops(BaseNeuron):
     EQ_ATTRIBUTES = ['name', 'n_points', 'k']
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = []
+    TEMP_ATTR = ['_memory_usage']
 
     def __init__(self,
                  points: np.ndarray,
@@ -2195,7 +2230,7 @@ class Dotprops(BaseNeuron):
 
     @property
     def type(self) -> str:
-        """Return type."""
+        """Neuron type."""
         return 'navis.Dotprops'
 
     def dist_dots(self,
