@@ -16,7 +16,6 @@ import urllib
 
 import numpy as np
 import pandas as pd
-import trimesh as tm
 
 from functools import wraps
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
@@ -26,6 +25,15 @@ from .eval import is_mesh
 
 # Set up logging
 logger = config.logger
+
+
+def sizeof_fmt(num, suffix='B'):
+    """Bytes to Human readable."""
+    for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
 def make_volume(x: Any) -> 'core.Volume':
