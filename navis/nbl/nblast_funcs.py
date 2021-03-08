@@ -85,7 +85,7 @@ class ScoringFunction:
 
         Example
         -------
-        >>> parse_intervals("(0,0.1]")
+        >>> parse_intervals("(0,0.1]")                          # doctest: +SKIP
         0.1
         """
         return float(s.strip("([])").split(",")[-1])
@@ -278,7 +278,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                  return_mask: bool = False,
                  normalized: bool = True,
                  use_alpha: bool = False,
-                 n_cores: int = os.cpu_count() - 2,
+                 n_cores: int = os.cpu_count() // 2,
                  progress: bool = True,
                  k: int = 20,
                  resample: Optional[int] = None) -> pd.DataFrame:
@@ -408,6 +408,11 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
     n_cores = int(n_cores)
     if n_cores > 1 and n_cores % 2:
         logger.warning('NBLAST is most efficient if `n_cores` is an even number')
+    elif n_cores < 1:
+        raise ValueError('`n_cores` must not be smaller than 1')
+    elif n_cores > os.cpu_count():
+        logger.warning('`n_cores` should not larger than the number of '
+                       'available cores')
 
     # Turn query into dotprops
     query_dps = force_dotprops(query, resample=resample, k=k, progress=progress)
@@ -541,7 +546,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                          Literal['max']] = 'forward',
            normalized: bool = True,
            use_alpha: bool = False,
-           n_cores: int = os.cpu_count() - 2,
+           n_cores: int = os.cpu_count() // 2,
            progress: bool = True,
            k: int = 20,
            resample: Optional[int] = None) -> pd.DataFrame:
@@ -604,9 +609,9 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
     >>> import navis
     >>> nl = navis.example_neurons(n=5)
     >>> nl.units
-    array([8, 8, 8, 8, 8]) <Unit('nanometer')>
+    <Quantity([8 8 8 8 8], 'nanometer')>
     >>> # Convert to microns
-    >>> nl_um = nl / (1000 / 8)
+    >>> nl_um = nl * (8 / 1000)
     >>> # Run the nblast
     >>> scores = navis.nblast(nl_um[:3], nl_um[3:])
 
@@ -631,6 +636,11 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
     n_cores = int(n_cores)
     if n_cores > 1 and n_cores % 2:
         logger.warning('NBLAST is most efficient if `n_cores` is an even number')
+    elif n_cores < 1:
+        raise ValueError('`n_cores` must not be smaller than 1')
+    elif n_cores > os.cpu_count():
+        logger.warning('`n_cores` should not larger than the number of '
+                       'available cores')
 
     # Turn query into dotprops
     query_dps = force_dotprops(query, resample=resample, k=k, progress=progress)
@@ -670,7 +680,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                                        scores=scores)
 
     with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
-        # Each nblaster is passed to it's own process
+        # Each nblaster is passed to its own process
         futures = [pool.submit(this.multi_query_target,
                                q_idx=this.queries,
                                t_idx=this.targets,
@@ -690,7 +700,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
 def nblast_allbyall(x: NeuronList,
                     normalized: bool = True,
                     use_alpha: bool = False,
-                    n_cores: int = os.cpu_count() - 2,
+                    n_cores: int = os.cpu_count() // 2,
                     progress: bool = True,
                     k: int = 20,
                     resample: Optional[int] = None) -> pd.DataFrame:
@@ -742,9 +752,9 @@ def nblast_allbyall(x: NeuronList,
     >>> import navis
     >>> nl = navis.example_neurons(n=5)
     >>> nl.units
-    array([8, 8, 8, 8, 8]) <Unit('nanometer')>
+    <Quantity([8 8 8 8 8], 'nanometer')>
     >>> # Convert to microns
-    >>> nl_um = nl / (1000 / 8)
+    >>> nl_um = nl * (8 / 1000)
     >>> # Run the nblast
     >>> scores = navis.nblast_allbyall(nl_um)
 
@@ -766,6 +776,11 @@ def nblast_allbyall(x: NeuronList,
     n_cores = int(n_cores)
     if n_cores > 1 and n_cores % 2:
         logger.warning('NBLAST is most efficient if `n_cores` is an even number')
+    elif n_cores < 1:
+        raise ValueError('`n_cores` must not be smaller than 1')
+    elif n_cores > os.cpu_count():
+        logger.warning('`n_cores` should not larger than the number of '
+                       'available cores')
 
     # Turn neurons into dotprops
     dps = force_dotprops(x, resample=resample, k=k, progress=progress)
