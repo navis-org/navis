@@ -210,7 +210,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
 
     Examples
     --------
-    # Prune neuron to volume
+    Prune neuron to volume
 
     >>> import navis
     >>> n = navis.example_neurons(1)
@@ -238,6 +238,9 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     if any(set(backend) - set(allowed_backends)):
         raise ValueError(f'Unknown backend in "{backend}". Allowed backends: '
                          f'{allowed_backends}')
+
+    if mode not in ('IN', 'OUT'):
+        raise ValueError(f'`mode` must be "IN" or "OUT", not "{mode}"')
 
     # If we are given multiple volumes
     if isinstance(volume, (list, dict, np.ndarray)):
