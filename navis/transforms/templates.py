@@ -227,7 +227,7 @@ class TemplateRegistry:
 
         """
         assert transform_type in ('bridging', 'mirror')
-        assert isinstance(transform, BaseTransform)
+        assert isinstance(transform, (BaseTransform, TransformSequence))
 
         # Translate into edge
         edge = transform_reg(source=source, target=target, transform=transform,
