@@ -16,15 +16,17 @@
 
 """ Module contains functions to plot neurons in 2D and 3D.
 """
-from ... import core, config, utils, morpho, conversion
-from ..colors import *
-from ..plot_utils import segments_to_coords, make_tube
-
 import uuid
 import warnings
 
 import pandas as pd
 import numpy as np
+
+import matplotlib.colors as mcl
+
+from ... import core, config, utils, morpho, conversion
+from ..colors import *
+from ..plot_utils import segments_to_coords, make_tube
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -39,7 +41,7 @@ logger = config.logger
 
 
 def volume2vispy(x, **kwargs):
-    """ Converts Volume(s) to vispy visuals."""
+    """Convert Volume(s) to vispy visuals."""
     # Must not use make_iterable here as this will turn into list of keys!
     if not isinstance(x, (list, np.ndarray)):
         x = [x]
@@ -61,6 +63,9 @@ def volume2vispy(x, **kwargs):
         if isinstance(color, list):
             if all([isinstance(c, (tuple, list, np.ndarray)) for c in color]):
                 color = color[i]
+
+        if isinstance(color, str):
+            color = mcl.to_rgb(color)
 
         color = np.array(color, dtype=float)
 
