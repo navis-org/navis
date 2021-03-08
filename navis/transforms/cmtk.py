@@ -409,10 +409,13 @@ class CMTKtransform(BaseTransform):
         # Pipe in the points
         points_str = points[['x', 'y', 'z']].to_string(index=False,
                                                        header=False,)
-        proc.stdin.write(points_str.encode())
+
+        # Do not use proc.stdin.write to avoid output buffer becoming full
+        # before we finish piping in stdin.
+        #proc.stdin.write(points_str.encode())
 
         # Read out results
-        output = proc.communicate()
+        output = proc.communicate(input=points_str.encode())
 
         # If no output, something went wrong
         if not output[0]:
