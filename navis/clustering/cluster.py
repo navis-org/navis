@@ -516,7 +516,7 @@ def cluster_xyz(x: Union[pd.DataFrame, np.ndarray],
                 ) -> 'ClustResults':
     """Thin wrapper for ``scipy.scipy.spatial.distance``.
 
-    Takes a list of x,y,z coordinates and calculates EUCLEDIAN distance matrix.
+    Takes a list of x,y,z coordinates and calculates Euclidean distance matrix.
 
     Parameters
     ----------

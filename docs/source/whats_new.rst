@@ -20,7 +20,7 @@ repository.
            - :func:`navis.xform_brain` transforms data from one space to another
            - :func:`navis.mirror_brain` mirrors data about given axis
            - see the new :ref:`tutorials<example_gallery>` for explanations
-           - low-level interfaces to work with affine, H5-, CMTK- and thin plate spine transforms
+           - low-level interfaces to work with affine, H5-, CMTK- and thin plate spline transforms
        - de-cluttered top level namespace: some more obscure functions are now only available through modules
    * - 0.4.3
      - 22/12/20

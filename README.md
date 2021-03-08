@@ -18,7 +18,7 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 * clustering (e.g. by connectivity or synapse placement)
 * interface with [Blender3D](https://www.blender.org)
 * interface with R neuron libraries: e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr)
-* support for affine, HDF5, CMTK and thin plate spine transforms
+* support for affine, HDF5, CMTK and thin plate spline transforms
 
 ## Getting started
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:

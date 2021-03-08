@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-"""Functions to perform thin plate spine transforms. Requires morphops."""
+"""Functions to perform thin plate spline transforms. Requires morphops."""
 
 import morphops as mops
 import numpy as np
@@ -36,7 +36,7 @@ mops.lmk_util.distance_matrix = distance_matrix
 
 
 class TPStransform(BaseTransform):
-    """Thin Plate Spine transforms of 3D spatial data.
+    """Thin Plate Spline transforms of 3D spatial data.
 
     Parameters
     ----------
