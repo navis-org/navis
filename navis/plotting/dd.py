@@ -165,6 +165,11 @@ def plot2d(x: Union[core.NeuronObject,
                         If True will plot volume outline with no fill.
     dps_scale_vec :     float
                         Scale vector for dotprops.
+    rasterize :         bool, default=False
+                        Neurons produce rather complex vector graphics which can
+                        lead to large files when saving to SVG, PDF or PS. Use
+                        this parameter to rasterize neurons and meshes/volumes
+                        (but not axes or labels) to reduce file size.
 
     Examples
     --------
@@ -240,7 +245,7 @@ def plot2d(x: Union[core.NeuronObject,
                         'ax', 'color', 'colors', 'c', 'view', 'scalebar',
                         'cn_mesh_colors', 'linewidth', 'cn_size', 'cn_alpha',
                         'orthogonal', 'group_neurons', 'scatter_kws', 'figsize',
-                        'linestyle',
+                        'linestyle', 'rasterize',
                         'alpha', 'depth_coloring', 'autoscale', 'depth_scale',
                         'ls', 'lw', 'volume_outlines',
                         'dps_scale_vec', 'palette', 'color_by', 'shade_by',
@@ -658,6 +663,7 @@ def _plot_mesh(neuron, color, method, ax, **kwargs):
     alpha = kwargs.get('alpha', None)
     group_neurons = kwargs.get('group_neurons', False)
     view = kwargs.get('view', ('x', 'y'))
+    rasterize = kwargs.get('rasterize', False)
 
     # Add alpha
     if alpha:
@@ -674,6 +680,7 @@ def _plot_mesh(neuron, color, method, ax, **kwargs):
             p = mpatches.Polygon(xy[f], closed=True, fill=color)
             patches.append(p)
         pc = PatchCollection(patches, linewidth=0, facecolor=color,
+                             rasterized=rasterize,
                              edgecolor='none', alpha=alpha)
         ax.add_collection(pc)
     else:
@@ -682,6 +689,7 @@ def _plot_mesh(neuron, color, method, ax, **kwargs):
                              neuron.faces,
                              neuron.vertices[:, 2],
                              label=name,
+                             rasterized=rasterize,
                              cmap=mpl.cm.jet if depth_coloring else None,
                              color=color)
 
@@ -739,6 +747,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
     plot_soma = kwargs.get('soma', True)
     group_neurons = kwargs.get('group_neurons', False)
     view = kwargs.get('view', ('x', 'y'))
+    rasterize = kwargs.get('rasterize', False)
 
     if method == '2d':
         if not depth_coloring and not (isinstance(color, np.ndarray) and color.ndim == 2):
@@ -756,6 +765,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             this_line = mlines.Line2D(x, y,
                                       lw=linewidth, ls=linestyle,
                                       alpha=alpha, color=color,
+                                      rasterized=rasterize,
                                       label=f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
             ax.add_line(this_line)
         else:
@@ -765,6 +775,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             lc = LineCollection(xy,
                                 cmap='jet' if depth_coloring else None,
                                 norm=norm if depth_coloring else None,
+                                rasterized=rasterize,
                                 joinstyle='round')
 
             lc.set_linewidth(linewidth)
@@ -806,6 +817,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                 sx, sy = _parse_view2d(np.array([[n.x, n.y, n.z]]), view)
                 c = mpatches.Circle((sx[0], sy[0]), radius=r,
                                     alpha=alpha, fill=True, fc=soma_color,
+                                    rasterized=rasterize,
                                     zorder=4, edgecolor='none')
                 ax.add_patch(c)
         return None, None
@@ -835,6 +847,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                                   cmap=mpl.cm.jet if depth_coloring else None,
                                   lw=linewidth,
                                   joinstyle='round',
+                                  rasterized=rasterize,
                                   linestyle=linestyle)
             if group_neurons:
                 lc.set_gid(neuron.id)
@@ -854,6 +867,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                                       color=color,
                                       lw=linewidth,
                                       alpha=alpha,
+                                      rasterized=rasterize,
                                       linestyle=linestyle)
                 if group_neurons:
                     lc.set_gid(neuron.id)
@@ -889,6 +903,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                     surf = ax.plot_surface(x, y, z,
                                            color=soma_color,
                                            shade=False,
+                                           rasterized=rasterize,
                                            alpha=alpha)
                     if group_neurons:
                         surf.set_gid(neuron.id)
@@ -901,6 +916,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
 def _plot_volume(volume, color, method, ax, **kwargs):
     """Plot volume."""
     name = getattr(volume, 'name')
+    rasterize = kwargs.get('rasterize', False)
 
     if len(color) == 4:
         this_alpha = color[3]
@@ -925,11 +941,13 @@ def _plot_volume(volume, color, method, ax, **kwargs):
                 p = mpatches.Polygon(xy[f], closed=True, fill=fill)
                 patches.append(p)
             pc = PatchCollection(patches, linewidth=lw, facecolor=fc,
+                                 rasterized=rasterize,
                                  edgecolor=ec, alpha=this_alpha, zorder=0)
             ax.add_collection(pc)
         else:
             verts = volume.to_2d(view=view)
             vpatch = mpatches.Polygon(verts, closed=True, lw=lw, fill=fill,
+                                      rasterized=rasterize,
                                       fc=fc, ec=ec, alpha=this_alpha, zorder=0)
             ax.add_patch(vpatch)
 
@@ -945,6 +963,7 @@ def _plot_volume(volume, color, method, ax, **kwargs):
                              volume.faces,
                              verts[:, 2],
                              label=name,
+                             rasterized=rasterize,
                              color=color)
         ts.set_gid(name)
 
