@@ -512,8 +512,11 @@ class BaseNeuron:
                                   return_inverse=True)
             props = props[ix]
 
-        s = pd.Series([getattr(self, at, 'NA') for at in props],
-                      index=props)
+        # This is to catch an annoying "UnitStrippedWarning" with pint 
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            s = pd.Series([getattr(self, at, 'NA') for at in props],
+                          index=props)
 
         return s
 
