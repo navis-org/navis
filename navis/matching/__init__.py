@@ -12,5 +12,6 @@
 #    GNU General Public License for more details.
 
 from .pipeline import matching_pipeline
+from .bipartite import bipartite_match
 
-__all__ = ['matching_pipeline']
+__all__ = ['matching_pipeline', 'bipartite_match']
