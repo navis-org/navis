@@ -730,7 +730,7 @@ class MeshNeuron(BaseNeuron):
         if isinstance(other, (numbers.Number, list, np.ndarray)):
             # If a number, consider this an offset for coordinates
             n = self.copy()
-            n.vertices /= other
+            _ = np.divide(n.vertices, other, out=n.vertices, casting='unsafe')
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
@@ -754,7 +754,7 @@ class MeshNeuron(BaseNeuron):
         if isinstance(other, (numbers.Number, list, np.ndarray)):
             # If a number, consider this an offset for coordinates
             n = self.copy()
-            n.vertices *= other
+            _ = np.multiply(n.vertices, other, out=n.vertices, casting='unsafe')
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
@@ -2051,7 +2051,7 @@ class Dotprops(BaseNeuron):
         if isinstance(other, (numbers.Number, list, np.ndarray)):
             # If a number, consider this an offset for coordinates
             n = self.copy()
-            n.points /= other
+            _ = np.divide(n.points, other, out=n.points, casting='unsafe')
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
@@ -2078,7 +2078,7 @@ class Dotprops(BaseNeuron):
         if isinstance(other, (numbers.Number, list, np.ndarray)):
             # If a number, consider this an offset for coordinates
             n = self.copy()
-            n.points *= other
+            _ = np.multiply(n.points, other, out=n.points, casting='unsafe')
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
