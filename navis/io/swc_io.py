@@ -20,12 +20,14 @@ import requests
 from pathlib import Path
 from textwrap import dedent
 import multiprocessing as mp
-from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO, Tuple
+from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
 
 import pandas as pd
 import numpy as np
 
 from .. import config, utils, core
+
+__all__ = ["SwcReader", "read_swc", "write_swc"]
 
 # Set up logging
 logger = config.logger
@@ -812,23 +814,3 @@ def make_swc_table(x: 'core.TreeNeuron',
         return swc, node_map
 
     return swc
-
-
-def to_float(x: Any) -> Optional[float]:
-    """Try to convert to float."""
-    try:
-        return float(x)
-    except BaseException:
-        return None
-
-
-def to_int(x: Any) -> Optional[int]:
-    """Try to convert to int."""
-    try:
-        return int(x)
-    except BaseException:
-        return None
-
-def _worker_wrapper(kwargs):
-    """Helper for importing SWCs using multiple processes."""
-    return read_swc(**kwargs)
