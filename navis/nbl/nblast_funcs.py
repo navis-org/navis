@@ -377,6 +377,8 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                 The conventional full NBLAST.
     :func:`navis.nblast_allbyall`
                 A more efficient way than ``nblast(query=x, target=x)``.
+    :func:`navis.synblast`
+                A synapse-based variant of NBLAST.
 
     """
     utils.eval_param(criterion, name='criterion',
@@ -619,6 +621,10 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
     --------
     :func:`navis.nblast_allbyall`
                 A more efficient way than ``nblast(query=x, target=x)``.
+    :func:`navis.nblast_smart`
+                A smart(er) NBLAST suited for very large NBLAST.
+    :func:`navis.synblast`
+                A synapse-based variant of NBLAST.
 
     """
     # Check if query or targets are in microns
