@@ -38,7 +38,7 @@ Check out the `Documentation <http://navis.readthedocs.io/>`_.
 setup(
     name='navis',
     version=verstr,
-    packages=find_packages(include=["navis"]),
+    packages=find_packages(),
     license='GNU GPL V3',
     description='Neuron Analysis and Visualization library',
     long_description=LONG_DESCRIPTION,
