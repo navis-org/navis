@@ -31,18 +31,12 @@ __all__ = ['neuron2plotly', 'scatter2plotly', 'dotprops2plotly',
 fib_points = fibonacci_sphere(samples=30)
 
 
-def neuron2plotly(x, **kwargs):
+def neuron2plotly(x, colormap, **kwargs):
     """Convert neurons to plotly objects."""
     if isinstance(x, core.BaseNeuron):
         x = core.NeuronList(x)
     elif not isinstance(x, core.NeuronList):
         raise TypeError('Unable to process data of type "{}"'.format(type(x)))
-
-    # Pop colors so we don't have duplicate parameters when we go into the
-    # individual ``...2plotly` functions
-    colors = kwargs.pop('color',
-                        kwargs.pop('c',
-                                   kwargs.pop('colors', None)))
 
     palette = kwargs.get('palette', None)
     color_by = kwargs.get('color_by', None)
@@ -62,12 +56,6 @@ def neuron2plotly(x, **kwargs):
                                  vmax=kwargs.get('vmax', None),
                                  na=kwargs.get('na', 'raise'),
                                  color_range=255)
-    else:
-        colormap, _ = prepare_colormap(colors,
-                                       neurons=x,
-                                       palette=palette,
-                                       alpha=kwargs.get('alpha', None),
-                                       color_range=255)
 
     if not isinstance(shade_by, type(None)):
         logger.warning('`shade_by` is currently not working due to an bug in '
@@ -413,17 +401,8 @@ def dotprops2plotly(x, legendgroup, showlegend, label, color, **kwargs):
     return skeleton2plotly(tn, legendgroup, showlegend, label, color, **kwargs)
 
 
-def volume2plotly(x, **kwargs):
+def volume2plotly(x, colormap, **kwargs):
     """Convert Volumes to plotly objects."""
-    colors = kwargs.get('color',
-                        kwargs.get('c',
-                                   kwargs.get('colors', None)))
-
-    _, colormap = prepare_colormap(colors,
-                                   volumes=x,
-                                   alpha=kwargs.get('alpha', None),
-                                   color_range=255)
-
     trace_data = []
     for i, v in enumerate(x):
         # Skip empty data

@@ -28,6 +28,7 @@ with warnings.catch_warnings():
 
 from .. import utils, config, core
 from .vispy.viewer import Viewer
+from .colors import prepare_colormap
 from .plotly.graph_objs import *
 
 try:
@@ -324,11 +325,26 @@ def plot3d_plotly(x, **kwargs):
     # Parse objects to plot
     (neurons, volumes, points, visual) = utils.parse_objects(x)
 
+    # Pop colors so we don't have duplicate parameters when we go into the
+    # individual ``...2plotly` functions
+    colors = kwargs.pop('color',
+                        kwargs.pop('c',
+                                   kwargs.pop('colors', None)))
+
+    palette = kwargs.get('palette', None)
+
+    neuron_cmap, volumes_cmap = prepare_colormap(colors,
+                                                 neurons=neurons,
+                                                 volumes=volumes,
+                                                 palette=palette,
+                                                 alpha=kwargs.get('alpha', None),
+                                                 color_range=255)
+
     data = []
     if neurons:
-        data += neuron2plotly(neurons, **kwargs)
+        data += neuron2plotly(neurons, neuron_cmap, **kwargs)
     if volumes:
-        data += volume2plotly(volumes, **kwargs)
+        data += volume2plotly(volumes, volumes_cmap, **kwargs)
     if points:
         scatter_kws = kwargs.pop('scatter_kws', {})
         data += scatter2plotly(points, **scatter_kws)
