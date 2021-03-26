@@ -492,13 +492,15 @@ def points2vispy(x, **kwargs):
     return visuals
 
 
-def combine_visuals(visuals):
+def combine_visuals(visuals, name=None):
     """Attempt to combine multiple visuals of similar type into one.
 
     Parameters
     ----------
     visuals :   List
-                List of visuals
+                List of visuals.
+    name :      str, optional
+                Legend name for the combined visual.
 
     Returns
     -------
@@ -553,25 +555,37 @@ def combine_visuals(visuals):
             t._neuron_part = 'neurites'
             t._id = 'NA'
             t._object_id = uuid.uuid4()
-            t._name = 'NeuronCollection'
+            t._name = name if name else 'NeuronCollection'
             t.freeze()
 
             combined.append(t)
         elif ty == scene.visuals.Mesh:
             vertices = []
             faces = []
+            color = []
             for vis in by_type[ty]:
                 verts_offset = sum([v.shape[0] for v in vertices])
                 faces.append(vis.mesh_data.get_faces() + verts_offset)
                 vertices.append(vis.mesh_data.get_vertices())
 
+                vc = vis.mesh_data.get_vertex_colors()
+                if not isinstance(vc, type(None)):
+                    color.append(vc)
+                else:
+                    color.append(np.tile(vis.color.rgba, len(vertices[-1])).reshape(-1, 4))
+
             faces = np.vstack(faces)
             vertices = np.vstack(vertices)
+            color = np.concatenate(color)
 
-            color = np.concatenate([vis.mesh_data.get_vertex_colors() for vis in by_type[ty]])
+            if np.unique(color, axis=0).shape[0] == 1:
+                base_color = color[0]
+            else:
+                base_color = (1, 1, 1, 1)
 
             t = scene.visuals.Mesh(vertices,
                                    faces=faces,
+                                   color=base_color,
                                    vertex_colors=color,
                                    shading=by_type[ty][0].shading,
                                    mode=by_type[ty][0].mode)
@@ -581,7 +595,7 @@ def combine_visuals(visuals):
             t._object_type = 'neuron'
             t._neuron_part = 'neurites'
             t._id = 'NA'
-            t._name = 'MeshNeuronCollection'
+            t._name = name if name else 'MeshNeuronCollection'
             t._object_id = uuid.uuid4()
             t.freeze()
 

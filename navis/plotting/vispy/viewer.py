@@ -15,7 +15,6 @@ import colorsys
 from functools import wraps
 import platform
 import uuid
-import warnings
 
 import matplotlib.colors as mcl
 import numpy as np
@@ -23,10 +22,8 @@ import png
 import scipy.spatial
 import seaborn as sns
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    from vispy import scene
-    from vispy.util.quaternion import Quaternion
+from vispy import scene
+from vispy.util.quaternion import Quaternion
 
 from collections import OrderedDict
 
@@ -147,6 +144,15 @@ class Viewer:
 
         # Generate canvas
         self.canvas = scene.SceneCanvas(**defaults)
+
+        """
+        from PyQt5.QtWidgets import QPushButton
+
+        # Create canvas
+        button = QPushButton('PyQt5 button', self.canvas.native)
+        button.move(10, 10)
+        self.canvas.show()
+        """
 
         # Add and setup 3d view
         self.view3d = self.canvas.central_widget.add_view()
@@ -586,7 +592,7 @@ class Viewer:
                                 (ybounds.min(), ybounds.max()),
                                 (zbounds.min(), zbounds.max()))
 
-    def add(self, x, center=True, clear=False, combine=False, **kwargs):
+    def add(self, x, center=True, clear=False, as_group=False, **kwargs):
         """Add objects to canvas.
 
         Parameters
@@ -597,11 +603,11 @@ class Viewer:
                     If True, re-center camera to all objects on canvas.
         clear :     bool, optional
                     If True, clear canvas before adding new objects.
-        combine :   bool, optional
+        as_group :  bool, optional
                     If True, will try combining similar objects into a single
                     visual. This reduces the number of shader programs and
-                    should increase frame rate. Downside: objects can no
-                    longer be individually manipulated.
+                    can greatly increase tthe frame rate. Downside: objects can
+                    no longer be individually manipulated.
         **kwargs
                     Keyword arguments passed when generating visuals. See
                     :func:`~navis.plot3d` for options.
@@ -629,8 +635,8 @@ class Viewer:
         if clear:
             self.clear()
 
-        if combine:
-            visuals = combine_visuals(visuals)
+        if as_group:
+            visuals = combine_visuals(visuals, kwargs.get('name'))
 
         for v in visuals:
             self.view3d.add(v)
