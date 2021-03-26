@@ -11,40 +11,104 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import os
+import warnings
 
 import trimesh as tm
 
 from .. import core, config
 
+from .b3d import simplify_mesh_blender
+from .pyml import simplify_mesh_pyml
+from .o3d import simplify_mesh_open3d
 
-def simplify_mesh(x, ratio, inplace=False):
-    """Simplify mesh using Blender 3D.
 
-    Uses Blender's "decimate" modifier in "collapse" mode.
+def available_backends():
+    """Search for available backends."""
+    backends = []
+    try:
+        import open3d
+        backends.append('open3d')
+    except ImportError:
+        pass
+    except BaseException:
+        raise
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            import pymeshlab
+        backends.append('pymeshlab')
+    except ImportError:
+        pass
+    except BaseException:
+        raise
+
+    if tm.interfaces.blender.exists:
+        backends.append('blender')
+
+    return backends
+
+
+def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
+    """Simplify meshes (TriMesh, MeshNeuron, Volume).
 
     Parameters
     ----------
-    x :         navis.MeshNeuron | navis.Volume | trimesh.Trimesh
-                Object to simplify.
-    ratio :     float
-                Factor to which to reduce faces. For example, a ratio of 0.5 will
-                reduce the number of faces to 50%.
+    x :         navis.MeshNeuron/List | navis.Volume | trimesh.Trimesh
+                Mesh to simplify.
+    F :         float | int
+                Determines how much the mesh is simplified:
+                Floats (0-1) are interpreted as ratio. For example, an F of
+                0.5 will reduce the number of faces to 50%.
+                Integers (>1) are intepreted as target face count. For example,
+                an F of 5000 will attempt to reduce the number of faces to 5000.
+    backend :   "auto" | "open3d" | "blender" | "pymeshlab"
+                Which backend to use. Currenly we support ``open3d``, Blender 3D
+                and ``pymeshlab`.
     inplace :   bool
                 If True, will perform simplication on ``x``. If False, will
                 simplify and return a copy.
+    **kwargs
+                Keyword arguments are passed through to the respective backend's
+                functions (see below).
 
     Returns
     -------
     simplified
                 Simplified object.
 
+    See Also
+    --------
+    :func:`navis.meshes.simplify_mesh_open3d`
+                Open3D implementation for mesh simplification.
+    :func:`navis.meshes.simplify_mesh_pyml`
+                PyMeshLab implementation for mesh simplification.
+    :func:`navis.meshes.simplify_mesh_blender`
+                Blender 3D implementation for mesh simplification.
+
     """
+    if not isinstance(backend, str):
+        raise TypeError(f'`backend` must be string, got "{type(backend)}"')
+
+    backend = backend.lower()
+    backends = available_backends()
+
+    if not backends:
+        raise BaseException("None of the supported backends appear to be "
+                            "available. Please install either `open3d` or "
+                            "`pymeshlab` via `pip`, or install Blender 3D.")
+    elif backend == 'auto':
+        backend = backends[0]
+    elif backend not in backends:
+        raise ValueError(f'Backend "{backend}" appears to not be available. '
+                         'Please choose one of the available backends: '
+                         f'{", ".join(backends)}')
+
     if isinstance(x, core.NeuronList):
         if not inplace:
             x = x.copy()
 
-        _ = [simplify_mesh(n, ratio=ratio, inplace=True)
+        _ = [simplify_mesh(n, F=F, inplace=True, backend=backend, **kwargs)
              for n in config.tqdm(x,
                                   desc='Simplifying',
                                   leave=config.pbar_leave,
@@ -54,56 +118,24 @@ def simplify_mesh(x, ratio, inplace=False):
             return x
         return
 
-    if isinstance(x, core.MeshNeuron):
-        mesh = x.trimesh
-    elif isinstance(x, core.Volume):
-        mesh = tm.Trimesh(x.vertices, x.faces)
-    elif isinstance(x, tm.Trimesh):
-        mesh = x
-    else:
-        raise TypeError(f'Expected MeshNeuron, Volume or trimesh.Trimesh, got "{type(x)}"')
-
-    if not tm.interfaces.blender.exists:
-        raise ImportError('No Blender available (executable not found).')
-    _blender_executable = tm.interfaces.blender._blender_executable
-
-    assert ratio < 1 and ratio > 0, 'ratio must be between 0 and 1'
-    assert isinstance(mesh, tm.Trimesh)
-
-    # Load the template
-    temp_name = 'blender_decimate.py.template'
-    if temp_name in _cache:
-        template = _cache[temp_name]
-    else:
-        with open(os.path.join(_pwd, 'templates', temp_name), 'r') as f:
-            template = f.read()
-        _cache[temp_name] = template
-
-    # Replace placeholder with actual ratio
-    script = template.replace('$RATIO', str(ratio))
-
-    # Let trimesh's MeshScript take care of exectution and clean-up
-    with tm.interfaces.generic.MeshScript(meshes=[mesh],
-                                          script=script,
-                                          debug=False) as blend:
-        result = blend.run(_blender_executable
-                           + ' --background --python $SCRIPT')
-
-    # Blender apparently returns actively incorrect face normals
-    result.face_normals = None
-
     if not inplace:
         x = x.copy()
 
-    x.vertices = result.vertices
-    x.faces = result.faces
+    if backend == 'open3d':
+        # This expects a target face count
+        if F < 1:
+            F = F * len(x.faces)
+        _ = simplify_mesh_open3d(x, F=F, inplace=True, **kwargs)
+    elif backend == 'blender':
+        # This expects a ratio
+        if F > 1:
+            F = F / len(x.faces)
+        _ = simplify_mesh_blender(x, F=F, inplace=True)
+    elif backend == 'pymeshlab':
+        # This expects a ratio
+        if F > 1:
+            F = F / len(x.faces)
+        _ = simplify_mesh_pyml(x, F=F, inplace=True, **kwargs)
 
     if not inplace:
         return x
-
-
-# find the current absolute path to this directory
-_pwd = os.path.expanduser(os.path.abspath(os.path.dirname(__file__)))
-
-# Use to cache templates
-_cache = {}

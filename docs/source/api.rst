@@ -262,6 +262,7 @@ Functions to down- or resample neurons.
     navis.resample_neuron
     navis.resample_along_axis
     navis.downsample_neuron
+    navis.simplify_mesh
 
 Analysis
 --------
@@ -276,6 +277,7 @@ Functions to analyze morphology.
     navis.nblast
     navis.nblast_smart
     navis.nblast_allbyall
+    navis.synblast
 
 Polarity metrics
 ----------------
