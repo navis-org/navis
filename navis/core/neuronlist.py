@@ -278,7 +278,7 @@ class NeuronList:
         return prange_iter(self.neurons, 0)
 
     def __len__(self):
-        """Use skeleton ID here, otherwise this is terribly slow."""
+        """Number of neurons in this list."""
         return len(self.neurons)
 
     def __dir__(self):
@@ -416,7 +416,7 @@ class NeuronList:
             if all([isinstance(k, (bool, np.bool_)) for k in key]):
                 if len(key) != len(self.neurons):
                     raise IndexError('boolean index did not match indexed '
-                                     f'neuronlist; dimension is {len(self.neurons)}'
+                                     f'NeuronList; dimension is {len(self.neurons)}'
                                      ' but corresponding boolean dimension is'
                                      f'{len(key)}')
                 subset = [n for i, n in enumerate(self.neurons) if key[i]]
@@ -424,6 +424,12 @@ class NeuronList:
                 subset = [self[i] for i in key]
         elif isinstance(key, str):
             subset = [n for n in self.neurons if re.fullmatch(key, getattr(n, 'name', ''))]
+
+            # For indexing by name, we expect a match
+            if not subset:
+                raise AttributeError('NeuronList does not contain neuron(s) '
+                                     f'with name: "{key}"')
+
         elif isinstance(key, (int, np.integer, slice)):
             subset = self.neurons[key]
         else:
@@ -434,10 +440,6 @@ class NeuronList:
 
         # Make sure we unpack neurons
         subset = utils.unpack_neurons(subset)
-
-        if not subset:
-            # This will call __missing__
-            return self.__missing__(key)
 
         return self.__class__(subset, make_copy=self.copy_on_subset)
 
@@ -478,7 +480,7 @@ class NeuronList:
         elif utils.is_iterable(to_add):
             if False not in [isinstance(n, core.BaseNeuron) for n in to_add]:
                 return self.__class__(self.neurons + list(to_add),
-                                       make_copy=self.copy_on_subset)
+                                      make_copy=self.copy_on_subset)
             else:
                 return self.__class__(self.neurons + [core.BaseNeuron[n] for n in to_add],
                                       make_copy=self.copy_on_subset)
@@ -733,7 +735,7 @@ class NeuronList:
                             columns=props)
 
     def itertuples(self):
-        """Helper class to mimic ``pandas.DataFrame`` ``itertuples()``."""
+        """Helper to mimic ``pandas.DataFrame.itertuples()``."""
         return self.neurons
 
     def sort_values(self, key: str, ascending: bool = False):
