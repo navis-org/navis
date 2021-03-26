@@ -742,7 +742,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
     depth_coloring = kwargs.get('depth_coloring', False)
     linewidth = kwargs.get('linewidth', kwargs.get('lw', .5))
     linestyle = kwargs.get('linestyle', kwargs.get('ls', '-'))
-    alpha = kwargs.get('alpha', .9)
+    alpha = kwargs.get('alpha', None)
     norm = kwargs.get('norm')
     plot_soma = kwargs.get('soma', True)
     group_neurons = kwargs.get('group_neurons', False)
@@ -843,7 +843,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             lc = Line3DCollection(coords,
                                   color=line_color,
                                   label=neuron.id,
-                                  alpha=alpha if not kwargs.get('shade_by', False) else None,
+                                  alpha=alpha,
                                   cmap=mpl.cm.jet if depth_coloring else None,
                                   lw=linewidth,
                                   joinstyle='round',
