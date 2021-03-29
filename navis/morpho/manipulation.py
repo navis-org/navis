@@ -16,7 +16,6 @@
 """
 import pandas as pd
 import numpy as np
-import scipy.spatial.distance
 import networkx as nx
 
 from collections import namedtuple
@@ -168,30 +167,33 @@ def prune_by_strahler(x: NeuronObject,
         parent_dict = {
             tn.node_id: tn.parent_id for tn in neuron.nodes.itertuples()}
 
-    neuron.nodes = neuron.nodes[~neuron.nodes.strahler_index.isin(to_prune)].reset_index(drop=True, inplace=False)
+    # Avoid setting the nodes as this potentiall triggers a regeneration
+    # of the graph which in turn will raise an error because some nodes might
+    # still have parents that don't exist anymore
+    neuron._nodes = neuron._nodes[~neuron._nodes.strahler_index.isin(to_prune)].reset_index(drop=True, inplace=False)
 
     if neuron.has_connectors:
         if not relocate_connectors:
-            neuron.connectors = neuron.connectors[neuron.connectors.node_id.isin(neuron.nodes.node_id.values)].reset_index(drop=True, inplace=False)
+            neuron._connectors = neuron._connectors[neuron._connectors.node_id.isin(neuron._nodes.node_id.values)].reset_index(drop=True, inplace=False)
         else:
-            remaining_tns = set(neuron.nodes.node_id.values)
-            for cn in neuron.connectors[~neuron.connectors.node_id.isin(neuron.nodes.node_id.values)].itertuples():
+            remaining_tns = set(neuron._nodes.node_id.values)
+            for cn in neuron._connectors[~neuron.connectors.node_id.isin(neuron._nodes.node_id.values)].itertuples():
                 this_tn = parent_dict[cn.node_id]
                 while True:
                     if this_tn in remaining_tns:
                         break
                     this_tn = parent_dict[this_tn]
-                neuron.connectors.loc[cn.Index, 'node_id'] = this_tn
+                neuron._connectors.loc[cn.Index, 'node_id'] = this_tn
 
     # Reset indices of node and connector tables (important for igraph!)
-    neuron.nodes.reset_index(inplace=True, drop=True)
+    neuron._nodes.reset_index(inplace=True, drop=True)
 
     if neuron.has_connectors:
-        neuron.connectors.reset_index(inplace=True, drop=True)
+        neuron._connectors.reset_index(inplace=True, drop=True)
 
     # Theoretically we can end up with disconnected pieces, i.e. with more
     # than 1 root node -> we have to fix the nodes that lost their parents
-    neuron.nodes.loc[~neuron.nodes.parent_id.isin(neuron.nodes.node_id.values), 'parent_id'] = -1
+    neuron._nodes.loc[~neuron._nodes.parent_id.isin(neuron._nodes.node_id.values), 'parent_id'] = -1
 
     # Remove temporary attributes
     neuron._clear_temp_attr()
@@ -1064,7 +1066,7 @@ def average_neurons(x: 'core.NeuronList',
     >>> da2 = navis.example_neurons()
     >>> # Prune down to longest neurite
     >>> for n in da2:
-    ...    if numpy.any(n.soma):
+    ...     if n.has_soma:
     ...         n.reroot(n.soma, inplace=True)
     >>> da2_pr = da2.prune_by_longest_neurite(inplace=False)
     >>> # Make average
