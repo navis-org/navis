@@ -167,7 +167,7 @@ class SwcReader:
         p = Path(fpath)
         with open(p, "r") as f:
             return self.read_buffer(
-                f, merge_dicts({"name": p.stem, "origin": p}, attrs)
+                f, merge_dicts({"name": p.stem, "origin": str(p)}, attrs)
             )
 
     def read_directory(
