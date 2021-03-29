@@ -59,20 +59,16 @@ class NeuronList:
                         elements in ``x`` if they aren't already neurons.
                         By default, will use ``navis.Neuron`` to try to infer
                         what kind of neuron can be constructed.
+    parallel :          bool
+                        If True, will use parallel threads when initialising the
+                        NeuronList. Should be slightly up to a lot faster
+                        depending on the numbers of cores and the input data.
+    n_cores :           int
+                        Number of cores to use for when `parallel=True`.
+                        Defaults to half the available cores.
     **kwargs
                         Will be passed to constructor of Tree/MeshNeuron (see
                         ``make_using``).
-
-    Attributes
-    ----------
-    use_threading :     bool (default=True)
-                        If True, will use parallel threads when initialising the
-                        NeuronList. Should be slightly up to a lot faster
-                        depending on the numbers of cores. Switch off if you
-                        experience performance issues.
-    n_cores :           int
-                        Number of cores to use for threading and parallel
-                        processing. Default = ``os.cpu_count()-1``.
 
     """
 
@@ -95,15 +91,15 @@ class NeuronList:
                           pd.DataFrame],
                  make_copy: bool = False,
                  make_using: Optional[type] = None,
+                 parallel: bool = False,
+                 n_cores: int = os.cpu_count() // 2,
                  **kwargs):
-        # Set number of cores
-        self.n_cores: int = max(1, os.cpu_count() - 2)
-
         # If below parameter is True, most calculations will be parallelized
         # which speeds them up quite a bit. Unfortunately, this uses A TON of
         # memory - for large lists this might make your system run out of
         # memory. In these cases, leave this property at False
-        self.use_threading: bool = True
+        self.parallel = parallel
+        self.n_cores = n_cores
 
         # Determines if subsetting this NeuronList will copy the neurons
         self.copy_on_subset: bool = False
@@ -145,7 +141,7 @@ class NeuronList:
             elif not isinstance(make_using, type) and not callable(make_using):
                 make_using = make_using.__class__
 
-            if self.use_threading:
+            if self.parallel:
                 with ThreadPoolExecutor(max_workers=self.n_cores) as e:
                     futures = e.map(lambda x: make_using(x, **kwargs),
                                     [n[0] for n in to_convert])
@@ -361,11 +357,11 @@ class NeuronList:
                 raise AttributeError(f"'NeuronList' object has no attribute '{key}'")
 
             # Return function but wrap it in a function that will show
-            # a progress bar and use multiprocessing (if applicable)
+            # a progress bar. Note that we do not use parallel processing by
+            # default to avoid errors with `inplace=True`
             return NeuronProcessor(self,
                                    values,
-                                   parallel=self.use_threading,
-                                   n_cores=self.n_cores,
+                                   parallel=False,
                                    desc=key)
 
     def __setattr__(self, key, value):
@@ -855,6 +851,10 @@ class NeuronProcessor:
         functools.update_wrapper(self, self.funcs[0])
 
     def __call__(self, *args, **kwargs):
+        # Explicitly providing these parameters overwrites defaults
+        parallel = kwargs.pop('parallel', self.parallel)
+        n_cores = kwargs.pop('n_cores', self.n_cores)
+
         # We will check for each argument if it matches the number of
         # functions to be run. If they do, we will assume that each value
         # is meant for a single function
@@ -880,7 +880,7 @@ class NeuronProcessor:
         level = logger.getEffectiveLevel()
 
         logger.setLevel('ERROR')
-        if self.parallel and len(self.funcs) > 1 and self.n_cores > 1:
+        if parallel and len(self.funcs) > 1 and n_cores > 1:
             # ``inplace=True`` does not really work if using parallel threads.
             if kwargs.get('inplace', False):
                 raise ValueError('It looks like you are trying to modify neuron '
