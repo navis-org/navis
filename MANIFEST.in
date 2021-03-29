@@ -1,7 +1,8 @@
-include navis/data/*
-include navis/data/gml/*
-include navis/data/swc/*
-include navis/data/volumes/*
-include navis/data/obj/*
+include navis/data/*.md
+include navis/data/gml/*.gml
+include navis/data/swc/*.swc
+include navis/data/synapses/*.csv
+include navis/data/volumes/*.obj
+include navis/data/obj/*.obj
 include navis/meshes/templates/*
 include navis/nbl/score_mats/*

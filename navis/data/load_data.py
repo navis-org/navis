@@ -14,6 +14,7 @@
 import os
 
 import networkx as nx
+import pandas as pd
 
 from typing import Union, Optional
 from typing_extensions import Literal
@@ -32,11 +33,13 @@ gml_path = os.path.join(fp, 'gml')
 swc_path = os.path.join(fp, 'swc')
 vols_path = os.path.join(fp, 'volumes')
 obj_path = os.path.join(fp, 'obj')
+syn_path = os.path.join(fp, 'synapses')
 
 gml = sorted([f for f in os.listdir(gml_path) if f.endswith('.gml')])
 swc = sorted([f for f in os.listdir(swc_path) if f.endswith('.swc')])
 vols = sorted([f for f in os.listdir(vols_path) if f.endswith('.obj')])
 obj = sorted([f for f in os.listdir(obj_path) if f.endswith('.obj')])
+syn = sorted([f for f in os.listdir(syn_path) if f.endswith('.csv')])
 
 NeuronObject = Union[TreeNeuron, MeshNeuron, NeuronList]
 
@@ -45,8 +48,9 @@ def example_neurons(n: Optional[int] = None,
                     kind:  Union[Literal['mesh'],
                                  Literal['skeleton'],
                                  Literal['mix']] = 'skeleton',
+                    synapses: bool = True,
                     source: Union[Literal['swc'],
-                                  Literal['gml']] = 'swc'
+                                  Literal['gml']] = 'swc',
                     ) -> NeuronObject:
     """Load example neuron(s).
 
@@ -65,6 +69,8 @@ def example_neurons(n: Optional[int] = None,
                 of example neurons.
     kind :      "skeleton" | "mesh" | "mix"
                 Example neurons What kind of neurons to return.
+    synapses :  bool,
+                If True, will also load synapses.
     source :    'swc' | 'gml', optional
                 Only relevant for skeletons. Skeletons can be generated from SWC
                 files or GML graphs (this is really only used for testing).
@@ -88,8 +94,7 @@ def example_neurons(n: Optional[int] = None,
     Load a single neuron
 
     >>> import navis
-    >>> n = navis.example_neuronss(n=1)
-    'test'
+    >>> n = navis.example_neurons(n=1)
 
     Load all example neurons
 
@@ -131,6 +136,13 @@ def example_neurons(n: Optional[int] = None,
                           units='8 nm',
                           name=f.split('.')[0],
                           id=int(f.split('.')[0])) for f, fp in zip(obj, files)]
+
+    if synapses:
+        for n in nl:
+            n.connectors = pd.read_csv(os.path.join(syn_path, f'{n.id}.csv'))
+
+            if isinstance(n, MeshNeuron):
+                n._connectors.drop('node_id', axis=1, inplace=True)
 
     if len(nl) == 1:
         return nl[0]

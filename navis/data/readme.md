@@ -3,7 +3,7 @@
 ### Neurons
 
 The example neurons provided are olfactory projection neurons of the DA1
-glomerulus and were are from the Janelia hemibrain data set
+glomerulus from the Janelia hemibrain data set
 (see [here](https://neuprint.janelia.org)) [1].
 
 ### Volumes
@@ -13,5 +13,5 @@ fly brain and were transformed into hemibrain space. See the
 In particular [`nat.jrcbrains`](https://github.com/jefferislab/nat.jrcbrains).
 
 ### References
-[1] Louis K. Scheffer et al., bioRxiv. 2020. doi: https://doi.org/10.1101/2020.04.07.030213
-A Connectome and Analysis of the Adult Drosophila Central Brain.
+[1] Louis K. Scheffer et al., eLife. 2020. doi: 10.7554/eLife.57443
+A connectome and analysis of the adult Drosophila central brain
