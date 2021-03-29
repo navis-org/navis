@@ -249,8 +249,15 @@ def neuron2igraph(x: 'core.NeuronObject',
     tn_index_with_parent = nodes.index.values[nodes.parent_id >= 0]
     parent_ids = nodes.parent_id.values[nodes.parent_id >= 0]
     nodes['temp_index'] = nodes.index  # add temporary index column
-    parent_index = nodes.set_index('node_id', inplace=False).loc[parent_ids,
-                                                                 'temp_index'].values
+    try:
+        parent_index = nodes.set_index('node_id', inplace=False).loc[parent_ids,
+                                                                     'temp_index'].values
+    except KeyError:
+        miss = nodes[~nodes.parent_id.isin(nodes.node_id)].node_id.unique()
+        raise KeyError(f"{len(miss)} nodes (e.g. {miss[0]}) in TreeNeuron "
+                       f"{x.id} connect to non-existent parent nodes.")
+    except BaseException:
+        raise
 
     # Generate list of edges based on index of vertices
     elist = np.vstack((tn_index_with_parent, parent_index)).T
