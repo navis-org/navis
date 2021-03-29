@@ -512,7 +512,7 @@ class BaseNeuron:
                                   return_inverse=True)
             props = props[ix]
 
-        # This is to catch an annoying "UnitStrippedWarning" with pint 
+        # This is to catch an annoying "UnitStrippedWarning" with pint
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             s = pd.Series([getattr(self, at, 'NA') for at in props],
@@ -1939,7 +1939,7 @@ class TreeNeuron(BaseNeuron):
     def reload(self,
                inplace: bool = False,
                ) -> Optional['TreeNeuron']:
-        """Reload neuron. Must have filepath as ``.file`` as attribute.
+        """Reload neuron. Must have filepath as ``.origin`` as attribute.
 
         Returns
         -------
@@ -1947,17 +1947,21 @@ class TreeNeuron(BaseNeuron):
                 If ``inplace=False``.
 
         """
-        file = getattr(self, 'file', None)
-        if not file:
-            raise AttributeError('To reload TreeNeuron must have .file attribute')
+        if not hasattr(self, 'origin'):
+            raise AttributeError('To reload TreeNeuron must have `.origin` '
+                                 'attribute')
+
+        if self.origin in ('DataFrame', 'string'):
+            raise ValueError('Unable to reload TreeNeuron: it appears to have '
+                             'been created from string or DataFrame.')
 
         kwargs = {}
-        if getattr(self, 'soma_label'):
+        if hasattr(self, 'soma_label'):
             kwargs['soma_label'] = self.soma_label
-        if getattr(self, 'connector_labels'):
+        if hasattr(self, 'connector_labels'):
             kwargs['connector_labels'] = self.connector_labels
 
-        x = io.read_swc(file, **kwargs)
+        x = io.read_swc(self.origin, **kwargs)
 
         if inplace:
             self.__dict__.update(x.__dict__)
