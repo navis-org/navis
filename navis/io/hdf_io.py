@@ -49,7 +49,7 @@ class BaseH5Reader(ABC):
         if not isinstance(fmt, str):
             raise ValueError('No format specifier found for file '
                              f'{self.filepath}')
-        elif fmt != f'navis_hdf5_v{self.version}':
+        elif fmt != f'hnf_v{self.version}':
             raise ValueError('Unexpected format specifier for file '
                              f'{self.filepath}: "{fmt}"')
 
@@ -448,7 +448,7 @@ class BaseH5Writer(ABC):
         """Check if this writer is compatible with existing data."""
         fmt = self.f.attrs.get('format_spec')
         if fmt:
-            if not fmt.startswith('navis_hdf5'):
+            if not fmt.startswith('hnf_'):
                 raise ValueError('Unexpected format specifier for file '
                                  f'{self.filepath}: "{fmt}"')
 
@@ -495,7 +495,7 @@ class BaseH5Writer(ABC):
 
     def write_base_info(self):
         """Add version and url to root path."""
-        self.f.attrs['format_spec'] = f'navis_hdf5_v{self.version}'
+        self.f.attrs['format_spec'] = f'hnf_v{self.version}'
         self.f.attrs['format_url'] = 'https://github.com/schlegelp/navis'
 
     @abstractmethod
@@ -927,7 +927,7 @@ def write_h5(n: 'core.NeuronObject',
              format: str = 'latest',
              append: bool = True,
              overwrite_neurons: bool = False) -> 'core.NeuronObject':
-    """Read Neuron/List from Hdf5 file.
+    """Write Neuron/List to Hdf5 file.
 
     Parameters
     ----------
@@ -1028,7 +1028,7 @@ def inspect_h5(filepath, inspect_neurons=True, inspect_annotations=True):
                         An example::
 
                          {
-                          'format_spec': 'navis_hdf5_v1', # format specifier
+                          'format_spec': 'hnf_v1', # format specifier
                           'neurons': {
                                       'someID': {'skeleton': True,
                                                  'mesh': False,

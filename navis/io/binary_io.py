@@ -17,7 +17,7 @@ import struct
 
 import pandas as pd
 
-from typing import Union, Iterable, Dict, Optional, Any
+from typing import Union, Optional
 
 from .. import config, utils, core
 
