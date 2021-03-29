@@ -24,7 +24,7 @@ from typing_extensions import Literal
 
 from ..core.neurons import TreeNeuron
 from ..core.neuronlist import NeuronList
-from .. import config
+from .. import config, graph
 
 # Set up logging
 logger = config.logger
@@ -39,13 +39,12 @@ def cable_overlap(a: NeuronObject,
                   ) -> pd.DataFrame:
     """Calculate the amount of cable of neuron A within distance of neuron B.
 
-    Uses dotproduct representation of a neuron! It is recommended to
-    resample neurons first.
-
     Parameters
     ----------
     a,b :       TreeNeuron | NeuronList
-                Neuron(s) for which to compute cable within distance.
+                Neuron(s) for which to compute cable within distance. It is
+                highly recommended to resample neurons to guarantee an even
+                sampling rate. Also note that neurons need to have unique IDs.
     dist :      int | float, optional
                 Maximum distance.
     method :    'min' | 'max' | 'avg'
@@ -79,11 +78,11 @@ def cable_overlap(a: NeuronObject,
     Examples
     --------
     >>> import navis
-    >>> nl = navis.example_neurons(2)
-    >>> # Resample to 1 micron
-    >>> nl.resample(1000, inplace=True)
+    >>> nl = navis.example_neurons(4)
+    >>> # Resample to 1 micron (example data is in 8x8x8nm units)
+    >>> nl_res = nl.resample(1000/8, inplace=False)
     >>> # Get overlapping cable within 2 microns
-    >>> ol = navis.cable_overlap(nl, nl, dist=2000)
+    >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist=2000/8)
 
     """
     if not isinstance(a, (TreeNeuron, NeuronList)) \
@@ -99,59 +98,60 @@ def cable_overlap(a: NeuronObject,
     allowed_methods = ['min', 'max', 'avg']
     if method not in allowed_methods:
         raise ValueError(f'Unknown method "{method}". Allowed methods: '
-                         f'"{",".join(allowed_methods)}"')
+                         f'"{", ".join(allowed_methods)}"')
+
+    if a.is_degenerated or b.is_degenerated:
+        raise ValueError('Input neurons must have unique IDs.')
 
     matrix = pd.DataFrame(np.zeros((a.shape[0], b.shape[0])),
-                          index=a.name, columns=b.name)
+                          index=a.id, columns=b.id)
 
     with config.tqdm(total=len(a), desc='Calc. overlap',
                      disable=config.pbar_hide,
                      leave=config.pbar_leave) as pbar:
         # Keep track of KDtrees
         trees: Dict[str, scipy.spatial.cKDTree] = {}
+        lengths: Dict[str, float] = {}
         for nA in a:
             # Get cKDTree for nA
-            tA = trees.get(nA.name, None)
+            tA = trees.get(nA.id, None)
             if not tA:
-                trees[nA.name] = tA = scipy.spatial.cKDTree(
-                    np.vstack(nA.dps.point), leafsize=10)
+                points, vect, length = graph.neuron2tangents(nA)
+                trees[nA.id] = tA = scipy.spatial.cKDTree(points)
+                lengths[nA.id] = length
 
             for nB in b:
                 # Get cKDTree for nB
-                tB = trees.get(nB.name, None)
+                tB = trees.get(nB.id, None)
                 if not tB:
-                    trees[nB.name] = tB = scipy.spatial.cKDTree(
-                        np.vstack(nB.dps.point), leafsize=10)
+                    points, vect, length = graph.neuron2tangents(nB)
+                    trees[nB.id] = tB = scipy.spatial.cKDTree(points)
+                    lengths[nB.id] = length
 
                 # Query nB -> nA
-                distA, ixA = tA.query(np.vstack(nB.dps.point),
+                distA, ixA = tA.query(tB.data,
                                       k=1,
                                       distance_upper_bound=dist,
-                                      n_jobs=-1
+                                      workers=-1
                                       )
                 # Query nA -> nB
-                distB, ixB = tB.query(np.vstack(nA.dps.point),
+                distB, ixB = tB.query(tA.data,
                                       k=1,
                                       distance_upper_bound=dist,
-                                      n_jobs=-1
+                                      workers=-1
                                       )
 
-                nA_in_dist = nA.dps.loc[ixA[distA != float('inf')]]
-                nB_in_dist = nB.dps.loc[ixB[distB != float('inf')]]
+                nA_lengths = lengths[nA.id][ixA[distA != float('inf')]]
+                nB_lengths = lengths[nB.id][ixB[distB != float('inf')]]
 
-                if nA_in_dist.empty:
-                    overlap = 0
-                elif method == 'avg':
-                    overlap = (nA_in_dist.vec_length.sum() +
-                               nB_in_dist.vec_length.sum()) / 2
+                if method == 'avg':
+                    overlap = (nA_lengths.sum() + nB_lengths.sum()) / 2
                 elif method == 'max':
-                    overlap = max(nA_in_dist.vec_length.sum(),
-                                  nB_in_dist.vec_length.sum())
+                    overlap = max(nA_lengths.sum(), nB_lengths.sum())
                 elif method == 'min':
-                    overlap = min(nA_in_dist.vec_length.sum(),
-                                  nB_in_dist.vec_length.sum())
+                    overlap = min(nA_lengths.sum(), nB_lengths.sum())
 
-                matrix.at[nA.name, nB.name] = overlap
+                matrix.at[nA.id, nB.id] = overlap
 
             pbar.update(1)
 

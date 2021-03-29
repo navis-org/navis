@@ -13,7 +13,6 @@
 
 import numpy as np
 import networkx as nx
-import math
 import pandas as pd
 import scipy.spatial
 import scipy.sparse
@@ -31,7 +30,56 @@ from .. import config, core
 logger = config.logger
 
 __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
-                  'neuron2nx', 'neuron2KDTree'])
+                  'neuron2nx', 'neuron2KDTree', 'neuron2tangents'])
+
+
+def neuron2tangents(x: 'core.NeuronObject') -> 'core.Dotprops':
+    """Turn TreeNeuron into an tangent vectors.
+
+    Parameters
+    ----------
+    x :         TreeNeuron | NeuronList
+
+    Returns
+    -------
+    points :    (N, 3) array
+                Midpoints for each child->parent node pair.
+    vect :      (N, 3) array
+                Normalized child-> parent vectors.
+    length :    (N, ) array
+                Distance between parent and child
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> t = navis.neuron2tangents(n)
+
+    """
+    if isinstance(x, core.NeuronList):
+        return [neuron2tangents(n) for n in x]
+    elif not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron/List, got "{type(x)}"')
+
+    # Collect nodes
+    nodes = x.nodes[x.nodes.parent_id >= 0]
+
+    # Get child->parent vectors
+    parent_locs = x.nodes.set_index('node_id').loc[nodes.parent_id,
+                                                   ['x', 'y', 'z']].values
+    child_locs = nodes[['x', 'y', 'z']].values
+    vect = child_locs - parent_locs
+
+    # Get mid point
+    points = child_locs - parent_locs / 2
+
+    # Get length
+    length = np.sqrt(np.sum(vect ** 2, axis=1))
+
+    # Normalize vector
+    vect = vect / np.linalg.norm(vect, axis=1).reshape(-1, 1)
+
+    return points, vect, length
 
 
 def network2nx(x: Union[pd.DataFrame, Iterable],
