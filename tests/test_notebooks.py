@@ -1,11 +1,22 @@
 """
-Code to run Jupyter notebooks in /docs/source
+Code to run Jupyter notebooks in /docs/source.
 """
-import nbformat
 import navis
 
 from pathlib import Path
-from nbconvert.preprocessors import ExecutePreprocessor
+
+# If Jupyter is not installed, this will fail.
+# We will belay the import error in case the
+# user wants to run only the other parts of the
+# test suite.
+try:
+    import nbformat
+    from nbconvert.preprocessors import ExecutePreprocessor
+except ImportError:
+    nbformat = None
+    pass
+except BaseException:
+    raise
 
 SKIP = ['transforming.ipynb',  # requires navis-flybrains + transforms
         'python2cytoscape.ipynb',  # requires cytoscape
@@ -14,6 +25,9 @@ SKIP = ['transforming.ipynb',  # requires navis-flybrains + transforms
         ]
 
 if __name__ == '__main__':
+    if not nbformat:
+        raise ImportError('`nbformat` not found - please install Jupyter')
+
     navis.set_pbars(jupyter=False, hide=True)
 
     # Recursively search for notebooks
