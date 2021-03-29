@@ -845,7 +845,7 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
     >>> import navis
     >>> import flybrains
     >>> # Get the FAFB14 neuropil mesh
-    >>> m = flybrais.FAFB14.mesh
+    >>> m = flybrains.FAFB14.mesh
     >>> # Symmetrize the mesh
     >>> s = navis.symmetrize_brain(m, template='FAFB14')
     >>> # Plot side-by-side for comparison

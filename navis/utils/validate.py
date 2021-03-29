@@ -99,8 +99,8 @@ def validate_table(x: pd.DataFrame,
     >>> from navis.data import example_neurons
     >>> n = example_neurons(1)
     >>> tbl = validate_table(n.nodes, ['x', 'y', 'z', 'node_id'])
-    >>> tbl = validate_table(n.nodes, ['non_existing_column'])
-    ValueError('Table missing required column: non_existing_column')
+    >>> tbl = validate_table(n.nodes, ['does_not_exist'])       # doctest: +SKIP
+    ValueError: Table missing required column: "does_not_exist"
 
     Raises
     ------
@@ -118,7 +118,7 @@ def validate_table(x: pd.DataFrame,
                                  f' {", ".join(r)}')
         else:
             if r not in x.columns:
-                raise ValueError(f'Table missing required column: {r}')
+                raise ValueError(f'Table missing required column: "{r}"')
 
     # Rename columns if necessary
     if rename:

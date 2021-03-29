@@ -216,7 +216,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     >>> n = navis.example_neurons(1)
     >>> lh = navis.example_volume('LH')
     >>> n_lh = navis.in_volume(n, lh, inplace=False)
-    >>> n_lh
+    >>> n_lh                                                    # doctest: +SKIP
     type            navis.TreeNeuron
     name                  1734350788
     id                    1734350788

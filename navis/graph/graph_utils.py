@@ -90,7 +90,7 @@ def _generate_segments(x: 'core.NeuronObject',
     elif not weight:
         d = _edge_count_to_root(x, igraph_indices=False)
         endNodeIDs = x.nodes[x.nodes.type == 'end'].node_id.values
-        endNodeIDs = sorted(endNodeIDs, key=d.get, reverse=True)
+        endNodeIDs = sorted(endNodeIDs, key=lambda x: d.get(x, 0), reverse=True)
     else:
         raise ValueError(f'Unable to use weight "{weight}"')
 
@@ -354,7 +354,7 @@ def classify_nodes(x: 'core.NeuronObject',
     x: core.TreeNeuron
 
     # Make sure there are nodes to classify
-    if x.nodes.shape[0] != 0:
+    if not x.nodes.empty:
         if config.use_igraph and x.igraph:
             # Get graph representation of neuron
             vs = x.igraph.vs
@@ -585,7 +585,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
     >>> l_dist = m.loc[leafs, leafs]
     >>> # Get mean
     >>> round(l_dist.mean().mean())
-    182018.0
+    12983
 
     """
     if isinstance(x, core.NeuronList):
@@ -654,7 +654,7 @@ def segment_length(x: 'core.TreeNeuron',
     >>> n = navis.example_neurons(1)
     >>> l = navis.segment_length(n, n.segments[0])
     >>> round(l)
-    56331
+    56356
 
     """
     if not isinstance(x, core.TreeNeuron):
@@ -698,11 +698,11 @@ def dist_between(x: 'core.NeuronObject',
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> l = navis.dist_between(n,
+    >>> d = navis.dist_between(n,
     ...                        n.nodes.node_id.values[0],
     ...                        n.nodes.node_id.values[1])
-    >>> round(l)
-    108
+    >>> round(d)
+    35
 
     """
     if isinstance(x, core.NeuronList):
@@ -769,13 +769,13 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> navis.find_main_branchpoint(n, reroot_to_soma=True)
-    2066
+    110
     >>> # Cut neuron into axon, dendrites and primary neurite tract:
     >>> # for this we need to cut twice - once at the main branch point
     >>> # and once at one of its childs
     >>> child = n.nodes[n.nodes.parent_id == 2066].node_id.values[0]
     >>> split = navis.cut_neuron(n, [2066, child])
-    >>> split
+    >>> split                                                   # doctest: +SKIP
     <class 'navis.core.neuronlist.NeuronList'> of 3 neurons
               type  n_nodes  n_connectors  n_branches  n_leafs   cable_length    soma
     0  TreeNeuron     2572             0         170      176  475078.177926    None
@@ -1081,7 +1081,7 @@ def reroot_neuron(x: 'core.NeuronObject',
     Examples
     --------
     >>> import navis
-    >>> n = navis.example_neurons()
+    >>> n = navis.example_neurons(1, kind='skeleton')
     >>> # Reroot neuron to its soma
     >>> n2 = navis.reroot_neuron(n, n.soma)
 
@@ -1633,7 +1633,8 @@ def subset_neuron(x: 'core.TreeNeuron',
     # Make sure any new roots or leafs are properly typed
     # We won't produce new slabs but roots and leaves might change
     x.nodes.loc[x.nodes.parent_id < 0, 'type'] = 'root'
-    x.nodes.loc[~x.nodes.node_id.isin(x.nodes.parent_id.values), 'type'] = 'end'
+    x.nodes.loc[(~x.nodes.node_id.isin(x.nodes.parent_id.values)
+                 & (x.nodes.parent_id >= 0)), 'type'] = 'end'
 
     # Filter connectors
     if not keep_disc_cn and x.has_connectors:
@@ -1783,10 +1784,10 @@ def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> ends = n.nodes[n.nodes.type=='end'].node_id.values
+    >>> ends = n.nodes[n.nodes.type.isin(['end', 'root'])].node_id.values
     >>> sg, root = navis.graph.graph_utils.connected_subgraph(n, ends)
-    >>> # Since we asked for a subgraph connecting all terminals, we expect to
-    >>> # see all nodes in the subgraph
+    >>> # Since we asked for a subgraph connecting all terminals + root,
+    >>> # we expect to see all nodes in the subgraph
     >>> sg.shape[0] == n.nodes.shape[0]
     True
 
@@ -1952,14 +1953,20 @@ def insert_nodes(x: 'core.TreeNeuron',
         # Find center between each node
         coords = left_loc + (right_loc - left_loc) / 2
 
-    # Make sure we have correct coordinates
     coords = np.asarray(coords)
-    if coords.ndim != 2 or coords.shape[1] != 3:
-        raise ValueError('Expected `coords` to be a (N, 3) array of x/y/z '
-                         f'coords - got {coords.shape}')
+    # Make sure we have correct coordinates
     if coords.shape[0] != where.shape[0]:
-        raise ValueError(f'Expected {where.shape[0]} coordinates, '
+        raise ValueError(f'Expected {where.shape[0]} coordinates or distances, '
                          f'got {coords.shape[0]}')
+
+    # If array of fractional distances translate to coordinates
+    if coords.ndim == 1:
+        node_locs = x.nodes.set_index('node_id')[['x', 'y', 'z']]
+        left_loc = node_locs.loc[where[:, 0]].values
+        right_loc = node_locs.loc[where[:, 1]].values
+
+        # Find center between each node
+        coords = left_loc + (right_loc - left_loc) * coords.reshape(-1, 1)
 
     # For the moment, we will interpolate the radius
     rad = x.nodes.set_index('node_id').radius
@@ -1996,7 +2003,7 @@ def insert_nodes(x: 'core.TreeNeuron',
 def remove_nodes(x: 'core.TreeNeuron',
                  which: List[int],
                  inplace: bool = False) -> Optional['core.TreeNeuron']:
-    """Drop nodes from neuron while keeping connectivity intact.
+    """Drop nodes from neuron without disconnecting it.
 
     Dropping node 2 from 1->2->3 will lead to connectivity 1->3.
 
@@ -2022,9 +2029,11 @@ def remove_nodes(x: 'core.TreeNeuron',
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.n_nodes
-    4565
-    >>> n2 = navis.remove_nodes(n, n.nodes.node_id.values[10:100])
-    4475
+    4465
+    >>> # Drop a hundred nodes
+    >>> n2 = navis.remove_nodes(n, n.nodes.node_id.values[100:200])
+    >>> n2.n_nodes
+    4365
 
     """
     utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
@@ -2097,7 +2106,7 @@ def rewire_neuron(x: 'core.TreeNeuron',
     1
     >>> # Drop one edge from graph
     >>> g = n.graph.copy()
-    >>> g.remove_edge(4219, 2117)
+    >>> g.remove_edge(310, 309)
     >>> # Rewire neuron
     >>> n2 = navis.rewire_neuron(n, g, inplace=False)
     >>> n2.n_trees

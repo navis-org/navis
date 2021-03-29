@@ -513,7 +513,7 @@ class Volume(trimesh.Trimesh):
         --------
         >>> import navis
         >>> vol = navis.example_volume('LH')
-        >>> vol.plot3d(color = (255, 0, 0))
+        >>> v = vol.plot3d(color = (255, 0, 0))
 
         """
         from .. import plotting

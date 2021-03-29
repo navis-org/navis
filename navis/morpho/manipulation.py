@@ -558,9 +558,9 @@ def split_axon_dendrite(x: NeuronObject,
     --------
     >>> import navis
     >>> x = navis.example_neurons(1)
-    >>> split = navis.split_axon_dendrite(x, metric='centrifugal',
+    >>> split = navis.split_axon_dendrite(x, metric='flow_centrality',
     ...                                   reroot_soma=True)
-    >>> split
+    >>> split                                                   # doctest: +SKIP
     <class 'navis.NeuronList'> of 3 neurons
                           neuron_name  id  n_nodes  n_connectors
     0                  neuron 123457   16      148             0
@@ -568,7 +568,7 @@ def split_axon_dendrite(x: NeuronObject,
     2                  neuron 123457   16     2892           113
     >>> # For convenience, split_axon_dendrite assigns colors to the resulting
     >>> # fragments: axon = red, dendrites = blue, CBF = green
-    >>> split.plot3d(color=split.color)
+    >>> _ = split.plot3d(color=split.color)
 
     See Also
     --------

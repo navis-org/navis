@@ -208,9 +208,9 @@ class TransOptimizer:
     --------
     >>> from navis.transforms import h5reg
     >>> from navis.transforms.base import TransOptimizer
-    >>> tr = h5reg.H5transform('path/to/reg.h5', direction='inverse')
-    >>> with TransOptimizer(tr, mode='aggressive'):
-    >>>     xf = tr.xform(pts)
+    >>> tr = h5reg.H5transform('path/to/reg.h5', direction='inverse') # doctest: +SKIP
+    >>> with TransOptimizer(tr, mode='aggressive'):                   # doctest: +SKIP
+    >>>     xf = tr.xform(pts)                                        # doctest: +SKIP
 
     """
 

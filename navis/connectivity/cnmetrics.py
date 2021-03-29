@@ -84,6 +84,7 @@ def sparseness(x: Union[pd.DataFrame, np.ndarray],
     --------
     Calculate sparseness of olfactory inputs to group of neurons:
 
+    >>> import navis
     >>> import numpy as np
     >>> import matplotlib.pyplot as plt
     >>> # Get ORN response matrix from DoOR database
@@ -93,8 +94,8 @@ def sparseness(x: Union[pd.DataFrame, np.ndarray],
     >>> S = navis.sparseness(adj, which='LTS')
     >>> # Plot distribution
     >>> ax = S.plot.hist(bins=np.arange(0, 1, .1))
-    >>> ax.set_xlabel('LTS')
-    >>> plt.show()
+    >>> _ = ax.set_xlabel('LTS')
+    >>> plt.show()                                              # doctest: +SKIP
 
     """
     if not isinstance(x, (pd.DataFrame, np.ndarray)):

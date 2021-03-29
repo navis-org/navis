@@ -457,13 +457,14 @@ class BaseNeuron:
         >>> import navis
         >>> n = navis.example_neurons(1)
         >>> n.units
-        1 <Unit('nanometer')>
+        <Quantity(8, 'nanometer')>
         >>> n.cable_length
-        1213347.4350680097
+        266476.8
         >>> n2 = n.convert_units('um')
         >>> n2.units
+        <Quantity(1.0, 'micrometer')>
         >>> n2.cable_length
-        1213.3474350680106
+        2131.8
 
         """
         if not isinstance(self.units, (pint.Unit, pint.Quantity)):

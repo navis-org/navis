@@ -137,7 +137,7 @@ class TraversalModel(BaseNetworkModel):
     >>> # Run model on 2 cores
     >>> model.run_parallel(n_cores=2, iterations=100)
     >>> # Get a summary
-    >>> model.summary.tail()
+    >>> model.summary.tail()                                    # doctest: +SKIP
           layer_min  layer_max  layer_mean  layer_median
     node
     995           2          2        2.00             2
@@ -155,8 +155,8 @@ class TraversalModel(BaseNetworkModel):
     ...     return random_linear_activation_function(x, max_w=10)
     >>> model = TraversalModel(edges, seeds=list(G.nodes)[:10],
     ...                        traversal_func=my_act)
-    >>> model.run_parallel(n_cores=2, iterations=100)
-    >>> model.summary.tail()
+    >>> res = model.run(iterations=100)
+    >>> res.tail()                                              # doctest: +SKIP
           layer_min  layer_max  layer_mean  layer_median
     node
     995           2          4       3.210           3.0

@@ -32,9 +32,9 @@ def make_iterable(x,
     >>> from navis.utils import make_iterable
     >>> make_iterable(1)
     array([1])
-    >>> make_iterable({'a': 1})
-    array(['a'], dtype='<U1')
     >>> make_iterable([1])
+    array([1])
+    >>> make_iterable({'a': 1})
     array(['a'], dtype='<U1')
 
     """

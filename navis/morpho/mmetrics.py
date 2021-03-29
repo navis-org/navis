@@ -142,7 +142,6 @@ def strahler_index(x: 'core.NeuronObject',
     >>> n = navis.example_neurons(1)
     >>> n.reroot(n.soma, inplace=True)
     >>> navis.strahler_index(n)
-    6
 
     """
     utils.eval_param(x, name='x',

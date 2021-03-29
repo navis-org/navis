@@ -268,7 +268,7 @@ def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],
     ----------
     query,target :  Neuron/List
                     Query neuron(s) to SynBLAST against the targets. Units should
-                    be in microns as SyNBLAST is optimized for that and have
+                    be in microns as NBLAST is optimized for that and have
                     similar sampling resolutions. Neurons must have non-empty
                     connector tables.
     by_type :       bool

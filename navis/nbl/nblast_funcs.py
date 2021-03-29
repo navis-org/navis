@@ -511,7 +511,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
             this.pairs[:, 1] += len(q)
 
             # Track this NBLASTER's mask relative to the original big one
-            this.mask = np.zeros(mask.shape, dtype=np.bool)
+            this.mask = np.zeros(mask.shape, dtype=bool)
             this.mask[q[0]:q[-1]+1, t[0]:t[-1]+1] = submask
 
             # Make sure position of progress bar checks out

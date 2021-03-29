@@ -484,7 +484,7 @@ def cluster_by_synapse_placement(x: Union[NeuronList,
     if isinstance(x, NeuronList):
         combinations = [(nA.connectors, nB.connectors, sigma, omega, restrict_cn)
                         for nA in x for nB in x]
-        comb_names = [(nA.id, nB.id) for nA in neurons for nB in neurons]
+        comb_names = [(nA.id, nB.id) for nA in x for nB in x]
     else:
         combinations = [(nA, nB, sigma, omega, restrict_cn) for nA in x.values() for nB in x.values()]
         comb_names = [(nA, nB) for nA in x.keys() for nB in x.keys()]
@@ -535,12 +535,13 @@ def cluster_xyz(x: Union[pd.DataFrame, np.ndarray],
     --------
     This examples assumes you understand the basics of using navis:
 
+    >>> import navis
     >>> import matplotlib.pyplot as plt
     >>> n = navis.example_neurons(n=1)
-    >>> rs = navis.cluster_xyz(n.connectors,
-    ...                        labels=n.connectors.connector_id.values)
-    >>> rs.plot_matrix()
-    >>> plt.show()
+    >>> rs = navis.cluster_xyz(n.nodes,
+    ...                        labels=n.nodes.node_id.values)
+    >>> fig = rs.plot_matrix()
+    >>> plt.show()                                              # doctest: +SKIP
 
     """
     if isinstance(x, pd.DataFrame):
@@ -578,16 +579,7 @@ class ClustResults:
 
     Examples
     --------
-    >>> import matplotlib.pyplot as plt
-    >>> # Get a bunch of neurons
-    >>> nl = navis.example_neurons()
-    >>> # Perform all-by-all nblast
-    >>> res = navis.nblast_allbyall(nl)
-    >>> # res is a ClustResults object
-    >>> res.plot_matrix()
-    >>> plt.show()
-    >>> # Extract 5 clusters
-    >>> res.get_clusters(5, criterion = 'maxclust' )
+    # DEPCREATED
 
     """
 

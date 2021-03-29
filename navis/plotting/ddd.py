@@ -205,7 +205,7 @@ def plot3d(x: Union[core.NeuronObject,
     >>> # This plots a neuronlists, a single neuron and a volume
     >>> v = navis.plot3d([nl[0:2], nl[3], vol])
     >>> # Pass kwargs
-    >>> v = navis.plot3d(nl1, clear3d=True)
+    >>> v = navis.plot3d(nl, clear3d=True)
 
     """
     """
