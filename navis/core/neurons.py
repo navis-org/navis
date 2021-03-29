@@ -718,7 +718,7 @@ class MeshNeuron(BaseNeuron):
         # and traceback is lost!
 
         if key == 'trimesh':
-            self.trimesh = tm.Trimesh(vertices=self.vertices, faces=self.faces)
+            self.trimesh = tm.Trimesh(vertices=self._vertices, faces=self._faces)
             return self.trimesh
 
         # See if trimesh can help us
@@ -727,6 +727,20 @@ class MeshNeuron(BaseNeuron):
 
         # Last ditch effort - maybe the base class knows the key?
         return super().__getattr__(key)
+
+    def __getstate__(self):
+        """Get state (used e.g. for pickling)."""
+        state = {k: v for k, v in self.__dict__.items() if not callable(v)}
+
+        # We don't need the trimesh object
+        if 'trimesh' in state:
+            _ = state.pop('trimesh')
+
+        return state
+
+    def __setstate__(self, d):
+        """Update state (used e.g. for pickling)."""
+        self.__dict__.update(d)
 
     def __truediv__(self, other):
         """Implement division for coordinates (vertices, connectors)."""
