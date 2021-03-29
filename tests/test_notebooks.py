@@ -7,8 +7,11 @@ import navis
 from pathlib import Path
 from nbconvert.preprocessors import ExecutePreprocessor
 
-SKIP = ['transforming.ipynb', 'python2cytoscape.ipynb', 'r_doc.ipynb',
-        'neuprint.ipynb']
+SKIP = ['transforming.ipynb',  # requires navis-flybrains + transforms
+        'python2cytoscape.ipynb',  # requires cytoscape
+        'r_doc.ipynb',  # requires rpy2
+        'neuprint.ipynb'  # requires neuprint credentials
+        ]
 
 if __name__ == '__main__':
     navis.set_pbars(jupyter=False, hide=True)
@@ -27,7 +30,8 @@ if __name__ == '__main__':
 
         ep = ExecutePreprocessor(timeout=600)
 
-        print('Executing', file.name)
+        print('Executing', file.name, '... ', end='')
         ep.preprocess(nb, {'metadata': {'path': file.parent}})
+        print('Done.')
 
-print('Done.')
+    print('All done.')
