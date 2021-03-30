@@ -13,6 +13,7 @@
 
 import logging
 import pint
+import os
 
 logger = logging.getLogger('navis')
 logger.setLevel(logging.INFO)
@@ -45,7 +46,7 @@ default_color = (.95, .65, .04)
 ureg = pint.UnitRegistry()
 
 # Set to true to prevent Viewer from ever showing
-headless = False
+headless = os.environ.get('NAVIS_HEADLESS', 'False').lower() == 'true'
 
 # Default connector color palette
 default_connector_colors = {
