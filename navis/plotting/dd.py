@@ -345,7 +345,7 @@ def plot2d(x: Union[core.NeuronObject,
         elif method in ['3d', '3d_complex']:
             fig = plt.figure(figsize=kwargs.get('figsize',
                                                 plt.figaspect(1) * 1.5))
-            ax = fig.gca(projection='3d')
+            ax = fig.add_subplot(111, projection='3d')
 
             # This sets front view
             ax.azim = -90
