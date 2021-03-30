@@ -33,5 +33,4 @@ jobs:
       with:
         working-directory: ./ #optional
         run: |
-          export NAVIS_HEADLESS=TRUE
-          pytest --verbose
+          export NAVIS_HEADLESS=TRUE;pytest --verbose
