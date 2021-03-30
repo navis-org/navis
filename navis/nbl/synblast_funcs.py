@@ -1,3 +1,4 @@
+
 #    This script is part of navis (http://www.github.com/schlegelp/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
@@ -310,13 +311,15 @@ def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],
     <Quantity([8 8 8 8 8], 'nanometer')>
     >>> # Convert to microns
     >>> nl_um = nl * (8 / 1000)
-    >>> # Run the synblast
-    >>> scores = navis.nblast(nl_um[:3], nl_um[3:])
+    >>> # Run type-agnostic SyNBLAST
+    >>> scores = navis.synblast(nl_um[:3], nl_um[3:], progress=False)
+    >>> # Run type-sensitive (i.e. pre vs pre and post vs post) SyNBLAST
+    >>> scores = navis.synblast(nl_um[:3], nl_um[3:], by_type=True, progress=False)
 
     See Also
     --------
-    :func:`navis.nblast_allbyall`
-                A more efficient way than ``nblast(query=x, target=x)``.
+    :func:`navis.nblast`
+                The original morphology-based NBLAST.
 
     """
     # Check if query or targets are in microns
