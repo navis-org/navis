@@ -47,6 +47,8 @@ ureg = pint.UnitRegistry()
 
 # Set to true to prevent Viewer from ever showing
 headless = os.environ.get('NAVIS_HEADLESS', 'False').lower() == 'true'
+if headless:
+    logger.info('Running in headless mode.')
 
 # Default connector color palette
 default_connector_colors = {
