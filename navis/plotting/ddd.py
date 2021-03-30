@@ -31,11 +31,12 @@ from .vispy.viewer import Viewer
 from .colors import prepare_colormap
 from .plotly.graph_objs import *
 
-try:
-    # Try setting vispy backend to PyQt5
-    vispy.use(app='PyQt5')
-except BaseException:
-    pass
+if not config.headless:
+    try:
+        # Try setting vispy backend to PyQt5
+        vispy.use(app='PyQt5')
+    except BaseException:
+        pass
 
 __all__ = ['plot3d']
 
