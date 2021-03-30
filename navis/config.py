@@ -52,6 +52,7 @@ headless = os.environ.get('NAVIS_HEADLESS', 'False').lower() == 'true'
 if headless:
     logger.info('Running in headless mode.')
     mpl.use('template')
+    pbar_hide = True
 
 # Default connector color palette
 default_connector_colors = {
