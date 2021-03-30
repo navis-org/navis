@@ -16,8 +16,8 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install vispy pyqt5
-    - name: Test vispy after
+    - name: Test vispy
       uses: GabrielBB/xvfb-action@v1
       with:
         run: |
-           python3 -c "import navis;import vispy;print(vispy.sys_info())"
+           python3 -c "import vispy;print(vispy.sys_info())"
