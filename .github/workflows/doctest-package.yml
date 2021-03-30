@@ -28,9 +28,12 @@ jobs:
     - name: Install navis
       run: |
         pip install -e .
+    - name: Set headless mode
+      run: |
+        export NAVIS_HEADLESS=TRUE
     - name: Test headless with pytest
       uses: GabrielBB/xvfb-action@v1
       with:
         working-directory: ./ #optional
         run: |
-          export NAVIS_HEADLESS=TRUE;pytest --verbose
+          pytest --verbose
