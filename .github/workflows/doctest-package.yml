@@ -28,9 +28,10 @@ jobs:
     - name: Install navis
       run: |
         pip install -e .
-    - name: Test with pytest
+    - name: Test headless with pytest
       uses: GabrielBB/xvfb-action@v1
       with:
         working-directory: ./ #optional
         run: |
-          pytest
+          export NAVIS_HEADLESS=TRUE
+          pytest --verbose
