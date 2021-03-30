@@ -3,7 +3,7 @@
 <img src="https://github.com/schlegelp/navis/raw/master/docs/_static/favicon.png" height="60">
 
 
-NAVis is a Python 3 (3.6 or later) library for **N**euron **A**nalysis and **Vis**ualization
+NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis**ualization
 with focus on hierarchical tree-like neuron data.
 
 ## Documentation
