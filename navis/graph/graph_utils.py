@@ -701,8 +701,6 @@ def dist_between(x: 'core.NeuronObject',
     >>> d = navis.dist_between(n,
     ...                        n.nodes.node_id.values[0],
     ...                        n.nodes.node_id.values[1])
-    >>> d
-    34.6
 
     """
     if isinstance(x, core.NeuronList):
