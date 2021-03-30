@@ -29,14 +29,18 @@ jobs:
       run: |
         pip install -e .
     - name: Test vispy before
-      run: |
-         python3 -c "import vispy;print(vispy.sys_info())"
+      uses: GabrielBB/xvfb-action@v1
+      with:
+        run: |
+           python3 -c "import vispy;print(vispy.sys_info())"
     - name: Set headless mode
       run: |
         export NAVIS_HEADLESS=TRUE
     - name: Test vispy after
-      run: |
-         python3 -c "import navis;import vispy;print(vispy.sys_info())"
+      uses: GabrielBB/xvfb-action@v1
+      with:
+        run: |
+           python3 -c "import navis;import vispy;print(vispy.sys_info())"
     - name: Test headless with pytest
       uses: GabrielBB/xvfb-action@v1
       with:
