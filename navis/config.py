@@ -15,6 +15,8 @@ import logging
 import pint
 import os
 
+import matplotlib as mpl
+
 logger = logging.getLogger('navis')
 logger.setLevel(logging.INFO)
 if len(logger.handlers) == 0:
@@ -49,6 +51,7 @@ ureg = pint.UnitRegistry()
 headless = os.environ.get('NAVIS_HEADLESS', 'False').lower() == 'true'
 if headless:
     logger.info('Running in headless mode.')
+    mpl.use('template')
 
 # Default connector color palette
 default_connector_colors = {
