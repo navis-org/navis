@@ -30,5 +30,7 @@ jobs:
         pip install -e .
     - name: Test with pytest
       uses: GabrielBB/xvfb-action@v1
-      run: |
-        pytest
+      with:
+        working-directory: ./ #optional
+        run: |
+          pytest
