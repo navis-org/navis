@@ -33,6 +33,10 @@ jobs:
     - name: Install navis
       run: |
         pip install -e .
-    - name: Test
+    - name: Test without igraph
       run: |
         pytest --verbose
+    - name: Test with igraph
+      run: |
+        pip install python-igraph
+        pytest --verbose        
