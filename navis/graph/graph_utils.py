@@ -1178,7 +1178,8 @@ def reroot_neuron(x: 'core.NeuronObject',
             g = x.graph
             # If this NetworkX graph is just an (immutable) view, turn it into a
             # full, independent graph
-            if float(nx.__version__) < 2.2:
+            nx_main_version = '.'.join(nx.__version__.split(".")[:2])
+            if float(nx_main_version) < 2.2:
                 if isinstance(g, nx.classes.graphviews.ReadOnlyGraph):
                     x._graph_nx = g = nx.DiGraph(g)
             elif hasattr(g, '_NODE_OK'):
