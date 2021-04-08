@@ -763,6 +763,8 @@ class MeshNeuron(BaseNeuron):
             else:
                 n.units = None
 
+            self._clear_temp_attr()
+
             return n
         else:
             return NotImplemented
@@ -786,6 +788,8 @@ class MeshNeuron(BaseNeuron):
             # If non-isometric remove units
             else:
                 n.units = None
+
+            self._clear_temp_attr()
 
             return n
         else:
