@@ -159,7 +159,7 @@ class NeuronList:
                 for n in config.tqdm(to_convert, desc='Make nrn',
                                      disable=config.pbar_hide or len(to_convert) == 1,
                                      leave=config.pbar_leave):
-                    self.neurons[n[2]] = core.Neuron(n[0])
+                    self.neurons[n[1]] = make_using(n[0], **kwargs)
 
         # Add ID-based indexer
         self.idx = _IdIndexer(self)
