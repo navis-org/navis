@@ -32,8 +32,10 @@ class MovingLeastSquaresTransform(BaseTransform):
         >>> trg = np.array([[1, 15, 5], [9, 18, 21], [80, 99, 120], [5, 10, 80]])
         >>> tr = transforms.MovingLeastSquaresTransform(src, trg)
         >>> points = np.array([[0, 0, 0], [50, 50, 50]])
+        >>> tr.xform(points)
         array([[ 1.        , 15.        ,  5.        ],
                [17.56361725, 43.32071504, 59.3147564 ]])
+
         """
         assert direction in ('forward', 'inverse')
         self.transformer = Transformer(landmarks_source, landmarks_target)
