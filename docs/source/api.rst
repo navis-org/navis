@@ -340,6 +340,7 @@ High-level functions:
     ~navis.transforms.H5transform
     ~navis.transforms.TPStransform
     ~navis.transforms.AliasTransform
+    ~navis.transforms.MovingLeastSquaresTransform
 
 The ``TemplateRegistry`` keeps track of template brains, transforms and such:
 
