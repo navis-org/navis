@@ -11,10 +11,19 @@ epsilon = sys.float_info.epsilon
 cpu_count = max(1, (os.cpu_count() or 2) - 1)
 
 
-def ensure_inf_bounds(numbers):
-    numbers[0] = -np.inf
-    numbers[1] = np.inf
-    return np.array(numbers)
+def ensure_inf_bounds(numbers, right_one=True):
+    lst = list(numbers)
+    if lst[0] <= 0:
+        lst[0] = -np.inf
+    else:
+        lst.insert(0, -np.inf)
+
+    if right_one and lst[-1] >= 1:
+        lst[-1] = np.inf
+    elif lst[-1] != np.inf:
+        lst.append(np.inf)
+
+    return np.array(lst)
 
 
 def chunksize(it_len, cpu_count, min_chunk=50):
@@ -72,8 +81,13 @@ class ScoreMatrixBuilder:
             return set(self._dotprop_keys())
         return self._nonmatching
 
-    def set_dist_bins(self, bins):
-        """Set distance bins to use for score matrix.
+    def set_dist_boundaries(self, boundaries):
+        """Set distance bins to use for score matrix by their internal boundaries.
+
+        If the lowest boundary is <=0, it will be changed to -inf.
+        If the lowest boundary is >0, -inf will be prepended.
+
+        If the highest boundary is not inf, it will be appended.
 
         The first and last values are set to -inf and inf respectively,
         so that the bins explicitly cover the entire domain,
@@ -89,15 +103,17 @@ class ScoreMatrixBuilder:
         np.ndarray of float
             The modified bin boundaries.
         """
-        self.dist_bins = ensure_inf_bounds(bins)
+        self.dist_bins = ensure_inf_bounds(boundaries)
         return self.dist_bins
 
     def calc_dist_bins(self, n_bins, base, min_exp, max_exp):
-        """Calculate distance bins in a logarithmic sequence.
+        """Calculate distance boundaries in a logarithmic sequence.
 
-        n_bins values are spread evenly between min_exp and max_exp (inclusive).
+        base**min_exp will be the upper bound of the lowest bin;
+        base**max_exp will be the lower bound of the highest bin.
+
+        n_bins - 1 values are spread evenly between min_exp and max_exp (inclusive).
         These are transformed into boundaries by base**values.
-        Then inf is added to the end, and the first boundary is replaced by -inf.
 
         Parameters
         ----------
@@ -115,17 +131,19 @@ class ScoreMatrixBuilder:
         np.ndarray of float
             The modified bin boundaries.
         """
-        bins = np.array(
-            list(np.logspace(min_exp, max_exp, n_bins, base=base)) + [np.inf]
+        # n_bins - 1 because inf outer boundaries are added
+        return self.set_dist_boundaries(
+            np.logspace(min_exp, max_exp, n_bins - 1, base=base)
         )
-        return self.set_dist_bins(bins)
 
-    def set_dot_bins(self, bins):
-        """Set dot product bins to use for score matrix.
+    def set_dot_boundaries(self, boundaries):
+        """Set dot product bins to use for score matrix by their internal boundaries.
 
-        The first and last values are set to -inf and inf respectively,
-        so that the bins explicitly cover the entire domain,
-        even though values outside of 0-1 are not possible, in principle.
+        Dot products, even normalised by alpha values,
+        should be in the range 0,1.
+        However, due to float imprecision, they sometimes aren't,
+        so the lowest bound is set to -inf and highest bound set to inf
+        just in case.
 
         Parameters
         ----------
@@ -137,11 +155,13 @@ class ScoreMatrixBuilder:
         np.ndarray of float
             The modified bin boundaries.
         """
-        self.dot_bins = ensure_inf_bounds(bins)
+        self.dot_bins = ensure_inf_bounds(boundaries, True)
         return self.dot_bins
 
     def calc_dot_bins(self, n_bins):
         """Calculate dot product bins in a linear sequence between 0 and 1.
+
+        Internally, 0 and 1 will be replaced with -inf and inf respectively.
 
         Parameters
         ----------
@@ -154,7 +174,7 @@ class ScoreMatrixBuilder:
             The modified bin boundaries.
         """
         bins = np.linspace(0, 1, n_bins + 1)
-        return self.set_dot_bins(bins)
+        return self.set_dot_boundaries(bins[1:-1])
 
     def _yield_matching_pairs(self):
         for ms in self.matching_sets:
