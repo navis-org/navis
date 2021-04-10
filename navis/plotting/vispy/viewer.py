@@ -12,16 +12,17 @@
 #    GNU General Public License for more details.
 
 import colorsys
-from functools import wraps
 import platform
+import scipy.spatial
+import png
 import uuid
 
 import matplotlib.colors as mcl
 import numpy as np
-import png
-import scipy.spatial
 import seaborn as sns
+import trimesh as tm
 
+from functools import wraps
 from vispy import scene
 from vispy.util.quaternion import Quaternion
 
@@ -202,6 +203,10 @@ class Viewer:
         self._cursor = None
         self._picking_radius = 20
 
+        # Other stuff
+        self._show_bounds = False
+        self._show_axes = False
+
     def _draw_overlay(self):
         overlay = scene.widgets.ViewBox(parent=self.canvas.scene)
         self.view3d.add_widget(overlay)
@@ -224,6 +229,7 @@ class Viewer:
                                'P': 'toggle picking',
                                'Q/W': 'cycle neurons',
                                'U': 'unhide all',
+                               'B': 'bounding box',
                                'F': 'show/hide FPS',
                                '1': 'XY',
                                '2': 'XZ',
@@ -429,6 +435,30 @@ class Viewer:
         return [v for v in self.view3d.children[0].children if isinstance(v, scene.visuals.VisualNode)]
 
     @property
+    def bounds(self):
+        """Bounds of all currently visuals (visible and invisible)."""
+        bounds = []
+        for vis in self.visuals:
+            # Skip the bounding box itself
+            if getattr(vis, '_object_type', '') == 'boundingbox':
+                continue
+
+            try:
+                bounds.append(vis._bounds)
+            except BaseException:
+                pass
+
+        if not bounds:
+            return None
+
+        bounds = np.dstack(bounds)
+
+        mn = bounds[:, 0, :].min(axis=1)
+        mx = bounds[:, 1, :].max(axis=1)
+
+        return np.vstack((mn, mx)).T
+
+    @property
     def _object_ids(self):
         """All object IDs on this canvas in order of addition."""
         obj_ids = [getattr(v, '_object_id') for v in self.visuals]
@@ -492,7 +522,14 @@ class Viewer:
         for v in self.visuals:
             v.parent = None
 
+        # `remove_bounds` set this to False but
+        # here we want the current setting to persist
+        show_bounds = self.show_bounds
+
+        self.remove_bounds()
         self.clear_legend()
+
+        self.show_bounds = show_bounds
 
     def remove(self, to_remove):
         """Remove given neurons/visuals from canvas."""
@@ -508,10 +545,86 @@ class Viewer:
                     for v in neurons.get(u, []):
                         v.parent = None
 
+        if self.show_bounds:
+            self.update_bounds()
+
     def pop(self, N=1):
         """Remove the most recently added N visuals."""
         for vis in list(self.objects.values())[-N:]:
             self.remove(vis)
+
+    @property
+    def show_bounds(self):
+        """Set to ``True`` to show bounding box."""
+        return self._show_bounds
+
+    def toggle_bounds(self):
+        """Toggle bounding box."""
+        self.show_bounds = not self.show_bounds
+
+    @show_bounds.setter
+    def show_bounds(self, v):
+        if not isinstance(v, bool):
+            raise TypeError(f'Need bool, got {type(v)}')
+
+        self._show_bounds = v
+
+        if self.show_bounds:
+            self.update_bounds()
+        else:
+            self.remove_bounds()
+
+    def remove_bounds(self):
+        """Remove bounding box visual."""
+        self._show_bounds = False
+        for v in self.visuals:
+            if getattr(v, '_object_type', '') == 'boundingbox':
+                self.remove(v)
+
+    @block_canvas
+    def update_bounds(self, color='w', width=1):
+        """Update bounding box visual."""
+        # Remove any existing visual
+        self.remove_bounds()
+
+        bounds = self.bounds
+        self._show_bounds = True
+
+        # Skip if no visual on canvas
+        if isinstance(bounds, type(None)):
+            return
+
+        # Create box visual
+        dims = bounds[:, 1] - bounds[:, 0]
+        center = bounds.mean(axis=1)
+        box = tm.primitives.Box(extents=dims).apply_scale(1.1)
+
+        # Recenter vertices
+        vertices = np.array(box.vertices) + center
+        connect = np.array([[0, 1], [0, 2], [0, 4],
+                            [1, 3], [1, 5],
+                            [2, 3], [2, 6],
+                            [3, 7],
+                            [4, 5], [4, 6],
+                            [5, 7],
+                            [6, 7]])
+
+        box = scene.visuals.Line(pos=vertices,
+                                 color=mcl.to_rgb(color),
+                                 # Can only be used with method 'agg'
+                                 width=width,
+                                 connect=connect,
+                                 antialias=True,
+                                 name='BoundingBox',
+                                 method='gl')
+
+        # Add custom attributes
+        box.unfreeze()
+        box._object_type = 'boundingbox'
+        box._object_id = uuid.uuid4()
+        box.freeze()
+
+        self.view3d.add(box)
 
     @block_canvas
     def update_legend(self):
@@ -646,6 +759,9 @@ class Viewer:
 
         if self.show_legend:
             self.update_legend()
+
+        if self.show_bounds:
+            self.update_bounds()
 
     def show(self):
         """Show viewer."""
@@ -1035,25 +1151,37 @@ class Viewer:
                         If True, will hide overlay for screenshot.
 
         """
+
+        m = self._screenshot(pixel_scale=pixel_scale,
+                             alpha=alpha,
+                             hide_overlay=hide_overlay)
+
+        im = png.from_array(m, mode='RGBA')
+        im.save(filename)
+
+    def _screenshot(self, pixel_scale=2, alpha=True, hide_overlay=True):
+        """Return image array for screenshot."""
         if alpha:
             bgcolor = list(self.canvas.bgcolor.rgb) + [0]
         else:
             bgcolor = list(self.canvas.bgcolor.rgb)
 
-        region = (0, 0, self.canvas.size[0], self.canvas.size[1])
+        # region = (0, 0, self.canvas.size[0], self.canvas.size[1])
         size = tuple(np.array(self.canvas.size) * pixel_scale)
 
         if hide_overlay:
             prev_state = self.overlay.visible
             self.overlay.visible = False
 
-        m = self.canvas.render(region=region, size=size, bgcolor=bgcolor)
+        try:
+            m = self.canvas.render(size=size, bgcolor=bgcolor)
+        except BaseException:
+            raise
+        finally:
+            if hide_overlay:
+                self.overlay.visible = prev_state
 
-        if hide_overlay:
-            self.overlay.visible = prev_state
-
-        im = png.from_array(m, mode='RGBA')
-        im.save(filename)
+        return m
 
     def visuals_at(self, pos):
         """List visuals at given canvas position."""
@@ -1181,6 +1309,8 @@ def on_key_press(event):
         viewer._toggle_fps()
     elif event.text.lower() == 'p':
         viewer.toggle_picking()
+    elif event.text.lower() == 'b':
+        viewer.toggle_bounds()
     elif event.text.lower() == '1':
         viewer.set_view('XY')
     elif event.text.lower() == '2':
