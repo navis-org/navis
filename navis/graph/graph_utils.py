@@ -2059,7 +2059,7 @@ def remove_nodes(x: 'core.TreeNeuron',
     x.nodes['parent_id'] = x.nodes.node_id.map(lop)
 
     # Drop nodes
-    x.nodes = x.nodes[~x.nodes.node_id.isin(which)]
+    x.nodes = x.nodes[~x.nodes.node_id.isin(which)].copy()
 
     if not inplace:
         return x
