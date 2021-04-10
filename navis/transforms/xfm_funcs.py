@@ -172,7 +172,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         if any([c not in x.columns for c in ['x', 'y', 'z']]):
             raise ValueError('DataFrame must have x, y and z columns.')
         x = x.copy()
-        x.loc[:, ['x', 'y', 'z']] = xform(x[['x', 'y', 'z']].values.astype(float),
+        x.loc[:, ['x', 'y', 'z']] = xform(x[['x', 'y', 'z']].values,
                                           transform=transform,
                                           affine_fallback=affine_fallback)
         return x
@@ -192,7 +192,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         if not x.ndim == 2 or x.shape[1] != 3:
             raise ValueError('Array must be of shape (N, 3).')
 
-    # Apply transform and returned xformed points
+    # Apply transform and return xformed points
     return transform.xform(x, affine_fallback=affine_fallback)
 
 
@@ -293,4 +293,8 @@ def mirror(points: np.ndarray, mirror_axis_size: float,
     if isinstance(warp, (BaseTransform, TransformSequence)):
         points_mirrored = warp.xform(points_mirrored)
 
+    # Note that we are enforcing the same data type as the input data here.
+    # This is unlike in `xform` or `xform_brain` where data might genuinely
+    # end up in a space that requires higher precision (e.g. going from
+    # nm to microns).
     return points_mirrored.astype(points.dtype)
