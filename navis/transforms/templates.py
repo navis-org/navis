@@ -555,7 +555,7 @@ class TemplateRegistry:
                     Name of the closest template with a mirror transform.
 
         """
-        # Template with mirror registrations
+        # Templates with mirror registrations
         temps_w_mirrors = [t.source for t in self.mirrors]
 
         if not temps_w_mirrors:
@@ -812,10 +812,14 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
     """Symmetrize 3D object (neuron, coordinates).
 
     The way this works is by:
-     1. Finding the closest mirror transform
-     2. Transform data to that template space if required
-     3. Apply mirror transform to offset (typically left/right) asymmetries
-     4. Transform data back to original space
+     1. Finding the closest mirror transform (unless provided)
+     2. Mirror data on the left-hand-side to the right-hand-side using the
+        proper (warp) mirror transform to offset deformations
+     3. Simply flip that data back to the left-hand-side
+
+    This works reasonably well but may produce odd results around the midline.
+    For high quality symmetrization you are better off generating dedicated
+    transform (see ``navis-flybrains`` for an example).
 
     Parameters
     ----------
@@ -859,21 +863,6 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
     if via == 'auto':
         # Find closest mirror transform
         via = registry.find_closest_mirror_reg(template)
-    else:
-        # Make sure the provided template has a mirror transform
-        registry.find_mirror_reg(via, non_found='raise')
-
-    # If we go via another brain space
-    if via != template:
-        # Xform to "via" space
-        xf = xform_brain(x, source=template, target=via)
-        # Mirror
-        xfs = symmetrize_brain(xf,
-                               template=via,
-                               via=via)
-        # Xform back to original template space
-        xfs_inv = xform_brain(xfs, source=via, target=template)
-        return xfs_inv
 
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
@@ -936,11 +925,49 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
         if not x.ndim == 2 or x.shape[1] != 3:
             raise ValueError('Array must be of shape (N, 3).')
 
-    # Get the actual mirror transformation
-    warp = registry.find_mirror_reg(template, non_found='raise')
+    # Now find the meta info for this template brain
+    if isinstance(template, TemplateBrain):
+        tb = template
+    else:
+        tb = registry.find_template(template, non_found='raise')
 
-    # Apply transform and return
-    return warp.transform.xform(x)
+    # Get the bounding box
+    if not hasattr(tb, 'boundingbox'):
+        raise ValueError(f'Template "{tb.label}" has no bounding box info.')
+
+    if not isinstance(tb.boundingbox, (list, tuple, np.ndarray)):
+        raise TypeError("Expected the template brain's bounding box to be a "
+                        f"list, tuple or array - got '{type(tb.boundingbox)}'")
+
+    # Get bounding box of template brain
+    bbox = np.asarray(tb.boundingbox)
+
+    # Reshape if flat array
+    if bbox.ndim == 1:
+        bbox = bbox.reshape(3, 2)
+
+    # Find points on the left
+    center = bbox[0][0] + (bbox[0][1] - bbox[0][0]) / 2
+    is_left = x[:, 0] > center
+
+    # Make a copy of the original data
+    x = x.copy()
+
+    # If nothing to symmetrize - return
+    if is_left.sum() == 0:
+        return x
+
+    # Mirror with compensation for deformations
+    xm = mirror_brain(x[is_left], template=template, via=via,
+                      mirror_axis='x')
+
+    # And now flip them back
+    xmf = mirror_brain(xm, template=template, warp=False, mirror_axis='x')
+
+    # Replace values
+    x[is_left] = xmf
+
+    return x
 
 
 def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
