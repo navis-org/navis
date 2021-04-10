@@ -558,6 +558,9 @@ class TemplateRegistry:
         # Templates with mirror registrations
         temps_w_mirrors = [t.source for t in self.mirrors]
 
+        # Add symmetrical template brains
+        temps_w_mirrors += [t.label for t in self.templates if getattr(t, 'symmetrical', False) == True]
+
         if not temps_w_mirrors:
             raise ValueError(f'No mirror transformations registered')
 
