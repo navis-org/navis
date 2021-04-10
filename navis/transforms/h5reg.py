@@ -384,7 +384,12 @@ class H5transform(BaseTransform):
             offset_real = offset_vxl * quantization_multiplier
 
             # Apply offsets
-            xf += offset_real
+            # Please note that we must not use += here
+            # That's to avoid running into data type errors where numpy
+            # will refuse to add e.g. float64 to int64.
+            # By using "+" instead of "+=" we are creating a new array that
+            # is potentially upcast from e.g. int64 to float64
+            xf = xf + offset_real
 
         # For inverse direction, the affine part is applied second
         if self.direction == 'forward' and affine:
