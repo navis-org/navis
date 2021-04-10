@@ -1100,11 +1100,11 @@ class Viewer:
         if isinstance(view, Quaternion):
             q = view
         elif view == 'XY':
-            q = Quaternion(w=1, x=.4, y=0, z=0)
+            q = Quaternion(w=0.707, x=0.707, y=0, z=0)
         elif view == 'XZ':
-            q = Quaternion(w=1, x=-.4, y=0, z=0)
+            q = Quaternion(w=1, x=0, y=0, z=0)
         elif view == 'YZ':
-            q = Quaternion(w=.6, x=0.5, y=0.5, z=-.4)
+            q = Quaternion(w=.5, x=0.5, y=0.5, z=-.5)
         else:
             raise TypeError(f'Unable to set view from {type(view)}')
 
