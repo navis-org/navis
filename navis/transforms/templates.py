@@ -1058,7 +1058,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                          allowed_values=('auto', True, False), on_error='raise')
 
     # If we go via another brain space
-    if via:
+    if via and via != template:
         # Xform to "via" space
         xf = xform_brain(x, source=template, target=via)
         # Mirror
