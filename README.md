@@ -27,6 +27,8 @@ See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for de
 
 Alternatively click on the *launch binder* badge above to try out navis hosted by [mybinder](https://mybinder.org)!
 
+![movie](https://user-images.githubusercontent.com/7161148/114312307-28a72700-9aea-11eb-89a6-ee1d72bfa730.mov)
+
 ## NAVis & friends
 <p align="center">
 <img src="https://github.com/schlegelp/navis/blob/master/docs/_static/navis_ecosystem.png?raw=true" width="700">
