@@ -812,19 +812,6 @@ def make_swc_table(x: 'core.TreeNeuron',
     # Work on a copy
     swc = x.nodes.copy()
 
-    # Sort such that the parent is always before the child
-    swc.sort_values('parent_id', ascending=True, inplace=True)
-
-    # Reset index
-    swc.reset_index(drop=True, inplace=True)
-
-    # Generate mapping
-    new_ids = dict(zip(swc.node_id.values, swc.index.values))
-
-    swc['node_id'] = swc.node_id.map(new_ids)
-    # Lambda prevents potential issue with missing parents
-    swc['parent_id'] = swc.parent_id.map(lambda x: new_ids.get(x, -1))
-
     # Add labels
     swc['label'] = 0
     if isinstance(labels, dict):
@@ -843,6 +830,19 @@ def make_swc_table(x: 'core.TreeNeuron',
             # Add synapse label
             swc.loc[x.presynapses.node_id.values, 'label'] = 7
             swc.loc[x.postsynapses.node_id.values, 'label'] = 8
+
+    # Sort such that the parent is always before the child
+    swc.sort_values('parent_id', ascending=True, inplace=True)
+
+    # Reset index
+    swc.reset_index(drop=True, inplace=True)
+
+    # Generate mapping
+    new_ids = dict(zip(swc.node_id.values, swc.index.values))
+
+    swc['node_id'] = swc.node_id.map(new_ids)
+    # Lambda prevents potential issue with missing parents
+    swc['parent_id'] = swc.parent_id.map(lambda x: new_ids.get(x, -1))
 
     # Get things in order
     swc = swc[['node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id']]
