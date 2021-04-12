@@ -289,7 +289,7 @@ def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],
 
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() - 2``. This should ideally be an even
+                    ``os.cpu_count() // 2``. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
     normalized :    bool, optional
