@@ -25,7 +25,7 @@ Features include:
 * 2D (matplotlib) and 3D (vispy or plotly) plotting
 * virtual neuron surgery: cutting, stitching, pruning, rerooting, etc
 * analyze morphology (e.g. NBLAST) and connectivity
-* transform neurons between template brains
+* transform data between template brains
 * load neurons directly from `neuPrint <https://neuprint.janelia.org>`_ and `neuromorpho.org <http://neuromorpho.org>`_
 * interface with Blender 3D
 * interface with R neuron libraries (e.g. nat, nat.nblast and elmr)
@@ -43,9 +43,14 @@ setup(
     description='Neuron Analysis and Visualization library',
     long_description=LONG_DESCRIPTION,
     url='http://navis.readthedocs.io',
+    project_urls={
+     "Documentation": "http://navis.readthedocs.io",
+     "Source": "https://github.com/schlegelp/navis",
+     "Changelog": "https://navis.readthedocs.io/en/latest/source/whats_new.html",
+    },
     author='Philipp Schlegel',
     author_email='pms70@cam.ac.uk',
-    keywords='Neuron Analysis Visualization Anatomy Connectivity Transform',
+    keywords='Neuron Analysis Visualization Anatomy Connectivity Transform Neuroscience NBLAST Skeletons SWC neuPrint',
     classifiers=[
         'Development Status :: 4 - Beta',
 
