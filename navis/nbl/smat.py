@@ -5,11 +5,14 @@ import os
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from typing import Iterator, Sequence, Callable, List, Iterable, Any, Tuple
+import logging
 
 import numpy as np
 import pandas as pd
 
 from ..core.neurons import Dotprops
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SEED = 1991
 
@@ -37,9 +40,11 @@ def wrap_bounds(arr: np.ndarray, left: float = -np.inf, right: float = np.inf):
     left : float, optional
         If the first value is greater than this, prepend -inf;
         otherwise replace that value with -inf.
+        Defaults to -inf if None.
     right : float, optional
         If the last value is less than this, append inf;
         otherwise replace that value with inf.
+        Defaults to inf if None.
 
     Returns
     -------
@@ -51,6 +56,11 @@ def wrap_bounds(arr: np.ndarray, left: float = -np.inf, right: float = np.inf):
     ValueError
         If values of ``arr`` are not monotonically increasing.
     """
+    if left is None:
+        left = -np.inf
+    if right is None:
+        right = np.inf
+
     if not np.all(np.diff(arr) > 0):
         raise ValueError("Boundaries are not monotonically increasing")
 
@@ -178,6 +188,7 @@ class LookupNdBuilder:
         threads = threads or cpu_count
 
         with ProcessPoolExecutor(threads) as exe:
+            idx_pairs = np.asarray(idx_pairs, dtype=int)
             for these_counts in exe.map(
                 self._query_to_idxs,
                 idx_pairs[:, 0],
@@ -189,7 +200,7 @@ class LookupNdBuilder:
         return counts
 
     def _build(self, threads) -> Tuple[List[np.ndarray], np.ndarray]:
-        matching_pairs = set(self._yield_matching_pairs())
+        matching_pairs = sorted(set(self._yield_matching_pairs()))
         # need to know the eventual distdot count
         # so we know how many non-matching pairs to draw
         q_idx_count = Counter(p[0] for p in matching_pairs)
@@ -206,7 +217,7 @@ class LookupNdBuilder:
         nonmatching_pairs = []
         n_nonmatching_dist_dots = 0
         while n_nonmatching_dist_dots < n_matching_dist_dots:
-            idx = self.rng.integers(0, len(all_nonmatching_pairs) + 1)
+            idx = self.rng.integers(0, len(all_nonmatching_pairs))
             nonmatching_pairs.append(all_nonmatching_pairs.pop(idx))
             n_nonmatching_dist_dots += len(self.dotprops[nonmatching_pairs[-1][0]])
 
@@ -215,6 +226,8 @@ class LookupNdBuilder:
 
         # account for there being different total numbers of match/nonmatch dist dots
         matching_factor = nonmatch_counts.sum() / match_counts.sum()
+        if np.any(match_counts + nonmatch_counts == 0):
+            logger.warning("Some lookup cells have no data in them")
 
         cells = np.log2(
             (match_counts * matching_factor + epsilon) / (nonmatch_counts + epsilon)
@@ -348,14 +361,11 @@ class LookupNd:
                 f"Lookup takes {len(self.boundaries)} arguments but {len(args)} were given"
             )
 
-        idxs = np.array(
-            [np.digitize(r, b) - 1 for r, b in zip(args, self.boundaries)]
-        ).T
+        idxs = tuple(
+            np.digitize(r, b) - 1 for r, b in zip(args, self.boundaries)
+        )
         out = self.cells[idxs]
-        if np.isscalar(args[0]):
-            return out[0]
-        else:
-            return out
+        return out
 
 
 def format_boundaries(arr):
