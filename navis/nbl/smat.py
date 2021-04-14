@@ -200,7 +200,7 @@ class LookupNdBuilder:
         return counts
 
     def _build(self, threads) -> Tuple[List[np.ndarray], np.ndarray]:
-        matching_pairs = sorted(set(self._yield_matching_pairs()))
+        matching_pairs = list(set(self._yield_matching_pairs()))
         # need to know the eventual distdot count
         # so we know how many non-matching pairs to draw
         q_idx_count = Counter(p[0] for p in matching_pairs)
