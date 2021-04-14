@@ -1,6 +1,6 @@
 name: Tests
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   build:
@@ -8,6 +8,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.7, 3.8, 3.9]
+        igraph: ["igraph", "no-igraph"]
     steps:
       # This cancels any such job that is still runnning
     - name: Cancel Previous Runs
@@ -28,15 +29,12 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install flake8 pytest pytest-env pytest-xvfb gitpython
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install -r requirements.txt
         pip install flybrains --no-deps
     - name: Install navis
       run: |
         pip install -e .
-    - name: Test without igraph
-      run: |
-        pytest --verbose
+    - run: pip install python-igraph
+      if: ${{ matrix.igraph == 'igraph' }}
     - name: Test with igraph
-      run: |
-        pip install python-igraph
-        pytest --verbose        
+      run: pytest --verbose
