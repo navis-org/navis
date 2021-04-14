@@ -8,6 +8,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.7, 3.8, 3.9]
+        with-igraph: ["TRUE", "FALSE"]
     steps:
       # This cancels any such job that is still runnning
     - name: Cancel Previous Runs
@@ -33,10 +34,7 @@ jobs:
     - name: Install navis
       run: |
         pip install -e .
-    - name: Test without igraph
-      run: |
-        pytest --verbose
+    - run: pip install python-igraph
+      if: ${{ matrix.with-igraph == "TRUE" }}
     - name: Test with igraph
-      run: |
-        pip install python-igraph
-        pytest --verbose
+      run: pytest --verbose
