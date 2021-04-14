@@ -6,16 +6,16 @@ import pytest
 import navis
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def data_dir():
     return Path(__file__).resolve().parent.parent / "navis" / "data"
 
 
 @pytest.fixture(
-    params=["Path", "pathstr", "swcstr", "textbuffer", "rawbuffer", "DataFrame"]
+    params=["Path", "pathstr", "swcstr", "textbuffer", "rawbuffer", "DataFrame"],
 )
-def swc_source(request, data_dir: Path):
-    swc_path: Path = data_dir / "swc" / "722817260.swc"
+def swc_source(request, swc_paths):
+    swc_path = swc_paths[0]
     if request.param == "Path":
         yield swc_path
     elif request.param == "pathstr":
@@ -39,9 +39,9 @@ def swc_source(request, data_dir: Path):
 @pytest.fixture(
     params=["dirstr", "dirpath", "list", "listwithdir"],
 )
-def swc_source_multi(request, data_dir: Path):
-    dpath = data_dir / "swc"
-    fpath = dpath / "722817260.swc"
+def swc_source_multi(request, swc_paths):
+    fpath = swc_paths[0]
+    dpath = fpath.parent
     if request.param == "dirstr":
         yield str(dpath)
     elif request.param == "dirpath":
@@ -52,3 +52,43 @@ def swc_source_multi(request, data_dir: Path):
         yield [dpath, fpath]
     else:
         raise ValueError(f"Unknown parameter '{request.param}'")
+
+
+def data_paths(dpath, glob="*"):
+    return sorted(dpath.glob(glob))
+
+
+@pytest.fixture(scope="session")
+def swc_paths(data_dir: Path):
+    return data_paths(data_dir / "swc", "*.swc")
+
+
+@pytest.fixture(scope="session")
+def gml_paths(data_dir: Path):
+    return data_paths(data_dir / "gml", "*.gml")
+
+
+@pytest.fixture(scope="session")
+def obj_paths(data_dir: Path):
+    return data_paths(data_dir / "obj", "*.obj")
+
+
+@pytest.fixture(scope="session")
+def synapses_paths(data_dir: Path):
+    return data_paths(data_dir / "synapses", "*.csv")
+
+
+@pytest.fixture(scope="session")
+def volumes_paths(data_dir: Path):
+    return data_paths(data_dir / "volumes", "*.obj")
+
+
+@pytest.fixture
+def neurons(swc_paths, synapses_paths):
+    swc_reader = navis.io.swc_io.SwcReader()
+    out = []
+    for swc_path, syn_path in zip(swc_paths, synapses_paths):
+        neuron = swc_reader.read_file_path(swc_path)
+        neuron.connectors = pd.read_csv(syn_path)
+        out.append(neuron)
+    return out
