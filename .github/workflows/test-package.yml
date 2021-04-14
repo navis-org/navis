@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.7, 3.8, 3.9]
-        with-igraph: ["TRUE", "FALSE"]
+        igraph: ["igraph", "no-igraph"]
     steps:
       # This cancels any such job that is still runnning
     - name: Cancel Previous Runs
@@ -35,6 +35,6 @@ jobs:
       run: |
         pip install -e .
     - run: pip install python-igraph
-      if: ${{ matrix.with-igraph == 'TRUE' }}
+      if: ${{ matrix.igraph == 'igraph' }}
     - name: Test with igraph
       run: pytest --verbose
