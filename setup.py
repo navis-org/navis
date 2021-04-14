@@ -1,4 +1,7 @@
 from setuptools import setup, find_packages
+from collections import defaultdict
+from itertools import chain
+from typing import List, DefaultDict
 
 import re
 
@@ -11,9 +14,6 @@ if mo:
 else:
     raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
 
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
-    requirements = [l for l in requirements if l and not l.startswith('#')]
 
 extras_require: DefaultDict[str, List[str]] = defaultdict(list)
 install_requires: List[str] = []
@@ -32,8 +32,8 @@ extras_require["all"] = list(chain.from_iterable(
     v for k, v in extras_require.items() if k not in dev_only
 ))
 
-Check out the `Documentation <http://navis.readthedocs.io/>`_.
-"""
+with open("README.md") as f:
+    long_description = f.read()
 
 setup(
     name='navis',
@@ -41,7 +41,8 @@ setup(
     packages=find_packages(include=["navis"]),
     license='GNU GPL V3',
     description='Neuron Analysis and Visualization library',
-    long_description=LONG_DESCRIPTION,
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     url='http://navis.readthedocs.io',
     project_urls={
      "Documentation": "http://navis.readthedocs.io",
