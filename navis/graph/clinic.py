@@ -89,7 +89,7 @@ def merge_duplicate_nodes(x, round=False, inplace=False):
     Parameters
     ----------
     x :         TreeNeuron | NeuronList
-                Neuron to fix.
+                Neuron(s) to fix.
     round :     int, optional
                 If provided will round node locations to given decimals. This
                 can be useful if the positions are floats and not `exactly` the
@@ -101,6 +101,15 @@ def merge_duplicate_nodes(x, round=False, inplace=False):
     -------
     TreeNeuron
                 Fixed neuron. Only if ``inplace=False``.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> n.nodes.loc[1, ['x', 'y' ,'z']] = n.nodes.loc[0, ['x', 'y' ,'z']]
+    >>> fx = navis.graph.clinic.merge_duplicate_nodes(n)
+    >>> n.n_nodes, fx.n_nodes
+    (4465, 4464)
 
     """
     if isinstance(x, core.NeuronList):
