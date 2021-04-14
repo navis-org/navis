@@ -15,7 +15,7 @@ DEFAULT_SEED = 1991
 
 epsilon = sys.float_info.epsilon
 cpu_count = max(1, (os.cpu_count() or 2) - 1)
-implicit_interval = "[)"
+IMPLICIT_INTERVAL = "[)"
 
 
 def chunksize(it_len, cpu_count, min_chunk=50):
@@ -364,10 +364,10 @@ def format_boundaries(arr):
 
 def parse_boundary(item, strict=False):
     explicit_interval = item[0] + item[-1]
-    if strict and item[0] + item[-1] != implicit_interval:
+    if strict and item[0] + item[-1] != IMPLICIT_INTERVAL:
         raise ValueError(
             f"Enclosing characters {explicit_interval} "
-            f"do not match implicit interval specifiers {implicit_interval}"
+            f"do not match implicit interval specifiers {IMPLICIT_INTERVAL}"
         )
     return tuple(float(i) for i in item[1:-1].split(","))
 
@@ -415,7 +415,7 @@ class Lookup2d(LookupNd):
         strict : bool, optional
             If falsey (default), ignores parentheses and brackets,
             effectively normalising to
-            ``{implicit_interval[0]}lower,upper{implicit_interval[1]}``
+            ``{IMPLICIT_INTERVAL[0]}lower,upper{IMPLICIT_INTERVAL[1]}``
             as an implementation detail.
             Otherwise, raises a ValueError if parens/brackets
             do not match the implementation.
