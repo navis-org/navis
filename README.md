@@ -3,22 +3,22 @@
 <img src="https://github.com/schlegelp/navis/raw/master/docs/_static/favicon.png" height="60">
 
 
-NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis**ualization
-with focus on hierarchical tree-like neuron data.
+NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis**ualization.
 
 ## Documentation
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
 ## Features
-* fetch data directly from [neuprint](https://neuprint.janelia.org/), [insectbraindb](https://insectbraindb.org/) or [neuromorpho](http://neuromorpho.org)
-* SWC import
-* interactive 2D (matplotlib) and 3D (vispy or plotly) plotting of neurons
-* virtual neuron surgery: cutting, pruning, rerooting
-* implements NBLAST (Costa et al., 2016)
-* clustering (e.g. by connectivity or synapse placement)
-* interface with [Blender3D](https://www.blender.org)
-* interface with R neuron libraries: e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr)
-* support for affine, HDF5, CMTK and thin plate spline transforms
+* work with various neuron types: **skeletons**, **meshes**, **dotprops**
+* 2D (matplotlib) and 3D (vispy or plotly) **plotting**
+* neuron **surgery**: cutting, stitching, pruning, rerooting, intersections, ...
+* analyze morphology (e.g. **NBLAST**) and connectivity
+* **transform** data between template brains (support for e.g. HDF5, CMTK and thin plate spline transforms)
+* load neurons directly from [neuPrint](https://neuprint.janelia.org) and [neuromorpho.org](http://neuromorpho.org)
+* interface with **Blender 3D**
+* interface with **R** neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
+* import-export from/to **SWC**
+* designed to be **extensible** - see for example [pymaid](https://pymaid.readthedocs.io/en/latest/)s
 
 ## Getting started
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:

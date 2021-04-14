@@ -23,7 +23,7 @@ Features include:
 
 * work with various neuron types: skeletons, meshes, dotprops
 * 2D (matplotlib) and 3D (vispy or plotly) plotting
-* virtual neuron surgery: cutting, stitching, pruning, rerooting, etc
+* virtual neuron surgery: cutting, stitching, pruning, rerooting, intersections, ...
 * analyze morphology (e.g. NBLAST) and connectivity
 * transform data between template brains
 * load neurons directly from `neuPrint <https://neuprint.janelia.org>`_ and `neuromorpho.org <http://neuromorpho.org>`_
