@@ -62,6 +62,13 @@ def health_check(x: 'core.NeuronObject', verbose: bool = True) -> None:
     if od:
         issues.append(f'has nodes with multiple parents (graph.out_degree): {", ".join(od)}')
 
+    locs, counts = np.unique(n.nodes[['x', 'y', 'z']].values,
+                             axis=0,
+                             return_counts=True)
+    dupl = counts > 1
+    if any(dupl):
+        issues.append(f'has {sum(dupl)} node positions that are occupied by multiple nodes')
+
     if verbose:
         if issues:
             print(f'Neuron {str(x.id)} has issues:')
