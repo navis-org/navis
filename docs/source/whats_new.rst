@@ -14,6 +14,28 @@ repository.
    * - Version
      - Date
      -
+   * - 0.5.3
+     - 10/04/21
+     - - new functions: :func:`navis.nblast_smart`, :func:`navis.write_google_binary`, :func:`navis.synblast`, :func:`navis.symmetrize_brain`
+       - :func:`navis.plot3d` (plotly): ``hover_name=True`` will show neuron names on hover
+       - :func:`navis.plot2d`: ``rasterize=True`` will rasterize neurons (but not axes or labels) to help keep file sizes low
+       - :func:`navis.simplify_mesh` now supports 3 backends: Blender3D, ``open3d`` or ``pymeshlab``
+       - reworked :func:`navis.write_swc` (faster, easier to work with)
+       - a new type of landmark-based transform: moving least square transforms (thanks to Chris Barnes)
+       - vispy :class:`navis.Viewer`: press B to show a bounding box
+       - moved tests from Travis to Github Actions (this now also includes testing tutorial notebooks)
+       - a great many small and big bug fixes
+   * - 0.5.2
+     - 02/02/21
+     - - new functions: :func:`navis.xform`, :func:`navis.write_google_binary`
+       - :func:`navis.downsample_neuron` now also works on ``Dotprops``
+       - Neurons:
+         - connectors are now included in bounding boxes
+       - NeuronLists:
+         - added progress bar for division / multiplication
+   * - 0.5.1
+     - 10/01/21
+     - - a couple under-the-hood improvements and bugfixes
    * - 0.5.0
      - 05/01/21
      - - new functions for transforming spatial data (locations, neurons, etc) between brain spaces:
