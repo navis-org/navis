@@ -407,7 +407,7 @@ def prepare_colormap(colors, neurons=None, volumes=None, alpha=None,
     # Volumes are second class citiziens here :(
     colors_required = neurons.shape[0]
 
-    if not colors_required and len(volumes) == 0:
+    if not colors_required and not len(volumes):
         # If no neurons to plot, just return None
         # This happens when there is only a scatter plot
         return [None], [None]
@@ -460,16 +460,18 @@ def prepare_colormap(colors, neurons=None, volumes=None, alpha=None,
         if all([isinstance(elem, numbers.Number) for elem in colors]):
             # Generate at least one color
             colors = [colors] * max(colors_required, 1)
-        elif len(colors) < colors_required:
-            raise ValueError(f'Need colors for {colors_required} neurons/'
-                             f'dotprops, got {len(colors)}')
+
+        if len(colors) < colors_required:
+            raise ValueError(f'Need colors for {colors_required} neurons, '
+                             f'got {len(colors)}')
         elif len(colors) > colors_required:
             logger.debug(f'More colors than required: got {len(colors)}, '
                          f'needed {colors_required}')
 
-        if neurons.shape[0]:
+        if len(neurons):
             neuron_cmap = [colors.pop(0) for i in range(neurons.shape[0])]
-        if volumes.shape[0]:
+
+        if len(volumes):
             # Volume have their own color property as fallback
             volumes_cmap = []
             for v in volumes:
