@@ -22,3 +22,22 @@ trimesh>=3.8
 vispy>=0.6.4
 fuzzywuzzy>=0.18
 molesq>=0.2.0
+
+#extra: igraph
+
+python-igraph
+
+#extra: test-notebook
+
+jupyter
+neuprint-python
+
+#extra: dev
+
+flake8
+wheel
+mypy
+pytest
+pytest-env
+pytest-xvfb
+gitpython
