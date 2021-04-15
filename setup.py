@@ -43,7 +43,7 @@ with open("README.md") as f:
 setup(
     name='navis',
     version=verstr,
-    packages=find_packages(include=["navis"]),
+    packages=find_packages(include=["navis", "navis.*"]),
     license='GNU GPL V3',
     description='Neuron Analysis and Visualization library',
     long_description=long_description,
