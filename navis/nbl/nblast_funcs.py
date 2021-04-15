@@ -15,6 +15,9 @@
 
 import numbers
 import os
+from warnings import warn
+import operator
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -23,14 +26,15 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import Union, Optional
 from typing_extensions import Literal
 
+from .smat import Lookup2d
 from .. import core, utils
 from ..core import NeuronList, Dotprops, make_dotprops
 from .. import config
 
 __all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 
-fp = os.path.dirname(__file__)
-smat_path = os.path.join(fp, 'score_mats')
+fp = Path(__file__).resolve().parent
+smat_path = fp / 'score_mats'
 
 logger = config.logger
 
@@ -40,12 +44,19 @@ class ScoringFunction:
 
     def __init__(self, smat):
         if isinstance(smat, type(None)):
+            self._deprecation_warning("operator.mul")
             self.scoring_function = self.pass_through
         elif isinstance(smat, (pd.DataFrame, str)):
             self.parse_matrix(smat)
             self.scoring_function = self.score_lookup
         else:
             raise TypeError
+
+    def _deprecation_warning(self, alternative: str):
+        warn(
+            f"{type(self).__qualname__} is deprecated, use {alternative}.",
+            FutureWarning,
+        )
 
     def __call__(self, dist, dot):
         return self.scoring_function(dist, dot)
@@ -63,10 +74,15 @@ class ScoringFunction:
     def parse_matrix(self, smat):
         """Parse matrix."""
         if isinstance(smat, str):
+            self._deprecation_warning(
+                f"{Lookup2d.__qualname__}.from_dataframe(pandas.read_csv(smat, index_col=0))"
+            )
             smat = pd.read_csv(smat, index_col=0)
+        else:
+            self._deprecation_warning(f"{Lookup2d.__qualname__}.from_dataframe(smat)")
 
         if not isinstance(smat, pd.DataFrame):
-            raise TypeError(f'Excepted filepath or DataFrame, got "{type(smat)}"')
+            raise TypeError(f'Expected filepath or DataFrame, got "{type(smat)}"')
 
         self.cells = smat.to_numpy()
 
@@ -98,21 +114,28 @@ class NBlaster:
     changing parameters (e.g. ``use_alpha``) at a later stage will mess things
     up!
 
+    The highly flexible ``smat`` argument converts raw point match parameters
+    nto a single score representing how good that match is.
+    This can be any callable which takes 2 floats or same-length numpy arrays
+    (distance and dot product; if ``use_alpha`` is truthy,
+    scale dot product by the geometric mean of the alpha colinearity values)
+    and returns a float or numpy array.
+    If a ``pandas.DataFrame``, converts this into a ``navis.Lookup2d`` and uses as above.
+    If path-like, converts this into a dataframe and uses as above.
+    If ``None``, uses ``operator.mul``.
+    If ``'auto'`` (default), uses score matrices from FCWB (like R's nat.nblast).
+
     Parameters
     ----------
     use_alpha :     bool
                     Whether or not to use alpha values for the scoring.
                     If True, the dotproduct of nearest neighbor vectors will
                     be scaled by ``sqrt(alpha1 * alpha2)``.
-    normalzed :     bool
+    normalized :    bool
                     If True, will normalize scores by the best possible score
                     (i.e. self-self) of the query neuron.
-    smat :          str | pd.DataFrame
-                    Score matrix. If 'auto' (default), will use scoring matrices
-                    from FCWB. Same behaviour as in R's nat.nblast
-                    implementation. If ``smat=None`` the scores will be
-                    generated as the product of the distances and the dotproduct
-                    of the vectors of nearest-neighbor pairs.
+    smat :          Callable[[float, float], float] | str | os.PathLike | pd.DataFrame
+                    See above for more details.
     progress :      bool
                     If True, will show a progress bar.
 
@@ -124,15 +147,24 @@ class NBlaster:
         self.normalized = normalized
         self.progress = progress
 
-        if smat == 'auto':
+        if smat is None:
+            smat = operator.mul
+        elif smat == 'auto':
             if self.use_alpha:
-                smat = pd.read_csv(f'{smat_path}/smat_alpha_fcwb.csv',
-                                   index_col=0)
+                smat = smat_path / 'smat_alpha_fcwb.csv'
             else:
-                smat = pd.read_csv(f'{smat_path}/smat_fcwb.csv',
-                                   index_col=0)
+                smat = smat_path / 'smat_fcwb.csv'
 
-        self.score_fn = ScoringFunction(smat)
+        if isinstance(smat, (str, os.PathLike)):
+            smat = pd.read_csv(smat, index_col=0)
+
+        if isinstance(smat, pd.DataFrame):
+            smat = Lookup2d.from_dataframe(smat)
+
+        if not callable(smat):
+            raise ValueError("smat should be a callable, a path, a pandas.DataFrame, or 'auto'")
+
+        self.score_fn = smat
 
         self.self_hits = []
         self.dotprops = []
