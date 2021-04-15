@@ -126,13 +126,8 @@ def is_score_function(fn: Callable[[float, float], float]):
     return isinstance(fn(0.5, 0.5), float) and out.shape == test_arr.shape and out.dtype == test_arr.dtype
 
 
-class NBlaster:
-    f"""Implements version 2 of the NBLAST algorithm.
-
-    Please note that some properties are computed on initialization and
-    changing parameters (e.g. ``use_alpha``) at a later stage will mess things
-    up!
-
+def parse_score_fn(smat, use_alpha):
+    f"""
     The highly flexible ``smat`` argument converts raw point match parameters
     nto a single score representing how good that match is.
     Most simply, it is an NBLAST score function.
@@ -141,6 +136,36 @@ class NBlaster:
     If path-like, converts this into a dataframe and uses as above.
     If ``None``, uses ``operator.mul``.
     If ``'auto'`` (default), uses score matrices from FCWB (like R's nat.nblast).
+    """
+    if smat is None:
+        smat = operator.mul
+    elif smat == 'auto':
+        if use_alpha:
+            smat = smat_path / 'smat_alpha_fcwb.csv'
+        else:
+            smat = smat_path / 'smat_fcwb.csv'
+
+    if isinstance(smat, (str, os.PathLike)):
+        smat = pd.read_csv(smat, index_col=0)
+
+    if isinstance(smat, pd.DataFrame):
+        smat = Lookup2d.from_dataframe(smat)
+
+    if not callable(smat):
+        raise ValueError("smat should be a callable, a path, a pandas.DataFrame, or 'auto'")
+
+    if not is_score_function(smat):
+        raise ValueError("smat is not a valid NBLAST score function, see documentation")
+
+
+class NBlaster:
+    f"""Implements version 2 of the NBLAST algorithm.
+
+    Please note that some properties are computed on initialization and
+    changing parameters (e.g. ``use_alpha``) at a later stage will mess things
+    up!
+
+    {parse_score_fn.__doc__}
 
     Parameters
     ----------
@@ -164,27 +189,7 @@ class NBlaster:
         self.normalized = normalized
         self.progress = progress
 
-        if smat is None:
-            smat = operator.mul
-        elif smat == 'auto':
-            if self.use_alpha:
-                smat = smat_path / 'smat_alpha_fcwb.csv'
-            else:
-                smat = smat_path / 'smat_fcwb.csv'
-
-        if isinstance(smat, (str, os.PathLike)):
-            smat = pd.read_csv(smat, index_col=0)
-
-        if isinstance(smat, pd.DataFrame):
-            smat = Lookup2d.from_dataframe(smat)
-
-        if not callable(smat):
-            raise ValueError("smat should be a callable, a path, a pandas.DataFrame, or 'auto'")
-
-        if not is_score_function(smat):
-            raise ValueError("smat is not a valid NBLAST score function, see documentation")
-
-        self.score_fn = smat
+        self.score_fn = parse_score_fn(smat, use_alpha)
 
         self.self_hits = []
         self.dotprops = []
