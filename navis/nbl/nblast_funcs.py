@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from concurrent.futures import ProcessPoolExecutor
-from typing import Union, Optional
+from typing import Union, Optional, Callable
 from typing_extensions import Literal
 
 from .smat import Lookup2d
@@ -107,8 +107,27 @@ class ScoringFunction:
         return float(s.strip("([])").split(",")[-1])
 
 
+score_func_description = """
+NBLAST score functions take 2 floats or numpy arrays of floats of length N
+(for matched dotprop points/tangents, distance and dot product;
+the latter possibly scaled by the geometric mean of the alpha colinearity values)
+and returns a float or N-length numpy array of floats.
+""".strip()
+
+
+def is_score_function(fn: Callable[[float, float], float]):
+    f"""Ensure that the score function is valid for NBLAST.
+
+    {score_func_description}
+    """
+    test_arr = np.array([0.5] * 3)
+    out = fn(test_arr, test_arr)
+
+    return isinstance(fn(0.5, 0.5), float) and out.shape == test_arr.shape and out.dtype == test_arr.dtype
+
+
 class NBlaster:
-    """Implements version 2 of the NBLAST algorithm.
+    f"""Implements version 2 of the NBLAST algorithm.
 
     Please note that some properties are computed on initialization and
     changing parameters (e.g. ``use_alpha``) at a later stage will mess things
@@ -116,10 +135,8 @@ class NBlaster:
 
     The highly flexible ``smat`` argument converts raw point match parameters
     nto a single score representing how good that match is.
-    This can be any callable which takes 2 floats or same-length numpy arrays
-    (distance and dot product; if ``use_alpha`` is truthy,
-    scale dot product by the geometric mean of the alpha colinearity values)
-    and returns a float or numpy array.
+    Most simply, it is an NBLAST score function.
+    {score_func_description}
     If a ``pandas.DataFrame``, converts this into a ``navis.Lookup2d`` and uses as above.
     If path-like, converts this into a dataframe and uses as above.
     If ``None``, uses ``operator.mul``.
@@ -163,6 +180,9 @@ class NBlaster:
 
         if not callable(smat):
             raise ValueError("smat should be a callable, a path, a pandas.DataFrame, or 'auto'")
+
+        if not is_score_function(smat):
+            raise ValueError("smat is not a valid NBLAST score function, see documentation")
 
         self.score_fn = smat
 
