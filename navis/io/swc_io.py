@@ -675,7 +675,7 @@ def write_swc(x: 'core.NeuronObject',
 
     >>> import navis
     >>> nl = navis.example_neurons(5, kind='skeleton')
-    >>> navis.write_swc(nl, tmp_dir / '{neuron.name}.swc')
+    >>> navis.write_swc(nl, tmp_dir / 'skel-{neuron.name}.swc')
 
     See Also
     --------
