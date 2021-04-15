@@ -24,7 +24,7 @@ Requires Python 3.6 or later.
 
 If you don't already have it, get the Python package manager `PIP <https://pip.pypa.io/en/stable/installing/>`_.
 
-To get the most recent version from PyPI use:
+To get the minimal most recent version from PyPI (see below for optional extras) use:
 
 ::
 
@@ -186,9 +186,23 @@ installed automatically.
 Optional
 ++++++++
 
+Navis provides extra functionality or performance improvements with optional extras.
+
+Extras can be directly, or along with navis with
+
+::
+
+   pip3 install navis[extra1,extra2]
+
+
+The user-facing extras, the dependencies they install,
+and how to install those dependencies directly, are below.
+You can install all of them with the ``all`` extra.
+
+
 .. _pykd:
 
-`pykdtree <https://github.com/storpipfugl/pykdtree>`_
+``kdtree``: `pykdtree <https://github.com/storpipfugl/pykdtree>`_
   Faster than scipy's cKDTree implementation. If available, will be used to
   speed up e.g. NBLAST.
 
@@ -198,7 +212,7 @@ Optional
 
 .. _pyoc:
 
-`PyOctree <https://pypi.python.org/pypi/pyoctree/>`_
+``octree``: `PyOctree <https://pypi.python.org/pypi/pyoctree/>`_
   Slower alternative to ncollpyde.
 
   ::
@@ -207,7 +221,7 @@ Optional
 
 .. _rpy:
 
-`Rpy2 <https://rpy2.readthedocs.io/en/version_2.8.x/overview.html#installation>`_
+``r``: `Rpy2 <https://rpy2.readthedocs.io/en/version_2.8.x/overview.html#installation>`_ (``r``)
   Provides interface with R. This allows you to use e.g. R packages from
   https://github.com/jefferis and https://github.com/alexanderbates. Note that
   this package is not installed automatically as it would fail if R is not
@@ -217,23 +231,27 @@ Optional
 
     pip3 install rpy2
 
-`Shapely <https://shapely.readthedocs.io/en/latest/>`_
+.. _shapely:
+
+``shapely``: `Shapely <https://shapely.readthedocs.io/en/latest/>`_ (``shapely``)
   This is used to get 2D outlines of navis.Volumes.
 
   ::
 
     pip3 install shapely
 
+.. _igraph:
 
-Advanced users: more speed with iGraph
---------------------------------------
+``igraph``: `iGraph <http://igraph.org/>`_
+  For advanced users.
 
-By default navis uses the `NetworkX <https://networkx.github.io>`_ graph
-library for most of the computationally expensive functions. NetworkX is
-written in pure Python, well maintained and easy to install.
+  By default navis uses the `NetworkX <https://networkx.github.io>`_ graph
+  library for most of the computationally expensive functions. NetworkX is
+  written in pure Python, well maintained and easy to install.
 
-If you need that extra bit of speed, consider manually installing
-`iGraph <http://igraph.org/>`_. It is written in C and therefore very fast. If
-available, navis will try using iGraph over NetworkX. iGraph is difficult to
-install though because you have to install the C core first and then its
-Python bindings, ``python-igraph``.
+  If you need that extra bit of speed, there is iGraph.
+  It is written in C and therefore very fast.
+  If available, navis will try using iGraph over NetworkX.
+  iGraph is difficult to install, though,
+  because you have to install the C core first
+  and then its Python bindings, ``python-igraph``.
