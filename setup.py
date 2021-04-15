@@ -27,10 +27,15 @@ with open("requirements.txt") as f:
             reqs.append(line.strip())
 
 dev_only = ["test-notebook", "dev"]
+all_dev_deps = []
+all_deps = []
 for k, v in extras_require.items():
-    extras_require["all-dev"].extend(v)
+    all_dev_deps.extend(v)
     if k not in dev_only:
-        extras_require["all"].extend(v)
+        all_deps.extend(v)
+
+extras_require["all"] = all_deps
+extras_require["all-dev"] = all_dev_deps
 
 with open("README.md") as f:
     long_description = f.read()
