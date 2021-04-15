@@ -1,6 +1,5 @@
 from setuptools import setup, find_packages
 from collections import defaultdict
-from itertools import chain
 from typing import List, DefaultDict
 
 import re
@@ -28,9 +27,10 @@ with open("requirements.txt") as f:
             reqs.append(line.strip())
 
 dev_only = ["test-notebook", "dev"]
-extras_require["all"] = list(chain.from_iterable(
-    v for k, v in extras_require.items() if k not in dev_only
-))
+for k, v in extras_require.items():
+    extras_require["all-dev"].extend(v)
+    if k not in dev_only:
+        extras_require["all"].extend(v)
 
 with open("README.md") as f:
     long_description = f.read()
