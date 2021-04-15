@@ -23,7 +23,12 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 ## Getting started
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:
 
-`pip3 install navis`
+```sh
+pip3 install navis[all]
+```
+
+which includes all optional extras providing features and/or performance improvements.
+Currently, this is just `igraph`.
 
 Alternatively click on the *launch binder* badge above to try out navis hosted by [mybinder](https://mybinder.org)!
 
@@ -68,3 +73,21 @@ Schlegel P, Texada MJ, Miroschnikow A, Schoofs A, Hückesfeld S, Peters M, … P
 *Quantitative neuroanatomy for connectomics in Drosophila.*
 Schneider-Mizell CM, Gerhard S, Longair M, Kazimiers T, Li, Feng L, Zwart M … Cardona A.
 [link](https://elifesciences.org/articles/12059)
+
+## Contributing
+
+1. Fork this repository
+2. `git clone` it to your local machine
+3. Install the full development dependencies with `pip install -r requirements.txt`
+4. Install the package in editable mode with `pip install -e .[all]`
+5. Create, `git add`, `git commit`, `git push`, and pull request your changes.
+
+Run the tests locally with `pytest -v`.
+
+Docstrings should use the [numpydoc](https://numpydoc.readthedocs.io/en/latest/format.html) format,
+and make sure you include any relevant links and citations.
+Unit tests should be [doctests](https://docs.python.org/3/library/doctest.html)
+and/or use [pytest](https://docs.pytest.org/en/stable/) in the `./tests` directory.
+
+Doctests have access to the `tmp_dir: pathlib.Path` variable,
+which should be used if any files need to be written.

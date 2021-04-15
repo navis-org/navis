@@ -28,13 +28,10 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install flake8 pytest pytest-env pytest-xvfb gitpython
-        pip install -r requirements.txt
         pip install flybrains --no-deps
     - name: Install navis
-      run: |
-        pip install -e .
+      run: pip install -e .[dev]
     - run: pip install python-igraph
       if: ${{ matrix.igraph == 'igraph' }}
-    - name: Test with igraph
+    - name: Test
       run: pytest --verbose

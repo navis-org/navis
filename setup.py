@@ -1,4 +1,6 @@
 from setuptools import setup, find_packages
+from collections import defaultdict
+from typing import List, DefaultDict
 
 import re
 
@@ -11,37 +13,41 @@ if mo:
 else:
     raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
 
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
-    requirements = [l for l in requirements if l and not l.startswith('#')]
 
-LONG_DESCRIPTION = """
-NAVis is a Python 3 library for analysis and visualization of neuron
-morphology.
+extras_require: DefaultDict[str, List[str]] = defaultdict(list)
+install_requires: List[str] = []
+reqs = install_requires
 
-Features include:
+with open("requirements.txt") as f:
+    for line in f:
+        if line.startswith("#extra: "):
+            extra = line[8:].split("#")[0].strip()
+            reqs = extras_require[extra]
+        elif not line.startswith("#") and line.strip():
+            reqs.append(line.strip())
 
-* work with various neuron types: skeletons, meshes, dotprops
-* 2D (matplotlib) and 3D (vispy or plotly) plotting
-* virtual neuron surgery: cutting, stitching, pruning, rerooting, intersections, ...
-* analyze morphology (e.g. NBLAST) and connectivity
-* transform data between template brains
-* load neurons directly from `neuPrint <https://neuprint.janelia.org>`_ and `neuromorpho.org <http://neuromorpho.org>`_
-* interface with Blender 3D
-* interface with R neuron libraries (e.g. nat, nat.nblast and elmr)
-* import-export from/to SWC
-* designed to be extensible - see for example `pymaid <https://pymaid.readthedocs.io/en/latest/>`_
+dev_only = ["test-notebook", "dev"]
+all_dev_deps = []
+all_deps = []
+for k, v in extras_require.items():
+    all_dev_deps.extend(v)
+    if k not in dev_only:
+        all_deps.extend(v)
 
-Check out the `Documentation <http://navis.readthedocs.io/>`_.
-"""
+extras_require["all"] = all_deps
+extras_require["all-dev"] = all_dev_deps
+
+with open("README.md") as f:
+    long_description = f.read()
 
 setup(
     name='navis',
     version=verstr,
-    packages=find_packages(),
+    packages=find_packages(include=["navis"]),
     license='GNU GPL V3',
     description='Neuron Analysis and Visualization library',
-    long_description=LONG_DESCRIPTION,
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     url='http://navis.readthedocs.io',
     project_urls={
      "Documentation": "http://navis.readthedocs.io",
@@ -64,8 +70,11 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
     ],
-    install_requires=requirements,
-    extras_require={'extras': []},
+    install_requires=install_requires,
+    extras_require=dict(extras_require),
+    tests_require=extras_require["dev"],
+    # CI runs against >=3.7
+    # but R-Python interface ships with 3.6 so this is necessary
     python_requires='>=3.6',
     zip_safe=False,
 
