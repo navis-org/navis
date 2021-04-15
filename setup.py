@@ -68,7 +68,9 @@ setup(
     install_requires=install_requires,
     extras_require=dict(extras_require),
     tests_require=extras_require["dev"],
-    python_requires='>=3.7',
+    # CI runs against >=3.7
+    # but R-Python interface ships with 3.6 so this is necessary
+    python_requires='>=3.6',
     zip_safe=False,
 
     include_package_data=True
