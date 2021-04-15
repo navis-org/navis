@@ -712,17 +712,19 @@ def write_swc(x: 'core.NeuronObject',
     if not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
-    # Turn filepath into Path object
-    if isinstance(filepath, str):
-        # Format if filepath looks formattable
-        if "{" in filepath and "}" in filepath:
-            if not filepath.endswith('.swc'):
-                raise ValueError("Formattable filepaths must end with '.swc'")
-            filepath = filepath.format(neuron=x)
-
-        filepath = Path(filepath)
-    elif not isinstance(filepath, Path):
+    # try to str.format any path-like
+    try:
+        as_str = os.fspath(filepath)
+    except TypeError:
         raise ValueError(f'`filepath` must be str or pathlib.Path, got "{type(filepath)}"')
+
+    formatted_str = as_str.format(neuron=x)
+
+    # if it was formatted, make sure it's a SWC file
+    if formatted_str != as_str and not as_str.endswith(".swc"):
+        raise ValueError("Formattable filepaths must end with '.swc'")
+
+    filepath = Path(formatted_str)
 
     # Expand user - otherwise .exists() might fail
     filepath = filepath.expanduser()
