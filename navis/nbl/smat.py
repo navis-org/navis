@@ -90,7 +90,7 @@ class LookupNdBuilder:
         dotprops,
         matching_sets,
         boundaries: Sequence[Sequence[float]],
-        fn: Callable[[Dotprops, Dotprops], List[np.ndarray]],
+        match_fn: Callable[[Dotprops, Dotprops], List[np.ndarray]],
         nonmatching=None,
         seed=DEFAULT_SEED,
     ) -> None:
@@ -114,7 +114,7 @@ class LookupNdBuilder:
             -inf and inf will be prepended and appended.
 
             See the ``wrap_bounds`` convenience function.
-        fn : Callable[[Dotprops, Dotprops], List[np.ndarray[float]]]
+        match_fn : Callable[[Dotprops, Dotprops], List[np.ndarray[float]]]
             Function taking 2 arguments,
             both instances of ``navis.core.neurons.Dotprops``,
             and returning a list of 1D ``numpy.ndarray``s of floats.
@@ -136,7 +136,7 @@ class LookupNdBuilder:
         self.dotprops = dotprops
         self.matching_sets = matching_sets
         self._nonmatching = nonmatching
-        self.fn = fn
+        self.match_fn = match_fn
         self.boundaries = [wrap_bounds(b) for b in boundaries]
 
         self.rng = np.random.default_rng(seed)
@@ -167,7 +167,7 @@ class LookupNdBuilder:
         return np.zeros(shape, int)
 
     def _query_to_idxs(self, q_idx, t_idx, counts=None):
-        response = self.fn(self.dotprops[q_idx], self.dotprops[t_idx])
+        response = self.match_fn(self.dotprops[q_idx], self.dotprops[t_idx])
         idxs = [np.digitize(r, b) - 1 for r, b in zip(response, self.boundaries)]
 
         if counts is None:
@@ -199,15 +199,7 @@ class LookupNdBuilder:
 
         return counts
 
-    def _build(self, threads) -> Tuple[List[np.ndarray], np.ndarray]:
-        matching_pairs = list(set(self._yield_matching_pairs()))
-        # need to know the eventual distdot count
-        # so we know how many non-matching pairs to draw
-        q_idx_count = Counter(p[0] for p in matching_pairs)
-        n_matching_dist_dots = sum(
-            len(self.dotprops[q_idx]) * n_reps for q_idx, n_reps in q_idx_count.items()
-        )
-
+    def _pick_nonmatching_pairs(self, n_matching_qual_vals):
         # pre-calculating which pairs we're going to use,
         # rather than drawing them as we need them,
         # means that we can parallelise the later step more effectively.
@@ -215,11 +207,25 @@ class LookupNdBuilder:
         # because of how long distdot calculation will take
         all_nonmatching_pairs = list(self._yield_nonmatching_pairs())
         nonmatching_pairs = []
-        n_nonmatching_dist_dots = 0
-        while n_nonmatching_dist_dots < n_matching_dist_dots:
+        n_nonmatching_qual_vals = 0
+        while n_nonmatching_qual_vals < n_matching_qual_vals:
             idx = self.rng.integers(0, len(all_nonmatching_pairs))
-            nonmatching_pairs.append(all_nonmatching_pairs.pop(idx))
-            n_nonmatching_dist_dots += len(self.dotprops[nonmatching_pairs[-1][0]])
+            nonmatching_pair = all_nonmatching_pairs.pop(idx)
+            nonmatching_pairs.append(nonmatching_pair)
+            n_nonmatching_qual_vals += len(self.dotprops[nonmatching_pair[0]])
+
+        return nonmatching_pairs
+
+    def _build(self, threads) -> Tuple[List[np.ndarray], np.ndarray]:
+        matching_pairs = list(set(self._yield_matching_pairs()))
+        # need to know the eventual distdot count
+        # so we know how many non-matching pairs to draw
+        q_idx_count = Counter(p[0] for p in matching_pairs)
+        n_matching_qual_vals = sum(
+            len(self.dotprops[q_idx]) * n_reps for q_idx, n_reps in q_idx_count.items()
+        )
+
+        nonmatching_pairs = self._pick_nonmatching_pairs(n_matching_qual_vals)
 
         match_counts = self._counts_array(matching_pairs, threads)
         nonmatch_counts = self._counts_array(nonmatching_pairs, threads)
@@ -334,12 +340,12 @@ class LookupDistDotBuilder(LookupNdBuilder):
             Non-matching pairs are drawn at random using this seed,
             by default {DEFAULT_SEED}
         """
-        fn = dist_dot_alpha if use_alpha else dist_dot
+        match_fn = dist_dot_alpha if use_alpha else dist_dot
         super().__init__(
             dotprops,
             matching_sets,
             [wrap_bounds(dist_boundaries, 0), wrap_bounds(dot_boundaries, 0, 1)],
-            fn,
+            match_fn,
             nonmatching,
             seed,
         )
