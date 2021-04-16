@@ -5,12 +5,14 @@ import os
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from typing import Iterator, Sequence, Callable, List, Iterable, Any, Tuple
+import logging
 
 import numpy as np
 import pandas as pd
 
-from ..config import logger
 from ..core.neurons import Dotprops
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SEED = 1991
 
@@ -274,11 +276,13 @@ def dist_dot_alpha(q: Dotprops, t: Dotprops):
     return [dist, dot * np.sqrt(alpha)]
 
 
-class LookupDistDotBuilder:
+class LookupDistDotBuilder(LookupNdBuilder):
     def __init__(
         self,
         dotprops,
         matching_sets,
+        dist_boundaries,
+        dot_boundaries,
         nonmatching=None,
         use_alpha=False,
         seed=DEFAULT_SEED,
@@ -290,10 +294,6 @@ class LookupDistDotBuilder:
         1. The distances between best-matching points
         2. The dot products of direction vectors around those points,
             optionally scaled by the colinearity ``alpha``.
-
-        The boundaries for the bins for each of these two values need to be set.
-        Use the ``.calc_(dist|dot)_boundaries`` methods to estimate values
-        based on the data, or the ``.set_(dist|dot)_boundaries`` to use your own.
 
         Parameters
         ----------
@@ -334,123 +334,18 @@ class LookupDistDotBuilder:
             Non-matching pairs are drawn at random using this seed,
             by default {DEFAULT_SEED}
         """
-        self.dotprops = dotprops
-        self.matching_sets = matching_sets
-        self._dist_boundaries = None
-        self._dot_boundaries = None
-        self.fn = dist_dot_alpha if use_alpha else dist_dot
-        self.nonmatching = nonmatching
-        self.seed = seed
-
-    @property
-    def dist_boundaries(self):
-        return self._dist_boundaries
-
-    def set_dist_boundaries(self, bounds):
-        """Set the boundaries for point match distance bins.
-
-        ``numpy.geomspace`` is helpful if you know approximately
-        what the upper bound of the lowest bin and the lower bound of the
-        highest bin should be.
-
-        Parameters
-        ----------
-        bounds : array-like of float
-            Bin boundaries to set (may be expanded to cover full domain).
-            Should not go below 0.
-
-        Returns
-        -------
-        np.ndarray
-            The (possibly expanded) bin boundaries which will be used.
-        """
-        self._dist_boundaries = wrap_bounds(bounds, 0)
-        return self._dist_boundaries
-
-    def calc_dist_boundaries(self, n_bins, scale=10):
-        """Estimate appropriate point match distance bins from the scale of the data.
-
-        The lower bound of the highest bin will be estimated as ``1/scale`` the size
-        of the diagonal of the axis aligned bounding box of the smallest dotprop:
-        there is unlikely to be any value in a point match
-        at a distance the same order of magnitude as a neuron's size.
-
-        Each subsequent lower bound will be half of that bin's upper bound;
-        therefore the upper bound of the lowest bin will be
-        ``highest_lower / scale ** (n_bins - 1)``.
-
-        These estimates are quite conservative and may not yield good results for your use case,
-        but you may want to use them as a guide for your own automatically-determined boundaries.
-
-        Parameters
-        ----------
-        n_bins : int
-            Number of bins to create.
-        scale : float, optional
-            The multiplication from one bound to another, default 10.
-
-        Returns
-        -------
-        np.ndarray
-            The bin boundaries which will be used (length ``n_bins + 1``).
-        """
-
-        smallest_diag = np.inf
-        for dp in self.dotprops:
-            smallest_diag = min(
-                smallest_diag, np.linalg.norm(np.ptp(dp.points, axis=0))
-            )
-        highest_lower = smallest_diag / scale
-        return self.set_dist_boundaries(
-            highest_lower / scale ** np.arange(n_bins - 1)[::-1]
+        fn = dist_dot_alpha if use_alpha else dist_dot
+        super().__init__(
+            dotprops,
+            matching_sets,
+            [wrap_bounds(dist_boundaries, 0), wrap_bounds(dot_boundaries, 0, 1)],
+            fn,
+            nonmatching,
+            seed,
         )
-
-    @property
-    def dot_boundaries(self):
-        return self._dot_boundaries
-
-    def set_dot_boundaries(self, bounds):
-        """Set the boundaries for point match tangent dot product bins.
-
-        Parameters
-        ----------
-        bounds : array-like of float
-            Bin boundaries to set (may be expanded to cover full domain).
-            Should not go below 0 or above 1.
-
-        Returns
-        -------
-        np.ndarray
-            The (possibly expanded) bin boundaries which will be used.
-        """
-        self._dot_boundaries = wrap_bounds(bounds, 0, 1)
-        return self._dot_boundaries
-
-    def calc_dot_boundaries(self, n_bins):
-        """Linearly interpolate bin boundaries between 0 and 1.
-
-        Parameters
-        ----------
-        n_bins : int
-            Number of bins to use.
-
-        Returns
-        -------
-        np.ndarray
-            Bin boundaries which will be used (length ``n_bins + 1``)
-        """
-        return self.set_dot_boundaries(np.linspace(0, 1, n_bins + 1))
 
     def build(self, threads=None) -> Lookup2d:
-        builder = LookupNdBuilder(
-            self.dotprops,
-            self.matching_sets,
-            [self.dist_boundaries, self.dot_boundaries],
-            self.fn,
-            self.nonmatching,
-            self.seed
-        )
-        return Lookup2d(*builder._build(threads))
+        return Lookup2d(*self._build(threads))
 
 
 class LookupNd:

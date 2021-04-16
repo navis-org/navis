@@ -114,27 +114,8 @@ def test_lookup2d_roundtrip(strict):
         assert np.allclose(b1, b2)
 
 
-def test_calc_dist_boundaries(neurons):
-    dotprops = [Dotprops(n.nodes[["x", "y", "z"]], k=5) for n in neurons]
-    builder = LookupDistDotBuilder(dotprops, [])
-    n_bins = 5
-    bounds = builder.calc_dist_boundaries(n_bins)
-    assert bounds.shape == (n_bins + 1,)
-    assert bounds[0] == -np.inf
-    assert bounds[-1] == np.inf
-
-
-def test_calc_dot_boundaries(neurons):
-    dotprops = [Dotprops(n.nodes[["x", "y", "z"]], k=5) for n in neurons]
-    builder = LookupDistDotBuilder(dotprops, [])
-    n_bins = 5
-    bounds = builder.calc_dot_boundaries(n_bins)
-    assert bounds.shape == (n_bins + 1,)
-    assert bounds[0] == -np.inf
-    assert bounds[-1] == np.inf
-
-
-def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5, with_bounds=False):
+def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5):
+    k = 5
     dotprops = [Dotprops(n.nodes[["x", "y", "z"]], k) for n in neurons]
     n_orig = len(dotprops)
 
@@ -154,24 +135,29 @@ def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5, with_bounds=False):
     # original neurons should all not match each other
     nonmatching = list(range(n_orig))
 
-    builder = LookupDistDotBuilder(
+    # max distance between any 2 points in the data
+    # for calculating dist boundaries
+    max_dist = np.linalg.norm(
+        np.ptp(
+            np.concatenate([dp.points for dp in dotprops], axis=0), axis=0,
+        )
+    )
+
+    return LookupDistDotBuilder(
         dotprops,
         matching_sets,
+        np.geomspace(10, max_dist, 5)[:-1],
+        np.linspace(0, 1, 5),
         nonmatching,
         alpha,
         seed=SEED + 1,
     )
-    if with_bounds:
-        n_bins = 5
-        builder.calc_dist_boundaries(n_bins)
-        builder.calc_dot_boundaries(n_bins)
-    return builder
 
 
 @pytest.mark.parametrize(["threads"], [(None,), (0,), (2,)])
 @pytest.mark.parametrize(["alpha"], [(True,), (False,)])
 def test_lookupdistdotbuilder_builds(neurons, threads, alpha):
-    builder = prepare_lookupdistdotbuilder(neurons, alpha, with_bounds=True)
+    builder = prepare_lookupdistdotbuilder(neurons, alpha)
     lookup = builder.build(threads)
     # `pytest -rP` to see output
     print(lookup.to_dataframe())
