@@ -609,7 +609,7 @@ class BaseNeuron:
         else:
             for k, v in self.__dict__.items():
                 if isinstance(v, np.ndarray):
-                    size += v.dtype.itemsize * np.multiply(*v.shape)
+                    size += v.dtype.itemsize * v.size
                 elif isinstance(v, pd.DataFrame):
                     for dt in v.dtypes.values:
                         if isinstance(dt, pd.CategoricalDtype):
