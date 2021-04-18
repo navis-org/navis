@@ -18,7 +18,7 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 * interface with **Blender 3D**
 * interface with **R** neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
 * import-export from/to **SWC**
-* designed to be **extensible** - see for example [pymaid](https://pymaid.readthedocs.io/en/latest/)s
+* designed to be **extensible** - see for example [pymaid](https://pymaid.readthedocs.io/en/latest/)
 
 ## Getting started
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:
@@ -42,7 +42,7 @@ Alternatively click on the *launch binder* badge above to try out navis hosted b
 NAVis comes with batteries included but is also highly extensible. Some
 libraries built on top of NAVis:
 * [flybrains](https://github.com/schlegelp/navis-flybrains) provides templates and transforms to use with navis
-* [pymaid](https://pymaid.readthedocs.io/en/latest/) pulls and pushes data to/from CATMAID servers
+* [pymaid](https://pymaid.readthedocs.io/en/latest/) pulls and pushes data from/to CATMAID servers
 * [fafbseg](https://fafbseg-py.readthedocs.io/en/latest/index.html) contains tools to work with autosegmented data for the FAFB EM dataset
 
 ## License
