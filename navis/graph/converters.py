@@ -71,7 +71,7 @@ def neuron2tangents(x: 'core.NeuronObject') -> 'core.Dotprops':
     vect = child_locs - parent_locs
 
     # Get mid point
-    points = child_locs - parent_locs / 2
+    points = child_locs + (parent_locs - child_locs) / 2
 
     # Get length
     length = np.sqrt(np.sum(vect ** 2, axis=1))
