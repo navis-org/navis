@@ -22,7 +22,7 @@ from typing import Union
 
 from .neurons import TreeNeuron, MeshNeuron, Dotprops
 from .neuronlist import NeuronList
-from .. import config
+from .. import config, graph
 
 __all__ = ['make_dotprops']
 
@@ -42,9 +42,12 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     x :         pandas.DataFrame | numpy.ndarray | TreeNeuron | MeshNeuron
                 Data/object to generate dotprops from. DataFrame must have
                 'x', 'y' and 'z' columns.
-    k :         int
+    k :         int, optional
                 Number of nearest neighbours to use for tangent vector
-                calculation.
+                calculation. ``k=0`` or ``k=None`` is possible but only for
+                ``TreeNeurons``: then we use child->parent connections
+                to define points (midpoint) and their vectors. Also note that
+                ``k`` is only guaranteed if the input has at least ``k`` points.
     resample :  float | int, optional
                 If provided will resample neurons to the given resolution. For
                 ``MeshNeurons``, we are using ``trimesh.points.remove_close`` to
@@ -83,7 +86,7 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
             res.append(make_dotprops(n, k=k, resample=resample))
         return NeuronList(res)
 
-    properties = {'k': k}
+    properties = {}
     if isinstance(x, pd.DataFrame):
         if not all(np.isin(['x', 'y', 'z'], x.columns)):
             raise ValueError('DataFrame must contain "x", "y" and "z" columns.')
@@ -92,6 +95,12 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
         if resample:
             x = x.resample(resample_to=resample, inplace=False)
         properties.update({'units': x.units, 'name': x.name, 'id': x.id})
+
+        if isinstance(k, type(None)) or k <= 0:
+            points, vect, length = graph.neuron2tangents(x)
+            return Dotprops(points=points, vect=vect, length=length, alpha=None,
+                            k=None, **properties)
+
         x = x.nodes[['x', 'y', 'z']].values
     elif isinstance(x, MeshNeuron):
         properties.update({'units': x.units, 'name': x.name, 'id': x.id})
@@ -104,13 +113,20 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     if x.ndim != 2 or x.shape[1] != 3:
         raise ValueError(f'Expected input of shape (N, 3), got {x.shape}')
 
+    if isinstance(k, type(None)) or k <= 0:
+        raise ValueError('`k` must be > 0 when converting non-TreeNeurons to '
+                         'Dotprops.')
+
     # Drop rows with NAs
     x = x[~np.any(np.isnan(x), axis=1)]
 
     # Checks and balances
     n_points = x.shape[0]
-    if n_points < k:
-        raise ValueError(f"Too few points ({n_points}) to calculate properties.")
+
+    # Make sure we don't ask for more nearest neighbors than we have points
+    k = min(n_points, k)
+
+    properties['k'] = k
 
     # Create the KDTree and get the k-nearest neighbors for each point
     tree = cKDTree(x)
@@ -125,7 +141,7 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     # Generate vector from center
     cpt = pt - centers.reshape((pt.shape[0], 1, 3))
 
-    # Get innertia (N, 3, 3)
+    # Get inertia (N, 3, 3)
     inertia = cpt.transpose((0, 2, 1)) @ cpt
 
     # Extract vector and alpha

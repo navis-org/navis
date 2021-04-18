@@ -2013,8 +2013,9 @@ class Dotprops(BaseNeuron):
     ----------
     points :        numpy array
                     (N, 3) array of x/y/z coordinates.
-    k :             int
+    k :             int, optional
                     Number of nearest neighbors for tangent vector calculation.
+                    This can be ``None`` or ``0`` but then
     vect :          numpy array, optional
                     (N, 3) array of vectors. If not provided will
                     recalculate both ``vect`` and ``alpha`` using ``k``.
@@ -2034,6 +2035,7 @@ class Dotprops(BaseNeuron):
     points: np.ndarray
     alpha: np.ndarray
     vect:  np.ndarray
+    k: Optional[int]
 
     soma: Optional[Union[list, np.ndarray]]
 
@@ -2143,6 +2145,10 @@ class Dotprops(BaseNeuron):
     def alpha(self):
         """Alpha value for tangent vectors."""
         if isinstance(self._alpha, type(None)):
+            if isinstance(self.k, type(None)) or (self.k <= 0):
+                raise ValueError('Unable to calculate `alpha` for Dotprops not '
+                                 'generated using k-nearest-neighbors.')
+
             self.recalculate_tangents(self.k, inplace=True)
         return self._alpha
 
@@ -2385,10 +2391,14 @@ class Dotprops(BaseNeuron):
         else:
             x = self
 
+        if isinstance(k, type(None)) or k < 1:
+            raise ValueError(f'`k` must be integer >= 1, got "{k}"')
+
         # Checks and balances
         n_points = x.points.shape[0]
         if n_points < k:
-            raise ValueError(f"Too few points ({n_points}) to calculate properties.")
+            raise ValueError(f"Too few points ({n_points}) to calculate {k} "
+                             "nearest-neighbors")
 
         # Create the KDTree and get the k-nearest neighbors for each point
         dist, ix = self.kdtree.query(x.points, k=k)
@@ -2402,7 +2412,7 @@ class Dotprops(BaseNeuron):
         # Generate vector from center
         cpt = pt - centers.reshape((pt.shape[0], 1, 3))
 
-        # Get innertia (N, 3, 3)
+        # Get inertia (N, 3, 3)
         inertia = cpt.transpose((0, 2, 1)) @ cpt
 
         # Extract vector and alpha

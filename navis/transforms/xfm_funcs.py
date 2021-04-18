@@ -124,6 +124,14 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             xyz = xf.vertices
         elif isinstance(xf, core.Dotprops):
             xyz = xf.points
+            # If this dotprops has a `k`, we only need to transform points and
+            # can regenerate the rest. If not, we need to make helper points
+            # to carry over vectors
+            if isinstance(xf.k, type(None)) or xf.k <= 0:
+                # Here is a question whether those helper points should be
+                # farther away to make things less noisy?
+                hp = xf.points + xf.vect
+                xyz = np.append(xyz, hp, axis=0)
         else:
             raise TypeError(f"Don't know how to transform neuron of type '{type(xf)}'")
 
@@ -150,8 +158,17 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 xf.nodes['radius'] *= 10**magnitude
         elif isinstance(xf, core.Dotprops):
             xf.points = xyz_xf[:xf.points.shape[0]]
-            # Set tangent vectors and alpha to None so they will be regenerated
-            xf._vect = xf._alpha = None
+
+            # If this dotprops has a `k`, set tangent vectors and alpha to
+            # None so they will be regenerated
+            if not isinstance(xf.k, type(None)) and xf.k > 0:
+                xf._vect = xf._alpha = None
+            else:
+                # Re-generate vectors
+                hp = xyz_xf[xf.points.shape[0]: xf.points.shape[0] * 2]
+                vect = xf.points - hp
+                vect = vect / np.linalg.norm(vect, axis=1).reshape(-1, 1)
+                xf._vect = vect
         elif isinstance(xf, core.MeshNeuron):
             xf.vertices = xyz_xf[:xf.vertices.shape[0]]
 
