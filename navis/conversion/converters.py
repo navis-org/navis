@@ -21,7 +21,8 @@ def tree2meshneuron(x: 'core.TreeNeuron',
                     use_normals: bool = True) -> 'core.MeshNeuron':
     """Convert TreeNeuron to MeshNeuron.
 
-    Uses the ``radius`` to convert skeleton to 3D tube mesh.
+    Uses the ``radius`` to convert skeleton to 3D tube mesh. Missing radii  are
+    treated as zeros.
 
     Parameters
     ----------
@@ -41,11 +42,14 @@ def tree2meshneuron(x: 'core.TreeNeuron',
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron, got "{type(x)}"')
 
-    if any(x.nodes.radius.values <= 0):
-        logger.warning('At least some radii are <= 0. Mesh will look funny.')
+    # Note that we are treating missing radii as "0"
+    radii_map = x.nodes.set_index('node_id').radius.fillna(0)
+
+    if (radii_map <= 0).any():
+        logger.warning('At least some radii are missing or <= 0. Mesh will '
+                       'look funny.')
 
     # Map radii onto segments
-    radii_map = x.nodes.set_index('node_id').radius
     radii = [radii_map.loc[seg].values for seg in x.segments]
     co_map = x.nodes.set_index('node_id')[['x', 'y', 'z']]
     seg_points = [co_map.loc[seg].values for seg in x.segments]
