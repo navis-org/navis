@@ -385,7 +385,7 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
             # hundrets of soma which will freeze the session
             if len(soma) >= 10:
                 logger.warning(f'Neuron {neuron.id} appears to have {len(soma)}'
-                               'somas. That does not look right - will ignore '
+                               ' somas. That does not look right - will ignore '
                                'them for plotting.')
             else:
                 for s in soma:
