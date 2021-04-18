@@ -32,6 +32,7 @@ __all__ = ['xform_cmtk']
 _search_path = os.environ['PATH']
 _search_path = [i for i in _search_path.split(';') if len(i) > 0]
 _search_path += ['~/bin',
+                 '/usr/lib/cmtk/bin/',
                  '/usr/local/lib/cmtk/bin',
                  '/usr/local/bin',
                  '/opt/local/bin',
