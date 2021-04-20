@@ -260,7 +260,7 @@ class BaseNeuron:
 
         # If this is an easy to summarize attribute, add to summary
         if summary and name not in self.SUMMARY_PROPS:
-            if isinstance(value, (numbers.Number, str)):
+            if isinstance(value, (numbers.Number, str, bool, np.bool_)):
                 self.SUMMARY_PROPS.append(name)
             else:
                 logger.error(f'Attributes of type "{type(value)}" can not be '
