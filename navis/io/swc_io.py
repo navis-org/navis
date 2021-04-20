@@ -20,7 +20,7 @@ import requests
 from pathlib import Path
 from textwrap import dedent
 import multiprocessing as mp
-from typing import List, Type, Union, Iterable, Dict, Optional, Any, TextIO, IO
+from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
 
 import pandas as pd
 import numpy as np
@@ -638,8 +638,8 @@ def write_swc(x: 'core.NeuronObject',
                         If True, will label nodes with pre- ("7") and
                         postsynapse ("8"). Because only one label can be given
                         this might drop synapses (i.e. in case of multiple
-                        pre- or postsynapses on a single node)! ``labels`` must
-                        be ``True`` for this to have any effect.
+                        pre- and/or postsynapses on a single node)! ``labels``
+                        must be ``True`` for this to have any effect.
     return_node_map :   bool
                         If True, will return a dictionary mapping the old node
                         ID to the new reindexed node IDs in the file.
@@ -827,11 +827,13 @@ def make_swc_table(x: 'core.TreeNeuron',
         # Add soma label
         if not isinstance(x.soma, type(None)):
             soma = utils.make_iterable(x.soma)
-            swc.loc[soma, 'label'] = 1
+            swc.loc[swc.node_id.isin(soma), 'label'] = 1
         if export_connectors:
             # Add synapse label
-            swc.loc[x.presynapses.node_id.values, 'label'] = 7
-            swc.loc[x.postsynapses.node_id.values, 'label'] = 8
+            pre_ids = x.presynapses.node_id.values
+            post_ids = x.postsynapses.node_id.values
+            swc.loc[swc.node_id.isin(pre_ids), 'label'] = 7
+            swc.loc[swc.node_id.isin(post_ids), 'label'] = 8
 
     # Sort such that the parent is always before the child
     swc.sort_values('parent_id', ascending=True, inplace=True)
