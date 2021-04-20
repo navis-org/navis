@@ -1729,7 +1729,7 @@ def prune_at_depth(x: NeuronObject,
                    source: Optional[int] = None,
                    inplace: bool = False
                    ) -> Optional[NeuronObject]:
-    """Prune all neurites past a certain distance from given source.
+    """Prune all neurites past a given distance from a source.
 
     Parameters
     ----------
@@ -1738,8 +1738,8 @@ def prune_at_depth(x: NeuronObject,
                     Distance from source at which to start pruning.
     source :        int, optional
                     Source node for depth calculation. If ``None``, will use
-                    root. If ``x`` is a list of neurons then must provide a
-                    source for each neuron.
+                    root (first root if multiple). If ``x`` is a
+                    list of neurons then must provide a source for each neuron.
     inplace :       bool, optional
                     If False, pruning is performed on copy of original neuron
                     which is then returned.
@@ -1758,14 +1758,14 @@ def prune_at_depth(x: NeuronObject,
     >>> # Prune all twigs farther from the root than 100 microns
     >>> # (example neuron are in 8x8x8nm units)
     >>> n_pr = navis.prune_at_depth(n,
-    ...                             size=100e3 / 8,
+    ...                             depth=100e3 / 8,
     ...                             inplace=False)
     >>> n.n_nodes > n_pr.n_nodes
     True
 
     """
     if depth < 0:
-        raise ValueError('Depth must be > 0')
+        raise ValueError('`depth` must be > 0')
 
     if isinstance(x, core.NeuronList):
         if not inplace:
@@ -1777,8 +1777,8 @@ def prune_at_depth(x: NeuronObject,
             source = [None] * len(x)
 
         if len(source) != len(x):
-            raise ValueError(f'Expect {len(x)} sources for {len(x)} '
-                             f'neurons - got {len(source)}')
+            raise ValueError(f'Expected {len(x)} sources for {len(x)} '
+                             f'neurons, got {len(source)}')
 
         for n, s in config.tqdm(zip(x, source),
                                 desc='Pruning',
@@ -1795,7 +1795,7 @@ def prune_at_depth(x: NeuronObject,
     if isinstance(source, type(None)):
         source = x.root[0]
     elif source not in x.nodes.node_id.values:
-        raise ValueError(f'Source "{source}" not among node')
+        raise ValueError(f'Source "{source}" not among nodes')
 
     # Get distance from source
     dist = graph.geodesic_matrix(x, tn_ids=[source], directed=False, limit=depth)
