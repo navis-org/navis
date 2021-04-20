@@ -33,7 +33,7 @@ logger = config.logger
 __all__ = sorted(['prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
                   'average_neurons', 'despike_neuron', 'guess_radius',
                   'smooth_neuron', 'heal_fragmented_neuron',
-                  'break_fragments', 'prune_twigs'])
+                  'break_fragments', 'prune_twigs', 'prune_at_depth'])
 
 NeuronObject = Union['core.NeuronList', 'core.TreeNeuron']
 
@@ -1722,3 +1722,88 @@ def _stitch_mst(x: 'core.TreeNeuron',
 
     # Rewire based on graph
     return graph.rewire_neuron(x, g, inplace=inplace)
+
+
+def prune_at_depth(x: NeuronObject,
+                   depth: Union[float, int],
+                   source: Optional[int] = None,
+                   inplace: bool = False
+                   ) -> Optional[NeuronObject]:
+    """Prune all neurites past a certain distance from given source.
+
+    Parameters
+    ----------
+    x :             TreeNeuron | NeuronList
+    depth :         int | float
+                    Distance from source at which to start pruning.
+    source :        int, optional
+                    Source node for depth calculation. If ``None``, will use
+                    root. If ``x`` is a list of neurons then must provide a
+                    source for each neuron.
+    inplace :       bool, optional
+                    If False, pruning is performed on copy of original neuron
+                    which is then returned.
+
+    Returns
+    -------
+    TreeNeuron/List
+                    Pruned neuron(s).
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> # Reroot to soma
+    >>> n.reroot(n.soma, inplace=True)
+    >>> # Prune all twigs farther from the root than 100 microns
+    >>> # (example neuron are in 8x8x8nm units)
+    >>> n_pr = navis.prune_at_depth(n,
+    ...                             size=100e3 / 8,
+    ...                             inplace=False)
+    >>> n.n_nodes > n_pr.n_nodes
+    True
+
+    """
+    if depth < 0:
+        raise ValueError('Depth must be > 0')
+
+    if isinstance(x, core.NeuronList):
+        if not inplace:
+            x = x.copy()
+
+        if not isinstance(source, type(None)):
+            source = utils.make_iterable(source)
+        else:
+            source = [None] * len(x)
+
+        if len(source) != len(x):
+            raise ValueError(f'Expect {len(x)} sources for {len(x)} '
+                             f'neurons - got {len(source)}')
+
+        for n, s in config.tqdm(zip(x, source),
+                                desc='Pruning',
+                                disable=config.pbar_hide,
+                                leave=config.pbar_leave,
+                                total=len(x)):
+            _ = prune_at_depth(n, source=s, depth=depth, inplace=True)
+
+        return x
+
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron, got {type(x)}')
+
+    if isinstance(source, type(None)):
+        source = x.root[0]
+    elif source not in x.nodes.node_id.values:
+        raise ValueError(f'Source "{source}" not among node')
+
+    # Get distance from source
+    dist = graph.geodesic_matrix(x, tn_ids=[source], directed=False, limit=depth)
+    keep = dist.columns[dist.values[0] < np.inf]
+
+    if not inplace:
+        x = x.copy()
+
+    _ = graph.subset_neuron(x, subset=keep, inplace=True)
+
+    return x

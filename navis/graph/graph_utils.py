@@ -541,7 +541,9 @@ def distal_to(x: 'core.TreeNeuron',
 def geodesic_matrix(x: 'core.NeuronObject',
                     tn_ids: Optional[Iterable[int]] = None,
                     directed: bool = False,
-                    weight: Optional[str] = 'weight') -> pd.DataFrame:
+                    weight: Optional[str] = 'weight',
+                    limit: Union[float, int] = np.inf
+                    ) -> pd.DataFrame:
     """Generate geodesic ("along-the-arbor") distance matrix between treenodes.
 
     Parameters
@@ -557,6 +559,9 @@ def geodesic_matrix(x: 'core.NeuronObject',
     weight :    'weight' | None, optional
                 If ``weight`` distances are given as physical length.
                 If ``None`` distances is number of nodes.
+    limit :     int | float, optional
+                Use to limit distance calculations. Nodes that are not within
+                ``limit`` will have distance ``np.inf``.
 
     Returns
     -------
@@ -600,26 +605,34 @@ def geodesic_matrix(x: 'core.NeuronObject',
     x: core.TreeNeuron
 
     if x.igraph and config.use_igraph:
-        nodeList = x.igraph.vs.get_attribute_values('node_id')
+        nodeList = np.array(x.igraph.vs.get_attribute_values('node_id'))
 
         # Matrix is ordered by vertex number
         m = _igraph_to_sparse(x.igraph, weight_attr=weight)
     else:
-        nodeList = tuple(x.graph.nodes())
+        nodeList = np.array(x.graph.nodes())
 
         m = nx.to_scipy_sparse_matrix(x.graph, nodeList,
                                       weight=weight)
 
     tn_indices: Optional[Iterable[int]]
     if not isinstance(tn_ids, type(None)):
-        tn_ids = set(utils.make_iterable(tn_ids))
-        tn_indices = tuple(i for i, node in enumerate(nodeList) if node in tn_ids)
-        ix = [nodeList[i] for i in tn_indices]
+        tn_ids = np.unique(utils.make_iterable(tn_ids))
+
+        miss = tn_ids[~np.isin(tn_ids, nodeList)].astype(str)
+        if any(miss):
+            raise ValueError(f'Node IDs not present: {", ".join(miss)}')
+
+        tn_indices = np.where(np.isin(nodeList, tn_ids))[0]
+        ix = nodeList[tn_indices]
     else:
         tn_indices = None
         ix = nodeList
 
-    dmat = csgraph.dijkstra(m, directed=directed, indices=tn_indices)
+    dmat = csgraph.dijkstra(m,
+                            directed=directed,
+                            indices=tn_indices,
+                            limit=limit)
 
     return pd.DataFrame(dmat, columns=nodeList, index=ix)  # type: ignore  # no stubs
 
