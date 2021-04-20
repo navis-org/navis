@@ -1845,6 +1845,48 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
+    def prune_at_depth(self,
+                       depth: Union[float, int],
+                       source: Optional[int] = None,
+                       inplace: bool = False
+                       ) -> Optional['TreeNeuron']:
+        """Prune all neurites past a given distance from a source.
+
+        Parameters
+        ----------
+        x :             TreeNeuron | NeuronList
+        depth :         int | float
+                        Distance from source at which to start pruning.
+        source :        int, optional
+                        Source node for depth calculation. If ``None``, will use
+                        root. If ``x`` is a list of neurons then must provide a
+                        source for each neuron.
+        inplace :       bool, optional
+                        If False, pruning is performed on copy of original neuron
+                        which is then returned.
+
+        Returns
+        -------
+        TreeNeuron/List
+                        Pruned neuron(s).
+
+        See Also
+        --------
+        :func:`~navis.prune_at_depth`
+            This is the base function. See for details and examples.
+
+        """
+        if inplace:
+            x = self
+        else:
+            x = self.copy()
+
+        morpho.prune_at_depth(x, depth=depth, source=source, inplace=True)
+
+        if not inplace:
+            return x
+        return None
+
     def prune_by_longest_neurite(self,
                                  n: int = 1,
                                  reroot_to_soma: bool = False,
