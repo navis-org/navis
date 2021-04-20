@@ -15,11 +15,12 @@ repository.
      - Date
      -
    * - 0.5.3
-     - 10/04/21
+     - 10/04/18
      - - new functions: :func:`navis.nblast_smart`, :func:`navis.write_google_binary`, :func:`navis.synblast`, :func:`navis.symmetrize_brain`
        - :func:`navis.plot3d` (plotly): ``hover_name=True`` will show neuron names on hover
        - :func:`navis.plot2d`: ``rasterize=True`` will rasterize neurons (but not axes or labels) to help keep file sizes low
        - :func:`navis.simplify_mesh` now supports 3 backends: Blender3D, ``open3d`` or ``pymeshlab``
+       - :func:`navis.make_dotprops` can now produce ``Dotprops`` purely from skeleton edges (set ``k=None``)
        - reworked :func:`navis.write_swc` (faster, easier to work with)
        - a new type of landmark-based transform: moving least square transforms (thanks to Chris Barnes)
        - vispy :class:`navis.Viewer`: press B to show a bounding box
