@@ -11,12 +11,12 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .json_io import neuron2json, json2neuron
+from .json_io import write_json, read_json
 from .swc_io import read_swc, write_swc
 from .nrrd_io import read_nrrd
 from .binary_io import write_google_binary
 from .hdf_io import read_h5, write_h5, inspect_h5
 from .rda_io import read_rda
 
-__all__ = ['neuron2json', 'json2neuron', 'read_swc', 'write_swc', 'read_nrrd',
-           'read_h5', 'write_h5', 'write_google_binary']
+__all__ = ['write_json', 'read_json', 'read_swc', 'write_swc', 'read_nrrd',
+           'read_h5', 'write_h5', 'inspect_h5', 'write_google_binary', 'read_rda']

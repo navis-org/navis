@@ -16,14 +16,19 @@ import json
 import pandas as pd
 import numpy as np
 
+from pathlib import Path
+
 from .. import config, core
 
 # Set up logging
 logger = config.logger
 
 
-def neuron2json(x: 'core.NeuronObject', **kwargs) -> str:
-    """Generate JSON formatted ``str`` respresentation of TreeNeuron/List.
+__all__ = ['write_json', 'read_json']
+
+
+def write_json(x: 'core.NeuronObject', filepath, **kwargs) -> str:
+    """Save neuron(s) to json-formatted file.
 
     Nodes and connectors are serialised using pandas' ``to_json()``. Most
     other items in the neuron's __dict__ are serialised using
@@ -32,6 +37,10 @@ def neuron2json(x: 'core.NeuronObject', **kwargs) -> str:
     Parameters
     ----------
     x :         TreeNeuron | NeuronList
+                Neuron(s) to save.
+    filepath :  str, optional
+                File to save data to. If `None` will return a json-formatted
+                string.
     **kwargs
                 Parameters passed to ``json.dumps()`` and
                 ``pandas.DataFrame.to_json()``.
@@ -39,10 +48,11 @@ def neuron2json(x: 'core.NeuronObject', **kwargs) -> str:
     Returns
     -------
     str
+                Only if ``filepath=None``.
 
     See Also
     --------
-    :func:`~navis.json2neuron`
+    :func:`~navis.read_json`
                 Read json back into navis neurons.
 
     """
@@ -70,16 +80,20 @@ def neuron2json(x: 'core.NeuronObject', **kwargs) -> str:
 
         data.append(this_data)
 
-    return json.dumps(data, **kwargs)
+    if not isinstance(filepath, type(None)):
+        with open(filepath, 'w') as f:
+            json.dump(data, f, **kwargs)
+    else:
+        return json.dumps(data, **kwargs)
 
 
-def json2neuron(s: str, **kwargs) -> 'core.NeuronList':
-    """Load neuron from JSON string.
+def read_json(s: str, **kwargs) -> 'core.NeuronList':
+    """Load neuron from JSON (file or string).
 
     Parameters
     ----------
     s :         str
-                JSON-formatted string.
+                Either filepath or JSON-formatted string.
     **kwargs
                 Parameters passed to ``json.loads()`` and
                 ``pandas.DataFrame.read_json()``.
@@ -97,14 +111,27 @@ def json2neuron(s: str, **kwargs) -> 'core.NeuronList':
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> js = navis.neuron2json(n)
-    >>> n2 = navis.json2neuron(js)
+    >>> js = navis.write_json(n, filepath=None)
+    >>> n2 = navis.read_json(js)
 
     """
-    if not isinstance(s, str):
+    if not isinstance(s, (str, Path)):
         raise TypeError(f'Expected str, got "{type(s)}"')
 
-    data = json.loads(s, **kwargs)
+    # Try except is necessary because Path() throws a hissy fit if it is given
+    # a long ass json string as filepath
+    try:
+        is_file = Path(s).is_file()
+    except OSError:
+        is_file = False
+    except BaseException:
+        raise
+
+    if is_file:
+        with open(Path(s), 'r') as f:
+            data = json.load(f, **kwargs)
+    else:
+        data = json.loads(s, **kwargs)
 
     nl = core.NeuronList([])
 
@@ -115,7 +142,7 @@ def json2neuron(s: str, **kwargs) -> 'core.NeuronList':
             try:
                 cn._nodes = pd.read_json(n['_nodes'])
             except ValueError:
-                cn._connectors = None
+                cn._nodes = None
 
         if '_connectors' in n:
             try:

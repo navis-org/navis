@@ -428,9 +428,9 @@ Functions to import/export neurons.
     navis.read_swc
     navis.write_swc
     navis.read_nrrd
-    navis.neuron2json
-    navis.json2neuron
     navis.read_rda
+    navis.read_json
+    navis.write_json
 
 .. _api_interfaces:
 
