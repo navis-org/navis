@@ -36,7 +36,7 @@ jobs:
       if: ${{ matrix.os == 'ubuntu-latest' }}
     - name: Install dependencies
       run: |
-        pip install --upgrade pip
+        pip install --upgrade pip wheel
     - name: Install navis from Github
       run: pip install git+git://github.com/schlegelp/navis@master
     - name: Test import
