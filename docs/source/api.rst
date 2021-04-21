@@ -430,6 +430,7 @@ Functions to import/export neurons.
     navis.read_nrrd
     navis.neuron2json
     navis.json2neuron
+    navis.read_rda
 
 .. _api_interfaces:
 
