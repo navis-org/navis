@@ -706,6 +706,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
 def nblast_allbyall(x: NeuronList,
                     normalized: bool = True,
                     use_alpha: bool = False,
+                    smat: Optional[Union[str, pd.DataFrame]] = 'auto',
                     n_cores: int = os.cpu_count() // 2,
                     progress: bool = True,
                     k: int = 20,
@@ -726,6 +727,12 @@ def nblast_allbyall(x: NeuronList,
                     ``os.cpu_count() - 2``. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
+    smat :          str | pd.DataFrame, optional
+                    Score matrix. If 'auto' (default), will use scoring matrices
+                    from FCWB. Same behaviour as in R's nat.nblast
+                    implementation. If ``smat=None`` the scores will be
+                    generated as the product of the distances and the dotproduct
+                    of the vectors of nearest-neighbor pairs.
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
                     that have lots of branches.
@@ -804,6 +811,7 @@ def nblast_allbyall(x: NeuronList,
             # Initialize NBlaster
             this = NBlaster(use_alpha=use_alpha,
                             normalized=normalized,
+                            smat=smat,
                             progress=progress)
 
             # Make sure we don't add the same neuron twice
