@@ -359,8 +359,8 @@ class H5transform(BaseTransform):
         frac_out = is_out.sum() / xf_voxel.shape[0]
         if frac_out > 0.2:
             logger.warning(f'A suspiciously a large fraction ({frac_out:.1%}) '
-                           'of points appear to be outside the H5 '
-                           'deformation field. Please make doubly sure '
+                           f'of {xf_voxel.shape[0]} points appear to be outside '
+                           'the H5 deformation field. Please make doubly sure '
                            'that the input coordinates are in the correct '
                            'space/units')
 
