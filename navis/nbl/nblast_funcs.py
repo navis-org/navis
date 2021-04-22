@@ -278,6 +278,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                  return_mask: bool = False,
                  normalized: bool = True,
                  use_alpha: bool = False,
+                 smat: Optional[Union[str, pd.DataFrame]] = 'auto',
                  n_cores: int = os.cpu_count() // 2,
                  progress: bool = True,
                  k: int = 20,
@@ -332,6 +333,12 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                     that have lots of branches.
     normalized :    bool, optional
                     Whether to return normalized NBLAST scores.
+    smat :          str | pd.DataFrame
+                    Score matrix. If 'auto' (default), will use scoring matrices
+                    from FCWB. Same behaviour as in R's nat.nblast
+                    implementation. If ``smat=None`` the scores will be
+                    generated as the product of the distances and the dotproduct
+                    of the vectors of nearest-neighbor pairs.
     progress :      bool
                     Whether to show progress bars.
 
@@ -439,6 +446,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
             # Initialize NBlaster
             this = NBlaster(use_alpha=use_alpha,
                             normalized=normalized,
+                            smat=smat,
                             progress=progress)
             # Add queries and targets
             for n in qq:
@@ -494,6 +502,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
             # Initialize NBlaster
             this = NBlaster(use_alpha=use_alpha,
                             normalized=normalized,
+                            smat=smat,
                             progress=progress)
             # Add queries and targets
             for n in query_dps[q]:
@@ -548,6 +557,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                          Literal['max']] = 'forward',
            normalized: bool = True,
            use_alpha: bool = False,
+           smat: Optional[Union[str, pd.DataFrame]] = 'auto',
            n_cores: int = os.cpu_count() // 2,
            progress: bool = True,
            k: int = 20,
@@ -580,9 +590,15 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                     individual processes.
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
-                    that have lots of branches.
+                    that have lots of branches.         
     normalized :    bool, optional
                     Whether to return normalized NBLAST scores.
+    smat :          str | pd.DataFrame
+                    Score matrix. If 'auto' (default), will use scoring matrices
+                    from FCWB. Same behaviour as in R's nat.nblast
+                    implementation. If ``smat=None`` the scores will be
+                    generated as the product of the distances and the dotproduct
+                    of the vectors of nearest-neighbor pairs.
     progress :      bool
                     Whether to show progress bars.
 
@@ -666,6 +682,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
             # Initialize NBlaster
             this = NBlaster(use_alpha=use_alpha,
                             normalized=normalized,
+                            smat=smat,
                             progress=progress)
             # Add queries and targets
             for n in q:
@@ -727,17 +744,17 @@ def nblast_allbyall(x: NeuronList,
                     ``os.cpu_count() - 2``. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
+    use_alpha :     bool, optional
+                    Emphasizes neurons' straight parts (backbone) over parts
+                    that have lots of branches.
+    normalized :    bool, optional
+                    Whether to return normalized NBLAST scores.
     smat :          str | pd.DataFrame, optional
                     Score matrix. If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
                     implementation. If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
-    use_alpha :     bool, optional
-                    Emphasizes neurons' straight parts (backbone) over parts
-                    that have lots of branches.
-    normalized :    bool, optional
-                    Whether to return normalized NBLAST scores.
     progress :      bool
                     Whether to show progress bars.
 

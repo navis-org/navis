@@ -256,6 +256,7 @@ def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],
                            Literal['min'],
                            Literal['max']] = 'forward',
              normalized: bool = True,
+             smat: Optional[Union[str, pd.DataFrame]] = 'auto',
              n_cores: int = os.cpu_count() // 2,
              progress: bool = True) -> pd.DataFrame:
     """Synapsed-based variant of NBLAST.
@@ -294,6 +295,12 @@ def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],
                     individual processes.
     normalized :    bool, optional
                     Whether to return normalized SynBLAST scores.
+    smat :          str | pd.DataFrame, optional
+                    Score matrix. If 'auto' (default), will use scoring matrices
+                    from FCWB. Same behaviour as in R's nat.nblast
+                    implementation. If ``smat=None`` the scores will be
+                    generated as the product of the distances and the dotproduct
+                    of the vectors of nearest-neighbor pairs.
     progress :      bool
                     Whether to show progress bars.
 
@@ -371,6 +378,7 @@ def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],
             # Initialize SynNBlaster
             this = SynBlaster(normalized=normalized,
                               by_type=by_type,
+                              smat=smat,
                               progress=progress)
             # Add queries and targets
             for nl in [q, t]:
