@@ -809,9 +809,10 @@ def _guess_change(xyz_before: np.ndarray,
 
 def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                      template: Union[str, 'TemplateBrain'],
-                     via: Optional[str] = 'auto') -> Union['core.NeuronObject',
-                                                           'pd.DataFrame',
-                                                           'np.ndarray']:
+                     via: Optional[str] = 'auto',
+                     verbose: bool = False) -> Union['core.NeuronObject',
+                                                     'pd.DataFrame',
+                                                     'np.ndarray']:
     """Symmetrize 3D object (neuron, coordinates).
 
     The way this works is by:
@@ -962,9 +963,9 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
 
     # Mirror with compensation for deformations
     xm = mirror_brain(x[is_left], template=template, via=via,
-                      mirror_axis='x')
+                      mirror_axis='x', verbose=verbose)
 
-    # And now flip them back
+    # And now flip them back without compensation for deformations
     xmf = mirror_brain(xm, template=template, warp=False, mirror_axis='x')
 
     # Replace values
@@ -979,9 +980,10 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                     Literal['y'],
                                     Literal['z']] = 'x',
                  warp: Union[Literal['auto'], bool] = 'auto',
-                 via: Optional[str] = None) -> Union['core.NeuronObject',
-                                                     'pd.DataFrame',
-                                                     'np.ndarray']:
+                 via: Optional[str] = None,
+                 verbose: bool = False) -> Union['core.NeuronObject',
+                                                 'pd.DataFrame',
+                                                 'np.ndarray']:
     """Mirror 3D object (neuron, coordinates) about given axis.
 
     The way this works is:
@@ -1060,7 +1062,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     # If we go via another brain space
     if via and via != template:
         # Xform to "via" space
-        xf = xform_brain(x, source=template, target=via)
+        xf = xform_brain(x, source=template, target=via, verbose=verbose)
         # Mirror
         xfm = mirror_brain(xf,
                            template=via,
@@ -1068,7 +1070,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                            warp=warp,
                            via=None)
         # Xform back to original template space
-        xfm_inv = xform_brain(xfm, source=via, target=template)
+        xfm_inv = xform_brain(xfm, source=via, target=template, verbose=verbose)
         return xfm_inv
 
     if isinstance(x, core.NeuronList):
