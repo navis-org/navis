@@ -20,7 +20,7 @@ from glob import glob
 
 import multiprocessing as mp
 
-from typing import Union, Iterable
+from typing import Union, Iterable, Optional
 from typing_extensions import Literal
 
 from .. import config, utils, core
@@ -30,6 +30,7 @@ logger = config.logger
 
 
 def read_nrrd(f: Union[str, Iterable],
+              threshold: Optional[Union[int, float]],
               include_subdirs: bool = False,
               parallel: Union[bool, int] = 'auto',
               output: Union[Literal['dotprops'],
@@ -48,6 +49,10 @@ def read_nrrd(f: Union[str, Iterable],
     f :                 str | iterable
                         Filename(s) or folder. If folder, will import all
                         ``.nrrd`` files.
+    threshold :         int | float | None
+                        The threshold to filter low intensity voxels. If
+                        ``None``, no threshold is applied and all values > 0
+                        are converted to points.
     include_subdirs :   bool, optional
                         If True and ``f`` is a folder, will also search
                         subdirectories for ``.nrrd`` files.
@@ -106,6 +111,7 @@ def read_nrrd(f: Union[str, Iterable],
 
             with mp.Pool(processes=n_cores) as pool:
                 results = pool.imap(_worker_wrapper, [dict(f=x,
+                                                           threshold=threshold,
                                                            output=output,
                                                            errors=errors,
                                                            include_subdirs=include_subdirs,
@@ -121,6 +127,7 @@ def read_nrrd(f: Union[str, Iterable],
         else:
             # If not parallel just import the good 'ole way: sequentially
             res = [read_nrrd(x,
+                             threshold=threshold,
                              include_subdirs=include_subdirs,
                              output=output,
                              errors=errors,
@@ -140,6 +147,9 @@ def read_nrrd(f: Union[str, Iterable],
 
     if output == 'raw':
         return data, header
+
+    if threshold:
+        data = data >= threshold
 
     # Data is in voxels - we have to convert it to x/y/z coordinates
     x, y, z = np.where(data)
