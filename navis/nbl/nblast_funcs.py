@@ -443,13 +443,19 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
         raise TypeError('`n_cores` must be an integer > 0')
 
     n_cores = int(n_cores)
+    if n_cores < 1:
+        raise ValueError('`n_cores` must be greater than 0')
+    if n_cores > os.cpu_count():
+        logger.warning('`n_cores` should not larger than the number of '
+                       f'available cores ({os.cpu_count()})')
     if n_cores > 1 and n_cores % 2:
         logger.warning('NBLAST is most efficient if `n_cores` is an even number')
-    elif n_cores < 1:
-        raise ValueError('`n_cores` must not be smaller than 1')
-    elif n_cores > os.cpu_count():
-        logger.warning('`n_cores` should not larger than the number of '
-                       'available cores')
+
+    # At the moment, neurons need to have a unique ID for things to work
+    if isinstance(query, NeuronList) and query.is_degenerated:
+        raise ValueError('Queries have non-unique IDs.')
+    if isinstance(target, NeuronList) and target.is_degenerated:
+        raise ValueError('Targets have non-unique IDs.')
 
     # Turn query into dotprops
     query_dps = force_dotprops(query, resample=resample, k=k, progress=progress)
