@@ -84,12 +84,12 @@ def plot3d(x: Union[core.NeuronObject,
                       Use ``dict`` to map colors to neurons:
                       ``{uuid: (r, g, b), ...}``.
     cn_colors :       str | tuple | dict | "neuron"
-                      Overrides the default colors:
+                      Overrides the default connector (e.g. synpase) colors:
 
                       - single color as str (e.g. ``'red'``) or rgb tuple (e.g.
                         ``(1, 0, 0)``)
                       - dict mapping the connectors tables ``type`` column to a
-                        color (e.g. `{0: (1, 0, 0)}`)
+                        color (e.g. `{"pre": (1, 0, 0)}`)
                       - with "neuron", connectors will receive the same color as
                         their neuron
     palette :         str | array | list of arrays, default=None
