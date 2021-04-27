@@ -293,7 +293,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                  target: Optional[str] = None,
                  t: int = 90,
                  criterion: Union[Literal['percentile'],
-                                  Literal['quantile'],
+                                  Literal['score'],
                                   Literal['N']] = 'percentile',
                  scores: Union[Literal['forward'],
                                Literal['mean'],
@@ -325,12 +325,12 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
     t :             int
                     Value used to select query-target pairs from pre-NBLAST
                     to run a full NBLAST on. See also ``criterion``.
-    criterion :     "percentile" | "quantile" | "N"
+    criterion :     "percentile" | "score" | "N"
                     Criterion for selecting query-target pairs for full NBLAST:
 
-                        - "percentile" runs full NBLAST on the ``t``-th percentile
-                        - "quantile" runs full NBLAST on the ``t``-th quantile
-                        - "N" runs full NBLAST on top ``t`` targets
+                      - "percentile" runs full NBLAST on the ``t``-th percentile
+                      - "score" runs full NBLAST on all scores above ``t``
+                      - "N" runs full NBLAST on top ``t`` targets
 
     return_mask :   bool
                     If True, will return a boolean mask with same shape as
@@ -339,13 +339,13 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
     scores :        'forward' | 'mean' | 'min' | 'max'
                     Determines the final scores:
 
-                        - 'forward' (default) returns query->target scores
-                        - 'mean' returns the mean of query->target and
-                          target->query scores
-                        - 'min' returns the minium between query->target and
-                          target->query scores
-                        - 'max' returns the maximum between query->target and
-                          target->query scores
+                      - 'forward' (default) returns query->target scores
+                      - 'mean' returns the mean of query->target and
+                        target->query scores
+                      - 'min' returns the minium between query->target and
+                        target->query scores
+                      - 'max' returns the maximum between query->target and
+                        target->query scores
 
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
@@ -413,18 +413,22 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
 
     """
     utils.eval_param(criterion, name='criterion',
-                     allowed_values=("percentile", "quantile", "N"))
+                     allowed_values=("percentile", "score", "N"))
 
     try:
         t = int(t)
     except BaseException:
         raise TypeError(f'`t` must be (convertable to) integer - got "{type(t)}"')
 
-    if criterion != 'N' and (t < 0 or t > 100):
-        raise ValueError(f'Expected `t` to be integer between 0 and 100, got "{t}"')
-    elif t > len(target):
-        raise ValueError(f'`t` of {t} is larger than the total number of '
-                         f'targets ({len(target)} targets)')
+    if criterion == 'percentile':
+        if (t <= 0 or t >= 100):
+            raise ValueError('Expected `t` to be integer between 0 and 100 for '
+                             f'criterion "percentile", got {t}')
+    elif criterion == 'N':
+        if (t < 0 or t >= len(target)):
+            raise ValueError('`t` must be between 0 and the total number of'
+                             f'targets ({len(target)} for criterion "N", '
+                             f'got {t}')
 
     # Check if query or targets are in microns
     # Note this test can return `None` if it can't be determined
@@ -508,8 +512,8 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
     # Now select targets of interest for each query
     if criterion == 'percentile':
         sel = np.percentile(scr, q=t, axis=1)
-    elif criterion == 'quantile':
-        sel = np.quantile(scr, q=t / 100, axis=1)
+    elif criterion == 'score':
+        sel = np.full(scr.shape[0], fill_value=t)
     else:
         # This is cheap and might select slightly more than the top N:
         # Translate total N into percentile
