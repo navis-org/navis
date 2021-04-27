@@ -207,11 +207,23 @@ class NBlaster:
                             Which scores to return.
 
         """
+        if utils.is_jupyter() and config.tqdm == config.tqdm_notebook:
+            # Jupyter does not like the progress bar position for some reason
+            position = None
+
+            # For some reason we have to do this if we are in a Jupyter environment
+            # and are using multi-processing because otherwise the progress bars
+            # won't show. See this issue:
+            # https://github.com/tqdm/tqdm/issues/485#issuecomment-473338308
+            print(' ', end='', flush=True)
+        else:
+            position = getattr(self, 'pbar_position', 0)
+
         scr = []
         for p in config.tqdm(pairs,
                              desc='Blasting pairs',
                              leave=False,
-                             position=getattr(self, 'pbar_position', 0),
+                             position=position,
                              disable=not self.progress):
             scr.append(self.single_query_target(p[0], p[1], scores=scores))
 
@@ -229,11 +241,23 @@ class NBlaster:
                             Which scores to return.
 
         """
+        if utils.is_jupyter() and config.tqdm == config.tqdm_notebook:
+            # Jupyter does not like the progress bar position for some reason
+            position = None
+
+            # For some reason we have to do this if we are in a Jupyter environment
+            # and are using multi-processing because otherwise the progress bars
+            # won't show. See this issue:
+            # https://github.com/tqdm/tqdm/issues/485#issuecomment-473338308
+            print(' ', end='', flush=True)
+        else:
+            position = getattr(self, 'pbar_position', 0)
+
         rows = []
         for q in config.tqdm(q_idx,
                              desc='Blasting',
                              leave=False,
-                             position=getattr(self, 'pbar_position', 0),
+                             position=position,
                              disable=not self.progress):
             rows.append([])
             for t in t_idx:
