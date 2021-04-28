@@ -1,7 +1,7 @@
 from .volumes import Volume
 from .neurons import Neuron, BaseNeuron, TreeNeuron, MeshNeuron, Dotprops
 from .neuronlist import NeuronList
-from .core_utils import make_dotprops
+from .core_utils import make_dotprops, to_neuron_space
 
 from typing import Union
 

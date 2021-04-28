@@ -566,6 +566,48 @@ class BaseNeuron:
 
         return plot3d(core.NeuronList(self, make_copy=False), **kwargs)
 
+    def map_units(self,
+                  units: Union[pint.Unit, str],
+                  on_error: Union[Literal['raise'],
+                                  Literal['ignore']] = 'raise') -> Union[int, float]:
+        """Convert units to match neuron space.
+
+        Only works if neuron's ``.units`` is not dimensionless.
+
+        Parameters
+        ----------
+        units :     number | str | pint.Quantity | pint.Units
+                    The units to convert to neuron units. Simple numbers are just
+                    passed through.
+        on_error :  "raise" | "ignore"
+                    What to do if an error occurs (e.g. because `neuron` does not
+                    have units specified). If "ignore" will simply return ``units``
+                    unchanged.
+
+        See Also
+        --------
+        :func:`navis.core.to_neuron_space`
+                    The base function for this method.
+
+        Examples
+        --------
+        >>> import navis
+        >>> # Example neurons are in 8x8x8nm voxel space
+        >>> n = navis.example_neurons(1)
+        >>> n.map_units('1 nanometer')
+        0.125
+        >>> # Numbers are passed-through
+        >>> n.map_units(1)
+        1
+        >>> # For neuronlists
+        >>> nl = navis.example_neurons(3)
+        >>> nl.map_units('1 nanometer')
+        [0.125, 0.125, 0.125, 0.125, 0.125]
+
+        """
+        return core.core_utils.to_neuron_space(units, neuron=self,
+                                               on_error=on_error)
+
     def memory_usage(self, deep=False, estimate=False):
         """Return estimated memory usage of this neuron.
 
@@ -2401,7 +2443,7 @@ class Dotprops(BaseNeuron):
         # Don't copy the KDtree - when using pykdtree, copy.copy throws an
         # error and the construction is super fast anyway
         no_copy = ['_lock', '_tree']
-        # Generate new empty neuron - note we pass vect and alpha as True to
+        # Generate new empty neuron - note we pass vect and alpha to
         # prevent calculation on initialization
         x = self.__class__(points=np.zeros((0, 3)), k=1,
                            vect=np.zeros((0, 3)), alpha=np.zeros(0))

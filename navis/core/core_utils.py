@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import numbers
+import pint
 
 import pandas as pd
 import numpy as np
@@ -19,12 +20,13 @@ import trimesh as tm
 
 from scipy.spatial import cKDTree
 from typing import Union
+from typing_extensions import Literal
 
-from .neurons import TreeNeuron, MeshNeuron, Dotprops
+from .neurons import TreeNeuron, MeshNeuron, Dotprops, BaseNeuron
 from .neuronlist import NeuronList
-from .. import config, graph
+from .. import config, graph, utils
 
-__all__ = ['make_dotprops']
+__all__ = ['make_dotprops', 'to_neuron_space']
 
 # Set up logging
 logger = config.logger
@@ -150,3 +152,84 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     alpha = (s[:, 0] - s[:, 1]) / np.sum(s, axis=1)
 
     return Dotprops(points=x, alpha=alpha, vect=vect, **properties)
+
+
+def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
+                    neuron: BaseNeuron,
+                    on_error: Union[Literal['ignore'],
+                                    Literal['raise']] = 'raise'):
+    """Convert units to match neuron space.
+
+    Parameters
+    ----------
+    units :     number | str | pint.Quantity | pint.Units
+                The units to convert to neuron units. Simple numbers are just
+                passed through.
+    neuron :    Neuron
+                A single neuron.
+    on_error :  "raise" | "ignore"
+                What to do if an error occurs (e.g. because `neuron` does not
+                have units specified). If "ignore" will simply return ``units``
+                unchanged.
+
+    Returns
+    -------
+    float
+                The units in neuron space. Note that this number may be rounded
+                to avoid ugly floating point precision issues such as
+                0.124999999999999 instead of 0.125.
+
+    Examples
+    --------
+    >>> import navis
+    >>> # Example neurons are in 8x8x8nm voxel space
+    >>> n = navis.example_neurons(1)
+    >>> navis.core.to_neuron_space('1 nm', n)
+    0.125
+    >>> # Alternatively use the neuron method
+    >>> n.map_units('1 nm')
+    0.125
+    >>> # Numbers are passed-through
+    >>> n.map_units(1)
+    1
+    >>> # For neuronlists
+    >>> nl = navis.example_neurons(3)
+    >>> nl.map_units(1)
+    [1, 1, 1, 1, 1]
+    >>> nl.map_units('1 nanometer')
+    [0.125, 0.125, 0.125, 0.125, 0.125]
+
+    """
+    utils.eval_param(on_error, name='on_error',
+                     allowed_values=('ignore', 'raise'))
+    utils.eval_param(neuron, name='neuron', allowed_types=(BaseNeuron, ))
+
+    # If string, convert to units
+    if isinstance(units, str):
+        units = pint.Quantity(units)
+    # If not a pint object (i.e. just a number)
+    elif not isinstance(units, (pint.Quantity, pint.Unit)):
+        return units
+
+    if neuron.units.dimensionless:
+        if on_error == 'raise':
+            raise ValueError('Neuron units unknown or dimensionless - unable '
+                             f'to convert "{str(units)}"')
+        else:
+            return units
+
+    # If input was e.g. `units="1"`
+    if units.dimensionless:
+        return units.magnitude
+
+    # First convert to same unit as neuron units
+    units = units.to(neuron.units)
+
+    # Now convert magnitude
+    mag = units.magnitude / neuron.units.magnitude
+
+    # Rounding may not be exactly kosher but it avoids floating point issues
+    # like 124.9999999999999 instead of 125
+    # I hope that in practice it won't screw things up:
+    # even if asking for
+    return utils.round_smart(mag)
