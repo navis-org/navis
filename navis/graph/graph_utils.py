@@ -67,7 +67,7 @@ def _generate_segments(x: 'core.NeuronObject',
 
     """
     if isinstance(x, core.NeuronList):
-        return [_generate_segments(x.loc[i],
+        return [_generate_segments(x[i],
                                    weight=weight) for i in range(x.shape[0])]
 
     if not isinstance(x, core.TreeNeuron):
@@ -198,7 +198,7 @@ def _break_segments(x: 'core.NeuronObject') -> list:
 
     """
     if isinstance(x, core.NeuronList):
-        return [_break_segments(x.loc[i]) for i in range(x.shape[0])]
+        return [_break_segments(x[i]) for i in range(len(x))]
     elif isinstance(x, core.TreeNeuron):
         pass
     else:
@@ -1098,8 +1098,8 @@ def reroot_neuron(x: 'core.NeuronObject',
 
     """
     if isinstance(x, core.NeuronList):
-        if x.shape[0] == 1:
-            x = x.loc[0]
+        if len(x) == 1:
+            x = x[0]
         else:
             raise ValueError(f'Please provide only a single neuron, not {x.shape[0]}')
     elif not isinstance(x, core.TreeNeuron):
