@@ -121,7 +121,7 @@ def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
 
 
 class BaseNeuron:
-    """Base Neuron."""
+    """Base class for all neurons."""
 
     name: Optional[str]
     id: Union[int, str, uuid.UUID]

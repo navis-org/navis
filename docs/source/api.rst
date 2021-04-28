@@ -40,46 +40,51 @@ Neuron/List
 .. autosummary::
     :toctree: generated/
 
+    navis.BaseNeuron
     navis.TreeNeuron
     navis.MeshNeuron
     navis.Dotprops
-    navis.make_dotprops
     navis.NeuronList
 
-Neuron methods
---------------
+General Neuron methods
+----------------------
 Despite being fundamentally different data types, ``TreeNeurons``,
-``MeshNeurons`` and ``Dotprops`` share some fundamental methods (i.e. functions).
+``MeshNeurons`` and ``Dotprops`` share some common methods (i.e. functions)
+which they inherit from their abstract parent class ``BaseNeurons``.
 
 .. autosummary::
     :toctree: generated/
 
-    ~navis.TreeNeuron.copy
-    ~navis.TreeNeuron.plot3d
-    ~navis.TreeNeuron.plot2d
-    ~navis.TreeNeuron.summary
+    ~navis.BaseNeuron.copy
+    ~navis.BaseNeuron.plot3d
+    ~navis.BaseNeuron.plot2d
+    ~navis.BaseNeuron.summary
+    ~navis.BaseNeuron.convert_units
+    ~navis.BaseNeuron.map_units
+    ~navis.BaseNeuron.memory_usage
 
-In addition to these methods, neurons also have properties. These are
-properties common to all neurons.
+In addition to methods, neurons also have properties. These properties common
+to all neurons:
 
 .. autosummary::
     :toctree: generated/
 
-    ~navis.TreeNeuron.bbox
-    ~navis.TreeNeuron.connectors
-    ~navis.TreeNeuron.datatables
-    ~navis.TreeNeuron.id
-    ~navis.TreeNeuron.name
-    ~navis.TreeNeuron.units
-    ~navis.TreeNeuron.soma
-    ~navis.TreeNeuron.type
-    ~navis.TreeNeuron.volume
+    ~navis.BaseNeuron.bbox
+    ~navis.BaseNeuron.connectors
+    ~navis.BaseNeuron.postsynapses
+    ~navis.BaseNeuron.presynapses
+    ~navis.BaseNeuron.datatables
+    ~navis.BaseNeuron.id
+    ~navis.BaseNeuron.name
+    ~navis.BaseNeuron.units
+    ~navis.BaseNeuron.soma
+    ~navis.BaseNeuron.type
 
 
-TreeNeuron-specific methods
----------------------------
+TreeNeurons
+-----------
 These are class methods available only for ``TreeNeurons``. Most of them are
-simply short-hands for the other navis functions.
+simply short-hands for the other navis functions:
 
 .. autosummary::
     :toctree: generated/
@@ -98,7 +103,7 @@ simply short-hands for the other navis functions.
     ~navis.TreeNeuron.reroot
     ~navis.TreeNeuron.resample
 
-In addition ``TreeNeurons`` have a range of different attributes:
+In addition ``TreeNeurons`` have a range of different properties:
 
 .. autosummary::
     :toctree: generated/
@@ -115,18 +120,17 @@ In addition ``TreeNeurons`` have a range of different attributes:
     ~navis.TreeNeuron.n_skeletons
     ~navis.TreeNeuron.n_trees
     ~navis.TreeNeuron.nodes
-    ~navis.TreeNeuron.postsynapses
-    ~navis.TreeNeuron.presynapses
     ~navis.TreeNeuron.root
     ~navis.TreeNeuron.sampling_resolution
     ~navis.TreeNeuron.segments
     ~navis.TreeNeuron.simple
     ~navis.TreeNeuron.subtrees
+    ~navis.TreeNeuron.volume
 
 
-MeshNeuron-specific methods
----------------------------
-These are properties only for ``MeshNeurons``.
+MeshNeurons
+-----------
+These are methods and properties specific to ``MeshNeurons``.
 
 .. autosummary::
     :toctree: generated/
@@ -135,6 +139,30 @@ These are properties only for ``MeshNeurons``.
     ~navis.MeshNeuron.faces
     ~navis.MeshNeuron.trimesh
     ~navis.MeshNeuron.vertices
+    ~navis.MeshNeuron.volume
+    ~navis.MeshNeuron.validate
+
+
+Dotprops
+--------
+These are methods and properties specific to ``Dotprops``.
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.Dotprops.points
+    ~navis.Dotprops.vect
+    ~navis.Dotprops.alpha
+    ~navis.Dotprops.to_skeleton
+
+Dotprops are typically indirectly generated from skeletons or point clouds using
+this function:
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.make_dotprops
+
 
 NeuronList methods
 ------------------
@@ -201,6 +229,7 @@ has some useful perks: :class:`navis.Volume`.
     navis.Volume.combine
     navis.Volume.plot3d
     navis.Volume.validate
+    navis.Volume.resize
 
 Vispy 3D viewer
 ---------------
@@ -220,6 +249,7 @@ which has a bunch of useful methods:
     navis.Viewer.unhide_neurons
     navis.Viewer.screenshot
     navis.Viewer.show
+    navis.Viewer.toggle_bounds
 
 
 .. _api_morph:
