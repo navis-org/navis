@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import inspect
+import math
 import requests
 import urllib
 
@@ -28,6 +29,39 @@ from .iterables import is_iterable, make_iterable
 
 # Set up logging
 logger = config.logger
+
+
+def round_smart(num: Union[int, float], prec: int = 8) -> float:
+    """Round number intelligently to produce Human-readable numbers.
+
+    This functions rounds to the Nth decimal, where N is `precision` minus the
+    number of digits before the decimal. The general idea is that the bigger
+    the number, the less we care about decimals - and vice versa.
+
+    Parameters
+    ----------
+    num :       float | int
+                A number.
+    prec :      int
+                The precision we are aiming for.
+
+    Examples
+    --------
+    >>> import navis
+    >>> navis.utils.round_smart(0.00999)
+    0.00999
+    >>> navis.utils.round_smart(10000000.00999)
+    10000000.0
+
+    """
+    # Number of digits before decimal
+    lg = math.log10(num)
+    if lg < 0:
+        N = 0
+    else:
+        N = int(lg)
+
+    return round(num, max(prec - N, 0))
 
 
 def sizeof_fmt(num, suffix='B'):
