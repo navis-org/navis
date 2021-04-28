@@ -195,9 +195,9 @@ def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
     >>> # For neuronlists
     >>> nl = navis.example_neurons(3)
     >>> nl.map_units(1)
-    [1, 1, 1, 1, 1]
+    [1, 1, 1]
     >>> nl.map_units('1 nanometer')
-    [0.125, 0.125, 0.125, 0.125, 0.125]
+    [0.125, 0.125, 0.125]
 
     """
     utils.eval_param(on_error, name='on_error',

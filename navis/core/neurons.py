@@ -602,7 +602,7 @@ class BaseNeuron:
         >>> # For neuronlists
         >>> nl = navis.example_neurons(3)
         >>> nl.map_units('1 nanometer')
-        [0.125, 0.125, 0.125, 0.125, 0.125]
+        [0.125, 0.125, 0.125]
 
         """
         return core.core_utils.to_neuron_space(units, neuron=self,
