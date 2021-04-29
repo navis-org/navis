@@ -1286,13 +1286,13 @@ def guess_radius(x: NeuronObject,
 
     # Get max distance per node (in case of multiple connectors per
     # node)
-    cn_grouped = cn.groupby('node_id').max()
+    cn_grouped = cn.groupby('node_id').dist.max()
 
-    # Set undefined radii to None
+    # Set undefined radii to None so that they are ignored for interpolation
     nodes.loc[nodes.radius <= 0, 'radius'] = None
 
     # Assign radii to nodes
-    nodes.loc[cn_grouped.index, 'radius'] = cn_grouped.dist.values
+    nodes.loc[cn_grouped.index, 'radius'] = cn_grouped.values
 
     # Go over each segment and interpolate radii
     for s in config.tqdm(x.segments, desc='Interp.', disable=config.pbar_hide,
