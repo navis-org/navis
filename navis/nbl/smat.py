@@ -186,14 +186,15 @@ class LookupNdBuilder:
             return counts
 
         threads = threads or cpu_count
+        idx_pairs = np.asarray(idx_pairs, dtype=int)
+        chunks = chunksize(len(idx_pairs), threads)
 
         with ProcessPoolExecutor(threads) as exe:
-            idx_pairs = np.asarray(idx_pairs, dtype=int)
             for these_counts in exe.map(
                 self._query_to_idxs,
                 idx_pairs[:, 0],
                 idx_pairs[:, 1],
-                chunksize=chunksize(len(idx_pairs), threads),
+                chunksize=chunks,
             ):
                 counts += these_counts
 
