@@ -1254,17 +1254,16 @@ def cut_neuron(x: 'core.NeuronObject',
 
     Returns
     -------
-    distal -> proximal :    NeuronList
-                            Distal and proximal part of the neuron. Only if
-                            ``ret='both'``. The distal->proximal order of
-                            fragments is tried to be maintained for multiple
-                            cuts but is not guaranteed.
-    distal :                NeuronList
-                            Distal part of the neuron. Only if
-                            ``ret='distal'``.
-    proximal :              NeuronList
-                            Proximal part of the neuron. Only if
-                            ``ret='proximal'``.
+    split :                 NeuronList
+                            Fragments of the input neuron after cutting sorted
+                            such that distal parts come before proximal parts.
+                            For example, with a single cut you can expect to
+                            return a NeuronList containing two neurons: the
+                            first contains the part distal and the second the
+                            part proximal to the cut node.
+
+                            The distal->proximal order of fragments is tried to
+                            be maintained for multiple cuts but is not guaranteed.
 
     See Also
     --------
@@ -1281,31 +1280,32 @@ def cut_neuron(x: 'core.NeuronObject',
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> bp = n.nodes[n.nodes.type=='branch'].node_id.values
-    >>> n_cut = navis.cut_neuron(n, bp[0])
+    >>> dist, prox = navis.cut_neuron(n, bp[0])
 
     Make a cut at multiple branch points
 
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> bp = n.nodes[n.nodes.type=='branch'].node_id.values
-    >>> n_cut = navis.cut_neuron(n, bp[:10])
+    >>> splits = navis.cut_neuron(n, bp[:10])
 
     """
-    if ret not in ['proximal', 'distal', 'both']:
-        raise ValueError('ret must be either "proximal", "distal" or "both"!')
+    utils.eval_param(ret, name='ret',
+                     allowed_values=('proximal', 'distal', 'both'))
 
     if isinstance(x, core.NeuronList):
-        if x.shape[0] == 1:
+        if len(x) == 1:
             x = x[0]
         else:
-            raise Exception(f'{x.shape[0]} neurons provided. Please provide '
-                            'only a single neuron!')
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Unable to process data of type "{type(x)}"')
+            raise Exception(f'Expected a single neuron, got {len(x)}')
 
-    assert x.n_trees == 1, f'Unable to cut: neuron {x.id} consists of multiple ' \
-                           'disconnected trees. Use navis.heal_fragmented_neuron' \
-                           ' to fix.'
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected a single TreeNeuron, got "{type(x)}"')
+
+    if x.n_trees != 1:
+        raise ValueError(f'Unable to cut: neuron {x.id} consists of multiple '
+                         'disconnected trees. Use navis.heal_fragmented_neuron()'
+                         ' to fix.')
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
@@ -1686,8 +1686,11 @@ def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
         ``[root, node_id, node_id, ...]``
 
     """
+    if isinstance(x, core.NeuronList) and len(x) == 1:
+        x = x[0]
+
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Need TreeNeuron, got "{type(x)}"')
+        raise TypeError(f'Expected a singleTreeNeuron, got "{type(x)}"')
 
     if len(x.root) > 1:
         raise ValueError('Unable to process multi-root neurons!')
