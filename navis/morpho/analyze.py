@@ -14,8 +14,6 @@
 import pint
 import warnings
 
-import numpy as np
-
 from .. import config, core
 
 from typing import Sequence
@@ -54,7 +52,7 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
 
     """
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Input must be neuron, not "{type(x)}"')
+        raise TypeError(f'Input must be TreeNeuron, not "{type(x)}"')
 
     soma_radius = getattr(x, 'soma_detection_radius', None)
     soma_label = getattr(x, 'soma_detection_label', 1)

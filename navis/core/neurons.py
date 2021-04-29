@@ -617,8 +617,8 @@ class BaseNeuron:
         Parameters
         ----------
         deep :      bool
-                    Pass to pandas DataFrames. If True will inspect data of
-                    object type too.
+                    Passed to pandas DataFrames. If True will also inspect
+                    memory footprint of `object` dtypes.
         estimate :  bool
                     If True, we will only estimate the size. This is
                     considerably faster but will slightly underestimate the

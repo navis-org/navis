@@ -692,7 +692,8 @@ def dist_between(x: 'core.NeuronObject',
     Parameters
     ----------
     x :             TreeNeuron | NeuronList
-                    Neuron containing the nodes.
+                    Neuron containing the nodes. If NeuronList must contain only
+                    a single neuron.
     a,b :           node IDs
                     Nodes to check.
 
@@ -764,7 +765,7 @@ def dist_between(x: 'core.NeuronObject',
 
 
 def find_main_branchpoint(x: 'core.NeuronObject',
-                          reroot_to_soma: bool = False) -> int:
+                          reroot_to_soma: bool = False) -> Union[int, List[int]]:
     """Return the branch point at which the two largest branches converge.
 
     Parameters
@@ -776,7 +777,8 @@ def find_main_branchpoint(x: 'core.NeuronObject',
 
     Returns
     -------
-    node ID
+    branch_point :     int | list of int
+                       Node ID or list of node IDs of the main branch point(s).
 
     Examples
     --------
@@ -833,7 +835,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
 
 def split_into_fragments(x: 'core.NeuronObject',
                          n: int = 2,
-                         min_size: Optional[float] = None,
+                         min_size: Optional[Union[float, str]] = None,
                          reroot_to_soma: bool = False) -> 'core.NeuronList':
     """Split neuron into fragments.
 
@@ -1896,7 +1898,7 @@ def insert_nodes(x: 'core.TreeNeuron',
     >>> n.n_nodes
     4465
     >>> where = n.nodes[['parent_id', 'node_id']].values[100:200]
-    >>> navis.insert_nodes(n, where=where, inplace=True)
+    >>> _ = navis.insert_nodes(n, where=where, inplace=True)
     >>> n.n_nodes
     4565
 
