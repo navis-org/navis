@@ -47,12 +47,11 @@ def fix_mesh(mesh: Union[tm.Trimesh, 'core.MeshNeuron'],
                         that consist of five or less connected vertices.
     inplace :           bool
                         If True, will perform fixes on the input mesh. If False,
-                        will make a copy first.
+                        will make a copy and leave the original untouched.
 
     Returns
     -------
     fixed object :      trimesh.Trimesh or navis.MeshNeuron
-                        Only if ``inplace=False``.
 
     """
     if not inplace:
@@ -89,5 +88,4 @@ def fix_mesh(mesh: Union[tm.Trimesh, 'core.MeshNeuron'],
     if isinstance(mesh, core.MeshNeuron):
         mesh.vertices, mesh.faces = m.vertices, m.faces
 
-    if not inplace:
-        return mesh
+    return mesh

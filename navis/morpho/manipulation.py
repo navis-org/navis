@@ -181,10 +181,7 @@ def prune_by_strahler(x: NeuronObject,
     # Remove temporary attributes
     neuron._clear_temp_attr()
 
-    if not inplace:
-        return neuron
-    else:
-        return None
+    return neuron
 
 
 @overload
@@ -357,10 +354,7 @@ def _prune_twigs_simple(neuron: 'core.TreeNeuron',
             recursive -= 1
             prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
 
-    if not inplace:
-        return neuron
-    else:
-        return None
+    return neuron
 
 
 def _prune_twigs_precise(neuron: 'core.TreeNeuron',
@@ -458,10 +452,7 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
                             nodes_to_keep,
                             inplace=True)
 
-    if not inplace:
-        return neuron
-    else:
-        return None
+    return neuron
 
 
 @utils.map_neuronlist(desc='Splitting')
@@ -1219,10 +1210,7 @@ def despike_neuron(x: NeuronObject,
     x._clear_temp_attr(exclude=['segments', 'small_segments',
                                 'classify_nodes'])
 
-    if not inplace:
-        return x
-    else:
-        return None
+    return x
 
 
 @utils.map_neuronlist(desc='Guessing')
@@ -1335,10 +1323,7 @@ def guess_radius(x: NeuronObject,
     # Reassign nodes
     x.nodes = nodes.reset_index(drop=False, inplace=False)
 
-    if not inplace:
-        return x
-    else:
-        return None
+    return x
 
 
 @utils.map_neuronlist(desc='Smoothing')
@@ -1397,10 +1382,7 @@ def smooth_neuron(x: NeuronObject,
 
     x._clear_temp_attr()
 
-    if not inplace:
-        return x
-    else:
-        return None
+    return x
 
 
 def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
@@ -1555,8 +1537,7 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
             # Tree is sorted such that the largest component is the first
             _ = graph.subset_neuron(x, subset=trees[0], inplace=True)
 
-    if not inplace:
-        return x
+    return x
 
 
 def _stitch_mst(x: 'core.TreeNeuron',

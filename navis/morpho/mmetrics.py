@@ -73,24 +73,24 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
 
 
 @overload
-def strahler_index(x: 'core.NeuronObject',
-                   inplace: Literal[False],
+def strahler_index(x: 'core.TreeNeuron',
                    method: Union[Literal['standard'],
                                  Literal['greedy']] = 'standard',
                    to_ignore: list = [],
-                   min_twig_size: Optional[int] = None
-                   ) -> 'core.NeuronObject':
+                   min_twig_size: Optional[int] = None,
+                   inplace: bool = True
+                   ) -> 'core.TreeNeuron':
     pass
 
 
 @overload
-def strahler_index(x: 'core.NeuronObject',
-                   inplace: Literal[True],
+def strahler_index(x: 'core.NeuronList',
                    method: Union[Literal['standard'],
                                  Literal['greedy']] = 'standard',
                    to_ignore: list = [],
-                   min_twig_size: Optional[int] = None
-                   ) -> None:
+                   min_twig_size: Optional[int] = None,
+                   inplace: bool = True
+                   ) -> 'core.NeuronList':
     pass
 
 
@@ -130,12 +130,10 @@ def strahler_index(x: 'core.NeuronObject',
 
     Returns
     -------
-    if ``inplace=False``
-                        Returns nothing but adds new column ``strahler_index``
-                        to neuron.nodes.
-    if ``inplace=True``
-                        Returns copy of original neuron with new column
-                        ``strahler_index``.
+    navis.TreeNeuron
+                        A neuron with a "strahler_index" column in the node
+                        table. If ``inplace=False`` the neuron will be a copy
+                        of the original.
 
     Examples
     --------
@@ -249,10 +247,7 @@ def strahler_index(x: 'core.NeuronObject',
     # Set correct data type
     x.nodes['strahler_index'] = x.nodes.strahler_index.astype(np.int16)
 
-    if not inplace:
-        return x
-
-    return None
+    return x
 
 
 def segregation_index(x: Union['core.NeuronObject', dict]) -> float:

@@ -31,30 +31,21 @@ __all__ = ['resample_neuron', 'resample_along_axis']
 
 
 @overload
-def resample_neuron(x: 'core.NeuronObject',
-                    resample_to: int,
-                    inplace: Literal[False],
-                    method: str = 'linear',
-                    skip_errors: bool = True
-                    ) -> 'core.NeuronObject': ...
-
-
-@overload
-def resample_neuron(x: 'core.NeuronObject',
-                    resample_to: int,
-                    inplace: Literal[True],
-                    method: str = 'linear',
-                    skip_errors: bool = True
-                    ) -> None: ...
-
-
-@overload
-def resample_neuron(x: 'core.NeuronObject',
+def resample_neuron(x: 'core.TreeNeuron',
                     resample_to: int,
                     inplace: bool = False,
                     method: str = 'linear',
                     skip_errors: bool = True
-                    ) -> None: ...
+                    ) -> 'core.TreeNeuron': ...
+
+
+@overload
+def resample_neuron(x: 'core.NeuronList',
+                    resample_to: int,
+                    inplace: bool = False,
+                    method: str = 'linear',
+                    skip_errors: bool = True
+                    ) -> 'core.NeuronList': ...
 
 
 @utils.map_neuronlist(desc='Resampling')
@@ -104,7 +95,7 @@ def resample_neuron(x: 'core.NeuronObject',
     Returns
     -------
     TreeNeuron/List
-                        Downsampled neuron(s). Only if ``inplace=False``.
+                        Downsampled neuron(s).
 
     Examples
     --------
@@ -306,10 +297,7 @@ def resample_neuron(x: 'core.NeuronObject',
     # Clear and regenerate temporary attributes
     x._clear_temp_attr()
 
-    if not inplace:
-        return x
-    else:
-        return None
+    return x
 
 
 @utils.map_neuronlist(desc='Binning')
@@ -462,8 +450,7 @@ def resample_along_axis(x: 'core.TreeNeuron',
     if np.any(to_remove):
         graph.remove_nodes(x, which=to_remove, inplace=True)
 
-    if not inplace:
-        return x
+    return x
 
 
 def _make_grid(interval, axis, neuron):

@@ -26,27 +26,27 @@ __all__ = ['downsample_neuron']
 
 
 @overload
-def downsample_neuron(x: 'core.NeuronObject',
-                      downsampling_factor: float,
-                      inplace: Literal[True],
-                      preserve_nodes: Optional[List[int]] = None
-                      ) -> None: ...
-
-
-@overload
-def downsample_neuron(x: 'core.NeuronObject',
-                      downsampling_factor: float,
-                      inplace: Literal[False],
-                      preserve_nodes: Optional[List[int]] = None
-                      ) -> 'core.NeuronObject': ...
-
-
-@overload
-def downsample_neuron(x: 'core.NeuronObject',
+def downsample_neuron(x: 'core.Dotprops',
                       downsampling_factor: float,
                       inplace: bool = False,
                       preserve_nodes: Optional[List[int]] = None
-                      ) -> 'core.NeuronObject': ...
+                      ) -> 'core.Dotprops': ...
+
+
+@overload
+def downsample_neuron(x: 'core.TreeNeuron',
+                      downsampling_factor: float,
+                      inplace: bool = False,
+                      preserve_nodes: Optional[List[int]] = None
+                      ) -> 'core.TreeNeuron': ...
+
+
+@overload
+def downsample_neuron(x: 'core.NeuronList',
+                      downsampling_factor: float,
+                      inplace: bool = False,
+                      preserve_nodes: Optional[List[int]] = None
+                      ) -> 'core.NeuronList': ...
 
 
 @utils.map_neuronlist(desc='Downsampling')
@@ -119,9 +119,7 @@ def downsample_neuron(x: 'core.NeuronObject',
     else:
         raise TypeError(f'Unable to downsample data of type "{type(x)}"')
 
-    if not inplace:
-        return x
-    return None
+    return x
 
 
 def _downsample_dotprops(x, downsampling_factor):

@@ -392,9 +392,7 @@ def classify_nodes(x: 'core.NeuronObject',
                                  ordered=False)
     x.nodes['type'] = x.nodes['type'].astype(cat_types)
 
-    if not inplace:
-        return x
-    return None
+    return x
 
 
 #  only this combination will return a single bool
@@ -802,12 +800,16 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     # Make a copy
     x = x.copy()
 
-    if isinstance(x, core.NeuronList) and len(x) > 1:
-        return np.array([find_main_branchpoint(n, reroot_to_soma=reroot_to_soma) for n in x])
-    elif isinstance(x, core.NeuronList) and len(x) == 1:
-        x = x[0]
-    elif not isinstance(x, (core.TreeNeuron, core.NeuronList)):
-        raise TypeError(f'Must provide TreeNeuron/List, not "{type(x)}"')
+    if isinstance(x, core.NeuronList):
+        res = []
+        for n in config.tqdm(x, desc='Searching',
+                             disable=config.pbar_hide or len(x) == 1,
+                             leave=config.pbar_leave):
+            res.append(find_main_branchpoint(n, reroot_to_soma=reroot_to_soma))
+        return np.array(res)
+
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
@@ -869,16 +871,15 @@ def split_into_fragments(x: 'core.NeuronObject',
     >>> cut2 = navis.split_into_fragments(x, n=float('inf'), min_size=10e3)
 
     """
-    if isinstance(x, core.TreeNeuron):
-        pass
-    elif isinstance(x, core.NeuronList):
-        if x.shape[0] == 1:
+    if isinstance(x, core.NeuronList):
+        if len(x) == 1:
             x = x[0]
         else:
             raise Exception(f'{x.shape[0]} neurons provided. Please provide '
                             'only a single neuron!')
-    else:
-        raise TypeError(f'Unable to process data of type "{type(x)}"')
+
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected a single TreeNeuron, got "{type(x)}"')
 
     if n < 2:
         raise ValueError('Number of fragments must be at least 2.')
@@ -1028,30 +1029,15 @@ def longest_neurite(x: 'core.NeuronObject',
     else:
         raise TypeError(f'Unable to use N of type "{type(n)}"')
 
-    subset_neuron(x, tn_to_preserve, inplace=True)
+    _ = subset_neuron(x, tn_to_preserve, inplace=True)
 
-    if not inplace:
-        return x
-    return None
+    return x
 
-
-@overload
-def reroot_neuron(x: 'core.NeuronObject',
-                  new_root: Union[int, str],
-                  inplace: Literal[False] = False) -> 'core.TreeNeuron':
-    pass
-
-
-@overload
-def reroot_neuron(x: 'core.NeuronObject',
-                  new_root: Union[int, str],
-                  inplace: Literal[True] = True) -> None:
-    pass
 
 @utils.lock_neuron
 def reroot_neuron(x: 'core.NeuronObject',
                   new_root: Union[int, str],
-                  inplace: bool = False) -> Optional['core.TreeNeuron']:
+                  inplace: bool = False) -> 'core.TreeNeuron':
     """Reroot neuron to new root.
 
     Parameters
@@ -1062,12 +1048,13 @@ def reroot_neuron(x: 'core.NeuronObject',
                Node ID(s) or tag(s) of node(s) to reroot to. If multiple
                new IDs are provided, they will be reroot in sequence.
     inplace :  bool, optional
-               If True the input neuron will be rerooted.
+               If True the input neuron will be rerooted in place. If False will
+               reroot and return a copy of the originaal.
 
     Returns
     -------
     TreeNeuron
-               Rerooted neuron. Only if ``inplace=False``.
+               Rerooted neuron.
 
     See Also
     --------
@@ -1121,7 +1108,7 @@ def reroot_neuron(x: 'core.NeuronObject',
         # Make a copy
         x = x.copy()
         # Run this in a separate function so that the lock is applied to copy
-        reroot_neuron(x, new_root=new_roots, inplace=True)
+        _ = reroot_neuron(x, new_root=new_roots, inplace=True)
         return x
 
     # Go over each new root
@@ -1238,9 +1225,7 @@ def reroot_neuron(x: 'core.NeuronObject',
     else:
         x._clear_temp_attr(exclude=['graph', 'classify_nodes'])
 
-    if not inplace:
-        return x
-    return None
+    return x
 
 
 def cut_neuron(x: 'core.NeuronObject',
@@ -1251,7 +1236,7 @@ def cut_neuron(x: 'core.NeuronObject',
                ) -> 'core.NeuronList':
     """Split neuron at given point and returns two new neurons.
 
-    Split is performed between cut node and its parent node. However, cut node
+    Split is performed between cut node and its parent node. The cut node itself
     will still be present in both resulting neurons.
 
     Parameters
@@ -1664,7 +1649,7 @@ def subset_neuron(x: 'core.TreeNeuron',
     if new_root:
         x.reroot(new_root, inplace=True)
 
-    return None
+    return x
 
 
 def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
@@ -1898,7 +1883,6 @@ def insert_nodes(x: 'core.TreeNeuron',
     Returns
     -------
     TreeNeuron
-                If ``inplace=False``.
 
     Examples
     --------
@@ -1995,8 +1979,7 @@ def insert_nodes(x: 'core.TreeNeuron',
 
     x._nodes = nodes
 
-    if not inplace:
-        return x
+    return x
 
 
 def remove_nodes(x: 'core.TreeNeuron',
@@ -2019,7 +2002,6 @@ def remove_nodes(x: 'core.TreeNeuron',
     Returns
     -------
     TreeNeuron
-                If ``inplace=False``.
 
     Examples
     --------
@@ -2061,8 +2043,7 @@ def remove_nodes(x: 'core.TreeNeuron',
     # Drop nodes
     x.nodes = x.nodes[~x.nodes.node_id.isin(which)].copy()
 
-    if not inplace:
-        return x
+    return x
 
 
 def rewire_neuron(x: 'core.TreeNeuron',
@@ -2095,7 +2076,6 @@ def rewire_neuron(x: 'core.TreeNeuron',
     Returns
     -------
     TreeNeuron
-                If ``inplace=False``.
 
     Examples
     --------
@@ -2143,5 +2123,4 @@ def rewire_neuron(x: 'core.TreeNeuron',
 
     x._clear_temp_attr()
 
-    if not inplace:
-        return x
+    return x
