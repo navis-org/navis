@@ -561,7 +561,8 @@ def geodesic_matrix(x: 'core.NeuronObject',
                 If ``None`` distances is number of nodes.
     limit :     int | float, optional
                 Use to limit distance calculations. Nodes that are not within
-                ``limit`` will have distance ``np.inf``.
+                ``limit`` will have distance ``np.inf``. If neuron has its
+                `.units` set, you can also pass a string such as "10 microns".
 
     Returns
     -------
@@ -603,6 +604,8 @@ def geodesic_matrix(x: 'core.NeuronObject',
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
+
+    limit = x.map_units(limit, on_error='raise')
 
     if x.igraph and config.use_igraph:
         nodeList = np.array(x.igraph.vs.get_attribute_values('node_id'))
@@ -838,13 +841,15 @@ def split_into_fragments(x: 'core.NeuronObject',
     Parameters
     ----------
     x :                 TreeNeuron | NeuronList
-                        May contain only a single neuron.
+                        Must be a single neuron.
     n :                 int, optional
                         Number of fragments to split into. Must be >1.
-    min_size :          int, optional
-                        Minimum size of fragment in um to be cut off. If too
+    min_size :          int | str, optional
+                        Minimum size of fragment to be cut off. If too
                         small, will stop cutting. This takes only the longest
-                        path in each fragment into account!
+                        path in each fragment into account! If the neuron(s),
+                        has its `.units` set, you can also pass this as a string
+                        such as "10 microns".
     reroot_to_soma :    bool, optional
                         If True, neuron will be rerooted to soma.
 
@@ -878,6 +883,8 @@ def split_into_fragments(x: 'core.NeuronObject',
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
+
+    min_size = x.map_units(min_size, on_error='raise')
 
     if reroot_to_soma and x.soma:
         x.reroot(x.soma, inplace=True)

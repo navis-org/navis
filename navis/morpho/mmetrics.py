@@ -767,7 +767,8 @@ def flow_centrality(x: 'core.NeuronObject',
 
 
 def tortuosity(x: 'core.NeuronObject',
-               seg_length: Union[int, float, Sequence[Union[int, float]]] = 10,
+               seg_length: Union[int, float, str,
+                                 Sequence[Union[int, float, str]]] = 10,
                skip_remainder: bool = False
                ) -> Union[float,
                           Sequence[float],
@@ -786,11 +787,12 @@ def tortuosity(x: 'core.NeuronObject',
     Parameters
     ----------
     x :                 TreeNeuron | NeuronList
-    seg_length :        int | float | list, optional
+    seg_length :        int | float | str | list thereof, optional
                         Target segment length(s) L. Will try resampling neuron
                         to this resolution. Please note that the final segment
                         length is restricted by the neuron's original
-                        resolution.
+                        resolution. If neuron(s) have their `.units` set, you
+                        can also pass a string such as "1 micron".
     skip_remainder :    bool, optional
                         Segments can turn out to be smaller than desired if a
                         branch point or end point is hit before `seg_length`
@@ -831,13 +833,13 @@ def tortuosity(x: 'core.NeuronObject',
         return df
 
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Need TreeNeuron, got {type(x)}')
+        raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
 
     if isinstance(seg_length, (list, np.ndarray)):
         return [tortuosity(x, l) for l in seg_length]  # type: ignore  # would need to overload to fix this
 
     # From here on out seg length is single value
-    seg_length: float
+    seg_length: float = x.map_units(seg_length, on_error='raise')
 
     if seg_length <= 0:
         raise ValueError('Segment length must be >0.')

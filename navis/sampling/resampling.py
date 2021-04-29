@@ -83,11 +83,13 @@ def resample_neuron(x: 'core.NeuronObject',
     ----------
     x :                 TreeNeuron | NeuronList
                         Neuron(s) to resample.
-    resample_to :       int | float
+    resample_to :       int | float | str
                         Target sampling resolution, i.e. one node every
                         N units of cable. Note that hitting the exact
                         sampling resolution might not be possible e.g. if
-                        a branch is shorter than the target resolution.
+                        a branch is shorter than the target resolution. If
+                        neuron(s) have their `.units` parameter, you can also
+                        pass a string such as "1 micron".
     method :            str, optional
                         See ``scipy.interpolate.interp1d`` for possible
                         options. By default, we're using linear interpolation.
@@ -146,6 +148,9 @@ def resample_neuron(x: 'core.NeuronObject',
         return None
     elif not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Unable to resample data of type "{type(x)}"')
+
+    # Map units (non-str are just passed through)
+    resample_to = x.map_units(resample_to, on_error='raise')
 
     if not inplace:
         x = x.copy()
@@ -322,7 +327,7 @@ def resample_neuron(x: 'core.NeuronObject',
 
 
 def resample_along_axis(x: 'core.TreeNeuron',
-                        interval: Union[int, float],
+                        interval: Union[int, float, str],
                         axis: int = 2,
                         old_nodes: Union[Literal['remove'],
                                          Literal['keep'],
@@ -339,9 +344,10 @@ def resample_along_axis(x: 'core.TreeNeuron',
     ----------
     x :             TreeNeuron | NeuronList
                     Neuron(s) to resample.
-    interval :      float | int | None
+    interval :      float | int | str
                     Intervals defining a 1-dimensional grid along given axes
-                    (see examples).
+                    (see examples). If neuron(s) have `.units` set, you can also
+                    pass a string such as "50 nm".
     axis :           0 | 1 | 2
                     Along which axes (x/y/z) to resample.
     old_nodes :     "remove" | "keep" | "snap"
@@ -382,7 +388,7 @@ def resample_along_axis(x: 'core.TreeNeuron',
     >>> n = navis.example_neurons(1)
     >>> n.n_nodes
     4465
-    >>> res = navis.resample_along_axis(n, interval=40,
+    >>> res = navis.resample_along_axis(n, interval='40 nm',
     ...                                 axis=2, old_nodes='remove')
     >>> res.n_nodes < n.n_nodes
     True
@@ -391,6 +397,8 @@ def resample_along_axis(x: 'core.TreeNeuron',
     utils.eval_param(axis, name='axis', allowed_values=(0, 1, 2))
     utils.eval_param(old_nodes, name='old_nodes',
                      allowed_values=("remove", "keep", "snap"))
+
+    interval = x.map_units(interval, on_error='raise')
 
     if not inplace:
         x = x.copy()

@@ -34,7 +34,7 @@ NeuronObject = Union[TreeNeuron, NeuronList]
 
 def cable_overlap(a: NeuronObject,
                   b: NeuronObject,
-                  dist: float = 2,
+                  dist: Union[float, str] = 2,
                   method: Union[Literal['min'], Literal['max'], Literal['avg']] = 'min'
                   ) -> pd.DataFrame:
     """Calculate the amount of cable of neuron A within distance of neuron B.
@@ -46,7 +46,8 @@ def cable_overlap(a: NeuronObject,
                 highly recommended to resample neurons to guarantee an even
                 sampling rate. Also note that neurons need to have unique IDs.
     dist :      int | float, optional
-                Maximum distance.
+                Maximum distance. If the neurons have their `.units` set, you
+                can also provides this as a string such as "2 microns".
     method :    'min' | 'max' | 'avg'
                 Method by which to calculate the overlapping cable between
                 two cables::
@@ -102,6 +103,8 @@ def cable_overlap(a: NeuronObject,
 
     if a.is_degenerated or b.is_degenerated:
         raise ValueError('Input neurons must have unique IDs.')
+
+    dist = a[0].map_units(dist, on_error='raise')
 
     matrix = pd.DataFrame(np.zeros((a.shape[0], b.shape[0])),
                           index=a.id, columns=b.id)

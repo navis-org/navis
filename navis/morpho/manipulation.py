@@ -232,7 +232,7 @@ def prune_twigs(x: NeuronObject,
 
 
 def prune_twigs(x: NeuronObject,
-                size: float,
+                size: Union[float, str],
                 exact: bool = False,
                 inplace: bool = False,
                 recursive: Union[int, bool, float] = False
@@ -248,8 +248,10 @@ def prune_twigs(x: NeuronObject,
     Parameters
     ----------
     x :             TreeNeuron | NeuronList
-    size :          int | float
-                    Twigs shorter than this will be pruned.
+    size :          int | float | str
+                    Twigs shorter than this will be pruned. If the neuron has
+                    its `.units` set, you can also pass a string including the
+                    units, e.g. '5 microns'.
     exact:          bool
                     See notes above.
     inplace :       bool, optional
@@ -293,6 +295,20 @@ def prune_twigs(x: NeuronObject,
     >>> n.n_nodes > n_pr.n_nodes
     True
 
+    Prune using units
+
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> # Example neurons are in 8x8x8nm units...
+    >>> n.units
+    <Quantity(8, 'nanometer')>
+    >>> # ... therefore we can use units for `size`
+    >>> n_pr = navis.prune_twigs(n,
+    ...                          size='5 microns',
+    ...                          inplace=False)
+    >>> n.n_nodes > n_pr.n_nodes
+    True
+
     """
     if isinstance(x, core.NeuronList):
         if not inplace:
@@ -315,6 +331,9 @@ def prune_twigs(x: NeuronObject,
         neuron = x
     else:
         raise TypeError(f'Expected Neuron/List, got {type(x)}')
+
+    # Convert to neuron units - numbers will be passed through
+    size = x.map_units(size, on_error='raise')
 
     if not exact:
         return _prune_twigs_simple(neuron,
@@ -1037,7 +1056,7 @@ def _mst_nx(nl: 'core.NeuronList',
 
 
 def average_neurons(x: 'core.NeuronList',
-                    limit: int = 10,
+                    limit: Union[int, str] = 10,
                     base_neuron: Optional[Union[int, 'core.TreeNeuron']] = None
                     ) -> 'core.TreeNeuron':
     """Compute an average from a list of neurons.
@@ -1049,8 +1068,10 @@ def average_neurons(x: 'core.NeuronList',
     ----------
     x :             NeuronList
                     Neurons to be averaged.
-    limit :         int, optional
-                    Max distance for nearest neighbour search.
+    limit :         int | str
+                    Max distance for nearest neighbour search. If the neurons
+                    have `.units` set, you can also pass a string such as e.g.
+                    "2 microns".
     base_neuron :   neuron id | TreeNeuron, optional
                     Neuron to use as template for averaging. If not provided,
                     the first neuron in the list is used as template!
@@ -1081,6 +1102,9 @@ def average_neurons(x: 'core.NeuronList',
 
     if len(x) < 2:
         raise ValueError('Need at least 2 neurons to average!')
+
+    # Map limit into unit space, if applicable
+    limit = x[0].map_units(limit, on_error='raise')
 
     # Generate KDTrees for each neuron
     for n in x:
@@ -1527,9 +1551,11 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
                             be used to heal gaps.
                         (2) 'ALL': All nodes can be used to reconnect
                             fragments.
-    max_dist :  float, optional
+    max_dist :  float | str, optional
                 This effectively sets the max length for newly added edges. Use
                 it to prevent far away fragments to be forcefully connected.
+                If the neurons have `.units` set, you can also pass a string
+                such as e.g. "2 microns".
     min_size :  int, optional
                 Minimum size in nodes for fragments to be reattached. Fragments
                 smaller than ``min_size`` will be ignored during stitching and
@@ -1597,6 +1623,9 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected CatmaidNeuron/List, got "{type(x)}"')
 
+    if not isinstance(max_dist, type(None)):
+        max_dist = x.map_units(max_dist, on_error='raise')
+
     if not inplace:
         x = x.copy()
 
@@ -1634,7 +1663,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
     nodes :         "ALL" | "LEAFS" | list of IDs
                     Nodes that can be used to stitch the neuron. Can be "ALL"
                     nodes, just "LEAFS" or a list of node IDs.
-    max_dist :      int | float
+    max_dist :      int | float | str
                     If given, will only connect fragments if they are within
                     ``max_distance``. Use this to prevent the creation of
                     unrealistic edges.
@@ -1725,7 +1754,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
 
 
 def prune_at_depth(x: NeuronObject,
-                   depth: Union[float, int],
+                   depth: Union[float, int], *,
                    source: Optional[int] = None,
                    inplace: bool = False
                    ) -> Optional[NeuronObject]:
@@ -1734,8 +1763,10 @@ def prune_at_depth(x: NeuronObject,
     Parameters
     ----------
     x :             TreeNeuron | NeuronList
-    depth :         int | float
-                    Distance from source at which to start pruning.
+    depth :         int | float | str
+                    Distance from source at which to start pruning. If neuron
+                    has its `.units` set, you can also pass this as a string such
+                    as "50 microns".
     source :        int, optional
                     Source node for depth calculation. If ``None``, will use
                     root (first root if multiple). If ``x`` is a
@@ -1791,6 +1822,10 @@ def prune_at_depth(x: NeuronObject,
 
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron, got {type(x)}')
+
+    depth = x.map_units(depth, on_error='raise')
+    if depth < 0:
+        raise ValueError(f'`depth` must be > 0, got "{depth}"')
 
     if isinstance(source, type(None)):
         source = x.root[0]
