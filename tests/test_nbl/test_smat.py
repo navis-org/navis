@@ -154,8 +154,8 @@ def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5):
     )
 
 
-@pytest.mark.parametrize(["threads"], [(None,), (0,), (2,)])
 @pytest.mark.parametrize(["alpha"], [(True,), (False,)])
+@pytest.mark.parametrize(["threads"], [(0,), (2,), (None,)])
 def test_lookupdistdotbuilder_builds(neurons, threads, alpha):
     builder = prepare_lookupdistdotbuilder(neurons, alpha)
     lookup = builder.build(threads)
