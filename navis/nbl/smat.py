@@ -458,7 +458,7 @@ class Lookup2d(LookupNd):
         return cls(boundaries, df.to_numpy())
 
 
-@lru_cache
+@lru_cache(maxsize=None)
 def _smat_fcwb(alpha=False):
     # cached private function defers construction
     # until needed (speeding startup),
