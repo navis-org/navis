@@ -29,6 +29,7 @@ from .. import config, utils
 from ..core import NeuronList, BaseNeuron
 
 from .nblast_funcs import check_microns, find_optimal_partition, ScoringFunction
+from .smat import parse_score_fn
 
 __all__ = ['synblast']
 
@@ -76,11 +77,7 @@ class SynBlaster:
         self.progress = progress
         self.by_type = by_type
 
-        if smat == 'auto':
-            smat = pd.read_csv(f'{smat_path}/smat_fcwb.csv',
-                               index_col=0)
-
-        self.score_fn = ScoringFunction(smat)
+        self.score_fn = parse_score_fn(smat, False)
 
         self.self_hits = []
         self.trees = []
