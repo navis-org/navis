@@ -94,13 +94,14 @@ def strahler_index(x: 'core.NeuronObject',
     pass
 
 
+@utils.map_neuronlist(desc='Calc. SI')
 def strahler_index(x: 'core.NeuronObject',
-                   inplace: bool = True,
                    method: Union[Literal['standard'],
                                  Literal['greedy']] = 'standard',
                    to_ignore: list = [],
-                   min_twig_size: Optional[int] = None
-                   ) -> Optional['core.NeuronObject']:
+                   min_twig_size: Optional[int] = None,
+                   inplace: bool = True
+                   ) -> 'core.NeuronObject':
     """Calculate Strahler Index (SI).
 
     Starts with SI of 1 at each leaf and walks to root. At forks with different
@@ -110,8 +111,6 @@ def strahler_index(x: 'core.NeuronObject',
     Parameters
     ----------
     x :                 TreeNeuron | NeuronList
-    inplace :           bool, optional
-                        If False, a copy of original skdata is returned.
     method :            'standard' | 'greedy', optional
                         Method used to calculate strahler indices: 'standard'
                         will use the method described above; 'greedy' will
@@ -126,6 +125,8 @@ def strahler_index(x: 'core.NeuronObject',
                         If provided, will ignore twigs with fewer nodes than
                         this. Instead, they will be assigned the SI of their
                         parent branch.
+    inplace :           bool, optional
+                        If False, a copy of original neuron is returned.
 
     Returns
     -------
@@ -139,28 +140,14 @@ def strahler_index(x: 'core.NeuronObject',
     Examples
     --------
     >>> import navis
-    >>> n = navis.example_neurons(1)
+    >>> n = navis.example_neurons(2)
     >>> n.reroot(n.soma, inplace=True)
-    >>> navis.strahler_index(n)
+    >>> _ = navis.strahler_index(n)
+    >>> n[0].nodes.strahler_index.max()
+    6
 
     """
-    utils.eval_param(x, name='x',
-                     allowed_types=(core.TreeNeuron, core.NeuronList))
-
-    if isinstance(x, core.NeuronList):
-        res = []
-        for n in config.tqdm(x, desc='Calc. SI',
-                             disable=config.pbar_hide or len(x) == 1,
-                             leave=config.pbar_leave):
-            res.append(strahler_index(n, inplace=inplace,
-                                      method=method,
-                                      to_ignore=to_ignore,
-                                      min_twig_size=min_twig_size))  # type: ignore
-
-        if not inplace:
-            return core.NeuronList(res)
-        else:
-            return None
+    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
 
     if not inplace:
         x = x.copy()
@@ -352,6 +339,7 @@ def segregation_index(x: Union['core.NeuronObject', dict]) -> float:
     return H
 
 
+@utils.map_neuronlist(desc='Calc. seg.')
 def arbor_segregation_index(x: 'core.NeuronObject') -> None:
     """Per arbor seggregation index (SI).
 
@@ -382,19 +370,21 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> None:
 
     Returns
     -------
-    Adds a new column ``'segregation_index'`` to the nodes table.
+    None
+            Adds a new column ``'segregation_index'`` to the nodes table.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> n.reroot(n.soma, inplace=True)
+    >>> navis.arbor_segregation_index(n)
+    >>> n.nodes.segregation_index.max().round(3)
+    0.277
 
     """
-    if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
-        raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
-
-    if isinstance(x, core.NeuronList):
-        for n in config.tqdm(x,
-                             desc='Calc. seg.',
-                             disable=config.pbar_hide,
-                             leave=config.pbar_leave):
-            _ = arbor_segregation_index(n)  # type: ignore
-        return
+    if not isinstance(x, core.TreeNeuron):
+        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     if not x.has_connectors:
         raise ValueError('Neuron must have connectors.')
@@ -478,9 +468,10 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> None:
     # Add segregation index to node table
     x.nodes['segregation_index'] = x.nodes.node_id.map(SI)
 
-    return None
+    return
 
 
+@utils.map_neuronlist(desc='Calc. flow')
 def bending_flow(x: 'core.NeuronObject') -> None:
     """Calculate bending flow.
 
@@ -517,17 +508,18 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     -------
     Adds a new column ``'bending_flow'`` to the nodes table.
 
-    """
-    if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
-        raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> n.reroot(n.soma, inplace=True)
+    >>> navis.bending_flow(n)
+    >>> n.nodes.bending_flow.max()
+    785645
 
-    if isinstance(x, core.NeuronList):
-        for n in config.tqdm(x,
-                             desc='Calc. flow',
-                             disable=config.pbar_hide,
-                             leave=config.pbar_leave):
-            _ = bending_flow(n)  # type: ignore
-        return
+    """
+    if not isinstance(x, core.TreeNeuron):
+        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     if not x.has_connectors:
         raise ValueError('Neuron must have connectors.')
@@ -609,9 +601,10 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     # Set flow centrality to None for all nodes
     x.nodes['bending_flow'] = x.nodes.node_id.map(flow)
 
-    return None
+    return
 
 
+@utils.map_neuronlist(desc='Calc. flow')
 def flow_centrality(x: 'core.NeuronObject',
                     mode: Union[Literal['centrifugal'],
                                 Literal['centripetal'],
@@ -662,20 +655,21 @@ def flow_centrality(x: 'core.NeuronObject',
     -------
     Adds a new column 'flow_centrality' to nodes table .
 
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(2)
+    >>> n.reroot(n.soma, inplace=True)
+    >>> _ = navis.flow_centrality(n)
+    >>> n[0].nodes.flow_centrality.max()
+    786341
+
     """
     if mode not in ['centrifugal', 'centripetal', 'sum']:
         raise ValueError(f'Unknown "mode" parameter: {mode}')
 
-    if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
-        raise ValueError(f'Expected TreeNeuron or NeuronList, got "{type(x)}"')
-
-    if isinstance(x, core.NeuronList):
-        for n in config.tqdm(x,
-                             desc='Calc. flow',
-                             disable=config.pbar_hide,
-                             leave=config.pbar_leave):
-            _ = flow_centrality(n, mode=mode)
-        return
+    if not isinstance(x, core.TreeNeuron):
+        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     if not x.has_connectors:
         raise ValueError('Neuron must have connectors.')

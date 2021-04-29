@@ -57,8 +57,9 @@ def resample_neuron(x: 'core.NeuronObject',
                     ) -> None: ...
 
 
+@utils.map_neuronlist(desc='Resampling')
 def resample_neuron(x: 'core.NeuronObject',
-                    resample_to: int,
+                    resample_to: Union[int, str],
                     inplace: bool = False,
                     method: str = 'linear',
                     skip_errors: bool = True
@@ -131,22 +132,7 @@ def resample_neuron(x: 'core.NeuronObject',
                         align with given 1-dimensional grid.
 
     """
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-        _ = [resample_neuron(x[i],
-                             resample_to=resample_to,
-                             method=method, inplace=True,
-                             skip_errors=skip_errors)
-             for i in config.trange(x.shape[0],
-                                    desc='Resampl. neurons',
-                                    disable=config.pbar_hide,
-                                    leave=config.pbar_leave)]
-
-        if not inplace:
-            return x
-        return None
-    elif not isinstance(x, core.TreeNeuron):
+    if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Unable to resample data of type "{type(x)}"')
 
     # Map units (non-str are just passed through)
@@ -326,6 +312,7 @@ def resample_neuron(x: 'core.NeuronObject',
         return None
 
 
+@utils.map_neuronlist(desc='Binning')
 def resample_along_axis(x: 'core.TreeNeuron',
                         interval: Union[int, float, str],
                         axis: int = 2,
@@ -366,8 +353,8 @@ def resample_along_axis(x: 'core.TreeNeuron',
 
     Returns
     -------
-    core.TreeNeuron
-                Only if ``inplace=False``.
+    TreeNeuron/List
+                    The resampled neuron(s).
 
     See Also
     --------
@@ -397,22 +384,12 @@ def resample_along_axis(x: 'core.TreeNeuron',
     utils.eval_param(axis, name='axis', allowed_values=(0, 1, 2))
     utils.eval_param(old_nodes, name='old_nodes',
                      allowed_values=("remove", "keep", "snap"))
+    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
 
     interval = x.map_units(interval, on_error='raise')
 
     if not inplace:
         x = x.copy()
-
-    if isinstance(x, core.NeuronList):
-        res = [resample_along_axis(n, interval=interval,
-                                   old_nodes=old_nodes,
-                                   axis=axis, inplace=True)
-               for n in config.tqdm(x,
-                                    desc='Binning',
-                                    disable=config.pbar_hide or len(x) == 1,
-                                    leave=config.pbar_leave)]
-        if not inplace:
-            return core.NeuronList(res)
 
     # Collect coordinates of nodes and their parents
     nodes = x.nodes

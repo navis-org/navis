@@ -49,6 +49,7 @@ def downsample_neuron(x: 'core.NeuronObject',
                       ) -> 'core.NeuronObject': ...
 
 
+@utils.map_neuronlist(desc='Downsampling')
 def downsample_neuron(x: 'core.NeuronObject',
                       downsampling_factor: Union[int, float],
                       inplace: bool = False,
@@ -66,24 +67,24 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                      TreeNeuron | Dotprops | NeuronList
-                             Neuron(s) to downsample.
-    downsampling_factor :    int | float('inf')
-                             Factor by which to reduce the node count.
-    preserve_nodes :         str | list, optional
-                             Can be either list of node IDs to exclude from
-                             downsampling or a string to a DataFrame attached
-                             to the neuron (e.g. "connectors"). DataFrame must
-                             have `node_id`` column. Only relevant for
-                             TreeNeurons.
-    inplace :                bool, optional
-                             If True, will modify original neuron. If False, a
-                             downsampled copy is returned.
+    x :                     TreeNeuron | Dotprops | NeuronList
+                            Neuron(s) to downsample.
+    downsampling_factor :   int | float('inf')
+                            Factor by which to reduce the node count.
+    preserve_nodes :        str | list, optional
+                            Can be either list of node IDs to exclude from
+                            downsampling or a string to a DataFrame attached
+                            to the neuron (e.g. "connectors"). DataFrame must
+                            have `node_id`` column. Only relevant for
+                            TreeNeurons.
+    inplace :               bool, optional
+                            If True, will modify original neuron. If False, we
+                            will operate and return o a copy.
 
     Returns
     -------
     TreeNeuron/Dotprops/NeuronList
-                            If ``inplace=False`` (default).
+                            Same datatype as input.
 
     Examples
     --------
@@ -102,24 +103,6 @@ def downsample_neuron(x: 'core.NeuronObject',
                              resolution. This will change node IDs!
 
     """
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-        _ = [downsample_neuron(x[i],
-                               downsampling_factor=downsampling_factor,
-                               preserve_nodes=preserve_nodes,
-                               inplace=True)
-             for i in config.trange(x.shape[0],
-                                    desc='Downsampling',
-                                    disable=config.pbar_hide,
-                                    leave=config.pbar_leave)]
-        if not inplace:
-            return x
-        return None
-
-    if not isinstance(x, (core.TreeNeuron, core.Dotprops)):
-        raise TypeError(f'Unable to downsample data of type "{type(x)}"')
-
     if downsampling_factor <= 1:
         raise ValueError('Downsampling factor must be greater than 1.')
 
@@ -133,6 +116,8 @@ def downsample_neuron(x: 'core.NeuronObject',
     elif isinstance(x, core.Dotprops):
         _ = _downsample_dotprops(x,
                                  downsampling_factor=downsampling_factor)
+    else:
+        raise TypeError(f'Unable to downsample data of type "{type(x)}"')
 
     if not inplace:
         return x
@@ -143,7 +128,7 @@ def _downsample_dotprops(x, downsampling_factor):
     """Downsample Dotprops."""
     assert isinstance(x, core.Dotprops)
 
-    # Can't downsample if not points
+    # Can't downsample if no points
     if isinstance(x._points, type(None)):
         return
 
@@ -151,17 +136,17 @@ def _downsample_dotprops(x, downsampling_factor):
     if x._points.shape[0] <= downsampling_factor:
         return
 
-    # Mask to apply
+    # Generate a mask
     mask = np.arange(0, x._points.shape[0], int(downsampling_factor))
 
     # Mask points
     x._points = x._points[mask]
 
-    # Maks vectors if exists
+    # Mask vectors if exists
     if not isinstance(x._vect, type(None)):
         x._vect = x._vect[mask]
 
-    # Maks alphas if exists
+    # Mask alphas if exists
     if not isinstance(x._alpha, type(None)):
         x._alpha = x._alpha[mask]
 

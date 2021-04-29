@@ -65,6 +65,7 @@ def prune_by_strahler(x: NeuronObject,
                       relocate_connectors: bool = False) -> Optional[NeuronObject]: ...
 
 
+@utils.map_neuronlist(desc='Pruning')
 def prune_by_strahler(x: NeuronObject,
                       to_prune: Union[int, List[int], range, slice],
                       inplace: bool = False,
@@ -114,30 +115,12 @@ def prune_by_strahler(x: NeuronObject,
     True
 
     """
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-
-        [prune_by_strahler(n,
-                           to_prune=to_prune,
-                           inplace=True,
-                           reroot_soma=reroot_soma,
-                           force_strahler_update=force_strahler_update,
-                           relocate_connectors=relocate_connectors
-                           ) for n in config.tqdm(x,
-                                                  desc='Pruning',
-                                                  disable=config.pbar_hide,
-                                                  leave=config.pbar_leave)]
-        if not inplace:
-            return x
-        else:
-            return None
-    elif isinstance(x, core.TreeNeuron):
-        neuron = x
-    else:
-        raise TypeError(f'Expected Neuron/List, got {type(x)}')
+    # The decorator makes sure that at this point we have single neurons
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
 
     # Make a copy if necessary before making any changes
+    neuron = x
     if not inplace:
         neuron = neuron.copy()
 
@@ -231,6 +214,7 @@ def prune_twigs(x: NeuronObject,
                 ) -> Optional[NeuronObject]: ...
 
 
+@utils.map_neuronlist(desc='Pruning')
 def prune_twigs(x: NeuronObject,
                 size: Union[float, str],
                 exact: bool = False,
@@ -273,14 +257,14 @@ def prune_twigs(x: NeuronObject,
     Simple pruning
 
     >>> import navis
-    >>> n = navis.example_neurons(1)
+    >>> n = navis.example_neurons(2)
     >>> # Prune twigs smaller than 5 microns
     >>> # (example neuron are in 8x8x8nm units)
     >>> n_pr = navis.prune_twigs(n,
     ...                          size=5000 / 8,
     ...                          recursive=float('inf'),
     ...                          inplace=False)
-    >>> n.n_nodes > n_pr.n_nodes
+    >>> all(n.n_nodes > n_pr.n_nodes)
     True
 
     Exact pruning
@@ -310,38 +294,20 @@ def prune_twigs(x: NeuronObject,
     True
 
     """
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-
-        [prune_twigs(n,
-                     size=size,
-                     exact=exact,
-                     inplace=True,
-                     recursive=recursive) for n in config.tqdm(x,
-                                                               desc='Pruning',
-                                                               disable=config.pbar_hide,
-                                                               leave=config.pbar_leave)]
-
-        if not inplace:
-            return x
-        else:
-            return None
-    elif isinstance(x, core.TreeNeuron):
-        neuron = x
-    else:
-        raise TypeError(f'Expected Neuron/List, got {type(x)}')
+    # The decorator makes sure that at this point we have single neurons
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
 
     # Convert to neuron units - numbers will be passed through
     size = x.map_units(size, on_error='raise')
 
     if not exact:
-        return _prune_twigs_simple(neuron,
+        return _prune_twigs_simple(x,
                                    size=size,
                                    inplace=inplace,
                                    recursive=recursive)
     else:
-        return _prune_twigs_precise(neuron,
+        return _prune_twigs_precise(x,
                                     size=size,
                                     inplace=inplace)
 
@@ -498,6 +464,7 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
         return None
 
 
+@utils.map_neuronlist(desc='Splitting')
 def split_axon_dendrite(x: NeuronObject,
                         metric: Union[Literal['flow_centrality'],
                                       Literal['bending_flow'],
@@ -602,23 +569,9 @@ def split_axon_dendrite(x: NeuronObject,
               'cellbodyfiber': (50, 50, 50),
               'linker': (150, 150, 150)}
 
-    if isinstance(x, core.NeuronList) and len(x) == 1:
-        x = x[0]
-    elif isinstance(x, core.NeuronList):
-        nl = []
-        for n in config.tqdm(x, desc='Splitting', disable=config.pbar_hide,
-                             leave=config.pbar_leave):
-            nl.append(split_axon_dendrite(n,
-                                          metric=metric,
-                                          split=split,
-                                          flow_thresh=flow_thresh,
-                                          cellbodyfiber=cellbodyfiber,
-                                          reroot_soma=reroot_soma,
-                                          labels=labels))
-        return core.NeuronList([n for l in nl for n in l])
-
+    # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Can only process TreeNeuron, got "{type(x)}"')
+        raise TypeError(f'Can only process TreeNeurons, got "{type(x)}"')
 
     if not x.has_connectors:
         raise ValueError('Neuron must have connectors.')
@@ -1169,6 +1122,7 @@ def average_neurons(x: 'core.NeuronList',
     return bn
 
 
+@utils.map_neuronlist(desc='Despiking')
 def despike_neuron(x: NeuronObject,
                    sigma: int = 5,
                    max_spike_length: int = 1,
@@ -1214,19 +1168,9 @@ def despike_neuron(x: NeuronObject,
     #   quite a lot
     # -> as intermediate step: assign all new positions at once
 
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-
-        for n in config.tqdm(x, desc='Despiking', disable=config.pbar_hide,
-                             leave=config.pbar_leave):
-            despike_neuron(n, sigma=sigma, inplace=True)
-
-        if not inplace:
-            return x
-        return None
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Can only process TreeNeuron or NeuronList, not {type(x)}')
+    # The decorator makes sure that we have single neurons at this point
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Can only process TreeNeurons, not {type(x)}')
 
     if not inplace:
         x = x.copy()
@@ -1281,6 +1225,7 @@ def despike_neuron(x: NeuronObject,
         return None
 
 
+@utils.map_neuronlist(desc='Guessing')
 def guess_radius(x: NeuronObject,
                  method: str = 'linear',
                  limit: Optional[int] = None,
@@ -1288,8 +1233,8 @@ def guess_radius(x: NeuronObject,
                  inplace: bool = False) -> Optional[NeuronObject]:
     """Guess radii for all nodes.
 
-    Uses distance between connectors and nodes and interpolate for all
-    nodes. Fills in ``radius`` column in node table.
+    Uses distance between connectors and nodes to guess radii. Interpolate for
+    nodes without connectors. Fills in ``radius`` column in node table.
 
     Parameters
     ----------
@@ -1311,24 +1256,17 @@ def guess_radius(x: NeuronObject,
     Returns
     -------
     TreeNeuron/List
-                    If ``inplace=False``.
+
+    Examples
+    --------
+    >>> import navis
+    >>> nl = navis.example_neurons(2)
+    >>> nl_radius = navis.guess_radius(nl)
 
     """
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-
-        for n in config.tqdm(x, desc='Guessing', disable=config.pbar_hide,
-                             leave=config.pbar_leave):
-            guess_radius(n, method=method, limit=limit, smooth=smooth,
-                         inplace=True)
-
-        if not inplace:
-            return x
-        return None
-
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Can only process TreeNeuron or NeuronList, not {type(x)}')
+    # The decorator makes sure that at this point we have single neurons
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Can only process TreeNeurons, not {type(x)}')
 
     if not hasattr(x, 'connectors') or x.connectors.empty:
         raise ValueError('Neuron must have connectors!')
@@ -1403,6 +1341,7 @@ def guess_radius(x: NeuronObject,
         return None
 
 
+@utils.map_neuronlist(desc='Smoothing')
 def smooth_neuron(x: NeuronObject,
                   window: int = 5,
                   inplace: bool = False) -> Optional[NeuronObject]:
@@ -1426,25 +1365,13 @@ def smooth_neuron(x: NeuronObject,
     Examples
     --------
     >>> import navis
-    >>> n = navis.example_neurons(1)
-    >>> smoothed = navis.smooth_neuron(n, window=10)
+    >>> nl = navis.example_neurons(2)
+    >>> smoothed = navis.smooth_neuron(nl, window=5)
 
     """
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-
-        for n in config.tqdm(x, desc='Smoothing', disable=config.pbar_hide,
-                             leave=config.pbar_leave):
-            smooth_neuron(n, window=window, inplace=True)
-
-        if not inplace:
-            return x
-        else:
-            return None
-
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Can only process TreeNeuron or NeuronList, not {type(x)}')
+    # The decorator makes sure that at this point we have single neurons
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Can only process TreeNeurons, not {type(x)}')
 
     if not inplace:
         x = x.copy()
@@ -1529,6 +1456,7 @@ def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
         return core.NeuronList(x.copy())
 
 
+@utils.map_neuronlist(desc='Healing')
 def heal_fragmented_neuron(x: 'core.NeuronList',
                            method: Union[Literal['LEAFS'],
                                          Literal['ALL']] = 'ALL',
@@ -1603,25 +1531,9 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     if method not in ['LEAFS', 'ALL']:
         raise ValueError(f'Unknown method "{method}"')
 
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-        _ = [heal_fragmented_neuron(n,
-                                    min_size=min_size,
-                                    method=method,
-                                    max_dist=max_dist,
-                                    inplace=True)
-             for n in config.tqdm(x,
-                                  desc='Healing',
-                                  disable=config.pbar_hide,
-                                  leave=config.pbar_leave)]
-        if not inplace:
-            return x
-        else:
-            return None
-
+    # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected CatmaidNeuron/List, got "{type(x)}"')
+        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     if not isinstance(max_dist, type(None)):
         max_dist = x.map_units(max_dist, on_error='raise')
@@ -1753,6 +1665,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
     return graph.rewire_neuron(x, g, inplace=inplace)
 
 
+@utils.map_neuronlist(desc='Pruning', must_zip=['source'], progress=True)
 def prune_at_depth(x: NeuronObject,
                    depth: Union[float, int], *,
                    source: Optional[int] = None,
@@ -1783,7 +1696,7 @@ def prune_at_depth(x: NeuronObject,
     Examples
     --------
     >>> import navis
-    >>> n = navis.example_neurons(1)
+    >>> n = navis.example_neurons(2)
     >>> # Reroot to soma
     >>> n.reroot(n.soma, inplace=True)
     >>> # Prune all twigs farther from the root than 100 microns
@@ -1791,35 +1704,11 @@ def prune_at_depth(x: NeuronObject,
     >>> n_pr = navis.prune_at_depth(n,
     ...                             depth=100e3 / 8,
     ...                             inplace=False)
-    >>> n.n_nodes > n_pr.n_nodes
+    >>> all(n.n_nodes > n_pr.n_nodes)
     True
 
     """
-    if depth < 0:
-        raise ValueError('`depth` must be > 0')
-
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-
-        if not isinstance(source, type(None)):
-            source = utils.make_iterable(source)
-        else:
-            source = [None] * len(x)
-
-        if len(source) != len(x):
-            raise ValueError(f'Expected {len(x)} sources for {len(x)} '
-                             f'neurons, got {len(source)}')
-
-        for n, s in config.tqdm(zip(x, source),
-                                desc='Pruning',
-                                disable=config.pbar_hide,
-                                leave=config.pbar_leave,
-                                total=len(x)):
-            _ = prune_at_depth(n, source=s, depth=depth, inplace=True)
-
-        return x
-
+    # The decorator makes sure that at this point we only have single neurons
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron, got {type(x)}')
 

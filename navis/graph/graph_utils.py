@@ -318,6 +318,7 @@ def _edge_count_to_root_old(x: 'core.TreeNeuron') -> dict:
     return dist
 
 
+@utils.map_neuronlist(desc='Classifying')
 @utils.lock_neuron
 def classify_nodes(x: 'core.NeuronObject',
                    inplace: bool = True
@@ -337,18 +338,19 @@ def classify_nodes(x: 'core.NeuronObject',
     Returns
     -------
     TreeNeuron/List
-                Copy of original neuron. Only if ``inplace=False``.
+
+    Examples
+    --------
+    >>> import navis
+    >>> nl = navis.example_neurons(2)
+    >>> _ = navis.graph.classify_nodes(nl, inplace=True)
 
     """
     if not inplace:
         x = x.copy()
 
-    # If more than one neuron
-    if isinstance(x, core.NeuronList):
-        for i in config.trange(x.shape[0], desc='Classifying'):
-            classify_nodes(x[i], inplace=True)
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron, got "{type(x)}"')
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
@@ -944,7 +946,7 @@ def split_into_fragments(x: 'core.NeuronObject',
 def longest_neurite(x: 'core.TreeNeuron',
                     n: int = 1,
                     reroot_to_soma: bool = False,
-                    inplace: Literal[False] = False) -> 'core.TreeNeuron':
+                    inplace: bool = False) -> 'core.TreeNeuron':
     pass
 
 
@@ -952,24 +954,18 @@ def longest_neurite(x: 'core.TreeNeuron',
 def longest_neurite(x: 'core.NeuronList',
                     n: int = 1,
                     reroot_to_soma: bool = False,
-                    inplace: Literal[False] = False) -> 'core.NeuronList':
+                    inplace: bool = False) -> 'core.NeuronList':
     pass
 
 
-@overload
+@utils.map_neuronlist(desc='Pruning')
 def longest_neurite(x: 'core.NeuronObject',
                     n: int = 1,
                     reroot_to_soma: bool = False,
-                    inplace: Literal[True] = True) -> None:
-    pass
+                    inplace: bool = False) -> 'core.TreeNeuron':
+    """Return a neuron consisting of only the longest neurite(s).
 
-
-def longest_neurite(x: 'core.NeuronObject',
-                    n: int = 1,
-                    reroot_to_soma: bool = False,
-                    inplace: bool = False) -> Optional['core.TreeNeuron']:
-    """Return a neuron consisting of only the longest neurite(s) based on
-    geodesic distance.
+    Based on geodesic distances.
 
     Parameters
     ----------
@@ -989,7 +985,7 @@ def longest_neurite(x: 'core.NeuronObject',
     Returns
     -------
     TreeNeuron/List
-                        Pruned neuron. Only if ``inplace=False``.
+                        Pruned neuron.
 
     See Also
     --------
@@ -1008,25 +1004,8 @@ def longest_neurite(x: 'core.NeuronObject',
     >>> ln3 = navis.longest_neurite(n, n=slice(1, None), reroot_to_soma=True)
 
     """
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-
-        _ = [longest_neurite(i,
-                             n=n,
-                             inplace=True,
-                             reroot_to_soma=reroot_to_soma)
-             for i in config.tqdm(x,
-                                  desc='Pruning',
-                                  disable=config.pbar_hide,
-                                  leave=config.pbar_leave)]
-
-        if not inplace:
-            return x
-        else:
-            return
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Unable to process data of type "{type(x)}"')
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     if isinstance(n, numbers.Number) and n < 1:
         raise ValueError('Number of longest neurites to preserve must be >=1')
@@ -1108,9 +1087,10 @@ def reroot_neuron(x: 'core.NeuronObject',
         if len(x) == 1:
             x = x[0]
         else:
-            raise ValueError(f'Please provide only a single neuron, not {x.shape[0]}')
-    elif not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Unable to process data of type "{type(x)}"')
+            raise ValueError(f'Expected a single neuron, got {len(x)}')
+
+    if not isinstance(x, core.TreeNeuron):
+        raise ValueError(f'Unable to reroot object of type "{type(x)}"')
 
     # Make new root an iterable
     new_roots = utils.make_iterable(new_root)
