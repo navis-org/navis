@@ -6,6 +6,10 @@ from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from typing import Iterator, Sequence, Callable, List, Iterable, Any, Tuple
 import logging
+from pathlib import Path
+from functools import lru_cache
+from copy import deepcopy
+import operator
 
 import numpy as np
 import pandas as pd
@@ -19,6 +23,9 @@ DEFAULT_SEED = 1991
 epsilon = sys.float_info.epsilon
 cpu_count = max(1, (os.cpu_count() or 2) - 1)
 IMPLICIT_INTERVAL = "[)"
+
+fp = Path(__file__).resolve().parent
+smat_path = fp / 'score_mats'
 
 
 def chunksize(it_len, cpu_count, min_chunk=50):
@@ -390,12 +397,16 @@ def parse_boundary(item, strict=False):
 
 
 def parse_boundaries(items, strict=False):
-    last = None
+    # declaring upper first and then checking for None
+    # pleases the type checker, and handles the case where
+    # len(items) == 0
+    upper = None
     for item in items:
         lower, upper = parse_boundary(item, strict)
         yield lower
-        last = upper
-    yield last
+    if upper is None:
+        return
+    yield upper
 
 
 class Lookup2d(LookupNd):
@@ -437,12 +448,120 @@ class Lookup2d(LookupNd):
             Otherwise, raises a ValueError if parens/brackets
             do not match the implementation.
         """
-        boundaries = [
-            np.array(list(parse_boundaries(arr, strict)))
-            for arr in (df.index, df.columns)
-        ]
-        for b in boundaries:
+        boundaries = []
+        for arr in (df.index, df.columns):
+            b = np.array(list(parse_boundaries(arr, strict)))
             b[0] = -np.inf
             b[-1] = np.inf
+            boundaries.append(b)
 
         return cls(boundaries, df.to_numpy())
+
+
+@lru_cache
+def _smat_fcwb(alpha=False):
+    # cached private function defers construction
+    # until needed (speeding startup),
+    # but avoids repeated reads (speeding later uses)
+    fname = ("smat_fcwb.csv", "smat_alpha_fcwb.csv")[alpha]
+    fpath = smat_path / fname
+
+    return Lookup2d.from_dataframe(
+        pd.read_csv(fpath, index_col=0)
+    )
+
+
+def smat_fcwb(alpha=False):
+    # deepcopied so that mutations do not propagate to cache
+    return deepcopy(_smat_fcwb(alpha))
+
+
+def check_score_fn(fn: Callable, nargs=2, scalar=True, array=True):
+    """Checks functionally that the callable can be used as a score function.
+
+    Parameters
+    ----------
+    nargs : optional int, default 2
+        How many positional arguments the score function should have.
+    scalar : optional bool, default True
+        Check that the function can be used on ``nargs`` scalars.
+    array : optional bool, default True
+        Check that the function can be used on ``nargs`` 1D ``numpy.ndarray``s.
+
+    Raises
+    ------
+    ValueError
+        If the score function is not appropriate.
+    """
+    if scalar:
+        scalars = [0.5] * nargs
+        if not isinstance(fn(*scalars), float):
+            raise ValueError("smat does not take 2 floats and return a float")
+
+    if array:
+        test_arr = np.array([0.5] * 3)
+        arrs = [test_arr] * nargs
+        try:
+            out = fn(*arrs)
+        except Exception as e:
+            raise ValueError(f"Failed to use smat with numpy arrays: {e}")
+
+        if out.shape != test_arr.shape:
+            raise ValueError(
+                f"smat produced inconsistent shape: input {test_arr.shape}; output {out.shape}"
+            )
+
+
+SCORE_FN_DESCR = """
+NBLAST score functions take 2 floats or numpy arrays of floats of length N
+(for matched dotprop points/tangents, distance and dot product;
+the latter possibly scaled by the geometric mean of the alpha colinearity values)
+and returns a float or N-length numpy array of floats.
+""".strip().replace("\n", " ")
+
+
+def parse_score_fn(smat, alpha=False):
+    f"""Interpret ``smat`` as a score function.
+    Primarily for backwards compatibility.
+
+    {SCORE_FN_DESCR}
+
+    Parameters
+    ----------
+    smat : None | "auto" | str | os.PathLike | pandas.DataFrame | Callable[[float, float], float]
+        If ``None``, use ``operator.mul``.
+        If ``"auto"``, use ``navis.nbl.smat.smat_fcwb(alpha)``.
+        If a dataframe, use ``navis.nbl.smat.Lookup2d.from_dataframe(smat)``.
+        If another string or path-like, load from CSV in a dataframe and uses as above.
+        Also checks the signature of the callable.
+        Raises an error, probably a ValueError, if it can't be interpreted.
+    alpha : optional bool, default False
+        If ``smat`` is None, choose whether to use the FCWB matrices
+        with or without alpha.
+
+    Returns
+    -------
+    Callable
+
+    Raises
+    ------
+    ValueError
+        If score function cannot be interpreted.
+    """
+    if smat is None:
+        smat = operator.mul
+    elif smat == 'auto':
+        smat = smat_fcwb(alpha)
+
+    if isinstance(smat, (str, os.PathLike)):
+        smat = pd.read_csv(smat, index_col=0)
+
+    if isinstance(smat, pd.DataFrame):
+        smat = Lookup2d.from_dataframe(smat)
+
+    if not callable(smat):
+        raise ValueError("smat should be a callable, a path, a pandas.DataFrame, or 'auto'")
+
+    check_score_fn(smat)
+
+    return smat

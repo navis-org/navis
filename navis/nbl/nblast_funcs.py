@@ -16,31 +16,38 @@
 import numbers
 import os
 from warnings import warn
-import operator
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from concurrent.futures import ProcessPoolExecutor
-from typing import Union, Optional, Callable
+from typing import Union, Optional
 from typing_extensions import Literal
 
-from .smat import Lookup2d
+from .smat import Lookup2d, parse_score_fn, SCORE_FN_DESCR
 from .. import core, utils
 from ..core import NeuronList, Dotprops, make_dotprops
 from .. import config
 
 __all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 
-fp = Path(__file__).resolve().parent
-smat_path = fp / 'score_mats'
 
 logger = config.logger
 
 
 class ScoringFunction:
-    """Class representing scoring function."""
+    """[DEPRECATED] Class representing scoring function.
+
+    Use a ``navis.nbl.smat.Lookup2d`` for score functions
+    like those used in Costa et al. 2016
+    (see the ``.from_dataframe()`` class method
+    to load it from pandas).
+    The actual score matrices from FCWB can be accessed with
+    ``navis.nbl.smat.smat_fcwb()``.
+
+    Otherwise, use any compatible callable,
+    e.g. ``operator.mul`` (used by this class for ``smat=None``).
+    """
 
     def __init__(self, smat):
         if isinstance(smat, type(None)):
@@ -107,14 +114,6 @@ class ScoringFunction:
         return float(s.strip("([])").split(",")[-1])
 
 
-score_func_description = """
-NBLAST score functions take 2 floats or numpy arrays of floats of length N
-(for matched dotprop points/tangents, distance and dot product;
-the latter possibly scaled by the geometric mean of the alpha colinearity values)
-and returns a float or N-length numpy array of floats.
-""".strip()
-
-
 class NBlaster:
     f"""Implements version 2 of the NBLAST algorithm.
 
@@ -125,11 +124,7 @@ class NBlaster:
     The highly flexible ``smat`` argument converts raw point match parameters
     into a single score representing how good that match is.
     Most simply, it is an NBLAST score function.
-    {score_func_description}
-    If a ``pandas.DataFrame``, converts this into a ``navis.Lookup2d`` and uses as above.
-    If path-like, converts this into a dataframe and uses as above.
-    If ``None``, uses ``operator.mul``.
-    If ``'auto'`` (default), uses score matrices from FCWB (like R's nat.nblast).
+    {SCORE_FN_DESCR}
 
     Parameters
     ----------
@@ -140,8 +135,8 @@ class NBlaster:
     normalized :    bool
                     If True, will normalize scores by the best possible score
                     (i.e. self-self) of the query neuron.
-    smat :          Callable[[float, float], float] | str | os.PathLike | pd.DataFrame
-                    See above for more details.
+    smat :          Callable[[float, float], float] | str | os.PathLike | pd.DataFrame, default "smat"
+                    See ``navis.nbl.smat.parse_score_fn``.
     progress :      bool
                     If True, will show a progress bar.
 
@@ -153,44 +148,10 @@ class NBlaster:
         self.normalized = normalized
         self.progress = progress
 
-        self.score_fn = self._parse_score_fn(smat)
+        self.score_fn = parse_score_fn(smat, use_alpha)
 
         self.self_hits = []
         self.dotprops = []
-
-    def _parse_score_fn(self, smat):
-        if smat is None:
-            smat = operator.mul
-        elif smat == 'auto':
-            if self.use_alpha:
-                smat = smat_path / 'smat_alpha_fcwb.csv'
-            else:
-                smat = smat_path / 'smat_fcwb.csv'
-
-        if isinstance(smat, (str, os.PathLike)):
-            smat = pd.read_csv(smat, index_col=0)
-
-        if isinstance(smat, pd.DataFrame):
-            smat = Lookup2d.from_dataframe(smat)
-
-        if not callable(smat):
-            raise ValueError("smat should be a callable, a path, a pandas.DataFrame, or 'auto'")
-
-        if not isinstance(smat(0.5, 0.5), float):
-            raise ValueError("smat does not take 2 floats and return a float")
-
-        test_arr = np.array([0.5] * 3)
-        try:
-            out = smat(test_arr, test_arr)
-        except Exception as e:
-            raise ValueError(f"Failed to use smat with numpy arrays: {e}")
-
-        if out.shape != test_arr.shape:
-            raise ValueError(
-                f"smat produced inconsistent shape: input {test_arr.shape}; output {out.shape}"
-            )
-
-        return smat
 
     def append(self, dotprops):
         """Append dotprops."""
@@ -412,12 +373,8 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                     that have lots of branches.
     normalized :    bool, optional
                     Whether to return normalized NBLAST scores.
-    smat :          str | pd.DataFrame
-                    Score matrix. If 'auto' (default), will use scoring matrices
-                    from FCWB. Same behaviour as in R's nat.nblast
-                    implementation. If ``smat=None`` the scores will be
-                    generated as the product of the distances and the dotproduct
-                    of the vectors of nearest-neighbor pairs.
+    smat :          str | pd.DataFrame, default "auto"
+                    Score matrix. See ``navis.nbl.smat.parse_score_fn``.
     progress :      bool
                     Whether to show progress bars.
 
@@ -467,6 +424,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                 A synapse-based variant of NBLAST.
 
     """
+    smat = parse_score_fn(smat, use_alpha)
     utils.eval_param(criterion, name='criterion',
                      allowed_values=("percentile", "score", "N"))
 
@@ -679,15 +637,12 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                     individual processes.
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
-                    that have lots of branches.         
+                    that have lots of branches.
     normalized :    bool, optional
                     Whether to return normalized NBLAST scores.
     smat :          str | pd.DataFrame
-                    Score matrix. If 'auto' (default), will use scoring matrices
-                    from FCWB. Same behaviour as in R's nat.nblast
-                    implementation. If ``smat=None`` the scores will be
-                    generated as the product of the distances and the dotproduct
-                    of the vectors of nearest-neighbor pairs.
+                    Score matrix.
+                    See ``navis.nbl.smat.parse_score_fn``.
     progress :      bool
                     Whether to show progress bars.
 
@@ -732,6 +687,8 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                 A synapse-based variant of NBLAST.
 
     """
+    smat = parse_score_fn(smat, use_alpha)
+
     # Check if query or targets are in microns
     # Note this test can return `None` if it can't be determined
     if check_microns(query) is False:
@@ -839,11 +796,8 @@ def nblast_allbyall(x: NeuronList,
     normalized :    bool, optional
                     Whether to return normalized NBLAST scores.
     smat :          str | pd.DataFrame, optional
-                    Score matrix. If 'auto' (default), will use scoring matrices
-                    from FCWB. Same behaviour as in R's nat.nblast
-                    implementation. If ``smat=None`` the scores will be
-                    generated as the product of the distances and the dotproduct
-                    of the vectors of nearest-neighbor pairs.
+                    Score matrix.
+                    See ``navis.nbl.smat.parse_score_fn``.
     progress :      bool
                     Whether to show progress bars.
 
@@ -883,6 +837,8 @@ def nblast_allbyall(x: NeuronList,
                 For generic query -> target nblasts.
 
     """
+    smat = parse_score_fn(smat, use_alpha)
+
     # Check if query or targets are in microns
     # Note this test can return `None` if it can't be determined
     if check_microns(x) is False:
