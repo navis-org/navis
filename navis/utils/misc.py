@@ -142,21 +142,22 @@ def map_neuronlist(desc: str = "",
     def decorator(function):
         @wraps(function)
         def wrapper(*args, **kwargs):
-            nl = None
-            if args:
-                # If there are positional arguments, the first one is thought to
-                # be the input neuron(s)
-                nl = args[0]
-                nl_key = '_args'
-            else:
-                # If not, we have to cross our fingers and hope that there is
-                # either an "x", a "neuron" or a "neurons" keyword argument
-                for key in ('x', 'neuron', 'neurons'):
-                    if key in kwargs:
-                        nl = kwargs[key]
-                        nl_key = key
-                        break
+            # Get the function's signature
+            sig = inspect.signature(function)
 
+            # First, we need to extract the neuronlist
+            if args:
+                # If there are positional arguments, the first one is
+                # the input neuron(s)
+                nl = args[0]
+                nl_key = '__args'
+            else:
+                # If not, we need to look for the name of the first argument
+                # in the signature
+                nl_key = list(sig.parameters.keys())[0]
+                kwargs.get(nl_key, None)
+
+            # Complain if we did not get what we expected
             if isinstance(nl, type(None)):
                 raise ValueError('Unable to identify the neurons for call'
                                  f'{function}:\n {args}\n {kwargs}')
@@ -165,13 +166,12 @@ def map_neuronlist(desc: str = "",
             if isinstance(nl, core.NeuronList):
                 # Pop the neurons from kwargs or args so we don't pass the
                 # neurons twice
-                if nl_key == '_args':
+                if nl_key == '__args':
                     args = args[1:]
                 else:
                     _ = kwargs.pop(nl_key)
 
                 # See if function has inplace parameter
-                sig = inspect.signature(function)
                 has_inplace = 'inplace' in sig.parameters
                 # If function has an inplace parameter
                 if has_inplace:
