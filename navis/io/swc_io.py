@@ -16,6 +16,7 @@ import datetime
 import io
 import os
 import requests
+import tempfile
 
 import multiprocessing as mp
 import numpy as np
@@ -28,6 +29,13 @@ from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
 from zipfile import ZipFile
 
 from .. import config, utils, core
+
+try:
+    import zlib
+    import zipfile
+    compression = zipfile.ZIP_DEFLATED
+except:
+    compression = zipfile.ZIP_STORED
 
 __all__ = ["SwcReader", "read_swc", "write_swc"]
 
@@ -681,7 +689,8 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     ----------
     f :                 str | pandas.DataFrame | iterable
                         SWC string, URL, filename, folder or DataFrame.
-                        If folder, will import all ``.swc`` files.
+                        If folder, will import all ``.swc`` files. If a
+                        ``.zip`` file will read all SWC files in the file.
     connector_labels :  dict, optional
                         If provided will extract connectors from SWC.
                         Dictionary must map type to label:
@@ -747,8 +756,8 @@ def write_swc(x: 'core.NeuronObject',
     filepath :          str | pathlib.Path | list thereof
                         Destination for the SWC files. See examples for options.
                         If ``x`` is multiple neurons, ``filepath`` must either
-                        be a folder, a "formattable" filename or a list of
-                        filenames for each neuron in x.
+                        be a folder, a "formattable" filename, a filename ending
+                        in `.zip` or a list of filenames for each neuron in x.
     header :            str | None, optionals
                         Header for SWC file. If not provided, will use generic
                         header.
@@ -802,13 +811,57 @@ def write_swc(x: 'core.NeuronObject',
     >>> nl = navis.example_neurons(5, kind='skeleton')
     >>> navis.write_swc(nl, tmp_dir / 'skel-{neuron.name}.swc')
 
+    Save multiple neurons to a zip file:
+
+    >>> import navis
+    >>> nl = navis.example_neurons(5, kind='skeleton')
+    >>> navis.write_swc(nl, tmp_dir / 'neuronlist.zip')
+
+    Save multiple neurons to a zip file but modify the filenames:
+
+    >>> import navis
+    >>> nl = navis.example_neurons(5, kind='skeleton')
+    >>> navis.write_swc(nl, tmp_dir / 'skel-{neuron.name}.swc@neuronlist.zip')
+
     See Also
     --------
     :func:`navis.read_swc`
                         Import skeleton from SWC files.
 
     """
-    if isinstance(x, core.NeuronList):
+    if isinstance(filepath, (str, Path)) and str(filepath).endswith('.zip'):
+        filepath = Path(filepath)
+        if '@' in str(filepath):
+            pattern, filename = filepath.name.split('@')
+            filepath = filepath.parent / filename
+        else:
+            pattern = '{neuron.id}.swc'
+        x = core.NeuronList(x)
+
+        with ZipFile(filepath, mode='w') as zf:
+            tempdir = tempfile.mkdtemp()
+            try:
+                for n in config.tqdm(x, disable=config.pbar_hide,
+                                     leave=config.pbar_leave, total=len(x),
+                                     desc='Saving'):
+                    # Save to temporary file
+                    try:
+                        f = os.path.join(tempdir, pattern.format(neuron=n))
+                        write_swc(n, filepath=f, labels=labels, header=header,
+                                  export_connectors=export_connectors)
+                        # Add file to zip
+                        zf.write(f, arcname=pattern.format(neuron=n),
+                                 compress_type=compression)
+                    except BaseException:
+                        raise
+                    finally:
+                        os.remove(f)
+            except BaseException:
+                raise
+            finally:
+                os.rmdir(tempdir)
+        return
+    elif isinstance(x, core.NeuronList):
         if not utils.is_iterable(filepath):
             # Assume this is a folder if it doesn't end with '.swc'
             is_filename = str(filepath).endswith('.swc')
