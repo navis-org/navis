@@ -155,7 +155,7 @@ def map_neuronlist(desc: str = "",
                 # If not, we need to look for the name of the first argument
                 # in the signature
                 nl_key = list(sig.parameters.keys())[0]
-                kwargs.get(nl_key, None)
+                nl = kwargs.get(nl_key, None)
 
             # Complain if we did not get what we expected
             if isinstance(nl, type(None)):
