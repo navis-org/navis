@@ -34,7 +34,7 @@ logger = config.logger
 
 def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.MeshNeuron'],
                   k: int = 20,
-                  resample: Union[float, int, bool] = False) -> Dotprops:
+                  resample: Union[float, int, bool, str] = False) -> Dotprops:
     """Produce dotprops from x/y/z points.
 
     This is following the implementation in R's nat library.
@@ -50,12 +50,14 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
                 ``TreeNeurons``: then we use child->parent connections
                 to define points (midpoint) and their vectors. Also note that
                 ``k`` is only guaranteed if the input has at least ``k`` points.
-    resample :  float | int, optional
+    resample :  float | int | str, optional
                 If provided will resample neurons to the given resolution. For
                 ``MeshNeurons``, we are using ``trimesh.points.remove_close`` to
                 remove surface vertices closer than the given resolution. Note
                 that this is only approximate and it also means that
-                ``MeshNeurons`` can not be up-sampled!
+                ``MeshNeurons`` can not be up-sampled! If the neuron has
+                `.units` set you can also provide this as string, e.g.
+                "1 micron".
 
     Returns
     -------
@@ -76,9 +78,8 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     dtype: object
 
     """
-    if resample:
-        if not isinstance(resample, numbers.Number):
-            raise TypeError(f'`resample` must be None, False or a Number, got "{type(resample)}"')
+    utils.eval_param(resample, name='resample',
+                     allowed_types=(numbers.Number, type(None), str))
 
     if isinstance(x, NeuronList):
         res = []
@@ -109,6 +110,7 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
         x = x.vertices
         if resample:
             x, _ = tm.points.remove_close(x, resample)
+
     elif not isinstance(x, np.ndarray):
         raise TypeError(f'Unable to generate dotprops from data of type "{type(x)}"')
 
