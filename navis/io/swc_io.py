@@ -13,17 +13,19 @@
 
 import csv
 import datetime
-from functools import partial
-import os
 import io
+import os
 import requests
+
+import multiprocessing as mp
+import numpy as np
+import pandas as pd
+
+from functools import partial
 from pathlib import Path
 from textwrap import dedent
-import multiprocessing as mp
 from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
-
-import pandas as pd
-import numpy as np
+from zipfile import ZipFile
 
 from .. import config, utils, core
 
@@ -170,6 +172,66 @@ class SwcReader:
                 f, merge_dicts({"name": p.stem, "origin": str(p)}, attrs)
             )
 
+    def read_from_zip(
+        self, files: Union[str, List[str]],
+        zippath: os.PathLike,
+        attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.NeuronList':
+        """Read SWC files from a zip into a NeuronList.
+
+        Parameters
+        ----------
+        files :     str | list thereof
+                    SWC files inside the ZIP file to read.
+        zippath :   str | os.PathLike
+                    Path to zip file.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
+
+        Returns
+        -------
+        core.NeuronList
+
+        """
+        p = Path(zippath)
+        files = utils.make_iterable(files)
+
+        neurons = []
+        with ZipFile(p, 'r') as zip:
+            for file in files:
+                try:
+                    n = self.read_string(zip.read(file).decode(),
+                                         merge_dicts({"name": file.filename[:-4],
+                                                      "origin": str(p)}, attrs))
+                    neurons.append(n)
+                except BaseException:
+                    logger.warning(f'Failed to read "{file.filename}" from zip.')
+
+        return core.NeuronList(neurons)
+
+    def read_zip(
+        self, fpath: os.PathLike,
+        parallel="auto",
+        swc=None,
+        attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.NeuronList':
+        """Read SWC files from a zip into a NeuronList.
+
+        Parameters
+        ----------
+        fpath : str | os.PathLike
+            Path to zip file
+        attrs : dict or None
+            Arbitrary attributes to include in the TreeNeuron
+
+        Returns
+        -------
+        core.NeuronList
+        """
+        read_fn = partial(self.read_from_zip, zippath=fpath, attrs=attrs)
+        neurons = parallel_read_zip(read_fn, fpath, parallel)
+        return core.NeuronList(neurons)
+
     def read_directory(
         self, path: os.PathLike,
         include_subdirs=DEFAULT_INCLUDE_SUBDIRS,
@@ -287,10 +349,15 @@ class SwcReader:
         if isinstance(obj, pd.DataFrame):
             return self.read_dataframe(obj, attrs)
         if isinstance(obj, os.PathLike):
+            if str(obj).endswith('.zip'):
+                return self.read_zip(obj, attrs=attrs)
             return self.read_file_path(obj, attrs)
         if isinstance(obj, str):
             if os.path.isfile(obj):
-                return self.read_file_path(Path(obj), attrs)
+                p = Path(obj)
+                if p.suffix == '.zip':
+                    return self.read_zip(p, attrs=attrs)
+                return self.read_file_path(p, attrs)
             if obj.startswith("http://") or obj.startswith("https://"):
                 return self.read_url(obj, attrs)
             return self.read_string(obj, attrs)
@@ -310,20 +377,23 @@ class SwcReader:
 
         Parameters
         ----------
-        obj : sequence
-            Sequence of anything readable by read_any_single
-            or directory path(s)
-        include_subdirs : bool
-            Whether to include subdirectories of a given directory
-        parallel : str | bool | int | None
-            "auto" or True for n_cores - 2, otherwise int for number of jobs,
-            or falsey for serial.
-        attrs : dict or None
-            Arbitrary attributes to include in each TreeNeuron of the NeuronList
+        obj :               sequence
+                            Sequence of anything readable by read_any_single or
+                            directory path(s).
+        include_subdirs :   bool
+                            Whether to include subdirectories of a given
+                            directory.
+        parallel :          str | bool | int | None
+                            "auto" or True for n_cores - 2, otherwise int for
+                            number of jobs, or False for serial.
+        attrs :             dict or None
+                            Arbitrary attributes to include in each TreeNeuron
+                            of the NeuronList.
 
         Returns
         -------
         core.NeuronList
+
         """
         if not utils.is_iterable(objs):
             objs = [objs]
@@ -381,6 +451,13 @@ class SwcReader:
                     )
             except TypeError:
                 pass
+
+            try:
+                if os.path.isfile(obj) and str(obj).endswith('.zip'):
+                    return self.read_zip(obj, parallel, attrs)
+            except TypeError:
+                pass
+
             return self.read_any_single(obj, attrs)
 
     def _extract_connectors(
@@ -456,6 +533,54 @@ def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
             neurons = list(prog(results))
     else:
         neurons = [read_fn(obj) for obj in prog(objs)]
+
+    return neurons
+
+
+def parallel_read_zip(read_fn, fpath, parallel="auto") -> List['core.NeuronList']:
+    """Get SWC from a ZIP file, potentially in parallel.
+
+    Reader function must be picklable.
+
+    Parameters
+    ----------
+    read_fn : Callable
+    fpath : str | Path
+    parallel : str | bool | int
+        "auto" or True for n_cores - 2, otherwise int for number of jobs, or falsey for serial.
+
+    Returns
+    -------
+    core.NeuronList
+    """
+    # Check zip content
+    p = Path(fpath)
+    swcs = []
+    with ZipFile(p, 'r') as zip:
+        for file in zip.filelist:
+            if file.filename.endswith('.swc'):
+                swcs.append(file)
+
+    prog = partial(
+        config.tqdm,
+        desc='Importing',
+        total=len(swcs),
+        disable=config.pbar_hide,
+        leave=config.pbar_leave
+    )
+
+    if parallel:
+        # Do not swap this as ``isinstance(True, int)`` returns ``True``
+        if isinstance(parallel, (bool, str)):
+            n_cores = max(1, os.cpu_count() - 2)
+        else:
+            n_cores = int(parallel)
+
+        with mp.Pool(processes=n_cores) as pool:
+            results = pool.imap(read_fn, swcs)
+            neurons = list(prog(results))
+    else:
+        neurons = [read_fn(obj) for obj in prog(swcs)]
 
     return neurons
 
