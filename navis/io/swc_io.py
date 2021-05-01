@@ -34,7 +34,7 @@ try:
     import zlib
     import zipfile
     compression = zipfile.ZIP_DEFLATED
-except:
+except ImportError:
     compression = zipfile.ZIP_STORED
 
 __all__ = ["SwcReader", "read_swc", "write_swc"]
@@ -758,6 +758,7 @@ def write_swc(x: 'core.NeuronObject',
                         If ``x`` is multiple neurons, ``filepath`` must either
                         be a folder, a "formattable" filename, a filename ending
                         in `.zip` or a list of filenames for each neuron in x.
+                        Existing files will be overwritten!
     header :            str | None, optionals
                         Header for SWC file. If not provided, will use generic
                         header.
@@ -829,18 +830,20 @@ def write_swc(x: 'core.NeuronObject',
                         Import skeleton from SWC files.
 
     """
+    # If target is a zipfile
     if isinstance(filepath, (str, Path)) and str(filepath).endswith('.zip'):
         filepath = Path(filepath)
+        # Parse pattern, if given
+        pattern = '{neuron.id}.swc'
         if '@' in str(filepath):
             pattern, filename = filepath.name.split('@')
             filepath = filepath.parent / filename
-        else:
-            pattern = '{neuron.id}.swc'
+
+        # Make sure we have an iterable
         x = core.NeuronList(x)
 
         with ZipFile(filepath, mode='w') as zf:
-            tempdir = tempfile.mkdtemp()
-            try:
+            with tempfile.TemporaryDirectory() as tempdir:
                 for n in config.tqdm(x, disable=config.pbar_hide,
                                      leave=config.pbar_leave, total=len(x),
                                      desc='Saving'):
@@ -856,10 +859,6 @@ def write_swc(x: 'core.NeuronObject',
                         raise
                     finally:
                         os.remove(f)
-            except BaseException:
-                raise
-            finally:
-                os.rmdir(tempdir)
         return
     elif isinstance(x, core.NeuronList):
         if not utils.is_iterable(filepath):
