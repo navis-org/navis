@@ -134,10 +134,10 @@ class SwcReader:
 
         Parameters
         ----------
-        f : IO
-            Readable buffer (if bytes, interpreted as utf-8)
-        attrs : dict | None
-            Arbitrary attributes to include in the TreeNeuron
+        f :         IO
+                    Readable buffer (if bytes, interpreted as utf-8).
+        attrs :     dict | None
+                    Arbitrary attributes to include in the TreeNeuron.
 
         Returns
         -------
@@ -165,10 +165,10 @@ class SwcReader:
 
         Parameters
         ----------
-        fpath : str | os.PathLike
-            Path to SWC file
-        attrs : dict or None
-            Arbitrary attributes to include in the TreeNeuron
+        fpath :     str | os.PathLike
+                    Path to SWC file.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
 
         Returns
         -------
@@ -227,10 +227,10 @@ class SwcReader:
 
         Parameters
         ----------
-        fpath : str | os.PathLike
-            Path to zip file
-        attrs : dict or None
-            Arbitrary attributes to include in the TreeNeuron
+        fpath :     str | os.PathLike
+                    Path to zip file.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
 
         Returns
         -------
@@ -250,13 +250,14 @@ class SwcReader:
 
         Parameters
         ----------
-        fpath : str | os.PathLike
-            Path to directory containing SWC files
-        include_subdirs : bool, optional
-            Whether to descend into subdirectories, default False
-        parallel : str | bool |
-        attrs : dict or None
-            Arbitrary attributes to include in the TreeNeurons of the NeuronList
+        fpath :             str | os.PathLike
+                            Path to directory containing SWC files.
+        include_subdirs :   bool, optional
+                            Whether to descend into subdirectories, default False.
+        parallel :          str | bool | "auto"
+        attrs :             dict or None
+                            Arbitrary attributes to include in the TreeNeurons
+                            of the NeuronList
 
         Returns
         -------
@@ -275,9 +276,9 @@ class SwcReader:
         Parameters
         ----------
         url : str
-            URL to SWC file
-        attrs : dict or None
-            Arbitrary attributes to include in the TreeNeuron
+                    URL to SWC file.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
 
         Returns
         -------
@@ -297,10 +298,10 @@ class SwcReader:
 
         Parameters
         ----------
-        s : str
-            SWC string
-        attrs : dict or None
-            Arbitrary attributes to include in the TreeNeuron
+        s :         str
+                    SWC string.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
 
         Returns
         -------
@@ -319,9 +320,9 @@ class SwcReader:
 
         Parameters
         ----------
-        nodes : pandas.DataFrame
-        attrs : dict or None
-            Arbitrary attributes to include in the TreeNeuron
+        nodes :     pandas.DataFrame
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
 
         Returns
         -------
@@ -342,11 +343,11 @@ class SwcReader:
 
         Parameters
         ----------
-        obj : typing.IO | pandas.DataFrame | str | os.PathLike
-            Readable buffer, dataframe, path or URL to single file,
-            or SWC string
-        attrs : dict or None
-            Arbitrary attributes to include in the TreeNeuron
+        obj :       typing.IO | pandas.DataFrame | str | os.PathLike
+                    Readable buffer, dataframe, path or URL to single file,
+                    or SWC string.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
 
         Returns
         -------
@@ -442,8 +443,9 @@ class SwcReader:
 
         Parameters
         ----------
-        obj : typing.IO | str | os.PathLike | pandas.DataFrame
-            Buffer, path to file or directory, URL, SWC string, or dataframe.
+        obj :       typing.IO | str | os.PathLike | pandas.DataFrame
+                    Buffer, path to file or directory, URL, SWC string, or
+                    dataframe.
 
         Returns
         -------
@@ -475,12 +477,12 @@ class SwcReader:
 
         Parameters
         ----------
-        nodes : pd.DataFrame
+        nodes :     pd.DataFrame
 
         Returns
         -------
         Optional[pd.DataFrame]
-            With columns ``["node_id", "x", "y", "z", "connector_id", "type"]``
+                    With columns ``["node_id", "x", "y", "z", "connector_id", "type"]``
         """
         if not self.connector_labels:
             return None
@@ -507,14 +509,16 @@ def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
 
     Parameters
     ----------
-    read_fn : Callable
-    objs : Iterable
-    parallel : str | bool | int
-        "auto" or True for n_cores - 2, otherwise int for number of jobs, or falsey for serial.
+    read_fn :       Callable
+    objs :          Iterable
+    parallel :      str | bool | int
+                    "auto" or True for n_cores - 2, otherwise int for number of
+                    jobs, or false for serial.
 
     Returns
     -------
     core.NeuronList
+
     """
     try:
         length = len(objs)
@@ -552,14 +556,16 @@ def parallel_read_zip(read_fn, fpath, parallel="auto") -> List['core.NeuronList'
 
     Parameters
     ----------
-    read_fn : Callable
-    fpath : str | Path
-    parallel : str | bool | int
-        "auto" or True for n_cores - 2, otherwise int for number of jobs, or falsey for serial.
+    read_fn :       Callable
+    fpath :         str | Path
+    parallel :      str | bool | int
+                    "auto" or True for n_cores - 2, otherwise int for number of
+                    jobs, or false for serial.
 
     Returns
     -------
     core.NeuronList
+
     """
     # Check zip content
     p = Path(fpath)
@@ -576,6 +582,13 @@ def parallel_read_zip(read_fn, fpath, parallel="auto") -> List['core.NeuronList'
         disable=config.pbar_hide,
         leave=config.pbar_leave
     )
+
+    if (
+        isinstance(parallel, str)
+        and parallel.lower() == 'auto'
+        and len(swcs) < 200
+    ):
+        parallel = False
 
     if parallel:
         # Do not swap this as ``isinstance(True, int)`` returns ``True``
@@ -623,8 +636,7 @@ def parse_precision(precision: Optional[int]):
 
 
 def sanitise_nodes(nodes: pd.DataFrame) -> pd.DataFrame:
-    """
-    Check that nodes dataframe is non-empty and is not missing any data.
+    """Check that nodes dataframe is non-empty and is not missing any data.
 
     Parameters
     ----------
@@ -843,13 +855,16 @@ def write_swc(x: 'core.NeuronObject',
         x = core.NeuronList(x)
 
         with ZipFile(filepath, mode='w') as zf:
+            # Context-manager will remove temporary directory and its contents
             with tempfile.TemporaryDirectory() as tempdir:
                 for n in config.tqdm(x, disable=config.pbar_hide,
                                      leave=config.pbar_leave, total=len(x),
                                      desc='Saving'):
                     # Save to temporary file
                     try:
+                        # Generate temporary filename
                         f = os.path.join(tempdir, pattern.format(neuron=n))
+                        # Write to temporary file
                         write_swc(n, filepath=f, labels=labels, header=header,
                                   export_connectors=export_connectors)
                         # Add file to zip
@@ -858,6 +873,8 @@ def write_swc(x: 'core.NeuronObject',
                     except BaseException:
                         raise
                     finally:
+                        # Remove temporary file - we do this inside the loop
+                        # to avoid unnecessarily occupying space as we write
                         os.remove(f)
         return
     elif isinstance(x, core.NeuronList):
@@ -886,6 +903,7 @@ def write_swc(x: 'core.NeuronObject',
                       export_connectors=export_connectors)
         return
 
+    # From here we are dealing with writing a single TreeNeuron to a file
     if not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
@@ -895,6 +913,7 @@ def write_swc(x: 'core.NeuronObject',
     except TypeError:
         raise ValueError(f'`filepath` must be str or pathlib.Path, got "{type(filepath)}"')
 
+    # Format filename (e.g. "{neuron.name}.swc")
     formatted_str = as_str.format(neuron=x)
 
     # if it was formatted, make sure it's a SWC file
