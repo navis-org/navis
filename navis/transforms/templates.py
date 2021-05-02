@@ -1095,12 +1095,27 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                    mirror_axis=mirror_axis,
                                    warp=warp)
         elif isinstance(x, core.Dotprops):
+            if isinstance(x.k, type(None)) or x.k <= 0:
+                # If no k, we need to mirror vectors too
+                hp = mirror_brain(x.points + x.vect,
+                                  template=template,
+                                  mirror_axis=mirror_axis,
+                                  warp=warp)
+
             x.points = mirror_brain(x.points,
                                     template=template,
                                     mirror_axis=mirror_axis,
                                     warp=warp)
-            # Set tangent vectors and alpha to None so they will be regenerated
-            x._vect = x._alpha = None
+
+            if isinstance(x.k, type(None)) or x.k <= 0:
+                # Re-generate vectors
+                vect = x.points - hp
+                vect = vect / np.linalg.norm(vect, axis=1).reshape(-1, 1)
+                x._vect = vect
+            else:
+                # Set tangent vectors and alpha to None so they will be
+                # regenerated on demand
+                x._vect = x._alpha = None
         elif isinstance(x, core.MeshNeuron):
             x.vertices = mirror_brain(x.vertices,
                                       template=template,
