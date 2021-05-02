@@ -26,6 +26,7 @@ from functools import partial
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
+from typing_extensions import Literal
 from zipfile import ZipFile
 
 from .. import config, utils, core
@@ -183,18 +184,23 @@ class SwcReader:
     def read_from_zip(
         self, files: Union[str, List[str]],
         zippath: os.PathLike,
-        attrs: Optional[Dict[str, Any]] = None
+        attrs: Optional[Dict[str, Any]] = None,
+        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
     ) -> 'core.NeuronList':
-        """Read SWC files from a zip into a NeuronList.
+        """Read given SWC files from a zip into a NeuronList.
+
+        Typically not used directly but via `read_zip()` dispatcher.
 
         Parameters
         ----------
-        files :     str | list thereof
+        files :     zipfile.ZipInfo | list thereof
                     SWC files inside the ZIP file to read.
         zippath :   str | os.PathLike
                     Path to zip file.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
+        on_error :  'ignore' | 'raise'
+                    What do do when error is encountered.
 
         Returns
         -------
@@ -208,12 +214,18 @@ class SwcReader:
         with ZipFile(p, 'r') as zip:
             for file in files:
                 try:
+                    # This turns filename 'zip_file/filename_in_archive.swc' into
+                    # 'filename_in_archive'
+                    name = file.filename[file.filename.index('/') + 1:-4]
                     n = self.read_string(zip.read(file).decode(),
-                                         merge_dicts({"name": file.filename[:-4],
+                                         merge_dicts({"name": name,
                                                       "origin": str(p)}, attrs))
                     neurons.append(n)
                 except BaseException:
-                    logger.warning(f'Failed to read "{file.filename}" from zip.')
+                    if on_error == 'ignore':
+                        logger.warning(f'Failed to read "{file.filename}" from zip.')
+                    else:
+                        raise
 
         return core.NeuronList(neurons)
 
@@ -221,9 +233,12 @@ class SwcReader:
         self, fpath: os.PathLike,
         parallel="auto",
         swc=None,
-        attrs: Optional[Dict[str, Any]] = None
+        attrs: Optional[Dict[str, Any]] = None,
+        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
     ) -> 'core.NeuronList':
         """Read SWC files from a zip into a NeuronList.
+
+        This is a dispatcher for `.read_from_zip`.
 
         Parameters
         ----------
@@ -231,12 +246,16 @@ class SwcReader:
                     Path to zip file.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
+        on_error :  'ignore' | 'raise'
+                    What do do when error is encountered.
 
         Returns
         -------
         core.NeuronList
         """
-        read_fn = partial(self.read_from_zip, zippath=fpath, attrs=attrs)
+        read_fn = partial(self.read_from_zip,
+                          zippath=fpath, attrs=attrs,
+                          on_error=on_error)
         neurons = parallel_read_zip(read_fn, fpath, parallel)
         return core.NeuronList(neurons)
 
@@ -950,6 +969,7 @@ def write_swc(x: 'core.NeuronObject',
         # SWC format file
         # based on specifications at http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html
         # Created on {datetime.date.today()} using navis (https://github.com/schlegelp/navis)
+        # Units: {str(x.units)}
         # PointNo Label X Y Z Radius Parent
         # Labels:
         # 0 = undefined, 1 = soma, 5 = fork point, 6 = end point
