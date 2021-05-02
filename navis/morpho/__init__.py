@@ -17,7 +17,7 @@ from .manipulation import (prune_by_strahler, stitch_neurons,
                            split_axon_dendrite, average_neurons,
                            despike_neuron, guess_radius, smooth_neuron,
                            heal_fragmented_neuron, break_fragments,
-                           prune_twigs, prune_at_depth)
+                           prune_twigs, prune_at_depth, cell_body_fiber)
 from .analyze import find_soma
 
 __all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
@@ -25,4 +25,4 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
            'prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
            'average_neurons', 'despike_neuron', 'guess_radius', 'smooth_neuron',
            'heal_fragmented_neuron', 'break_fragments', 'prune_twigs',
-           'find_soma', 'prune_at_depth']
+           'find_soma', 'prune_at_depth', 'cell_body_fiber']

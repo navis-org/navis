@@ -32,10 +32,75 @@ logger = config.logger
 
 __all__ = sorted(['prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
                   'average_neurons', 'despike_neuron', 'guess_radius',
-                  'smooth_neuron', 'heal_fragmented_neuron',
+                  'smooth_neuron', 'heal_fragmented_neuron', 'cell_body_fiber',
                   'break_fragments', 'prune_twigs', 'prune_at_depth'])
 
 NeuronObject = Union['core.NeuronList', 'core.TreeNeuron']
+
+
+@utils.map_neuronlist(desc='Pruning')
+def cell_body_fiber(x, reroot_soma=True, inplace=False):
+    """Prune neuron to its cell body fiber.
+
+    This works by finding the main branch point from the root (soma if
+    available). If neuron has no branches (i.e. is one long segment), it will
+    be returned unaltered.
+
+    Parameters
+    ----------
+    x :             TreeNeuron | NeuronList
+    reroot_soma :   bool, optional
+                    If True and neuron has a soma, neuron will be rerooted to
+                    its soma.
+    inplace :       bool, optional
+                    If False, pruning is performed on copy of original neuron
+                    which is then returned.
+
+    Returns
+    -------
+    TreeNeuron/List
+                    Pruned neuron(s).
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> cbf = navis.cell_body_fiber(n, inplace=False)
+    >>> # Neuron now has only a single segment from the soma to the main fork
+    >>> len(cbf.segments)
+    1
+
+    """
+    # The decorator makes sure that at this point we have single neurons
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
+
+    if not inplace:
+        x = x.copy()
+
+    # If no branches, just return the neuron
+    if 'branch' not in x.nodes.type.values:
+        return x
+
+    if reroot_soma and not isinstance(x.soma, type(None)):
+        x.reroot(x.soma, inplace=True)
+
+    # Find main branch point
+    mbp = graph.find_main_branchpoint(x, reroot_soma=False)
+
+    # Find the path to root (and account for multiple roots)
+    for r in x.root:
+        try:
+            path = nx.shortest_path(x.graph, target=r, source=mbp)
+            break
+        except nx.NetworkXNoPath:
+            continue
+        except BaseException:
+            raise
+
+    _ = graph.subset_neuron(x, path, inplace=True)
+
+    return x
 
 
 @overload

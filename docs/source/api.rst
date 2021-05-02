@@ -90,6 +90,7 @@ simply short-hands for the other navis functions:
     :toctree: generated/
 
     ~navis.TreeNeuron.convert_units
+    ~navis.TreeNeuron.cell_body_fiber
     ~navis.TreeNeuron.downsample
     ~navis.TreeNeuron.get_graph_nx
     ~navis.TreeNeuron.get_igraph
@@ -268,6 +269,7 @@ Functions to edit morphology:
     navis.average_neurons
     navis.break_fragments
     navis.despike_neuron
+    navais.cell_body_fiber
     navis.cut_neuron
     navis.guess_radius
     navis.heal_fragmented_neuron
