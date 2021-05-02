@@ -829,6 +829,10 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     # Find second longst path
     sc_longest = nx.dag_longest_path(g, weight='weight')
 
+    # If no second longest path
+    if not sc_longest:
+        raise ValueError('Neuron has no branch points.')
+
     # Parent of the last node in sc_longest is the common branch point
     bp = list(x.graph.successors(sc_longest[-1]))[0]
 
