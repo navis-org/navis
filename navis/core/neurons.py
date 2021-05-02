@@ -1380,7 +1380,7 @@ class TreeNeuron(BaseNeuron):
             # Return immmediately without expensive checks
             return soma
         elif utils.is_iterable(soma):
-            if not any(soma):
+            if all(pd.isnull(soma)):
                 soma = None
             elif not any(self.nodes.node_id.isin(soma)):
                 logger.warning(f'Soma(s) {soma} not found in node table.')
