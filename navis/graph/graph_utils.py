@@ -83,8 +83,8 @@ def _generate_segments(x: 'core.NeuronObject',
                             weight=weight,
                             tn_ids=x.nodes[x.nodes.type == 'end'].node_id.values)
 
-        # Sort by distance to root
-        endNodeIDs = m.sort_values(x.root[0],
+        # Sort by distance to the root(s)
+        endNodeIDs = m.sort_values(x.root.tolist(),
                                    inplace=False,
                                    ascending=False).index.values
     elif not weight:
