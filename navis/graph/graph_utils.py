@@ -842,7 +842,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
 def split_into_fragments(x: 'core.NeuronObject',
                          n: int = 2,
                          min_size: Optional[Union[float, str]] = None,
-                         reroot_to_soma: bool = False) -> 'core.NeuronList':
+                         reroot_soma: bool = False) -> 'core.NeuronList':
     """Split neuron into fragments.
 
     Cuts are based on longest neurites: the first cut is made where the second
@@ -978,7 +978,7 @@ def longest_neurite(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 TreeNeuron | MeshNeuron | NeuronList
                         Neuron(s) to prune.
     n :                 int | slice, optional
                         Number of longest neurites to preserve. For example:
