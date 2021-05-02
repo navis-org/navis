@@ -1929,6 +1929,41 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
+    def cell_body_fiber(self,
+                        reroot_soma: bool = True,
+                        inplace: bool = False,
+                                 ) -> Optional['TreeNeuron']:
+        """Prune neuron to its cell body fiber.
+
+        Parameters
+        ----------
+        reroot_soma :       bool, optional
+                            If True, will reroot to soma.
+        inplace :           bool, optional
+                            If True, operation will be performed on itself.
+                            If False, operation is performed on copy which is
+                            then returned.
+
+        See Also
+        --------
+        :func:`~navis.cell_body_fiber`
+            This is the base function. See for details and examples.
+
+        """
+        if inplace:
+            x = self
+        else:
+            x = self.copy()
+
+        morpho.cell_body_fiber(x, inplace=True, reroot_soma=reroot_soma)
+
+        # Clear temporary attributes
+        x._clear_temp_attr()
+
+        if not inplace:
+            return x
+        return None
+
     def prune_by_longest_neurite(self,
                                  n: int = 1,
                                  reroot_soma: bool = False,
