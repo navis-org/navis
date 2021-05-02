@@ -74,5 +74,4 @@ def simplify_mesh_open3d(x, F, method='quadric', inplace=False, **kwargs):
     x.vertices = np.asarray(simple.vertices)
     x.faces = np.asarray(simple.triangles)
 
-    if not inplace:
-        return x
+    return x

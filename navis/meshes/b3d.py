@@ -85,8 +85,7 @@ def simplify_mesh_blender(x, F, inplace=False):
     x.vertices = result.vertices
     x.faces = result.faces
 
-    if not inplace:
-        return x
+    return x
 
 
 # find the current absolute path to this directory

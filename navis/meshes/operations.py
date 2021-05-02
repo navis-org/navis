@@ -55,7 +55,7 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
     Parameters
     ----------
     x :         navis.MeshNeuron/List | navis.Volume | trimesh.Trimesh
-                Mesh to simplify.
+                Mesh(es) to simplify.
     F :         float | int
                 Determines how much the mesh is simplified:
                 Floats (0-1) are interpreted as ratio. For example, an F of
@@ -113,10 +113,8 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
                                   desc='Simplifying',
                                   leave=config.pbar_leave,
                                   disable=len(x) == 1 or config.pbar_hide)]
+        return x
 
-        if not inplace:
-            return x
-        return
 
     if not inplace:
         x = x.copy()
@@ -137,5 +135,4 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
             F = F / len(x.faces)
         _ = simplify_mesh_pyml(x, F=F, inplace=True, **kwargs)
 
-    if not inplace:
-        return x
+    return x
