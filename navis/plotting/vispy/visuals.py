@@ -380,7 +380,7 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
 
         # Extract and plot soma
         soma = utils.make_iterable(neuron.soma)
-        if kwargs.get('soma', True) and any(soma):
+        if kwargs.get('soma', True):
             # If soma detection is messed up we might end up producing
             # hundrets of soma which will freeze the session
             if len(soma) >= 10:
@@ -389,6 +389,10 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
                                'them for plotting.')
             else:
                 for s in soma:
+                    # Skip `None` somas
+                    if isinstance(s, type(None)):
+                        continue
+
                     # If we have colors for every vertex, we need to find the
                     # color that corresponds to this root (or it's parent to be
                     # precise)

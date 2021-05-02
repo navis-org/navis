@@ -765,14 +765,16 @@ def dist_between(x: 'core.NeuronObject',
 
 
 def find_main_branchpoint(x: 'core.NeuronObject',
-                          reroot_to_soma: bool = False) -> Union[int, List[int]]:
+                          reroot_soma: bool = False) -> Union[int, List[int]]:
     """Return the branch point at which the two largest branches converge.
+
+    Note that this might produce garbage if the neuron is fragmented.
 
     Parameters
     ----------
     x :                 TreeNeuron | NeuronList
                         May contain multiple neurons.
-    reroot_to_soma :    bool, optional
+    reroot_soma :       bool, optional
                         If True, neuron will be rerooted to soma.
 
     Returns
@@ -784,7 +786,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> navis.find_main_branchpoint(n, reroot_to_soma=True)
+    >>> navis.find_main_branchpoint(n, reroot_soma=True)
     110
     >>> # Cut neuron into axon, dendrites and primary neurite tract:
     >>> # for this we need to cut twice - once at the main branch point
@@ -799,15 +801,12 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     2  TreeNeuron     3656             0          63       66  648285.745750    None
 
     """
-    # Make a copy
-    x = x.copy()
-
     if isinstance(x, core.NeuronList):
         res = []
         for n in config.tqdm(x, desc='Searching',
                              disable=config.pbar_hide or len(x) == 1,
                              leave=config.pbar_leave):
-            res.append(find_main_branchpoint(n, reroot_to_soma=reroot_to_soma))
+            res.append(find_main_branchpoint(n, reroot_soma=reroot_soma))
         return np.array(res)
 
     if not isinstance(x, core.TreeNeuron):
@@ -815,6 +814,9 @@ def find_main_branchpoint(x: 'core.NeuronObject',
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
+
+    if reroot_soma and not isinstance(x.soma, type(None)):
+        x = x.reroot(x.soma, inplace=False)
 
     g = graph.neuron2nx(x)
 
@@ -856,7 +858,7 @@ def split_into_fragments(x: 'core.NeuronObject',
                         path in each fragment into account! If the neuron(s),
                         has its `.units` set, you can also pass this as a string
                         such as "10 microns".
-    reroot_to_soma :    bool, optional
+    reroot_soma :        bool, optional
                         If True, neuron will be rerooted to soma.
 
     Returns
@@ -891,7 +893,7 @@ def split_into_fragments(x: 'core.NeuronObject',
 
     min_size = x.map_units(min_size, on_error='raise')
 
-    if reroot_to_soma and x.soma:
+    if reroot_soma and not isinstance(x.soma, type(None)):
         x.reroot(x.soma, inplace=True)
 
     # Collect nodes of the n longest neurites
@@ -946,9 +948,9 @@ def split_into_fragments(x: 'core.NeuronObject',
 
 
 @overload
-def longest_neurite(x: 'core.TreeNeuron',
+def longest_neurite(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
                     n: int = 1,
-                    reroot_to_soma: bool = False,
+                    reroot_soma: bool = False,
                     inplace: bool = False) -> 'core.TreeNeuron':
     pass
 
@@ -956,7 +958,7 @@ def longest_neurite(x: 'core.TreeNeuron',
 @overload
 def longest_neurite(x: 'core.NeuronList',
                     n: int = 1,
-                    reroot_to_soma: bool = False,
+                    reroot_soma: bool = False,
                     inplace: bool = False) -> 'core.NeuronList':
     pass
 
@@ -964,7 +966,7 @@ def longest_neurite(x: 'core.NeuronList',
 @utils.map_neuronlist(desc='Pruning')
 def longest_neurite(x: 'core.NeuronObject',
                     n: int = 1,
-                    reroot_to_soma: bool = False,
+                    reroot_soma: bool = False,
                     inplace: bool = False) -> 'core.TreeNeuron':
     """Return a neuron consisting of only the longest neurite(s).
 
@@ -979,7 +981,7 @@ def longest_neurite(x: 'core.NeuronObject',
                          - ``n=1`` keeps the longest neurites
                          - ``n=2`` keeps the two longest neurites
                          - ``n=slice(1, None)`` removes the longest neurite
-    reroot_to_soma :    bool, optional
+    reroot_soma :       bool, optional
                         If True, neuron will be rerooted to soma.
     inplace :           bool, optional
                         If False, copy of the neuron will be trimmed down to
@@ -1000,11 +1002,11 @@ def longest_neurite(x: 'core.NeuronObject',
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> # Keep only the longest neurite
-    >>> ln1 = navis.longest_neurite(n, n=1, reroot_to_soma=True)
+    >>> ln1 = navis.longest_neurite(n, n=1, reroot_soma=True)
     >>> # Keep the two longest neurites
-    >>> ln2 = navis.longest_neurite(n, n=2, reroot_to_soma=True)
+    >>> ln2 = navis.longest_neurite(n, n=2, reroot_soma=True)
     >>> # Keep everything but the longest neurite
-    >>> ln3 = navis.longest_neurite(n, n=slice(1, None), reroot_to_soma=True)
+    >>> ln3 = navis.longest_neurite(n, n=slice(1, None), reroot_soma=True)
 
     """
     if not isinstance(x, core.TreeNeuron):
@@ -1019,7 +1021,7 @@ def longest_neurite(x: 'core.NeuronObject',
     if not inplace:
         x = x.copy()
 
-    if reroot_to_soma and x.soma:
+    if reroot_soma and not isinstance(x.soma, type(None)):
         x.reroot(x.soma, inplace=True)
 
     segments = _generate_segments(x, weight='weight')

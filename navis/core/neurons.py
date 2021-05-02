@@ -1931,7 +1931,7 @@ class TreeNeuron(BaseNeuron):
 
     def prune_by_longest_neurite(self,
                                  n: int = 1,
-                                 reroot_to_soma: bool = False,
+                                 reroot_soma: bool = False,
                                  inplace: bool = False,
                                  ) -> Optional['TreeNeuron']:
         """Prune neuron down to the longest neurite.
@@ -1940,7 +1940,7 @@ class TreeNeuron(BaseNeuron):
         ----------
         n :                 int, optional
                             Number of longest neurites to preserve.
-        reroot_to_soma :    bool, optional
+        reroot_soma :       bool, optional
                             If True, will reroot to soma before pruning.
         inplace :           bool, optional
                             If True, operation will be performed on itself.
@@ -1959,7 +1959,7 @@ class TreeNeuron(BaseNeuron):
             x = self.copy()
 
         graph.longest_neurite(
-            x, n, inplace=True, reroot_to_soma=reroot_to_soma)
+            x, n, inplace=True, reroot_soma=reroot_soma)
 
         # Clear temporary attributes
         x._clear_temp_attr()

@@ -301,15 +301,19 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
 
     # Add soma(s):
     soma = utils.make_iterable(neuron.soma)
-    if kwargs.get('soma', True) and any(soma):
+    if kwargs.get('soma', True):
         # If soma detection is messed up we might end up producing
         # hundrets of soma which will freeze the session
         if len(soma) >= 10:
-            logger.warning(f'Neuron {neuron.id} appears to have {len(soma)}'
+            logger.warning(f'Neuron {neuron.id} appears to have {len(soma)} '
                            'somas. That does not look right - will ignore '
                            'them for plotting.')
         else:
             for s in soma:
+                # Skip `None` somas
+                if isinstance(s, type(None)):
+                    continue
+
                 # If we have colors for every vertex, we need to find the
                 # color that corresponds to this root (or it's parent to be
                 # precise)
