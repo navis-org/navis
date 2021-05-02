@@ -891,6 +891,11 @@ class MeshNeuron(BaseNeuron):
         self._clear_temp_attr()
 
     @property
+    def sampling_resolution(self) -> float:
+        """Average distance vertices. """
+        return float(self.trimesh.edges_unique_length.mean())
+
+    @property
     def type(self) -> str:
         """Neuron type."""
         return 'navis.MeshNeuron'
