@@ -214,11 +214,8 @@ class SwcReader:
         with ZipFile(p, 'r') as zip:
             for file in files:
                 try:
-                    # This turns filename 'zip_file/filename_in_archive.swc' into
-                    # 'filename_in_archive'
-                    name = file.filename[file.filename.index('/') + 1:-4]
                     n = self.read_string(zip.read(file).decode(),
-                                         merge_dicts({"name": name,
+                                         merge_dicts({"name": file.filename,
                                                       "origin": str(p)}, attrs))
                     neurons.append(n)
                 except BaseException:
