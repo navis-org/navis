@@ -838,7 +838,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
 
     # This makes sure we get the same data type as in the node table
     # -> Network X seems to sometimes convert integers to floats
-    return x.nodes.node_id.dtype(bp)
+    return x.nodes.node_id.dtype.type(bp)
 
 
 def split_into_fragments(x: 'core.NeuronObject',
