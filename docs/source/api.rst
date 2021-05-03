@@ -125,6 +125,7 @@ In addition ``TreeNeurons`` have a range of different properties:
     ~navis.TreeNeuron.sampling_resolution
     ~navis.TreeNeuron.segments
     ~navis.TreeNeuron.simple
+    ~navis.TreeNeuron.soma_pos
     ~navis.TreeNeuron.subtrees
     ~navis.TreeNeuron.volume
 

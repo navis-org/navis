@@ -961,6 +961,7 @@ class TreeNeuron(BaseNeuron):
     root: np.ndarray
 
     soma: Optional[Union[int, str]]
+    soma_pos: Optional[Sequence]
 
     #: Minimum radius for soma detection. Set to ``None`` if no tag needed.
     #: Default = 1 micron
@@ -1404,6 +1405,47 @@ class TreeNeuron(BaseNeuron):
                 self._soma = value
             else:
                 raise ValueError('Soma must be function, None or a valid node ID.')
+
+    @property
+    def soma_pos(self) -> Optional[Sequence]:
+        """Search for soma and return its position.
+
+        Returns ``None`` if no soma. You can also use this to assign a soma by
+        position in which case it will snap to the closest node.
+        """
+        # Sanity check to make sure that the soma node actually exists
+        soma = self.soma
+        if isinstance(soma, type(None)):
+            return None
+        elif utils.is_iterable(soma):
+            if all(pd.isnull(soma)):
+                return None
+        else:
+            soma = utils.make_iterable(soma)
+
+        return self.nodes.loc[self.nodes.node_id.isin(soma), ['x', 'y', 'z']].values
+
+    @soma_pos.setter
+    def soma_pos(self, value: Sequence) -> None:
+        """Set soma by position."""
+        try:
+            value = np.asarray(value).astype(np.float64).reshape(3)
+        except BaseException:
+            raise ValueError(f'Unable to convert soma position "{value}" '
+                             f'to numeric (3, ) numpy array.')
+
+        # Generate tree
+        tree = graph.neuron2KDTree(self)
+
+        # Find the closest node
+        dist, ix = tree.query(value)
+
+        # A sanity check
+        if dist > (self.sampling_resolution * 10):
+            logger.warning('New soma position is suspiciously far away from '
+                           f'the closest node: {dist}')
+
+        self.soma = self.nodes.iloc[ix].node_id
 
     @property
     @requires_nodes
