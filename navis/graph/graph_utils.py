@@ -1121,6 +1121,9 @@ def reroot_neuron(x: 'core.NeuronObject',
         _ = reroot_neuron(x, new_root=new_roots, inplace=True)
         return x
 
+    # Keep track of node ID dtype
+    nodeid_dtype = x.nodes.node_id.dtype
+
     # Go over each new root
     for new_root in new_roots:
         # Skip if new root is old root
@@ -1228,6 +1231,10 @@ def reroot_neuron(x: 'core.NeuronObject',
 
         # Reset index
         x.nodes.reset_index(drop=False, inplace=True)
+
+    # Make sure node ID has the same datatype as before
+    if x.nodes.node_id.dtype != nodeid_dtype:
+        x.nodes['node_id'] = x.nodes.node_id.astype(nodeid_dtype, copy=False)
 
     # Finally: only reset non-graph related attributes
     if x.igraph and config.use_igraph:
