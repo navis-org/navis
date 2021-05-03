@@ -822,21 +822,23 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     if reroot_soma and not isinstance(x.soma, type(None)):
         x = x.reroot(x.soma, inplace=False)
 
-    g = graph.neuron2nx(x)
+    G = graph.neuron2nx(x)
 
     # First, find longest path
-    longest = nx.dag_longest_path(g, weight='weight')
+    longest = nx.dag_longest_path(G, weight='weight')
 
     # Remove longest path
-    g.remove_nodes_from(longest)
+    G.remove_nodes_from(longest)
 
     # Find second longst path
-    sc_longest = nx.dag_longest_path(g, weight='weight')
+    sc_longest = nx.dag_longest_path(G, weight='weight')
 
     # Parent of the last node in sc_longest is the common branch point
     bp = list(x.graph.successors(sc_longest[-1]))[0]
 
-    return bp
+    # This makes sure we get the same data type as in the node table
+    # -> Network X seems to sometimes convert integers to floats
+    return x.nodes.node_id.dtype(bp)
 
 
 def split_into_fragments(x: 'core.NeuronObject',
