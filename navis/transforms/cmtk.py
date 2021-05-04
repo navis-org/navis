@@ -244,8 +244,6 @@ class CMTKtransform(BaseTransform):
 
         if affine_only:
             args.append('--affine-only')
-        else:
-            args.append('--')
 
         if self.threads:
             args.append(f'--threads {int(self.threads)}')
@@ -259,8 +257,12 @@ class CMTKtransform(BaseTransform):
     def regargs(self) -> list:
         """Generate regargs."""
         regargs = []
-        for reg, dir in zip(self.regs, self.directions):
+        for i, (reg, dir) in enumerate(zip(self.regs, self.directions)):
             if dir == 'inverse':
+                # For the first transform we need to prefix "--inverse" with
+                # a solitary "--"
+                if i == 0:
+                    regargs.append('--')
                 regargs.append('--inverse')
             # Note no double quotes!
             regargs.append(f'{reg}')
@@ -432,6 +434,6 @@ class CMTKtransform(BaseTransform):
         if affine_fallback and not affine_only:
             not_xf = np.any(np.isnan(xf), axis=1)
             if np.any(not_xf):
-                xf[not_xf] = self.xform(points[not_xf], affine_only=True)
+                xf[not_xf] = self.xform(points.loc[not_xf], affine_only=True)
 
         return xf
