@@ -112,15 +112,33 @@ class TransformSequence:
 
     Use this to apply multiple (different types of) transforms in sequence.
 
+    Parameters
+    ----------
+    *transforms :   Transform/Sequences.
+                    The transforms to bundle in this sequence.
+    copy :          bool
+                    Whether to make a copy of the transform on initialization.
+                    This is highly recommended because otherwise we might alter
+                    the original as we add more transforms (e.g. for CMTK
+                    transforms).
+
     """
 
-    def __init__(self, *args):
+    def __init__(self, *transforms, copy=True):
         """Initialize."""
         self.transforms = []
-        for tr in args:
+        for tr in transforms:
             if not isinstance(tr, (BaseTransform, TransformSequence)):
                 raise TypeError(f'Expected transform, got "{type(tr)}"')
+            if copy:
+                tr = tr.copy()
             self.append(tr)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return f'TransformSequence with {len(self)} transform(s)'
 
     def __len__(self) -> int:
         """Count number of transforms in this sequence."""
@@ -164,7 +182,10 @@ class TransformSequence:
             tr.check_if_possible(on_error='raise')
 
         # Now transform points in sequence
-        xf = np.asarray(points).copy()  # copy is important here!
+        # Make a copy of the points to avoid changing the originals
+        # Note dtype float64 in case our precision in case precisio must go up
+        # -> e.g. when converting from nm to micron space
+        xf = np.asarray(points).astype(np.float64)
         for tr in self.transforms:
             # Check this transforms signature for accepted Parameters
             params = signature(tr.xform).parameters
