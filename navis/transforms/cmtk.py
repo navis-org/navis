@@ -185,7 +185,7 @@ class CMTKtransform(BaseTransform):
             raise ValueError('Must provide one direction per regs')
 
     def __eq__(self, other: 'CMTKtransform') -> bool:
-        """Implements equality comparison."""
+        """Implement equality comparison."""
         if isinstance(other, CMTKtransform):
             if len(self) == len(other):
                 if all([self.regs[i] == other.regs[i] for i in range(len(self))]):
@@ -409,13 +409,16 @@ class CMTKtransform(BaseTransform):
 
         # Pipe in the points
         points_str = points[['x', 'y', 'z']].to_string(index=False,
-                                                       header=False,)
+                                                       header=False)
 
         # Do not use proc.stdin.write to avoid output buffer becoming full
         # before we finish piping in stdin.
         #proc.stdin.write(points_str.encode())
+        #output = proc.communicate()
 
         # Read out results
+        # This is equivalent to e.g.:
+        # $ streamxform -args <<< "10, 10, 10"
         output = proc.communicate(input=points_str.encode())
 
         # If no output, something went wrong
@@ -429,6 +432,6 @@ class CMTKtransform(BaseTransform):
         if affine_fallback and not affine_only:
             not_xf = np.any(np.isnan(xf), axis=1)
             if np.any(not_xf):
-                xf[not_xf] = self.xform(xf[not_xf], affine_only=True)
+                xf[not_xf] = self.xform(points[not_xf], affine_only=True)
 
         return xf
