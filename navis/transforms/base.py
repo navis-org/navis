@@ -173,7 +173,7 @@ class TransformSequence:
                 self.transforms.append(tr)
 
     def xform(self, points: np.ndarray,
-              affine_fallback: bool = False,
+              affine_fallback: bool = True,
               **kwargs) -> np.ndarray:
         """Perform transforms in sequence."""
         # First check if any of the transforms raise any issues ahead of time
@@ -190,12 +190,17 @@ class TransformSequence:
             # Check this transforms signature for accepted Parameters
             params = signature(tr.xform).parameters
 
-            # We must not pass None value from one transform to the next
+            # We must not pass NaN value from one transform to the next
             is_nan = np.any(np.isnan(xf), axis=1)
 
-            if affine_fallback and 'affine_fallback' in params:
+            # Skip if all points are NaN
+            if all(is_nan):
+                continue
+
+            if 'affine_fallback' in params:
                 xf[~is_nan] = tr.xform(xf[~is_nan],
-                                       affine_fallback=True, **kwargs)
+                                       affine_fallback=affine_fallback,
+                                       **kwargs)
             else:
                 xf[~is_nan] = tr.xform(xf[~is_nan], **kwargs)
 

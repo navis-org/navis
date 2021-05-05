@@ -247,17 +247,25 @@ class H5transform(BaseTransform):
         """
         return H5transform(str(filepath), **kwargs)
 
-    def xform(self, points: np.ndarray, force_deform: bool = True) -> np.ndarray:
+    def xform(self,
+              points: np.ndarray,
+              affine_fallback: bool = True,
+              force_deform: bool = True) -> np.ndarray:
         """Xform data.
 
         Parameters
         ----------
-        points :        (N, 3) numpy array | pandas.DataFrame
-                        Points to xform. DataFrame must have x/y/z columns.
-        force_deform :  bool
-                        If True, points outside the deformation field be
-                        deformed using the closest point inside the deformation
-                        field.
+        points :            (N, 3) numpy array | pandas.DataFrame
+                            Points to xform. DataFrame must have x/y/z columns.
+        affine_fallback :   bool
+                            If False, points outside the deformation field will
+                            be returned as `np.nan`. If True, these points will
+                            only receive the affine part of the transformation.
+        force_deform :      bools
+                            If True, points outside the deformation field be
+                            deformed using the closest point inside the
+                            deformation field. Ignored if ``affine_fallback`` is
+                            ``False``.
 
         Returns
         -------
@@ -309,8 +317,11 @@ class H5transform(BaseTransform):
             mx = xf_indices.max(axis=0) + 2
 
             # Make sure we are within bounds
+            # Note that we clip `mn` at 0 and `mx` at 2 at the lower end?
+            # This is to make sure we have enough of the deformation field
+            # to interpolate later on `offsets`
             mn = np.clip(mn, 0, self.shape[:-1][::-1])
-            mx = np.clip(mx, 0, self.shape[:-1][::-1])
+            mx = np.clip(mx, 2, self.shape[:-1][::-1])
 
             # Check if we can use cached values
             if self.use_cache and (hasattr(self, '_fully_ingested')
@@ -365,7 +376,7 @@ class H5transform(BaseTransform):
                            'space/units')
 
         # If all points are outside the volume, the interpolation complains
-        if frac_out < 1 or force_deform:
+        if frac_out < 1 or (force_deform and affine_fallback):
             if force_deform:
                 # For the purpose of finding offsets, we will snap points
                 # outside the deformation field to the closest inside voxel
@@ -394,6 +405,10 @@ class H5transform(BaseTransform):
         # For inverse direction, the affine part is applied second
         if self.direction == 'forward' and affine:
             xf = affine.xform(xf)
+
+        # If no affine_fallback, set outside points to np.nan
+        if not affine_fallback:
+            xf[is_out, :] = np.nan
 
         return xf
 
