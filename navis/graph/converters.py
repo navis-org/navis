@@ -36,6 +36,9 @@ __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
 def neuron2tangents(x: 'core.NeuronObject') -> 'core.Dotprops':
     """Turn TreeNeuron into an tangent vectors.
 
+    This will drop zero-length vectors (i.e when node and parent occupy the
+    exact same position).
+
     Parameters
     ----------
     x :         TreeNeuron | NeuronList
@@ -75,6 +78,11 @@ def neuron2tangents(x: 'core.NeuronObject') -> 'core.Dotprops':
 
     # Get length
     length = np.sqrt(np.sum(vect ** 2, axis=1))
+
+    # Drop zero length points
+    points = points[length != 0]
+    vect = vect[length != 0]
+    length = length[length != 0]
 
     # Normalize vector
     vect = vect / np.linalg.norm(vect, axis=1).reshape(-1, 1)
