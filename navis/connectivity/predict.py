@@ -80,15 +80,15 @@ def cable_overlap(a: NeuronObject,
     --------
     >>> import navis
     >>> nl = navis.example_neurons(4)
-    >>> # Resample to 1 micron (example data is in 8x8x8nm units)
-    >>> nl_res = nl.resample(1000/8, inplace=False)
+    >>> # Resample to 1 micron
+    >>> nl_res = nl.resample('1 micron', inplace=False)
     >>> # Get overlapping cable within 2 microns
-    >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist=2000/8)
+    >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
 
     """
     if not isinstance(a, (TreeNeuron, NeuronList)) \
        or not isinstance(b, (TreeNeuron, NeuronList)):
-        raise TypeError('Need to pass CatmaidNeurons')
+        raise TypeError('Need to pass TreeNeurons')
 
     if not isinstance(a, NeuronList):
         a = NeuronList(a)
