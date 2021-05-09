@@ -13,13 +13,14 @@
 
 import inspect
 import math
+import os
 import requests
 import urllib
+
 
 import numpy as np
 import pandas as pd
 
-from collections import defaultdict
 from functools import wraps
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
 
@@ -90,60 +91,62 @@ def make_volume(x: Any) -> 'core.Volume':
 def map_neuronlist(desc: str = "",
                    can_zip: List[Union[str, int]] = [],
                    must_zip: List[Union[str, int]] = [],
-                   progress: bool = True):
+                   allow_parallel: bool = False):
     """Run function on all neurons in the NeuronList.
 
     Parameters
     ----------
-    desc :          str
-                    Descriptor to show in the progress bar if run over multiple
-                    neurons.
+    desc :           str
+                     Descriptor to show in the progress bar if run over multiple
+                     neurons.
     can_zip/
-    must_zip :      list
-                    Names of keyword arguments that need to be zipped together
-                    with the neurons in the neuronlist. For example:
+    must_zip :       list
+                     Names of keyword arguments that need to be zipped together
+                     with the neurons in the neuronlist. For example:
 
-                      some_function(NeuronList([n1, n2, n3]), [p1, p2, p3])
+                       some_function(NeuronList([n1, n2, n3]), [p1, p2, p3])
 
-                    Should be executed as:
+                     Should be executed as:
 
-                      some_function(n1, p1)
-                      some_function(n2, p2)
-                      some_function(n3, p3)
+                       some_function(n1, p1)
+                       some_function(n2, p2)
+                       some_function(n3, p3)
 
-                    `can_zip` will be zipped only if the length matches the
-                    length of the neuronlist. If a `can_zip` argument has only
-                    one value it will be re-used for all neurons.
+                     `can_zip` will be zipped only if the length matches the
+                     length of the neuronlist. If a `can_zip` argument has only
+                     one value it will be re-used for all neurons.
 
-                    `must_zip` arguments have to have one value for each of the
-                    neurons.
+                     `must_zip` arguments have to have one value for each of the
+                     neurons.
 
-                    Single ``None`` values are always just passed through.
+                     Single ``None`` values are always just passed through.
 
-                    Note that for this to consistently work the parameters in
-                    question have to be keyword-only (*).
-    progress :      bool
-                    Whether to show a progress bar or not. Overrruled by
-                    ``config.pbar_hide``.
-
-    To-implement
-    ------------
-
+                     Note that for this to consistently work the parameters in
+                     question have to be keyword-only (*).
     allow_parallel : bool
-                    If True and the function is called with `parallel=True`,
-                    will use multiple cores to process the neuronlist.
+                     If True and the function is called with `parallel=True`,
+                     will use multiple cores to process the neuronlist. Number
+                     of cores a can be set using `n_cores` keyword argument.
 
     """
     # TODO:
     # - make can_zip/must_zip work with positional-only argumens to, i.e. let
     #   it work with integers instead of strings
-    # - in theory, we could also implement parallel processing here
-
     def decorator(function):
         @wraps(function)
         def wrapper(*args, **kwargs):
             # Get the function's signature
             sig = inspect.signature(function)
+
+            try:
+                fnname = function.__name__
+            except BaseException:
+                fnname = str(function)
+
+            parallel = kwargs.pop('parallel', False)
+            if parallel and not allow_parallel:
+                raise ValueError(f'Function {fnname} does not allow parallel '
+                                 'processing.')
 
             # First, we need to extract the neuronlist
             if args:
@@ -160,7 +163,7 @@ def map_neuronlist(desc: str = "",
             # Complain if we did not get what we expected
             if isinstance(nl, type(None)):
                 raise ValueError('Unable to identify the neurons for call'
-                                 f'{function}:\n {args}\n {kwargs}')
+                                 f'{fnname}:\n {args}\n {kwargs}')
 
             # If we have a neuronlist
             if isinstance(nl, core.NeuronList):
@@ -171,66 +174,57 @@ def map_neuronlist(desc: str = "",
                 else:
                     _ = kwargs.pop(nl_key)
 
-                # See if function has inplace parameter
-                has_inplace = 'inplace' in sig.parameters
-                # If function has an inplace parameter
-                if has_inplace:
-                    # See if user has specified inplace, if not use the default
-                    inplace = kwargs.pop('inplace', sig.parameters['inplace'].default)
-                    # If not inplace make a copy (which will be returned)
-                    if not inplace:
-                        nl = nl.copy()
-
-                # Parse "can zip" arguments
-                can_zip_kwargs = [{} for n in nl]
+                # Check "can zip" arguments
                 for p in can_zip:
                     # Skip if not present or is None
                     if p not in kwargs or isinstance(kwargs[p], type(None)):
                         continue
 
                     if is_iterable(kwargs[p]):
-                        # If iterable but length does not match complain
+                        # If iterable but length does not match: complain
                         le = len(kwargs[p])
                         if le != len(nl):
                             raise ValueError(f'Got {le} values of `{p}` for '
                                              f'{len(nl)} neurons.')
 
-                        # Zip
-                        for i, v in enumerate(kwargs.pop(p)):
-                            can_zip_kwargs[i][p] = v
-
                 # Parse "must zip" arguments
-                must_zip_kwargs = [{} for n in nl]
                 for p in must_zip:
                     # Skip if not present or is None
                     if p not in kwargs or isinstance(kwargs[p], type(None)):
                         continue
 
-                    values = make_iterable(kwargs.pop(p))
+                    values = make_iterable(kwargs[p])
                     if len(values) != len(nl):
                         raise ValueError(f'Got {len(values)} values of `{p}` for '
                                          f'{len(nl)} neurons.')
 
-                    # Zip
-                    for i, v in enumerate(values):
-                        must_zip_kwargs[i][p] = v
-
-                # Whether we want to hide the progress bar
-                hide = config.pbar_hide or not progress or len(nl) == 1
-
-                # Whether we need to/can specify inplace=True
-                if has_inplace:
+                # If we use parallel processing it makes sense to modify neurons
+                # "inplace" since they will be copied into the child processes
+                # anyway and that way we can avoid making an additional copy
+                inplace = kwargs.get('inplace', sig.parameters.get('inplace', False))
+                if parallel and 'inplace' in sig.parameters:
                     kwargs['inplace'] = True
 
-                # Now run the function for each neuron
-                for i, n in config.tqdm(enumerate(nl),
-                                        desc=desc,
-                                        disable=hide,
-                                        total=len(nl),
-                                        leave=config.pbar_leave):
+                # Prepare processor
+                n_cores = kwargs.pop('n_cores', os.cpu_count() // 2)
+                chunksize = kwargs.pop('chunksize', 1)
+                proc = core.NeuronProcessor(nl, function,
+                                            parallel=parallel,
+                                            desc=desc,
+                                            warn_inplace=False,
+                                            progress=kwargs.pop('progress', True),
+                                            chunksize=chunksize,
+                                            n_cores=n_cores)
+                # Apply function
+                res = proc(*args, **kwargs)
 
-                    _ = function(n, *args, **kwargs,
-                                 **can_zip_kwargs[i], **must_zip_kwargs[i])
+                # When using parallel processing, the neurons will not actually
+                # have been modified inplace - in that case we will simply
+                # replace the neurons in `nl`
+                if inplace:
+                    nl.neurons = res.neurons
+                else:
+                    nl = res
 
                 return nl
             else:

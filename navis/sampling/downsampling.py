@@ -49,7 +49,7 @@ def downsample_neuron(x: 'core.NeuronList',
                       ) -> 'core.NeuronList': ...
 
 
-@utils.map_neuronlist(desc='Downsampling')
+@utils.map_neuronlist(desc='Downsampling', allow_parallel=True)
 def downsample_neuron(x: 'core.NeuronObject',
                       downsampling_factor: Union[int, float],
                       inplace: bool = False,

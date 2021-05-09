@@ -12,8 +12,6 @@
 #    GNU General Public License for more details.
 
 from concurrent.futures import ThreadPoolExecutor
-import functools
-import multiprocessing as mp
 import os
 import random
 import re
@@ -349,12 +347,16 @@ class NeuronList:
                     elif len(set([len(v) for v in values])) > 1:
                         dtype = object
                 return np.array(values, dtype=dtype)
+        # If everything is a method
         else:
             # To avoid confusion we will not allow calling of magic methods
             # via the NeuronProcessor as those are generally expected to
-            # be the NeuronList's
+            # be methods of the NeuronList itself
             if key.startswith('__') and key.endswith('__'):
                 raise AttributeError(f"'NeuronList' object has no attribute '{key}'")
+
+            # Delayed import to avoid circular import
+            from .core_utils import NeuronProcessor
 
             # Return function but wrap it in a function that will show
             # a progress bar. Note that we do not use parallel processing by
@@ -497,10 +499,10 @@ class NeuronList:
         """Implement substraction."""
         if isinstance(to_sub, core.BaseNeuron):
             return self.__class__([n for n in self.neurons if n != to_sub],
-                              make_copy=self.copy_on_subset)
+                                  make_copy=self.copy_on_subset)
         elif isinstance(to_sub, NeuronList):
             return self.__class__([n for n in self.neurons if n not in to_sub],
-                              make_copy=self.copy_on_subset)
+                                  make_copy=self.copy_on_subset)
         else:
             return NotImplemented
 
@@ -540,9 +542,9 @@ class NeuronList:
 
     def apply(self,
               func: Callable,
+              *,
               parallel: bool = False,
               n_cores: int = os.cpu_count() // 2,
-              initializer: Optional[Callable] = None,
               **kwargs):
         """Apply function across all neurons in this NeuronList.
 
@@ -555,14 +557,10 @@ class NeuronList:
                         If True (default) will use multiprocessing. Spawning the
                         processes takes time (and memory). Using ``parallel=True``
                         makes only sense if the NeuronList is large or the
-                        function takes a long time.
+                        function takes a long time to run.
         n_cores :       int
                         Number of CPUs to use for multiprocessing. Defaults to
                         half the available cores.
-        initializer :   callable, optional
-                        If provided, this function will be called upon
-                        initialization of the worker processes. Only relevant
-                        when ``parallel=True``.
 
         **kwargs
                     Will be passed to function.
@@ -582,14 +580,15 @@ class NeuronList:
         if not callable(func):
             raise TypeError('"func" must be callable')
 
+        # Delayed import to avoid circular import
+        from .core_utils import NeuronProcessor
         proc = NeuronProcessor(self,
                                func,
                                parallel=parallel,
                                n_cores=n_cores,
-                               initializer=initializer,
                                desc=f'Apply {func.__name__}')
 
-        return proc(self.neurons, **kwargs)
+        return proc(**kwargs)
 
     def sum(self) -> pd.DataFrame:
         """Return sum numeric and boolean values over all neurons."""
@@ -822,110 +821,6 @@ class NeuronList:
         """
         return {t: self.__class__([n for n in self.neurons if isinstance(n, t)])
                 for t in self.types}
-
-
-class NeuronProcessor:
-    """Helper class to allow processing of arbitrary functions of
-    all neurons in a neuronlist.
-    """
-
-    def __init__(self,
-                 nl: NeuronList,
-                 funcs: Callable,
-                 parallel: bool = False,
-                 n_cores: int = os.cpu_count() - 1,
-                 initializer: Optional[Callable] = None,
-                 desc: Optional[str] = None):
-        self.nl = nl
-        self.funcs = funcs
-        self.desc = desc
-        self.parallel = parallel
-        self.n_cores = n_cores
-        self.initializer = initializer
-
-        # Copy function for each neuron in neuronlist
-        if not utils.is_iterable(self.funcs):
-            self.funcs = [self.funcs] * len(nl)
-
-        # This makes sure that help and name match the functions being called
-        functools.update_wrapper(self, self.funcs[0])
-
-    def __call__(self, *args, **kwargs):
-        # Explicitly providing these parameters overwrites defaults
-        parallel = kwargs.pop('parallel', self.parallel)
-        n_cores = kwargs.pop('n_cores', self.n_cores)
-
-        # We will check for each argument if it matches the number of
-        # functions to be run. If they do, we will assume that each value
-        # is meant for a single function
-        parsed_args = []
-        parsed_kwargs = []
-
-        for i in range(len(self.funcs)):
-            parsed_args.append([])
-            parsed_kwargs.append({})
-            for k, a in enumerate(args):
-                if not utils.is_iterable(a) or len(a) != len(self.funcs):
-                    parsed_args[i].append(a)
-                else:
-                    parsed_args[i].append(a[i])
-
-            for k, v in kwargs.items():
-                if not utils.is_iterable(v) or len(v) != len(self.funcs):
-                    parsed_kwargs[i][k] = v
-                else:
-                    parsed_kwargs[i][k] = v[i]
-
-        # Silence loggers (except Errors)
-        level = logger.getEffectiveLevel()
-
-        logger.setLevel('ERROR')
-        if parallel and len(self.funcs) > 1 and n_cores > 1:
-            # ``inplace=True`` does not really work if using parallel threads.
-            if kwargs.get('inplace', False):
-                raise ValueError('It looks like you are trying to modify neuron '
-                                 'inplace `inplace=True` in combination with '
-                                 'parallel processing. This is currently not '
-                                 'possible as changes to the neurons do not '
-                                 'propagate back from the forked processes. '
-                                 'Either use `inplace=False` or '
-                                 '`parallel=False`.')
-
-            with mp.Pool(self.n_cores, initializer=self.initializer) as pool:
-                combinations = list(zip(self.funcs, parsed_args, parsed_kwargs))
-                chunksize = 1  # max(int(len(combinations) / 100), 1)
-                res = list(config.tqdm(pool.imap(_worker_wrapper,
-                                                 combinations,
-                                                 chunksize=chunksize),
-                                       total=len(combinations),
-                                       desc=self.desc,
-                                       disable=config.pbar_hide,
-                                       leave=config.pbar_leave))
-        else:
-            res = []
-            for i, f in enumerate(config.tqdm(self.funcs, desc=self.desc,
-                                              disable=config.pbar_hide,
-                                              leave=config.pbar_leave)):
-                res.append(f(*parsed_args[i], **parsed_kwargs[i]))
-
-        # Reset logger level to previous state
-        logger.setLevel(level)
-
-        # If result is a NeuronList check if it is was mean to be "inplace"
-        is_neuron = [isinstance(r, (NeuronList, core.BaseNeuron)) for r in res]
-        if all(is_neuron):
-            return self.nl.__class__(utils.unpack_neurons(res))
-        # If results is all null (e.g. if not parallel and inplace=True)
-        # just return nothing
-        if not np.any(res):
-            return
-        # If not all neurons simply return results and let user deal with it
-        return res
-
-
-def _worker_wrapper(x: Sequence):
-    f, args, kwargs = x
-    return f(*args, **kwargs)
 
 
 class _IdIndexer():

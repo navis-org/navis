@@ -38,8 +38,11 @@ __all__ = sorted(['prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
 NeuronObject = Union['core.NeuronList', 'core.TreeNeuron']
 
 
-@utils.map_neuronlist(desc='Pruning')
-def cell_body_fiber(x, reroot_soma=True, inplace=False):
+@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
+def cell_body_fiber(x: NeuronObject,
+                    reroot_soma: bool = True,
+                    heal: bool = True,
+                    inplace: bool = False):
     """Prune neuron to its cell body fiber.
 
     This works by finding the main branch point from the root (soma if
@@ -49,9 +52,12 @@ def cell_body_fiber(x, reroot_soma=True, inplace=False):
     Parameters
     ----------
     x :             TreeNeuron | NeuronList
-    reroot_soma :   bool, optional
+    reroot_soma :   bool
                     If True and neuron has a soma, neuron will be rerooted to
                     its soma.
+    heal :          bool
+                    If True, will heal fragmented neurons. Fragmented neurons
+                    are not guaranteed to have correct cell body fibers.
     inplace :       bool, optional
                     If False, pruning is performed on copy of original neuron
                     which is then returned.
@@ -78,6 +84,9 @@ def cell_body_fiber(x, reroot_soma=True, inplace=False):
     if not inplace:
         x = x.copy()
 
+    if x.n_trees > 1 and heal:
+        _ = heal_fragmented_neuron(x, method='LEAFS', inplace=True)
+
     # If no branches, just return the neuron
     if 'branch' not in x.nodes.type.values:
         return x
@@ -101,7 +110,6 @@ def cell_body_fiber(x, reroot_soma=True, inplace=False):
     _ = graph.subset_neuron(x, path, inplace=True)
 
     return x
-
 
 @overload
 def prune_by_strahler(x: NeuronObject,
@@ -130,7 +138,7 @@ def prune_by_strahler(x: NeuronObject,
                       relocate_connectors: bool = False) -> Optional[NeuronObject]: ...
 
 
-@utils.map_neuronlist(desc='Pruning')
+@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
 def prune_by_strahler(x: NeuronObject,
                       to_prune: Union[int, List[int], range, slice],
                       inplace: bool = False,
@@ -276,7 +284,7 @@ def prune_twigs(x: NeuronObject,
                 ) -> Optional[NeuronObject]: ...
 
 
-@utils.map_neuronlist(desc='Pruning')
+@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
 def prune_twigs(x: NeuronObject,
                 size: Union[float, str],
                 exact: bool = False,
@@ -520,7 +528,7 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
     return neuron
 
 
-@utils.map_neuronlist(desc='Splitting')
+@utils.map_neuronlist(desc='Splitting', allow_parallel=True)
 def split_axon_dendrite(x: NeuronObject,
                         metric: Union[Literal['flow_centrality'],
                                       Literal['bending_flow'],
@@ -1178,7 +1186,7 @@ def average_neurons(x: 'core.NeuronList',
     return bn
 
 
-@utils.map_neuronlist(desc='Despiking')
+@utils.map_neuronlist(desc='Despiking', allow_parallel=True)
 def despike_neuron(x: NeuronObject,
                    sigma: int = 5,
                    max_spike_length: int = 1,
@@ -1278,7 +1286,7 @@ def despike_neuron(x: NeuronObject,
     return x
 
 
-@utils.map_neuronlist(desc='Guessing')
+@utils.map_neuronlist(desc='Guessing', allow_parallel=True)
 def guess_radius(x: NeuronObject,
                  method: str = 'linear',
                  limit: Optional[int] = None,
@@ -1391,7 +1399,7 @@ def guess_radius(x: NeuronObject,
     return x
 
 
-@utils.map_neuronlist(desc='Smoothing')
+@utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
 def smooth_neuron(x: NeuronObject,
                   window: int = 5,
                   inplace: bool = False) -> Optional[NeuronObject]:
@@ -1503,7 +1511,7 @@ def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
         return core.NeuronList(x.copy())
 
 
-@utils.map_neuronlist(desc='Healing')
+@utils.map_neuronlist(desc='Healing', allow_parallel=True)
 def heal_fragmented_neuron(x: 'core.NeuronList',
                            method: Union[Literal['LEAFS'],
                                          Literal['ALL']] = 'ALL',
@@ -1711,7 +1719,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
     return graph.rewire_neuron(x, g, inplace=inplace)
 
 
-@utils.map_neuronlist(desc='Pruning', must_zip=['source'], progress=True)
+@utils.map_neuronlist(desc='Pruning', must_zip=['source'], allow_parallel=True)
 def prune_at_depth(x: NeuronObject,
                    depth: Union[float, int], *,
                    source: Optional[int] = None,

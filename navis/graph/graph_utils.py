@@ -318,7 +318,7 @@ def _edge_count_to_root_old(x: 'core.TreeNeuron') -> dict:
     return dist
 
 
-@utils.map_neuronlist(desc='Classifying')
+@utils.map_neuronlist(desc='Classifying', allow_parallel=True)
 @utils.lock_neuron
 def classify_nodes(x: 'core.NeuronObject',
                    inplace: bool = True
@@ -969,7 +969,7 @@ def longest_neurite(x: 'core.NeuronList',
     pass
 
 
-@utils.map_neuronlist(desc='Pruning')
+@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
 def longest_neurite(x: 'core.NeuronObject',
                     n: int = 1,
                     reroot_soma: bool = False,

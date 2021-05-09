@@ -48,7 +48,7 @@ def resample_neuron(x: 'core.NeuronList',
                     ) -> 'core.NeuronList': ...
 
 
-@utils.map_neuronlist(desc='Resampling')
+@utils.map_neuronlist(desc='Resampling', allow_parallel=True)
 def resample_neuron(x: 'core.NeuronObject',
                     resample_to: Union[int, str],
                     inplace: bool = False,
@@ -300,7 +300,7 @@ def resample_neuron(x: 'core.NeuronObject',
     return x
 
 
-@utils.map_neuronlist(desc='Binning')
+@utils.map_neuronlist(desc='Binning', allow_parallel=True)
 def resample_along_axis(x: 'core.TreeNeuron',
                         interval: Union[int, float, str],
                         axis: int = 2,

@@ -11,7 +11,10 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+import functools
+import inspect
 import numbers
+import os
 import pint
 
 import pandas as pd
@@ -19,12 +22,17 @@ import numpy as np
 import trimesh as tm
 
 from scipy.spatial import cKDTree
-from typing import Union
+from typing import Union, Sequence, Optional, Callable
 from typing_extensions import Literal
 
 from .neurons import TreeNeuron, MeshNeuron, Dotprops, BaseNeuron
 from .neuronlist import NeuronList
 from .. import config, graph, utils
+
+try:
+    from pathos.multiprocessing import ProcessingPool
+except ImportError:
+    ProcessingPool = None
 
 __all__ = ['make_dotprops', 'to_neuron_space']
 
@@ -235,3 +243,115 @@ def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
     # I hope that in practice it won't screw things up:
     # even if asking for
     return utils.round_smart(mag)
+
+
+class NeuronProcessor:
+    """Apply function across all neurons of a neuronlist.
+
+    This assumes that the first argument for the function accepts a single
+    neuron.
+    """
+
+    def __init__(self,
+                 nl: NeuronList,
+                 function: Callable,
+                 parallel: bool = False,
+                 n_cores: int = os.cpu_count() // 2,
+                 chunksize: int = 1,
+                 progress: bool = True,
+                 warn_inplace: bool = True,
+                 desc: Optional[str] = None):
+        if not callable(function):
+            raise TypeError(f'Expected callable function,  got "{type(function)}"')
+        self.nl = nl
+        self.function = function
+        self.desc = desc
+        self.parallel = parallel
+        self.n_cores = n_cores
+        self.chunksize = chunksize
+        self.progress = progress
+        self.warn_inplace = warn_inplace
+
+        # This makes sure that help and name match the functions being called
+        functools.update_wrapper(self, self.function)
+
+    def __call__(self, *args, **kwargs):
+        # Explicitly providing these parameters overwrites defaults
+        parallel = kwargs.pop('parallel', self.parallel)
+        n_cores = kwargs.pop('n_cores', self.n_cores)
+
+        # We will check, for each argument, if it matches the number of
+        # functions to run. If they it does, we will zip the values
+        # with the neurons
+        parsed_args = []
+        parsed_kwargs = []
+
+        for i, n in enumerate(self.nl):
+            parsed_args.append([n])
+            parsed_kwargs.append({})
+            for k, a in enumerate(args):
+                if not utils.is_iterable(a) or len(a) != len(self.nl):
+                    parsed_args[i].append(a)
+                else:
+                    parsed_args[i].append(a[i])
+
+            for k, v in kwargs.items():
+                if not utils.is_iterable(v) or len(v) != len(self.nl):
+                    parsed_kwargs[i][k] = v
+                else:
+                    parsed_kwargs[i][k] = v[i]
+
+        # Silence loggers (except Errors)
+        level = logger.getEffectiveLevel()
+        logger.setLevel('WARNING')
+
+        # Apply function
+        if parallel:
+            if not ProcessingPool:
+                raise ImportError('navis relies on pathos for multiprocessing!'
+                                  'Please install pathos and try again:\n'
+                                  '  pip3 install pathos -U')
+
+            if self.warn_inplace and kwargs.get('inplace', False):
+                logger.warning('`inplace=True` does not work with '
+                               'multiprocessing ')
+
+            with ProcessingPool(n_cores) as pool:
+                combinations = list(zip([self.function] * len(self.nl),
+                                        parsed_args,
+                                        parsed_kwargs))
+                chunksize = kwargs.pop('chunksize', self.chunksize)  # max(int(len(combinations) / 100), 1)
+                res = list(config.tqdm(pool.imap(_call,
+                                                 combinations,
+                                                 chunksize=chunksize),
+                                       total=len(combinations),
+                                       desc=self.desc,
+                                       disable=config.pbar_hide or not self.progress,
+                                       leave=config.pbar_leave))
+        else:
+            res = []
+            for i, n in enumerate(config.tqdm(self.nl, desc=self.desc,
+                                              disable=(config.pbar_hide
+                                                       or not self.progress
+                                                       or len(self.nl) <= 1),
+                                              leave=config.pbar_leave)):
+                res.append(self.function(*parsed_args[i], **parsed_kwargs[i]))
+
+        # Reset logger level to previous state
+        logger.setLevel(level)
+
+        # If result is a list of neurons, combine them back into a single list
+        is_neuron = [isinstance(r, (NeuronList, BaseNeuron)) for r in res]
+        if all(is_neuron):
+            return self.nl.__class__(utils.unpack_neurons(res))
+        # If results are all None return nothing instead of a list of [None, ..]
+        if np.all([r is None for r in res]):
+            res = None
+        # If not all neurons simply return results and let user deal with it
+        return res
+
+
+def _call(x: Sequence):
+    """Unpack function and args/kwargs and run it."""
+    func, args, kwargs = x
+    return func(*args, **kwargs)

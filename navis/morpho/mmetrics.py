@@ -94,7 +94,7 @@ def strahler_index(x: 'core.NeuronList',
     pass
 
 
-@utils.map_neuronlist(desc='Calc. SI')
+@utils.map_neuronlist(desc='Calc. SI', allow_parallel=True)
 def strahler_index(x: 'core.NeuronObject',
                    method: Union[Literal['standard'],
                                  Literal['greedy']] = 'standard',
@@ -334,7 +334,7 @@ def segregation_index(x: Union['core.NeuronObject', dict]) -> float:
     return H
 
 
-@utils.map_neuronlist(desc='Calc. seg.')
+@utils.map_neuronlist(desc='Calc. seg.', allow_parallel=True)
 def arbor_segregation_index(x: 'core.NeuronObject') -> None:
     """Per arbor seggregation index (SI).
 
@@ -466,7 +466,7 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> None:
     return
 
 
-@utils.map_neuronlist(desc='Calc. flow')
+@utils.map_neuronlist(desc='Calc. flow', allow_parallel=True)
 def bending_flow(x: 'core.NeuronObject') -> None:
     """Calculate bending flow.
 
@@ -599,7 +599,7 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     return
 
 
-@utils.map_neuronlist(desc='Calc. flow')
+@utils.map_neuronlist(desc='Calc. flow', allow_parallel=True)
 def flow_centrality(x: 'core.NeuronObject',
                     mode: Union[Literal['centrifugal'],
                                 Literal['centripetal'],
