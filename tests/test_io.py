@@ -1,7 +1,5 @@
 import navis
-import os
 import pytest
-import shutil
 import tempfile
 
 from pathlib import Path
@@ -11,9 +9,9 @@ from pathlib import Path
                                       'neurons.zip',
                                       '{neuron.name}.swc@neurons.zip'])
 def test_swc_io(filename):
-    tempdir = tempfile.mkdtemp()
-    filepath = Path(tempdir) / filename
-    try:
+    with tempfile.TemporaryDirectory() as tempdir:
+        filepath = Path(tempdir) / filename
+
         # Load example neurons
         n = navis.example_neurons(2, kind='skeleton')
 
@@ -28,7 +26,3 @@ def test_swc_io(filename):
 
         # Assert that we loaded the same number of neurons
         assert len(n) == len(n2)
-    except BaseException:
-        raise
-    finally:
-        shutil.rmtree(tempdir)
