@@ -28,7 +28,7 @@ pip3 install navis[all]
 ```
 
 which includes all optional extras providing features and/or performance improvements.
-Currently, this is just `igraph`.
+Currently, this is `igraph`, `shapely`, `pykdtree` and `pathos`.
 
 Alternatively click on the *launch binder* badge above to try out navis hosted by [mybinder](https://mybinder.org)!
 

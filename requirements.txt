@@ -27,6 +27,10 @@ rdata>=0.5
 
 python-igraph
 
+#extra: pathos
+
+pathos>=0.2.7
+
 #extra: shapely
 
 Shapely>=1.6.0
@@ -38,10 +42,6 @@ rpy2
 #extra: kdtree
 
 pykdtree
-
-#extra: octree
-
-pyoctree
 
 #extra: test-notebook
 

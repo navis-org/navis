@@ -27,9 +27,12 @@ with open("requirements.txt") as f:
             reqs.append(line.strip())
 
 dev_only = ["test-notebook", "dev"]
+specialized = ['r']
 all_dev_deps = []
 all_deps = []
 for k, v in extras_require.items():
+    if k in specialized:
+        continue
     all_dev_deps.extend(v)
     if k not in dev_only:
         all_deps.extend(v)
