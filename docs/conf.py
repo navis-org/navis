@@ -481,4 +481,7 @@ texinfo_documents = [
 
 
 def setup(app):
-    app.add_stylesheet('style.css')
+    try:
+        app.add_stylesheet('style.css')
+    except:
+        app.add_css_file('style.css')
