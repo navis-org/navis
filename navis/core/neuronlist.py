@@ -588,7 +588,7 @@ class NeuronList:
                                n_cores=n_cores,
                                desc=f'Apply {func.__name__}')
 
-        return proc(**kwargs)
+        return proc(self.neurons, **kwargs)
 
     def sum(self) -> pd.DataFrame:
         """Return sum numeric and boolean values over all neurons."""

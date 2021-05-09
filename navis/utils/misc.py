@@ -1,3 +1,4 @@
+
 #    This script is part of navis (http://www.github.com/schlegelp/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
@@ -216,7 +217,7 @@ def map_neuronlist(desc: str = "",
                                             chunksize=chunksize,
                                             n_cores=n_cores)
                 # Apply function
-                res = proc(*args, **kwargs)
+                res = proc(nl, *args, **kwargs)
 
                 # When using parallel processing, the neurons will not actually
                 # have been modified inplace - in that case we will simply

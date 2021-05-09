@@ -261,10 +261,19 @@ class NeuronProcessor:
                  progress: bool = True,
                  warn_inplace: bool = True,
                  desc: Optional[str] = None):
-        if not callable(function):
-            raise TypeError(f'Expected callable function,  got "{type(function)}"')
+        if utils.is_iterable(function):
+            if len(function) != len(nl):
+                raise ValueError('Number of functions must match neurons.')
+            self.funcs = function
+            self.function = function[0]
+        elif callable(function):
+            self.funcs = [function] * len(nl)
+            self.function = function
+        else:
+            raise TypeError('Expected `function` to be callable or list '
+                            f'thereof,  got "{type(function)}"')
+
         self.nl = nl
-        self.function = function
         self.desc = desc
         self.parallel = parallel
         self.n_cores = n_cores
@@ -287,7 +296,7 @@ class NeuronProcessor:
         parsed_kwargs = []
 
         for i, n in enumerate(self.nl):
-            parsed_args.append([n])
+            parsed_args.append([])
             parsed_kwargs.append({})
             for k, a in enumerate(args):
                 if not utils.is_iterable(a) or len(a) != len(self.nl):
@@ -317,7 +326,7 @@ class NeuronProcessor:
                                'multiprocessing ')
 
             with ProcessingPool(n_cores) as pool:
-                combinations = list(zip([self.function] * len(self.nl),
+                combinations = list(zip(self.funcs,
                                         parsed_args,
                                         parsed_kwargs))
                 chunksize = kwargs.pop('chunksize', self.chunksize)  # max(int(len(combinations) / 100), 1)
