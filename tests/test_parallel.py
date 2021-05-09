@@ -3,7 +3,7 @@ import navis
 import numpy as np
 
 
-def test_parallel(filename):
+def test_parallel():
     # Load example neurons
     nl = navis.example_neurons(kind='skeleton')
 
@@ -22,7 +22,7 @@ def test_parallel(filename):
     assert all(pr.n_nodes < nl.n_nodes)
 
 
-def test_parallel_inplace(filename):
+def test_parallel_inplace():
     # Load example neurons
     nl = navis.example_neurons(kind='skeleton')
 
@@ -39,7 +39,7 @@ def test_parallel_inplace(filename):
     assert all(pr.n_nodes < nl.n_nodes)
 
 
-def test_apply(filename):
+def test_apply():
     # Load example neurons
     nl = navis.example_neurons(kind='skeleton')
 
