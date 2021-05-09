@@ -119,6 +119,7 @@ function. There you will also find more examples.
 .. toctree::
    :maxdepth: 2
 
+   tutorials/multiprocessing
    Troubleshooting <troubleshooting>
 
 .. raw:: html
