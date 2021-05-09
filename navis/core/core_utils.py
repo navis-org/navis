@@ -344,7 +344,7 @@ class NeuronProcessor:
                                                        or not self.progress
                                                        or len(self.nl) <= 1),
                                               leave=config.pbar_leave)):
-                res.append(self.function(*parsed_args[i], **parsed_kwargs[i]))
+                res.append(self.funcs[i](*parsed_args[i], **parsed_kwargs[i]))
 
         # Reset logger level to previous state
         logger.setLevel(level)
