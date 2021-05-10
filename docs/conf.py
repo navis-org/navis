@@ -52,7 +52,7 @@ for module in MOCK_MODULES:
 sys.modules['rpy2'].__version_vector__ = (3, 0, 0)
 sys.modules['rpy2'].__version__ = '3.0.0'
 
-# import navis
+import navis
 # from navis.interfaces import cytoscape
 # import navis.interfaces.blender
 # from navis.interfaces import r
