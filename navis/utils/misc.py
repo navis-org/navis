@@ -15,6 +15,7 @@
 import inspect
 import math
 import os
+import re
 import requests
 import urllib
 
@@ -23,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from functools import wraps
+from textwrap import dedent, indent
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
 
 from .. import config, core, transforms
@@ -94,6 +96,8 @@ def map_neuronlist(desc: str = "",
                    must_zip: List[Union[str, int]] = [],
                    allow_parallel: bool = False):
     """Run function on all neurons in the NeuronList.
+
+    This also updates the docstring.
 
     Parameters
     ----------
@@ -231,7 +235,46 @@ def map_neuronlist(desc: str = "",
             else:
                 # If single neuron just pass through
                 return function(*args, **kwargs)
+
+        # Update the docstring
+        lines = wrapper.__doc__.split('\n')
+
+        # Find a line with a parameter
+        pline = [l for l in lines if ' : ' in l][0]
+        # Get the leading whitespaces
+        wspaces = ' ' * re.search('( *)', pline).end(1)
+        # Get the offset for type and description
+        offset = re.search('( *: *)', pline).end(1) - len(wspaces)
+
+        # Find index of the last parameters (assuming there is a single empty
+        # line between Returns and the last parameter)
+        lastp = [i for i, l in enumerate(lines) if ' Returns' in l][0] - 1
+
+        msg = ''
+        if allow_parallel:
+            msg += dedent(f"""\
+            parallel :{" " * (offset - 10)}bool
+                      {" " * (offset - 10)}If True and input is NeuronList, use parallel
+                      {" " * (offset - 10)}processing. Requires `pathos`.
+            n_cores : {" " * (offset - 10)}int, optional
+                      {" " * (offset - 10)}Numbers of cores to use if ``parallel=True``.
+                      {" " * (offset - 10)}Defaults to half the available cores.
+            """)
+
+        msg += dedent(f"""\
+        progress :{" " * (offset - 10)}bool
+                  {" " * (offset - 10)}Whether to show a progress bar. Overruled by
+                  {" " * (offset - 10)}``navis.set_pbars``.
+        """)
+
+        # Insert new docstring
+        lines.insert(lastp, indent(msg, wspaces))
+
+        # Update docstring
+        wrapper.__doc__ = '\n'.join(lines)
+
         return wrapper
+
     return decorator
 
 
