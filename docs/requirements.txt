@@ -8,5 +8,6 @@ sphinx>=3.1
 sphinx-bootstrap-theme
 sphinx-autodoc-typehints
 neuprint-python
-# For some odd reason, readthedocs uses a really old version of setuptools 
-setuptools~=49.6
+# For some odd reason, readthedocs uses a really old version of setuptools
+setuptools>=51.1
+wheel>=0.35.1
