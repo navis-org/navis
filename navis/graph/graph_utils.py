@@ -954,7 +954,7 @@ def split_into_fragments(x: 'core.NeuronObject',
 
 
 @overload
-def longest_neurite(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
+def longest_neurite(x: 'core.TreeNeuron',
                     n: int = 1,
                     reroot_soma: bool = False,
                     inplace: bool = False) -> 'core.TreeNeuron':
@@ -973,14 +973,14 @@ def longest_neurite(x: 'core.NeuronList',
 def longest_neurite(x: 'core.NeuronObject',
                     n: int = 1,
                     reroot_soma: bool = False,
-                    inplace: bool = False) -> 'core.TreeNeuron':
+                    inplace: bool = False) -> 'core.NeuronObject':
     """Return a neuron consisting of only the longest neurite(s).
 
     Based on geodesic distances.
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron | NeuronList
+    x :                 TreeNeuron | NeuronList
                         Neuron(s) to prune.
     n :                 int | slice, optional
                         Number of longest neurites to preserve. For example:
@@ -1508,30 +1508,6 @@ def _cut_networkx(x: 'core.TreeNeuron',
         return prox
 
 
-@overload
-def subset_neuron(x: 'core.TreeNeuron',
-                  subset: Union[Sequence[Union[int, str]],
-                                nx.DiGraph,
-                                pd.DataFrame],
-                  inplace: Literal[False],
-                  keep_disc_cn: bool = False,
-                  prevent_fragments: bool = False
-                  ) -> 'core.TreeNeuron':
-    pass
-
-
-@overload
-def subset_neuron(x: 'core.TreeNeuron',
-                  subset: Union[Sequence[Union[int, str]],
-                                nx.DiGraph,
-                                pd.DataFrame],
-                  inplace: Literal[True],
-                  keep_disc_cn: bool = False,
-                  prevent_fragments: bool = False
-                  ) -> None:
-    pass
-
-
 @utils.lock_neuron
 def subset_neuron(x: 'core.TreeNeuron',
                   subset: Union[Sequence[Union[int, str]],
@@ -1540,7 +1516,7 @@ def subset_neuron(x: 'core.TreeNeuron',
                   inplace: bool = False,
                   keep_disc_cn: bool = False,
                   prevent_fragments: bool = False
-                  ) -> Optional['core.TreeNeuron']:
+                  ) -> 'core.TreeNeuron':
     """Subset a neuron to a given set of nodes.
 
     Parameters
