@@ -54,21 +54,10 @@ Backends = Union[Literal['ncollpyde'],
                                 Literal['scipy']]]
                  ]
 
-
-@overload
-def in_volume(x: 'core.NeuronObject',
-              volume: core.Volume,
-              inplace: Literal[True],
-              mode: Modes = 'IN',
-              backend: Backends = ('ncollpyde', 'pyoctree'),
-              n_rays: Optional[int] = None,
-              prevent_fragments: bool = False) -> None: ...
-
-
 @overload
 def in_volume(x: 'core.TreeNeuron',
               volume: core.Volume,
-              inplace: Literal[False],
+              inplace: bool = False,
               mode: Modes = 'IN',
               backend: Backends = ('ncollpyde', 'pyoctree'),
               n_rays: Optional[int] = None,
@@ -78,7 +67,7 @@ def in_volume(x: 'core.TreeNeuron',
 @overload
 def in_volume(x: 'core.NeuronList',
               volume: core.Volume,
-              inplace: Literal[False],
+              inplace: bool = False,
               mode: Modes = 'IN',
               backend: Backends = ('ncollpyde', 'pyoctree'),
               n_rays: Optional[int] = None,
@@ -339,12 +328,12 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                                         prevent_fragments=prevent_fragments)
             elif isinstance(x, core.Dotprops):
                 x.points = x.points[in_v]
-                x.vect = x.vect[in_v]
-                x.alpha = x.alpha[in_v]
+                if not isinstance(x._vect, type(None)):
+                    x._vect = x._vect[in_v]
+                if not isinstance(x._alpha, type(None)):
+                    x._alpha = x._alpha[in_v]
 
-        if inplace is False:
-            return x
-        return None
+        return x
     elif isinstance(x, core.NeuronList):
         for n in config.tqdm(x, desc='Subsetting',
                              leave=config.pbar_leave,
@@ -353,9 +342,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                       validate=False, n_rays=n_rays,
                       prevent_fragments=prevent_fragments)
 
-        if inplace is False:
-            return x
-        return None
+        return x
     elif isinstance(x, pd.DataFrame):
         points = x[['x', 'y', 'z']].values
     elif isinstance(x, np.ndarray):
