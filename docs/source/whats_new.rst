@@ -14,8 +14,30 @@ repository.
    * - Version
      - Date
      -
+   * - 0.6.0
+     - 12/05/21
+     - - new functions: :func:`navis.prune_at_depth`, :func:`navis.read_rda`, :func:`navis.cell_body_fiber`
+       - many spatial parameters (e.g. in :func:`navis.resample_neuron`) can now be passed as unit string, e.g. ``"5 microns"``
+       - many functions now accept a ``parallel=True`` parameter to use multiple cores (depends on ``pathos``)
+       - :func:`navis.read_swc` and :func:`navis.write_swc` can now read/write directly from/to zip files
+       - reworked :func:`navis.read_json`, and :func:`navis.write_json`
+       - ``nblast`` functions now let you use your own scoring function (thanks to Ben Pedigo!)
+       - added ``threshold`` parameter to :func:`navis.read_nrrd`
+       - fixed NBLAST progress bars in notebook environments
+       - :func:`navis.nblast_smart`: drop ``quantile`` and add ``score`` criterion
+       - new functions to map units into neuron space: :func:`~BaseNeuron.map_units` and :func:`navis.to_neuron_space`
+       - functions that manipulate neurons will now always return something (even if ``inplace=True``)
+       - :func:`navis.cut_neuron` now always returns a single ``NeuronList``
+       - :func:`navis.mirror_brain` now works with ``k=0/None`` Dotprops
+       - all ``reroot_to_soma`` parameters have been renamed to ``reroot_soma``
+       - :class:`navis.TreeNeuron` now has a ``soma_pos`` property that can also be used to set the soma by position
+       - fixed a couple bugs with `CMTK` transforms
+       - made transforms more robust against points outside deformation fields
+       - better deal if node ID of soma is ``0`` (e.g. during plotting)
+       - :func:`navis.neuron2tangents` now drops zero-length vectors
+       - fixed :func:`navis.guess_radius`
    * - 0.5.3
-     - 10/04/18
+     - 10/04/21
      - - new functions: :func:`navis.nblast_smart`, :func:`navis.write_google_binary`, :func:`navis.synblast`, :func:`navis.symmetrize_brain`
        - :func:`navis.plot3d` (plotly): ``hover_name=True`` will show neuron names on hover
        - :func:`navis.plot2d`: ``rasterize=True`` will rasterize neurons (but not axes or labels) to help keep file sizes low
