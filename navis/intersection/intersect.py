@@ -237,16 +237,16 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         if not isinstance(volume, dict):
             # Make sure all Volumes can be uniquely indexed
             vnames = [getattr(v, 'name', i) for i, v in enumerate(volume)]
-            dupli = [v for v in set(vnames) if vnames.count(v) > 1]
+            dupli = [str(v) for v in set(vnames) if vnames.count(v) > 1]
             if dupli:
                 raise ValueError('Duplicate Volume names detected: '
-                                 f'{",".join(dupli)}. Volume.name must be '
+                                 f'{", ".join(dupli)}. Volume.name must be '
                                  'unique.')
 
             volume = {getattr(v, 'name', i): v for i, v in enumerate(volume)}
 
         # Make sure everything is a volume
-        volume = {k: utils.make_volume(v) for k, v in enumerate(volume)}
+        volume = {k: utils.make_volume(v) for k, v in volume.items()}
 
         # Validate now - this might safe us troubles later
         if validate:
@@ -389,6 +389,18 @@ def intersection_matrix(x: 'core.NeuronObject',
     -------
     pandas DataFrame
 
+    Examples
+    --------
+    >>> import navis
+    >>> # Grab neurons
+    >>> nl = navis.example_neurons(3)
+    >>> # Grab a single volume
+    >>> lh = navis.example_volume("LH")
+    >>> # Re-use for testing
+    >>> vols = {'lh1': lh, 'lh2': lh}
+    >>> # Generate intersection matrix with cable length
+    >>> m = navis.intersection_matrix(nl, vols, attr='cable_length')
+
     """
     # Volumes should be a dict at some point
     volumes_dict: Dict[str, core.Volume]
@@ -417,10 +429,10 @@ def intersection_matrix(x: 'core.NeuronObject',
     if not attr:
         df = pd.DataFrame([[n for n in data[v]] for v in data],
                           index=list(data.keys()),
-                          columns=x.skeleton_id)
+                          columns=x.id)
     else:
         df = pd.DataFrame([[getattr(n, attr) for n in data[v]] for v in data],
                           index=list(data.keys()),
-                          columns=x.skeleton_id)
+                          columns=x.id)
 
     return df
