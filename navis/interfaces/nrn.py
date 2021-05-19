@@ -44,7 +44,8 @@ Initialize and run a simple model. For debugging/testing only
 >>> post = n.connectors[n.connectors.type == 'post']
 >>> post = post[post.y >= 250]
 
->>> # Initialize as a DrosophilaPN which uses a bunch of parameter
+>>> # Initialize as a DrosophilaPN which automatically assigns a couple
+>>> # properties known from the literature.
 >>> cmp = nrn.DrosophilaPN(n, res=1)
 
 >>> # Simulate some synaptic inputs on the first 10 input synapse
@@ -68,7 +69,7 @@ Simulate some presynaptic spikes
 >>> cmp = nrn.DrosophilaPN(n, res=1)
 >>> cmp.add_voltage_record(n.soma, label='soma')
 >>> cmp.add_voltage_record(post.node_id.unique()[0:10])
->>> cmp.add_synaptic_input(post.node_id.unique()[0:10], syn_curr=.1, spike_no=5,
+>>> cmp.add_synaptic_input(post.node_id.unique()[0:10], spike_no=5,
                            spike_int=50, spike_noise=1, syn_tau2=1.1,
                            syn_rev_pot=-10, cn_weight=0.04)
 >>> cmp.run_simulation(200, v_init=-60)
@@ -290,7 +291,6 @@ class NeuronCompartmentModel:
     def add_synaptic_input(self, where, start=5 * ms,
                            spike_no=1, spike_int=10 * ms, spike_noise=0,
                            syn_tau1=.1 * ms, syn_tau2=10 * ms, syn_rev_pot=0,
-                           syn_curr=0.1,
                            cn_thresh=10, cn_delay=1 * ms, cn_weight=0):
         """Add synaptic input to model.
 
@@ -322,8 +322,6 @@ class NeuronCompartmentModel:
                         Decay time constant [ms].
         syn_rev_pot :   int
                         Reversal potential (e) [mV].
-        syn_curr :      int
-                        Synaptic current (i) [nA].
 
         Connection properties:
 
@@ -359,7 +357,6 @@ class NeuronCompartmentModel:
             syn.tau1 = syn_tau1
             syn.tau2 = syn_tau2
             syn.e = syn_rev_pot
-            syn.i = syn_curr
 
             self.synapses[node.Index] = self.synapses.get(node.Index, []) + [syn]
 
@@ -405,7 +402,7 @@ class NeuronCompartmentModel:
         rev_pot :       int
                         Reverse potential (e) [mV].
         max_syn_cond :  float
-                        Max synaptic conductance (i) [uS].
+                        Max synaptic conductance (gmax) [uS].
 
         """
         self._add_stimulus('AlphaSynapse', where=where, onset=start,
