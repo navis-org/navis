@@ -40,6 +40,7 @@ __all__ = ['make_dotprops', 'to_neuron_space']
 logger = config.logger
 
 
+@utils.map_neuronlist(desc='Dotprops', allow_parallel=True)
 def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.MeshNeuron'],
                   k: int = 20,
                   resample: Union[float, int, bool, str] = False) -> Dotprops:
@@ -88,14 +89,6 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     """
     utils.eval_param(resample, name='resample',
                      allowed_types=(numbers.Number, type(None), str))
-
-    if isinstance(x, NeuronList):
-        res = []
-        for n in config.tqdm(x, desc='Dotprops',
-                             leave=config.pbar_leave,
-                             disable=config.pbar_hide):
-            res.append(make_dotprops(n, k=k, resample=resample))
-        return NeuronList(res)
 
     properties = {}
     if isinstance(x, pd.DataFrame):
