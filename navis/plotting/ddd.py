@@ -355,19 +355,19 @@ def plot3d_plotly(x, **kwargs):
     # If not provided generate a figure dictionary
     fig = kwargs.get('fig')
     if not fig:
-        fig = dict(layout=layout)
+        fig = go.Figure(layout=layout)
 
     if not isinstance(fig, (dict, go.Figure)):
         raise TypeError('`fig` must be plotly.graph_objects.Figure or dict, got '
                         f'{type(fig)}')
 
     # Add data
-    fig['data'] = fig.get('data', []) + data
+    for trace in data:
+        fig.add_trace(trace)
 
     if kwargs.get('plotly_inline', True) and utils.is_jupyter():
-        plotly.offline.iplot(fig)
+        fig.show()
         return
     else:
-        logger.info('Use plotly.offline.plot(fig, filename="3d_plot.html")'
-                    ' to plot. Optimized for Google Chrome.')
+        logger.info('Use the `.show()` method to plot the figure.')
         return fig
