@@ -20,6 +20,8 @@ ToDo
 ----
 - connect neurons
 - use neuron ID as GID
+- add spike recorder
+- make a subplot for each recording type (V, current, spikes)
 
 Examples
 --------
@@ -37,6 +39,7 @@ Initialize and run a simple model. For debugging/testing only
 >>> # neuron.h.celsius = 24
 
 >>> # This is a DA1 PN from the hemibrain dataset
+>>> # It's in 8x8x8 nm voxels so we need to convert to convert
 >>> n = navis.example_neurons(1) / 125
 >>> n.reroot(n.soma, inplace=True)
 
@@ -55,6 +58,9 @@ Initialize and run a simple model. For debugging/testing only
 >>> # Add voltage recording at the soma and one of the synapses
 >>> cmp.add_voltage_record(n.soma, label='soma')
 >>> cmp.add_voltage_record(post.node_id.unique()[0:10])
+
+>>> # Let's also check out the synaptic current at one of the synapses
+>>> cmp.add_current_record(post.node_id.unique()[0])
 
 >>> # Initialize Run for 200ms
 >>> print('Running model')
@@ -147,9 +153,9 @@ class NeuronCompartmentModel:
 
     def __repr__(self):
         s = (f'CompartmentModel<id={self.skeleton.label},'
-             f'sections={len(self.sections)};'
-             f'stimuli={len(self.stimuli)};'
-             f'records={len(self.records)}>'
+             f'sections={self.n_sections};'
+             f'stimuli={self.n_stimuli};'
+             f'records={self.n_records}>'
              )
         return s
 
@@ -158,7 +164,23 @@ class NeuronCompartmentModel:
         return f'CompartmentModel[{self.skeleton.label}]'
 
     @property
+    def n_records(self):
+        """Number of records (across all types) active on this model."""
+        return len([r for t in self.records.values() for r in t])
+
+    @property
+    def n_sections(self):
+        """Number of sections in this model."""
+        return len(self.sections)
+
+    @property
+    def n_stimuli(self):
+        """Number of stimuli active on this model."""
+        return len(self.stimuli)
+
+    @property
     def nodes(self) -> pd.DataFrame:
+        """Node table of the skeleton."""
         return self.skeleton.nodes
 
     @property
@@ -184,6 +206,11 @@ class NeuronCompartmentModel:
             s.Ra = value
 
     @property
+    def records(self) -> dict:
+        """Return mapping of node ID(s) to recordings."""
+        return self._records
+
+    @property
     def sections(self) -> np.ndarray:
         """List of sections making up this model."""
         return self._sections
@@ -197,11 +224,6 @@ class NeuronCompartmentModel:
     def synapses(self) -> dict:
         """Return mapping of node ID(s) to synapses."""
         return self._synapses
-
-    @property
-    def records(self) -> dict:
-        """Return mapping of node ID(s) to recordings."""
-        return self._records
 
     @property
     def t(self) -> np.ndarray:
@@ -434,13 +456,15 @@ class NeuronCompartmentModel:
                     Node IDs at which to record.
         label :     str, optional
                     If label is given, this recording will be added as
-                    ``self.records[label]`` else  ``self.records[node_id]``.
+                    ``self.records['v'][label]`` else  ``self.records['v'][node_id]``.
 
         """
         self._add_record(where, what='v', label=label)
 
     def add_current_record(self, where, label=None):
-        """Add voltage recording to model.
+        """Add current recording to model.
+
+        This only works if nodes map to sections that have point processes.
 
         Parameters
         ----------
@@ -448,9 +472,25 @@ class NeuronCompartmentModel:
                     Node IDs at which to record.
         label :     str, optional
                     If label is given, this recording will be added as
-                    ``self.records[label]`` else  ``self.records[node_id]``.
+                    ``self.records['i'][label]`` else  ``self.records['i'][node_id]``.
 
         """
+        nodes = utils.make_iterable(where)
+
+        # Map nodes to point processes
+        secs = self.get_node_segment(nodes)
+        where = []
+        for n, sec in zip(nodes, secs):
+            pp = sec.point_processes()
+            if not pp:
+                raise TypeError(f'Section for node {n} has no point process '
+                                '- unable to add current record')
+            elif len(pp) > 1:
+                logger.warning(f'Section for node {n} has more than on point '
+                               'process. Recording current at first.')
+                pp = pp[:1]
+            where += pp
+
         self._add_record(where, what='i', label=label)
 
     def _add_record(self, where, what, label=None):
@@ -458,8 +498,8 @@ class NeuronCompartmentModel:
 
         Parameters
         ----------
-        where :     int | list of int
-                    Node IDs at which to record.
+        where :     int | list of int | point process | section
+                    Node IDs (or a section) at which to record.
         what :      str
                     What to record. Can be e.g. `v` or `_ref_v` for Voltage.
         label :     str, optional
@@ -475,15 +515,24 @@ class NeuronCompartmentModel:
         if not what.startswith('_ref_'):
             what = f'_ref_{what}'
 
-        nodes = self.nodes.set_index('node_id')
-        for node in nodes.loc[where].itertuples():
-            sec = self.sections[node.sec_ix](node.sec_pos)
-            rec = neuron.h.Vector().record(getattr(sec, what))
+        rec_type = what.split('_')[-1]
+        if rec_type not in self.records:
+            self.records[rec_type] = {}
+
+        for w in where:
+            # If this is a neuron object (e.g. segment, section or point
+            # process) we assume this does not need mapping
+            if is_NEURON_object(w):
+                seg = w
+            else:
+                seg = self.get_node_segment(w)
+
+            rec = neuron.h.Vector().record(getattr(seg, what))
 
             if label:
-                self.records[label] = rec
+                self.records[rec_type][label] = rec
             else:
-                self.records[node.Index] = rec
+                self.records[rec_type][w] = rec
 
     def clear_records(self):
         """Clear records."""
@@ -510,6 +559,30 @@ class NeuronCompartmentModel:
         for s in self._sections:
             del s
         self._sections = []
+
+    def get_node_segment(self, node_ids):
+        """Return segment(s) for given node(s).
+
+        Parameters
+        ----------
+        node_ids :  int | list of int
+                    IDs
+
+        Returns
+        -------
+        segment(s) :    segment or list of segments
+                        Depends on input.
+
+        """
+        nodes = self.nodes.set_index('node_id')
+        if not utils.is_iterable(node_ids):
+            n = nodes.loc[node_ids]
+            return self.sections[n.sec_ix](n.sec_pos)
+        else:
+            segs = []
+            for node in nodes.loc[node_ids].itertuples():
+                segs.append(self.sections[node.sec_ix](node.sec_pos))
+            return segs
 
     def insert(self, mechanism, subset=None, **kwargs):
         """Insert biophysical mechanism for model.
@@ -568,7 +641,7 @@ class NeuronCompartmentModel:
         neuron.h.finitialize(v_init)
         neuron.h.continuerun(duration)
 
-    def plot_results(self, ax=None):
+    def plot_results(self, axes=None):
         """Plot results."""
         if not len(self.t):
             logger.warning('Looks like the simulation has not yet been run.')
@@ -577,17 +650,27 @@ class NeuronCompartmentModel:
             logger.warning('Nothing to plot: no recordings found.')
             return
 
-        if not ax:
-            fig, ax = plt.subplots()
+        if not axes:
+            fig, axes = plt.subplots(len(self.records))
 
-        for k, v in self.records.items():
-            ax.plot(self.t, v, label=k)
+        for t, ax in zip(self.records, axes):
+            for k, v in self.records[t].items():
+                ax.plot(self.t, v, label=k)
 
-        ax.set_xlabel('time [ms]')
-        ax.set_ylabel('voltage [mV]')
+            ax.set_xlabel('time [ms]')
+            ax.set_ylabel(f'{t}')
 
-        ax.legend()
-        return ax
+            ax.legend()
+        return axes
+
+
+def is_NEURON_object(x):
+    """Best guess whether object comes from NEURON."""
+    if not hasattr(x, '__module__'):
+        return False
+    if x.__module__ == 'nrn' or x.__module__ == 'hoc':
+        return True
+    return False
 
 
 class DrosophilaPN(NeuronCompartmentModel):
