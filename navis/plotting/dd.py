@@ -426,23 +426,9 @@ def plot2d(x: Union[core.NeuronObject,
             ax.autoscale(tight=True)
         elif method in ['3d', '3d_complex']:
             # Make sure data lims are set correctly
-            _update_axes3d_bounds(ax)
-            # First autoscale
-            ax.autoscale()
-            # Now we need to set equal aspect manually
-            lim = np.array([ax.get_xlim(),
-                            ax.get_ylim(),
-                            ax.get_zlim()])
-            dim = lim[:, 1] - lim[:, 0]
-            center = lim[:, 0] + dim / 2
-            max_dim = dim.max()
-
-            new_min = center - max_dim / 2
-            new_max = center + max_dim / 2
-
-            ax.set_xlim(new_min[0], new_max[0])
-            ax.set_ylim(new_min[1], new_max[1])
-            ax.set_zlim(new_min[2], new_max[2])
+            update_axes3d_bounds(ax)
+            # Rezie to have equal aspect
+            set_axes3d_equal(ax)
 
     if scalebar is not None:
         _ = _add_scalebar(scalebar, neurons, method, ax)
@@ -968,7 +954,7 @@ def _plot_volume(volume, color, method, ax, **kwargs):
         ts.set_gid(name)
 
 
-def _update_axes3d_bounds(ax):
+def update_axes3d_bounds(ax):
     """Update axis bounds and remove default points (0,0,0) and (1,1,1)."""
     # Collect data points present in the figure
     points = []
@@ -993,12 +979,47 @@ def _update_axes3d_bounds(ax):
                                  [mx[2], mx[2]]])
         ax.xy_dataLim.set_points(new_xybounds)
         ax.zz_dataLim.set_points(new_zzbounds)
+        ax.xy_viewLim.set_points(new_xybounds)
+        ax.zz_viewLim.set_points(new_zzbounds)
         ax.had_data = True
     else:
         ax.auto_scale_xyz(points[:, 0].tolist(),
                           points[:, 1].tolist(),
                           points[:, 2].tolist(),
                           had_data=True)
+
+
+def set_axes3d_equal(ax):
+    """Make axes of 3D plot have equal scale.
+
+    This requires the viewLim to be set correctly: see `update_axes3d_bounds()`.
+
+    Parameters
+    ----------
+    ax :        a matplotlib axis, e.g., as output from plt.gca().
+
+    """
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    # The plot bounding box is a sphere in the sense of the infinity
+    # norm, hence I call half the max range the plot radius.
+    plot_radius = 0.5*max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+
+    # Set 1:1:1 box ratio
+    ax.set_box_aspect((1, 1, 1))
 
 
 def __old__update_axes3d_bounds(ax, points):
