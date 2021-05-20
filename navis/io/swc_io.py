@@ -1055,7 +1055,7 @@ def make_swc_table(x: 'core.TreeNeuron',
     swc.reset_index(drop=True, inplace=True)
 
     # Generate mapping
-    new_ids = dict(zip(swc.node_id.values, swc.index.values))
+    new_ids = dict(zip(swc.node_id.values, swc.index.values + 1))
 
     swc['node_id'] = swc.node_id.map(new_ids)
     # Lambda prevents potential issue with missing parents
