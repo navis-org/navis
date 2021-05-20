@@ -233,21 +233,45 @@ class NeuronCompartmentModel:
     def _generate_sections(self):
         """Generate sections from the neuron.
 
-        This should not be called multiple times!
+        This will automatically be called at initialization and should not be
+        called again.
 
         """
         # For each node find the relative (0-1) position within its section
         G = self.skeleton.graph
         node2sec = {}
         node2pos = {}
+        mean_diam = []
         roots = self.skeleton.root
+        nodes = self.skeleton.nodes.set_index('node_id')
         for i, seg in enumerate(self.skeleton.small_segments):
             # Get child->parent distances in this segment
             dist = np.array([G.edges[(c, p)]['weight']
                              for c, p in zip(seg[:-1], seg[1:])])
+
+            # The segments aren't exactly cylinders since
+            # Get radii for this segment
+            radii = nodes.loc[seg, 'radius'].values
+            # Each parent->child connection is effectively a tapered cylinder
+            #   The volume of a tapered cylinder is defined as:
+            #
+            #     volume = (1/3) * pi * depth * (r^2 + r * R + R^2)
+            #
+            #   where R is a radius of the base of a cone,
+            #   and r of top surface radius
+            r = radii[:-1]
+            R = radii[1:]
+            vols = (1/3) * np.pi * dist * (r ** 2 + r * R + R ** 2)
+            # Calculate a mean diameter that reproduces the volume in a
+            # cylinder with length sum(dist)
+            mean_radius = np.sqrt(vols.sum() / (np.pi * dist.sum()))
+            mean_diam.append(mean_radius * 2)
+
             # Invert so that segment/distances are parent->child
             dist = dist[::-1]
             seg = seg[::-1]
+            radii = radii[::-1]
+
             # Insert 0 as the first distance
             dist = np.insert(dist, 0, 0)
             # Get normalized position within segment
@@ -265,16 +289,16 @@ class NeuronCompartmentModel:
         self.skeleton.nodes['sec_ix'] = self.skeleton.nodes.node_id.map(node2sec)
         self.skeleton.nodes['sec_pos'] = self.skeleton.nodes.node_id.map(node2pos)
 
-        # First generate sections
-        nodes = self.skeleton.nodes.set_index('node_id')
+        # Now generate sections
         self._sections = []
+        nodes = self.skeleton.nodes.set_index('node_id')
         for i, seg in enumerate(self.skeleton.small_segments):
             # Generate segment
             sec = neuron.h.Section(name=f'segment_{i}')
             # Set length
             sec.L = graph.segment_length(self.skeleton, seg)
             # Set mean diameter
-            sec.diam = nodes.loc[seg, 'radius'].mean() * 2
+            sec.diam = mean_diam[i]
             # Set number of segments for this section
             # We also will make sure that each section has an odd
             # number of segments
@@ -397,7 +421,7 @@ class NeuronCompartmentModel:
         Parameters
         ----------
         where :     int | list of int
-                    Node IDs at which to stimulate.
+                    Node ID(s) at which to stimulate.
         start :     int
                     Onset (delay) [ms] from beginning of simulation.
         duration :  int
@@ -416,7 +440,7 @@ class NeuronCompartmentModel:
         Parameters
         ----------
         where :         int | list of int
-                        Node IDs at which to stimulate.
+                        Node ID(s) at which to stimulate.
         start :         int
                         Onset [ms] from beginning of simulation.
         tau :           int
@@ -453,7 +477,7 @@ class NeuronCompartmentModel:
         Parameters
         ----------
         where :     int | list of int
-                    Node IDs at which to record.
+                    Node ID(s) at which to record.
         label :     str, optional
                     If label is given, this recording will be added as
                     ``self.records['v'][label]`` else  ``self.records['v'][node_id]``.
@@ -469,7 +493,7 @@ class NeuronCompartmentModel:
         Parameters
         ----------
         where :     int | list of int
-                    Node IDs at which to record.
+                    Node ID(s) at which to record.
         label :     str, optional
                     If label is given, this recording will be added as
                     ``self.records['i'][label]`` else  ``self.records['i'][node_id]``.
@@ -499,7 +523,7 @@ class NeuronCompartmentModel:
         Parameters
         ----------
         where :     int | list of int | point process | section
-                    Node IDs (or a section) at which to record.
+                    Node ID(s) (or a section) at which to record.
         what :      str
                     What to record. Can be e.g. `v` or `_ref_v` for Voltage.
         label :     str, optional
