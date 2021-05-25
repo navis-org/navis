@@ -47,3 +47,10 @@ on Github.
      - You probably have `ipywidgets <ipywidgets.readthedocs.io>`_ not installed or not configured properly. One work-around is to force navis to use standard progress bars using :func:`navis.set_pbars`::
 
          navis.set_pbars(jupyter=False)
+
+   * - **Output**
+     -
+   * - Navis starts viewers for plots when I don't want it to.
+     - Set the environment variable ``NAVIS_HEADLESS`` to ``"True"`` before navis is first imported to disable viewers (good for use on servers).
+   * - Navis interferes with my logging configuration.
+     - By default, navis configures sensible defaults for logging (helpful for jupyter notebooks, scripting, and exploratory REPL use). Set the environment variable ``NAVIS_SKIP_LOG_SETUP`` to ``"True"`` before navis is first imported to disable this (good when using navis as a library). Use :func:`navis.config.default_logging()` to manually run the log setup.

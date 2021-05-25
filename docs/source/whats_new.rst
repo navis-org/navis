@@ -13,7 +13,9 @@ repository.
 
    * - Version
      - Date
-     -
+   * - dev
+     - In development
+     - - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
    * - 0.6.0
      - 12/05/21
      - - new functions: :func:`navis.prune_at_depth`, :func:`navis.read_rda`, :func:`navis.cell_body_fiber`
