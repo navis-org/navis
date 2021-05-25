@@ -2179,7 +2179,7 @@ class TreeNeuron(BaseNeuron):
         >>> n = navis.example_neurons(1)
         >>> id, dist = n.snap([0, 0, 0])
         >>> id
-        1224
+        1124
 
         """
         locs = np.asarray(locs).astype(np.float64)
