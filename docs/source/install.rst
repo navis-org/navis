@@ -188,7 +188,7 @@ Optional
 
 Navis provides extra functionality or performance improvements with optional extras.
 
-Extras can be directly, or along with navis with
+Extras can be installed directly, or along with navis with
 
 ::
 

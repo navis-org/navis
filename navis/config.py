@@ -18,15 +18,23 @@ import os
 import matplotlib as mpl
 
 logger = logging.getLogger('navis')
-logger.setLevel(logging.INFO)
-if len(logger.handlers) == 0:
-    sh = logging.StreamHandler()
-    sh.setLevel(logging.DEBUG)
-    # Create formatter and add it to the handlers
-    formatter = logging.Formatter(
-        '%(levelname)-5s : %(message)s (%(name)s)')
-    sh.setFormatter(formatter)
-    logger.addHandler(sh)
+
+
+def default_logging():
+    logger.setLevel(logging.INFO)
+    if len(logger.handlers) == 0:
+        sh = logging.StreamHandler()
+        sh.setLevel(logging.DEBUG)
+        # Create formatter and add it to the handlers
+        formatter = logging.Formatter(
+            '%(levelname)-5s : %(message)s (%(name)s)')
+        sh.setFormatter(formatter)
+        logger.addHandler(sh)
+
+
+skip_log_setup = os.environ.get('NAVIS_SKIP_LOG_SETUP', '').lower() == 'true'
+if not skip_log_setup:
+    default_logging()
 
 # Default settings for progress bars
 pbar_hide = False
