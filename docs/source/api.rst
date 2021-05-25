@@ -103,6 +103,7 @@ simply short-hands for the other navis functions:
     ~navis.TreeNeuron.reload
     ~navis.TreeNeuron.reroot
     ~navis.TreeNeuron.resample
+    ~navis.TreeNeuron.snap
 
 In addition ``TreeNeurons`` have a range of different properties:
 
