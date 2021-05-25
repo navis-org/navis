@@ -1435,17 +1435,14 @@ class TreeNeuron(BaseNeuron):
                              f'to numeric (3, ) numpy array.')
 
         # Generate tree
-        tree = graph.neuron2KDTree(self)
-
-        # Find the closest node
-        dist, ix = tree.query(value)
+        id, dist = self.snap(value, to='nodes')
 
         # A sanity check
         if dist > (self.sampling_resolution * 10):
-            logger.warning('New soma position is suspiciously far away from '
-                           f'the closest node: {dist}')
+            logger.warning(f'New soma position for {self.id} is suspiciously '
+                           f'far away from the closest node: {dist}')
 
-        self.soma = self.nodes.iloc[ix].node_id
+        self.soma = id
 
     @property
     @requires_nodes
@@ -2158,6 +2155,57 @@ class TreeNeuron(BaseNeuron):
             x2.__dict__.update(x.__dict__)
             x2._clear_temp_attr()
             return x
+
+    def snap(self, locs, to='nodes'):
+        """Snap xyz location(s) to closest node or synapse.
+
+        Parameters
+        ----------
+        locs :      (N, 3) array | (3, ) array
+                    Either single or multiple XYZ locations.
+        to :        "nodes" | "connectors"
+                    Whether to snap to nodes or connectors.
+
+        Returns
+        -------
+        id :        int | list of int
+                    ID(s) of the closest node/connector.
+        dist :      float | list of float
+                    Distance(s) to the closest node/connector.
+
+        Examples
+        --------
+        >>> import navis
+        >>> n = navis.example_neurons(1)
+        >>> id, dist = n.snap([0, 0, 0])
+        >>> id
+        1224
+
+        """
+        locs = np.asarray(locs).astype(np.float64)
+
+        is_single = (locs.ndim == 1 and len(locs) == 3)
+        is_multi = (locs.ndim == 2 and locs.shape[1] == 3)
+        if not is_single and not is_multi:
+            raise ValueError('Expected a single (x, y, z) location or a '
+                             '(N, 3) array of multiple locations')
+
+        if to not in ['nodes', 'connectors']:
+            raise ValueError('`to` must be "nodes" or "connectors", '
+                             f'got {to}')
+
+        # Generate tree
+        tree = graph.neuron2KDTree(self, data=to)
+
+        # Find the closest node
+        dist, ix = tree.query(locs)
+
+        if to == 'nodes':
+            id = self.nodes.node_id.values[ix]
+        else:
+            id = self.connectors.connector_id.values[ix]
+
+        return id, dist
 
 
 class Dotprops(BaseNeuron):
