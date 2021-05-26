@@ -21,7 +21,8 @@ ToDo
 - connect neurons
 - use neuron ID as GID
 - add spike recorder
-- make a subplot for each recording type (V, current, spikes)
+- [x] make a subplot for each recording type (V, current, spikes)
+- consider adding 3d points to more accurately represent the neuron
 
 Examples
 --------
@@ -145,11 +146,6 @@ class NeuronCompartmentModel:
         # Generate the actual model
         self._validate_skeleton()
         self._generate_sections()
-
-        # Add recording of time
-        global main_t
-        if isinstance(main_t, type(None)):
-            main_t = neuron.h.Vector().record(neuron.h._ref_t)
 
     def __repr__(self):
         s = (f'CompartmentModel<id={self.skeleton.label},'
@@ -392,27 +388,10 @@ class NeuronCompartmentModel:
         stim.noise = spike_noise
         stim.interval = spike_int
 
-        # Go over the nodes
-        nodes = self.nodes.set_index('node_id')
-        for node in nodes.loc[where].itertuples():
-            # Generate synapses for the nodes in question
-            # Note that we are not reusing existing synapses
-            # in case the properties are different
-            sec = self.sections[node.sec_ix](node.sec_pos)
-            syn = neuron.h.Exp2Syn(sec)
-            syn.tau1 = syn_tau1
-            syn.tau2 = syn_tau2
-            syn.e = syn_rev_pot
-
-            self.synapses[node.Index] = self.synapses.get(node.Index, []) + [syn]
-
-            # Connect spike stimulus and synapse
-            ncstim = neuron.h.NetCon(stim, syn)
-            ncstim.threshold = cn_thresh
-            ncstim.delay = cn_delay
-            ncstim.weight[0] = cn_weight
-
-            self.stimuli[node.Index] = self.stimuli.get(node.Index, []) + [ncstim, stim]
+        # Connect
+        self.connect(stim, where, syn_tau1=syn_tau1, syn_tau2=syn_tau2,
+                     syn_rev_pot=syn_rev_pot, cn_thresh=cn_thresh,
+                     cn_delay=cn_delay, cn_weight=cn_weight)
 
     def inject_current_pulse(self, where, start=5,
                              duration=1, current=0.1):
@@ -517,6 +496,47 @@ class NeuronCompartmentModel:
 
         self._add_record(where, what='i', label=label)
 
+    def add_spike_detector(self, where, threshold=20, label=None):
+        """Add a spike detector at given node(s).
+
+        Parameters
+        ----------
+        where :     int | list of int
+                    Node ID(s) at which to record.
+        threshold : float
+                    Threshold in mV for a spike to be counted.
+        label :     str, optional
+                    If label is given, this recording will be added as
+                    ``self.records[label]`` else  ``self.records[node_id]``.
+
+        """
+        where = utils.make_iterable(where)
+
+        self.records['spikes'] = self.records.get('spikes', {})
+        self._spike_det = getattr(self, '_spike_det', [])
+        segments = self.get_node_segment(where)
+        sections = self.get_node_section(where)
+        for n, sec, seg in zip(where, sections, segments):
+            # Generate a NetCon object that has no target
+            sp_det = neuron.h.NetCon(seg._ref_v, None, sec=sec)
+
+            # Set threshold
+            if threshold:
+                sp_det.threshold = threshold
+
+            # Keeping track of this to save it from garbage collector
+            self._spike_det.append(sp_det)
+
+            # Create a vector for the spike timings
+            vec = neuron.h.Vector()
+            # Tell the NetCon object to record into that vector
+            sp_det.record(vec)
+
+            if label:
+                self.records['spikes'][label] = vec
+            else:
+                self.records['spikes'][n] = vec
+
     def _add_record(self, where, what, label=None):
         """Add a recording to given node.
 
@@ -558,6 +578,79 @@ class NeuronCompartmentModel:
             else:
                 self.records[rec_type][w] = rec
 
+    def connect(self, pre, where, syn_tau1=.1 * ms, syn_tau2=10 * ms,
+                syn_rev_pot=0, cn_thresh=10, cn_delay=1 * ms, cn_weight=0):
+        """Connect object to model.
+
+        This uses the Exp2Syn synapse and treads `what` as the presynaptic
+        object.
+
+        Parameters
+        ----------
+        pre :           NetStim | section
+                        The presynaptic object to connect to this neuron.
+        where :         int | list of int
+                        Node IDs at which to simulate synaptic input.
+
+        Synapse properties:
+
+        syn_tau1 :      int
+                        Rise time constant [ms].
+        syn_tau2 :      int
+                        Decay time constant [ms].
+        syn_rev_pot :   int
+                        Reversal potential (e) [mV].
+
+        Connection properties:
+
+        cn_thresh :     int
+                        Presynaptic membrane potential [mV] at which synaptic
+                        event is triggered.
+        cn_delay :      int
+                        Delay [ms] between presynaptic trigger and postsynaptic
+                        event.
+        cn_weight :     int
+                        Weight variable. This bundles a couple of synaptic
+                        properties such as e.g. how much transmitter is released
+                        or binding affinity at postsynaptic receptors.
+
+        """
+        where = utils.make_iterable(where)
+
+        if not is_NEURON_object(pre):
+            raise ValueError(f'Expected NEURON object, got {type(pre)}')
+
+        # Turn section into segment
+        if isinstance(pre, neuron.nrn.Section):
+            pre = pre()
+
+        # Go over the nodes
+        nodes = self.nodes.set_index('node_id')
+        for node in nodes.loc[where].itertuples():
+            # Generate synapses for the nodes in question
+            # Note that we are not reusing existing synapses
+            # in case the properties are different
+            sec = self.sections[node.sec_ix](node.sec_pos)
+            syn = neuron.h.Exp2Syn(sec)
+            syn.tau1 = syn_tau1
+            syn.tau2 = syn_tau2
+            syn.e = syn_rev_pot
+
+            self.synapses[node.Index] = self.synapses.get(node.Index, []) + [syn]
+
+            # Connect spike stimulus and synapse
+            if isinstance(pre, neuron.nrn.Segment):
+                nc = neuron.h.NetCon(pre._ref_v, syn, sec=pre.sec)
+            else:
+                nc = neuron.h.NetCon(pre, syn)
+
+            # Set connection paramters
+            nc.threshold = cn_thresh
+            nc.delay = cn_delay
+            nc.weight[0] = cn_weight
+
+            self.stimuli[node.Index] = self.stimuli.get(node.Index, []) + [nc, pre]
+
     def clear_records(self):
         """Clear records."""
         self._records = {}
@@ -584,13 +677,37 @@ class NeuronCompartmentModel:
             del s
         self._sections = []
 
+    def get_node_section(self, node_ids):
+        """Return section(s) for given node(s).
+
+        Parameters
+        ----------
+        node_ids :  int | list of int
+                    Node IDs.
+
+        Returns
+        -------
+        section(s) :    segment or list of segments
+                        Depends on input.
+
+        """
+        nodes = self.nodes.set_index('node_id')
+        if not utils.is_iterable(node_ids):
+            n = nodes.loc[node_ids]
+            return self.sections[n.sec_ix]
+        else:
+            segs = []
+            for node in nodes.loc[node_ids].itertuples():
+                segs.append(self.sections[node.sec_ix])
+            return segs
+
     def get_node_segment(self, node_ids):
         """Return segment(s) for given node(s).
 
         Parameters
         ----------
         node_ids :  int | list of int
-                    IDs
+                    Node IDs.
 
         Returns
         -------
@@ -661,6 +778,10 @@ class NeuronCompartmentModel:
 
     def run_simulation(self, duration=25 * ms, v_init=-65 * mV):
         """Run the simulation."""
+        # Add recording of time
+        global main_t
+        main_t = neuron.h.Vector().record(neuron.h._ref_t)
+
         # This resets the entire model space not just this neuron!
         neuron.h.finitialize(v_init)
         neuron.h.continuerun(duration)
@@ -675,11 +796,19 @@ class NeuronCompartmentModel:
             return
 
         if not axes:
-            fig, axes = plt.subplots(len(self.records))
+            fig, axes = plt.subplots(len(self.records), sharex=True)
+
+        # Make sure that even a single ax is a list
+        if not isinstance(axes, (np.ndarray, list)):
+            axes = [axes] * len(self.records)
 
         for t, ax in zip(self.records, axes):
-            for k, v in self.records[t].items():
-                ax.plot(self.t, v, label=k)
+            for i, (k, v) in enumerate(self.records[t].items()):
+                # For spikes the vector contains the times
+                if t == 'spikes':
+                    ax.scatter(v, [i] * len(v), label=k, marker='|', s=100)
+                else:
+                    ax.plot(self.t, v, label=k)
 
             ax.set_xlabel('time [ms]')
             ax.set_ylabel(f'{t}')
