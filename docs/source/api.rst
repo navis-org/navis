@@ -658,3 +658,4 @@ Various utility functions.
     navis.set_pbars
     navis.set_loggers
     navis.set_default_connector_colors
+    navis.config.remove_log_handlers

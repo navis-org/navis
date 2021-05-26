@@ -21,6 +21,12 @@ logger = logging.getLogger('navis')
 
 
 def default_logging():
+    """Add a formatted stream handler to the ``navis`` logger.
+
+    Called by default when navis is imported for the first time.
+    To prevent this behaviour, set an environment variable:
+    ``NAVIS_SKIP_LOG_SETUP=True``.
+    """
     logger.setLevel(logging.INFO)
     if len(logger.handlers) == 0:
         sh = logging.StreamHandler()
@@ -30,6 +36,17 @@ def default_logging():
             '%(levelname)-5s : %(message)s (%(name)s)')
         sh.setFormatter(formatter)
         logger.addHandler(sh)
+
+
+def remove_log_handlers():
+    """Remove all handlers from the ``navis`` logger.
+
+    It may be preferable to skip navis' default log handler being added in the
+    first place.
+    Do this by setting an environment variable before the first import:
+    ``NAVIS_SKIP_LOG_SETUP=True``.
+    """
+    logger.handlers.clear()
 
 
 skip_log_setup = os.environ.get('NAVIS_SKIP_LOG_SETUP', '').lower() == 'true'
