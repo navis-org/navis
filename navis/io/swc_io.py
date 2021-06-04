@@ -219,7 +219,8 @@ class SwcReader:
         neurons = []
         with ZipFile(p, 'r') as zip:
             for file in files:
-                props = self.parse_filename(file)
+                # Note the `file` is of type zipfile.ZipInfo here
+                props = self.parse_filename(file.orig_filename)
                 props['origin'] = str(p)
                 try:
                     n = self.read_string(zip.read(file).decode(),
