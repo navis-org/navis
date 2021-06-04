@@ -538,6 +538,10 @@ class SwcReader:
         props = {}
         for i, prop in enumerate(prop_names):
             for p in prop.split(','):
+                # Ignore empty ("{}")
+                if not p:
+                    continue
+
                 # If datatype was specified
                 if ":" in p:
                     p, dt = p.split(':')
@@ -830,6 +834,9 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                           - `{name}_{myproperty}.swc` splits the filename at
                             "_" and uses the first part as name and as a
                             generic "myproperty" property
+                          - `{name}_{}_{id}.swc` splits the filename at
+                            "_" and uses the first part as name and the last as
+                            ID. The middle part is ignored.
 
                         Throws a ValueError if pattern can't be found in
                         filename. Ignored for DataFrames.
