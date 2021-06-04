@@ -15,6 +15,7 @@ import csv
 import datetime
 import io
 import os
+import re
 import requests
 import tempfile
 
@@ -47,6 +48,7 @@ NODE_COLUMNS = ('node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id')
 COMMENT = "#"
 DEFAULT_DELIMITER = " "
 DEFAULT_PRECISION = 32
+DEFAULT_FMT = "{name}.swc"
 DEFAULT_INCLUDE_SUBDIRS = False
 AUTO_PARALLEL = "auto"
 
@@ -81,12 +83,14 @@ class SwcReader:
         soma_label: Union[str, int] = 1,
         delimiter: str = DEFAULT_DELIMITER,
         precision: int = DEFAULT_PRECISION,
+        fmt: str = DEFAULT_FMT,
         attrs: Optional[Dict[str, Any]] = None
     ):
         self.connector_labels = connector_labels or dict()
         self.soma_label = soma_label
         self.delimiter = delimiter
         self.attrs = attrs
+        self.fmt = fmt
 
         int_, float_ = parse_precision(precision)
         self._dtypes = {
@@ -177,8 +181,10 @@ class SwcReader:
         """
         p = Path(fpath)
         with open(p, "r") as f:
+            props = self.parse_filename(f.name)
+            props['origin'] = str(p)
             return self.read_buffer(
-                f, merge_dicts({"name": p.stem, "origin": str(p)}, attrs)
+                f, merge_dicts(props, attrs)
             )
 
     def read_from_zip(
@@ -213,10 +219,11 @@ class SwcReader:
         neurons = []
         with ZipFile(p, 'r') as zip:
             for file in files:
+                props = self.parse_filename(file)
+                props['origin'] = str(p)
                 try:
                     n = self.read_string(zip.read(file).decode(),
-                                         merge_dicts({"name": file.filename,
-                                                      "origin": str(p)}, attrs))
+                                         merge_dicts(props, attrs))
                     neurons.append(n)
                 except BaseException:
                     if on_error == 'ignore':
@@ -302,9 +309,11 @@ class SwcReader:
         """
         with requests.get(url, stream=True) as r:
             r.raise_for_status()
+            props = self.parse_filename(url.split('/')[-1])
+            props['origin'] = url
             return self.read_buffer(
                 r.raw,
-                merge_dicts({'name': url.split('/')[1], 'origin': url}, attrs)
+                merge_dicts(props, attrs)
             )
 
     def read_string(
@@ -485,6 +494,68 @@ class SwcReader:
                 pass
 
             return self.read_any_single(obj, attrs)
+
+    def parse_filename(
+        self, filename: str
+    ) -> dict:
+        """Extract properties from filename according to specified formatter.
+
+        Parameters
+        ----------
+        filename : str
+
+        Returns
+        -------
+        props :     dict
+                    Properties extracted from filename.
+
+        """
+        # Make sure we are working with the filename not the whole path
+        filename = Path(filename).name
+        # First turn formatter into a regex pattern
+        if not self.fmt.endswith('.swc'):
+            raise ValueError('`fmt` must end with ".swc"')
+
+        # Escape all special characters
+        fmt = re.escape(self.fmt)
+
+        # Unescape { and }
+        fmt = fmt.replace('\\{', '{').replace('\\}', '}')
+
+        # Replace all e.g. {name} with {.*}
+        prop_names = []
+        for prop in re.findall("{.*?}", fmt):
+            prop_names.append(prop[1:-1].replace(" ", ""))
+            fmt = fmt.replace(prop, "(.*?)")
+
+        # Match
+        match = re.search(fmt, filename)
+
+        if not match:
+            raise ValueError(f'Unable to match "{self.fmt}" to filename "{filename}"')
+
+        props = {}
+        for i, prop in enumerate(prop_names):
+            for p in prop.split(','):
+                # If datatype was specified
+                if ":" in p:
+                    p, dt = p.split(':')
+
+                    props[p] = match.group(i + 1)
+
+                    if dt == 'int':
+                        props[p] = int(props[p])
+                    elif dt == 'float':
+                        props[p] = float(props[p])
+                    elif dt == 'bool':
+                        props[p] = bool(props[p])
+                    else:
+                        raise ValueError(f'Unable to interpret datatype "{dt}" for '
+                                         f'property {p}')
+                else:
+                    props[p] = match.group(i + 1)
+        return props
+
 
     def _extract_connectors(
         self, nodes: pd.DataFrame
@@ -707,6 +778,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
              delimiter: str = ' ',
              parallel: Union[bool, int] = 'auto',
              precision: int = 32,
+             fmt: str = "{name}.swc",
              **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from SWC file.
 
@@ -740,6 +812,26 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         Precision for data. Defaults to 32 bit integers/floats.
                         If ``None`` will let pandas infer data types - this
                         typically leads to higher than necessary precision.
+    fmt :               str
+                        Formatter to specify how filenames are parsed into
+                        neuron attributes. Some illustrative examples:
+
+                          - `{name}.swc` (default) uses the filename
+                            (minus the suffix) as the neuron's name property
+                          - `{id}.swc` uses the filename as the neuron's ID
+                            property
+                          - `{name,id}.swc` uses the filename as the neuron's
+                            name and ID properties
+                          - `{name}.{id}.swc` splits the filename at a "." and
+                            uses the first part as name and the second as ID
+                          - `{name,id:int}.swc` same as above but converts into
+                            integer for the ID
+                          - `{name}_{myproperty}.swc` splits the filename at
+                            "_" and uses the first part as name and as a
+                            generic "myproperty" property
+
+                        Throws a ValueError if pattern can't be found in
+                        filename. Ignored for DataFrames.
     **kwargs
                         Keyword arguments passed to the construction of
                         ``navis.TreeNeuron``. You can use this to e.g. set
@@ -760,7 +852,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
 
     """
     reader = SwcReader(
-        connector_labels, soma_label, delimiter, precision, kwargs
+        connector_labels, soma_label, delimiter, precision, fmt, kwargs
     )
     return reader.read_any(f, include_subdirs, parallel)
 
