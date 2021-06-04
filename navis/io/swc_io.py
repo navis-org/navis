@@ -827,9 +827,9 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                             property
                           - ``{name,id}.swc` uses the filename as the neuron's
                             name and ID properties
-                          - ```{name}.{id}.swc`` splits the filename at a "."
+                          - ``{name}.{id}.swc`` splits the filename at a "."
                             and uses the first part as name and the second as ID
-                          - ```{name,id:int}.swc`` same as above but converts
+                          - ``{name,id:int}.swc`` same as above but converts
                             into integer for the ID
                           - ``{name}_{myproperty}.swc`` splits the filename at
                             "_" and uses the first part as name and as a
