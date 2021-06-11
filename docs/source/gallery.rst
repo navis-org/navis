@@ -70,6 +70,7 @@ function. There you will also find more examples.
    :maxdepth: 2
 
    tutorials/nblast
+   tutorials/nblast_flycircuit
 
 .. raw:: html
 
