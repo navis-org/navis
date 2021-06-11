@@ -536,7 +536,7 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
                     resample: Optional[int] = None,
                     n_cores: int = os.cpu_count() - 2,
                     use_alpha: bool = False) -> pd.DataFrame:
-    """All-by-all NBLAST using R's ``nat:nblast_allbyall``.
+    """All-by-all NBLAST using R's ``nat.nblast::nblast_allbyall``.
 
     NBLAST is optimized for data in microns. Original nat function can be found
     `here <https://github.com/jefferislab/nat.nblast/>`_.
@@ -630,7 +630,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
            use_alpha: bool = False,
            k: int = 5,
            resample: Optional[int] = None) -> pd.DataFrame:
-    """Run nat's `NBLAST<https://github.com/jefferis/nat>`_.
+    """NBLAST using R's ``nat.nblast::nblast``.
 
     Please note that NBLAST is optimized for units in microns.
 
