@@ -649,10 +649,12 @@ def split_axon_dendrite(x: NeuronObject,
         if 'flow_centrality' not in x.nodes.columns:
             mmetrics.flow_centrality(x)
         col = 'flow_centrality'
-    elif metric == 'segregation':
+    elif metric == 'segregation_index':
         if 'SI' not in x.nodes.columns:
             mmetrics.arbor_segregation_index(x)
         col = 'segregation_index'
+    else:
+        raise ValueError(f'Unknown `metric`: "{metric}"')
 
     # We can lock this neuron indefinitely since we are not returning it
     x._lock = 1
