@@ -1096,7 +1096,7 @@ def sim_to_dist(x):
     return (x - mx) * -1
 
 
-def nblast_preflight(query, target, n_cores, batch_size, req_unique_ids=False):
+def nblast_preflight(query, target, n_cores, batch_size=None, req_unique_ids=False):
     """Run preflight checks for NBLAST."""
     if query.types != (Dotprops, ):
         raise TypeError(f'`query` must be Dotprop(s), got "{query.types}". '
