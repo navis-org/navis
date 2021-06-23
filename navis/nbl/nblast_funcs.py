@@ -1102,15 +1102,17 @@ def sim_to_dist(x):
     return (x - mx) * -1
 
 
-def nblast_preflight(query, target, n_cores, batch_size=None, req_unique_ids=False):
+def nblast_preflight(query, target, n_cores, batch_size=None,
+                     req_unique_ids=False, req_dotprops=False):
     """Run preflight checks for NBLAST."""
-    if query.types != (Dotprops, ):
-        raise TypeError(f'`query` must be Dotprop(s), got "{query.types}". '
-                        'Use `navis.make_dotprops` to convert neurons.')
+    if req_dotprops:
+        if query.types != (Dotprops, ):
+            raise TypeError(f'`query` must be Dotprop(s), got "{query.types}". '
+                            'Use `navis.make_dotprops` to convert neurons.')
 
-    if target.types != (Dotprops, ):
-        raise TypeError(f'`target` must be Dotprop(s), got "{target.types}". '
-                        'Use `navis.make_dotprops` to convert neurons.')
+        if target.types != (Dotprops, ):
+            raise TypeError(f'`target` must be Dotprop(s), got "{target.types}". '
+                            'Use `navis.make_dotprops` to convert neurons.')
 
     if req_unique_ids:
         # At the moment, neurons need to have a unique ID for things to work
