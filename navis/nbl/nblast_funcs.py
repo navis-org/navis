@@ -1,3 +1,4 @@
+
 #    This script is part of navis (http://www.github.com/schlegelp/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
@@ -49,6 +50,17 @@ class ScoringFunction:
 
     def __call__(self, dist, dot):
         return self.scoring_function(dist, dot)
+
+    @property
+    def max_dist(self):
+        """Max distance considered by the scoring matrix.
+
+        Returns ``None`` if pass through.
+        """
+        if self.scoring_function == self.pass_through:
+            return None
+        # The last bin is always `np.inf`, so we need the second last bin
+        return self.dist_bins[-2]
 
     def pass_through(self, dist, dot):
         """Pass-through scores if no scoring matrix."""
@@ -104,7 +116,7 @@ class NBlaster:
                     Whether or not to use alpha values for the scoring.
                     If True, the dotproduct of nearest neighbor vectors will
                     be scaled by ``sqrt(alpha1 * alpha2)``.
-    normalzed :     bool
+    normalized :    bool
                     If True, will normalize scores by the best possible score
                     (i.e. self-self) of the query neuron.
     smat :          str | pd.DataFrame
@@ -113,16 +125,23 @@ class NBlaster:
                     implementation. If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
+    limit_dist :    float | "auto" | None
+                    Sets the max distance for the nearest neighbor search
+                    (`distance_upper_bound`). Typically this should be the
+                    highest distance considered by the scoring function. If
+                    "auto", will extract that value from the scoring matrix.
     progress :      bool
                     If True, will show a progress bar.
 
     """
 
-    def __init__(self, use_alpha=False, normalized=True, smat='auto', progress=True):
+    def __init__(self, use_alpha=False, normalized=True, smat='auto',
+                 limit_dist=None, progress=True):
         """Initialize class."""
         self.use_alpha = use_alpha
         self.normalized = normalized
         self.progress = progress
+        self.desc = "Blasting"
 
         if smat == 'auto':
             if self.use_alpha:
@@ -133,6 +152,11 @@ class NBlaster:
                                    index_col=0)
 
         self.score_fn = ScoringFunction(smat)
+
+        if limit_dist == 'auto':
+            self.distance_upper_bound = self.score_fn.max_dist
+        else:
+            self.distance_upper_bound = limit_dist
 
         self.self_hits = []
         self.dotprops = []
@@ -171,7 +195,8 @@ class NBlaster:
 
         # Run nearest-neighbor search for query against target
         data = self.dotprops[q_idx].dist_dots(self.dotprops[t_idx],
-                                              alpha=self.use_alpha)
+                                              alpha=self.use_alpha,
+                                              distance_upper_bound=self.distance_upper_bound)
         if self.use_alpha:
             dists, dots, alpha = data
             dots *= np.sqrt(alpha)
@@ -186,7 +211,8 @@ class NBlaster:
 
         # For the mean score we also have to produce the reverse score
         if scores in ('mean', 'min', 'max'):
-            reverse = self.single_query_target(t_idx, q_idx, scores='forward')
+            reverse = self.single_query_target(t_idx, q_idx, scores='forward',
+                                               distance_upper_bound=self.distance_upper_bound)
             if scores == 'mean':
                 scr = (scr + reverse) / 2
             elif scores == 'min':
@@ -255,7 +281,7 @@ class NBlaster:
 
         rows = []
         for q in config.tqdm(q_idx,
-                             desc='Blasting',
+                             desc=self.desc,
                              leave=False,
                              position=position,
                              disable=not self.progress):
@@ -303,10 +329,9 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                  normalized: bool = True,
                  use_alpha: bool = False,
                  smat: Optional[Union[str, pd.DataFrame]] = 'auto',
+                 limit_dist: Optional[Union[Literal['auto'], int, float]] = 'auto',
                  n_cores: int = os.cpu_count() // 2,
-                 progress: bool = True,
-                 k: int = 20,
-                 resample: Optional[int] = None) -> pd.DataFrame:
+                 progress: bool = True) -> pd.DataFrame:
     """Smart(er) NBLAST query against target neurons.
 
     In comparison with :func:`navis.nblast`, this function will first run a
@@ -317,11 +342,10 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
 
     Parameters
     ----------
-    query,target :  Dotprops | TreeNeuron | MeshNeuron | NeuronList
+    query,target :  Dotprops | NeuronList
                     Query neuron(s) to NBLAST against the targets. Units should
                     be in microns as NBLAST is optimized for that and have
-                    similar sampling resolutions. Non-Dotprops will be converted
-                    to Dotprops (see parameters below).
+                    similar sampling resolutions.
     t :             int
                     Value used to select query-target pairs from pre-NBLAST
                     to run a full NBLAST on. See also ``criterion``.
@@ -363,15 +387,13 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                     implementation. If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
+    limit_dist :    float | "auto" | None
+                    Sets the max distance for the nearest neighbor search
+                    (`distance_upper_bound`). Typically this should be the
+                    highest distance considered by the scoring function. If
+                    "auto", will extract that value from the scoring matrix.
     progress :      bool
                     Whether to show progress bars.
-
-    Dotprop-conversion
-
-    k :             int, optional
-                    Number of nearest neighbors to use for dotprops generation.
-    resample :      float | int | bool, optional
-                    Resampling before dotprops generation.
 
     Returns
     -------
@@ -415,6 +437,9 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
     utils.eval_param(criterion, name='criterion',
                      allowed_values=("percentile", "score", "N"))
 
+    if isinstance(target, type(None)):
+        target = query
+
     try:
         t = int(t)
     except BaseException:
@@ -430,40 +455,12 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                              f'targets ({len(target)} for criterion "N", '
                              f'got {t}')
 
-    # Check if query or targets are in microns
-    # Note this test can return `None` if it can't be determined
-    if check_microns(query) is False:
-        logger.warning('NBLAST is optimized for data in microns and it looks '
-                       'like your queries are not in microns.')
-    if check_microns(target) is False:
-        logger.warning('NBLAST is optimized for data in microns and it looks '
-                       'like your targets are not in microns.')
+    # Make sure we're working on NeuronLists
+    query_dps = NeuronList(query)
+    target_dps = NeuronList(target)
 
-    if not isinstance(n_cores, numbers.Number) or n_cores < 1:
-        raise TypeError('`n_cores` must be an integer > 0')
-
-    n_cores = int(n_cores)
-    if n_cores < 1:
-        raise ValueError('`n_cores` must be greater than 0')
-    if n_cores > os.cpu_count():
-        logger.warning('`n_cores` should not larger than the number of '
-                       f'available cores ({os.cpu_count()})')
-    if n_cores > 1 and n_cores % 2:
-        logger.warning('NBLAST is most efficient if `n_cores` is an even number')
-
-    # At the moment, neurons need to have a unique ID for things to work
-    if isinstance(query, NeuronList) and query.is_degenerated:
-        raise ValueError('Queries have non-unique IDs.')
-    if isinstance(target, NeuronList) and target.is_degenerated:
-        raise ValueError('Targets have non-unique IDs.')
-
-    # Turn query into dotprops
-    query_dps = force_dotprops(query, resample=resample, k=k, progress=progress)
-    target_dps = force_dotprops(target, resample=resample, k=k, progress=progress)
-
-    # Make sure we're working on NeuronList
-    query_dps = NeuronList(query_dps)
-    target_dps = NeuronList(target_dps)
+    # Run NBLAST preflight checks
+    nblast_preflight(query_dps, target_dps, n_cores, req_unique_ids=True)
 
     # Find an optimal partition that minimizes the number of neurons
     # we have to send to each process
@@ -475,24 +472,30 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
 
     # First we NBLAST the highly simplified dotprops against another
     nblasters = []
-    for qq in np.array_split(query_dps_simp, n_rows):
-        for tt in np.array_split(target_dps_simp, n_cols):
-            # Initialize NBlaster
-            this = NBlaster(use_alpha=use_alpha,
-                            normalized=normalized,
-                            smat=smat,
-                            progress=progress)
-            # Add queries and targets
-            for n in qq:
-                this.append(n)
-            for n in tt:
-                this.append(n)
-            # Keep track of indices of queries and targets
-            this.queries = np.arange(len(qq))
-            this.targets = np.arange(len(tt)) + len(qq)
-            this.pbar_position = len(nblasters)
+    with config.tqdm(desc='Prep. pre-NBLAST',
+                     total=n_rows * n_cols,
+                     leave=False,
+                     disable=not progress) as pbar:
+        for qq in np.array_split(query_dps_simp, n_rows):
+            for tt in np.array_split(target_dps_simp, n_cols):
+                # Initialize NBlaster
+                this = NBlaster(use_alpha=use_alpha,
+                                normalized=normalized,
+                                smat=smat,
+                                limit_dist=limit_dist,
+                                progress=progress)
+                # Add queries and targets
+                for n in qq:
+                    this.append(n)
+                for n in tt:
+                    this.append(n)
+                # Keep track of indices of queries and targets
+                this.queries = np.arange(len(qq))
+                this.targets = np.arange(len(tt)) + len(qq)
+                this.pbar_position = len(nblasters)
 
-            nblasters.append(this)
+                nblasters.append(this)
+                pbar.update()
 
     # If only one core, we don't need to break out the multiprocessing
     if n_cores == 1:
@@ -531,36 +534,42 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
 
     # Now re-generate the NBLASTERs with the full dotprops
     nblasters = []
-    for q in np.array_split(np.arange(len(query_dps)), n_rows):
-        for t in np.array_split(np.arange(len(target_dps)), n_cols):
-            # Initialize NBlaster
-            this = NBlaster(use_alpha=use_alpha,
-                            normalized=normalized,
-                            smat=smat,
-                            progress=progress)
-            # Add queries and targets
-            for n in query_dps[q]:
-                this.append(n)
-            for n in target_dps[t]:
-                this.append(n)
+    with config.tqdm(desc='Preparing full NBLASTs',
+                     total=n_rows * n_cols,
+                     leave=False,
+                     disable=not progress) as pbar:
+        for q in np.array_split(np.arange(len(query_dps)), n_rows):
+            for t in np.array_split(np.arange(len(target_dps)), n_cols):
+                # Initialize NBlaster
+                this = NBlaster(use_alpha=use_alpha,
+                                normalized=normalized,
+                                smat=smat,
+                                limit_dist=limit_dist,
+                                progress=progress)
+                # Add queries and targets
+                for n in query_dps[q]:
+                    this.append(n)
+                for n in target_dps[t]:
+                    this.append(n)
 
-            # Find the pairs to NBLAST in this part of the matrix
-            submask = mask.loc[query_dps[q].id,
-                               target_dps[t].id]
-            # `pairs` now an array of [[query, target], []] pairs
-            this.pairs = np.vstack(np.where(submask)).T
+                # Find the pairs to NBLAST in this part of the matrix
+                submask = mask.loc[query_dps[q].id,
+                                   target_dps[t].id]
+                # `pairs` now an array of [[query, target], []] pairs
+                this.pairs = np.vstack(np.where(submask)).T
 
-            # Offset the query indices
-            this.pairs[:, 1] += len(q)
+                # Offset the query indices
+                this.pairs[:, 1] += len(q)
 
-            # Track this NBLASTER's mask relative to the original big one
-            this.mask = np.zeros(mask.shape, dtype=bool)
-            this.mask[q[0]:q[-1]+1, t[0]:t[-1]+1] = submask
+                # Track this NBLASTER's mask relative to the original big one
+                this.mask = np.zeros(mask.shape, dtype=bool)
+                this.mask[q[0]:q[-1]+1, t[0]:t[-1]+1] = submask
 
-            # Make sure position of progress bar checks out
-            this.pbar_position = len(nblasters)
+                # Make sure position of progress bar checks out
+                this.pbar_position = len(nblasters)
 
-            nblasters.append(this)
+                nblasters.append(this)
+                pbar.update()
 
     # If only one core, we don't need to break out the multiprocessing
     if n_cores == 1:
@@ -592,10 +601,10 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
            normalized: bool = True,
            use_alpha: bool = False,
            smat: Optional[Union[str, pd.DataFrame]] = 'auto',
+           limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
            n_cores: int = os.cpu_count() // 2,
-           progress: bool = True,
-           k: int = 20,
-           resample: Optional[int] = None) -> pd.DataFrame:
+           batch_size: Optional[int] = None,
+           progress: bool = True) -> pd.DataFrame:
     """NBLAST query against target neurons.
 
     This implements the NBLAST algorithm from Costa et al. (2016) (see
@@ -604,27 +613,24 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
 
     Parameters
     ----------
-    query,target :  Dotprops | TreeNeuron | MeshNeuron | NeuronList
+    query,target :  Dotprops | NeuronList
                     Query neuron(s) to NBLAST against the targets. Units should
                     be in microns as NBLAST is optimized for that and have
-                    similar sampling resolutions. Non-Dotprops will be converted
-                    to Dotprops (see parameters below).
+                    similar sampling resolutions.
     scores :        'forward' | 'mean' | 'min' | 'max'
                     Determines the final scores:
 
-                        - 'forward' (default) returns query->target scores
-                        - 'mean' returns the mean of query->target and target->query scores
-                        - 'min' returns the minium between query->target and target->query scores
-                        - 'max' returns the maximum between query->target and target->query scores
+                      - 'forward' (default) returns query->target scores
+                      - 'mean' returns the mean of query->target and
+                        target->query scores
+                      - 'min' returns the minium between query->target and
+                        target->query scores
+                      - 'max' returns the maximum between query->target and
+                        target->query scores
 
-    n_cores :       int, optional
-                    Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() - 2``. This should ideally be an even
-                    number as that allows optimally splitting queries onto
-                    individual processes.
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
-                    that have lots of branches.         
+                    that have lots of branches.
     normalized :    bool, optional
                     Whether to return normalized NBLAST scores.
     smat :          str | pd.DataFrame
@@ -633,21 +639,23 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                     implementation. If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
+    limit_dist :    float | "auto" | None
+                    Sets the max distance for the nearest neighbor search
+                    (`distance_upper_bound`). Typically this should be the
+                    highest distance considered by the scoring function. If
+                    "auto", will extract that value from the scoring matrix.
+    n_cores :       int, optional
+                    Max number of cores to use for nblasting. Default is
+                    ``os.cpu_count() - 2``. This should ideally be an even
+                    number as that allows optimally splitting queries onto
+                    individual processes.
+    batch_size :    int, optional
+                    Set the number of Dotprops per process. This can be useful
+                    to reduce the memory footprint at the cost of longer run
+                    times. By default (``None``), queries and targets will be
+                    evenly distributed across n_cores. Ignored if ``n_cores=1``.
     progress :      bool
                     Whether to show progress bars.
-
-    Dotprop-conversion
-
-    k :             int, optional
-                    Number of nearest neighbors to use for dotprops generation.
-    resample :      float | int | bool, optional
-                    Resampling before dotprops generation.
-
-    Returns
-    -------
-    scores :        pandas.DataFrame
-                    Matrix with NBLAST scores. Rows are query neurons, columns
-                    are targets.
 
     References
     ----------
@@ -677,58 +685,51 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                 A synapse-based variant of NBLAST.
 
     """
-    # Check if query or targets are in microns
-    # Note this test can return `None` if it can't be determined
-    if check_microns(query) is False:
-        logger.warning('NBLAST is optimized for data in microns and it looks '
-                       'like your queries are not in microns.')
-    if check_microns(target) is False:
-        logger.warning('NBLAST is optimized for data in microns and it looks '
-                       'like your targets are not in microns.')
+    # Make sure we're working on NeuronLists
+    query_dps = NeuronList(query)
+    target_dps = NeuronList(target)
 
-    if not isinstance(n_cores, numbers.Number) or n_cores < 1:
-        raise TypeError('`n_cores` must be an integer > 0')
-
-    n_cores = int(n_cores)
-    if n_cores > 1 and n_cores % 2:
-        logger.warning('NBLAST is most efficient if `n_cores` is an even number')
-    elif n_cores < 1:
-        raise ValueError('`n_cores` must not be smaller than 1')
-    elif n_cores > os.cpu_count():
-        logger.warning('`n_cores` should not larger than the number of '
-                       'available cores')
-
-    # Turn query into dotprops
-    query_dps = force_dotprops(query, resample=resample, k=k, progress=progress)
-    target_dps = force_dotprops(target, resample=resample, k=k, progress=progress)
-
-    # Make sure we're working on NeuronList
-    query_dps = NeuronList(query_dps)
-    target_dps = NeuronList(target_dps)
+    # Run NBLAST preflight checks
+    nblast_preflight(query_dps, target_dps, n_cores,
+                     batch_size=batch_size, req_unique_ids=True)
 
     # Find an optimal partition that minimizes the number of neurons
     # we have to send to each process
-    n_rows, n_cols = find_optimal_partition(n_cores, query_dps, target_dps)
+    if not batch_size or n_cores == 1:
+        n_rows, n_cols = find_optimal_partition(n_cores, query_dps, target_dps)
+    else:
+        n_rows, n_cols = find_batch_partition(batch_size, query_dps, target_dps)
 
     nblasters = []
-    for q in np.array_split(query_dps, n_rows):
-        for t in np.array_split(target_dps, n_cols):
-            # Initialize NBlaster
-            this = NBlaster(use_alpha=use_alpha,
-                            normalized=normalized,
-                            smat=smat,
-                            progress=progress)
-            # Add queries and targets
-            for n in q:
-                this.append(n)
-            for n in t:
-                this.append(n)
-            # Keep track of indices of queries and targets
-            this.queries = np.arange(len(q))
-            this.targets = np.arange(len(t)) + len(q)
-            this.pbar_position = len(nblasters)
+    with config.tqdm(desc='Preparing',
+                     total=n_rows * n_cols,
+                     leave=False,
+                     disable=not progress) as pbar:
+        for q in np.array_split(query_dps, n_rows):
+            for t in np.array_split(target_dps, n_cols):
+                # Initialize NBlaster
+                this = NBlaster(use_alpha=use_alpha,
+                                normalized=normalized,
+                                smat=smat,
+                                limit_dist=limit_dist,
+                                progress=progress)
 
-            nblasters.append(this)
+                # Use better description if we process in batches
+                if batch_size:
+                    this.desc += f' (batch {len(nblasters) + 1}/{n_rows * n_cols})'
+
+                # Add queries and targets
+                for n in q:
+                    this.append(n)
+                for n in t:
+                    this.append(n)
+                # Keep track of indices of queries and targets
+                this.queries = np.arange(len(q))
+                this.targets = np.arange(len(t)) + len(q)
+                this.pbar_position = len(nblasters) % n_cores
+
+                nblasters.append(this)
+                pbar.update(1)
 
     # If only one core, we don't need to break out the multiprocessing
     if n_cores == 1:
@@ -736,7 +737,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
                                        this.targets,
                                        scores=scores)
 
-    with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
+    with ProcessPoolExecutor(max_workers=n_cores) as pool:
         # Each nblaster is passed to its own process
         futures = [pool.submit(this.multi_query_target,
                                q_idx=this.queries,
@@ -758,21 +759,19 @@ def nblast_allbyall(x: NeuronList,
                     normalized: bool = True,
                     use_alpha: bool = False,
                     smat: Optional[Union[str, pd.DataFrame]] = 'auto',
+                    limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
                     n_cores: int = os.cpu_count() // 2,
-                    progress: bool = True,
-                    k: int = 20,
-                    resample: Optional[int] = None) -> pd.DataFrame:
+                    progress: bool = True) -> pd.DataFrame:
     """All-by-all NBLAST of inputs neurons.
 
     This is a more efficient way than running ``nblast(query=x, target=x)``.
 
     Parameters
     ----------
-    query,target :  Dotprops | TreeNeuron | MeshNeuron | NeuronList
+    x :             Dotprops | NeuronList
                     Query neuron(s) to NBLAST against the targets. Units should
                     be in microns as NBLAST is optimized for that and have
-                    similar sampling resolutions. Non-Dotprops will be converted
-                    to Dotprops (see parameters below).
+                    similar sampling resolutions.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
                     ``os.cpu_count() - 2``. This should ideally be an even
@@ -789,15 +788,13 @@ def nblast_allbyall(x: NeuronList,
                     implementation. If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
+    limit_dist :    float | "auto" | None
+                    Sets the max distance for the nearest neighbor search
+                    (`distance_upper_bound`). Typically this should be the
+                    highest distance considered by the scoring function. If
+                    "auto", will extract that value from the scoring matrix.
     progress :      bool
                     Whether to show progress bars.
-
-    Dotprop-conversion
-
-    k :             int, optional
-                    Number of nearest neighbors to use for dotprops generation.
-    resample :      float | int | bool, optional
-                    Resampling before dotprops generation.
 
     Returns
     -------
@@ -828,58 +825,48 @@ def nblast_allbyall(x: NeuronList,
                 For generic query -> target nblasts.
 
     """
-    # Check if query or targets are in microns
-    # Note this test can return `None` if it can't be determined
-    if check_microns(x) is False:
-        logger.warning('NBLAST is optimized for data in microns and it looks '
-                       'like your neurons are not in microns.')
+    # Make sure we're working on NeuronLists
+    dps = NeuronList(x)
 
-    if not isinstance(n_cores, numbers.Number) or n_cores < 1:
-        raise TypeError('`n_cores` must be an integer > 0')
-
-    n_cores = int(n_cores)
-    if n_cores > 1 and n_cores % 2:
-        logger.warning('NBLAST is most efficient if `n_cores` is an even number')
-    elif n_cores < 1:
-        raise ValueError('`n_cores` must not be smaller than 1')
-    elif n_cores > os.cpu_count():
-        logger.warning('`n_cores` should not larger than the number of '
-                       'available cores')
-
-    # Turn neurons into dotprops
-    dps = force_dotprops(x, resample=resample, k=k, progress=progress)
-
-    # Make sure we're working on NeuronList
-    dps = NeuronList(dps)
+    # Run NBLAST preflight checks
+    # Note that we are passing the same dotprops twice to avoid having to
+    # change the function's signature. Should have little to no overhead.
+    nblast_preflight(dps, dps, n_cores, req_unique_ids=True)
 
     # Find an optimal partition that minimizes the number of neurons
     # we have to send to each process
     n_rows, n_cols = find_optimal_partition(n_cores, dps, dps)
 
     nblasters = []
-    for qix in np.array_split(np.arange(len(dps)), n_rows):
-        for tix in np.array_split(np.arange(len(dps)), n_cols):
-            # Initialize NBlaster
-            this = NBlaster(use_alpha=use_alpha,
-                            normalized=normalized,
-                            smat=smat,
-                            progress=progress)
+    with config.tqdm(desc='Preparing',
+                     total=n_rows * n_cols,
+                     leave=False,
+                     disable=not progress) as pbar:
+        for qix in np.array_split(np.arange(len(dps)), n_rows):
+            for tix in np.array_split(np.arange(len(dps)), n_cols):
+                # Initialize NBlaster
+                this = NBlaster(use_alpha=use_alpha,
+                                normalized=normalized,
+                                smat=smat,
+                                limit_dist=limit_dist,
+                                progress=progress)
 
-            # Make sure we don't add the same neuron twice
-            # Map indices to neurons
-            to_add = list(set(qix) | set(tix))
+                # Make sure we don't add the same neuron twice
+                # Map indices to neurons
+                to_add = list(set(qix) | set(tix))
 
-            ixmap = {}
-            for i, ix in enumerate(to_add):
-                this.append(dps[ix])
-                ixmap[ix] = i
+                ixmap = {}
+                for i, ix in enumerate(to_add):
+                    this.append(dps[ix])
+                    ixmap[ix] = i
 
-            # Keep track of indices of queries and targets
-            this.queries = [ixmap[ix] for ix in qix]
-            this.targets = [ixmap[ix] for ix in tix]
-            this.pbar_position = len(nblasters)
+                # Keep track of indices of queries and targets
+                this.queries = [ixmap[ix] for ix in qix]
+                this.targets = [ixmap[ix] for ix in tix]
+                this.pbar_position = len(nblasters)
 
-            nblasters.append(this)
+                nblasters.append(this)
+                pbar.update()
 
     # If only one core, we don't need to break out the multiprocessing
     if n_cores == 1:
@@ -903,13 +890,27 @@ def nblast_allbyall(x: NeuronList,
     return scores
 
 
+def find_batch_partition(N, q, t):
+    """Find partition such that each batch contains at most `N` neurons."""
+    import math
+    # Number of rows (i.e. how many splits for queries)
+    n_rows = max(math.floor(len(q) / (N / 2)), 1)
+
+    # Given the number of queries per batch, how many targets can we have
+    remaining = N - (len(q) / n_rows)
+
+    n_cols = max(math.floor(len(t) / remaining), 1)
+
+    return int(n_rows), int(n_cols)
+
+
 def find_optimal_partition(n_cores, q, t):
     """Find an optimal partition for given NBLAST query."""
     # Find an optimal partition that minimizes the number of neurons
     # we have to send to each process
     neurons_per_query = []
     for n_rows in range(1, n_cores + 1):
-        # Skip splits we can't make it
+        # Skip splits we can't make
         if n_cores % n_rows:
             continue
         if n_rows > len(q):
@@ -951,24 +952,32 @@ def check_microns(x):
 
     Returns either [True, None (=unclear), False]
     """
-    if isinstance(x, NeuronList):
-        check = np.array([check_microns(n) for n in x])
-        if np.all(check):
-            return True
-        # Do NOT change the "check == False" to "check is False" here!
-        elif np.any(check == False):
-            return False
-        return None
+    microns = [config.ureg.Unit('microns'), config.ureg.Unit('um'), config.ureg.Unit('micrometer')]
+    if not isinstance(x, NeuronList):
+        x = NeuronList(x)
 
-    u = getattr(x, 'units', None)
-    if isinstance(u, (config.ureg.Quantity, config.ureg.Unit)):
-        if not u.unitless:
-            if u.to_compact().units == config.ureg.Unit('um'):
-                return True
-            elif u.to_compact().units == config.ureg.Unit('microns'):
-                return True
-            return False
+    # For very large NeuronLists converting the unit string to units is
+    # the time consuming step. Here we will first reduce to unique units:
+    unit_str = np.unique(x._unit_str)
 
+    any_not_microns = False
+    all_units = True
+    for u in unit_str:
+        # If not a unit (i.e. `None`)
+        if not u:
+            all_units = False
+            continue
+
+        # Convert to proper unit
+        u = config.ureg(u).to_compact().units
+
+        if u not in microns:
+            any_not_microns = True
+
+    if any_not_microns:
+        return False
+    elif all_units:
+        return True
     return None
 
 
@@ -1085,3 +1094,46 @@ def sim_to_dist(x):
         mx = x.max()
 
     return (x - mx) * -1
+
+
+def nblast_preflight(query, target, n_cores, batch_size, req_unique_ids=False):
+    """Run preflight checks for NBLAST."""
+    if query.types != (Dotprops, ):
+        raise TypeError(f'`query` must be Dotprop(s), got "{query.types}". '
+                        'Use `navis.make_dotprops` to convert neurons.')
+
+    if target.types != (Dotprops, ):
+        raise TypeError(f'`target` must be Dotprop(s), got "{target.types}". '
+                        'Use `navis.make_dotprops` to convert neurons.')
+
+    if req_unique_ids:
+        # At the moment, neurons need to have a unique ID for things to work
+        if query.is_degenerated:
+            raise ValueError('Queries have non-unique IDs.')
+        if target.is_degenerated:
+            raise ValueError('Targets have non-unique IDs.')
+
+    # Check if query or targets are in microns
+    # Note this test can return `None` if it can't be determined
+    if check_microns(query) is False:
+        logger.warning('NBLAST is optimized for data in microns and it looks '
+                       'like your queries are not in microns.')
+    if check_microns(target) is False:
+        logger.warning('NBLAST is optimized for data in microns and it looks '
+                       'like your targets are not in microns.')
+
+    if not isinstance(n_cores, numbers.Number) or n_cores < 1:
+        raise TypeError('`n_cores` must be an integer > 0')
+
+    n_cores = int(n_cores)
+    if n_cores > 1 and n_cores % 2:
+        logger.warning('NBLAST is most efficient if `n_cores` is an even number')
+    elif n_cores < 1:
+        raise ValueError('`n_cores` must not be smaller than 1')
+    elif n_cores > os.cpu_count():
+        logger.warning('`n_cores` should not larger than the number of '
+                       'available cores')
+
+    if batch_size is not None:
+        if batch_size <= 0:
+            raise ValueError('`batch_size` must be >= 1 or `None`.')

@@ -28,7 +28,8 @@ from typing_extensions import Literal
 from .. import config, utils
 from ..core import NeuronList, BaseNeuron
 
-from .nblast_funcs import check_microns, find_optimal_partition, ScoringFunction
+from .nblast_funcs import (check_microns, find_optimal_partition, ScoringFunction,
+                           nblast_preflight)
 
 __all__ = ['synblast']
 
@@ -329,30 +330,12 @@ def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],
                 The original morphology-based NBLAST.
 
     """
-    # Check if query or targets are in microns
-    # Note this test can return `None` if it can't be determined
-    if check_microns(query) is False:
-        logger.warning('NBLAST is optimized for data in microns and it looks '
-                       'like your queries are not in microns.')
-    if check_microns(target) is False:
-        logger.warning('NBLAST is optimized for data in microns and it looks '
-                       'like your targets are not in microns.')
-
-    if not isinstance(n_cores, numbers.Number) or n_cores < 1:
-        raise TypeError('`n_cores` must be an integer > 0')
-
-    n_cores = int(n_cores)
-    if n_cores > 1 and n_cores % 2:
-        logger.warning('NBLAST is most efficient if `n_cores` is an even number')
-    elif n_cores < 1:
-        raise ValueError('`n_cores` must not be smaller than 1')
-    elif n_cores > os.cpu_count():
-        logger.warning('`n_cores` should not larger than the number of '
-                       'available cores')
-
     # Make sure we're working on NeuronList
     query = NeuronList(query)
     target = NeuronList(target)
+
+    # Run pre-flight checks
+    nblast_preflight(query, target, n_cores, req_unique_ids=True)
 
     # Make sure all neurons have connectors
     if not all(query.has_connectors):

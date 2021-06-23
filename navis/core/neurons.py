@@ -2482,6 +2482,7 @@ class Dotprops(BaseNeuron):
     def dist_dots(self,
                   other: 'Dotprops',
                   alpha: bool = False,
+                  distance_upper_bound: Optional[float] = None,
                   **kwargs) -> Tuple[np.ndarray, np.ndarray]:
         """Query this Dotprops against another.
 
@@ -2489,22 +2490,30 @@ class Dotprops(BaseNeuron):
 
         Parameters
         ----------
-        other :     Dotprops
-        alpha :     bool
-                    If True, will also return the product of the product
-                    of the alpha values of matched points.
+        other :                 Dotprops
+        alpha :                 bool
+                                If True, will also return the product of the
+                                product of the alpha values of matched points.
+        distance_upper_bound :  non-negative float, optional
+                                If provided, we will stop the nearest neighbor
+                                search at this distance which can vastly speed
+                                up the query. For points with no hit within this
+                                distance, `dist` will be set to
+                                `distance_upper_bound`, and `dotprods` and
+                                `alpha_prod` will be set to 0.
         kwargs
-                    Keyword arguments are passed to the KDTree's ``query()``
-                    method. Note that we are using ``pykdtree.kdtree.KDTree``
-                    if available and fall back to ``scipy.spatial.cKDTree`` if
-                    pykdtree is not installed.
+                                Keyword arguments are passed to the KDTree's
+                                ``query()`` method. Note that we are using
+                                ``pykdtree.kdtree.KDTree`` if available and fall
+                                back to ``scipy.spatial.cKDTree`` if pykdtree is
+                                not installed.
 
         Returns
         -------
         dist :          np.ndarray
                         For each point in ``self``, the distance to the closest
                         point in ``other``.
-        dotprops :      np.ndarray
+        dotprods :      np.ndarray
                         Dotproduct of each pair of closest points between
                         ``self`` and ``other``.
         alpha_prod :    np.ndarray
@@ -2517,17 +2526,35 @@ class Dotprops(BaseNeuron):
 
         # If we are using pykdtree we need to make sure that self.points is
         # of the same dtype as other.points - not a problem with scipy but
-        # it the overhead is typically only a few micro seconds
+        # the overhead is typically only a few micro seconds anyway
         points = self.points.astype(other.points.dtype)
 
-        fast_dists, fast_idxs = other.kdtree.query(points, **kwargs)
+        fast_dists, fast_idxs = other.kdtree.query(points,
+                                                   distance_upper_bound=distance_upper_bound,
+                                                   **kwargs)
+
+        # If upper distance we have to worry about infinite distances
+        if distance_upper_bound:
+            no_nn = fast_dists == np.inf
+            fast_dists[no_nn] = distance_upper_bound
+
+            # Temporarily give those nodes a match
+            fast_idxs[no_nn] = 0
+
         fast_dotprods = np.abs((self.vect * other.vect[fast_idxs]).sum(axis=1))
+
+        if distance_upper_bound:
+            fast_dotprods[no_nn] = 0
 
         if not alpha:
             return fast_dists, fast_dotprods
-        else:
-            fast_alpha = self.alpha * other.alpha[fast_idxs]
-            return fast_dists, fast_dotprods, fast_alpha
+
+        fast_alpha = self.alpha * other.alpha[fast_idxs]
+
+        if distance_upper_bound:
+            fast_alpha[no_nn] = 0
+
+        return fast_dists, fast_dotprods, fast_alpha
 
     def downsample(self, factor=5, inplace=False, **kwargs):
         """Downsample the neuron by given factor.
