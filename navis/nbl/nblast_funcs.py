@@ -420,9 +420,11 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
     <Quantity([8 8 8 8 8], 'nanometer')>
     >>> # Convert to microns
     >>> nl_um = nl * (8 / 1000)
+    >>> # Convert to dotprops
+    >>> dps = navis.make_dotprops(nl_um)
     >>> # Run a NBLAST where only the top target from the pre-NBLAST is run
     >>> # through a full NBLAST
-    >>> scores = navis.nblast_smart(nl_um[:3], nl_um[3:], t=1, criterion='N')
+    >>> scores = navis.nblast_smart(dps[:3], dps[3:], t=1, criterion='N')
 
     See Also
     --------
@@ -672,8 +674,10 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
     <Quantity([8 8 8 8 8], 'nanometer')>
     >>> # Convert to microns
     >>> nl_um = nl * (8 / 1000)
+    >>> # Convert to dotprops
+    >>> dps = navis.make_dotprops(nl_um)
     >>> # Run the nblast
-    >>> scores = navis.nblast(nl_um[:3], nl_um[3:])
+    >>> scores = navis.nblast(dps[:3], dps[3:])
 
     See Also
     --------
@@ -816,8 +820,10 @@ def nblast_allbyall(x: NeuronList,
     <Quantity([8 8 8 8 8], 'nanometer')>
     >>> # Convert to microns
     >>> nl_um = nl * (8 / 1000)
+    >>> # Make dotprops
+    >>> dps = navis.make_dotprops(nl_um)
     >>> # Run the nblast
-    >>> scores = navis.nblast_allbyall(nl_um)
+    >>> scores = navis.nblast_allbyall(dps)
 
     See Also
     --------

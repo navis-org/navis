@@ -265,14 +265,14 @@ def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],
     The gist is this: for each synapse in the query neuron, we find the closest
     synapse in the target neuron (can be restricted by synapse types). Those
     distances are then scored similar to nearest-neighbor pairs in NBLAST but
-    without the vector (dotproduct) component.
+    without the vector component.
 
     Parameters
     ----------
     query,target :  Neuron/List
                     Query neuron(s) to SynBLAST against the targets. Units should
                     be in microns as NBLAST is optimized for that and have
-                    similar sampling resolutions. Neurons must have non-empty
+                    similar sampling resolutions. Neurons must have (non-empty)
                     connector tables.
     by_type :       bool
                     If True, will use the "type" column in the connector tables
