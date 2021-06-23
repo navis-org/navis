@@ -2529,8 +2529,10 @@ class Dotprops(BaseNeuron):
         # the overhead is typically only a few micro seconds anyway
         points = self.points.astype(other.points.dtype)
 
+        # Scipy's KDTree does not like the distance to be None
+        diub = distance_upper_bound if distance_upper_bound else np.inf
         fast_dists, fast_idxs = other.kdtree.query(points,
-                                                   distance_upper_bound=distance_upper_bound,
+                                                   distance_upper_bound=diub,
                                                    **kwargs)
 
         # If upper distance we have to worry about infinite distances
