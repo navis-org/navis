@@ -211,8 +211,7 @@ class NBlaster:
 
         # For the mean score we also have to produce the reverse score
         if scores in ('mean', 'min', 'max'):
-            reverse = self.single_query_target(t_idx, q_idx, scores='forward',
-                                               distance_upper_bound=self.distance_upper_bound)
+            reverse = self.single_query_target(t_idx, q_idx, scores='forward')
             if scores == 'mean':
                 scr = (scr + reverse) / 2
             elif scores == 'min':
@@ -357,7 +356,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                       - "N" runs full NBLAST on top ``t`` targets
 
     return_mask :   bool
-                    If True, will return a boolean mask with same shape as
+                    If True, will also return a boolean mask with same shape as
                     that shows which scores are based on a full NBLAST and which
                     ones only on the pre-NBLAST.
     scores :        'forward' | 'mean' | 'min' | 'max'
