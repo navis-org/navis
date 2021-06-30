@@ -761,7 +761,7 @@ class NeuronList:
         return self.__class__([n.copy(**kwargs) for n in config.tqdm(self.neurons,
                                                                      desc='Copy',
                                                                      leave=False,
-                                                                     disable=config.pbar_hide | len(self) < 20)],
+                                                                     disable=config.pbar_hide or len(self) < 20)],
                               make_copy=False)
 
     def head(self, N: int = 5) -> pd.DataFrame:
