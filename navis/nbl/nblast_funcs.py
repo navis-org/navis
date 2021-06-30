@@ -494,6 +494,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                 this.queries = np.arange(len(qq))
                 this.targets = np.arange(len(tt)) + len(qq)
                 this.pbar_position = len(nblasters)
+                this.desc = 'Pre(NBLASTING)'
 
                 nblasters.append(this)
                 pbar.update()
@@ -556,7 +557,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
                 # Find the pairs to NBLAST in this part of the matrix
                 submask = mask.loc[query_dps[q].id,
                                    target_dps[t].id]
-                # `pairs` now an array of [[query, target], []] pairs
+                # `pairs` is an array of `[[query, target], [...]]` pairs
                 this.pairs = np.vstack(np.where(submask)).T
 
                 # Offset the query indices
