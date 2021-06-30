@@ -522,17 +522,22 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
 
     # Now select targets of interest for each query
     if criterion == 'percentile':
+        # Generate a mask for the scores we want to recalculate from full dotprops
         sel = np.percentile(scr, q=t, axis=1)
+        mask = scr >= sel.reshape(-1, 1)
     elif criterion == 'score':
+        # Generate a mask for the scores we want to recalculate from full dotprops
         sel = np.full(scr.shape[0], fill_value=t)
+        mask = scr >= sel.reshape(-1, 1)
     else:
-        # This is cheap and might select slightly more than the top N:
-        # Translate total N into percentile
-        t = 100 - int(t / scr.shape[1] * 100)
-        sel = np.percentile(scr, q=t, axis=1)
-
-    # Generate a mask for the scores we want to recalculate from full dotprops
-    mask = scr >= sel.reshape(-1, 1)
+        # Sort such that the top hit is to the left
+        srt = np.argsort(scr.values, axis=1)[:, ::-1]
+        # Generate the mask
+        mask = pd.DataFrame(np.zeros(scr.shape), dtype=bool,
+                            columns=scr.columns, index=scr.index)
+        _ = np.arange(mask.shape[0])
+        for N in range(t):
+            mask.values[_, srt[:, N]] = True
 
     # Now re-generate the NBLASTERs with the full dotprops
     nblasters = []
@@ -1103,7 +1108,7 @@ def sim_to_dist(x):
 
 
 def nblast_preflight(query, target, n_cores, batch_size=None,
-                     req_unique_ids=False, req_dotprops=False):
+                     req_unique_ids=False, req_dotprops=True):
     """Run preflight checks for NBLAST."""
     if req_dotprops:
         if query.types != (Dotprops, ):
