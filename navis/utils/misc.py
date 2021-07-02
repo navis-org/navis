@@ -213,12 +213,14 @@ def map_neuronlist(desc: str = "",
                 # Prepare processor
                 n_cores = kwargs.pop('n_cores', os.cpu_count() // 2)
                 chunksize = kwargs.pop('chunksize', 1)
+                excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
                 proc = core.NeuronProcessor(nl, function,
                                             parallel=parallel,
                                             desc=desc,
                                             warn_inplace=False,
                                             progress=kwargs.pop('progress', True),
                                             chunksize=chunksize,
+                                            exclude_zip=excl,
                                             n_cores=n_cores)
                 # Apply function
                 res = proc(nl, *args, **kwargs)

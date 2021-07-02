@@ -253,6 +253,7 @@ class NeuronProcessor:
                  chunksize: int = 1,
                  progress: bool = True,
                  warn_inplace: bool = True,
+                 exclude_zip: list = [],
                  desc: Optional[str] = None):
         if utils.is_iterable(function):
             if len(function) != len(nl):
@@ -273,6 +274,7 @@ class NeuronProcessor:
         self.chunksize = chunksize
         self.progress = progress
         self.warn_inplace = warn_inplace
+        self.exclude_zip = exclude_zip
 
         # This makes sure that help and name match the functions being called
         functools.update_wrapper(self, self.function)
@@ -292,13 +294,17 @@ class NeuronProcessor:
             parsed_args.append([])
             parsed_kwargs.append({})
             for k, a in enumerate(args):
-                if not utils.is_iterable(a) or len(a) != len(self.nl):
+                if k in self.exclude_zip:
+                    parsed_args[i].append(a)
+                elif not utils.is_iterable(a) or len(a) != len(self.nl):
                     parsed_args[i].append(a)
                 else:
                     parsed_args[i].append(a[i])
 
             for k, v in kwargs.items():
-                if not utils.is_iterable(v) or len(v) != len(self.nl):
+                if k in self.exclude_zip:
+                    parsed_kwargs[i][k] = v
+                elif not utils.is_iterable(v) or len(v) != len(self.nl):
                     parsed_kwargs[i][k] = v
                 else:
                     parsed_kwargs[i][k] = v[i]
