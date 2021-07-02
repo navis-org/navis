@@ -81,7 +81,11 @@ def volume2vispy(x, **kwargs):
                                shading=kwargs.get('shading', 'smooth'))
 
         # Set some aesthetic parameters
-        s.shininess = 0
+        if int(vispy.__version__.split('.')[1]) >= 7:
+            s.shading_filter.shininess = 0
+        else:
+            s.shininess = 0
+
         # Possible presets are "additive", "translucent", "opaque"
         s.set_gl_state('additive' if color[3] < 1 else 'opaque',
                        cull_face=True,
@@ -318,7 +322,12 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
                            shading=kwargs.get('shading', 'smooth'))
 
     # Set some aesthetic parameters
-    m.shininess = 0
+    # Vispy 0.7.0 uses a new shading filter
+    if int(vispy.__version__.split('.')[1]) >= 7:
+        m.shading_filter.shininess = 0
+    else:
+        m.shininess = 0
+
     # Possible presets are "additive", "translucent", "opaque"
     if len(neuron_color) == 4 and neuron_color[3] < 1:
         m.set_gl_state('additive',
@@ -410,7 +419,13 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
                                            shading='smooth',
                                            faces=sp.get_faces(),
                                            color=soma_color)
-                    s.ambient_light_color = vispy.color.Color('white')
+                    # Vispy 0.7.0 uses a new shading filter
+                    if int(vispy.__version__.split('.')[1]) >= 7:
+                        s.shading_filter.ambient_light = vispy.color.Color('white')
+                        s.shading_filter.shininess = 0
+                    else:
+                        s.ambient_light_color = vispy.color.Color('white')
+                        s.shininess = 0
 
                     # Make visual discoverable
                     s.interactive = True
