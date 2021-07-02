@@ -28,6 +28,8 @@ from typing_extensions import Literal
 from .. import config, utils
 from ..core import NeuronList, BaseNeuron
 
+from .base import Blaster
+
 from .nblast_funcs import (check_microns, find_optimal_partition, ScoringFunction,
                            nblast_preflight)
 
@@ -39,7 +41,7 @@ smat_path = os.path.join(fp, 'score_mats')
 logger = config.logger
 
 
-class SynBlaster:
+class SynBlaster(Blaster):
     """Implements a synapsed-based NBLAST algorithm.
 
     Please note that some properties are computed on initialization and
@@ -47,13 +49,12 @@ class SynBlaster:
 
     TODOs
     -----
-    - implement per-type comparisons
-    - implement `use_alpha` as average synapse density (i.e. emphasise areas where
-      a neuron has lots of synapses)
+    - implement `use_alpha` as average synapse density (i.e. emphasise areas
+      where a neuron has lots of synapses)
 
     Parameters
     ----------
-    normalzed :     bool
+    normalized :    bool
                     If True, will normalize scores by the best possible score
                     (i.e. self-self) of the query neuron.
     by_type :       bool
@@ -73,8 +74,8 @@ class SynBlaster:
     def __init__(self, normalized=True, by_type=True,
                  smat='auto', progress=True):
         """Initialize class."""
+        super().__init__(progress=progress)
         self.normalized = normalized
-        self.progress = progress
         self.by_type = by_type
 
         if smat == 'auto':
@@ -82,9 +83,6 @@ class SynBlaster:
                                index_col=0)
 
         self.score_fn = ScoringFunction(smat)
-
-        self.self_hits = []
-        self.trees = []
         self.ids = []
 
     def append(self, neuron, id=None):
@@ -112,11 +110,11 @@ class SynBlaster:
                 id = neuron.id
 
         self.ids.append(id)
-        self.trees.append({})
+        self.neurons.append({})
         if not self.by_type:
             data = cn[['x', 'y', 'z']].values
             # Generate the KDTree
-            self.trees[-1]['all'] = cKDTree(data)
+            self.neurons[-1]['all'] = cKDTree(data)
         else:
             if 'type' not in cn.columns:
                 raise ValueError('Connector tables must have a "type" column '
@@ -124,7 +122,7 @@ class SynBlaster:
             for ty in cn['type'].unique():
                 data = cn.loc[cn['type'] == ty, ['x', 'y', 'z']].values
                 # Generate the KDTree
-                self.trees[-1][ty] = cKDTree(data)
+                self.neurons[-1][ty] = cKDTree(data)
 
         # Calculate score for self hit
         self.self_hits.append(self.calc_self_hit(cn))
@@ -142,8 +140,8 @@ class SynBlaster:
             return self.self_hits[q_idx]
 
         # Run nearest-neighbor search for query against target
-        t_trees = self.trees[t_idx]
-        q_trees = self.trees[q_idx]
+        t_trees = self.neurons[t_idx]
+        q_trees = self.neurons[q_idx]
 
         dists = []
         # Go over all connector types (e.g. "pre" and "post") present in the
@@ -178,74 +176,6 @@ class SynBlaster:
                 scr = max(scr, reverse)
 
         return scr
-
-    def pair_query_target(self, pairs, scores='forward'):
-        """SynBLAST multiple pairs.
-
-        Parameters
-        ----------
-        pairs :             tuples
-                            Tuples of (query_ix, target_ix) to query.
-        scores :            "forward" | "mean" | "min" | "max"
-                            Which scores to return.
-
-        """
-        scr = []
-        for p in config.tqdm(pairs,
-                             desc='SynBlasting pairs',
-                             leave=False,
-                             position=getattr(self, 'pbar_position', 0),
-                             disable=not self.progress):
-            scr.append(self.single_query_target(p[0], p[1], scores=scores))
-
-        return scr
-
-    def multi_query_target(self, q_idx, t_idx, scores='forward'):
-        """SynBLAST multiple queries against multiple targets.
-
-        Parameters
-        ----------
-        q_idx,t_idx :       iterable
-                            Iterable of query/target neurons indices to
-                            SynNBLAST.
-        scores :            "forward" | "mean" | "min" | "max"
-                            Which scores to return.
-
-        """
-        rows = []
-        for q in config.tqdm(q_idx,
-                             desc='SynBlasting',
-                             leave=False,
-                             position=getattr(self, 'pbar_position', 0),
-                             disable=not self.progress):
-            rows.append([])
-            for t in t_idx:
-                score = self.single_query_target(q, t, scores=scores)
-                rows[-1].append(score)
-
-        # Generate results
-        res = pd.DataFrame(rows)
-        res.columns = [self.ids[t] for t in t_idx]
-        res.index = [self.ids[q] for q in q_idx]
-
-        return res
-
-    def all_by_all(self, scores='forward'):
-        """NBLAST all-by-all neurons."""
-        res = self.multi_query_target(range(len(self.trees)),
-                                      range(len(self.trees)),
-                                      scores='forward')
-
-        # For all-by-all SyNBLAST we can get the mean score by
-        # transposing the scores
-        if scores == 'mean':
-            res = (res + res.T) / 2
-        elif scores == 'min':
-            res.loc[:, :] = np.dstack((res, res.T)).min(axis=2)
-        elif scores == 'max':
-            res.loc[:, :] = np.dstack((res, res.T)).max(axis=2)
-
-        return res
 
 
 def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],

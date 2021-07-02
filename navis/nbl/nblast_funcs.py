@@ -24,9 +24,9 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import Union, Optional
 from typing_extensions import Literal
 
-from .. import core, utils
+from .. import utils, config
 from ..core import NeuronList, Dotprops, make_dotprops
-from .. import config
+from .base import Blaster
 
 __all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 
@@ -103,7 +103,7 @@ class ScoringFunction:
         return float(s.strip("([])").split(",")[-1])
 
 
-class NBlaster:
+class NBlaster(Blaster):
     """Implements version 2 of the NBLAST algorithm.
 
     Please note that some properties are computed on initialization and
@@ -138,10 +138,10 @@ class NBlaster:
     def __init__(self, use_alpha=False, normalized=True, smat='auto',
                  limit_dist=None, progress=True):
         """Initialize class."""
+        super().__init__(progress=progress)
         self.use_alpha = use_alpha
         self.normalized = normalized
-        self.progress = progress
-        self.desc = "Blasting"
+        self.desc = "NBlasting"
 
         if smat == 'auto':
             if self.use_alpha:
@@ -158,9 +158,6 @@ class NBlaster:
         else:
             self.distance_upper_bound = limit_dist
 
-        self.self_hits = []
-        self.dotprops = []
-
     def append(self, dotprops):
         """Append dotprops."""
         if isinstance(dotprops, (NeuronList, list)):
@@ -171,7 +168,8 @@ class NBlaster:
         if not isinstance(dotprops, Dotprops):
             raise ValueError(f'Expected Dotprops, got "{type(dotprops)}"')
 
-        self.dotprops.append(dotprops)
+        self.neurons.append(dotprops)
+        self.ids.append(dotprops.id)
         # Calculate score for self hit
         self.self_hits.append(self.calc_self_hit(dotprops))
 
@@ -194,9 +192,9 @@ class NBlaster:
             return self.self_hits[q_idx]
 
         # Run nearest-neighbor search for query against target
-        data = self.dotprops[q_idx].dist_dots(self.dotprops[t_idx],
-                                              alpha=self.use_alpha,
-                                              distance_upper_bound=self.distance_upper_bound)
+        data = self.neurons[q_idx].dist_dots(self.neurons[t_idx],
+                                             alpha=self.use_alpha,
+                                             distance_upper_bound=self.distance_upper_bound)
         if self.use_alpha:
             dists, dots, alpha = data
             dots *= np.sqrt(alpha)
@@ -220,98 +218,6 @@ class NBlaster:
                 scr = max(scr, reverse)
 
         return scr
-
-    def pair_query_target(self, pairs, scores='forward'):
-        """NBLAST multiple pairs.
-
-        Parameters
-        ----------
-        pairs :             tuples
-                            Tuples of (query_ix, target_ix) to query.
-        scores :            "forward" | "mean" | "min" | "max"
-                            Which scores to return.
-
-        """
-        if utils.is_jupyter() and config.tqdm == config.tqdm_notebook:
-            # Jupyter does not like the progress bar position for some reason
-            position = None
-
-            # For some reason we have to do this if we are in a Jupyter environment
-            # and are using multi-processing because otherwise the progress bars
-            # won't show. See this issue:
-            # https://github.com/tqdm/tqdm/issues/485#issuecomment-473338308
-            print(' ', end='', flush=True)
-        else:
-            position = getattr(self, 'pbar_position', 0)
-
-        scr = []
-        for p in config.tqdm(pairs,
-                             desc='Blasting pairs',
-                             leave=False,
-                             position=position,
-                             disable=not self.progress):
-            scr.append(self.single_query_target(p[0], p[1], scores=scores))
-
-        return scr
-
-    def multi_query_target(self, q_idx, t_idx, scores='forward'):
-        """NBLAST multiple queries against multiple targets.
-
-        Parameters
-        ----------
-        q_idx,t_idx :       iterable
-                            Iterable of query/target dotprops indices to
-                            NBLAST.
-        scores :            "forward" | "mean" | "min" | "max"
-                            Which scores to return.
-
-        """
-        if utils.is_jupyter() and config.tqdm == config.tqdm_notebook:
-            # Jupyter does not like the progress bar position for some reason
-            position = None
-
-            # For some reason we have to do this if we are in a Jupyter environment
-            # and are using multi-processing because otherwise the progress bars
-            # won't show. See this issue:
-            # https://github.com/tqdm/tqdm/issues/485#issuecomment-473338308
-            print(' ', end='', flush=True)
-        else:
-            position = getattr(self, 'pbar_position', 0)
-
-        rows = []
-        for q in config.tqdm(q_idx,
-                             desc=self.desc,
-                             leave=False,
-                             position=position,
-                             disable=not self.progress):
-            rows.append([])
-            for t in t_idx:
-                score = self.single_query_target(q, t, scores=scores)
-                rows[-1].append(score)
-
-        # Generate results
-        res = pd.DataFrame(rows)
-        res.columns = [self.dotprops[t].id for t in t_idx]
-        res.index = [self.dotprops[q].id for q in q_idx]
-
-        return res
-
-    def all_by_all(self, scores='forward'):
-        """NBLAST all-by-all neurons."""
-        res = self.multi_query_target(range(len(self.dotprops)),
-                                      range(len(self.dotprops)),
-                                      scores='forward')
-
-        # For all-by-all NBLAST we can get the mean score by
-        # transposing the scores
-        if scores == 'mean':
-            res = (res + res.T) / 2
-        elif scores == 'min':
-            res.loc[:, :] = np.dstack((res, res.T)).min(axis=2)
-        elif scores == 'max':
-            res.loc[:, :] = np.dstack((res, res.T)).max(axis=2)
-
-        return res
 
 
 def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
