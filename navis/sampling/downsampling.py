@@ -140,9 +140,15 @@ def _downsample_dotprops(x, downsampling_factor):
     # Mask points
     x._points = x._points[mask]
 
-    # Mask vectors if exists
-    if not isinstance(x._vect, type(None)):
-        x._vect = x._vect[mask]
+    # Mask vectors
+    # This will also trigger re-calculation which is necessary for two reasons:
+    # 1. Vectors will change dramatically if they have to be recalculated from
+    #    the downsampled dotprops.
+    # 2. There might not be enough points left after downsampling given the
+    #    original k.
+    if isinstance(x._vect, type(None)):
+        x.recalculate_tangents(k=x.k, inplace=True)
+    x._vect = x._vect[mask]
 
     # Mask alphas if exists
     if not isinstance(x._alpha, type(None)):
