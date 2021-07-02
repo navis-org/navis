@@ -66,7 +66,7 @@ def example_neurons(n: Optional[int] = None,
     n :         int | None, optional
                 Number of neurons to return. If None, will return all available
                 example neurons. Can never return more than the maximum number
-                of example neurons.
+                of available example neurons.
     kind :      "skeleton" | "mesh" | "mix"
                 Example neurons What kind of neurons to return.
     synapses :  bool,
@@ -101,14 +101,19 @@ def example_neurons(n: Optional[int] = None,
     >>> nl = navis.example_neurons()
 
     """
-    if not isinstance(n, (int, type(None))):
+    if kind not in ['skeleton', 'mesh', 'mix']:
+        raise ValueError(f'Unknown value for `kind`: "{kind}"')
+
+    if isinstance(n, type(None)):
+        if kind == 'mix':
+            n = len(swc) + len(obj)
+        else:
+            n = len(swc)
+    elif not isinstance(n, int):
         raise TypeError(f'Expected int or None, got "{type(n)}"')
 
     if isinstance(n, int) and n < 1:
         raise ValueError("Unable to return less than 1 neuron.")
-
-    if kind not in ['skeleton', 'mesh', 'mix']:
-        raise ValueError(f'Unknown value for `kind`: "{kind}"')
 
     if kind == 'mix':
         n_mesh = round(n/2)
