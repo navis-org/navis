@@ -823,7 +823,7 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     """Stitch multiple neurons together.
 
     Uses minimum spanning tree to determine a way to connect all fragments
-    while minimizing length (eucledian distance) of the new edges. Nodes
+    while minimizing length (Euclidian distance) of the new edges. Nodes
     that have been stitched will get a "stitched" tag.
 
     Important

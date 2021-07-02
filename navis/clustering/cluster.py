@@ -327,7 +327,7 @@ def _calc_synapse_similarity(cnA: pd.DataFrame,
     """Calculates synapse similarity score.
 
     Synapse similarity score is calculated by calculating for each synapse of
-    neuron A: (1) the distance to the closest (eucledian) synapse in neuron B
+    neuron A: (1) the distance to the closest (Euclidian) synapse in neuron B
     and (2) comparing the synapse density around synapse A and B. This is type
     sensitive: presynapses will only be matched with presynapses, post with
     post, etc. The formula is described in Schlegel et al., eLife (2017).
@@ -405,7 +405,7 @@ def cluster_by_synapse_placement(x: Union[NeuronList,
     r"""Cluster neurons based on their synapse placement.
 
     Distances score is calculated by calculating for each synapse of
-    neuron A: (1) the distance to the closest (eucledian) synapse in neuron B
+    neuron A: (1) the distance to the closest (Euclidian) synapse in neuron B
     and (2) comparing the synapse density around synapse A and B.
     This is type-sensitive: presynapses will only be matched with presynapses,
     post with post, etc. The formula is described in
@@ -418,7 +418,7 @@ def cluster_by_synapse_placement(x: Union[NeuronList,
     The synapse similarity score for neurons i and j being the average
     of :math:`f(i_{s},j_{k})` over all synapses s of i. Synapse k is the
     closest synapse of the same sign (pre/post) in neuron j to synapse s.
-    :math:`d^{2}_{sk}` is the eucledian distance between these distances.
+    :math:`d^{2}_{sk}` is the Euclidian distance between these distances.
     Variable :math:`\sigma` (``sigma``) determines what distance between
     s and k is considered "close". :math:`n(i_{s})` and :math:`n(j_{k})` are
     defined as the number of synapses of neuron i/j that are within given

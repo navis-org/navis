@@ -93,7 +93,7 @@ class Browser:
                     v = 0
 
     def add(self, x, viewer=1, center=True, clear=False, **kwargs):
-        """ Add objects to canvas.
+        """Add objects to canvas.
 
         Parameters
         ----------

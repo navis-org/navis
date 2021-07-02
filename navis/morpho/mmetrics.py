@@ -766,7 +766,7 @@ def tortuosity(x: 'core.NeuronObject',
 
     See Stepanyants et al., Neuron (2004) for detailed explanation. Briefly,
     tortuosity index `T` is defined as the ratio of the branch segment length
-    `L` (``seg_length``) to the eucledian distance `R` between its ends.
+    `L` (``seg_length``) to the Euclidian distance `R` between its ends.
 
     Note
     ----

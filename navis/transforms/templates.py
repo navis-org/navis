@@ -382,8 +382,6 @@ class TemplateRegistry:
 
         Parameters
         ----------
-        G :             nx.DiGraph
-                        Bridging graph. See also ``bridging_graph``.
         source :        str
                         Source from which to transform to ``target``.
         target :        str

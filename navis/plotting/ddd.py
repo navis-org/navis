@@ -147,7 +147,7 @@ def plot3d(x: Union[core.NeuronObject,
                       Use this to group neurons under a common label in the
                       legend.
 
-                      ``Below parameters are for vispy backend only:``
+                      ``Below parameters are for the vispy backend only:``
     clear :           bool, default = False
                       If True, will clear the viewer before adding the new
                       objects.
