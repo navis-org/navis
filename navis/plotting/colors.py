@@ -152,9 +152,9 @@ def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
 
     """
     if isinstance(x, (core.NeuronList, core.TreeNeuron)):
-        connectors = x.get('connectors', None)
+        connectors = getattr(x, 'connectors', None)
 
-        if not isinstance(connectors, pd.DataFrame):
+        if not isinstance(connectors, pd.DataFrame) or connectors.empty:
             unique: List[str] = []
         elif 'type' in connectors:
             unique = connectors.type.unique()

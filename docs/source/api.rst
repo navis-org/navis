@@ -58,6 +58,7 @@ which they inherit from their abstract parent class ``BaseNeurons``.
     ~navis.BaseNeuron.copy
     ~navis.BaseNeuron.plot3d
     ~navis.BaseNeuron.plot2d
+    ~navis.BaseNeuron.plot_dend
     ~navis.BaseNeuron.summary
     ~navis.BaseNeuron.convert_units
     ~navis.BaseNeuron.map_units
