@@ -57,3 +57,4 @@ pytest
 pytest-env
 pytest-xvfb
 gitpython
+pygraphviz
