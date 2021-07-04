@@ -331,7 +331,7 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
                     linewidth=DEFAULTS['syn_linewidth'])
 
     # Plot highlighted connectors
-    if isinstance(highlight_connectors, type(None)):
+    if not isinstance(highlight_connectors, type(None)) and x.has_connectors:
         this = x.connectors[x.connectors.connector_id.isin(highlight_connectors)]
         # Get centers for each connector
         centers = np.vstack(this.node_id.map(positions))
