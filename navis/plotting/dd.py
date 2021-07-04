@@ -1,4 +1,3 @@
-
 #    This script is part of navis (http://www.github.com/schlegelp/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #

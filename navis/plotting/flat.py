@@ -10,8 +10,7 @@
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-
-""" Module contains functions to plot neurons as dendrograms."""
+"""Module contains functions to plot neurons as flat dendrograms."""
 
 import math
 import time
@@ -32,28 +31,29 @@ from .colors import prepare_connector_cmap
 
 logger = config.logger
 
-__all__ = ['plot_dend']
+__all__ = ['plot_flat']
+
+_DEFAULTS = dict(origin=(0, 0),  # Origin in coordinate system
+                 start_angle=0,  # Start angle (0 -> to right)
+                 angle_change=45,  # Angle between branch and its child
+                 angle_decrease=0,  # Angle decrease with each branch point
+                 syn_marker_size=.5,  # Length of orthogonal synapse markers/size of scatter
+                 switch_dist=1,  # Distance threshold for inverting angle (i.e. flip branch direction)
+                 syn_linewidth=1.5,  # Line width for connectors
+                 syn_highlight_color=(1, 0, 0),  # Color for highlighted connectors
+                 force_nx=False  # Force using networkx over igraph
+                 )
 
 
-SUBWAY_DEFAULTS = dict(origin=(0, 0),  # Origin in coordinate system
-                       start_angle=0,  # Start angle (0 -> to right)
-                       angle_change=45,  # Angle between branch and its child
-                       angle_decrease=0,  # Angle decrease with each branch point
-                       syn_marker_len=.5,  # Length of orthogonal synapse markers
-                       switch_dist=1,  # Distance threshold for inverting angle (i.e. flip branch direction)
-                       syn_linewidth=1.5,  # Line width for connectors
-                       syn_highlight_color=(1, 0, 0),  # Color for highlighted connectors
-                       force_nx=False  # Force using networkx over igraph
-                       )
-FORCE_DEFAULTS = dict(syn_highlight_color=(1, 0, 0),  # Color for highlighted connectors
-                      )
-
-
-def plot_dend(x,
+def plot_flat(x,
               layout: Union[Literal['subway'],
                             Literal['dot'],
                             Literal['neato'],
-                            Literal['fpd']] = 'subway',
+                            Literal['fpd'],
+                            Literal['sfpd'],
+                            Literal['twopi'],
+                            Literal['circo'],
+                            ] = 'subway',
               plot_connectors: bool = False,
               highlight_connectors: Optional[List[int]] = None,
               shade_by_length: bool = False,
@@ -67,10 +67,11 @@ def plot_dend(x,
     ----------
     x :                     TreeNeuron
                             A single neuron to plot.
-    layout :                'subway' | 'dot' | 'neato' | 'fdp'
-                            Layout to use for dendrogam. 'dot', 'neato', 'fdp'
-                            require graphviz to be installed. For the latter it
-                            is highly recommended to downsample the neuron.
+    layout :                'subway' | 'dot' | 'neato' | 'fdp' | 'sfpd' | 'twopi' | 'circo'
+                            Layout to use for dendrogam. All but 'subway'
+                            require graphviz to be installed. For the 'fdp' and
+                            'neato' is highly recommended to downsample the
+                            neuron.
     plot_connectors :       bool, optional
                             If True and neuron has connectors, will plot
                             connectors on dendrogram.
@@ -101,14 +102,14 @@ def plot_dend(x,
 
     Plot neuron in "subway" layout
 
-    >>> ax = navis.plot_dend(n, layout='subway', connectors=True)
+    >>> ax = navis.plot_flat(n, layout='subway', connectors=True)
     >>> plt.show() # doctest: +SKIP
 
     Plot neuron in "dot" layout (requires pygraphviz and graphviz)
 
     >>> # First downsample to speed up processing
     >>> ds = navis.downsample_neuron(n, 10, preserve_nodes='connectors')
-    >>> ax = navis.plot_dend(ds, layout='dot', connectors=True)
+    >>> ax = navis.plot_flat(ds, layout='dot', connectors=True)
     >>> plt.show() # doctest: +SKIP
 
     To close all figures (this is mostly for the doctests)
@@ -121,7 +122,7 @@ def plot_dend(x,
 
     utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron,))
     utils.eval_param(layout, name='layout',
-                     allowed_values=('subway', 'dot', 'neato', 'fdp'))
+                     allowed_values=('subway', 'dot', 'neato', 'fdp', 'sfdp', 'twopi', 'circo'))
 
     # Work on the copy of the neuron
     x = x.copy()
@@ -171,7 +172,7 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
     matplotlib.ax
 
     """
-    DEFAULTS = SUBWAY_DEFAULTS.copy()
+    DEFAULTS = _DEFAULTS.copy()
     DEFAULTS.update(kwargs)
     if len(x.root) > 1:
         raise ValueError('Unable to plot neuron with multiple roots. Use '
@@ -308,12 +309,12 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
         angles = (x.connectors.node_id.map(angles) + 90 * (math.pi / 180)).values
 
         # Create lines orthogonal to parent branch
-        y_coords = np.sin(angles) * DEFAULTS['syn_marker_len']
+        y_coords = np.sin(angles) * DEFAULTS['syn_marker_size']
         y_coords = np.dstack((y_coords + centers[:, 1],
                               -y_coords + centers[:, 1],
                               [None] * len(y_coords))
                              ).flatten()
-        x_coords = np.cos(angles) * DEFAULTS['syn_marker_len']
+        x_coords = np.cos(angles) * DEFAULTS['syn_marker_size']
         x_coords = np.dstack((x_coords + centers[:, 0],
                               -x_coords + centers[:, 0],
                               [None] * len(x_coords))
@@ -330,7 +331,7 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
                     linewidth=DEFAULTS['syn_linewidth'])
 
     # Plot highlighted connectors
-    if highlight_connectors:
+    if isinstance(highlight_connectors, type(None)):
         this = x.connectors[x.connectors.connector_id.isin(highlight_connectors)]
         # Get centers for each connector
         centers = np.vstack(this.node_id.map(positions))
@@ -338,12 +339,12 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
         angles = (this.node_id.map(angles) + 90 * (math.pi / 180)).values
 
         # Create lines orthogonal to parent branch
-        y_coords = np.sin(angles) * DEFAULTS['syn_marker_len']
+        y_coords = np.sin(angles) * DEFAULTS['syn_marker_size']
         y_coords = np.dstack((y_coords + centers[:, 1],
                               -y_coords + centers[:, 1],
                               [None] * len(y_coords))
                              ).flatten()
-        x_coords = np.cos(angles) * DEFAULTS['syn_marker_len']
+        x_coords = np.cos(angles) * DEFAULTS['syn_marker_size']
         x_coords = np.dstack((x_coords + centers[:, 0],
                               -x_coords + centers[:, 0],
                               [None] * len(x_coords))
@@ -371,7 +372,7 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
 def _plot_force(x, plot_connectors=False, highlight_connectors=None, prog='dot',
                 ax=None, **kwargs):
     """Plot neurons as dendrograms using graphviz layouts."""
-    DEFAULTS = FORCE_DEFAULTS.copy()
+    DEFAULTS = _DEFAULTS.copy()
     DEFAULTS.update(kwargs)
     # Save start time
     start = time.time()
@@ -383,7 +384,8 @@ def _plot_force(x, plot_connectors=False, highlight_connectors=None, prog='dot',
 
     # Calculate layout
     logger.info('Calculating node positions.')
-    pos = nx.nx_agraph.graphviz_layout(G, prog=prog)
+    pos = nx.nx_agraph.graphviz_layout(G, prog=prog,
+                                       root=x.soma[0] if x.has_soma else None)
 
     # Plot tree with above layout
     logger.info('Plotting tree.')
@@ -407,15 +409,15 @@ def _plot_force(x, plot_connectors=False, highlight_connectors=None, prog='dot',
             ax.scatter(coords[:, 0], coords[:, 1],
                        color=cn_cmap[ty]['color'],
                        zorder=2,
-                       s=5)
+                       s=DEFAULTS['syn_marker_size'] * 10)
 
-    if highlight_connectors and x.has_connectors:
+    if not isinstance(highlight_connectors, type(None)) and x.has_connectors:
         this = x.connectors[x.connectors.connector_id.isin(highlight_connectors)]
         coords = np.vstack(this.node_id.map(pos))
         ax.scatter(coords[:, 0], coords[:, 1],
                    color=DEFAULTS['syn_highlight_color'],
                    zorder=3,
-                   s=5)
+                   s=DEFAULTS['syn_marker_size'] * 10)
 
     logger.debug(f'Done in {time.time()-start}s')
 

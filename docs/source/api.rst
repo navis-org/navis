@@ -213,8 +213,8 @@ Various functions for plotting neurons and volumes.
 
     navis.plot3d
     navis.plot2d
-    navis.plot1d    
-    navis.plot_dend
+    navis.plot1d
+    navis.plot_flat
     navis.clear3d
     navis.close3d
     navis.get_viewer

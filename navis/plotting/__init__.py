@@ -14,10 +14,10 @@
 from .d import *
 from .dd import *
 from .ddd import *
-from .dend import *
+from .flat import *
 from .vispy import *
 
 from .colors import vary_colors
 
-__all__ = ['plot1d', 'plot2d', 'plot3d', 'plot_dend', 'vary_colors', 'Viewer',
+__all__ = ['plot1d', 'plot2d', 'plot3d', 'plot_flat', 'vary_colors', 'Viewer',
            'get_viewer', 'clear3d', 'close3d', 'screenshot']
