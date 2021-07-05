@@ -220,7 +220,7 @@ class NBlaster(Blaster):
         return scr
 
 
-def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
+def nblast_smart(query: Union[Dotprops, NeuronList],
                  target: Optional[str] = None,
                  t: int = 90,
                  criterion: Union[Literal['percentile'],
@@ -505,7 +505,7 @@ def nblast_smart(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotpro
     return scr
 
 
-def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'],
+def nblast(query: Union[Dotprops, NeuronList],
            target: Optional[str] = None,
            scores: Union[Literal['forward'],
                          Literal['mean'],

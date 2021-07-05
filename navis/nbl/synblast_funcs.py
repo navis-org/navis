@@ -178,8 +178,8 @@ class SynBlaster(Blaster):
         return scr
 
 
-def synblast(query: Union['core.BaseNeuron', 'core.NeuronList'],
-             target: Union['core.BaseNeuron', 'core.NeuronList'],
+def synblast(query: Union['BaseNeuron', 'NeuronList'],
+             target: Union['BaseNeuron', 'NeuronList'],
              by_type: bool = False,
              cn_types: Optional[list] = None,
              scores: Union[Literal['forward'],
