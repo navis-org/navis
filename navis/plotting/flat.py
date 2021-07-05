@@ -139,7 +139,7 @@ def plot_flat(x,
 
     if layout == 'subway':
         return _plot_subway(x,
-                            plot_connectors=plot_connectors,
+                            connectors=plot_connectors,
                             highlight_connectors=highlight_connectors,
                             shade_by_length=shade_by_length,
                             normalize_distance=normalize_distance,
@@ -147,12 +147,12 @@ def plot_flat(x,
     else:
         return _plot_force(x,
                            prog=layout,
-                           plot_connectors=plot_connectors,
+                           connectors=plot_connectors,
                            highlight_connectors=highlight_connectors,
                            ax=ax, **kwargs)
 
 
-def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
+def _plot_subway(x, connectors=False, highlight_connectors=[],
                  shade_by_length=False, normalize_distance=False, ax=None,
                  **kwargs):
     """Plot neuron as dendrogram. Preserves distances along branches.
@@ -160,7 +160,7 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
     Parameters
     ----------
     x :                     pymaid.CatmaidNeuron | string that can be parsed by pymaid.get_neuron()
-    plot_connectors :       bool, optional
+    connectors :            bool, optional
                             If True, will plot connectors on dendrogram
     highlight_connectors :  list of connector IDs, optional
                             Will highlight these connector IDs.
@@ -308,7 +308,7 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
         seen = seen | set(path)
 
     # Plot connectors
-    if plot_connectors and x.has_connectors:
+    if connectors and x.has_connectors:
         # Get centers for each connector
         centers = np.vstack(x.connectors.node_id.map(positions))
         # Angle of the branch they belong to
@@ -375,7 +375,7 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
     return ax
 
 
-def _plot_force(x, plot_connectors=False, highlight_connectors=None, prog='dot',
+def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
                 ax=None, **kwargs):
     """Plot neurons as dendrograms using graphviz layouts."""
     DEFAULTS = _DEFAULTS.copy()
@@ -407,7 +407,7 @@ def _plot_force(x, plot_connectors=False, highlight_connectors=None, prog='dot',
                        s=40, color=(0, 0, 0),
                        zorder=1)
 
-    if plot_connectors and x.has_connectors:
+    if connectors and x.has_connectors:
         cn_cmap = prepare_connector_cmap(x)
         for ty in x.connectors.type.unique():
             this = x.connectors[x.connectors.type == ty]
