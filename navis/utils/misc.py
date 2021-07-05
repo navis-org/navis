@@ -461,21 +461,25 @@ def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.NeuronObject'],
 
 def set_default_connector_colors(x: Union[List[tuple], Dict[str, tuple]]
                                  ) -> None:
-    """Set default connector colors.
+    """Set/update default connector colors.
 
     Parameters
     ----------
-    x :         list-like | dict
+    x :         dict
                 New default connector colors. Can be::
 
-                   list : [(r, g, b), (r, g, b), ..]
-                   dict : {'cn_label': (r, g, b), ..}
+                   {'cn_label': (r, g, b), ..}
+                   {'cn_label': {'color': (r, g, b)}, ..}
 
     """
-    if not isinstance(x, (dict, list, np.ndarray)):
-        raise TypeError(f'Expect dict, list or numpy array, got "{type(x)}"')
+    if not isinstance(x, dict):
+        raise TypeError(f'Expect dict, got "{type(x)}"')
 
-    config.default_connector_colors = x
+    for k, v in x.items():
+        if isinstance(v, dict):
+            config.default_connector_colors[k].update(v)
+        else:
+            config.default_connector_colors[k]['color'] = v
 
     return
 

@@ -21,4 +21,4 @@ from .eval import (eval_node_ids, eval_neurons, eval_id, eval_conditions,
                    is_mesh, is_numeric, eval_param)
 from .exceptions import (ConstructionError, VolumeError, CMTKError)
 
-__all__ = ['set_loggers', 'set_pbars']
+__all__ = ['set_loggers', 'set_pbars', 'set_default_connector_colors']
