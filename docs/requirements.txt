@@ -9,7 +9,9 @@ sphinx-bootstrap-theme
 sphinx-autodoc-typehints
 neuprint-python
 # For some odd reason, readthedocs uses a really old version of setuptools
-setuptools>=51.1
+setuptools>=52
 wheel>=0.35.1
 # ncollpyde 0.15 currently acts up on readthedocs
-ncollpyde~=0.14.0 
+ncollpyde~=0.14.0
+# Optional dependency - required for plot_flat
+pygraphviz
