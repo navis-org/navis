@@ -826,10 +826,10 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                 line_color = color
 
             lc = Line3DCollection(coords,
-                                  color=line_color,
+                                  color=line_color if not depth_coloring else None,
                                   label=neuron.id,
                                   alpha=alpha,
-                                  cmap=mpl.cm.jet if depth_coloring else None,
+                                  cmap=None if not depth_coloring else mpl.cm.jet,
                                   lw=linewidth,
                                   joinstyle='round',
                                   rasterized=rasterize,
