@@ -54,27 +54,26 @@ def plot_flat(x,
                             Literal['twopi'],
                             Literal['circo'],
                             ] = 'subway',
-              plot_connectors: bool = False,
+              connectors: bool = False,
               highlight_connectors: Optional[List[int]] = None,
               shade_by_length: bool = False,
               normalize_distance: bool = False,
               reroot_soma: bool = False,
               ax: Optional[Any] = None,
               **kwargs):
-    """Plot neuron as dendrogram.
+    """Plot neuron as flat diagrams.
 
     Parameters
     ----------
     x :                     TreeNeuron
                             A single neuron to plot.
     layout :                'subway' | 'dot' | 'neato' | 'fdp' | 'sfpd' | 'twopi' | 'circo'
-                            Layout to use for dendrogam. All but 'subway'
-                            require graphviz to be installed. For the 'fdp' and
-                            'neato' it is highly recommended to downsample the
-                            neuron.
-    plot_connectors :       bool
+                            Layout to use. All but 'subway' require graphviz to
+                            be installed. For the 'fdp' and 'neato' it is highly
+                            recommended to downsample the neuron first.
+    connectors :            bool
                             If True and neuron has connectors, will plot
-                            connectors on dendrogram.
+                            connectors.
     highlight_connectors :  list of connector IDs, optional
                             Will highlight these connector IDs.
     ax :                    matplotlib.ax, optional
@@ -139,7 +138,7 @@ def plot_flat(x,
 
     if layout == 'subway':
         return _plot_subway(x,
-                            connectors=plot_connectors,
+                            connectors=connectors,
                             highlight_connectors=highlight_connectors,
                             shade_by_length=shade_by_length,
                             normalize_distance=normalize_distance,
@@ -147,7 +146,7 @@ def plot_flat(x,
     else:
         return _plot_force(x,
                            prog=layout,
-                           connectors=plot_connectors,
+                           connectors=connectors,
                            highlight_connectors=highlight_connectors,
                            ax=ax, **kwargs)
 
@@ -155,29 +154,7 @@ def plot_flat(x,
 def _plot_subway(x, connectors=False, highlight_connectors=[],
                  shade_by_length=False, normalize_distance=False, ax=None,
                  **kwargs):
-    """Plot neuron as dendrogram. Preserves distances along branches.
-
-    Parameters
-    ----------
-    x :                     pymaid.CatmaidNeuron | string that can be parsed by pymaid.get_neuron()
-    connectors :            bool, optional
-                            If True, will plot connectors on dendrogram
-    highlight_connectors :  list of connector IDs, optional
-                            Will highlight these connector IDs.
-    shade_by_length :       bool, optional
-                            Change shade of branch with length.
-    normalize_distance :    bool, optional
-                            If True, will normalise all distances to the longest neurite.
-    ax :                    matplotlib.ax, optional
-                            Ax to plot on. Will create new one if not provided.
-    remote_instance :       pymaid.CatmaidInstance
-
-
-    Return
-    ------
-    matplotlib.ax
-
-    """
+    """Plot neuron as dendrogram. Preserves distances along branches."""
     DEFAULTS = _DEFAULTS.copy()
     DEFAULTS.update(kwargs)
     if len(x.root) > 1:
