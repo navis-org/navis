@@ -10,7 +10,7 @@
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-"""Module contains functions to plot neurons as flat dendrograms."""
+"""Module contains functions to plot neurons as flat structures."""
 
 import math
 import time
@@ -70,25 +70,24 @@ def plot_flat(x,
     layout :                'subway' | 'dot' | 'neato' | 'fdp' | 'sfpd' | 'twopi' | 'circo'
                             Layout to use for dendrogam. All but 'subway'
                             require graphviz to be installed. For the 'fdp' and
-                            'neato' is highly recommended to downsample the
+                            'neato' it is highly recommended to downsample the
                             neuron.
-    plot_connectors :       bool, optional
+    plot_connectors :       bool
                             If True and neuron has connectors, will plot
                             connectors on dendrogram.
-    highlight_connectors:   list of connector IDs, optional
+    highlight_connectors :  list of connector IDs, optional
                             Will highlight these connector IDs.
     ax :                    matplotlib.ax, optional
                             Ax to plot on. Will create new one if not provided.
-    **kwargs
-                            Keyword arguments.
-
-    For layout "subway" only
-
     shade_by_length :       bool, optional
-                            Change shade of branch with length.
+                            Change shade of branch with length. For layout
+                            "subway" only
     normalize_distance :    bool, optional
                             If True, will normalise all distances to the longest
-                            neurite.
+                            neurite. For layout "subway" only
+    **kwargs
+                            Keyword argument passed on to the respective
+                            plotting functions.
 
     Returns
     -------
@@ -96,21 +95,28 @@ def plot_flat(x,
 
     Examples
     --------
-    >>> import navis
-    >>> import matplotlib.pyplot as plt
-    >>> n = navis.example_neurons(1)
-
     Plot neuron in "subway" layout
 
-    >>> ax = navis.plot_flat(n, layout='subway', connectors=True)
-    >>> plt.show() # doctest: +SKIP
+    .. plot::
+       :context: close-figs
+
+       >>> import navis
+       >>> n = navis.example_neurons(1).convert_units('nm')
+       >>> ax = navis.plot_flat(n, layout='subway',
+       ...                      figsize=(12, 2),
+       ...                      connectors=True)
+       >>> ax.set_xlabel('distance [nm]')
+       >>> plt.show() # doctest: +SKIP
 
     Plot neuron in "dot" layout (requires pygraphviz and graphviz)
 
-    >>> # First downsample to speed up processing
-    >>> ds = navis.downsample_neuron(n, 10, preserve_nodes='connectors')
-    >>> ax = navis.plot_flat(ds, layout='dot', connectors=True)
-    >>> plt.show() # doctest: +SKIP
+    .. plot::
+       :context: close-figs
+
+        >>> # First downsample to speed up processing
+        >>> ds = navis.downsample_neuron(n, 10, preserve_nodes='connectors')
+        >>> ax = navis.plot_flat(ds, layout='dot', connectors=True)
+        >>> plt.show() # doctest: +SKIP
 
     To close all figures (this is mostly for the doctests)
 
@@ -156,7 +162,7 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
     x :                     pymaid.CatmaidNeuron | string that can be parsed by pymaid.get_neuron()
     plot_connectors :       bool, optional
                             If True, will plot connectors on dendrogram
-    highlight_connectors:   list of connector IDs, optional
+    highlight_connectors :  list of connector IDs, optional
                             Will highlight these connector IDs.
     shade_by_length :       bool, optional
                             Change shade of branch with length.
@@ -184,7 +190,7 @@ def _plot_subway(x, plot_connectors=False, highlight_connectors=[],
         DEFAULTS['switch_dist'] /= 1000
 
     if not ax:
-        fig, ax = plt.subplots(figsize=kwargs.get('figsize', (12, 6)))
+        fig, ax = plt.subplots(figsize=kwargs.get('figsize', (10, 10)))
 
     # For each node get the distance to its root
     if 'parent_dist' not in x.nodes.columns:
