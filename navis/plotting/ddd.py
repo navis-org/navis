@@ -208,6 +208,8 @@ def plot3d(x: Union[core.NeuronObject,
     >>> # Pass kwargs
     >>> v = navis.plot3d(nl, clear3d=True)
 
+    See the :ref:`plotting tutorial <plot_intro>` for even more examples.
+
     """
     """
     TO-DO:

@@ -11,7 +11,7 @@ Single neurons and lists of neurons are represented in ``navis`` by:
  	~navis.TreeNeuron
  	~navis.NeuronList
 
-Navis comes with a couple example neurons from the FAFB project published
+``navis`` comes with a couple example neurons from the FAFB project published
 in `Zheng et al <http://www.cell.com/cell/retrieve/pii/S0092867418307876?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS0092867418307876%3Fshowall%3Dtrue>`_
 , Cell (2018)::
 

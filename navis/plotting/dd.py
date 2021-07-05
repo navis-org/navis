@@ -172,58 +172,79 @@ def plot2d(x: Union[core.NeuronObject,
 
     Examples
     --------
-    >>> import navis
-    >>> import matplotlib.pyplot as plt
+    .. plot::
+       :context: close-figs
 
-    Plot list of neurons as simple 2d
+        >>> import navis
+        >>> import matplotlib.pyplot as plt
 
-    >>> nl = navis.example_neurons()
-    >>> fig, ax = navis.plot2d(nl, method='2d')
-    >>> plt.show() # doctest: +SKIP
+        Plot list of neurons as simple 2d
+
+        >>> nl = navis.example_neurons()
+        >>> fig, ax = navis.plot2d(nl, method='2d', view=('x', '-y'))
+        >>> plt.show() # doctest: +SKIP
 
     Add a volume
 
-    >>> vol = navis.example_volume('LH')
-    >>> fig, ax = navis.plot2d([nl, vol], method='2d')
-    >>> plt.show() # doctest: +SKIP
+    .. plot::
+       :context: close-figs
+
+        >>> vol = navis.example_volume('LH')
+        >>> fig, ax = navis.plot2d([nl, vol], method='2d', view=('x', '-y'))
+        >>> plt.show() # doctest: +SKIP
 
     Change neuron colors
 
-    >>> fig, ax = navis.plot2d(nl,
-    ...                        method='2d',
-    ...                        color=['r', 'g', 'b', 'm', 'c', 'y'])
-    >>> plt.show() # doctest: +SKIP
+    .. plot::
+       :context: close-figs
+
+        >>> fig, ax = navis.plot2d(nl,
+        ...                        method='2d',
+        ...                        view=('x', '-y'),
+        ...                        color=['r', 'g', 'b', 'm', 'c', 'y'])
+        >>> plt.show() # doctest: +SKIP
 
     Plot in "fake" 3D
 
-    >>> fig, ax = navis.plot2d(nl, method='3d')
-    >>> plt.show() # doctest: +SKIP
-    >>> # Now try dragging the plot to rotate
+    .. plot::
+       :context: close-figs
+
+        >>> fig, ax = navis.plot2d(nl, method='3d')
+        >>> plt.show() # doctest: +SKIP
+        >>> # In an interactive window you can dragging the plot to rotate
 
     Plot in "fake" 3D and change perspective
 
-    >>> fig, ax = navis.plot2d(nl, method='3d')
-    >>> # Change view to lateral
-    >>> ax.azim = 0
-    >>> ax.elev = 0
-    >>> # Change view to top
-    >>> ax.azim = -90
-    >>> ax.elev = 90
-    >>> # Tilted top view
-    >>> ax.azim = -135
-    >>> ax.elev = 45
-    >>> # Move camera closer (will make image bigger)
-    >>> ax.dist = 5
-    >>> plt.show() # doctest: +SKIP
+    .. plot::
+       :context: close-figs
+
+        >>> fig, ax = navis.plot2d(nl, method='3d')
+        >>> # Change view to frontal (for example neurons)
+        >>> ax.azim = ax.elev = 90
+        >>> # Change view to lateral
+        >>> ax.azim, ax.elev = 180, 180
+        >>> ax.elev = 0
+        >>> # Change view to top
+        >>> ax.azim, ax.elev = 90, 180
+        >>> # Tilted top view
+        >>> ax.azim, ax.elev = -130, -150
+        >>> # Move camera
+        >>> ax.dist = 6
+        >>> plt.show() # doctest: +SKIP
 
     Plot using depth-coloring
 
-    >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True)
-    >>> plt.show() # doctest: +SKIP
+    .. plot::
+       :context: close-figs
+
+        >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True)
+        >>> plt.show() # doctest: +SKIP
 
     To close all figures
 
     >>> plt.close('all')
+
+    See the :ref:`plotting tutorial <plot_intro>` for more examples.
 
 
     Returns
@@ -237,6 +258,8 @@ def plot2d(x: Union[core.NeuronObject,
             and if you don't need vector graphics as outputs.
     :func:`navis.plot1d`
             A nifty way to visualise neurons in a single dimension.
+    :func:`navis.plot_flat`
+            Plot neurons as flat structures (e.g. dendrograms).
 
     """
     # Filter kwargs

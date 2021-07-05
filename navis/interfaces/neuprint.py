@@ -140,9 +140,9 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
     try:
         from cloudvolume import CloudVolume
     except ImportError:
-        raise ImportError('``navis.fetch_mesh_neuron`` requires the CloudVolume'
-                          ' library. Please install using e.g. pip:'
-                          '   pip3 install cloud-volume')
+        raise ImportError('navis.interfaces.neuprint.fetch_mesh_neuron '
+                          'requires the CloudVolume library. Please install '
+                          'using e.g. pip:   pip3 install cloud-volume')
 
     if isinstance(x, pd.DataFrame):
         if 'bodyId' in x.columns:
@@ -434,7 +434,7 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
             syn = syn[['connector_id', 'node_id', 'type',
                        'x', 'y', 'z', 'roi', 'confidence']]
 
-            # Manually make the "roi" column of the synapse table into a 
+            # Manually make the "roi" column of the synapse table into a
             # categorical to save some memory
             syn['roi'] = syn.roi.astype('category')
 

@@ -121,6 +121,8 @@ def plot_flat(x,
 
     >>> plt.close('all')
 
+    See the :ref:`plotting tutorial <plot_intro>` for more examples.
+
     """
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]

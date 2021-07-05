@@ -672,7 +672,7 @@ class BaseNeuron:
 
 
 class MeshNeuron(BaseNeuron):
-    """Neuron represented a by a mesh with vertices and faces.
+    """Neuron represented as mesh with vertices and faces.
 
     Parameters
     ----------
@@ -921,7 +921,7 @@ class MeshNeuron(BaseNeuron):
 
 
 class TreeNeuron(BaseNeuron):
-    """Neuron represented as hierarchical tree (i.e. a skeleton).
+    """Neuron represented as hierarchical tree (= skeleton).
 
     Parameters
     ----------

@@ -64,15 +64,21 @@ def plot1d(x: 'core.NeuronObject',
 
     Examples
     --------
-    >>> import navis
-    >>> import matplotlib.pyplot as plt
-    >>> n = navis.example_neurons(2)
-    >>> ax = navis.plot1d(n)
-    >>> plt.show() # doctest: +SKIP
 
-    To close figure(s)
-    
+    .. plot::
+       :context: close-figs
+
+        >>> import navis
+        >>> import matplotlib.pyplot as plt
+        >>> n = navis.example_neurons(2)
+        >>> ax = navis.plot1d(n)
+        >>> plt.show() # doctest: +SKIP
+
+    Close figures (only relevant for doctests)
+
     >>> plt.close('all')
+
+    See the :ref:`plotting tutorial <plot_intro>` for more examples.
 
     """
     if isinstance(x, core.NeuronList):

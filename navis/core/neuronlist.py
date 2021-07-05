@@ -35,16 +35,16 @@ logger = config.logger
 
 
 class NeuronList:
-    """Compilation of :class:`~navis.TreeNeuron` or :class`~navis.MeshNeuron`.
+    """Collection of neurons.
 
     Gives quick access to neurons' attributes and functions.
 
     Parameters
     ----------
-    x :                 list | array | TreeNeuron | MeshNeuron | NeuronList
+    x :                 list | array | TreeNeuron | MeshNeuron | Dotprops | NeuronList
                         Data to construct neuronlist from. Can be either:
 
-                        1. Tree/MeshNeuron(s)
+                        1. Tree/MeshNeuron(s) or Dotprops
                         2. NeuronList(s)
                         3. Anything that constructs a Tree/MeshNeuron
                         4. List of the above

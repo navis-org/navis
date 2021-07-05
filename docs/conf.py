@@ -84,12 +84,22 @@ def convert_nb(nbname, execute=False):
 
 
 def remove_hbox(filepath):
-    """Drop 'Hbox(children... lines from .rst files."""
+    """Drop 'Hbox(children...' lines from .rst files."""
     with open(filepath, 'r') as f:
         s = f.read()
 
     if 'HBox(children' in s:
         s = re.sub(".. parsed-literal::\n\n.*?HTML\(value=''\)\)\)", '', s)
+        with open(filepath, 'w') as f:
+            f.write(s)
+
+def remove_pbars(filepath):
+    """Drop accidental progress bars '... [00:00<?, ?it/s]' lines from .rst files."""
+    with open(filepath, 'r') as f:
+        s = f.read()
+
+    if 'it/s]' in s:
+        s = re.sub(".. parsed-literal::\n\n.*?it/s]", '', s)
         with open(filepath, 'w') as f:
             f.write(s)
 
@@ -106,6 +116,7 @@ for (dirpath, dirnames, filenames) in os.walk(source_path):
 for nb in all_nb:
     convert_nb(nb)
     remove_hbox(nb.replace('.ipynb', '.rst'))
+    remove_pbars(nb.replace('.ipynb', '.rst'))
 
 # -- General configuration ------------------------------------------------
 

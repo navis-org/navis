@@ -241,19 +241,21 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
 
     In comparison with :func:`navis.nblast`, this function will first run a
     "pre-NBLAST" in which only 10% of the query dotprops' points are used.
-    Using those score, we select for each query the highest scoring targets and
-    run the full NBLAST only on those query-target pairs (see ``t`` and
-    ``criterion``).
+    Using those initial scores, we select for each query the highest scoring
+    targets and run the full NBLAST only on those query-target pairs (see
+    ``t`` and ``criterion`` for fine-tuning).
 
     Parameters
     ----------
-    query,target :  Dotprops | NeuronList
-                    Query neuron(s) to NBLAST against the targets. Units should
-                    be in microns as NBLAST is optimized for that and have
-                    similar sampling resolutions.
-    t :             int
-                    Value used to select query-target pairs from pre-NBLAST
-                    to run a full NBLAST on. See also ``criterion``.
+    query :         Dotprops | NeuronList
+                    Query neuron(s) to NBLAST against the targets. Neurons
+                    should be in microns as NBLAST is optimized for that and
+                    have similar sampling resolutions.
+    target :        Dotprops | NeuronList, optional
+                    Target neuron(s) to NBLAST against. Neurons should be in
+                    microns as NBLAST is optimized for that and have
+                    similar sampling resolutions. If not provided, will NBLAST
+                    queries against themselves.
     criterion :     "percentile" | "score" | "N"
                     Criterion for selecting query-target pairs for full NBLAST:
 
@@ -262,9 +264,9 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                       - "N" runs full NBLAST on top ``t`` targets
 
     return_mask :   bool
-                    If True, will also return a boolean mask with same shape as
-                    that shows which scores are based on a full NBLAST and which
-                    ones only on the pre-NBLAST.
+                    If True, will also return a boolean mask that shows which
+                    scores are based on a full NBLAST and which ones only on
+                    the pre-NBLAST.
     scores :        'forward' | 'mean' | 'min' | 'max'
                     Determines the final scores:
 
@@ -526,10 +528,15 @@ def nblast(query: Union[Dotprops, NeuronList],
 
     Parameters
     ----------
-    query,target :  Dotprops | NeuronList
-                    Query neuron(s) to NBLAST against the targets. Units should
-                    be in microns as NBLAST is optimized for that and have
-                    similar sampling resolutions.
+    query :         Dotprops | NeuronList
+                    Query neuron(s) to NBLAST against the targets. Neurons
+                    should be in microns as NBLAST is optimized for that and
+                    have similar sampling resolutions.
+    target :        Dotprops | NeuronList, optional
+                    Target neuron(s) to NBLAST against. Neurons should be in
+                    microns as NBLAST is optimized for that and have
+                    similar sampling resolutions. If not provided, will NBLAST
+                    queries against themselves.
     scores :        'forward' | 'mean' | 'min' | 'max'
                     Determines the final scores:
 
@@ -679,12 +686,12 @@ def nblast_allbyall(x: NeuronList,
                     progress: bool = True) -> pd.DataFrame:
     """All-by-all NBLAST of inputs neurons.
 
-    This is a more efficient way than running ``nblast(query=x, target=x)``.
+    A slightly more efficient way of running ``nblast(query=x, target=x)``.
 
     Parameters
     ----------
     x :             Dotprops | NeuronList
-                    Query neuron(s) to NBLAST against the targets. Units should
+                    Neuron(s) to NBLAST against each other. Neurons should
                     be in microns as NBLAST is optimized for that and have
                     similar sampling resolutions.
     n_cores :       int, optional

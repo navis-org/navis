@@ -3,9 +3,14 @@
 API Reference
 =============
 
-``navis`` has grown a lot: last I looked, there were ~100 functions exposed
+``navis`` has grown a lot! Last I looked, there were ~110 functions exposed
 at top level (e.g. ``navis.plot3d``) and easily another 100 secondary functions
-available via submodules (e.g. ``navis.morpho.find_soma``).
+available via submodules (e.g. ``navis.morpho.find_soma``). This can be a bit
+daunting at first - especially if you don't exactly know what you are looking
+for. I recommend you either just have a browse, use the search field
+(upper right) or simply search in page (CONTROL/CMD-F). Failing that, please
+feel free to open an `issue <https://github.com/schlegelp/navis/issues>`_ on
+the Github repo with your question.
 
 This API reference is a more or less complete account of the primary functions:
 
@@ -25,7 +30,6 @@ In addition ``navis`` has interfaces to various external APIs and softwares:
 - :ref:`Blender 3D<api_interfaces.blender>`
 - :ref:`Cytoscape<api_interfaces.cytoscape>`
 - :ref:`R and the natverse libraries<api_interfaces.r>`
-
 
 Most of these functions include examples of how to use them. Click on them to
 learn more!
@@ -272,7 +276,7 @@ Functions to edit morphology:
     navis.average_neurons
     navis.break_fragments
     navis.despike_neuron
-    navais.cell_body_fiber
+    navis.cell_body_fiber
     navis.cut_neuron
     navis.guess_radius
     navis.heal_fragmented_neuron
@@ -307,7 +311,6 @@ Functions to analyze morphology.
 .. autosummary::
     :toctree: generated/
 
-    navis.classify_nodes
     navis.find_main_branchpoint
     navis.strahler_index
     navis.nblast
@@ -450,7 +453,6 @@ Functions to cluster neurons based on connectivity.
 
     navis.cluster_by_connectivity
     navis.cluster_by_synapse_placement
-    navis.ClustResults
 
 .. _io:
 

@@ -83,7 +83,7 @@ function. There you will also find more examples.
                <div class="panel-body">
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    tutorials/r_doc
    blender
