@@ -81,10 +81,10 @@ def plot_flat(x,
                             Ax to plot on. Will create new one if not provided.
     shade_by_length :       bool, optional
                             Change shade of branch with length. For layout
-                            "subway" only
+                            "subway" only.
     normalize_distance :    bool, optional
                             If True, will normalise all distances to the longest
-                            neurite. For layout "subway" only
+                            neurite. For layout "subway" only.
     **kwargs
                             Keyword argument passed on to the respective
                             plotting functions.
@@ -95,7 +95,7 @@ def plot_flat(x,
 
     Examples
     --------
-    Plot neuron in "subway" layout
+    Plot neuron in "subway" layout:
 
     .. plot::
        :context: close-figs
@@ -105,10 +105,10 @@ def plot_flat(x,
        >>> ax = navis.plot_flat(n, layout='subway',
        ...                      figsize=(12, 2),
        ...                      connectors=True)
-       >>> ax.set_xlabel('distance [nm]')
+       >>> _ = ax.set_xlabel('distance [nm]')
        >>> plt.show() # doctest: +SKIP
 
-    Plot neuron in "dot" layout (requires pygraphviz and graphviz)
+    Plot neuron in "dot" layout (requires pygraphviz and graphviz):
 
     .. plot::
        :context: close-figs
@@ -118,7 +118,7 @@ def plot_flat(x,
         >>> ax = navis.plot_flat(ds, layout='dot', connectors=True)
         >>> plt.show() # doctest: +SKIP
 
-    To close all figures (this is mostly for the doctests)
+    To close all figures (only for doctests)
 
     >>> plt.close('all')
 
