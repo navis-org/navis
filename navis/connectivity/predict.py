@@ -22,8 +22,7 @@ import scipy.spatial
 from typing import Union, Dict
 from typing_extensions import Literal
 
-from ..core.neurons import TreeNeuron
-from ..core.neuronlist import NeuronList
+from ..core import TreeNeuron, NeuronList
 from .. import config, graph
 
 # Set up logging

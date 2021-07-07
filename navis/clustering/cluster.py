@@ -25,8 +25,7 @@ from typing_extensions import Literal
 
 from concurrent.futures import ThreadPoolExecutor
 
-from ..core.neurons import TreeNeuron
-from ..core.neuronlist import NeuronList
+from ..core import TreeNeuron, NeuronList
 from .. import plotting, utils, config
 
 # Set up logging

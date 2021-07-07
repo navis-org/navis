@@ -12,7 +12,6 @@
 #    GNU General Public License for more details.
 
 import functools
-import inspect
 import numbers
 import os
 import pint
@@ -25,9 +24,8 @@ from scipy.spatial import cKDTree
 from typing import Union, Sequence, Optional, Callable
 from typing_extensions import Literal
 
-from .neurons import TreeNeuron, MeshNeuron, Dotprops, BaseNeuron
-from .neuronlist import NeuronList
-from .. import config, graph, utils
+from .. import config, graph, utils, core
+
 
 try:
     from pathos.multiprocessing import ProcessingPool
@@ -40,10 +38,24 @@ __all__ = ['make_dotprops', 'to_neuron_space']
 logger = config.logger
 
 
+def temp_property(func):
+    """Check if neuron is stale. Clear cached temporary attributes if it is."""
+    @property
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        self = args[0]
+        # Do nothing if neurons is locked
+        if not self.is_locked:
+            if self.is_stale:
+                self._clear_temp_attr()
+        return func(*args, **kwargs)
+    return wrapper
+
+
 @utils.map_neuronlist(desc='Dotprops', allow_parallel=True)
 def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.MeshNeuron'],
                   k: int = 20,
-                  resample: Union[float, int, bool, str] = False) -> Dotprops:
+                  resample: Union[float, int, bool, str] = False) -> 'core.Dotprops':
     """Produce dotprops from x/y/z points.
 
     This is following the implementation in R's nat library.
@@ -95,18 +107,18 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
         if not all(np.isin(['x', 'y', 'z'], x.columns)):
             raise ValueError('DataFrame must contain "x", "y" and "z" columns.')
         x = x[['x', 'y', 'z']].values
-    elif isinstance(x, TreeNeuron):
+    elif isinstance(x, core.TreeNeuron):
         if resample:
             x = x.resample(resample_to=resample, inplace=False)
         properties.update({'units': x.units, 'name': x.name, 'id': x.id})
 
         if isinstance(k, type(None)) or k <= 0:
             points, vect, length = graph.neuron2tangents(x)
-            return Dotprops(points=points, vect=vect, length=length, alpha=None,
-                            k=None, **properties)
+            return core.Dotprops(points=points, vect=vect, length=length, alpha=None,
+                                 k=None, **properties)
 
         x = x.nodes[['x', 'y', 'z']].values
-    elif isinstance(x, MeshNeuron):
+    elif isinstance(x, core.MeshNeuron):
         properties.update({'units': x.units, 'name': x.name, 'id': x.id})
         x = x.vertices
         if resample:
@@ -136,6 +148,8 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     # Create the KDTree and get the k-nearest neighbors for each point
     tree = cKDTree(x)
     dist, ix = tree.query(x, k=k)
+    # This makes sure we have (N, k) shaped array even if k = 1
+    ix = ix.reshape(x.shape[0], k)
 
     # Get points: array of (N, k, 3)
     pt = x[ix]
@@ -154,11 +168,11 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     vect = vh[:, 0, :]
     alpha = (s[:, 0] - s[:, 1]) / np.sum(s, axis=1)
 
-    return Dotprops(points=x, alpha=alpha, vect=vect, **properties)
+    return core.Dotprops(points=x, alpha=alpha, vect=vect, **properties)
 
 
 def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
-                    neuron: BaseNeuron,
+                    neuron: core.BaseNeuron,
                     on_error: Union[Literal['ignore'],
                                     Literal['raise']] = 'raise'):
     """Convert units to match neuron space.
@@ -205,7 +219,7 @@ def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
     """
     utils.eval_param(on_error, name='on_error',
                      allowed_values=('ignore', 'raise'))
-    utils.eval_param(neuron, name='neuron', allowed_types=(BaseNeuron, ))
+    utils.eval_param(neuron, name='neuron', allowed_types=(core.BaseNeuron, ))
 
     # If string, convert to units
     if isinstance(units, str):
@@ -246,7 +260,7 @@ class NeuronProcessor:
     """
 
     def __init__(self,
-                 nl: NeuronList,
+                 nl: 'core.NeuronList',
                  function: Callable,
                  parallel: bool = False,
                  n_cores: int = os.cpu_count() // 2,
@@ -349,7 +363,7 @@ class NeuronProcessor:
         logger.setLevel(level)
 
         # If result is a list of neurons, combine them back into a single list
-        is_neuron = [isinstance(r, (NeuronList, BaseNeuron)) for r in res]
+        is_neuron = [isinstance(r, (core.NeuronList, core.BaseNeuron)) for r in res]
         if all(is_neuron):
             return self.nl.__class__(utils.unpack_neurons(res))
         # If results are all None return nothing instead of a list of [None, ..]

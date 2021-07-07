@@ -19,9 +19,7 @@ import pandas as pd
 from typing import Union, Optional
 from typing_extensions import Literal
 
-from ..core.volumes import Volume
-from ..core.neuronlist import NeuronList
-from ..core.neurons import TreeNeuron, MeshNeuron
+from ..core import Volume, NeuronList, TreeNeuron, MeshNeuron
 from ..io import read_swc
 from ..graph import nx2neuron
 
