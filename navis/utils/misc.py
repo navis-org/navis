@@ -439,7 +439,7 @@ def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.NeuronObject'],
     >>> type(unpacked)
     <class 'list'>
     >>> type(unpacked[0])
-    <class 'navis.core.neurons.TreeNeuron'>
+    <class 'navis.core.skeleton.TreeNeuron'>
     >>> len(unpacked)
     6
 
