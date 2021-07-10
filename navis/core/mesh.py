@@ -164,7 +164,7 @@ class MeshNeuron(BaseNeuron):
 
     def __truediv__(self, other):
         """Implement division for coordinates (vertices, connectors)."""
-        if isinstance(other, (numbers.Number, list, np.ndarray)):
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy()
             _ = np.divide(n.vertices, other, out=n.vertices, casting='unsafe')
@@ -172,25 +172,16 @@ class MeshNeuron(BaseNeuron):
                 n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
             # Convert units
-            # If division is isometric
-            if isinstance(other, numbers.Number):
-                n.units = (n.units * other).to_compact()
-            # If other is iterable but division is still isometric
-            elif len(set(other)) == 1:
-                n.units = (n.units * other[0]).to_compact()
-            # If non-isometric remove units
-            else:
-                n.units = None
+            n.units = (n.units * other).to_compact()
 
             self._clear_temp_attr()
 
             return n
-        else:
-            return NotImplemented
+        return NotImplemented
 
     def __mul__(self, other):
         """Implement multiplication for coordinates (vertices, connectors)."""
-        if isinstance(other, (numbers.Number, list, np.ndarray)):
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy()
             _ = np.multiply(n.vertices, other, out=n.vertices, casting='unsafe')
@@ -198,21 +189,12 @@ class MeshNeuron(BaseNeuron):
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
             # Convert units
-            # If multiplication is isometric
-            if isinstance(other, numbers.Number):
-                n.units = (n.units / other).to_compact()
-            # If other is iterable but multiplication is still isometric
-            elif len(set(other)) == 1:
-                n.units = (n.units / other[0]).to_compact()
-            # If non-isometric remove units
-            else:
-                n.units = None
+            n.units = (n.units / other).to_compact()
 
             self._clear_temp_attr()
 
             return n
-        else:
-            return NotImplemented
+        return NotImplemented
 
     def _clear_temp_attr(self, exclude: list = []) -> None:
         """Clear temporary attributes."""

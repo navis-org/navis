@@ -17,12 +17,10 @@ import uuid
 import pandas as pd
 import numpy as np
 
-from typing import Tuple, Iterable, List, Union, Any, Optional, Sequence
+from typing import Tuple, List, Union, Any, Optional, Sequence
 
 from .. import config, core
-from .iterables import is_iterable
-
-from .iterables import *
+from .iterables import make_iterable
 
 # Set up logging
 logger = config.logger

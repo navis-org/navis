@@ -197,75 +197,67 @@ class TreeNeuron(BaseNeuron):
 
     def __truediv__(self, other):
         """Implement division for coordinates (nodes, connectors)."""
-        if isinstance(other, (numbers.Number, list, np.ndarray)):
-            if isinstance(other, (list, np.ndarray)) and len(other) != 4:
-                raise ValueError('Division by list/array requires divisors '
-                                 f'for x/y/z and radius - got {len(other)}')
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            if utils.is_iterable(other) and len(other) != 4:
+                if len(set(other)) == 1:
+                    other == other[0]
+                else:
+                    raise ValueError('Division by list/array requires '
+                                     'divisors for x/y/z and radius - '
+                                     f'got {len(other)}')
 
             # If a number, consider this an offset for coordinates
             n = self.copy()
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
+
+            # At this point we can ditch any 4th unit
+            if utils.is_iterable(other):
+                other = other[:3]
             if n.has_connectors:
-                if isinstance(other, (list, np.ndarray)):
-                    n.connectors.loc[:, ['x', 'y', 'z']] /= other[:3]
-                else:
-                    n.connectors.loc[:, ['x', 'y', 'z']] /= other
+                n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
             if hasattr(n, 'soma_radius'):
                 if isinstance(n.soma_radius, numbers.Number):
                     n.soma_radius /= other
 
             # Convert units
-            # If division is isometric
-            if isinstance(other, numbers.Number):
-                n.units = (n.units * other).to_compact()
-            # If other is iterable but division is still isometric
-            elif len(set(other)) == 1:
-                n.units = (n.units * other[0]).to_compact()
-            # If non-isometric remove units
-            else:
-                n.units = None
+            n.units = (n.units * other).to_compact()
 
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
-        else:
-            return NotImplemented
+        return NotImplemented
 
     def __mul__(self, other):
         """Implement multiplication for coordinates (nodes, connectors)."""
-        if isinstance(other, (numbers.Number, list, np.ndarray)):
-            if isinstance(other, (list, np.ndarray)) and len(other) != 4:
-                raise ValueError('Multiplication by list/array requires multipliers'
-                                 f' for x/y/z and radius - got {len(other)}')
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            if utils.is_iterable(other) and len(other) != 4:
+                if len(set(other)) == 1:
+                    other == other[0]
+                else:
+                    raise ValueError('Multiplication by list/array requires '
+                                     'multipliers for x/y/z and radius - '
+                                     f'got {len(other)}')
 
             # If a number, consider this an offset for coordinates
             n = self.copy()
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
+
+            # At this point we can ditch any 4th unit
+            if utils.is_iterable(other):
+                other = other[:3]
             if n.has_connectors:
-                if isinstance(other, (list, np.ndarray)):
-                    n.connectors.loc[:, ['x', 'y', 'z']] *= other[:3]
-                else:
-                    n.connectors.loc[:, ['x', 'y', 'z']] *= other
+                n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
             if hasattr(n, 'soma_radius'):
                 if isinstance(n.soma_radius, numbers.Number):
                     n.soma_radius *= other
 
             # Convert units
-            # If multiplication is isometric
-            if isinstance(other, numbers.Number):
-                n.units = (n.units / other).to_compact()
-            # If other is iterable but multiplication is still isometric
-            elif len(set(other)) == 1:
-                n.units = (n.units / other[0]).to_compact()
-            # If non-isometric remove units
-            else:
-                n.units = None
+            n.units = (n.units / other).to_compact()
 
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
-        else:
-            return NotImplemented
+        return NotImplemented
 
     def __getstate__(self):
         """Get state (used e.g. for pickling)."""

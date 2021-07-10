@@ -12,12 +12,15 @@
 #    GNU General Public License for more details.
 
 import six
+import pint
 
 import numpy as np
 import pandas as pd
 
 from typing import Optional, Any
 from collections.abc import Iterable
+
+from .. import config
 
 
 def make_iterable(x,
@@ -38,6 +41,10 @@ def make_iterable(x,
     array(['a'], dtype='<U1')
 
     """
+    # Quantities are a special case
+    if isinstance(x, pint.Quantity) and not isinstance(x.magnitude, np.ndarray):
+        return config.ureg.Quantity(np.array([x.magnitude]), x.units)
+
     if not isinstance(x, Iterable) or isinstance(x, six.string_types):
         x = [x]
 
@@ -88,6 +95,9 @@ def is_iterable(x: Any) -> bool:
     True
 
     """
+    if isinstance(x, pint.Quantity):
+        x = x.magnitude
+
     if isinstance(x, Iterable) and not isinstance(x, (six.string_types, pd.DataFrame)):
         return True
     else:
