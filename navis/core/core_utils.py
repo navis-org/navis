@@ -177,6 +177,8 @@ def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
                                     Literal['raise']] = 'raise'):
     """Convert units to match neuron space.
 
+    Note that trying to convert units for non-isometric neurons will fail.
+
     Parameters
     ----------
     units :     number | str | pint.Quantity | pint.Units
@@ -230,8 +232,15 @@ def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
 
     if neuron.units.dimensionless:
         if on_error == 'raise':
-            raise ValueError('Neuron units unknown or dimensionless - unable '
-                             f'to convert "{str(units)}"')
+            raise ValueError(f'Unable to convert "{str(units)}": Neuron units '
+                             'unknown or dimensionless.')
+        else:
+            return units
+
+    if not neuron.is_isometric:
+        if on_error == 'raise':
+            raise ValueError(f'Unable to convert "{str(units)}": neuron is not '
+                             'isometric ({neuron.units}).')
         else:
             return units
 
