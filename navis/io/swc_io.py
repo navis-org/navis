@@ -14,6 +14,7 @@
 import csv
 import datetime
 import io
+import json
 import os
 import re
 import requests
@@ -83,6 +84,7 @@ class SwcReader:
         soma_label: Union[str, int] = 1,
         delimiter: str = DEFAULT_DELIMITER,
         precision: int = DEFAULT_PRECISION,
+        read_meta: bool = False,
         fmt: str = DEFAULT_FMT,
         attrs: Optional[Dict[str, Any]] = None
     ):
@@ -91,6 +93,7 @@ class SwcReader:
         self.delimiter = delimiter
         self.attrs = attrs
         self.fmt = fmt
+        self.read_meta = read_meta
 
         int_, float_ = parse_precision(precision)
         self._dtypes = {
@@ -161,6 +164,15 @@ class SwcReader:
             header=None,
         )
         nodes.columns = NODE_COLUMNS
+
+        # Check for row with JSON-formatted meta data
+        # Expected format '# Meta: {"id": "12345"}'
+        if self.read_meta:
+            meta_row = [r for r in header_rows if r.lower().startswith('# meta:')]
+            if meta_row:
+                meta_data = json.loads(meta_row[0][7:].strip())
+                attrs = merge_dicts(meta_data, attrs)
+
         return self.read_dataframe(nodes, merge_dicts({'swc_header': '\n'.join(header_rows)}, attrs))
 
     def read_file_path(
@@ -784,6 +796,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
              parallel: Union[bool, int] = 'auto',
              precision: int = 32,
              fmt: str = "{name}.swc",
+             read_meta: bool = True,
              **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from SWC file.
 
@@ -840,6 +853,11 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
 
                         Throws a ValueError if pattern can't be found in
                         filename. Ignored for DataFrames.
+    read_meta :         bool
+                        If True and SWC header contains a line with JSON-encoded
+                        meta data e.g. (``# Meta: {'id': 123}``), these data
+                        will be read as neuron properties. `fmt` takes
+                        precedene.
     **kwargs
                         Keyword arguments passed to the construction of
                         ``navis.TreeNeuron``. You can use this to e.g. set
@@ -860,7 +878,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
 
     """
     reader = SwcReader(
-        connector_labels, soma_label, delimiter, precision, fmt, kwargs
+        connector_labels, soma_label, delimiter, precision, read_meta, fmt, kwargs,
     )
     return reader.read_any(f, include_subdirs, parallel)
 
@@ -868,9 +886,10 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
 def write_swc(x: 'core.NeuronObject',
               filepath: Union[str, Path],
               header: Optional[str] = None,
+              write_meta: Union[bool, List[str], dict] = True,
               labels: Union[str, dict, bool] = True,
               export_connectors: bool = False,
-              return_node_map : bool = False) -> None:
+              return_node_map: bool = False) -> None:
     """Generate SWC file from neuron(s).
 
     Follows the format specified
@@ -887,9 +906,18 @@ def write_swc(x: 'core.NeuronObject',
                         be a folder, a "formattable" filename, a filename ending
                         in `.zip` or a list of filenames for each neuron in x.
                         Existing files will be overwritten!
-    header :            str | None, optionals
+    header :            str | None, optional
                         Header for SWC file. If not provided, will use generic
                         header.
+    write_meta :        bool | list | dict
+                        If not False, will add meta data as JSON-formatted
+                        string to the header::
+
+                           True: adds neuron `id`, `name` and `units`
+                           list: use to set which properties, e.g. ['id', 'units']
+                           dict: use to set meta data, e.g. {'template': 'JRC2018F'}
+
+                        This parameter is ignored if custom header is provided.
     labels :            str | dict | bool, optional
                         Node labels. Can be::
 
@@ -981,7 +1009,10 @@ def write_swc(x: 'core.NeuronObject',
                         # Generate temporary filename
                         f = os.path.join(tempdir, pattern.format(neuron=n))
                         # Write to temporary file
-                        write_swc(n, filepath=f, labels=labels, header=header,
+                        write_swc(n, filepath=f,
+                                  labels=labels,
+                                  header=header,
+                                  write_meta=write_meta,
                                   export_connectors=export_connectors)
                         # Add file to zip
                         zf.write(f, arcname=pattern.format(neuron=n),
@@ -1016,7 +1047,7 @@ def write_swc(x: 'core.NeuronObject',
                                 leave=config.pbar_leave, total=len(x),
                                 desc='Saving'):
             write_swc(n, filepath=f, labels=labels, header=header,
-                      export_connectors=export_connectors)
+                      write_meta=write_meta, export_connectors=export_connectors)
         return
 
     # From here we are dealing with writing a single TreeNeuron to a file
@@ -1066,7 +1097,16 @@ def write_swc(x: 'core.NeuronObject',
         # SWC format file
         # based on specifications at http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html
         # Created on {datetime.date.today()} using navis (https://github.com/schlegelp/navis)
-        # Units: {str(x.units)}
+        """)
+        if write_meta:
+            if isinstance(write_meta, dict):
+                props = write_meta
+            elif isinstance(write_meta, list):
+                props = {k: str(getattr(x, k, None)) for k in write_meta}
+            else:
+                props = {k: str(getattr(x, k, None)) for k in ['id', 'name', 'units']}
+            header += f"# Meta: {json.dumps(props)}\n"
+        header += dedent("""\
         # PointNo Label X Y Z Radius Parent
         # Labels:
         # 0 = undefined, 1 = soma, 5 = fork point, 6 = end point
