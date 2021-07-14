@@ -90,7 +90,10 @@ def plot_flat(x,
 
     Returns
     -------
-    matplotlib.ax
+    ax :                    matplotlib.ax
+    pos :                   dict
+                            (X, Y) positions for each node: ``{node_id: (x, y)}``.
+
 
     Examples
     --------
@@ -101,9 +104,9 @@ def plot_flat(x,
 
        >>> import navis
        >>> n = navis.example_neurons(1).convert_units('nm')
-       >>> ax = navis.plot_flat(n, layout='subway',
-       ...                      figsize=(12, 2),
-       ...                      connectors=True)
+       >>> ax, pos = navis.plot_flat(n, layout='subway',
+       ...                           figsize=(12, 2),
+       ...                           connectors=True)
        >>> _ = ax.set_xlabel('distance [nm]')
        >>> plt.show() # doctest: +SKIP
 
@@ -114,7 +117,7 @@ def plot_flat(x,
 
         >>> # First downsample to speed up processing
         >>> ds = navis.downsample_neuron(n, 10, preserve_nodes='connectors')
-        >>> ax = navis.plot_flat(ds, layout='dot', connectors=True)
+        >>> ax, pos = navis.plot_flat(ds, layout='dot', connectors=True)
         >>> plt.show() # doctest: +SKIP
 
     To close all figures (only for doctests)
@@ -351,7 +354,7 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
     ax.set_aspect('equal')
 
     # Return axis
-    return ax
+    return ax, pos
 
 
 def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
@@ -406,4 +409,4 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
 
     logger.debug(f'Done in {time.time()-start}s')
 
-    return ax
+    return ax, pos
