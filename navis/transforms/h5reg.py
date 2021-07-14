@@ -320,8 +320,8 @@ class H5transform(BaseTransform):
             # Note that we clip `mn` at 0 and `mx` at 2 at the lower end?
             # This is to make sure we have enough of the deformation field
             # to interpolate later on `offsets`
-            mn = np.clip(mn, 0, self.shape[:-1][::-1])
-            mx = np.clip(mx, 2, self.shape[:-1][::-1])
+            mn = np.clip(mn, 2, np.array(self.shape[:-1][::-1])) - 2
+            mx = np.clip(mx, 0, np.array(self.shape[:-1][::-1]) - 2) + 2
 
             # Check if we can use cached values
             if self.use_cache and (hasattr(self, '_fully_ingested')
