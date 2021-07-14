@@ -354,7 +354,7 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
     ax.set_aspect('equal')
 
     # Return axis
-    return ax, pos
+    return ax, positions
 
 
 def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
@@ -372,20 +372,20 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
 
     # Calculate layout
     logger.info('Calculating node positions.')
-    pos = nx.nx_agraph.graphviz_layout(G, prog=prog,
-                                       root=x.soma[0] if x.has_soma else None)
+    positions = nx.nx_agraph.graphviz_layout(G, prog=prog,
+                                             root=x.soma[0] if x.has_soma else None)
 
     # Plot tree with above layout
     logger.info('Plotting tree.')
     if not ax:
         fig, ax = plt.subplots(figsize=kwargs.get('figsize', (12, 6)))
 
-    nx.draw(G, pos, node_size=0, arrows=False, ax=ax)
+    nx.draw(G, positions, node_size=0, arrows=False, ax=ax)
 
     # Add soma
     if x.has_soma:
         for s in x.soma:
-            ax.scatter([pos[s][0]], [pos[s][1]],
+            ax.scatter([positions[s][0]], [positions[s][1]],
                        s=40, color=(0, 0, 0),
                        zorder=1)
 
@@ -393,7 +393,7 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
         cn_cmap = prepare_connector_cmap(x)
         for ty in x.connectors.type.unique():
             this = x.connectors[x.connectors.type == ty]
-            coords = np.vstack(this.node_id.map(pos))
+            coords = np.vstack(this.node_id.map(positions))
             ax.scatter(coords[:, 0], coords[:, 1],
                        color=cn_cmap[ty]['color'],
                        zorder=2,
@@ -401,7 +401,7 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
 
     if not isinstance(highlight_connectors, type(None)) and x.has_connectors:
         this = x.connectors[x.connectors.connector_id.isin(highlight_connectors)]
-        coords = np.vstack(this.node_id.map(pos))
+        coords = np.vstack(this.node_id.map(positions))
         ax.scatter(coords[:, 0], coords[:, 1],
                    color=DEFAULTS['syn_highlight_color'],
                    zorder=3,
@@ -409,4 +409,4 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
 
     logger.debug(f'Done in {time.time()-start}s')
 
-    return ax, pos
+    return ax, positions
