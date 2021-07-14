@@ -404,7 +404,11 @@ class BaseNeuron:
         unit_str = []
         for v in units:
             if isinstance(v, str):
-                unit_str.append(str(config.ureg(v)))
+                # This makes sure we have meters (i.e. nm, um, etc) because
+                # "microns", for example, produces odd behaviour like
+                # "millimicrons" on division
+                v = config.ureg(v).to('m').to_compact()
+                unit_str.append(str(v))
             elif isinstance(v, (pint.Unit, pint.Quantity)):
                 unit_str.append(str(v))
             elif isinstance(v, type(None)):
