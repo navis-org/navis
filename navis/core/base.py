@@ -407,7 +407,7 @@ class BaseNeuron:
                 # This makes sure we have meters (i.e. nm, um, etc) because
                 # "microns", for example, produces odd behaviour like
                 # "millimicrons" on division
-                v = config.ureg(v).to('m').to_compact()
+                v = v.replace('microns', 'um').replace('micron', 'um')
                 unit_str.append(str(v))
             elif isinstance(v, (pint.Unit, pint.Quantity)):
                 unit_str.append(str(v))
