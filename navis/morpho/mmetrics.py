@@ -809,10 +809,6 @@ def tortuosity(x: 'core.NeuronObject',
     1.054
 
     """
-    # TODO:
-    # - try as angles between dotproduct vectors
-    #
-
     if isinstance(x, core.NeuronList):
         if not isinstance(seg_length, (list, np.ndarray, tuple)):
             seg_length = [seg_length]  # type: ignore
@@ -880,11 +876,10 @@ def tortuosity(x: 'core.NeuronObject',
         # We know that each child -> parent pair was originally exactly
         # `seg_length` geodesic distance apart. Now we need to find out
         # how far they are apart in Eucledian distance
-
         new_coords = np.array([xnew, ynew, znew]).T
 
         R = np.linalg.norm(new_coords[:-1] - new_coords[1:], axis=1)
         T = seg_length / R
         T_all = np.append(T_all, T)
 
-    return T.mean()
+    return T_all.mean()
