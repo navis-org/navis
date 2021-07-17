@@ -17,6 +17,7 @@
 
 import math
 import itertools
+import scipy
 
 import pandas as pd
 import numpy as np
@@ -757,8 +758,7 @@ def flow_centrality(x: 'core.NeuronObject',
 
 def tortuosity(x: 'core.NeuronObject',
                seg_length: Union[int, float, str,
-                                 Sequence[Union[int, float, str]]] = 10,
-               skip_remainder: bool = False
+                                 Sequence[Union[int, float, str]]] = 10
                ) -> Union[float,
                           Sequence[float],
                           pd.DataFrame]:
@@ -768,25 +768,28 @@ def tortuosity(x: 'core.NeuronObject',
     tortuosity index `T` is defined as the ratio of the branch segment length
     `L` (``seg_length``) to the Euclidian distance `R` between its ends.
 
+    The way this is implemented in `navis`:
+     1. Each linear stretch (i.e. between branch points or branch points to a
+        leaf node) is divided into segments of exactly ``seg_length``
+        geodesic length. Any remainder is skipped.
+     2. For each of these segments we divide its geodesic length `L`
+        (i.e. `seg_length`) by the Eucledian distance `R` between its start and
+        its end.
+     3. The final tortuosity is the mean of `L / R` across all segments.
+
     Note
     ----
     If you want to make sure that segments are as close to length `L` as
-    possible, consider resampling the neuron using :func:`navis.resample`.
+    possible, consider resampling the neuron using :func:`navis.resample_neuron`.
 
     Parameters
     ----------
     x :                 TreeNeuron | NeuronList
     seg_length :        int | float | str | list thereof, optional
-                        Target segment length(s) L. Will try resampling neuron
-                        to this resolution. Please note that the final segment
-                        length is restricted by the neuron's original
-                        resolution. If neuron(s) have their `.units` set, you
-                        can also pass a string such as "1 micron".
-    skip_remainder :    bool, optional
-                        Segments can turn out to be smaller than desired if a
-                        branch point or end point is hit before `seg_length`
-                        is reached. If ``skip_remainder`` is True, these will
-                        be ignored.
+                        Target segment length(s) `L`. If neuron(s) have their
+                        ``.units`` set, you can also pass a string such as
+                        "1 micron". ``seg_length`` must be larger than the
+                        current sampling resolution of the neuron.
 
     Returns
     -------
@@ -801,9 +804,9 @@ def tortuosity(x: 'core.NeuronObject',
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> # Calculate tortuosity with 1 micron seg lengths
-    >>> T = navis.tortuosity(n, seg_length=1e3)
+    >>> T = navis.tortuosity(n, seg_length='1 micron')
     >>> round(T, 3)
-    1.072
+    1.054
 
     """
     # TODO:
@@ -813,10 +816,11 @@ def tortuosity(x: 'core.NeuronObject',
     if isinstance(x, core.NeuronList):
         if not isinstance(seg_length, (list, np.ndarray, tuple)):
             seg_length = [seg_length]  # type: ignore
-        df = pd.DataFrame([tortuosity(n, seg_length) for n in config.tqdm(x,
-                                                                          desc='Tortuosity',
-                                                                          disable=config.pbar_hide,
-                                                                          leave=config.pbar_leave)],
+        df = pd.DataFrame([tortuosity(n,
+                                      seg_length=seg_length) for n in config.tqdm(x,
+                                                                                  desc='Tortuosity',
+                                                                                  disable=config.pbar_hide,
+                                                                                  leave=config.pbar_leave)],
                           index=x.id, columns=seg_length).T
         df.index.name = 'seg_length'
         return df
@@ -825,47 +829,62 @@ def tortuosity(x: 'core.NeuronObject',
         raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
 
     if isinstance(seg_length, (list, np.ndarray)):
-        return [tortuosity(x, l) for l in seg_length]  # type: ignore  # would need to overload to fix this
+        return [tortuosity(x, l) for l in seg_length]
 
     # From here on out seg length is single value
     seg_length: float = x.map_units(seg_length, on_error='raise')
 
     if seg_length <= 0:
-        raise ValueError('Segment length must be >0.')
+        raise ValueError('`seg_length` must be > 0.')
+    res = x.sampling_resolution
+    if seg_length <= res:
+        raise ValueError('`seg_length` must not be smaller than the sampling '
+                         f'resolution of the neuron ({res:.2f}).')
 
-    # We will collect coordinates and do distance calculations later
-    start_tn: List[int] = []
-    end_tn: List[int] = []
-    L: List[Union[int, float]] = []
+    # Iterate over segments
+    locs = x.nodes.set_index('node_id')[['x', 'y', 'z']].astype(float)
+    T_all = []
+    for i, seg in enumerate(x.small_segments):
+        # Get coordinates
+        coords = locs.loc[seg].values
 
-    # Go over all segments
-    for seg in x.small_segments:
-        # Collect distances between treenodes (in microns)
-        dist = np.array([x.graph.edges[(c, p)]['weight']
-                         for c, p in zip(seg[:-1], seg[1:])])
-        # Walk the segment, collect stretches of length `seg_length`
-        cut_ix = [0]
-        for i, tn in enumerate(seg):
-            if sum(dist[cut_ix[-1]:i]) > seg_length:
-                cut_ix.append(i)
+        # Vecs between subsequently measured points
+        vecs = np.diff(coords.T)
 
-        # If the last node is not a cut node
-        if cut_ix[-1] < i and not skip_remainder:
-            cut_ix.append(i)
+        # path: cum distance along points (norm from first to Nth point)
+        dist = np.cumsum(np.linalg.norm(vecs, axis=0))
+        dist = np.insert(dist, 0, 0)
 
-        # Translate into treenode IDs
-        if len(cut_ix) > 1:
-            L += [sum(dist[s:e]) for s, e in zip(cut_ix[:-1], cut_ix[1:])]
-            start_tn += [seg[n] for n in cut_ix[:-1]]
-            end_tn += [seg[n] for n in cut_ix[1:]]
+        # Skip if segment too short
+        if dist[-1] <= seg_length:
+            continue
 
-    # Now calculate euclidean distances
-    tn_table = x.nodes.set_index('node_id', inplace=False)
-    start_co = tn_table.loc[start_tn, ['x', 'y', 'z']].values
-    end_co = tn_table.loc[end_tn, ['x', 'y', 'z']].values
-    R = np.linalg.norm(start_co - end_co, axis=1)
+        # New partitions
+        new_dist = np.arange(0, dist[-1], seg_length)
 
-    # Get tortousity
-    T = np.array(L) / R
+        try:
+            sampleX = scipy.interpolate.interp1d(dist, coords[:, 0],
+                                                 kind='linear')
+            sampleY = scipy.interpolate.interp1d(dist, coords[:, 1],
+                                                 kind='linear')
+            sampleZ = scipy.interpolate.interp1d(dist, coords[:, 2],
+                                                 kind='linear')
+        except ValueError:
+            continue
+
+        # Sample each dim
+        xnew = sampleX(new_dist)
+        ynew = sampleY(new_dist)
+        znew = sampleZ(new_dist)
+
+        # We know that each child -> parent pair was originally exactly
+        # `seg_length` geodesic distance apart. Now we need to find out
+        # how far they are apart in Eucledian distance
+
+        new_coords = np.array([xnew, ynew, znew]).T
+
+        R = np.linalg.norm(new_coords[:-1] - new_coords[1:], axis=1)
+        T = seg_length / R
+        T_all = np.append(T_all, T)
 
     return T.mean()
