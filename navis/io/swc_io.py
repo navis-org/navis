@@ -566,9 +566,11 @@ class SwcReader:
                         props[p] = float(props[p])
                     elif dt == 'bool':
                         props[p] = bool(props[p])
+                    elif dt == 'str':
+                        props[p] = str(props[p])
                     else:
-                        raise ValueError(f'Unable to interpret datatype "{dt}" for '
-                                         f'property {p}')
+                        raise ValueError(f'Unable to interpret datatype "{dt}" '
+                                         f'for property {p}')
                 else:
                     props[p] = match.group(i + 1)
         return props
