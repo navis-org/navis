@@ -165,7 +165,7 @@ def resample_neuron(x: 'core.NeuronObject',
 
         # Distances (i.e. resolution) of interpolation
         n_nodes = np.round(dist[-1] / resample_to)
-        new_dist = np.linspace(dist[0], dist[-1], n_nodes)
+        new_dist = np.linspace(dist[0], dist[-1], int(n_nodes))
 
         try:
             sampleX = scipy.interpolate.interp1d(dist, coords[:, 0],
