@@ -50,11 +50,6 @@ Instead of using PIP to install from Github, you can also install manually:
 
 3. Run ``python setup.py install`` to build and install
 
-.. note::
-   There are two optional dependencies that you might want to install manually:
-   :ref:`pyoctree <pyoc>` and :ref:`rpy2 <rpy>`. The latter is only relevant if
-   you intend to use navis's R wrappers.
-
 
 Step-by-step instructions
 -------------------------
@@ -109,86 +104,44 @@ Step-by-step instructions
 
     <div class="alert alert-danger alert-trim" role="alert">
       Missing permissions to write can mess up
-      installations using <strong>PIP</strong>. If you get a
-      <code>"..permission denied.."</code> error, try running the same command
+      installations using <strong>PIP</strong>. This is not
+      recommended but if you get a
+      <code>"..permission denied.."</code> error, you can try
+      running the same command
       as admin: <code>sudo pip3 install ...</code>
     </div>
 
 .. topic:: Installing Python 3
 
    On **Linux** and **OSX (Mac)**, simply go to https://www.python.org to
-   download + install Python3 (version 3.6 or later). I recommend getting 3.7 as
-   3.8 may still cause problems with some of navis' dependencies.
+   download + install Python3 (version 3.7 or later).
 
-   On **Windows**, things are bit more tricky. While navis is written in pure
-   Python, some of its dependencies are written in C for speed and need to be
-   compiled - which a pain on Windows. I strongly recommend installing a
-   scientific Python distribution that comes with "batteries included".
-   `Anaconda <https://www.continuum.io/downloads>`_ is a widespread solution
-   that comes with its own package manager ``conda``.
+   On **Windows** things are bit more tricky. While navis is written in pure
+   Python, some of its dependencies don't have pre-compiled binaries for Windows
+   and hence need to be compiled - which a pain on Windows. You have two
+   options:
+
+   1. Install `Windows Subsystem for Linux <https://docs.microsoft.com/en-us/windows/wsl/>`_
+      which runs a whole Linux inside your Windows. From my (limited)
+      experience this seems to work very well.
+   2. Use a scientific Python distribution that comes with "batteries included".
+      `Anaconda <https://www.continuum.io/downloads>`_ is a widespread solution
+      that comes with its own package manager ``conda`` which often has
+      precompiled Windows binaries where ``pip`` doesn't.
 
 .. note::
    If you intend to use navis' interface with R, you need to install the
    optional dependency :ref:`rpy2 <rpy>`.
 
 
-Dependencies
-------------
+Optional Dependencies
+---------------------
 
-Mandatory
-+++++++++
+If you installed navis using ``pip``, mandatory dependencies should have been
+installed automatically. There are a few optional dependencies that e.g. provide
+speed-boosts in certain situations or are required only in certain functions.
 
-If you installed navis using ``PIP``, mandatory dependencies should have been
-installed automatically.
-
-`NumPy <http://www.numpy.org/>`_
-  Provides matrix representation of graphs and is used in some graph
-  algorithms for high-performance matrix computations.
-
-`Pandas <http://pandas.pydata.org/>`_
-  Provides advanced dataframes and indexing.
-
-`Vispy <http://vispy.org/>`_
-  Used to visualise neurons in 3D. This requires you to have *one* of
-  the supported `backends <http://vispy.org/installation.html#backend-requirements>`_
-  installed. During automatic installation navis will try installing the
-  `PyQt5 <http://pyqt.sourceforge.net/Docs/PyQt5/installation.html>`_ backend
-  to fullfil this requirement.
-
-`Plotly <https://plot.ly/python/getting-started/>`_
-  Used to visualise neurons in 3D. Alternative to Vispy based on WebGL.
-
-`NetworkX <https://networkx.github.io>`_
-  Graph analysis library written in pure Python. This is the standard library
-  used by navis.
-
-`ncollpyde <https://pypi.org/project/ncollpyde>`_
-  Used to check e.g. if objects are within volume.
-
-`SciPy <http://scipy.org>`_
-  Provides tons of scientific computing tools: sparse matrix representation
-  of graphs, pairwose distance computation, hierarchical clustering, etc.
-
-`Matplotlib <http://matplotlib.sourceforge.net/>`_
-  Essential for all 2D plotting.
-
-`Seaborn <https://seaborn.pydata.org>`_
-  Used e.g. for its color palettes.
-
-`tqdm <https://pypi.python.org/pypi/tqdm>`_
-  Neat progress bars.
-
-`PyPNG <https://pythonhosted.org/pypng/>`_
-  Generates PNG images. Used for taking screenshot from 3D viewer. Install
-  from PIP: ``pip3 install pypng``.
-
-
-Optional
-++++++++
-
-Navis provides extra functionality or performance improvements with optional extras.
-
-Extras can be installed directly, or along with navis with
+These extras can be installed directly, or along with navis with
 
 ::
 
@@ -204,7 +157,9 @@ You can install all of them with the ``all`` extra.
 
 ``kdtree``: `pykdtree <https://github.com/storpipfugl/pykdtree>`_
   Faster than scipy's cKDTree implementation. If available, will be used to
-  speed up e.g. NBLAST.
+  speed up e.g. NBLAST. **Important**: on Linux I found that I need to set
+  a ``OMP_NUM_THREADS=4`` environment variable (see also ``pykdtree`` docs).
+  Otherwise it's actually slower than scipy's KDTree.
 
   ::
 
@@ -221,11 +176,12 @@ You can install all of them with the ``all`` extra.
 
 .. _rpy:
 
-``r``: `Rpy2 <https://rpy2.readthedocs.io/en/version_2.8.x/overview.html#installation>`_ (``r``)
-  Provides interface with R. This allows you to use e.g. R packages from
-  https://github.com/jefferis and https://github.com/alexanderbates. Note that
-  this package is not installed automatically as it would fail if R is not
-  already installed on the system. You have to install Rpy2 manually!
+``r``: `Rpy2 <https://rpy2.readthedocs.io/en/version_2.8.x/overview.html#installation>`_ (``rpy2``)
+  Provides interface with R. This allows you to use e.g. the
+  `natverse <https://natverse.org>`_  R packages. Note that
+  this package is not installed automatically as it would fail
+  if R is not already installed on the system. You have to
+  install Rpy2 manually!
 
   ::
 
@@ -252,6 +208,3 @@ You can install all of them with the ``all`` extra.
   If you need that extra bit of speed, there is iGraph.
   It is written in C and therefore very fast.
   If available, navis will try using iGraph over NetworkX.
-  iGraph is difficult to install, though,
-  because you have to install the C core first
-  and then its Python bindings, ``python-igraph``.
