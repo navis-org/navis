@@ -137,9 +137,6 @@ def _downsample_dotprops(x, downsampling_factor):
     # Generate a mask
     mask = np.arange(0, x._points.shape[0], int(downsampling_factor))
 
-    # Mask points
-    x._points = x._points[mask]
-
     # Mask vectors
     # This will also trigger re-calculation which is necessary for two reasons:
     # 1. Vectors will change dramatically if they have to be recalculated from
@@ -153,6 +150,9 @@ def _downsample_dotprops(x, downsampling_factor):
     # Mask alphas if exists
     if not isinstance(x._alpha, type(None)):
         x._alpha = x._alpha[mask]
+
+    # Finally mask points
+    x._points = x._points[mask]
 
 
 def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
