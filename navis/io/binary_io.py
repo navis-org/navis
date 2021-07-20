@@ -15,6 +15,7 @@ import io
 import os
 import struct
 
+import numpy as np
 import pandas as pd
 
 from typing import Union, Optional
@@ -22,16 +23,79 @@ from typing import Union, Optional
 from .. import config, utils, core
 
 
-def write_google_binary(x: Union['core.NeuronList', 'core.TreeNeuron'],
-                        filename: Optional[str] = None) -> None:
-    """Export TreeNeuron (skeletons) to Google's binary format.
+def read_precomputed_mesh(f: Union[str, io.BytesIO],
+                          include_subdirs: bool = False,
+                          fmt: str = '{name}.bin',
+                          **kwargs) -> 'core.NeuronObject':
+    """Create Neuron/List from SWC file.
 
-    Follows the format specified
-    `here <https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/skeletons.md#encoded-skeleton-file-format>`_.
+    This import is following format specified
+    `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    f :                 str | pandas.DataFrame | iterable
+                        SWC string, URL, filename, folder or DataFrame.
+                        If folder, will import all ``.swc`` files. If a
+                        ``.zip`` file will read all SWC files in the file.
+    include_subdirs :   bool, optional
+                        If True and ``f`` is a folder, will also search
+                        subdirectories for ``.swc`` files.
+    fmt :               str
+                        Formatter to specify what files to look for (when `f` is
+                        directory) and how they are parsed into neuron
+                        attributes. Some illustrative examples:
+
+                          - ``{name}.bin`` (default) uses the filename
+                            (minus the suffix) as the neuron's name property
+                          - ``{name}.gbin`` looks for a different file extension
+                          - ``{id}.bin`` uses the filename as the neuron's ID
+                            property
+                          - ``{name,id}.bin`` uses the filename as the neuron's
+                            name and ID properties
+                          - ``{name}.{id}.gbin`` splits the filename at a "."
+                            and uses the first part as name and the second as ID
+                          - ``{name,id:int}.bin`` same as above but converts
+                            into integer for the ID
+                          - ``{name}_{myproperty}.bin`` splits the filename at
+                            "_" and uses the first part as name and as a
+                            generic "myproperty" property
+                          - ``{name}_{}_{id}.bin`` splits the filename at
+                            "_" and uses the first part as name and the last as
+                            ID. The middle part is ignored.
+
+                        Throws a ValueError if pattern can't be found in
+                        filename. Ignored for DataFrames.
+    **kwargs
+                        Keyword arguments passed to the construction of
+                        ``navis.Tree/MeshNeuron``. You can use this to e.g. set
+                        meta data.
+
+    Returns
+    -------
+    navis.TreeNeuron
+    navis.MeshNeuron
+    navis.NeuronList
+
+    See Also
+    --------
+    :func:`navis.write_precomputed`
+                        Export neurons/volumes in precomputed format.
+
+    """
+    pass
+
+
+def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshNeuron', 'core.Volume'],
+                      filename: Optional[str] = None) -> None:
+    """Export skeletons or meshes to Google's (legacy) precomputed format.
+
+    Follows the formats specified
+    `here <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed>`_.
+
+    Parameters
+    ----------
+    x :                 TreeNeuron | MeshNeuron | Volume NeuronList
                         If multiple neurons, will generate a file
                         for each neuron (see also ``filename``).
     filename :          None | str | list, optional
@@ -52,8 +116,6 @@ def write_google_binary(x: Union['core.NeuronList', 'core.TreeNeuron'],
 
     """
     if isinstance(x, core.NeuronList):
-        if x.is_mixed:
-            raise TypeError('NeuronList must only contain TreeNeurons.')
         res = []
 
         if not utils.is_iterable(filename):
@@ -67,12 +129,47 @@ def write_google_binary(x: Union['core.NeuronList', 'core.TreeNeuron'],
                                 leave=config.pbar_leave,
                                 total=len(x),
                                 disable=config.pbar_hide):
-            res.append(write_google_binary(n, filename=f))
+            res.append(write_precomputed(n, filename=f))
         return res
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron, got "{type(x)}"')
+    if filename and os.path.isdir(filename):
+        if isinstance(x, core.BaseNeuron):
+            filename = os.path.join(filename, f'{x.id}.bin')
+        elif isinstance(x, core.Volume):
+            filename = os.path.join(filename, f'{x.name}.bin')
+        else:
+            raise ValueError(f'Unable to generate filename for {type(x)}')
 
+    if isinstance(x, core.TreeNeuron):
+        return _write_skeleton(x, filename)
+    elif utils.is_mesh(x):
+        return _write_mesh(x.vertices, x.faces, filename)
+    else:
+        raise TypeError(f'Unable to write data of type "{type(x)}"')
+
+
+def _write_mesh(vertices, faces, filename):
+    """Write mesh to Google binary format."""
+    # Make sure we are working with the correct data types
+    vertices = np.asarray(vertices, dtype='float32')
+    faces = np.asarray(faces, dtype='uint32')
+    n_vertices = np.uint32(vertices.shape[0])
+    vertex_index_format = [n_vertices, vertices, faces]
+
+    results = b''.join([array.tobytes('C') for array in vertex_index_format])
+
+    if filename and os.path.isdir(filename):
+        filename = os.path.join(filename, filename)
+
+    if filename:
+        with open(filename, 'wb') as f:
+            f.write(results)
+    else:
+        return results
+
+
+def _write_skeleton(x, filename):
+    """Write skeleton to Google binary format."""
     # Below code modified from:
     # https://github.com/google/neuroglancer/blob/master/python/neuroglancer/skeleton.py#L34
     result = io.BytesIO()
@@ -86,9 +183,6 @@ def write_google_binary(x: Union['core.NeuronList', 'core.TreeNeuron'],
     result.write(struct.pack('<II', vertex_positions.shape[0], edges.shape[0] // 2))
     result.write(vertex_positions.tobytes())
     result.write(edges.tobytes())
-
-    if filename and os.path.isdir(filename):
-        filename = os.path.join(filename, f'{x.id}.bin')
 
     if filename:
         with open(filename, 'wb') as f:
