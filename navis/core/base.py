@@ -103,6 +103,9 @@ class BaseNeuron:
     #: Attributes to be used when comparing two neurons.
     EQ_ATTRIBUTES = ['name']
 
+    #: Temporary attributes that need clearing when neuron data changes
+    TEMP_ATTR = []
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -211,6 +214,16 @@ class BaseNeuron:
         config.pbar_hide = prev_pbar
         _ = plt.clf()
         return output.getvalue()
+
+    def _clear_temp_attr(self, exclude: list = []) -> None:
+        """Clear temporary attributes."""
+        for a in [at for at in self.TEMP_ATTR if at not in exclude]:
+            try:
+                delattr(self, a)
+                logger.debug(f'Neuron {id(self)}: {a} cleared')
+            except BaseException:
+                logger.debug(f'Neuron {id(self)}: Unable to clear temporary attribute "{a}"')
+                pass
 
     def _register_attr(self, name, value, summary=True, temporary=False):
         """Set and register attribute.

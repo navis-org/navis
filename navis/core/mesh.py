@@ -196,16 +196,6 @@ class MeshNeuron(BaseNeuron):
             return n
         return NotImplemented
 
-    def _clear_temp_attr(self, exclude: list = []) -> None:
-        """Clear temporary attributes."""
-        for a in [at for at in self.TEMP_ATTR if at not in exclude]:
-            try:
-                delattr(self, a)
-                logger.debug(f'Neuron {id(self)}: {a} cleared')
-            except BaseException:
-                logger.debug(f'Neuron {id(self)}: Unable to clear temporary attribute "{a}"')
-                pass
-
     @property
     def bbox(self) -> np.ndarray:
         """Bounding box (includes connectors)."""
