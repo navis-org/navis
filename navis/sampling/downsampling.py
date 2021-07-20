@@ -14,8 +14,8 @@
 import numpy as np
 import pandas as pd
 
+from scipy import ndimage
 from typing import Optional, overload, Union, List
-from typing_extensions import Literal
 
 from .. import config, graph, core, utils
 
@@ -39,6 +39,13 @@ def downsample_neuron(x: 'core.TreeNeuron',
                       inplace: bool = False,
                       preserve_nodes: Optional[List[int]] = None
                       ) -> 'core.TreeNeuron': ...
+
+@overload
+def downsample_neuron(x: 'core.VoxelNeuron',
+                      downsampling_factor: float,
+                      inplace: bool = False,
+                      preserve_nodes: Optional[List[int]] = None
+                      ) -> 'core.VoxelNeuron': ...
 
 
 @overload
@@ -67,10 +74,13 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                     TreeNeuron | Dotprops | NeuronList
+    x :                     TreeNeuron | Dotprops | VoxelNeuron | NeuronList
                             Neuron(s) to downsample.
     downsampling_factor :   int | float('inf')
-                            Factor by which to reduce the node count.
+                            Factor by which downsample. For TreeNeuron/Dotprops
+                            this is reduces the node/point count, for
+                            VoxelNeurons this reduces the dimensions by given
+                            factor.
     preserve_nodes :        str | list, optional
                             Can be either list of node IDs to exclude from
                             downsampling or a string to a DataFrame attached
@@ -83,7 +93,7 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     Returns
     -------
-    TreeNeuron/Dotprops/NeuronList
+    TreeNeuron/Dotprops/VoxelNeurons/NeuronList
                             Same datatype as input.
 
     Examples
@@ -116,10 +126,26 @@ def downsample_neuron(x: 'core.NeuronObject',
     elif isinstance(x, core.Dotprops):
         _ = _downsample_dotprops(x,
                                  downsampling_factor=downsampling_factor)
+    elif isinstance(x, core.VoxelNeuron):
+        _ = _downsample_voxels(x,
+                               downsampling_factor=downsampling_factor)
     else:
         raise TypeError(f'Unable to downsample data of type "{type(x)}"')
 
     return x
+
+
+def _downsample_voxels(x, downsampling_factor, order=1):
+    """Downsample voxels."""
+    assert isinstance(x, core.VoxelNeuron)
+
+    zoom_factor = 1 / downsampling_factor
+
+    # order=1 means linear interpolation
+    x._data = ndimage.zoom(x.grid, zoom_factor, order=order)
+
+    # We have to change the units here too
+    x.units *= downsampling_factor
 
 
 def _downsample_dotprops(x, downsampling_factor):

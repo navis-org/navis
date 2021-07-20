@@ -30,16 +30,17 @@ logger = config.logger
 
 
 def read_nrrd(f: Union[str, Iterable],
-              threshold: Optional[Union[int, float]],
+              threshold: Optional[Union[int, float]] = None,
               include_subdirs: bool = False,
               parallel: Union[bool, int] = 'auto',
-              output: Union[Literal['dotprops'],
-                            Literal['raw']] = 'dotprops',
+              output: Union[Literal['voxels'],
+                            Literal['dotprops'],
+                            Literal['raw']] = 'voxels',
               errors: Union[Literal['raise'],
                             Literal['log'],
                             Literal['ignore']] = 'log',
               **kwargs) -> 'core.NeuronObject':
-    """Create Dotprops Neuron/List from NRRD file.
+    """Create Neuron/List from NRRD file.
 
     See `here <http://teem.sourceforge.net/nrrd/format.html>`_ for specs of
     NRRD file format including description of the headers.
@@ -50,9 +51,9 @@ def read_nrrd(f: Union[str, Iterable],
                         Filename(s) or folder. If folder, will import all
                         ``.nrrd`` files.
     threshold :         int | float | None
-                        The threshold to filter low intensity voxels. If
-                        ``None``, no threshold is applied and all values > 0
-                        are converted to points.
+                        For ``output='dotprops'`` only: a threshold to filter
+                        low intensity voxels. If ``None``, no threshold is
+                        applied and all values > 0 are converted to points.
     include_subdirs :   bool, optional
                         If True and ``f`` is a folder, will also search
                         subdirectories for ``.nrrd`` files.
@@ -64,30 +65,37 @@ def read_nrrd(f: Union[str, Iterable],
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
                         ``os.cpu_count() - 2``).
-    output :            "dotprops" | "raw"
+    output :            "voxels" | "dotprops" | "raw"
                         Determines function's output. See Returns.
     errors :            "raise" | "log" | "ignore"
                         If "log" or "ignore", errors will not be raised but
                         instead empty Dotprops will be returned.
 
     **kwargs
-                        Keyword arguments passed to :func:`navis.make_dotprops`.
-                        Use this to e.g. adjust the number of nearest neighbors
-                        used for calculating the tangent vector.
+                        Keyword arguments passed to :func:`navis.make_dotprops`
+                        if ``output='dotprops'``. Use this to adjust e.g. the
+                        number of nearest neighbors used for calculating the
+                        tangent vector.
 
     Returns
     -------
+    navis.Voxelneuron
+                        If ``output="voxels"`` (default). Contains NRRD header
+                        as ``.nrrd_header`` attribute.
     navis.Dotprops
-                        If output is "dotprops". Contains NRRD header as
+                        If ``output="dotprops"``. Contains NRRD header as
                         ``.nrrd_header`` attribute.
     navis.NeuronList
                         If import of multiple NRRD will return NeuronList of
-                        Dotprops.
+                        Dotprops/VoxelNeurons.
     (image, header)     (np.ndarray, OrderedDict)
                         If ``output='raw'`` return raw data contained in NRRD
                         file.
 
     """
+    utils.eval_param(output, name='output',
+                     allowed_values=('raw', 'dotprops', 'voxels'))
+
     # If is directory, compile list of filenames
     if isinstance(f, str) and os.path.isdir(f):
         if not include_subdirs:
@@ -140,46 +148,58 @@ def read_nrrd(f: Union[str, Iterable],
         if output == 'raw':
             return [r[0] for r in res], [r[1] for r in res]
 
-        return core.NeuronList(res)
+        return core.NeuronList([r for r in res if r])
 
     # Open the file
+    fname = os.path.basename(f).split('.')[0]
     data, header = nrrd.read(f)
 
     if output == 'raw':
         return data, header
 
-    if threshold:
-        data = data >= threshold
+    # Try parsing units - this is modelled after the nrrd files you get from
+    # Virtual Fly Brain (VFB)
+    units = None
+    voxdim = np.array([1, 1, 1])
+    if 'space directions' in header:
+        sd = np.asarray(header['space directions'])
+        if sd.ndim == 2:
+            voxdim = np.diag(sd)[:3]
+    if 'space units' in header:
+        su = header['space units']
+        if len(su) == 3:
+            units = [f'{m} {u}' for m, u in zip(voxdim, su)]
 
-    # Data is in voxels - we have to convert it to x/y/z coordinates
-    x, y, z = np.where(data)
-    points = np.vstack((x, y, z)).T
-
-    # Generate dotprops
-    fname = os.path.basename(f).split('.')[0]
     try:
-        dp = core.make_dotprops(points, **kwargs)
+        if output == 'dotprops':
+            if threshold:
+                data = data >= threshold
+
+            # Data is in voxels - we have to convert it to x/y/z coordinates
+            x, y, z = np.where(data)
+            points = np.vstack((x, y, z)).T
+            points = points * voxdim
+
+            x = core.make_dotprops(points, **kwargs)
+        else:
+            x = core.VoxelNeuron(data)
     except BaseException as e:
-        msg = f'Error converting file {fname} to Dotprops'
+        msg = f'Error converting file {fname} to neuron.'
         if errors == 'raise':
             raise ImportError(msg) from e
         elif errors == 'log':
             logger.error(f'{msg}: {e}')
-        dp = core.Dotprops(None, None, None)
+        return
 
     # Add some additional properties
-    dp.name = fname
-    dp.origin = f
-    dp.nrrd_header = header
+    x.name = fname
+    x.units = units
+    x.origin = f
+    x.nrrd_header = header
 
-    try:
-        dp.units = header.get('space units', None)
-    except BaseException:
-        pass
-
-    return dp
+    return x
 
 
 def _worker_wrapper(kwargs):
-    """Helper for importing SWCs using multiple processes."""
+    """Helper for importing NRRDs using multiple processes."""
     return read_nrrd(**kwargs)

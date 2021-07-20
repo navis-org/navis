@@ -12,11 +12,14 @@
 #    GNU General Public License for more details.
 
 import uuid
+import warnings
 
 import numpy as np
 import pandas as pd
 
 import plotly.graph_objs as go
+
+from scipy import ndimage
 
 from ..colors import vertex_colors, prepare_colormap, eval_color
 from ..plot_utils import segments_to_coords, fibonacci_sphere
@@ -244,6 +247,95 @@ def mesh2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
                             showlegend=showlegend,
                             hovertext=hovertext,
                             hoverinfo=hoverinfo)]
+
+    return trace_data
+
+
+def voxel2plotly(neuron, legendgroup, showlegend, label, color,
+                 as_scatter=True, **kwargs):
+    """Convert VoxelNeuron to plotly object.
+
+    Turns out that plotly is horrendous for plotting voxel data (Volumes):
+    anything more than a few thousand voxels (e.g. 40x40x40) and the html
+    encoding and loading the plot takes ages. Unfortunately, the same happens
+    with Isosurfaces.
+
+    I'm adding an implementation here but until plotly gets MUCH better at this,
+    there is really no point. For now, we will fallback to plotting the
+    voxels as scatter plots using the top 10k voxels sorted by brightness.
+
+    """
+    # Skip empty neurons
+    if min(neuron.shape) == 0:
+        return []
+
+    try:
+        if len(color) == 3:
+            c = 'rgb{}'.format(color)
+        elif len(color) == 4:
+            c = 'rgba{}'.format(color)
+    except BaseException:
+        c = 'rgb(10,10,10)'
+
+    if kwargs.get('hover_name', False):
+        hoverinfo = 'text'
+        hovertext = neuron.label
+    else:
+        hoverinfo = 'none'
+        hovertext = ' '
+
+    if not as_scatter:
+        # Downsample heavily
+        ds = ndimage.zoom(neuron.grid, .2, order=1)
+
+        # Generate X, Y, Z, coordinates for values in grid
+        X, Y, Z = np.meshgrid(range(ds.shape[0]),
+                              range(ds.shape[1]),
+                              range(ds.shape[2]),
+                              indexing='ij')
+
+        # Flatten and scale coordinates
+        X = X.flatten() * neuron.units_xyz[0] + neuron.offset[0]
+        Y = Y.flatten() * neuron.units_xyz[1] + neuron.offset[1]
+        Z = Z.flatten() * neuron.units_xyz[2] + neuron.offset[2]
+
+        # Flatten and normalize values
+        values = ds.flatten() / ds.max()
+
+        trace_data = [go.Isosurface(x=X, y=Y, z=Z,
+                                    value=values,
+                                    isomin=0.001,
+                                    isomax=1,
+                                    opacity=0.1,
+                                    surface_count=21,
+                                    )]
+    else:
+        voxels, values = neuron.voxels, neuron.values
+
+        # Sort by brightness
+        srt = np.argsort(values)
+
+        # Take the top 10k voxels
+        values = values[srt[-200000:]]
+        voxels = voxels[srt[-200000:]]
+
+        # Scale and offset voxels
+        voxels = voxels * neuron.units_xyz + neuron.offset
+
+        with warnings.catch_warnings():
+            trace_data = [go.Scatter3d(x=voxels[:, 0],
+                                       y=voxels[:, 1],
+                                       z=voxels[:, 2],
+                                       mode='markers',
+                                       marker=dict(color=values,
+                                                   size=5,
+                                                   colorscale='viridis',
+                                                   opacity=.25),
+                                       name=label,
+                                       legendgroup=legendgroup,
+                                       showlegend=showlegend,
+                                       hovertext=hovertext,
+                                       hoverinfo=hoverinfo)]
 
     return trace_data
 

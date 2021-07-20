@@ -112,7 +112,7 @@ def neuron2vispy(x, **kwargs):
 
     Parameters
     ----------
-    x :               TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :               TreeNeuron | MeshNeuron | Dotprops | VoxelNeuron | NeuronList
                       Neuron(s) to plot.
     color :           list | tuple | array | str
                       Color to use for plotting.
@@ -239,6 +239,11 @@ def neuron2vispy(x, **kwargs):
                                          neuron_color,
                                          object_id,
                                          **kwargs)
+            elif isinstance(neuron, core.VoxelNeuron):
+                visuals += voxel2vispy(neuron,
+                                       neuron_color,
+                                       object_id,
+                                       **kwargs)
             else:
                 logger.warning(f"Don't know how to plot neuron of type '{type(neuron)}'")
 
@@ -344,6 +349,54 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
     m._object = neuron
     m.freeze()
     return [m]
+
+
+def to_vispy_cmap(color, fade=True):
+    """Convert a given colour to a vispy colormap."""
+    # First force RGB
+    stop = mcl.to_rgba(color)
+    start = mcl.to_rgba(color, alpha=0)
+
+    # Convert to vispy cmap
+    colors = vispy.color.ColorArray([start, stop])
+    cmap = vispy.color.colormap.Colormap(colors=colors)
+
+    # cmap consists of two colors
+    # We will set the alpha value of the first color to 0
+    if fade:
+        col_arr = cmap.colors.rgba
+        col_arr[1][:] = 0
+        cmap.colors.rgba = col_arr
+
+    return cmap
+
+
+def voxel2vispy(neuron, neuron_color, object_id, **kwargs):
+    """Convert voxels (i.e. VoxelNeuron) to vispy visuals."""
+    # Note the transpose: currently, vispy expects zyx for volumes but this
+    # might change in the future
+    grid = neuron.grid.T
+    # Vispy doesn't like boolean matrices here
+    if grid.dtype == bool:
+        grid = grid.astype(int)
+    vx = scene.visuals.Volume(vol=grid,
+                              cmap=to_vispy_cmap(neuron_color))
+
+    # Add transforms
+    vx.set_transform('st',
+                     scale=neuron.units_xyz.magnitude,
+                     translate=neuron.offset)
+
+    # Add custom attributes
+    vx.unfreeze()
+    vx._object_type = 'neuron'
+    vx._neuron_part = 'neurites'
+    vx._id = neuron.id
+    vx._name = str(getattr(neuron, 'name', neuron.id))
+    vx._object_id = object_id
+    vx._object = neuron
+    vx.freeze()
+    return [vx]
 
 
 def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
