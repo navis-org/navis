@@ -545,6 +545,7 @@ class NeuronList:
               *,
               parallel: bool = False,
               n_cores: int = os.cpu_count() // 2,
+              omit_failures: bool = False,
               **kwargs):
         """Apply function across all neurons in this NeuronList.
 
@@ -561,6 +562,8 @@ class NeuronList:
         n_cores :       int
                         Number of CPUs to use for multiprocessing. Defaults to
                         half the available cores.
+        omit_failures : bool
+                        If True, will ignore failures.
 
         **kwargs
                     Will be passed to function.
@@ -586,6 +589,7 @@ class NeuronList:
                                func,
                                parallel=parallel,
                                n_cores=n_cores,
+                               omit_failures=omit_failures,
                                desc=f'Apply {func.__name__}')
 
         return proc(self.neurons, **kwargs)

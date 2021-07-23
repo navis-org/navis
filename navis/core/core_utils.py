@@ -289,6 +289,7 @@ class NeuronProcessor:
                  chunksize: int = 1,
                  progress: bool = True,
                  warn_inplace: bool = True,
+                 omit_failures: bool = False,
                  exclude_zip: list = [],
                  desc: Optional[str] = None):
         if utils.is_iterable(function):
@@ -311,6 +312,7 @@ class NeuronProcessor:
         self.progress = progress
         self.warn_inplace = warn_inplace
         self.exclude_zip = exclude_zip
+        self.omit_failures = omit_failures
 
         # This makes sure that help and name match the functions being called
         functools.update_wrapper(self, self.function)
@@ -347,7 +349,9 @@ class NeuronProcessor:
 
         # Silence loggers (except Errors)
         level = logger.getEffectiveLevel()
-        logger.setLevel('WARNING')
+
+        if level < 30:
+            logger.setLevel('WARNING')
 
         # Apply function
         if parallel:
@@ -365,7 +369,13 @@ class NeuronProcessor:
                                         parsed_args,
                                         parsed_kwargs))
                 chunksize = kwargs.pop('chunksize', self.chunksize)  # max(int(len(combinations) / 100), 1)
-                res = list(config.tqdm(pool.imap(_call,
+
+                if not self.omit_failures:
+                    wrapper = _call
+                else:
+                    wrapper = _try_call
+
+                res = list(config.tqdm(pool.imap(wrapper,
                                                  combinations,
                                                  chunksize=chunksize),
                                        total=len(combinations),
@@ -379,10 +389,28 @@ class NeuronProcessor:
                                                        or not self.progress
                                                        or len(self.nl) <= 1),
                                               leave=config.pbar_leave)):
-                res.append(self.funcs[i](*parsed_args[i], **parsed_kwargs[i]))
+                try:
+                    res.append(self.funcs[i](*parsed_args[i], **parsed_kwargs[i]))
+                except BaseException as e:
+                    if self.omit_failures:
+                        res.append(FailedRun(func=self.funcs[i],
+                                             args=parsed_args[i],
+                                             kwargs=parsed_kwargs[i],
+                                             exception=e))
+                    else:
+                        raise
 
         # Reset logger level to previous state
         logger.setLevel(level)
+
+        failed = np.array([isinstance(r, FailedRun) for r in res])
+        res = [r for r in res if not isinstance(r, FailedRun)]
+        if any(failed):
+            logger.warn(f'{sum(failed)} of {len(self.funcs)} runs failed. '
+                        'Set logging to debug (`navis.set_loggers("DEBUG")`) '
+                        'or repeat with `omit_failures=False` for details.')
+            failed_ids = self.nl.id[np.where(failed)].astype(str)
+            logger.debug(f'The following IDs failed to complete: {", ".join(failed_ids)}')
 
         # If result is a list of neurons, combine them back into a single list
         is_neuron = [isinstance(r, (core.NeuronList, core.BaseNeuron)) for r in res]
@@ -399,3 +427,28 @@ def _call(x: Sequence):
     """Unpack function and args/kwargs and run it."""
     func, args, kwargs = x
     return func(*args, **kwargs)
+
+
+def _try_call(x: Sequence):
+    """Unpack function and args/kwargs and run it."""
+    func, args, kwargs = x
+    try:
+        return func(*args, **kwargs)
+    except BaseException as e:
+        return FailedRun(func, args, kwargs, e)
+
+
+class FailedRun:
+    """Class representing a failed run."""
+    def __init__(self, func, args, kwargs, exception='NA'):
+        self.args = args
+        self.func = func
+        self.kwargs = kwargs
+        self.exception = exception
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return (f'Failed run(function={self.func}, args={self.args}, '
+                f'kwargs={self.kwargs}, exception={self.exception})')

@@ -219,6 +219,7 @@ def map_neuronlist(desc: str = "",
                                             desc=desc,
                                             warn_inplace=False,
                                             progress=kwargs.pop('progress', True),
+                                            omit_failures=kwargs.pop('omit_failures', False),
                                             chunksize=chunksize,
                                             exclude_zip=excl,
                                             n_cores=n_cores)
@@ -267,6 +268,9 @@ def map_neuronlist(desc: str = "",
         progress :{" " * (offset - 10)}bool
                   {" " * (offset - 10)}Whether to show a progress bar. Overruled by
                   {" " * (offset - 10)}``navis.set_pbars``.
+        omit_failures :{" " * (offset - 15)}bool
+                       {" " * (offset - 15)}If True will omit failures instead of raising
+                       {" " * (offset - 15)}an exception.
         """)
 
         # Insert new docstring
