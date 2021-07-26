@@ -220,10 +220,11 @@ class BaseNeuron:
         for a in [at for at in self.TEMP_ATTR if at not in exclude]:
             try:
                 delattr(self, a)
-                logger.debug(f'Neuron {id(self)}: {a} cleared')
+                logger.debug(f'Neuron {self.id} {hex(id(self))}: attribute {a} cleared')
+            except AttributeError:
+                logger.debug(f'Neuron {self.id} at {hex(id(self))}: Unable to clear temporary attribute "{a}"')
             except BaseException:
-                logger.debug(f'Neuron {id(self)}: Unable to clear temporary attribute "{a}"')
-                pass
+                raise
 
     def _register_attr(self, name, value, summary=True, temporary=False):
         """Set and register attribute.
