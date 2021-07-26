@@ -611,7 +611,7 @@ def split_axon_dendrite(x: NeuronObject,
             the axon/dendrite split.
 
     """
-    COLORS = {'axon': (255, 0, 0),
+    COLORS = {'axon': (178,  34,  34),
               'dendrite': (0, 0, 255),
               'cellbodyfiber': (50, 50, 50),
               'linker': (150, 150, 150)}
@@ -796,7 +796,7 @@ def split_axon_dendrite(x: NeuronObject,
         original.nodes['compartment'] = original.nodes.compartment.astype('category')
 
         if labels == 'only':
-            return
+            return original
 
     # Generate the actual splits
     nl = []
