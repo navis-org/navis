@@ -17,6 +17,7 @@ import os
 import pint
 import uuid
 import warnings
+import scipy
 
 import networkx as nx
 import numpy as np
@@ -24,11 +25,12 @@ import pandas as pd
 import trimesh as tm
 
 from io import BufferedIOBase
-
 from typing import Union, Optional
 
-from .. import utils, config, meshes
+from .. import utils, config, meshes, conversion
 from .base import BaseNeuron
+from .skeleton import TreeNeuron
+from .core_utils import temp_property
 
 
 try:
@@ -87,7 +89,7 @@ class MeshNeuron(BaseNeuron):
     EQ_ATTRIBUTES = ['name', 'n_vertices', 'n_faces']
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = ['trimesh', '_memory_usage']
+    TEMP_ATTR = ['_memory_usage', '_trimesh', '_skeleton']
 
     def __init__(self,
                  x: Union[pd.DataFrame,
@@ -101,6 +103,10 @@ class MeshNeuron(BaseNeuron):
                  ):
         """Initialize Mesh Neuron."""
         super().__init__()
+
+        # Lock neuron during initialization
+        self._lock = 1
+        self._trimesh = None  # this is required to avoid recursion during init
 
         if isinstance(x, MeshNeuron):
             self.__dict__.update(x.copy().__dict__)
@@ -123,6 +129,7 @@ class MeshNeuron(BaseNeuron):
         for k, v in metadata.items():
             setattr(self, k, v)
 
+        self._lock = 0
 
         if validate:
             self.validate()
@@ -135,14 +142,6 @@ class MeshNeuron(BaseNeuron):
         # if a @property raises an Exception, Python falls back to __getattr__
         # and traceback is lost!
 
-        if key == 'trimesh':
-            self.trimesh = tm.Trimesh(vertices=self._vertices, faces=self._faces)
-            return self.trimesh
-
-        # See if trimesh can help us
-        if hasattr(self.trimesh, key):
-            return getattr(self.trimesh, key)
-
         # Last ditch effort - maybe the base class knows the key?
         return super().__getattr__(key)
 
@@ -151,8 +150,8 @@ class MeshNeuron(BaseNeuron):
         state = {k: v for k, v in self.__dict__.items() if not callable(v)}
 
         # We don't need the trimesh object
-        if 'trimesh' in state:
-            _ = state.pop('trimesh')
+        if '_trimesh' in state:
+            _ = state.pop('_trimesh')
 
         return state
 
@@ -242,10 +241,28 @@ class MeshNeuron(BaseNeuron):
         """Average distance vertices. """
         return float(self.trimesh.edges_unique_length.mean())
 
+    @temp_property
+    def skeleton(self) -> 'TreeNeuron':
+        """Skeleton representation of this neuron.
+
+        Uses :func:`navis.mesh2skeleton`.
+
+        """
+        if not hasattr(self, '_skeleton'):
+            self._skeleton = self.skeletonize()
+        return self._skeleton
+
     @property
     def type(self) -> str:
         """Neuron type."""
         return 'navis.MeshNeuron'
+
+    @temp_property
+    def trimesh(self):
+        """Trimesh representation of the neuron."""
+        if not getattr(self, '_trimesh', None):
+            self._trimesh = tm.Trimesh(vertices=self._vertices, faces=self._faces)
+        return self._trimesh
 
     def copy(self) -> 'MeshNeuron':
         """Return a copy of the neuron."""
@@ -258,10 +275,79 @@ class MeshNeuron(BaseNeuron):
 
         return x
 
-    def validate(self):
+    def snap(self, locs, to='vertices'):
+        """Snap xyz location(s) to closest vertex or synapse.
+
+        Parameters
+        ----------
+        locs :      (N, 3) array | (3, ) array
+                    Either single or multiple XYZ locations.
+        to :        "vertices" | "connectors"
+                    Whether to snap to vertex or connector.
+
+        Returns
+        -------
+        ix :        int | list of int
+                    Index/indices of the closest vertex/connector.
+        dist :      float | list of float
+                    Distance(s) to the closest vertex/connector.
+
+        Examples
+        --------
+        >>> import navis
+        >>> n = navis.example_neurons(1, kind='mesh')
+        >>> ix, dist = n.snap([0, 0, 0])
+        >>> ix
+        4134
+
+        """
+        locs = np.asarray(locs).astype(self.vertices.dtype)
+
+        is_single = (locs.ndim == 1 and len(locs) == 3)
+        is_multi = (locs.ndim == 2 and locs.shape[1] == 3)
+        if not is_single and not is_multi:
+            raise ValueError('Expected a single (x, y, z) location or a '
+                             '(N, 3) array of multiple locations')
+
+        if to not in ('vertices', 'vertex', 'connectors', 'connectors'):
+            raise ValueError('`to` must be "vertices" or "connectors", '
+                             f'got {to}')
+
+        # Generate tree
+        tree = scipy.spatial.cKDTree(data=self.vertices)
+
+        # Find the closest node
+        dist, ix = tree.query(locs)
+
+        return ix, dist
+
+    def skeletonize(self, method='wavefront', heal=True, **kwargs) -> 'TreeNeuron':
+        """Skeletonize mesh.
+
+        See :func:`navis.mesh2skeleton` for details.
+
+        Parameters
+        ----------
+        method :    "wavefront" | "teasar"
+                    Method to use for skeletonization.
+        heal :      bool
+                    Whether to heal a fragmented skeleton after skeletonization.
+        **kwargs
+                    Additional keyword are passed through to
+                    :func:`navis.mesh2skeleton`.
+
+        Returns
+        -------
+        skeleton :  navis.TreeNeuron
+
+        """
+        return conversion.mesh2skeleton(self, method=method, heal=heal, **kwargs)
+
+
+    def validate(self, inplace=False):
         """Use trimesh to try and fix some common mesh issues.
 
         See :func:`navis.fix_mesh` for details.
 
         """
-        meshes.fix_mesh(self, inplace=True)
+        return meshes.fix_mesh(self, inplace=inplace)
