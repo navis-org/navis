@@ -1509,7 +1509,7 @@ def _cut_networkx(x: 'core.TreeNeuron',
 
 
 @utils.lock_neuron
-def subset_neuron(x: 'core.TreeNeuron',
+def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
                   subset: Union[Sequence[Union[int, str]],
                                 nx.DiGraph,
                                 pd.DataFrame],
@@ -1521,22 +1521,27 @@ def subset_neuron(x: 'core.TreeNeuron',
 
     Parameters
     ----------
-    x :                   TreeNeuron
+    x :                   TreeNeuron | MeshNeuron
     subset :              list-like | set | NetworkX.Graph | pandas.DataFrame
-                          Node IDs to subset the neuron to. If DataFrame
-                          must have ``node_id`` column.
+                          For TreeNeurons:
+                           - node IDs to subset the neuron to
+                           - a boolean mask
+                           - dataFrame with ``node_id`` column
+                          For MeshNeurons:
+                           - vertex indices
+                           - a boolean mask
     keep_disc_cn :        bool, optional
                           If False, will remove disconnected connectors that
-                          have "lost" their parent node.
+                          have "lost" their parent node/vertex.
     prevent_fragments :   bool, optional
-                          If True, will add nodes to ``subset`` required to
-                          keep neuron from fragmenting.
+                          If True, will add nodes/vertices to ``subset``
+                          required to keep neuron from fragmenting.
     inplace :             bool, optional
                           If False, a copy of the neuron is returned.
 
     Returns
     -------
-    TreeNeuron
+    TreeNeuron | MeshNeuron
 
     Examples
     --------
@@ -1563,12 +1568,12 @@ def subset_neuron(x: 'core.TreeNeuron',
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected "TreeNeuron", got "{type(x)}"')
+    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
+        raise TypeError(f'Expected Tree- or MeshNeuron, got "{type(x)}"')
 
     # Make a copy of the neuron
     if not inplace:
-        x = x.copy(deepcopy=False)
+        x = x.copy()
         # We have to run this in a separate function so that the lock is applied
         # to the copy
         subset_neuron(x,
@@ -1578,6 +1583,62 @@ def subset_neuron(x: 'core.TreeNeuron',
                       prevent_fragments=prevent_fragments)
         return x
 
+    if isinstance(x, core.TreeNeuron):
+        x = _subset_treeneuron(x,
+                               subset=subset,
+                               keep_disc_cn=keep_disc_cn,
+                               prevent_fragments=prevent_fragments)
+    elif isinstance(x, core.MeshNeuron):
+        x = _subset_meshneuron(x,
+                               subset=subset,
+                               keep_disc_cn=keep_disc_cn,
+                               prevent_fragments=prevent_fragments)
+
+    return x
+
+
+def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
+    """Subset MeshNeuron."""
+    if not utils.is_iterable(subset):
+        raise TypeError('Can only subset MeshNeuron to list, set or '
+                        f'numpy.ndarray, not "{type(subset)}"')
+
+    subset = utils.make_iterable(subset)
+
+    # Convert mask to indices
+    if subset.dtype == bool:
+        if subset.shape != (x.vertices.shape[0], ):
+            raise ValueError('Boolean mask must be of same length as vertices.')
+        subset = np.arange(0, len(x.vertices))[subset]
+
+    if prevent_fragments:
+        # Generate skeleton
+        sk = x.skeleton
+        # Convert vertex IDs to node IDs
+        subset_nodes = np.unique(x.skeleton.vertex_map[subset])
+        # Find connected subgraph
+        subset, _ = connected_subgraph(x.skeleton, subset_nodes)
+        # Convert node IDs back to vertex IDs
+        subset = np.arange(0, len(x.vertices))[np.isin(sk.vertex_map, subset)]
+
+    # Filter connectors
+    if not keep_disc_cn and x.has_connectors:
+        if 'vertex_id' not in x.connectors.columns:
+            x.connectors['vertex'] = x.snap(x.connectors[['x', 'y', 'z']].values)[0]
+
+        x._connectors = x.connectors[x.connectors.vertex.isin(subset)]
+        x._connectors.reset_index(inplace=True, drop=True)
+
+    # Subset the mesh (by faces)
+    subset_faces = np.all(np.isin(x.faces, subset), axis=1)
+    submesh = x.trimesh.submesh([subset_faces])[0]
+    x.vertices, x.faces = submesh.vertices, submesh.faces
+
+    return x
+
+
+def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
+    """Subset skeleton."""
     if isinstance(subset, (nx.DiGraph, nx.Graph)):
         subset = subset.nodes
     elif isinstance(subset, pd.DataFrame):
