@@ -178,9 +178,6 @@ class TreeNeuron(BaseNeuron):
         for k, v in metadata.items():
             setattr(self, k, v)
 
-        if not getattr(self, 'id', None):
-            self.id = uuid.uuid4()
-
         self.units = units
         self._current_md5 = self.core_md5
 

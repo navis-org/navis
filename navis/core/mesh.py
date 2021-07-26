@@ -123,8 +123,6 @@ class MeshNeuron(BaseNeuron):
         for k, v in metadata.items():
             setattr(self, k, v)
 
-        if not getattr(self, 'id', None):
-            self.id = uuid.uuid4()
 
         if validate:
             self.validate()

@@ -124,9 +124,6 @@ class Dotprops(BaseNeuron):
         for k, v in metadata.items():
             setattr(self, k, v)
 
-        if not getattr(self, 'id', None):
-            self.id = uuid.uuid4()
-
         self.units = units
 
     def __truediv__(self, other):

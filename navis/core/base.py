@@ -107,6 +107,10 @@ class BaseNeuron:
     TEMP_ATTR = []
 
     def __init__(self, **kwargs):
+        # Set a random ID -> may be replaced later
+        self.id = uuid.uuid4()
+
+        self._lock = 0
         for k, v in kwargs.items():
             setattr(self, k, v)
 

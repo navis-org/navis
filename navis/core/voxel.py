@@ -119,9 +119,6 @@ class VoxelNeuron(BaseNeuron):
         for k, v in metadata.items():
             setattr(self, k, v)
 
-        if not getattr(self, 'id', None):
-            self.id = uuid.uuid4()
-
         self.cache = cache
         self.units = units
         self.offset = offset
