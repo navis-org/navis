@@ -618,8 +618,8 @@ def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
     read_fn :       Callable
     objs :          Iterable
     parallel :      str | bool | int
-                    "auto" or True for n_cores - 2, otherwise int for number of
-                    jobs, or false for serial.
+                    "auto" or True for `n_cores` // 2, otherwise int for number
+                    of jobs, or false for serial.
 
     Returns
     -------
