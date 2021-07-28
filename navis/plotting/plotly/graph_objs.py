@@ -134,9 +134,10 @@ def neuron2plotly(x, colormap, **kwargs):
 
         if kwargs.get('radius', False):
             # Convert and carry connectors with us
-            _neuron = conversion.tree2meshneuron(neuron)
-            _neuron.connectors = neuron.connectors
-            neuron = _neuron
+            if isinstance(neuron, core.TreeNeuron):
+                _neuron = conversion.tree2meshneuron(neuron)
+                _neuron.connectors = neuron.connectors
+                neuron = _neuron
 
         if not kwargs.get('connectors_only', False):
             if isinstance(neuron, core.TreeNeuron):

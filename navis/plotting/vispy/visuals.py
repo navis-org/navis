@@ -221,9 +221,10 @@ def neuron2vispy(x, **kwargs):
 
         if kwargs.get('radius', False):
             # Convert and carry connectors with us
-            _neuron = conversion.tree2meshneuron(neuron)
-            _neuron.connectors = neuron.connectors
-            neuron = _neuron
+            if isinstance(neuron, core.TreeNeuron):
+                _neuron = conversion.tree2meshneuron(neuron)
+                _neuron.connectors = neuron.connectors
+                neuron = _neuron
 
         neuron_color = colormap[i]
         if not kwargs.get('connectors_only', False):
