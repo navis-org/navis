@@ -1526,7 +1526,11 @@ def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
                   keep_disc_cn: bool = False,
                   prevent_fragments: bool = False
                   ) -> 'core.TreeNeuron':
-    """Subset a neuron to a given set of nodes.
+    """Subset a neuron to a given set of nodes/vertices.
+
+    Note that for ``MeshNeurons`` it is not guaranteed that all vertices in
+    ``subset`` survive because we will also drop degenerate vertices that do
+    not participate in any faces.
 
     Parameters
     ----------
@@ -1639,9 +1643,17 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
         x._connectors.reset_index(inplace=True, drop=True)
 
     # Subset the mesh (by faces)
-    subset_faces = np.all(np.isin(x.faces, subset), axis=1)
-    submesh = x.trimesh.submesh([subset_faces])[0]
-    x.vertices, x.faces = submesh.vertices, submesh.faces
+    # Build the mask bit by bit to be more efficient:
+    subset_faces = np.full(len(x.faces), True)
+    for i in range(3):
+        subset_faces[subset_faces] = np.isin(x.faces[subset_faces, i], subset)
+    subset_faces = np.where(subset_faces)[0]
+
+    if len(subset_faces):
+        submesh = x.trimesh.submesh([subset_faces], append=True)
+        x.vertices, x.faces = submesh.vertices, submesh.faces
+    else:
+        x.vertices, x.faces = np.empty((0, 3)), np.empty((0, 3))
 
     return x
 
