@@ -1443,7 +1443,8 @@ def smooth_neuron(x: NeuronObject,
     return x
 
 
-def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
+def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
+                    min_size: Optional[int] = None) -> 'core.NeuronList':
     """Break neuron into continuous fragments.
 
     Neurons can consists of several disconnected fragments. This function
@@ -1451,8 +1452,11 @@ def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         TreeNeuron | MeshNeuron
                 Fragmented neuron.
+    min_size :  int, optional
+                Fragments smaller than this (# of nodes/vertices) will be
+                ignored.
 
     Returns
     -------
@@ -1468,7 +1472,7 @@ def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> # Disconnect parts of the neuron
+    >>> # Artifically disconnect parts of the neuron
     >>> n.nodes.loc[100, 'parent_id'] = -1
     >>> # Break into fragments
     >>> frags = navis.break_fragments(n)
@@ -1479,21 +1483,23 @@ def break_fragments(x: 'core.TreeNeuron') -> 'core.NeuronList':
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected Neuron/List, got "{type(x)}"')
+    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
+        raise TypeError(f'Expected Tree- or MeshNeuron, got "{type(x)}"')
 
-    # Don't do anything if not actually fragmented
-    if x.n_skeletons > 1:
-        # Get connected components
-        comp = graph._connected_components(x)
-        # Sort so that the first component is the largest
-        comp = sorted(comp, key=len, reverse=True)
+    # Get connected components
+    comp = graph._connected_components(x)
+    # Sort so that the first component is the largest
+    comp = sorted(comp, key=len, reverse=True)
 
-        return core.NeuronList([graph.subset_neuron(x,
-                                                    list(ss),
-                                                    inplace=False) for ss in comp])
-    else:
-        return core.NeuronList(x.copy())
+    if min_size:
+        comp = [cc for cc in comp if len(cc) >= min_size]
+
+    return core.NeuronList([graph.subset_neuron(x,
+                                                list(ss),
+                                                inplace=False) for ss in config.tqdm(comp,
+                                                                                     desc='Breaking',
+                                                                                     disable=config.pbar_hide,
+                                                                                     leave=config.pbar_leave)])
 
 
 @utils.map_neuronlist(desc='Healing', allow_parallel=True)

@@ -136,40 +136,49 @@ def _generate_segments(x: 'core.NeuronObject',
     return sequences
 
 
-def _connected_components(x: 'core.TreeNeuron') -> List[Set[int]]:
+def _connected_components(x: Union['core.TreeNeuron', 'core.MeshNeuron']) -> List[Set[int]]:
     """Extract the connected components within a neuron.
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         TreeNeuron | MeshNeuron
 
     Returns
     -------
     list
-                List containing sets of node IDs for each subgraph.
+                List containing sets of node/vertex IDs for each subgraph.
 
     Examples
     --------
     For doctest only
 
     >>> import navis
-    >>> n = navis.example_neurons(1)
+    >>> n = navis.example_neurons(1, kind='skeleton')
     >>> cc = navis.graph_utils._connected_components(n)
+    >>> m = navis.example_neurons(1, kind='mesh')
+    >>> cc = navis.graph_utils._connected_components(m)
 
     """
-    assert isinstance(x, core.TreeNeuron)
+    assert isinstance(x, (core.TreeNeuron, core.MeshNeuron))
 
     if config.use_igraph and x.igraph:
-        g: igraph.Graph = x.igraph
+        G: igraph.Graph = x.igraph
         # Get the vertex clustering
-        vc = g.components(mode='WEAK')
-        # Extract subgraphs
-        sg = vc.subgraphs()
-        # Extract node IDs for each component
-        cc = [set(c.vs['node_id']) for c in sg]
+        vc = G.components(mode='WEAK')
+        # Membership maps indices to connected components
+        ms = np.array(vc.membership)
+        if isinstance(x, core.TreeNeuron):
+            # For skeletons we need node IDs
+            ids = np.array(G.vs['node_id'])
+        else:
+            # For MeshNeurons we can use the indices directly
+            ids = np.array(G.vs.indices)
+
+        # Extract node IDs/vertex indices for each component
+        cc = [ids[ms == i] for i in np.unique(ms)]
     else:
-        g: nx.DiGraph = x.graph
-        cc = nx.connected_components(g.to_undirected())
+        G: nx.DiGraph = x.graph
+        cc = nx.connected_components(G.to_undirected())
         cc = list(cc)
 
     return cc

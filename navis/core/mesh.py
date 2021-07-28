@@ -27,7 +27,7 @@ import trimesh as tm
 from io import BufferedIOBase
 from typing import Union, Optional
 
-from .. import utils, config, meshes, conversion
+from .. import utils, config, meshes, conversion, graph
 from .base import BaseNeuron
 from .skeleton import TreeNeuron
 from .core_utils import temp_property
@@ -89,7 +89,7 @@ class MeshNeuron(BaseNeuron):
     EQ_ATTRIBUTES = ['name', 'n_vertices', 'n_faces']
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = ['_memory_usage', '_trimesh', '_skeleton']
+    TEMP_ATTR = ['_memory_usage', '_trimesh', '_skeleton', '_igraph', '_graph_nx']
 
     def __init__(self,
                  x: Union[pd.DataFrame,
@@ -235,6 +235,24 @@ class MeshNeuron(BaseNeuron):
             raise ValueError('Faces must be 2-dimensional array')
         self._faces = faces
         self._clear_temp_attr()
+
+    @temp_property
+    def igraph(self) -> 'igraph.Graph':
+        """iGraph representation of the vertex connectivity."""
+        # If igraph does not exist, create and return
+        if not hasattr(self, '_igraph'):
+            # This also sets the attribute
+            self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
+        return self._igraph
+
+    @temp_property
+    def graph(self) -> nx.DiGraph:
+        """Networkx Graph representation of the vertex connectivity."""
+        # If graph does not exist, create and return
+        if not hasattr(self, '_graph_nx'):
+            # This also sets the attribute
+            self._graph_nx = graph.neuron2nx(self)
+        return self._graph_nx
 
     @property
     def sampling_resolution(self) -> float:

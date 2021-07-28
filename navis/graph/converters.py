@@ -218,65 +218,72 @@ def network2igraph(x: Union[pd.DataFrame, Iterable],
 
 
 def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
-    """Turn TreeNeuron into an NetworkX DiGraph.
+    """Turn Tree- or MeshNeuron into an NetworkX DiGraph.
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         TreeNeuron | MeshNeuron | NeuronList
 
     Returns
     -------
-    networkx.DiGraph
+    graph:      networkx.Graph | networkx.DiGraph
                 NetworkX representation of the neuron. Returns list of graphs
-                if x is multiple neurons.
+                if x is multiple neurons. Graph is directed for TreeNeurons
+                and undirected for MeshNeurons.
 
     """
     if isinstance(x, core.NeuronList):
         return [neuron2nx(x.loc[i]) for i in range(x.shape[0])]
-    elif isinstance(x, core.TreeNeuron):
-        pass
+
+    if isinstance(x, core.TreeNeuron):
+        # Collect nodes
+        nodes = x.nodes.set_index('node_id', inplace=False)
+        # Collect edges
+        edges = x.nodes[x.nodes.parent_id >= 0][['node_id', 'parent_id']].values
+        # Collect weight
+        weights = np.sqrt(np.sum((nodes.loc[edges[:, 0], ['x', 'y', 'z']].values.astype(float)
+                                  - nodes.loc[edges[:, 1], ['x', 'y', 'z']].values.astype(float)) ** 2, axis=1))
+        # Generate weight dictionary
+        edge_dict = np.array([{'weight': w} for w in weights])
+        # Add weights to dictionary
+        edges = np.append(edges, edge_dict.reshape(len(edges), 1), axis=1)
+        # Create empty directed Graph
+        G = nx.DiGraph()
+        # Add nodes (in case we have disconnected nodes)
+        G.add_nodes_from(x.nodes.node_id.values)
+        # Add edges
+        G.add_edges_from(edges)
+    elif isinstance(x, core.MeshNeuron):
+        G = nx.Graph()
+        G.add_nodes_from(np.arange(x.n_vertices))
+        edges = [(e[0], e[1], l) for e, l in zip(x.trimesh.edges_unique,
+                                                 x.trimesh.edges_unique_length)]
+        G.add_weighted_edges_from(edges)
     else:
-        raise ValueError(f'Wrong input type "{type(x)}"')
+        raise ValueError(f'Unable to convert data of type "{type(x)}" to networkx graph.')
 
-    # Collect nodes
-    nodes = x.nodes.set_index('node_id', inplace=False)
-    # Collect edges
-    edges = x.nodes[x.nodes.parent_id >= 0][['node_id', 'parent_id']].values
-    # Collect weight
-    weights = np.sqrt(np.sum((nodes.loc[edges[:, 0], ['x', 'y', 'z']].values.astype(float)
-                              - nodes.loc[edges[:, 1], ['x', 'y', 'z']].values.astype(float)) ** 2, axis=1))
-    # Generate weight dictionary
-    edge_dict = np.array([{'weight': w} for w in weights])
-    # Add weights to dictionary
-    edges = np.append(edges, edge_dict.reshape(len(edges), 1), axis=1)
-    # Create empty directed Graph
-    g = nx.DiGraph()
-    # Add nodes (in case we have disconnected nodes)
-    g.add_nodes_from(x.nodes.node_id.values)
-    # Add edges
-    g.add_edges_from(edges)
-
-    return g
+    return G
 
 
 def neuron2igraph(x: 'core.NeuronObject',
                   raise_not_installed: bool = True) -> 'igraph.Graph':
-    """Turn TreeNeuron(s) into an iGraph graph.
+    """Turn Tree- or MeshNeuron(s) into an iGraph graph.
 
     Requires iGraph to be installed.
 
     Parameters
     ----------
-    x :                     TreeNeuron | NeuronList
+    x :                     TreeNeuron | MeshNeuron | NeuronList
     raise_not_installed :   bool
                             If False and igraph is not installed will silently
                             return ``None``.
 
     Returns
     -------
-    igraph.Graph(directed=True)
+    igraph.Graph
                 Representation of the neuron. Returns list of graphs
-                if x is multiple neurons.
+                if x is multiple neurons. Directed for TreeNeurons, undirected
+                for MeshNeurons.
     None
                 If igraph not installed.
 
@@ -292,50 +299,54 @@ def neuron2igraph(x: 'core.NeuronObject',
     if isinstance(x, core.NeuronList):
         return [neuron2igraph(x.loc[i]) for i in range(x.shape[0])]
 
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Unable input type "{type(x)}"')
+    if isinstance(x, core.TreeNeuron):
+        # Make sure we have correctly numbered indices
+        nodes = x.nodes.reset_index(inplace=False, drop=True)
 
-    # Make sure we have correctly numbered indices
-    nodes = x.nodes.reset_index(inplace=False, drop=True)
+        # Generate list of vertices -> this order is retained
+        vlist = nodes.node_id.values
 
-    # Generate list of vertices -> this order is retained
-    vlist = nodes.node_id.values
+        # Get list of edges as indices (needs to exclude root node)
+        tn_index_with_parent = nodes.index.values[nodes.parent_id >= 0]
+        parent_ids = nodes.parent_id.values[nodes.parent_id >= 0]
+        nodes['temp_index'] = nodes.index  # add temporary index column
+        try:
+            parent_index = nodes.set_index('node_id', inplace=False).loc[parent_ids,
+                                                                         'temp_index'].values
+        except KeyError:
+            miss = nodes[~nodes.parent_id.isin(nodes.node_id)].node_id.unique()
+            raise KeyError(f"{len(miss)} nodes (e.g. {miss[0]}) in TreeNeuron "
+                           f"{x.id} connect to non-existent parent nodes.")
+        except BaseException:
+            raise
 
-    # Get list of edges as indices (needs to exclude root node)
-    tn_index_with_parent = nodes.index.values[nodes.parent_id >= 0]
-    parent_ids = nodes.parent_id.values[nodes.parent_id >= 0]
-    nodes['temp_index'] = nodes.index  # add temporary index column
-    try:
-        parent_index = nodes.set_index('node_id', inplace=False).loc[parent_ids,
-                                                                     'temp_index'].values
-    except KeyError:
-        miss = nodes[~nodes.parent_id.isin(nodes.node_id)].node_id.unique()
-        raise KeyError(f"{len(miss)} nodes (e.g. {miss[0]}) in TreeNeuron "
-                       f"{x.id} connect to non-existent parent nodes.")
-    except BaseException:
-        raise
+        # Generate list of edges based on index of vertices
+        elist = np.vstack((tn_index_with_parent, parent_index)).T
 
-    # Generate list of edges based on index of vertices
-    elist = np.vstack((tn_index_with_parent, parent_index)).T
+        # iGraph < 0.8.0 does not like arrays as edge list
+        if getattr(igraph, '__version_info__', (0, 0, 0))[1] < 8:
+            elist = elist.tolist()
 
-    # iGraph < 0.8.0 does not like arrays as edge list
-    if getattr(igraph, '__version_info__', (0, 0, 0))[1] < 8:
-        elist = elist.tolist()
+        # Generate graph and assign custom properties
+        G = igraph.Graph(elist, n=len(vlist), directed=True)
 
-    # Generate graph and assign custom properties
-    g = igraph.Graph(elist, n=len(vlist), directed=True)
+        G.vs['node_id'] = G.vs['name'] = nodes.node_id.values
+        G.vs['parent_id'] = nodes.parent_id.values
 
-    g.vs['node_id'] = g.vs['name'] = nodes.node_id.values
-    g.vs['parent_id'] = nodes.parent_id.values
+        # Generate weights by calculating edge lengths = distance between nodes
+        tn_coords = nodes[['x', 'y', 'z']].values[tn_index_with_parent, :]
+        parent_coords = nodes[['x', 'y', 'z']].values[parent_index.astype(int), :]
 
-    # Generate weights by calculating edge lengths = distance between nodes
-    tn_coords = nodes[['x', 'y', 'z']].values[tn_index_with_parent, :]
-    parent_coords = nodes[['x', 'y', 'z']].values[parent_index.astype(int), :]
+        w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1))
+        G.es['weight'] = w
+    elif isinstance(x, core.MeshNeuron):
+        elist = x.trimesh.edges_unique
+        G = igraph.Graph(elist, n=x.n_vertices, directed=False)
+        G.es['weight'] = x.trimesh.edges_unique_length
+    else:
+        raise ValueError(f'Unable to convert data of type "{type(x)}" to igraph.')
 
-    w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1))
-    g.es['weight'] = w
-
-    return g
+    return G
 
 
 def nx2neuron(g: nx.Graph,
