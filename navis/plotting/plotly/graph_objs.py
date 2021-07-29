@@ -53,12 +53,13 @@ def neuron2plotly(x, colormap, **kwargs):
 
         colormap = vertex_colors(x,
                                  by=color_by,
-                                 alpha=False,
+                                 alpha=kwargs.get('alpha', 1),
+                                 use_alpha=False,
                                  palette=palette,
                                  vmin=kwargs.get('vmin', None),
                                  vmax=kwargs.get('vmax', None),
                                  na=kwargs.get('na', 'raise'),
-                                 color_range=255)
+                                 color_range=1)
 
     if not isinstance(shade_by, type(None)):
         logger.warning('`shade_by` is currently not working due to an bug in '
@@ -224,13 +225,22 @@ def mesh2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
     if neuron.n_vertices == 0:
         return []
 
-    try:
-        if len(color) == 3:
-            c = 'rgb{}'.format(color)
-        elif len(color) == 4:
-            c = 'rgba{}'.format(color)
-    except BaseException:
-        c = 'rgb(10,10,10)'
+    if isinstance(color, np.ndarray) and color.ndim == 2:
+        if len(color) == len(neuron.vertices):
+            color_kwargs = dict(vertexcolor=color)
+        elif len(color) == len(neuron.faces):
+            color_kwargs = dict(facecolor=color)
+        else:
+            color_kwargs = dict(color=color)
+    else:
+        try:
+            if len(color) == 3:
+                c = 'rgb{}'.format(color)
+            elif len(color) == 4:
+                c = 'rgba{}'.format(color)
+        except BaseException:
+            c = 'rgb(10,10,10)'
+        color_kwargs = dict(color=c)
 
     if kwargs.get('hover_name', False):
         hoverinfo = 'text'
@@ -245,12 +255,13 @@ def mesh2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
                             i=neuron.faces[:, 0],
                             j=neuron.faces[:, 1],
                             k=neuron.faces[:, 2],
-                            color=c,
                             name=label,
                             legendgroup=legendgroup,
                             showlegend=showlegend,
                             hovertext=hovertext,
-                            hoverinfo=hoverinfo)]
+                            hoverinfo=hoverinfo,
+                            **color_kwargs
+                            )]
 
     return trace_data
 

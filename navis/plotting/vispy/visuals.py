@@ -177,7 +177,7 @@ def neuron2vispy(x, **kwargs):
 
         colormap = vertex_colors(x,
                                  by=color_by,
-                                 alpha=False,
+                                 alpha=kwargs.get('alpha', 1),
                                  palette=palette,
                                  vmin=kwargs.get('vmin', None),
                                  vmax=kwargs.get('vmax', None),
@@ -193,7 +193,7 @@ def neuron2vispy(x, **kwargs):
     if not isinstance(shade_by, type(None)):
         alphamap = vertex_colors(x,
                                  by=shade_by,
-                                 alpha=True,
+                                 use_alpha=True,
                                  palette='viridis',  # palette is irrelevant here
                                  vmin=kwargs.get('smin', None),
                                  vmax=kwargs.get('smax', None),
@@ -325,10 +325,19 @@ def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
 
 def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
     """Convert mesh (i.e. MeshNeuron) to vispy visuals."""
+    color_kwargs = dict(color=neuron_color)
+    if isinstance(neuron_color, np.ndarray) and neuron_color.ndim == 2:
+        if len(neuron_color) == len(neuron.vertices):
+            color_kwargs = dict(vertex_colors=neuron_color)
+        elif len(neuron_color) == len(neuron.faces):
+            color_kwargs = dict(face_colors=neuron_color)
+        else:
+            color_kwargs = dict(color=neuron_color)
+
     m = scene.visuals.Mesh(vertices=neuron.vertices,
                            faces=neuron.faces,
-                           color=neuron_color,
-                           shading=kwargs.get('shading', 'smooth'))
+                           shading=kwargs.get('shading', 'smooth'),
+                           **color_kwargs)
 
     # Set some aesthetic parameters
     # Vispy 0.7.0 uses a new shading filter

@@ -186,7 +186,7 @@ def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
                         f'not {type(config.default_color)}')
 
 
-def vertex_colors(neurons, by, palette, alpha=False, vmin=None, vmax=None,
+def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vmax=None,
                   na='raise', norm_global=True, color_range=255):
     """Generate a color and/or alpha values for each node/face/point of a neuron.
 
@@ -201,8 +201,10 @@ def vertex_colors(neurons, by, palette, alpha=False, vmin=None, vmax=None,
                 Name of a matplotlib or seaborn color palette, list of colors
                 or (for caterogical) data a dict mapping colors to values. If
                 data is numerical must be a matplotlib palette.
-    alpha :     bool
-                If True will also map the alpha channel. Applies only if data
+    alpha :     float [0-1]
+                Sets the alpha value for all colors.
+    use_alpha : bool
+                If True will also use the alpha channel. Applies only if data
                 is numerical.
     vmin|vmax : float, optional
                 Min/Max values for normalizing numerical data.
@@ -273,9 +275,10 @@ def vertex_colors(neurons, by, palette, alpha=False, vmin=None, vmax=None,
                 raise ValueError(f'Got {len(v)} for {neurons.n_nodes} nodes '
                                  f'for neuron {n.id}')
         elif isinstance(n, core.MeshNeuron):
-            if len(v) != n.n_faces:
+            if len(v) != n.n_faces and len(v) != n.n_vertices:
                 raise ValueError(f'Got {len(v)} for {neurons.n_faces} faces '
-                                 f'for neuron {n.id}')
+                                 f'and {neurons.n_vertices} vertices for '
+                                 f'neuron {n.id}')
         else:
             raise TypeError(f'Unable to map colors for neurons of type {type(n)}')
 
@@ -292,7 +295,7 @@ def vertex_colors(neurons, by, palette, alpha=False, vmin=None, vmax=None,
         else:
             # Make sure na is a valid color
             try:
-                na = mcl.to_rgba(na, alpha=1)
+                na = mcl.to_rgba(na, alpha=alpha)
             except ValueError:
                 raise ValueError('`na` must be either "raise" or a valid color '
                                  f'to replace NA values. Unable to convert {na}'
@@ -332,14 +335,14 @@ def vertex_colors(neurons, by, palette, alpha=False, vmin=None, vmax=None,
             c = np.zeros((len(v), 4))
             if any(pd.isnull(v)):
                 c[pd.isnull(v), :] = na
-            c[~pd.isnull(v), :] = cmap(v[~pd.isnull(v)], alpha=1)
+            c[~pd.isnull(v), :] = cmap(v[~pd.isnull(v)], alpha=alpha)
 
             if color_range == 255:
                 c[:, :3] = (c[:, :3] * 255).astype(int)
 
             # Add alpha - note that we slightly clip the value to prevent
             # any color from being entirely invisible
-            if alpha:
+            if use_alpha:
                 c[:, 3] = np.clip(v + 0.05, a_max=1, a_min=0)
 
             colors.append(c)
@@ -366,11 +369,12 @@ def vertex_colors(neurons, by, palette, alpha=False, vmin=None, vmax=None,
                              ', '.join(miss))
 
         # Make sure colors are what we need
-        palette = {v: mcl.to_rgba(c, alpha=1) for v, c in palette.items()}
+        palette = {v: mcl.to_rgba(c, alpha=alpha) for v, c in palette.items()}
 
         # Alpha values doesn't exactly make sense for categorical data but
         # who am I to judge? We will simply use the alphanumerical order.
-        alpha_map = {v: (i + 1)/(len(palette) + 1) for i, v in enumerate(palette.keys())}
+        if use_alpha:
+            alpha_map = {v: (i + 1)/(len(palette) + 1) for i, v in enumerate(palette.keys())}
 
         colors = []
         for v in values:
@@ -380,7 +384,7 @@ def vertex_colors(neurons, by, palette, alpha=False, vmin=None, vmax=None,
             if color_range == 255:
                 c[:, :3] = (c[:, :3] * 255).astype(int)
 
-            if alpha:
+            if use_alpha:
                 c[:, 3] = [alpha_map.get(x, 0) for x in v]
 
             colors.append(c)
