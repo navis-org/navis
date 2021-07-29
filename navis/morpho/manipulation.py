@@ -1444,6 +1444,7 @@ def smooth_neuron(x: NeuronObject,
 
 
 def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
+                    labels_only: bool = False,
                     min_size: Optional[int] = None) -> 'core.NeuronList':
     """Break neuron into continuous fragments.
 
@@ -1452,11 +1453,16 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron
-                Fragmented neuron.
-    min_size :  int, optional
-                Fragments smaller than this (# of nodes/vertices) will be
-                ignored.
+    x :             TreeNeuron | MeshNeuron
+                    Fragmented neuron.
+    labels_only :   bool
+                    If True, will only label each node/vertex by which
+                    fragment it belongs to. For TreeNeurons, this adds a
+                    `"fragment"` column and for MeshNeurons, it adds a
+                    `.fragments` property.
+    min_size :      int, optional
+                    Fragments smaller than this (# of nodes/vertices) will be
+                    dropped. Ignored if ``labels_only=True``.
 
     Returns
     -------
@@ -1490,6 +1496,14 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     comp = graph._connected_components(x)
     # Sort so that the first component is the largest
     comp = sorted(comp, key=len, reverse=True)
+
+    if labels_only:
+        cc_id = {n: i for i, cc in enumerate(comp) for n in cc}
+        if isinstance(x, core.TreeNeuron):
+            x.nodes['fragment'] = x.nodes.node_id.map(cc_id).astype(str)
+        elif isinstance(x, core.MeshNeuron):
+            x.fragments = np.array([cc_id[i] for i in range(x.n_vertices)]).astype(str)
+        return x
 
     if min_size:
         comp = [cc for cc in comp if len(cc) >= min_size]
