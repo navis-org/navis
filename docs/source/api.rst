@@ -469,6 +469,8 @@ Functions to import/export neurons.
     navis.read_rda
     navis.read_json
     navis.write_json
+    navis.write_precomputed
+    navis.read_precomputed
 
 .. _api_interfaces:
 

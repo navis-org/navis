@@ -16,22 +16,18 @@ import datetime
 import io
 import json
 import os
-import re
-import requests
 import tempfile
 
-import multiprocessing as mp
 import numpy as np
 import pandas as pd
 
-from functools import partial
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
-from typing_extensions import Literal
 from zipfile import ZipFile
 
 from .. import config, utils, core
+from . import base
 
 try:
     import zlib
@@ -50,34 +46,9 @@ COMMENT = "#"
 DEFAULT_DELIMITER = " "
 DEFAULT_PRECISION = 32
 DEFAULT_FMT = "{name}.swc"
-DEFAULT_INCLUDE_SUBDIRS = False
-AUTO_PARALLEL = "auto"
 
 
-def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:
-    """Merge dicts and kwargs left to right.
-
-    Ignores None arguments.
-    """
-    # handles nones
-    out = dict()
-    for d in dicts:
-        if d:
-            out.update(d)
-    out.update(kwargs)
-    return out
-
-
-def swcs_in_dir(
-    dpath: Path, include_subdirs: bool = DEFAULT_INCLUDE_SUBDIRS
-) -> Iterable[Path]:
-    pattern = '*.swc'
-    if include_subdirs:
-        pattern = os.path.join("**", pattern)
-    yield from dpath.glob(pattern)
-
-
-class SwcReader:
+class SwcReader(base.BaseReader):
     def __init__(
         self,
         connector_labels: Optional[Dict[str, Union[str, int]]] = None,
@@ -88,11 +59,16 @@ class SwcReader:
         fmt: str = DEFAULT_FMT,
         attrs: Optional[Dict[str, Any]] = None
     ):
+        if not fmt.endswith('.swc'):
+            raise ValueError('`fmt` must end with ".swc"')
+
+        super().__init__(fmt=fmt,
+                         attrs=attrs,
+                         file_ext='.swc',
+                         name_fallback='SWC')
         self.connector_labels = connector_labels or dict()
         self.soma_label = soma_label
         self.delimiter = delimiter
-        self.attrs = attrs
-        self.fmt = fmt
         self.read_meta = read_meta
 
         int_, float_ = parse_precision(precision)
@@ -105,35 +81,6 @@ class SwcReader:
             'z': float_,
             'radius': float_,
         }
-
-    def _make_attributes(
-        self, *dicts: Optional[Dict[str, Any]], **kwargs
-    ) -> Dict[str, Any]:
-        """Combine given attributes with a timestamp
-        and those defined on the object.
-
-        Later additions take precedence:
-
-        - created_at (now), connector_labels (from object), soma_label (from object)
-        - object-defined attributes
-        - additional dicts given as *args
-        - additional attributes given as **kwargs
-
-        Returns
-        -------
-        Dict[str, Any]
-            Arbitrary string-keyed attributes.
-        """
-        return merge_dicts(
-            dict(
-                created_at=str(datetime.datetime.now()),
-                connector_labels=self.connector_labels,
-                soma_label=self.soma_label,
-            ),
-            self.attrs,
-            *dicts,
-            **kwargs,
-        )
 
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
@@ -171,185 +118,9 @@ class SwcReader:
             meta_row = [r for r in header_rows if r.lower().startswith('# meta:')]
             if meta_row:
                 meta_data = json.loads(meta_row[0][7:].strip())
-                attrs = merge_dicts(meta_data, attrs)
+                attrs = base.merge_dicts(meta_data, attrs)
 
-        return self.read_dataframe(nodes, merge_dicts({'swc_header': '\n'.join(header_rows)}, attrs))
-
-    def read_file_path(
-        self, fpath: os.PathLike, attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.TreeNeuron':
-        """Read single SWC file from path into a TreeNeuron.
-
-        Parameters
-        ----------
-        fpath :     str | os.PathLike
-                    Path to SWC file.
-        attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
-
-        Returns
-        -------
-        core.TreeNeuron
-        """
-        p = Path(fpath)
-        with open(p, "r") as f:
-            props = self.parse_filename(f.name)
-            props['origin'] = str(p)
-            return self.read_buffer(
-                f, merge_dicts(props, attrs)
-            )
-
-    def read_from_zip(
-        self, files: Union[str, List[str]],
-        zippath: os.PathLike,
-        attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
-    ) -> 'core.NeuronList':
-        """Read given SWC files from a zip into a NeuronList.
-
-        Typically not used directly but via `read_zip()` dispatcher.
-
-        Parameters
-        ----------
-        files :     zipfile.ZipInfo | list thereof
-                    SWC files inside the ZIP file to read.
-        zippath :   str | os.PathLike
-                    Path to zip file.
-        attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
-
-        Returns
-        -------
-        core.NeuronList
-
-        """
-        p = Path(zippath)
-        files = utils.make_iterable(files)
-
-        neurons = []
-        with ZipFile(p, 'r') as zip:
-            for file in files:
-                # Note the `file` is of type zipfile.ZipInfo here
-                props = self.parse_filename(file.orig_filename)
-                props['origin'] = str(p)
-                try:
-                    n = self.read_string(zip.read(file).decode(),
-                                         merge_dicts(props, attrs))
-                    neurons.append(n)
-                except BaseException:
-                    if on_error == 'ignore':
-                        logger.warning(f'Failed to read "{file.filename}" from zip.')
-                    else:
-                        raise
-
-        return core.NeuronList(neurons)
-
-    def read_zip(
-        self, fpath: os.PathLike,
-        parallel="auto",
-        swc=None,
-        attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
-    ) -> 'core.NeuronList':
-        """Read SWC files from a zip into a NeuronList.
-
-        This is a dispatcher for `.read_from_zip`.
-
-        Parameters
-        ----------
-        fpath :     str | os.PathLike
-                    Path to zip file.
-        attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
-
-        Returns
-        -------
-        core.NeuronList
-        """
-        read_fn = partial(self.read_from_zip,
-                          zippath=fpath, attrs=attrs,
-                          on_error=on_error)
-        neurons = parallel_read_zip(read_fn, fpath, parallel)
-        return core.NeuronList(neurons)
-
-    def read_directory(
-        self, path: os.PathLike,
-        include_subdirs=DEFAULT_INCLUDE_SUBDIRS,
-        parallel="auto",
-        attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.NeuronList':
-        """Read directory of SWC files into a NeuronList.
-
-        Parameters
-        ----------
-        fpath :             str | os.PathLike
-                            Path to directory containing SWC files.
-        include_subdirs :   bool, optional
-                            Whether to descend into subdirectories, default False.
-        parallel :          str | bool | "auto"
-        attrs :             dict or None
-                            Arbitrary attributes to include in the TreeNeurons
-                            of the NeuronList
-
-        Returns
-        -------
-        core.NeuronList
-        """
-        swcs = list(swcs_in_dir(Path(path), include_subdirs))
-        read_fn = partial(self.read_file_path, attrs=attrs)
-        neurons = parallel_read(read_fn, swcs, parallel)
-        return core.NeuronList(neurons)
-
-    def read_url(
-        self, url: str, attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.TreeNeuron':
-        """Read SWC file from URL into a TreeNeuron.
-
-        Parameters
-        ----------
-        url : str
-                    URL to SWC file.
-        attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
-
-        Returns
-        -------
-        core.TreeNeuron
-        """
-        with requests.get(url, stream=True) as r:
-            r.raise_for_status()
-            props = self.parse_filename(url.split('/')[-1])
-            props['origin'] = url
-            return self.read_buffer(
-                r.raw,
-                merge_dicts(props, attrs)
-            )
-
-    def read_string(
-        self, s: str, attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.TreeNeuron':
-        """Read single SWC-like string into a TreeNeuron.
-
-        Parameters
-        ----------
-        s :         str
-                    SWC string.
-        attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
-
-        Returns
-        -------
-        core.TreeNeuron
-        """
-        sio = io.StringIO(s)
-        return self.read_buffer(
-            sio,
-            merge_dicts({'name': 'SWC', 'origin': 'string'}, attrs)
-        )
+        return self.read_dataframe(nodes, base.merge_dicts({'swc_header': '\n'.join(header_rows)}, attrs))
 
     def read_dataframe(
         self, nodes: pd.DataFrame, attrs: Optional[Dict[str, Any]] = None
@@ -373,208 +144,6 @@ class SwcReader:
             connectors=self._extract_connectors(nodes),
             **(self._make_attributes({'name': 'SWC', 'origin': 'DataFrame'}, attrs))
         )
-
-    def read_any_single(
-        self, obj, attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.TreeNeuron':
-        """Attempt to convert an arbitrary object into a TreeNeuron.
-
-        Parameters
-        ----------
-        obj :       typing.IO | pandas.DataFrame | str | os.PathLike
-                    Readable buffer, dataframe, path or URL to single file,
-                    or SWC string.
-        attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
-
-        Returns
-        -------
-        core.TreeNeuron
-        """
-        if hasattr(obj, "read"):
-            return self.read_buffer(obj, attrs)
-        if isinstance(obj, pd.DataFrame):
-            return self.read_dataframe(obj, attrs)
-        if isinstance(obj, os.PathLike):
-            if str(obj).endswith('.zip'):
-                return self.read_zip(obj, attrs=attrs)
-            return self.read_file_path(obj, attrs)
-        if isinstance(obj, str):
-            if os.path.isfile(obj):
-                p = Path(obj)
-                if p.suffix == '.zip':
-                    return self.read_zip(p, attrs=attrs)
-                return self.read_file_path(p, attrs)
-            if obj.startswith("http://") or obj.startswith("https://"):
-                return self.read_url(obj, attrs)
-            return self.read_string(obj, attrs)
-        raise ValueError(
-            f"Could not read SWC from object of type '{type(obj)}'"
-        )
-
-    def read_any_multi(
-        self,
-        objs,
-        include_subdirs=DEFAULT_INCLUDE_SUBDIRS,
-        parallel="auto",
-        attrs: Optional[Dict[str, Any]] = None,
-    ) -> 'core.NeuronList':
-        """Attempt to convert an arbitrary object into a NeuronList,
-        potentially in parallel.
-
-        Parameters
-        ----------
-        obj :               sequence
-                            Sequence of anything readable by read_any_single or
-                            directory path(s).
-        include_subdirs :   bool
-                            Whether to include subdirectories of a given
-                            directory.
-        parallel :          str | bool | int | None
-                            "auto" or True for n_cores - 2, otherwise int for
-                            number of jobs, or False for serial.
-        attrs :             dict or None
-                            Arbitrary attributes to include in each TreeNeuron
-                            of the NeuronList.
-
-        Returns
-        -------
-        core.NeuronList
-
-        """
-        if not utils.is_iterable(objs):
-            objs = [objs]
-
-        if not objs:
-            logger.warning("No SWC found, returning empty NeuronList")
-            return core.NeuronList([])
-
-        new_objs = []
-        for obj in objs:
-            try:
-                if os.path.isdir(obj):
-                    new_objs.extend(swcs_in_dir(obj, include_subdirs))
-                    continue
-            except TypeError:
-                pass
-            new_objs.append(obj)
-
-        if (
-            isinstance(parallel, str)
-            and parallel.lower() == 'auto'
-            and len(new_objs) < 200
-        ):
-            parallel = False
-
-        read_fn = partial(self.read_any_single, attrs=attrs)
-        neurons = parallel_read(read_fn, new_objs, parallel)
-        return core.NeuronList(neurons)
-
-    def read_any(
-        self,
-        obj,
-        include_subdirs=DEFAULT_INCLUDE_SUBDIRS,
-        parallel="auto",
-        attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.NeuronObject':
-        """Attempt to read an arbitrary object into a TreeNeuron or NeuronObject.
-
-        Parameters
-        ----------
-        obj :       typing.IO | str | os.PathLike | pandas.DataFrame
-                    Buffer, path to file or directory, URL, SWC string, or
-                    dataframe.
-
-        Returns
-        -------
-        core.TreeNeuron | core.NeuronObject
-        """
-        if utils.is_iterable(obj) and not hasattr(obj, "read"):
-            return self.read_any_multi(obj, parallel, include_subdirs, attrs)
-        else:
-            try:
-                if os.path.isdir(obj):
-                    return self.read_directory(
-                        obj, include_subdirs, parallel, attrs
-                    )
-            except TypeError:
-                pass
-
-            try:
-                if os.path.isfile(obj) and str(obj).endswith('.zip'):
-                    return self.read_zip(obj, parallel, attrs)
-            except TypeError:
-                pass
-
-            return self.read_any_single(obj, attrs)
-
-    def parse_filename(
-        self, filename: str
-    ) -> dict:
-        """Extract properties from filename according to specified formatter.
-
-        Parameters
-        ----------
-        filename : str
-
-        Returns
-        -------
-        props :     dict
-                    Properties extracted from filename.
-
-        """
-        # Make sure we are working with the filename not the whole path
-        filename = Path(filename).name
-        # First turn formatter into a regex pattern
-        if not self.fmt.endswith('.swc'):
-            raise ValueError('`fmt` must end with ".swc"')
-
-        # Escape all special characters
-        fmt = re.escape(self.fmt)
-
-        # Unescape { and }
-        fmt = fmt.replace('\\{', '{').replace('\\}', '}')
-
-        # Replace all e.g. {name} with {.*}
-        prop_names = []
-        for prop in re.findall("{.*?}", fmt):
-            prop_names.append(prop[1:-1].replace(" ", ""))
-            fmt = fmt.replace(prop, "(.*?)")
-
-        # Match
-        match = re.search(fmt, filename)
-
-        if not match:
-            raise ValueError(f'Unable to match "{self.fmt}" to filename "{filename}"')
-
-        props = {}
-        for i, prop in enumerate(prop_names):
-            for p in prop.split(','):
-                # Ignore empty ("{}")
-                if not p:
-                    continue
-
-                # If datatype was specified
-                if ":" in p:
-                    p, dt = p.split(':')
-
-                    props[p] = match.group(i + 1)
-
-                    if dt == 'int':
-                        props[p] = int(props[p])
-                    elif dt == 'float':
-                        props[p] = float(props[p])
-                    elif dt == 'bool':
-                        props[p] = bool(props[p])
-                    elif dt == 'str':
-                        props[p] = str(props[p])
-                    else:
-                        raise ValueError(f'Unable to interpret datatype "{dt}" '
-                                         f'for property {p}')
-                else:
-                    props[p] = match.group(i + 1)
-        return props
-
 
     def _extract_connectors(
         self, nodes: pd.DataFrame
@@ -605,111 +174,6 @@ class SwcReader:
             to_concat.append(cn)
 
         return pd.concat(to_concat, axis=0)
-
-
-def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
-    """Get SWCs from some objects with the given reader function,
-    potentially in parallel.
-
-    Reader function must be picklable.
-
-    Parameters
-    ----------
-    read_fn :       Callable
-    objs :          Iterable
-    parallel :      str | bool | int
-                    "auto" or True for `n_cores` // 2, otherwise int for number
-                    of jobs, or false for serial.
-
-    Returns
-    -------
-    core.NeuronList
-
-    """
-    try:
-        length = len(objs)
-    except TypeError:
-        length = None
-
-    prog = partial(
-        config.tqdm,
-        desc='Importing',
-        total=length,
-        disable=config.pbar_hide,
-        leave=config.pbar_leave
-    )
-
-    if parallel:
-        # Do not swap this as ``isinstance(True, int)`` returns ``True``
-        if isinstance(parallel, (bool, str)):
-            n_cores = max(1, os.cpu_count() - 2)
-        else:
-            n_cores = int(parallel)
-
-        with mp.Pool(processes=n_cores) as pool:
-            results = pool.imap(read_fn, objs)
-            neurons = list(prog(results))
-    else:
-        neurons = [read_fn(obj) for obj in prog(objs)]
-
-    return neurons
-
-
-def parallel_read_zip(read_fn, fpath, parallel="auto") -> List['core.NeuronList']:
-    """Get SWC from a ZIP file, potentially in parallel.
-
-    Reader function must be picklable.
-
-    Parameters
-    ----------
-    read_fn :       Callable
-    fpath :         str | Path
-    parallel :      str | bool | int
-                    "auto" or True for n_cores - 2, otherwise int for number of
-                    jobs, or false for serial.
-
-    Returns
-    -------
-    core.NeuronList
-
-    """
-    # Check zip content
-    p = Path(fpath)
-    swcs = []
-    with ZipFile(p, 'r') as zip:
-        for file in zip.filelist:
-            if file.filename.endswith('.swc'):
-                swcs.append(file)
-
-    prog = partial(
-        config.tqdm,
-        desc='Importing',
-        total=len(swcs),
-        disable=config.pbar_hide,
-        leave=config.pbar_leave
-    )
-
-    if (
-        isinstance(parallel, str)
-        and parallel.lower() == 'auto'
-        and len(swcs) < 200
-    ):
-        parallel = False
-
-    if parallel:
-        # Do not swap this as ``isinstance(True, int)`` returns ``True``
-        if isinstance(parallel, (bool, str)):
-            n_cores = max(1, os.cpu_count() - 2)
-        else:
-            n_cores = int(parallel)
-
-        with mp.Pool(processes=n_cores) as pool:
-            results = pool.imap(read_fn, swcs)
-            neurons = list(prog(results))
-    else:
-        neurons = [read_fn(obj) for obj in prog(swcs)]
-
-    return neurons
 
 
 def parse_precision(precision: Optional[int]):
@@ -827,7 +291,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
-                        ``os.cpu_count() - 2``).
+                        ``os.cpu_count() // 2``).
     precision :         int [8, 16, 32, 64] | None
                         Precision for data. Defaults to 32 bit integers/floats.
                         If ``None`` will let pandas infer data types - this
@@ -879,9 +343,13 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         Export neurons as SWC files.
 
     """
-    reader = SwcReader(
-        connector_labels, soma_label, delimiter, precision, read_meta, fmt, kwargs,
-    )
+    reader = SwcReader(connector_labels=connector_labels,
+                       soma_label=soma_label,
+                       delimiter=delimiter,
+                       precision=precision,
+                       read_meta=read_meta,
+                       fmt=fmt,
+                       attrs=kwargs)
     return reader.read_any(f, include_subdirs, parallel)
 
 
@@ -1005,7 +473,7 @@ def write_swc(x: 'core.NeuronObject',
             with tempfile.TemporaryDirectory() as tempdir:
                 for n in config.tqdm(x, disable=config.pbar_hide,
                                      leave=config.pbar_leave, total=len(x),
-                                     desc='Saving'):
+                                     desc='Writing'):
                     # Save to temporary file
                     try:
                         # Generate temporary filename
@@ -1047,7 +515,7 @@ def write_swc(x: 'core.NeuronObject',
         filepath: Iterable[str]
         for n, f in config.tqdm(zip(x, filepath), disable=config.pbar_hide,
                                 leave=config.pbar_leave, total=len(x),
-                                desc='Saving'):
+                                desc='Writing'):
             write_swc(n, filepath=f, labels=labels, header=header,
                       write_meta=write_meta, export_connectors=export_connectors)
         return

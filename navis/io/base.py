@@ -1,0 +1,742 @@
+#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    Copyright (C) 2018 Philipp Schlegel
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+import datetime
+import io
+import os
+import re
+import requests
+
+import multiprocessing as mp
+import numpy as np
+import pandas as pd
+
+from abc import ABC, abstractmethod
+from functools import partial
+from pathlib import Path
+from typing import List, Union, Iterable, Dict, Optional, Any, IO
+from typing_extensions import Literal
+from zipfile import ZipFile
+
+from .. import config, utils, core
+
+try:
+    import zlib
+    import zipfile
+    compression = zipfile.ZIP_DEFLATED
+except ImportError:
+    compression = zipfile.ZIP_STORED
+
+__all__ = ["BaseReader"]
+
+# Set up logging
+logger = config.logger
+
+DEFAULT_INCLUDE_SUBDIRS = False
+
+
+def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:
+    """Merge dicts and kwargs left to right.
+
+    Ignores None arguments.
+    """
+    # handles nones
+    out = dict()
+    for d in dicts:
+        if d:
+            out.update(d)
+    out.update(kwargs)
+    return out
+
+
+class BaseReader(ABC):
+    """Abstract reader to parse various inputs into neurons.
+
+    Any subclass should implement at least one of `read_buffer` or
+    `read_dataframe`.
+
+    Parameters
+    ----------
+    fmt :           str
+                    A string describing how to parse filenames into neuron
+                    properties. For example '{id}.swc'.
+    file_ext :      str
+                    The file extension to look for when searching folders.
+                    For example '.swc'. Alternatively, you can re-implement
+                    the `is_valid_file` method for more complex filters.
+    name_fallback : str
+                    Fallback for name when reading from e.g. string.
+    attrs :         dict
+                    Additional attributes to use when creating the neuron.
+                    Will be overwritten by later additions (e.g. from `fmt`).
+    """
+    def __init__(
+        self,
+        fmt: str,
+        file_ext: str,
+        name_fallback: str = 'NA',
+        read_binary: bool = False,
+        attrs: Optional[Dict[str, Any]] = None
+    ):
+        self.attrs = attrs
+        self.fmt = fmt
+        self.file_ext = file_ext
+        self.name_fallback = name_fallback
+        self.read_binary = read_binary
+
+        if self.file_ext.startswith('*'):
+            raise ValueError('File extension must be ".ext", not "*.ext"')
+
+    def files_in_dir(self,
+                     dpath: Path,
+                     include_subdirs: bool = DEFAULT_INCLUDE_SUBDIRS
+    ) -> Iterable[Path]:
+        """List files to read in directory."""
+        pattern = '*'
+        if include_subdirs:
+            pattern = os.path.join("**", pattern)
+
+        yield from (f for f in dpath.glob(pattern) if self.is_valid_file(f.name))
+
+    def is_valid_file(self, filename):
+        """Return true if file should be considered for reading."""
+        if str(filename).endswith(self.file_ext):
+            return True
+        return False
+
+    def _make_attributes(
+        self, *dicts: Optional[Dict[str, Any]], **kwargs
+    ) -> Dict[str, Any]:
+        """Combine attributes with a timestamp and those defined on the object.
+
+        Later additions take precedence:
+
+        - created_at (now)
+        - object-defined attributes
+        - additional dicts given as *args
+        - additional attributes given as **kwargs
+
+        Returns
+        -------
+        Dict[str, Any]
+            Arbitrary string-keyed attributes.
+        """
+        return merge_dicts(
+            dict(
+                created_at=str(datetime.datetime.now())
+            ),
+            self.attrs,
+            *dicts,
+            **kwargs,
+        )
+
+    def read_buffer(
+        self, f: IO, attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.BaseNeuron':
+        """Read buffer into a single neuron.
+
+        Parameters
+        ----------
+        f :         IO
+                    Readable buffer.
+        attrs :     dict | None
+                    Arbitrary attributes to include in the neuron.
+
+        Returns
+        -------
+        core.NeuronObject
+        """
+        raise NotImplementedError('Reading from buffer not implemented for '
+                                  f'{type(self)}')
+
+    def read_file_path(
+        self, fpath: os.PathLike, attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.BaseNeuron':
+        """Read single file from path into a neuron.
+
+        Parameters
+        ----------
+        fpath :     str | os.PathLike
+                    Path to files.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the neuron.
+
+        Returns
+        -------
+        core.BaseNeuron
+        """
+        p = Path(fpath)
+        with open(p, 'rb' if self.read_binary else 'r') as f:
+            props = self.parse_filename(f.name)
+            props['origin'] = str(p)
+            return self.read_buffer(
+                f, merge_dicts(props, attrs)
+            )
+
+    def read_from_zip(
+        self, files: Union[str, List[str]],
+        zippath: os.PathLike,
+        attrs: Optional[Dict[str, Any]] = None,
+        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
+    ) -> 'core.NeuronList':
+        """Read given files from a zip into a NeuronList.
+
+        Typically not used directly but via `read_zip()` dispatcher.
+
+        Parameters
+        ----------
+        files :     zipfile.ZipInfo | list thereof
+                    Files inside the ZIP file to read.
+        zippath :   str | os.PathLike
+                    Path to zip file.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
+        on_error :  'ignore' | 'raise'
+                    What do do when error is encountered.
+
+        Returns
+        -------
+        core.NeuronList
+
+        """
+        p = Path(zippath)
+        files = utils.make_iterable(files)
+
+        neurons = []
+        with ZipFile(p, 'r') as zip:
+            for file in files:
+                # Note the `file` is of type zipfile.ZipInfo here
+                props = self.parse_filename(file.orig_filename)
+                props['origin'] = str(p)
+                try:
+                    n = self.read_bytes(zip.read(file),
+                                        merge_dicts(props, attrs))
+                    neurons.append(n)
+                except BaseException:
+                    if on_error == 'ignore':
+                        logger.warning(f'Failed to read "{file.filename}" from zip.')
+                    else:
+                        raise
+
+        return core.NeuronList(neurons)
+
+    def read_zip(
+        self, fpath: os.PathLike,
+        parallel="auto",
+        attrs: Optional[Dict[str, Any]] = None,
+        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
+    ) -> 'core.NeuronList':
+        """Read files from a zip into a NeuronList.
+
+        This is a dispatcher for `.read_from_zip`.
+
+        Parameters
+        ----------
+        fpath :     str | os.PathLike
+                    Path to zip file.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
+        on_error :  'ignore' | 'raise'
+                    What do do when error is encountered.
+
+        Returns
+        -------
+        core.NeuronList
+        """
+        read_fn = partial(self.read_from_zip,
+                          zippath=fpath, attrs=attrs,
+                          on_error=on_error)
+        neurons = parallel_read_zip(read_fn=read_fn,
+                                    fpath=fpath,
+                                    file_ext=self.is_valid_file,
+                                    parallel=parallel)
+        return core.NeuronList(neurons)
+
+    def read_directory(
+        self, path: os.PathLike,
+        include_subdirs=DEFAULT_INCLUDE_SUBDIRS,
+        parallel="auto",
+        attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.NeuronList':
+        """Read directory of files into a NeuronList.
+
+        Parameters
+        ----------
+        fpath :             str | os.PathLike
+                            Path to directory containing files.
+        include_subdirs :   bool, optional
+                            Whether to descend into subdirectories, default False.
+        parallel :          str | bool | "auto"
+        attrs :             dict or None
+                            Arbitrary attributes to include in the TreeNeurons
+                            of the NeuronList
+
+        Returns
+        -------
+        core.NeuronList
+        """
+        files = list(self.files_in_dir(Path(path), include_subdirs))
+        read_fn = partial(self.read_file_path, attrs=attrs)
+        neurons = parallel_read(read_fn, files, parallel)
+        return core.NeuronList(neurons)
+
+    def read_url(
+        self, url: str, attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.BaseNeuron':
+        """Read file from URL into a neuron.
+
+        Parameters
+        ----------
+        url :       str
+                    URL to file.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the neuron.
+
+        Returns
+        -------
+        core.BaseNeuron
+        """
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            props = self.parse_filename(url.split('/')[-1])
+            props['origin'] = url
+            return self.read_buffer(
+                r.raw,
+                merge_dicts(props, attrs)
+            )
+
+    def read_string(
+        self, s: str, attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.BaseNeuron':
+        """Read single string into a Neuron.
+
+        Parameters
+        ----------
+        s :         str
+                    String.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the neuron.
+
+        Returns
+        -------
+        core.BaseNeuron
+        """
+        sio = io.StringIO(s)
+        return self.read_buffer(
+            sio,
+            merge_dicts({'name': self.name_fallback, 'origin': 'string'}, attrs)
+        )
+
+    def read_bytes(
+        self, s: str, attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.BaseNeuron':
+        """Read bytes into a Neuron.
+
+        Parameters
+        ----------
+        s :         bytes
+                    Bytes.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the neuron.
+
+        Returns
+        -------
+        core.BaseNeuron
+        """
+        sio = io.BytesIO(s)
+        return self.read_buffer(
+            sio,
+            merge_dicts({'name': self.name_fallback, 'origin': 'string'}, attrs)
+        )
+
+    def read_dataframe(
+        self, nodes: pd.DataFrame, attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.BaseNeuron':
+        """Convert a DataFrame into a neuron.
+
+        Parameters
+        ----------
+        nodes :     pandas.DataFrame
+        attrs :     dict or None
+                    Arbitrary attributes to include in the neuron.
+
+        Returns
+        -------
+        core.BaseNeuron
+        """
+        raise NotImplementedError('Reading DataFrames not implemented for '
+                                  f'{type(self)}')
+
+    def read_any_single(
+        self, obj, attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.BaseNeuron':
+        """Attempt to convert an arbitrary object into a neuron.
+
+        Parameters
+        ----------
+        obj :       typing.IO | pandas.DataFrame | str | os.PathLike
+                    Readable buffer, dataframe, path or URL to single file,
+                    or parsable string.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the neuron.
+
+        Returns
+        -------
+        core.BaseNeuron
+        """
+        if hasattr(obj, "read"):
+            return self.read_buffer(obj, attrs)
+        if isinstance(obj, pd.DataFrame):
+            return self.read_dataframe(obj, attrs)
+        if isinstance(obj, os.PathLike):
+            if str(obj).endswith('.zip'):
+                return self.read_zip(obj, attrs=attrs)
+            return self.read_file_path(obj, attrs)
+        if isinstance(obj, str):
+            if os.path.isfile(obj):
+                p = Path(obj)
+                if p.suffix == '.zip':
+                    return self.read_zip(p, attrs=attrs)
+                return self.read_file_path(p, attrs)
+            if obj.startswith("http://") or obj.startswith("https://"):
+                return self.read_url(obj, attrs)
+            return self.read_string(obj, attrs)
+        if isinstance(obj, bytes):
+            return self.read_bytes(obj, attrs)
+        raise ValueError(
+            f"Could not read neuron from object of type '{type(obj)}'"
+        )
+
+    def read_any_multi(
+        self,
+        objs,
+        include_subdirs=DEFAULT_INCLUDE_SUBDIRS,
+        parallel="auto",
+        attrs: Optional[Dict[str, Any]] = None,
+    ) -> 'core.NeuronList':
+        """Attempt to convert an arbitrary object into a NeuronList,
+        potentially in parallel.
+
+        Parameters
+        ----------
+        obj :               sequence
+                            Sequence of anything readable by read_any_single or
+                            directory path(s).
+        include_subdirs :   bool
+                            Whether to include subdirectories of a given
+                            directory.
+        parallel :          str | bool | int | None
+                            "auto" or True for n_cores - 2, otherwise int for
+                            number of jobs, or False for serial.
+        attrs :             dict or None
+                            Arbitrary attributes to include in each TreeNeuron
+                            of the NeuronList.
+
+        Returns
+        -------
+        core.NeuronList
+
+        """
+        if not utils.is_iterable(objs):
+            objs = [objs]
+
+        if not objs:
+            logger.warning("No files found, returning empty NeuronList")
+            return core.NeuronList([])
+
+        new_objs = []
+        for obj in objs:
+            try:
+                if os.path.isdir(obj):
+                    new_objs.extend(self.files_in_dir(obj, include_subdirs))
+                    continue
+            except TypeError:
+                pass
+            new_objs.append(obj)
+
+        if (
+            isinstance(parallel, str)
+            and parallel.lower() == 'auto'
+            and len(new_objs) < 200
+        ):
+            parallel = False
+
+        read_fn = partial(self.read_any_single, attrs=attrs)
+        neurons = parallel_read(read_fn, new_objs, parallel)
+        return core.NeuronList(neurons)
+
+    def read_any(
+        self,
+        obj,
+        include_subdirs=DEFAULT_INCLUDE_SUBDIRS,
+        parallel="auto",
+        attrs: Optional[Dict[str, Any]] = None
+    ) -> 'core.NeuronObject':
+        """Attempt to read an arbitrary object into a neuron.
+
+        Parameters
+        ----------
+        obj :       typing.IO | str | os.PathLike | pandas.DataFrame
+                    Buffer, path to file or directory, URL, string, or
+                    dataframe.
+
+        Returns
+        -------
+        core.NeuronObject
+        """
+        if utils.is_iterable(obj) and not hasattr(obj, "read"):
+            return self.read_any_multi(obj, parallel, include_subdirs, attrs)
+        else:
+            try:
+                if os.path.isdir(obj):
+                    return self.read_directory(
+                        obj, include_subdirs, parallel, attrs
+                    )
+            except TypeError:
+                pass
+
+            try:
+                if os.path.isfile(obj) and str(obj).endswith('.zip'):
+                    return self.read_zip(obj, parallel, attrs)
+            except TypeError:
+                pass
+
+            return self.read_any_single(obj, attrs)
+
+    def parse_filename(
+        self, filename: str
+    ) -> dict:
+        """Extract properties from filename according to specified formatter.
+
+        Parameters
+        ----------
+        filename : str
+
+        Returns
+        -------
+        props :     dict
+                    Properties extracted from filename.
+
+        """
+        # Make sure we are working with the filename not the whole path
+        filename = Path(filename).name
+
+        # Escape all special characters
+        fmt = re.escape(self.fmt)
+
+        # Unescape { and }
+        fmt = fmt.replace('\\{', '{').replace('\\}', '}')
+
+        # Replace all e.g. {name} with {.*}
+        prop_names = []
+        for prop in re.findall("{.*?}", fmt):
+            prop_names.append(prop[1:-1].replace(" ", ""))
+            fmt = fmt.replace(prop, "(.*?)")
+
+        # Match
+        match = re.search(fmt, filename)
+
+        if not match:
+            raise ValueError(f'Unable to match "{self.fmt}" to filename "{filename}"')
+
+        props = {}
+        for i, prop in enumerate(prop_names):
+            for p in prop.split(','):
+                # Ignore empty ("{}")
+                if not p:
+                    continue
+
+                # If datatype was specified
+                if ":" in p:
+                    p, dt = p.split(':')
+
+                    props[p] = match.group(i + 1)
+
+                    if dt == 'int':
+                        props[p] = int(props[p])
+                    elif dt == 'float':
+                        props[p] = float(props[p])
+                    elif dt == 'bool':
+                        props[p] = bool(props[p])
+                    elif dt == 'str':
+                        props[p] = str(props[p])
+                    else:
+                        raise ValueError(f'Unable to interpret datatype "{dt}" '
+                                         f'for property {p}')
+                else:
+                    props[p] = match.group(i + 1)
+        return props
+
+
+    def _extract_connectors(
+        self, nodes: pd.DataFrame
+    ) -> Optional[pd.DataFrame]:
+        """Infer outgoing/incoming connectors from data.
+
+        Parameters
+        ----------
+        nodes :     pd.DataFrame
+
+        Returns
+        -------
+        Optional[pd.DataFrame]
+                    With columns ``["node_id", "x", "y", "z", "connector_id", "type"]``
+        """
+        return
+
+
+def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
+    """Read neurons from some objects with the given reader function,
+    potentially in parallel.
+
+    Reader function must be picklable.
+
+    Parameters
+    ----------
+    read_fn :       Callable
+    objs :          Iterable
+    parallel :      str | bool | int
+                    "auto" or True for `n_cores` // 2, otherwise int for number
+                    of jobs, or false for serial.
+
+    Returns
+    -------
+    core.NeuronList
+
+    """
+    try:
+        length = len(objs)
+    except TypeError:
+        length = None
+
+    prog = partial(
+        config.tqdm,
+        desc='Importing',
+        total=length,
+        disable=config.pbar_hide,
+        leave=config.pbar_leave
+    )
+
+    if parallel:
+        # Do not swap this as ``isinstance(True, int)`` returns ``True``
+        if isinstance(parallel, (bool, str)):
+            n_cores = max(1, os.cpu_count() // 2)
+        else:
+            n_cores = int(parallel)
+
+        with mp.Pool(processes=n_cores) as pool:
+            results = pool.imap(read_fn, objs)
+            neurons = list(prog(results))
+    else:
+        neurons = [read_fn(obj) for obj in prog(objs)]
+
+    return neurons
+
+
+def parallel_read_zip(read_fn, fpath, file_ext, parallel="auto") -> List['core.NeuronList']:
+    """Read neurons from a ZIP file, potentially in parallel.
+
+    Reader function must be picklable.
+
+    Parameters
+    ----------
+    read_fn :       Callable
+    fpath :         str | Path
+    file_ext :      str | callable
+                    File extension to search for - e.g. ".swc". `None` or `''`
+                    are interpreted as looking for filenames without extension.
+                    To include all files use `'*'`. Can also be callable that
+                    accepts a filename and returns True or False depending on
+                    if it should be included.
+    parallel :      str | bool | int
+                    "auto" or True for n_cores - 2, otherwise int for number of
+                    jobs, or false for serial.
+
+    Returns
+    -------
+    core.NeuronList
+
+    """
+    # Check zip content
+    p = Path(fpath)
+    to_read = []
+    with ZipFile(p, 'r') as zip:
+        for file in zip.filelist:
+            if callable(file_ext):
+                if file_ext(file.filename):
+                    to_read.append(file)
+            elif file_ext == '*':
+                to_read.append(file)
+            elif file_ext and file.filename.endswith(file_ext):
+                to_read.append(file)
+            elif '.' not in file.filename:
+                to_read.append(file)
+
+    prog = partial(
+        config.tqdm,
+        desc='Importing',
+        total=len(to_read),
+        disable=config.pbar_hide,
+        leave=config.pbar_leave
+    )
+
+    if (
+        isinstance(parallel, str)
+        and parallel.lower() == 'auto'
+        and len(to_read) < 200
+    ):
+        parallel = False
+
+    if parallel:
+        # Do not swap this as ``isinstance(True, int)`` returns ``True``
+        if isinstance(parallel, (bool, str)):
+            n_cores = max(1, os.cpu_count() - 2)
+        else:
+            n_cores = int(parallel)
+
+        with mp.Pool(processes=n_cores) as pool:
+            results = pool.imap(read_fn, to_read)
+            neurons = list(prog(results))
+    else:
+        neurons = [read_fn(obj) for obj in prog(to_read)]
+
+    return neurons
+
+
+def parse_precision(precision: Optional[int]):
+    """Convert bit width into int and float dtypes.
+
+    Parameters
+    ----------
+    precision : int
+        16, 32, 64, or None
+
+    Returns
+    -------
+    tuple
+        Integer numpy dtype, float numpy dtype
+
+    Raises
+    ------
+    ValueError
+        Unknown precision.
+    """
+    INT_DTYPES = {16: np.int16, 32: np.int32, 64: np.int64, None: None}
+    FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
+
+    try:
+        return (INT_DTYPES[precision], FLOAT_DTYPES[precision])
+    except KeyError:
+        raise ValueError(
+            f'Unknown precision {precision}. Expected on of the following: 16, 32 (default), 64 or None'
+        )
