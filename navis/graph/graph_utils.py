@@ -1883,7 +1883,7 @@ def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
         paths = []
         for n in leafs & cc:
             this_path = []
-            while n:
+            while n is not None:
                 this_path.append(n)
                 n = next(g.successors(n), None)
             paths.append(this_path)
@@ -1903,7 +1903,7 @@ def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
         for p in paths:
             it = iter(p)
             n = next(it, None)
-            while n:
+            while n is not None:
                 if n in include:
                     break
                 if n == first_common:
