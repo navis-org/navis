@@ -263,6 +263,12 @@ class Dotprops(BaseNeuron):
         self._vect = value
 
     @property
+    def sampling_resolution(self):
+        """Mean distance between points."""
+        dist, _ = self.kdtree.query(self.points, k=2)
+        return np.mean(dist[:, 1])
+
+    @property
     def soma(self) -> Optional[int]:
         """Index of soma point.
 
