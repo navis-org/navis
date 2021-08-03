@@ -752,6 +752,11 @@ class Viewer:
             visuals = combine_visuals(visuals, kwargs.get('name'))
 
         for v in visuals:
+            # Give visuals an _object_id if they don't already have one
+            if not hasattr(v, '_object_id'):
+                v.unfreeze()
+                v._object_id = uuid.uuid4()
+                v.freeze()
             self.view3d.add(v)
 
         if center:
