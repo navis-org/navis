@@ -15,13 +15,13 @@ import copy
 import numbers
 import os
 import pint
-import uuid
 import warnings
 import scipy
 
 import networkx as nx
 import numpy as np
 import pandas as pd
+import skeletor as sk
 import trimesh as tm
 
 from io import BufferedIOBase
@@ -59,9 +59,12 @@ class MeshNeuron(BaseNeuron):
                     Data to construct neuron from:
                      - any object that has ``.vertices`` and ``.faces``
                        properties (e.g. a trimesh.Trimesh)
-                     - a dictionary ``{"vertices": (N,3), "faces": (M, 3)}``
+                     - a tuple ``(vertices, faces)``
+                     - a dictionary ``{"vertices": (N, 3), "faces": (M, 3)}``
                      - filepath to a file that can be read by ``trimesh.load``
                      - ``None`` will initialize an empty MeshNeuron
+                     - ``skeletor.Skeleton`` will use the mesh and the skeleton
+                       (including the vertex to node map)
 
     units :         str | pint.Units | pint.Quantity
                     Units for coordinates. Defaults to ``None`` (dimensionless).
@@ -123,6 +126,13 @@ class MeshNeuron(BaseNeuron):
         elif isinstance(x, type(None)):
             # Empty neuron
             self.vertices, self.faces = np.zeros((0, 3)), np.zeros((0, 3))
+        elif isinstance(x, sk.Skeleton):
+            self.vertices, self.faces = x.mesh.vertices, x.mesh.faces
+            self._skeleton = TreeNeuron(x)
+        elif isinstance(x, tuple):
+            if len(x) != 2 or any([not isinstance(v, np.ndarray) for v in x]):
+                raise TypeError('Expect tuple to be two arrays: (vertices, faces)')
+            self.vertices, self.faces = x[0], x[1]
         else:
             raise utils.ConstructionError(f'Unable to construct MeshNeuron from "{type(x)}"')
 
