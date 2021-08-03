@@ -17,12 +17,12 @@ import hashlib
 import numbers
 import pint
 import types
-import uuid
 import warnings
 
 import networkx as nx
 import numpy as np
 import pandas as pd
+import skeletor as sk
 
 from io import BufferedIOBase
 
@@ -80,6 +80,7 @@ class TreeNeuron(BaseNeuron):
                      - ``BufferedIOBase`` e.g. from ``open(filename)``
                      - ``networkx.DiGraph`` parsed by `navis.nx2neuron`
                      - ``None`` will initialize an empty neuron
+                     - ``skeletor.Skeleton``
                      - ``TreeNeuron`` - in this case we will try to copy every
                        attribute
     units :         str | pint.Units | pint.Quantity
@@ -161,6 +162,9 @@ class TreeNeuron(BaseNeuron):
         elif isinstance(x, BufferedIOBase) or isinstance(x, str):
             x = io.read_swc(x)  # type: ignore
             self.__dict__.update(x.__dict__)
+        elif isinstance(x, sk.Skeleton):
+            self.nodes = x.swc.copy()
+            self.vertex_map = x.mesh_map
         elif isinstance(x, TreeNeuron):
             self.__dict__.update(x.copy().__dict__)
             # Try to copy every attribute
