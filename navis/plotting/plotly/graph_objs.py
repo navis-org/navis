@@ -59,7 +59,7 @@ def neuron2plotly(x, colormap, **kwargs):
                                  vmin=kwargs.get('vmin', None),
                                  vmax=kwargs.get('vmax', None),
                                  na=kwargs.get('na', 'raise'),
-                                 color_range=1)
+                                 color_range=255)
 
     if not isinstance(shade_by, type(None)):
         logger.warning('`shade_by` is currently not working due to an bug in '
@@ -371,9 +371,9 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
     if isinstance(color, np.ndarray) and color.ndim == 2:
         # Change colors to rgb/a strings
         if color.shape[1] == 4:
-            c = [f'rgba({c[0]:.0f},{c[1]:.0f},{c[2]:.0f},{c[3]:.3f})' for c in color]
+            c = [f'rgba({c[0]},{c[1]},{c[2]},{c[3]:.3f})' for c in color]
         else:
-            c = [f'rgb({c[0]:.0f},{c[1]:.0f},{c[2]:.0f})' for c in color]
+            c = [f'rgb({c[0]},{c[1]},{c[2]})' for c in color]
 
         # Next we have to make colors match the segments in `coords`
         c = np.asarray(c)
@@ -381,7 +381,7 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
         c = [col for s in neuron.segments for col in np.append(c[[ix[n] for n in s]], 'rgb(0,0,0)')]
 
     else:
-        c = f'rgb({color[0]:.0f},{color[1]:.0f},{color[2]:.0f})'
+        c = f'rgb({color[0]},{color[1]},{color[2]})'
 
     if kwargs.get('hover_id', False):
         hoverinfo = 'text'
