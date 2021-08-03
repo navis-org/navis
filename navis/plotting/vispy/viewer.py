@@ -773,6 +773,8 @@ class Viewer:
 
     def close(self):
         """Close viewer."""
+        # Clear first to free all visuals
+        self.clear()
         if self == getattr(config, 'primary_viewer', None):
             del config.primary_viewer
         self.canvas.close()
