@@ -506,7 +506,7 @@ def lines2plotly(x, **kwargs):
 
 def dotprops2plotly(x, legendgroup, showlegend, label, color, **kwargs):
     """Convert Dotprops to plotly graph object."""
-    scale_vec = kwargs.get('dps_scale_vec', 1)
+    scale_vec = kwargs.get('dps_scale_vec', 'auto')
     tn = x.to_skeleton(scale_vec=scale_vec)
 
     return skeleton2plotly(tn, legendgroup, showlegend, label, color, **kwargs)

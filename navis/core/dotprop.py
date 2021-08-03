@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from typing import Union, Callable, List, Optional, Tuple
+from typing_extensions import Literal
 
 from .. import utils, config, core, sampling
 
@@ -505,22 +506,34 @@ class Dotprops(BaseNeuron):
         if not inplace:
             return x
 
-    def to_skeleton(self, scale_vec: float = 1) -> core.TreeNeuron:
+    def to_skeleton(self,
+                    scale_vec: Union[float, Literal['auto']] = 'auto'
+                    ) -> core.TreeNeuron:
         """Turn dotprops into a skeleton.
 
         Note that only minimal meta data is carried over.
 
         Parameters
         ----------
-        scale_vec :     float
+        scale_vec :     "auto" | float
                         Factor by which to scale each tangent vector when
-                        generating the line segments.
+                        generating the line segments. If "auto" (default for
+                        plotting) will use the sampling resolution (median
+                        distance between points) to determine a suitable
+                        values.
 
         Returns
         -------
         TreeNeuron
 
         """
+        if not isinstance(scale_vec, numbers.Number) and scale_vec != 'auto':
+            raise ValueError('`scale_vect` must be "auto" or a number, '
+                             f'got {scale_vec}')
+
+        if scale_vec == 'auto':
+            scale_vec = self.sampling_resolution * .8
+
         # Prepare segments - this is based on nat:::plot3d.dotprops
         halfvect = self.vect / 2 * scale_vec
         starts = self.points - halfvect

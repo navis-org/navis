@@ -526,7 +526,7 @@ def dotprop2vispy(x, neuron_color, object_id, **kwargs):
 
     """
     # Generate TreeNeuron
-    scale_vec = kwargs.get('dps_scale_vec', 1)
+    scale_vec = kwargs.get('dps_scale_vec', 'auto')
     tn = x.to_skeleton(scale_vec=scale_vec)
     return skeleton2vispy(tn, neuron_color, object_id, **kwargs)
 
