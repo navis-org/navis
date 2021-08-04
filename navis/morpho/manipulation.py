@@ -33,7 +33,8 @@ logger = config.logger
 __all__ = sorted(['prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
                   'average_neurons', 'despike_neuron', 'guess_radius',
                   'smooth_neuron', 'heal_fragmented_neuron', 'cell_body_fiber',
-                  'break_fragments', 'prune_twigs', 'prune_at_depth'])
+                  'break_fragments', 'prune_twigs', 'prune_at_depth',
+                  'drop_fluff'])
 
 NeuronObject = Union['core.NeuronList', 'core.TreeNeuron']
 
@@ -1788,5 +1789,66 @@ def prune_at_depth(x: NeuronObject,
         x = x.copy()
 
     _ = graph.subset_neuron(x, subset=keep, inplace=True)
+
+    return x
+
+
+@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
+def drop_fluff(x: Union['core.TreeNeuron',
+                        'core.MeshNeuron',
+                        'core.NeuronList'],
+               keep_size: Optional[float] = None,
+               inplace: bool = False):
+    """Remove small disconnected pieces of "fluff".
+
+    By default, this function will remove all but the largest connected
+    component from the neuron (see also `keep_size`) parameter. Connectors will
+    be remapped to the closest surviving vertex/node.
+
+    Parameters
+    ----------
+    x :         TreeNeuron | MeshNeuron | NeuronList
+                The neuron to remove fluff from.
+    keep_size : float, optional
+                Use this to set a size (in number of nodes/vertices) for small
+                bits to keep. If `keep_size` < 1 it will be intepreted as
+                fraction of total nodes/vertices.
+    inplace :   bool, optional
+                If False, pruning is performed on copy of original neuron
+                which is then returned.
+
+    Returns
+    -------
+    Neuron/List
+                Neuron(s) without fluff.
+
+    """
+    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, core.MeshNeuron))
+
+    G = x.graph
+    # Skeleton graphs are directed
+    if G.is_directed():
+        G = G.to_undirected()
+
+    cc = sorted(nx.connected_components(G), key=lambda x: len(x), reverse=True)
+
+    if keep_size:
+        if keep_size < 1:
+            keep_size = len(G.nodes) * keep_size
+
+        keep = [n for c in cc for n in c if len(c) >= keep_size]
+    else:
+        keep = cc[0]
+
+    # Subset neuron
+    x = graph.subset_neuron(x, subset=keep, inplace=inplace, keep_disc_cn=True)
+
+    # See if we need to re-attach any connectors
+    id_col = 'node_id' if isinstance(x, core.TreeNeuron) else 'vertex_id'
+    if x.has_connectors and id_col in x.connectors:
+        disc = ~x.connectors[id_col].isin(x.graph.nodes).values
+        if any(disc):
+            xyz = x.connectors.loc[disc, ['x', 'y', 'z']].values
+            x.connectors.loc[disc, id_col] = x.snap(xyz)[0]
 
     return x
