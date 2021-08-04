@@ -880,9 +880,15 @@ def check_microns(x):
     if not isinstance(x, NeuronList):
         x = NeuronList(x)
 
-    # For very large NeuronLists converting the unit string to units is
+    # For very large NeuronLists converting the unit string to pint units is
     # the time consuming step. Here we will first reduce to unique units:
-    unit_str = np.unique(x._unit_str)
+    unit_str = []
+    for n in x:
+        if isinstance(n._unit_str, str):
+            unit_str.append(n._unit_str)
+        else:
+            unit_str += list(n._unit_str)
+    unit_str = np.unique(unit_str)
 
     any_not_microns = False
     all_units = True
