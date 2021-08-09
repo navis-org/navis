@@ -1094,8 +1094,12 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                    warp=warp)
         elif isinstance(x, core.Dotprops):
             if isinstance(x.k, type(None)) or x.k <= 0:
-                # If no k, we need to mirror vectors too
-                hp = mirror_brain(x.points + x.vect,
+                # If no k, we need to mirror vectors too Note that this is less
+                # than ideal though! Here, we are scaling the vector by the
+                # dotprop's sampling resolution (i.e. ideally a representative
+                # distance between the points) because if the vectors are too
+                # small any warping transform will make them go haywire
+                hp = mirror_brain(x.points + x.vect * x.sampling_resolution,
                                   template=template,
                                   mirror_axis=mirror_axis,
                                   warp=warp)
