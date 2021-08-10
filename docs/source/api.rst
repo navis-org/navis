@@ -145,11 +145,11 @@ These are methods and properties specific to ``MeshNeurons``.
 
     ~navis.MeshNeuron.faces
     ~navis.MeshNeuron.vertices
+    ~navis.MeshNeuron.skeletonize
+    ~navis.MeshNeuron.snap
     ~navis.MeshNeuron.trimesh
     ~navis.MeshNeuron.volume
     ~navis.MeshNeuron.validate
-    ~navis.MeshNeuron.snap
-
 
   VoxelNeurons
   ------------
