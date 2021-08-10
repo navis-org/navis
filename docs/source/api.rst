@@ -178,13 +178,21 @@ These are methods and properties specific to ``Dotprops``.
     ~navis.Dotprops.alpha
     ~navis.Dotprops.to_skeleton
 
-Dotprops are typically indirectly generated from skeletons or point clouds using
-this function:
+Dotprops are typically indirectly generated from e.g. skeletons or
+point clouds using :func:`navis.make_dotprops`.
+
+
+Conversion
+----------
+There are a couple functions to convert from one neuron type to another:
 
 .. autosummary::
     :toctree: generated/
 
     navis.make_dotprops
+    navis.conversion.tree2meshneuron
+    navis.conversion.mesh2skeleton
+    navis.conversion.neuron2voxels
 
 
 NeuronList methods

@@ -47,7 +47,7 @@ repository.
            - node IDs now start with 0 instead of 1
        - I/O to/from Google neuroglancer's precomputed format:
            - total rework of this module
-           - renamed ``navis.write_google_binary` -> :func:`~navis.write_precomputed`
+           - renamed ``navis.write_google_binary`` -> :func:`~navis.write_precomputed`
            - new function: :func:`~navis.read_precomputed`
        - :func:`~navis.make_dotprops` now accepts ``parallel=True`` parameter for parallel processing
        - :func:`~navis.plot3d` with plotly backend now returns a plotly ``Figure`` instead of a figure dictionary
