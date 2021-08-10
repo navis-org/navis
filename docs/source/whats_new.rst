@@ -13,9 +13,48 @@ repository.
 
    * - Version
      - Date
+     -
    * - dev
      - In development
-     - - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
+     - - :class:`~navis.NeuronList`:
+         - :meth:`navis.Neuronlist.apply` now allows omitting failures (see ``omit_failures`` parameter)
+       - :class:`~navis.VoxelNeuron`:
+         - new experimental class representing neurons as voxels
+         - :func:`~navis.read_nrrd` now returns VoxelNeuron instead of Dotprops by default
+         - currently works with only a selection of functions
+       - :class:`~navis.TreeNeuron`:
+         - can now be initialized directly with ``skeletor.Skeleton``
+         - new method: :meth:`~navis.TreeNeuron.snap`
+       - :class:`~navis.MeshNeuron`:
+         - :func:`~navis.in_volume`, :func:`~navis.subset_neuron` and :func:`~navis.break_fragments` now work on ``MeshNeurons``
+         - new properties: ``.skeleton``, ``.graph`` and ``.igraph``
+         - new methods: :meth:`~navis.MeshNeuron.skeletonize` and :meth:`~navis.MeshNeuron.snap`
+         - can now be initialized with ``skeletor.Skeleton`` and ``(vertices, faces)`` tuple
+         - plotting: ``color_by`` parameter now works with ``MeshNeurons``
+         - ``__getattr__`` does not search ``trimesh`` representation anymore
+       - :class:`~navis.Dotprops`:
+         - new property: ``.sampling_resolution`` (used e.g. for scaling vectors for plotting)
+       - experimental support for non-isometric ``.units`` for neurons
+       - NBLASTs:
+         - queries/targets now MUST be :class:`~navis.Dotprops` - no more automatic conversion
+         - new parameter ``limit_dist`` allows speeding up NBLASTs with minor precision loss
+         - new experimental parameter ``batch_size`` to NBLAST neurons in batches
+         - overall faster initialization with large lists of neurons
+       - SWC I/O (:func:`~navis.read_swc` & :func:`~navis.write_swc`):
+         - by default we will now deposit neuron meta data (name, id, units) in the SWC header (see ``write_meta`` parameter)
+         - meta data in SWC header can also be read back (see ``read_meta`` parameter)
+         - filenames can now be parsed into specific neuron properties (see ``fmt`` parameter)
+         - node IDs now start with 0 instead of 1
+       - I/O to/from Google neuroglancer's precomputed format:
+         - total rework of this module
+         - renamed ``navis.write_google_binary` -> :func:`~navis.write_precomputed`
+         - new function: :func:`~navis.read_precomputed`
+       - :func:`~navis.make_dotprops` now accepts ``parallel=True`` parameter for parallel processing
+       - :func:`~navis.plot3d` with plotly backend now returns a plotly ``Figure`` instead of a figure dictionary
+       - new functions: :func:`navis.plot_flat` and :func:`~navis.drop_fluff`
+       - under-the-hood fixes and improvements to: :func:`~navis.plot2d`, :func:`~navis.split_axon_dendrite`, :func:`~navis.tortuosity`, :func:`~navis.resample_neuron`, :func:`~navis.mirror_brain`
+       - first pass at at a ``NEURON`` interface (tutorials to come)
+       - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
    * - 0.6.0
      - 12/05/21
      - - new functions: :func:`navis.prune_at_depth`, :func:`navis.read_rda`, :func:`navis.cell_body_fiber`
@@ -40,7 +79,7 @@ repository.
        - fixed :func:`navis.guess_radius`
    * - 0.5.3
      - 10/04/21
-     - - new functions: :func:`navis.nblast_smart`, :func:`navis.write_google_binary`, :func:`navis.synblast`, :func:`navis.symmetrize_brain`
+     - - new functions: :func:`navis.nblast_smart`, :func:`navis.synblast`, :func:`navis.symmetrize_brain`
        - :func:`navis.plot3d` (plotly): ``hover_name=True`` will show neuron names on hover
        - :func:`navis.plot2d`: ``rasterize=True`` will rasterize neurons (but not axes or labels) to help keep file sizes low
        - :func:`navis.simplify_mesh` now supports 3 backends: Blender3D, ``open3d`` or ``pymeshlab``
@@ -52,7 +91,7 @@ repository.
        - a great many small and big bug fixes
    * - 0.5.2
      - 02/02/21
-     - - new functions: :func:`navis.xform`, :func:`navis.write_google_binary`
+     - - new functions: :func:`navis.xform`, :func:`navis.write_precomputed`
        - :func:`navis.downsample_neuron` now also works on ``Dotprops``
        - Neurons:
          - connectors are now included in bounding boxes

@@ -163,8 +163,8 @@ def plot3d(x: Union[core.NeuronObject,
     If ``backend='plotly'``
 
         Returns either ``None`` if you are in a Jupyter notebook (see
-        ``plotly_inline`` parameter) or a ``fig`` dictionary to generate
-        plotly 3D figure (see examples).
+        ``plotly_inline`` parameter) or a ``plotly.graph_objects.Figure``
+        (see examples).
 
     See Also
     --------

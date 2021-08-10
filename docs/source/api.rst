@@ -38,8 +38,8 @@ learn more!
 
 Neuron/List
 +++++++++++
-``TreeNeurons``, ``MeshNeurons`` and ``Dotprops`` are neuron classes.
-``NeuronLists`` are containers thereof.
+``TreeNeurons``, ``MeshNeurons``, ``VoxelNeurons`` and ``Dotprops`` are neuron
+classes. ``NeuronLists`` are containers thereof.
 
 .. autosummary::
     :toctree: generated/
@@ -47,6 +47,7 @@ Neuron/List
     navis.BaseNeuron
     navis.TreeNeuron
     navis.MeshNeuron
+    navis.VoxelNeuron
     navis.Dotprops
     navis.NeuronList
 
@@ -142,12 +143,27 @@ These are methods and properties specific to ``MeshNeurons``.
 .. autosummary::
     :toctree: generated/
 
-    ~navis.MeshNeuron.bbox
     ~navis.MeshNeuron.faces
-    ~navis.MeshNeuron.trimesh
     ~navis.MeshNeuron.vertices
+    ~navis.MeshNeuron.trimesh
     ~navis.MeshNeuron.volume
     ~navis.MeshNeuron.validate
+    ~navis.MeshNeuron.snap
+
+
+  VoxelNeurons
+  ------------
+  VoxelNeurons (e.g. from confocal stacks) are a relatively new addition to
+  navis and the interface might still change.
+  These are methods and properties specific to ``VoxelNeurons``.
+
+  .. autosummary::
+      :toctree: generated/
+
+      ~navis.VoxelNeuron.grid
+      ~navis.VoxelNeuron.voxels
+      ~navis.VoxelNeuron.shape
+      ~navis.VoxelNeuron.strip
 
 
 Dotprops
@@ -276,6 +292,7 @@ Functions to edit morphology:
     navis.average_neurons
     navis.break_fragments
     navis.despike_neuron
+    navis.drop_fluff
     navis.cell_body_fiber
     navis.cut_neuron
     navis.guess_radius

@@ -33,10 +33,6 @@ logger = config.logger
 class H5transform(BaseTransform):
     """Hdf5 transform of 3D spatial data.
 
-    Requires ``jpype``:
-
-        pip3 install JPype1
-
     See `here <https://github.com/saalfeldlab/template-building/wiki/Hdf5-Deformation-fields>`_
     for specifications of the format.
 
