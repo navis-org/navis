@@ -20,9 +20,27 @@ logger = config.logger
 
 
 def patch_cloudvolume():
-    """Monkey patch cloudvolume to return navis neurons.
+    """Monkey patch cloud-volume to return navis neurons.
 
-    This function must be run before initializing a `CloudVolume`.
+    This function must be run before initializing the `CloudVolume`! Adds new
+    methods/parameters to `CloudVolume.mesh.get` and `CloudVolume.skeleton.get`.
+    See examples for details.
+
+    Examples
+    --------
+    >>> import navis
+    >>> import cloudvolume as cv
+    >>> # Monkey patch cloudvolume
+    >>> navis.patch_cloudvolume()
+    >>> # Connect to the public microns dataset
+    >>> vol = cv.CloudVolume('precomputed://gs://iarpa_microns/minnie/minnie65/seg')
+    >>> # Fetch as navis neuron
+    >>> nl = vol.mesh.get_navis(864691135293126156, lod=3)
+    >>> # Alternatively
+    >>> nl = vol.mesh.get_navis(864691135293126156, lod=3, as_navis=True)
+    >>> type(nl)
+    navis.core.neuronlist.NeuronList
+
     """
     global cv
     try:
@@ -32,36 +50,52 @@ def patch_cloudvolume():
 
     # If CV not installed do nothing
     if not cv:
-        logger.info('cloudvolume appears to not be installed?')
+        logger.info('cloud-volume appears to not be installed?')
         return
 
     for ds in [cv.datasource.graphene.mesh.sharded.GrapheneShardedMeshSource,
                cv.datasource.graphene.mesh.unsharded.GrapheneUnshardedMeshSource,
                cv.datasource.precomputed.mesh.unsharded.UnshardedLegacyPrecomputedMeshSource,
                cv.datasource.precomputed.mesh.multilod.UnshardedMultiLevelPrecomputedMeshSource,
-               cv.datasource.precomputed.mesh.multilod.UnshardedMultiLevelPrecomputedMeshSource,
-               cv.datasource.precomputed.mesh.multilod.ShardedMultiLevelPrecomputedMeshSource,]:
-        ds.get = return_neurons(ds.get)
+               cv.datasource.precomputed.mesh.multilod.ShardedMultiLevelPrecomputedMeshSource]:
+        ds.get_navis = return_navis(ds.get, only_on_kwarg=False)
+        ds.get = return_navis(ds.get, only_on_kwarg=True)
 
-    logger.info('cloudvolume successfully patched!')
+    logger.info('cloud-volume successfully patched!')
 
 
-def return_neurons(func):
+def return_navis(func, only_on_kwarg=False):
+    """Wrap cloud-volume mesh and skeleton sources.
+
+    Parameters
+    ----------
+    func :          callable
+                    Function/method to wrap.
+    only_on_kwarg : bool
+                    If True, will look for a `as_navis=True` (default=False)
+                    keyword argument to determine if results should be converted
+                    to navis neurons.
+
+    """
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
+        ret_navis = kwargs.pop('as_navis', False)
         res = func(*args, **kwargs)
-        neurons = []
-        for k, v in res.items():
-            if isinstance(v, cv.Mesh):
-                n = core.MeshNeuron(v, id=k)
-                neurons.append(n)
-            elif isinstance(v, cv.Skeleton):
-                swc_str = v.to_swc()
-                n = io.read_swc(swc_str)
-                n.id = k
-                neurons.append(n)
-            else:
-                logger.warning(f'Skipped {k}: Unable to convert {type(v)} to '
-                               'navis Neuron.')
-        return core.NeuronList(neurons)
+
+        if not only_on_kwarg or ret_navis:
+            neurons = []
+            for k, v in res.items():
+                if isinstance(v, cv.Mesh):
+                    n = core.MeshNeuron(v, id=k)
+                    neurons.append(n)
+                elif isinstance(v, cv.Skeleton):
+                    swc_str = v.to_swc()
+                    n = io.read_swc(swc_str)
+                    n.id = k
+                    neurons.append(n)
+                else:
+                    logger.warning(f'Skipped {k}: Unable to convert {type(v)} to '
+                                   'navis Neuron.')
+            return core.NeuronList(neurons)
+        return res
     return wrapper

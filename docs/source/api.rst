@@ -689,3 +689,4 @@ Various utility functions.
     navis.set_loggers
     navis.set_default_connector_colors
     navis.config.remove_log_handlers
+    navis.patch_cloudvolume
