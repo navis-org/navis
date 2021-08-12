@@ -81,6 +81,9 @@ def volume2vispy(x, **kwargs):
                                shading=kwargs.get('shading', 'smooth'))
 
         # Set some aesthetic parameters
+        # Note that for larger meshes adjusting the shading filter actually
+        # surprisingly slow (e.g. ~4s @ 400k faces). Since volumes typically
+        # don't have too many faces, we will keep setting the shininess.
         if int(vispy.__version__.split('.')[1]) >= 7:
             s.shading_filter.shininess = 0
         else:
@@ -341,10 +344,13 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
 
     # Set some aesthetic parameters
     # Vispy 0.7.0 uses a new shading filter
-    if int(vispy.__version__.split('.')[1]) >= 7:
-        m.shading_filter.shininess = 0
-    else:
-        m.shininess = 0
+    # Note that for larger meshes adjusting the shading filter actually
+    # surprisingly slow (e.g. ~4s @ 400k faces)
+    if isinstance(kwargs.get('shininess', None), (int, float)):
+        if int(vispy.__version__.split('.')[1]) >= 7:
+            m.shading_filter.shininess = kwargs['shininess']
+        else:
+            m.shininess =  kwargs['shininess']
 
     # Possible presets are "additive", "translucent", "opaque"
     if len(neuron_color) == 4 and neuron_color[3] < 1:
