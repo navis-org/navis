@@ -53,9 +53,9 @@ classes. ``NeuronLists`` are containers thereof.
 
 General Neuron methods
 ----------------------
-Despite being fundamentally different data types, ``TreeNeurons``,
-``MeshNeurons`` and ``Dotprops`` share some common methods (i.e. functions)
-which they inherit from their abstract parent class ``BaseNeurons``.
+Despite being fundamentally different data types, all neurons share some common
+methods (i.e. functions) which they inherit from their (abstract) parent
+class ``BaseNeurons``.
 
 .. autosummary::
     :toctree: generated/
@@ -88,7 +88,7 @@ to all neurons:
 
 TreeNeurons
 -----------
-These are class methods available only for ``TreeNeurons``. Most of them are
+These are class methods available specific for ``TreeNeurons``. Most of them are
 simply short-hands for the other navis functions:
 
 .. autosummary::
@@ -197,8 +197,8 @@ There are a couple functions to convert from one neuron type to another:
 
 NeuronList methods
 ------------------
-``NeuronLists`` let you access all the properties and methods of the neuron they
-contain. In addition there are a few ``NeuronList``-specific methods and
+``NeuronLists`` let you access all the properties and methods of the neurons
+they contain. In addition there are a few ``NeuronList``-specific methods and
 properties.
 
 Methods:
