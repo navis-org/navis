@@ -28,9 +28,10 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
+        pip install numpy
         pip install flybrains --no-deps
         pip install pathos
-        pip install cloud-volume
+        pip install cloud-volume>=5.2.0
     - name: Install navis
       run: pip install -e .[dev]
     - run: pip install python-igraph
