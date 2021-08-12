@@ -33,7 +33,8 @@ def patch_cloudvolume():
     >>> # Monkey patch cloudvolume
     >>> navis.patch_cloudvolume()
     >>> # Connect to the public microns dataset
-    >>> vol = cv.CloudVolume('precomputed://gs://iarpa_microns/minnie/minnie65/seg')
+    >>> vol = cv.CloudVolume('precomputed://gs://iarpa_microns/minnie/minnie65/seg',
+    ...                      use_https=True)
     >>> # Fetch as navis neuron using newly added method or ...
     >>> nl = vol.mesh.get_navis(864691135293126156, lod=3)
     >>> # ... alternatively use `as_navis` keyword argument in original method
