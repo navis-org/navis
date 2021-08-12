@@ -349,10 +349,10 @@ class MeshNeuron(BaseNeuron):
 
         return ix, dist
 
-    def skeletonize(self, method='wavefront', heal=True, **kwargs) -> 'TreeNeuron':
+    def skeletonize(self, method='wavefront', heal=True, inv_dist=None, **kwargs) -> 'TreeNeuron':
         """Skeletonize mesh.
 
-        See :func:`navis.mesh2skeleton` for details.
+        See :func:`navis.conversion.mesh2skeleton` for details.
 
         Parameters
         ----------
@@ -360,9 +360,14 @@ class MeshNeuron(BaseNeuron):
                     Method to use for skeletonization.
         heal :      bool
                     Whether to heal a fragmented skeleton after skeletonization.
+        inv_dist :  int | float
+                    Only required foor method "teasar": invalidation distance for
+                    the traversal. Smaller ``inv_dist`` captures smaller features
+                    but is slower and vice versa. A good starting value is around
+                    2-5 microns.
         **kwargs
                     Additional keyword are passed through to
-                    :func:`navis.mesh2skeleton`.
+                    :func:`navis.conversion.mesh2skeleton`.
 
         Returns
         -------
@@ -370,7 +375,6 @@ class MeshNeuron(BaseNeuron):
 
         """
         return conversion.mesh2skeleton(self, method=method, heal=heal, **kwargs)
-
 
     def validate(self, inplace=False):
         """Use trimesh to try and fix some common mesh issues.

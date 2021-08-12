@@ -29,6 +29,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
                   method: str = 'wavefront',
                   fix_mesh: bool = False,
                   heal: bool = False,
+                  inv_dist: Union[int, float] = None,
                   **kwargs):
     """Turn mesh neuron into skeleton.
 
@@ -42,22 +43,29 @@ def mesh2skeleton(x: 'core.MeshNeuron',
                 Mesh(es) to skeletonize.
     method :    'wavefront' | 'teasar'
                 Method to use for skeletonization. The quality of the results
-                very much depend on the mesh but broadly speaking:
-                 - the "wavefront" method is fast and skeletons should be
-                   centered within the neuron but they might be noisier
-                 - the "teasar" method is slower and skeletons follow the
-                   surface of the mesh but they will be smoother than "teasar"
+                very much depends on the mesh but broadly speaking:
+                 - "wavefront": fast but noisier, skeletons will be ~centered
+                   within the neuron
+                 - "teasar": slower but smoother, skeletons follow the
+                   surface of the mesh, requires the `inv_dist` parameter to be
+                   set
+                "wavefront" also produces radii, "teasar" doesn't.
     fix_mesh :  bool
                 Whether to try to fix some common issues in the mesh before
-                skeletonization.
+                skeletonization. Note that this might compromise the
+                vertex-to-node-ID mapping.
     heal :      bool
-                Whether to heal the resulting skeletons if they are fragmented.
+                Whether to heal the resulting skeleton if it is fragmented.
                 For more control over the stitching set `heal=False` and use
-                :func:`navis.heal_fragmented_neuron` on the resulting skeleton.
+                :func:`navis.heal_fragmented_neuron` directly.
+    inv_dist :  int | float
+                Only required foor method "teasar": invalidation distance for
+                the traversal. Smaller ``inv_dist`` captures smaller features
+                but is slower and vice versa. A good starting value is around
+                2-5 microns.
     **kwargs
-                Keyword arguments are passed through to the respective
+                Additional keyword arguments are passed through to the respective
                 function in `skeletor` - i.e. `by_wavefront` or `by_teasar`.
-
 
     Returns
     -------
@@ -73,10 +81,17 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     >>> n = navis.example_neurons(1, kind='mesh')
     >>> # Convert to skeleton
     >>> sk = navis.conversion.mesh2skeleton(n)
+    >>> # Mesh vertex indices to node IDs map
+    >>> sk.vertex_map
+    array([938, 990, 990, ...,  39, 234, 234])
 
     """
     utils.eval_param(x, name='x', allowed_types=(core.MeshNeuron, tm.Trimesh))
     utils.eval_param(method, name='method', allowed_values=('wavefront', 'teasar'))
+
+    if method == 'teasar' and inv_dist is None:
+        raise ValueError('Must set `inv_dist` parameter when using method '
+                         '"teasar". A good starting value is around 2-5 microns.')
 
     props = {'soma': None}
     if isinstance(x, core.MeshNeuron):
@@ -92,7 +107,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     if method == 'wavefront':
         skeleton = sk.skeletonize.by_wavefront(x, **kwargs)
     elif method == 'teasar':
-        skeleton = sk.skeletonize.by_teasar(x, **kwargs)
+        skeleton = sk.skeletonize.by_teasar(x, inv_dist=inv_dist, **kwargs)
 
     props['vertex_map'] = skeleton.mesh_map
 
