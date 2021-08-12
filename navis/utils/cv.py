@@ -34,10 +34,10 @@ def patch_cloudvolume():
     >>> navis.patch_cloudvolume()
     >>> # Connect to the public microns dataset
     >>> vol = cv.CloudVolume('precomputed://gs://iarpa_microns/minnie/minnie65/seg')
-    >>> # Fetch as navis neuron
+    >>> # Fetch as navis neuron using newly added method or ...
     >>> nl = vol.mesh.get_navis(864691135293126156, lod=3)
-    >>> # Alternatively
-    >>> nl = vol.mesh.get_navis(864691135293126156, lod=3, as_navis=True)
+    >>> # ... alternatively use `as_navis` keyword argument in original method
+    >>> nl = vol.mesh.get(864691135293126156, lod=3, as_navis=True)
     >>> type(nl)
     navis.core.neuronlist.NeuronList
 

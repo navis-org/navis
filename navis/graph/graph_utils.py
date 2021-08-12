@@ -1063,12 +1063,12 @@ def reroot_neuron(x: 'core.NeuronObject',
     ----------
     x :        TreeNeuron | NeuronList
                List must contain only a SINGLE neuron.
-    new_root : int | str | iterable
-               Node ID(s) or tag(s) of node(s) to reroot to. If multiple
-               new IDs are provided, they will be reroot in sequence.
+    new_root : int | iterable
+               Node ID(s) of node(s) to reroot to. If multiple new roots are
+               provided, they will be rerooted in sequence.
     inplace :  bool, optional
                If True the input neuron will be rerooted in place. If False will
-               reroot and return a copy of the originaal.
+               reroot and return a copy of the original.
 
     Returns
     -------
