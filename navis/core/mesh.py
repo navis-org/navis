@@ -383,7 +383,8 @@ class MeshNeuron(BaseNeuron):
         skeleton :  navis.TreeNeuron
 
         """
-        return conversion.mesh2skeleton(self, method=method, heal=heal, **kwargs)
+        return conversion.mesh2skeleton(self, method=method, heal=heal,
+                                        inv_dist=inv_dist, **kwargs)
 
     def validate(self, inplace=False):
         """Use trimesh to try and fix some common mesh issues.
