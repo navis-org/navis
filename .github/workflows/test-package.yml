@@ -30,6 +30,7 @@ jobs:
         pip install --upgrade pip
         pip install flybrains --no-deps
         pip install pathos
+        pip install cloud-volume
     - name: Install navis
       run: pip install -e .[dev]
     - run: pip install python-igraph
