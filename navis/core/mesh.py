@@ -280,6 +280,15 @@ class MeshNeuron(BaseNeuron):
             self._skeleton = self.skeletonize()
         return self._skeleton
 
+    @skeleton.setter
+    def skeleton(self, s):
+        """Attach skeleton respresentation for this neuron."""
+        if isinstance(s, sk.Skeleton):
+            s = TreeNeuron(s, id=self.id, name=self.name)
+        elif not isinstance(s, TreeNeuron):
+            raise TypeError(f'`.skeleton` must be a TreeNeuron, got "{type(s)}"')
+        self._skeleton = s
+
     @property
     def type(self) -> str:
         """Neuron type."""
