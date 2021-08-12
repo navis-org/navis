@@ -82,7 +82,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     >>> # Convert to skeleton
     >>> sk = navis.conversion.mesh2skeleton(n)
     >>> # Mesh vertex indices to node IDs map
-    >>> sk.vertex_map
+    >>> sk.vertex_map                                           # doctest: +SKIP
     array([938, 990, 990, ...,  39, 234, 234])
 
     """

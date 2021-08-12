@@ -40,7 +40,7 @@ def patch_cloudvolume():
     >>> # ... alternatively use `as_navis` keyword argument in original method
     >>> nl = vol.mesh.get(864691135293126156, lod=3, as_navis=True)
     >>> type(nl)
-    navis.core.neuronlist.NeuronList
+    <class 'navis.core.neuronlist.NeuronList'>
 
     """
     global cv
