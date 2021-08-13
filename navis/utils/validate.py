@@ -142,6 +142,6 @@ def validate_table(x: pd.DataFrame,
             c = (c, )
 
         if not any(set(c) & set(x.columns)):
-            x[c] = v
+            x[c[0]] = v
 
     return x
