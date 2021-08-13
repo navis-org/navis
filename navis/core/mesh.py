@@ -70,6 +70,9 @@ class MeshNeuron(BaseNeuron):
                     Units for coordinates. Defaults to ``None`` (dimensionless).
                     Strings must be parsable by pint: e.g. "nm", "um",
                     "micrometer" or "8 nanometers".
+    process :       bool
+                    If True (default and highly recommended), will remove NaN
+                    and inf values, and merge duplicate vertices.
     validate :      bool
                     If True, will try to fix some common problems with
                     meshes. See ``navis.fix_mesh`` for details.
@@ -101,6 +104,7 @@ class MeshNeuron(BaseNeuron):
                           'TreeNeuron',
                           nx.DiGraph],
                  units: Union[pint.Unit, str] = None,
+                 process: bool = True,
                  validate: bool = False,
                  **metadata
                  ):
@@ -138,6 +142,14 @@ class MeshNeuron(BaseNeuron):
 
         for k, v in metadata.items():
             setattr(self, k, v)
+
+        if process and self.vertices.shape[0]:
+            # For some reason we can't do self._trimesh at this stage
+            _trimesh = tm.Trimesh(self.vertices, self.faces,
+                                  process=process,
+                                  validate=validate)
+            self.vertices = _trimesh.vertices
+            self.faces = _trimesh.faces
 
         self._lock = 0
 
@@ -298,7 +310,9 @@ class MeshNeuron(BaseNeuron):
     def trimesh(self):
         """Trimesh representation of the neuron."""
         if not getattr(self, '_trimesh', None):
-            self._trimesh = tm.Trimesh(vertices=self._vertices, faces=self._faces)
+            self._trimesh = tm.Trimesh(vertices=self._vertices,
+                                       faces=self._faces,
+                                       process=False)
         return self._trimesh
 
     def copy(self) -> 'MeshNeuron':
