@@ -522,7 +522,7 @@ def split_axon_dendrite(x: NeuronObject,
                                      Literal['distance']] = 'prepost',
                         cellbodyfiber: Union[Literal['soma'],
                                              Literal['root'],
-                                             bool] = 'soma',
+                                             bool] = False,
                         reroot_soma: bool = True,
                         labels: Union[Literal['only'],
                                       bool] = False
@@ -564,8 +564,8 @@ def split_axon_dendrite(x: NeuronObject,
                               soma is the dendrites
 
     cellbodyfiber :     "soma" | "root" | False
-                        Determines whether we will try to find the cell body
-                        fiber (CBF):
+                        Determines whether we will try to find a cell body
+                        fiber (CBF).
 
                             - "soma" will try finding the CBF only if the neuron
                               has a soma
@@ -573,6 +573,10 @@ def split_axon_dendrite(x: NeuronObject,
                               of the CBF as fallback if there is no soma
                             - `False` will not attempt to extract the CBF
 
+                        A CBF is something typically found in insect neurons
+                        which are not bipolar unlike most vertebrate neurons but
+                        rather have a passive soma some distance away from
+                        axon/dendrites.
     reroot_soma :       bool,
                         If True and neuron has a soma, will make sure the neuron
                         is rooted to its soma.
@@ -628,7 +632,7 @@ def split_axon_dendrite(x: NeuronObject,
     utils.eval_param(metric, 'metric', allowed_values=_METRIC)
     utils.eval_param(split, 'split', allowed_values=('prepost', 'distance'))
     utils.eval_param(cellbodyfiber, 'cellbodyfiber',
-                     allowed_values=('soma', 'root'))
+                     allowed_values=('soma', 'root', False))
 
     if len(x.root) > 1:
         raise ValueError(f'Unable to split neuron {x.id}: multiple roots. '
@@ -689,13 +693,13 @@ def split_axon_dendrite(x: NeuronObject,
         post = x.postsynapses
         sm['n_pre'] = [pre[pre.node_id.isin(c)].shape[0] for c in cc]
         sm['n_post'] = [post[post.node_id.isin(c)].shape[0] for c in cc]
-        sm['prepost'] = (sm.n_pre / sm.n_post)
+        sm['prepost_ratio'] = (sm.n_pre / sm.n_post)
         sm['frac_post'] = sm.n_post / sm.n_post.sum()  # this is for debugging
         sm['frac_pre'] = sm.n_pre / sm.n_pre.sum()
         sm['frac_prepost'] = (sm.frac_pre / sm.frac_post)
 
         sm.loc[sm[['frac_pre', 'frac_post']].max(axis=1) < 0.01,
-               ['prepost', 'frac_prepost']] = np.nan
+               ['prepost_ratio', 'frac_prepost']] = np.nan
         # Above code makes it so that prepost is NaN if there are either no pre-
         # OR postsynapses on a given fragment or the fragment is small.
         # These fragments are typically small sidebranches of the linker.
