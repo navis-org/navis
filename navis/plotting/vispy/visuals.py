@@ -625,15 +625,25 @@ def combine_visuals(visuals, name=None):
             # Collate data
             pos = np.concatenate([vis._pos for vis in by_type[ty]])
 
-            # We need to produce one color/vertex
-            colors = np.concatenate([np.repeat([vis.color],
-                                               vis.pos.shape[0],
-                                               axis=0) for vis in by_type[ty]])
+            # We need to produce one color/vertex and offset the connections
+            colors = []
+            connect = []
+            offset = 0
+            for vis in by_type[ty]:
+                if vis.color.ndim == 2:
+                    colors.append(vis.color)
+                else:
+                    colors.append(np.repeat([vis.color], vis.pos.shape[0], axis=0))
+                connect.append(vis._connect + offset)
+                offset += vis._pos.shape[0]
+
+            connect = np.concatenate(connect) 
+            colors = np.concatenate(colors)
 
             t = scene.visuals.Line(pos=pos,
                                    color=colors,
                                    # Can only be used with method 'agg'
-                                   connect='segments',
+                                   connect=connect,
                                    antialias=True,
                                    method='gl')
             # method can also be 'agg' -> has to use connect='strip'
