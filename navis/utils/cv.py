@@ -87,12 +87,13 @@ def return_navis(func, only_on_kwarg=False):
             neurons = []
             for k, v in res.items():
                 if isinstance(v, cv.Mesh):
-                    n = core.MeshNeuron(v, id=k)
+                    n = core.MeshNeuron(v, id=k, units='nm')
                     neurons.append(n)
                 elif isinstance(v, cv.Skeleton):
                     swc_str = v.to_swc()
                     n = io.read_swc(swc_str)
                     n.id = k
+                    n.units = 'nm'
                     neurons.append(n)
                 else:
                     logger.warning(f'Skipped {k}: Unable to convert {type(v)} to '
