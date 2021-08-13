@@ -71,7 +71,7 @@ class SwcReader(base.BaseReader):
         self.delimiter = delimiter
         self.read_meta = read_meta
 
-        int_, float_ = parse_precision(precision)
+        int_, float_ = base.parse_precision(precision)
         self._dtypes = {
             'node_id': int_,
             'parent_id': int_,
@@ -174,35 +174,6 @@ class SwcReader(base.BaseReader):
             to_concat.append(cn)
 
         return pd.concat(to_concat, axis=0)
-
-
-def parse_precision(precision: Optional[int]):
-    """Convert bit width into int and float dtypes.
-
-    Parameters
-    ----------
-    precision : int
-        16, 32, 64, or None
-
-    Returns
-    -------
-    tuple
-        Integer numpy dtype, float numpy dtype
-
-    Raises
-    ------
-    ValueError
-        Unknown precision.
-    """
-    INT_DTYPES = {16: np.int16, 32: np.int32, 64: np.int64, None: None}
-    FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
-
-    try:
-        return (INT_DTYPES[precision], FLOAT_DTYPES[precision])
-    except KeyError:
-        raise ValueError(
-            f'Unknown precision {precision}. Expected on of the following: 16, 32 (default), 64 or None'
-        )
 
 
 def sanitise_nodes(nodes: pd.DataFrame) -> pd.DataFrame:
