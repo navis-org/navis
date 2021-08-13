@@ -87,5 +87,6 @@ def fix_mesh(mesh: Union[tm.Trimesh, 'core.MeshNeuron'],
     # If we started with a MeshNeuron, map back the verts/faces
     if isinstance(mesh, core.MeshNeuron):
         mesh.vertices, mesh.faces = m.vertices, m.faces
+        mesh._clear_temp_attr()
 
     return mesh
