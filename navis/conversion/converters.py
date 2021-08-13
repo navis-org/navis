@@ -29,6 +29,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
                   method: str = 'wavefront',
                   fix_mesh: bool = False,
                   heal: bool = False,
+                  connectors: bool = False,
                   inv_dist: Union[int, float] = None,
                   **kwargs):
     """Turn mesh neuron into skeleton.
@@ -58,6 +59,11 @@ def mesh2skeleton(x: 'core.MeshNeuron',
                 Whether to heal the resulting skeleton if it is fragmented.
                 For more control over the stitching set `heal=False` and use
                 :func:`navis.heal_fragmented_neuron` directly.
+    connectors : bool
+                Whether to carry over existing connector tables. This will
+                attach connectors by first snapping them to the closest mesh
+                vertex and then to the skeleton node corresponding to that
+                vertex.
     inv_dist :  int | float
                 Only required foor method "teasar": invalidation distance for
                 the traversal. Smaller ``inv_dist`` captures smaller features
@@ -71,8 +77,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     -------
     skeleton :  navis.TreeNeuron
                 Has a `.vertex_map` attribute that maps each vertex in the
-                input mesh to a skeleton node ID. Note that data tables
-                (e.g. `connectors`) are not carried over from the input neuron.
+                input mesh to a skeleton node ID.
 
     Examples
     --------
@@ -98,20 +103,31 @@ def mesh2skeleton(x: 'core.MeshNeuron',
         props.update({'id': x.id, 'name': x.name, 'units': x.units})
         if x.has_soma:
             props['soma_pos'] = x.soma_pos
-        x = x.trimesh
+        mesh = x.trimesh
+    else:
+        mesh = x
+        x = core.MeshNeuron(x)
 
     if fix_mesh:
-        x = sk.pre.fix_mesh(x, drop_disconnected=False)
+        mesh = sk.pre.fix_mesh(mesh, drop_disconnected=False)
 
     kwargs['progress'] = not config.pbar_hide
     if method == 'wavefront':
-        skeleton = sk.skeletonize.by_wavefront(x, **kwargs)
+        skeleton = sk.skeletonize.by_wavefront(mesh, **kwargs)
     elif method == 'teasar':
         skeleton = sk.skeletonize.by_teasar(x, inv_dist=inv_dist, **kwargs)
 
     props['vertex_map'] = skeleton.mesh_map
 
     skeleton = core.TreeNeuron(skeleton.swc, **props)
+
+    if connectors and x.has_connectors:
+        cn_table = x.connectors.copy()
+        cn_table['node_id'] = x.snap(cn_table[['x', 'y', 'z']].values)[0]
+        node_map = dict(zip(np.arange(len(skeleton.vertex_map)),
+                            skeleton.vertex_map))
+        cn_table['node_id'] = cn_table.node_id.map(node_map)
+        skeleton.connectors = cn_table
 
     if heal:
         _ = morpho.heal_fragmented_neuron(skeleton, inplace=True, method='ALL')
