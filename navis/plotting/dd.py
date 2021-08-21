@@ -625,7 +625,7 @@ def _plot_dotprops(dp, color, method, ax, **kwargs):
     """Plot dotprops."""
     # Here, we will effectively cheat and turn the dotprops into a skeleton
     # which we can then pass to _plot_skeleton
-    tn = dp.to_skeleton(scale_vec=kwargs.get('dps_scale_vec', 1))
+    tn = dp.to_skeleton(scale_vec=kwargs.get('dps_scale_vec', 'auto'))
 
     return _plot_skeleton(tn, color, method, ax, **kwargs)
 
