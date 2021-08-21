@@ -18,12 +18,15 @@ import numpy as np
 import pandas as pd
 import trimesh as tm
 
+from scipy import ndimage
 from scipy.spatial.distance import pdist
 from typing import Union, Optional
 
 from .. import utils, core, config
 from .base import BaseTransform, TransformSequence, TransOptimizer
 from .affine import AffineTransform
+
+logger = config.logger
 
 
 def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
@@ -211,6 +214,87 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     # Apply transform and return xformed points
     return transform.xform(x, affine_fallback=affine_fallback)
+
+
+def _xform_image(x: 'core.VoxelNeuron',
+                 transform: Union[BaseTransform, TransformSequence]
+                 ) -> 'core.VoxelNeuron':
+    """Apply transform(s) to image (voxel) data.
+
+    Parameters
+    ----------
+    x :                 VoxelNeuron
+                        Data to transform.
+    transform :         Transform/Sequence or list thereof
+                        Either a single transform or a transform sequence.
+
+    Returns
+    -------
+    VoxelNeuron
+                        Copy of neuron with transformed coordinates.
+
+    """
+    if not isinstance(x, core.VoxelNeuron):
+        raise TypeError(f'Unable to transform image of type "{type(x)}"')
+
+    # Temporarily ignore warnings
+    current_level = logger.level()
+
+    try:
+        logger.setLevel('ERROR')
+        # First transform the bounding box. We are doing this in two steps (one for
+        # each point) to avoid caching large volumes
+        mn = xform(x.bbox[:, :1].T, transform=transform, affine_fallback=True)
+        mx = xform(x.bbox[:, 1:].T, transform=transform, affine_fallback=True)
+        bbox_xf = np.vstack((mn, mx)).T
+    except BaseException:
+        raise
+    finally:
+        logger.setLevel(current_level)
+
+    # Next: generate a voxel grid in the target space of the same shape as
+    # our input grid
+    target_voxel_size = (bbox_xf[:, 1] - bbox_xf[:, 0]) / x.shape
+
+    # Generate a grid of xyz coordinates
+    XX, YY, ZZ = np.meshgrid(range(x.shape[0]),
+                             range(x.shape[1]),
+                             range(x.shape[2]),
+                             indexing='ij')
+    # Coordinate grid has, for each voxel, in the (M, N, K) voxel grid an xyz
+    # index coordinate -> hence shape is (3, M, N, K)
+    ix_grid = np.array([XX, YY, ZZ])
+    # Idea here:
+    # - generate a downsampled grid and upsample by interpolation later
+
+    # Convert grid into (N * N * K, 3) voxel array
+    ix_array_target = ix_grid.T.reshape(-1, 3)
+
+    # Convert indices to actual coordinates
+    coo_array_target = (ix_array_target * target_voxel_size) + bbox_xf[:, 0]
+
+    # Transform these coordinates from target back to source space
+    # This step is the VERY slow one since we are (potentially) xforming
+    # millions of coordinates
+    coo_array_source = (-transform).xform(coo_array_target,
+                                          affine_fallback=True)
+
+    # Convert coordinates back into voxels
+    ix_array_source = (coo_array_source - x.bbox[:, 0]) / x.units_xyz.magnitude
+
+    # Use target->source index mapping to interpolate the image
+    # order=1 means linear interpolation (much faster)
+    mapped = ndimage.map_coordinates(x.grid, ix_array_source.T, order=1)
+    grid_xf = np.zeros(x.shape)
+    grid_xf[ix_array_target[:, 0],
+            ix_array_target[:, 1],
+            ix_array_target[:, 2]] = mapped
+
+    xf = x.copy()
+    xf.grid = grid_xf
+    xf.offset = bbox_xf[:, 0]
+
+    return xf
 
 
 def _guess_change(xyz_before: np.ndarray,
