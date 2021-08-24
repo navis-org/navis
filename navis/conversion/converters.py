@@ -19,7 +19,7 @@ from numbers import Number
 from scipy.ndimage import gaussian_filter
 from typing import Union, Optional
 
-from .. import core, config, utils, morpho
+from .. import core, config, utils, morpho, graph
 
 logger = config.logger
 
@@ -28,6 +28,7 @@ logger = config.logger
 def mesh2skeleton(x: 'core.MeshNeuron',
                   method: str = 'wavefront',
                   fix_mesh: bool = False,
+                  shave: bool = True,
                   heal: bool = False,
                   connectors: bool = False,
                   inv_dist: Union[int, float] = None,
@@ -55,20 +56,25 @@ def mesh2skeleton(x: 'core.MeshNeuron',
                 Whether to try to fix some common issues in the mesh before
                 skeletonization. Note that this might compromise the
                 vertex-to-node-ID mapping.
+    shave :     bool
+                Whether to "shave" the resulting skeleton to reduce bristles
+                on the backbone.
     heal :      bool
                 Whether to heal the resulting skeleton if it is fragmented.
                 For more control over the stitching set `heal=False` and use
-                :func:`navis.heal_fragmented_neuron` directly.
+                :func:`navis.heal_fragmented_neuron` directly. Note that this
+                can be fairly costly if the mesh as many tiny fragments.
     connectors : bool
                 Whether to carry over existing connector tables. This will
                 attach connectors by first snapping them to the closest mesh
                 vertex and then to the skeleton node corresponding to that
                 vertex.
-    inv_dist :  int | float
-                Only required foor method "teasar": invalidation distance for
+    inv_dist :  int | float | str
+                Only required for method "teasar": invalidation distance for
                 the traversal. Smaller ``inv_dist`` captures smaller features
-                but is slower and vice versa. A good starting value is around
-                2-5 microns.
+                but is slower and more noisy, and vice versa. A good starting
+                value is around 2-5 microns. Can be a unit string - e.g.
+                "5 microns" - if your neuron has its units set.
     **kwargs
                 Additional keyword arguments are passed through to the respective
                 function in `skeletor` - i.e. `by_wavefront` or `by_teasar`.
@@ -78,6 +84,12 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     skeleton :  navis.TreeNeuron
                 Has a `.vertex_map` attribute that maps each vertex in the
                 input mesh to a skeleton node ID.
+
+    See Also
+    --------
+    :func:`navis.drop_fluff`
+                Use this if your mesh has lots of tiny free floating bits to
+                reduce noise and speed up skeletonization.
 
     Examples
     --------
@@ -102,7 +114,11 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     if isinstance(x, core.MeshNeuron):
         props.update({'id': x.id, 'name': x.name, 'units': x.units})
         if x.has_soma:
-            props['soma_pos'] = x.soma_pos
+            props['soma_pos'] = x.soma
+
+        if not isinstance(inv_dist, type(None)):
+            inv_dist = x.map_units(inv_dist)
+
         mesh = x.trimesh
     else:
         mesh = x
@@ -119,20 +135,46 @@ def mesh2skeleton(x: 'core.MeshNeuron',
 
     props['vertex_map'] = skeleton.mesh_map
 
-    skeleton = core.TreeNeuron(skeleton.swc, **props)
+    s = core.TreeNeuron(skeleton.swc, **props)
 
+    if heal:
+        _ = morpho.heal_fragmented_neuron(s, inplace=True, method='ALL')
+
+    if shave:
+        # Find single node bristles
+        leafs = s.leafs.node_id.values
+        bp = s.branch_points.node_id.values
+        bristles = s.nodes[s.nodes.node_id.isin(leafs)
+                           & s.nodes.parent_id.isin(bp)]
+
+        # Subset neuron
+        keep = s.nodes[~s.nodes.node_id.isin(bristles.node_id)].node_id.values
+        s = graph.subset_neuron(s, keep, inplace=True)
+
+        # Fix vertex map
+        for b, p in zip(bristles.node_id.values, bristles.parent_id.values):
+            s.vertex_map[s.vertex_map == b] = p
+
+    # In particular with method wavefront, some nodes (mostly leafs) can have
+    # a radius of 0. We will fix this here by giving them 1/2 the radius of
+    # their parent nodes'
+    to_fix = (s.nodes.radius == 0) & (s.nodes.parent_id >= 0)
+    if any(to_fix):
+        radii = s.nodes.set_index('node_id').radius
+        new_radii = radii.loc[s.nodes.loc[to_fix].parent_id].values / 2
+        s.nodes.loc[to_fix, 'radius'] = new_radii
+
+
+
+    # Last but not least: map connectors
     if connectors and x.has_connectors:
         cn_table = x.connectors.copy()
         cn_table['node_id'] = x.snap(cn_table[['x', 'y', 'z']].values)[0]
-        node_map = dict(zip(np.arange(len(skeleton.vertex_map)),
-                            skeleton.vertex_map))
+        node_map = dict(zip(np.arange(len(s.vertex_map)), s.vertex_map))
         cn_table['node_id'] = cn_table.node_id.map(node_map)
-        skeleton.connectors = cn_table
+        s.connectors = cn_table
 
-    if heal:
-        _ = morpho.heal_fragmented_neuron(skeleton, inplace=True, method='ALL')
-
-    return skeleton
+    return s
 
 
 def _make_voxels(x: 'core.BaseNeuron',
