@@ -524,14 +524,12 @@ def split_axon_dendrite(x: NeuronObject,
                                              Literal['root'],
                                              bool] = False,
                         reroot_soma: bool = True,
-                        labels: Union[Literal['only'],
-                                      bool] = False
+                        label_only: bool = False
                         ) -> 'core.NeuronList':
-    """Split a neuron into axon, dendrite, linker and cell body fiber.
+    """Split a neuron into axon and dendrite.
 
     The result is highly dependent on the method and on your neuron's
-    morphology and works best for "typical" insect neurons, i.e. those where the
-    cell body fiber branches into axon and dendrites.
+    morphology and works best for "typical" neurons.
 
     Parameters
     ----------
@@ -580,10 +578,10 @@ def split_axon_dendrite(x: NeuronObject,
     reroot_soma :       bool,
                         If True and neuron has a soma, will make sure the neuron
                         is rooted to its soma.
-    labels :            bool | "only",
-                        If True, will add a "compartment" column to the node
-                        table of the input neuron. If "only" will only add that
-                        column and not return the split.
+    label_only :        bool,
+                        If True, will not split the neuron but rather add a
+                        "compartment" column to the node and connector table of
+                        the input neuron.
 
     Returns
     -------
@@ -607,6 +605,17 @@ def split_axon_dendrite(x: NeuronObject,
     >>> # For convenience, split_axon_dendrite assigns colors to the resulting
     >>> # fragments: axon = red, dendrites = blue, CBF = green
     >>> _ = split.plot3d(color=split.color)
+
+    Alternatively just label the compartments
+
+    >>> x = navis.split_axon_dendrite(x, label_only=True)
+    >>> x.nodes[~x.nodes.compartment.isnull()].head()           # doctest: +SKIP
+             node_id label        x        y        z     radius  parent_id  type compartment
+    110      111     0  17024.0  33790.0  26602.0  72.462097        110  slab      linker
+    111      112     0  17104.0  33670.0  26682.0  72.462097        111  slab      linker
+    112      113     0  17184.0  33450.0  26782.0  70.000000        112  slab      linker
+    113      114     0  17244.0  33270.0  26822.0  70.000000        113  slab      linker
+    114      115     0  17324.0  33150.0  26882.0  74.852798        114  slab      linker
 
     See Also
     --------
@@ -721,7 +730,7 @@ def split_axon_dendrite(x: NeuronObject,
             else:
                 axon = axon | c
 
-    # Now that we have in princple figured out what's what we need to do some
+    # Now that we have in principle figured out what's what we need to do some
     # clean-up
     # First: it is quite likely that the axon(s) and or the dendrites fragmented
     # and we need to stitch them back together using linker but not dendrites!
@@ -759,7 +768,7 @@ def split_axon_dendrite(x: NeuronObject,
                 break
 
     # Add labels
-    if labels:
+    if label_only:
         original.nodes['compartment'] = None
         is_linker = original.nodes.node_id.isin(linker)
         is_axon = original.nodes.node_id.isin(axon)
@@ -797,11 +806,15 @@ def split_axon_dendrite(x: NeuronObject,
         original.nodes.loc[original.nodes.compartment.isnull() & (original.nodes.parent_id < 0),
                            'compartment'] = root_cmp
 
+        # Set connector compartments
+        cmp_map = original.nodes.set_index('node_id').compartment.to_dict()
+        original.connectors['compartment'] = original.connectors.node_id.map(cmp_map)
+
         # Turn into categorical data
         original.nodes['compartment'] = original.nodes.compartment.astype('category')
+        original.connectors['compartment'] = original.connectors.compartment.astype('category')
 
-        if labels == 'only':
-            return original
+        return original
 
     # Generate the actual splits
     nl = []
