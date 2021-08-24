@@ -259,7 +259,7 @@ def plot3d_vispy(x, **kwargs):
                'auto_limits', 'autolimits', 'viewer', 'radius', 'center',
                'clear', 'clear3d', 'connectors', 'connectors_only', 'soma',
                'palette', 'color_by', 'shade_by', 'vmin', 'vmax', 'smin',
-               'smax', 'shininess'}
+               'smax', 'shininess', 'volume_legend'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - ALLOWED

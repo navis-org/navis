@@ -538,6 +538,7 @@ def volume2plotly(x, colormap, **kwargs):
                                     k=v.faces[:, 2],
                                     color=rgba_str,
                                     name=name,
+                                    showlegend=kwargs.get('volume_legend', False),
                                     hoverinfo='none'))
 
     return trace_data
