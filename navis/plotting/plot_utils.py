@@ -146,7 +146,7 @@ def fibonacci_sphere(samples: int = 1,
 
         points.append([x, y, z])
 
-    return points
+    return np.array(points)
 
 
 def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):

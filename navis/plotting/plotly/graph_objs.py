@@ -434,10 +434,10 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
                 r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
 
                 trace_data.append(go.Mesh3d(
-                    x=[(v[0] * r) + n.x for v in fib_points],
+                    x=fib_points[:, 0] * r + n.x,
                     # y and z are switched
-                    y=[(v[1] * r) + n.y for v in fib_points],
-                    z=[(v[2] * r) + n.z for v in fib_points],
+                    y=fib_points[:, 1] * r + n.y,
+                    z=fib_points[:, 2] * r + n.z,
                     legendgroup=legendgroup,
                     alphahull=.5,
                     showlegend=False,
