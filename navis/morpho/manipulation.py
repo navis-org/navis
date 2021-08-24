@@ -1815,7 +1815,7 @@ def prune_at_depth(x: NeuronObject,
         raise ValueError(f'Source "{source}" not among nodes')
 
     # Get distance from source
-    dist = graph.geodesic_matrix(x, tn_ids=[source], directed=False, limit=depth)
+    dist = graph.geodesic_matrix(x, node_ids=[source], directed=False, limit=depth)
     keep = dist.columns[dist.values[0] < np.inf]
 
     if not inplace:
