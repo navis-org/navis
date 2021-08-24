@@ -1405,6 +1405,7 @@ def guess_radius(x: NeuronObject,
 @utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
 def smooth_neuron(x: NeuronObject,
                   window: int = 5,
+                  to_smooth: list = ['x', 'y', 'z'],
                   inplace: bool = False) -> Optional[NeuronObject]:
     """Smooth neuron using rolling windows.
 
@@ -1413,8 +1414,11 @@ def smooth_neuron(x: NeuronObject,
     x :             TreeNeuron | NeuronList
                     Neuron(s) to be processed.
     window :        int, optional
-                    Size (n observations) of the rolling window in number of
+                    Size (N observations) of the rolling window in number of
                     nodes.
+    to_smooth :     list
+                    Columns of the node table to smooth. Should work with any
+                    numeric column (e.g. 'radius').
     inplace :       bool, optional
                     If False, will use and return copy of original neuron(s).
 
@@ -1425,9 +1429,15 @@ def smooth_neuron(x: NeuronObject,
 
     Examples
     --------
+    Smooth x/y/z locations:
+
     >>> import navis
     >>> nl = navis.example_neurons(2)
     >>> smoothed = navis.smooth_neuron(nl, window=5)
+
+    Smooth only radius:
+
+    >>> rad_smoothed = navis.smooth_neuron(nl, to_smooth='radius')
 
     """
     # The decorator makes sure that at this point we have single neurons
@@ -1441,17 +1451,23 @@ def smooth_neuron(x: NeuronObject,
     mmetrics.parent_dist(x, root_dist=0)
     nodes = x.nodes.set_index('node_id', inplace=False).copy()
 
+    to_smooth = utils.make_iterable(to_smooth)
+
+    miss = to_smooth[~np.isin(to_smooth, nodes.columns)]
+    if len(miss):
+        raise ValueError(f'Column(s) not found in node table: {miss}')
+
     # Go over each segment and smooth
-    for s in config.tqdm(x.segments, desc='Smoothing',
+    for s in config.tqdm(x.segments[::-1], desc='Smoothing',
                          disable=config.pbar_hide,
                          leave=config.pbar_leave):
 
         # Get this segment's parent distances and get cumsum
-        this_co = nodes.loc[s, ['x', 'y', 'z']]
+        this_co = nodes.loc[s, to_smooth]
 
         interp = this_co.rolling(window, min_periods=1).mean()
 
-        nodes.loc[s, ['x', 'y', 'z']] = interp.values
+        nodes.loc[s, to_smooth] = interp.values
 
     # Reassign nodes
     x.nodes = nodes.reset_index(drop=False, inplace=False)
