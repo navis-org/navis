@@ -128,7 +128,7 @@ def plot1d(x: 'core.NeuronObject',
             dist_mat = n.nodes_geodesic_distance_matrix
         else:
             # If not, compute matrix for subset of nodes
-            dist_mat = graph.geodesic_matrix(n, tn_ids=breaks, directed=False)
+            dist_mat = graph.geodesic_matrix(n, node_ids=breaks, directed=False)
 
         dist = np.array([dist_mat.loc[s[0], s[1]] for s in segs]) / 1000
         max_x.append(sum(dist))

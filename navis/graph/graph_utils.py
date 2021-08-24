@@ -81,7 +81,7 @@ def _generate_segments(x: 'core.NeuronObject',
         m = geodesic_matrix(x,
                             directed=True,
                             weight=weight,
-                            tn_ids=x.nodes[x.nodes.type == 'end'].node_id.values)
+                            node_ids=x.nodes[x.nodes.type == 'end'].node_id.values)
 
         # Sort by distance to the root(s)
         endNodeIDs = m.sort_values(x.root.tolist(),
@@ -548,7 +548,7 @@ def distal_to(x: 'core.TreeNeuron',
 
 
 def geodesic_matrix(x: 'core.NeuronObject',
-                    tn_ids: Optional[Iterable[int]] = None,
+                    node_ids: Optional[Iterable[int]] = None,
                     directed: bool = False,
                     weight: Optional[str] = 'weight',
                     limit: Union[float, int] = np.inf
@@ -559,7 +559,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
     ----------
     x :         TreeNeuron | NeuronList
                 If list, must contain a SINGLE neuron.
-    tn_ids :    list | numpy.ndarray, optional
+    node_ids :  list | numpy.ndarray, optional
                 Node IDs. If provided, will compute distances only FROM
                 this subset to all other nodes.
     directed :  bool, optional
@@ -628,14 +628,14 @@ def geodesic_matrix(x: 'core.NeuronObject',
                                       weight=weight)
 
     tn_indices: Optional[Iterable[int]]
-    if not isinstance(tn_ids, type(None)):
-        tn_ids = np.unique(utils.make_iterable(tn_ids))
+    if not isinstance(node_ids, type(None)):
+        node_ids = np.unique(utils.make_iterable(node_ids))
 
-        miss = tn_ids[~np.isin(tn_ids, nodeList)].astype(str)
+        miss = node_ids[~np.isin(node_ids, nodeList)].astype(str)
         if any(miss):
             raise ValueError(f'Node IDs not present: {", ".join(miss)}')
 
-        tn_indices = np.where(np.isin(nodeList, tn_ids))[0]
+        tn_indices = np.where(np.isin(nodeList, node_ids))[0]
         ix = nodeList[tn_indices]
     else:
         tn_indices = None
@@ -1774,7 +1774,7 @@ def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
     term = x.nodes[x.nodes.type == 'end'].node_id.values
 
     # Get distance from all branch_points
-    geo = geodesic_matrix(x, tn_ids=term, directed=True)
+    geo = geodesic_matrix(x, node_ids=term, directed=True)
     # Set distance between unreachable points to None
     # Need to reinitialise SparseMatrix to replace float('inf') with NaN
     # dist_mat[geo == float('inf')] = None
