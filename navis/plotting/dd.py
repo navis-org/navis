@@ -320,7 +320,7 @@ def plot2d(x: Union[core.NeuronObject,
                              'if using `color_by`')
         neuron_cmap = vertex_colors(neurons,
                                     by=color_by,
-                                    alpha=False,
+                                    use_alpha=False,
                                     palette=palette,
                                     norm_global=kwargs.get('norm_global', True),
                                     vmin=kwargs.get('vmin', None),
@@ -331,7 +331,7 @@ def plot2d(x: Union[core.NeuronObject,
     if not isinstance(shade_by, type(None)):
         alphamap = vertex_colors(neurons,
                                  by=shade_by,
-                                 alpha=True,
+                                 use_alpha=True,
                                  palette='viridis',  # palette is irrelevant here
                                  norm_global=kwargs.get('norm_global', True),
                                  vmin=kwargs.get('smin', None),
