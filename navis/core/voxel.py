@@ -14,17 +14,14 @@
 import copy
 import numbers
 import pint
-import uuid
 import warnings
 
-import networkx as nx
 import numpy as np
 import pandas as pd
-import trimesh as tm
 
 from typing import Union, Optional
 
-from .. import utils, config, meshes
+from .. import utils, config
 from .base import BaseNeuron
 from .core_utils import temp_property
 
@@ -143,7 +140,8 @@ class VoxelNeuron(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy()
-            n.units = (n.units * other).to_compact()
+            n.units = (n.units / other).to_compact()
+            n.offset = n.offset / other
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
@@ -157,7 +155,8 @@ class VoxelNeuron(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy()
-            n.units = (n.units / other).to_compact()
+            n.units = (n.units * other).to_compact()
+            n.offset = n.offset * other
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
@@ -251,7 +250,8 @@ class VoxelNeuron(BaseNeuron):
     def values(self):
         """Values for each voxel (can be None)."""
         if self._base_data_type == 'grid':
-            return self._data[np.where(self._data)]
+            values = self._data.flatten()
+            return values[values > 0]
         else:
             if not isinstance(getattr(self, '_values', None), type(None)):
                 return self._values
@@ -278,14 +278,14 @@ class VoxelNeuron(BaseNeuron):
         self._clear_temp_attr()
 
     @property
-    def offset(self):
+    def offset(self) -> np.ndarray:
         """Offset (in voxels)."""
         return self._offset
 
     @offset.setter
     def offset(self, offset):
         if isinstance(offset, type(None)):
-            self._offset = (0, 0, 0)
+            self._offset = np.array((0, 0, 0))
         else:
             offset = np.asarray(offset)
             if offset.ndim != 1 or offset.shape[0] != 3:
@@ -322,7 +322,7 @@ class VoxelNeuron(BaseNeuron):
         return x
 
     def strip(self, inplace=False) -> 'VoxelNeuron':
-        """Strip empty voxels (i.e. leading/trailing planes of zeros)."""
+        """Strip empty voxels (leading/trailing planes of zeros)."""
         x = self
         if not inplace:
             x = x.copy()
@@ -340,6 +340,22 @@ class VoxelNeuron(BaseNeuron):
             x._data = x._data[mn[0]: mx[0] + 1,
                               mn[1]: mx[1] + 1,
                               mn[2]: mx[2] + 1]
+
+        if not inplace:
+            return x
+
+    def threshold(self, threshold, inplace=False) -> 'VoxelNeuron':
+        """Drop below-threshold voxels."""
+        x = self
+        if not inplace:
+            x = x.copy()
+
+        if x._base_data_type == 'grid':
+            x._data[x._data < threshold] = 0
+        else:
+            x._data = x._data[x.values >= threshold]
+
+        x._clear_temp_attr()
 
         if not inplace:
             return x
