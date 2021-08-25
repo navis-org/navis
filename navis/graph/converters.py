@@ -218,18 +218,20 @@ def network2igraph(x: Union[pd.DataFrame, Iterable],
 
 
 def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
-    """Turn Tree- or MeshNeuron into an NetworkX DiGraph.
+    """Turn Tree-, Mesh- or VoxelNeuron into an NetworkX graph.
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
+    x :         TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList
+                Uses simple 6-connectedness for voxels.
 
     Returns
     -------
     graph:      networkx.Graph | networkx.DiGraph
                 NetworkX representation of the neuron. Returns list of graphs
                 if x is multiple neurons. Graph is directed for TreeNeurons
-                and undirected for MeshNeurons.
+                and undirected for Mesh- and VoxelNeurons. Graph is weighted
+                for Tree- and MeshNeurons.
 
     """
     if isinstance(x, core.NeuronList):
@@ -259,6 +261,26 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
         edges = [(e[0], e[1], l) for e, l in zip(x.trimesh.edges_unique,
                                                  x.trimesh.edges_unique_length)]
         G.add_weighted_edges_from(edges)
+    elif isinstance(x, core.VoxelNeuron):
+        # First we need to determine the 6-connecivity between voxels
+        edges = []
+        # Go over each axis
+        for i in range(3):
+            # Generate an offset of 1 voxel along given axis
+            offset = np.zeros(3, dtype=int)
+            offset[i] = 1
+            # Combine real and offset voxels
+            vox_off = x.voxels + offset
+            # Find out which voxels overlap (i.e. count == 2 after offset)
+            unique, cnt = np.unique(np.append(x.voxels, vox_off, axis=0),
+                                    axis=0, return_counts=True)
+
+            connected = unique[cnt > 1]
+            for vox in connected:
+                edges.append([tuple(vox), tuple(vox - offset)])
+        G = nx.Graph()
+        G.add_nodes_from([tuple(v) for v in x.voxels])
+        G.add_edges_from(edges)
     else:
         raise ValueError(f'Unable to convert data of type "{type(x)}" to networkx graph.')
 
@@ -273,7 +295,8 @@ def neuron2igraph(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                     TreeNeuron | MeshNeuron | NeuronList
+    x :                     TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList
+                            Uses simple 6-connectivity for voxels.
     raise_not_installed :   bool
                             If False and igraph is not installed will silently
                             return ``None``.
@@ -343,6 +366,31 @@ def neuron2igraph(x: 'core.NeuronObject',
         elist = x.trimesh.edges_unique
         G = igraph.Graph(elist, n=x.n_vertices, directed=False)
         G.es['weight'] = x.trimesh.edges_unique_length
+    elif isinstance(x, core.VoxelNeuron):
+        # First we need to determine the 6-connecivity between voxels
+        edges = []
+        # Go over each axis
+        for i in range(3):
+            # Generate an offset of 1 voxel along given axis
+            offset = np.zeros(3, dtype=int)
+            offset[i] = 1
+            # Combine real and offset voxels
+            vox_off = x.voxels + offset
+            # Find out which voxels overlap (i.e. count == 2 after offset)
+            unique, cnt = np.unique(np.append(x.voxels, vox_off, axis=0),
+                                    axis=0, return_counts=True)
+
+            connected = unique[cnt > 1]
+            for vox in connected:
+                edges.append([tuple(vox), tuple(vox - offset)])
+
+        # Map voxels to indices
+        vx_ix = [tuple(v) for v in x.voxels]
+        vx_map = dict(zip(vx_ix, np.arange(x.voxels.shape[0])))
+        edges_ix = [(vx_map[e[0]], vx_map[e[1]]) for e in edges]
+
+        G = igraph.Graph(edges_ix, n=len(x.voxels), directed=False)
+        G.vs['index'] = vx_ix
     else:
         raise ValueError(f'Unable to convert data of type "{type(x)}" to igraph.')
 
