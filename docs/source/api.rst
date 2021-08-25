@@ -519,9 +519,9 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.neuron.CompartmentModel
-    navis.interfaces.neuron.DrosophilaPN
-    navis.interfaces.neuron.PointNetwork
+    navis.interfaces.neuron.cmp.CompartmentModel
+    navis.interfaces.neuron.cmp.DrosophilaPN
+    navis.interfaces.neuron.network.PointNetwork
 
 
 .. _api_interfaces.neuromorpho:

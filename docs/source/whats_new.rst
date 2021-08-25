@@ -54,8 +54,7 @@ repository.
        - :func:`~navis.plot3d` with plotly backend now returns a plotly ``Figure`` instead of a figure dictionary
        - new functions: :func:`navis.plot_flat`, :func:`~navis.drop_fluff` and :func:`~navis.patch_cloudvolume`
        - under-the-hood fixes and improvements to: :func:`~navis.plot2d`, :func:`~navis.split_axon_dendrite`, :func:`~navis.tortuosity`, :func:`~navis.resample_neuron`, :func:`~navis.mirror_brain`
-       - first pass at
-        a ``NEURON`` interface (see the new tutorials)
+       - first pass at a ``NEURON`` interface (see the new tutorial)
        - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
        - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``node_ids``
    * - 0.6.0
