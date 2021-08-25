@@ -29,7 +29,8 @@ from typing_extensions import Literal
 from .. import core, config, utils, morpho
 
 __all__ = ['generate_colors', 'prepare_connector_cmap', 'prepare_colormap',
-           'eval_color', 'hex_to_rgb', 'vary_colors', 'vertex_colors']
+           'eval_color', 'hex_to_rgb', 'vary_colors', 'vertex_colors',
+           'color_to_int']
 
 logger = config.logger
 
@@ -563,6 +564,42 @@ def hex_to_rgb(value: str) -> Tuple[int, int, int]:
     value = value.lstrip('#')
     lv = len(value)
     return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))  # type: ignore
+
+
+def color_to_int(color: AnyColor) -> int:
+    """Convert color to int-packed color.
+
+    See also StackOverflow:
+    https://stackoverflow.com/questions/209513/convert-hex-string-to-int-in-python?rq=1
+
+    Parameters
+    ----------
+    color :     str | tuple
+                A single color either as str (name or hex) or as RGB(A). RGB
+                tuple must be in range 0-255! Alpha channel is ignored. Integers
+                are just passed-through.
+
+    Examples
+    --------
+    >>> from navis.plotting.colors import color_to_int
+    >>> color_to_int('r')
+    16711680
+    >>> color_to_int((255, 0, 0))
+    16711680
+    >>> color_to_int((0, 255, 0))
+    65280
+
+    """
+    if isinstance(color, int):
+        return color
+    elif isinstance(color, str):
+        color = np.array(mcl.to_rgb(color)) * 255
+    else:
+        color = np.asarray(color)
+
+    r, g, b = color.astype(int)[:3]
+
+    return int('%02x%02x%02x' % (r, g, b), 16)
 
 
 def vary_colors(color: AnyColor,
