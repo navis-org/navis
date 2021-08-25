@@ -85,9 +85,10 @@ function. There you will also find more examples.
 .. toctree::
    :maxdepth: 1
 
-   tutorials/r_doc
+   tutorials/neuron   
    blender
    tutorials/neuprint
+   tutorials/r_doc
 
 
 .. raw:: html
