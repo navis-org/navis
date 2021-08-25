@@ -15,9 +15,10 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 * analyze morphology (e.g. **NBLAST**) and connectivity
 * **transform** data between template brains (support for e.g. HDF5, CMTK and thin plate spline transforms)
 * load neurons directly from [neuPrint](https://neuprint.janelia.org) and [neuromorpho.org](http://neuromorpho.org)
+* simulate neurons and networks using the **NEURON** simulator
 * interface with **Blender 3D**
 * interface with **R** neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
-* import-export from/to **SWC**
+* import-export from/to **SWC** or neuroglancer's ["**precomputed**"](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed) format
 * designed to be **extensible** - see for example [pymaid](https://pymaid.readthedocs.io/en/latest/)
 
 ## Getting started

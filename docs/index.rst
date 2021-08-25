@@ -67,6 +67,7 @@ If you have any questions, please get in touch: pms70@cam.ac.uk
 * transform neurons between template brains
 * Python bindings for R natverse librarie
 * load neurons directly from `neuromorpho <http://neuromorpho.org>`_ or :ref:`neuPrint<neuprint_intro>`
+* simulate neurons and networks using `NEURON`
 * interface with :ref:`Blender 3D<blender3d>`
 * import-export from/to SWC
 * highly extensible - see the :ref:`ecosystem <other_libs>`

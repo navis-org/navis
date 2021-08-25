@@ -22,8 +22,9 @@ This API reference is a more or less complete account of the primary functions:
 6. :ref:`Import/Export<io>`
 7. :ref:`Utility functions<api_utility>`
 
-In addition ``navis`` has interfaces to various external APIs and softwares:
+In addition ``navis`` has interfaces to various external datasets and tools:
 
+- :ref:`NEURON simulator<api_interfaces.neuron>`
 - :ref:`Neuromorpho<api_interfaces.neuromorpho>`
 - :ref:`neuPrint<api_interfaces.neuprint>`
 - :ref:`InsectBrain DB<api_interfaces.insectdb>`
@@ -503,6 +504,25 @@ Interfaces
 ++++++++++
 Interfaces with various external tools/websites. These modules have to be
 imported explicitly as they are not imported at top level.
+
+.. _api_interfaces.neuron:
+
+NEURON simulator
+++++++++++++++++
+Functions to facilitate creating compartment models of neurons. Please see
+the `tutorials<example_gallery>` for details.
+
+Not imported at top level! Must be imported explicitly::
+
+    import navis.interfaces.neuron as nrn
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.interfaces.neuron.CompartmentModel
+    navis.interfaces.neuron.DrosophilaPN
+    navis.interfaces.neuron.PointNetwork
+
 
 .. _api_interfaces.neuromorpho:
 

@@ -10,7 +10,7 @@
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-"""Module containing functions and classes to built `NEURON` simulator models.
+"""Module containing functions and classes to build `NEURON` compartment models.
 
 Useful resources
 ----------------
@@ -20,7 +20,7 @@ ToDo
 ----
 - connect neurons
 - use neuron ID as GID
-- add spike recorder
+- [x] add spike recorder
 - [x] make a subplot for each recording type (V, current, spikes)
 - consider adding 3d points to more accurately represent the neuron
 
@@ -29,7 +29,7 @@ Examples
 Initialize and run a simple model. For debugging/testing only
 
 >>> import navis
->>> from navis.interfaces import nrn
+>>> import navis.interfaces.neuron as nrn
 >>> import neuron
 
 >>> # Set finer time steps
@@ -50,7 +50,7 @@ Initialize and run a simple model. For debugging/testing only
 
 >>> # Initialize as a DrosophilaPN which automatically assigns a couple
 >>> # properties known from the literature.
->>> cmp = nrn.DrosophilaPN(n, res=1)
+>>> cmp = nrn.DrosophilaPN(n, res=10)
 
 >>> # Simulate some synaptic inputs on the first 10 input synapse
 >>> cmp.add_synaptic_current(post.node_id.unique()[0:10], max_syn_cond=.1,
@@ -88,7 +88,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from .. import config, core, utils, graph
+from numbers import Number
+
+from ... import config, core, utils, graph
+from .utils import is_NEURON_object, is_section, is_segment
 
 # We will belay any import error
 try:
@@ -111,7 +114,7 @@ __all__ = []
 main_t = None
 
 
-class NeuronCompartmentModel:
+class CompartmentModel:
     """Compartment model representing a single neuron in NEURON.
 
     Parameters
@@ -126,7 +129,7 @@ class NeuronCompartmentModel:
 
     """
 
-    def __init__(self, x: 'core.TreeNeuron', res=1):
+    def __init__(self, x: 'core.TreeNeuron', res=10):
         """Initialize Neuron."""
         utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
 
@@ -289,7 +292,7 @@ class NeuronCompartmentModel:
         self._sections = []
         nodes = self.skeleton.nodes.set_index('node_id')
         for i, seg in enumerate(self.skeleton.small_segments):
-            # Generate segment
+            # Generate section
             sec = neuron.h.Section(name=f'segment_{i}')
             # Set length
             sec.L = graph.segment_length(self.skeleton, seg)
@@ -316,7 +319,9 @@ class NeuronCompartmentModel:
     def _validate_skeleton(self):
         """Validate skeleton."""
         if self.skeleton.units and not self.skeleton.units.dimensionless:
-            if self.skeleton.units.units != config.ureg.Unit('um'):
+            not_um = self.skeleton.units.units != config.ureg.Unit('um')
+            not_microns = self.skeleton.units.units != config.ureg.Unit('microns')
+            if not_um and not_microns:
                 logger.warning('Model expects coordinates in microns but '
                                f'neuron has units "{self.skeleton.units}"!')
 
@@ -333,7 +338,7 @@ class NeuronCompartmentModel:
     def add_synaptic_input(self, where, start=5 * ms,
                            spike_no=1, spike_int=10 * ms, spike_noise=0,
                            syn_tau1=.1 * ms, syn_tau2=10 * ms, syn_rev_pot=0,
-                           cn_thresh=10, cn_delay=1 * ms, cn_weight=0):
+                           cn_thresh=10, cn_delay=1 * ms, cn_weight=0.05):
         """Add synaptic input to model.
 
         This uses the Exp2Syn synapse. All targets in `where` are triggered
@@ -373,7 +378,7 @@ class NeuronCompartmentModel:
         cn_delay :      int
                         Delay [ms] between presynaptic trigger and postsynaptic
                         event.
-        cn_weight :     int
+        cn_weight :     float
                         Weight variable. This bundles a couple of synaptic
                         properties such as e.g. how much transmitter is released
                         or binding affinity at postsynaptic receptors.
@@ -582,7 +587,7 @@ class NeuronCompartmentModel:
                 syn_rev_pot=0, cn_thresh=10, cn_delay=1 * ms, cn_weight=0):
         """Connect object to model.
 
-        This uses the Exp2Syn synapse and treads `what` as the presynaptic
+        This uses the Exp2Syn synapse and treats `pre` as the presynaptic
         object.
 
         Parameters
@@ -732,19 +737,27 @@ class NeuronCompartmentModel:
         ----------
         mechanism : str
                     Mechanism to insert - e.g. "hh" for Hodgkin-Huxley kinetics.
-        subset :    list of int
-                    Indices of segments to set mechanism for. If ``None`` will
-                    add mechanism to all segments.
+        subset :    list of sections | list of int
+                    Sections (or indices thereof) to set mechanism for.
+                    If ``None`` will add mechanism to all sections.
         **kwargs
                     Use to set properties for mechanism.
 
         """
-        if not subset:
+        if isinstance(subset, type(None)):
             sections = self.sections
         else:
-            sections = self.sections[subset]
+            subset = utils.make_iterable(subset)
 
-        for sec in utils.make_iterable(sections):
+            if all([is_section(s) for s in subset]):
+                sections = subset
+            elif all([isinstance(s, Number) for s in subset]):
+                sections = self.sections[subset]
+            else:
+                raise TypeError('`subset` must be None, a list of sections or '
+                                'a list of section indices')
+
+        for sec in np.unique(sections):
             _ = sec.insert(mechanism)
             for seg in sec:
                 mech = getattr(seg, mechanism)
@@ -758,17 +771,25 @@ class NeuronCompartmentModel:
         ----------
         mechanism : str
                     Mechanism to remove - e.g. "hh" for Hodgkin-Huxley kinetics.
-        subset :    list of int
-                    Indices of segments to remove the mechanism from. If
-                    ``None`` will try to remove it from all segments.
+        subset :    list of sections | list of int
+                    Sections (or indices thereof) to set mechanism for.
+                    If ``None`` will add mechanism to all sections.
 
         """
-        if not subset:
+        if isinstance(subset, type(None)):
             sections = self.sections
         else:
-            sections = self.sections[subset]
+            subset = utils.make_iterable(subset)
 
-        for sec in utils.make_iterable(sections):
+            if all([is_section(s) for s in subset]):
+                sections = subset
+            elif all([isinstance(s, Number) for s in subset]):
+                sections = self.sections[subset]
+            else:
+                raise TypeError('`subset` must be None, a list of sections or '
+                                'a list of section indices')
+
+        for sec in np.unique(sections):
             if hasattr(sec, mechanism):
                 _ = sec.uninsert(mechanism)
 
@@ -787,8 +808,20 @@ class NeuronCompartmentModel:
         neuron.h.continuerun(duration)
 
     def plot_results(self, axes=None):
-        """Plot results."""
-        if not len(self.t):
+        """Plot results.
+
+        Parameters
+        ----------
+        axes :      matplotlib axes
+                    Axes to plot onto. Must have one ax for each recording
+                    type (mV, spike count, etc) in `self.records`.
+
+        Returns
+        -------
+        axes
+
+        """
+        if isinstance(self.t, type(None)) or not len(self.t):
             logger.warning('Looks like the simulation has not yet been run.')
             return
         if not self.records:
@@ -804,9 +837,18 @@ class NeuronCompartmentModel:
 
         for t, ax in zip(self.records, axes):
             for i, (k, v) in enumerate(self.records[t].items()):
+                if not len(v):
+                    continue
                 # For spikes the vector contains the times
                 if t == 'spikes':
-                    ax.scatter(v, [i] * len(v), label=k, marker='|', s=100)
+                    # Calculate spike rate
+                    bins = np.linspace(0, max(self.t), 10)
+                    hist, _ = np.histogram(v, bins=bins)
+                    width = bins[1] - bins[0]
+                    rate = hist * (1000 / width)
+                    ax.plot(bins[:-1] + (width / 2), rate, label=k)
+
+                    ax.scatter(v, [-i] * len(v), marker='|', s=100)
                 else:
                     ax.plot(self.t, v, label=k)
 
@@ -817,17 +859,8 @@ class NeuronCompartmentModel:
         return axes
 
 
-def is_NEURON_object(x):
-    """Best guess whether object comes from NEURON."""
-    if not hasattr(x, '__module__'):
-        return False
-    if x.__module__ == 'nrn' or x.__module__ == 'hoc':
-        return True
-    return False
-
-
-class DrosophilaPN(NeuronCompartmentModel):
-    """Compartment model of a olfactory projection neuron in Drosophila.
+class DrosophilaPN(CompartmentModel):
+    """Compartment model of an olfactory projection neuron in Drosophila.
 
     Uses biophysical properties from Tobin et al. (2017).
 
@@ -847,7 +880,7 @@ class DrosophilaPN(NeuronCompartmentModel):
 
     """
 
-    def __init__(self, x, res=1, passive=True, active=False):
+    def __init__(self, x, res=10, passive=True, active=False):
         super().__init__(x, res=res)
 
         self.Ra = 266.1  # specific axial resistivity in Ohm cm
