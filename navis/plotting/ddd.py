@@ -315,7 +315,7 @@ def plot3d_plotly(x, **kwargs):
                'plotly_inline', 'alpha', 'radius', 'fig', 'soma',
                'connectors', 'connectors_only', 'palette', 'color_by',
                'shade_by', 'vmin', 'vmax', 'smin', 'smax', 'hover_id',
-               'hover_name'}
+               'hover_name', 'volume_legend'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - ALLOWED
