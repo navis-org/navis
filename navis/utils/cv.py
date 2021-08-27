@@ -58,7 +58,9 @@ def patch_cloudvolume():
                cv.datasource.graphene.mesh.unsharded.GrapheneUnshardedMeshSource,
                cv.datasource.precomputed.mesh.unsharded.UnshardedLegacyPrecomputedMeshSource,
                cv.datasource.precomputed.mesh.multilod.UnshardedMultiLevelPrecomputedMeshSource,
-               cv.datasource.precomputed.mesh.multilod.ShardedMultiLevelPrecomputedMeshSource]:
+               cv.datasource.precomputed.mesh.multilod.ShardedMultiLevelPrecomputedMeshSource,
+               cv.datasource.precomputed.skeleton.sharded.ShardedPrecomputedSkeletonSource,
+               cv.datasource.precomputed.skeleton.unsharded.UnshardedPrecomputedSkeletonSource]:
         ds.get_navis = return_navis(ds.get, only_on_kwarg=False)
         ds.get = return_navis(ds.get, only_on_kwarg=True)
 
@@ -85,6 +87,11 @@ def return_navis(func, only_on_kwarg=False):
 
         if not only_on_kwarg or ret_navis:
             neurons = []
+            if isinstance(res, list):
+                res = {getattr(n, 'id', 'NA'): n for n in res}
+            if isinstance(res, (cv.Mesh, cv.Skeleton)):
+                res = {getattr(res, 'id', 'NA'): res}
+
             for k, v in res.items():
                 if isinstance(v, cv.Mesh):
                     n = core.MeshNeuron(v, id=k, units='nm')
@@ -98,6 +105,7 @@ def return_navis(func, only_on_kwarg=False):
                 else:
                     logger.warning(f'Skipped {k}: Unable to convert {type(v)} to '
                                    'navis Neuron.')
+
             return core.NeuronList(neurons)
         return res
     return wrapper
