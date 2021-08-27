@@ -510,7 +510,7 @@ imported explicitly as they are not imported at top level.
 NEURON simulator
 ++++++++++++++++
 Functions to facilitate creating compartment models of neurons. Please see
-the `tutorials<example_gallery>` for details.
+the :ref:`tutorials<example_gallery>` for details.
 
 Not imported at top level! Must be imported explicitly::
 
@@ -529,7 +529,7 @@ Not imported at top level! Must be imported explicitly::
 NeuroMorpho API
 +++++++++++++++
 Set of functions to grab data from `NeuroMorpho <http://neuromorpho.org>`_
-which hosts thousands of neurons (see `tutorials<example_gallery>`).
+which hosts thousands of neurons (see :ref:`tutorials<example_gallery>`).
 
 Not imported at top level! Must be imported explicitly::
 
@@ -573,7 +573,7 @@ to fetch and work with data from neuPrint.
 InsectBrain DB API
 ++++++++++++++++++
 Set of functions to grab data from `InsectBrain <https://www.insectbraindb.org>`_
-which hosts some neurons and standard brains (see `tutorials<example_gallery>`).
+which hosts some neurons and standard brains (see :ref:`tutorials<example_gallery>`).
 
 Not imported at top level! Must be imported explicitly::
 
@@ -582,9 +582,13 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
+    navis.interfaces.insectbrain_db.authenticate
     navis.interfaces.insectbrain_db.get_brain_meshes
     navis.interfaces.insectbrain_db.get_species_info
     navis.interfaces.insectbrain_db.get_available_species
+    navis.interfaces.insectbrain_db.get_skeletons
+    navis.interfaces.insectbrain_db.get_skeletons_species
+    navis.interfaces.insectbrain_db.search_neurons
 
 
 .. _api_interfaces.blender:
@@ -594,7 +598,7 @@ Blender API
 Functions to be run inside `Blender 3D <https://www.blender.org/>`_ and import
 CATMAID data (see Examples). Please note that this requires Blender >2.8 as
 earlier versions are shipped with Python <3.6. See the
-`tutorials<example_gallery>` for an introduction of how to use ``navis`` in
+:ref:`tutorials<example_gallery>` for an introduction of how to use ``navis`` in
 Blender.
 
 Not imported at top level! Must be imported explicitly::
