@@ -147,9 +147,9 @@ def authenticate(username=None, password=None, token=None):
 
     You can either provide username + password, or a token. Each token is only
     valid for 24h though. The better alternative is to provide your
-    username + password as environment variables `INSECT_BRAIN_DB_USER` and
-    `INSECT_BRAIN_DB_PASSWORD` password respectively in which case you don't
-    need to use `authenticate()` at all.
+    username + password as environment variables: `INSECT_BRAIN_DB_USER` and
+    `INSECT_BRAIN_DB_PASSWORD`, respectively. If you are using these environment
+    you don't need to bother with `authenticate()` at all.
 
     Parameters
     ----------
@@ -193,10 +193,7 @@ def get_brain_meshes(species: Union[str, int],
 
     Returns
     -------
-    None
-                    If ``save_to`` is folder.
     list of navis.Volume
-                    If ``combine_vols`` is False.
 
     Examples
     --------
