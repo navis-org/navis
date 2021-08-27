@@ -88,7 +88,7 @@ function. There you will also find more examples.
    tutorials/neuron
    blender
    tutorials/neuprint
-   tutorials/insectbrain_db
+   tutorials/insectbraindb
    tutorials/r_doc
 
 
