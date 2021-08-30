@@ -128,7 +128,11 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
         if resample:
             x, _ = tm.points.remove_close(x, resample)
     elif isinstance(x, core.VoxelNeuron):
-        properties.update({'units': x.units, 'name': x.name, 'id': x.id})
+        properties.update({'name': x.name, 'id': x.id})
+        if not x.units.dimensionless:
+            # We are scaling the units - hence all are set to 1
+            properties['units'] = [f'1 {u.units}' for u in x.units_xyz]
+
         if threshold:
             x = x.voxels[x.values >= threshold] * x.units.magnitude
         else:
