@@ -104,6 +104,9 @@ class Dotprops(BaseNeuron):
     #: Temporary attributes that need clearing when neuron data changes
     TEMP_ATTR = ['_memory_usage']
 
+    #: Core data table(s) used to calculate hash
+    _CORE_DATA = ['points', 'vect']
+
     def __init__(self,
                  points: np.ndarray,
                  k: int,

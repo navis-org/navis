@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import copy
+import hashlib
 import numbers
 import pint
 import uuid
@@ -106,6 +107,9 @@ class BaseNeuron:
     #: Temporary attributes that need clearing when neuron data changes
     TEMP_ATTR = []
 
+    #: Core data table(s) used to calculate hash
+    CORE_DATA = []
+
     def __init__(self, **kwargs):
         # Set a random ID -> may be replaced later
         self.id = uuid.uuid4()
@@ -113,6 +117,9 @@ class BaseNeuron:
         self._lock = 0
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+        # Base neurons has no data
+        self._current_md5 = None
 
     def __getattr__(self, key):
         """Get attribute."""
@@ -221,6 +228,11 @@ class BaseNeuron:
 
     def _clear_temp_attr(self, exclude: list = []) -> None:
         """Clear temporary attributes."""
+        # Must set checksum before recalculating e.g. node types
+        # -> otherwise we run into a recursive loop
+        self._current_md5 = self.core_md5
+        self._stale = False
+
         for a in [at for at in self.TEMP_ATTR if at not in exclude]:
             try:
                 delattr(self, a)
@@ -258,6 +270,43 @@ class BaseNeuron:
             self.TEMP_ATTR.remove(name)
 
         delattr(self, name)
+
+    @property
+    def core_md5(self) -> str:
+        """MD5 checksum of core data.
+
+        Generated from ``.CORE_DATA`` properties.
+
+        Returns
+        -------
+        md5 :   string
+                MD5 checksum of core data. ``None`` if no core data.
+
+        """
+        hash = ''
+        for prop in self.CORE_DATA:
+            cols = None
+            # See if we need to parse props into property and columns
+            # e.g. "nodes:node_id,parent_id,x,y,z"
+            if ':' in prop:
+                prop, cols = prop.split(':')
+                cols = cols.split(',')
+
+            if hasattr(self, prop):
+                data = getattr(self, prop)
+                if isinstance(data, pd.DataFrame):
+                    if cols:
+                        data = data[cols]
+                    data = data.values
+
+                data = np.ascontiguousarray(data)
+
+                if xxhash:
+                    hash += xxhash.xxh128(data).hexdigest()
+                else:
+                    hash += hashlib.md5(data).hexdigest()
+
+        return hash if hash else None
 
     @property
     def datatables(self) -> List[str]:
@@ -458,10 +507,15 @@ class BaseNeuron:
         return True
 
     @property
-    def is_stale(self):
+    def is_stale(self) -> bool:
         """Test if temporary attributes might be outdated."""
-        # Always returns False for BaseNeurons
-        return False
+        # If we know we are stale, just return True
+        if getattr(self, '_stale', False):
+            return True
+        else:
+            # Only check if we believe we are not stale
+            self._stale = self._current_md5 != self.core_md5
+        return self._stale
 
     @property
     def is_locked(self):

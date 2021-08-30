@@ -92,6 +92,9 @@ class VoxelNeuron(BaseNeuron):
     #: Temporary attributes that need clearing when neuron data changes
     TEMP_ATTR = ['_memory_usage', '_shape', '_voxels', '_grid']
 
+    #: Core data table(s) used to calculate hash
+    CORE_DATA = ['_data']
+
     def __init__(self,
                  x: Union[np.ndarray],
                  offset: Optional[np.ndarray] = None,

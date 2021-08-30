@@ -97,6 +97,9 @@ class MeshNeuron(BaseNeuron):
     #: Temporary attributes that need clearing when neuron data changes
     TEMP_ATTR = ['_memory_usage', '_trimesh', '_skeleton', '_igraph', '_graph_nx']
 
+    #: Core data table(s) used to calculate hash
+    CORE_DATA = ['vertices', 'faces']
+
     def __init__(self,
                  x: Union[pd.DataFrame,
                           BufferedIOBase,

@@ -133,6 +133,9 @@ class TreeNeuron(BaseNeuron):
     SUMMARY_PROPS = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
                      'n_leafs', 'cable_length', 'soma', 'units']
 
+    #: Core data table(s) used to calculate hash
+    CORE_DATA = ['nodes:node_id,parent_id,x,y,z']
+
     def __init__(self,
                  x: Union[pd.DataFrame,
                           BufferedIOBase,
@@ -331,36 +334,6 @@ class TreeNeuron(BaseNeuron):
             self._geodesic_matrix = graph.geodesic_matrix(self)
 
         return self._geodesic_matrix
-
-    @property
-    def is_stale(self) -> bool:
-        """Test if temporary attributes (e.g. ``.graph``) might be outdated."""
-        # If we know we are stale, just return True
-        if getattr(self, '_stale', False):
-            return True
-        else:
-            # Only check if we believe we are not stale
-            self._stale = self._current_md5 != self.core_md5
-        return self._stale
-
-    @property
-    def core_md5(self) -> str:
-        """MD5 of core information for the neuron.
-
-        Generated from ``nodes`` table.
-
-        Returns
-        -------
-        md5 :   string
-                MD5 of node table. ``None`` if no node data.
-
-        """
-        if self.has_nodes:
-            data = np.ascontiguousarray(self.nodes[['node_id', 'parent_id',
-                                                    'x', 'y', 'z']].values)
-            if xxhash:
-                return xxhash.xxh128(data).hexdigest()
-            return hashlib.md5(data).hexdigest()
 
     @property
     @requires_nodes
@@ -693,18 +666,7 @@ class TreeNeuron(BaseNeuron):
 
     def _clear_temp_attr(self, exclude: list = []) -> None:
         """Clear temporary attributes."""
-        # Must set checksum before recalculating e.g. node types
-        # -> otherwise we run into a recursive loop
-        self._current_md5 = self.core_md5
-        self._stale = False
-
-        for a in [at for at in self.TEMP_ATTR if at not in exclude]:
-            try:
-                delattr(self, a)
-                logger.debug(f'Neuron {id(self)}: {a} cleared')
-            except BaseException:
-                logger.debug(f'Neuron {id(self)}: Unable to clear temporary attribute "{a}"')
-                pass
+        super()._clear_temp_attr(exclude=exclude)
 
         # Remove temporary node values
         # temp_node_cols = ['flow_centrality', 'strahler_index', 'SI', 'bending_flow']
