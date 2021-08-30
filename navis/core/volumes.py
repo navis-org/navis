@@ -123,7 +123,7 @@ class Volume(trimesh.Trimesh):
                  faces: str,
                  name: Optional[str] = None,
                  color: Union[str,
-                              Sequence[Union[int, float]]] = (1, 1, 1, .1),
+                              Sequence[Union[int, float]]] = (.85, .85, .85, .2),
                  volume_id: Optional[int] = None, **kwargs) -> 'Volume':
         """Load volume from csv files containing vertices and faces.
 
@@ -292,7 +292,7 @@ class Volume(trimesh.Trimesh):
                 x: Sequence['Volume'],
                 name: str = 'comb_vol',
                 color: Union[str,
-                             Sequence[Union[int, float]]] = (1, 1, 1, .1)
+                             Sequence[Union[int, float]]] = (.85, .85, .85, .2)
                 ) -> 'Volume':
         """Merge multiple volumes into a single object.
 
