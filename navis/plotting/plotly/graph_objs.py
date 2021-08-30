@@ -153,6 +153,12 @@ def neuron2plotly(x, colormap, **kwargs):
                                           legendgroup=legendgroup,
                                           showlegend=showlegend,
                                           color=color, **kwargs)
+            elif isinstance(neuron, core.VoxelNeuron):
+                trace_data += voxel2plotly(neuron,
+                                           label=label,
+                                           legendgroup=legendgroup,
+                                           showlegend=showlegend,
+                                           color=color, **kwargs)
             elif isinstance(neuron, core.Dotprops):
                 trace_data += dotprops2plotly(neuron,
                                               label=label,
@@ -330,12 +336,12 @@ def voxel2plotly(neuron, legendgroup, showlegend, label, color,
         # Sort by brightness
         srt = np.argsort(values)
 
-        # Take the top 10k voxels
-        values = values[srt[-200000:]]
-        voxels = voxels[srt[-200000:]]
+        # Take the top 100k voxels
+        values = values[srt[-100000:]]
+        voxels = voxels[srt[-100000:]]
 
         # Scale and offset voxels
-        voxels = voxels * neuron.units_xyz + neuron.offset
+        voxels = voxels * neuron.units_xyz.magnitude + neuron.offset
 
         with warnings.catch_warnings():
             trace_data = [go.Scatter3d(x=voxels[:, 0],
@@ -343,9 +349,9 @@ def voxel2plotly(neuron, legendgroup, showlegend, label, color,
                                        z=voxels[:, 2],
                                        mode='markers',
                                        marker=dict(color=values,
-                                                   size=5,
+                                                   size=4,
                                                    colorscale='viridis',
-                                                   opacity=.25),
+                                                   opacity=.1),
                                        name=label,
                                        legendgroup=legendgroup,
                                        showlegend=showlegend,
