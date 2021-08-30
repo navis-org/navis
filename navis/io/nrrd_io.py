@@ -160,6 +160,7 @@ def read_nrrd(f: Union[str, Iterable],
     # Try parsing units - this is modelled after the nrrd files you get from
     # Virtual Fly Brain (VFB)
     units = None
+    su = None
     voxdim = np.array([1, 1, 1])
     if 'space directions' in header:
         sd = np.asarray(header['space directions'])
@@ -176,13 +177,17 @@ def read_nrrd(f: Union[str, Iterable],
                 data = data >= threshold
 
             # Data is in voxels - we have to convert it to x/y/z coordinates
+            # We need to multiply units first otherwise the KNN will be wrong
             x, y, z = np.where(data)
             points = np.vstack((x, y, z)).T
             points = points * voxdim
 
             x = core.make_dotprops(points, **kwargs)
+
+            if su and len(su) == 3:
+                x.units = [f'1 {s}' for s in su]
         else:
-            x = core.VoxelNeuron(data)
+            x = core.VoxelNeuron(data, units=units)
     except BaseException as e:
         msg = f'Error converting file {fname} to neuron.'
         if errors == 'raise':
@@ -193,7 +198,6 @@ def read_nrrd(f: Union[str, Iterable],
 
     # Add some additional properties
     x.name = fname
-    x.units = units
     x.origin = f
     x.nrrd_header = header
 
