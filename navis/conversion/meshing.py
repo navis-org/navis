@@ -81,6 +81,8 @@ def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
     -------
     mesh :          trimesh.Trimesh | MeshNeuron
                     Returns a trimesh or MeshNeuron depending on the input.
+                    Data tables (e.g. `connectors`) are not carried over from
+                    input neuron.
 
     """
     if not skimage:
@@ -274,11 +276,11 @@ def _mesh_from_voxels_chunked(voxels,
     fragments = []
     end_chunks = chunks_unique_unpacked.max(axis=0)
     pad = np.array([[1, 1], [1, 1], [1, 1]])
-    for i, (ch, ix) in tqdm(enumerate(zip(chunks_unique, chunks_unique_unpacked)),
-                            total=len(chunks_unique),
-                            disable=not progress,
-                            leave=False,
-                            desc='Meshing'):
+    for i, (ch, ix) in config.tqdm(enumerate(zip(chunks_unique, chunks_unique_unpacked)),
+                                   total=len(chunks_unique),
+                                   disable=not progress,
+                                   leave=False,
+                                   desc='Meshing'):
         # Pad the matrices only for the first and last chunks along each axis
         if not pad_chunks:
             pad = np.array([[0, 0], [0, 0], [0, 0]])

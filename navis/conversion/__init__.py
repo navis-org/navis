@@ -13,5 +13,6 @@
 
 from .converters import tree2meshneuron, neuron2voxels, mesh2skeleton
 from .meshing import voxels2mesh
+from .wrappers import skeletonize, voxelize, mesh
 
-__all__ = []
+__all__ = ['skeletonize', 'voxelize', 'mesh']
