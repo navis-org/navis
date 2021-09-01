@@ -191,9 +191,9 @@ There are a couple functions to convert from one neuron type to another:
     :toctree: generated/
 
     navis.make_dotprops
-    navis.conversion.tree2meshneuron
-    navis.conversion.mesh2skeleton
-    navis.conversion.neuron2voxels
+    navis.skeletonize
+    navis.mesh
+    navis.voxelize
 
 
 NeuronList methods
@@ -492,6 +492,8 @@ Functions to import/export neurons.
     navis.read_swc
     navis.write_swc
     navis.read_nrrd
+    navis.write_nrrd
+    navis.read_nmx
     navis.read_rda
     navis.read_json
     navis.write_json
