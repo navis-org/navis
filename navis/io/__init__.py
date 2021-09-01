@@ -13,7 +13,7 @@
 
 from .json_io import write_json, read_json
 from .swc_io import read_swc, write_swc
-from .nrrd_io import read_nrrd
+from .nrrd_io import read_nrrd, write_nrrd
 from .precomputed_io import write_precomputed, read_precomputed
 from .hdf_io import read_h5, write_h5, inspect_h5
 from .rda_io import read_rda
@@ -21,7 +21,7 @@ from .nmx_io import read_nmx
 
 __all__ = ['write_json', 'read_json',
            'read_swc', 'write_swc',
-           'read_nrrd',
+           'read_nrrd', 'write_nrrd',
            'read_h5', 'write_h5', 'inspect_h5',
            'write_precomputed', 'read_precomputed',
            'read_rda', 'read_nmx']
