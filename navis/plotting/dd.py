@@ -17,6 +17,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
+import matplotlib.colors as mcl
 import mpl_toolkits
 from mpl_toolkits.mplot3d.art3d import (Line3DCollection, Poly3DCollection,
                                         Path3DCollection, Patch3DCollection)
@@ -434,6 +435,9 @@ def plot2d(x: Union[core.NeuronObject,
             elif isinstance(neuron, core.Dotprops):
                 dp = _plot_dotprops(neuron, neuron_cmap[i], method, ax, **kwargs)
                 visuals[neuron] = {'dotprop': dp}
+            elif isinstance(neuron, core.VoxelNeuron):
+                dp = _plot_voxels(neuron, neuron_cmap[i], method, ax, kwargs, **scatter_kws)
+                visuals[neuron] = {'dotprop': dp}
             else:
                 raise TypeError(f"Don't know how to plot neuron of type '{type(neuron)}' ")
 
@@ -619,6 +623,48 @@ def _plot_scatter(points, method, ax, kwargs, **scatter_kws):
                    points[:, 2],
                    **default_settings
                    )
+
+
+def _plot_voxels(vx, color, method, ax, kwargs, **scatter_kws):
+    """Plot VoxelNeuron as scatter plot."""
+    # Use only the top N voxels
+    assert isinstance(vx, core.VoxelNeuron)
+    n_pts = 1000000
+    v = vx.values
+    pts = vx.voxels
+    srt = np.argsort(v)[::-1]
+
+    pts = pts[srt][: n_pts]
+    v = v[srt][: n_pts]
+
+    # Scale points by units
+    pts = pts * vx.units_xyz.magnitude + vx.offset
+
+    # Calculate colors
+    cmap = color_to_cmap(color)
+    colors = cmap(v / v.max())
+
+    if method == '2d':
+        view = kwargs.get('view', ('x', 'y'))
+        x, y = _parse_view2d(pts, view)
+        ax.scatter(x, y,
+                   c=colors,
+                   s=scatter_kws.get('size', 20))
+    elif method in ['3d', '3d_complex']:
+        ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2],
+                   c=colors,
+                   marker=scatter_kws.get('marker', 'o'),
+                   s=scatter_kws.get('size', .1))
+
+
+def color_to_cmap(color):
+    """Convert single color to color palette."""
+    color = mcl.to_rgb(color)
+
+    colors = [[color[0], color[1], color[2], 0],
+              [color[0], color[1], color[2], 1]]
+
+    return mcl.LinearSegmentedColormap.from_list('Palette', colors, N=256)
 
 
 def _plot_dotprops(dp, color, method, ax, **kwargs):
