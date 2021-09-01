@@ -19,7 +19,7 @@ repository.
      - - :class:`~navis.NeuronList`:
            - :meth:`~navis.NeuronList.apply` now allows omitting failures (see ``omit_failures`` parameter)
        - :class:`~navis.VoxelNeuron`:
-           - new experimental class representing neurons as voxels
+           - new (experimental) class representing neurons as voxels
            - :func:`~navis.read_nrrd` now returns ``VoxelNeuron`` instead of ``Dotprops`` by default
            - currently works with only a selection of functions
        - :class:`~navis.TreeNeuron`:
@@ -49,12 +49,18 @@ repository.
            - total rework of this module
            - renamed ``navis.write_google_binary`` -> :func:`~navis.write_precomputed`
            - new function: :func:`~navis.read_precomputed`
+       - new high-level wrappers to convert neurons: :func:`navis.voxelize`, :func:`navis.mesh` and :func:`navis.skeletonize`
        - :func:`~navis.make_dotprops` now accepts ``parallel=True`` parameter for parallel processing
        - :func:`~navis.smooth_neuron` can now be used to smoother arbitrary numeric columns in the node table
        - :func:`~navis.plot3d` with plotly backend now returns a plotly ``Figure`` instead of a figure dictionary
-       - new functions: :func:`navis.plot_flat`, :func:`~navis.drop_fluff` and :func:`~navis.patch_cloudvolume`
+       - new function :func:`navis.plot_flat` plots neurons as dendrograms
+       - new function :func:`navis.drop_fluff` removes small disconnected bits and pieces from neurons
+       - new function :func:`navis.patch_cloudvolume` monkey-patches `cloudvolume` (see the new :ref:`tutorial <cloudvolume_tut>`)
+       - new function :func:`navis.write_nrrd` writes ``VoxelNeurons`` to NRRD files
+       - new function :func:`navis.read_nmx` reads pyKNOSSOS files
+       - improved/updated the InsectBrain DB interface (see the :ref:`tutorial <insectbraindb_tut>`)
        - under-the-hood fixes and improvements to: :func:`~navis.plot2d`, :func:`~navis.split_axon_dendrite`, :func:`~navis.tortuosity`, :func:`~navis.resample_neuron`, :func:`~navis.mirror_brain`
-       - first pass at a ``NEURON`` interface (see the new tutorial)
+       - first pass at a ``NEURON`` interface (see the new :ref:`tutorial <neuron_tut>`)
        - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
        - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``node_ids``
    * - 0.6.0
