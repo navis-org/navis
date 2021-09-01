@@ -123,8 +123,12 @@ def _write_nrrd(x: 'core.VoxelNeuron',
     header['space directions'] = np.diag(x.units_xyz.magnitude)
     header['space units'] = [str(x.units_xyz.units)] * 3
 
+    data = x.grid
+    if data.dtype == bool:
+        data = data.astype('uint8')
+
     nrrd.write(str(filepath),
-               data=x.grid,
+               data=data,
                header=header,
                compression_level=compression_level)
 
