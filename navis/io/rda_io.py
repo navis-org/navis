@@ -37,7 +37,8 @@ def read_rda(f: str,
 
     Currently supports parsing neurons, dotprops and mesh3d. Note that this is
     rather slow and I do not recommend doing this for large collections of
-    neurons.
+    neurons. For large scale conversion I recommend using the R interface
+    (``navis.interfaces.r``, see online tutorials) via ``rpy2``.
 
     Parameters
     ----------
@@ -50,16 +51,16 @@ def read_rda(f: str,
                         as separate neuronlists.
     neurons_only :      bool
                         Whether to only parse and return neurons and dotprops
-                        found in the RDA file. .
+                        found in the RDA file.
     **kwargs
                         Keyword arguments passed to the construction of
-                        ``navis.TreeNeuron``. You can use this to e.g. set
+                        `Tree/MeshNeuron/Dotprops`. You can use this to e.g. set
                         meta data.
 
     Returns
     -------
     navis.NeuronList
-                        If ``combine=True`` and ``non_neurons='ignore'`` returns
+                        If ``combine=True`` and ``neurons_only=True`` returns
                         a single NeuronList with the parsed neurons.
     dict
                         If ``combine=False`` or ``neurons_only=False`` returns

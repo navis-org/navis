@@ -201,7 +201,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
                      info: Union[bool, str, dict] = True,
                      parallel: Union[bool, int] = 'auto',
                      **kwargs) -> 'core.NeuronObject':
-    """Read skeletons and meshes from Google's precomputed format.
+    """Read skeletons and meshes from neuroglancer's precomputed format.
 
     Follows the formats specified
     `here <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed>`_.
@@ -331,7 +331,7 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
                       write_info: bool = True,
                       write_manifest: bool = False,
                       radius: bool = False) -> None:
-    """Export skeletons or meshes to Google's (legacy) precomputed format.
+    """Export skeletons or meshes to neuroglancers' (legacy) precomputed format.
 
     Note that you should not mix meshes and skeletons in the same folder!
 
@@ -375,7 +375,7 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     See Also
     --------
     :func:`navis.read_precomputed`
-                        Import neurons from Google's precomputed binary format.
+                        Import neurons from neuroglancer's precomputed format.
 
     """
     add_props = {}
@@ -533,7 +533,7 @@ def write_info_file(data, filepath, add_props={}):
 
 
 def _write_mesh(vertices, faces, filename, write_manifest=False):
-    """Write mesh to Google binary format."""
+    """Write mesh to precomputed binary format."""
     # Make sure we are working with the correct data types
     vertices = np.asarray(vertices, dtype='float32')
     faces = np.asarray(faces, dtype='uint32')
@@ -555,7 +555,7 @@ def _write_mesh(vertices, faces, filename, write_manifest=False):
 
 
 def _write_skeleton(x, filename, radius=False):
-    """Write skeleton to Google binary format."""
+    """Write skeleton to neuroglancers binary format."""
     # Below code modified from:
     # https://github.com/google/neuroglancer/blob/master/python/neuroglancer/skeleton.py#L34
     result = io.BytesIO()
