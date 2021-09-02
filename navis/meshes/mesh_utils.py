@@ -90,3 +90,53 @@ def fix_mesh(mesh: Union[tm.Trimesh, 'core.MeshNeuron'],
         mesh._clear_temp_attr()
 
     return mesh
+
+
+def smooth_mesh_trimesh(x, iterations=5, L=0.5, inplace=False):
+    """Smooth mesh using Trimesh's Laplacian smoothing.
+
+    Parameters
+    ----------
+    x :             MeshNeuron | Volume | Trimesh
+                    Mesh object to simplify.
+    iterations :    int
+                    Round of smoothing to apply.
+    L :             float [0-1]
+                    Diffusion speed constant lambda. Larger = more aggressive
+                    smoothing.
+    inplace :       bool
+                    If True, will perform simplication on ``x``. If False, will
+                    simplify and return a copy.
+
+    Returns
+    -------
+    simp
+                Simplified mesh object.
+
+    """
+    if L > 1 or L < 0:
+        raise ValueError(f'`L` (lambda) must be between 0 and 1, got "{L}"')
+
+    if isinstance(x, core.MeshNeuron):
+        mesh = x.trimesh.copy()
+    elif isinstance(x, core.Volume):
+        mesh = tm.Trimesh(x.vertices, x.faces)
+    elif isinstance(x, tm.Trimesh):
+        mesh = x.copy()
+    else:
+        raise TypeError('Expected MeshNeuron, Volume or trimesh.Trimesh, '
+                        f'got "{type(x)}"')
+
+    assert isinstance(mesh, tm.Trimesh)
+
+    # Smooth mesh
+    # This always happens in place, hence we made a copy earlier
+    tm.smoothing.filter_laplacian(mesh, lamb=L, iterations=iterations)
+
+    if not inplace:
+        x = x.copy()
+
+    x.vertices = mesh.vertices
+    x.faces = mesh.faces
+
+    return x

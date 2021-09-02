@@ -1403,17 +1403,17 @@ def guess_radius(x: NeuronObject,
 
 
 @utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
-def smooth_neuron(x: NeuronObject,
-                  window: int = 5,
-                  to_smooth: list = ['x', 'y', 'z'],
-                  inplace: bool = False) -> Optional[NeuronObject]:
-    """Smooth neuron using rolling windows.
+def smooth_skeleton(x: NeuronObject,
+                    window: int = 5,
+                    to_smooth: list = ['x', 'y', 'z'],
+                    inplace: bool = False) -> NeuronObject:
+    """Smooth skeleton(s) using rolling windows.
 
     Parameters
     ----------
     x :             TreeNeuron | NeuronList
                     Neuron(s) to be processed.
-    window :        int, optional
+    sigma :         int, optional
                     Size (N observations) of the rolling window in number of
                     nodes.
     to_smooth :     list
@@ -1425,19 +1425,26 @@ def smooth_neuron(x: NeuronObject,
     Returns
     -------
     TreeNeuron/List
-                    Smoothed neuron(s). If ``inplace=False``.
+                    Smoothed neuron(s).
 
     Examples
     --------
-    Smooth x/y/z locations:
+    Smooth x/y/z locations (default):
 
     >>> import navis
     >>> nl = navis.example_neurons(2)
-    >>> smoothed = navis.smooth_neuron(nl, window=5)
+    >>> smoothed = navis.smooth_skeleton(nl, window=5)
 
-    Smooth only radius:
+    Smooth only radii:
 
-    >>> rad_smoothed = navis.smooth_neuron(nl, to_smooth='radius')
+    >>> rad_smoothed = navis.smooth_skeleton(nl, to_smooth='radius')
+
+    See Also
+    --------
+    :func:`navis.smooth_mesh`
+                    For smoothing MeshNeurons and other mesh-likes.
+    :func:`navis.smooth_voxels`
+                    For smoothing VoxelNeurons.
 
     """
     # The decorator makes sure that at this point we have single neurons
@@ -1477,13 +1484,64 @@ def smooth_neuron(x: NeuronObject,
     return x
 
 
+@utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
+def smooth_voxels(x: NeuronObject,
+                  sigma: int = 1,
+                  inplace: bool = False) -> NeuronObject:
+    """Smooth voxel(s) using a Gaussian filter.
+
+    Parameters
+    ----------
+    x :             TreeNeuron | NeuronList
+                    Neuron(s) to be processed.
+    sigma :         int, optional
+                    Size (N observations) of the rolling window in number of
+                    nodes.
+    inplace :       bool, optional
+                    If False, will use and return copy of original neuron(s).
+
+    Returns
+    -------
+    VoxelNeuron/List
+                    Smoothed neuron(s).
+
+    Examples
+    --------
+
+    >>> import navis
+    >>> n = navis.example_neurons(1, kind='mesh')
+    >>> vx = navis.voxelize(n, pitch='1 micron')
+    >>> smoothed = navis.smooth_skeleton(vx, sigma=2)
+
+    See Also
+    --------
+    :func:`navis.smooth_mesh`
+                    For smoothing MeshNeurons and other mesh-likes.
+    :func:`navis.smooth_skeleton`
+                    For smoothing TreeNeurons.
+
+    """
+    # The decorator makes sure that at this point we have single neurons
+    if not isinstance(x, core.VoxelNeuron):
+        raise TypeError(f'Can only process VoxelNeurons, not {type(x)}')
+
+    if not inplace:
+        x = x.copy()
+
+    # Apply gaussian
+    x._data = gaussian_filter(x.grid.astype(np.float32), sigma=sigma)
+    x._clear_temp_attr()
+
+    return x
+
+
 def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
                     labels_only: bool = False,
                     min_size: Optional[int] = None) -> 'core.NeuronList':
-    """Break neuron into continuous fragments.
+    """Break neuron into connected components.
 
     Neurons can consists of several disconnected fragments. This function
-    turn these fragments into separate neurons.
+    turns these fragments into separate neurons.
 
     Parameters
     ----------

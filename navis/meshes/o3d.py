@@ -14,7 +14,7 @@
 import numpy as np
 import trimesh as tm
 
-from .. import core
+from .. import core, utils
 
 
 def simplify_mesh_open3d(x, F, method='quadric', inplace=False, **kwargs):
@@ -46,6 +46,71 @@ def simplify_mesh_open3d(x, F, method='quadric', inplace=False, **kwargs):
                 Simplified mesh object.
 
     """
+    if not utils.is_mesh(x):
+        raise TypeError(f'Expected mesh-like, got "{type(x)}"')
+
+    mesh_o3d = make_o3d_mesh(x)
+
+    if method == 'quadric':
+        result = mesh_o3d.simplify_quadric_decimation(int(F), **kwargs)
+    elif method == 'cluster':
+        result = mesh_o3d.simplify_vertex_clustering(F,  **kwargs)
+    else:
+        raise ValueError(f'Unknown simplification scheme "{method}"')
+
+    if not inplace:
+        x = x.copy()
+
+    x.vertices = np.asarray(result.vertices)
+    x.faces = np.asarray(result.triangles)
+
+    return x
+
+
+def smooth_mesh_open3d(x, iterations=5, L=0.5, inplace=False):
+    """Smooth mesh using open3d's Laplacian smoothing.
+
+    Parameters
+    ----------
+    x :             MeshNeuron | Volume | Trimesh
+                    Mesh object to simplify.
+    iterations :    int
+                    Round of smoothing to apply.
+    L :             float [0-1]
+                    Diffusion speed constant lambda. Larger = more aggressive
+                    smoothing.
+    inplace :       bool
+                    If True, will perform simplication on ``x``. If False, will
+                    simplify and return a copy.
+
+    Returns
+    -------
+    smoothed
+                    Smoothed mesh object.
+
+    """
+    if not isinstance(x, (core.MeshNeuron, core.Volume, tm.Trimesh)):
+        raise TypeError('Expected MeshNeuron, Volume or trimesh.Trimesh, '
+                        f'got "{type(x)}"')
+
+    mesh_o3d = make_o3d_mesh(x)
+
+    if L > 1 or L < 0:
+        raise ValueError(f'`L` (lambda) must be between 0 and 1, got "{L}"')
+
+    result = mesh_o3d.filter_smooth_laplacian(iterations, L)
+
+    if not inplace:
+        x = x.copy()
+
+    x.vertices = np.asarray(result.vertices)
+    x.faces = np.asarray(result.triangles)
+
+    return x
+
+
+def make_o3d_mesh(x):
+    """Turn mesh-like object into an open3d mesh."""
     try:
         import open3d
     except ImportError:
@@ -53,25 +118,6 @@ def simplify_mesh_open3d(x, F, method='quadric', inplace=False, **kwargs):
     except BaseException:
         raise
 
-    if not isinstance(x, (core.MeshNeuron, core.Volume, tm.Trimesh)):
-        raise TypeError('Expected MeshNeuron, Volume or trimesh.Trimesh, '
-                        f'got "{type(x)}"')
-
-    mesh_o3d = open3d.geometry.TriangleMesh(
-            vertices=open3d.utility.Vector3dVector(x.vertices),
-            triangles=open3d.utility.Vector3iVector(x.faces))
-
-    if method == 'quadric':
-        simple = mesh_o3d.simplify_quadric_decimation(int(F), **kwargs)
-    elif method == 'cluster':
-        simple = mesh_o3d.simplify_vertex_clustering(F,  **kwargs)
-    else:
-        raise ValueError(f'Unknown simplification scheme "{method}"')
-
-    if not inplace:
-        x = x.copy()
-
-    x.vertices = np.asarray(simple.vertices)
-    x.faces = np.asarray(simple.triangles)
-
-    return x
+    return open3d.geometry.TriangleMesh(
+                vertices=open3d.utility.Vector3dVector(x.vertices),
+                triangles=open3d.utility.Vector3iVector(x.faces))

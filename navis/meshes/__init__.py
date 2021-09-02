@@ -12,9 +12,9 @@
 #    GNU General Public License for more details.
 
 from .mesh_utils import fix_mesh
-from .operations import simplify_mesh, available_backends
+from .operations import simplify_mesh, available_backends, smooth_mesh
 from .o3d import simplify_mesh_open3d
 from .b3d import simplify_mesh_blender
 from .pyml import simplify_mesh_pyml
 
-__all__ = ['fix_mesh', 'simplify_mesh']
+__all__ = ['fix_mesh', 'simplify_mesh', 'smooth_mesh']
