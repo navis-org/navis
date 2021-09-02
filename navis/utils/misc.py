@@ -206,7 +206,16 @@ def map_neuronlist(desc: str = "",
                 # If we use parallel processing it makes sense to modify neurons
                 # "inplace" since they will be copied into the child processes
                 # anyway and that way we can avoid making an additional copy
-                inplace = kwargs.get('inplace', sig.parameters.get('inplace', False))
+                if 'inplace' in kwargs:
+                    # First check keyword arguments
+                    inplace = kwargs['inplace']
+                elif 'inplace' in sig.parameters:
+                    # Next check signatures default
+                    inplace = sig.parameters['inplace'].default
+                else:
+                    # All things failing assume it's not inplace
+                    inplace = False
+
                 if parallel and 'inplace' in sig.parameters:
                     kwargs['inplace'] = True
 
