@@ -376,6 +376,9 @@ def plot2d(x: Union[core.NeuronObject,
             ax.dist = 7
             # Disallowed for 3D in matplotlib 3.1.0
             # ax.set_aspect('equal')
+        # Make background transparent (nicer for dark themes)
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
     # Check if correct axis were provided
     else:
         if not isinstance(ax, mpl.axes.Axes):

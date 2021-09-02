@@ -173,6 +173,9 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
 
     if not ax:
         fig, ax = plt.subplots(figsize=kwargs.get('figsize', (10, 10)))
+        # Make background transparent (nicer for dark themes)
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
 
     # For each node get the distance to its root
     if 'parent_dist' not in x.nodes.columns:
@@ -379,6 +382,9 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
     logger.info('Plotting tree.')
     if not ax:
         fig, ax = plt.subplots(figsize=kwargs.get('figsize', (12, 6)))
+        # Make background transparent (nicer for dark themes)
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
 
     nx.draw(G, positions, node_size=0, arrows=False, ax=ax)
 

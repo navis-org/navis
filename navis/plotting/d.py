@@ -94,6 +94,9 @@ def plot1d(x: 'core.NeuronObject',
 
     if not ax:
         fig, ax = plt.subplots(figsize=(8, len(x) / 3))
+        # Make background transparent (nicer for dark themes)
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
 
     # Add some default parameters for the plotting to kwargs
     kwargs.update({'lw': kwargs.get('lw', .1),

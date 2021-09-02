@@ -556,6 +556,8 @@ def layout2plotly(**kwargs):
                   height=kwargs.get('height', 600),
                   autosize=kwargs.get('fig_autosize', False),
                   title=kwargs.get('pl_title', None),
+                  plot_bgcolor='rgba(0,0,0,0)',
+                  paper_bgcolor='rgba(0,0,0,0)',
                   scene=dict(xaxis=dict(gridcolor='rgb(255, 255, 255)',
                                         zerolinecolor='rgb(255, 255, 255)',
                                         showbackground=False,
