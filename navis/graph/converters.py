@@ -562,22 +562,28 @@ def _find_all_paths(g: nx.DiGraph,
     return all_paths
 
 
-def neuron2KDTree(x: 'core.TreeNeuron',
+def neuron2KDTree(x: 'core.NeuronObject',
                   tree_type: str = 'c',
-                  data: str = 'nodes',
+                  data: str = 'auto',
                   **kwargs) -> Union[scipy.spatial.cKDTree,
                                      scipy.spatial.KDTree]:
     """Turn neuron into scipy KDTree.
 
     Parameters
     ----------
-    x :         single TreeNeuron
-    tree_type : 'c' | 'normal', optional
+    x :         TreeNeuron | MeshNeuron | VoxelNeuron | Dotprops
+                A single neuron to turn into a KDTree.
+    tree_type : 'c' | 'normal'
                 Type of KDTree:
                   1. ``'c'`` = ``scipy.spatial.cKDTree`` (faster)
                   2. ``'normal'`` = ``scipy.spatial.KDTree`` (more functions)
-    data :      'nodes' | 'connectors', optional
-                Data to use to generate tree.
+    data :      'auto' | str
+                Data used to generate tree. "auto" will pick the core data
+                depending on neuron type: `nodes`, `vertices`, `voxels` and
+                `points` for TreeNeuron, MeshNeuron, VoxelNeuron and Dotprops,
+                respectively. Other values (e.g. "connectors" or "nodes") must
+                map to a neuron property that is either (N, 3) array or
+                DataFrame with x/y/z columns.
     **kwargs
                 Keyword arguments passed at KDTree initialization.
 
@@ -590,23 +596,39 @@ def neuron2KDTree(x: 'core.TreeNeuron',
     if tree_type not in ['c', 'normal']:
         raise ValueError('"tree_type" needs to be either "c" or "normal"')
 
-    if data not in ['nodes', 'connectors']:
-        raise ValueError('"data" needs to be either "nodes" or "connectors"')
-
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
             x = x[0]
         else:
             raise ValueError('Need a single TreeNeuron')
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Need TreeNeuron, got "{type(x)}"')
+    elif not isinstance(x, core.BaseNeuron):
+        raise TypeError(f'Need Neuron, got "{type(x)}"')
 
-    if data == 'nodes':
-        d = x.nodes[['x', 'y', 'z']].values
-    else:
-        d = x.connectors[['x', 'y', 'z']].values
+    if data == 'auto':
+        if isinstance(x, core.TreeNeuron):
+            data = 'nodes'
+        if isinstance(x, core.MeshNeuron):
+            data = 'vertices'
+        if isinstance(x, core.VoxelNeuron):
+            data = 'voxels'
+        if isinstance(x, core.Dotprops):
+            data = 'points'
+
+    if not hasattr(x, data):
+        raise ValueError(f'Neuron does not have a {data} property')
+
+    data = getattr(x, data)
+
+    if isinstance(data, pd.DataFrame):
+        if not all(np.isin(['x', 'y', 'z'], data.columns)):
+            raise ValueError(f'"{data}" DataFrame must contain "x", "y" and '
+                             '"z" columns.')
+        data = data[['x', 'y', 'z']].values
+
+    if not isinstance(data, np.ndarray) or data.ndim != 2 or data.shape[1] != 3:
+        raise ValueError(f'"{data}" must be DataFrame or (N, 3) array, got {type(data)}')
 
     if tree_type == 'c':
-        return scipy.spatial.cKDTree(data=d, **kwargs)
+        return scipy.spatial.cKDTree(data=data, **kwargs)
     else:
-        return scipy.spatial.KDTree(data=d, **kwargs)
+        return scipy.spatial.KDTree(data=data, **kwargs)
