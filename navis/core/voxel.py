@@ -199,6 +199,14 @@ class VoxelNeuron(BaseNeuron):
 
         return np.vstack((mn, mx)).T
 
+    @property
+    def volume(self) -> float:
+        """Volume of neuron."""
+        # Get volume of a single voxel
+        voxel_volume = self.units_xyz[0] * self.units_xyz[2] * self.units_xyz[2]
+        voxel_volume = voxel_volume.to_compact()
+        return self.voxels.shape[0] * voxel_volume
+
     @temp_property
     def voxels(self):
         """Voxels making up the neuron."""
