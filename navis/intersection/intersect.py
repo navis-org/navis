@@ -21,7 +21,7 @@ import numpy as np
 from typing import Union, List, Dict, Sequence, Optional, overload, Any
 from typing_extensions import Literal
 
-from .. import config, graph, core, utils
+from .. import config, core, utils, morpho
 
 from .ray import *
 from .convex import *

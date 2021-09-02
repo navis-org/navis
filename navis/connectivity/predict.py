@@ -72,7 +72,7 @@ def cable_overlap(a: NeuronObject,
 
     See Also
     --------
-    :func:`navis.resample_neuron`
+    :func:`navis.resample_skeleton`
                 Use to resample neurons before calculating overlap.
 
     Examples

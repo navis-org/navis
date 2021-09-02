@@ -24,16 +24,16 @@ from typing_extensions import Literal
 from pandas.api.types import CategoricalDtype
 from scipy.sparse import csgraph, csr_matrix
 
-from .. import graph, utils, config, core
+from .. import graph, utils, config, core, morpho
 
 # Set up logging
 logger = config.logger
 
 __all__ = sorted(['classify_nodes', 'cut_neuron', 'longest_neurite',
-                  'split_into_fragments', 'reroot_neuron', 'distal_to',
+                  'split_into_fragments', 'reroot_skeleton', 'distal_to',
                   'dist_between', 'find_main_branchpoint',
                   'generate_list_of_childs', 'geodesic_matrix',
-                  'subset_neuron', 'node_label_sorting',
+                  'node_label_sorting',
                   'segment_length', 'rewire_neuron', 'insert_nodes',
                   'remove_nodes'])
 
@@ -957,7 +957,7 @@ def split_into_fragments(x: 'core.NeuronObject',
             g.remove_nodes_from(g2.nodes)
 
     # Now make neurons
-    nl = core.NeuronList([subset_neuron(x, g) for g in graphs])
+    nl = core.NeuronList([morpho.subset_neuron(x, g) for g in graphs])
 
     return nl
 
@@ -1048,13 +1048,13 @@ def longest_neurite(x: 'core.NeuronObject',
     else:
         raise TypeError(f'Unable to use N of type "{type(n)}"')
 
-    _ = subset_neuron(x, tn_to_preserve, inplace=True)
+    _ = morpho.subset_neuron(x, tn_to_preserve, inplace=True)
 
     return x
 
 
 @utils.lock_neuron
-def reroot_neuron(x: 'core.NeuronObject',
+def reroot_skeleton(x: 'core.NeuronObject',
                   new_root: Union[int, str],
                   inplace: bool = False) -> 'core.TreeNeuron':
     """Reroot neuron to new root.
@@ -1086,7 +1086,7 @@ def reroot_neuron(x: 'core.NeuronObject',
     >>> import navis
     >>> n = navis.example_neurons(1, kind='skeleton')
     >>> # Reroot neuron to its soma
-    >>> n2 = navis.reroot_neuron(n, n.soma)
+    >>> n2 = navis.reroot_skeleton(n, n.soma)
 
     """
     if isinstance(x, core.NeuronList):
@@ -1127,7 +1127,7 @@ def reroot_neuron(x: 'core.NeuronObject',
         # Make a copy
         x = x.copy()
         # Run this in a separate function so that the lock is applied to copy
-        _ = reroot_neuron(x, new_root=new_roots, inplace=True)
+        _ = reroot_skeleton(x, new_root=new_roots, inplace=True)
         return x
 
     # Keep track of node ID dtype
@@ -1424,9 +1424,9 @@ def _cut_igraph(x: 'core.TreeNeuron',
         dist_graph, prox_graph = a, b
 
     if ret == 'distal' or ret == 'both':
-        dist = subset_neuron(x,
-                             subset=dist_graph.vs['node_id'],
-                             inplace=False)
+        dist = morpho.subset_neuron(x,
+                                    subset=dist_graph.vs['node_id'],
+                                    inplace=False)
 
         # Change new root for dist
         dist.nodes.loc[dist.nodes.node_id == cut_node, 'type'] = 'root'
@@ -1436,9 +1436,9 @@ def _cut_igraph(x: 'core.TreeNeuron',
 
     if ret == 'proximal' or ret == 'both':
         ss: Sequence[int] = prox_graph.vs['node_id'] + [cut_node]
-        prox = subset_neuron(x,
-                             subset=ss,
-                             inplace=False)
+        prox = morpho.subset_neuron(x,
+                                    subset=ss,
+                                    inplace=False)
 
         # Change new root for dist
         prox.nodes.loc[prox.nodes.node_id == cut_node, 'type'] = 'end'
@@ -1470,9 +1470,9 @@ def _cut_networkx(x: 'core.TreeNeuron',
 
         # Generate new neurons
         # This is the actual bottleneck of the function: ~70% of time
-        dist = subset_neuron(x,
-                             subset=dist_graph,
-                             inplace=False)  # type: ignore  # doesn't know nx.DiGraph
+        dist = morpho.subset_neuron(x,
+                                    subset=dist_graph,
+                                    inplace=False)  # type: ignore  # doesn't know nx.DiGraph
 
         # Change new root for dist
         dist.nodes.loc[dist.nodes.node_id == cut_node, 'parent_id'] = -1
@@ -1493,9 +1493,9 @@ def _cut_networkx(x: 'core.TreeNeuron',
 
         # Generate new neurons
         # This is the actual bottleneck of the function: ~70% of time
-        prox = subset_neuron(x,
-                             subset=prox_graph,
-                             inplace=False)
+        prox = morpho.subset_neuron(x,
+                                    subset=prox_graph,
+                                    inplace=False)
 
         # Change cut node to end node for prox
         prox.nodes.loc[prox.nodes.node_id == cut_node, 'type'] = 'end'
@@ -1515,216 +1515,6 @@ def _cut_networkx(x: 'core.TreeNeuron',
         return dist
     else:  # elif ret == 'proximal':
         return prox
-
-
-@utils.lock_neuron
-def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
-                  subset: Union[Sequence[Union[int, str]],
-                                nx.DiGraph,
-                                pd.DataFrame],
-                  inplace: bool = False,
-                  keep_disc_cn: bool = False,
-                  prevent_fragments: bool = False
-                  ) -> 'core.TreeNeuron':
-    """Subset a neuron to a given set of nodes/vertices.
-
-    Note that for ``MeshNeurons`` it is not guaranteed that all vertices in
-    ``subset`` survive because we will also drop degenerate vertices that do
-    not participate in any faces.
-
-    Parameters
-    ----------
-    x :                   TreeNeuron | MeshNeuron
-    subset :              list-like | set | NetworkX.Graph | pandas.DataFrame
-                          For TreeNeurons:
-                           - node IDs to subset the neuron to
-                           - a boolean mask
-                           - dataFrame with ``node_id`` column
-                          For MeshNeurons:
-                           - vertex indices
-                           - a boolean mask
-    keep_disc_cn :        bool, optional
-                          If False, will remove disconnected connectors that
-                          have "lost" their parent node/vertex.
-    prevent_fragments :   bool, optional
-                          If True, will add nodes/vertices to ``subset``
-                          required to keep neuron from fragmenting.
-    inplace :             bool, optional
-                          If False, a copy of the neuron is returned.
-
-    Returns
-    -------
-    TreeNeuron | MeshNeuron
-
-    Examples
-    --------
-    Subset neuron to all branches with less than 10 nodes
-
-    >>> import navis
-    >>> # Get neuron
-    >>> n = navis.example_neurons(1)
-    >>> # Get all linear segments
-    >>> segs = n.segments
-    >>> # Get short segments
-    >>> short_segs = [s for s in segs if len(s) <= 10]
-    >>> # Flatten segments into list of nodes
-    >>> nodes_to_keep = [n for s in short_segs for n in s]
-    >>> # Subset neuron
-    >>> n_short = navis.subset_neuron(n, nodes_to_keep)
-
-    See Also
-    --------
-    :func:`~navis.cut_neuron`
-            Cut neuron at specific points.
-
-    """
-    if isinstance(x, core.NeuronList) and len(x) == 1:
-        x = x[0]
-
-    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
-        raise TypeError(f'Expected Tree- or MeshNeuron, got "{type(x)}"')
-
-    # Make a copy of the neuron
-    if not inplace:
-        x = x.copy()
-        # We have to run this in a separate function so that the lock is applied
-        # to the copy
-        subset_neuron(x,
-                      subset=subset,
-                      inplace=True,
-                      keep_disc_cn=keep_disc_cn,
-                      prevent_fragments=prevent_fragments)
-        return x
-
-    if isinstance(x, core.TreeNeuron):
-        x = _subset_treeneuron(x,
-                               subset=subset,
-                               keep_disc_cn=keep_disc_cn,
-                               prevent_fragments=prevent_fragments)
-    elif isinstance(x, core.MeshNeuron):
-        x = _subset_meshneuron(x,
-                               subset=subset,
-                               keep_disc_cn=keep_disc_cn,
-                               prevent_fragments=prevent_fragments)
-
-    return x
-
-
-def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
-    """Subset MeshNeuron."""
-    if not utils.is_iterable(subset):
-        raise TypeError('Can only subset MeshNeuron to list, set or '
-                        f'numpy.ndarray, not "{type(subset)}"')
-
-    subset = utils.make_iterable(subset)
-
-    # Convert mask to indices
-    if subset.dtype == bool:
-        if subset.shape != (x.vertices.shape[0], ):
-            raise ValueError('Boolean mask must be of same length as vertices.')
-        subset = np.arange(0, len(x.vertices))[subset]
-
-    if prevent_fragments:
-        # Generate skeleton
-        sk = x.skeleton
-        # Convert vertex IDs to node IDs
-        subset_nodes = np.unique(x.skeleton.vertex_map[subset])
-        # Find connected subgraph
-        subset, _ = connected_subgraph(x.skeleton, subset_nodes)
-        # Convert node IDs back to vertex IDs
-        subset = np.arange(0, len(x.vertices))[np.isin(sk.vertex_map, subset)]
-
-    # Filter connectors
-    if not keep_disc_cn and x.has_connectors:
-        if 'vertex_id' not in x.connectors.columns:
-            x.connectors['vertex'] = x.snap(x.connectors[['x', 'y', 'z']].values)[0]
-
-        x._connectors = x.connectors[x.connectors.vertex.isin(subset)]
-        x._connectors.reset_index(inplace=True, drop=True)
-
-    # Subset the mesh (by faces)
-    # Build the mask bit by bit to be more efficient:
-    subset_faces = np.full(len(x.faces), True)
-    for i in range(3):
-        subset_faces[subset_faces] = np.isin(x.faces[subset_faces, i], subset)
-    subset_faces = np.where(subset_faces)[0]
-
-    if len(subset_faces):
-        submesh = x.trimesh.submesh([subset_faces], append=True)
-        x.vertices, x.faces = submesh.vertices, submesh.faces
-    else:
-        x.vertices, x.faces = np.empty((0, 3)), np.empty((0, 3))
-
-    return x
-
-
-def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
-    """Subset skeleton."""
-    if isinstance(subset, (nx.DiGraph, nx.Graph)):
-        subset = subset.nodes
-    elif isinstance(subset, pd.DataFrame):
-        subset = subset.node_id.values
-    elif utils.is_iterable(subset):
-        # This forces subset into numpy array (important for e.g. sets)
-        subset = utils.make_iterable(subset)
-    else:
-        raise TypeError('Can only subset to list, set, numpy.ndarray or'
-                        f'networkx.Graph, not "{type(subset)}"')
-
-    if prevent_fragments:
-        subset, new_root = connected_subgraph(x, subset)
-    else:
-        new_root = None  # type: ignore # new_root has already type from before
-
-    # Filter nodes
-    # Note that we are setting the nodes directly (here and later) thereby
-    # circumventing (or rather postponing) checks and safeguards.
-    x._nodes = x.nodes[x.nodes.node_id.isin(subset)]
-
-    # Make sure that there are root nodes
-    # This is the fastest "pandorable" way: instead of overwriting the column,
-    # concatenate a new column to this DataFrame
-    x._nodes = pd.concat([x.nodes.drop('parent_id', inplace=False, axis=1),  # type: ignore  # no stubs for concat
-                          x.nodes[['parent_id']].where(x.nodes.parent_id.isin(x.nodes.node_id.values),
-                                                       other=-1, inplace=False)],
-                         axis=1)
-
-    # Make sure any new roots or leafs are properly typed
-    # We won't produce new slabs but roots and leaves might change
-    x.nodes.loc[x.nodes.parent_id < 0, 'type'] = 'root'
-    x.nodes.loc[(~x.nodes.node_id.isin(x.nodes.parent_id.values)
-                 & (x.nodes.parent_id >= 0)), 'type'] = 'end'
-
-    # Filter connectors
-    if not keep_disc_cn and x.has_connectors:
-        x._connectors = x.connectors[x.connectors.node_id.isin(subset)]
-        x._connectors.reset_index(inplace=True, drop=True)
-
-    if hasattr(x, 'tags'):
-        # Filter tags
-        x.tags = {t: [tn for tn in x.tags[t] if tn in subset] for t in x.tags}  # type: ignore  # TreeNeuron has no tags
-
-        # Remove empty tags
-        x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}  # type: ignore  # TreeNeuron has no tags
-
-    # Fix graph representations
-    if '_graph_nx' in x.__dict__:
-        x._graph_nx = x.graph.subgraph(x.nodes.node_id.values)
-    if '_igraph' in x.__dict__:
-        if x.igraph and config.use_igraph:
-            id2ix = {n: ix for ix, n in zip(x.igraph.vs.indices,
-                                            x.igraph.vs.get_attribute_values('node_id'))}
-            indices = [id2ix[n] for n in x.nodes.node_id.values]
-            vs = x.igraph.vs[indices]
-            x._igraph = x.igraph.subgraph(vs)
-
-    # Reset indices of data tables
-    x.nodes.reset_index(inplace=True, drop=True)
-
-    if new_root:
-        x.reroot(new_root, inplace=True)
-
-    return x
 
 
 def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:

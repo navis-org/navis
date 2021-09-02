@@ -144,13 +144,18 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     if shave:
         # Find single node bristles
         leafs = s.leafs.node_id.values
+
+        # Make sure we keep the soma
+        if s.has_soma:
+            leafs = leafs[~np.isin(leafs, s.soma)]
+
         bp = s.branch_points.node_id.values
         bristles = s.nodes[s.nodes.node_id.isin(leafs)
                            & s.nodes.parent_id.isin(bp)]
 
         # Subset neuron
         keep = s.nodes[~s.nodes.node_id.isin(bristles.node_id)].node_id.values
-        s = graph.subset_neuron(s, keep, inplace=True)
+        s = morpho.subset_neuron(s, keep, inplace=True)
 
         # Fix vertex map
         for b, p in zip(bristles.node_id.values, bristles.parent_id.values):

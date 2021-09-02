@@ -46,7 +46,8 @@ import pandas as pd
 from .. import config
 
 from ..core import Volume, TreeNeuron, MeshNeuron, NeuronList
-from ..graph import neuron2KDTree, subset_neuron
+from ..graph import neuron2KDTree
+from ..morpho import subset_neuron
 
 logger = config.logger
 

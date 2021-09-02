@@ -76,7 +76,7 @@ In addition to these **attributes**, both :class:`~navis.TreeNeuron` and
 other navis functions. These lines of code are equivalent::
 
 	>>> n.reroot(n.soma, inplace=True)
-	>>> navis.reroot_neuron(n, n.soma, inplace=True)
+	>>> navis.reroot_skeleton(n, n.soma, inplace=True)
 
 	>>> n.plot3d(color='red')
 	>>> navis.plot3d(n, color='red')

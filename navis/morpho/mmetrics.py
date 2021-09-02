@@ -780,11 +780,13 @@ def tortuosity(x: 'core.NeuronObject',
     Note
     ----
     If you want to make sure that segments are as close to length `L` as
-    possible, consider resampling the neuron using :func:`navis.resample_neuron`.
+    possible, consider resampling the neuron using :func:`navis.resample_skeleton`.
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 TreeNeuron | MeshNeuron | NeuronList
+                        Neuron to analyze. If MeshNeuron, will generate and
+                        use a skeleton representation.
     seg_length :        int | float | str | list thereof, optional
                         Target segment length(s) `L`. If neuron(s) have their
                         ``.units`` set, you can also pass a string such as

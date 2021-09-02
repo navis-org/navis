@@ -773,7 +773,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.resample_neuron`
+        :func:`~navis.resample_skeleton`
             Base function. See for details and examples.
 
         """
@@ -782,7 +782,7 @@ class TreeNeuron(BaseNeuron):
         else:
             x = self.copy(deepcopy=False)
 
-        sampling.resample_neuron(x, resample_to, inplace=True)
+        sampling.resample_skeleton(x, resample_to, inplace=True)
 
         # No need to call this as base function does this for us
         # x._clear_temp_attr()
@@ -854,7 +854,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.reroot_neuron`
+        :func:`~navis.reroot_skeleton`
             Base function. See for details and examples.
 
         """
@@ -863,9 +863,9 @@ class TreeNeuron(BaseNeuron):
         else:
             x = self.copy(deepcopy=False)
 
-        graph.reroot_neuron(x, new_root, inplace=True)
+        graph.reroot_skeleton(x, new_root, inplace=True)
 
-        # Clear temporary attributes is done by morpho.reroot_neuron()
+        # Clear temporary attributes is done by morpho.reroot_skeleton()
         # x._clear_temp_attr()
 
         if not inplace:

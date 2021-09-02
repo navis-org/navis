@@ -298,9 +298,9 @@ Functions to edit morphology:
 .. autosummary::
     :toctree: generated/
 
-    navis.average_neurons
+    navis.average_skeletons
     navis.break_fragments
-    navis.despike_neuron
+    navis.despike_skeleton
     navis.drop_fluff
     navis.cell_body_fiber
     navis.cut_neuron
@@ -310,12 +310,14 @@ Functions to edit morphology:
     navis.prune_by_strahler
     navis.prune_twigs
     navis.prune_at_depth
-    navis.reroot_neuron
+    navis.reroot_skeleton
     navis.split_axon_dendrite
     navis.split_into_fragments
     navis.stitch_neurons
     navis.subset_neuron
-    navis.smooth_neuron
+    navis.smooth_skeleton
+    navis.smooth_mesh
+    navis.smooth_voxels
     navis.tortuosity
 
 Resampling
@@ -325,7 +327,7 @@ Functions to down- or resample neurons.
 .. autosummary::
     :toctree: generated/
 
-    navis.resample_neuron
+    navis.resample_skeleton
     navis.resample_along_axis
     navis.downsample_neuron
     navis.simplify_mesh

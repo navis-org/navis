@@ -51,7 +51,8 @@ repository.
            - new function: :func:`~navis.read_precomputed`
        - new high-level wrappers to convert neurons: :func:`navis.voxelize`, :func:`navis.mesh` and :func:`navis.skeletonize`
        - :func:`~navis.make_dotprops` now accepts ``parallel=True`` parameter for parallel processing
-       - :func:`~navis.smooth_neuron` can now be used to smoother arbitrary numeric columns in the node table
+       - renamed ``smooth_neuron`` -> :func:`~navis.smooth_skeleton` and added separate :func:`~navis.smooth_mesh` function
+       - :func:`~navis.smooth_skeleton` can now be used to smoother arbitrary numeric columns in the node table
        - :func:`~navis.plot3d` with plotly backend now returns a plotly ``Figure`` instead of a figure dictionary
        - new function :func:`navis.plot_flat` plots neurons as dendrograms
        - new function :func:`navis.drop_fluff` removes small disconnected bits and pieces from neurons

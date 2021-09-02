@@ -27,35 +27,35 @@ from .. import config, core, utils, graph
 # Set up logging
 logger = config.logger
 
-__all__ = ['resample_neuron', 'resample_along_axis']
+__all__ = ['resample_skeleton', 'resample_along_axis']
 
 
 @overload
-def resample_neuron(x: 'core.TreeNeuron',
-                    resample_to: int,
-                    inplace: bool = False,
-                    method: str = 'linear',
-                    skip_errors: bool = True
-                    ) -> 'core.TreeNeuron': ...
+def resample_skeleton(x: 'core.TreeNeuron',
+                      resample_to: int,
+                      inplace: bool = False,
+                      method: str = 'linear',
+                      skip_errors: bool = True
+                      ) -> 'core.TreeNeuron': ...
 
 
 @overload
-def resample_neuron(x: 'core.NeuronList',
-                    resample_to: int,
-                    inplace: bool = False,
-                    method: str = 'linear',
-                    skip_errors: bool = True
-                    ) -> 'core.NeuronList': ...
+def resample_skeleton(x: 'core.NeuronList',
+                      resample_to: int,
+                      inplace: bool = False,
+                      method: str = 'linear',
+                      skip_errors: bool = True
+                      ) -> 'core.NeuronList': ...
 
 
 @utils.map_neuronlist(desc='Resampling', allow_parallel=True)
-def resample_neuron(x: 'core.NeuronObject',
-                    resample_to: Union[int, str],
-                    inplace: bool = False,
-                    method: str = 'linear',
-                    skip_errors: bool = True
-                    ) -> Optional['core.NeuronObject']:
-    """Resample neuron(s) to given resolution.
+def resample_skeleton(x: 'core.NeuronObject',
+                      resample_to: Union[int, str],
+                      inplace: bool = False,
+                      method: str = 'linear',
+                      skip_errors: bool = True
+                      ) -> Optional['core.NeuronObject']:
+    """Resample skeleton(s) to given resolution.
 
     Preserves root, leafs, branchpoints. Soma, connectors and node tags
     (if present) are mapped onto the closest node in the resampled neuron.
@@ -105,9 +105,9 @@ def resample_neuron(x: 'core.NeuronObject',
     >>> round(n.sampling_resolution)
     60
     >>> # Resample to 1 micron (example neurons are in nm space)
-    >>> n_rs = navis.resample_neuron(n,
-    ...                              resample_to=1000,
-    ...                              inplace=False)
+    >>> n_rs = navis.resample_skeleton(n,
+    ...                                resample_to=1000,
+    ...                                inplace=False)
     >>> round(n_rs.sampling_resolution)
     195
 
@@ -346,7 +346,7 @@ def resample_along_axis(x: 'core.TreeNeuron',
 
     See Also
     --------
-    :func:`navis.resample_neuron`
+    :func:`navis.resample_skeleton`
                         Resample neuron such that edges between nodes have a
                         given length.
     :func:`navis.downsample_neuron`
