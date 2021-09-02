@@ -142,7 +142,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
 
     Parameters
     ----------
-    x :                 list of tuples | numpy.array | pandas.DataFrame | TreeNeuron | Dotprops | MeshNeuron | NeuronList
+    x :                 list of tuples | numpy.array | pandas.DataFrame | Neuron/List
 
                         - list/numpy.array is treated as list of x/y/z
                           coordinates. Needs to be shape (N,3): e.g.
@@ -302,13 +302,16 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         if inplace is False:
             x = x.copy()
 
-    if isinstance(x, (core.TreeNeuron, core.Dotprops, core.MeshNeuron)):
+    if isinstance(x, (core.BaseNeuron)):
         if isinstance(x, core.TreeNeuron):
             data = x.nodes[['x', 'y', 'z']].values
         elif isinstance(x, core.Dotprops):
             data = x.points
         elif isinstance(x, core.MeshNeuron):
             data = x.vertices
+        elif isinstance(x, core.VoxelNeuron):
+            data = x.voxels * x.units_xyz.magnitude + x.units_xyz.magnitude / 2
+            data += x.offset
 
         in_v = in_volume(data,
                          vol,
@@ -324,21 +327,20 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         # Only subset if there are actually nodes to remove
         if not all(in_v):
             if isinstance(x, core.TreeNeuron):
-                _ = graph.subset_neuron(x,
-                                        subset=x.nodes[in_v].node_id.values,
-                                        inplace=True,
-                                        prevent_fragments=prevent_fragments)
-            elif isinstance(x, core.MeshNeuron):
-                _ = graph.subset_neuron(x,
-                                        subset=in_v,
-                                        inplace=True,
-                                        prevent_fragments=prevent_fragments)
-            elif isinstance(x, core.Dotprops):
-                x.points = x.points[in_v]
-                if not isinstance(x._vect, type(None)):
-                    x._vect = x._vect[in_v]
-                if not isinstance(x._alpha, type(None)):
-                    x._alpha = x._alpha[in_v]
+                _ = morpho.subset_neuron(x,
+                                         subset=x.nodes[in_v].node_id.values,
+                                         inplace=True,
+                                         prevent_fragments=prevent_fragments)
+            elif isinstance(x, (core.MeshNeuron, core.Dotprops)):
+                _ = morpho.subset_neuron(x,
+                                         subset=in_v,
+                                         inplace=True,
+                                         prevent_fragments=prevent_fragments)
+            elif isinstance(x, core.VoxelNeuron):
+                values = x.values[in_v]
+                x._data = x.voxels[in_v]
+                x.values = values
+                x._clear_temp_attr()
 
         return x
     elif isinstance(x, core.NeuronList):
