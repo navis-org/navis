@@ -823,7 +823,9 @@ def tortuosity(x: 'core.NeuronObject',
         df.index.name = 'seg_length'
         return df
 
-    if not isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.MeshNeuron):
+        x = x.skeleton
+    elif not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
 
     if isinstance(seg_length, (list, np.ndarray)):
