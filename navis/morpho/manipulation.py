@@ -1415,7 +1415,7 @@ def smooth_skeleton(x: NeuronObject,
     ----------
     x :             TreeNeuron | NeuronList
                     Neuron(s) to be processed.
-    sigma :         int, optional
+    window :        int, optional
                     Size (N observations) of the rolling window in number of
                     nodes.
     to_smooth :     list
@@ -1509,11 +1509,10 @@ def smooth_voxels(x: NeuronObject,
 
     Examples
     --------
-
     >>> import navis
     >>> n = navis.example_neurons(1, kind='mesh')
     >>> vx = navis.voxelize(n, pitch='1 micron')
-    >>> smoothed = navis.smooth_skeleton(vx, sigma=2)
+    >>> smoothed = navis.smooth_voxels(vx, sigma=2)
 
     See Also
     --------

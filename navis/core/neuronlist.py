@@ -577,7 +577,7 @@ class NeuronList:
         >>> import navis
         >>> nl = navis.example_neurons()
         >>> # Apply resampling function
-        >>> nl_rs = nl.apply(navis.resample_neuron, resample_to=1000, inplace=False)
+        >>> nl_rs = nl.apply(navis.resample_skeleton, resample_to=1000, inplace=False)
 
         """
         if not callable(func):
