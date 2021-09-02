@@ -170,8 +170,6 @@ def mesh2skeleton(x: 'core.MeshNeuron',
         new_radii = radii.loc[s.nodes.loc[to_fix].parent_id].values / 2
         s.nodes.loc[to_fix, 'radius'] = new_radii
 
-
-
     # Last but not least: map connectors
     if connectors and x.has_connectors:
         cn_table = x.connectors.copy()
@@ -352,13 +350,15 @@ def neuron2voxels(x: 'core.BaseNeuron',
         grid = grid.astype(int)
         grid[vxl[:, 0], vxl[:, 1], vxl[:, 2]] = cnt
 
+    # Apply Gaussian filter
     if smooth:
         grid = gaussian_filter(grid.astype(np.float32), sigma=smooth)
 
     # Generate neuron
     units = [f'{p * u} {x.units.units}' for p, u in zip(utils.make_iterable(pitch),
                                                         x.units_xyz.magnitude)]
-    n = core.VoxelNeuron(grid, id=x.id, name=x.name, units=units, offset=offset * pitch)
+    offset = offset * pitch * x.units_xyz.magnitude
+    n = core.VoxelNeuron(grid, id=x.id, name=x.name, units=units, offset=offset)
 
     # If no vectors required, we can just return now
     if not vectors and not alphas:
