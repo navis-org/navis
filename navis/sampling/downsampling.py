@@ -108,7 +108,7 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.resample_neuron`
+    :func:`navis.resample_skeleton`
                              This function resamples a neuron to given
                              resolution. This will change node IDs!
 

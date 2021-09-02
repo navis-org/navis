@@ -21,6 +21,7 @@ This API reference is a more or less complete account of the primary functions:
 5. :ref:`Analyze connectivity<api_con>`
 6. :ref:`Import/Export<io>`
 7. :ref:`Utility functions<api_utility>`
+8. :ref:`Which functions work with which neuron types?<api_func_matrix>`
 
 In addition ``navis`` has interfaces to various external datasets and tools:
 
@@ -718,3 +719,115 @@ Various utility functions.
     navis.set_default_connector_colors
     navis.config.remove_log_handlers
     navis.patch_cloudvolume
+
+
+.. _api_func_matrix:
+
+
+Neuron types and functions
+++++++++++++++++++++++++++
+
+As you can imagine not all functions will work on all neuron types. For example
+it is currently not possible to find the longest neurite
+(:func:`navis.longest_neurite`) in a ``VoxelNeuron``. Conversely, some
+functionality like "smoothing" makes sense for multiple neuron types but the
+application is so vastly different between e.g. meshes and skeletons that
+there is no single function but one for each neuron type.
+
+Below table has an overview for which functions work with which neuron types.
+
+
+.. list-table::
+   :widths: 20 20 20 20 20
+   :header-rows: 1
+
+   * - Description
+     - TreeNeuron
+     - MeshNeuron
+     - VoxelNeuron
+     - Dotprops
+   * - :func:`navis.plot2d`
+     - yes
+     - yes
+     - limited
+     - yes
+   * - :func:`navis.plot3d`
+     - yes
+     - yes
+     - limited
+     - yes
+   * - :func:`navis.plot1d`
+     - yes
+     - no
+     - no
+     - no
+   * - :func:`navis.plot_flat`
+     - yes
+     - no
+     - no
+     - no
+   * - :func:`navis.subset_neuron`
+     - yes
+     - yes
+     - yes
+     - yes
+   * - :func:`navis.in_volume`
+     - yes
+     - yes
+     - yes
+     - yes
+   * - smoothing
+     - :func:`navis.smooth_skeleton`
+     - :func:`navis.smooth_mesh`
+     - :func:`navis.smooth_voxels`
+     - no
+   * - :func:`navis.downsample_neuron`
+     - yes
+     - yes
+     - yes
+     - yes
+   * - resampling (e.g. :func:`navis.resample_skeleton`)
+     - yes
+     - no
+     - no
+     - no
+   * - NBLAST (e.g. :func:`navis.nblast`)
+     - no
+     - no
+     - no
+     - yes
+   * - :func:`navis.xform_brain`
+     - yes
+     - yes
+     - yes
+     - yes
+   * - :func:`navis.mirror_brain`
+     - yes
+     - yes
+     - no
+     - yes
+   * - :func:`navis.skeletonize`
+     - no
+     - yes
+     - no
+     - no
+   * - :func:`navis.mesh`
+     - yes
+     - no
+     - yes
+     - no
+   * - :func:`navis.voxelize`
+     - yes
+     - yes
+     - no
+     - yes
+   * - :func:`navis.drop_fluff`
+     - yes
+     - yes
+     - no
+     - no
+   * - :func:`navis.break_fragments`
+     - yes
+     - yes
+     - no
+     - no

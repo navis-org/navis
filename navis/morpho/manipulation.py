@@ -21,18 +21,20 @@ import networkx as nx
 from collections import namedtuple
 from itertools import combinations
 from scipy.spatial import cKDTree
+from scipy.ndimage import gaussian_filter
 from typing import Union, Optional, Sequence, overload, List, Set
 from typing_extensions import Literal
 
 from .. import graph, utils, config, core
-from . import mmetrics
+from . import mmetrics, subset
 
 # Set up logging
 logger = config.logger
 
 __all__ = sorted(['prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
-                  'average_neurons', 'despike_neuron', 'guess_radius',
-                  'smooth_neuron', 'heal_fragmented_neuron', 'cell_body_fiber',
+                  'average_skeletons', 'despike_skeleton', 'guess_radius',
+                  'smooth_skeleton', 'smooth_voxels',
+                  'heal_fragmented_neuron', 'cell_body_fiber',
                   'break_fragments', 'prune_twigs', 'prune_at_depth',
                   'drop_fluff'])
 
@@ -108,7 +110,7 @@ def cell_body_fiber(x: NeuronObject,
         except BaseException:
             raise
 
-    _ = graph.subset_neuron(x, path, inplace=True)
+    _ = subset.subset_neuron(x, path, inplace=True)
 
     return x
 
@@ -402,9 +404,9 @@ def _prune_twigs_simple(neuron: 'core.TreeNeuron',
 
         # Subset neuron
         nodes_to_keep = neuron.nodes[~neuron.nodes.node_id.isin(nodes_to_delete)].node_id.values
-        graph.subset_neuron(neuron,
-                            nodes_to_keep,
-                            inplace=True)
+        subset.subset_neuron(neuron,
+                             nodes_to_keep,
+                             inplace=True)
 
         # Go recursive
         if recursive:
@@ -467,9 +469,9 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
 
     if len(nodes_to_keep) < neuron.n_nodes:
         # Subset neuron
-        graph.subset_neuron(neuron,
-                            nodes_to_keep,
-                            inplace=True)
+        subset.subset_neuron(neuron,
+                             nodes_to_keep,
+                             inplace=True)
 
     # For each of the new leafs check their shortest distance to the
     # original leafs to get the remainder
@@ -505,9 +507,9 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
         nodes_to_keep = neuron.nodes.loc[~neuron.nodes.node_id.isin(leafs_to_remove),
                                          'node_id'].values
         # Subset neuron
-        graph.subset_neuron(neuron,
-                            nodes_to_keep,
-                            inplace=True)
+        subset.subset_neuron(neuron,
+                             nodes_to_keep,
+                             inplace=True)
 
     return neuron
 
@@ -533,7 +535,7 @@ def split_axon_dendrite(x: NeuronObject,
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 TreeNeuron | MeshNeuron | NeuronList
                         Neuron(s) to split into axon, dendrite (and cell body
                         fiber if possible). MUST HAVE CONNECTORS.
     metric :            'flow_centrality' | 'bending_flow' | 'segregation_index', optional
@@ -820,7 +822,7 @@ def split_axon_dendrite(x: NeuronObject,
     nl = []
     for label, nodes in zip(['cellbodyfiber', 'dendrite', 'linker', 'axon'],
                             [cbf, dendrite, linker, axon]):
-        n = graph.subset_neuron(original, nodes)
+        n = subset.subset_neuron(original, nodes)
         n.color = COLORS.get(label, (100, 100, 100))
         n._register_attr('compartment', label)
         nl.append(n)
@@ -1075,11 +1077,11 @@ def _mst_nx(nl: 'core.NeuronList',
     return to_add
 
 
-def average_neurons(x: 'core.NeuronList',
-                    limit: Union[int, str] = 10,
-                    base_neuron: Optional[Union[int, 'core.TreeNeuron']] = None
-                    ) -> 'core.TreeNeuron':
-    """Compute an average from a list of neurons.
+def average_skeletons(x: 'core.NeuronList',
+                      limit: Union[int, str] = 10,
+                      base_neuron: Optional[Union[int, 'core.TreeNeuron']] = None
+                      ) -> 'core.TreeNeuron':
+    """Compute an average from a list of skeletons.
 
     This is a very simple implementation which may give odd results if used
     on complex neurons. Works fine on e.g. backbones or tracts.
@@ -1111,7 +1113,7 @@ def average_neurons(x: 'core.NeuronList',
     ...         n.reroot(n.soma, inplace=True)
     >>> da2_pr = da2.prune_by_longest_neurite(inplace=False)
     >>> # Make average
-    >>> da2_avg = navis.average_neurons(da2_pr, limit=10e3)
+    >>> da2_avg = navis.average_skeletons(da2_pr, limit=10e3)
     >>> # Plot
     >>> da2.plot3d() # doctest: +SKIP
     >>> da2_avg.plot3d() # doctest: +SKIP
@@ -1190,11 +1192,11 @@ def average_neurons(x: 'core.NeuronList',
 
 
 @utils.map_neuronlist(desc='Despiking', allow_parallel=True)
-def despike_neuron(x: NeuronObject,
-                   sigma: int = 5,
-                   max_spike_length: int = 1,
-                   inplace: bool = False,
-                   reverse: bool = False) -> Optional[NeuronObject]:
+def despike_skeleton(x: NeuronObject,
+                     sigma: int = 5,
+                     max_spike_length: int = 1,
+                     inplace: bool = False,
+                     reverse: bool = False) -> Optional[NeuronObject]:
     """Remove spikes in skeleton (e.g. from jumps in image data).
 
     For each node A, the euclidean distance to its next successor (parent)
@@ -1227,7 +1229,7 @@ def despike_neuron(x: NeuronObject,
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> despiked = navis.despike_neuron(n)
+    >>> despiked = navis.despike_skeleton(n)
 
     """
     # TODO:
@@ -1600,12 +1602,12 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     if min_size:
         comp = [cc for cc in comp if len(cc) >= min_size]
 
-    return core.NeuronList([graph.subset_neuron(x,
-                                                list(ss),
-                                                inplace=False) for ss in config.tqdm(comp,
-                                                                                     desc='Breaking',
-                                                                                     disable=config.pbar_hide,
-                                                                                     leave=config.pbar_leave)])
+    return core.NeuronList([subset.subset_neuron(x,
+                                                 list(ss),
+                                                 inplace=False) for ss in config.tqdm(comp,
+                                                                                      desc='Breaking',
+                                                                                      disable=config.pbar_hide,
+                                                                                      leave=config.pbar_leave)])
 
 
 @utils.map_neuronlist(desc='Healing', allow_parallel=True)
@@ -1705,7 +1707,7 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
         trees = x.subtrees
         if len(trees) > 1:
             # Tree is sorted such that the largest component is the first
-            _ = graph.subset_neuron(x, subset=trees[0], inplace=True)
+            _ = subset.subset_neuron(x, subset=trees[0], inplace=True)
 
     return x
 
@@ -1879,7 +1881,7 @@ def prune_at_depth(x: NeuronObject,
     if not inplace:
         x = x.copy()
 
-    _ = graph.subset_neuron(x, subset=keep, inplace=True)
+    _ = subset.subset_neuron(x, subset=keep, inplace=True)
 
     return x
 
@@ -1932,7 +1934,7 @@ def drop_fluff(x: Union['core.TreeNeuron',
         keep = cc[0]
 
     # Subset neuron
-    x = graph.subset_neuron(x, subset=keep, inplace=inplace, keep_disc_cn=True)
+    x = subset.subset_neuron(x, subset=keep, inplace=inplace, keep_disc_cn=True)
 
     # See if we need to re-attach any connectors
     id_col = 'node_id' if isinstance(x, core.TreeNeuron) else 'vertex_id'

@@ -384,20 +384,20 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     filepath :          None | str | list, optional
                         If ``None``, will return byte string or list of
                         thereof. If filepath will save to this file. If path
-                        will save neuron(s) in that path using ``'{x.id}'``
+                        will save neuron(s) in that path using ``{x.id}``
                         as filename(s). If list, input must be NeuronList and
                         a filepath must be provided for each neuron.
     write_info :        bool
-                        Whether to also write a JSON-formatted `info` file that
+                        Whether to also write a JSON-formatted ``info`` file that
                         can be parsed by e.g. neuroglancer. This only works if
                         inputs are either only skeletons or only meshes!
     write_manifest :    bool
                         For meshes only: whether to also write manifests. For
-                        each mesh we will create a JSON-encoded `{id}:0` file
+                        each mesh we will create a JSON-encoded ``{id}:0`` file
                         that contains a "fragments" entry that maps to the
                         actual filename. Note that this will not work on Windows
                         because colons aren't allowed in file names and on OSX
-                        the colon will show up as a `/` in the Finder.
+                        the colon will show up as a ``/`` in the Finder.
     radius :            bool
                         For TreeNeurons only: whether to write radius as
                         additional vertex property.

@@ -14,10 +14,10 @@
 from .converters import (network2nx, network2igraph, neuron2igraph, nx2neuron,
                          neuron2nx, neuron2KDTree, neuron2tangents)
 from .graph_utils import (classify_nodes, cut_neuron, longest_neurite,
-                          split_into_fragments, reroot_neuron, distal_to,
+                          split_into_fragments, reroot_skeleton, distal_to,
                           dist_between, find_main_branchpoint,
                           generate_list_of_childs, geodesic_matrix,
-                          subset_neuron, node_label_sorting, _break_segments,
+                          node_label_sorting, _break_segments,
                           _generate_segments, segment_length,
                           _connected_components, rewire_neuron,
                           connected_subgraph, insert_nodes, remove_nodes)
@@ -25,8 +25,8 @@ from .clinic import (health_check)
 
 
 __all__ = ['cut_neuron', 'longest_neurite', 'split_into_fragments',
-           'reroot_neuron', 'distal_to', 'dist_between', 'segment_length',
-           'find_main_branchpoint', 'geodesic_matrix', 'subset_neuron',
+           'reroot_skeleton', 'distal_to', 'dist_between', 'segment_length',
+           'find_main_branchpoint', 'geodesic_matrix',
            'rewire_neuron', 'insert_nodes', 'remove_nodes', 'health_check',
            'graph_utils', 'network2nx', 'network2igraph', 'neuron2igraph',
            'nx2neuron', 'neuron2nx', 'neuron2KDTree', 'neuron2tangents']
