@@ -268,7 +268,7 @@ html_theme = 'bootstrap'
 # html_theme_options = {}
 html_theme_options = {
     'source_link_position': "footer",
-    'bootswatch_theme': "paper",
+    'bootswatch_theme': "darkly",
     'navbar_sidebarrel': False,
     'bootstrap_version': "3",
     'navbar_links': [("Install", "source/install"),

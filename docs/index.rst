@@ -29,47 +29,25 @@ If you have any questions, please get in touch: pms70@cam.ac.uk
 
 .. raw:: html
 
+
          </div>
-         <div class="col-lg-2">
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">Quicklinks</h3>
-               </div>
-               <div class="panel-body">
-
-.. toctree::
-   :maxdepth: 1
-
-   source/whats_new
-   source/install
-   source/tutorials/quickstart
-   source/gallery
-   source/troubleshooting
-   source/api
-
-
-.. raw:: html
-
-               </div>
-            </div>
-         </div>
-         <div class="col-lg-4">
+         <div class="col-lg-6">
             <div class="panel panel-default">
                <div class="panel-heading">
                   <h3 class="panel-title">Features</h3>
                </div>
                <div class="panel-body">
 
-* supports various neuron types: skeletons, meshes, dotprops
-* 2D (matplotlib) and 3D (vispy or plotly) plotting
+* supports various neuron types: skeletons, meshes, dotprops, voxels
+* 2D (matplotlib) and 3D (vispy & plotly) plotting
 * virtual neuron surgery: cutting, stitching, pruning, rerooting
-* analyse morphology (e.g. NBLAST) and connectivity
+* cluster by morphology (e.g. NBLAST) and connectivity
 * transform neurons between template brains
-* Python bindings for R natverse librarie
-* load neurons directly from `neuromorpho <http://neuromorpho.org>`_ or :ref:`neuPrint<neuprint_intro>`
+* Python bindings for R natverse library
+* load neurons directly from the Allen's `MICrONS <https://www.microns-explorer.org/>`_ datasets, `neuromorpho <http://neuromorpho.org>`_ or :ref:`neuPrint<neuprint_intro>`
 * simulate neurons and networks using `NEURON`
 * interface with :ref:`Blender 3D<blender3d>`
-* import-export from/to SWC
+* import-export from/to SWC, NRRD, neuroglancer's precomputed format and more
 * highly extensible - see the :ref:`ecosystem <other_libs>`
 
 .. raw:: html

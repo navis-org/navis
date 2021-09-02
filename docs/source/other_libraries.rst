@@ -2,7 +2,7 @@
 
 |
 
-.. image:: ../_static/navis_ecosystem.png
+.. image:: ../_static/navis_ecosystem_dark.png
 
 |
 

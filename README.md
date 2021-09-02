@@ -9,16 +9,16 @@ NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
 ## Features
-* work with various neuron types: **skeletons**, **meshes**, **dotprops**
+* work with various neuron types: **skeletons**, **meshes**, **dotprops**, **voxels**
 * 2D (matplotlib) and 3D (vispy or plotly) **plotting**
 * neuron **surgery**: cutting, stitching, pruning, rerooting, intersections, ...
 * analyze morphology (e.g. **NBLAST**) and connectivity
 * **transform** data between template brains (support for e.g. HDF5, CMTK and thin plate spline transforms)
-* load neurons directly from [neuPrint](https://neuprint.janelia.org) and [neuromorpho.org](http://neuromorpho.org)
+* load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and others
 * simulate neurons and networks using the **NEURON** simulator
 * interface with **Blender 3D**
 * interface with **R** neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
-* import-export from/to **SWC** or neuroglancer's ["**precomputed**"](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed) format
+* import-export from/to **SWC**, neuroglancer's ["**precomputed**"](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed) format and more
 * designed to be **extensible** - see for example [pymaid](https://pymaid.readthedocs.io/en/latest/)
 
 ## Getting started
