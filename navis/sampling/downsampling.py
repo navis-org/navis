@@ -169,7 +169,7 @@ def _downsample_dotprops(x, downsampling_factor):
     #    the downsampled dotprops.
     # 2. There might not be enough points left after downsampling given the
     #    original k.
-    if isinstance(x._vect, type(None)):
+    if isinstance(x._vect, type(None)) and x.k:
         x.recalculate_tangents(k=x.k, inplace=True)
     x._vect = x._vect[mask]
 
