@@ -16,6 +16,7 @@ import math
 import time
 
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcl
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -41,7 +42,8 @@ _DEFAULTS = dict(origin=(0, 0),  # Origin in coordinate system
                  switch_dist=1,  # Distance threshold for inverting angle (i.e. flip branch direction)
                  syn_linewidth=1.5,  # Line width for connectors
                  syn_highlight_color=(1, 0, 0),  # Color for highlighted connectors
-                 force_nx=False  # Force using networkx over igraph
+                 force_nx=False,  # Force using networkx over igraph
+                 color=(0.1, 0.1, 0.1)  # Color for neurites
                  )
 
 
@@ -272,10 +274,10 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
         x_coords += start_point[0]
 
         # Apply shade
+        color = DEFAULTS['color']
         if shade_by_length:
-            color = tuple([.8 - .8 * distances[-1] / path_df.cable.max()] * 3)
-        else:
-            color = (.1, .1, .1)
+            a = .8 - .8 * distances[-1] / path_df.cable.max()
+            color = mcl.to_rgba(color, alpha=a)
 
         # Change linewidths with path length
         lw = 1 * distances[-1] / path_df.cable.max() + .5
@@ -386,13 +388,17 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
         fig.patch.set_alpha(0)
         ax.patch.set_alpha(0)
 
-    nx.draw(G, positions, node_size=0, arrows=False, ax=ax)
+    nx.draw(G, positions,
+            node_size=0,
+            arrows=False,
+            edge_color=DEFAULTS['color'],
+            ax=ax)
 
     # Add soma
     if x.has_soma:
         for s in x.soma:
             ax.scatter([positions[s][0]], [positions[s][1]],
-                       s=40, color=(0, 0, 0),
+                       s=40, color=DEFAULTS['color'],
                        zorder=1)
 
     if connectors and x.has_connectors:
