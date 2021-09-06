@@ -564,10 +564,10 @@ def split_axon_dendrite(x: NeuronObject,
     ...                                   reroot_soma=True)
     >>> split                                                   # doctest: +SKIP
     <class 'navis.NeuronList'> of 3 neurons
-                          neuron_name  id  n_nodes  n_connectors
-    0                  neuron 123457   16      148             0
-    1                  neuron 123457   16     9682          1766
-    2                  neuron 123457   16     2892           113
+                          neuron_name  id  n_nodes  n_connectors  compartment
+    0                  neuron 123457   16      148             0         axon
+    1                  neuron 123457   16     9682          1766       linker
+    2                  neuron 123457   16     2892           113     dendrite
     >>> # For convenience, split_axon_dendrite assigns colors to the resulting
     >>> # fragments: axon = red, dendrites = blue, CBF = green
     >>> _ = split.plot3d(color=split.color)
@@ -786,6 +786,8 @@ def split_axon_dendrite(x: NeuronObject,
     nl = []
     for label, nodes in zip(['cellbodyfiber', 'dendrite', 'linker', 'axon'],
                             [cbf, dendrite, linker, axon]):
+        if not len(nodes):
+            continue
         n = subset.subset_neuron(original, nodes)
         n.color = COLORS.get(label, (100, 100, 100))
         n._register_attr('compartment', label)
