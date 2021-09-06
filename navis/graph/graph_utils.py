@@ -968,21 +968,6 @@ def split_into_fragments(x: 'core.NeuronObject',
     return nl
 
 
-@overload
-def longest_neurite(x: 'core.TreeNeuron',
-                    n: int = 1,
-                    reroot_soma: bool = False,
-                    inplace: bool = False) -> 'core.TreeNeuron':
-    pass
-
-
-@overload
-def longest_neurite(x: 'core.NeuronList',
-                    n: int = 1,
-                    reroot_soma: bool = False,
-                    inplace: bool = False) -> 'core.NeuronList':
-    pass
-
 
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
 def longest_neurite(x: 'core.NeuronObject',

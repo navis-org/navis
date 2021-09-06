@@ -73,28 +73,6 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
     return w
 
 
-@overload
-def strahler_index(x: 'core.TreeNeuron',
-                   method: Union[Literal['standard'],
-                                 Literal['greedy']] = 'standard',
-                   to_ignore: list = [],
-                   min_twig_size: Optional[int] = None,
-                   inplace: bool = True
-                   ) -> 'core.TreeNeuron':
-    pass
-
-
-@overload
-def strahler_index(x: 'core.NeuronList',
-                   method: Union[Literal['standard'],
-                                 Literal['greedy']] = 'standard',
-                   to_ignore: list = [],
-                   min_twig_size: Optional[int] = None,
-                   inplace: bool = True
-                   ) -> 'core.NeuronList':
-    pass
-
-
 @utils.map_neuronlist(desc='Calc. SI', allow_parallel=True)
 def strahler_index(x: 'core.NeuronObject',
                    method: Union[Literal['standard'],

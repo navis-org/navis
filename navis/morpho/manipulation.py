@@ -115,24 +115,6 @@ def cell_body_fiber(x: NeuronObject,
     return x
 
 
-@overload
-def prune_by_strahler(x: 'core.TreeNeuron',
-                      to_prune: Union[int, List[int], range, slice],
-                      inplace: bool = False,
-                      reroot_soma: bool = True,
-                      force_strahler_update: bool = False,
-                      relocate_connectors: bool = False) -> 'core.TreeNeuron': ...
-
-
-@overload
-def prune_by_strahler(x: 'core.NeuronList',
-                      to_prune: Union[int, List[int], range, slice],
-                      inplace: bool = False,
-                      reroot_soma: bool = True,
-                      force_strahler_update: bool = False,
-                      relocate_connectors: bool = False) -> 'core.NeuronList': ...
-
-
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
 def prune_by_strahler(x: NeuronObject,
                       to_prune: Union[int, List[int], range, slice],
@@ -250,24 +232,6 @@ def prune_by_strahler(x: NeuronObject,
     neuron._clear_temp_attr()
 
     return neuron
-
-
-@overload
-def prune_twigs(x: 'core.NeuronList',
-                size: float,
-                exact: bool,
-                inplace: Literal[True],
-                recursive: Union[int, bool, float] = False
-                ) -> 'core.NeuronList': ...
-
-
-@overload
-def prune_twigs(x: 'core.TreeNeuron',
-                size: float,
-                exact: bool,
-                inplace: Literal[False],
-                recursive: Union[int, bool, float] = False
-                ) -> 'core.TreeNeuron': ...
 
 
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
