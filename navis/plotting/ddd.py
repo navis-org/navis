@@ -67,7 +67,7 @@ def plot3d(x: Union[core.NeuronObject,
     x :               Neuron/List | Volume | numpy.array
                         - ``numpy.array (N,3)`` is plotted as scatter plot
                         - multiple objects can be passed as list (see examples)
-    backend :         'auto' | 'vispy' | 'plotly', default='auto'
+    backend :         'auto' | 'vispy' | 'plotly' | 'k3d', default='auto'
                         - ``auto`` selects backend based on context: ``vispy``
                           for terminal and ``plotly`` for Jupyter environments.
                         - ``vispy`` uses OpenGL to generate high-performance
@@ -211,22 +211,9 @@ def plot3d(x: Union[core.NeuronObject,
     See the :ref:`plotting tutorial <plot_intro>` for even more examples.
 
     """
-    """
-    TO-DO:
-    - allow generic "plot_{}" arguments:
-        - e.g. plot_nodes (default=True) or plot_connectors
-        - either autodetect how to plot stuff (x, y, z required)
-        - accept "{}_layout" parameter:
-            {'size': either int/float or str (str=column)
-             'as': 'scatter' | 'lineplot',
-             'color': either color | str (column name)
-             'colormap': if color is column, map to
-
-              }
-    """
     # Backend
     backend = kwargs.pop('backend', 'auto')
-    allowed_backends = ['auto', 'vispy', 'plotly']
+    allowed_backends = ('auto', 'vispy', 'plotly', 'k3d')
     if backend.lower() == 'auto':
         if utils.is_jupyter():
             backend = 'plotly'
@@ -238,6 +225,10 @@ def plot3d(x: Union[core.NeuronObject,
 
     if backend == 'vispy':
         return plot3d_vispy(x, **kwargs)
+    elif backend == 'k3d':
+        if not utils.is_jupyter():
+            logger.warning('k3d backend only works in Jupyter environments')
+        return plot3d_k3d(x, **kwargs)
     else:
         return plot3d_plotly(x, **kwargs)
 
@@ -373,3 +364,78 @@ def plot3d_plotly(x, **kwargs):
     else:
         logger.info('Use the `.show()` method to plot the figure.')
         return fig
+
+
+def plot3d_k3d(x, **kwargs):
+    """
+    Plot3d() helper function to generate k3d 3D plots. This is just to
+    improve readability and structure of the code.
+    """
+    import k3d
+    from .k3d.k3d_objects import neuron2k3d, volume2k3d, scatter2k3d
+
+    # Check for allowed static parameters
+    ALLOWED = {'color', 'c', 'colors', 'by_strahler', 'by_confidence',
+               'cn_colors', 'linewidth', 'lw', 'scatter_kws',
+               'synapse_layout', 'legend_group',
+               'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
+               'k3d_inline', 'alpha', 'radius', 'plot', 'soma',
+               'connectors', 'connectors_only', 'palette', 'color_by',
+               'shade_by', 'vmin', 'vmax', 'smin', 'smax', 'hover_id',
+               'hover_name'}
+
+    # Check if any of these parameters are dynamic (i.e. attached data tables)
+    notallowed = set(kwargs.keys()) - ALLOWED
+
+    if any(notallowed):
+        raise ValueError(f'Argument(s) "{", ".join(notallowed)}" not allowed '
+                         'for plot3d using k3d. Allowed keyword '
+                         f'arguments: {", ".join(ALLOWED)}')
+
+    # Parse objects to plot
+    (neurons, volumes, points, visual) = utils.parse_objects(x)
+
+    # Pop colors so we don't have duplicate parameters when we go into the
+    # individual ``...2plotly` functions
+    colors = kwargs.pop('color',
+                        kwargs.pop('c',
+                                   kwargs.pop('colors', None)))
+
+    palette = kwargs.get('palette', None)
+
+    neuron_cmap, volumes_cmap = prepare_colormap(colors,
+                                                 neurons=neurons,
+                                                 volumes=volumes,
+                                                 palette=palette,
+                                                 alpha=kwargs.get('alpha', None),
+                                                 color_range=255)
+
+    data = []
+    if neurons:
+        data += neuron2k3d(neurons, neuron_cmap, **kwargs)
+    if volumes:
+        data += volume2k3d(volumes, volumes_cmap, **kwargs)
+    if points:
+        scatter_kws = kwargs.pop('scatter_kws', {})
+        data += scatter2k3d(points, **scatter_kws)
+
+    # If not provided generate a figure dictionary
+    plot = kwargs.get('plot', None)
+    if not plot:
+        plot = k3d.plot()
+        plot.camera_rotate_speed = 5
+        plot.camera_zoom_speed = 2
+        plot.camera_pan_speed = 1
+        plot.grid_visible = False
+
+
+    # Add data
+    for trace in data:
+        plot += trace
+
+    if kwargs.get('k3d_inline', True) and utils.is_jupyter():
+        plot.display()
+    else:
+        logger.info('Use the `.display()` method to show the plot.')
+
+    return plot
