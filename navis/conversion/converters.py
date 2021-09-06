@@ -63,7 +63,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     heal :      bool
                 Whether to heal the resulting skeleton if it is fragmented.
                 For more control over the stitching set `heal=False` and use
-                :func:`navis.heal_fragmented_neuron` directly. Note that this
+                :func:`navis.heal_skeleton` directly. Note that this
                 can be fairly costly if the mesh as many tiny fragments.
     connectors : bool
                 Whether to carry over existing connector tables. This will
@@ -139,7 +139,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     s = core.TreeNeuron(skeleton.swc, **props)
 
     if heal:
-        _ = morpho.heal_fragmented_neuron(s, inplace=True, method='ALL')
+        _ = morpho.heal_skeleton(s, inplace=True, method='ALL')
 
     if shave:
         # Find single node bristles

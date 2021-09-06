@@ -306,7 +306,7 @@ Functions to edit morphology:
     navis.cell_body_fiber
     navis.cut_neuron
     navis.guess_radius
-    navis.heal_fragmented_neuron
+    navis.heal_skeleton
     navis.longest_neurite
     navis.prune_by_strahler
     navis.prune_twigs
@@ -314,7 +314,7 @@ Functions to edit morphology:
     navis.reroot_skeleton
     navis.split_axon_dendrite
     navis.split_into_fragments
-    navis.stitch_neurons
+    navis.stitch_skeletons
     navis.subset_neuron
     navis.smooth_skeleton
     navis.smooth_mesh

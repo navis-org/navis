@@ -1321,7 +1321,7 @@ def cut_neuron(x: 'core.NeuronObject',
 
     if x.n_trees != 1:
         raise ValueError(f'Unable to cut: neuron {x.id} consists of multiple '
-                         'disconnected trees. Use navis.heal_fragmented_neuron()'
+                         'disconnected trees. Use navis.heal_skeleton()'
                          ' to fix.')
 
     # At this point x is TreeNeuron

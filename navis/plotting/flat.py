@@ -166,7 +166,7 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
     DEFAULTS.update(kwargs)
     if len(x.root) > 1:
         raise ValueError('Unable to plot neuron with multiple roots. Use '
-                         '`navis.heal_fragmented_neuron` to merge the fragments.')
+                         '`navis.heal_skeleton` to merge the fragments.')
 
     # Change scale of markers if we normalise to max neurite length
     if normalize_distance:

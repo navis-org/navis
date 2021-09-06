@@ -31,10 +31,10 @@ from . import mmetrics, subset
 # Set up logging
 logger = config.logger
 
-__all__ = sorted(['prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
+__all__ = sorted(['prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite',
                   'average_skeletons', 'despike_skeleton', 'guess_radius',
                   'smooth_skeleton', 'smooth_voxels',
-                  'heal_fragmented_neuron', 'cell_body_fiber',
+                  'heal_skeleton', 'cell_body_fiber',
                   'break_fragments', 'prune_twigs', 'prune_at_depth',
                   'drop_fluff'])
 
@@ -88,7 +88,7 @@ def cell_body_fiber(x: NeuronObject,
         x = x.copy()
 
     if x.n_trees > 1 and heal:
-        _ = heal_fragmented_neuron(x, method='LEAFS', inplace=True)
+        _ = heal_skeleton(x, method='LEAFS', inplace=True)
 
     # If no branches, just return the neuron
     if 'branch' not in x.nodes.type.values:
@@ -585,7 +585,7 @@ def split_axon_dendrite(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.heal_fragmented_neuron`
+    :func:`navis.heal_skeleton`
             Axon/dendrite split works only on neurons consisting of a single
             tree. Use this function to heal fragmented neurons before trying
             the axon/dendrite split.
@@ -611,7 +611,7 @@ def split_axon_dendrite(x: NeuronObject,
 
     if len(x.root) > 1:
         raise ValueError(f'Unable to split neuron {x.id}: multiple roots. '
-                         'Try `navis.heal_fragmented_neuron(x)` to merged '
+                         'Try `navis.heal_skeleton(x)` to merged '
                          'disconnected fragments.')
 
     # Make copy, so that we don't screw things up
@@ -794,17 +794,17 @@ def split_axon_dendrite(x: NeuronObject,
     return core.NeuronList(nl)
 
 
-def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
-                   method: Union[Literal['LEAFS'],
-                                 Literal['ALL'],
-                                 Literal['NONE'],
-                                 Sequence[int]] = 'ALL',
-                   master: Union[Literal['SOMA'],
-                                 Literal['LARGEST'],
-                                 Literal['FIRST']] = 'SOMA',
-                   max_dist: Optional[float] = None,
-                   ) -> 'core.TreeNeuron':
-    """Stitch multiple neurons together.
+def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
+                     method: Union[Literal['LEAFS'],
+                                   Literal['ALL'],
+                                   Literal['NONE'],
+                                   Sequence[int]] = 'ALL',
+                     master: Union[Literal['SOMA'],
+                                   Literal['LARGEST'],
+                                   Literal['FIRST']] = 'SOMA',
+                     max_dist: Optional[float] = None,
+                     ) -> 'core.TreeNeuron':
+    """Stitch multiple skeletons together.
 
     Uses minimum spanning tree to determine a way to connect all fragments
     while minimizing length (Euclidian distance) of the new edges. Nodes
@@ -856,13 +856,13 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     >>> import navis
     >>> nl = navis.example_neurons(2)
-    >>> stitched = navis.stitch_neurons(nl, method='NONE')
+    >>> stitched = navis.stitch_skeletons(nl, method='NONE')
 
     Stitching fragmented neurons:
 
     >>> a = navis.example_neurons(1)
     >>> fragments = navis.cut_neuron(a, 100)
-    >>> stitched = navis.stitch_neurons(fragments, method='LEAFS')
+    >>> stitched = navis.stitch_skeletons(fragments, method='LEAFS')
 
     """
     master = str(master).upper()
@@ -1574,22 +1574,23 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
 
 @utils.map_neuronlist(desc='Healing', allow_parallel=True)
-def heal_fragmented_neuron(x: 'core.NeuronList',
-                           method: Union[Literal['LEAFS'],
-                                         Literal['ALL']] = 'ALL',
-                           max_dist: Optional[float] = None,
-                           min_size: Optional[float] = None,
-                           drop_disc: float = False,
-                           inplace: bool = False) -> Optional[NeuronObject]:
-    """Heal fragmented neuron(s).
+def heal_skeleton(x: 'core.NeuronList',
+                  method: Union[Literal['LEAFS'],
+                                Literal['ALL']] = 'ALL',
+                  max_dist: Optional[float] = None,
+                  min_size: Optional[float] = None,
+                  drop_disc: float = False,
+                  use_radii: bool = False,
+                  inplace: bool = False) -> Optional[NeuronObject]:
+    """Heal fragmented skeleton(s).
 
-    Tries to heal a fragmented neuron (i.e. a neuron with multiple roots)
+    Tries to heal a fragmented skeleton (i.e. a neuron with multiple roots)
     using a minimum spanning tree.
 
     Parameters
     ----------
     x :         TreeNeuron/List
-                Fragmented neuron(s).
+                Fragmented skeleton(s).
     method :    'LEAFS' | 'ALL', optional
                 Method used to heal fragments:
                         (1) 'LEAFS': Only leaf (including root) nodes will
@@ -1623,8 +1624,8 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
 
     See Also
     --------
-    :func:`navis.stitch_neurons`
-                Use to stitch multiple neurons together.
+    :func:`navis.stitch_skeletons`
+                Use to stitch multiple skeletons together.
     :func:`navis.break_fragments`
                 Use to produce individual neurons from disconnected fragments.
 
@@ -1632,13 +1633,13 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     Examples
     --------
     >>> import navis
-    >>> n = navis.example_neurons(1)
+    >>> n = navis.example_neurons(1, kind='skeleton')
     >>> # Disconnect parts of the neuron
     >>> n.nodes.loc[100, 'parent_id'] = -1
     >>> len(n.root)
     2
     >>> # Heal neuron
-    >>> healed = navis.heal_fragmented_neuron(n)
+    >>> healed = navis.heal_skeleton(n)
     >>> len(healed.root)
     1
 
