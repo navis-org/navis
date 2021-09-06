@@ -123,8 +123,8 @@ def strahler_index(x: 'core.NeuronObject',
     6
     >>> m = navis.example_neurons(1, kind='mesh')
     >>> _ = navis.strahler_index(m)
-    >>> m.strahler_index[:10]
-    array([2, 3, 3, 3, 2, 2, 2, 2, 2, 2])
+    >>> m.strahler_index.max()
+    5
 
     """
     utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
