@@ -34,7 +34,7 @@ with warnings.catch_warnings():
     from vispy import scene
     from vispy.geometry import create_sphere
 
-__all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy',
+__all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy', 'voxel2vispy',
            'points2vispy', 'combine_visuals']
 
 logger = config.logger
@@ -328,6 +328,10 @@ def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
 
 def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
     """Convert mesh (i.e. MeshNeuron) to vispy visuals."""
+    # Skip empty neurons
+    if not len(neuron.faces):
+        return []
+
     color_kwargs = dict(color=neuron_color)
     if isinstance(neuron_color, np.ndarray) and neuron_color.ndim == 2:
         if len(neuron_color) == len(neuron.vertices):
@@ -531,6 +535,10 @@ def dotprop2vispy(x, neuron_color, object_id, **kwargs):
                     Contains vispy visuals for each dotprop.
 
     """
+    # Skip empty neurons
+    if not len(x.points):
+        return []
+
     # Generate TreeNeuron
     scale_vec = kwargs.get('dps_scale_vec', 'auto')
     tn = x.to_skeleton(scale_vec=scale_vec)
@@ -637,7 +645,7 @@ def combine_visuals(visuals, name=None):
                 connect.append(vis._connect + offset)
                 offset += vis._pos.shape[0]
 
-            connect = np.concatenate(connect) 
+            connect = np.concatenate(connect)
             colors = np.concatenate(colors)
 
             t = scene.visuals.Line(pos=pos,
