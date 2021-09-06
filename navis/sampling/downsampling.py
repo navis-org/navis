@@ -25,7 +25,7 @@ logger = config.logger
 __all__ = ['downsample_neuron']
 
 
-#@utils.map_neuronlist(desc='Downsampling', allow_parallel=True)
+@utils.map_neuronlist(desc='Downsampling', allow_parallel=True)
 def downsample_neuron(x: 'core.NeuronObject',
                       downsampling_factor: Union[int, float],
                       inplace: bool = False,
