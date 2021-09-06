@@ -88,6 +88,7 @@ function. There you will also find more examples.
    tutorials/neuron
    blender
    tutorials/neuprint
+   tutorials/microns_tut
    tutorials/cloudvolume_tut
    tutorials/insectbraindb
    tutorials/r_doc

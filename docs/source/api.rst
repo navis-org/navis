@@ -31,6 +31,7 @@ In addition ``navis`` has interfaces to various external datasets and tools:
 - :ref:`InsectBrain DB<api_interfaces.insectdb>`
 - :ref:`Blender 3D<api_interfaces.blender>`
 - :ref:`Cytoscape<api_interfaces.cytoscape>`
+- :ref:`Allen MICrONS datasets<api_interfaces.microns>`
 - :ref:`R and the natverse libraries<api_interfaces.r>`
 
 Most of these functions include examples of how to use them. Click on them to
@@ -678,6 +679,30 @@ Not imported at top level! Must be imported explicitly::
 
     navis.interfaces.cytoscape.generate_network
     navis.interfaces.cytoscape.get_client
+
+
+.. _api_interfaces.microns:
+
+Allen MICrONS datasets
++++++++++++++++++++++++
+Functions to fetch neurons (including synapses) from the Allen Institute's
+`MICrONS <https://www.microns-explorer.org/>`_ EM datasets.
+
+Requires ``caveclient`` as additional dependencies::
+
+    pip3 install caveclient -U
+
+Please see ``caveclient's`` `docs <https://caveclient.readthedocs.io>`_ for
+details on how to retrieve and set credentials.
+
+Not imported at top level! Must be imported explicitly::
+
+    from navis.interfaces import microns
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.interfaces.microns.fetch_neurons
 
 .. _api_interfaces.r:
 

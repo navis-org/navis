@@ -62,6 +62,7 @@ repository.
        - improved/updated the InsectBrain DB interface (see the :ref:`tutorial <insectbraindb_tut>`)
        - under-the-hood fixes and improvements to: :func:`~navis.plot2d`, :func:`~navis.split_axon_dendrite`, :func:`~navis.tortuosity`, :func:`~navis.resample_neuron`, :func:`~navis.mirror_brain`
        - first pass at a ``NEURON`` interface (see the new :ref:`tutorial <neuron_tut>`)
+       - first pass at interface with the Allen's MICRoNS datasets (see the new :ref:`tutorial <microns_tut>`)
        - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
        - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``from_``
    * - 0.6.0
