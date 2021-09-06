@@ -63,7 +63,7 @@ repository.
        - under-the-hood fixes and improvements to: :func:`~navis.plot2d`, :func:`~navis.split_axon_dendrite`, :func:`~navis.tortuosity`, :func:`~navis.resample_neuron`, :func:`~navis.mirror_brain`
        - first pass at a ``NEURON`` interface (see the new :ref:`tutorial <neuron_tut>`)
        - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
-       - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``node_ids``
+       - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``from_``
    * - 0.6.0
      - 12/05/21
      - - new functions: :func:`navis.prune_at_depth`, :func:`navis.read_rda`, :func:`navis.cell_body_fiber`

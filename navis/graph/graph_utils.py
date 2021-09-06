@@ -81,7 +81,7 @@ def _generate_segments(x: 'core.NeuronObject',
         m = geodesic_matrix(x,
                             directed=True,
                             weight=weight,
-                            node_ids=x.nodes[x.nodes.type == 'end'].node_id.values)
+                            from_=x.nodes[x.nodes.type == 'end'].node_id.values)
 
         # Sort by distance to the root(s)
         endNodeIDs = m.sort_values(x.root.tolist(),
@@ -548,23 +548,24 @@ def distal_to(x: 'core.TreeNeuron',
 
 
 def geodesic_matrix(x: 'core.NeuronObject',
-                    node_ids: Optional[Iterable[int]] = None,
+                    from_: Optional[Iterable[int]] = None,
                     directed: bool = False,
                     weight: Optional[str] = 'weight',
                     limit: Union[float, int] = np.inf
                     ) -> pd.DataFrame:
-    """Generate geodesic ("along-the-arbor") distance matrix between treenodes.
+    """Generate geodesic ("along-the-arbor") distance matrix between nodes/vertices.
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         TreeNeuron | MeshNeuron | NeuronList
                 If list, must contain a SINGLE neuron.
-    node_ids :  list | numpy.ndarray, optional
-                Node IDs. If provided, will compute distances only FROM
-                this subset to all other nodes.
+    from_ :     list | numpy.ndarray, optional
+                Node IDs (for TreeNeurons) or vertex indices (for MeshNeurons).
+                If provided, will compute distances only FROM this subset to
+                all other nodes/vertices.
     directed :  bool, optional
                 If True, pairs without a child->parent path will be returned
-                with ``distance = "inf"``.
+                with ``distance = "inf"``. Only relevant for ``TreeNeurons``.
     weight :    'weight' | None, optional
                 If ``weight`` distances are given as physical length.
                 If ``None`` distances is number of nodes.
@@ -585,10 +586,8 @@ def geodesic_matrix(x: 'core.NeuronObject',
     :func:`~navis.dist_between`
         Get point-to-point geodesic distances.
 
-
     Examples
     --------
-
     Find average geodesic distance between all leaf nodes
 
     >>> import navis
@@ -608,16 +607,20 @@ def geodesic_matrix(x: 'core.NeuronObject',
             x = x[0]
         else:
             raise ValueError('Cannot process more than a single neuron.')
-    elif not isinstance(x, core.TreeNeuron):
+    elif not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
-
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
 
     limit = x.map_units(limit, on_error='raise')
 
+    # Makes no sense to use directed for MeshNeurons
+    if isinstance(x, core.MeshNeuron):
+        directed = False
+
     if x.igraph and config.use_igraph:
-        nodeList = np.array(x.igraph.vs.get_attribute_values('node_id'))
+        if isinstance(x, core.TreeNeuron):
+            nodeList = np.array(x.igraph.vs.get_attribute_values('node_id'))
+        else:
+            nodeList = np.arange(len(x.igraph.vs))
 
         # Matrix is ordered by vertex number
         m = _igraph_to_sparse(x.igraph, weight_attr=weight)
@@ -627,23 +630,22 @@ def geodesic_matrix(x: 'core.NeuronObject',
         m = nx.to_scipy_sparse_matrix(x.graph, nodeList,
                                       weight=weight)
 
-    tn_indices: Optional[Iterable[int]]
-    if not isinstance(node_ids, type(None)):
-        node_ids = np.unique(utils.make_iterable(node_ids))
+    if not isinstance(from_, type(None)):
+        from_ = np.unique(utils.make_iterable(from_))
 
-        miss = node_ids[~np.isin(node_ids, nodeList)].astype(str)
+        miss = from_[~np.isin(from_, nodeList)].astype(str)
         if any(miss):
-            raise ValueError(f'Node IDs not present: {", ".join(miss)}')
+            raise ValueError(f'Node/vertex IDs not present: {", ".join(miss)}')
 
-        tn_indices = np.where(np.isin(nodeList, node_ids))[0]
-        ix = nodeList[tn_indices]
+        indices = np.where(np.isin(nodeList, from_))[0]
+        ix = nodeList[indices]
     else:
-        tn_indices = None
+        indices = None
         ix = nodeList
 
     dmat = csgraph.dijkstra(m,
                             directed=directed,
-                            indices=tn_indices,
+                            indices=indices,
                             limit=limit)
 
     return pd.DataFrame(dmat, columns=nodeList, index=ix)  # type: ignore  # no stubs
@@ -1564,7 +1566,7 @@ def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
     term = x.nodes[x.nodes.type == 'end'].node_id.values
 
     # Get distance from all branch_points
-    geo = geodesic_matrix(x, node_ids=term, directed=True)
+    geo = geodesic_matrix(x, from_=term, directed=True)
     # Set distance between unreachable points to None
     # Need to reinitialise SparseMatrix to replace float('inf') with NaN
     # dist_mat[geo == float('inf')] = None
