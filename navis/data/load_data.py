@@ -42,11 +42,11 @@ syn = sorted([f for f in os.listdir(syn_path) if f.endswith('.csv')])
 NeuronObject = Union[TreeNeuron, MeshNeuron, NeuronList]
 
 # Soma positions for the example neurons (for the meshes)
-SOMA_POS = [[14957.1, 36540.7, 28432.4],
-            [15503.5, 35903.1, 23151.6],
-            None,
-            [15150, 35262.7, 23136.6],
-            [13810, 35236, 25222.8]]
+SOMA_POS = {1734350788: [14957.1, 36540.7, 28432.4],
+            1734350908: [15503.5, 35903.1, 23151.6],
+            722817260: None,
+            754534424: [15150, 35262.7, 23136.6],
+            754538881: [13810, 35236, 25222.8]}
 
 
 def example_neurons(n: Optional[int] = None,
@@ -146,8 +146,8 @@ def example_neurons(n: Optional[int] = None,
                           units='8 nm',
                           name=f.split('.')[0],
                           id=int(f.split('.')[0])) for f, fp in zip(obj, files)]
-        for i, n in enumerate(nl):
-            n.soma_pos = SOMA_POS[i]
+        for n in nl:
+            n.soma_pos = SOMA_POS[n.id]
 
     if synapses:
         for n in nl:
