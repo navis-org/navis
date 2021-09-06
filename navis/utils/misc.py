@@ -26,6 +26,7 @@ import pandas as pd
 from functools import wraps
 from textwrap import dedent, indent
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
+from typing_extensions import Literal
 
 from .. import config, core, transforms
 from .eval import is_mesh
