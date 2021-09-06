@@ -15,9 +15,9 @@ import numpy as np
 import pandas as pd
 
 from scipy import ndimage
-from typing import Optional, overload, Union, List
+from typing import Optional, Union, List
 
-from .. import config, graph, core, utils
+from .. import config, graph, core, utils, meshes
 
 # Set up logging
 logger = config.logger
@@ -25,38 +25,7 @@ logger = config.logger
 __all__ = ['downsample_neuron']
 
 
-@overload
-def downsample_neuron(x: 'core.Dotprops',
-                      downsampling_factor: float,
-                      inplace: bool = False,
-                      preserve_nodes: Optional[List[int]] = None
-                      ) -> 'core.Dotprops': ...
-
-
-@overload
-def downsample_neuron(x: 'core.TreeNeuron',
-                      downsampling_factor: float,
-                      inplace: bool = False,
-                      preserve_nodes: Optional[List[int]] = None
-                      ) -> 'core.TreeNeuron': ...
-
-@overload
-def downsample_neuron(x: 'core.VoxelNeuron',
-                      downsampling_factor: float,
-                      inplace: bool = False,
-                      preserve_nodes: Optional[List[int]] = None
-                      ) -> 'core.VoxelNeuron': ...
-
-
-@overload
-def downsample_neuron(x: 'core.NeuronList',
-                      downsampling_factor: float,
-                      inplace: bool = False,
-                      preserve_nodes: Optional[List[int]] = None
-                      ) -> 'core.NeuronList': ...
-
-
-@utils.map_neuronlist(desc='Downsampling', allow_parallel=True)
+#@utils.map_neuronlist(desc='Downsampling', allow_parallel=True)
 def downsample_neuron(x: 'core.NeuronObject',
                       downsampling_factor: Union[int, float],
                       inplace: bool = False,
@@ -69,18 +38,19 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     Notes
     -----
-    Use ``downsampling_factor=float('inf')`` to get a neuron consisting only
+    Use ``downsampling_factor=float('inf')`` to get a skeleton consisting only
     of root, branch and end points.
 
     Parameters
     ----------
-    x :                     TreeNeuron | Dotprops | VoxelNeuron | NeuronList
-                            Neuron(s) to downsample.
+    x :                     single neuron | NeuronList
+                            Neuron(s) to downsample. Note that for MeshNeurons
+                            we use the first available backend.
     downsampling_factor :   int | float('inf')
-                            Factor by which downsample. For TreeNeuron/Dotprops
-                            this is reduces the node/point count, for
-                            VoxelNeurons this reduces the dimensions by given
-                            factor.
+                            Factor by which downsample. For TreeNeuron, Dotprops
+                            and MeshNeurons this this reduces the node, point
+                            and face count, respectively, for VoxelNeurons it
+                            reduces the dimensions by given factor.
     preserve_nodes :        str | list, optional
                             Can be either list of node IDs to exclude from
                             downsampling or a string to a DataFrame attached
@@ -111,6 +81,9 @@ def downsample_neuron(x: 'core.NeuronObject',
     :func:`navis.resample_skeleton`
                              This function resamples a neuron to given
                              resolution. This will change node IDs!
+    :func:`navis.simplify_mesh`
+                             This is the function used for ``MeshNeurons``. Use
+                             directly for more control.
 
     """
     if downsampling_factor <= 1:
@@ -129,6 +102,10 @@ def downsample_neuron(x: 'core.NeuronObject',
     elif isinstance(x, core.VoxelNeuron):
         _ = _downsample_voxels(x,
                                downsampling_factor=downsampling_factor)
+    elif isinstance(x, core.VoxelNeuron):
+        _ = meshes.simplify_mesh(x,
+                                 F=downsampling_factor,
+                                 inplace=True)
     else:
         raise TypeError(f'Unable to downsample data of type "{type(x)}"')
 
