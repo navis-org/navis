@@ -114,8 +114,8 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     props = {'soma': None}
     if isinstance(x, core.MeshNeuron):
         props.update({'id': x.id, 'name': x.name, 'units': x.units})
-        if x.has_soma:
-            props['soma_pos'] = x.soma
+        if x.has_soma_pos:
+            props['soma_pos'] = x.soma_pos
 
         if not isinstance(inv_dist, type(None)):
             inv_dist = x.map_units(inv_dist)
@@ -128,7 +128,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     if fix_mesh:
         mesh = sk.pre.fix_mesh(mesh, drop_disconnected=False)
 
-    kwargs['progress'] = not config.pbar_hide
+    kwargs['progress'] = False
     if method == 'wavefront':
         skeleton = sk.skeletonize.by_wavefront(mesh, **kwargs)
     elif method == 'teasar':
@@ -137,6 +137,9 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     props['vertex_map'] = skeleton.mesh_map
 
     s = core.TreeNeuron(skeleton.swc, **props)
+
+    if s.has_soma:
+        s.reroot(s.soma, inplace=True)
 
     if heal:
         _ = morpho.heal_skeleton(s, inplace=True, method='ALL')
