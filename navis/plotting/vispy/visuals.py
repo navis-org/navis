@@ -341,6 +341,16 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
         else:
             color_kwargs = dict(color=neuron_color)
 
+    # There is a bug in pickling/unpickling numpy arrays where an internal flag
+    # is set from 1 to 0 -> this then in turn upsets vispy. See also:
+    # https://github.com/vispy/vispy/issues/1741#issuecomment-574425662
+    # Pickling happens when meshneurons have been multi-processed. To fix this
+    # the best way is to use astype (.copy() doesn't cut it)
+    if neuron.vertices.dtype.isbuiltin == 0:
+        neuron.vertices = neuron.vertices.astype(neuron.vertices.dtype.str)
+    if neuron.faces.dtype.isbuiltin == 0:
+        neuron.faces = neuron.faces.astype(neuron.faces.dtype.str)
+
     m = scene.visuals.Mesh(vertices=neuron.vertices,
                            faces=neuron.faces,
                            shading=kwargs.get('shading', 'smooth'),
@@ -354,7 +364,7 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
         if int(vispy.__version__.split('.')[1]) >= 7:
             m.shading_filter.shininess = kwargs['shininess']
         else:
-            m.shininess =  kwargs['shininess']
+            m.shininess = kwargs['shininess']
 
     # Possible presets are "additive", "translucent", "opaque"
     if len(neuron_color) == 4 and neuron_color[3] < 1:
