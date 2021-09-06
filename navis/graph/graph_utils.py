@@ -702,11 +702,11 @@ def dist_between(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
-                    Neuron containing the nodes. If NeuronList must contain only
-                    a single neuron.
-    a,b :           node IDs
-                    Nodes to check.
+    x :             TreeNeuron | MeshNeuron | NeuronList
+                    If NeuronList must contain only a single neuron.
+    a,b :           int
+                    Node IDs (for TreeNeurons) or vertex indices (MeshNeurons)
+                    to check the distance between.
 
     Returns
     -------
@@ -737,20 +737,20 @@ def dist_between(x: 'core.NeuronObject',
         else:
             raise ValueError(f'Need a single TreeNeuron, got {len(x)}')
 
-    if isinstance(x, core.TreeNeuron):
-        g: Union['igraph.Graph',
+    if isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
+        G: Union['igraph.Graph',
                  'nx.DiGraph'] = x.igraph if (x.igraph and config.use_igraph) else x.graph
     elif isinstance(x, nx.DiGraph):
-        g = x
+        G = x
     elif 'igraph' in str(type(x.igraph)):
         # We can't use isinstance here because igraph library might not be installed
-        g = x
+        G = x
     else:
         raise ValueError(f'Unable to process data of type {type(x)}')
 
     if ((utils.is_iterable(a) and len(a) > 1) or  # type: ignore  # this is just a check
         (utils.is_iterable(b) and len(b) > 1)):   # type: ignore  # this is just a check
-        raise ValueError('Can only process single nodes. Use '
+        raise ValueError('Can only process single nodes/vertices. Use '
                          'navis.geodesic_matrix instead.')
 
     a = utils.make_non_iterable(a)
@@ -760,21 +760,25 @@ def dist_between(x: 'core.NeuronObject',
         _ = int(a)
         _ = int(b)
     except BaseException:
-        raise ValueError('a, b need to be node IDs!')
+        raise ValueError('a, b need to be node IDs or vertex indices!')
 
     # If we're working with network X DiGraph
-    if isinstance(g, nx.DiGraph):
-        return int(nx.algorithms.shortest_path_length(g.to_undirected(as_view=True),
+    if isinstance(G, nx.DiGraph):
+        return int(nx.algorithms.shortest_path_length(G.to_undirected(as_view=True),
                                                       a, b,
                                                       weight='weight'))
     else:
+        if isinstance(x, core.TreeNeuron):
+            a = G.vs.find(node_id=a)
+            b = G.vs.find(node_id=b)
+
         # If not, we're assuming g is an iGraph object
-        return g.shortest_paths(g.vs.find(node_id=a),
-                                g.vs.find(node_id=b),
+        return G.shortest_paths(a, b,
                                 weights='weight',
                                 mode='ALL')[0][0]
 
 
+#@utils.skeletonize_meshneuron(method='node_to_vertex')
 def find_main_branchpoint(x: 'core.NeuronObject',
                           reroot_soma: bool = False) -> Union[int, List[int]]:
     """Return the branch point at which the two largest branches converge.
