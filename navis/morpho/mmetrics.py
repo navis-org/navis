@@ -109,10 +109,10 @@ def strahler_index(x: 'core.NeuronObject',
 
     Returns
     -------
-    navis.TreeNeuron
-                        A neuron with a "strahler_index" column in the node
-                        table. If ``inplace=False`` the neuron will be a copy
-                        of the original.
+    neuron
+                Adds "strahler_index" as column in the node table (for
+                TreeNeurons) or as `."strahler_index` property
+                (for MeshNeurons).
 
     Examples
     --------
@@ -344,15 +344,17 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> None:
 
     Returns
     -------
-    None
-            Adds a new column ``'segregation_index'`` to the nodes table.
+    neuron
+                Adds "segregation_index" as column in the node table (for
+                TreeNeurons) or as `.segregation_index` property
+                (for MeshNeurons).
 
     Examples
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.reroot(n.soma, inplace=True)
-    >>> navis.arbor_segregation_index(n)
+    >>> _ = navis.arbor_segregation_index(n)
     >>> n.nodes.segregation_index.max().round(3)
     0.277
 
@@ -442,7 +444,7 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> None:
     # Add segregation index to node table
     x.nodes['segregation_index'] = x.nodes.node_id.map(SI)
 
-    return
+    return x
 
 
 @utils.map_neuronlist(desc='Calc. flow', allow_parallel=True)
@@ -480,14 +482,17 @@ def bending_flow(x: 'core.NeuronObject') -> None:
 
     Returns
     -------
-    Adds a new column ``'bending_flow'`` to the nodes table.
+    neuron
+                Adds "bending_flow" as column in the node table (for
+                TreeNeurons) or as `.bending_flow` property
+                (for MeshNeurons).
 
     Examples
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.reroot(n.soma, inplace=True)
-    >>> navis.bending_flow(n)
+    >>> _ = navis.bending_flow(n)
     >>> n.nodes.bending_flow.max()
     785645
 
@@ -575,7 +580,7 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     # Set flow centrality to None for all nodes
     x.nodes['bending_flow'] = x.nodes.node_id.map(flow)
 
-    return
+    return x
 
 
 @utils.map_neuronlist(desc='Calc. flow', allow_parallel=True)
@@ -627,7 +632,10 @@ def flow_centrality(x: 'core.NeuronObject',
 
     Returns
     -------
-    Adds a new column 'flow_centrality' to nodes table .
+    neuron
+                Adds "flow_centrality" as column in the node table (for
+                TreeNeurons) or as `.flow_centrality` property
+                (for MeshNeurons).
 
     Examples
     --------
@@ -731,7 +739,7 @@ def flow_centrality(x: 'core.NeuronObject',
     # Add info on method/mode used for flow centrality
     x.centrality_method = mode  # type: ignore
 
-    return None
+    return x
 
 
 def tortuosity(x: 'core.NeuronObject',
