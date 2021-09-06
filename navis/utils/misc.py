@@ -95,7 +95,7 @@ def map_neuronlist(desc: str = "",
                    can_zip: List[Union[str, int]] = [],
                    must_zip: List[Union[str, int]] = [],
                    allow_parallel: bool = False):
-    """Run function on all neurons in the NeuronList.
+    """Decorate function to run on all neurons in the NeuronList.
 
     This also updates the docstring.
 
@@ -287,6 +287,154 @@ def map_neuronlist(desc: str = "",
 
         # Update docstring
         wrapper.__doc__ = '\n'.join(lines)
+
+        return wrapper
+
+    return decorator
+
+
+def meshneuron_skeleton(method: Union[Literal['subset'],
+                                      Literal['split'],
+                                      Literal['node_properties'],
+                                      Literal['node_to_vertex']],
+                        include_connectors: bool = False,
+                        copy_properties: list = [],
+                        disallowed_kwargs: dict = {},
+                        node_props: list = [],
+                        heal: bool = False):
+    """Decorate function such that MeshNeurons are automatically skeletonized,
+    the function is run function on the skeleton and changes are propagated
+    back to the mesh.
+
+    Parameters
+    ----------
+    method :    "subset" | "split" | "node_to_vertex" | "node_properties"
+                What to do with the results:
+                  - 'subset': subset MeshNeuron to what's left of the skeleton
+                  - 'split': split MeshNeuron following the skeleton's splits
+                  - 'node_to_vertex': map the returned node ID to the vertex IDs
+                  - 'node_properties' map node properties to vertices (requires
+                    `node_props` parameter)
+    include_connectors : bool
+                If True, will try to make sure that if the MeshNeuron has
+                connectors, they will be carried over to the skeleton.
+    copy_properties : list
+                Any additional properties that need to be copied from the
+                skeleton to the mesh.
+    disallowed_kwargs : dict
+                Keyword arguments (name + value) that are not permitted when
+                input is MeshNeuron.
+    node_props : list
+                For method 'node_properties'. String must be column names in
+                node table of skeleton.
+    heal :      bool
+                Whether or not to heal the skeleton if the mesh is fragmented.
+
+    """
+    assert isinstance(copy_properties, list)
+    assert isinstance(disallowed_kwargs, dict)
+    assert isinstance(node_props, list)
+
+    allowed_methods = ('subset', 'node_to_vertex', 'split', 'node_properties')
+    if method not in allowed_methods:
+        raise ValueError(f'Unknown method "{method}"')
+
+    if method == 'node_properties' and not node_props:
+        raise ValueError('Must provide `node_props` for method "node_properties"')
+
+    from .. import morpho  # delayed import to avoid circular imports
+
+    def decorator(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            # Get the function's signature
+            sig = inspect.signature(function)
+
+            try:
+                fnname = function.__name__
+            except BaseException:
+                fnname = str(function)
+
+            # First, we need to extract the neuron from args and kwargs
+            if args:
+                # If there are positional arguments, the first one is assumed to
+                # be the input neuron
+                x = args[0]
+                args = args[1:]
+                x_key = '__args'
+            else:
+                # If not, we need to look for the name of the first argument
+                # in the signature
+                x_key = list(sig.parameters.keys())[0]
+                x = kwargs.pop(x_key, None)
+
+            # Complain if we did not get what we expected
+            if isinstance(x, type(None)):
+                raise ValueError('Unable to identify the neurons for call'
+                                 f'{fnname}:\n {args}\n {kwargs}')
+
+            # If input not a MeshNeuron, just pass through
+            if not isinstance(x, core.MeshNeuron):
+                return function(x, *args, **kwargs)
+
+            # Check for disallowed kwargs
+            for k, v in disallowed_kwargs:
+                if k in kwargs and kwargs[k] == v:
+                    raise ValueError(f'{k}={v} is not allowed when input is '
+                                     'MeshNeuron.')
+
+            # See if this is meant to be done inplace
+            if 'inplace' in kwargs:
+                # First check keyword arguments
+                inplace = kwargs['inplace']
+            elif 'inplace' in sig.parameters:
+                # Next check signatures default
+                inplace = sig.parameters['inplace'].default
+            else:
+                # All things failing assume it's not inplace
+                inplace = False
+
+            # Now skeletonize
+            sk = x.skeleton
+
+            if heal:
+                sk = morpho.heal_skeleton(sk, method='LEAFS')
+
+            if include_connectors and x.has_connectors and not sk.has_connectors:
+                sk._connectors = x.connectors.copy()
+                sk._connectors['node_id'] = sk.snap(sk.connectors[['x', 'y', 'z']].values)[0]
+
+            # Apply function
+            res = function(sk, *args, **kwargs)
+
+            if method == 'subset':
+                # See which vertices we need to keep
+                keep = np.isin(sk.vertex_map, res.nodes.node_id.values)
+
+                x = morpho.subset_neuron(x, keep, inplace=inplace)
+
+                for p in copy_properties:
+                    setattr(x, p, getattr(sk, p, None))
+            elif method == 'split':
+                meshes = []
+                for n in res:
+                    # See which vertices we need to keep
+                    keep = np.isin(sk.vertex_map, n.nodes.node_id.values)
+
+                    meshes.append(morpho.subset_neuron(x, keep, inplace=False))
+
+                    for p in copy_properties:
+                        setattr(meshes[-1], p, getattr(n, p, None))
+                x = core.NeuronList(meshes)
+            elif method == 'node_to_vertex':
+                x = np.where(sk.vertex_map == res)[0]
+            elif method == 'node_properties':
+                for p in node_props:
+                    node_map = sk.nodes.set_index('node_id')[p].to_dict()
+                    vertex_props = np.array([node_map[n] for n in sk.vertex_map])
+                    setattr(x, p, vertex_props)
+
+            return x
 
         return wrapper
 
