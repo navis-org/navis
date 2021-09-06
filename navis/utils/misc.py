@@ -304,8 +304,8 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
                         node_props: list = [],
                         heal: bool = False):
     """Decorate function such that MeshNeurons are automatically skeletonized,
-    the function is run function on the skeleton and changes are propagated
-    back to the mesh.
+    the function is run function on the skeletons and changes are propagated
+    back to the meshes.
 
     Parameters
     ----------
@@ -342,8 +342,6 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
 
     if method == 'node_properties' and not node_props:
         raise ValueError('Must provide `node_props` for method "node_properties"')
-
-    from .. import morpho  # delayed import to avoid circular imports
 
     def decorator(function):
         @wraps(function)
@@ -382,7 +380,7 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
             for k, v in disallowed_kwargs:
                 if k in kwargs and kwargs[k] == v:
                     raise ValueError(f'{k}={v} is not allowed when input is '
-                                     'MeshNeuron.')
+                                     'MeshNeuron(s).')
 
             # See if this is meant to be done inplace
             if 'inplace' in kwargs:
@@ -397,6 +395,11 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
 
             # Now skeletonize
             sk = x.skeleton
+
+            # delayed import to avoid circular imports
+            # Note that this HAS to be in the inner function otherwise
+            # we get a weird error when pickling for parallel processing
+            from .. import morpho
 
             if heal:
                 sk = morpho.heal_skeleton(sk, method='LEAFS')
