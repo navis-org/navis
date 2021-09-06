@@ -42,6 +42,7 @@ NeuronObject = Union['core.NeuronList', 'core.TreeNeuron']
 
 
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
+@utils.meshneuron_skeleton(method='subset')
 def cell_body_fiber(x: NeuronObject,
                     reroot_soma: bool = True,
                     heal: bool = True,
@@ -54,7 +55,7 @@ def cell_body_fiber(x: NeuronObject,
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             TreeNeuron | MeshNeuron | NeuronList
     reroot_soma :   bool
                     If True and neuron has a soma, neuron will be rerooted to
                     its soma.
@@ -116,6 +117,7 @@ def cell_body_fiber(x: NeuronObject,
 
 
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
+@utils.meshneuron_skeleton(method='subset')
 def prune_by_strahler(x: NeuronObject,
                       to_prune: Union[int, List[int], range, slice],
                       inplace: bool = False,
@@ -126,18 +128,17 @@ def prune_by_strahler(x: NeuronObject,
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             TreeNeuron | MeshNeuron | NeuronList
+                    Neuron(s) to prune.
     to_prune :      int | list | range | slice
                     Strahler indices (SI) to prune. For example:
-
-                    1. ``to_prune=1`` removes all leaf branches
-                    2. ``to_prune=[1, 2]`` removes SI 1 and 2
-                    3. ``to_prune=range(1, 4)`` removes SI 1, 2 and 3
-                    4. ``to_prune=slice(0, -1)`` removes everything but the
-                       highest SI
-                    5. ``to_prune=slice(-1, None)`` removes only the highest
-                       SI
-
+                      1. ``to_prune=1`` removes all leaf branches
+                      2. ``to_prune=[1, 2]`` removes SI 1 and 2
+                      3. ``to_prune=range(1, 4)`` removes SI 1, 2 and 3
+                      4. ``to_prune=slice(0, -1)`` removes everything but the
+                         highest SI
+                      5. ``to_prune=slice(-1, None)`` removes only the highest
+                         SI
     reroot_soma :   bool, optional
                     If True, neuron will be rerooted to its soma.
     inplace :       bool, optional
@@ -186,7 +187,7 @@ def prune_by_strahler(x: NeuronObject,
 
     if isinstance(to_prune, int):
         if to_prune < 1:
-            raise ValueError('SI to prune must be positive. Please see help'
+            raise ValueError('SI to prune must be positive. Please see docs'
                              'for additional options.')
         to_prune = [to_prune]
     elif isinstance(to_prune, range):
@@ -235,6 +236,7 @@ def prune_by_strahler(x: NeuronObject,
 
 
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
+@utils.meshneuron_skeleton(method='subset')
 def prune_twigs(x: NeuronObject,
                 size: Union[float, str],
                 exact: bool = False,
@@ -251,7 +253,7 @@ def prune_twigs(x: NeuronObject,
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             TreeNeuron | MeshNeuron | NeuronList
     size :          int | float | str
                     Twigs shorter than this will be pruned. If the neuron has
                     its `.units` set, you can also pass a string including the
@@ -479,6 +481,11 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
 
 
 @utils.map_neuronlist(desc='Splitting', allow_parallel=True)
+@utils.meshneuron_skeleton(method='split',
+                           include_connectors=True,
+                           copy_properties=['color'],
+                           disallowed_kwargs={'label_only': True},
+                           heal=True)
 def split_axon_dendrite(x: NeuronObject,
                         metric: Union[Literal['flow_centrality'],
                                       Literal['bending_flow'],
@@ -1163,7 +1170,7 @@ def despike_skeleton(x: NeuronObject,
                      max_spike_length: int = 1,
                      inplace: bool = False,
                      reverse: bool = False) -> Optional[NeuronObject]:
-    """Remove spikes in skeleton (e.g. from jumps in image data).
+    r"""Remove spikes in skeleton (e.g. from jumps in image data).
 
     For each node A, the euclidean distance to its next successor (parent)
     B and that node's successor C (i.e A->B->C) is computed. If
@@ -1263,7 +1270,7 @@ def guess_radius(x: NeuronObject,
                  limit: Optional[int] = None,
                  smooth: bool = True,
                  inplace: bool = False) -> Optional[NeuronObject]:
-    """Guess radii for all nodes.
+    """Guess radii for skeleton nodes.
 
     Uses distance between connectors and nodes to guess radii. Interpolate for
     nodes without connectors. Fills in ``radius`` column in node table.
@@ -1505,7 +1512,7 @@ def smooth_voxels(x: NeuronObject,
 def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
                     labels_only: bool = False,
                     min_size: Optional[int] = None) -> 'core.NeuronList':
-    """Break neuron into connected components.
+    """Break neuron into its connected components.
 
     Neurons can consists of several disconnected fragments. This function
     turns these fragments into separate neurons.
@@ -1529,7 +1536,7 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
     See Also
     --------
-    :func:`navis.heal_fragmented_neuron`
+    :func:`navis.heal_skeleton`
                 Use to heal fragmentation instead of breaking it up.
 
 
@@ -1785,6 +1792,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
 
 
 @utils.map_neuronlist(desc='Pruning', must_zip=['source'], allow_parallel=True)
+@utils.meshneuron_skeleton(method='subset')
 def prune_at_depth(x: NeuronObject,
                    depth: Union[float, int], *,
                    source: Optional[int] = None,
@@ -1794,7 +1802,7 @@ def prune_at_depth(x: NeuronObject,
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             TreeNeuron | MeshNeuron | NeuronList
     depth :         int | float | str
                     Distance from source at which to start pruning. If neuron
                     has its `.units` set, you can also pass this as a string such
@@ -1880,6 +1888,14 @@ def drop_fluff(x: Union['core.TreeNeuron',
     -------
     Neuron/List
                 Neuron(s) without fluff.
+
+    Examples
+    --------
+    >>> import navis
+    >>> m = navis.example_neurons(1, kind='mesh')
+    >>> clean = navis.drop_fluff(m, keep_size=30)
+    >>> m.n_vertices, clean.n_vertices
+    (6309, 6037)
 
     """
     utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, core.MeshNeuron))

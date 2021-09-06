@@ -778,7 +778,7 @@ def dist_between(x: 'core.NeuronObject',
                                 mode='ALL')[0][0]
 
 
-#@utils.skeletonize_meshneuron(method='node_to_vertex')
+@utils.meshneuron_skeleton(method='node_to_vertex')
 def find_main_branchpoint(x: 'core.NeuronObject',
                           reroot_soma: bool = False) -> Union[int, List[int]]:
     """Return the branch point at which the two largest branches converge.
@@ -856,6 +856,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     return x.nodes.node_id.dtype.type(bp)
 
 
+@utils.meshneuron_skeleton(method='split')
 def split_into_fragments(x: 'core.NeuronObject',
                          n: int = 2,
                          min_size: Optional[Union[float, str]] = None,
@@ -869,7 +870,7 @@ def split_into_fragments(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 TreeNeuron | MeshNeuron | NeuronList
                         Must be a single neuron.
     n :                 int, optional
                         Number of fragments to split into. Must be >1.
@@ -968,8 +969,8 @@ def split_into_fragments(x: 'core.NeuronObject',
     return nl
 
 
-
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
+@utils.meshneuron_skeleton(method='subset')
 def longest_neurite(x: 'core.NeuronObject',
                     n: int = 1,
                     reroot_soma: bool = False,
