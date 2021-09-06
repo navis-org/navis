@@ -1,4 +1,8 @@
 ###### Requirements without Version Specifiers ######
+# For some odd reason, readthedocs uses a really old version of setuptools
+# Note: as of v58.0.0 the `2to3` option for setup() is gone which breaks
+# ALL installs of sphinx-bootstrap-theme
+setuptools==57.5.0
 ipykernel
 nbsphinx
 mock
@@ -8,8 +12,6 @@ sphinx>=3.1
 sphinx-bootstrap-theme
 sphinx-autodoc-typehints
 neuprint-python
-# For some odd reason, readthedocs uses a really old version of setuptools
-setuptools>=52
 wheel>=0.35.1
 # ncollpyde 0.15 currently acts up on readthedocs
 ncollpyde~=0.14.0
