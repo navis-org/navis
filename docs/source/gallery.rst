@@ -135,4 +135,4 @@ function. There you will also find more examples.
    </div>
 
 Not seeing what you're looking for or need additional pointers? Open an
-:ref:`issue <https://github.com/schlegelp/navis/issues>`_ on Github!
+`issue <https://github.com/schlegelp/navis/issues>`_ on Github!
