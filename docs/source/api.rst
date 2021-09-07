@@ -180,6 +180,7 @@ These are methods and properties specific to ``Dotprops``.
     ~navis.Dotprops.vect
     ~navis.Dotprops.alpha
     ~navis.Dotprops.to_skeleton
+    ~navis.Dotprops.snap
 
 Dotprops are typically indirectly generated from e.g. skeletons or
 point clouds using :func:`navis.make_dotprops`.
@@ -703,6 +704,10 @@ Not imported at top level! Must be imported explicitly::
     :toctree: generated/
 
     navis.interfaces.microns.fetch_neurons
+    navis.interfaces.microns.get_somas
+
+
+Please also see the :ref:`MICrONS tutorial<microns_tut>`.
 
 .. _api_interfaces.r:
 

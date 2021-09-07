@@ -34,6 +34,7 @@ repository.
            - ``__getattr__`` does not search ``trimesh`` representation anymore
        - :class:`~navis.Dotprops`:
            - new property: ``.sampling_resolution`` (used e.g. for scaling vectors for plotting)
+           - new method :meth:`~navis.Dotprops.snap`
        - experimental support for non-isometric ``.units`` for neurons
        - NBLASTs:
            - queries/targets now MUST be :class:`~navis.Dotprops` - no more automatic conversion
@@ -49,26 +50,36 @@ repository.
            - total rework of this module
            - renamed ``navis.write_google_binary`` -> :func:`~navis.write_precomputed`
            - new function: :func:`~navis.read_precomputed`
+       - renamed functions to make it clear they are only for ``TreeNeurons``:
+           - ``smooth_neuron`` -> :func:`~navis.smooth_skeleton`
+           - ``reroot_neuron`` -> :func:`~navis.reroot_skeleton`
+           - ``despike_neuron`` -> :func:`~navis.despike_skeleton`
+           - ``average_neurons`` -> :func:`~navis.average_skeletons`
+           - ``heal_fragmented_neuron`` -> :func:`~navis.heal_skeleton`
+           - ``stitch_neurons`` -> :func:`~navis.stitch_skeletons`
+       - plotting:
+           - new function :func:`navis.plot_flat` plots neurons as dendrograms
+           - :func:`~navis.plot3d` with plotly backend now returns a plotly ``Figure`` instead of a figure dictionary
+           - new `k3d <https://k3d-jupyter.org>`_ backend for plotting in Jupyter environments: try ``navis.plot3d(x, backend='k3d')``
+       - most functions that work with ``TreeNeurons`` now also work with ``MeshNeurons``
        - new high-level wrappers to convert neurons: :func:`navis.voxelize`, :func:`navis.mesh` and :func:`navis.skeletonize`
        - :func:`~navis.make_dotprops` now accepts ``parallel=True`` parameter for parallel processing
-       - renamed ``smooth_neuron`` -> :func:`~navis.smooth_skeleton` and added separate :func:`~navis.smooth_mesh` function
        - :func:`~navis.smooth_skeleton` can now be used to smoother arbitrary numeric columns in the node table
-       - :func:`~navis.plot3d` with plotly backend now returns a plotly ``Figure`` instead of a figure dictionary
-       - new function :func:`navis.plot_flat` plots neurons as dendrograms
        - new function :func:`navis.drop_fluff` removes small disconnected bits and pieces from neurons
        - new function :func:`navis.patch_cloudvolume` monkey-patches `cloudvolume` (see the new :ref:`tutorial <cloudvolume_tut>`)
        - new function :func:`navis.write_nrrd` writes ``VoxelNeurons`` to NRRD files
        - new function :func:`navis.read_nmx` reads pyKNOSSOS files
+       - new function :func:`~navis.smooth_mesh` smoothes meshes and ``MeshNeurons``
        - improved/updated the InsectBrain DB interface (see the :ref:`tutorial <insectbraindb_tut>`)
-       - under-the-hood fixes and improvements to: :func:`~navis.plot2d`, :func:`~navis.split_axon_dendrite`, :func:`~navis.tortuosity`, :func:`~navis.resample_neuron`, :func:`~navis.mirror_brain`
+       - under-the-hood fixes and improvements to: :func:`~navis.plot2d`, :func:`~navis.split_axon_dendrite`, :func:`~navis.tortuosity`, :func:`~navis.resample_skeleton`, :func:`~navis.mirror_brain`
        - first pass at a ``NEURON`` interface (see the new :ref:`tutorial <neuron_tut>`)
-       - first pass at interface with the Allen's MICRoNS datasets (see the new :ref:`tutorial <microns_tut>`)
+       - first pass at interface with the Allen's MICrONS datasets (see the new :ref:`tutorial <microns_tut>`)
        - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
        - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``from_``
    * - 0.6.0
      - 12/05/21
      - - new functions: :func:`navis.prune_at_depth`, :func:`navis.read_rda`, :func:`navis.cell_body_fiber`
-       - many spatial parameters (e.g. in :func:`navis.resample_neuron`) can now be passed as unit string, e.g. ``"5 microns"``
+       - many spatial parameters (e.g. in :func:`navis.resample_skeleton`) can now be passed as unit string, e.g. ``"5 microns"``
        - many functions now accept a ``parallel=True`` parameter to use multiple cores (depends on ``pathos``)
        - :func:`navis.read_swc` and :func:`navis.write_swc` can now read/write directly from/to zip files
        - reworked :func:`navis.read_json`, and :func:`navis.write_json`
@@ -168,8 +179,8 @@ repository.
    * - 0.3.1
      - 07/10/20
      - - new function :func:`navis.rewire_neuron`
-       - improve :func:`navis.heal_fragmented_neuron` and :func:`navis.stitch_neurons`: now much much faster
-       - :func:`navis.reroot_neuron` can now reroot to multiple roots in one go
+       - improve :func:`navis.heal_skeleton` and :func:`navis.stitch_skeletons`: now much much faster
+       - :func:`navis.reroot_skeleton` can now reroot to multiple roots in one go
        - :func:`navis.plot3d` now accepts a ``soma`` argument
        - improved caching for neurons
        - improved multiplication/division of neurons
