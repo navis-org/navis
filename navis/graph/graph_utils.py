@@ -974,6 +974,7 @@ def split_into_fragments(x: 'core.NeuronObject',
 def longest_neurite(x: 'core.NeuronObject',
                     n: int = 1,
                     reroot_soma: bool = False,
+                    from_root: bool = True,
                     inplace: bool = False) -> 'core.NeuronObject':
     """Return a neuron consisting of only the longest neurite(s).
 
@@ -983,14 +984,18 @@ def longest_neurite(x: 'core.NeuronObject',
     ----------
     x :                 TreeNeuron | NeuronList
                         Neuron(s) to prune.
-    n :                 int | slice, optional
+    n :                 int | slice
                         Number of longest neurites to preserve. For example:
                          - ``n=1`` keeps the longest neurites
                          - ``n=2`` keeps the two longest neurites
                          - ``n=slice(1, None)`` removes the longest neurite
-    reroot_soma :       bool, optional
+    reroot_soma :       bool
                         If True, neuron will be rerooted to soma.
-    inplace :           bool, optional
+    from_root :         bool
+                        If True, will look for longest neurite from root.
+                        If False, will look for the longest neurite between any
+                        two tips.
+    inplace :           bool
                         If False, copy of the neuron will be trimmed down to
                         longest neurite and returned.
 
@@ -1028,7 +1033,18 @@ def longest_neurite(x: 'core.NeuronObject',
     if not inplace:
         x = x.copy()
 
-    if reroot_soma and not isinstance(x.soma, type(None)):
+    if not from_root:
+        # Find the two most distal points
+        leafs = x.leafs.node_id.values
+        dists = geodesic_matrix(x, from_=leafs)[leafs]
+
+        # This might be multiple values
+        mx = np.where(dists == np.max(dists.values))
+        start = dists.columns[mx[0][0]]
+
+        # Reroot to one of the nodes that gives the longest distance
+        x.reroot(start, inplace=True)
+    elif reroot_soma and not isinstance(x.soma, type(None)):
         x.reroot(x.soma, inplace=True)
 
     segments = _generate_segments(x, weight='weight')
