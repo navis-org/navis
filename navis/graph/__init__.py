@@ -19,7 +19,7 @@ from .graph_utils import (classify_nodes, cut_neuron, longest_neurite,
                           generate_list_of_childs, geodesic_matrix,
                           node_label_sorting, _break_segments,
                           _generate_segments, segment_length,
-                          _connected_components, rewire_neuron,
+                          _connected_components, rewire_skeleton,
                           connected_subgraph, insert_nodes, remove_nodes)
 from .clinic import (health_check)
 
@@ -27,6 +27,6 @@ from .clinic import (health_check)
 __all__ = ['cut_neuron', 'longest_neurite', 'split_into_fragments',
            'reroot_skeleton', 'distal_to', 'dist_between', 'segment_length',
            'find_main_branchpoint', 'geodesic_matrix',
-           'rewire_neuron', 'insert_nodes', 'remove_nodes', 'health_check',
+           'rewire_skeleton', 'insert_nodes', 'remove_nodes', 'health_check',
            'graph_utils', 'network2nx', 'network2igraph', 'neuron2igraph',
            'nx2neuron', 'neuron2nx', 'neuron2KDTree', 'neuron2tangents']

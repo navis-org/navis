@@ -57,6 +57,7 @@ repository.
        - renamed functions to make it clear they are only for ``TreeNeurons``:
            - ``smooth_neuron`` -> :func:`~navis.smooth_skeleton`
            - ``reroot_neuron`` -> :func:`~navis.reroot_skeleton`
+           - ``rewire_neuron`` -> :func:`~navis.rewire_skeleton`
            - ``despike_neuron`` -> :func:`~navis.despike_skeleton`
            - ``average_neurons`` -> :func:`~navis.average_skeletons`
            - ``heal_fragmented_neuron`` -> :func:`~navis.heal_skeleton`
@@ -183,7 +184,7 @@ repository.
        - lots of small bugfixes and improvements
    * - 0.3.1
      - 07/10/20
-     - - new function :func:`navis.rewire_neuron`
+     - - new function :func:`navis.rewire_skeleton`
        - improve :func:`navis.heal_skeleton` and :func:`navis.stitch_skeletons`: now much much faster
        - :func:`navis.reroot_skeleton` can now reroot to multiple roots in one go
        - :func:`navis.plot3d` now accepts a ``soma`` argument

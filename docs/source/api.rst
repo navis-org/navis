@@ -462,18 +462,9 @@ Functions to convert neurons and networkx to iGraph or networkX graphs.
     navis.neuron2KDTree
     navis.network2nx
     navis.network2igraph
-    navis.rewire_neuron
+    navis.rewire_skeleton
     navis.insert_nodes
     navis.remove_nodes
-
-Adjacency matrices
-------------------
-Functions to work with adjacency matrices.
-
-.. autosummary::
-    :toctree: generated/
-
-    navis.group_matrix
 
 Connectivity metrics
 --------------------

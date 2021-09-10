@@ -34,7 +34,7 @@ __all__ = sorted(['classify_nodes', 'cut_neuron', 'longest_neurite',
                   'dist_between', 'find_main_branchpoint',
                   'generate_list_of_childs', 'geodesic_matrix',
                   'node_label_sorting',
-                  'segment_length', 'rewire_neuron', 'insert_nodes',
+                  'segment_length', 'rewire_skeleton', 'insert_nodes',
                   'remove_nodes'])
 
 
@@ -1922,10 +1922,10 @@ def remove_nodes(x: 'core.TreeNeuron',
     return x
 
 
-def rewire_neuron(x: 'core.TreeNeuron',
-                  g: nx.Graph,
-                  root: Optional[id] = None,
-                  inplace: bool = False) -> Optional['core.TreeNeuron']:
+def rewire_skeleton(x: 'core.TreeNeuron',
+                    g: nx.Graph,
+                    root: Optional[id] = None,
+                    inplace: bool = False) -> Optional['core.TreeNeuron']:
     """Rewire neuron from graph.
 
     This function takes a graph representation of a neuron and rewires its
@@ -1963,7 +1963,7 @@ def rewire_neuron(x: 'core.TreeNeuron',
     >>> g = n.graph.copy()
     >>> g.remove_edge(310, 309)
     >>> # Rewire neuron
-    >>> n2 = navis.rewire_neuron(n, g, inplace=False)
+    >>> n2 = navis.rewire_skeleton(n, g, inplace=False)
     >>> n2.n_trees
     2
 
