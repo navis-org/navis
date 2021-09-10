@@ -1788,7 +1788,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
     g.add_edges_from(to_add)
 
     # Rewire based on graph
-    return graph.rewire_neuron(x, g, inplace=inplace)
+    return graph.rewire_skeleton(x, g, inplace=inplace)
 
 
 @utils.map_neuronlist(desc='Pruning', must_zip=['source'], allow_parallel=True)
