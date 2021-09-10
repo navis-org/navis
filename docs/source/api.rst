@@ -475,15 +475,17 @@ Functions to work with adjacency matrices.
 
     navis.group_matrix
 
-Connectivity clustering
------------------------
-Functions to cluster neurons based on connectivity.
+Connectivity metrics
+--------------------
+Functions to analyse/cluster neurons based on connectivity.
 
 .. autosummary::
     :toctree: generated/
 
-    navis.cluster_by_connectivity
-    navis.cluster_by_synapse_placement
+    navis.connectivity_similarity
+    navis.connectivity_sparseness
+    navis.cable_overlap
+    navis.synapse_similarity
 
 .. _io:
 

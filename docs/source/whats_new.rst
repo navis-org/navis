@@ -50,6 +50,10 @@ repository.
            - total rework of this module
            - renamed ``navis.write_google_binary`` -> :func:`~navis.write_precomputed`
            - new function: :func:`~navis.read_precomputed`
+       - plotting:
+           - new function :func:`navis.plot_flat` plots neurons as dendrograms
+           - :func:`~navis.plot3d` with plotly backend now returns a plotly ``Figure`` instead of a figure dictionary
+           - new `k3d <https://k3d-jupyter.org>`_ backend for plotting in Jupyter environments: try ``navis.plot3d(x, backend='k3d')``
        - renamed functions to make it clear they are only for ``TreeNeurons``:
            - ``smooth_neuron`` -> :func:`~navis.smooth_skeleton`
            - ``reroot_neuron`` -> :func:`~navis.reroot_skeleton`
@@ -57,10 +61,11 @@ repository.
            - ``average_neurons`` -> :func:`~navis.average_skeletons`
            - ``heal_fragmented_neuron`` -> :func:`~navis.heal_skeleton`
            - ``stitch_neurons`` -> :func:`~navis.stitch_skeletons`
-       - plotting:
-           - new function :func:`navis.plot_flat` plots neurons as dendrograms
-           - :func:`~navis.plot3d` with plotly backend now returns a plotly ``Figure`` instead of a figure dictionary
-           - new `k3d <https://k3d-jupyter.org>`_ backend for plotting in Jupyter environments: try ``navis.plot3d(x, backend='k3d')``
+       - removals and other renamings:
+           - ``navis.clustering`` module was removed and with it ``navis.cluster_xyz`` and ``ClustResult`` class
+           - renamed ``cluster_by_synapse_placement`` -> :func:`~navis.synapse_similarity`
+           - renamed ``cluster_by_connectivity`` -> :func:`~navis.connectivity_similarity`
+           - renamed ``sparseness`` -> :func:`~navis.connectivity_sparseness`
        - most functions that work with ``TreeNeurons`` now also work with ``MeshNeurons``
        - new high-level wrappers to convert neurons: :func:`navis.voxelize`, :func:`navis.mesh` and :func:`navis.skeletonize`
        - :func:`~navis.make_dotprops` now accepts ``parallel=True`` parameter for parallel processing

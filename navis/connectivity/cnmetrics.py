@@ -22,10 +22,10 @@ from typing import Union
 from typing_extensions import Literal
 
 
-def sparseness(x: Union[pd.DataFrame, np.ndarray],
-               which: Union[Literal['LTS'],
-                            Literal['LTK'],
-                            Literal['activity_ratio']] = 'LTS') -> Union[pd.Series, np.ndarray]:
+def connectivity_sparseness(x: Union[pd.DataFrame, np.ndarray],
+                            which: Union[Literal['LTS'],
+                                         Literal['LTK'],
+                                         Literal['activity_ratio']] = 'LTS') -> Union[pd.Series, np.ndarray]:
     r"""Calculate sparseness.
 
     Sparseness comes in three flavors:
@@ -91,7 +91,7 @@ def sparseness(x: Union[pd.DataFrame, np.ndarray],
     >>> url = 'https://raw.githubusercontent.com/ropensci/DoOR.data/master/data/door_response_matrix.csv'
     >>> adj = pd.read_csv(url, delimiter=';')
     >>> # Calculate lifetime sparseness
-    >>> S = navis.sparseness(adj, which='LTS')
+    >>> S = navis.connectivity_sparseness(adj, which='LTS')
     >>> # Plot distribution
     >>> ax = S.plot.hist(bins=np.arange(0, 1, .1))
     >>> _ = ax.set_xlabel('LTS')
