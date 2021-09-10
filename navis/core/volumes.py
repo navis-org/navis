@@ -388,22 +388,20 @@ class Volume(trimesh.Trimesh):
         return f'<navis.Volume({", ".join(elements)})>'
 
     def __truediv__(self, other):
-        """Implement division for vertex coordinates."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
-            return self.__mul__(1 / other)
-        else:
-            return NotImplemented
+        """Implement division for vertices."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            n = self.copy()
+            _ = np.divide(n.vertices, other, out=n.vertices, casting='unsafe')
+            return n
+        return NotImplemented
 
     def __mul__(self, other):
-        """Implement multiplication for vertex coordinates."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
-            v = self.copy()
-            v.vertices *= other
-            return v
-        else:
-            return NotImplemented
+        """Implement multiplication for vertices."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            n = self.copy()
+            _ = np.multiply(n.vertices, other, out=n.vertices, casting='unsafe')
+            return n
+        return NotImplemented
 
     def resize(self,
                x: Union[float, int],
