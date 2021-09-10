@@ -56,7 +56,7 @@ def available_backends():
     return backends
 
 
-@utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
+@utils.map_neuronlist(desc='Simplifying', allow_parallel=True)
 def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
     """Simplify meshes (TriMesh, MeshNeuron, Volume).
 
@@ -87,6 +87,8 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
 
     See Also
     --------
+    :func:`navis.downsample_neuron`
+                Downsample all kinds of neurons.
     :func:`navis.meshes.simplify_mesh_open3d`
                 Open3D implementation for mesh simplification.
     :func:`navis.meshes.simplify_mesh_pyml`
