@@ -293,8 +293,17 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
         # Next we have to make colors match the segments in `coords`
         c = np.asarray(c)
         ix = dict(zip(neuron.nodes.node_id.values, np.arange(neuron.n_nodes)))
-        color_kwargs['colors'] = [col for s in neuron.segments for col in np.append(c[[ix[n] for n in s]], [0, 0])]
+        # Construct sequence node IDs just like we did in `coords`
+        # (note that we insert a "-1" for breaks between segments)
+        seg_ids = [co for seg in neuron.segments for co in [seg[:1], seg, seg[-1:], [-1]]]
+        seg_ids = np.concatenate(seg_ids, axis=0)
+        # Translate to node indices
+        seg_ix = [ix.get(n, 0) for n in seg_ids]
 
+        # Now map this to vertex colors
+        seg_colors = [c[i] for i in seg_ix]
+
+        color_kwargs['colors'] = seg_colors
     else:
         color_kwargs['color'] = c = color_to_int(color)
 
@@ -324,11 +333,11 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
                 # If we have colors for every vertex, we need to find the
                 # color that corresponds to this root (or it's parent to be
                 # precise)
-                if isinstance(c, list):
+                if isinstance(c, (list, np.ndarray)):
                     s_ix = np.where(neuron.nodes.node_id == s)[0][0]
-                    soma_color = c[s_ix]
+                    soma_color = int(c[s_ix])
                 else:
-                    soma_color = c
+                    soma_color = int(c)
 
                 n = neuron.nodes.set_index('node_id').loc[s]
                 r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
