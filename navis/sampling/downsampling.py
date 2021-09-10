@@ -104,7 +104,7 @@ def downsample_neuron(x: 'core.NeuronObject',
                                downsampling_factor=downsampling_factor)
     elif isinstance(x, core.VoxelNeuron):
         _ = meshes.simplify_mesh(x,
-                                 F=downsampling_factor,
+                                 F=1/downsampling_factor,
                                  inplace=True)
     else:
         raise TypeError(f'Unable to downsample data of type "{type(x)}"')
