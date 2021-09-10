@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install pathos pygraphviz neuron cloud-volume
+        python -m pip install pathos pygraphviz neuron cloud-volume k3d
         python -m pip install -e .[test-notebook]
     - name: Run notebooks
       env:
