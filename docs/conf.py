@@ -276,7 +276,7 @@ html_theme_options = {
                      ("Tutorials", "source/gallery"),
                      ("API", "source/api"),
                      ("Changelog", "source/whats_new"),
-                     ("Github", "https://github.com/schlegelp/navis", True),
+                     ("Github", "https://github.com/navis-org/navis", True),
                      ("Ecosystem", "source/other_libraries"),
                      ],
                      }

@@ -21,9 +21,9 @@ NAVis is designed to be highly extensible. Make sure to check out the other
 libraries in the navis :ref:`ecosystem <other_libs>`.
 
 NAVis is licensed under the GNU GPL v3+ license. The source code is hosted
-at `Github <https://github.com/schlegelp/navis>`_. Feedback, feature requests
+at `Github <https://github.com/navis-org/navis>`_. Feedback, feature requests
 and bug reports are very welcome and best placed in
-`issues <https://github.com/schlegelp/navis/issues>`_.
+`issues <https://github.com/navis-org/navis/issues>`_.
 If you have any questions, please get in touch: pms70@cam.ac.uk
 
 

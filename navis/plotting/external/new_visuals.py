@@ -1,4 +1,4 @@
-#    This script is part of pymaid (http://www.github.com/schlegelp/navis).
+#    This script is part of pymaid (http://www.github.com/navis-org/navis).
 #    but has been adapted from vispy (http://www.vispy.org)
 
 import collections

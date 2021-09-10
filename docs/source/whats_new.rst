@@ -4,7 +4,7 @@ What's new?
 ===========
 This is a selection of features added, changes made and bugs fixed in each version.
 For a full list of changes please see the
-`commits <https://github.com/schlegelp/navis/commits/master>`_ on navis' Github
+`commits <https://github.com/navis-org/navis/commits/master>`_ on navis' Github
 repository.
 
 .. list-table::

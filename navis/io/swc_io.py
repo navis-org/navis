@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -458,7 +458,7 @@ def _write_swc(x: 'core.TreeNeuron',
         header = dedent(f"""\
         # SWC format file
         # based on specifications at http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html
-        # Created on {datetime.date.today()} using navis (https://github.com/schlegelp/navis)
+        # Created on {datetime.date.today()} using navis (https://github.com/navis-org/navis)
         """)
         if write_meta:
             if isinstance(write_meta, dict):

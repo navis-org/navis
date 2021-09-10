@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -721,7 +721,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     Examples
     --------
     This example requires the
-    `flybrains <https://github.com/schlegelp/navis-flybrains>`_
+    `flybrains <https://github.com/navis-org/navis-flybrains>`_
     library to be installed: ``pip3 install flybrains``
 
     Also, if you haven't already, you will need to have the optional Saalfeld
@@ -845,7 +845,7 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
     Examples
     --------
     This example requires the
-    `flybrains <https://github.com/schlegelp/navis-flybrains>`_
+    `flybrains <https://github.com/navis-org/navis-flybrains>`_
     library to be installed: ``pip3 install flybrains``
 
     >>> import navis
@@ -1022,7 +1022,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     Examples
     --------
     This example requires the
-    `flybrains <https://github.com/schlegelp/navis-flybrains>`_
+    `flybrains <https://github.com/navis-org/navis-flybrains>`_
     library to be installed: ``pip3 install flybrains``
 
     Also, if you haven't already, you will need to have the optional Saalfeld
@@ -1220,7 +1220,7 @@ class TemplateBrain:
     Minimally, a template should have a `name` and `label` property. For
     mirroring, it also needs a `boundingbox`.
 
-    See `navis-flybrains <https://github.com/schlegelp/navis-flybrains>`_ for
+    See `navis-flybrains <https://github.com/navis-org/navis-flybrains>`_ for
     an example of how to use template brains.
     """
 
