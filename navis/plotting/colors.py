@@ -234,28 +234,39 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
 
     # If by points to column collect values
     if isinstance(by, str):
-        # Make sure we are dealing only with TreeNeurons
-        if not all([isinstance(n, core.TreeNeuron) for n in neurons]):
-            raise TypeError('Can only generate colors from a column if all '
-                            'neurons are TreeNeurons.')
-
         # For convenience we will compute this if required
         if by == 'strahler_index':
             for n in neurons:
-                if 'strahler_index' not in n.nodes:
-                    _ = morpho.strahler_index(n)
-
+                if isinstance(n, core.TreeNeuron):
+                    if 'strahler_index' not in n.nodes:
+                        _ = morpho.strahler_index(n)
+                elif isinstance(n, core.MeshNeuron):
+                    if not hasattr(n, 'strahler_index'):
+                        _ = morpho.strahler_index(n)
         values = []
         for n in neurons:
-            # If column exists add to values
-            if by in n.nodes.columns:
-                values.append(n.nodes[by].values)
-            elif na == 'raise':
-                raise ValueError(f'Column {by} does not exists in neuron {n.id}')
-            # If column does not exists, add a bunch of NaNs - we will worry
-            # about it later
+            if isinstance(n, core.TreeNeuron):
+                # If column exists add to values
+                if by in n.nodes.columns:
+                    values.append(n.nodes[by].values)
+                elif na == 'raise':
+                    raise ValueError(f'Column "{by}" does not exists in neuron {n.id}')
+                # If column does not exists, add a bunch of NaNs - we will worry
+                # about it later
+                else:
+                    values.append(np.repeat(np.nan, n.nodes.shape[0]))
+            elif isinstance(n, core.MeshNeuron):
+                if hasattr(n, by):
+                    values.append(getattr(n, by))
+                elif na == 'raise':
+                    raise ValueError(f'{n.id} does not have a "{by}" property')
+                # If column does not exists, add a bunch of NaNs - we will worry
+                # about it later
+                else:
+                    values.append(np.repeat(np.nan, n.vertices.shape[0]))
             else:
-                values.append(np.repeat(np.nan, n.nodes.shape[0]))
+                raise TypeError('`color_by=str` currently not supported for '
+                                f'{type(n)}')
     # If by already contains the actual values
     else:
         # Make sure values are list of lists (in case we started with a single
@@ -269,7 +280,7 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
     if len(values) != len(neurons):
         raise ValueError(f'Got {len(values)} values for {len(neurons)} neurons.')
 
-    # We also expect to have a value for every single node/face
+    # We also expect to have a value for every single node/vertex
     for n, v in zip(neurons, values):
         if isinstance(n, core.TreeNeuron):
             if len(v) != n.n_nodes:
