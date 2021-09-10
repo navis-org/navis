@@ -100,9 +100,9 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
     Parameters
     ----------
     adjacency :         pandas DataFrame | numpy array
-                        Adjacency matrix. Does not have to be symmetrical.
-                        Will calculate similarity for all row neurons using
-                        the column neurons as observations.
+                        (N, M) observation vector with M observations for N
+                        neurons - e.g. an adjacency matrix. Will calculate
+                        similarity for all rows using the columns as observations.
     metric :            'cosine' | 'rank_index'| 'matching_index' | 'matching_index_synapses' | 'matching_index_weighted_synapses' | 'vertex' | 'vertex_normalized'
                         Metric used to compare connectivity. See notes for
                         detailed explanation.
