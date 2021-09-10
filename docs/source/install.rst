@@ -129,10 +129,6 @@ Step-by-step instructions
       that comes with its own package manager ``conda`` which often has
       precompiled Windows binaries where ``pip`` doesn't.
 
-.. note::
-   If you intend to use navis' interface with R, you need to install the
-   optional dependency :ref:`rpy2 <rpy>`.
-
 
 Optional Dependencies
 ---------------------

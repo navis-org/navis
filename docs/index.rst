@@ -29,7 +29,6 @@ If you have any questions, please get in touch: pms70@cam.ac.uk
 
 .. raw:: html
 
-
          </div>
          <div class="col-lg-6">
             <div class="panel panel-default">
