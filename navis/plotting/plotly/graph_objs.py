@@ -552,9 +552,9 @@ def volume2plotly(x, colormap, **kwargs):
 
 def layout2plotly(**kwargs):
     """Generate layout for plotly figures."""
-    layout = dict(width=kwargs.get('width', 1200),
-                  height=kwargs.get('height', 600),
-                  autosize=kwargs.get('fig_autosize', False),
+    layout = dict(width=kwargs.get('width', None),   # these override autosize
+                  height=kwargs.get('height', 600),  # these override autosize
+                  autosize=kwargs.get('fig_autosize', True),
                   title=kwargs.get('pl_title', None),
                   plot_bgcolor='rgba(0,0,0,0)',
                   paper_bgcolor='rgba(0,0,0,0)',
@@ -592,10 +592,5 @@ def layout2plotly(**kwargs):
                              aspectmode='data'
                              ),
                   )
-
-    # Need to remove width and height to make autosize actually matter
-    if kwargs.get('fig_autosize', False):
-        layout.pop('width')
-        layout.pop('height')
 
     return layout
