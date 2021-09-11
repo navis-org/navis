@@ -62,12 +62,9 @@ def neuron2plotly(x, colormap, **kwargs):
                                  color_range=255)
 
     if not isinstance(shade_by, type(None)):
-        logger.warning('`shade_by` is currently not working due to an bug in '
-                       'plotly.')
-        """
         alphamap = vertex_colors(x,
                                  by=shade_by,
-                                 alpha=True,
+                                 use_alpha=True,
                                  palette='viridis',  # palette is irrelevant here
                                  vmin=kwargs.get('smin', None),
                                  vmax=kwargs.get('smax', None),
@@ -79,7 +76,7 @@ def neuron2plotly(x, colormap, **kwargs):
             if not (isinstance(c, np.ndarray) and c.ndim == 2):
                 c = np.tile(c, (a.shape[0],  1))
 
-            if not c.dtype in (np.float16, np.float32, np.float64):
+            if c.dtype not in (np.float16, np.float32, np.float64):
                 c = c.astype(np.float16)
 
             if c.shape[1] == 4:
@@ -89,7 +86,6 @@ def neuron2plotly(x, colormap, **kwargs):
 
             new_colormap.append(c)
         colormap = new_colormap
-        """
 
     cn_lay = {
         0: {'name': 'Presynapses',
