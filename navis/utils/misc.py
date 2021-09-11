@@ -302,6 +302,7 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
                         copy_properties: list = [],
                         disallowed_kwargs: dict = {},
                         node_props: list = [],
+                        reroot_soma: bool = False,
                         heal: bool = False):
     """Decorate function such that MeshNeurons are automatically skeletonized,
     the function is run function on the skeletons and changes are propagated
@@ -328,6 +329,9 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
     node_props : list
                 For method 'node_properties'. String must be column names in
                 node table of skeleton.
+    reroot_soma :  bool
+                If True and neuron has a soma (.soma_pos), will reroot to
+                that soma.
     heal :      bool
                 Whether or not to heal the skeleton if the mesh is fragmented.
 
@@ -377,7 +381,7 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
                 return function(x, *args, **kwargs)
 
             # Check for disallowed kwargs
-            for k, v in disallowed_kwargs:
+            for k, v in disallowed_kwargs.items():
                 if k in kwargs and kwargs[k] == v:
                     raise ValueError(f'{k}={v} is not allowed when input is '
                                      'MeshNeuron(s).')
@@ -403,6 +407,9 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
 
             if heal:
                 sk = morpho.heal_skeleton(sk, method='LEAFS')
+
+            if reroot_soma and sk.has_soma:
+                sk = sk.reroot(sk.soma)
 
             if include_connectors and x.has_connectors and not sk.has_connectors:
                 sk._connectors = x.connectors.copy()

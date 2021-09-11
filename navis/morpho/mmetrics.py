@@ -75,6 +75,7 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
 
 @utils.map_neuronlist(desc='Calc. SI', allow_parallel=True)
 @utils.meshneuron_skeleton(method='node_properties',
+                           reroot_soma=True,
                            node_props=['strahler_index'])
 def strahler_index(x: 'core.NeuronObject',
                    method: Union[Literal['standard'],
