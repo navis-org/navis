@@ -87,7 +87,7 @@ def plot3d(x: Union[core.NeuronObject,
                       to give all neurons the same color. Use ``list`` of
                       colors to assign colors: ``['red', (1, 0, 1), ...].
                       Use ``dict`` to map colors to neurons:
-                      ``{uuid: (r, g, b), ...}``.
+                      ``{neuron.id: (r, g, b), ...}``.
     cn_colors :       str | tuple | dict | "neuron"
                       Overrides the default connector (e.g. synpase) colors:
                         - single color as str (e.g. ``'red'``) or rgb tuple
@@ -113,6 +113,13 @@ def plot3d(x: Union[core.NeuronObject,
                       normalized. You can control the normalization by passing
                       a ``smin`` and/or ``smax`` parameter. Does not work with
                       `k3d` backend.
+    alpha :           float [0-1], optional
+                      Alpha value for neurons. Overriden if alpha is provided
+                      as fourth value in ``color`` (rgb*a*).
+    clusters :        list, optional
+                      A list assigning a cluster to each neuron (e.g.
+                      ``[0, 0, 0, 1, 1]``). Overrides ``color`` and uses
+                      ``palette`` to generate colors according to clusters.
     radius :          bool, default=False
                       If True, will plot TreeNeurons as 3D tubes using the
                       ``radius`` column in their node tables.
@@ -259,7 +266,7 @@ def plot3d_vispy(x, **kwargs):
     (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
     # Check for allowed static parameters
-    ALLOWED = {'color', 'c', 'colors',
+    ALLOWED = {'color', 'c', 'colors', 'clusters',
                'cn_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'alpha',
                'auto_limits', 'autolimits', 'viewer', 'radius', 'center',
@@ -316,7 +323,7 @@ def plot3d_plotly(x, **kwargs):
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors', 'cn_colors',
                'linewidth', 'lw', 'legend_group',
-               'scatter_kws', 'synapse_layout',
+               'scatter_kws', 'synapse_layout', 'clusters',
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
                'inline', 'alpha', 'radius', 'fig', 'soma',
                'connectors', 'connectors_only', 'palette', 'color_by',
@@ -346,6 +353,7 @@ def plot3d_plotly(x, **kwargs):
                                                  neurons=neurons,
                                                  volumes=volumes,
                                                  palette=palette,
+                                                 clusters=kwargs.get('clusters', None),
                                                  alpha=kwargs.get('alpha', None),
                                                  color_range=255)
 
@@ -398,7 +406,7 @@ def plot3d_k3d(x, **kwargs):
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors',
                'cn_colors', 'linewidth', 'lw', 'scatter_kws',
-               'synapse_layout',
+               'synapse_layout', 'clusters',
                'dps_scale_vec', 'height',
                'inline', 'alpha', 'radius', 'plot', 'soma',
                'connectors', 'connectors_only', 'palette', 'color_by',
@@ -427,6 +435,7 @@ def plot3d_k3d(x, **kwargs):
                                                  neurons=neurons,
                                                  volumes=volumes,
                                                  palette=palette,
+                                                 clusters=kwargs.get('clusters', None),
                                                  alpha=kwargs.get('alpha', None),
                                                  color_range=255)
 

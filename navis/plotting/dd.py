@@ -143,6 +143,10 @@ def plot2d(x: Union[core.NeuronObject,
                         Alpha value for neurons. Overriden if alpha is provided
                         as fourth value in ``color`` (rgb*a*). You can override
                         alpha value for connectors by using ``cn_alpha``.
+    clusters :          list, default=None
+                        A list assigning a cluster to each neuron (e.g.
+                        ``[0, 0, 0, 1, 1]``). Overrides ``color`` and uses
+                        ``palette`` to generate colors according to clusters.
     depth_coloring :    bool, default=False
                         If True, will color encode depth (Z). Overrides
                         ``color``. Does not work with ``method = '3d_complex'``.
@@ -268,7 +272,7 @@ def plot2d(x: Union[core.NeuronObject,
                         'ax', 'color', 'colors', 'c', 'view', 'scalebar',
                         'cn_mesh_colors', 'linewidth', 'cn_size', 'cn_alpha',
                         'orthogonal', 'group_neurons', 'scatter_kws', 'figsize',
-                        'linestyle', 'rasterize',
+                        'linestyle', 'rasterize', 'clusters',
                         'alpha', 'depth_coloring', 'autoscale', 'depth_scale',
                         'ls', 'lw', 'volume_outlines',
                         'dps_scale_vec', 'palette', 'color_by', 'shade_by',
@@ -312,6 +316,7 @@ def plot2d(x: Union[core.NeuronObject,
                                       neurons=neurons,
                                       volumes=volumes,
                                       palette=palette,
+                                      clusters=kwargs.get('clusters', None),
                                       alpha=kwargs.get('alpha', None),
                                       color_range=1)
 

@@ -404,8 +404,14 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
     return colors
 
 
-def prepare_colormap(colors, neurons=None, volumes=None, alpha=None,
-                     palette=None, color_range=255):
+def prepare_colormap(colors,
+                     neurons: Optional['core.NeuronObject'] = None,
+                     volumes: Optional[List] = None,
+                     alpha: Optional[float] = None,
+                     clusters: Optional[List[Any]] = None,
+                     palette: Optional[str] = None,
+                     color_range: Union[Literal[1],
+                                        Literal[255]] = 255):
     """Map color(s) to neuron/dotprop colorlists."""
     # Prepare dummies in case either no neuron data, no dotprops or no volumes
     if isinstance(neurons, type(None)):
@@ -427,6 +433,19 @@ def prepare_colormap(colors, neurons=None, volumes=None, alpha=None,
         # If no neurons to plot, just return None
         # This happens when there is only a scatter plot
         return [None], [None]
+
+    # If groups are provided override all existing colors
+    if not isinstance(clusters, type(None)):
+        clusters = utils.make_iterable(clusters)
+        if len(clusters) != len(neurons):
+            raise ValueError('Must provide a group for all neurons: got '
+                             f'{len(clusters)} groups for {len(neurons)} neurons')
+        cmap = {g: c for g, c in zip(np.unique(clusters),
+                                     generate_colors(len(np.unique(clusters)),
+                                                     palette=palette,
+                                                     color_range=color_range))}
+        colors = [cmap[g] for g in clusters]
+        colors += [getattr(v, 'color', (1, 1, 1)) for v in volumes]
 
     # If no colors, generate random colors
     if isinstance(colors, type(None)):

@@ -191,6 +191,7 @@ def neuron2vispy(x, **kwargs):
                                        neurons=x,
                                        palette=palette,
                                        alpha=kwargs.get('alpha', None),
+                                       clusters=kwargs.get('clusters', None),
                                        color_range=1)
 
     if not isinstance(shade_by, type(None)):
