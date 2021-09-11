@@ -108,6 +108,9 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
                         detailed explanation.
     threshold :         int, optional
                         Connections weaker than this will be set to zero.
+    n_cores :           int
+                        Number of parallel processes to use. Defaults to half
+                        the available cores.
 
     Returns
     -------
@@ -125,7 +128,7 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
                 'cosine': _calc_cosine_similarity
                 }
 
-    if metric.lower() not in FUNC_MAP:
+    if not isinstance(metric, str) or metric.lower() not in FUNC_MAP:
         raise ValueError(f'"metric" must be either: {", ".join(FUNC_MAP.keys())}')
 
     score_func = FUNC_MAP[metric.lower()]
