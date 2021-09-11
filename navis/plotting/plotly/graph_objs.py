@@ -229,9 +229,11 @@ def mesh2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
 
     if isinstance(color, np.ndarray) and color.ndim == 2:
         if len(color) == len(neuron.vertices):
-            color_kwargs = dict(vertexcolor=color)
+            # For some reason single colors are 0-255 but face/vertex colors
+            # have to be 0-1
+            color_kwargs = dict(vertexcolor=color  / [255, 255, 255, 1])
         elif len(color) == len(neuron.faces):
-            color_kwargs = dict(facecolor=color)
+            color_kwargs = dict(facecolor=color / [255, 255, 255, 1])
         else:
             color_kwargs = dict(color=color)
     else:
