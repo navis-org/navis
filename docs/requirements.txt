@@ -11,6 +11,7 @@ numpydoc
 sphinx>=3.1
 sphinx-bootstrap-theme
 sphinx-autodoc-typehints
+sphinx-copybutton
 neuprint-python
 wheel>=0.35.1
 # ncollpyde 0.15 currently acts up on readthedocs
