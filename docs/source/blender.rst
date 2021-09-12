@@ -112,7 +112,7 @@ Last but not least, here's a little taster of what you can do with Blender:
 
 .. raw:: html
   
-   <iframe width="560" height="315" src="https://www.youtube.com/embed/wl3sFG7WQJc?controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>   
+   <iframe width="560" height="315" src="https://www.youtube.com/embed/wl3sFG7WQJc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>   
 
 Reference
 ~~~~~~~~~
