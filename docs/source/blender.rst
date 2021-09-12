@@ -10,7 +10,7 @@ NAVis comes with an interface to import neurons into
 `Blender 3D <https://www.blender.org>`_: :mod:`navis.interfaces.blender`
 
 Because NAVis requires Python at least 3.6 and only the most recent version of
-Blender comes with Python >=3.5, we require Blender 2.8x!
+Blender comes with Python >=3.5, we require Blender 2.8x or higher!
 
 Installation
 ============
@@ -91,7 +91,7 @@ Now initialise the interface with Blender and import the neurons.
 
 The interface lets you manipulate neurons in Blender too.
 
->>> # Colorise neurons
+>>> # Colorize neurons
 >>> h.colorize()
 >>> # Change thickness of all neurons
 >>> h.neurons.bevel(.02)
@@ -107,6 +107,12 @@ The interface lets you manipulate neurons in Blender too.
    if you experience issues. In Windows simply go to `Help` >> `Toggle System
    Console`. In MacOS, right-click Blender in Finder >> `Show Package Contents`
    >> `MacOS` >> double click on `blender`.
+   
+Last but not least, here's a little taster of what you can do with Blender:
+
+.. raw:: html
+  
+   <iframe width="560" height="315" src="https://www.youtube.com/embed/wl3sFG7WQJc?controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>   
 
 Reference
 ~~~~~~~~~
