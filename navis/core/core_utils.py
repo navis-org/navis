@@ -66,12 +66,18 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     x :         pandas.DataFrame | numpy.ndarray | TreeNeuron | MeshNeuron
                 Data/object to generate dotprops from. DataFrame must have
                 'x', 'y' and 'z' columns.
-    k :         int, optional
+    k :         int (> 1), optional
                 Number of nearest neighbours to use for tangent vector
-                calculation. ``k=0`` or ``k=None`` is possible but only for
-                ``TreeNeurons``: then we use child->parent connections
-                to define points (midpoint) and their vectors. Also note that
-                ``k`` is only guaranteed if the input has at least ``k`` points.
+                calculation. Some notes:
+                  - ``k=0`` or ``k=None`` is possible but only for
+                    ``TreeNeurons``: then we use child->parent connections
+                    to define points (midpoint) and their vectors
+                  - ``k`` is only guaranteed if the input has at least ``k``
+                    points
+                  - ``k`` includes self-hits and while ``k=1`` is not
+                    strictly forbidden, it makes little sense and will
+                    likely produce nonsense dotprops
+
     resample :  float | int | str, optional
                 If provided will resample neurons to the given resolution. For
                 ``MeshNeurons`` and ``VoxelNeurons``, we are using
@@ -103,6 +109,9 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     dtype: object
 
     """
+    if k and k == 1:
+        logger.warning('`k=1` will likely produce nonsense dotprops')
+
     utils.eval_param(resample, name='resample',
                      allowed_types=(numbers.Number, type(None), str))
 
