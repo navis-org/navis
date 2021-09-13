@@ -334,6 +334,12 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
         else:
             vmax = np.repeat(vmax, len(values))
 
+        if any(vmin == vmax):
+            raise ValueError('Unable to normalize values: at least some min '
+                             f'and max values in "{by}" are the same. Use '
+                             '`vmin` and `vmax` parameters to manually set '
+                             'range for normalization.')
+
         # Normalize values
         values = [(np.asarray(v) - mn) / (mx - mn) for v, mn, mx in zip(values, vmin, vmax)]
 
