@@ -91,7 +91,7 @@ def segments_to_coords(x: core.TreeNeuron,
                     A color for each node in ``x.nodes``. If provided, will
                     also return a list of colors sorted to match coordinates.
     modifier :      ints, optional
-                    Use to modify/invert x/y/z axes.
+                    Use e.g. to modify/invert x/y/z axes.
 
     Returns
     -------
@@ -108,11 +108,16 @@ def segments_to_coords(x: core.TreeNeuron,
     # Using a dictionary here is orders of manitude faster than .loc[]!
     locs: Dict[int, Tuple[float, float, float]]
     # Oddly, this is also the fastest way to generate the dictionary
-    locs = {r.node_id: (r.x, r.y, r.z) for r in x.nodes.itertuples()}  # type: ignore
-    coords = [np.array([locs[tn] for tn in s]) for s in segments]
+    nodes = x.nodes
+    locs = {i: (x, y, z) for i, x, y, z in zip(nodes.node_id.values,
+                                               nodes.x.values,
+                                               nodes.y.values,
+                                               nodes.z.values)}  # type: ignore
+    # locs = {r.node_id: (r.x, r.y, r.z) for r in x.nodes.itertuples()}  # type: ignore
+    coords = [[locs[tn] for tn in s] for s in segments]
 
     if any(modifier != 1):
-        coords = [c * modifier for c in coords]
+        coords = [(np.array(c) * modifier).tolist() for c in coords]
 
     if not isinstance(node_colors, type(None)):
         ilocs = dict(zip(x.nodes.node_id.values,
