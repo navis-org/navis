@@ -5,21 +5,21 @@
 Blender 3D
 ----------
 
-
 NAVis comes with an interface to import neurons into
-`Blender 3D <https://www.blender.org>`_: :mod:`navis.interfaces.blender`
+`Blender 3D <https://www.blender.org>`_ for high quality renderings and
+videos: :mod:`navis.interfaces.blender`
 
-Because NAVis requires Python at least 3.6 and only the most recent version of
-Blender comes with Python >=3.5, we require Blender 2.8x or higher!
+Because NAVis requires Python at least 3.6 this only works with Blender 2.8x
+or higher!
 
 Installation
 ============
 
-Blender 2.8 comes with its own Python 3.7 distribution! So you need to install
+Blender comes with its own Python 3.7 distribution! So you need to install
 NAVis explicitly for this distribution in order to use it within Blender.
 
 There are several ways to install additional packages for Blender's
-built-in Python. IMHO the easiest way is this:
+built-in Python. The easiest way is probably this:
 
 1. Find out where Blender's Python lives (this depends on your OS). In
    :red:`Blender's Python console` run this::
@@ -27,13 +27,22 @@ built-in Python. IMHO the easiest way is this:
     >>> bpy.app.binary_path_python
     '[..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m'
 
-2. Get `pip` by downloading ``get-pip.py`` from
+2. Check if Blender's Python already came with the package manager `pip`::
+
+    [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m -m pip --version
+
+   If the above command throws an error along the lines of "No module named pip":
+   get `pip` by downloading ``get-pip.py`` from
    `here <https://pip.pypa.io/en/stable/installing/>`_ and install by executing
    with your Python distribution::
 
     [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m get-pip.py
 
-3. Use PIP to install NAVis (or any other package for that matter). Please note
+   If `pip` is there but horrendously outdated, you can update it like so::
+
+    [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m -m pip install pip -U
+
+3. Use `pip` to install NAVis (or any other package for that matter). Please note
    we have to - again - specify that we want to install for Blender's Python::
 
     [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m -m pip install navis
@@ -41,7 +50,7 @@ built-in Python. IMHO the easiest way is this:
 .. important::
    It's possible that this install fails with an error message along the lines
    of :red:`'Python.h' file not found`. The reason for this is that Blender
-   ships with a Python "light" and you have to manually provide the Python
+   ships with a "Python light" and you have to manually provide the Python
    header files:
 
    First, find out the *exact* Blender Python version::
@@ -66,7 +75,7 @@ Quickstart
 ==========
 
 :mod:`navis.interfaces.blender` provides a simple interface that lets you add,
-select an manipulate neurons from within :red:`Blender's Python console`:
+select and manipulate neurons from within :red:`Blender's Python console`:
 
 First, import and set up NAVis like you are used to.
 
@@ -107,12 +116,12 @@ The interface lets you manipulate neurons in Blender too.
    if you experience issues. In Windows simply go to `Help` >> `Toggle System
    Console`. In MacOS, right-click Blender in Finder >> `Show Package Contents`
    >> `MacOS` >> double click on `blender`.
-   
+
 Last but not least, here's a little taster of what you can do with Blender:
 
 .. raw:: html
-  
-   <iframe width="560" height="315" src="https://www.youtube.com/embed/wl3sFG7WQJc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>   
+
+   <iframe width="560" height="315" src="https://www.youtube.com/embed/wl3sFG7WQJc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 Reference
 ~~~~~~~~~
