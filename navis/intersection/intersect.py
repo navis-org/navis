@@ -413,7 +413,7 @@ def intersection_matrix(x: 'core.NeuronObject',
     # Volumes should be a dict at some point
     volumes_dict: Dict[str, core.Volume]
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.BaseNeuron):
         x = core.NeuronList(x)
 
     if not isinstance(x, core.NeuronList):
