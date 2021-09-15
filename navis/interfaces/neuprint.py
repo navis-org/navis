@@ -186,10 +186,10 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
     if meta.empty:
         raise ValueError('No neurons matching the given criteria found!')
     elif not isinstance(wanted_ids, type(None)):
-        miss = miss[~np.isin(miss, meta.bodyId.values)]
+        miss = wanted_ids[~np.isin(wanted_ids, meta.bodyId.values)]
         if len(miss):
             logger.warning(f'Skipping {len(miss)} body IDs that were not found: '
-                           f'{", ".join(miss)}')
+                           f'{", ".join(miss.astype(str))}')
 
     # Make sure there is a somaLocation and somaRadius column
     if 'somaLocation' not in meta.columns:
@@ -342,10 +342,10 @@ def fetch_skeletons(x, *, with_synapses=True, heal=False, missing_swc='raise',
     if meta.empty:
         raise ValueError('No neurons matching the given criteria found!')
     elif not isinstance(wanted_ids, type(None)):
-        miss = miss[~np.isin(miss, meta.bodyId.values)]
+        miss = wanted_ids[~np.isin(wanted_ids, meta.bodyId.values)]
         if len(miss):
             logger.warning(f'Skipping {len(miss)} body IDs that were not found: '
-                           f'{", ".join(miss)}')
+                           f'{", ".join(miss.astype(str))}')
 
     # Make sure there is a somaLocation and somaRadius column
     if 'somaLocation' not in meta.columns:
