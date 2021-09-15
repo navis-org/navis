@@ -197,7 +197,7 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
         # Now get paths from all tips to the root
         paths = x.igraph.get_shortest_paths(root_vs[0], leaf_vs, mode='ALL')
 
-        # Translate indices back into treenode ids
+        # Translate indices back into node ids
         ids = np.array(x.igraph.vs.get_attribute_values('node_id'))
         paths_tn = [ids[p] for p in paths]
     else:

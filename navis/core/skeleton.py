@@ -13,7 +13,6 @@
 
 import copy
 import functools
-import hashlib
 import numbers
 import pint
 import types
@@ -66,7 +65,7 @@ def requires_nodes(func):
 
 
 class TreeNeuron(BaseNeuron):
-    """Neuron represented as hierarchical tree (= skeleton).
+    """Neuron represented as hierarchical tree (i.e. a skeleton).
 
     Parameters
     ----------
@@ -76,7 +75,7 @@ class TreeNeuron(BaseNeuron):
                      - ``pandas.Series`` is expected to have a DataFrame as
                        ``.nodes`` - additional properties will be attached
                        as meta data
-                     - ``str`` is treated as SWC file name
+                     - ``str`` filepath is passed to :func:`navis.read_swc`
                      - ``BufferedIOBase`` e.g. from ``open(filename)``
                      - ``networkx.DiGraph`` parsed by `navis.nx2neuron`
                      - ``None`` will initialize an empty neuron

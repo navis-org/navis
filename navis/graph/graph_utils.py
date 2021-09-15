@@ -1288,16 +1288,31 @@ def cut_skeleton(x: 'core.NeuronObject',
 
     Returns
     -------
-    split :                 NeuronList
-                            Fragments of the input neuron after cutting sorted
-                            such that distal parts come before proximal parts.
-                            For example, with a single cut you can expect to
-                            return a NeuronList containing two neurons: the
-                            first contains the part distal and the second the
-                            part proximal to the cut node.
+    split :    NeuronList
+               Fragments of the input neuron after cutting sorted such that
+               distal parts come before proximal parts. For example, with a
+               single cut you can expect to return a NeuronList containing two
+               neurons: the first contains the part distal and the second the
+               part proximal to the cut node.
 
-                            The distal->proximal order of fragments is tried to
-                            be maintained for multiple cuts but is not guaranteed.
+               The distal->proximal order of fragments is tried to be maintained
+               for multiple cuts but this is not guaranteed.
+
+    Examples
+    --------
+    Cut skeleton at a (somewhat random) branch point
+
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> bp = n.nodes[n.nodes.type=='branch'].node_id.values
+    >>> dist, prox = navis.cut_skeleton(n, bp[0])
+
+    Make cuts at multiple branch points
+
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> bp = n.nodes[n.nodes.type=='branch'].node_id.values
+    >>> splits = navis.cut_skeleton(n, bp[:10])
 
     See Also
     --------
@@ -1307,22 +1322,6 @@ def cut_skeleton(x: 'core.NeuronObject',
     :func:`navis.subset_neuron`
             Returns a neuron consisting of a subset of its nodes.
 
-    Examples
-    --------
-    Cut neuron at a (random) branch point
-
-    >>> import navis
-    >>> n = navis.example_neurons(1)
-    >>> bp = n.nodes[n.nodes.type=='branch'].node_id.values
-    >>> dist, prox = navis.cut_neuron(n, bp[0])
-
-    Make a cut at multiple branch points
-
-    >>> import navis
-    >>> n = navis.example_neurons(1)
-    >>> bp = n.nodes[n.nodes.type=='branch'].node_id.values
-    >>> splits = navis.cut_neuron(n, bp[:10])
-
     """
     utils.eval_param(ret, name='ret',
                      allowed_values=('proximal', 'distal', 'both'))
@@ -1331,7 +1330,7 @@ def cut_skeleton(x: 'core.NeuronObject',
         if len(x) == 1:
             x = x[0]
         else:
-            raise Exception(f'Expected a single neuron, got {len(x)}')
+            raise Exception(f'Expected a single TreeNeuron, got {len(x)}')
 
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected a single TreeNeuron, got "{type(x)}"')
@@ -1345,12 +1344,12 @@ def cut_skeleton(x: 'core.NeuronObject',
     x: core.TreeNeuron
 
     # Turn cut node into iterable
-    if not utils.is_iterable(cut_node):
-        cut_node = [cut_node]
+    if not utils.is_iterable(where):
+        where = [where]
 
     # Process cut nodes (i.e. if tag)
     cn_ids: List[int] = []
-    for cn in cut_node:
+    for cn in where:
         # If cut_node is a tag (rather than an ID), try finding that node
         if isinstance(cn, str):
             if cn not in x.tags:
@@ -1360,7 +1359,7 @@ def cut_skeleton(x: 'core.NeuronObject',
         elif cn not in x.nodes.node_id.values:
             raise ValueError(f'No node with ID "{cn}" found.')
         elif cn in x.root:
-            raise ValueError(f'Unable to cut at treenode "{cn}" - node is root')
+            raise ValueError(f'Unable to cut at node "{cn}" - node is root')
         else:
             cn_ids.append(cn)
 

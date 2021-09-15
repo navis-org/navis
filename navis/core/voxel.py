@@ -25,7 +25,6 @@ from .. import utils, config
 from .base import BaseNeuron
 from .core_utils import temp_property
 
-
 try:
     import xxhash
 except ImportError:

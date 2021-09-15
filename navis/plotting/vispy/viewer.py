@@ -39,8 +39,7 @@ logger = config.logger
 
 
 def block_all(function):
-    """ Decorator to block all events on canvas and view while changes
-    are being made. """
+    """Block all events on canvas and view while changes are being made."""
     @wraps(function)
     def wrapper(*args, **kwargs):
         viewer = args[0]
@@ -719,7 +718,7 @@ class Viewer:
         as_group :  bool, optional
                     If True, will try combining similar objects into a single
                     visual. This reduces the number of shader programs and
-                    can greatly increase tthe frame rate. Downside: objects can
+                    can greatly increase the frame rate. Downside: objects can
                     no longer be individually manipulated.
         **kwargs
                     Keyword arguments passed when generating visuals. See

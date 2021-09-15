@@ -22,7 +22,7 @@ from collections import namedtuple
 from itertools import combinations
 from scipy.spatial import cKDTree
 from scipy.ndimage import gaussian_filter
-from typing import Union, Optional, Sequence, overload, List, Set
+from typing import Union, Optional, Sequence, List, Set
 from typing_extensions import Literal
 
 from .. import graph, utils, config, core
@@ -870,7 +870,7 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     Stitching fragmented neurons:
 
     >>> a = navis.example_neurons(1)
-    >>> fragments = navis.cut_neuron(a, 100)
+    >>> fragments = navis.cut_skeleton(a, 100)
     >>> stitched = navis.stitch_skeletons(fragments, method='LEAFS')
 
     """

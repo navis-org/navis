@@ -40,7 +40,7 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
 
     Parameters
     ----------
-    x :         TreeNeuron | treenode table
+    x :         TreeNeuron | node table
     root_dist : int | None
                 ``parent_dist`` for the root's row. Set to ``None``, to leave
                 at ``NaN`` or e.g. to ``0`` to set to 0.

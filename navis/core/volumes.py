@@ -39,26 +39,25 @@ class Volume(trimesh.Trimesh):
 
     Parameters
     ----------
-    vertices :  list | array
-                Vertices coordinates. Must be shape (N,3). Can also be an object
-                that has ``.vertices`` and ``.faces`` attributes in which case
-                ``faces`` parameter will be ignored.
+    vertices :  list | array | mesh-like
+                `(N, 3)` vertices coordinates or an object that has
+                ``.vertices`` and ``.faces`` attributes in which case ``faces``
+                parameter will be ignored.
     faces :     list | array
-                Indexed faceset.
+                `(M, 3)` array of indexed triangle faces.
     name :      str, optional
-                Name of volume.
+                A name for the volume.
     color :     tuple, optional
-                RGB color.
+                RGB(A) color.
     id :        int, optional
-                If not provided, neuron will be assigned a random UUID
-                as ``.id``
+                If not provided, neuron will be assigned a random UUID as ``.id``.
     **kwargs
                 Keyword arguments passed through to ``trimesh.Trimesh``
 
     See Also
     --------
     :func:`~navis.example_volume`
-        Loads example volume(s).
+                Loads example volume(s).
 
     """
 

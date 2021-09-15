@@ -72,7 +72,7 @@ class MeshNeuron(BaseNeuron):
                     "micrometer" or "8 nanometers".
     process :       bool
                     If True (default and highly recommended), will remove NaN
-                    and inf values, and merge duplicate vertices.
+                    and infinite values, and merge duplicate vertices.
     validate :      bool
                     If True, will try to fix some common problems with
                     meshes. See ``navis.fix_mesh`` for details.

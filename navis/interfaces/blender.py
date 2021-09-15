@@ -179,7 +179,7 @@ class Handler:
                         If True, will redraw window after each neuron. This
                         will slow down loading!
         use_radii :     bool, optional
-                        If True, will use treenode radii. TreeNeurons only.
+                        If True, will use node radii. For TreeNeurons only.
         skip_existing : bool, optional
                         If True, will skip neurons that are already loaded.
         downsample :    False | int, optional

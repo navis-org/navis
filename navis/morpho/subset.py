@@ -34,7 +34,7 @@ def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
                   inplace: bool = False,
                   keep_disc_cn: bool = False,
                   prevent_fragments: bool = False
-                  ) -> 'core.TreeNeuron':
+                  ) -> 'core.NeuronObject':
     """Subset a neuron to a given set of nodes/vertices.
 
     Note that for ``MeshNeurons`` it is not guaranteed that all vertices in
@@ -89,7 +89,7 @@ def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
     See Also
     --------
-    :func:`navis.cut_neuron`
+    :func:`navis.cut_skeleton`
             Cut neuron at specific points.
     :func:`navis.in_volume`
             To intersect a neuron with a volume (mesh).

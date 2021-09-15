@@ -50,12 +50,12 @@ with warnings.catch_warnings():
 
 
 class Dotprops(BaseNeuron):
-    """Neuron represented as dotprops.
+    """Neuron represented as points + local vectors.
 
     Dotprops consist of points with x/y/z coordinates, a tangent vector and an
-    alpha value describing the immediate neighbourhood. See References.
+    alpha value describing the immediate neighbourhood (see also references).
 
-    Typically constructed from a point cloud using :func:`navis.make_dotprops`.
+    Typically constructed using :func:`navis.make_dotprops`.
 
     References
     ----------

@@ -33,11 +33,8 @@ def downsample_neuron(x: 'core.NeuronObject',
                       ) -> Optional['core.NeuronObject']:
     """Downsample neuron(s) by a given factor.
 
-    Preserves root, leafs, branchpoints by default. Preservation of treenodes
-    with synapses can be toggled - see ``preserve_nodes`` parameter.
-
-    Notes
-    -----
+    For skeletons: preserves root, leafs, branchpoints by default. Preservation
+    of nodes with synapses can be toggled - see ``preserve_nodes`` parameter.
     Use ``downsampling_factor=float('inf')`` to get a skeleton consisting only
     of root, branch and end points.
 
@@ -48,8 +45,8 @@ def downsample_neuron(x: 'core.NeuronObject',
                             we use the first available backend.
     downsampling_factor :   int | float('inf')
                             Factor by which downsample. For TreeNeuron, Dotprops
-                            and MeshNeurons this this reduces the node, point
-                            and face count, respectively, for VoxelNeurons it
+                            and MeshNeurons this reduces the node, point
+                            and face count, respectively. For VoxelNeurons it
                             reduces the dimensions by given factor.
     preserve_nodes :        str | list, optional
                             Can be either list of node IDs to exclude from
