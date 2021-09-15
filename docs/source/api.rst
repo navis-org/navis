@@ -306,7 +306,7 @@ Functions to edit morphology:
     navis.despike_skeleton
     navis.drop_fluff
     navis.cell_body_fiber
-    navis.cut_neuron
+    navis.cut_skeleton
     navis.guess_radius
     navis.heal_skeleton
     navis.longest_neurite

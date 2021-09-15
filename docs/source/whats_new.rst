@@ -64,6 +64,7 @@ repository.
            - ``average_neurons`` -> :func:`~navis.average_skeletons`
            - ``heal_fragmented_neuron`` -> :func:`~navis.heal_skeleton`
            - ``stitch_neurons`` -> :func:`~navis.stitch_skeletons`
+           - ``cut_neuron`` -> :func:`~navis.cut_skeleton`
        - removals and other renamings:
            - ``navis.clustering`` module was removed and with it ``navis.cluster_xyz`` and ``ClustResult`` class
            - renamed ``cluster_by_synapse_placement`` -> :func:`~navis.synapse_similarity`
@@ -97,7 +98,7 @@ repository.
        - :func:`navis.nblast_smart`: drop ``quantile`` and add ``score`` criterion
        - new functions to map units into neuron space: :func:`~BaseNeuron.map_units` and :func:`navis.to_neuron_space`
        - functions that manipulate neurons will now always return something (even if ``inplace=True``)
-       - :func:`navis.cut_neuron` now always returns a single ``NeuronList``
+       - :func:`navis.cut_skeleton` now always returns a single ``NeuronList``
        - :func:`navis.mirror_brain` now works with ``k=0/None`` Dotprops
        - all ``reroot_to_soma`` parameters have been renamed to ``reroot_soma``
        - :class:`navis.TreeNeuron` now has a ``soma_pos`` property that can also be used to set the soma by position

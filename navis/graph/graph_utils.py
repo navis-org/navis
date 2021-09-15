@@ -29,7 +29,7 @@ from .. import graph, utils, config, core, morpho
 # Set up logging
 logger = config.logger
 
-__all__ = sorted(['classify_nodes', 'cut_neuron', 'longest_neurite',
+__all__ = sorted(['classify_nodes', 'cut_skeleton', 'longest_neurite',
                   'split_into_fragments', 'reroot_skeleton', 'distal_to',
                   'dist_between', 'find_main_branchpoint',
                   'generate_list_of_childs', 'geodesic_matrix',
@@ -807,7 +807,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     >>> # for this we need to cut twice - once at the main branch point
     >>> # and once at one of its childs
     >>> child = n.nodes[n.nodes.parent_id == 2066].node_id.values[0]
-    >>> split = navis.cut_neuron(n, [2066, child])
+    >>> split = navis.cut_skeleton(n, [2066, child])
     >>> split                                                   # doctest: +SKIP
     <class 'navis.core.neuronlist.NeuronList'> of 3 neurons
               type  n_nodes  n_connectors  n_branches  n_leafs   cable_length    soma
@@ -1262,13 +1262,13 @@ def reroot_skeleton(x: 'core.NeuronObject',
     return x
 
 
-def cut_neuron(x: 'core.NeuronObject',
-               cut_node: Union[int, str, List[Union[int, str]]],
-               ret: Union[Literal['both'],
-                          Literal['proximal'],
-                          Literal['distal']] = 'both'
-               ) -> 'core.NeuronList':
-    """Split neuron at given point and returns two new neurons.
+def cut_skeleton(x: 'core.NeuronObject',
+                 where: Union[int, str, List[Union[int, str]]],
+                 ret: Union[Literal['both'],
+                            Literal['proximal'],
+                            Literal['distal']] = 'both'
+                 ) -> 'core.NeuronList':
+    """Split skeleton at given point and returns two new neurons.
 
     Split is performed between cut node and its parent node. The cut node itself
     will still be present in both resulting neurons.
@@ -1276,9 +1276,9 @@ def cut_neuron(x: 'core.NeuronObject',
     Parameters
     ----------
     x :        TreeNeuron | NeuronList
-               Must be a single neuron.
-    cut_node : int | str | list
-               Node ID(s) or a tag(s) of the node(s) to cut. The edge that is
+               Must be a single skeleton.
+    where :    int | str | list
+               Node ID(s) or tag(s) of the node(s) to cut. The edge that is
                cut is the one between this node and its parent. So cut node
                must not be a root node! Multiple cuts are performed in the
                order of ``cut_node``. Fragments are ordered distal -> proximal.

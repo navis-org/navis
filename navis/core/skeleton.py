@@ -887,7 +887,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cut_neuron`
+        :func:`~navis.cut_skeleton`
             Base function. See for details and examples.
 
         """
@@ -899,7 +899,7 @@ class TreeNeuron(BaseNeuron):
         node = utils.make_iterable(node, force_type=None)
 
         for n in node:
-            prox = graph.cut_neuron(x, n, ret='proximal')[0]
+            prox = graph.cut_skeleton(x, n, ret='proximal')[0]
             # Reinitialise with proximal data
             x.__init__(prox)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
@@ -924,7 +924,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cut_neuron`
+        :func:`~navis.cut_skeleton`
             Base function. See for details and examples.
 
         """
@@ -936,13 +936,13 @@ class TreeNeuron(BaseNeuron):
         node = utils.make_iterable(node, force_type=None)
 
         for n in node:
-            dist = graph.cut_neuron(x, n, ret='distal')[0]
+            dist = graph.cut_skeleton(x, n, ret='distal')[0]
             # Reinitialise with distal data
             x.__init__(dist)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
             x._clear_temp_attr()
 
-        # Clear temporary attributes is done by cut_neuron
+        # Clear temporary attributes is done by cut_skeleton
         # x._clear_temp_attr()
 
         if not inplace:
