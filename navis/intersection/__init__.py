@@ -13,4 +13,5 @@
 
 from .intersect import in_volume, intersection_matrix
 
-__all__ = ['in_volume', 'intersection_matrix']
+# Note to self: do not remove "intersect" here because pymaid needs it
+__all__ = ['in_volume', 'intersection_matrix', 'intersect']
