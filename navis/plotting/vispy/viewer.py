@@ -704,7 +704,7 @@ class Viewer:
                                 (ybounds.min(), ybounds.max()),
                                 (zbounds.min(), zbounds.max()))
 
-    def add(self, x, center=True, clear=False, as_group=False, **kwargs):
+    def add(self, x, center=True, clear=False, combine=False, **kwargs):
         """Add objects to canvas.
 
         Parameters
@@ -715,7 +715,7 @@ class Viewer:
                     If True, re-center camera to all objects on canvas.
         clear :     bool, optional
                     If True, clear canvas before adding new objects.
-        as_group :  bool, optional
+        combine :   bool, optional
                     If True, will try combining similar objects into a single
                     visual. This reduces the number of shader programs and
                     can greatly increase the frame rate. Downside: objects can
@@ -747,7 +747,7 @@ class Viewer:
         if clear:
             self.clear()
 
-        if as_group:
+        if combine:
             visuals = combine_visuals(visuals, kwargs.get('name'))
 
         for v in visuals:

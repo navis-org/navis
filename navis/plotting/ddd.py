@@ -13,10 +13,9 @@
 
 """ Module contains functions to plot neurons in 2D and 3D.
 """
-
+import os
 import warnings
 
-import plotly.offline
 import plotly.graph_objs as go
 import numpy as np
 
@@ -41,9 +40,6 @@ if not config.headless:
 __all__ = ['plot3d']
 
 logger = config.logger
-
-#if utils.is_jupyter():
-#    plotly.offline.init_notebook_mode(connected=True)
 
 
 def plot3d(x: Union[core.NeuronObject,
@@ -164,6 +160,11 @@ def plot3d(x: Union[core.NeuronObject,
                       objects.
     center :          bool, default = True
                       If True, will center camera on the newly added objects.
+    combine :         bool, default = False
+                      If True, will combine objects of the same type into a
+                      single visual. This can greatly improve performance but
+                      also means objects can't be selected individually
+                      anymore.
 
     Returns
     -------
@@ -272,7 +273,7 @@ def plot3d_vispy(x, **kwargs):
                'auto_limits', 'autolimits', 'viewer', 'radius', 'center',
                'clear', 'clear3d', 'connectors', 'connectors_only', 'soma',
                'palette', 'color_by', 'shade_by', 'vmin', 'vmax', 'smin',
-               'smax', 'shininess', 'volume_legend'}
+               'smax', 'shininess', 'volume_legend', 'combine'}
 
     # Check if any of these parameters are dynamic (i.e. attached data tables)
     notallowed = set(kwargs.keys()) - ALLOWED
@@ -302,10 +303,11 @@ def plot3d_vispy(x, **kwargs):
 
     # Do not pass this on parameter on
     center = kwargs.pop('center', True)
+    combine = kwargs.pop('combine', False)
 
     # Add object (the viewer currently takes care of producing the visuals)
     if neurons:
-        viewer.add(neurons, center=center, **kwargs)
+        viewer.add(neurons, center=center, combine=combine, **kwargs)
     if volumes:
         viewer.add(volumes, center=center, **kwargs)
     if points:
