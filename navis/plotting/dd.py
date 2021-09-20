@@ -33,7 +33,7 @@ import warnings
 from typing import Union, List, Tuple
 from typing_extensions import Literal
 
-from .. import utils, config, core
+from .. import utils, config, core, conversion
 from .colors import prepare_colormap, vertex_colors
 from .plot_utils import segments_to_coords, tn_pairs_to_coords
 
@@ -272,9 +272,9 @@ def plot2d(x: Union[core.NeuronObject,
                         'ax', 'color', 'colors', 'c', 'view', 'scalebar',
                         'cn_mesh_colors', 'linewidth', 'cn_size', 'cn_alpha',
                         'orthogonal', 'group_neurons', 'scatter_kws', 'figsize',
-                        'linestyle', 'rasterize', 'clusters',
+                        'linestyle', 'rasterize', 'clusters', 'synapse_layout',
                         'alpha', 'depth_coloring', 'autoscale', 'depth_scale',
-                        'ls', 'lw', 'volume_outlines',
+                        'ls', 'lw', 'volume_outlines', 'radius',
                         'dps_scale_vec', 'palette', 'color_by', 'shade_by',
                         'vmin', 'vmax', 'smin', 'smax', 'norm_global']
     wrong_kwargs = [a for a in kwargs if a not in _ACCEPTED_KWARGS]
@@ -427,6 +427,11 @@ def plot2d(x: Union[core.NeuronObject,
                                            leave=False,
                                            disable=config.pbar_hide | len(neurons) < 2)):
         if not connectors_only:
+            if isinstance(neuron, core.TreeNeuron) and kwargs.get('radius', False):
+                _neuron = conversion.tree2meshneuron(neuron)
+                _neuron.connectors = neuron.connectors
+                neuron = _neuron
+
             if isinstance(neuron, core.TreeNeuron) and neuron.nodes.empty:
                 logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.id}')
             elif isinstance(neuron, core.MeshNeuron) and neuron.faces.size == 0:
@@ -686,15 +691,14 @@ def _plot_dotprops(dp, color, method, ax, **kwargs):
 
 def _plot_connectors(neuron, color, method, ax, **kwargs):
     """Plot connectors."""
-    cn_alpha = kwargs.get('cn_alpha', kwargs.get('alpha', .9))
-    cn_size = kwargs.get('cn_size', .9)
     view = kwargs.get('view', ('x', 'y'))
 
     if not kwargs.get('cn_mesh_colors', False):
-        cn_lay = config.default_connector_colors
+        cn_layout = config.default_connector_colors.copy()
     else:
-        cn_lay = {{'name': c, 'color': color}
-                  for c in neuron.connectors.type.unique()}
+        cn_layout = {{'name': c, 'color': color}
+                     for c in neuron.connectors.type.unique()}
+    cn_layout.update(kwargs.get('synapse_layout', {}))
 
     if method == '2d':
         for c in neuron.connectors.type.unique():
@@ -703,18 +707,18 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
             x, y = _parse_view2d(this_cn[['x', 'y', 'z']].values, view)
 
             ax.scatter(x, y,
-                       c=cn_lay[c]['color'],
-                       alpha=cn_alpha,
-                       zorder=4,
+                       c=cn_layout[c]['color'],
                        edgecolor='none',
-                       s=cn_size)
+                       s=cn_layout['size'])
             ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
     elif method in ['3d', '3d_complex']:
         all_cn = neuron.connectors
-        c = [cn_lay[i]['color'] for i in all_cn.type.values]
+        c = [cn_layout[i]['color'] for i in all_cn.type.values]
         ax.scatter(all_cn.x.values, all_cn.y.values, all_cn.z.values,
-                   c=c, s=cn_size, depthshade=False, edgecolor='none',
-                   alpha=cn_alpha)
+                   c=c,
+                   s=cn_layout['size'],
+                   depthshade=cn_layout.get('depthshade', False),
+                   edgecolor='none')
         ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
 
 
