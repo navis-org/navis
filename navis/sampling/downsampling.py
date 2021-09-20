@@ -99,7 +99,7 @@ def downsample_neuron(x: 'core.NeuronObject',
     elif isinstance(x, core.VoxelNeuron):
         _ = _downsample_voxels(x,
                                downsampling_factor=downsampling_factor)
-    elif isinstance(x, core.VoxelNeuron):
+    elif isinstance(x, core.MeshNeuron):
         _ = meshes.simplify_mesh(x,
                                  F=1/downsampling_factor,
                                  inplace=True)
