@@ -754,11 +754,11 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         TypeError(f'Expected target of type str, got "{type(target)}"')
 
     # Get the transformation sequence
-    path, trans_seq = registry.shortest_bridging_seq(source, target)
+    path, transforms = registry.find_bridging_path(source, target)
 
     if verbose:
         path_str = path[0]
-        for p, tr in zip(path[1:], trans_seq.transforms):
+        for p, tr in zip(path[1:], transforms):
             if isinstance(tr, AliasTransform):
                 link = '='
             else:
@@ -766,6 +766,9 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             path_str += f' {link} {p}'
 
         print('Transform path:', path_str)
+
+    # Combine into transform sequence
+    trans_seq = TransformSequence(*transforms)
 
     # Apply transform and returned xformed points
     return xform(x, transform=trans_seq, caching=caching,
