@@ -601,12 +601,19 @@ class TreeNeuron(BaseNeuron):
         if any(self.nodes.radius.isnull()):
             logger.warning(f'Neuron {self.id} has NaN radii - volume will not be correct.')
 
-        # Get distance for every child -> parent pair
-        dist = morpho.mmetrics.parent_dist(self, root_dist=0)
-        # Get cylindric volume for each segment
-        vols = (self.nodes.radius ** 2) * dist * np.pi
-        # Sum up and return
-        return vols.sum()
+        # Generate radius dict
+        radii = self.nodes.set_index('node_id').radius.to_dict()
+        # Drop root node(s)
+        not_root = self.nodes.parent_id >= 0
+        # For each cylinder get the height
+        h = morpho.mmetrics.parent_dist(self, root_dist=0)[not_root]
+
+        # Radii for top and bottom of tapered cylinder
+        nodes = self.nodes[not_root]
+        r1 = nodes.node_id.map(radii).values
+        r2 = nodes.parent_id.map(radii).values
+
+        return (1/3 * np.pi * (r1**2 + r1 * r2 + r2**2) * h).sum()
 
     @property
     def bbox(self) -> np.ndarray:
