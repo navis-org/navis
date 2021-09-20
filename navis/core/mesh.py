@@ -281,8 +281,18 @@ class MeshNeuron(BaseNeuron):
 
     @property
     def sampling_resolution(self) -> float:
-        """Average distance vertices. """
+        """Average distance between vertices."""
         return float(self.trimesh.edges_unique_length.mean())
+
+    @property
+    def volume(self) -> float:
+        """Volume of the neuron.
+
+        Calculated from the surface integral. Garbage if neuron is not
+        watertight.
+
+        """
+        return float(self.trimesh.volume)
 
     @temp_property
     def skeleton(self) -> 'TreeNeuron':
