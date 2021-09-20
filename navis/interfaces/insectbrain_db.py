@@ -23,6 +23,7 @@ import trimesh as tm
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from typing import Union, Optional, List
 
@@ -316,6 +317,167 @@ def get_available_species() -> pd.DataFrame:
     url = make_url(baseurl, 'api', 'v2', 'species')
 
     return _sort_columns(pd.DataFrame.from_records(session.get(url)))
+
+
+# Note to self: do not cache as the URLs expire eventually
+def list_experiment_files(id) -> pd.DataFrame:
+    """List files associated with given experiment.
+
+    Parameters
+    ----------
+    id :    int
+            The experiment ID. See e.g. ``list_datasets``.
+
+    Returns
+    -------
+    pandas.DataFrame
+            DataFrame with files.
+
+    Examples
+    --------
+    >>> import navis.interfaces.insectbrain_db as ibdb
+    >>> files = ibdb.list_experiment_files(61)
+
+    """
+    url = make_url(baseurl, 'api', 'v2', 'experiment', id, 'file')
+
+    return _sort_columns(pd.DataFrame.from_records(session.get(url)))
+
+
+def list_datasets() -> pd.DataFrame:
+    """List publication datasets and associated experiments.
+
+    Returns
+    -------
+    pandas.DataFrame
+            DataFrame with available datasets.
+
+    Examples
+    --------
+    >>> import navis.interfaces.insectbrain_db as ibdb
+    >>> datasets = ibdb.list_datasets()
+
+    """
+    url = make_url(baseurl, 'api', 'publications', 'experiments?offset=0&limit=500')
+
+    return _sort_columns(pd.DataFrame.from_records(session.get(url)['results']))
+
+
+def get_skeletons_experiment(id) -> 'NeuronList':
+    """Fetch all skeletons for given experiment.
+
+    Parameters
+    ----------
+    id :    int
+            The experiment ID. See e.g. ``list_datasets``.
+
+    Returns
+    -------
+    NeuronList
+
+    Examples
+    --------
+    >>> import navis.interfaces.insectbrain_db as ibdb
+    >>> nl = ibdb.get_skeletons_experiment(61)
+
+    """
+    # Make sure ID is integer
+    id = int(id)
+
+    # Get files associated with experiment
+    files = list_experiment_files(id)
+
+    # Figure out which files are skeletons
+    sk_files = files[files.file_name.str.contains('skeleton') | files.file_name.str.endswith('.gz')]
+
+    if sk_files.empty:
+        raise ValueError('Did not find any skeleton files associated with '
+                         f'experiment {id}')
+
+    skeletons = []
+    for f in sk_files.itertuples():
+        logger.info(f'Downloading {f.file_name}')
+        # Load the file
+        r = requests.get(f.url)
+        r.raise_for_status()
+
+        # Files appear to be json-formatted and not compressed
+        data = r.json()
+
+        for i, neuron in enumerate(data['data']):
+            for sk in neuron['skeletons']:
+                # Load SWC table
+                swc = pd.DataFrame(sk['data'],
+                                   columns=['node_id', 'skeleton_id',
+                                            'x', 'y', 'z', 'radius',
+                                            'parent_id'])
+                # Some cleaning up
+                swc.drop('skeleton_id', axis=1, inplace=True)
+                swc['parent_id'] = swc.parent_id.fillna(-1).astype(int)
+                # Create neuron
+                tn = TreeNeuron(swc,
+                                id=sk.get('id', 1),
+                                name=neuron.get('name', 'NA'),
+                                annotations=neuron.get('annotations', []),
+                                soma=None)
+                skeletons.append(tn)
+    logger.info(f'Done! Found {len(skeletons)} skeletons.')
+
+    return NeuronList(skeletons)
+
+
+def get_meshes_experiment(id) -> 'NeuronList':
+    """Fetch volumes associated with given experiment.
+
+    Parameters
+    ----------
+    id :    int
+            The experiment ID. See e.g. ``list_datasets``.
+
+    Returns
+    -------
+    list
+
+    Examples
+    --------
+    >>> import navis.interfaces.insectbrain_db as ibdb
+    >>> vols = ibdb.get_meshes_experiment(61)
+
+    """
+    # Make sure ID is integer
+    id = int(id)
+
+    # Get files associated with experiment
+    files = list_experiment_files(id)
+
+    # Figure out which files are skeletons
+    me_files = files[files.file_name.str.endswith('.glb')]
+
+    if me_files.empty:
+        raise ValueError('Did not find any meshes associated with '
+                         f'experiment {id}')
+
+    volumes = []
+    for f in config.tqdm(me_files.itertuples(),
+                         desc='Downloading',
+                         total=me_files.shape[0]):
+        # Load the file
+        r = requests.get(f.url)
+        r.raise_for_status()
+
+        name = '.'.join(f.file_name.split('.')[:-1])
+        ext = f.file_name.split('.')[-1]
+
+        file = io.BytesIO(r.content)
+        scene = tm.load(file, file_type=ext)
+
+        for obj in scene.geometry.values():
+            v = Volume(obj.vertices, obj.faces, name=name)
+            volumes.append(v)
+
+    logger.info(f'Done! Found {len(volumes)} meshes.')
+
+    return volumes
 
 
 def get_skeletons_species(species, max_threads=4):
