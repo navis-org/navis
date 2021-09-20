@@ -61,48 +61,9 @@ def neuron2k3d(x, colormap, **kwargs):
                                  color_range=255)
 
     if not isinstance(shade_by, type(None)):
-        logger.warning('`shade_by` is currently not working due to an bug in '
-                       'plotly.')
-        """
-        alphamap = vertex_colors(x,
-                                 by=shade_by,
-                                 alpha=True,
-                                 palette='viridis',  # palette is irrelevant here
-                                 vmin=kwargs.get('smin', None),
-                                 vmax=kwargs.get('smax', None),
-                                 na=kwargs.get('na', 'raise'),
-                                 color_range=255)
+        logger.warning('`shade_by` does not work with the k3d backend')
 
-        new_colormap = []
-        for c, a in zip(colormap, alphamap):
-            if not (isinstance(c, np.ndarray) and c.ndim == 2):
-                c = np.tile(c, (a.shape[0],  1))
-
-            if not c.dtype in (np.float16, np.float32, np.float64):
-                c = c.astype(np.float16)
-
-            if c.shape[1] == 4:
-                c[:, 3] = a[:, 3]
-            else:
-                c = np.insert(c, 3, a[:, 3], axis=1)
-
-            new_colormap.append(c)
-        colormap = new_colormap
-        """
-
-    cn_lay = {
-        0: {'name': 'Presynapses',
-            'color': (255, 0, 0)},
-        1: {'name': 'Postsynapses',
-            'color': (0, 0, 255)},
-        2: {'name': 'Gap junctions',
-            'color': (0, 255, 0)},
-        'display': 'lines',  # 'circles'
-        'size': 2  # for circles only
-    }
-    cn_lay['pre'] = cn_lay[0]
-    cn_lay['post'] = cn_lay[1]
-    cn_lay['gap_junction'] = cn_lay['gapjunction'] = cn_lay[2]
+    cn_lay = config.default_connector_colors.copy()
     cn_lay.update(kwargs.get('synapse_layout', {}))
 
     trace_data = []

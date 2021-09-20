@@ -267,7 +267,7 @@ def neuron2vispy(x, **kwargs):
 
 def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
     """Convert connectors to vispy visuals."""
-    cn_lay = config.default_connector_colors
+    cn_lay = config.default_connector_colors.copy()
     cn_lay.update(kwargs.get('synapse_layout', {}))
 
     visuals = []

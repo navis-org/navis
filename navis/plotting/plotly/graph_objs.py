@@ -87,19 +87,7 @@ def neuron2plotly(x, colormap, **kwargs):
             new_colormap.append(c)
         colormap = new_colormap
 
-    cn_lay = {
-        0: {'name': 'Presynapses',
-            'color': (255, 0, 0)},
-        1: {'name': 'Postsynapses',
-            'color': (0, 0, 255)},
-        2: {'name': 'Gap junctions',
-            'color': (0, 255, 0)},
-        'display': 'lines',  # 'circles'
-        'size': 2  # for circles only
-    }
-    cn_lay['pre'] = cn_lay[0]
-    cn_lay['post'] = cn_lay[1]
-    cn_lay['gap_junction'] = cn_lay['gapjunction'] = cn_lay[2]
+    cn_lay = config.default_connector_colors.copy()
     cn_lay.update(kwargs.get('synapse_layout', {}))
 
     trace_data = []
