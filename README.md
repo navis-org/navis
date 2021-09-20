@@ -9,8 +9,9 @@ NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
 ## Features
-* work with various neuron types: **skeletons**, **meshes**, **dotprops**, **voxels**
-* 2D (matplotlib) and 3D (vispy or plotly) **plotting**
+* work in Jupyter or terminal
+* support for various neuron types: **skeletons**, **meshes**, **dotprops**, **voxels**
+* 2D (matplotlib) and 3D (vispy, plotly or k3d) **plotting**
 * neuron **surgery**: cutting, stitching, pruning, rerooting, intersections, ...
 * analyze morphology (e.g. **NBLAST**) and connectivity
 * **transform** data between template brains (support for e.g. HDF5, CMTK and thin plate spline transforms)
