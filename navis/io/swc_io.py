@@ -42,6 +42,7 @@ COMMENT = "#"
 DEFAULT_DELIMITER = " "
 DEFAULT_PRECISION = 32
 DEFAULT_FMT = "{name}.swc"
+NA_VALUES = [None, 'None']
 
 
 class SwcReader(base.BaseReader):
@@ -105,6 +106,7 @@ class SwcReader(base.BaseReader):
             skiprows=len(header_rows),
             comment=COMMENT,
             header=None,
+            na_values=NA_VALUES
         )
         nodes.columns = NODE_COLUMNS
 
