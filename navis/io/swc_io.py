@@ -427,7 +427,7 @@ def write_swc(x: 'core.NeuronObject',
 
     return writer.write_any(x,
                             filepath=filepath,
-                            header=filepath,
+                            header=header,
                             write_meta=write_meta,
                             labels=labels,
                             export_connectors=export_connectors,
@@ -477,6 +477,8 @@ def _write_swc(x: 'core.TreeNeuron',
             header += dedent("""\
             # 7 = presynapses, 8 = postsynapses
             """)
+    elif not header.endswith('\n'):
+        header += '\n'
 
     with open(filepath, 'w') as file:
         # Write header
