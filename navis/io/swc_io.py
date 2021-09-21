@@ -568,6 +568,9 @@ def make_swc_table(x: 'core.TreeNeuron',
     # Get things in order
     swc = swc[['node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id']]
 
+    # Make sure radius has no `None`
+    swc['radius'] = swc.radius.fillna(0)
+
     # Adjust column titles
     swc.columns = ['PointNo', 'Label', 'X', 'Y', 'Z', 'Radius', 'Parent']
 
