@@ -155,14 +155,24 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
     # Note that while we are mapping from a generator (`comb`), the pool will
     # unfortunately not evaluate this lazily. This is a "bug" in the standard
     # library that might get fixed at some point.
-    with ProcessPoolExecutor(max_workers=n_cores) as e:
-        futures = e.map(_distributor, comb, chunksize=5000)
+    if n_cores > 1:
+        with ProcessPoolExecutor(max_workers=n_cores) as e:
+            futures = e.map(_distributor, comb, chunksize=50000)
 
-        matching_indices = [n for n in config.tqdm(futures,
-                                                   total=adjacency.shape[0]**2,
-                                                   desc='Calc. similarity',
-                                                   disable=config.pbar_hide,
-                                                   leave=config.pbar_leave)]
+            matching_indices = [n for n in config.tqdm(futures,
+                                                       total=adjacency.shape[0]**2,
+                                                       desc='Calc. similarity',
+                                                       disable=config.pbar_hide,
+                                                       leave=config.pbar_leave)]
+    else:
+        matching_indices = []
+        for c in config.tqdm(comb,
+                             total=adjacency.shape[0]**2,
+                             desc='Calc. similarity',
+                             disable=config.pbar_hide,
+                             leave=config.pbar_leave):
+            matching_indices.append(_distributor(c))
+
     # Create empty scores matrix
     neurons = adjacency.index.values
     matching_scores = pd.DataFrame(np.zeros((len(neurons), len(neurons))),
@@ -195,6 +205,8 @@ def combinations_generator(func, adjacency, *args, **kwargs):
     comb = product(adjacency.values, adjacency.values)
     for i in range(adjacency.shape[0]**2):
         this = next(comb)
+        #non_zero = (this[0] > 0) | (this[1] > 0)
+        #yield (func, this[0][non_zero], this[1][non_zero], args, kwargs)
         yield (func, this[0], this[1], args, kwargs)
 
 
@@ -241,11 +253,44 @@ def _calc_matching_index_synapses(vecA, vecB, weighted=False):
         return vecA[is_both].sum() / vecA.sum() * vecB[is_both].sum() / vecB.sum()
 
 
+def _calc_vertex_similarity2(adj, C1=0.5, C2=1, normalize=False):
+    """Calculate vertex similarity between two vectors."""
+    from tqdm import trange
+    sims = []
+    for i in trange(adj.shape[0]):
+        this = np.repeat(adj[i:i+1], adj.shape[0], axis=0)
+        comb = np.dstack((this, adj))
+        this_max = comb.max(axis=2)
+        this_min = comb.min(axis=2)
+
+        # Implement: f(x,y) = min(x,y) - C1 * max(x,y) * e^(-C2 * min(x,y))
+        v_sim = this_min - C1 * this_max * np.exp(- C2 * this_min)
+
+        # Sum over all partners
+        vs = v_sim.sum(axis=1)
+
+        if normalize:
+            # The max possible score is when both synapse counts are the same:
+            # in which case score = max(x,y) - C1 * max(x,y) * e^(-C2 * max(x,y))
+            max_score = (this_max - C1 * this_max * np.exp(- C2 * this_max)).sum(axis=1)
+
+            # The smallest possible score is when either synapse count is 0:
+            # in which case score = -C1 * max(a,b)
+            min_score = (-C1 * this_max).sum(axis=1)
+
+            vs = (vs - min_score) / (max_score - min_score)
+
+        sims.append(vs)
+
+    return np.vstack(sims)
+
+
 def _calc_vertex_similarity(vecA, vecB, C1=0.5, C2=1, normalize=False):
     """Calculate vertex similarity between two vectors."""
-    comb = np.vstack((vecA, vecB))
-    this_max = comb.max(axis=0)
-    this_min = comb.min(axis=0)
+    # np.minimum is much faster than np.min(np.vstack(vecA, vecB), axis=1) here
+
+    this_max = np.maximum(vecA, vecB)
+    this_min = np.minimum(vecA, vecB)
 
     # Implement: f(x,y) = min(x,y) - C1 * max(x,y) * e^(-C2 * min(x,y))
     v_sim = this_min - C1 * this_max * np.exp(- C2 * this_min)
