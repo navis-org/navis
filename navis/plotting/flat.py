@@ -351,7 +351,8 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
 
     # Plot soma
     if x.has_soma:
-        soma_pos = positions[x.soma[0]]
+        soma = utils.make_iterable(x.soma)[0]
+        soma_pos = positions[soma]
         ax.scatter([soma_pos[0]], [soma_pos[1]],
                    s=40, color=(.1, .1, .1))
 
@@ -378,7 +379,7 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
     # Calculate layout
     logger.info('Calculating node positions.')
     positions = nx.nx_agraph.graphviz_layout(G, prog=prog,
-                                             root=x.soma[0] if x.has_soma else None)
+                                             root=utils.make_iterable(x.soma)[0] if x.has_soma else None)
 
     # Plot tree with above layout
     logger.info('Plotting tree.')
@@ -396,7 +397,7 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
 
     # Add soma
     if x.has_soma:
-        for s in x.soma:
+        for s in utils.make_iterable(x.soma):
             ax.scatter([positions[s][0]], [positions[s][1]],
                        s=40, color=DEFAULTS['color'],
                        zorder=1)
