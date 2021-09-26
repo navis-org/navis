@@ -43,7 +43,7 @@ from requests.exceptions import HTTPError
 import numpy as np
 import pandas as pd
 
-from .. import config
+from .. import config, utils
 
 from ..core import Volume, TreeNeuron, MeshNeuron, NeuronList
 from ..graph import neuron2KDTree
