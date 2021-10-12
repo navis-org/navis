@@ -664,6 +664,6 @@ def _force_volume(f):
     def wrapper(*args, **kwargs):
         res = f(*args, **kwargs)
         if isinstance(res, trimesh.Trimesh):
-            res = Volume(res.vertices, res.faces)
+            res = Volume(res.vertices, res.faces, **res.metadata)
         return res
     return wrapper
