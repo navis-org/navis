@@ -589,7 +589,7 @@ def points2vispy(x, **kwargs):
         con.set_data(pos=p,
                      face_color=colors,
                      edge_color=colors,
-                     size=kwargs.get('size', 2))
+                     size=kwargs.get('size', kwargs.get('s', 2)))
 
         # Add custom attributes
         con.unfreeze()

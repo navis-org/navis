@@ -441,8 +441,9 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
 
 def scatter2plotly(x, **kwargs):
     """Convert DataFrame with x,y,z columns to plotly scatter plot."""
-    c = eval_color(kwargs.get('color', (10, 10, 10)), color_range=255)
-    s = kwargs.get('size', 2)
+    c = eval_color(kwargs.get('color', kwargs.get('c', (100, 100, 100))),
+                   color_range=255)
+    s = kwargs.get('size', kwargs.get('s', 2))
     name = kwargs.get('name', None)
 
     trace_data = []
