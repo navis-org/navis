@@ -11,11 +11,11 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .iterables import make_iterable, make_non_iterable, is_iterable
+from .iterables import make_iterable, make_non_iterable, is_iterable, multi_split
 from .misc import (is_jupyter, set_loggers, set_pbars, unpack_neurons,
                    set_default_connector_colors, parse_objects,
                    is_url, make_url, lock_neuron, make_volume, sizeof_fmt,
-                   map_neuronlist, round_smart, meshneuron_skeleton)
+                   map_neuronlist, round_smart, meshneuron_skeleton,)
 from .validate import validate_options, validate_table
 from .eval import (eval_node_ids, eval_neurons, eval_id, eval_conditions,
                    is_mesh, is_numeric, eval_param)

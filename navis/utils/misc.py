@@ -28,9 +28,10 @@ from textwrap import dedent, indent
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
 from typing_extensions import Literal
 
-from .. import config, core, transforms
+from .. import config, core
 from .eval import is_mesh
 from .iterables import is_iterable, make_iterable
+from ..transforms.templates import TemplateBrain
 
 # Set up logging
 logger = config.logger
@@ -280,7 +281,7 @@ def map_neuronlist(desc: str = "",
                   {" " * (offset - 10)}``navis.set_pbars``.
         omit_failures :{" " * (offset - 15)}bool
                        {" " * (offset - 15)}If True will omit failures instead of raising
-                       {" " * (offset - 15)}an exception.
+                       {" " * (offset - 15)}an exception. Ignored if input is single neuron.
         """)
 
         # Insert new docstring
@@ -584,7 +585,7 @@ def set_pbars(hide: Optional[bool] = None,
                 logger.error('No Jupyter environment detected.')
             else:
                 config.tqdm = config.tqdm_notebook
-                config.trange = config.tnrange
+                config.trange = config.trange_notebook
         else:
             config.tqdm = config.tqdm_classic
             config.trange = config.trange_classic
@@ -720,7 +721,7 @@ def parse_objects(x) -> Tuple['core.NeuronList',
                                                      core.NeuronList))
                                  and is_mesh(ob)]
     # Add templatebrains
-    volumes += [ob.mesh for ob in x if isinstance(ob, transforms.templates.TemplateBrain)]
+    volumes += [ob.mesh for ob in x if isinstance(ob, TemplateBrain)]
     # Converts any non-navis meshes into Volumes
     volumes = [core.Volume(v) if not isinstance(v, core.Volume) else v for v in volumes]
 
