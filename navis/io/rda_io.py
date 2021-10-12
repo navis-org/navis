@@ -161,15 +161,25 @@ def volume_constructor(obj: Any,
     if 'vb' in obj and 'it' in obj:
         verts = np.asarray(obj.pop('vb'))[:3, :].T
         faces = np.asarray(obj.pop('it')).T - 1
+        return core.Volume(vertices=verts, faces=faces)
     elif 'Vertices' in obj and "Regions" in obj:
         verts = obj['Vertices'][['X', 'Y', 'Z']].values
-        faces = obj['Regions']['Interior'][['V1', 'V2', 'V3']].values - 1
+
+        # If only one region
+        if len(obj['Regions']) == 1:
+            region = list(obj['Regions'].keys())[0]
+            faces = obj['Regions'][region][['V1', 'V2', 'V3']].values - 1
+            return core.Volume(vertices=verts, faces=faces)
+        else:
+            volumes = []
+            for r in obj['Regions']:
+                faces = obj['Regions'][r][['V1', 'V2', 'V3']].values - 1
+                volumes.append(core.Volume(vertices=verts, faces=faces, name=r))
+            return volumes
     else:
         logger.warning('Unable to construct Volume from R object of type '
                        f'"{attrs["class"]}". Returning raw data')
         return obj
-
-    return core.Volume(vertices=verts, faces=faces)
 
 
 def neuron_constructor(obj: Any,
