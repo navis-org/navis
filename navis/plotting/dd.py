@@ -740,10 +740,15 @@ def _plot_mesh(neuron, color, method, ax, **kwargs):
         # Generate 2d representation
         xy = np.dstack(_parse_view2d(neuron.vertices, view))[0]
 
+        # Map vertex colors to faces 
+        if isinstance(color, np.ndarray) and color.ndim == 2:
+            if len(color) != len(neuron.faces) and len(color) == len(neuron.vertices):
+                color = [color[f].mean(axis=0)[:3].tolist() for f in neuron.faces]
+
         # Generate a patch for each face
         patches = []
-        for f in neuron.faces:
-            p = mpatches.Polygon(xy[f], closed=True, fill=color)
+        for i, f in enumerate(neuron.faces):
+            p = mpatches.Polygon(xy[f], closed=True)
             patches.append(p)
         pc = PatchCollection(patches, linewidth=0, facecolor=color,
                              rasterized=rasterize,
