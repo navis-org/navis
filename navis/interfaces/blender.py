@@ -1012,33 +1012,6 @@ class ObjectList:
         self.select(unselect_others=True)
         bpy.ops.object.delete()
 
-    def to_json(self, fname='selection.json'):
-        """Save neuron selection as json file which can be loaded
-        in navis selection table.
-
-        Parameters
-        ----------
-        fname :     str, optional
-                    Filename to save selection to.
-
-        """
-        neuron_objects = [
-            n for n in bpy.data.objects if n.name in self.object_names and n['type'] == 'NEURON']
-
-        data = [dict(id=int(n['id']),
-                     color="#{:02x}{:02x}{:02x}".format(int(255 * n.active_material.diffuse_color[0]),
-                                                        int(255 *
-                                                            n.active_material.diffuse_color[1]),
-                                                        int(255 * n.active_material.diffuse_color[2])),
-                     opacity=1
-                     ) for n in neuron_objects]
-
-        with open(fname, 'w') as outfile:
-            json.dump(data, outfile)
-
-        logger.info(f'Selection saved as {fname} in {os.getcwd()}')
-        print(f'Selection saved as {fname} in {os.getcwd()}')
-
 
 def calc_sphere(radius, nrPolar, nrAzimuthal):
     """Calculate vertices and faces for a sphere."""
