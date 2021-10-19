@@ -165,8 +165,9 @@ def plot2d(x: Union[core.NeuronObject,
     orthogonal :        bool, default=True
                         Whether to use orthogonal or perspective view for
                         methods '3d' and '3d_complex'.
-    volume_outlines :   bool, default=True
-                        If True will plot volume outline with no fill.
+    volume_outlines :   bool | "both", default=True
+                        If True will plot volume outline with no fill. Only
+                        works with `method="2d"`.
     dps_scale_vec :     float
                         Scale vector for dotprops.
     rasterize :         bool, default=False
@@ -740,7 +741,7 @@ def _plot_mesh(neuron, color, method, ax, **kwargs):
         # Generate 2d representation
         xy = np.dstack(_parse_view2d(neuron.vertices, view))[0]
 
-        # Map vertex colors to faces 
+        # Map vertex colors to faces
         if isinstance(color, np.ndarray) and color.ndim == 2:
             if len(color) != len(neuron.faces) and len(color) == len(neuron.vertices):
                 color = [color[f].mean(axis=0)[:3].tolist() for f in neuron.faces]
@@ -1002,7 +1003,9 @@ def _plot_volume(volume, color, method, ax, **kwargs):
     if method == '2d':
         view = kwargs.get('view', ('x', 'y'))
 
-        if not kwargs.get('volume_outlines', False):
+        volume_outlines = kwargs.get('volume_outlines', False)
+
+        if volume_outlines in (False, 'both'):
             # Generate 2d representation
             xy = np.dstack(_parse_view2d(volume.verts, view))[0]
 
@@ -1015,11 +1018,13 @@ def _plot_volume(volume, color, method, ax, **kwargs):
                                  rasterized=rasterize,
                                  edgecolor=ec, alpha=this_alpha, zorder=0)
             ax.add_collection(pc)
-        else:
-            verts = volume.to_2d(view=view)
+
+        if volume_outlines in (True, 'both'):
+            verts = volume.to_2d(view=view, alpha=0.001)
             vpatch = mpatches.Polygon(verts, closed=True, lw=lw, fill=fill,
                                       rasterized=rasterize,
-                                      fc=fc, ec=ec, alpha=this_alpha, zorder=0)
+                                      fc=fc, ec=ec, zorder=0,
+                                      alpha=1 if volume_outlines == 'both' else this_alpha)
             ax.add_patch(vpatch)
 
     elif method in ['3d', '3d_complex']:
