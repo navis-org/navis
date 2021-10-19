@@ -292,7 +292,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         If True and SWC header contains a line with JSON-encoded
                         meta data e.g. (``# Meta: {'id': 123}``), these data
                         will be read as neuron properties. `fmt` takes
-                        precedene.
+                        precedence.
     **kwargs
                         Keyword arguments passed to the construction of
                         ``navis.TreeNeuron``. You can use this to e.g. set
@@ -463,7 +463,9 @@ def _write_swc(x: 'core.TreeNeuron',
         # Created on {datetime.date.today()} using navis (https://github.com/navis-org/navis)
         """)
         if write_meta:
-            if isinstance(write_meta, dict):
+            if isinstance(write_meta, str):
+                props = {write_meta: str(getattr(x, write_meta, None))}
+            elif isinstance(write_meta, dict):
                 props = write_meta
             elif isinstance(write_meta, list):
                 props = {k: str(getattr(x, k, None)) for k in write_meta}
