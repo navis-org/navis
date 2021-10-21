@@ -150,10 +150,6 @@ class ElastixTransform(BaseTransform):
                 return True
         return False
 
-    def __neg__(self) -> 'ElastixTransform':
-        """Invert direction."""
-        raise NotImplementedError('Elastix transforms can not easily be inverted.')
-
     def check_if_possible(self, on_error: str = 'raise'):
         """Check if this transform is possible."""
         if not _elastixbin:

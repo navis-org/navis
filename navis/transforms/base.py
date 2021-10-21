@@ -34,7 +34,10 @@ def trigger_init(func):
 
 
 class BaseTransform(ABC):
-    """Abstract base class for transforms."""
+    """Abstract base class for transforms.
+
+    If the transform is invertible, implement via __neg__ method.
+    """
 
     def append(self, other: 'BaseTransform'):
         """Append another transform to this one.
@@ -48,15 +51,6 @@ class BaseTransform(ABC):
     def check_if_possible(self, on_error: str = 'raise'):
         """Test if running the transform is possible."""
         return
-
-    @abstractmethod
-    def __neg__(self) -> 'BaseTransform':
-        """Return inverse transform.
-
-        If the transform can not or must not be inverted this should raise a
-        ``NotImplementedError``.
-        """
-        raise NotImplementedError
 
     @abstractmethod
     def copy(self) -> 'BaseTransform':

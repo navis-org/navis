@@ -195,7 +195,7 @@ class TemplateRegistry:
 
     def register_transform(self, transform: BaseTransform, source: str,
                            target: str, transform_type: str,
-                           invertible: bool = True, skip_existing: bool = True,
+                           skip_existing: bool = True,
                            weight: int = 1):
         """Register a transform.
 
@@ -211,8 +211,6 @@ class TemplateRegistry:
                             transforms.
         transform_type :    "bridging" | "mirror"
                             Type of transform.
-        invertible :        bool
-                            Whether transform can be inverted via ``__neg__``.
         skip_existing :     bool
                             If True will skip if transform is already in registry.
         weight :            int
@@ -231,7 +229,8 @@ class TemplateRegistry:
 
         # Translate into edge
         edge = transform_reg(source=source, target=target, transform=transform,
-                             type=transform_type, invertible=invertible,
+                             type=transform_type,
+                             invertible=hasattr(transform, '__neg__'),
                              weight=weight)
 
         # Don't add if already exists
@@ -345,6 +344,7 @@ class TemplateRegistry:
         """
         # Drop mirror transforms
         bridge = [t for t in self.transforms if t.type == 'bridging']
+        bridge_inv = [t for t in bridge if t.invertible]
 
         # Generate graph
         # Note we are using MultiDi graph here because we might
@@ -364,12 +364,12 @@ class TemplateRegistry:
                 rv_edges = [(t.target, t.source,
                              {'transform': -t.transform,  # note inverse transform!
                               'type': str(type(t.transform)).split('.')[-1],
-                              'weight': t.weight * reciprocal}) for t in bridge]
+                              'weight': t.weight * reciprocal}) for t in bridge_inv]
             else:
                 rv_edges = [(t.target, t.source,
                              {'transform': -t.transform,  # note inverse transform!
                               'type': str(type(t.transform)).split('.')[-1],
-                              'weight': t.weight}) for t in bridge]
+                              'weight': t.weight}) for t in bridge_inv]
             edges += rv_edges
 
         G.add_edges_from(edges)
