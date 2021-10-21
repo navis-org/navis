@@ -70,7 +70,7 @@ def setup_elastix():
     path = (_elastixbin.parent / 'lib').absolute()
 
     if str(path) not in var:
-        var = f'{path}:{var}' if var else str(path)
+        var = f'{path}{os.pathsep}{var}' if var else str(path)
 
     # Note that `LD_LIBRARY_PATH` works for both Linux and OSX
     os.environ['LD_LIBRARY_PATH'] = var
@@ -254,9 +254,9 @@ class ElastixTransform(BaseTransform):
             out_file = p / 'outputpoints.txt'
 
             # Run the transform
-            command = f'transformix -out {p} -tp {tfile} -def {in_file}'
+            command = ['transformix', '-out', str(p), '-tp', str(tfile), '-def', str(in_file)]
 
-            _ = subprocess.run(command.split(' '), stdout=subprocess.PIPE)
+            _ = subprocess.run(command, stdout=subprocess.PIPE)
 
             if return_logs:
                 logfile = p / 'transformix.log'
