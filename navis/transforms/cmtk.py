@@ -30,7 +30,7 @@ from .base import BaseTransform, TransformSequence
 __all__ = ['xform_cmtk']
 
 _search_path = os.environ['PATH']
-_search_path = [i for i in utils.multi_split(_search_path, [';', ':']) if len(i) > 0]
+_search_path = [i for i in _search_path.split(os.pathsep) if len(i) > 0]
 _search_path += ['~/bin',
                  '/usr/lib/cmtk/bin/',
                  '/usr/local/lib/cmtk/bin',
