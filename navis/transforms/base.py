@@ -14,6 +14,7 @@
 import functools
 
 import numpy as np
+import pandas as pd
 
 from abc import ABC, abstractmethod
 from inspect import signature
@@ -100,6 +101,60 @@ class AliasTransform(BaseTransform):
         """
         return points
 
+
+class FunctionTransform(BaseTransform):
+    """Apply custom function as transform.
+
+    Parameters
+    ----------
+    func :      callable
+                Function that accepts and returns an (N, 3) array.
+
+    """
+
+    def __init__(self, func):
+        """Initialize."""
+        if not callable(func):
+            raise TypeError('`func` must be callable')
+        self.func = func
+
+    def __eq__(self, other):
+        """Check if the same."""
+        if not isinstance(other, FunctionTransform):
+            return False
+        if self.func != other.func:
+            return False
+        return True
+
+    def copy(self):
+        """Return copy."""
+        x = self.__class__(self.func)
+        x.__dict__.update(self.__dict__)
+        return x
+
+    def xform(self, points: np.ndarray) -> np.ndarray:
+        """Xform data.
+
+        Parameters
+        ----------
+        points :        (N, 3) numpy array | pandas.DataFrame
+                        Points to xform. DataFrame must have x/y/z columns.
+
+        Returns
+        -------
+        pointsxf :      (N, 3) numpy array
+                        Transformed points.
+
+        """
+        if isinstance(points, pd.DataFrame):
+            # Make sure x/y/z columns are present
+            if np.any([c not in points for c in ['x', 'y', 'z']]):
+                raise ValueError('points DataFrame must have x/y/z columns.')
+            points = points[['x', 'y', 'z']].values
+        elif not (isinstance(points, np.ndarray) and points.ndim == 2 and points.shape[1] == 3):
+            raise TypeError('`points` must be numpy array of shape (N, 3) or '
+                            'pandas DataFrame with x/y/z columns')
+        return self.func(points.copy())
 
 class TransformSequence:
     """A sequence of transforms.
