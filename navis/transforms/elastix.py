@@ -136,7 +136,7 @@ class ElastixTransform(BaseTransform):
     Examples
     --------
     >>> from navis import transforms
-    >>> tr = transforms.elastix.CMTKtransform('/path/to/transform/transform')
+    >>> tr = transforms.ElastixTransform('/path/to/transform/transform')
     >>> tr.xform(points) # doctest: +SKIP
 
     """
