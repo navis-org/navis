@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from .base import BaseTransform
+from ..utils import make_iterable
 
 _search_path = [i for i in os.environ['PATH'].split(os.pathsep) if len(i) > 0]
 
@@ -126,10 +127,11 @@ class ElastixTransform(BaseTransform):
     ----------
     file :              str
                         Filepath to elastix transformation file.
-    copy_transform :    bool
-                        If True, we will copy the transform file into the
-                        temporary directory used for the elastix in- and output
-                        files. Apparently this is necessary for some transforms.
+    copy_files :        filepath | list, optional
+                        Any files that need to be copied into the temporary
+                        directory where we perform the transform. These are
+                        typically files supplemental to the main transform
+                        file (e.g. defining an additional affine transform).
 
     Examples
     --------
@@ -139,9 +141,9 @@ class ElastixTransform(BaseTransform):
 
     """
 
-    def __init__(self, file: str, copy_transform=False):
+    def __init__(self, file: str, copy_files=[]):
         self.file = pathlib.Path(file)
-        self.copy_transform = copy_transform
+        self.copy_files = copy_files
 
     def __eq__(self, other: 'ElastixTransform') -> bool:
         """Implement equality comparison."""
@@ -234,14 +236,11 @@ class ElastixTransform(BaseTransform):
         # Everything happens in a temporary directory
         with tempfile.TemporaryDirectory() as tempdir:
             p = pathlib.Path(tempdir)
-            p = pathlib.Path('/Users/philipps/dev/elastix_test/')
 
-            # If required, copy the transform file into the same temporary
-            # directory
-            if self.copy_transform:
-                tfile = pathlib.Path(shutil.copy(self.file, p))
-            else:
-                tfile = self.file
+            # If required, copy additional files into the temporary directory
+            if self.copy_files:
+                for f in make_iterable(self.copy_files):
+                    _ = pathlib.Path(shutil.copy(f, p))
 
             # Write points to file
             in_file = p / 'inputpoints.txt'
@@ -249,10 +248,24 @@ class ElastixTransform(BaseTransform):
 
             out_file = p / 'outputpoints.txt'
 
-            # Run the transform
-            command = ['transformix', '-out', str(p), '-tp', str(tfile), '-def', str(in_file)]
+            # Prepare the command
+            command = [_elastixbin / 'transformix', '-out', str(p), '-tp', str(self.file), '-def', str(in_file)]
 
-            _ = subprocess.run(command, stdout=subprocess.PIPE)
+            # Keep track of current working directory
+            cwd = os.getcwd()
+            try:
+                # Change working directory to the temporary directory
+                # This is apparently required because elastix stupidly expects
+                # any secondary transform files to be in the current directory
+                # (as opposed to where the main transform is)
+                os.chdir(p)
+                # Run the actual transform
+                proc = subprocess.run(command, stdout=subprocess.PIPE)
+            except BaseException:
+                raise
+            finally:
+                # This makes sure we land on our feet even in case of an error
+                os.chdir(cwd)
 
             if return_logs:
                 logfile = p / 'transformix.log'
@@ -264,7 +277,7 @@ class ElastixTransform(BaseTransform):
 
             if not out_file.is_file():
                 raise FileNotFoundError('Elastix transform did not produce any '
-                                        'output')
+                                        f'output:\n {proc.stdout.decode()}')
 
             points_xf = self.read_output_file(out_file)
 
