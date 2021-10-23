@@ -287,16 +287,82 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
     return G
 
 
+def _voxels2edges(x, connectivity=18):
+    """Turn VoxelNeuron into an edges.
+
+    This is function requires scikit-learn to be available.
+
+    Parameters
+    ----------
+    x :             VoxelNeuron
+    connectivity :  6 | 18 | 26
+                    Connectedness:
+                     - 6 = faces
+                     - 18 = faces + edges
+                     - 26 = faces + edges + vertices
+
+    Returns
+    -------
+    edges :         (N, 2) numpy array
+
+    """
+    # The distances and metric we will use depend on the connectedness
+    METRICS = {6: 'manhattan',
+               18: 'euclidean',
+               26: 'chebyshev'}
+    DISTANCES = {6: 1,
+                 18: 1.5,
+                 26: 1}
+
+    try:
+        from sklearn.neighbors import KDTree
+    except ImportError:
+        raise ImportError('This function requires scikit-learn to be installed.')
+
+    assert connectivity in (6, 18, 26), f'`connectivity` must be 6, 18 or 26, not "{connectivity}"'
+    assert isinstance(x, core.VoxelNeuron)
+
+    voxels = x.voxels
+    # Create tree with given distance metric
+    tree = KDTree(voxels, leaf_size=2, metric=METRICS[connectivity])
+
+    # Query ball pairs
+    indices = tree.query_radius(voxels, r=DISTANCES[connectivity])
+
+    # Collected edges
+    edges = []
+    for i, hits in enumerate(indices):
+        # Add edges
+        edges += [(i, ix) for ix in hits]
+    edges = np.array(edges)
+
+    # Drop self-hits
+    edges = edges[edges[:, 0] != edges[:, 1]]
+
+    # Keep only A->B edges and drop B->A edges
+    edges = np.unique(np.sort(edges, axis=1), axis=0)
+
+    return edges
+
+    return igraph.Graph(edges, n=len(voxels))
+
+
 def neuron2igraph(x: 'core.NeuronObject',
+                  connectivity=18,
                   raise_not_installed: bool = True) -> 'igraph.Graph':
-    """Turn Tree- or MeshNeuron(s) into an iGraph graph.
+    """Turn Tree-, Mesh- or VoxelNeuron(s) into an iGraph graph.
 
     Requires iGraph to be installed.
 
     Parameters
     ----------
     x :                     TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList
-                            Uses simple 6-connectivity for voxels.
+                            Neuron(s) to convert.
+    connectivity :          6 | 18 | 26
+                            Connectedness for VoxelNeurons:
+                             - 6 = faces
+                             - 18 = faces + edges
+                             - 26 = faces + edges + vertices
     raise_not_installed :   bool
                             If False and igraph is not installed will silently
                             return ``None``.
@@ -320,7 +386,8 @@ def neuron2igraph(x: 'core.NeuronObject',
                               'Make sure "import igraph" works.')
 
     if isinstance(x, core.NeuronList):
-        return [neuron2igraph(x.loc[i]) for i in range(x.shape[0])]
+        return [neuron2igraph(x.loc[i],
+                              connectivity=connectivity) for i in range(x.shape[0])]
 
     if isinstance(x, core.TreeNeuron):
         # Make sure we have correctly numbered indices
@@ -367,30 +434,8 @@ def neuron2igraph(x: 'core.NeuronObject',
         G = igraph.Graph(elist, n=x.n_vertices, directed=False)
         G.es['weight'] = x.trimesh.edges_unique_length
     elif isinstance(x, core.VoxelNeuron):
-        # First we need to determine the 6-connecivity between voxels
-        edges = []
-        # Go over each axis
-        for i in range(3):
-            # Generate an offset of 1 voxel along given axis
-            offset = np.zeros(3, dtype=int)
-            offset[i] = 1
-            # Combine real and offset voxels
-            vox_off = x.voxels + offset
-            # Find out which voxels overlap (i.e. count == 2 after offset)
-            unique, cnt = np.unique(np.append(x.voxels, vox_off, axis=0),
-                                    axis=0, return_counts=True)
-
-            connected = unique[cnt > 1]
-            for vox in connected:
-                edges.append([tuple(vox), tuple(vox - offset)])
-
-        # Map voxels to indices
-        vx_ix = [tuple(v) for v in x.voxels]
-        vx_map = dict(zip(vx_ix, np.arange(x.voxels.shape[0])))
-        edges_ix = [(vx_map[e[0]], vx_map[e[1]]) for e in edges]
-
-        G = igraph.Graph(edges_ix, n=len(x.voxels), directed=False)
-        G.vs['index'] = vx_ix
+        edges = _voxels2edges(x, connectivity=connectivity)
+        G = igraph.Graph(edges, n=len(x.voxels), directed=False)
     else:
         raise ValueError(f'Unable to convert data of type "{type(x)}" to igraph.')
 
