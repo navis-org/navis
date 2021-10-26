@@ -406,6 +406,7 @@ High-level functions:
     :toctree: generated/
 
     ~navis.transforms.AffineTransform
+    ~navis.transforms.ElastixTransform
     ~navis.transforms.CMTKtransform
     ~navis.transforms.H5transform
     ~navis.transforms.TPStransform

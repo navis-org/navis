@@ -56,6 +56,7 @@ repository.
            - new `k3d <https://k3d-jupyter.org>`_ backend for plotting in Jupyter environments: try ``navis.plot3d(x, backend='k3d')``
            - new parameter for :func:`~navis.plot2d` and :func:`~navis.plot3d`: use ``clusters=[0, 0, 0, 1, 1, ...]`` to assigns
              clusters and have them automatically coloured accordingly
+           - :func:`~navis.plot2d` now allows ``radius=True`` parameter 
        - renamed functions to make it clear they are only for ``TreeNeurons``:
            - ``smooth_neuron`` -> :func:`~navis.smooth_skeleton`
            - ``reroot_neuron`` -> :func:`~navis.reroot_skeleton`
@@ -70,6 +71,9 @@ repository.
            - renamed ``cluster_by_synapse_placement`` -> :func:`~navis.synapse_similarity`
            - renamed ``cluster_by_connectivity`` -> :func:`~navis.connectivity_similarity`
            - renamed ``sparseness`` -> :func:`~navis.connectivity_sparseness`
+       - transforms:
+           - support for elastix (:class:`navis.transforms.ElastixTransform`)
+           - whether transforms are invertible is now determined by existence of ``__neg__`` method
        - most functions that work with ``TreeNeurons`` now also work with ``MeshNeurons``
        - new high-level wrappers to convert neurons: :func:`navis.voxelize`, :func:`navis.mesh` and :func:`navis.skeletonize`
        - :func:`~navis.make_dotprops` now accepts ``parallel=True`` parameter for parallel processing
@@ -85,6 +89,7 @@ repository.
        - first pass at interface with the Allen's MICrONS datasets (see the new :ref:`tutorial <microns_tut>`)
        - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
        - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``from_``
+       - improved :func:`~navis.cable_overlap`
    * - 0.6.0
      - 12/05/21
      - - new functions: :func:`navis.prune_at_depth`, :func:`navis.read_rda`, :func:`navis.cell_body_fiber`

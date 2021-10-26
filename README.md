@@ -14,7 +14,7 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 * 2D (matplotlib) and 3D (vispy, plotly or k3d) **plotting**
 * neuron **surgery**: cutting, stitching, pruning, rerooting, intersections, ...
 * analyze morphology (e.g. **NBLAST**) and connectivity
-* **transform** data between template brains (support for e.g. HDF5, CMTK and thin plate spline transforms)
+* **transform** data between template brains (support for e.g. HDF5, CMTK, Elastix and thin plate spline transforms)
 * load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and others
 * simulate neurons and networks using the **NEURON** simulator
 * interface with **Blender 3D**
