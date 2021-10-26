@@ -324,7 +324,7 @@ def _voxels2edges(x, connectivity=18):
 
     voxels = x.voxels
     # Create tree with given distance metric
-    tree = KDTree(voxels, leaf_size=2, metric=METRICS[connectivity])
+    tree = KDTree(voxels, leaf_size=40, metric=METRICS[connectivity])
 
     # Query ball pairs
     indices = tree.query_radius(voxels, r=DISTANCES[connectivity])
@@ -343,8 +343,6 @@ def _voxels2edges(x, connectivity=18):
     edges = np.unique(np.sort(edges, axis=1), axis=0)
 
     return edges
-
-    return igraph.Graph(edges, n=len(voxels))
 
 
 def neuron2igraph(x: 'core.NeuronObject',
