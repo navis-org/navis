@@ -237,7 +237,7 @@ class TraversalModel(BaseNetworkModel):
         self._summary = summary
         return self._summary
 
-    def run(self, iterations: int = 100, **kwargs) -> None:
+    def run(self, iterations: int = 100, return_iterations=False, **kwargs) -> None:
         """Run model (single process).
 
         Use ``.run_parallel`` to use parallel processes.
@@ -250,12 +250,15 @@ class TraversalModel(BaseNetworkModel):
 
         # For some reason the progress bar does not show unless we have a print here
         all_trav = None
-        for it in config.trange(iterations,
+        for it in config.trange(1, iterations + 1,
                                 disable=config.pbar_hide,
                                 leave=config.pbar_leave,
                                 position=kwargs.get('position', 0)):
             # Set seeds as encountered in step 1
-            enc = np.array([[1, s] for s in self.seeds])
+            if not return_iterations:
+                enc = np.array([[1, s] for s in self.seeds])
+            else:
+                enc = np.array([[1, s, it] for s in self.seeds])
 
             # Start with all edges
             this_edges = edges
@@ -287,7 +290,10 @@ class TraversalModel(BaseNetworkModel):
                 # Keep track
                 if not trav_edges.size == 0:
                     new_trav = np.unique(trav_edges[:, 1]).astype(int)
-                    enc = np.concatenate((enc, [[i, b] for b in new_trav]), axis=0)
+                    if not return_iterations:
+                        enc = np.concatenate((enc, [[i, b] for b in new_trav]), axis=0)
+                    else:
+                        enc = np.concatenate((enc, [[i, b, it] for b in new_trav]), axis=0)
 
             # Save this round of traversal
             if not isinstance(all_trav, np.ndarray):
@@ -297,7 +303,11 @@ class TraversalModel(BaseNetworkModel):
 
         self.iterations = iterations
 
-        return pd.DataFrame(all_trav, columns=['steps', 'node']).astype(int)
+        cols = ['steps', 'node']
+        if return_iterations:
+            cols += ['iteration']
+
+        return pd.DataFrame(all_trav, columns=cols).astype(int)
 
 
 def random_linear_activation_function(w: np.ndarray,
