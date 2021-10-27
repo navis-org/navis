@@ -114,8 +114,10 @@ def is_jupyter():
     """Test if navis is run in a Jupyter notebook."""
     return _type_of_script() == 'jupyter'
 
+
 # Here, we import tqdm and determine whether we use classic notebook tbars
-from tqdm import tqdm_notebook, tnrange
+from tqdm.notebook import tqdm as tqdm_notebook
+from tqdm.notebook import trange as trange_notebook
 from tqdm import tqdm as tqdm_classic
 from tqdm import trange as trange_classic
 
@@ -123,9 +125,8 @@ from tqdm import trange as trange_classic
 tqdm_class = tqdm_classic
 
 if is_jupyter():
-    from tqdm import tqdm_notebook, tnrange
     tqdm = tqdm_notebook
-    trange = tnrange
+    trange = trange_notebook
 else:
     tqdm = tqdm_classic
     trange = trange_classic
