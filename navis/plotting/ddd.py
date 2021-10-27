@@ -50,13 +50,14 @@ def plot3d(x: Union[core.NeuronObject,
            **kwargs) -> Optional[Union[Viewer, dict]]:
     """Generate 3D plot.
 
-    Uses either `vispy <http://vispy.org>`_ or `plotly <http://plot.ly>`_.
-    By default, the choise is automatic and depends on context::
+    Uses either `vispy <http://vispy.org>`_,  `k3d <https://k3d-jupyter.org/>`_
+    or `plotly <http://plot.ly>`_. By default, the choice is automatic and
+    depends on context::
 
       terminal: vispy used
       Jupyter: plotly used
 
-    See ``backend`` parameter on how to overwrite this default behavior.
+    See ``backend`` parameter on how to change this behavior.
 
     Parameters
     ----------
