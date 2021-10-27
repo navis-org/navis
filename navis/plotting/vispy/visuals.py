@@ -290,12 +290,13 @@ def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
 
         mode = cn_lay['display']
         if mode == 'circles' or isinstance(neuron, core.MeshNeuron):
-            con = scene.visuals.Markers()
+            con = scene.visuals.Markers(spherical=cn_lay.get('spherical', True),
+                                        scaling=cn_lay.get('scale', False))
 
             con.set_data(pos=np.array(pos),
                          face_color=color,
                          edge_color=color,
-                         size=cn_lay.get('size', 1))
+                         size=cn_lay.get('size', 100))
 
         elif mode == 'lines':
             tn_coords = neuron.nodes.set_index('node_id').loc[this_cn.node_id.values][['x', 'y', 'z']].apply(pd.to_numeric).values
@@ -585,7 +586,8 @@ def points2vispy(x, **kwargs):
         if not isinstance(p, np.ndarray):
             p = np.array(p)
 
-        con = scene.visuals.Markers()
+        con = scene.visuals.Markers(spherical=kwargs.get('spherical', True),
+                                    scaling=kwargs.get('scale', False))
         con.set_data(pos=p,
                      face_color=colors,
                      edge_color=colors,
