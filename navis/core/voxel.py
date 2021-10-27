@@ -226,6 +226,8 @@ class VoxelNeuron(BaseNeuron):
             raise TypeError(f'Voxels must be numpy array, got "{type(voxels)}"')
         if voxels.ndim != 2 or voxels.shape[1] != 3:
             raise ValueError('Voxels must be (N, 3) array')
+        if 'float' in str(voxels.dtype):
+            voxels = voxels.astype(np.int64)
         self._data = voxels
         self._clear_temp_attr()
 
@@ -236,7 +238,7 @@ class VoxelNeuron(BaseNeuron):
             return self._data
 
         if hasattr(self, '_grid'):
-            return self._voxels
+            return self._grid
 
         grid = np.zeros(self.shape, dtype=self.values.dtype)
         grid[self._data[:, 0],
