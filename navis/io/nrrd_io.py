@@ -20,7 +20,7 @@ from glob import glob
 
 import multiprocessing as mp
 
-from typing import Union, Iterable, Optional
+from typing import Union, Iterable, Optional, Dict, Any
 from typing_extensions import Literal
 
 from .. import config, utils, core
@@ -202,6 +202,22 @@ def read_nrrd(f: Union[str, Iterable],
     x.nrrd_header = header
 
     return x
+
+
+def write_nrrd(
+    f: Union[str, os.PathLike],
+    neuron: 'core.VoxelNeuron',
+    attrs: Optional[Dict[str, Any]] = None,
+):
+    header = getattr(neuron, "nrrd_header", {})
+
+    quant = neuron.units_xyz
+    header["space units"] = [str(quant.units)] * len(quant)
+    header["space directions"] = np.diag(quant.magnitude).tolist()
+
+    header.update(attrs or {})
+
+    nrrd.write(os.fspath(f), neuron._data, header)
 
 
 def _worker_wrapper(kwargs):
