@@ -274,6 +274,8 @@ def read_nrrd(f: Union[str, Iterable],
         su = header['space units']
         if len(su) == 3:
             units = [f'{m} {u}' for m, u in zip(voxdim, su)]
+    else:
+        units = voxdim
 
     try:
         if output == 'dotprops':
