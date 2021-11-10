@@ -285,7 +285,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
     # we have to send to each process
     n_rows, n_cols = find_optimal_partition(n_cores, query, target)
 
-    nblasters = []
+    blasters = []
     for q in np.array_split(query, n_rows):
         for t in np.array_split(target, n_cols):
             # Initialize SynNBlaster
@@ -306,9 +306,9 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
             # Keep track of indices of queries and targets
             this.queries = np.arange(len(q))
             this.targets = np.arange(len(t)) + len(q)
-            this.pbar_position = len(nblasters)
+            this.pbar_position = len(blasters)
 
-            nblasters.append(this)
+            blasters.append(this)
 
     # If only one core, we don't need to break out the multiprocessing
     if n_cores == 1:
@@ -316,12 +316,12 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
                                        this.targets,
                                        scores=scores)
 
-    with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
+    with ProcessPoolExecutor(max_workers=len(blasters)) as pool:
         # Each nblaster is passed to its own process
         futures = [pool.submit(this.multi_query_target,
                                q_idx=this.queries,
                                t_idx=this.targets,
-                               scores=scores) for this in nblasters]
+                               scores=scores) for this in blasters]
 
         results = [f.result() for f in futures]
 
