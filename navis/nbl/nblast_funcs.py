@@ -879,7 +879,10 @@ def check_microns(x):
 
     Returns either [True, None (=unclear), False]
     """
-    microns = [config.ureg.Unit('microns'), config.ureg.Unit('um'), config.ureg.Unit('micrometer')]
+    microns = [config.ureg.Unit('microns'),
+               config.ureg.Unit('um'),
+               config.ureg.Unit('micrometer'),
+               config.ureg.Unit('dimensionless')]
     if not isinstance(x, NeuronList):
         x = NeuronList(x)
 
