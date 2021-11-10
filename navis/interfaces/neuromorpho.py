@@ -23,7 +23,7 @@ import pandas as pd
 from typing import List, Dict, Union
 
 from ..core import TreeNeuron, NeuronList
-from ..io.swc_io import read_swc
+from ..io import read_swc
 from .. import utils, config
 
 

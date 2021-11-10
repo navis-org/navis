@@ -371,8 +371,7 @@ def classify_nodes(x: 'core.NeuronObject',
             vs = x.igraph.vs
             # Get branch/end nodes based on their degree of connectivity
             ends = vs.select(_indegree=0).get_attribute_values('node_id')
-            branches = vs.select(
-                _indegree_gt=1).get_attribute_values('node_id')
+            branches = vs.select(_indegree_gt=1).get_attribute_values('node_id')
         else:
             # Get graph representation of neuron
             g = x.graph

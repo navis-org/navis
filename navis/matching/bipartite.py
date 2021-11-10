@@ -12,9 +12,7 @@
 #    GNU General Public License for more details.
 
 import scipy.optimize
-import uuid
 
-import networkx as nx
 import numpy as np
 import pandas as pd
 

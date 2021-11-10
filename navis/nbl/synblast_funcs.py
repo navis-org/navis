@@ -14,7 +14,6 @@
 
 """Module contains functions implementing SyNBLAST."""
 
-import numbers
 import os
 
 import numpy as np

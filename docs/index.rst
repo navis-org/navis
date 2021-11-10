@@ -37,6 +37,7 @@ If you have any questions, please get in touch: pms70@cam.ac.uk
                </div>
                <div class="panel-body">
 
+* work in Jupyter or terminal
 * supports various neuron types: skeletons, meshes, dotprops, voxels
 * 2D (matplotlib) and 3D (vispy & plotly) plotting
 * virtual neuron surgery: cutting, stitching, pruning, rerooting
