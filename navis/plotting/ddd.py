@@ -70,6 +70,8 @@ def plot3d(x: Union[core.NeuronObject,
                       supported depending on the backend:
                         - ``auto`` selects backend based on context: ``vispy``
                           for terminal and ``plotly`` for Jupyter environments.
+                          You can override this by setting an environment
+                          variable `NAVIS_JUPYTER_PLOT3D_BACKEND="k3d"`.
                         - ``vispy`` uses OpenGL to generate high-performance
                           3D plots. Works in terminals.
                         - ``plotly`` generates 3D plots using WebGL. Works

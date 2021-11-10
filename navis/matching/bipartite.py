@@ -232,6 +232,6 @@ def bipartite_match(scores: pd.DataFrame,
 
     if not U_miss.empty or not V_miss.empty:
         config.logger.info(f'{U_miss.shape[0] + V_miss.shape[0]} neurons could '
-                           'not be matched given the restriction.')
+                           'not be matched under the given constraints.')
 
     return pd.concat([matches, U_miss, V_miss], axis=0).reset_index(drop=True)

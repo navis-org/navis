@@ -83,8 +83,8 @@ def cable_overlap(a: NeuronObject,
     >>> # Converting the example neurons from 8x8x8 voxel space into microns
     >>> # make the results easier to interpret
     >>> nl = nl.convert_units('um')
-    >>> # Resample to 1 micron
-    >>> nl_res = nl.resample('1 micron', inplace=False)
+    >>> # Resample to half a micron
+    >>> nl_res = nl.resample('.5 micron', inplace=False)
     >>> # Get overlapping cable within 2 microns
     >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
 

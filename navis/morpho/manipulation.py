@@ -1469,9 +1469,11 @@ def smooth_voxels(x: NeuronObject,
     ----------
     x :             TreeNeuron | NeuronList
                     Neuron(s) to be processed.
-    sigma :         int, optional
-                    Size (N observations) of the rolling window in number of
-                    nodes.
+    sigma :         int | (3, ) ints, optional
+                    Standard deviation for Gaussian kernel. The standard
+                    deviations of the Gaussian filter are given for each axis
+                    as a sequence, or as a single number, in which case it is
+                    equal for all axes.
     inplace :       bool, optional
                     If False, will use and return copy of original neuron(s).
 

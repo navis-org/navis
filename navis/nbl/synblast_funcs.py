@@ -49,7 +49,7 @@ class SynBlaster(Blaster):
 
     TODOs
     -----
-    - implement `use_alpha` as average synapse density (i.e. emphasise areas
+    - implement `use_alpha` as average synapse density (i.e. emphasize areas
       where a neuron has lots of synapses)
 
     Parameters

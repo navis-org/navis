@@ -222,7 +222,7 @@ class NBlaster(Blaster):
 
 def nblast_smart(query: Union[Dotprops, NeuronList],
                  target: Optional[str] = None,
-                 t: int = 90,
+                 t: Union[int, float] = 90,
                  criterion: Union[Literal['percentile'],
                                   Literal['score'],
                                   Literal['N']] = 'percentile',
@@ -256,6 +256,9 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     microns as NBLAST is optimized for that and have
                     similar sampling resolutions. If not provided, will NBLAST
                     queries against themselves.
+    t :             int | float
+                    Determines for which pairs we will run a full NBLAST. See
+                    ``criterion`` parameter for details.
     criterion :     "percentile" | "score" | "N"
                     Criterion for selecting query-target pairs for full NBLAST:
 
