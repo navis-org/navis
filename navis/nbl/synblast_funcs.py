@@ -152,7 +152,7 @@ class SynBlaster(Blaster):
             if ty not in t_trees:
                 # Note that this infinite distance will simply get the worst
                 # score possible in the scoring function
-                dists = np.append(dists, [np.inf] * qt.data.shape[0])
+                dists = np.append(dists, [self.score_fn.max_dist] * qt.data.shape[0])
             else:
                 tt = t_trees[ty]
                 dists = np.append(dists, tt.query(qt.data)[0])
