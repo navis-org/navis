@@ -28,7 +28,8 @@ with warnings.catch_warnings():
 from .. import utils, config, core
 from .vispy.viewer import Viewer
 from .colors import prepare_colormap
-from .plotly.graph_objs import *
+from .plotly.graph_objs import (neuron2plotly, volume2plotly, scatter2plotly,
+                                layout2plotly)
 
 if not config.headless:
     try:
@@ -242,7 +243,7 @@ def plot3d(x: Union[core.NeuronObject,
     allowed_backends = ('auto', 'vispy', 'plotly', 'k3d')
     if backend.lower() == 'auto':
         if utils.is_jupyter():
-            backend = 'plotly'
+            backend = os.environ.get('NAVIS_JUPYTER_PLOT3D_BACKEND', 'plotly')
         else:
             backend = 'vispy'
     elif backend.lower() not in allowed_backends:
@@ -255,8 +256,11 @@ def plot3d(x: Union[core.NeuronObject,
         if not utils.is_jupyter():
             logger.warning('k3d backend only works in Jupyter environments')
         return plot3d_k3d(x, **kwargs)
-    else:
+    elif backend == 'plotly':
         return plot3d_plotly(x, **kwargs)
+    else:
+        raise ValueError(f'Unknown backend "{backend}". '
+                         f'Permitted: {".".join(allowed_backends)}.')
 
 
 def plot3d_vispy(x, **kwargs):
