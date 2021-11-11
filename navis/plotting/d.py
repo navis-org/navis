@@ -158,9 +158,4 @@ def plot1d(x: 'core.NeuronObject',
 
     ax.set_frame_on(False)
 
-    try:
-        plt.tight_layout()
-    except BaseException:
-        pass
-
     return ax
