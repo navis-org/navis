@@ -500,11 +500,13 @@ def is_url(x: str) -> bool:
 
 
 def _type_of_script() -> str:
-    """Return context (terminal, jupyter, iPython) in which navis is run."""
+    """Return context (terminal, jupyter, colab, iPython) in which navis is run."""
     try:
         ipy_str = str(type(get_ipython()))  # type: ignore
         if 'zmqshell' in ipy_str:
             return 'jupyter'
+        elif 'colab' in ipy_str:
+            return 'colab'
         else:  # if 'terminal' in ipy_str:
             return 'ipython'
     except BaseException:
@@ -514,6 +516,8 @@ def _type_of_script() -> str:
 def is_jupyter() -> bool:
     """Test if navis is run in a Jupyter notebook.
 
+    Also returns True if inside Google colaboratory!
+
     Examples
     --------
     >>> from navis.utils import is_jupyter
@@ -522,7 +526,7 @@ def is_jupyter() -> bool:
     False
 
     """
-    return _type_of_script() == 'jupyter'
+    return _type_of_script() in ('jupyter', 'colab')
 
 
 def set_loggers(level: str = 'INFO'):
