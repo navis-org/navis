@@ -9,7 +9,7 @@ available via submodules (e.g. ``navis.morpho.find_soma``). This can be a bit
 daunting at first - especially if you don't exactly know what you are looking
 for. I recommend you either just have a browse, use the search field
 (upper right) or simply search in page (CONTROL/CMD-F). Failing that, please
-feel free to open an `issue <https://github.com/schlegelp/navis/issues>`_ on
+feel free to open an `issue <https://github.com/navis-org/navis/issues>`_ on
 the Github repo with your question.
 
 This API reference is a more or less complete account of the primary functions:
@@ -21,6 +21,7 @@ This API reference is a more or less complete account of the primary functions:
 5. :ref:`Analyze connectivity<api_con>`
 6. :ref:`Import/Export<io>`
 7. :ref:`Utility functions<api_utility>`
+8. :ref:`Which functions work with which neuron types?<api_func_matrix>`
 
 In addition ``navis`` has interfaces to various external datasets and tools:
 
@@ -30,6 +31,7 @@ In addition ``navis`` has interfaces to various external datasets and tools:
 - :ref:`InsectBrain DB<api_interfaces.insectdb>`
 - :ref:`Blender 3D<api_interfaces.blender>`
 - :ref:`Cytoscape<api_interfaces.cytoscape>`
+- :ref:`Allen MICrONS datasets<api_interfaces.microns>`
 - :ref:`R and the natverse libraries<api_interfaces.r>`
 
 Most of these functions include examples of how to use them. Click on them to
@@ -178,6 +180,7 @@ These are methods and properties specific to ``Dotprops``.
     ~navis.Dotprops.vect
     ~navis.Dotprops.alpha
     ~navis.Dotprops.to_skeleton
+    ~navis.Dotprops.snap
 
 Dotprops are typically indirectly generated from e.g. skeletons or
 point clouds using :func:`navis.make_dotprops`.
@@ -191,9 +194,9 @@ There are a couple functions to convert from one neuron type to another:
     :toctree: generated/
 
     navis.make_dotprops
-    navis.conversion.tree2meshneuron
-    navis.conversion.mesh2skeleton
-    navis.conversion.neuron2voxels
+    navis.skeletonize
+    navis.mesh
+    navis.voxelize
 
 
 NeuronList methods
@@ -298,24 +301,26 @@ Functions to edit morphology:
 .. autosummary::
     :toctree: generated/
 
-    navis.average_neurons
+    navis.average_skeletons
     navis.break_fragments
-    navis.despike_neuron
+    navis.despike_skeleton
     navis.drop_fluff
     navis.cell_body_fiber
-    navis.cut_neuron
+    navis.cut_skeleton
     navis.guess_radius
-    navis.heal_fragmented_neuron
+    navis.heal_skeleton
     navis.longest_neurite
     navis.prune_by_strahler
     navis.prune_twigs
     navis.prune_at_depth
-    navis.reroot_neuron
+    navis.reroot_skeleton
     navis.split_axon_dendrite
     navis.split_into_fragments
-    navis.stitch_neurons
+    navis.stitch_skeletons
     navis.subset_neuron
-    navis.smooth_neuron
+    navis.smooth_skeleton
+    navis.smooth_mesh
+    navis.smooth_voxels
     navis.tortuosity
 
 Resampling
@@ -325,7 +330,7 @@ Functions to down- or resample neurons.
 .. autosummary::
     :toctree: generated/
 
-    navis.resample_neuron
+    navis.resample_skeleton
     navis.resample_along_axis
     navis.downsample_neuron
     navis.simplify_mesh
@@ -401,6 +406,7 @@ High-level functions:
     :toctree: generated/
 
     ~navis.transforms.AffineTransform
+    ~navis.transforms.ElastixTransform
     ~navis.transforms.CMTKtransform
     ~navis.transforms.H5transform
     ~navis.transforms.TPStransform
@@ -457,28 +463,21 @@ Functions to convert neurons and networkx to iGraph or networkX graphs.
     navis.neuron2KDTree
     navis.network2nx
     navis.network2igraph
-    navis.rewire_neuron
+    navis.rewire_skeleton
     navis.insert_nodes
     navis.remove_nodes
 
-Adjacency matrices
-------------------
-Functions to work with adjacency matrices.
+Connectivity metrics
+--------------------
+Functions to analyse/cluster neurons based on connectivity.
 
 .. autosummary::
     :toctree: generated/
 
-    navis.group_matrix
-
-Connectivity clustering
------------------------
-Functions to cluster neurons based on connectivity.
-
-.. autosummary::
-    :toctree: generated/
-
-    navis.cluster_by_connectivity
-    navis.cluster_by_synapse_placement
+    navis.connectivity_similarity
+    navis.connectivity_sparseness
+    navis.cable_overlap
+    navis.synapse_similarity
 
 .. _io:
 
@@ -492,6 +491,8 @@ Functions to import/export neurons.
     navis.read_swc
     navis.write_swc
     navis.read_nrrd
+    navis.write_nrrd
+    navis.read_nmx
     navis.read_rda
     navis.read_json
     navis.write_json
@@ -674,6 +675,34 @@ Not imported at top level! Must be imported explicitly::
     navis.interfaces.cytoscape.generate_network
     navis.interfaces.cytoscape.get_client
 
+
+.. _api_interfaces.microns:
+
+Allen MICrONS datasets
++++++++++++++++++++++++
+Functions to fetch neurons (including synapses) from the Allen Institute's
+`MICrONS <https://www.microns-explorer.org/>`_ EM datasets.
+
+Requires ``caveclient`` as additional dependencies::
+
+    pip3 install caveclient -U
+
+Please see ``caveclient's`` `docs <https://caveclient.readthedocs.io>`_ for
+details on how to retrieve and set credentials.
+
+Not imported at top level! Must be imported explicitly::
+
+    from navis.interfaces import microns
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.interfaces.microns.fetch_neurons
+    navis.interfaces.microns.get_somas
+
+
+Please also see the :ref:`MICrONS tutorial<microns_tut>`.
+
 .. _api_interfaces.r:
 
 R interface
@@ -714,3 +743,115 @@ Various utility functions.
     navis.set_default_connector_colors
     navis.config.remove_log_handlers
     navis.patch_cloudvolume
+
+
+.. _api_func_matrix:
+
+
+Neuron types and functions
+++++++++++++++++++++++++++
+
+As you can imagine not all functions will work on all neuron types. For example
+it is currently not possible to find the longest neurite
+(:func:`navis.longest_neurite`) in a ``VoxelNeuron``. Conversely, some
+functionality like "smoothing" makes sense for multiple neuron types but the
+application is so vastly different between e.g. meshes and skeletons that
+there is no single function but one for each neuron type.
+
+Below table has an overview for which functions work with which neuron types.
+
+
+.. list-table::
+   :widths: 20 20 20 20 20
+   :header-rows: 1
+
+   * - Description
+     - TreeNeuron
+     - MeshNeuron
+     - VoxelNeuron
+     - Dotprops
+   * - :func:`navis.plot2d`
+     - yes
+     - yes
+     - limited
+     - yes
+   * - :func:`navis.plot3d`
+     - yes
+     - yes
+     - limited
+     - yes
+   * - :func:`navis.plot1d`
+     - yes
+     - no
+     - no
+     - no
+   * - :func:`navis.plot_flat`
+     - yes
+     - no
+     - no
+     - no
+   * - :func:`navis.subset_neuron`
+     - yes
+     - yes
+     - yes
+     - yes
+   * - :func:`navis.in_volume`
+     - yes
+     - yes
+     - yes
+     - yes
+   * - smoothing
+     - :func:`navis.smooth_skeleton`
+     - :func:`navis.smooth_mesh`
+     - :func:`navis.smooth_voxels`
+     - no
+   * - :func:`navis.downsample_neuron`
+     - yes
+     - yes
+     - yes
+     - yes
+   * - resampling (e.g. :func:`navis.resample_skeleton`)
+     - yes
+     - no
+     - no
+     - no
+   * - NBLAST (e.g. :func:`navis.nblast`)
+     - no
+     - no
+     - no
+     - yes
+   * - :func:`navis.xform_brain`
+     - yes
+     - yes
+     - yes
+     - yes
+   * - :func:`navis.mirror_brain`
+     - yes
+     - yes
+     - no
+     - yes
+   * - :func:`navis.skeletonize`
+     - no
+     - yes
+     - no
+     - no
+   * - :func:`navis.mesh`
+     - yes
+     - no
+     - yes
+     - no
+   * - :func:`navis.voxelize`
+     - yes
+     - yes
+     - no
+     - yes
+   * - :func:`navis.drop_fluff`
+     - yes
+     - yes
+     - no
+     - no
+   * - :func:`navis.break_fragments`
+     - yes
+     - yes
+     - no
+     - no

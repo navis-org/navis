@@ -6,7 +6,7 @@ examples will be insect-centric but navis is general-purpose.
 
 `navis` also does not ship with any transform/template data as these are
 typically large-ish files. Check out
-[flybrains](https://github.com/schlegelp/navis-flybrains) as an example of
+[flybrains](https://github.com/navis-org/navis-flybrains) as an example of
 how to make data available to navis transforms.
 
 ## Terminology

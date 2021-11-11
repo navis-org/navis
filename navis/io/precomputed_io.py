@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -201,7 +201,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
                      info: Union[bool, str, dict] = True,
                      parallel: Union[bool, int] = 'auto',
                      **kwargs) -> 'core.NeuronObject':
-    """Read skeletons and meshes from Google's precomputed format.
+    """Read skeletons and meshes from neuroglancer's precomputed format.
 
     Follows the formats specified
     `here <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed>`_.
@@ -326,12 +326,49 @@ def read_precomputed(f: Union[str, io.BytesIO],
     return reader.read_any(f, include_subdirs, parallel)
 
 
+class PrecomputedWriter(base.Writer):
+    """Writer class that also takes care of `info` files."""
+
+    def write_any(self, x, filepath, write_info=True, **kwargs):
+        """Write any to file. Default entry point."""
+        # First write the actual neurons
+        kwargs['write_info'] = False
+        super().write_any(x, filepath=filepath, **kwargs)
+
+        # Write info file to the correct directory/zipfile
+        if write_info:
+            add_props = {}
+            if kwargs.get('radius', False):
+                add_props['vertex_attributes'] = {'id': 'radius',
+                                                  'data_type': 'float32',
+                                                  'num_components': 1}
+
+            if str(self.path).endswith('.zip'):
+                with ZipFile(self.path, mode='a') as zf:
+                    # Context-manager will remove temporary directory and its contents
+                    with tempfile.TemporaryDirectory() as tempdir:
+                        # Write info to zip
+                        if write_info:
+                            # Generate temporary filename
+                            f = os.path.join(tempdir, 'info')
+                            write_info_file(x, f, add_props=add_props)
+                            # Add file to zip
+                            zf.write(f, arcname='info', compress_type=compression)
+            else:
+                fp = self.path
+                # Find the first existing root directory
+                while not fp.is_dir():
+                    fp = fp.parent
+
+                write_info_file(x, fp, add_props=add_props)
+
+
 def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshNeuron', 'core.Volume'],
                       filepath: Optional[str] = None,
                       write_info: bool = True,
                       write_manifest: bool = False,
                       radius: bool = False) -> None:
-    """Export skeletons or meshes to Google's (legacy) precomputed format.
+    """Export skeletons or meshes to neuroglancers' (legacy) precomputed format.
 
     Note that you should not mix meshes and skeletons in the same folder!
 
@@ -347,20 +384,20 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     filepath :          None | str | list, optional
                         If ``None``, will return byte string or list of
                         thereof. If filepath will save to this file. If path
-                        will save neuron(s) in that path using ``'{x.id}'``
+                        will save neuron(s) in that path using ``{x.id}``
                         as filename(s). If list, input must be NeuronList and
                         a filepath must be provided for each neuron.
     write_info :        bool
-                        Whether to also write a JSON-formatted `info` file that
+                        Whether to also write a JSON-formatted ``info`` file that
                         can be parsed by e.g. neuroglancer. This only works if
                         inputs are either only skeletons or only meshes!
     write_manifest :    bool
                         For meshes only: whether to also write manifests. For
-                        each mesh we will create a JSON-encoded `{id}:0` file
+                        each mesh we will create a JSON-encoded ``{id}:0`` file
                         that contains a "fragments" entry that maps to the
                         actual filename. Note that this will not work on Windows
                         because colons aren't allowed in file names and on OSX
-                        the colon will show up as a `/` in the Finder.
+                        the colon will show up as a ``/`` in the Finder.
     radius :            bool
                         For TreeNeurons only: whether to write radius as
                         additional vertex property.
@@ -375,96 +412,45 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     See Also
     --------
     :func:`navis.read_precomputed`
-                        Import neurons from Google's precomputed binary format.
+                        Import neurons from neuroglancer's precomputed format.
+
+    Examples
+    --------
+
+    Write skeletons:
+
+    >>> import navis
+    >>> n = navis.example_neurons(3, kind='skeleton')
+    >>> navis.write_precomputed(n, tmp_dir)
+
+    Write meshes:
+
+    >>> import navis
+    >>> n = navis.example_neurons(3, kind='mesh')
+    >>> navis.write_precomputed(n, tmp_dir)
+
+    Write directly to zip archive:
+
+    >>> import navis
+    >>> n = navis.example_neurons(3, kind='skeleton')
+    >>> navis.write_precomputed(n, tmp_dir / 'precomputed.zip')
 
     """
-    add_props = {}
-    if radius:
-        add_props['vertex_attributes'] = {'id': 'radius',
-                                          'data_type': 'float32',
-                                          'num_components': 1}
+    writer = PrecomputedWriter(_write_precomputed, ext=None)
 
-    # If target is a zipfile
-    if isinstance(filepath, (str, Path)) and str(filepath).endswith('.zip'):
-        filepath = Path(filepath)
-        # Parse pattern, if given
-        if '@' in str(filepath):
-            pattern, filename = filepath.name.split('@')
-            filepath = filepath.parent / filename
-        else:
-            pattern = '{neuron.id}'
+    return writer.write_any(x,
+                            filepath=filepath,
+                            write_info=write_info,
+                            write_manifest=write_manifest,
+                            radius=radius)
 
-        # Make sure we have an iterable
-        x = utils.make_iterable(x)
 
-        with ZipFile(filepath, mode='w') as zf:
-            # Context-manager will remove temporary directory and its contents
-            with tempfile.TemporaryDirectory() as tempdir:
-                # Write info to zip
-                if write_info:
-                    # Generate temporary filename
-                    f = os.path.join(tempdir, 'info')
-                    write_info_file(x, f, add_props=add_props)
-                    # Add file to zip
-                    zf.write(f, arcname='info', compress_type=compression)
-
-                for n in config.tqdm(x, disable=config.pbar_hide,
-                                     leave=config.pbar_leave, total=len(x),
-                                     desc='Writing'):
-                    # Save to temporary file
-                    try:
-                        # Generate temporary filename
-                        f = os.path.join(tempdir, pattern.format(neuron=n))
-                        # Write to temporary file
-                        write_precomputed(n, filepath=f,
-                                          radius=radius,
-                                          write_manifest=write_manifest,
-                                          write_info=False)
-                        # Add file to zip
-                        zf.write(f, arcname=pattern.format(neuron=n),
-                                 compress_type=compression)
-
-                        if write_manifest:
-                            mf_name = pattern.format(neuron=n)
-                            zf.write(f'{f}:0',
-                                     arcname=f'{mf_name}:0',
-                                     compress_type=compression)
-                    except BaseException:
-                        raise
-                    finally:
-                        # Remove temporary file - we do this inside the loop
-                        # to avoid unnecessarily occupying space as we write
-                        os.remove(f)
-        return
-
-    if isinstance(x, core.NeuronList):
-        res = []
-
-        if not utils.is_iterable(filepath):
-            filepath = [filepath] * len(x)
-
-        if len(filepath) != len(x):
-            raise ValueError('Must provide a filepath for every neuron')
-
-        if write_info:
-            fp = Path(filepath[0])
-            # Find the first existing root directory
-            while not fp.is_dir():
-                fp = fp.parent
-
-            write_info_file(x, fp,
-                            add_props=add_props)
-
-        for n, f in config.tqdm(zip(x, filepath),
-                                desc='Writing',
-                                leave=config.pbar_leave,
-                                total=len(x),
-                                disable=config.pbar_hide):
-            res.append(write_precomputed(n, filepath=f, radius=radius,
-                                         write_manifest=write_manifest,
-                                         write_info=False))
-        return res
-
+def _write_precomputed(x: Union['core.TreeNeuron', 'core.MeshNeuron', 'core.Volume'],
+                       filepath: Optional[str] = None,
+                       write_info: bool = True,
+                       write_manifest: bool = False,
+                       radius: bool = False) -> None:
+    """Write single neuron to neuroglancer's precomputed format."""
     if filepath and os.path.isdir(filepath):
         if isinstance(x, core.BaseNeuron):
             filepath = os.path.join(filepath, f'{x.id}')
@@ -472,11 +458,6 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
             filepath = os.path.join(filepath, f'{x.name}')
         else:
             raise ValueError(f'Unable to generate filename for {type(x)}')
-
-    if write_info:
-        write_info_file(x,
-                        Path(filepath.parent),
-                        add_props=add_props)
 
     if isinstance(x, core.TreeNeuron):
         return _write_skeleton(x, filepath, radius=radius)
@@ -533,7 +514,7 @@ def write_info_file(data, filepath, add_props={}):
 
 
 def _write_mesh(vertices, faces, filename, write_manifest=False):
-    """Write mesh to Google binary format."""
+    """Write mesh to precomputed binary format."""
     # Make sure we are working with the correct data types
     vertices = np.asarray(vertices, dtype='float32')
     faces = np.asarray(faces, dtype='uint32')
@@ -555,7 +536,7 @@ def _write_mesh(vertices, faces, filename, write_manifest=False):
 
 
 def _write_skeleton(x, filename, radius=False):
-    """Write skeleton to Google binary format."""
+    """Write skeleton to neuroglancers binary format."""
     # Below code modified from:
     # https://github.com/google/neuroglancer/blob/master/python/neuroglancer/skeleton.py#L34
     result = io.BytesIO()

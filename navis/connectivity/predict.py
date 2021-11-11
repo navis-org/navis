@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -11,15 +11,13 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-
-""" This module contains functions to analyse connectivity.
-"""
+"""This module contains functions to analyse connectivity."""
 
 import pandas as pd
 import numpy as np
 import scipy.spatial
 
-from typing import Union, Dict
+from typing import Union
 from typing_extensions import Literal
 
 from ..core import TreeNeuron, NeuronList
@@ -43,51 +41,57 @@ def cable_overlap(a: NeuronObject,
     a,b :       TreeNeuron | NeuronList
                 Neuron(s) for which to compute cable within distance. It is
                 highly recommended to resample neurons to guarantee an even
-                sampling rate. Also note that neurons need to have unique IDs.
+                sampling rate.
     dist :      int | float, optional
                 Maximum distance. If the neurons have their `.units` set, you
                 can also provides this as a string such as "2 microns".
-    method :    'min' | 'max' | 'avg'
+    method :    'min' | 'max' | 'mean' | 'forward' | 'reverse'
                 Method by which to calculate the overlapping cable between
                 two cables::
 
                   Assuming that neurons A and B have 300 and 150 um of cable
-                  within given distances:
+                  within given distances, respectively:
 
                     1. 'min' returns 150
                     2. 'max' returns 300
-                    3. 'avg' returns 225
+                    3. 'mean' returns 225
+                    4. 'forward' returns 300 (i.e. A->B)
+                    5. 'reverse' returns 150 (i.e. B->A)
 
     Returns
     -------
     pandas.DataFrame
             Matrix in which neurons A are rows, neurons B are columns. Cable
-            within distance is given in microns::
+            within distance is given in the neuron's native units::
 
-                        skidB1   skidB2  skidB3  ...
-                skidA1    5        1        0
-                skidA2    10       20       5
-                skidA3    4        3        15
+                          neuronD  neuronE   neuronF  ...
+                neuronA         5        1         0
+                neuronB        10       20         5
+                neuronC         4        3        15
                 ...
 
     See Also
     --------
-    :func:`navis.resample_neuron`
+    :func:`navis.resample_skeleton`
                 Use to resample neurons before calculating overlap.
 
     Examples
     --------
     >>> import navis
     >>> nl = navis.example_neurons(4)
-    >>> # Resample to 1 micron
-    >>> nl_res = nl.resample('1 micron', inplace=False)
+    >>> # Cable overlap is given in the neurons' units
+    >>> # Converting the example neurons from 8x8x8 voxel space into microns
+    >>> # make the results easier to interpret
+    >>> nl = nl.convert_units('um')
+    >>> # Resample to half a micron
+    >>> nl_res = nl.resample('.5 micron', inplace=False)
     >>> # Get overlapping cable within 2 microns
     >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
 
     """
     if not isinstance(a, (TreeNeuron, NeuronList)) \
        or not isinstance(b, (TreeNeuron, NeuronList)):
-        raise TypeError('Need to pass TreeNeurons')
+        raise TypeError(f'Expected `TreeNeurons`, got "{type(a)}" and "{type(b)}"')
 
     if not isinstance(a, NeuronList):
         a = NeuronList(a)
@@ -95,40 +99,50 @@ def cable_overlap(a: NeuronObject,
     if not isinstance(b, NeuronList):
         b = NeuronList(b)
 
-    allowed_methods = ['min', 'max', 'avg']
+    # Make sure neurons have the same units
+    # Do not use np.unique here because unit_str can be `None`
+    units = set(np.append(a._unit_str, b._unit_str))
+    units = np.array(list(units)).astype(str)
+    if len(units) > 1:
+        logger.warning('Neurons appear to have different units: '
+                       f'{", ".join(units)}. If that is the case, cable '
+                       'matrix overlap results will be garbage.')
+
+    allowed_methods = ['min', 'max', 'mean', 'forward', 'reverse']
     if method not in allowed_methods:
         raise ValueError(f'Unknown method "{method}". Allowed methods: '
                          f'"{", ".join(allowed_methods)}"')
-
-    if a.is_degenerated or b.is_degenerated:
-        raise ValueError('Input neurons must have unique IDs.')
 
     dist = a[0].map_units(dist, on_error='raise')
 
     matrix = pd.DataFrame(np.zeros((a.shape[0], b.shape[0])),
                           index=a.id, columns=b.id)
 
+    # Compute required props
+    treesA = []
+    lengthsA = []
+    for nA in a:
+        points, vect, length = graph.neuron2tangents(nA)
+        treesA.append(scipy.spatial.cKDTree(points))
+        lengthsA.append(length)
+
+    treesB = []
+    lengthsB = []
+    for nB in b:
+        points, vect, length = graph.neuron2tangents(nB)
+        treesB.append(scipy.spatial.cKDTree(points))
+        lengthsB.append(length)
+
     with config.tqdm(total=len(a), desc='Calc. overlap',
                      disable=config.pbar_hide,
                      leave=config.pbar_leave) as pbar:
-        # Keep track of KDtrees
-        trees: Dict[str, scipy.spatial.cKDTree] = {}
-        lengths: Dict[str, float] = {}
-        for nA in a:
+        for i, nA in enumerate(a):
             # Get cKDTree for nA
-            tA = trees.get(nA.id, None)
-            if not tA:
-                points, vect, length = graph.neuron2tangents(nA)
-                trees[nA.id] = tA = scipy.spatial.cKDTree(points)
-                lengths[nA.id] = length
+            tA = treesA[i]
 
-            for nB in b:
+            for k, nB in enumerate(b):
                 # Get cKDTree for nB
-                tB = trees.get(nB.id, None)
-                if not tB:
-                    points, vect, length = graph.neuron2tangents(nB)
-                    trees[nB.id] = tB = scipy.spatial.cKDTree(points)
-                    lengths[nB.id] = length
+                tB = treesB[k]
 
                 # Query nB -> nA
                 distA, ixA = tA.query(tB.data,
@@ -143,17 +157,21 @@ def cable_overlap(a: NeuronObject,
                                       workers=-1
                                       )
 
-                nA_lengths = lengths[nA.id][ixA[distA != float('inf')]]
-                nB_lengths = lengths[nB.id][ixB[distB != float('inf')]]
+                nA_lengths = lengthsA[i][ixA[distA != float('inf')]]
+                nB_lengths = lengthsB[k][ixB[distB != float('inf')]]
 
-                if method == 'avg':
+                if method == 'mean':
                     overlap = (nA_lengths.sum() + nB_lengths.sum()) / 2
                 elif method == 'max':
                     overlap = max(nA_lengths.sum(), nB_lengths.sum())
                 elif method == 'min':
                     overlap = min(nA_lengths.sum(), nB_lengths.sum())
+                elif method == 'forward':
+                    overlap = nA_lengths.sum()
+                elif method == 'reverse':
+                    overlap = nB_lengths.sum()
 
-                matrix.at[nA.id, nB.id] = overlap
+                matrix.iloc[i, k] = overlap
 
             pbar.update(1)
 

@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -102,3 +102,37 @@ def is_iterable(x: Any) -> bool:
         return True
     else:
         return False
+
+def multi_split(s, sep, strip=False):
+    """Split string at any of the given separators.
+
+    Returns
+    -------
+    list
+
+    Examples
+    --------
+    >>> from navis.utils import multi_split
+    >>> s = '123;456,789:'
+    >>> multi_split(s, ';')
+    ['123', '456,789']
+    >>> multi_split(s, [';', ','])
+    ['123', '456', '789']
+
+    """
+    assert isinstance(s, str)
+
+    if isinstance(sep, str):
+        sep = [sep]
+
+    splits = []
+    prev_sp = 0
+    for i in range(len(s)):
+        if s[i] in sep or i == (len(s) - 1):
+            splits.append(s[prev_sp:i])
+            prev_sp = i + 1
+
+    if strip:
+        splits = [sp.strip() for sp in splits]
+
+    return splits

@@ -2,7 +2,7 @@ Troubleshooting
 ===============
 
 You've encountered a problem? See if you can find it in below table. If not,
-please get in touch via `issues <https://github.com/schlegelp/navis/issues>`_
+please get in touch via `issues <https://github.com/navis-org/navis/issues>`_
 on Github.
 
 .. list-table::

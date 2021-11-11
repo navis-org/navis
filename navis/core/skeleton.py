@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -13,7 +13,6 @@
 
 import copy
 import functools
-import hashlib
 import numbers
 import pint
 import types
@@ -66,7 +65,7 @@ def requires_nodes(func):
 
 
 class TreeNeuron(BaseNeuron):
-    """Neuron represented as hierarchical tree (= skeleton).
+    """Neuron represented as hierarchical tree (i.e. a skeleton).
 
     Parameters
     ----------
@@ -76,7 +75,7 @@ class TreeNeuron(BaseNeuron):
                      - ``pandas.Series`` is expected to have a DataFrame as
                        ``.nodes`` - additional properties will be attached
                        as meta data
-                     - ``str`` is treated as SWC file name
+                     - ``str`` filepath is passed to :func:`navis.read_swc`
                      - ``BufferedIOBase`` e.g. from ``open(filename)``
                      - ``networkx.DiGraph`` parsed by `navis.nx2neuron`
                      - ``None`` will initialize an empty neuron
@@ -602,12 +601,19 @@ class TreeNeuron(BaseNeuron):
         if any(self.nodes.radius.isnull()):
             logger.warning(f'Neuron {self.id} has NaN radii - volume will not be correct.')
 
-        # Get distance for every child -> parent pair
-        dist = morpho.mmetrics.parent_dist(self, root_dist=0)
-        # Get cylindric volume for each segment
-        vols = (self.nodes.radius ** 2) * dist * np.pi
-        # Sum up and return
-        return vols.sum()
+        # Generate radius dict
+        radii = self.nodes.set_index('node_id').radius.to_dict()
+        # Drop root node(s)
+        not_root = self.nodes.parent_id >= 0
+        # For each cylinder get the height
+        h = morpho.mmetrics.parent_dist(self, root_dist=0)[not_root]
+
+        # Radii for top and bottom of tapered cylinder
+        nodes = self.nodes[not_root]
+        r1 = nodes.node_id.map(radii).values
+        r2 = nodes.parent_id.map(radii).values
+
+        return (1/3 * np.pi * (r1**2 + r1 * r2 + r2**2) * h).sum()
 
     @property
     def bbox(self) -> np.ndarray:
@@ -773,7 +779,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.resample_neuron`
+        :func:`~navis.resample_skeleton`
             Base function. See for details and examples.
 
         """
@@ -782,7 +788,7 @@ class TreeNeuron(BaseNeuron):
         else:
             x = self.copy(deepcopy=False)
 
-        sampling.resample_neuron(x, resample_to, inplace=True)
+        sampling.resample_skeleton(x, resample_to, inplace=True)
 
         # No need to call this as base function does this for us
         # x._clear_temp_attr()
@@ -854,7 +860,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.reroot_neuron`
+        :func:`~navis.reroot_skeleton`
             Base function. See for details and examples.
 
         """
@@ -863,9 +869,9 @@ class TreeNeuron(BaseNeuron):
         else:
             x = self.copy(deepcopy=False)
 
-        graph.reroot_neuron(x, new_root, inplace=True)
+        graph.reroot_skeleton(x, new_root, inplace=True)
 
-        # Clear temporary attributes is done by morpho.reroot_neuron()
+        # Clear temporary attributes is done by morpho.reroot_skeleton()
         # x._clear_temp_attr()
 
         if not inplace:
@@ -887,7 +893,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cut_neuron`
+        :func:`~navis.cut_skeleton`
             Base function. See for details and examples.
 
         """
@@ -899,7 +905,7 @@ class TreeNeuron(BaseNeuron):
         node = utils.make_iterable(node, force_type=None)
 
         for n in node:
-            prox = graph.cut_neuron(x, n, ret='proximal')[0]
+            prox = graph.cut_skeleton(x, n, ret='proximal')[0]
             # Reinitialise with proximal data
             x.__init__(prox)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
@@ -924,7 +930,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cut_neuron`
+        :func:`~navis.cut_skeleton`
             Base function. See for details and examples.
 
         """
@@ -936,13 +942,13 @@ class TreeNeuron(BaseNeuron):
         node = utils.make_iterable(node, force_type=None)
 
         for n in node:
-            dist = graph.cut_neuron(x, n, ret='distal')[0]
+            dist = graph.cut_skeleton(x, n, ret='distal')[0]
             # Reinitialise with distal data
             x.__init__(dist)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
             x._clear_temp_attr()
 
-        # Clear temporary attributes is done by cut_neuron
+        # Clear temporary attributes is done by cut_skeleton
         # x._clear_temp_attr()
 
         if not inplace:

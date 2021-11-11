@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -43,10 +43,11 @@ from requests.exceptions import HTTPError
 import numpy as np
 import pandas as pd
 
-from .. import config
+from .. import config, utils
 
 from ..core import Volume, TreeNeuron, MeshNeuron, NeuronList
-from ..graph import neuron2KDTree, subset_neuron
+from ..graph import neuron2KDTree
+from ..morpho import subset_neuron
 
 logger = config.logger
 
@@ -174,14 +175,21 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
 
     if isinstance(x, NeuronCriteria):
         query = x
+        wanted_ids = None
     else:
         query = NeuronCriteria(bodyId=x)
+        wanted_ids = utils.make_iterable(x)
 
     # Fetch names, etc
     meta, roi_info = fetch_neurons(query, client=client)
 
     if meta.empty:
         raise ValueError('No neurons matching the given criteria found!')
+    elif not isinstance(wanted_ids, type(None)):
+        miss = wanted_ids[~np.isin(wanted_ids, meta.bodyId.values)]
+        if len(miss):
+            logger.warning(f'Skipping {len(miss)} body IDs that were not found: '
+                           f'{", ".join(miss.astype(str))}')
 
     # Make sure there is a somaLocation and somaRadius column
     if 'somaLocation' not in meta.columns:
@@ -323,14 +331,21 @@ def fetch_skeletons(x, *, with_synapses=True, heal=False, missing_swc='raise',
 
     if isinstance(x, NeuronCriteria):
         query = x
+        wanted_ids = None
     else:
         query = NeuronCriteria(bodyId=x)
+        wanted_ids = utils.make_iterable(x)
 
     # Fetch names, etc
     meta, roi_info = fetch_neurons(query, client=client)
 
     if meta.empty:
         raise ValueError('No neurons matching the given criteria found!')
+    elif not isinstance(wanted_ids, type(None)):
+        miss = wanted_ids[~np.isin(wanted_ids, meta.bodyId.values)]
+        if len(miss):
+            logger.warning(f'Skipping {len(miss)} body IDs that were not found: '
+                           f'{", ".join(miss.astype(str))}')
 
     # Make sure there is a somaLocation and somaRadius column
     if 'somaLocation' not in meta.columns:

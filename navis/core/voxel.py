@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,6 @@ from typing import Union, Optional
 from .. import utils, config
 from .base import BaseNeuron
 from .core_utils import temp_property
-
 
 try:
     import xxhash
@@ -199,6 +198,14 @@ class VoxelNeuron(BaseNeuron):
 
         return np.vstack((mn, mx)).T
 
+    @property
+    def volume(self) -> float:
+        """Volume of neuron."""
+        # Get volume of a single voxel
+        voxel_volume = self.units_xyz[0] * self.units_xyz[2] * self.units_xyz[2]
+        voxel_volume = voxel_volume.to_compact()
+        return self.voxels.shape[0] * voxel_volume
+
     @temp_property
     def voxels(self):
         """Voxels making up the neuron."""
@@ -219,6 +226,8 @@ class VoxelNeuron(BaseNeuron):
             raise TypeError(f'Voxels must be numpy array, got "{type(voxels)}"')
         if voxels.ndim != 2 or voxels.shape[1] != 3:
             raise ValueError('Voxels must be (N, 3) array')
+        if 'float' in str(voxels.dtype):
+            voxels = voxels.astype(np.int64)
         self._data = voxels
         self._clear_temp_attr()
 
@@ -229,7 +238,7 @@ class VoxelNeuron(BaseNeuron):
             return self._data
 
         if hasattr(self, '_grid'):
-            return self._voxels
+            return self._grid
 
         grid = np.zeros(self.shape, dtype=self.values.dtype)
         grid[self._data[:, 0],

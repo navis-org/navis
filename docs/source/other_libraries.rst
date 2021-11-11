@@ -2,7 +2,7 @@
 
 |
 
-.. image:: ../_static/navis_ecosystem.png
+.. image:: ../_static/navis_ecosystem_dark.png
 
 |
 
@@ -13,7 +13,7 @@ some libraries that are built directly on top of ``navis``.
 
 flybrains
 ---------
-`flybrains <https://github.com/schlegelp/navis-flybrains>`_ is a package that
+`flybrains <https://github.com/navis-org/navis-flybrains>`_ is a package that
 bundles fly template brains and transforms that navis can use to map spatial
 data (e.g. neurons) from one brain space to another.
 

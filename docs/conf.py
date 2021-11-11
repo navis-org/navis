@@ -136,6 +136,7 @@ extensions = [
     'sphinx.ext.napoleon',
     #'sphinx.ext.mathjax', # mathjax is interactive and configurable but can also misbehave when rendering - switched to imgmath instead
     'sphinx.ext.imgmath',
+    'sphinx_copybutton',
     'matplotlib.sphinxext.plot_directive',
     'sphinx_autodoc_typehints',  # unfortunately this does not play nicely with mocking
     #'numpydoc'
@@ -176,6 +177,9 @@ source_suffix = '.rst'
 
 # The master toctree document.
 master_doc = 'index'
+
+# Exclude any "">>>" from copy button
+copybutton_prompt_text = ">>> "
 
 # General information about the project.
 project = 'navis'
@@ -268,14 +272,15 @@ html_theme = 'bootstrap'
 # html_theme_options = {}
 html_theme_options = {
     'source_link_position': "footer",
-    'bootswatch_theme': "paper",
+    'bootswatch_theme': "darkly",
     'navbar_sidebarrel': False,
     'bootstrap_version': "3",
     'navbar_links': [("Install", "source/install"),
                      ("Quickstart", "source/tutorials/quickstart"),
                      ("Tutorials", "source/gallery"),
                      ("API", "source/api"),
-                     ("Github", "https://github.com/schlegelp/navis", True),
+                     ("Changelog", "source/whats_new"),
+                     ("Github", "https://github.com/navis-org/navis", True),
                      ("Ecosystem", "source/other_libraries"),
                      ],
                      }

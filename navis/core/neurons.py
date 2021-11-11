@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -11,10 +11,10 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-"""This module is to keep backwards compatability.
+"""This file keeps backwards compatability after rearranging the core module.
 
-Pickled neurons, for example, might expect to still
-find a `navis.core.neurons.TreeNeuron`.
+For example, skeletons pickled with previous versions of navis will expect to
+still find a `navis.core.neurons.TreeNeuron`.
 """
 
 from ..core import Dotprops, MeshNeuron, TreeNeuron

@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -37,7 +37,8 @@ def read_rda(f: str,
 
     Currently supports parsing neurons, dotprops and mesh3d. Note that this is
     rather slow and I do not recommend doing this for large collections of
-    neurons.
+    neurons. For large scale conversion I recommend using the R interface
+    (``navis.interfaces.r``, see online tutorials) via ``rpy2``.
 
     Parameters
     ----------
@@ -50,16 +51,16 @@ def read_rda(f: str,
                         as separate neuronlists.
     neurons_only :      bool
                         Whether to only parse and return neurons and dotprops
-                        found in the RDA file. .
+                        found in the RDA file.
     **kwargs
                         Keyword arguments passed to the construction of
-                        ``navis.TreeNeuron``. You can use this to e.g. set
+                        `Tree/MeshNeuron/Dotprops`. You can use this to e.g. set
                         meta data.
 
     Returns
     -------
     navis.NeuronList
-                        If ``combine=True`` and ``non_neurons='ignore'`` returns
+                        If ``combine=True`` and ``neurons_only=True`` returns
                         a single NeuronList with the parsed neurons.
     dict
                         If ``combine=False`` or ``neurons_only=False`` returns
@@ -160,15 +161,25 @@ def volume_constructor(obj: Any,
     if 'vb' in obj and 'it' in obj:
         verts = np.asarray(obj.pop('vb'))[:3, :].T
         faces = np.asarray(obj.pop('it')).T - 1
+        return core.Volume(vertices=verts, faces=faces)
     elif 'Vertices' in obj and "Regions" in obj:
         verts = obj['Vertices'][['X', 'Y', 'Z']].values
-        faces = obj['Regions']['Interior'][['V1', 'V2', 'V3']].values - 1
+
+        # If only one region
+        if len(obj['Regions']) == 1:
+            region = list(obj['Regions'].keys())[0]
+            faces = obj['Regions'][region][['V1', 'V2', 'V3']].values - 1
+            return core.Volume(vertices=verts, faces=faces)
+        else:
+            volumes = []
+            for r in obj['Regions']:
+                faces = obj['Regions'][r][['V1', 'V2', 'V3']].values - 1
+                volumes.append(core.Volume(vertices=verts, faces=faces, name=r))
+            return volumes
     else:
         logger.warning('Unable to construct Volume from R object of type '
                        f'"{attrs["class"]}". Returning raw data')
         return obj
-
-    return core.Volume(vertices=verts, faces=faces)
 
 
 def neuron_constructor(obj: Any,

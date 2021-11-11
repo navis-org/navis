@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -17,10 +17,11 @@ from .nrrd_io import read_nrrd, write_nrrd
 from .precomputed_io import write_precomputed, read_precomputed
 from .hdf_io import read_h5, write_h5, inspect_h5
 from .rda_io import read_rda
+from .nmx_io import read_nmx
 
 __all__ = ['write_json', 'read_json',
            'read_swc', 'write_swc',
            'read_nrrd', 'write_nrrd',
            'read_h5', 'write_h5', 'inspect_h5',
            'write_precomputed', 'read_precomputed',
-           'read_rda']
+           'read_rda', 'read_nmx']

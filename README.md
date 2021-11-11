@@ -1,6 +1,6 @@
-[![Documentation Status](https://readthedocs.org/projects/navis/badge/?version=latest)](http://navis.readthedocs.io/en/latest/?badge=latest) [![Tests](https://github.com/schlegelp/navis/actions/workflows/test-package.yml/badge.svg)](https://github.com/schlegelp/navis/actions/workflows/test-package.yml) [![Run notebooks](https://github.com/schlegelp/navis/actions/workflows/notebooktest-package.yml/badge.svg)](https://github.com/schlegelp/navis/actions/workflows/notebooktest-package.yml) [![Coverage Status](https://coveralls.io/repos/github/schlegelp/navis/badge.svg?branch=master)](https://coveralls.io/github/schlegelp/navis?branch=master) [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/schlegelp/navis/master?urlpath=tree) [![DOI](https://zenodo.org/badge/168142416.svg)](https://zenodo.org/badge/latestdoi/168142416) [![Downloads](https://pepy.tech/badge/navis)](https://pepy.tech/project/navis)
+[![Documentation Status](https://readthedocs.org/projects/navis/badge/?version=latest)](http://navis.readthedocs.io/en/latest/?badge=latest) [![Tests](https://github.com/navis-org/navis/actions/workflows/test-package.yml/badge.svg)](https://github.com/navis-org/navis/actions/workflows/test-package.yml) [![Run notebooks](https://github.com/navis-org/navis/actions/workflows/notebooktest-package.yml/badge.svg)](https://github.com/navis-org/navis/actions/workflows/notebooktest-package.yml) [![Coverage Status](https://coveralls.io/repos/github/navis-org/navis/badge.svg?branch=master)](https://coveralls.io/github/navis-org/navis?branch=master) [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/navis-org/navis/master?urlpath=tree) [![DOI](https://zenodo.org/badge/168142416.svg)](https://zenodo.org/badge/latestdoi/168142416) [![Downloads](https://pepy.tech/badge/navis)](https://pepy.tech/project/navis)
 
-<img src="https://github.com/schlegelp/navis/raw/master/docs/_static/favicon.png" height="60">
+<img src="https://github.com/navis-org/navis/raw/master/docs/_static/favicon.png" height="60">
 
 
 NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis**ualization.
@@ -9,16 +9,17 @@ NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
 ## Features
-* work with various neuron types: **skeletons**, **meshes**, **dotprops**
-* 2D (matplotlib) and 3D (vispy or plotly) **plotting**
+* work in Jupyter or terminal
+* support for various neuron types: **skeletons**, **meshes**, **dotprops**, **voxels**
+* 2D (matplotlib) and 3D (vispy, plotly or k3d) **plotting**
 * neuron **surgery**: cutting, stitching, pruning, rerooting, intersections, ...
 * analyze morphology (e.g. **NBLAST**) and connectivity
-* **transform** data between template brains (support for e.g. HDF5, CMTK and thin plate spline transforms)
-* load neurons directly from [neuPrint](https://neuprint.janelia.org) and [neuromorpho.org](http://neuromorpho.org)
+* **transform** data between template brains (support for e.g. HDF5, CMTK, Elastix and thin plate spline transforms)
+* load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and others
 * simulate neurons and networks using the **NEURON** simulator
 * interface with **Blender 3D**
 * interface with **R** neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
-* import-export from/to **SWC** or neuroglancer's ["**precomputed**"](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed) format
+* import-export from/to **SWC**, neuroglancer's ["**precomputed**"](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed) format and more
 * designed to be **extensible** - see for example [pymaid](https://pymaid.readthedocs.io/en/latest/)
 
 ## Getting started
@@ -37,12 +38,12 @@ Alternatively click on the *launch binder* badge above to try out navis hosted b
 
 ## NAVis & friends
 <p align="center">
-<img src="https://github.com/schlegelp/navis/blob/master/docs/_static/navis_ecosystem.png?raw=true" width="700">
+<img src="https://github.com/navis-org/navis/blob/master/docs/_static/navis_ecosystem.png?raw=true" width="700">
 </p>
 
 NAVis comes with batteries included but is also highly extensible. Some
 libraries built on top of NAVis:
-* [flybrains](https://github.com/schlegelp/navis-flybrains) provides templates and transforms to use with navis
+* [flybrains](https://github.com/navis-org/navis-flybrains) provides templates and transforms to use with navis
 * [pymaid](https://pymaid.readthedocs.io/en/latest/) pulls and pushes data from/to CATMAID servers
 * [fafbseg](https://fafbseg-py.readthedocs.io/en/latest/index.html) contains tools to work with autosegmented data for the FAFB EM dataset
 

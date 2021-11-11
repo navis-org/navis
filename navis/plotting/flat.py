@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -16,6 +16,7 @@ import math
 import time
 
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcl
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -41,7 +42,8 @@ _DEFAULTS = dict(origin=(0, 0),  # Origin in coordinate system
                  switch_dist=1,  # Distance threshold for inverting angle (i.e. flip branch direction)
                  syn_linewidth=1.5,  # Line width for connectors
                  syn_highlight_color=(1, 0, 0),  # Color for highlighted connectors
-                 force_nx=False  # Force using networkx over igraph
+                 force_nx=False,  # Force using networkx over igraph
+                 color=(0.1, 0.1, 0.1)  # Color for neurites
                  )
 
 
@@ -164,7 +166,7 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
     DEFAULTS.update(kwargs)
     if len(x.root) > 1:
         raise ValueError('Unable to plot neuron with multiple roots. Use '
-                         '`navis.heal_fragmented_neuron` to merge the fragments.')
+                         '`navis.heal_skeleton` to merge the fragments.')
 
     # Change scale of markers if we normalise to max neurite length
     if normalize_distance:
@@ -173,6 +175,9 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
 
     if not ax:
         fig, ax = plt.subplots(figsize=kwargs.get('figsize', (10, 10)))
+        # Make background transparent (nicer for dark themes)
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
 
     # For each node get the distance to its root
     if 'parent_dist' not in x.nodes.columns:
@@ -192,7 +197,7 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
         # Now get paths from all tips to the root
         paths = x.igraph.get_shortest_paths(root_vs[0], leaf_vs, mode='ALL')
 
-        # Translate indices back into treenode ids
+        # Translate indices back into node ids
         ids = np.array(x.igraph.vs.get_attribute_values('node_id'))
         paths_tn = [ids[p] for p in paths]
     else:
@@ -269,10 +274,10 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
         x_coords += start_point[0]
 
         # Apply shade
+        color = DEFAULTS['color']
         if shade_by_length:
-            color = tuple([.8 - .8 * distances[-1] / path_df.cable.max()] * 3)
-        else:
-            color = (.1, .1, .1)
+            a = .8 - .8 * distances[-1] / path_df.cable.max()
+            color = mcl.to_rgba(color, alpha=a)
 
         # Change linewidths with path length
         lw = 1 * distances[-1] / path_df.cable.max() + .5
@@ -346,7 +351,8 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
 
     # Plot soma
     if x.has_soma:
-        soma_pos = positions[x.soma[0]]
+        soma = utils.make_iterable(x.soma)[0]
+        soma_pos = positions[soma]
         ax.scatter([soma_pos[0]], [soma_pos[1]],
                    s=40, color=(.1, .1, .1))
 
@@ -373,20 +379,27 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
     # Calculate layout
     logger.info('Calculating node positions.')
     positions = nx.nx_agraph.graphviz_layout(G, prog=prog,
-                                             root=x.soma[0] if x.has_soma else None)
+                                             root=utils.make_iterable(x.soma)[0] if x.has_soma else None)
 
     # Plot tree with above layout
     logger.info('Plotting tree.')
     if not ax:
         fig, ax = plt.subplots(figsize=kwargs.get('figsize', (12, 6)))
+        # Make background transparent (nicer for dark themes)
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
 
-    nx.draw(G, positions, node_size=0, arrows=False, ax=ax)
+    nx.draw(G, positions,
+            node_size=0,
+            arrows=False,
+            edge_color=DEFAULTS['color'],
+            ax=ax)
 
     # Add soma
     if x.has_soma:
-        for s in x.soma:
+        for s in utils.make_iterable(x.soma):
             ax.scatter([positions[s][0]], [positions[s][1]],
-                       s=40, color=(0, 0, 0),
+                       s=40, color=DEFAULTS['color'],
                        zorder=1)
 
     if connectors and x.has_connectors:

@@ -1,102 +1,3 @@
-/* This style sheet is from the excellent seaborn library: */
-/* https://seaborn.pydata.org (https://github.com/mwaskom/seaborn) */
-
-body { color: #444444 !important; }
-
-h1 { font-size: 40px !important; }
-h2 { font-size: 32px !important; }
-h3 { font-size: 24px !important; }
-h4 { font-size: 18px !important; }
-h5 { font-size: 14px !important; }
-h6 { font-size: 10px !important; }
-
-footer a{
-
-    color: #4c72b0 !important;
-}
-a.reference {
-    color: #4c72b0 !important;
-}
-
-blockquote p {
-    font-size: 14px !important;
-}
-
-blockquote {
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
-    margin: 0 0 0px !important;
-}
-
-pre {
-    background-color: #f6f6f9 !important;
-    width: 90% !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
-}
-
-code {
-    color: #49759c !important;
-    background-color: #ffffff !important;
-}
-
-code.descclassname {
-    padding-right: 0px !important;
-}
-
-code.descname {
-    padding-left: 0px !important;
-}
-
-dt:target, span.highlighted {
-    background-color: #ffffff !important;
-}
-
-ul {
-    padding-left: 20px !important;
-}
-
-ul.dropdown-menu {
-    padding-left: 0px !important;
-}
-
-.alert-info {
-    background-color: #adb8cb !important;
-    border-color: #adb8cb !important;
-    color: #2c3e50 !important;
-}
-
-.topic {
-    background-color: #e8e8e8 !important;
-    border-color: #e8e8e8 !important;
-    color: #444444 !important;
-    border-radius: 5px !important;
-}
-
-.panel-title{
-    background-color: #adb8cb !important;
-}
-
-.panel-heading{
-    background-color: #adb8cb !important;
-}
-
-.alert-danger {
-    color: #444444;
-    background-color: #ce9f9f !important;
-    border-color: #ce9f9f !important;
-    }
-
-.alert-trim {
-    display: block !important;
-    /*width: 50%; */
-}
-
-.red {
-    color: #C0392B !important;
-    font-weight: bold !important;
-}
-
 /* From https://github.com/twbs/bootstrap/issues/1768 */
 *[id]:before {
   display: block;
@@ -113,7 +14,7 @@ table {
     border: none;
     border-collapse: collapse;
     border-spacing: 0;
-    font-size: 12px;
+    font-size: 14px;
     /*table-layout: fixed;*/
 }
 
@@ -137,7 +38,7 @@ th {
 }
 
 tbody tr:nth-child(odd) {
-    background: #f5f5f5;
+    background: rgb(50, 50, 50);
 }
 
 tbody tr:hover {
@@ -148,4 +49,37 @@ tbody tr:hover {
 div.body {
     min-width: 450px;
     max-width: 1200px !important;
+}
+
+ul {
+    padding-left: 20px !important;
+}
+
+ul.dropdown-menu {
+    padding-left: 0px !important;
+}
+
+blockquote p {
+    font-size: 14px !important;
+}
+
+blockquote {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    margin: 0 0 0px !important;
+}
+
+pre {
+    background-color: rgb(180, 180, 180) !important;
+    width: 90% !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+}
+
+dt:target, span.highlighted {
+    background-color: rgb(100, 100, 100);
+}
+
+code {
+    background-color: rgb(200, 200, 200) !important;
 }

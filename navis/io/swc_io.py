@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -15,16 +15,12 @@ import csv
 import datetime
 import io
 import json
-import os
-import tempfile
 
-import numpy as np
 import pandas as pd
 
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
-from zipfile import ZipFile
 
 from .. import config, utils, core
 from . import base
@@ -46,6 +42,7 @@ COMMENT = "#"
 DEFAULT_DELIMITER = " "
 DEFAULT_PRECISION = 32
 DEFAULT_FMT = "{name}.swc"
+NA_VALUES = [None, 'None']
 
 
 class SwcReader(base.BaseReader):
@@ -109,6 +106,7 @@ class SwcReader(base.BaseReader):
             skiprows=len(header_rows),
             comment=COMMENT,
             header=None,
+            na_values=NA_VALUES
         )
         nodes.columns = NODE_COLUMNS
 
@@ -294,7 +292,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         If True and SWC header contains a line with JSON-encoded
                         meta data e.g. (``# Meta: {'id': 123}``), these data
                         will be read as neuron properties. `fmt` takes
-                        precedene.
+                        precedence.
     **kwargs
                         Keyword arguments passed to the construction of
                         ``navis.TreeNeuron``. You can use this to e.g. set
@@ -345,8 +343,8 @@ def write_swc(x: 'core.NeuronObject',
                         Destination for the SWC files. See examples for options.
                         If ``x`` is multiple neurons, ``filepath`` must either
                         be a folder, a "formattable" filename, a filename ending
-                        in `.zip` or a list of filenames for each neuron in x.
-                        Existing files will be overwritten!
+                        in `.zip` or a list of filenames (one for each neuron
+                        in ``x``). Existing files will be overwritten!
     header :            str | None, optional
                         Header for SWC file. If not provided, will use generic
                         header.
@@ -427,100 +425,25 @@ def write_swc(x: 'core.NeuronObject',
                         Import skeleton from SWC files.
 
     """
-    # If target is a zipfile
-    if isinstance(filepath, (str, Path)) and str(filepath).endswith('.zip'):
-        filepath = Path(filepath)
-        # Parse pattern, if given
-        pattern = '{neuron.id}.swc'
-        if '@' in str(filepath):
-            pattern, filename = filepath.name.split('@')
-            filepath = filepath.parent / filename
+    writer = base.Writer(write_func=_write_swc, ext='.swc')
 
-        # Make sure we have an iterable
-        x = core.NeuronList(x)
+    return writer.write_any(x,
+                            filepath=filepath,
+                            header=header,
+                            write_meta=write_meta,
+                            labels=labels,
+                            export_connectors=export_connectors,
+                            return_node_map=return_node_map)
 
-        with ZipFile(filepath, mode='w') as zf:
-            # Context-manager will remove temporary directory and its contents
-            with tempfile.TemporaryDirectory() as tempdir:
-                for n in config.tqdm(x, disable=config.pbar_hide,
-                                     leave=config.pbar_leave, total=len(x),
-                                     desc='Writing'):
-                    # Save to temporary file
-                    try:
-                        # Generate temporary filename
-                        f = os.path.join(tempdir, pattern.format(neuron=n))
-                        # Write to temporary file
-                        write_swc(n, filepath=f,
-                                  labels=labels,
-                                  header=header,
-                                  write_meta=write_meta,
-                                  export_connectors=export_connectors)
-                        # Add file to zip
-                        zf.write(f, arcname=pattern.format(neuron=n),
-                                 compress_type=compression)
-                    except BaseException:
-                        raise
-                    finally:
-                        # Remove temporary file - we do this inside the loop
-                        # to avoid unnecessarily occupying space as we write
-                        os.remove(f)
-        return
-    elif isinstance(x, core.NeuronList):
-        if not utils.is_iterable(filepath):
-            # Assume this is a folder if it doesn't end with '.swc'
-            is_filename = str(filepath).endswith('.swc')
-            is_single = len(x) == 1
-            is_formattable = "{" in str(filepath) and "}" in str(filepath)
-            if not is_filename or is_single or is_formattable:
-                filepath = [filepath] * len(x)
-            else:
-                raise ValueError('`filepath` must either be a folder, a '
-                                 'formattable filepath or a list of filepaths'
-                                 'when saving multiple neurons.')
 
-        if len(filepath) != len(x):
-            raise ValueError(f'Got {len(filepath)} file names for '
-                             f'{len(x)} neurons.')
-
-        # At this point filepath is iterable
-        filepath: Iterable[str]
-        for n, f in config.tqdm(zip(x, filepath), disable=config.pbar_hide,
-                                leave=config.pbar_leave, total=len(x),
-                                desc='Writing'):
-            write_swc(n, filepath=f, labels=labels, header=header,
-                      write_meta=write_meta, export_connectors=export_connectors)
-        return
-
-    # From here we are dealing with writing a single TreeNeuron to a file
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
-
-    # try to str.format any path-like
-    try:
-        as_str = os.fspath(filepath)
-    except TypeError:
-        raise ValueError(f'`filepath` must be str or pathlib.Path, got "{type(filepath)}"')
-
-    # Format filename (e.g. "{neuron.name}.swc")
-    formatted_str = as_str.format(neuron=x)
-
-    # if it was formatted, make sure it's a SWC file
-    if formatted_str != as_str and not as_str.endswith(".swc"):
-        raise ValueError("Formattable filepaths must end with '.swc'")
-
-    filepath = Path(formatted_str)
-
-    # Expand user - otherwise .exists() might fail
-    filepath = filepath.expanduser()
-
-    # If not specified, generate filename
-    if not str(filepath).endswith('.swc'):
-        filepath = filepath / f'{x.id}.swc'
-
-    # Make sure the parent directory exists
-    if not filepath.parent.exists():
-        raise ValueError(f'Parent folder {filepath.parent} must exist.')
-
+def _write_swc(x: 'core.TreeNeuron',
+               filepath: Union[str, Path],
+               header: Optional[str] = None,
+               write_meta: Union[bool, List[str], dict] = True,
+               labels: Union[str, dict, bool] = True,
+               export_connectors: bool = False,
+               return_node_map: bool = False) -> None:
+    """Write single TreeNeuron to file."""
     # Generate SWC table
     res = make_swc_table(x,
                          labels=labels,
@@ -537,10 +460,12 @@ def write_swc(x: 'core.NeuronObject',
         header = dedent(f"""\
         # SWC format file
         # based on specifications at http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html
-        # Created on {datetime.date.today()} using navis (https://github.com/schlegelp/navis)
+        # Created on {datetime.date.today()} using navis (https://github.com/navis-org/navis)
         """)
         if write_meta:
-            if isinstance(write_meta, dict):
+            if isinstance(write_meta, str):
+                props = {write_meta: str(getattr(x, write_meta, None))}
+            elif isinstance(write_meta, dict):
                 props = write_meta
             elif isinstance(write_meta, list):
                 props = {k: str(getattr(x, k, None)) for k in write_meta}
@@ -556,6 +481,8 @@ def write_swc(x: 'core.NeuronObject',
             header += dedent("""\
             # 7 = presynapses, 8 = postsynapses
             """)
+    elif not header.endswith('\n'):
+        header += '\n'
 
     with open(filepath, 'w') as file:
         # Write header
@@ -644,6 +571,9 @@ def make_swc_table(x: 'core.TreeNeuron',
 
     # Get things in order
     swc = swc[['node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id']]
+
+    # Make sure radius has no `None`
+    swc['radius'] = swc.radius.fillna(0)
 
     # Adjust column titles
     swc.columns = ['PointNo', 'Label', 'X', 'Y', 'Z', 'Radius', 'Parent']

@@ -1,5 +1,5 @@
 
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -14,7 +14,6 @@
 
 """Module contains functions implementing SyNBLAST."""
 
-import numbers
 import os
 
 import numpy as np
@@ -49,7 +48,7 @@ class SynBlaster(Blaster):
 
     TODOs
     -----
-    - implement `use_alpha` as average synapse density (i.e. emphasise areas
+    - implement `use_alpha` as average synapse density (i.e. emphasize areas
       where a neuron has lots of synapses)
 
     Parameters
@@ -152,7 +151,7 @@ class SynBlaster(Blaster):
             if ty not in t_trees:
                 # Note that this infinite distance will simply get the worst
                 # score possible in the scoring function
-                dists = np.append(dists, [np.inf] * qt.data.shape[0])
+                dists = np.append(dists, [self.score_fn.max_dist] * qt.data.shape[0])
             else:
                 tt = t_trees[ty]
                 dists = np.append(dists, tt.query(qt.data)[0])
@@ -285,7 +284,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
     # we have to send to each process
     n_rows, n_cols = find_optimal_partition(n_cores, query, target)
 
-    nblasters = []
+    blasters = []
     for q in np.array_split(query, n_rows):
         for t in np.array_split(target, n_cols):
             # Initialize SynNBlaster
@@ -306,9 +305,9 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
             # Keep track of indices of queries and targets
             this.queries = np.arange(len(q))
             this.targets = np.arange(len(t)) + len(q)
-            this.pbar_position = len(nblasters)
+            this.pbar_position = len(blasters)
 
-            nblasters.append(this)
+            blasters.append(this)
 
     # If only one core, we don't need to break out the multiprocessing
     if n_cores == 1:
@@ -316,12 +315,12 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
                                        this.targets,
                                        scores=scores)
 
-    with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
+    with ProcessPoolExecutor(max_workers=len(blasters)) as pool:
         # Each nblaster is passed to its own process
         futures = [pool.submit(this.multi_query_target,
                                q_idx=this.queries,
                                t_idx=this.targets,
-                               scores=scores) for this in nblasters]
+                               scores=scores) for this in blasters]
 
         results = [f.result() for f in futures]
 

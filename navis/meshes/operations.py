@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -13,13 +13,20 @@
 
 import warnings
 
+import numpy as np
 import trimesh as tm
 
-from .. import core, config
+try:
+    from pykdtree.kdtree import KDTree
+except ImportError:
+    from scipy.spatial import cKDTree as KDTree
 
-from .b3d import simplify_mesh_blender
+from .. import core, config, utils
+
+from .b3d import simplify_mesh_blender, smooth_mesh_blender
 from .pyml import simplify_mesh_pyml
-from .o3d import simplify_mesh_open3d
+from .o3d import simplify_mesh_open3d, smooth_mesh_open3d
+from .mesh_utils import smooth_mesh_trimesh
 
 
 def available_backends():
@@ -49,6 +56,7 @@ def available_backends():
     return backends
 
 
+@utils.map_neuronlist(desc='Simplifying', allow_parallel=True)
 def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
     """Simplify meshes (TriMesh, MeshNeuron, Volume).
 
@@ -64,7 +72,7 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
                 an F of 5000 will attempt to reduce the number of faces to 5000.
     backend :   "auto" | "open3d" | "blender" | "pymeshlab"
                 Which backend to use. Currenly we support ``open3d``, Blender 3D
-                and ``pymeshlab`.
+                and ``pymeshlab``.
     inplace :   bool
                 If True, will perform simplication on ``x``. If False, will
                 simplify and return a copy.
@@ -79,6 +87,8 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
 
     See Also
     --------
+    :func:`navis.downsample_neuron`
+                Downsample all kinds of neurons.
     :func:`navis.meshes.simplify_mesh_open3d`
                 Open3D implementation for mesh simplification.
     :func:`navis.meshes.simplify_mesh_pyml`
@@ -104,18 +114,6 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
                          'Please choose one of the available backends: '
                          f'{", ".join(backends)}')
 
-    if isinstance(x, core.NeuronList):
-        if not inplace:
-            x = x.copy()
-
-        _ = [simplify_mesh(n, F=F, inplace=True, backend=backend, **kwargs)
-             for n in config.tqdm(x,
-                                  desc='Simplifying',
-                                  leave=config.pbar_leave,
-                                  disable=len(x) == 1 or config.pbar_hide)]
-        return x
-
-
     if not inplace:
         x = x.copy()
 
@@ -134,5 +132,121 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
         if F > 1:
             F = F / len(x.faces)
         _ = simplify_mesh_pyml(x, F=F, inplace=True, **kwargs)
+
+    return x
+
+
+def combine_meshes(meshes, max_dist='auto'):
+    """Try combining (partially overlapping) meshes.
+
+    This function effectively works on the vertex graph and will not produce
+    meaningful faces.
+    """
+    # Sort meshes by size
+    meshes = sorted(meshes, key=lambda x: len(x.vertices), reverse=True)
+
+    comb = tm.Trimesh(meshes[0].vertices.copy(), meshes[0].faces.copy())
+    comb.remove_unreferenced_vertices()
+
+    if max_dist == 'auto':
+        max_dist = comb.edges_unique_length.mean()
+
+    for m in config.tqdm(meshes[1:], desc='Combining',
+                         disable=config.pbar_hide,
+                         leave=config.pbar_leave):
+        # Generate a new up-to-date tree
+        tree = KDTree(comb.vertices)
+
+        # Offset faces
+        vertex_offset = comb.vertices.shape[0]
+        new_faces = m.faces + vertex_offset
+
+        # Find vertices that can be merged - note that we are effectively
+        # zippig the two meshes by making sure that each vertex can only be
+        # merged once
+        dist, ix = tree.query(m.vertices, distance_upper_bound=max_dist)
+
+        merged = set()
+        # Merge closest vertices first
+        for i in np.argsort(dist):
+            # Skip if no more within-distance
+            if dist[i] >= np.inf:
+                break
+            # Skip if target vertex has already been merged
+            if ix[i] in merged:
+                continue
+
+            # Remap this vertex
+            new_faces[new_faces == (i + vertex_offset)] = ix[i]
+
+            # Track that target vertex has already been seen
+            merged.add(ix[i])
+
+        # Merge vertices and faces
+        comb.vertices = np.append(comb.vertices, m.vertices, axis=0)
+        comb.faces = np.append(comb.faces, new_faces, axis=0)
+
+        # Drop unreferenced vertices (i.e. those that were remapped)
+        comb.remove_unreferenced_vertices()
+
+    return comb
+
+
+@utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
+def smooth_mesh(x, iterations=5, L=.5, backend='auto', inplace=False):
+    """Smooth meshes (TriMesh, MeshNeuron, Volume).
+
+    Uses Laplacian smoothing. Not necessarily because that is always the best
+    approach but because there are three backends (see below) that offer similar
+    interfaces.
+
+    Parameters
+    ----------
+    x :             navis.MeshNeuron/List | navis.Volume | trimesh.Trimesh
+                    Mesh(es) to simplify.
+    iterations :    int
+                    Round of smoothing to apply.
+    L :             float [0-1]
+                    Diffusion speed constant lambda. Larger = more aggressive
+                    smoothing.
+    backend :       "auto" | "open3d" | "blender" | "trimesh"
+                    Which backend to use. Currenly we support ``open3d``,
+                    Blender 3D or ``trimesh``.
+    inplace :       bool
+                    If True, will perform simplication on ``x``. If False, will
+                    simplify and return a copy.
+
+    Returns
+    -------
+    smoothed
+                    Smoothed object.
+
+    """
+    if not isinstance(backend, str):
+        raise TypeError(f'`backend` must be string, got "{type(backend)}"')
+
+    backend = backend.lower()
+    backends = available_backends() + ['trimesh']
+
+    # Drop pymeshlab from backend
+    if 'pymeshlab' in backends:
+        backends.remove('pymeshlab')
+
+    if backend == 'auto':
+        backend = backends[0]
+    elif backend not in backends:
+        raise ValueError(f'Backend "{backend}" appears to not be available. '
+                         'Please choose one of the available backends: '
+                         f'{", ".join(backends)}')
+
+    if not inplace:
+        x = x.copy()
+
+    if backend == 'open3d':
+        _ = smooth_mesh_open3d(x, iterations=iterations, L=L, inplace=True)
+    elif backend == 'blender':
+        _ = smooth_mesh_blender(x, iterations=iterations, L=L, inplace=True)
+    elif backend == 'trimesh':
+        _ = smooth_mesh_trimesh(x, iterations=iterations, L=L, inplace=True)
 
     return x

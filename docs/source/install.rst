@@ -11,7 +11,7 @@ Installation instructions come in two flavours:
 .. topic:: By the way
 
    You can try navis without having to install **anything**! Simply follow this
-   link to `Binder <https://mybinder.org/v2/gh/schlegelp/navis/master?urlpath=tree>`_:
+   link to `Binder <https://mybinder.org/v2/gh/navis-org/navis/master?urlpath=tree>`_:
    they are kindly hosting a Jupyter notebook server with the most up-to-date version
    of navis. Just navigate and open ``examples/start_here.ipynb`` to have
    a crack at it!
@@ -28,14 +28,14 @@ To get the minimal most recent version from PyPI (see below for optional extras)
 
 ::
 
-   pip3 install navis
+   pip3 install navis -U
 
 To get the most recent development version from
-`Github <https://github.com/schlegelp/navis>`_ use:
+`Github <https://github.com/navis-org/navis>`_ use:
 
 ::
 
-   pip3 install git+git://github.com/schlegelp/navis@master
+   pip3 install git+git://github.com/navis-org/navis@master
 
 
 **Installing from source**
@@ -43,7 +43,7 @@ To get the most recent development version from
 Instead of using PIP to install from Github, you can also install manually:
 
 1. Download the source (e.g a ``tar.gz`` file from
-   https://github.com/schlegelp/navis/tree/master/dist)
+   https://github.com/navis-org/navis/tree/master/dist)
 
 2. Unpack and change directory to the source directory
    (the one with ``setup.py``).
@@ -90,7 +90,7 @@ Step-by-step instructions
       <li>
         <strong>Install navis and its dependencies</strong>.<br>
         Open a terminal and run:
-        <pre>pip3 install navis</pre>
+        <pre>pip3 install navis -U</pre>
         to install the most recent version of navis and all of its
         <em>mandatory</em> dependencies. <strong>You can also use this command
         to update an existing install of navis!</strong>
@@ -100,38 +100,23 @@ Step-by-step instructions
       </li>
     </ol>
 
-.. raw:: html
-
-    <div class="alert alert-danger alert-trim" role="alert">
-      Missing permissions to write can mess up
-      installations using <strong>PIP</strong>. This is not
-      recommended but if you get a
-      <code>"..permission denied.."</code> error, you can try
-      running the same command
-      as admin: <code>sudo pip3 install ...</code>
-    </div>
-
 .. topic:: Installing Python 3
 
    On **Linux** and **OSX (Mac)**, simply go to https://www.python.org to
    download + install Python3 (version 3.7 or later).
 
-   On **Windows** things are bit more tricky. While navis is written in pure
+   On **Windows** things are bit more tricky. While NAVis is written in pure
    Python, some of its dependencies don't have pre-compiled binaries for Windows
    and hence need to be compiled - which a pain on Windows. You have two
    options:
 
    1. Install `Windows Subsystem for Linux <https://docs.microsoft.com/en-us/windows/wsl/>`_
-      which runs a whole Linux inside your Windows. From my (limited)
+      which runs a whole Linux inside your Windows. From my (admittedly limited)
       experience this seems to work very well.
    2. Use a scientific Python distribution that comes with "batteries included".
       `Anaconda <https://www.continuum.io/downloads>`_ is a widespread solution
       that comes with its own package manager ``conda`` which often has
       precompiled Windows binaries where ``pip`` doesn't.
-
-.. note::
-   If you intend to use navis' interface with R, you need to install the
-   optional dependency :ref:`rpy2 <rpy>`.
 
 
 Optional Dependencies

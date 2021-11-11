@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -174,24 +174,24 @@ class NeuronList:
 
     @property
     def is_degenerated(self):
-        """Return True if contains Neurons with non-unique IDs."""
+        """Return True if contains neurons with non-unique IDs."""
         return len(set(self.id)) < len(self.neurons)
 
     @property
     def types(self):
-        """Return neurontypes present in this list."""
+        """Return neuron types present in this list."""
         return tuple(set([type(n) for n in self.neurons]))
 
     @property
     def shape(self):
-        """Shape of neuronlist (N, )."""
+        """Shape of NeuronList (N, )."""
         return (self.__len__(),)
 
     @property
     def bbox(self):
         """Bounding box across all neurons in the list."""
         if self.empty:
-            raise ValueError('No bounding box - neuronlist is empty.')
+            raise ValueError('No bounding box - NeuronList is empty.')
 
         bboxes = np.hstack([n.bbox for n in self.neurons])
         mn = np.min(bboxes, axis=1)
@@ -200,7 +200,7 @@ class NeuronList:
 
     @property
     def empty(self):
-        """Return True if neuronlist is empty."""
+        """Return True if NeuronList is empty."""
         return len(self.neurons) == 0
 
     def __reprframe__(self):
@@ -255,7 +255,7 @@ class NeuronList:
 
     def __iter__(self) -> Iterator['core.NeuronObject']:
         """Iterator instanciates a new class every time it is called.
-        This allows the use of nested loops on the same neuronlist object.
+        This allows the use of nested loops on the same NeuronList object.
         """
         class prange_iter(Iterator['core.NeuronObject']):
             def __init__(self, neurons, start):
@@ -577,7 +577,7 @@ class NeuronList:
         >>> import navis
         >>> nl = navis.example_neurons()
         >>> # Apply resampling function
-        >>> nl_rs = nl.apply(navis.resample_neuron, resample_to=1000, inplace=False)
+        >>> nl_rs = nl.apply(navis.resample_skeleton, resample_to=1000, inplace=False)
 
         """
         if not callable(func):
@@ -603,7 +603,7 @@ class NeuronList:
         return self.summary().mean(numeric_only=True)
 
     def memory_usage(self, deep=False, estimate=False, sample=False):
-        """Return estimated size in memory of this neuronlist.
+        """Return estimated size in memory of this NeuronList.
 
         Works by going over each neuron and summing up their size in memory.
 

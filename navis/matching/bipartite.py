@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -12,9 +12,7 @@
 #    GNU General Public License for more details.
 
 import scipy.optimize
-import uuid
 
-import networkx as nx
 import numpy as np
 import pandas as pd
 
@@ -232,6 +230,6 @@ def bipartite_match(scores: pd.DataFrame,
 
     if not U_miss.empty or not V_miss.empty:
         config.logger.info(f'{U_miss.shape[0] + V_miss.shape[0]} neurons could '
-                           'not be matched given the restriction.')
+                           'not be matched under the given constraints.')
 
     return pd.concat([matches, U_miss, V_miss], axis=0).reset_index(drop=True)

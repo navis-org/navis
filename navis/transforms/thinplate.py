@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -61,17 +61,11 @@ class TPStransform(BaseTransform):
     """
 
     def __init__(self, landmarks_source: np.ndarray,
-                 landmarks_target: np.ndarray,
-                 direction: str = 'forward'):
+                 landmarks_target: np.ndarray):
         """Initialize class."""
-        assert direction in ('forward', 'inverse')
-
         # Some checks
         self.source = np.asarray(landmarks_source)
         self.target = np.asarray(landmarks_target)
-
-        if direction == 'inverse':
-            self.source, self.target = self.target, self.source
 
         if self.source.shape[1] != 3:
             raise ValueError(f'Expected (N, 3) array, got {self.source.shape}')
@@ -105,7 +99,7 @@ class TPStransform(BaseTransform):
 
     def copy(self):
         """Make copy."""
-        x = TPStransform(self.source, self.target, self.direction)
+        x = TPStransform(self.source, self.target)
 
         x.__dict__.update(self.__dict__)
 

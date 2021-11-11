@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -11,9 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-
-""" This module contains functions for intersections.
-"""
+"""This module contains functions for intersections."""
 
 import pandas as pd
 import numpy as np
@@ -21,7 +19,7 @@ import numpy as np
 from typing import Union, List, Dict, Sequence, Optional, overload, Any
 from typing_extensions import Literal
 
-from .. import config, graph, core, utils
+from .. import config, core, utils, morpho
 
 from .ray import *
 from .convex import *
@@ -134,23 +132,24 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     Notes
     -----
     This function requires `ncollpyde <https://github.com/clbarnes/ncollpyde>`_
-    (recommended) or `pyoctree <https://github.com/mhogg/pyoctree>`_ as backends
-    for raycasting. These are currently optional dependencies for navis and
-    hence have to be installed separatetly. If neither is installed, we can fall
-    back to using scipy's ConvexHull instead. However: this is slower and will
-    give wrong positives for concave meshes!
+    (recommended and installed with `navis`) or
+    `pyoctree <https://github.com/mhogg/pyoctree>`_ as backends for raycasting.
+    If neither is installed, we can fall back to using scipy's ConvexHull
+    instead. This is, however, slower and will give wrong positives for concave
+    meshes!
 
     Parameters
     ----------
-    x :                 list of tuples | numpy.array | pandas.DataFrame | TreeNeuron | Dotprops | MeshNeuron | NeuronList
+    x :                 (N, 3) array-like | pandas.DataFrame | Neuron/List
 
-                        - list/numpy.array is treated as list of x/y/z
-                          coordinates. Needs to be shape (N,3): e.g.
+                        - neuron(s)
+                        - array-like is treated as list of x/y/z oordinates.
+                          Has to be of shape `(N, 3)`, i.e.
                           ``[[x1, y1, z1], [x2, y2, z2], ..]``
                         - ``pandas.DataFrame`` needs to have ``x, y, z``
                           columns
 
-    volume :            navis.Volume | navis.MeshNeuron | any mesh-like object
+    volume :            Volume | mesh-like | dict or list thereof
                         Multiple volumes can be given as list
                         (``[volume1, volume2, ...]``) or dict
                         (``{'label1': volume1, ...}``).
@@ -168,27 +167,26 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                         will use default number of rays (3 for ncollpyde, 1 for
                         pyoctree).
     prevent_fragments : bool, optional
-                        Only relevant if input is Neuron/List. If True, will add
-                        nodes required to keep neuron from fragmenting.
+                        Only relevant if input is TreeNeuron(s). If True, will
+                        attempt to keep neuron from fragmenting.
     validate :          bool, optional
-                        If True, validate mesh and try to fix issues using
+                        If True, validate `volume` and try to fix issues using
                         trimesh. Will raise ValueError if issue could not be
                         fixed.
     inplace :           bool, optional
-                        Only relevant if input is Neuron/List. If False, a copy
-                        of the original DataFrames/Neuron is returned. Does
-                        apply if multiple volumes are provided.
-
+                        Only relevant if input is Neuron/List. Ignored
+                        if multiple volumes are provided.
 
     Returns
     -------
-    TreeNeuron
-                      If input is TreeNeuron or NeuronList, will
-                      return subset of the neuron(s) (nodes and connectors)
-                      that are within given volume.
+    Neuron
+                      If input is a single neuron or NeuronList, will return
+                      subset of the neuron(s) (nodes and connectors) that are
+                      within given volume.
     list of bools
-                      If input is a set of coordinates, returns boolean:
-                      ``True`` if in volume, ``False`` if not in order.
+                      If input is `(N, 3)` array of coordinates, returns a `(N, )`
+                      boolean array: ``True`` if in volume, ``False`` if not in
+                      order.
     dict
                       If multiple volumes are provided, results will be
                       returned in dictionary with volumes as keys::
@@ -302,13 +300,16 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         if inplace is False:
             x = x.copy()
 
-    if isinstance(x, (core.TreeNeuron, core.Dotprops, core.MeshNeuron)):
+    if isinstance(x, (core.BaseNeuron)):
         if isinstance(x, core.TreeNeuron):
             data = x.nodes[['x', 'y', 'z']].values
         elif isinstance(x, core.Dotprops):
             data = x.points
         elif isinstance(x, core.MeshNeuron):
             data = x.vertices
+        elif isinstance(x, core.VoxelNeuron):
+            data = x.voxels * x.units_xyz.magnitude + x.units_xyz.magnitude / 2
+            data += x.offset
 
         in_v = in_volume(data,
                          vol,
@@ -324,21 +325,20 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         # Only subset if there are actually nodes to remove
         if not all(in_v):
             if isinstance(x, core.TreeNeuron):
-                _ = graph.subset_neuron(x,
-                                        subset=x.nodes[in_v].node_id.values,
-                                        inplace=True,
-                                        prevent_fragments=prevent_fragments)
-            elif isinstance(x, core.MeshNeuron):
-                _ = graph.subset_neuron(x,
-                                        subset=in_v,
-                                        inplace=True,
-                                        prevent_fragments=prevent_fragments)
-            elif isinstance(x, core.Dotprops):
-                x.points = x.points[in_v]
-                if not isinstance(x._vect, type(None)):
-                    x._vect = x._vect[in_v]
-                if not isinstance(x._alpha, type(None)):
-                    x._alpha = x._alpha[in_v]
+                _ = morpho.subset_neuron(x,
+                                         subset=x.nodes[in_v].node_id.values,
+                                         inplace=True,
+                                         prevent_fragments=prevent_fragments)
+            elif isinstance(x, (core.MeshNeuron, core.Dotprops)):
+                _ = morpho.subset_neuron(x,
+                                         subset=in_v,
+                                         inplace=True,
+                                         prevent_fragments=prevent_fragments)
+            elif isinstance(x, core.VoxelNeuron):
+                values = x.values[in_v]
+                x._data = x.voxels[in_v]
+                x.values = values
+                x._clear_temp_attr()
 
         return x
     elif isinstance(x, core.NeuronList):
@@ -383,12 +383,13 @@ def intersection_matrix(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :               NeuronList | TreeNeuron
-                      Neurons to intersect.
+    x :               NeuronList | single neuron
+                      Neuron(s) to intersect.
     volume :          list or dict of navis.Volume
     attr :            str | None, optional
                       Attribute to return for intersected neurons (e.g.
-                      'cable_length'). If None, will return TreeNeuron.
+                      'cable_length' for TreeNeurons). If None, will return
+                      the neuron subset to the volumes.
     **kwargs
                       Keyword arguments passed to :func:`navis.in_volume`.
 
@@ -412,7 +413,7 @@ def intersection_matrix(x: 'core.NeuronObject',
     # Volumes should be a dict at some point
     volumes_dict: Dict[str, core.Volume]
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.BaseNeuron):
         x = core.NeuronList(x)
 
     if not isinstance(x, core.NeuronList):

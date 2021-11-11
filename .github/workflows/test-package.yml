@@ -32,6 +32,7 @@ jobs:
         pip install flybrains --no-deps
         pip install pathos
         pip install cloud-volume>=5.2.0
+        pip install k3d
     - name: Install navis
       run: pip install -e .[dev]
     - run: pip install python-igraph

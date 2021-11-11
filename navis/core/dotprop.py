@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ import pandas as pd
 from typing import Union, Callable, List, Optional, Tuple
 from typing_extensions import Literal
 
-from .. import utils, config, core, sampling
+from .. import utils, config, core, sampling, graph
 
 from .base import BaseNeuron
 
@@ -50,12 +50,12 @@ with warnings.catch_warnings():
 
 
 class Dotprops(BaseNeuron):
-    """Neuron represented as dotprops.
+    """Neuron represented as points + local vectors.
 
     Dotprops consist of points with x/y/z coordinates, a tangent vector and an
-    alpha value describing the immediate neighbourhood. See References.
+    alpha value describing the immediate neighbourhood (see also references).
 
-    Typically constructed from a point cloud using :func:`navis.make_dotprops`.
+    Typically constructed using :func:`navis.make_dotprops`.
 
     References
     ----------
@@ -508,6 +508,53 @@ class Dotprops(BaseNeuron):
 
         if not inplace:
             return x
+
+    def snap(self, locs, to='points'):
+        """Snap xyz location(s) to closest point or synapse.
+
+        Parameters
+        ----------
+        locs :      (N, 3) array | (3, ) array
+                    Either single or multiple XYZ locations.
+        to :        "points" | "connectors"
+                    Whether to snap to points or connectors.
+
+        Returns
+        -------
+        ix :        int | list of int
+                    Index/Indices of the closest point/connector.
+        dist :      float | list of float
+                    Distance(s) to the closest point/connector.
+
+        Examples
+        --------
+        >>> import navis
+        >>> n = navis.example_neurons(1)
+        >>> dp = navis.make_dotprops(n, k=5)
+        >>> ix, dist = dp.snap([0, 0, 0])
+        >>> ix
+        1123
+
+        """
+        locs = np.asarray(locs).astype(np.float64)
+
+        is_single = (locs.ndim == 1 and len(locs) == 3)
+        is_multi = (locs.ndim == 2 and locs.shape[1] == 3)
+        if not is_single and not is_multi:
+            raise ValueError('Expected a single (x, y, z) location or a '
+                             '(N, 3) array of multiple locations')
+
+        if to not in ['points', 'connectors']:
+            raise ValueError('`to` must be "points" or "connectors", '
+                             f'got {to}')
+
+        # Generate tree
+        tree = graph.neuron2KDTree(self, data=to)
+
+        # Find the closest node
+        dist, ix = tree.query(locs)
+
+        return ix, dist
 
     def to_skeleton(self,
                     scale_vec: Union[float, Literal['auto']] = 'auto'

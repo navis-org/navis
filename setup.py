@@ -54,7 +54,7 @@ setup(
     url='http://navis.readthedocs.io',
     project_urls={
      "Documentation": "http://navis.readthedocs.io",
-     "Source": "https://github.com/schlegelp/navis",
+     "Source": "https://github.com/navis-org/navis",
      "Changelog": "https://navis.readthedocs.io/en/latest/source/whats_new.html",
     },
     author='Philipp Schlegel',

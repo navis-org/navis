@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -40,6 +40,13 @@ obj = sorted([f for f in os.listdir(obj_path) if f.endswith('.obj')])
 syn = sorted([f for f in os.listdir(syn_path) if f.endswith('.csv')])
 
 NeuronObject = Union[TreeNeuron, MeshNeuron, NeuronList]
+
+# Soma positions for the example neurons (for the meshes)
+SOMA_POS = {1734350788: [14957.1, 36540.7, 28432.4],
+            1734350908: [15503.5, 35903.1, 23151.6],
+            722817260: None,
+            754534424: [15150, 35262.7, 23136.6],
+            754538881: [13810, 35236, 25222.8]}
 
 
 def example_neurons(n: Optional[int] = None,
@@ -139,6 +146,8 @@ def example_neurons(n: Optional[int] = None,
                           units='8 nm',
                           name=f.split('.')[0],
                           id=int(f.split('.')[0])) for f, fp in zip(obj, files)]
+        for n in nl:
+            n.soma_pos = SOMA_POS[n.id]
 
     if synapses:
         for n in nl:

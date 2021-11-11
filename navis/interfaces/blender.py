@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -179,7 +179,7 @@ class Handler:
                         If True, will redraw window after each neuron. This
                         will slow down loading!
         use_radii :     bool, optional
-                        If True, will use treenode radii. TreeNeurons only.
+                        If True, will use node radii. For TreeNeurons only.
         skip_existing : bool, optional
                         If True, will skip neurons that are already loaded.
         downsample :    False | int, optional
@@ -1011,33 +1011,6 @@ class ObjectList:
         """Delete neurons in the selection."""
         self.select(unselect_others=True)
         bpy.ops.object.delete()
-
-    def to_json(self, fname='selection.json'):
-        """Save neuron selection as json file which can be loaded
-        in navis selection table.
-
-        Parameters
-        ----------
-        fname :     str, optional
-                    Filename to save selection to.
-
-        """
-        neuron_objects = [
-            n for n in bpy.data.objects if n.name in self.object_names and n['type'] == 'NEURON']
-
-        data = [dict(id=int(n['id']),
-                     color="#{:02x}{:02x}{:02x}".format(int(255 * n.active_material.diffuse_color[0]),
-                                                        int(255 *
-                                                            n.active_material.diffuse_color[1]),
-                                                        int(255 * n.active_material.diffuse_color[2])),
-                     opacity=1
-                     ) for n in neuron_objects]
-
-        with open(fname, 'w') as outfile:
-            json.dump(data, outfile)
-
-        logger.info(f'Selection saved as {fname} in {os.getcwd()}')
-        print(f'Selection saved as {fname} in {os.getcwd()}')
 
 
 def calc_sphere(radius, nrPolar, nrAzimuthal):

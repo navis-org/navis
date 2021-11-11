@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -16,12 +16,13 @@ import io
 import os
 import re
 import requests
+import tempfile
 
 import multiprocessing as mp
 import numpy as np
 import pandas as pd
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from functools import partial
 from pathlib import Path
 from typing import List, Union, Iterable, Dict, Optional, Any, IO
@@ -57,6 +58,137 @@ def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:
             out.update(d)
     out.update(kwargs)
     return out
+
+
+class Writer:
+    """Writer class that takes care of things like filenames, archives, etc.
+
+    Parameters
+    ----------
+    write_func :    callable
+                    Writer function to write a single file to disk. Must
+                    accept a `filepath` parameter.
+    ext :           str, optional
+                    File extension - e.g. '.swc'.
+
+    """
+
+    def __init__(self, write_func, ext):
+        assert callable(write_func)
+        if ext:
+            assert isinstance(ext, str) and ext.startswith('.')
+        self.write_func = write_func
+        self.ext = ext
+
+    def write_single(self, x, filepath, **kwargs):
+        """Write single object to file."""
+        # try to str.format any path-like
+        try:
+            as_str = os.fspath(filepath)
+        except TypeError:
+            raise ValueError(f'`filepath` must be str or pathlib.Path, got "{type(filepath)}"')
+
+        # Format filename (e.g. "{neuron.name}.swc")
+        formatted_str = as_str.format(neuron=x)
+
+        # If it was formatted, make sure it has correct extension
+        if self.ext and formatted_str != as_str and not as_str.endswith(self.ext):
+            raise ValueError(f"Formattable filepaths must end with '{self.ext}'")
+
+        filepath = Path(formatted_str)
+
+        # Expand user - otherwise .exists() might fail
+        filepath = filepath.expanduser()
+
+        # If not specified, generate filename
+        if self.ext and not str(filepath).endswith(self.ext):
+            filepath = filepath / f'{x.id}{self.ext}'
+
+        # Make sure the parent directory exists
+        if not filepath.parent.exists():
+            raise ValueError(f'Parent folder {filepath.parent} must exist.')
+
+        # Track the path we put this (and presumably all other files in)
+        self.path = Path(filepath)
+        while not self.path.is_dir():
+            self.path = self.path.parent
+
+        return self.write_func(x, filepath=filepath, **kwargs)
+
+    def write_many(self, x, filepath, **kwargs):
+        """Write multiple files to folder."""
+        if not utils.is_iterable(filepath):
+            # Assume this is a folder if it doesn't end with e.g. '.swc'
+            is_filename = str(filepath).endswith(self.ext) if self.ext else False
+            is_single = len(x) == 1
+            is_formattable = "{" in str(filepath) and "}" in str(filepath)
+            if not is_filename or is_single or is_formattable:
+                filepath = [filepath] * len(x)
+            else:
+                raise ValueError('`filepath` must either be a folder, a '
+                                 'formattable filepath or a list of filepaths'
+                                 'when saving multiple neurons.')
+
+        if len(filepath) != len(x):
+            raise ValueError(f'Got {len(filepath)} file names for '
+                             f'{len(x)} neurons.')
+
+        # At this point filepath is iterable
+        filepath: Iterable[str]
+        for n, f in config.tqdm(zip(x, filepath), disable=config.pbar_hide,
+                                leave=config.pbar_leave, total=len(x),
+                                desc='Writing'):
+            self.write_single(n, filepath=f, **kwargs)
+
+    def write_zip(self, x, filepath, **kwargs):
+        """Write files to zip."""
+        filepath = Path(filepath)
+        # Parse pattern, if given
+        pattern = '{neuron.id}' + (self.ext if self.ext else '')
+        if '@' in str(filepath):
+            pattern, filename = filepath.name.split('@')
+            filepath = filepath.parent / filename
+
+        # Make sure we have an iterable
+        x = core.NeuronList(x)
+
+        with ZipFile(filepath, mode='w') as zf:
+            # Context-manager will remove temporary directory and its contents
+            with tempfile.TemporaryDirectory() as tempdir:
+                for n in config.tqdm(x, disable=config.pbar_hide,
+                                     leave=config.pbar_leave, total=len(x),
+                                     desc='Writing'):
+                    # Save to temporary file
+                    f = None
+                    try:
+                        # Generate temporary filename
+                        f = os.path.join(tempdir, pattern.format(neuron=n))
+                        # Write to temporary file
+                        self.write_single(n, filepath=f, **kwargs)
+                        # Add file to zip
+                        zf.write(f, arcname=pattern.format(neuron=n),
+                                 compress_type=compression)
+                    except BaseException:
+                        raise
+                    finally:
+                        # Remove temporary file - we do this inside the loop
+                        # to avoid unnecessarily occupying space as we write
+                        if f:
+                            os.remove(f)
+
+        # Set filepath to zipfile -> this overwrite filepath set in write_single
+        # (which would be the temporary file)
+        self.path = Path(filepath)
+
+    def write_any(self, x, filepath, **kwargs):
+        """Write any to file. Default entry point."""
+        # If target is a zipfile
+        if isinstance(filepath, (str, Path)) and str(filepath).endswith('.zip'):
+            return self.write_zip(x, filepath=filepath, **kwargs)
+        elif isinstance(x, core.NeuronList):
+            return self.write_many(x, filepath=filepath, **kwargs)
+        else:
+            return self.write_single(x, filepath=filepath, **kwargs)
 
 
 class BaseReader(ABC):

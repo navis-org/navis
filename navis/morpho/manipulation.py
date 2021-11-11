@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -21,18 +21,20 @@ import networkx as nx
 from collections import namedtuple
 from itertools import combinations
 from scipy.spatial import cKDTree
-from typing import Union, Optional, Sequence, overload, List, Set
+from scipy.ndimage import gaussian_filter
+from typing import Union, Optional, Sequence, List, Set
 from typing_extensions import Literal
 
 from .. import graph, utils, config, core
-from . import mmetrics
+from . import mmetrics, subset
 
 # Set up logging
 logger = config.logger
 
-__all__ = sorted(['prune_by_strahler', 'stitch_neurons', 'split_axon_dendrite',
-                  'average_neurons', 'despike_neuron', 'guess_radius',
-                  'smooth_neuron', 'heal_fragmented_neuron', 'cell_body_fiber',
+__all__ = sorted(['prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite',
+                  'average_skeletons', 'despike_skeleton', 'guess_radius',
+                  'smooth_skeleton', 'smooth_voxels',
+                  'heal_skeleton', 'cell_body_fiber',
                   'break_fragments', 'prune_twigs', 'prune_at_depth',
                   'drop_fluff'])
 
@@ -40,6 +42,7 @@ NeuronObject = Union['core.NeuronList', 'core.TreeNeuron']
 
 
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
+@utils.meshneuron_skeleton(method='subset')
 def cell_body_fiber(x: NeuronObject,
                     reroot_soma: bool = True,
                     heal: bool = True,
@@ -52,7 +55,7 @@ def cell_body_fiber(x: NeuronObject,
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             TreeNeuron | MeshNeuron | NeuronList
     reroot_soma :   bool
                     If True and neuron has a soma, neuron will be rerooted to
                     its soma.
@@ -86,7 +89,7 @@ def cell_body_fiber(x: NeuronObject,
         x = x.copy()
 
     if x.n_trees > 1 and heal:
-        _ = heal_fragmented_neuron(x, method='LEAFS', inplace=True)
+        _ = heal_skeleton(x, method='LEAFS', inplace=True)
 
     # If no branches, just return the neuron
     if 'branch' not in x.nodes.type.values:
@@ -108,30 +111,13 @@ def cell_body_fiber(x: NeuronObject,
         except BaseException:
             raise
 
-    _ = graph.subset_neuron(x, path, inplace=True)
+    _ = subset.subset_neuron(x, path, inplace=True)
 
     return x
 
 
-@overload
-def prune_by_strahler(x: 'core.TreeNeuron',
-                      to_prune: Union[int, List[int], range, slice],
-                      inplace: bool = False,
-                      reroot_soma: bool = True,
-                      force_strahler_update: bool = False,
-                      relocate_connectors: bool = False) -> 'core.TreeNeuron': ...
-
-
-@overload
-def prune_by_strahler(x: 'core.NeuronList',
-                      to_prune: Union[int, List[int], range, slice],
-                      inplace: bool = False,
-                      reroot_soma: bool = True,
-                      force_strahler_update: bool = False,
-                      relocate_connectors: bool = False) -> 'core.NeuronList': ...
-
-
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
+@utils.meshneuron_skeleton(method='subset')
 def prune_by_strahler(x: NeuronObject,
                       to_prune: Union[int, List[int], range, slice],
                       inplace: bool = False,
@@ -142,18 +128,17 @@ def prune_by_strahler(x: NeuronObject,
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             TreeNeuron | MeshNeuron | NeuronList
+                    Neuron(s) to prune.
     to_prune :      int | list | range | slice
                     Strahler indices (SI) to prune. For example:
-
-                    1. ``to_prune=1`` removes all leaf branches
-                    2. ``to_prune=[1, 2]`` removes SI 1 and 2
-                    3. ``to_prune=range(1, 4)`` removes SI 1, 2 and 3
-                    4. ``to_prune=slice(0, -1)`` removes everything but the
-                       highest SI
-                    5. ``to_prune=slice(-1, None)`` removes only the highest
-                       SI
-
+                      1. ``to_prune=1`` removes all leaf branches
+                      2. ``to_prune=[1, 2]`` removes SI 1 and 2
+                      3. ``to_prune=range(1, 4)`` removes SI 1, 2 and 3
+                      4. ``to_prune=slice(0, -1)`` removes everything but the
+                         highest SI
+                      5. ``to_prune=slice(-1, None)`` removes only the highest
+                         SI
     reroot_soma :   bool, optional
                     If True, neuron will be rerooted to its soma.
     inplace :       bool, optional
@@ -202,7 +187,7 @@ def prune_by_strahler(x: NeuronObject,
 
     if isinstance(to_prune, int):
         if to_prune < 1:
-            raise ValueError('SI to prune must be positive. Please see help'
+            raise ValueError('SI to prune must be positive. Please see docs'
                              'for additional options.')
         to_prune = [to_prune]
     elif isinstance(to_prune, range):
@@ -250,25 +235,8 @@ def prune_by_strahler(x: NeuronObject,
     return neuron
 
 
-@overload
-def prune_twigs(x: 'core.NeuronList',
-                size: float,
-                exact: bool,
-                inplace: Literal[True],
-                recursive: Union[int, bool, float] = False
-                ) -> 'core.NeuronList': ...
-
-
-@overload
-def prune_twigs(x: 'core.TreeNeuron',
-                size: float,
-                exact: bool,
-                inplace: Literal[False],
-                recursive: Union[int, bool, float] = False
-                ) -> 'core.TreeNeuron': ...
-
-
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
+@utils.meshneuron_skeleton(method='subset')
 def prune_twigs(x: NeuronObject,
                 size: Union[float, str],
                 exact: bool = False,
@@ -285,7 +253,7 @@ def prune_twigs(x: NeuronObject,
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             TreeNeuron | MeshNeuron | NeuronList
     size :          int | float | str
                     Twigs shorter than this will be pruned. If the neuron has
                     its `.units` set, you can also pass a string including the
@@ -402,9 +370,9 @@ def _prune_twigs_simple(neuron: 'core.TreeNeuron',
 
         # Subset neuron
         nodes_to_keep = neuron.nodes[~neuron.nodes.node_id.isin(nodes_to_delete)].node_id.values
-        graph.subset_neuron(neuron,
-                            nodes_to_keep,
-                            inplace=True)
+        subset.subset_neuron(neuron,
+                             nodes_to_keep,
+                             inplace=True)
 
         # Go recursive
         if recursive:
@@ -467,9 +435,9 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
 
     if len(nodes_to_keep) < neuron.n_nodes:
         # Subset neuron
-        graph.subset_neuron(neuron,
-                            nodes_to_keep,
-                            inplace=True)
+        subset.subset_neuron(neuron,
+                             nodes_to_keep,
+                             inplace=True)
 
     # For each of the new leafs check their shortest distance to the
     # original leafs to get the remainder
@@ -505,14 +473,19 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
         nodes_to_keep = neuron.nodes.loc[~neuron.nodes.node_id.isin(leafs_to_remove),
                                          'node_id'].values
         # Subset neuron
-        graph.subset_neuron(neuron,
-                            nodes_to_keep,
-                            inplace=True)
+        subset.subset_neuron(neuron,
+                             nodes_to_keep,
+                             inplace=True)
 
     return neuron
 
 
 @utils.map_neuronlist(desc='Splitting', allow_parallel=True)
+@utils.meshneuron_skeleton(method='split',
+                           include_connectors=True,
+                           copy_properties=['color'],
+                           disallowed_kwargs={'label_only': True},
+                           heal=True)
 def split_axon_dendrite(x: NeuronObject,
                         metric: Union[Literal['flow_centrality'],
                                       Literal['bending_flow'],
@@ -533,7 +506,7 @@ def split_axon_dendrite(x: NeuronObject,
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 TreeNeuron | MeshNeuron | NeuronList
                         Neuron(s) to split into axon, dendrite (and cell body
                         fiber if possible). MUST HAVE CONNECTORS.
     metric :            'flow_centrality' | 'bending_flow' | 'segregation_index', optional
@@ -598,10 +571,10 @@ def split_axon_dendrite(x: NeuronObject,
     ...                                   reroot_soma=True)
     >>> split                                                   # doctest: +SKIP
     <class 'navis.NeuronList'> of 3 neurons
-                          neuron_name  id  n_nodes  n_connectors
-    0                  neuron 123457   16      148             0
-    1                  neuron 123457   16     9682          1766
-    2                  neuron 123457   16     2892           113
+                          neuron_name  id  n_nodes  n_connectors  compartment
+    0                  neuron 123457   16      148             0         axon
+    1                  neuron 123457   16     9682          1766       linker
+    2                  neuron 123457   16     2892           113     dendrite
     >>> # For convenience, split_axon_dendrite assigns colors to the resulting
     >>> # fragments: axon = red, dendrites = blue, CBF = green
     >>> _ = split.plot3d(color=split.color)
@@ -619,7 +592,7 @@ def split_axon_dendrite(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.heal_fragmented_neuron`
+    :func:`navis.heal_skeleton`
             Axon/dendrite split works only on neurons consisting of a single
             tree. Use this function to heal fragmented neurons before trying
             the axon/dendrite split.
@@ -645,7 +618,7 @@ def split_axon_dendrite(x: NeuronObject,
 
     if len(x.root) > 1:
         raise ValueError(f'Unable to split neuron {x.id}: multiple roots. '
-                         'Try `navis.heal_fragmented_neuron(x)` to merged '
+                         'Try `navis.heal_skeleton(x)` to merged '
                          'disconnected fragments.')
 
     # Make copy, so that we don't screw things up
@@ -820,7 +793,9 @@ def split_axon_dendrite(x: NeuronObject,
     nl = []
     for label, nodes in zip(['cellbodyfiber', 'dendrite', 'linker', 'axon'],
                             [cbf, dendrite, linker, axon]):
-        n = graph.subset_neuron(original, nodes)
+        if not len(nodes):
+            continue
+        n = subset.subset_neuron(original, nodes)
         n.color = COLORS.get(label, (100, 100, 100))
         n._register_attr('compartment', label)
         nl.append(n)
@@ -828,17 +803,17 @@ def split_axon_dendrite(x: NeuronObject,
     return core.NeuronList(nl)
 
 
-def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
-                   method: Union[Literal['LEAFS'],
-                                 Literal['ALL'],
-                                 Literal['NONE'],
-                                 Sequence[int]] = 'ALL',
-                   master: Union[Literal['SOMA'],
-                                 Literal['LARGEST'],
-                                 Literal['FIRST']] = 'SOMA',
-                   max_dist: Optional[float] = None,
-                   ) -> 'core.TreeNeuron':
-    """Stitch multiple neurons together.
+def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
+                     method: Union[Literal['LEAFS'],
+                                   Literal['ALL'],
+                                   Literal['NONE'],
+                                   Sequence[int]] = 'ALL',
+                     master: Union[Literal['SOMA'],
+                                   Literal['LARGEST'],
+                                   Literal['FIRST']] = 'SOMA',
+                     max_dist: Optional[float] = None,
+                     ) -> 'core.TreeNeuron':
+    """Stitch multiple skeletons together.
 
     Uses minimum spanning tree to determine a way to connect all fragments
     while minimizing length (Euclidian distance) of the new edges. Nodes
@@ -890,13 +865,13 @@ def stitch_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     >>> import navis
     >>> nl = navis.example_neurons(2)
-    >>> stitched = navis.stitch_neurons(nl, method='NONE')
+    >>> stitched = navis.stitch_skeletons(nl, method='NONE')
 
     Stitching fragmented neurons:
 
     >>> a = navis.example_neurons(1)
-    >>> fragments = navis.cut_neuron(a, 100)
-    >>> stitched = navis.stitch_neurons(fragments, method='LEAFS')
+    >>> fragments = navis.cut_skeleton(a, 100)
+    >>> stitched = navis.stitch_skeletons(fragments, method='LEAFS')
 
     """
     master = str(master).upper()
@@ -1075,11 +1050,11 @@ def _mst_nx(nl: 'core.NeuronList',
     return to_add
 
 
-def average_neurons(x: 'core.NeuronList',
-                    limit: Union[int, str] = 10,
-                    base_neuron: Optional[Union[int, 'core.TreeNeuron']] = None
-                    ) -> 'core.TreeNeuron':
-    """Compute an average from a list of neurons.
+def average_skeletons(x: 'core.NeuronList',
+                      limit: Union[int, str] = 10,
+                      base_neuron: Optional[Union[int, 'core.TreeNeuron']] = None
+                      ) -> 'core.TreeNeuron':
+    """Compute an average from a list of skeletons.
 
     This is a very simple implementation which may give odd results if used
     on complex neurons. Works fine on e.g. backbones or tracts.
@@ -1111,7 +1086,7 @@ def average_neurons(x: 'core.NeuronList',
     ...         n.reroot(n.soma, inplace=True)
     >>> da2_pr = da2.prune_by_longest_neurite(inplace=False)
     >>> # Make average
-    >>> da2_avg = navis.average_neurons(da2_pr, limit=10e3)
+    >>> da2_avg = navis.average_skeletons(da2_pr, limit=10e3)
     >>> # Plot
     >>> da2.plot3d() # doctest: +SKIP
     >>> da2_avg.plot3d() # doctest: +SKIP
@@ -1190,12 +1165,12 @@ def average_neurons(x: 'core.NeuronList',
 
 
 @utils.map_neuronlist(desc='Despiking', allow_parallel=True)
-def despike_neuron(x: NeuronObject,
-                   sigma: int = 5,
-                   max_spike_length: int = 1,
-                   inplace: bool = False,
-                   reverse: bool = False) -> Optional[NeuronObject]:
-    """Remove spikes in skeleton (e.g. from jumps in image data).
+def despike_skeleton(x: NeuronObject,
+                     sigma: int = 5,
+                     max_spike_length: int = 1,
+                     inplace: bool = False,
+                     reverse: bool = False) -> Optional[NeuronObject]:
+    r"""Remove spikes in skeleton (e.g. from jumps in image data).
 
     For each node A, the euclidean distance to its next successor (parent)
     B and that node's successor C (i.e A->B->C) is computed. If
@@ -1227,7 +1202,7 @@ def despike_neuron(x: NeuronObject,
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> despiked = navis.despike_neuron(n)
+    >>> despiked = navis.despike_skeleton(n)
 
     """
     # TODO:
@@ -1295,7 +1270,7 @@ def guess_radius(x: NeuronObject,
                  limit: Optional[int] = None,
                  smooth: bool = True,
                  inplace: bool = False) -> Optional[NeuronObject]:
-    """Guess radii for all nodes.
+    """Guess radii for skeleton nodes.
 
     Uses distance between connectors and nodes to guess radii. Interpolate for
     nodes without connectors. Fills in ``radius`` column in node table.
@@ -1403,11 +1378,11 @@ def guess_radius(x: NeuronObject,
 
 
 @utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
-def smooth_neuron(x: NeuronObject,
-                  window: int = 5,
-                  to_smooth: list = ['x', 'y', 'z'],
-                  inplace: bool = False) -> Optional[NeuronObject]:
-    """Smooth neuron using rolling windows.
+def smooth_skeleton(x: NeuronObject,
+                    window: int = 5,
+                    to_smooth: list = ['x', 'y', 'z'],
+                    inplace: bool = False) -> NeuronObject:
+    """Smooth skeleton(s) using rolling windows.
 
     Parameters
     ----------
@@ -1425,19 +1400,26 @@ def smooth_neuron(x: NeuronObject,
     Returns
     -------
     TreeNeuron/List
-                    Smoothed neuron(s). If ``inplace=False``.
+                    Smoothed neuron(s).
 
     Examples
     --------
-    Smooth x/y/z locations:
+    Smooth x/y/z locations (default):
 
     >>> import navis
     >>> nl = navis.example_neurons(2)
-    >>> smoothed = navis.smooth_neuron(nl, window=5)
+    >>> smoothed = navis.smooth_skeleton(nl, window=5)
 
-    Smooth only radius:
+    Smooth only radii:
 
-    >>> rad_smoothed = navis.smooth_neuron(nl, to_smooth='radius')
+    >>> rad_smoothed = navis.smooth_skeleton(nl, to_smooth='radius')
+
+    See Also
+    --------
+    :func:`navis.smooth_mesh`
+                    For smoothing MeshNeurons and other mesh-likes.
+    :func:`navis.smooth_voxels`
+                    For smoothing VoxelNeurons.
 
     """
     # The decorator makes sure that at this point we have single neurons
@@ -1477,13 +1459,65 @@ def smooth_neuron(x: NeuronObject,
     return x
 
 
+@utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
+def smooth_voxels(x: NeuronObject,
+                  sigma: int = 1,
+                  inplace: bool = False) -> NeuronObject:
+    """Smooth voxel(s) using a Gaussian filter.
+
+    Parameters
+    ----------
+    x :             TreeNeuron | NeuronList
+                    Neuron(s) to be processed.
+    sigma :         int | (3, ) ints, optional
+                    Standard deviation for Gaussian kernel. The standard
+                    deviations of the Gaussian filter are given for each axis
+                    as a sequence, or as a single number, in which case it is
+                    equal for all axes.
+    inplace :       bool, optional
+                    If False, will use and return copy of original neuron(s).
+
+    Returns
+    -------
+    VoxelNeuron/List
+                    Smoothed neuron(s).
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1, kind='mesh')
+    >>> vx = navis.voxelize(n, pitch='1 micron')
+    >>> smoothed = navis.smooth_voxels(vx, sigma=2)
+
+    See Also
+    --------
+    :func:`navis.smooth_mesh`
+                    For smoothing MeshNeurons and other mesh-likes.
+    :func:`navis.smooth_skeleton`
+                    For smoothing TreeNeurons.
+
+    """
+    # The decorator makes sure that at this point we have single neurons
+    if not isinstance(x, core.VoxelNeuron):
+        raise TypeError(f'Can only process VoxelNeurons, not {type(x)}')
+
+    if not inplace:
+        x = x.copy()
+
+    # Apply gaussian
+    x._data = gaussian_filter(x.grid.astype(np.float32), sigma=sigma)
+    x._clear_temp_attr()
+
+    return x
+
+
 def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
                     labels_only: bool = False,
                     min_size: Optional[int] = None) -> 'core.NeuronList':
-    """Break neuron into continuous fragments.
+    """Break neuron into its connected components.
 
     Neurons can consists of several disconnected fragments. This function
-    turn these fragments into separate neurons.
+    turns these fragments into separate neurons.
 
     Parameters
     ----------
@@ -1504,7 +1538,7 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
     See Also
     --------
-    :func:`navis.heal_fragmented_neuron`
+    :func:`navis.heal_skeleton`
                 Use to heal fragmentation instead of breaking it up.
 
 
@@ -1542,31 +1576,32 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     if min_size:
         comp = [cc for cc in comp if len(cc) >= min_size]
 
-    return core.NeuronList([graph.subset_neuron(x,
-                                                list(ss),
-                                                inplace=False) for ss in config.tqdm(comp,
-                                                                                     desc='Breaking',
-                                                                                     disable=config.pbar_hide,
-                                                                                     leave=config.pbar_leave)])
+    return core.NeuronList([subset.subset_neuron(x,
+                                                 list(ss),
+                                                 inplace=False) for ss in config.tqdm(comp,
+                                                                                      desc='Breaking',
+                                                                                      disable=config.pbar_hide,
+                                                                                      leave=config.pbar_leave)])
 
 
 @utils.map_neuronlist(desc='Healing', allow_parallel=True)
-def heal_fragmented_neuron(x: 'core.NeuronList',
-                           method: Union[Literal['LEAFS'],
-                                         Literal['ALL']] = 'ALL',
-                           max_dist: Optional[float] = None,
-                           min_size: Optional[float] = None,
-                           drop_disc: float = False,
-                           inplace: bool = False) -> Optional[NeuronObject]:
-    """Heal fragmented neuron(s).
+def heal_skeleton(x: 'core.NeuronList',
+                  method: Union[Literal['LEAFS'],
+                                Literal['ALL']] = 'ALL',
+                  max_dist: Optional[float] = None,
+                  min_size: Optional[float] = None,
+                  drop_disc: float = False,
+                  use_radii: bool = False,
+                  inplace: bool = False) -> Optional[NeuronObject]:
+    """Heal fragmented skeleton(s).
 
-    Tries to heal a fragmented neuron (i.e. a neuron with multiple roots)
+    Tries to heal a fragmented skeleton (i.e. a neuron with multiple roots)
     using a minimum spanning tree.
 
     Parameters
     ----------
     x :         TreeNeuron/List
-                Fragmented neuron(s).
+                Fragmented skeleton(s).
     method :    'LEAFS' | 'ALL', optional
                 Method used to heal fragments:
                         (1) 'LEAFS': Only leaf (including root) nodes will
@@ -1600,8 +1635,8 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
 
     See Also
     --------
-    :func:`navis.stitch_neurons`
-                Use to stitch multiple neurons together.
+    :func:`navis.stitch_skeletons`
+                Use to stitch multiple skeletons together.
     :func:`navis.break_fragments`
                 Use to produce individual neurons from disconnected fragments.
 
@@ -1609,13 +1644,13 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
     Examples
     --------
     >>> import navis
-    >>> n = navis.example_neurons(1)
+    >>> n = navis.example_neurons(1, kind='skeleton')
     >>> # Disconnect parts of the neuron
     >>> n.nodes.loc[100, 'parent_id'] = -1
     >>> len(n.root)
     2
     >>> # Heal neuron
-    >>> healed = navis.heal_fragmented_neuron(n)
+    >>> healed = navis.heal_skeleton(n)
     >>> len(healed.root)
     1
 
@@ -1647,7 +1682,7 @@ def heal_fragmented_neuron(x: 'core.NeuronList',
         trees = x.subtrees
         if len(trees) > 1:
             # Tree is sorted such that the largest component is the first
-            _ = graph.subset_neuron(x, subset=trees[0], inplace=True)
+            _ = subset.subset_neuron(x, subset=trees[0], inplace=True)
 
     return x
 
@@ -1755,10 +1790,11 @@ def _stitch_mst(x: 'core.TreeNeuron',
     g.add_edges_from(to_add)
 
     # Rewire based on graph
-    return graph.rewire_neuron(x, g, inplace=inplace)
+    return graph.rewire_skeleton(x, g, inplace=inplace)
 
 
 @utils.map_neuronlist(desc='Pruning', must_zip=['source'], allow_parallel=True)
+@utils.meshneuron_skeleton(method='subset')
 def prune_at_depth(x: NeuronObject,
                    depth: Union[float, int], *,
                    source: Optional[int] = None,
@@ -1768,7 +1804,7 @@ def prune_at_depth(x: NeuronObject,
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             TreeNeuron | MeshNeuron | NeuronList
     depth :         int | float | str
                     Distance from source at which to start pruning. If neuron
                     has its `.units` set, you can also pass this as a string such
@@ -1815,13 +1851,13 @@ def prune_at_depth(x: NeuronObject,
         raise ValueError(f'Source "{source}" not among nodes')
 
     # Get distance from source
-    dist = graph.geodesic_matrix(x, node_ids=[source], directed=False, limit=depth)
+    dist = graph.geodesic_matrix(x, from_=source, directed=False, limit=depth)
     keep = dist.columns[dist.values[0] < np.inf]
 
     if not inplace:
         x = x.copy()
 
-    _ = graph.subset_neuron(x, subset=keep, inplace=True)
+    _ = subset.subset_neuron(x, subset=keep, inplace=True)
 
     return x
 
@@ -1855,6 +1891,14 @@ def drop_fluff(x: Union['core.TreeNeuron',
     Neuron/List
                 Neuron(s) without fluff.
 
+    Examples
+    --------
+    >>> import navis
+    >>> m = navis.example_neurons(1, kind='mesh')
+    >>> clean = navis.drop_fluff(m, keep_size=30)
+    >>> m.n_vertices, clean.n_vertices
+    (6309, 6037)
+
     """
     utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, core.MeshNeuron))
 
@@ -1874,7 +1918,7 @@ def drop_fluff(x: Union['core.TreeNeuron',
         keep = cc[0]
 
     # Subset neuron
-    x = graph.subset_neuron(x, subset=keep, inplace=inplace, keep_disc_cn=True)
+    x = subset.subset_neuron(x, subset=keep, inplace=inplace, keep_disc_cn=True)
 
     # See if we need to re-attach any connectors
     id_col = 'node_id' if isinstance(x, core.TreeNeuron) else 'vertex_id'

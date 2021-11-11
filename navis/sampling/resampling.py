@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -27,43 +27,43 @@ from .. import config, core, utils, graph
 # Set up logging
 logger = config.logger
 
-__all__ = ['resample_neuron', 'resample_along_axis']
+__all__ = ['resample_skeleton', 'resample_along_axis']
 
 
 @overload
-def resample_neuron(x: 'core.TreeNeuron',
-                    resample_to: int,
-                    inplace: bool = False,
-                    method: str = 'linear',
-                    skip_errors: bool = True
-                    ) -> 'core.TreeNeuron': ...
+def resample_skeleton(x: 'core.TreeNeuron',
+                      resample_to: int,
+                      inplace: bool = False,
+                      method: str = 'linear',
+                      skip_errors: bool = True
+                      ) -> 'core.TreeNeuron': ...
 
 
 @overload
-def resample_neuron(x: 'core.NeuronList',
-                    resample_to: int,
-                    inplace: bool = False,
-                    method: str = 'linear',
-                    skip_errors: bool = True
-                    ) -> 'core.NeuronList': ...
+def resample_skeleton(x: 'core.NeuronList',
+                      resample_to: int,
+                      inplace: bool = False,
+                      method: str = 'linear',
+                      skip_errors: bool = True
+                      ) -> 'core.NeuronList': ...
 
 
 @utils.map_neuronlist(desc='Resampling', allow_parallel=True)
-def resample_neuron(x: 'core.NeuronObject',
-                    resample_to: Union[int, str],
-                    inplace: bool = False,
-                    method: str = 'linear',
-                    skip_errors: bool = True
-                    ) -> Optional['core.NeuronObject']:
-    """Resample neuron(s) to given resolution.
+def resample_skeleton(x: 'core.NeuronObject',
+                      resample_to: Union[int, str],
+                      inplace: bool = False,
+                      method: str = 'linear',
+                      skip_errors: bool = True
+                      ) -> Optional['core.NeuronObject']:
+    """Resample skeleton(s) to given resolution.
 
-    Preserves root, leafs, branchpoints. Soma, connectors and node tags
+    Preserves root, leafs and branchpoints. Soma, connectors and node tags
     (if present) are mapped onto the closest node in the resampled neuron.
 
     Important
     ---------
     A few things to keep in mind:
-      - This generates an entirely new set of node IDs! Those will be unique
+      - This generates an entirely new set of node IDs! They will be unique
         within a neuron, but you may encounter duplicates across neurons.
       - Any non-standard node table columns (e.g. "labels") will be lost.
       - Soma(s) will be pinned to the closest node in the resampled neuron.
@@ -104,19 +104,19 @@ def resample_neuron(x: 'core.NeuronObject',
     >>> # Check sampling resolution (nodes/cable)
     >>> round(n.sampling_resolution)
     60
-    >>> # Resample to 1 micron (example neurons are in nm space)
-    >>> n_rs = navis.resample_neuron(n,
-    ...                              resample_to=1000,
-    ...                              inplace=False)
+    >>> # Resample to 1 micron (example neurons are in 8x8x8nm)
+    >>> n_rs = navis.resample_skeleton(n,
+    ...                                resample_to=1000 / 8,
+    ...                                inplace=False)
     >>> round(n_rs.sampling_resolution)
-    195
+    134
 
     See Also
     --------
     :func:`navis.downsample_neuron`
                         This function reduces the number of nodes instead of
                         resample to certain resolution. Useful if you are
-                        just after some simplification e.g. for speeding up
+                        just after some simplification - e.g. for speeding up
                         your calculations or you want to preserve node IDs.
     :func:`navis.resample_along_axis`
                         Resample neuron along a single axis such that nodes
@@ -346,7 +346,7 @@ def resample_along_axis(x: 'core.TreeNeuron',
 
     See Also
     --------
-    :func:`navis.resample_neuron`
+    :func:`navis.resample_skeleton`
                         Resample neuron such that edges between nodes have a
                         given length.
     :func:`navis.downsample_neuron`

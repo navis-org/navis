@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -94,6 +94,9 @@ def plot1d(x: 'core.NeuronObject',
 
     if not ax:
         fig, ax = plt.subplots(figsize=(8, len(x) / 3))
+        # Make background transparent (nicer for dark themes)
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
 
     # Add some default parameters for the plotting to kwargs
     kwargs.update({'lw': kwargs.get('lw', .1),
@@ -128,7 +131,7 @@ def plot1d(x: 'core.NeuronObject',
             dist_mat = n.nodes_geodesic_distance_matrix
         else:
             # If not, compute matrix for subset of nodes
-            dist_mat = graph.geodesic_matrix(n, node_ids=breaks, directed=False)
+            dist_mat = graph.geodesic_matrix(n, from_=breaks, directed=False)
 
         dist = np.array([dist_mat.loc[s[0], s[1]] for s in segs]) / 1000
         max_x.append(sum(dist))

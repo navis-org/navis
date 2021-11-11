@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -13,8 +13,9 @@
 
 from .templates import registry, xform_brain, mirror_brain, symmetrize_brain
 from .xfm_funcs import xform, mirror
-from .base import AliasTransform
+from .base import AliasTransform, FunctionTransform
 from .affine import AffineTransform
+from .elastix import ElastixTransform
 from .thinplate import TPStransform
 from .h5reg import H5transform
 from .cmtk import CMTKtransform

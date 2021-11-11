@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -42,10 +42,11 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     Parameters
     ----------
     x :         MeshNeuron | trimesh.Trimesh
-                Mesh(es) to skeletonize.
+                Mesh(es) to skeletonize. Note that the quality of the results
+                very much depends on the mesh, so it might be worth doing some
+                pre-processing (see below).
     method :    'wavefront' | 'teasar'
-                Method to use for skeletonization. The quality of the results
-                very much depends on the mesh but broadly speaking:
+                Method to use for skeletonization:
                  - "wavefront": fast but noisier, skeletons will be ~centered
                    within the neuron
                  - "teasar": slower but smoother, skeletons follow the
@@ -62,7 +63,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     heal :      bool
                 Whether to heal the resulting skeleton if it is fragmented.
                 For more control over the stitching set `heal=False` and use
-                :func:`navis.heal_fragmented_neuron` directly. Note that this
+                :func:`navis.heal_skeleton` directly. Note that this
                 can be fairly costly if the mesh as many tiny fragments.
     connectors : bool
                 Whether to carry over existing connector tables. This will
@@ -113,8 +114,8 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     props = {'soma': None}
     if isinstance(x, core.MeshNeuron):
         props.update({'id': x.id, 'name': x.name, 'units': x.units})
-        if x.has_soma:
-            props['soma_pos'] = x.soma
+        if x.has_soma_pos:
+            props['soma_pos'] = x.soma_pos
 
         if not isinstance(inv_dist, type(None)):
             inv_dist = x.map_units(inv_dist)
@@ -127,7 +128,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     if fix_mesh:
         mesh = sk.pre.fix_mesh(mesh, drop_disconnected=False)
 
-    kwargs['progress'] = not config.pbar_hide
+    kwargs['progress'] = False
     if method == 'wavefront':
         skeleton = sk.skeletonize.by_wavefront(mesh, **kwargs)
     elif method == 'teasar':
@@ -137,19 +138,27 @@ def mesh2skeleton(x: 'core.MeshNeuron',
 
     s = core.TreeNeuron(skeleton.swc, **props)
 
+    if s.has_soma:
+        s.reroot(s.soma, inplace=True)
+
     if heal:
-        _ = morpho.heal_fragmented_neuron(s, inplace=True, method='ALL')
+        _ = morpho.heal_skeleton(s, inplace=True, method='ALL')
 
     if shave:
         # Find single node bristles
         leafs = s.leafs.node_id.values
+
+        # Make sure we keep the soma
+        if s.has_soma:
+            leafs = leafs[~np.isin(leafs, s.soma)]
+
         bp = s.branch_points.node_id.values
         bristles = s.nodes[s.nodes.node_id.isin(leafs)
                            & s.nodes.parent_id.isin(bp)]
 
         # Subset neuron
         keep = s.nodes[~s.nodes.node_id.isin(bristles.node_id)].node_id.values
-        s = graph.subset_neuron(s, keep, inplace=True)
+        s = morpho.subset_neuron(s, keep, inplace=True)
 
         # Fix vertex map
         for b, p in zip(bristles.node_id.values, bristles.parent_id.values):
@@ -163,8 +172,6 @@ def mesh2skeleton(x: 'core.MeshNeuron',
         radii = s.nodes.set_index('node_id').radius
         new_radii = radii.loc[s.nodes.loc[to_fix].parent_id].values / 2
         s.nodes.loc[to_fix, 'radius'] = new_radii
-
-
 
     # Last but not least: map connectors
     if connectors and x.has_connectors:
@@ -307,7 +314,7 @@ def neuron2voxels(x: 'core.BaseNeuron',
         pitch = np.array([x.map_units(p, on_error='raise') for p in pitch])
 
     # Convert to voxel indices
-    ix, offset = _make_voxels(x=x, pitch=pitch, strip=False)
+    ix, _ = _make_voxels(x=x, pitch=pitch, strip=False)
 
     if isinstance(bounds, type(None)):
         bounds = x.bbox
@@ -328,8 +335,9 @@ def neuron2voxels(x: 'core.BaseNeuron',
         vxl, cnt = np.unique(ix, axis=0, return_counts=True)
 
     # Substract lower bounds
-    vxl = vxl - (bounds[:, 0] / pitch).round().astype(int)
-    ix = ix - (bounds[:, 0] / pitch).round().astype(int)
+    offset = (bounds[:, 0] / pitch)
+    vxl = vxl - offset.round().astype(int)
+    ix = ix - offset.round().astype(int)
 
     # Drop voxels outside the defined bounds
     vxl = vxl[vxl.min(axis=1) >= 0]
@@ -345,11 +353,15 @@ def neuron2voxels(x: 'core.BaseNeuron',
         grid = grid.astype(int)
         grid[vxl[:, 0], vxl[:, 1], vxl[:, 2]] = cnt
 
+    # Apply Gaussian filter
     if smooth:
-        grid = gaussian_filter(grid.astype(float), sigma=smooth)
+        grid = gaussian_filter(grid.astype(np.float32), sigma=smooth)
 
     # Generate neuron
-    n = core.VoxelNeuron(grid, id=x.id, name=x.name)
+    units = [f'{p * u} {x.units.units}' for p, u in zip(utils.make_iterable(pitch),
+                                                        x.units_xyz.magnitude)]
+    offset = offset * pitch * x.units_xyz.magnitude
+    n = core.VoxelNeuron(grid, id=x.id, name=x.name, units=units, offset=offset)
 
     # If no vectors required, we can just return now
     if not vectors and not alphas:
@@ -408,7 +420,7 @@ def neuron2voxels(x: 'core.BaseNeuron',
     return n
 
 
-@utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
+@utils.map_neuronlist(desc='Converting', allow_parallel=True)
 def tree2meshneuron(x: 'core.TreeNeuron',
                     tube_points: int = 8,
                     use_normals: bool = True) -> 'core.MeshNeuron':

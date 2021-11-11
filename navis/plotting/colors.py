@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -234,28 +234,39 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
 
     # If by points to column collect values
     if isinstance(by, str):
-        # Make sure we are dealing only with TreeNeurons
-        if not all([isinstance(n, core.TreeNeuron) for n in neurons]):
-            raise TypeError('Can only generate colors from a column if all '
-                            'neurons are TreeNeurons.')
-
         # For convenience we will compute this if required
         if by == 'strahler_index':
             for n in neurons:
-                if 'strahler_index' not in n.nodes:
-                    _ = morpho.strahler_index(n)
-
+                if isinstance(n, core.TreeNeuron):
+                    if 'strahler_index' not in n.nodes:
+                        _ = morpho.strahler_index(n)
+                elif isinstance(n, core.MeshNeuron):
+                    if not hasattr(n, 'strahler_index'):
+                        _ = morpho.strahler_index(n)
         values = []
         for n in neurons:
-            # If column exists add to values
-            if by in n.nodes.columns:
-                values.append(n.nodes[by].values)
-            elif na == 'raise':
-                raise ValueError(f'Column {by} does not exists in neuron {n.id}')
-            # If column does not exists, add a bunch of NaNs - we will worry
-            # about it later
+            if isinstance(n, core.TreeNeuron):
+                # If column exists add to values
+                if by in n.nodes.columns:
+                    values.append(n.nodes[by].values)
+                elif na == 'raise':
+                    raise ValueError(f'Column "{by}" does not exists in neuron {n.id}')
+                # If column does not exists, add a bunch of NaNs - we will worry
+                # about it later
+                else:
+                    values.append(np.repeat(np.nan, n.nodes.shape[0]))
+            elif isinstance(n, core.MeshNeuron):
+                if hasattr(n, by):
+                    values.append(getattr(n, by))
+                elif na == 'raise':
+                    raise ValueError(f'{n.id} does not have a "{by}" property')
+                # If column does not exists, add a bunch of NaNs - we will worry
+                # about it later
+                else:
+                    values.append(np.repeat(np.nan, n.vertices.shape[0]))
             else:
-                values.append(np.repeat(np.nan, n.nodes.shape[0]))
+                raise TypeError('`color_by=str` currently not supported for '
+                                f'{type(n)}')
     # If by already contains the actual values
     else:
         # Make sure values are list of lists (in case we started with a single
@@ -269,7 +280,7 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
     if len(values) != len(neurons):
         raise ValueError(f'Got {len(values)} values for {len(neurons)} neurons.')
 
-    # We also expect to have a value for every single node/face
+    # We also expect to have a value for every single node/vertex
     for n, v in zip(neurons, values):
         if isinstance(n, core.TreeNeuron):
             if len(v) != n.n_nodes:
@@ -322,6 +333,12 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
                 vmax = np.repeat(np.max(vmax), len(values))
         else:
             vmax = np.repeat(vmax, len(values))
+
+        if any(vmin == vmax):
+            raise ValueError('Unable to normalize values: at least some min '
+                             f'and max values in "{by}" are the same. Use '
+                             '`vmin` and `vmax` parameters to manually set '
+                             'range for normalization.')
 
         # Normalize values
         values = [(np.asarray(v) - mn) / (mx - mn) for v, mn, mx in zip(values, vmin, vmax)]
@@ -393,8 +410,14 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
     return colors
 
 
-def prepare_colormap(colors, neurons=None, volumes=None, alpha=None,
-                     palette=None, color_range=255):
+def prepare_colormap(colors,
+                     neurons: Optional['core.NeuronObject'] = None,
+                     volumes: Optional[List] = None,
+                     alpha: Optional[float] = None,
+                     clusters: Optional[List[Any]] = None,
+                     palette: Optional[str] = None,
+                     color_range: Union[Literal[1],
+                                        Literal[255]] = 255):
     """Map color(s) to neuron/dotprop colorlists."""
     # Prepare dummies in case either no neuron data, no dotprops or no volumes
     if isinstance(neurons, type(None)):
@@ -416,6 +439,19 @@ def prepare_colormap(colors, neurons=None, volumes=None, alpha=None,
         # If no neurons to plot, just return None
         # This happens when there is only a scatter plot
         return [None], [None]
+
+    # If groups are provided override all existing colors
+    if not isinstance(clusters, type(None)):
+        clusters = utils.make_iterable(clusters)
+        if len(clusters) != len(neurons):
+            raise ValueError('Must provide a group for all neurons: got '
+                             f'{len(clusters)} groups for {len(neurons)} neurons')
+        cmap = {g: c for g, c in zip(np.unique(clusters),
+                                     generate_colors(len(np.unique(clusters)),
+                                                     palette=palette,
+                                                     color_range=color_range))}
+        colors = [cmap[g] for g in clusters]
+        colors += [getattr(v, 'color', (1, 1, 1)) for v in volumes]
 
     # If no colors, generate random colors
     if isinstance(colors, type(None)):

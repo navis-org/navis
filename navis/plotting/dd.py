@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -17,6 +17,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
+import matplotlib.colors as mcl
 import mpl_toolkits
 from mpl_toolkits.mplot3d.art3d import (Line3DCollection, Poly3DCollection,
                                         Path3DCollection, Patch3DCollection)
@@ -32,7 +33,7 @@ import warnings
 from typing import Union, List, Tuple
 from typing_extensions import Literal
 
-from .. import utils, config, core
+from .. import utils, config, core, conversion
 from .colors import prepare_colormap, vertex_colors
 from .plot_utils import segments_to_coords, tn_pairs_to_coords
 
@@ -142,6 +143,10 @@ def plot2d(x: Union[core.NeuronObject,
                         Alpha value for neurons. Overriden if alpha is provided
                         as fourth value in ``color`` (rgb*a*). You can override
                         alpha value for connectors by using ``cn_alpha``.
+    clusters :          list, default=None
+                        A list assigning a cluster to each neuron (e.g.
+                        ``[0, 0, 0, 1, 1]``). Overrides ``color`` and uses
+                        ``palette`` to generate colors according to clusters.
     depth_coloring :    bool, default=False
                         If True, will color encode depth (Z). Overrides
                         ``color``. Does not work with ``method = '3d_complex'``.
@@ -160,8 +165,9 @@ def plot2d(x: Union[core.NeuronObject,
     orthogonal :        bool, default=True
                         Whether to use orthogonal or perspective view for
                         methods '3d' and '3d_complex'.
-    volume_outlines :   bool, default=True
-                        If True will plot volume outline with no fill.
+    volume_outlines :   bool | "both", default=True
+                        If True will plot volume outline with no fill. Only
+                        works with `method="2d"`.
     dps_scale_vec :     float
                         Scale vector for dotprops.
     rasterize :         bool, default=False
@@ -267,9 +273,9 @@ def plot2d(x: Union[core.NeuronObject,
                         'ax', 'color', 'colors', 'c', 'view', 'scalebar',
                         'cn_mesh_colors', 'linewidth', 'cn_size', 'cn_alpha',
                         'orthogonal', 'group_neurons', 'scatter_kws', 'figsize',
-                        'linestyle', 'rasterize',
+                        'linestyle', 'rasterize', 'clusters', 'synapse_layout',
                         'alpha', 'depth_coloring', 'autoscale', 'depth_scale',
-                        'ls', 'lw', 'volume_outlines',
+                        'ls', 'lw', 'volume_outlines', 'radius',
                         'dps_scale_vec', 'palette', 'color_by', 'shade_by',
                         'vmin', 'vmax', 'smin', 'smax', 'norm_global']
     wrong_kwargs = [a for a in kwargs if a not in _ACCEPTED_KWARGS]
@@ -311,6 +317,7 @@ def plot2d(x: Union[core.NeuronObject,
                                       neurons=neurons,
                                       volumes=volumes,
                                       palette=palette,
+                                      clusters=kwargs.get('clusters', None),
                                       alpha=kwargs.get('alpha', None),
                                       color_range=1)
 
@@ -375,6 +382,9 @@ def plot2d(x: Union[core.NeuronObject,
             ax.dist = 7
             # Disallowed for 3D in matplotlib 3.1.0
             # ax.set_aspect('equal')
+        # Make background transparent (nicer for dark themes)
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
     # Check if correct axis were provided
     else:
         if not isinstance(ax, mpl.axes.Axes):
@@ -418,6 +428,11 @@ def plot2d(x: Union[core.NeuronObject,
                                            leave=False,
                                            disable=config.pbar_hide | len(neurons) < 2)):
         if not connectors_only:
+            if isinstance(neuron, core.TreeNeuron) and kwargs.get('radius', False):
+                _neuron = conversion.tree2meshneuron(neuron)
+                _neuron.connectors = neuron.connectors
+                neuron = _neuron
+
             if isinstance(neuron, core.TreeNeuron) and neuron.nodes.empty:
                 logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.id}')
             elif isinstance(neuron, core.MeshNeuron) and neuron.faces.size == 0:
@@ -433,6 +448,9 @@ def plot2d(x: Union[core.NeuronObject,
                 visuals[neuron] = {'mesh': m}
             elif isinstance(neuron, core.Dotprops):
                 dp = _plot_dotprops(neuron, neuron_cmap[i], method, ax, **kwargs)
+                visuals[neuron] = {'dotprop': dp}
+            elif isinstance(neuron, core.VoxelNeuron):
+                dp = _plot_voxels(neuron, neuron_cmap[i], method, ax, kwargs, **scatter_kws)
                 visuals[neuron] = {'dotprop': dp}
             else:
                 raise TypeError(f"Don't know how to plot neuron of type '{type(neuron)}' ")
@@ -621,6 +639,48 @@ def _plot_scatter(points, method, ax, kwargs, **scatter_kws):
                    )
 
 
+def _plot_voxels(vx, color, method, ax, kwargs, **scatter_kws):
+    """Plot VoxelNeuron as scatter plot."""
+    # Use only the top N voxels
+    assert isinstance(vx, core.VoxelNeuron)
+    n_pts = 1000000
+    v = vx.values
+    pts = vx.voxels
+    srt = np.argsort(v)[::-1]
+
+    pts = pts[srt][: n_pts]
+    v = v[srt][: n_pts]
+
+    # Scale points by units
+    pts = pts * vx.units_xyz.magnitude + vx.offset
+
+    # Calculate colors
+    cmap = color_to_cmap(color)
+    colors = cmap(v / v.max())
+
+    if method == '2d':
+        view = kwargs.get('view', ('x', 'y'))
+        x, y = _parse_view2d(pts, view)
+        ax.scatter(x, y,
+                   c=colors,
+                   s=scatter_kws.get('size', 20))
+    elif method in ['3d', '3d_complex']:
+        ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2],
+                   c=colors,
+                   marker=scatter_kws.get('marker', 'o'),
+                   s=scatter_kws.get('size', .1))
+
+
+def color_to_cmap(color):
+    """Convert single color to color palette."""
+    color = mcl.to_rgb(color)
+
+    colors = [[color[0], color[1], color[2], 0],
+              [color[0], color[1], color[2], 1]]
+
+    return mcl.LinearSegmentedColormap.from_list('Palette', colors, N=256)
+
+
 def _plot_dotprops(dp, color, method, ax, **kwargs):
     """Plot dotprops."""
     # Here, we will effectively cheat and turn the dotprops into a skeleton
@@ -632,15 +692,14 @@ def _plot_dotprops(dp, color, method, ax, **kwargs):
 
 def _plot_connectors(neuron, color, method, ax, **kwargs):
     """Plot connectors."""
-    cn_alpha = kwargs.get('cn_alpha', kwargs.get('alpha', .9))
-    cn_size = kwargs.get('cn_size', .9)
     view = kwargs.get('view', ('x', 'y'))
 
     if not kwargs.get('cn_mesh_colors', False):
-        cn_lay = config.default_connector_colors
+        cn_layout = config.default_connector_colors.copy()
     else:
-        cn_lay = {{'name': c, 'color': color}
-                  for c in neuron.connectors.type.unique()}
+        cn_layout = {{'name': c, 'color': color}
+                     for c in neuron.connectors.type.unique()}
+    cn_layout.update(kwargs.get('synapse_layout', {}))
 
     if method == '2d':
         for c in neuron.connectors.type.unique():
@@ -649,18 +708,18 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
             x, y = _parse_view2d(this_cn[['x', 'y', 'z']].values, view)
 
             ax.scatter(x, y,
-                       c=cn_lay[c]['color'],
-                       alpha=cn_alpha,
-                       zorder=4,
+                       c=cn_layout[c]['color'],
                        edgecolor='none',
-                       s=cn_size)
+                       s=cn_layout['size'])
             ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
     elif method in ['3d', '3d_complex']:
         all_cn = neuron.connectors
-        c = [cn_lay[i]['color'] for i in all_cn.type.values]
+        c = [cn_layout[i]['color'] for i in all_cn.type.values]
         ax.scatter(all_cn.x.values, all_cn.y.values, all_cn.z.values,
-                   c=c, s=cn_size, depthshade=False, edgecolor='none',
-                   alpha=cn_alpha)
+                   c=c,
+                   s=cn_layout['size'],
+                   depthshade=cn_layout.get('depthshade', False),
+                   edgecolor='none')
         ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
 
 
@@ -682,10 +741,15 @@ def _plot_mesh(neuron, color, method, ax, **kwargs):
         # Generate 2d representation
         xy = np.dstack(_parse_view2d(neuron.vertices, view))[0]
 
+        # Map vertex colors to faces
+        if isinstance(color, np.ndarray) and color.ndim == 2:
+            if len(color) != len(neuron.faces) and len(color) == len(neuron.vertices):
+                color = [color[f].mean(axis=0)[:3].tolist() for f in neuron.faces]
+
         # Generate a patch for each face
         patches = []
-        for f in neuron.faces:
-            p = mpatches.Polygon(xy[f], closed=True, fill=color)
+        for i, f in enumerate(neuron.faces):
+            p = mpatches.Polygon(xy[f], closed=True)
             patches.append(p)
         pc = PatchCollection(patches, linewidth=0, facecolor=color,
                              rasterized=rasterize,
@@ -939,7 +1003,9 @@ def _plot_volume(volume, color, method, ax, **kwargs):
     if method == '2d':
         view = kwargs.get('view', ('x', 'y'))
 
-        if not kwargs.get('volume_outlines', False):
+        volume_outlines = kwargs.get('volume_outlines', False)
+
+        if volume_outlines in (False, 'both'):
             # Generate 2d representation
             xy = np.dstack(_parse_view2d(volume.verts, view))[0]
 
@@ -952,11 +1018,13 @@ def _plot_volume(volume, color, method, ax, **kwargs):
                                  rasterized=rasterize,
                                  edgecolor=ec, alpha=this_alpha, zorder=0)
             ax.add_collection(pc)
-        else:
-            verts = volume.to_2d(view=view)
+
+        if volume_outlines in (True, 'both'):
+            verts = volume.to_2d(view=view, alpha=0.001)
             vpatch = mpatches.Polygon(verts, closed=True, lw=lw, fill=fill,
                                       rasterized=rasterize,
-                                      fc=fc, ec=ec, alpha=this_alpha, zorder=0)
+                                      fc=fc, ec=ec, zorder=0,
+                                      alpha=1 if volume_outlines == 'both' else this_alpha)
             ax.add_patch(vpatch)
 
     elif method in ['3d', '3d_complex']:

@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -36,11 +36,11 @@ __all__ = sorted(['strahler_index', 'bending_flow',
 
 def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
                 root_dist: Optional[int] = None) -> None:
-    """Get child->parent distances for nodes.
+    """Get child->parent distances for skeleton nodes.
 
     Parameters
     ----------
-    x :         TreeNeuron | treenode table
+    x :         TreeNeuron | node table
     root_dist : int | None
                 ``parent_dist`` for the root's row. Set to ``None``, to leave
                 at ``NaN`` or e.g. to ``0`` to set to 0.
@@ -73,35 +73,15 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
     return w
 
 
-@overload
-def strahler_index(x: 'core.TreeNeuron',
-                   method: Union[Literal['standard'],
-                                 Literal['greedy']] = 'standard',
-                   to_ignore: list = [],
-                   min_twig_size: Optional[int] = None,
-                   inplace: bool = True
-                   ) -> 'core.TreeNeuron':
-    pass
-
-
-@overload
-def strahler_index(x: 'core.NeuronList',
-                   method: Union[Literal['standard'],
-                                 Literal['greedy']] = 'standard',
-                   to_ignore: list = [],
-                   min_twig_size: Optional[int] = None,
-                   inplace: bool = True
-                   ) -> 'core.NeuronList':
-    pass
-
-
 @utils.map_neuronlist(desc='Calc. SI', allow_parallel=True)
+@utils.meshneuron_skeleton(method='node_properties',
+                           reroot_soma=True,
+                           node_props=['strahler_index'])
 def strahler_index(x: 'core.NeuronObject',
                    method: Union[Literal['standard'],
                                  Literal['greedy']] = 'standard',
                    to_ignore: list = [],
-                   min_twig_size: Optional[int] = None,
-                   inplace: bool = True
+                   min_twig_size: Optional[int] = None
                    ) -> 'core.NeuronObject':
     """Calculate Strahler Index (SI).
 
@@ -111,9 +91,9 @@ def strahler_index(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 TreeNeuron | MeshNeuron | NeuronList
     method :            'standard' | 'greedy', optional
-                        Method used to calculate strahler indices: 'standard'
+                        Method used to calculate Strahler indices: 'standard'
                         will use the method described above; 'greedy' will
                         always increase the index at converging branches
                         whether these branches have the same index or not.
@@ -126,30 +106,29 @@ def strahler_index(x: 'core.NeuronObject',
                         If provided, will ignore twigs with fewer nodes than
                         this. Instead, they will be assigned the SI of their
                         parent branch.
-    inplace :           bool, optional
-                        If False, a copy of original neuron is returned.
 
     Returns
     -------
-    navis.TreeNeuron
-                        A neuron with a "strahler_index" column in the node
-                        table. If ``inplace=False`` the neuron will be a copy
-                        of the original.
+    neuron
+                Adds "strahler_index" as column in the node table (for
+                TreeNeurons) or as `."strahler_index` property
+                (for MeshNeurons).
 
     Examples
     --------
     >>> import navis
-    >>> n = navis.example_neurons(2)
+    >>> n = navis.example_neurons(2, kind='skeleton')
     >>> n.reroot(n.soma, inplace=True)
     >>> _ = navis.strahler_index(n)
     >>> n[0].nodes.strahler_index.max()
     6
+    >>> m = navis.example_neurons(1, kind='mesh')
+    >>> _ = navis.strahler_index(m)
+    >>> m.strahler_index.max()
+    5
 
     """
     utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
-
-    if not inplace:
-        x = x.copy()
 
     # Find branch, root and end nodes
     if 'type' not in x.nodes:
@@ -336,7 +315,9 @@ def segregation_index(x: Union['core.NeuronObject', dict]) -> float:
 
 
 @utils.map_neuronlist(desc='Calc. seg.', allow_parallel=True)
-def arbor_segregation_index(x: 'core.NeuronObject') -> None:
+@utils.meshneuron_skeleton(method='node_properties',
+                           node_props=['segregation_index'])
+def arbor_segregation_index(x: 'core.NeuronObject') -> 'core.NeuronObject':
     """Per arbor seggregation index (SI).
 
     The segregation index (SI) as established by Schneider-Mizell et al. (eLife,
@@ -348,7 +329,7 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> None:
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         TreeNeuron | MeshNeuron | NeuronList
                 Neuron(s) to calculate segregation indices for. Must have
                 connectors!
 
@@ -366,15 +347,17 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> None:
 
     Returns
     -------
-    None
-            Adds a new column ``'segregation_index'`` to the nodes table.
+    neuron
+                Adds "segregation_index" as column in the node table (for
+                TreeNeurons) or as `.segregation_index` property
+                (for MeshNeurons).
 
     Examples
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.reroot(n.soma, inplace=True)
-    >>> navis.arbor_segregation_index(n)
+    >>> _ = navis.arbor_segregation_index(n)
     >>> n.nodes.segregation_index.max().round(3)
     0.277
 
@@ -464,11 +447,15 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> None:
     # Add segregation index to node table
     x.nodes['segregation_index'] = x.nodes.node_id.map(SI)
 
-    return
+    return x
 
 
 @utils.map_neuronlist(desc='Calc. flow', allow_parallel=True)
-def bending_flow(x: 'core.NeuronObject') -> None:
+@utils.meshneuron_skeleton(method='node_properties',
+                           include_connectors=True,
+                           heal=True,
+                           node_props=['bending_flow'])
+def bending_flow(x: 'core.NeuronObject') -> 'core.NeuronObject':
     """Calculate bending flow.
 
     This is a variation of the algorithm for calculating synapse flow from
@@ -480,7 +467,7 @@ def bending_flow(x: 'core.NeuronObject') -> None:
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         TreeNeuron | MeshNeuron | NeuronList
                 Neuron(s) to calculate bending flow for. Must have connectors!
 
     Notes
@@ -502,14 +489,17 @@ def bending_flow(x: 'core.NeuronObject') -> None:
 
     Returns
     -------
-    Adds a new column ``'bending_flow'`` to the nodes table.
+    neuron
+                Adds "bending_flow" as column in the node table (for
+                TreeNeurons) or as `.bending_flow` property
+                (for MeshNeurons).
 
     Examples
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> n.reroot(n.soma, inplace=True)
-    >>> navis.bending_flow(n)
+    >>> _ = navis.bending_flow(n)
     >>> n.nodes.bending_flow.max()
     785645
 
@@ -597,15 +587,19 @@ def bending_flow(x: 'core.NeuronObject') -> None:
     # Set flow centrality to None for all nodes
     x.nodes['bending_flow'] = x.nodes.node_id.map(flow)
 
-    return
+    return x
 
 
 @utils.map_neuronlist(desc='Calc. flow', allow_parallel=True)
+@utils.meshneuron_skeleton(method='node_properties',
+                           include_connectors=True,
+                           heal=True,
+                           node_props=['flow_centrality'])
 def flow_centrality(x: 'core.NeuronObject',
                     mode: Union[Literal['centrifugal'],
                                 Literal['centripetal'],
                                 Literal['sum']] = 'sum'
-                    ) -> None:
+                    ) -> 'core.NeuronObject':
     """Calculate synapse flow centrality (SFC).
 
     From Schneider-Mizell et al. (2016): "We use flow centrality for
@@ -627,7 +621,7 @@ def flow_centrality(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         TreeNeuron | MeshNeuron | NeuronList
                 Neuron(s) to calculate flow centrality for. Must have
                 connectors!
     mode :      'centrifugal' | 'centripetal' | 'sum', optional
@@ -649,7 +643,10 @@ def flow_centrality(x: 'core.NeuronObject',
 
     Returns
     -------
-    Adds a new column 'flow_centrality' to nodes table .
+    neuron
+                Adds "flow_centrality" as column in the node table (for
+                TreeNeurons) or as `.flow_centrality` property
+                (for MeshNeurons).
 
     Examples
     --------
@@ -753,7 +750,7 @@ def flow_centrality(x: 'core.NeuronObject',
     # Add info on method/mode used for flow centrality
     x.centrality_method = mode  # type: ignore
 
-    return None
+    return x
 
 
 def tortuosity(x: 'core.NeuronObject',
@@ -780,11 +777,13 @@ def tortuosity(x: 'core.NeuronObject',
     Note
     ----
     If you want to make sure that segments are as close to length `L` as
-    possible, consider resampling the neuron using :func:`navis.resample_neuron`.
+    possible, consider resampling the neuron using :func:`navis.resample_skeleton`.
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 TreeNeuron | MeshNeuron | NeuronList
+                        Neuron to analyze. If MeshNeuron, will generate and
+                        use a skeleton representation.
     seg_length :        int | float | str | list thereof, optional
                         Target segment length(s) `L`. If neuron(s) have their
                         ``.units`` set, you can also pass a string such as
@@ -821,7 +820,9 @@ def tortuosity(x: 'core.NeuronObject',
         df.index.name = 'seg_length'
         return df
 
-    if not isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.MeshNeuron):
+        x = x.skeleton
+    elif not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
 
     if isinstance(seg_length, (list, np.ndarray)):

@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -39,26 +39,25 @@ class Volume(trimesh.Trimesh):
 
     Parameters
     ----------
-    vertices :  list | array
-                Vertices coordinates. Must be shape (N,3). Can also be an object
-                that has ``.vertices`` and ``.faces`` attributes in which case
-                ``faces`` parameter will be ignored.
+    vertices :  list | array | mesh-like
+                `(N, 3)` vertices coordinates or an object that has
+                ``.vertices`` and ``.faces`` attributes in which case ``faces``
+                parameter will be ignored.
     faces :     list | array
-                Indexed faceset.
+                `(M, 3)` array of indexed triangle faces.
     name :      str, optional
-                Name of volume.
+                A name for the volume.
     color :     tuple, optional
-                RGB color.
+                RGB(A) color.
     id :        int, optional
-                If not provided, neuron will be assigned a random UUID
-                as ``.id``
+                If not provided, neuron will be assigned a random UUID as ``.id``.
     **kwargs
                 Keyword arguments passed through to ``trimesh.Trimesh``
 
     See Also
     --------
     :func:`~navis.example_volume`
-        Loads example volume(s).
+                Loads example volume(s).
 
     """
 
@@ -388,22 +387,20 @@ class Volume(trimesh.Trimesh):
         return f'<navis.Volume({", ".join(elements)})>'
 
     def __truediv__(self, other):
-        """Implement division for vertex coordinates."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
-            return self.__mul__(1 / other)
-        else:
-            return NotImplemented
+        """Implement division for vertices."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            n = self.copy()
+            _ = np.divide(n.vertices, other, out=n.vertices, casting='unsafe')
+            return n
+        return NotImplemented
 
     def __mul__(self, other):
-        """Implement multiplication for vertex coordinates."""
-        if isinstance(other, numbers.Number):
-            # If a number, consider this an offset for coordinates
-            v = self.copy()
-            v.vertices *= other
-            return v
-        else:
-            return NotImplemented
+        """Implement multiplication for vertices."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            n = self.copy()
+            _ = np.multiply(n.vertices, other, out=n.vertices, casting='unsafe')
+            return n
+        return NotImplemented
 
     def resize(self,
                x: Union[float, int],
@@ -667,6 +664,6 @@ def _force_volume(f):
     def wrapper(*args, **kwargs):
         res = f(*args, **kwargs)
         if isinstance(res, trimesh.Trimesh):
-            res = Volume(res.vertices, res.faces)
+            res = Volume(res.vertices, res.faces, **res.metadata)
         return res
     return wrapper

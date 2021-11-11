@@ -1,5 +1,5 @@
 
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -222,7 +222,7 @@ class NBlaster(Blaster):
 
 def nblast_smart(query: Union[Dotprops, NeuronList],
                  target: Optional[str] = None,
-                 t: int = 90,
+                 t: Union[int, float] = 90,
                  criterion: Union[Literal['percentile'],
                                   Literal['score'],
                                   Literal['N']] = 'percentile',
@@ -239,7 +239,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  progress: bool = True) -> pd.DataFrame:
     """Smart(er) NBLAST query against target neurons.
 
-    In comparison with :func:`navis.nblast`, this function will first run a
+    In contrast to :func:`navis.nblast` this function will first run a
     "pre-NBLAST" in which only 10% of the query dotprops' points are used.
     Using those initial scores, we select for each query the highest scoring
     targets and run the full NBLAST only on those query-target pairs (see
@@ -256,6 +256,9 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     microns as NBLAST is optimized for that and have
                     similar sampling resolutions. If not provided, will NBLAST
                     queries against themselves.
+    t :             int | float
+                    Determines for which pairs we will run a full NBLAST. See
+                    ``criterion`` parameter for details.
     criterion :     "percentile" | "score" | "N"
                     Criterion for selecting query-target pairs for full NBLAST:
 
@@ -876,7 +879,10 @@ def check_microns(x):
 
     Returns either [True, None (=unclear), False]
     """
-    microns = [config.ureg.Unit('microns'), config.ureg.Unit('um'), config.ureg.Unit('micrometer')]
+    microns = [config.ureg.Unit('microns'),
+               config.ureg.Unit('um'),
+               config.ureg.Unit('micrometer'),
+               config.ureg.Unit('dimensionless')]
     if not isinstance(x, NeuronList):
         x = NeuronList(x)
 

@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -62,12 +62,9 @@ def neuron2plotly(x, colormap, **kwargs):
                                  color_range=255)
 
     if not isinstance(shade_by, type(None)):
-        logger.warning('`shade_by` is currently not working due to an bug in '
-                       'plotly.')
-        """
         alphamap = vertex_colors(x,
                                  by=shade_by,
-                                 alpha=True,
+                                 use_alpha=True,
                                  palette='viridis',  # palette is irrelevant here
                                  vmin=kwargs.get('smin', None),
                                  vmax=kwargs.get('smax', None),
@@ -79,7 +76,7 @@ def neuron2plotly(x, colormap, **kwargs):
             if not (isinstance(c, np.ndarray) and c.ndim == 2):
                 c = np.tile(c, (a.shape[0],  1))
 
-            if not c.dtype in (np.float16, np.float32, np.float64):
+            if c.dtype not in (np.float16, np.float32, np.float64):
                 c = c.astype(np.float16)
 
             if c.shape[1] == 4:
@@ -89,21 +86,8 @@ def neuron2plotly(x, colormap, **kwargs):
 
             new_colormap.append(c)
         colormap = new_colormap
-        """
 
-    cn_lay = {
-        0: {'name': 'Presynapses',
-            'color': (255, 0, 0)},
-        1: {'name': 'Postsynapses',
-            'color': (0, 0, 255)},
-        2: {'name': 'Gap junctions',
-            'color': (0, 255, 0)},
-        'display': 'lines',  # 'circles'
-        'size': 2  # for circles only
-    }
-    cn_lay['pre'] = cn_lay[0]
-    cn_lay['post'] = cn_lay[1]
-    cn_lay['gap_junction'] = cn_lay['gapjunction'] = cn_lay[2]
+    cn_lay = config.default_connector_colors.copy()
     cn_lay.update(kwargs.get('synapse_layout', {}))
 
     trace_data = []
@@ -233,9 +217,11 @@ def mesh2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
 
     if isinstance(color, np.ndarray) and color.ndim == 2:
         if len(color) == len(neuron.vertices):
-            color_kwargs = dict(vertexcolor=color)
+            # For some reason single colors are 0-255 but face/vertex colors
+            # have to be 0-1
+            color_kwargs = dict(vertexcolor=color  / [255, 255, 255, 1])
         elif len(color) == len(neuron.faces):
-            color_kwargs = dict(facecolor=color)
+            color_kwargs = dict(facecolor=color / [255, 255, 255, 1])
         else:
             color_kwargs = dict(color=color)
     else:
@@ -455,8 +441,9 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
 
 def scatter2plotly(x, **kwargs):
     """Convert DataFrame with x,y,z columns to plotly scatter plot."""
-    c = eval_color(kwargs.get('color', (10, 10, 10)), color_range=255)
-    s = kwargs.get('size', 2)
+    c = eval_color(kwargs.get('color', kwargs.get('c', (100, 100, 100))),
+                   color_range=255)
+    s = kwargs.get('size', kwargs.get('s', 2))
     name = kwargs.get('name', None)
 
     trace_data = []
@@ -552,10 +539,12 @@ def volume2plotly(x, colormap, **kwargs):
 
 def layout2plotly(**kwargs):
     """Generate layout for plotly figures."""
-    layout = dict(width=kwargs.get('width', 1200),
-                  height=kwargs.get('height', 600),
-                  autosize=kwargs.get('fig_autosize', False),
+    layout = dict(width=kwargs.get('width', None),   # these override autosize
+                  height=kwargs.get('height', 600),  # these override autosize
+                  autosize=kwargs.get('fig_autosize', True),
                   title=kwargs.get('pl_title', None),
+                  plot_bgcolor='rgba(0,0,0,0)',
+                  paper_bgcolor='rgba(0,0,0,0)',
                   scene=dict(xaxis=dict(gridcolor='rgb(255, 255, 255)',
                                         zerolinecolor='rgb(255, 255, 255)',
                                         showbackground=False,
@@ -590,10 +579,5 @@ def layout2plotly(**kwargs):
                              aspectmode='data'
                              ),
                   )
-
-    # Need to remove width and height to make autosize actually matter
-    if kwargs.get('fig_autosize', False):
-        layout.pop('width')
-        layout.pop('height')
 
     return layout

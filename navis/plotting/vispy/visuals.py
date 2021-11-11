@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2017 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@ with warnings.catch_warnings():
     from vispy import scene
     from vispy.geometry import create_sphere
 
-__all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy',
+__all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy', 'voxel2vispy',
            'points2vispy', 'combine_visuals']
 
 logger = config.logger
@@ -191,6 +191,7 @@ def neuron2vispy(x, **kwargs):
                                        neurons=x,
                                        palette=palette,
                                        alpha=kwargs.get('alpha', None),
+                                       clusters=kwargs.get('clusters', None),
                                        color_range=1)
 
     if not isinstance(shade_by, type(None)):
@@ -266,7 +267,7 @@ def neuron2vispy(x, **kwargs):
 
 def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
     """Convert connectors to vispy visuals."""
-    cn_lay = config.default_connector_colors
+    cn_lay = config.default_connector_colors.copy()
     cn_lay.update(kwargs.get('synapse_layout', {}))
 
     visuals = []
@@ -289,12 +290,13 @@ def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
 
         mode = cn_lay['display']
         if mode == 'circles' or isinstance(neuron, core.MeshNeuron):
-            con = scene.visuals.Markers()
+            con = scene.visuals.Markers(spherical=cn_lay.get('spherical', True),
+                                        scaling=cn_lay.get('scale', False))
 
             con.set_data(pos=np.array(pos),
                          face_color=color,
                          edge_color=color,
-                         size=cn_lay.get('size', 1))
+                         size=cn_lay.get('size', 100))
 
         elif mode == 'lines':
             tn_coords = neuron.nodes.set_index('node_id').loc[this_cn.node_id.values][['x', 'y', 'z']].apply(pd.to_numeric).values
@@ -328,6 +330,10 @@ def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
 
 def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
     """Convert mesh (i.e. MeshNeuron) to vispy visuals."""
+    # Skip empty neurons
+    if not len(neuron.faces):
+        return []
+
     color_kwargs = dict(color=neuron_color)
     if isinstance(neuron_color, np.ndarray) and neuron_color.ndim == 2:
         if len(neuron_color) == len(neuron.vertices):
@@ -336,6 +342,16 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
             color_kwargs = dict(face_colors=neuron_color)
         else:
             color_kwargs = dict(color=neuron_color)
+
+    # There is a bug in pickling/unpickling numpy arrays where an internal flag
+    # is set from 1 to 0 -> this then in turn upsets vispy. See also:
+    # https://github.com/vispy/vispy/issues/1741#issuecomment-574425662
+    # Pickling happens when meshneurons have been multi-processed. To fix this
+    # the best way is to use astype (.copy() doesn't cut it)
+    if neuron.vertices.dtype.isbuiltin == 0:
+        neuron.vertices = neuron.vertices.astype(neuron.vertices.dtype.str)
+    if neuron.faces.dtype.isbuiltin == 0:
+        neuron.faces = neuron.faces.astype(neuron.faces.dtype.str)
 
     m = scene.visuals.Mesh(vertices=neuron.vertices,
                            faces=neuron.faces,
@@ -350,7 +366,7 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
         if int(vispy.__version__.split('.')[1]) >= 7:
             m.shading_filter.shininess = kwargs['shininess']
         else:
-            m.shininess =  kwargs['shininess']
+            m.shininess = kwargs['shininess']
 
     # Possible presets are "additive", "translucent", "opaque"
     if len(neuron_color) == 4 and neuron_color[3] < 1:
@@ -531,6 +547,10 @@ def dotprop2vispy(x, neuron_color, object_id, **kwargs):
                     Contains vispy visuals for each dotprop.
 
     """
+    # Skip empty neurons
+    if not len(x.points):
+        return []
+
     # Generate TreeNeuron
     scale_vec = kwargs.get('dps_scale_vec', 'auto')
     tn = x.to_skeleton(scale_vec=scale_vec)
@@ -566,11 +586,12 @@ def points2vispy(x, **kwargs):
         if not isinstance(p, np.ndarray):
             p = np.array(p)
 
-        con = scene.visuals.Markers()
+        con = scene.visuals.Markers(spherical=kwargs.get('spherical', True),
+                                    scaling=kwargs.get('scale', False))
         con.set_data(pos=p,
                      face_color=colors,
                      edge_color=colors,
-                     size=kwargs.get('size', 2))
+                     size=kwargs.get('size', kwargs.get('s', 2)))
 
         # Add custom attributes
         con.unfreeze()
@@ -637,7 +658,7 @@ def combine_visuals(visuals, name=None):
                 connect.append(vis._connect + offset)
                 offset += vis._pos.shape[0]
 
-            connect = np.concatenate(connect) 
+            connect = np.concatenate(connect)
             colors = np.concatenate(colors)
 
             t = scene.visuals.Line(pos=pos,

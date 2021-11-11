@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -87,7 +87,8 @@ default_connector_colors = {
         'color': (0, .75, .75)},
     2: {'name': 'Gap junctions',
         'color': (0, 1, 0)},
-    'display': 'lines'  # can also be 'circle'
+    'display': 'lines',  # can also be 'circles'
+    'size': 2  # for "circles" only
                         }
 # Set some synonyms
 default_connector_colors['pre'] = default_connector_colors['Pre'] = default_connector_colors[0]
@@ -113,8 +114,10 @@ def is_jupyter():
     """Test if navis is run in a Jupyter notebook."""
     return _type_of_script() == 'jupyter'
 
+
 # Here, we import tqdm and determine whether we use classic notebook tbars
-from tqdm import tqdm_notebook, tnrange
+from tqdm.notebook import tqdm as tqdm_notebook
+from tqdm.notebook import trange as trange_notebook
 from tqdm import tqdm as tqdm_classic
 from tqdm import trange as trange_classic
 
@@ -122,9 +125,8 @@ from tqdm import trange as trange_classic
 tqdm_class = tqdm_classic
 
 if is_jupyter():
-    from tqdm import tqdm_notebook, tnrange
     tqdm = tqdm_notebook
-    trange = tnrange
+    trange = trange_notebook
 else:
     tqdm = tqdm_classic
     trange = trange_classic

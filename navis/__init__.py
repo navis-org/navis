@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -13,10 +13,10 @@
 
 from .__version__ import __version__, __version_vector__
 
+from .connectivity import *
+from .conversion import *
 from .core import *
 from .data import *
-from .clustering import *
-from .connectivity import *
 from .graph import *
 from .intersection import *
 from .io import *
@@ -27,4 +27,3 @@ from .plotting import *
 from .sampling import *
 from .transforms import *
 from .utils import *
-from .conversion import *

@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -72,7 +72,7 @@ class MeshNeuron(BaseNeuron):
                     "micrometer" or "8 nanometers".
     process :       bool
                     If True (default and highly recommended), will remove NaN
-                    and inf values, and merge duplicate vertices.
+                    and infinite values, and merge duplicate vertices.
     validate :      bool
                     If True, will try to fix some common problems with
                     meshes. See ``navis.fix_mesh`` for details.
@@ -281,8 +281,18 @@ class MeshNeuron(BaseNeuron):
 
     @property
     def sampling_resolution(self) -> float:
-        """Average distance vertices. """
+        """Average distance between vertices."""
         return float(self.trimesh.edges_unique_length.mean())
+
+    @property
+    def volume(self) -> float:
+        """Volume of the neuron.
+
+        Calculated from the surface integral. Garbage if neuron is not
+        watertight.
+
+        """
+        return float(self.trimesh.volume)
 
     @temp_property
     def skeleton(self) -> 'TreeNeuron':

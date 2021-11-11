@@ -18,7 +18,7 @@ function. There you will also find more examples.
                <div class="panel-body">
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    tutorials/neurons_intro
 
@@ -35,7 +35,7 @@ function. There you will also find more examples.
                <div class="panel-body">
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    tutorials/plotting
 
@@ -88,6 +88,7 @@ function. There you will also find more examples.
    tutorials/neuron
    blender
    tutorials/neuprint
+   tutorials/microns_tut
    tutorials/cloudvolume_tut
    tutorials/insectbraindb
    tutorials/r_doc
@@ -133,3 +134,6 @@ function. There you will also find more examples.
          </div>
       </div>
    </div>
+
+Not seeing what you're looking for or need additional pointers? Open an
+`issue <https://github.com/navis-org/navis/issues>`_ on Github!

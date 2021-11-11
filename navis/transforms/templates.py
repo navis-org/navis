@@ -1,4 +1,4 @@
-#    This script is part of navis (http://www.github.com/schlegelp/navis).
+#    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -195,7 +195,7 @@ class TemplateRegistry:
 
     def register_transform(self, transform: BaseTransform, source: str,
                            target: str, transform_type: str,
-                           invertible: bool = True, skip_existing: bool = True,
+                           skip_existing: bool = True,
                            weight: int = 1):
         """Register a transform.
 
@@ -211,8 +211,6 @@ class TemplateRegistry:
                             transforms.
         transform_type :    "bridging" | "mirror"
                             Type of transform.
-        invertible :        bool
-                            Whether transform can be inverted via ``__neg__``.
         skip_existing :     bool
                             If True will skip if transform is already in registry.
         weight :            int
@@ -231,7 +229,8 @@ class TemplateRegistry:
 
         # Translate into edge
         edge = transform_reg(source=source, target=target, transform=transform,
-                             type=transform_type, invertible=invertible,
+                             type=transform_type,
+                             invertible=hasattr(transform, '__neg__'),
                              weight=weight)
 
         # Don't add if already exists
@@ -345,6 +344,7 @@ class TemplateRegistry:
         """
         # Drop mirror transforms
         bridge = [t for t in self.transforms if t.type == 'bridging']
+        bridge_inv = [t for t in bridge if t.invertible]
 
         # Generate graph
         # Note we are using MultiDi graph here because we might
@@ -364,12 +364,12 @@ class TemplateRegistry:
                 rv_edges = [(t.target, t.source,
                              {'transform': -t.transform,  # note inverse transform!
                               'type': str(type(t.transform)).split('.')[-1],
-                              'weight': t.weight * reciprocal}) for t in bridge]
+                              'weight': t.weight * reciprocal}) for t in bridge_inv]
             else:
                 rv_edges = [(t.target, t.source,
                              {'transform': -t.transform,  # note inverse transform!
                               'type': str(type(t.transform)).split('.')[-1],
-                              'weight': t.weight}) for t in bridge]
+                              'weight': t.weight}) for t in bridge_inv]
             edges += rv_edges
 
         G.add_edges_from(edges)
@@ -721,7 +721,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     Examples
     --------
     This example requires the
-    `flybrains <https://github.com/schlegelp/navis-flybrains>`_
+    `flybrains <https://github.com/navis-org/navis-flybrains>`_
     library to be installed: ``pip3 install flybrains``
 
     Also, if you haven't already, you will need to have the optional Saalfeld
@@ -754,11 +754,11 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         TypeError(f'Expected target of type str, got "{type(target)}"')
 
     # Get the transformation sequence
-    path, trans_seq = registry.shortest_bridging_seq(source, target)
+    path, transforms = registry.find_bridging_path(source, target)
 
     if verbose:
         path_str = path[0]
-        for p, tr in zip(path[1:], trans_seq.transforms):
+        for p, tr in zip(path[1:], transforms):
             if isinstance(tr, AliasTransform):
                 link = '='
             else:
@@ -766,6 +766,9 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             path_str += f' {link} {p}'
 
         print('Transform path:', path_str)
+
+    # Combine into transform sequence
+    trans_seq = TransformSequence(*transforms)
 
     # Apply transform and returned xformed points
     return xform(x, transform=trans_seq, caching=caching,
@@ -845,7 +848,7 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
     Examples
     --------
     This example requires the
-    `flybrains <https://github.com/schlegelp/navis-flybrains>`_
+    `flybrains <https://github.com/navis-org/navis-flybrains>`_
     library to be installed: ``pip3 install flybrains``
 
     >>> import navis
@@ -1022,7 +1025,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     Examples
     --------
     This example requires the
-    `flybrains <https://github.com/schlegelp/navis-flybrains>`_
+    `flybrains <https://github.com/navis-org/navis-flybrains>`_
     library to be installed: ``pip3 install flybrains``
 
     Also, if you haven't already, you will need to have the optional Saalfeld
@@ -1220,7 +1223,7 @@ class TemplateBrain:
     Minimally, a template should have a `name` and `label` property. For
     mirroring, it also needs a `boundingbox`.
 
-    See `navis-flybrains <https://github.com/schlegelp/navis-flybrains>`_ for
+    See `navis-flybrains <https://github.com/navis-org/navis-flybrains>`_ for
     an example of how to use template brains.
     """
 
