@@ -415,7 +415,7 @@ class CompartmentModel:
 
         """
         self._add_stimulus('IClamp', where=where, delay=start,
-                           dur=duration, i=current)
+                           dur=duration, amp=current)
 
     def add_synaptic_current(self, where, start=5, tau=0.1, rev_pot=0,
                              max_syn_cond=0.1):
