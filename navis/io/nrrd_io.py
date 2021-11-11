@@ -178,7 +178,7 @@ def read_nrrd(f: Union[str, Iterable],
                         Determines function's output. See Returns.
     errors :            "raise" | "log" | "ignore"
                         If "log" or "ignore", errors will not be raised but
-                        instead empty Dotprops will be returned.
+                        instead empty neuron will be returned.
 
     **kwargs
                         Keyword arguments passed to :func:`navis.make_dotprops`
@@ -188,7 +188,7 @@ def read_nrrd(f: Union[str, Iterable],
 
     Returns
     -------
-    navis.Voxelneuron
+    navis.VoxelNeuron
                         If ``output="voxels"`` (default). Contains NRRD header
                         as ``.nrrd_header`` attribute.
     navis.Dotprops
