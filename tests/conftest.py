@@ -1,7 +1,10 @@
 from pathlib import Path
+import os
 
 import pandas as pd
 import pytest
+import numpy as np
+import nrrd
 
 import navis
 
@@ -52,3 +55,22 @@ def swc_source_multi(request, data_dir: Path):
         yield [dpath, fpath]
     else:
         raise ValueError(f"Unknown parameter '{request.param}'")
+
+
+@pytest.fixture
+def voxel_nrrd_path(tmp_path):
+    parent = tmp_path / "nrrd"
+    parent.mkdir()
+    path = parent / "simple.nrrd"
+    data = np.zeros((15, 15, 15))
+    rng = np.random.RandomState(1991)
+    core = rng.random((5, 5, 15))
+    data[5:10, 5:10, :] = core
+
+    header = {
+        "space directions": np.diag([1, 2, 3]).tolist(),
+        "space units": ["um", "um", "um"],
+    }
+    nrrd.write(os.fspath(path), data, header)
+
+    return path

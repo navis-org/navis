@@ -1,6 +1,7 @@
 import navis
 import pytest
 import tempfile
+import numpy as np
 
 from pathlib import Path
 
@@ -72,3 +73,17 @@ def test_precomputed_mesh_io(filename):
 
         # Assert that we loaded the same number of neurons
         assert len(n) == len(n2)
+
+
+def test_read_nrrd(voxel_nrrd_path):
+    navis.read_nrrd(voxel_nrrd_path, output="voxels", errors="raise")
+
+
+def test_roundtrip_nrrd(voxel_nrrd_path):
+    vneuron = navis.read_nrrd(voxel_nrrd_path, output="voxels", errors="raise")
+    outpath = voxel_nrrd_path.parent / "written.nrrd"
+    navis.write_nrrd(voxel_nrrd_path.parent / "written.nrrd", vneuron)
+    vneuron2 = navis.read_nrrd(outpath, output="voxels", errors="raise")
+    assert np.allclose(vneuron._data, vneuron2._data)
+    assert np.allclose(vneuron.units_xyz.magnitude, vneuron2.units_xyz.magnitude)
+    assert vneuron.units_xyz.units == vneuron2.units_xyz.units
