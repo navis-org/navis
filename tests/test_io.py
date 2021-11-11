@@ -82,7 +82,7 @@ def test_read_nrrd(voxel_nrrd_path):
 def test_roundtrip_nrrd(voxel_nrrd_path):
     vneuron = navis.read_nrrd(voxel_nrrd_path, output="voxels", errors="raise")
     outpath = voxel_nrrd_path.parent / "written.nrrd"
-    navis.write_nrrd(voxel_nrrd_path.parent / "written.nrrd", vneuron)
+    navis.write_nrrd(vneuron, outpath)
     vneuron2 = navis.read_nrrd(outpath, output="voxels", errors="raise")
     assert np.allclose(vneuron._data, vneuron2._data)
     assert np.allclose(vneuron.units_xyz.magnitude, vneuron2.units_xyz.magnitude)
