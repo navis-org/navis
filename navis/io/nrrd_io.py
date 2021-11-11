@@ -31,7 +31,8 @@ logger = config.logger
 
 def write_nrrd(x: 'core.NeuronObject',
                filepath: Union[str, Path],
-               compression_level: int = 3) -> None:
+               compression_level: int = 3,
+               attrs: Optional[Dict[str, Any]] = None) -> None:
     """Write VoxelNeuron(s) to NRRD files.
 
     Parameters
@@ -48,6 +49,8 @@ def write_nrrd(x: 'core.NeuronObject',
     compression_level : int 1-9
                         Lower = faster writing but larger files. Higher = slower
                         writing but smaller files.
+    attrs :             dict
+                        Any additional attributes will be written to NRRD header.
 
     Returns
     -------
@@ -108,20 +111,23 @@ def write_nrrd(x: 'core.NeuronObject',
 
     return writer.write_any(x,
                             filepath=filepath,
-                            compression_level=compression_level)
+                            compression_level=compression_level,
+                            **(attrs or {}))
 
 
 def _write_nrrd(x: 'core.VoxelNeuron',
                 filepath: Optional[str] = None,
-                compression_level: int = 1) -> None:
+                compression_level: int = 1,
+                **attrs) -> None:
     """Write single VoxelNeuron as NRRD file."""
     if not isinstance(x, core.VoxelNeuron):
         raise TypeError(f'Expected VoxelNeuron, got "{type(x)}"')
 
-    header = {}
+    header = getattr(x, "nrrd_header", {})
     header['space dimension'] = 3
     header['space directions'] = np.diag(x.units_xyz.magnitude)
     header['space units'] = [str(x.units_xyz.units)] * 3
+    header.update(attrs or {})
 
     data = x.grid
     if data.dtype == bool:
@@ -166,9 +172,8 @@ def read_nrrd(f: Union[str, Iterable],
                         processing if more than 10 NRRD files are imported.
                         Spawning and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
-                        neurons. Integer will be interpreted as the
-                        number of cores (otherwise defaults to
-                        ``os.cpu_count() - 2``).
+                        neurons. Integer will be interpreted as the number of
+                        cores (otherwise defaults to ``os.cpu_count() - 2``).
     output :            "voxels" | "dotprops" | "raw"
                         Determines function's output. See Returns.
     errors :            "raise" | "log" | "ignore"
@@ -308,22 +313,6 @@ def read_nrrd(f: Union[str, Iterable],
     x.nrrd_header = header
 
     return x
-
-
-def write_nrrd(
-    f: Union[str, os.PathLike],
-    neuron: 'core.VoxelNeuron',
-    attrs: Optional[Dict[str, Any]] = None,
-):
-    header = getattr(neuron, "nrrd_header", {})
-
-    quant = neuron.units_xyz
-    header["space units"] = [str(quant.units)] * len(quant)
-    header["space directions"] = np.diag(quant.magnitude).tolist()
-
-    header.update(attrs or {})
-
-    nrrd.write(os.fspath(f), neuron._data, header)
 
 
 def _worker_wrapper(kwargs):
