@@ -16,6 +16,8 @@ repository.
      -
    * - dev
      - In development
+   * - 1.0.0
+     - 11/11/21
      - - :class:`~navis.NeuronList`:
            - :meth:`~navis.NeuronList.apply` now allows omitting failures (see ``omit_failures`` parameter)
        - :class:`~navis.VoxelNeuron`:
@@ -56,7 +58,7 @@ repository.
            - new `k3d <https://k3d-jupyter.org>`_ backend for plotting in Jupyter environments: try ``navis.plot3d(x, backend='k3d')``
            - new parameter for :func:`~navis.plot2d` and :func:`~navis.plot3d`: use ``clusters=[0, 0, 0, 1, 1, ...]`` to assigns
              clusters and have them automatically coloured accordingly
-           - :func:`~navis.plot2d` now allows ``radius=True`` parameter 
+           - :func:`~navis.plot2d` now allows ``radius=True`` parameter
        - renamed functions to make it clear they are only for ``TreeNeurons``:
            - ``smooth_neuron`` -> :func:`~navis.smooth_skeleton`
            - ``reroot_neuron`` -> :func:`~navis.reroot_skeleton`

@@ -2,11 +2,14 @@
 
 <img src="https://github.com/navis-org/navis/raw/master/docs/_static/favicon.png" height="60">
 
-
 NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis**ualization.
 
 ## Documentation
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
+
+Version `1.0.0` comes with some breaking changes! Please check out the 
+[changelog](https://navis.readthedocs.io/en/latest/source/whats_new.html) for a
+list of relevant changes.
 
 ## Features
 * work in Jupyter or terminal
