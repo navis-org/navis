@@ -14,8 +14,6 @@ repository.
    * - Version
      - Date
      -
-   * - dev
-     - In development
    * - 1.0.0
      - 11/11/21
      - - :class:`~navis.NeuronList`:
