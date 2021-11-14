@@ -16,7 +16,32 @@ repository.
      -
    * - 1.0.0
      - 11/11/21
-     - - :class:`~navis.NeuronList`:
+     - Breaking changes:
+     
+       - :class:`~navis.MeshNeuron`:
+           - ``__getattr__`` does not search ``trimesh`` representation anymore
+       - NBLASTs:
+           - queries/targets now MUST be :class:`~navis.Dotprops` (no more automatic conversion, use :func:`~navis.make_dotprops`)     
+       - renamed functions to make it clear they work only on ``TreeNeurons`` (i.e. skeletons):
+           - ``smooth_neuron`` -> :func:`~navis.smooth_skeleton`
+           - ``reroot_neuron`` -> :func:`~navis.reroot_skeleton`
+           - ``rewire_neuron`` -> :func:`~navis.rewire_skeleton`
+           - ``despike_neuron`` -> :func:`~navis.despike_skeleton`
+           - ``average_neurons`` -> :func:`~navis.average_skeletons`
+           - ``heal_fragmented_neuron`` -> :func:`~navis.heal_skeleton`
+           - ``stitch_neurons`` -> :func:`~navis.stitch_skeletons`
+           - ``cut_neuron`` -> :func:`~navis.cut_skeleton`
+       - removals and other renamings:
+           - ``navis.clustering`` module was removed and with it ``navis.cluster_xyz`` and ``ClustResult`` class
+           - renamed ``cluster_by_synapse_placement`` -> :func:`~navis.synapse_similarity`
+           - renamed ``cluster_by_connectivity`` -> :func:`~navis.connectivity_similarity`
+           - renamed ``sparseness`` -> :func:`~navis.connectivity_sparseness`
+           - renamed ``navis.write_google_binary`` -> :func:`~navis.write_precomputed`  
+       - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``from_``
+           
+       New things & Bugfixes:
+       
+       - :class:`~navis.NeuronList`:
            - :meth:`~navis.NeuronList.apply` now allows omitting failures (see ``omit_failures`` parameter)
        - :class:`~navis.VoxelNeuron`:
            - new (experimental) class representing neurons as voxels
@@ -31,13 +56,11 @@ repository.
            - new methods: :meth:`~navis.MeshNeuron.skeletonize` and :meth:`~navis.MeshNeuron.snap`
            - can now be initialized with ``skeletor.Skeleton`` and ``(vertices, faces)`` tuple
            - plotting: ``color_by`` parameter now works with ``MeshNeurons``
-           - ``__getattr__`` does not search ``trimesh`` representation anymore
        - :class:`~navis.Dotprops`:
            - new property: ``.sampling_resolution`` (used e.g. for scaling vectors for plotting)
            - new method :meth:`~navis.Dotprops.snap`
        - experimental support for non-isometric ``.units`` for neurons
        - NBLASTs:
-           - queries/targets now MUST be :class:`~navis.Dotprops` - no more automatic conversion
            - new parameter ``limit_dist`` allows speeding up NBLASTs with minor precision loss
            - new experimental parameter ``batch_size`` to NBLAST neurons in batches
            - overall faster initialization with large lists of neurons
@@ -45,7 +68,7 @@ repository.
            - by default we will now deposit neuron meta data (name, id, units) in the SWC header (see ``write_meta`` parameter)
            - meta data in SWC header can also be read back (see ``read_meta`` parameter)
            - filenames can now be parsed into specific neuron properties (see ``fmt`` parameter)
-           - node IDs now start with 0 instead of 1
+           - node IDs now start with 0 instead of 1 when writing SWC files
        - I/O to/from Google neuroglancer's precomputed format:
            - total rework of this module
            - renamed ``navis.write_google_binary`` -> :func:`~navis.write_precomputed`
@@ -57,20 +80,6 @@ repository.
            - new parameter for :func:`~navis.plot2d` and :func:`~navis.plot3d`: use ``clusters=[0, 0, 0, 1, 1, ...]`` to assigns
              clusters and have them automatically coloured accordingly
            - :func:`~navis.plot2d` now allows ``radius=True`` parameter
-       - renamed functions to make it clear they are only for ``TreeNeurons``:
-           - ``smooth_neuron`` -> :func:`~navis.smooth_skeleton`
-           - ``reroot_neuron`` -> :func:`~navis.reroot_skeleton`
-           - ``rewire_neuron`` -> :func:`~navis.rewire_skeleton`
-           - ``despike_neuron`` -> :func:`~navis.despike_skeleton`
-           - ``average_neurons`` -> :func:`~navis.average_skeletons`
-           - ``heal_fragmented_neuron`` -> :func:`~navis.heal_skeleton`
-           - ``stitch_neurons`` -> :func:`~navis.stitch_skeletons`
-           - ``cut_neuron`` -> :func:`~navis.cut_skeleton`
-       - removals and other renamings:
-           - ``navis.clustering`` module was removed and with it ``navis.cluster_xyz`` and ``ClustResult`` class
-           - renamed ``cluster_by_synapse_placement`` -> :func:`~navis.synapse_similarity`
-           - renamed ``cluster_by_connectivity`` -> :func:`~navis.connectivity_similarity`
-           - renamed ``sparseness`` -> :func:`~navis.connectivity_sparseness`
        - transforms:
            - support for elastix (:class:`navis.transforms.ElastixTransform`)
            - whether transforms are invertible is now determined by existence of ``__neg__`` method
@@ -81,14 +90,14 @@ repository.
        - new function :func:`navis.drop_fluff` removes small disconnected bits and pieces from neurons
        - new function :func:`navis.patch_cloudvolume` monkey-patches `cloudvolume` (see the new :ref:`tutorial <cloudvolume_tut>`)
        - new function :func:`navis.write_nrrd` writes ``VoxelNeurons`` to NRRD files
+       - new functions to read/write ``MeshNeurons``: :func:`~navis.read_mesh` and :func:`navis.write_mesh`
        - new function :func:`navis.read_nmx` reads pyKNOSSOS files
        - new function :func:`~navis.smooth_mesh` smoothes meshes and ``MeshNeurons``
        - improved/updated the InsectBrain DB interface (see the :ref:`tutorial <insectbraindb_tut>`)
        - under-the-hood fixes and improvements to: :func:`~navis.plot2d`, :func:`~navis.split_axon_dendrite`, :func:`~navis.tortuosity`, :func:`~navis.resample_skeleton`, :func:`~navis.mirror_brain`
        - first pass at a ``NEURON`` interface (see the new :ref:`tutorial <neuron_tut>`)
        - first pass at interface with the Allen's MICrONS datasets (see the new :ref:`tutorial <microns_tut>`)
-       - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
-       - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``from_``
+       - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use       
        - improved :func:`~navis.cable_overlap`
    * - 0.6.0
      - 12/05/21
