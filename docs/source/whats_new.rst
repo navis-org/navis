@@ -17,11 +17,11 @@ repository.
    * - 1.0.0
      - 11/11/21
      - Breaking changes:
-     
+
        - :class:`~navis.MeshNeuron`:
            - ``__getattr__`` does not search ``trimesh`` representation anymore
        - NBLASTs:
-           - queries/targets now MUST be :class:`~navis.Dotprops` (no more automatic conversion, use :func:`~navis.make_dotprops`)     
+           - queries/targets now MUST be :class:`~navis.Dotprops` (no more automatic conversion, use :func:`~navis.make_dotprops`)
        - renamed functions to make it clear they work only on ``TreeNeurons`` (i.e. skeletons):
            - ``smooth_neuron`` -> :func:`~navis.smooth_skeleton`
            - ``reroot_neuron`` -> :func:`~navis.reroot_skeleton`
@@ -36,11 +36,11 @@ repository.
            - renamed ``cluster_by_synapse_placement`` -> :func:`~navis.synapse_similarity`
            - renamed ``cluster_by_connectivity`` -> :func:`~navis.connectivity_similarity`
            - renamed ``sparseness`` -> :func:`~navis.connectivity_sparseness`
-           - renamed ``navis.write_google_binary`` -> :func:`~navis.write_precomputed`  
+           - renamed ``navis.write_google_binary`` -> :func:`~navis.write_precomputed`
        - :func:`~navis.geodesic_matrix` renamed parameter ``tn_ids`` -> ``from_``
-           
+
        New things & Bugfixes:
-       
+
        - :class:`~navis.NeuronList`:
            - :meth:`~navis.NeuronList.apply` now allows omitting failures (see ``omit_failures`` parameter)
        - :class:`~navis.VoxelNeuron`:
@@ -86,7 +86,7 @@ repository.
        - most functions that work with ``TreeNeurons`` now also work with ``MeshNeurons``
        - new high-level wrappers to convert neurons: :func:`navis.voxelize`, :func:`navis.mesh` and :func:`navis.skeletonize`
        - :func:`~navis.make_dotprops` now accepts ``parallel=True`` parameter for parallel processing
-       - :func:`~navis.smooth_skeleton` can now be used to smoother arbitrary numeric columns in the node table
+       - :func:`~navis.smooth_skeleton` can now be used to smooth arbitrary numeric columns in the node table
        - new function :func:`navis.drop_fluff` removes small disconnected bits and pieces from neurons
        - new function :func:`navis.patch_cloudvolume` monkey-patches `cloudvolume` (see the new :ref:`tutorial <cloudvolume_tut>`)
        - new function :func:`navis.write_nrrd` writes ``VoxelNeurons`` to NRRD files
@@ -97,7 +97,7 @@ repository.
        - under-the-hood fixes and improvements to: :func:`~navis.plot2d`, :func:`~navis.split_axon_dendrite`, :func:`~navis.tortuosity`, :func:`~navis.resample_skeleton`, :func:`~navis.mirror_brain`
        - first pass at a ``NEURON`` interface (see the new :ref:`tutorial <neuron_tut>`)
        - first pass at interface with the Allen's MICrONS datasets (see the new :ref:`tutorial <microns_tut>`)
-       - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use       
+       - ``NAVIS_SKIP_LOG_SETUP`` environment variable prevents default log setup for library use
        - improved :func:`~navis.cable_overlap`
    * - 0.6.0
      - 12/05/21
