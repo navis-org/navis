@@ -30,7 +30,7 @@ from .. import config, graph, sampling, core, utils
 # Set up logging
 logger = config.logger
 
-__all__ = sorted(['strahler_index', 'bending_flow',
+__all__ = sorted(['strahler_index', 'bending_flow', 'sholl_analysis',
                   'flow_centrality', 'segregation_index', 'tortuosity'])
 
 
@@ -884,3 +884,144 @@ def tortuosity(x: 'core.NeuronObject',
         T_all = np.append(T_all, T)
 
     return T_all.mean()
+
+
+@utils.map_neuronlist(desc='Sholl analysis', allow_parallel=True)
+def sholl_analysis(x: 'core.NeuronObject',
+                   radii: Union[int, list] = 10,
+                   center: Union[Literal['root'],
+                                 Literal['soma'],
+                                 list,
+                                 int] = 'centermass',
+                   geodesic=False,
+                  ) -> Union[float,
+                             Sequence[float],
+                             pd.DataFrame]:
+    """Run Sholl analysis for given neuron(s).
+
+    Parameters
+    ----------
+    x :         TreeNeuron | MeshNeuron | NeuronList
+                Neuron to analyze. If MeshNeuron, will generate and
+                use a skeleton representation.
+    radii :     int | list-like
+                If integer, will produce N evenly space radii covering the
+                distance between the center and the most distal node.
+                Alternatively, you can also provide a list of radii to check.
+                If `x` is multiple neurons, must provide a list of ``radii``!
+    center :    "centermass" | "root" | "soma" | int | list-like
+                The center to use for Sholl analysis:
+                    - "centermass" (default) uses the mean across nodes positions
+                    - "root" uses the current root of the skeleton
+                    - "soma" uses the neuron's soma (will raise error if no soma)
+                    - int is interpreted as a node ID
+                    - (3, ) list-like is interpreted as x/y/z coordinate
+    geodesic :  bool
+                If True, will use geodesic (along-the-arbor) instead of
+                Euclidean distances. This does not work if center is an x/y/z
+                coordinate.
+
+    Returns
+    -------
+    results :   pd.DataFrame
+                Results contain, for each spherical bin, the number of
+                intersections, cable length and number of branch points.
+
+    References
+    ----------
+    See the `Wikipedia <https://en.wikipedia.org/wiki/Sholl_analysis>`_ entry
+    for a brief explanation.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1, kind='skeleton')
+    >>> # Sholl analysis
+    >>> sha = navis.sholl_analysis(n, radii=100, center='root')
+    >>> # Plot distributions
+    >>> ax = sha.plot()                                         # doctest: +SKIP
+    >>> # Sholl analysis but using geodesic distance
+    >>> sha = navis.sholl_analysis(n, radii=100, center='root', geodesic=True)
+
+    """
+    # Use MeshNeuron's skeleton
+    if isinstance(x, core.MeshNeuron):
+        x = x.skeleton
+
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron or MeshNeuron(s), got {type(x)}')
+
+    if geodesic and len(x.root) > 1:
+        raise ValueError('Unable to use `geodesic=True` with fragmented '
+                         'neurons. Use `navis.heal_fragmented_neuron` first.')
+
+    if center == 'soma' and not x.has_soma:
+        raise ValueError(f'Neuron {x.id} has no soma.')
+    elif utils.is_iterable(center):
+        center = np.asarray(center)
+        if center.ndim != 1 or len(center) != 3:
+            raise ValueError('`center` must be (3, ) list-like when providing '
+                            f'a coordinate. Got {center.shape}')
+        if geodesic:
+            raise ValueError('Must not provide a `center` as coordinate when '
+                             'geodesic=True')
+    elif center == 'root' and len(x.root) > 1:
+        raise ValueError(f'Neuron {x.id} has multiple roots. Please specify '
+                         'which node/coordinate to use as center.')
+
+    if center == 'centermass':
+        center = x.nodes[['x', 'y', 'z']].mean(axis=0).values
+
+    # Calculate distances for each node
+    nodes = x.nodes.set_index('node_id').copy()
+    if not geodesic:
+        if isinstance(center, int):
+            if center not in nodes.index.values:
+                raise ValueError(f'{center} is not a valid node ID.')
+
+            center = nodes.loc[center, ['x', 'y', 'z']].values
+        elif center == 'soma':
+            center = nodes.loc[utils.make_iterable(x.soma)[0], ['x', 'y', 'z']].values
+        elif center == 'root':
+            center = nodes.loc[utils.make_iterable(x.root)[0], ['x', 'y', 'z']].values
+        center = center.astype(float)
+
+        nodes['dist'] = np.sqrt(((x.nodes[['x', 'y', 'z']].values - center)**2).sum(axis=1))
+    else:
+        if center == 'soma':
+            center = x.soma[0]
+        elif center == 'root':
+            center = x.root[0]
+
+        nodes['dist'] = graph.geodesic_matrix(x, from_=center)[x.nodes.node_id.values].values[0]
+
+    not_root = nodes.parent_id >= 0
+    dists = nodes.loc[not_root, 'dist'].values
+    pdists = nodes.loc[nodes[not_root].parent_id.values, 'dist'].values
+    le = parent_dist(x)[not_root]
+    ty = nodes.loc[not_root, 'type'].values
+
+    # Generate radii for the Sholl spheres
+    if isinstance(radii, int):
+        radii = np.linspace(0, dists.max(), radii + 1)
+    else:
+        if radii[0] != 0:
+            radii = np.insert(radii, 0, 0)
+
+    data = []
+    for i in range(1, len(radii)):
+        # Find the number of crossings
+        crossings = ((dists <= radii[i]) & (pdists > radii[i])).sum()
+
+        # Get the (approximate) cable length in this sphere
+        this_sphere = (dists > radii[i - 1]) & (dists < radii[i])
+        cable = le[this_sphere].sum()
+
+        # The number of branch points in this sphere
+        n_branchpoints = (ty[this_sphere] == 'branch').sum()
+
+        data.append([radii[i], crossings, cable, n_branchpoints])
+
+    return pd.DataFrame(data,
+                        columns=['radius', 'intersections',
+                                 'cable_length', 'branch_points']).set_index('radius')

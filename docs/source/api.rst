@@ -314,6 +314,7 @@ Functions to edit morphology:
     navis.prune_twigs
     navis.prune_at_depth
     navis.reroot_skeleton
+    navis.sholl_analysis
     navis.split_axon_dendrite
     navis.split_into_fragments
     navis.stitch_skeletons

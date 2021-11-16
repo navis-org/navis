@@ -14,6 +14,9 @@ repository.
    * - Version
      - Date
      -
+   * - 1.x.x
+     - dev
+     - - new function :func:`navis.sholl_analysis`
    * - 1.0.0
      - 11/11/21
      - Breaking changes:

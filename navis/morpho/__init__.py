@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .mmetrics import (strahler_index, bending_flow, flow_centrality,
+from .mmetrics import (strahler_index, bending_flow, flow_centrality, sholl_analysis,
                        segregation_index, arbor_segregation_index, tortuosity)
 from .manipulation import (prune_by_strahler, stitch_skeletons,
                            split_axon_dendrite, average_skeletons,
@@ -28,4 +28,4 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
            'average_skeletons', 'despike_skeleton', 'guess_radius', 'smooth_skeleton',
            'heal_skeleton', 'break_fragments', 'prune_twigs',
            'find_soma', 'prune_at_depth', 'cell_body_fiber', 'drop_fluff',
-           'subset_neuron', 'smooth_voxels']
+           'subset_neuron', 'smooth_voxels', 'sholl_analysis']
