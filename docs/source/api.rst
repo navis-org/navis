@@ -500,6 +500,8 @@ Functions to import/export neurons.
     navis.write_json
     navis.write_precomputed
     navis.read_precomputed
+    navis.read_h5
+    navis.write_h5
 
 .. _api_interfaces:
 
