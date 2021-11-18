@@ -16,12 +16,13 @@
 
 import numbers
 import os
+import uuid
 
 import numpy as np
 import pandas as pd
 
 from concurrent.futures import ProcessPoolExecutor
-from typing import Union, Optional
+from typing import Union, Optional, List
 from typing_extensions import Literal
 
 from .. import utils, config
@@ -103,6 +104,8 @@ class ScoringFunction:
         return float(s.strip("([])").split(",")[-1])
 
 
+NeuronId = Union[int, str, uuid.UUID]
+
 class NBlaster(Blaster):
     """Implements version 2 of the NBLAST algorithm.
 
@@ -158,20 +161,27 @@ class NBlaster(Blaster):
         else:
             self.distance_upper_bound = limit_dist
 
-    def append(self, dotprops):
-        """Append dotprops."""
-        if isinstance(dotprops, (NeuronList, list)):
-            for n in dotprops:
-                self.append(n)
-            return
+    def append(self, dotprops) -> Union[List[NeuronId], NeuronId]:
+        """Append dotprops.
 
-        if not isinstance(dotprops, Dotprops):
-            raise ValueError(f'Expected Dotprops, got "{type(dotprops)}"')
+        Returns the ID of the appended dotprops.
+        If dotprops is a (possibly nested) sequence of dotprops,
+        return a (possibly nested) list of IDs.
+        """
+        if isinstance(dotprops, Dotprops):
+            return self._append_dotprops(dotprops)
 
+        try:
+            return [self.append(n) for n in dotprops]
+        except TypeError:  # i.e. not iterable
+            raise ValueError(f"Expected Dotprops or iterable thereof; got {type(dotprops)}")
+
+    def _append_dotprops(self, dotprops: Dotprops) -> NeuronId:
         self.neurons.append(dotprops)
         self.ids.append(dotprops.id)
         # Calculate score for self hit
         self.self_hits.append(self.calc_self_hit(dotprops))
+        return dotprops.id
 
     def calc_self_hit(self, dotprops):
         """Non-normalized value for self hit."""

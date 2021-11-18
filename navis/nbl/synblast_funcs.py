@@ -85,46 +85,45 @@ class SynBlaster(Blaster):
         self.ids = []
 
     def append(self, neuron, id=None):
-        """Append neurons/connector tables."""
-        if isinstance(neuron, (NeuronList, list)):
-            for n in neuron:
-                self.append(n, id=id)
-            return
+        """Append neurons/connector tables, returning ids of added objects"""
+        if isinstance(neuron, pd.DataFrame):
+            return self._append_connectors(neuron, id)
 
         if isinstance(neuron, BaseNeuron):
             if not neuron.has_connectors:
-                raise ValueError('Neuron must have synapses.')
-            cn = neuron.connectors
-        elif isinstance(neuron, pd.DataFrame):
-            cn = neuron
-        else:
-            raise ValueError('Expected a Neuron(s) or single DataFrame, '
-                             f'got "{type(neuron)}"')
+                raise ValueError('Neuron must have synapses')
+            return self._append_connectors(neuron.connectors, neuron.id)
 
-        if isinstance(id, type(None)):
-            if isinstance(neuron, pd.DataFrame):
-                raise ValueError('Must provide ID explicitly when append '
-                                 'DataFrame.')
-            else:
-                id = neuron.id
+        try:
+            return [self.append(n) for n in neuron]
+        except TypeError:
+            raise ValueError(
+                "Expected a dataframe, or a Neuron or sequence thereof; got "
+                f"{type(neuron)}"
+            )
+
+    def _append_connectors(self, connectors: pd.DataFrame, id):
+        if id is None:
+            raise ValueError("Explicit non-None id required for appending connectors")
 
         self.ids.append(id)
         self.neurons.append({})
         if not self.by_type:
-            data = cn[['x', 'y', 'z']].values
+            data = connectors[['x', 'y', 'z']].values
             # Generate the KDTree
             self.neurons[-1]['all'] = cKDTree(data)
         else:
-            if 'type' not in cn.columns:
+            if 'type' not in connectors.columns:
                 raise ValueError('Connector tables must have a "type" column '
                                  'if `by_type=True`')
-            for ty in cn['type'].unique():
-                data = cn.loc[cn['type'] == ty, ['x', 'y', 'z']].values
+            for ty in connectors['type'].unique():
+                data = connectors.loc[connectors['type'] == ty, ['x', 'y', 'z']].values
                 # Generate the KDTree
                 self.neurons[-1][ty] = cKDTree(data)
 
         # Calculate score for self hit
-        self.self_hits.append(self.calc_self_hit(cn))
+        self.self_hits.append(self.calc_self_hit(connectors))
+        return id
 
     def calc_self_hit(self, cn):
         """Non-normalized value for self hit."""
