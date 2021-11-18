@@ -1,8 +1,15 @@
+from copy import deepcopy
+
 import navis
 
 import pytest
 
 from .common import with_igraph
+
+
+def test_deepcopy():
+    nrn = navis.core.BaseNeuron()
+    deepcopy(nrn)
 
 
 def test_from_swc(swc_source):
