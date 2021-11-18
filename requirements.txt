@@ -44,6 +44,10 @@ rpy2
 
 pykdtree
 
+#extra: meshes
+
+open3d
+
 #extra: test-notebook
 
 jupyter
