@@ -14,9 +14,11 @@ repository.
    * - Version
      - Date
      -
-   * - 1.x.x
-     - dev
+   * - 1.1.0
+     - 18/11/21
      - - new function :func:`navis.sholl_analysis`
+       - plotly is now correctly chosen as default backend in Google colab
+       - fixes a critical bug with plotting skeletons with plotly `5.4.0`
    * - 1.0.0
      - 11/11/21
      - Breaking changes:
