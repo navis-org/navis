@@ -16,6 +16,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import trimesh as tm
 
 import plotly.graph_objs as go
 
@@ -31,7 +32,7 @@ __all__ = ['neuron2plotly', 'scatter2plotly', 'dotprops2plotly',
            'volume2plotly', 'layout2plotly']
 
 # Generate sphere for somas
-fib_points = fibonacci_sphere(samples=30)
+BASE_SPHERE = tm.primitives.Sphere(radius=1, center=(0, 0, 0), subdivisions=2)
 
 
 def neuron2plotly(x, colormap, **kwargs):
@@ -154,7 +155,7 @@ def neuron2plotly(x, colormap, **kwargs):
 
         # Add connectors
         if (kwargs.get('connectors', False)
-            or kwargs.get('connectors_only', False)) and neuron.has_connectors:
+                or kwargs.get('connectors_only', False)) and neuron.has_connectors:
             cn_colors = kwargs.get('cn_colors', None)
             for j in neuron.connectors.type.unique():
                 if isinstance(cn_colors, dict):
@@ -219,7 +220,7 @@ def mesh2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
         if len(color) == len(neuron.vertices):
             # For some reason single colors are 0-255 but face/vertex colors
             # have to be 0-1
-            color_kwargs = dict(vertexcolor=color  / [255, 255, 255, 1])
+            color_kwargs = dict(vertexcolor=color / [255, 255, 255, 1])
         elif len(color) == len(neuron.faces):
             color_kwargs = dict(facecolor=color / [255, 255, 255, 1])
         else:
@@ -425,16 +426,17 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
                 n = neuron.nodes.set_index('node_id').loc[s]
                 r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
 
-                trace_data.append(go.Mesh3d(
-                    x=fib_points[:, 0] * r + n.x,
-                    # y and z are switched
-                    y=fib_points[:, 1] * r + n.y,
-                    z=fib_points[:, 2] * r + n.z,
-                    legendgroup=legendgroup,
-                    alphahull=.5,
-                    showlegend=False,
-                    color=soma_color,
-                    hoverinfo='name'))
+                trace_data += [go.Mesh3d(x=BASE_SPHERE.vertices[:, 0] * r + n.x,
+                                         y=BASE_SPHERE.vertices[:, 1] * r + n.y,
+                                         z=BASE_SPHERE.vertices[:, 2] * r + n.z,
+                                         i=BASE_SPHERE.faces[:, 0],
+                                         j=BASE_SPHERE.faces[:, 1],
+                                         k=BASE_SPHERE.faces[:, 2],
+                                         legendgroup=legendgroup,
+                                         showlegend=False,
+                                         hoverinfo='name',
+                                         color=soma_color,
+                                         )]
 
     return trace_data
 
