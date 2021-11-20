@@ -165,8 +165,10 @@ class BaseNeuron:
     def __copy__(self):
         return self.copy(deepcopy=False)
 
-    def __deepcopy__(self):
-        return self.copy(deepcopy=True)
+    def __deepcopy__(self, memo):
+        result = self.copy(deepcopy=True)
+        memo[id(self)] = result
+        return result
 
     def __eq__(self, other):
         """Implement neuron comparison."""
@@ -579,14 +581,15 @@ class BaseNeuron:
         if not inplace:
             return n
 
-    def copy(self) -> 'BaseNeuron':
+    def copy(self, deepcopy=False) -> 'BaseNeuron':
         """Return a copy of the neuron."""
+        copy_fn = copy.deepcopy if deepcopy else copy.copy
         # Attributes not to copy
         no_copy = ['_lock']
         # Generate new empty neuron
         x = self.__class__()
         # Override with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
+        x.__dict__.update({k: copy_fn(v) for k, v in self.__dict__.items() if k not in no_copy})
 
         return x
 
