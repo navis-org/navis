@@ -662,11 +662,11 @@ class CompartmentModel:
         self._records = {}
 
     def clear_stimuli(self):
-        """Clear records."""
+        """Clear stimuli."""
         self._stimuli = {}
 
     def clear_synapses(self):
-        """Clear records."""
+        """Clear synapses."""
         self._synapses = {}
 
     def clear(self):
