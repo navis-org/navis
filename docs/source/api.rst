@@ -118,7 +118,6 @@ In addition ``TreeNeurons`` have a range of different properties:
 .. autosummary::
     :toctree: generated/
 
-
     ~navis.TreeNeuron.cable_length
     ~navis.TreeNeuron.created_at
     ~navis.TreeNeuron.cycles
@@ -512,19 +511,107 @@ imported explicitly as they are not imported at top level.
 
 NEURON simulator
 ++++++++++++++++
-Functions to facilitate creating compartment models of neurons. Please see
+Functions to facilitate creating models of neurons/networks. Please see
 the :ref:`tutorials<example_gallery>` for details.
 
 Not imported at top level! Must be imported explicitly::
 
     import navis.interfaces.neuron as nrn
 
+
+Compartment models
+------------------
+A single-neuron compartment model is represented by
+:class:`~navis.interfaces.neuron.comp.CompartmentModel`:
+
 .. autosummary::
     :toctree: generated/
 
     navis.interfaces.neuron.comp.CompartmentModel
     navis.interfaces.neuron.comp.DrosophilaPN
+
+The :class:`~navis.interfaces.neuron.comp.DrosophilaPN` class is a subclass
+of :class:`~navis.interfaces.neuron.comp.CompartmentModel` with
+properties used from Tobin et al.
+
+.. currentmodule:: navis.interfaces.neuron.comp
+
+.. rubric:: Class methods
+
+.. autosummary::
+   :toctree: generated/
+
+   ~CompartmentModel.add_current_record
+   ~CompartmentModel.add_spike_detector
+   ~CompartmentModel.add_synaptic_current
+   ~CompartmentModel.add_synaptic_input
+   ~CompartmentModel.add_voltage_record
+   ~CompartmentModel.clear_records
+   ~CompartmentModel.clear_stimuli
+   ~CompartmentModel.connect
+   ~CompartmentModel.get_node_section
+   ~CompartmentModel.get_node_segment
+   ~CompartmentModel.inject_current_pulse
+   ~CompartmentModel.plot_results
+   ~CompartmentModel.insert
+   ~CompartmentModel.uninsert
+
+.. rubric:: Class attributes
+
+.. autosummary::
+
+   ~CompartmentModel.Ra
+   ~CompartmentModel.cm
+   ~CompartmentModel.label
+   ~CompartmentModel.n_records
+   ~CompartmentModel.n_sections
+   ~CompartmentModel.n_stimuli
+   ~CompartmentModel.nodes
+   ~CompartmentModel.records
+   ~CompartmentModel.sections
+   ~CompartmentModel.stimuli
+   ~CompartmentModel.synapses
+   ~CompartmentModel.ts
+
+Network models
+--------------
+A network of point-processes is represented by
+:class:`~navis.interfaces.neuron.network.PointNetwork`:
+
+.. currentmodule:: navis.interfaces.neuron.network
+
+.. autosummary::
+    :toctree: generated/
+
     navis.interfaces.neuron.network.PointNetwork
+
+.. rubric:: Class methods
+
+.. autosummary::
+   :toctree: generated/
+
+   ~PointNetwork.__init__
+   ~PointNetwork.add_background_noise
+   ~PointNetwork.add_neurons
+   ~PointNetwork.add_stimulus
+   ~PointNetwork.connect
+   ~PointNetwork.from_edge_list
+   ~PointNetwork.get_spike_counts
+   ~PointNetwork.plot_raster
+   ~PointNetwork.plot_traces
+   ~PointNetwork.run_simulation
+   ~PointNetwork.set_labels
+
+.. rubric:: Class attributes
+
+.. currentmodule:: navis.interfaces.neuron.network
+
+.. autosummary::
+
+   ~PointNetwork.edges
+   ~PointNetwork.ids
+   ~PointNetwork.labels
+   ~PointNetwork.neurons
 
 
 .. _api_interfaces.neuromorpho:
