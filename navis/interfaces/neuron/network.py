@@ -80,18 +80,37 @@ class PointNetwork:
 
     @property
     def edges(self):
+        """Edges between nodes of the network.
+
+        Returns
+        -------
+        list of tuples
+
+                ``[(source_ix, target_ix, weight, NetCon object), ...]``
+
+        """
         return self._edges
 
     @property
     def neurons(self):
+        """Neurons in the network.
+
+        Returns
+        -------
+        list
+                List of ``PointNeurons``.
+
+        """
         return self._neurons
 
     @property
     def ids(self):
+        """IDs of neurons in the network."""
         return self._ids
 
     @property
     def labels(self):
+        """Labels of neurons in the network."""
         return self._labels
 
     @classmethod

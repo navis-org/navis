@@ -160,6 +160,7 @@ class CompartmentModel:
 
     @property
     def label(self):
+        """Name/label of the neuron."""
         return f'CompartmentModel[{self.skeleton.label}]'
 
     @property
@@ -862,7 +863,14 @@ class CompartmentModel:
 class DrosophilaPN(CompartmentModel):
     """Compartment model of an olfactory projection neuron in Drosophila.
 
-    Uses biophysical properties from Tobin et al. (2017).
+    This is a ``CompartmentModel`` that uses biophysical properties
+    from Tobin et al. (2017) as presets:
+
+    - specific axial resistivity (``Ra``) of 266.1 Ohm / cm
+    - specific membrane capacitance (``cm``) of 0.8 mF / cm**2
+    - specific leakage conductance (``g``) of 1/Rm
+    - Rm = specific membran resistance of 20800 Ohm cm**2
+    - leakage reverse potential of -60 mV
 
     Parameters
     ----------
