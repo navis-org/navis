@@ -522,8 +522,8 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.neuron.cmp.CompartmentModel
-    navis.interfaces.neuron.cmp.DrosophilaPN
+    navis.interfaces.neuron.comp.CompartmentModel
+    navis.interfaces.neuron.comp.DrosophilaPN
     navis.interfaces.neuron.network.PointNetwork
 
 
