@@ -17,4 +17,3 @@ wheel>=0.35.1
 # Optional dependency - required for plot_flat
 pygraphviz
 neuron
-caveclient

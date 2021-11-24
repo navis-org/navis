@@ -11,33 +11,34 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-"""Interface with microns datasets: https://www.microns-explorer.org/."""
+"""Interface with MICrONS datasets: https://www.microns-explorer.org/."""
 
+from ..core import MeshNeuron, NeuronList
+from .. import config, utils
+import pandas as pd
+import numpy as np
+import cloudvolume as cv
 import warnings
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from textwrap import dedent
 
+err_msg = dedent("""
+      Failed to import `caveclient` library. Please install using pip:
+
+            pip install caveclient
+
+      """)
+
 try:
     from caveclient import CAVEclient
 except ImportError:
-    msg = dedent("""
-          caveclient library not found. Please install using pip:
-
-                pip install caveclient
-
-          """)
-    raise ImportError(msg)
+    logger.error(err_msg)
+    CAVEclient = None
 except BaseException:
     raise
 
-import cloudvolume as cv
-import numpy as np
-import pandas as pd
-
-from .. import config, utils
-from ..core import MeshNeuron, NeuronList
 
 logger = config.logger
 dataset = None
@@ -65,6 +66,9 @@ def get_cave_client(datastack='cortex65'):
                     Name of the dataset to use.
 
     """
+    if not CAVEclient:
+        raise ImportError(err_msg)
+
     # Try mapping, else pass-through
     datastack = CAVE_DATASTACKS.get(datastack, datastack)
     return CAVEclient(datastack)
