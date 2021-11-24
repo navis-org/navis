@@ -863,7 +863,7 @@ class CompartmentModel:
 class DrosophilaPN(CompartmentModel):
     """Compartment model of an olfactory projection neuron in Drosophila.
 
-    This is a ``CompartmentModel`` that uses biophysical properties
+    This is a ``CompartmentModel`` that uses passive membrane properties
     from Tobin et al. (2017) as presets:
 
     - specific axial resistivity (``Ra``) of 266.1 Ohm / cm
@@ -881,14 +881,10 @@ class DrosophilaPN(CompartmentModel):
                 no section has any segment that is longer than `res` but for
                 small branches (i.e. "sections") the segments might be smaller.
                 Lower ``res`` = more detailed simulation.
-    passive :   bool
-                If True, will insert passive membrane properties.
-    active :    bool
-                If True, will insert active (spiking) membrane properties.
 
     """
 
-    def __init__(self, x, res=10, passive=True, active=False):
+    def __init__(self, x, res=10):
         super().__init__(x, res=res)
 
         self.Ra = 266.1  # specific axial resistivity in Ohm cm
