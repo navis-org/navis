@@ -4,12 +4,13 @@ import sys
 import os
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
-from typing import Iterator, Sequence, Callable, List, Iterable, Any, Tuple
+from typing import Iterator, Sequence, Callable, List, Iterable, Any, Tuple, Union
 import logging
 from pathlib import Path
 from functools import lru_cache
 from copy import deepcopy
 import operator
+import math
 
 import numpy as np
 import pandas as pd
@@ -25,60 +26,11 @@ cpu_count = max(1, (os.cpu_count() or 2) - 1)
 IMPLICIT_INTERVAL = "[)"
 
 fp = Path(__file__).resolve().parent
-smat_path = fp / 'score_mats'
+smat_path = fp / "score_mats"
 
 
 def chunksize(it_len, cpu_count, min_chunk=50):
     return max(min_chunk, int(it_len / (cpu_count * 4)))
-
-
-def wrap_bounds(arr: np.ndarray, left: float = -np.inf, right: float = np.inf):
-    """Ensures that boundaries cover -inf to inf.
-    If the left or rightmost values lie within the interval ``(left, right)``,
-    ``-inf`` or ``inf`` will be prepended or appended respectively.
-    Otherwise, the left and right values will be set to
-    ``-inf`` and ``inf`` respectively.
-    Parameters
-    ----------
-    arr : array-like of floats
-        Array of boundaries
-    left : float, optional
-        If the first value is greater than this, prepend -inf;
-        otherwise replace that value with -inf.
-        Defaults to -inf if None.
-    right : float, optional
-        If the last value is less than this, append inf;
-        otherwise replace that value with inf.
-        Defaults to inf if None.
-    Returns
-    -------
-    np.ndarray of floats
-        Boundaries from -inf to inf
-    Raises
-    ------
-    ValueError
-        If values of ``arr`` are not monotonically increasing.
-    """
-    if left is None:
-        left = -np.inf
-    if right is None:
-        right = np.inf
-
-    if not np.all(np.diff(arr) > 0):
-        raise ValueError("Boundaries are not monotonically increasing")
-
-    items = list(arr)
-    if items[0] <= left:
-        items[0] = -np.inf
-    else:
-        items.insert(0, -np.inf)
-
-    if items[-1] >= right:
-        items[-1] = np.inf
-    else:
-        items.append(np.inf)
-
-    return np.array(items)
 
 
 def yield_not_same(pairs: Iterable[Tuple[Any, Any]]) -> Iterator[Tuple[Any, Any]]:
@@ -92,7 +44,7 @@ class LookupNdBuilder:
         self,
         dotprops,
         matching_sets,
-        boundaries: Sequence[Sequence[float]],
+        digitizers: Sequence[Digitizer],
         match_fn: Callable[[Dotprops, Dotprops], List[np.ndarray]],
         nonmatching=None,
         seed=DEFAULT_SEED,
@@ -105,15 +57,8 @@ class LookupNdBuilder:
             as Dotprops objects.
         matching_sets : list of sets of int
             Sets of neurons, as indices into ``dotprops``, which should be considered matches.
-        boundaries : sequence of array-likes of floats
-            List of lists, where the inner lists are monotonically increasing
-            from -inf to inf.
-            The length of the outer list is the dimensionality of the lookup table.
-            The inner lists are the boundaries of bins for that dimension,
-            i.e. an inner list of N items describes N-1 bins.
-            If an inner list is not inf-bounded,
-            -inf and inf will be prepended and appended.
-            See the ``wrap_bounds`` convenience function.
+        digitizers : sequence of Digitizers
+            The length is the dimensionality of the lookup table.
         match_fn : Callable[[Dotprops, Dotprops], List[np.ndarray[float]]]
             Function taking 2 arguments,
             both instances of ``navis.core.neurons.Dotprops``,
@@ -136,7 +81,7 @@ class LookupNdBuilder:
         self.matching_sets = matching_sets
         self._nonmatching = nonmatching
         self.match_fn = match_fn
-        self.boundaries = [wrap_bounds(b) for b in boundaries]
+        self.digitizers = list(digitizers)
 
         self.rng = np.random.default_rng(seed)
 
@@ -162,12 +107,12 @@ class LookupNdBuilder:
         return yield_not_same(permutations(self.nonmatching, 2))
 
     def _empty_counts(self):
-        shape = [len(b) - 1 for b in self.boundaries]
+        shape = [len(b) for b in self.digitizers]
         return np.zeros(shape, int)
 
     def _query_to_idxs(self, q_idx, t_idx, counts=None):
         response = self.match_fn(self.dotprops[q_idx], self.dotprops[t_idx])
-        idxs = [np.digitize(r, b) - 1 for r, b in zip(response, self.boundaries)]
+        idxs = [dig(r) for dig, r in zip(self.digitizers, response)]
 
         if counts is None:
             counts = self._empty_counts()
@@ -216,7 +161,7 @@ class LookupNdBuilder:
 
         return nonmatching_pairs
 
-    def _build(self, threads) -> Tuple[List[np.ndarray], np.ndarray]:
+    def _build(self, threads) -> Tuple[List[Digitizer], np.ndarray]:
         matching_pairs = list(set(self._yield_matching_pairs()))
         # need to know the eventual distdot count
         # so we know how many non-matching pairs to draw
@@ -239,7 +184,7 @@ class LookupNdBuilder:
             (match_counts * matching_factor + epsilon) / (nonmatch_counts + epsilon)
         )
 
-        return self.boundaries, cells
+        return self.digitizers, cells
 
     def build(self, threads=None) -> LookupNd:
         """Build the score matrix.
@@ -265,7 +210,8 @@ class LookupNdBuilder:
         ValueError
             If dist_bins or dot_bins are not set.
         """
-        return LookupNd(*self._build(threads))
+        dig, cells = self._build(threads)
+        return LookupNd(dig, cells)
 
 
 def dist_dot(q: Dotprops, t: Dotprops):
@@ -282,8 +228,8 @@ class LookupDistDotBuilder(LookupNdBuilder):
         self,
         dotprops,
         matching_sets,
-        dist_boundaries,
-        dot_boundaries,
+        dist_digitizer: Digitizer,
+        dot_digitizer: Digitizer,
         nonmatching=None,
         use_alpha=False,
         seed=DEFAULT_SEED,
@@ -334,61 +280,225 @@ class LookupDistDotBuilder(LookupNdBuilder):
         super().__init__(
             dotprops,
             matching_sets,
-            [wrap_bounds(dist_boundaries, 0), wrap_bounds(dot_boundaries, 0, 1)],
+            [dist_digitizer, dot_digitizer],
             match_fn,
             nonmatching,
             seed,
         )
 
     def build(self, threads=None) -> Lookup2d:
-        return Lookup2d(*self._build(threads))
+        (dig0, dig1), cells = self._build(threads)
+        return Lookup2d(dig0, dig1, cells)
+
+
+def is_monotonically_increasing(lst):
+    for prev_idx, item in enumerate(lst[1:]):
+        if item <= lst[prev_idx]:
+            return False
+    return True
+
+
+def parse_boundary(item: str):
+    explicit_interval = item[0] + item[-1]
+    if explicit_interval == "[)":
+        right = False
+    elif explicit_interval == "(]":
+        right = True
+    else:
+        raise ValueError(
+            f"Enclosing characters '{explicit_interval}' do not match a half-open interval"
+        )
+    return tuple(float(i) for i in item[1:-1].split(",")), right
+
+
+class Digitizer:
+    def __init__(
+        self,
+        boundaries: Sequence[float],
+        clip: Tuple[bool, bool] = (True, True),
+        right=False,
+    ):
+        self.right = right
+
+        boundaries = list(boundaries)
+        self._min = boundaries[0]
+        if clip[0]:
+            boundaries[0] = -math.inf
+        elif boundaries[0] != -math.inf:
+            boundaries.insert(0, -math.inf)
+
+        self._max = boundaries[-1]
+        if clip[1]:
+            boundaries[-1] = math.inf
+        elif boundaries[-1] != math.inf:
+            boundaries.append(math.inf)
+
+        if not is_monotonically_increasing(boundaries):
+            raise ValueError("Boundaries are not monotonically increasing")
+
+        self.boundaries = np.asarray(boundaries)
+
+    def __len__(self):
+        return len(self.boundaries) - 1
+
+    def __call__(self, value: float):
+        # searchsorted is marginally faster than digitize as it skips monotonicity checks
+        return (
+            np.searchsorted(
+                self.boundaries, value, side="left" if self.right else "right"
+            )
+            - 1
+        )
+
+    def to_strings(self) -> List[str]:
+        if self.right:
+            lb = "("
+            rb = "]"
+        else:
+            lb = "["
+            rb = ")"
+
+        return [
+            f"{lb}{lower},{upper}{rb}"
+            for lower, upper in zip(self.boundaries[:-1], self.boundaries[1:])
+        ]
+
+    @classmethod
+    def from_strings(
+        cls, bound_strs: Sequence[str]
+    ):
+        """Set digitizer boundaries based on a sequence of interval expressions.
+
+        e.g. ``["(0, 1]", "(1, 5]", "(5, 10]"]``
+
+        The lowermost and uppermost boundaries are converted to -infinity and infinity respectively.
+
+        Parameters
+        ----------
+        bound_strs : Sequence[str]
+            Strings representing intervals, which must abut and have open/closed boundaries
+            specified by brackets.
+
+        Returns
+        -------
+        Digitizer
+        """
+        bounds: List[float] = []
+        last_upper = None
+        last_right = None
+        for item in bound_strs:
+            (lower, upper), right = parse_boundary(item)
+            bounds.append(float(lower))
+
+            if last_right is not None:
+                if right != last_right:
+                    raise ValueError("Inconsistent half-open interval")
+            else:
+                last_right = right
+
+            if last_upper is not None:
+                if lower != last_upper:
+                    raise ValueError("Half-open intervals do not abut")
+
+            last_upper = upper
+
+        bounds.append(float(last_upper))
+        return cls(bounds, right=last_right)
+
+    @classmethod
+    def from_linear(cls, lower: float, upper: float, nbins: int, right=False):
+        """Choose digitizer boundaries spaced linearly between two values.
+
+        Parameters
+        ----------
+        lower : float
+            Lowest value
+        upper : float
+            Highest value
+        nbins : int
+            Number of bins
+        right : bool, optional
+            Whether bins should include their right (rather than left) boundary,
+            by default False
+
+        Returns
+        -------
+        Digitizer
+        """
+        arr = np.linspace(lower, upper, nbins + 1, endpoint=True)
+        return cls(arr, right=right)
+
+    @classmethod
+    def from_geom(cls, lowest_upper: float, upper: float, nbins: int, right=False):
+        """Choose digitizer boundaries in a geometric sequence.
+
+        Parameters
+        ----------
+        lowest_upper : float
+            Upper bound of the lowest bin.
+            The lower bound of the lowest bin is often 0, which cannot be represented in a nontrivial geometric sequence.
+        upper : float
+            Upper bound of the highest bin.
+            This will be replaced by +inf, but the value is used for setting the rest of the sequence.
+        nbins : int
+            Number of bins
+        right : bool, optional
+            Whether bins should include their right (rather than left) boundary,
+            by default False
+
+        Returns
+        -------
+        Digitizer
+        """
+        # Because geom can't start at 0, instead start at the upper bound
+        # of the lowest bin, then prepend -inf.
+        # Because the extra bin is added, do not need to add 1 to nbins in geomspace.
+        arr = np.geomspace(lowest_upper, upper, nbins, True)
+        return cls(arr, clip=(False, True), right=right)
+
+    @classmethod
+    def from_data(cls, data: Sequence[float], nbins: int, right=False):
+        """Choose digitizer boundaries to evenly partition the given values.
+
+        Parameters
+        ----------
+        data : Sequence[float]
+            Data which should be evenly partitioned by the resulting digitizer.
+        nbins : int
+            Number of bins
+        right : bool, optional
+            Whether bins should include their right (rather than left) boundary,
+            by default False
+
+        Returns
+        -------
+        Digitizer
+        """
+        arr = np.quantile(data, np.linspace(0, 1, nbins + 1, True))
+        return cls(arr, right=right)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Digitizer):
+            return NotImplemented
+        return self.right == other.right and np.allclose(self.boundaries, other.boundaries)
 
 
 class LookupNd:
-    def __init__(self, boundaries: List[np.ndarray], cells: np.ndarray):
-        if [len(b) - 1 for b in boundaries] != list(cells.shape):
+    def __init__(self, digitizers: List[Digitizer], cells: np.ndarray):
+        if [len(b) for b in digitizers] != list(cells.shape):
             raise ValueError("boundaries and cells have inconsistent bin counts")
-        self.boundaries = boundaries
+        self.digitizers = digitizers
         self.cells = cells
 
     def __call__(self, *args):
-        if len(args) != len(self.boundaries):
+        if len(args) != len(self.digitizers):
             raise TypeError(
-                f"Lookup takes {len(self.boundaries)} arguments but {len(args)} were given"
+                f"Lookup takes {len(self.digitizers)} arguments but {len(args)} were given"
             )
 
-        idxs = tuple(
-            np.digitize(r, b) - 1 for r, b in zip(args, self.boundaries)
-        )
+        idxs = tuple(d(arg) for d, arg in zip(self.digitizers, args))
         out = self.cells[idxs]
         return out
-
-
-def format_boundaries(arr):
-    return [f"[{lower},{upper})" for lower, upper in zip(arr[:-1], arr[1:])]
-
-
-def parse_boundary(item, strict=False):
-    explicit_interval = item[0] + item[-1]
-    if strict and item[0] + item[-1] != IMPLICIT_INTERVAL:
-        raise ValueError(
-            f"Enclosing characters {explicit_interval} "
-            f"do not match implicit interval specifiers {IMPLICIT_INTERVAL}"
-        )
-    return tuple(float(i) for i in item[1:-1].split(","))
-
-
-def parse_boundaries(items, strict=False):
-    # declaring upper first and then checking for None
-    # pleases the type checker, and handles the case where
-    # len(items) == 0
-    upper = None
-    for item in items:
-        lower, upper = parse_boundary(item, strict)
-        yield lower
-    if upper is None:
-        return
-    yield upper
 
 
 class Lookup2d(LookupNd):
@@ -396,44 +506,30 @@ class Lookup2d(LookupNd):
     Provides IO with pandas DataFrames.
     """
 
-    def __init__(self, boundaries: List[np.ndarray], cells: np.ndarray):
-        if len(boundaries) != 2:
-            raise ValueError("boundaries must be of length 2; cells must be 2D")
-        super().__init__(boundaries, cells)
+    def __init__(self, digitizer0: Digitizer, digitizer1: Digitizer, cells: np.ndarray):
+        super().__init__([digitizer0, digitizer1], cells)
 
     def to_dataframe(self) -> pd.DataFrame:
-        # numpy.digitize includes left, excludes right, i.e. "[left,right)"
         return pd.DataFrame(
             self.cells,
-            format_boundaries(self.boundaries[0]),
-            format_boundaries(self.boundaries[1]),
+            self.digitizers[0].to_strings(),
+            self.digitizers[1].to_strings(),
         )
 
     @classmethod
-    def from_dataframe(cls, df: pd.DataFrame, strict=False):
+    def from_dataframe(cls, df: pd.DataFrame):
         f"""Parse score matrix from a dataframe with string index and column labels.
+
         Expects the index and column labels to specify an interval
         like ``f"[{{lower}},{{upper}})"``.
         Will replace the lowermost and uppermost bound with -inf and inf
         if they are not already.
-        Parameters
-        ----------
-        strict : bool, optional
-            If falsey (default), ignores parentheses and brackets,
-            effectively normalising to
-            ``{IMPLICIT_INTERVAL[0]}lower,upper{IMPLICIT_INTERVAL[1]}``
-            as an implementation detail.
-            Otherwise, raises a ValueError if parens/brackets
-            do not match the implementation.
         """
-        boundaries = []
-        for arr in (df.index, df.columns):
-            b = np.array(list(parse_boundaries(arr, strict)))
-            b[0] = -np.inf
-            b[-1] = np.inf
-            boundaries.append(b)
-
-        return cls(boundaries, df.to_numpy())
+        return cls(
+            Digitizer.from_strings(df.index),
+            Digitizer.from_strings(df.columns),
+            df.to_numpy(),
+        )
 
 
 @lru_cache(maxsize=None)
@@ -444,9 +540,7 @@ def _smat_fcwb(alpha=False):
     fname = ("smat_fcwb.csv", "smat_alpha_fcwb.csv")[alpha]
     fpath = smat_path / fname
 
-    return Lookup2d.from_dataframe(
-        pd.read_csv(fpath, index_col=0)
-    )
+    return Lookup2d.from_dataframe(pd.read_csv(fpath, index_col=0))
 
 
 def smat_fcwb(alpha=False):
@@ -489,7 +583,7 @@ def check_score_fn(fn: Callable, nargs=2, scalar=True, array=True):
 
 
 SCORE_FN_DESCR = """
-NBLAST score functions take 2 floats or numpy arrays of floats of length N
+NBLAST score functions take 2 floats or N-length numpy arrays of floats
 (for matched dotprop points/tangents, distance and dot product;
 the latter possibly scaled by the geometric mean of the alpha colinearity values)
 and returns a float or N-length numpy array of floats.
@@ -510,7 +604,7 @@ def parse_score_fn(smat, alpha=False):
         Also checks the signature of the callable.
         Raises an error, probably a ValueError, if it can't be interpreted.
     alpha : optional bool, default False
-        If ``smat`` is None, choose whether to use the FCWB matrices
+        If ``smat`` is ``"auto"``, choose whether to use the FCWB matrices
         with or without alpha.
     Returns
     -------
@@ -522,7 +616,7 @@ def parse_score_fn(smat, alpha=False):
     """
     if smat is None:
         smat = operator.mul
-    elif smat == 'auto':
+    elif smat == "auto":
         smat = smat_fcwb(alpha)
 
     if isinstance(smat, (str, os.PathLike)):
@@ -532,7 +626,9 @@ def parse_score_fn(smat, alpha=False):
         smat = Lookup2d.from_dataframe(smat)
 
     if not callable(smat):
-        raise ValueError("smat should be a callable, a path, a pandas.DataFrame, or 'auto'")
+        raise ValueError(
+            "smat should be a callable, a path, a pandas.DataFrame, or 'auto'"
+        )
 
     check_score_fn(smat)
 
