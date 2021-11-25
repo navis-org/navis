@@ -237,68 +237,41 @@ class CompartmentModel:
         called again.
 
         """
-        # For each node find the relative (0-1) position within its section
+        # First generate sections
+        self._sections = []
+        nodes = self.skeleton.nodes.set_index('node_id')
+        roots = self.skeleton.root
+        bp = self.skeleton.branch_points.node_id.values
         G = self.skeleton.graph
         node2sec = {}
         node2pos = {}
-        mean_diam = []
-        roots = self.skeleton.root
-        nodes = self.skeleton.nodes.set_index('node_id')
         for i, seg in enumerate(self.skeleton.small_segments):
-            # Get child->parent distances in this segment
-            dist = np.array([G.edges[(c, p)]['weight']
-                             for c, p in zip(seg[:-1], seg[1:])])
+            # Get child -> parent distances in this segment
+            dists = np.array([G.edges[(c, p)]['weight']
+                              for c, p in zip(seg[:-1], seg[1:])])
 
-            # The segments aren't exactly cylinders since
-            # Get radii for this segment
-            radii = nodes.loc[seg, 'radius'].values
-            # Each parent->child connection is effectively a tapered cylinder
-            #   The volume of a tapered cylinder is defined as:
-            #
-            #     volume = (1/3) * pi * depth * (r^2 + r * R + R^2)
-            #
-            #   where R is a radius of the base of a cone,
-            #   and r of top surface radius
-            r = radii[:-1]
-            R = radii[1:]
-            vols = (1/3) * np.pi * dist * (r ** 2 + r * R + R ** 2)
-            # Calculate a mean diameter that reproduces the volume in a
-            # cylinder with length sum(dist)
-            mean_radius = np.sqrt(vols.sum() / (np.pi * dist.sum()))
-            mean_diam.append(mean_radius * 2)
+            # Invert the sections
+            # That's because in navis sections go from tip -> root (i.e.
+            # child -> parent) but in neuron section(0) is the base and
+            # section(1) is the tip.
+            seg = np.asarray(seg)[::-1]
+            dists = dists[::-1]
 
-            # Invert so that segment/distances are parent->child
-            dist = dist[::-1]
-            seg = seg[::-1]
-            radii = radii[::-1]
+            # Grab the coordinates and radii
+            seg_nodes = nodes.loc[seg]
+            locs = seg_nodes[['x', 'y', 'z']].values
+            radii = seg_nodes.radius.values
 
-            # Insert 0 as the first distance
-            dist = np.insert(dist, 0, 0)
-            # Get normalized position within segment
-            norm_pos = dist.cumsum() / dist.sum()
-
-            # Drop the last point which is a branch point - unless it's the root
-            if seg[0] not in roots:
-                seg = seg[1:]
-                norm_pos = norm_pos[1:]
-
-            # Update dictionaries
-            node2pos.update(dict(zip(seg, norm_pos)))
-            node2sec.update(dict(zip(seg, [i] * len(seg))))
-
-        self.skeleton.nodes['sec_ix'] = self.skeleton.nodes.node_id.map(node2sec)
-        self.skeleton.nodes['sec_pos'] = self.skeleton.nodes.node_id.map(node2pos)
-
-        # Now generate sections
-        self._sections = []
-        nodes = self.skeleton.nodes.set_index('node_id')
-        for i, seg in enumerate(self.skeleton.small_segments):
             # Generate section
             sec = neuron.h.Section(name=f'segment_{i}')
-            # Set length
-            sec.L = graph.segment_length(self.skeleton, seg)
-            # Set mean diameter
-            sec.diam = mean_diam[i]
+
+            # Set 3D points -> this automatically sets length L
+            xvec = neuron.h.Vector(locs[:, 0])
+            yvec = neuron.h.Vector(locs[:, 1])
+            zvec = neuron.h.Vector(locs[:, 2])
+            dvec = neuron.h.Vector(radii * 2)
+            neuron.h.pt3dadd(xvec, yvec, zvec, dvec, sec=sec)
+
             # Set number of segments for this section
             # We also will make sure that each section has an odd
             # number of segments
@@ -306,16 +279,47 @@ class CompartmentModel:
             # Keep track of section
             self.sections.append(sec)
 
+            # While we're at it: for each point (except the root of this
+            # section) find the relative position within the section
+
+            # Get normalized positions within this segment
+            norm_pos = dists.cumsum() / dists.sum()
+
+            # Update positional dictionaries (required for connecting the
+            # segments in the next step)
+            node2pos.update(dict(zip(seg[1:], norm_pos)))
+            node2sec.update({n: i for n in seg[1:]})
+
+            # If this happens to be the segment with the skeleton's root, keep
+            # track of it too
+            if seg[0] in roots:
+                node2pos[seg[0]] = 0
+                node2sec[seg[0]] = i
+
         self._sections = np.array(self.sections)
+        self.skeleton.nodes['sec_ix'] = self.skeleton.nodes.node_id.map(node2sec)
+        self.skeleton.nodes['sec_pos'] = self.skeleton.nodes.node_id.map(node2pos)
+
+        # Need to grab nodes again after adding `sec_ix` and `sec_pos`
+        nodes = self.skeleton.nodes.set_index('node_id')
 
         # Connect segments
         for i, seg in enumerate(self.skeleton.small_segments):
-            # Root does not need to be connected
+            # Root is special in that it only needs to be connected if it's also
+            # a branch point
             if seg[-1] in roots:
-                continue
+                # Skip if root is not a branch point
+                if seg[-1] not in bp:
+                    continue
+                # If root is also a branch point, it will be part of more than
+                # one section but in the positional dicts we will have kept track
+                # of only one of them. That's the one we pick as base segment
+                if node2sec[seg[-1]] == i:
+                    continue
+
             parent = nodes.loc[seg[-1]]
             parent_sec = self.sections[parent.sec_ix]
-            self.sections[i].connect(parent_sec)
+            self.sections[i].connect(parent_sec(1))
 
     def _validate_skeleton(self):
         """Validate skeleton."""
