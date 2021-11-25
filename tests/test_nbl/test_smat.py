@@ -4,29 +4,12 @@ import pytest
 import numpy as np
 
 from navis.nbl.smat import (
-    wrap_bounds, LookupNd, Lookup2d, LookupDistDotBuilder
+    Digitizer, LookupNd, Lookup2d, LookupDistDotBuilder
 )
 
 
 SMALLEST_DIM_SIZE = 3
 SEED = 1991
-
-
-@pytest.mark.parametrize(
-    ["arr", "left", "right", "expected"],
-    [
-        ([1, 2], -np.inf, np.inf, [-np.inf, 1, 2, np.inf]),
-        ([-np.inf, 1, 2, np.inf], -np.inf, np.inf, [-np.inf, 1, 2, np.inf]),
-        ([0, 1, 2, 3], 0, 3, [-np.inf, 1, 2, np.inf]),
-    ],
-)
-def test_wrap_bounds(arr, left, right, expected):
-    assert np.allclose(wrap_bounds(arr, left, right), expected)
-
-
-def test_wrap_bounds_error():
-    with pytest.raises(ValueError):
-        wrap_bounds([1, 2, 1])
 
 
 def lookup_args(ndim):
@@ -38,6 +21,7 @@ def lookup_args(ndim):
     to the size of the array.
     The boundaries are 0 to the length of the dimension,
     with the left and rightmost values replaced with -inf and inf respectively.
+
     Examples
     --------
     >>> lookup_args(2)
@@ -55,13 +39,8 @@ def lookup_args(ndim):
     """
     shape = tuple(range(SMALLEST_DIM_SIZE, SMALLEST_DIM_SIZE + ndim))
     cells = np.arange(np.product(shape)).reshape(shape)
-    boundaries = []
-    for s in shape:
-        b = np.arange(s + 1, dtype=float)
-        b[0] = -np.inf
-        b[-1] = np.inf
-        boundaries.append(b)
-    return boundaries, cells
+    digitizers = [Digitizer(np.arange(s + 1, dtype=float)) for s in shape]
+    return digitizers, cells
 
 
 def fmt_array(arg):
@@ -102,14 +81,14 @@ def test_lookupNd(ndim, arg):
     assert np.all(response == expected_val)
 
 
-@pytest.mark.parametrize(["strict"], [(False,), (True,)])
-def test_lookup2d_roundtrip(strict):
-    lookup = Lookup2d(*lookup_args(2))
+def test_lookup2d_roundtrip():
+    digs, cells = lookup_args(2)
+    lookup = Lookup2d(*digs, cells=cells)
     df = lookup.to_dataframe()
-    lookup2 = Lookup2d.from_dataframe(df, strict=strict)
+    lookup2 = Lookup2d.from_dataframe(df)
     assert np.allclose(lookup.cells, lookup2.cells)
-    for b1, b2 in zip(lookup.boundaries, lookup2.boundaries):
-        assert np.allclose(b1, b2)
+    for b1, b2 in zip(lookup.digitizers, lookup2.digitizers):
+        assert b1 == b2
 
 
 def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5):
@@ -144,8 +123,8 @@ def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5):
     return LookupDistDotBuilder(
         dotprops,
         matching_sets,
-        np.geomspace(10, max_dist, 5)[:-1],
-        np.linspace(0, 1, 5),
+        Digitizer.from_geom(10, max_dist, 5),
+        Digitizer.from_linear(0, 1, 5),
         nonmatching,
         alpha,
         seed=SEED + 1,
