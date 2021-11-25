@@ -622,3 +622,6 @@ class Dotprops(BaseNeuron):
         tn._soma = self._soma
 
         return tn
+
+    def __len__(self):
+        return len(self.points)
