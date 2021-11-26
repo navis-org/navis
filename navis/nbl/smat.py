@@ -4,13 +4,25 @@ import sys
 import os
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
-from typing import Iterator, Sequence, Callable, List, Iterable, Any, Tuple, Union
+from typing import (
+    Hashable,
+    Iterator,
+    Mapping,
+    Optional,
+    Sequence,
+    Callable,
+    List,
+    Iterable,
+    Any,
+    Tuple,
+)
 import logging
 from pathlib import Path
 from functools import lru_cache
 from copy import deepcopy
 import operator
 import math
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
@@ -39,26 +51,43 @@ def yield_not_same(pairs: Iterable[Tuple[Any, Any]]) -> Iterator[Tuple[Any, Any]
             yield a, b
 
 
+def concat_results(results: Iterable[List[np.ndarray]]) -> List[np.ndarray]:
+    intermediate = defaultdict(list)
+    for result_lst in results:
+        for idx, array in enumerate(result_lst):
+            intermediate[idx].append(array)
+
+    return [np.concatenate(arrs) for arrs in intermediate.values()]
+
+
+DotpropKey = Hashable
+
+
 class LookupNdBuilder:
     def __init__(
         self,
-        dotprops,
-        matching_sets,
-        digitizers: Sequence[Digitizer],
+        dotprops: Mapping[DotpropKey, Dotprops],
+        matching_lists: List[List[DotpropKey]],
         match_fn: Callable[[Dotprops, Dotprops], List[np.ndarray]],
-        nonmatching=None,
-        seed=DEFAULT_SEED,
+        nonmatching_list: Optional[List[DotpropKey]] = None,
+        seed: int = DEFAULT_SEED,
     ) -> None:
         f"""Class for building an N-dimensional score lookup for NBLAST.
+
+        Once instantiated, the axes of the lookup table must be defined.
+        Call ``.with_digitizers()`` to manually define them,
+        or ``.with_bin_counts()`` to learn them from the matched-pair data.
+
+        Then call ``.build()`` to build the lookup table.
+
         Parameters
         ----------
+
         dotprops : dict or list of Dotprops
-            An indexable sequence of all neurons which will be used as the training set,
-            as Dotprops objects.
-        matching_sets : list of sets of int
-            Sets of neurons, as indices into ``dotprops``, which should be considered matches.
-        digitizers : sequence of Digitizers
-            The length is the dimensionality of the lookup table.
+            An indexable, consistently-ordered sequence of all neurons
+            which will be used as the training set, as Dotprops objects.
+        matching_sets : list of lists of index into dotprops
+            Lists of neurons, as indices into ``dotprops``, which should be considered matches.
         match_fn : Callable[[Dotprops, Dotprops], List[np.ndarray[float]]]
             Function taking 2 arguments,
             both instances of ``navis.core.neurons.Dotprops``,
@@ -68,8 +97,8 @@ class LookupNdBuilder:
             as the number of points in the first argument.
             This function returns values describing the quality of
             point matches from a query to a target neuron.
-        nonmatching : set of int, optional
-            Set of neurons, as indices into ``dotprops``,
+        nonmatching : list of index into dotprops, optional
+            List of neurons, as indices into ``dotprops``,
             which should not be considered matches.
             If not given, all ``dotprops`` will be used
             (on the assumption that matches are a small subset of possible pairs).
@@ -78,41 +107,106 @@ class LookupNdBuilder:
             by default {DEFAULT_SEED}
         """
         self.dotprops = dotprops
-        self.matching_sets = matching_sets
-        self._nonmatching = nonmatching
+        self.matching_lists = matching_lists
+        self._nonmatching_list = nonmatching_list
         self.match_fn = match_fn
-        self.digitizers = list(digitizers)
+
+        self.digitizers: Optional[List[Digitizer]] = None
+        self.bin_counts: Optional[List[int]] = None
 
         self.rng = np.random.default_rng(seed)
 
-    def _dotprop_keys(self):
+    def with_digitizers(self, digitizers: List[Digitizer]):
+        """Specify the axes of the output lookup table directly.
+
+        Parameters
+        ----------
+        digitizers : List[Digitizer]
+
+        Returns
+        -------
+        self
+            For chaining convenience.
+        """
+        self.digitizers = digitizers
+        return self
+
+    def with_bin_counts(self, bin_counts: List[int]):
+        """Specify the number of bins on each axis of the output lookup table.
+
+        The bin boundaries will be determined by evenly partitioning the data
+        from the matched pairs into quantiles, in each dimension.
+
+        Parameters
+        ----------
+        bin_counts : List[int]
+
+        Returns
+        -------
+        self
+            For chaining convenience.
+        """
+        self.bin_counts = bin_counts
+        return self
+
+    def _dotprop_keys(self) -> Sequence[DotpropKey]:
+        """Get all indices into dotprops instance member"""
         try:
             return self.dotprops.keys()
         except AttributeError:
             return range(len(self.dotprops))
 
     @property
-    def nonmatching(self):
+    def nonmatching(self) -> List[DotpropKey]:
         """Indices of nonmatching set of neurons"""
-        if self._nonmatching is None:
-            return set(self._dotprop_keys())
-        return self._nonmatching
+        if self._nonmatching_list is None:
+            return list(self._dotprop_keys())
+        return self._nonmatching_list
 
-    def _yield_matching_pairs(self):
-        for ms in self.matching_sets:
+    def _yield_matching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+        """Yield all index pairs within all matching pairs"""
+        for ms in self.matching_lists:
             yield from yield_not_same(permutations(ms, 2))
 
-    def _yield_nonmatching_pairs(self):
+    def _yield_nonmatching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+        """Yield all index pairs within nonmatching list"""
         # todo: this could be much better, use meshgrid or shuffle index arrays
         return yield_not_same(permutations(self.nonmatching, 2))
 
-    def _empty_counts(self):
+    def _empty_counts(self) -> np.ndarray:
+        """Create an empty array in which to store counts; shape determined by digitizer sizes."""
         shape = [len(b) for b in self.digitizers]
         return np.zeros(shape, int)
 
+    def _query(self, q_idx, t_idx) -> List[np.ndarray]:
+        """Get the results of applying the match function to dotprops specified by indices"""
+        return self.match_fn(self.dotprops[q_idx], self.dotprops[t_idx])
+
+    def _query_many(self, idx_pairs, threads=None) -> Iterator[List[np.ndarray]]:
+        """Yield results from querying many pairs of dotprop indices"""
+        if threads is None or threads == 0 and cpu_count == 1:
+            for q_idx, t_idx in idx_pairs:
+                yield self._query(q_idx, t_idx)
+
+        threads = threads or cpu_count
+        idx_pairs = np.asarray(idx_pairs)
+        chunks = chunksize(len(idx_pairs), threads)
+
+        with ProcessPoolExecutor(threads) as exe:
+            yield from exe.map(
+                self._query, idx_pairs[:, 0], idx_pairs[:, 1], chunksize=chunks
+            )
+
     def _query_to_idxs(self, q_idx, t_idx, counts=None):
-        response = self.match_fn(self.dotprops[q_idx], self.dotprops[t_idx])
-        idxs = [dig(r) for dig, r in zip(self.digitizers, response)]
+        """Produce a digitized counts array from a given query-target pair"""
+        return self._count_results(self._query(q_idx, t_idx), counts)
+
+    def _count_results(self, results: List[np.ndarray], counts=None):
+        """Convert raw match function ouput into a digitized counts array.
+
+        Requires digitizers.
+        """
+        idxs = [dig(r) for dig, r in zip(self.digitizers, results)]
 
         if counts is None:
             counts = self._empty_counts()
@@ -123,6 +217,10 @@ class LookupNdBuilder:
         return counts
 
     def _counts_array(self, idx_pairs, threads=None):
+        """Convert index pairs into a digitized counts array.
+
+        Requires digitizers.
+        """
         counts = self._empty_counts()
         if threads is None or threads == 0 and cpu_count == 1:
             for q_idx, t_idx in idx_pairs:
@@ -133,6 +231,8 @@ class LookupNdBuilder:
         idx_pairs = np.asarray(idx_pairs, dtype=int)
         chunks = chunksize(len(idx_pairs), threads)
 
+        # because digitizing is not necessarily free,
+        # keep this parallelisation separate to that in _query_many
         with ProcessPoolExecutor(threads) as exe:
             for these_counts in exe.map(
                 self._query_to_idxs,
@@ -145,6 +245,7 @@ class LookupNdBuilder:
         return counts
 
     def _pick_nonmatching_pairs(self, n_matching_qual_vals):
+        """Using the seeded RNG, pick which nonmatching pairs to use."""
         # pre-calculating which pairs we're going to use,
         # rather than drawing them as we need them,
         # means that we can parallelise the later step more effectively.
@@ -162,6 +263,11 @@ class LookupNdBuilder:
         return nonmatching_pairs
 
     def _build(self, threads) -> Tuple[List[Digitizer], np.ndarray]:
+        if self.digitizers is None and self.bin_counts is None:
+            raise ValueError(
+                "Builder needs either digitizers or bin_counts; see with_* methods"
+            )
+
         matching_pairs = list(set(self._yield_matching_pairs()))
         # need to know the eventual distdot count
         # so we know how many non-matching pairs to draw
@@ -171,8 +277,16 @@ class LookupNdBuilder:
         )
 
         nonmatching_pairs = self._pick_nonmatching_pairs(n_matching_qual_vals)
+        if self.digitizers:
+            match_counts = self._counts_array(matching_pairs, threads)
+        else:
+            match_results = concat_results(self._query_many(matching_pairs, threads))
+            self.digitizers = [
+                Digitizer.from_data(data, nbins)
+                for data, nbins in zip(match_results, self.bin_counts)
+            ]
+            match_counts = self._count_results(match_results)
 
-        match_counts = self._counts_array(matching_pairs, threads)
         nonmatch_counts = self._counts_array(nonmatching_pairs, threads)
 
         # account for there being different total numbers of match/nonmatch dist dots
@@ -188,27 +302,26 @@ class LookupNdBuilder:
 
     def build(self, threads=None) -> LookupNd:
         """Build the score matrix.
+
         All non-identical neuron pairs within all matching sets are selected,
         and distdots calculated for those pairs.
         Then, the minimum number of non-matching pairs are randomly drawn
         so that at least as many distdots can be calculated for non-matching
         pairs.
+
         In each bin of the score matrix, the log2 odds ratio of a distdot
         in that bin belonging to a match vs. non-match is calculated.
+
         Parameters
         ----------
         threads : int, optional
             If None, act in serial.
             If 0, use cpu_count - 1.
             Otherwise, use the given value.
+
         Returns
         -------
-        pd.DataFrame
-            Suitable for passing to navis.nbl.ScoringFunction
-        Raises
-        ------
-        ValueError
-            If dist_bins or dot_bins are not set.
+        LookupNd
         """
         dig, cells = self._build(threads)
         return LookupNd(dig, cells)
@@ -226,45 +339,27 @@ def dist_dot_alpha(q: Dotprops, t: Dotprops):
 class LookupDistDotBuilder(LookupNdBuilder):
     def __init__(
         self,
-        dotprops,
-        matching_sets,
-        dist_digitizer: Digitizer,
-        dot_digitizer: Digitizer,
-        nonmatching=None,
-        use_alpha=False,
-        seed=DEFAULT_SEED,
+        dotprops: Mapping[DotpropKey, Dotprops],
+        matching_lists: List[List[DotpropKey]],
+        nonmatching_list: Optional[List[DotpropKey]] = None,
+        use_alpha: bool = False,
+        seed: int = DEFAULT_SEED,
     ):
         f"""Class for building a 2-dimensional score lookup for NBLAST.
         The scores are
         1. The distances between best-matching points
         2. The dot products of direction vectors around those points,
             optionally scaled by the colinearity ``alpha``.
+
         Parameters
         ----------
         dotprops : dict or list of Dotprops
             An indexable sequence of all neurons which will be used as the training set,
             as Dotprops objects.
-        matching_sets : list of sets of int
-            Sets of neurons, as indices into ``dotprops``, which should be considered matches.
-        dist_boundaries : array-like of floats
-            Monotonically increasing boundaries between distance bins
-            (i.e. N values makes N-1 bins).
-            If the first value > 0, -inf will be prepended,
-            otherwise the first value will be replaced with -inf.
-            inf will be appended unless the last value is already inf.
-            Consider using ``numpy.logspace`` or ``numpy.geomspace``
-            to generate the inner boundaries of the bins.
-        dot_boundaries : array-like of floats
-            Monotonically increasing boundaries between
-            (possibly alpha-scaled) dot product bins
-            (i.e. N values makes N-1 bins).
-            If the first value > 0, -inf will be prepended,
-            otherwise the first value will be replaced with -inf.
-            If the last value < 1, inf will be appended,
-            otherwise the last value will be replaced with inf.
-            Consider using ``numpy.linspace`` between 0 and 1.
-        nonmatching : set of int, optional
-            Set of neurons, as indices into ``dotprops``,
+        matching_lists : list of lists of indices into dotprops
+            List of neurons, as indices into ``dotprops``, which should be considered matches.
+        nonmatching_list : list of indices into dotprops, optional
+            List of neurons, as indices into ``dotprops``,
             which should not be considered matches.
             If not given, all ``dotprops`` will be used
             (on the assumption that matches are a small subset of possible pairs).
@@ -279,14 +374,17 @@ class LookupDistDotBuilder(LookupNdBuilder):
         match_fn = dist_dot_alpha if use_alpha else dist_dot
         super().__init__(
             dotprops,
-            matching_sets,
-            [dist_digitizer, dot_digitizer],
+            matching_lists,
             match_fn,
-            nonmatching,
+            nonmatching_list,
             seed,
         )
 
     def build(self, threads=None) -> Lookup2d:
+        if (self.digitizers and len(self.digitizers) != 2) or (
+            self.bin_counts and len(self.bin_counts) != 2
+        ):
+            raise ValueError("Expected 2 axes")
         (dig0, dig1), cells = self._build(threads)
         return Lookup2d(dig0, dig1, cells)
 
@@ -364,9 +462,7 @@ class Digitizer:
         ]
 
     @classmethod
-    def from_strings(
-        cls, bound_strs: Sequence[str]
-    ):
+    def from_strings(cls, interval_strs: Sequence[str]):
         """Set digitizer boundaries based on a sequence of interval expressions.
 
         e.g. ``["(0, 1]", "(1, 5]", "(5, 10]"]``
@@ -386,7 +482,7 @@ class Digitizer:
         bounds: List[float] = []
         last_upper = None
         last_right = None
-        for item in bound_strs:
+        for item in interval_strs:
             (lower, upper), right = parse_boundary(item)
             bounds.append(float(lower))
 
@@ -409,6 +505,8 @@ class Digitizer:
     def from_linear(cls, lower: float, upper: float, nbins: int, right=False):
         """Choose digitizer boundaries spaced linearly between two values.
 
+        Input values will be clipped to fit within the given interval.
+
         Parameters
         ----------
         lower : float
@@ -429,17 +527,18 @@ class Digitizer:
         return cls(arr, right=right)
 
     @classmethod
-    def from_geom(cls, lowest_upper: float, upper: float, nbins: int, right=False):
+    def from_geom(cls, lowest_upper: float, highest_lower: float, nbins: int, right=False):
         """Choose digitizer boundaries in a geometric sequence.
+
+        Additional bins will be added above and below the given values.
 
         Parameters
         ----------
         lowest_upper : float
             Upper bound of the lowest bin.
             The lower bound of the lowest bin is often 0, which cannot be represented in a nontrivial geometric sequence.
-        upper : float
-            Upper bound of the highest bin.
-            This will be replaced by +inf, but the value is used for setting the rest of the sequence.
+        highest_lower : float
+            Lower bound of the highest bin.
         nbins : int
             Number of bins
         right : bool, optional
@@ -453,8 +552,8 @@ class Digitizer:
         # Because geom can't start at 0, instead start at the upper bound
         # of the lowest bin, then prepend -inf.
         # Because the extra bin is added, do not need to add 1 to nbins in geomspace.
-        arr = np.geomspace(lowest_upper, upper, nbins, True)
-        return cls(arr, clip=(False, True), right=right)
+        arr = np.geomspace(lowest_upper, highest_lower, nbins - 1, True)
+        return cls(arr, clip=False, right=right)
 
     @classmethod
     def from_data(cls, data: Sequence[float], nbins: int, right=False):
@@ -480,7 +579,9 @@ class Digitizer:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Digitizer):
             return NotImplemented
-        return self.right == other.right and np.allclose(self.boundaries, other.boundaries)
+        return self.right == other.right and np.allclose(
+            self.boundaries, other.boundaries
+        )
 
 
 class LookupNd:
@@ -587,7 +688,9 @@ NBLAST score functions take 2 floats or N-length numpy arrays of floats
 (for matched dotprop points/tangents, distance and dot product;
 the latter possibly scaled by the geometric mean of the alpha colinearity values)
 and returns a float or N-length numpy array of floats.
-""".strip().replace("\n", " ")
+""".strip().replace(
+    "\n", " "
+)
 
 
 def parse_score_fn(smat, alpha=False):
