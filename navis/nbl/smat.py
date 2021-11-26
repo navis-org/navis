@@ -115,7 +115,16 @@ class LookupNdBuilder:
         self.digitizers: Optional[List[Digitizer]] = None
         self.bin_counts: Optional[List[int]] = None
 
-        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+        self._ndim: Optional[int] = None
+
+    @property
+    def ndim(self) -> int:
+        if self._ndim is None:
+            idx1, idx2 = self._dotprop_keys()[:2]
+            self._ndim = len(self._query(idx1, idx2))
+            self._query.cache_clear()
+        return self._ndim
 
     def with_digitizers(self, digitizers: List[Digitizer]):
         """Specify the axes of the output lookup table directly.
@@ -129,7 +138,14 @@ class LookupNdBuilder:
         self
             For chaining convenience.
         """
+        if len(digitizers) != self.ndim:
+            raise ValueError(
+                f"Match function returns {self.ndim} values "
+                f"but provided {len(digitizers)} digitizers"
+            )
+
         self.digitizers = digitizers
+        self.bin_counts = None
         return self
 
     def with_bin_counts(self, bin_counts: List[int]):
@@ -147,7 +163,14 @@ class LookupNdBuilder:
         self
             For chaining convenience.
         """
+        if len(bin_counts) != self.ndim:
+            raise ValueError(
+                f"Match function returns {self.ndim} values "
+                f"but provided {len(bin_counts)} bin counts"
+            )
+
         self.bin_counts = bin_counts
+        self.digitizers = None
         return self
 
     def _dotprop_keys(self) -> Sequence[DotpropKey]:
@@ -179,6 +202,7 @@ class LookupNdBuilder:
         shape = [len(b) for b in self.digitizers]
         return np.zeros(shape, int)
 
+    @lru_cache
     def _query(self, q_idx, t_idx) -> List[np.ndarray]:
         """Get the results of applying the match function to dotprops specified by indices"""
         return self.match_fn(self.dotprops[q_idx], self.dotprops[t_idx])
@@ -217,7 +241,7 @@ class LookupNdBuilder:
 
         return counts
 
-    def _counts_array(self, idx_pairs, threads=None):
+    def _counts_array(self, idx_pairs, threads=None, cache=False):
         """Convert index pairs into a digitized counts array.
 
         Requires digitizers.
@@ -242,6 +266,8 @@ class LookupNdBuilder:
                 chunksize=chunks,
             ):
                 counts += these_counts
+                if not cache:
+                    self._query.cache_clear
 
         return counts
 
@@ -255,20 +281,16 @@ class LookupNdBuilder:
         all_nonmatching_pairs = list(self._yield_nonmatching_pairs())
         nonmatching_pairs = []
         n_nonmatching_qual_vals = 0
+        rng = np.random.default_rng(self.seed)
         while n_nonmatching_qual_vals < n_matching_qual_vals:
-            idx = self.rng.integers(0, len(all_nonmatching_pairs))
+            idx = rng.integers(0, len(all_nonmatching_pairs))
             nonmatching_pair = all_nonmatching_pairs.pop(idx)
             nonmatching_pairs.append(nonmatching_pair)
             n_nonmatching_qual_vals += len(self.dotprops[nonmatching_pair[0]])
 
         return nonmatching_pairs
 
-    def _build(self, threads) -> Tuple[List[Digitizer], np.ndarray]:
-        if self.digitizers is None and self.bin_counts is None:
-            raise ValueError(
-                "Builder needs either digitizers or bin_counts; see with_* methods"
-            )
-
+    def _get_pairs(self):
         matching_pairs = list(set(self._yield_matching_pairs()))
         # need to know the eventual distdot count
         # so we know how many non-matching pairs to draw
@@ -278,14 +300,26 @@ class LookupNdBuilder:
         )
 
         nonmatching_pairs = self._pick_nonmatching_pairs(n_matching_qual_vals)
+        return matching_pairs, nonmatching_pairs
+
+    def _build(self, threads, cache=False) -> Tuple[List[Digitizer], np.ndarray]:
+        if self.digitizers is None and self.bin_counts is None:
+            raise ValueError(
+                "Builder needs either digitizers or bin_counts; see with_* methods"
+            )
+
+        matching_pairs, nonmatching_pairs = self._get_pairs()
+
         if self.digitizers:
-            match_counts = self._counts_array(matching_pairs, threads)
+            match_counts = self._counts_array(matching_pairs, threads, cache)
         else:
             match_results = concat_results(self._query_many(matching_pairs, threads))
             self.digitizers = [
                 Digitizer.from_data(data, nbins)
                 for data, nbins in zip(match_results, self.bin_counts)
             ]
+            if not cache:
+                self._query.cache_clear()
             match_counts = self._count_results(match_results)
 
         nonmatch_counts = self._counts_array(nonmatching_pairs, threads)
@@ -301,7 +335,7 @@ class LookupNdBuilder:
 
         return self.digitizers, cells
 
-    def build(self, threads=None) -> LookupNd:
+    def build(self, threads=None, cache=False) -> LookupNd:
         """Build the score matrix.
 
         All non-identical neuron pairs within all matching sets are selected,
@@ -324,7 +358,7 @@ class LookupNdBuilder:
         -------
         LookupNd
         """
-        dig, cells = self._build(threads)
+        dig, cells = self._build(threads, cache)
         return LookupNd(dig, cells)
 
 
@@ -380,13 +414,10 @@ class LookupDistDotBuilder(LookupNdBuilder):
             nonmatching_list,
             seed,
         )
+        self._ndim = 2
 
-    def build(self, threads=None) -> Lookup2d:
-        if (self.digitizers and len(self.digitizers) != 2) or (
-            self.bin_counts and len(self.bin_counts) != 2
-        ):
-            raise ValueError("Expected 2 axes")
-        (dig0, dig1), cells = self._build(threads)
+    def build(self, threads=None, cache=False) -> Lookup2d:
+        (dig0, dig1), cells = self._build(threads, cache)
         return Lookup2d(dig0, dig1, cells)
 
 
@@ -664,6 +695,7 @@ def smat_fcwb(alpha=False):
 
 def check_score_fn(fn: Callable, nargs=2, scalar=True, array=True):
     """Checks functionally that the callable can be used as a score function.
+
     Parameters
     ----------
     nargs : optional int, default 2
@@ -672,6 +704,7 @@ def check_score_fn(fn: Callable, nargs=2, scalar=True, array=True):
         Check that the function can be used on ``nargs`` scalars.
     array : optional bool, default True
         Check that the function can be used on ``nargs`` 1D ``numpy.ndarray``s.
+
     Raises
     ------
     ValueError

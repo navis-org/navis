@@ -130,3 +130,5 @@ ENV/
 #*.swc
 #*.json
 MANIFEST
+
+tmp/
