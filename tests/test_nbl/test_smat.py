@@ -99,7 +99,7 @@ def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5):
     # make jittered copies of these neurons
     rng = np.random.default_rng(SEED)
     jitter_sigma = 50
-    matching_sets = []
+    matching_lists = []
     for idx, dp in enumerate(dotprops[:]):
         dotprops.append(
             Dotprops(
@@ -107,7 +107,7 @@ def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5):
             )
         )
         # assign each neuron its jittered self as a match
-        matching_sets.append({idx, idx + n_orig})
+        matching_lists.append([idx, idx + n_orig])
 
     # original neurons should all not match each other
     nonmatching = list(range(n_orig))
@@ -122,13 +122,14 @@ def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5):
 
     return LookupDistDotBuilder(
         dotprops,
-        matching_sets,
-        Digitizer.from_geom(10, max_dist, 5),
-        Digitizer.from_linear(0, 1, 5),
+        matching_lists,
         nonmatching,
         alpha,
         seed=SEED + 1,
-    )
+    ).with_digitizers([
+        Digitizer.from_geom(10, max_dist, 5),
+        Digitizer.from_linear(0, 1, 5),
+    ])
 
 
 @pytest.mark.parametrize(["alpha"], [(True,), (False,)])

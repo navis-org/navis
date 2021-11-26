@@ -15,6 +15,7 @@ from typing import (
     Iterable,
     Any,
     Tuple,
+    Union,
 )
 import logging
 from pathlib import Path
@@ -66,7 +67,7 @@ DotpropKey = Hashable
 class LookupNdBuilder:
     def __init__(
         self,
-        dotprops: Mapping[DotpropKey, Dotprops],
+        dotprops: Union[List[Dotprops], Mapping[DotpropKey, Dotprops]],
         matching_lists: List[List[DotpropKey]],
         match_fn: Callable[[Dotprops, Dotprops], List[np.ndarray]],
         nonmatching_list: Optional[List[DotpropKey]] = None,
@@ -339,7 +340,7 @@ def dist_dot_alpha(q: Dotprops, t: Dotprops):
 class LookupDistDotBuilder(LookupNdBuilder):
     def __init__(
         self,
-        dotprops: Mapping[DotpropKey, Dotprops],
+        dotprops: Union[List[Dotprops], Mapping[DotpropKey, Dotprops]],
         matching_lists: List[List[DotpropKey]],
         nonmatching_list: Optional[List[DotpropKey]] = None,
         use_alpha: bool = False,
@@ -416,6 +417,21 @@ class Digitizer:
         clip: Tuple[bool, bool] = (True, True),
         right=False,
     ):
+        """Class converting continuous values into discrete indices given specific bin boundaries.
+
+        Parameters
+        ----------
+        boundaries : Sequence[float]
+            N boundaries specifying N-1 bins.
+            Must be monotonically increasing.
+        clip : Tuple[bool, bool], optional
+            Whether to set the bottom and top boundaries to -infinity and infinity respectively,
+            effectively clipping incoming values: by default (True, True).
+            False means "add a new bin for out-of-range values".
+        right : bool, optional
+            Whether bins should include their right (rather than left) boundary,
+            by default False
+        """
         self.right = right
 
         boundaries = list(boundaries)
@@ -549,11 +565,8 @@ class Digitizer:
         -------
         Digitizer
         """
-        # Because geom can't start at 0, instead start at the upper bound
-        # of the lowest bin, then prepend -inf.
-        # Because the extra bin is added, do not need to add 1 to nbins in geomspace.
         arr = np.geomspace(lowest_upper, highest_lower, nbins - 1, True)
-        return cls(arr, clip=False, right=right)
+        return cls(arr, clip=(False, False), right=right)
 
     @classmethod
     def from_data(cls, data: Sequence[float], nbins: int, right=False):
