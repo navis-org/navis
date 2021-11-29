@@ -130,11 +130,11 @@ class Dotprops(BaseNeuron):
 
         self.units = units
 
-    def __truediv__(self, other):
+    def __truediv__(self, other, copy=True):
         """Implement division for coordinates."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
-            n = self.copy()
+            n = self.copy() if copy else self
             _ = np.divide(n.points, other, out=n.points, casting='unsafe')
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] /= other
@@ -149,11 +149,11 @@ class Dotprops(BaseNeuron):
             return n
         return NotImplemented
 
-    def __mul__(self, other):
+    def __mul__(self, other, copy=True):
         """Implement multiplication for coordinates."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
-            n = self.copy()
+            n = self.copy() if copy else self
             _ = np.multiply(n.points, other, out=n.points, casting='unsafe')
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other

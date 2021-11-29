@@ -198,7 +198,7 @@ class TreeNeuron(BaseNeuron):
         # Last ditch effort - maybe the base class knows the key?
         return super().__getattr__(key)
 
-    def __truediv__(self, other):
+    def __truediv__(self, other, copy=True):
         """Implement division for coordinates (nodes, connectors)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             if utils.is_iterable(other) and len(other) != 4:
@@ -210,7 +210,7 @@ class TreeNeuron(BaseNeuron):
                                      f'got {len(other)}')
 
             # If a number, consider this an offset for coordinates
-            n = self.copy()
+            n = self.copy() if copy else self
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
 
             # At this point we can ditch any 4th unit
@@ -230,7 +230,7 @@ class TreeNeuron(BaseNeuron):
             return n
         return NotImplemented
 
-    def __mul__(self, other):
+    def __mul__(self, other, copy=True):
         """Implement multiplication for coordinates (nodes, connectors)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             if utils.is_iterable(other) and len(other) != 4:
@@ -242,7 +242,7 @@ class TreeNeuron(BaseNeuron):
                                      f'got {len(other)}')
 
             # If a number, consider this an offset for coordinates
-            n = self.copy()
+            n = self.copy() if copy else self
             n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
 
             # At this point we can ditch any 4th unit
@@ -1082,7 +1082,7 @@ class TreeNeuron(BaseNeuron):
     def cell_body_fiber(self,
                         reroot_soma: bool = True,
                         inplace: bool = False,
-                                 ) -> Optional['TreeNeuron']:
+                        ) -> Optional['TreeNeuron']:
         """Prune neuron to its cell body fiber.
 
         Parameters

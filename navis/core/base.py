@@ -45,7 +45,6 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
-
 def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
            **metadata):
     """Constructor for Neuron objects. Depending on the input, either a
@@ -197,6 +196,14 @@ class BaseNeuron:
             return core.NeuronList([self, other])
         else:
             return NotImplemented
+
+    def __imul__(self, other):
+        """Multiplication with assignment (*=)."""
+        return self.__mul__(other, copy=False)
+
+    def __itruediv__(self, other):
+        """Division with assignment (/=)."""
+        return self.__truediv__(other, copy=False)
 
     def _repr_html_(self):
         frame = self.summary().to_frame()
@@ -563,10 +570,7 @@ class BaseNeuron:
         if not isinstance(self.units, (pint.Unit, pint.Quantity)):
             raise ValueError("Unable to convert: neuron has no units set.")
 
-        if inplace:
-            n = self
-        else:
-            n = self.copy()
+        n = self.copy() if not inplace else self
 
         # Catch pint's UnitStrippedWarning
         with warnings.catch_warnings():
@@ -578,8 +582,7 @@ class BaseNeuron:
 
         n._clear_temp_attr(exclude=['classify_nodes'])
 
-        if not inplace:
-            return n
+        return n
 
     def copy(self, deepcopy=False) -> 'BaseNeuron':
         """Return a copy of the neuron."""

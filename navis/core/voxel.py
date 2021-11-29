@@ -137,11 +137,11 @@ class VoxelNeuron(BaseNeuron):
         """Update state (used e.g. for pickling)."""
         self.__dict__.update(d)
 
-    def __truediv__(self, other):
+    def __truediv__(self, other, copy=True):
         """Implement division for coordinates (units, connectors)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
-            n = self.copy()
+            n = self.copy() if copy else self
             n.units = (n.units / other).to_compact()
             n.offset = n.offset / other
             if n.has_connectors:
@@ -152,11 +152,11 @@ class VoxelNeuron(BaseNeuron):
             return n
         return NotImplemented
 
-    def __mul__(self, other):
+    def __mul__(self, other, copy=True):
         """Implement multiplication for coordinates (units, connectors)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
-            n = self.copy()
+            n = self.copy() if copy else self
             n.units = (n.units * other).to_compact()
             n.offset = n.offset * other
             if n.has_connectors:
