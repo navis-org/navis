@@ -325,8 +325,8 @@ def neuron2voxels(x: 'core.BaseNeuron',
         bounds = bounds.T
 
     # Shape of grid
-    dim = np.ceil(bounds[:, 1]) - np.floor(bounds[:, 0])
-    shape = np.ceil(dim / pitch).astype(int) + 1
+    dim = np.ceil(bounds[:, 1] / pitch) - np.floor(bounds[:, 0] / pitch)
+    shape = np.ceil(dim).astype(int) + 1
 
     # Get unique voxels
     if not counts:
