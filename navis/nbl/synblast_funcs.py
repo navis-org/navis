@@ -15,6 +15,7 @@
 """Module contains functions implementing SyNBLAST."""
 
 import os
+import operator
 
 import numpy as np
 import pandas as pd
@@ -28,9 +29,10 @@ from .. import config, utils
 from ..core import NeuronList, BaseNeuron
 
 from .base import Blaster, NestedIndices
+from .smat import Lookup2d
 
 from .nblast_funcs import (check_microns, find_optimal_partition, ScoringFunction,
-                           nblast_preflight)
+                           nblast_preflight, smat_fcwb)
 
 __all__ = ['synblast']
 
@@ -59,10 +61,14 @@ class SynBlaster(Blaster):
     by_type :       bool
                     If True will only compare synapses with the same value in
                     the "type" column.
-    smat :          str | pd.DataFrame
-                    Score matrix. If 'auto' (default), will use scoring matrices
+    smat :          navis.nbl.smat.Lookup2d | pd.DataFrame | str
+                    How to convert the point match pairs into an NBLAST score,
+                    usually by a lookup table.
+                    If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
-                    implementation. If ``smat=None`` the scores will be
+                    implementation.
+                    Dataframes will be used to build a ``Lookup2d``.
+                    If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
     progress :      bool
@@ -77,9 +83,14 @@ class SynBlaster(Blaster):
         self.normalized = normalized
         self.by_type = by_type
 
-        if smat == 'auto':
-            smat = pd.read_csv(f'{smat_path}/smat_fcwb.csv',
-                               index_col=0)
+        if smat is None:
+            self.score_fn = operator.mul
+        elif smat == 'auto':
+            self.score_fn = smat_fcwb()
+        elif isinstance(smat, pd.DataFrame):
+            self.score_fn = Lookup2d.from_dataframe(smat)
+        else:
+            self.score_fn = smat
 
         self.score_fn = ScoringFunction(smat)
         self.ids = []

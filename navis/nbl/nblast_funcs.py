@@ -16,6 +16,7 @@
 
 import numbers
 import os
+import operator
 
 import numpy as np
 import pandas as pd
@@ -23,6 +24,8 @@ import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 from typing import Union, Optional, List
 from typing_extensions import Literal
+
+from navis.nbl.smat import Lookup2d, smat_fcwb
 
 from .. import utils, config
 from ..core import NeuronList, Dotprops, make_dotprops
@@ -119,10 +122,16 @@ class NBlaster(Blaster):
     normalized :    bool
                     If True, will normalize scores by the best possible score
                     (i.e. self-self) of the query neuron.
-    smat :          str | pd.DataFrame
-                    Score matrix. If 'auto' (default), will use scoring matrices
+    smat :          navis.nbl.smat.Lookup2d | pd.DataFrame | str
+                    How to convert the point match pairs into an NBLAST score,
+                    usually by a lookup table.
+                    If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
-                    implementation. If ``smat=None`` the scores will be
+                    implementation.
+                    Dataframes will be used to build a ``Lookup2d``.
+                    If ``limit_dist`` is not given,
+                    will attempt to infer from the first axis of the lookup table.
+                    If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
     limit_dist :    float | "auto" | None
@@ -145,20 +154,24 @@ class NBlaster(Blaster):
         self.approx_nn = approx_nn
         self.desc = "NBlasting"
 
-        if smat == 'auto':
-            if self.use_alpha:
-                smat = pd.read_csv(f'{smat_path}/smat_alpha_fcwb.csv',
-                                   index_col=0)
-            else:
-                smat = pd.read_csv(f'{smat_path}/smat_fcwb.csv',
-                                   index_col=0)
-
-        self.score_fn = ScoringFunction(smat)
-
-        if limit_dist == 'auto':
-            self.distance_upper_bound = self.score_fn.max_dist
+        if smat is None:
+            self.score_fn = operator.mul
+        elif smat == 'auto':
+            self.score_fn = smat_fcwb(self.use_alpha)
+        elif isinstance(smat, pd.DataFrame):
+            self.score_fn = Lookup2d.from_dataframe(smat)
         else:
+            self.score_fn = smat
+
+        self.distance_upper_bound = None
+
+        if limit_dist is not None:
             self.distance_upper_bound = limit_dist
+        else:
+            try:
+                self.distance_upper_bound = self.score_fn.digitizers[0]._max
+            except AttributeError:
+                pass
 
     def append(self, dotprops) -> NestedIndices:
         """Append dotprops.
