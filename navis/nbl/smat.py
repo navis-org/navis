@@ -466,14 +466,17 @@ class Digitizer:
         self.right = right
 
         boundaries = list(boundaries)
-        self._min = boundaries[0]
+        self._min = -math.inf
         if clip[0]:
+            self._min = boundaries[0]
             boundaries[0] = -math.inf
         elif boundaries[0] != -math.inf:
+            self._min = -math.inf
             boundaries.insert(0, -math.inf)
 
-        self._max = boundaries[-1]
+        self._max = math.inf
         if clip[1]:
+            self._max = boundaries[-1]
             boundaries[-1] = math.inf
         elif boundaries[-1] != math.inf:
             boundaries.append(math.inf)
@@ -503,9 +506,12 @@ class Digitizer:
             lb = "["
             rb = ")"
 
+        b = self.boundaries.copy()
+        b[0] = self._min
+        b[-1] = self._max
         return [
             f"{lb}{lower},{upper}{rb}"
-            for lower, upper in zip(self.boundaries[:-1], self.boundaries[1:])
+            for lower, upper in zip(b[:-1], b[1:])
         ]
 
     @classmethod
