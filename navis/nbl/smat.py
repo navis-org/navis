@@ -36,7 +36,6 @@ DEFAULT_SEED = 1991
 
 epsilon = sys.float_info.epsilon
 cpu_count = max(1, (os.cpu_count() or 2) - 1)
-IMPLICIT_INTERVAL = "[)"
 
 fp = Path(__file__).resolve().parent
 smat_path = fp / "score_mats"
@@ -212,6 +211,7 @@ class LookupNdBuilder:
         if threads is None or threads == 0 and cpu_count == 1:
             for q_idx, t_idx in idx_pairs:
                 yield self._query(q_idx, t_idx)
+            return
 
         threads = threads or cpu_count
         idx_pairs = np.asarray(idx_pairs)

@@ -26,7 +26,7 @@ from typing_extensions import Literal
 
 from .. import utils, config
 from ..core import NeuronList, Dotprops, make_dotprops
-from .base import Blaster, AppendOutput
+from .base import Blaster, NestedIndices
 
 __all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 
@@ -160,7 +160,7 @@ class NBlaster(Blaster):
         else:
             self.distance_upper_bound = limit_dist
 
-    def append(self, dotprops) -> AppendOutput:
+    def append(self, dotprops) -> NestedIndices:
         """Append dotprops.
 
         Returns the numerical index appended dotprops.

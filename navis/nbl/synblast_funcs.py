@@ -27,7 +27,7 @@ from typing_extensions import Literal
 from .. import config, utils
 from ..core import NeuronList, BaseNeuron
 
-from .base import Blaster, AppendOutput
+from .base import Blaster, NestedIndices
 
 from .nblast_funcs import (check_microns, find_optimal_partition, ScoringFunction,
                            nblast_preflight)
@@ -84,7 +84,7 @@ class SynBlaster(Blaster):
         self.score_fn = ScoringFunction(smat)
         self.ids = []
 
-    def append(self, neuron, id=None) -> AppendOutput:
+    def append(self, neuron, id=None) -> NestedIndices:
         """Append neurons/connector tables, returning numerical indices of added objects"""
         if isinstance(neuron, pd.DataFrame):
             return self._append_connectors(neuron, id)

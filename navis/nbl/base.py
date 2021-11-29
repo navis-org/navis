@@ -25,7 +25,7 @@ INT_DTYPES = {16: np.int16, 32: np.int32, 64: np.int64, None: None}
 FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
 
 
-AppendOutput = Union[int, List['AppendOutput']]
+NestedIndices = Union[int, List['NestedIndices']]
 
 
 class Blaster(ABC):
@@ -41,7 +41,7 @@ class Blaster(ABC):
         self.ids = []
 
     @abstractmethod
-    def append(self, neurons) -> AppendOutput:
+    def append(self, neurons) -> NestedIndices:
         """Append neurons."""
         pass
 
