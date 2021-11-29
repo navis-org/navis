@@ -27,7 +27,7 @@ from typing_extensions import Literal
 from .. import config, utils
 from ..core import NeuronList, BaseNeuron
 
-from .base import Blaster
+from .base import Blaster, AppendOutput
 
 from .nblast_funcs import (check_microns, find_optimal_partition, ScoringFunction,
                            nblast_preflight)
@@ -84,8 +84,8 @@ class SynBlaster(Blaster):
         self.score_fn = ScoringFunction(smat)
         self.ids = []
 
-    def append(self, neuron, id=None):
-        """Append neurons/connector tables, returning ids of added objects"""
+    def append(self, neuron, id=None) -> AppendOutput:
+        """Append neurons/connector tables, returning numerical indices of added objects"""
         if isinstance(neuron, pd.DataFrame):
             return self._append_connectors(neuron, id)
 
@@ -102,10 +102,11 @@ class SynBlaster(Blaster):
                 f"{type(neuron)}"
             )
 
-    def _append_connectors(self, connectors: pd.DataFrame, id):
+    def _append_connectors(self, connectors: pd.DataFrame, id) -> int:
         if id is None:
             raise ValueError("Explicit non-None id required for appending connectors")
 
+        next_idx = len(self)
         self.ids.append(id)
         self.neurons.append({})
         if not self.by_type:
@@ -123,13 +124,13 @@ class SynBlaster(Blaster):
 
         # Calculate score for self hit
         self.self_hits.append(self.calc_self_hit(connectors))
-        return id
+        return next_idx
 
     def calc_self_hit(self, cn):
         """Non-normalized value for self hit."""
         return cn.shape[0] * self.score_fn(0, 1)
 
-    def single_query_target(self, q_idx, t_idx, scores='forward'):
+    def single_query_target(self, q_idx: int, t_idx: int, scores='forward'):
         """Query single target against single target."""
         # Take a short-cut if this is a self-self comparison
         if q_idx == t_idx:

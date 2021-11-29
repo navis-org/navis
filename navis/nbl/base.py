@@ -17,11 +17,15 @@ import numpy as np
 import pandas as pd
 
 from abc import ABC, abstractmethod
+from typing import Union, List
 
 from .. import utils, config
 
 INT_DTYPES = {16: np.int16, 32: np.int32, 64: np.int64, None: None}
 FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
+
+
+AppendOutput = Union[int, List['AppendOutput']]
 
 
 class Blaster(ABC):
@@ -37,7 +41,7 @@ class Blaster(ABC):
         self.ids = []
 
     @abstractmethod
-    def append(self, neurons):
+    def append(self, neurons) -> AppendOutput:
         """Append neurons."""
         pass
 
@@ -157,3 +161,6 @@ class Blaster(ABC):
             res.loc[:, :] = np.dstack((res, res.T)).max(axis=2)
 
         return res
+
+    def __len__(self):
+        return len(self.neurons)

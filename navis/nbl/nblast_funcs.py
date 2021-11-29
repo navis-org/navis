@@ -16,7 +16,6 @@
 
 import numbers
 import os
-import uuid
 
 import numpy as np
 import pandas as pd
@@ -27,7 +26,7 @@ from typing_extensions import Literal
 
 from .. import utils, config
 from ..core import NeuronList, Dotprops, make_dotprops
-from .base import Blaster
+from .base import Blaster, AppendOutput
 
 __all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 
@@ -104,8 +103,6 @@ class ScoringFunction:
         return float(s.strip("([])").split(",")[-1])
 
 
-NeuronId = Union[int, str, uuid.UUID]
-
 class NBlaster(Blaster):
     """Implements version 2 of the NBLAST algorithm.
 
@@ -163,12 +160,12 @@ class NBlaster(Blaster):
         else:
             self.distance_upper_bound = limit_dist
 
-    def append(self, dotprops) -> Union[List[NeuronId], NeuronId]:
+    def append(self, dotprops) -> AppendOutput:
         """Append dotprops.
 
-        Returns the ID of the appended dotprops.
+        Returns the numerical index appended dotprops.
         If dotprops is a (possibly nested) sequence of dotprops,
-        return a (possibly nested) list of IDs.
+        return a (possibly nested) list of indices.
         """
         if isinstance(dotprops, Dotprops):
             return self._append_dotprops(dotprops)
@@ -178,12 +175,13 @@ class NBlaster(Blaster):
         except TypeError:  # i.e. not iterable
             raise ValueError(f"Expected Dotprops or iterable thereof; got {type(dotprops)}")
 
-    def _append_dotprops(self, dotprops: Dotprops) -> NeuronId:
+    def _append_dotprops(self, dotprops: Dotprops) -> int:
+        next_id = len(self)
         self.neurons.append(dotprops)
         self.ids.append(dotprops.id)
         # Calculate score for self hit
         self.self_hits.append(self.calc_self_hit(dotprops))
-        return dotprops.id
+        return next_id
 
     def calc_self_hit(self, dotprops):
         """Non-normalized value for self hit."""
@@ -195,7 +193,7 @@ class NBlaster(Blaster):
             dots = np.repeat(1, len(dotprops.points)) * np.sqrt(alpha)
             return self.score_fn(dists, dots).sum()
 
-    def single_query_target(self, q_idx, t_idx, scores='forward'):
+    def single_query_target(self, q_idx: int, t_idx: int, scores='forward'):
         """Query single target against single target."""
         # Take a short-cut if this is a self-self comparison
         if q_idx == t_idx:
