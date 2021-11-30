@@ -96,15 +96,14 @@ class NBlaster(Blaster):
         else:
             self.score_fn = smat
 
-        self.distance_upper_bound = None
-
-        if limit_dist is not None:
-            self.distance_upper_bound = limit_dist
-        else:
+        if limit_dist == "auto":
             try:
                 self.distance_upper_bound = self.score_fn.digitizers[0]._max
             except AttributeError:
-                pass
+                logger.warning("Could not infer distance upper bound from scoring function")
+                self.distance_upper_bound = None
+        else:
+            self.distance_upper_bound = limit_dist
 
     def append(self, dotprops) -> NestedIndices:
         """Append dotprops.
