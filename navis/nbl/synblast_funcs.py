@@ -31,7 +31,7 @@ from ..core import NeuronList, BaseNeuron
 from .base import Blaster, NestedIndices
 from .smat import Lookup2d
 
-from .nblast_funcs import (check_microns, find_optimal_partition, ScoringFunction,
+from .nblast_funcs import (check_microns, find_optimal_partition,
                            nblast_preflight, smat_fcwb)
 
 __all__ = ['synblast']
@@ -92,7 +92,6 @@ class SynBlaster(Blaster):
         else:
             self.score_fn = smat
 
-        self.score_fn = ScoringFunction(smat)
         self.ids = []
 
     def append(self, neuron, id=None) -> NestedIndices:
