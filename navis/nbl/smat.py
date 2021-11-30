@@ -381,7 +381,9 @@ class LookupDistDotBuilder(LookupNdBuilder):
         seed: int = DEFAULT_SEED,
     ):
         f"""Class for building a 2-dimensional score lookup for NBLAST.
+
         The scores are
+
         1. The distances between best-matching points
         2. The dot products of direction vectors around those points,
             optionally scaled by the colinearity ``alpha``.
@@ -658,9 +660,33 @@ class Lookup2d(LookupNd):
     """
 
     def __init__(self, digitizer0: Digitizer, digitizer1: Digitizer, cells: np.ndarray):
+        """2D lookup table for convert NBLAST matches to scores.
+
+        Commonly read from a ``pandas.DataFrame``
+        or trained on data using a ``LookupDistDotBuilder``.
+
+        Parameters
+        ----------
+        digitizer0 : Digitizer
+            How to convert continuous values into an index for the first axis.
+        digitizer1 : Digitizer
+            How to convert continuous values into an index for the second axis.
+        cells : np.ndarray
+            Values to look up in the table.
+        """
         super().__init__([digitizer0, digitizer1], cells)
 
     def to_dataframe(self) -> pd.DataFrame:
+        """Convert the lookup table into a ``pandas.DataFrame``.
+
+        From there, it can be shared, saved, and so on.
+
+        The index and column labels describe the intervals represented by that axis.
+
+        Returns
+        -------
+        pd.DataFrame
+        """
         return pd.DataFrame(
             self.cells,
             self.digitizers[0].to_strings(),
