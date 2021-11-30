@@ -201,7 +201,7 @@ class LookupNdBuilder:
         shape = [len(b) for b in self.digitizers]
         return np.zeros(shape, int)
 
-    @lru_cache
+    @lru_cache(None)
     def _query(self, q_idx, t_idx) -> List[np.ndarray]:
         """Get the results of applying the match function to dotprops specified by indices"""
         return self.match_fn(self.dotprops[q_idx], self.dotprops[t_idx])
