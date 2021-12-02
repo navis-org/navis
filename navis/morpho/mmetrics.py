@@ -653,7 +653,7 @@ def flow_centrality(x: 'core.NeuronObject',
     >>> n.reroot(n.soma, inplace=True)
     >>> _ = navis.flow_centrality(n)
     >>> n[0].nodes.flow_centrality.max()
-    786341
+    786969
 
     See Also
     --------
