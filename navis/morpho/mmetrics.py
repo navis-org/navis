@@ -359,7 +359,7 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> 'core.NeuronObject':
     :func:`~navis.bending_flow`
             Variation on the Schneider-Mizell et al. synapse flow.
     :func:`~navis.split_axon_dendrite`
-            Split the neuron into axon, dendrite and primary neurite.    
+            Split the neuron into axon, dendrite and primary neurite.
 
     """
     if not isinstance(x, core.TreeNeuron):
@@ -758,7 +758,7 @@ def flow_centrality(x: 'core.NeuronObject',
         # Each non-terminal segment will have its first node mapped
         flow.update({n: this_flow for n in s[:-1]})
 
-    x.nodes['flow_centrality'] = x.nodes.node_id.map(flow).fillna(0)
+    x.nodes['flow_centrality'] = x.nodes.node_id.map(flow).fillna(0).astype(int)
 
     # Add info on method/mode used for flow centrality
     x.centrality_method = mode  # type: ignore
