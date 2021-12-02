@@ -142,7 +142,7 @@ def read_mesh(f: Union[str, Iterable],
 
     try:
         # Open the file
-        fname = os.path.basename(f).split('.')[0]
+        fname = '.'.join(os.path.basename(f).split('.')[:-1])
         mesh = tm.load_mesh(f)
 
         if output == 'trimesh':
