@@ -738,42 +738,32 @@ def split_axon_dendrite(x: NeuronObject,
 
     # Add labels
     if label_only:
-        original.nodes['compartment'] = None
-        is_linker = original.nodes.node_id.isin(linker)
-        is_axon = original.nodes.node_id.isin(axon)
-        is_dend = original.nodes.node_id.isin(dendrite)
-        is_cbf = original.nodes.node_id.isin(cbf)
-        original.nodes.loc[is_linker, 'compartment'] = 'linker'
-        original.nodes.loc[is_dend, 'compartment'] = 'dendrite'
-        original.nodes.loc[is_axon, 'compartment'] = 'axon'
-        original.nodes.loc[is_cbf, 'compartment'] = 'cellbodyfiber'
+        nodes = original.nodes
+        nodes['compartment'] = None
+        is_linker = nodes.node_id.isin(linker)
+        is_axon = nodes.node_id.isin(axon)
+        is_dend = nodes.node_id.isin(dendrite)
+        is_cbf = nodes.node_id.isin(cbf)
+        nodes.loc[is_linker, 'compartment'] = 'linker'
+        nodes.loc[is_dend, 'compartment'] = 'dendrite'
+        nodes.loc[is_axon, 'compartment'] = 'axon'
+        nodes.loc[is_cbf, 'compartment'] = 'cellbodyfiber'
 
-        # There might be small branches w/o synapses (i.e. without flow) that
-        # have not yet been assigned. We will attribute them to whatever
-        # they connect to
-        to_fix = original.nodes.loc[original.nodes.compartment.isnull()]
-
-        # Find branch points proximal to these that have a compartment
-        has_type = ~original.nodes.compartment.isnull()
-        bps = original.nodes.loc[(original.nodes['type'] == 'branch') & has_type,
-                                 'node_id'].values
-        to_fix_branch_child = to_fix[to_fix.parent_id.isin(bps)]
-        parent_type = original.nodes.set_index('node_id').loc[to_fix_branch_child.parent_id.values,
-                                                              'compartment'].values
-
-        g = original.graph
-        for source, cmp in zip(to_fix_branch_child.node_id.values, parent_type):
-            nodes = nx.bfs_tree(g, source=source, reverse=True).nodes
-            original.nodes.loc[original.nodes.node_id.isin(nodes),
-                               'compartment'] = cmp
-
-        # For some reason the original root sometimes does not get a compartment
-        # and above code won't fix it because we are looking at upstream branch
-        # points. In that case, we need to look for its childs
-        root_cmp = original.nodes.loc[original.nodes.parent_id == original.root[0],
-                                      'compartment'].values[0]
-        original.nodes.loc[original.nodes.compartment.isnull() & (original.nodes.parent_id < 0),
-                           'compartment'] = root_cmp
+        # There might be a small number of branches/nodes w/o synapses
+        # (i.e. those without any flow like e.g. the soma) that have not yet
+        # been assigned a compartment. We will count them as whatever is closest.
+        has_comp = ~nodes.compartment.isnull()
+        if any(~has_comp):
+            # Find the closest nodes with a compartment
+            m = graph.geodesic_matrix(original,
+                                      directed=False,
+                                      weight=None,
+                                      from_=nodes.node_id.values[~has_comp])
+            m = m.loc[:, nodes.node_id.values[has_comp]]
+            closest = np.argmin(m.values, axis=1)
+            # Assign same compartment as closest node
+            nodes.loc[~has_comp,
+                      'compartment'] = nodes.compartment.values[has_comp][closest]
 
         # Set connector compartments
         cmp_map = original.nodes.set_index('node_id').compartment.to_dict()
