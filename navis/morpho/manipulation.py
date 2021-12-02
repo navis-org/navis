@@ -628,42 +628,40 @@ def split_axon_dendrite(x: NeuronObject,
     if np.any(x.soma) and not np.all(np.isin(x.soma, x.root)) and reroot_soma:
         x.reroot(x.soma, inplace=True)
 
-    if metric == 'bending_flow':
-        if 'bending_flow' not in x.nodes.columns:
-            mmetrics.bending_flow(x)
-        col = 'bending_flow'
-    elif metric == 'flow_centrality':
-        if 'flow_centrality' not in x.nodes.columns:
-            mmetrics.flow_centrality(x)
-        col = 'flow_centrality'
-    elif metric == 'segregation_index':
-        if 'SI' not in x.nodes.columns:
-            mmetrics.arbor_segregation_index(x)
-        col = 'segregation_index'
-    else:
+    FUNCS = {
+             'bending_flow': mmetrics.bending_flow,
+             'flow_centrality':  mmetrics.flow_centrality,
+             'segregation_index':  mmetrics.arbor_segregation_index
+             }
+
+    if metric not in FUNCS:
         raise ValueError(f'Unknown `metric`: "{metric}"')
+
+    # Add metric if not already present
+    if metric not in x.nodes.columns:
+        _ = FUNCS[metric](x)
 
     # We can lock this neuron indefinitely since we are not returning it
     x._lock = 1
 
     # Make sure we have a metric for every single node
-    if np.any(np.isnan(x.nodes[col].values)):
-        raise ValueError(f'NaN values encountered in "{col}"')
+    if np.any(np.isnan(x.nodes[metric].values)):
+        raise ValueError(f'NaN values encountered in "{metric}"')
 
     # The first step is to remove the linker -> that's the bit that connects
     # the axon and dendrite
-    is_linker = x.nodes[col] >= x.nodes[col].max() * flow_thresh
+    is_linker = x.nodes[metric] >= x.nodes[metric].max() * flow_thresh
     linker = set(x.nodes.loc[is_linker, 'node_id'].values)
 
     # We try to perform processing on the graph to avoid overhead from
     # (re-)generating neurons
-    g = x.graph.copy()
+    g = x.graph.to_undirected()
 
     # Drop linker nodes
     g.remove_nodes_from(linker)
 
     # Break into connected components
-    cc = list(nx.connected_components(g.to_undirected()))
+    cc = list(nx.connected_components(g))
 
     # Figure out which one is which
     axon = set()
@@ -705,17 +703,15 @@ def split_axon_dendrite(x: NeuronObject,
 
     # Now that we have in principle figured out what's what we need to do some
     # clean-up
-    # First: it is quite likely that the axon(s) and or the dendrites fragmented
+    # First: it is quite likely that the axon(s) and/or the dendrites fragmented
     # and we need to stitch them back together using linker but not dendrites!
-    g = x.graph.copy()
-    g.remove_nodes_from(dendrite)
+    g = x.graph.subgraph(np.append(list(axon), list(linker)))
     axon = graph.connected_subgraph(g, axon)[0]
 
     # Remove nodes that were re-assigned to axon from linker
     linker = linker - set(axon)
 
-    g = x.graph.copy()
-    g.remove_nodes_from(axon)
+    g = x.graph.subgraph(np.append(list(dendrite), list(linker)))
     dendrite = graph.connected_subgraph(g, dendrite)[0]
 
     # Remove nodes that were re-assigned to axon from linker
@@ -728,7 +724,7 @@ def split_axon_dendrite(x: NeuronObject,
     if cellbodyfiber and (np.any(x.soma) or cellbodyfiber == 'root'):
         # To excise the CBF, we subset the neuron to those parts with
         # no/hardly any flow and find the part that contains the soma
-        no_flow = x.nodes[x.nodes[col] <= x.nodes[col].max() * 0.05]
+        no_flow = x.nodes[x.nodes[metric] <= x.nodes[metric].max() * 0.05]
         g = x.graph.subgraph(no_flow.node_id.values)
 
         # Find the connected component containing the soma
