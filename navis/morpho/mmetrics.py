@@ -333,18 +333,6 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> 'core.NeuronObject':
                 Neuron(s) to calculate segregation indices for. Must have
                 connectors!
 
-    See Also
-    --------
-    :func:`~navis.segregation_index`
-            Calculate segregation score (polarity) between two fragments of
-            a neuron.
-    :func:`~navis.flow_centrality`
-            Calculate synapse flow centrality after Schneider-Mizell et al.
-    :func:`~navis.bending_flow`
-            Variation on the Schneider-Mizell et al. synapse flow.
-    :func:`~navis.split_axon_dendrite`
-            Split the neuron into axon, dendrite and primary neurite.
-
     Returns
     -------
     neuron
@@ -360,6 +348,18 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> 'core.NeuronObject':
     >>> _ = navis.arbor_segregation_index(n)
     >>> n.nodes.segregation_index.max().round(3)
     0.277
+
+    See Also
+    --------
+    :func:`~navis.segregation_index`
+            Calculate segregation score (polarity) between two fragments of
+            a neuron.
+    :func:`~navis.flow_centrality`
+            Calculate synapse flow centrality after Schneider-Mizell et al.
+    :func:`~navis.bending_flow`
+            Variation on the Schneider-Mizell et al. synapse flow.
+    :func:`~navis.split_axon_dendrite`
+            Split the neuron into axon, dendrite and primary neurite.    
 
     """
     if not isinstance(x, core.TreeNeuron):
@@ -481,17 +481,6 @@ def bending_flow(x: 'core.NeuronObject') -> 'core.NeuronObject':
     centrality for identifying the main branch point for neurons that have
     incompletely annotated synapses.
 
-    See Also
-    --------
-    :func:`~navis.flow_centrality`
-            Calculate synapse flow centrality after Schneider-Mizell et al.
-    :func:`~navis.segregation_index`
-            Calculate segregation score (polarity).
-    :func:`~navis.arbor_segregation_index`
-            Calculate the a by-arbor segregation index.
-    :func:`~navis.split_axon_dendrite`
-            Split the neuron into axon, dendrite and primary neurite.
-
     Returns
     -------
     neuron
@@ -507,6 +496,17 @@ def bending_flow(x: 'core.NeuronObject') -> 'core.NeuronObject':
     >>> _ = navis.bending_flow(n)
     >>> n.nodes.bending_flow.max()
     785645
+
+    See Also
+    --------
+    :func:`~navis.flow_centrality`
+            Calculate synapse flow centrality after Schneider-Mizell et al.
+    :func:`~navis.segregation_index`
+            Calculate segregation score (polarity).
+    :func:`~navis.arbor_segregation_index`
+            Calculate the a by-arbor segregation index.
+    :func:`~navis.split_axon_dendrite`
+            Split the neuron into axon, dendrite and primary neurite.
 
     """
     if not isinstance(x, core.TreeNeuron):
@@ -639,17 +639,6 @@ def flow_centrality(x: 'core.NeuronObject',
                 (2) centripetal counts paths from distal inputs to proximal outputs
                 (3) the sum of both - this is the original implementation
 
-    See Also
-    --------
-    :func:`~navis.bending_flow`
-            Variation of flow centrality: calculates bending flow.
-    :func:`~navis.arbor_segregation_index`
-            By-arbor segregation index.
-    :func:`~navis.segregation_index`
-            Calculates segregation score (polarity) of a neuron.
-    :func:`~navis.split_axon_dendrite`
-            Tries splitting a neuron into axon and dendrite.
-
     Returns
     -------
     neuron
@@ -665,6 +654,17 @@ def flow_centrality(x: 'core.NeuronObject',
     >>> _ = navis.flow_centrality(n)
     >>> n[0].nodes.flow_centrality.max()
     786341
+
+    See Also
+    --------
+    :func:`~navis.bending_flow`
+            Variation of flow centrality: calculates bending flow.
+    :func:`~navis.arbor_segregation_index`
+            By-arbor segregation index.
+    :func:`~navis.segregation_index`
+            Calculates segregation score (polarity) of a neuron.
+    :func:`~navis.split_axon_dendrite`
+            Tries splitting a neuron into axon and dendrite.
 
     """
     if mode not in ['centrifugal', 'centripetal', 'sum']:

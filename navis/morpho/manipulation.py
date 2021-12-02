@@ -511,11 +511,11 @@ def split_axon_dendrite(x: NeuronObject,
                         fiber if possible). MUST HAVE CONNECTORS.
     metric :            'flow_centrality' | 'bending_flow' | 'segregation_index', optional
                         Defines which flow metric we will try to maximize when
-                        splitting the neuron(s). There are five flavors:
+                        splitting the neuron(s). There are three flavors:
 
-                         - `flow_centrality` in :func:`~navis.flow_centrality`
-                         - 'bending_flow' uses to :func:`~navis.bending_flow`
-                         - 'segregation_index' uses :func:`~navis.arbor_segregation_index`
+                         - `flow_centrality` via :func:`~navis.flow_centrality`
+                         - 'bending_flow' via :func:`~navis.bending_flow`
+                         - 'segregation_index' via :func:`~navis.arbor_segregation_index`
 
                         Will try using existing columns in the node table. If
                         not present, will invoke the respective functions with
