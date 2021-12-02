@@ -748,15 +748,18 @@ def flow_centrality(x: 'core.NeuronObject',
     elif mode == 'sum':
         flow = {n: centrifugal[n] + centripetal[n] for n in centrifugal}
 
-    # At this point there is only flow for branch points and
-    # their childs. Let's complete that mapping by adding flow
-    # for the nodes between branch points.
+    # At this point there is only flow for branch points and connectors nodes.
+    # Let's complete that mapping by adding flow for the nodes between branch points.
     for s in x.small_segments:
-        this_flow = flow.get(s[0], 0)  # Get this only once
-
         # Segments' orientation goes from distal -> proximal
-        # Each non-terminal segment will have its first node mapped
-        flow.update({n: this_flow for n in s[:-1]})
+
+        # If first node in the segment has no flow, set to 0
+        flow[s[0]] = flow.get(s[0], 0)
+
+        # For each node get the flow of its child
+        for i in range(1, len(s)):
+            if s[i] not in flow:
+                flow[s[i]] = flow[s[i-1]]
 
     x.nodes['flow_centrality'] = x.nodes.node_id.map(flow).fillna(0).astype(int)
 
