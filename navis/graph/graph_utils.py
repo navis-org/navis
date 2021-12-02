@@ -451,7 +451,9 @@ def distal_to(x: 'core.TreeNeuron',
     ----------
     x :     TreeNeuron
     a,b :   single node ID | list of node IDs | None, optional
-            If no node IDs are provided, will consider all node.
+            If no node IDs are provided, will consider all node. Note that for
+            large sets of nodes it might be more efficient to use
+            :func:`navis.geodesic_matrix` (see examples).
 
     Returns
     -------
@@ -475,6 +477,27 @@ def distal_to(x: 'core.TreeNeuron',
     >>> dist = df.loc[n, df.loc[n]].index.values
     >>> len(dist)
     101
+
+    For large neurons and/or large sets of `a`/`b` it can be much faster to use
+    `geodesic_matrix` instead:
+
+    >>> import navis
+    >>> import numpy as np
+    >>> x = navis.example_neurons(1)
+    >>> # Get an all-by-all distal_to
+    >>> df = navis.geodesic_matrix(x, weight=None, directed=True) < np.inf
+    >>> # Get distal_to for specific nodes
+    >>> df = navis.geodesic_matrix(x, weight=None, directed=True) < np.inf
+    >>> # Get distal_to for specific nodes
+    >>> a, b = x.nodes.node_id.values[:100], x.nodes.node_id.values[-100:]
+    >>> dist = navis.geodesic_matrix(x, weight=None, directed=True, from_=a)
+    >>> distal_to = dist[b] < np.inf
+
+    See Also
+    --------
+    :func:`navis.geodesic_matrix`
+            Depending on your neuron and how many nodes you're asking for,
+            this function can be considerably faster! See examples.
 
     """
     if isinstance(x, core.NeuronList) and len(x) == 1:
@@ -747,8 +770,8 @@ def dist_between(x: 'core.NeuronObject',
     else:
         raise ValueError(f'Unable to process data of type {type(x)}')
 
-    if ((utils.is_iterable(a) and len(a) > 1) or  # type: ignore  # this is just a check
-        (utils.is_iterable(b) and len(b) > 1)):   # type: ignore  # this is just a check
+    if ((utils.is_iterable(a) and len(a) > 1)  # type: ignore  # this is just a check
+            or (utils.is_iterable(b) and len(b) > 1)):   # type: ignore  # this is just a check
         raise ValueError('Can only process single nodes/vertices. Use '
                          'navis.geodesic_matrix instead.')
 
@@ -1062,8 +1085,8 @@ def longest_neurite(x: 'core.NeuronObject',
 
 @utils.lock_neuron
 def reroot_skeleton(x: 'core.NeuronObject',
-                  new_root: Union[int, str],
-                  inplace: bool = False) -> 'core.TreeNeuron':
+                    new_root: Union[int, str],
+                    inplace: bool = False) -> 'core.TreeNeuron':
     """Reroot neuron to new root.
 
     Parameters
