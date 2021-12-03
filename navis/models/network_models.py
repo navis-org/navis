@@ -15,6 +15,7 @@
 import multiprocessing as mp
 import numpy as np
 import pandas as pd
+import warnings
 
 from typing import Iterable, Union, Optional, Callable
 
@@ -23,7 +24,7 @@ from .. import config
 # Set up logging
 logger = config.logger
 
-__all__ = ['TraversalModel', 'random_linear_activation_function']
+__all__ = ['BayesianTraversalModel', 'TraversalModel', 'linear_activation_p', 'random_linear_activation_function']
 
 
 class BaseNetworkModel:
@@ -310,6 +311,251 @@ class TraversalModel(BaseNetworkModel):
         return pd.DataFrame(all_trav, columns=cols).astype(int)
 
 
+class BayesianTraversalModel(TraversalModel):
+    """Model for traversing a network starting with given seed nodes.
+
+    This model is a Bayes net version of
+    :class:`~navis.models.network_models.TraversalModel` that propagates
+    traversal probabilities through the network and converges to a
+    distribution of time of traversal for each node, rather than
+    stochastically sampling.
+
+    Unlike ``TraversalModel``, this model should only be run once.
+    Note alse that ``traversal_func`` should be a function returing
+    probabilities of traversal, rather than a random boolean of traversal.
+
+    Parameters
+    ----------
+    edges :             pandas.DataFrame
+                        DataFrame representing an edge list. Must minimally have
+                        a ``source`` and ``target`` column.
+    seeds :             iterable
+                        Seed nodes for traversal. Nodes that aren't found in
+                        ``edges['source']`` will be (silently) removed.
+    weights :           str, optional
+                        Name of a column in ``edges`` used as weights. If not
+                        provided, all edges will be given a weight of 1. If using
+                        the default activation function the weights need to be
+                        between 0 and 1.
+    max_steps :         int
+                        Limits the number of steps for each iteration.
+    traversal_func :    callable, optional
+                        Function returning probability whether a given edge will be
+                        traversed or not in a given step. Must take numpy array
+                        (N, 1) of edge weights and return an array with
+                        probabilities of equal size. Defaults to
+                        :func:`~navis.models.network_models.linear_activation_p`
+                        which will linearly scale probability of traversal
+                        from 0 to 100% between edges weights 0 to 0.3.
+
+    Examples
+    --------
+    >>> from navis.models import BayesianTraversalModel
+    >>> import networkx as nx
+    >>> import numpy as np
+    >>> # Generate a random graph
+    >>> G = nx.fast_gnp_random_graph(1000, .2, directed=True)
+    >>> # Turn into edge list
+    >>> edges = nx.to_pandas_edgelist(G)
+    >>> # Add random edge weights
+    >>> edges['weight'] = np.random.random(edges.shape[0])
+    >>> # Initialize model
+    >>> model = BayesianTraversalModel(edges, seeds=list(G.nodes)[:10])
+    >>> # Run model
+    >>> model.run()
+    >>> # Get a summary
+    >>> model.summary.tail()                                    # doctest: +SKIP
+          layer_min  layer_max  layer_mean  layer_median
+    node
+    995           2          2        2.00             2
+    996           2          3        2.33             2
+    997           2          2        2.00             2
+    998           2          2        2.00             2
+    999           2          2        2.00             2
+
+    Above Graph was traversed quickly (3 steps max). Let's adjust the
+    traversal function:
+
+    >>> from navis.models import linear_activation_p
+    >>> # Use a lower probability for activation
+    >>> def my_act(x):
+    ...     return linear_activation_p(x, max_w=10)
+    >>> model = BayesianTraversalModel(edges, seeds=list(G.nodes)[:10],
+    ...                                traversal_func=my_act)
+    >>> res = model.run()
+    >>> res.tail()                                              # doctest: +SKIP
+          layer_min  layer_max  layer_mean  layer_median
+    node
+    995           2          4       3.210           3.0
+    996           2          4       3.280           3.0
+    997           2          4       3.260           3.0
+    998           2          4       3.320           3.0
+    999           2          4       3.195           3.0
+
+    """
+
+    def __init__(self,
+                 *args,
+                 traversal_func: Optional[Callable] = None,
+                 **kwargs):
+        """Initialize model."""
+        super().__init__(*args, **kwargs)
+
+        if isinstance(traversal_func, type(None)):
+            self.traversal_func = linear_activation_p
+        elif callable(traversal_func):
+            self.traversal_func = traversal_func
+        else:
+            raise ValueError('`traversal_func` must be None or a callable')
+
+    def make_summary(self) -> pd.DataFrame:
+        """Generate summary."""
+        if not self.has_results:
+            logger.error('Must run simulation first.')
+
+        cmfs = np.stack(self.results.cmf)
+        layer_min = (cmfs != 0).argmax(axis=1)
+        layer_max = (cmfs == 1.).argmax(axis=1)
+        layer_median = (cmfs >= .5).argmax(axis=1)
+        pmfs = np.diff(cmfs, axis=1, prepend=0.)
+        layer_pmfs = pmfs * np.arange(pmfs.shape[1])
+        layer_mean = np.sum(layer_pmfs, axis=1)
+
+        summary = pd.DataFrame({
+                'layer_min': layer_min + 1,
+                'layer_max': layer_max + 1,
+                'layer_mean': layer_mean + 1,
+                'layer_median': layer_median + 1,
+            }, index=self.results.node)
+
+        self._summary = summary
+        return self._summary
+
+    def run(self, **kwargs) -> None:
+        """Run model (single process)."""
+
+        # For some reason this is required for progress bars in Jupyter to show
+        print(' ', end='', flush=True)
+        # For faster access, use the raw array
+        edges = self.edges[[self.source, self.target, self.weights]].values
+        # Transform weights to traversal probabilities
+        edges[:, 2] = self.traversal_func(edges[:, 2])
+
+        # Change node IDs into indices in [0, len(nodes))
+        ids, edges_idx = np.unique(edges[:, :2], return_inverse=True)
+        edges_idx = edges_idx.reshape((edges.shape[0], 2))
+        edges_idx = np.concatenate(
+            (edges_idx, np.expand_dims(edges[:, 2], axis=1)),
+            axis=1)
+
+        cmfs = np.zeros((len(ids), self.max_steps), dtype=np.float64)
+        seed_idx = np.searchsorted(ids, self.seeds)
+        cmfs[seed_idx, :] = 1.
+        changed = set(edges_idx[seed_idx, 1].astype(np.int64))
+
+        with config.tqdm(
+                total=0,
+                disable=config.pbar_hide,
+                leave=config.pbar_leave,
+                position=kwargs.get('position', 0)) as pbar:
+            while len(changed):
+                next_changed = []
+
+                pbar.total += len(changed)
+                pbar.refresh()
+
+                for idx in changed:
+                    cmf = cmfs[idx, :]
+                    inbound = edges_idx[edges_idx[:, 1] == idx, :]
+                    pre = inbound[:, 0].astype(np.int64)
+
+                    # Traversal probability for each inbound edge at each time.
+                    posteriors = cmfs[pre, :] * np.expand_dims(inbound[:, 2], axis=1)
+                    # At each time, compute the probability that at least one inbound edge
+                    # is traversed.
+                    new_pmf = 1 - np.prod(1 - posteriors, axis=0)
+                    new_cmf = cmf.copy()
+                    # Offset the time-cumulative probability by 1 to account for traversal iteration.
+                    # Use maximum of previous CMF as it is monotonic and to include fixed seed traversal.
+                    new_cmf[1:] = np.maximum(cmf[1:], 1 - np.cumprod(1 - new_pmf[:-1]))
+                    np.clip(new_cmf, 0., 1., out=new_cmf)
+
+                    if np.allclose(cmf, new_cmf):
+                        continue
+
+                    cmfs[idx, :] = new_cmf
+
+                    # Notify downstream nodes that they have changed next iteration.
+                    post_idx = edges_idx[edges_idx[:, 0] == idx, 1].astype(np.int64)
+                    next_changed.extend(list(post_idx))
+
+                pbar.update(len(changed))
+                changed = set(next_changed)
+
+        self.iterations = 1
+        results = pd.DataFrame({'node': ids, 'cmf': list(cmfs)})
+        self.results = results
+
+        return results
+
+    def run_parallel(self, *args, **kwargs) -> None:
+        warnings.warn(f"{self.__class__.__name__} should not be run in parallel. Falling back to run.")
+        self.run(**kwargs)
+
+def linear_activation_p(
+    w: np.ndarray,
+    min_w: float = 0,
+    max_w: float = .3,
+) -> np.ndarray:
+    """Linear activation probability.
+
+    Parameters
+    ----------
+    w :     np.ndarray
+            (N, 1) array containing the edge weights.
+    min_w : float
+            Value of ``w`` at which probability of activation is 0%.
+    max_w : float
+            Value of ``w`` at which probability of activation is 100%.
+
+    Returns
+    -------
+    np.ndarray
+            Probability of activation for each edge.
+
+    """
+    return np.clip((w - min_w) / (max_w - min_w), 0., 1.)
+
+def random_activation_function(
+    w: np.ndarray,
+    func: Callable,
+) -> np.ndarray:
+    """Sample random activation for edges given a weight to probability function.
+
+    Parameters
+    ----------
+    w :     np.ndarray
+            (N, 1) array containing the edge weights.
+    func :  callable
+            A function returning activation probabilities given a set of weights.
+
+    Returns
+    -------
+    np.ndarray
+            True or False values for each edge.
+
+    """
+    # Generate a random number between 0 and 1 for each connection
+    r = np.random.rand(w.shape[0])
+
+    # Normalize weights to probabilities
+    w_norm = func(w)
+
+    # Test active
+    act = w_norm >= r
+
+    return act
+
 def random_linear_activation_function(w: np.ndarray,
                                       min_w: float = 0,
                                       max_w: float = .3) -> np.ndarray:
@@ -330,13 +576,4 @@ def random_linear_activation_function(w: np.ndarray,
             True or False values for each edge.
 
     """
-    # Generate a random number between 0 and 1 for each connection
-    r = np.random.rand(w.shape[0])
-
-    # Normalize weights to bounds
-    w_norm = (w - min_w) / (max_w - min_w)
-
-    # Test active
-    act = w_norm >= r
-
-    return act
+    return random_activation_function(w, lambda w: linear_activation_p(w, min_w, max_w))
