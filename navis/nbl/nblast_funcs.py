@@ -98,7 +98,7 @@ class NBlaster(Blaster):
 
         if limit_dist == "auto":
             try:
-                self.distance_upper_bound = self.score_fn.digitizers[0]._max
+                self.distance_upper_bound = self.score_fn.axes[0]._max
             except AttributeError:
                 logger.warning("Could not infer distance upper bound from scoring function")
                 self.distance_upper_bound = None

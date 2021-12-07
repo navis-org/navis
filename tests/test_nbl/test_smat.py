@@ -87,7 +87,7 @@ def test_lookup2d_roundtrip():
     df = lookup.to_dataframe()
     lookup2 = Lookup2d.from_dataframe(df)
     assert np.allclose(lookup.cells, lookup2.cells)
-    for b1, b2 in zip(lookup.digitizers, lookup2.digitizers):
+    for b1, b2 in zip(lookup.axes, lookup2.axes):
         assert b1 == b2
 
 

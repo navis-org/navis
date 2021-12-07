@@ -1,10 +1,12 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
 from itertools import permutations
 import sys
 import os
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from typing import (
+    Generic,
     Hashable,
     Iterator,
     Mapping,
@@ -15,6 +17,7 @@ from typing import (
     Iterable,
     Any,
     Tuple,
+    TypeVar,
     Union,
 )
 import logging
@@ -443,14 +446,70 @@ def parse_boundary(item: str):
     return tuple(float(i) for i in item[1:-1].split(",")), right
 
 
-class Digitizer:
+T = TypeVar("T")
+
+
+class LookupAxis(ABC, Generic[T]):
+    """Class converting some data into a linear index."""
+
+    @abstractmethod
+    def __len__(self) -> int:
+        """Number of bins represented by this instance."""
+        pass
+
+    @abstractmethod
+    def __call__(self, value: Union[T, Sequence[T]]) -> Union[int, Sequence[int]]:
+        """Convert some data into a linear index.
+
+        Parameters
+        ----------
+        value : Union[T, Sequence[T]]
+            Value to convert into an index
+
+        Returns
+        -------
+        Union[int, Sequence[int]]
+            If a scalar was given, return a scalar; otherwise, a numpy array of ints.
+        """
+        pass
+
+
+class SimpleLookup(LookupAxis[Hashable]):
+    def __init__(self, items: List[Hashable]):
+        """Look up in a list of items and return their index.
+
+        Parameters
+        ----------
+        items : List[Hashable]
+            The item's position in the list is the index which will be returned.
+
+        Raises
+        ------
+        ValueError
+            items are non-unique.
+        """
+        self.items = {item: idx for idx, item in enumerate(items)}
+        if len(self.items) != len(items):
+            raise ValueError("Items are not unique")
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __call__(self, value: Union[Hashable, Sequence[Hashable]]) -> Union[int, Sequence[int]]:
+        if np.isscalar(value):
+            return self.items[value]
+        else:
+            return np.array([self.items[v] for v in value], int)
+
+
+class Digitizer(LookupAxis[float]):
     def __init__(
         self,
         boundaries: Sequence[float],
         clip: Tuple[bool, bool] = (True, True),
         right=False,
     ):
-        """Class converting continuous values into discrete indices given specific bin boundaries.
+        """Class converting continuous values into discrete indices.
 
         Parameters
         ----------
@@ -637,29 +696,29 @@ class Digitizer:
 
 
 class LookupNd:
-    def __init__(self, digitizers: List[Digitizer], cells: np.ndarray):
-        if [len(b) for b in digitizers] != list(cells.shape):
+    def __init__(self, axes: List[LookupAxis], cells: np.ndarray):
+        if [len(b) for b in axes] != list(cells.shape):
             raise ValueError("boundaries and cells have inconsistent bin counts")
-        self.digitizers = digitizers
+        self.axes = axes
         self.cells = cells
 
     def __call__(self, *args):
-        if len(args) != len(self.digitizers):
+        if len(args) != len(self.axes):
             raise TypeError(
-                f"Lookup takes {len(self.digitizers)} arguments but {len(args)} were given"
+                f"Lookup takes {len(self.axes)} arguments but {len(args)} were given"
             )
 
-        idxs = tuple(d(arg) for d, arg in zip(self.digitizers, args))
+        idxs = tuple(d(arg) for d, arg in zip(self.axes, args))
         out = self.cells[idxs]
         return out
 
 
 class Lookup2d(LookupNd):
-    """Convenience class inheriting from LookupNd for the common 2D case.
+    """Convenience class inheriting from LookupNd for the common 2D float case.
     Provides IO with pandas DataFrames.
     """
 
-    def __init__(self, digitizer0: Digitizer, digitizer1: Digitizer, cells: np.ndarray):
+    def __init__(self, axis0: Digitizer, axis1: Digitizer, cells: np.ndarray):
         """2D lookup table for convert NBLAST matches to scores.
 
         Commonly read from a ``pandas.DataFrame``
@@ -674,7 +733,7 @@ class Lookup2d(LookupNd):
         cells : np.ndarray
             Values to look up in the table.
         """
-        super().__init__([digitizer0, digitizer1], cells)
+        super().__init__([axis0, axis1], cells)
 
     def to_dataframe(self) -> pd.DataFrame:
         """Convert the lookup table into a ``pandas.DataFrame``.
@@ -689,8 +748,8 @@ class Lookup2d(LookupNd):
         """
         return pd.DataFrame(
             self.cells,
-            self.digitizers[0].to_strings(),
-            self.digitizers[1].to_strings(),
+            self.axes[0].to_strings(),
+            self.axes[1].to_strings(),
         )
 
     @classmethod
