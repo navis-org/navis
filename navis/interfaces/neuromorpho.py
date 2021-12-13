@@ -186,8 +186,8 @@ def get_neuron(x: Union[str, int, Dict[str, str]], **kwargs) -> TreeNeuron:
 
     n = read_swc(url, **kwargs)
 
-    n.id = x.get('neuron_id', n.id)
-    n.name = x.get('name', getattr(n, 'name'))
+    n.id = info.get('neuron_id', n.id)
+    n.name = info.get('neuron_name', getattr(n, 'name'))
 
     return n
 
