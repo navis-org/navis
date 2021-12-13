@@ -136,7 +136,7 @@ def bipartite_match(scores: pd.DataFrame,
     # Must not use infinite - otherwise scipy's optimization throws hissy fits
     if not isinstance(threshold, type(None)):
         # Convert threshold to distances
-        edges.loc[edges.score < threshold, 'score'] = -np.inf
+        edges.loc[edges.score < threshold, 'score'] = -1e10  # can't use inf here unfortunately
 
     # Drop edges between nodes with labels that don't match
     if isinstance(labels, dict):
@@ -158,6 +158,10 @@ def bipartite_match(scores: pd.DataFrame,
 
     # Turn back into matrix
     scores_final = edges.pivot(index='U', columns='V', values='score')
+
+    # Note: it looks like we're allowed to have rows with only -infinity or
+    # columns with only -infinity values but not both. Otherwise scipy will
+    # complain.
 
     # Make matches
     left_ix, right_ix = scipy.optimize.linear_sum_assignment(scores_final, maximize=True)
