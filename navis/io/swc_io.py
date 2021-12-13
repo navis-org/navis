@@ -21,6 +21,7 @@ import pandas as pd
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
+from urllib3 import HTTPResponse
 
 from .. import config, utils, core
 from . import base
@@ -95,6 +96,9 @@ class SwcReader(base.BaseReader):
         -------
         core.TreeNeuron
         """
+        if isinstance(f, HTTPResponse):
+            f = io.StringIO(f.data.decode())
+
         if isinstance(f.read(0), bytes):
             f = io.TextIOWrapper(f, encoding="utf-8")
 
