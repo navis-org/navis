@@ -126,7 +126,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
         x = core.MeshNeuron(x)
 
     if fix_mesh:
-        mesh = sk.pre.fix_mesh(mesh, drop_disconnected=False)
+        mesh = sk.pre.fix_mesh(mesh, remove_disconnected=False)
 
     kwargs['progress'] = False
     if method == 'wavefront':
