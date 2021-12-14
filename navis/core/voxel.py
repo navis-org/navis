@@ -109,9 +109,11 @@ class VoxelNeuron(BaseNeuron):
 
         if isinstance(x, np.ndarray):
             if x.ndim == 2 and x.shape[1] in [3, 4]:
-                self._data = x
+                # Contiguous arrays are required for hashing and we save a lot
+                # of time by doing this once up-front
+                self._data = np.ascontiguousarray(x)
             elif x.ndim == 3:
-                self._data = x
+                self._data = np.ascontiguousarray(x)
             else:
                 raise utils.ConstructionError(f'Unable to construct VoxelNeuron from {x.shape} array.')
 
