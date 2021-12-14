@@ -126,7 +126,7 @@ def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
 
     if isinstance(vox, core.VoxelNeuron):
         mesh.vertices += vox.offset
-        mesh = core.MeshNeuron(mesh, units='1 {vox.units.unit}', id=vox.id)
+        mesh = core.MeshNeuron(mesh, units=f'1 {vox.units.unit}', id=vox.id)
 
     return mesh
 
