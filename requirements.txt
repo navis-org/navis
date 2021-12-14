@@ -48,6 +48,10 @@ pykdtree
 
 open3d
 
+# extra: hash
+
+xxhash
+
 #extra: test-notebook
 
 jupyter
