@@ -11,8 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-""" Module contains functions to plot neurons in 2D and 3D.
-"""
+"""Module contains functions to plot neurons in 3D."""
 import os
 import warnings
 
@@ -30,13 +29,6 @@ from .vispy.viewer import Viewer
 from .colors import prepare_colormap
 from .plotly.graph_objs import (neuron2plotly, volume2plotly, scatter2plotly,
                                 layout2plotly)
-
-if not config.headless:
-    try:
-        # Try setting vispy backend to PyQt5
-        vispy.use(app='PyQt5')
-    except BaseException:
-        pass
 
 __all__ = ['plot3d']
 
