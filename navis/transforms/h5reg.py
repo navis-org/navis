@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 from scipy.interpolate import RegularGridInterpolator
-from typing import Union
+from typing import Union, Optional
 
 from .base import BaseTransform
 from .affine import AffineTransform
@@ -42,10 +42,12 @@ class H5transform(BaseTransform):
                     Path to Hdf5 transformation.
     direction :     "forward" | "inverse"
                     Direction of transformation.
-    level :         int
-                    What level of detail to use. Negative values go backwards
-                    from the highest available resolution: -1 = highest, -2 =
-                    second highest, etc.
+    level :         int, optional
+                    For Hdf5 files with deformation fields at multiple
+                    resolutions: what level of detail to use. Negative values
+                    go backwards from the highest available resolution
+                    (-1 = highest, -2 = second highest, etc). Ignored if only a
+                    single deformation field present.
     cache :         bool
                     If True, we will cache the deformation field for subsequent
                     future transforms. This will speed up future calculations
@@ -57,8 +59,10 @@ class H5transform(BaseTransform):
 
     """
 
-    def __init__(self, f: str, direction: str = 'forward',
-                 level: int = -1, cache: bool = False,
+    def __init__(self, f: str,
+                 direction: str = 'forward',
+                 level: Optional[int] = -1,
+                 cache: bool = False,
                  full_ingest: bool = False):
         """Init class."""
         assert direction in ('forward', 'inverse'), ('`direction` must be "forward"'
@@ -81,18 +85,34 @@ class H5transform(BaseTransform):
                     continue
             available_levels = sorted(available_levels)
 
-            if level < 0:
-                ix = level * -1 - 1
-                level = available_levels[ix]
+            # Check if there are indeed deformation fields at various resolutions
+            if available_levels:
+                if isinstance(level, type(None)):
+                    level = available_levels[0]
+                elif level < 0:
+                    ix = level * -1 - 1
+                    level = available_levels[ix]
 
-            # Set level
-            self._level = str(level)
+                # Set level
+                self._level = str(level)
 
-            # Shape of deformation field
-            self.shape = h5[self.level][self.field].shape
+                # Shape of deformation field
+                self.shape = h5[self.level][self.field].shape
 
-            # Data type of deformation field
-            self.dtype = h5[self.level][self.field].dtype
+                # Data type of deformation field
+                self.dtype = h5[self.level][self.field].dtype
+            elif 'dfield' in h5.keys():
+                # Set level
+                self._level = None
+
+                # Shape of deformation field
+                self.shape = h5[self.field].shape
+
+                # Data type of deformation field
+                self.dtype = h5[self.field].dtype
+            else:
+                raise ValueError('Unable to parse deformation fields from '
+                                 f' {self.file}.')
 
         # Prepare cache if applicable
         if full_ingest:
@@ -116,8 +136,11 @@ class H5transform(BaseTransform):
         new_direction = {'forward': 'inverse',
                          'inverse': 'forward'}[self.direction]
         # We will re-iniatialize
-        x = H5transform(self.file, direction=new_direction, level=int(self.level),
-                        cache=self.use_cache, full_ingest=False)
+        x = H5transform(self.file,
+                        direction=new_direction,
+                        level=int(self.level) if self.level else None,
+                        cache=self.use_cache,
+                        full_ingest=False)
 
         return x
 
@@ -167,7 +190,7 @@ class H5transform(BaseTransform):
         """Return copy."""
         return H5transform(self.file,
                            direction=self.direction,
-                           level=int(self.level),
+                           level=int(self.level) if self.level else None,
                            cache=self.use_cache,
                            full_ingest=False)
 
@@ -175,7 +198,10 @@ class H5transform(BaseTransform):
         """Fully ingest the deformation field."""
         with h5py.File(self.file, 'r') as h5:
             # Read in the entire field
-            self.cache = h5[self.level][self.field][:, :, :]
+            if self.level:
+                self.cache = h5[self.level][self.field][:, :, :]
+            else:
+                self.cache = h5[self.field][:, :, :]
             # Keep a flag of this
             self._fully_ingested = True
             # We set `cached` to True instead of using a mask
@@ -204,7 +230,10 @@ class H5transform(BaseTransform):
         self.use_cache = True
 
         with h5py.File(self.file, 'r') as h5:
-            spacing = h5[self.level][self.field].attrs['spacing']
+            if self.level:
+                spacing = h5[self.level][self.field].attrs['spacing']
+            else:
+                spacing = h5[self.field].attrs['spacing']
 
             # Note that we invert because spacing is given in (z, y, x)
             bbox_vxl = (bbox.T / spacing[::-1]).T
@@ -222,7 +251,10 @@ class H5transform(BaseTransform):
             x1, x2, y1, y2, z1, z2 = bbox_vxl.flatten()
 
             # Cache values in this bounding box
-            self.cache[z1:z2, y1:y2, x1:x2] = h5[self.level][self.field][z1:z2, y1:y2, x1:x2]
+            if self.level:
+                self.cache[z1:z2, y1:y2, x1:x2] = h5[self.level][self.field][z1:z2, y1:y2, x1:x2]
+            else:
+                self.cache[z1:z2, y1:y2, x1:x2] = h5[self.field][z1:z2, y1:y2, x1:x2]
             self.cached[z1:z2, y1:y2, x1:x2] = True
 
     @staticmethod
@@ -282,17 +314,22 @@ class H5transform(BaseTransform):
 
         # Read the file
         with h5py.File(self.file, 'r') as h5:
-            if 'affine' in h5[self.level][self.field].attrs:
+            if self.level:
+                field = h5[self.level][self.field]
+            else:
+                field = h5[self.field]
+
+            if 'affine' in field.attrs:
                 # The affine part of the transform is a 4 x 4 matrix where the upper
                 # 3 x 4 part (row x columns) is an attribute of the h5 dataset
                 M = np.ones((4, 4))
-                M[:3, :4] = h5[self.level][self.field].attrs['affine'].reshape(3, 4)
+                M[:3, :4] = field.attrs['affine'].reshape(3, 4)
                 affine = AffineTransform(M)
             else:
                 affine = False
 
             # Get quantization multiplier for later use
-            quantization_multiplier = h5[self.level][self.field].attrs['quantization_multiplier']
+            quantization_multiplier = field.attrs['quantization_multiplier']
 
             # For forward direction, the affine part is applied first
             if self.direction == 'inverse' and affine:
@@ -301,7 +338,7 @@ class H5transform(BaseTransform):
                 xf = points
 
             # Translate points into voxel space
-            spacing = h5[self.level][self.field].attrs['spacing']
+            spacing = field.attrs['spacing']
             # Note that we invert because spacing is given in (z, y, x)
             xf_voxel = xf / spacing[::-1]
             # Digitize points into voxels
@@ -328,9 +365,7 @@ class H5transform(BaseTransform):
             else:
                 # Load the deformation values for this bounding box
                 # This is faster than grabbing individual voxels and
-                offsets = h5[self.level][self.field][mn[2]: mx[2],
-                                                     mn[1]: mx[1],
-                                                     mn[0]: mx[0]]
+                offsets = field[mn[2]: mx[2], mn[1]: mx[1], mn[0]: mx[0]]
 
                 if self.use_cache:
                     # Write these offsets to cache
