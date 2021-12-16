@@ -22,6 +22,7 @@ SKIP = ['transforming.ipynb',  # requires navis-flybrains + transforms
         'python2cytoscape.ipynb',  # requires cytoscape
         'r_doc.ipynb',  # requires rpy2
         'nblast_flycircuit.ipynb',  # requires downloading flycircuit dotprops
+        'nblast_hemibrain.ipynb',  # requires downloading data
         'microns_tut.ipynb'  # requires credentials
         ]
 
