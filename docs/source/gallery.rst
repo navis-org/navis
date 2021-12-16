@@ -71,6 +71,7 @@ function. There you will also find more examples.
 
    tutorials/nblast
    tutorials/nblast_flycircuit
+   tutorials/nblast_hemibrain
 
 .. raw:: html
 
