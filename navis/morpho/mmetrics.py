@@ -31,7 +31,8 @@ from .. import config, graph, sampling, core, utils
 logger = config.logger
 
 __all__ = sorted(['strahler_index', 'bending_flow', 'sholl_analysis',
-                  'flow_centrality', 'segregation_index', 'tortuosity'])
+                  'flow_centrality', 'segregation_index', 'tortuosity',
+                  'betweeness_centrality'])
 
 
 def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
@@ -786,7 +787,7 @@ def tortuosity(x: 'core.NeuronObject',
         leaf node) is divided into segments of exactly ``seg_length``
         geodesic length. Any remainder is skipped.
      2. For each of these segments we divide its geodesic length `L`
-        (i.e. `seg_length`) by the Eucledian distance `R` between its start and
+        (i.e. `seg_length`) by the Euclidian distance `R` between its start and
         its end.
      3. The final tortuosity is the mean of `L / R` across all segments.
 
@@ -892,7 +893,7 @@ def tortuosity(x: 'core.NeuronObject',
 
         # We know that each child -> parent pair was originally exactly
         # `seg_length` geodesic distance apart. Now we need to find out
-        # how far they are apart in Eucledian distance
+        # how far they are apart in Euclidian distance
         new_coords = np.array([xnew, ynew, znew]).T
 
         R = np.linalg.norm(new_coords[:-1] - new_coords[1:], axis=1)
@@ -1041,3 +1042,60 @@ def sholl_analysis(x: 'core.NeuronObject',
     return pd.DataFrame(data,
                         columns=['radius', 'intersections',
                                  'cable_length', 'branch_points']).set_index('radius')
+
+
+@utils.map_neuronlist(desc='Calc. SI', allow_parallel=True)
+@utils.meshneuron_skeleton(method='node_properties',
+                           reroot_soma=True,
+                           node_props=['betweenness'])
+def betweeness_centrality(x: 'core.NeuronObject',
+                          directed=True) -> 'core.NeuronObject':
+    """Calculate vertex/node betweenness.
+
+    Betweenness is (roughly) defined by the number of shortest paths going
+    through a vertex or an edge.
+
+    Parameters
+    ----------
+    x :         TreeNeuron | MeshNeuron | NeuronList
+    directed :  bool
+                Whether to use the directed or undirected graph.
+
+    Returns
+    -------
+    neuron
+                Adds "betweenness" as column in the node table (for
+                TreeNeurons) or as `."betweenness` property
+                (for MeshNeurons).
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(2, kind='skeleton')
+    >>> n.reroot(n.soma, inplace=True)
+    >>> _ = navis.betweeness_centrality(n)
+    >>> n[0].nodes.betweenness.max()
+    6
+    >>> m = navis.example_neurons(1, kind='mesh')
+    >>> _ = navis.betweeness_centrality(m)
+    >>> m.betweenness.max()
+    5
+
+    """
+    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+
+    if x.igraph and config.use_igraph:
+        G = x.igraph
+        bc = dict(zip(G.vs.get_attribute_values('node_id'),
+                      G.betweenness(directed=directed)))
+    else:
+        G = x.graph
+        if not directed:
+            G = G.to_undirected()
+        # Sampling only 1% of the nodes should be sufficient
+        k = min(len(G), max(10, len(G) * 0.01))
+        bc = nx.centrality.betweenness_centrality(G, k=int(k))
+
+    x.nodes['betweenness'] = x.nodes.node_id.map(bc)
+
+    return x

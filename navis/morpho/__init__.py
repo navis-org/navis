@@ -12,7 +12,8 @@
 #    GNU General Public License for more details.
 
 from .mmetrics import (strahler_index, bending_flow, flow_centrality, sholl_analysis,
-                       segregation_index, arbor_segregation_index, tortuosity)
+                       segregation_index, arbor_segregation_index, tortuosity,
+                       betweeness_centrality)
 from .manipulation import (prune_by_strahler, stitch_skeletons,
                            split_axon_dendrite, average_skeletons,
                            despike_skeleton, guess_radius, smooth_skeleton,
