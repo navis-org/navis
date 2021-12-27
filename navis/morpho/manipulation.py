@@ -44,18 +44,27 @@ NeuronObject = Union['core.NeuronList', 'core.TreeNeuron']
 @utils.map_neuronlist(desc='Pruning', allow_parallel=True)
 @utils.meshneuron_skeleton(method='subset')
 def cell_body_fiber(x: NeuronObject,
+                    method: Union[Literal['longest_neurite'],
+                                  Literal['betweenness']] = 'betweenness',
                     reroot_soma: bool = True,
                     heal: bool = True,
                     inplace: bool = False):
     """Prune neuron to its cell body fiber.
 
-    This works by finding the main branch point from the root (soma if
-    available). If neuron has no branches (i.e. is one long segment), it will
-    be returned unaltered.
+    Here, "cell body fiber" refers to the tract connecting the soma to the
+    backbone in unipolar neuron (common in e.g. insects). This function works by
+    finding the main branch point from the root (soma if available). If neuron
+    has no branches (i.e. is one long segment), it will be returned unaltered.
 
     Parameters
     ----------
     x :             TreeNeuron | MeshNeuron | NeuronList
+    method :        "longest_neurite" | "centrality"
+                    The method to use:
+                      - "longest_neurite" assumes that the main branch point
+                        is where the two largest branches converge
+                      - "betweenness" uses centrality to determine the point
+                        which most shortest paths traverse
     reroot_soma :   bool
                     If True and neuron has a soma, neuron will be rerooted to
                     its soma.
@@ -99,7 +108,7 @@ def cell_body_fiber(x: NeuronObject,
         x.reroot(x.soma, inplace=True)
 
     # Find main branch point
-    mbp = graph.find_main_branchpoint(x, reroot_soma=False)
+    mbp = graph.find_main_branchpoint(x, method=method, reroot_soma=False)
 
     # Find the path to root (and account for multiple roots)
     for r in x.root:

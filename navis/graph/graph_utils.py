@@ -813,10 +813,13 @@ def dist_between(x: 'core.NeuronObject',
                                 mode='ALL')[0][0]
 
 
+@utils.map_neuronlist(desc='Searching', allow_parallel=True)
 @utils.meshneuron_skeleton(method='node_to_vertex')
 def find_main_branchpoint(x: 'core.NeuronObject',
+                          method: Union[Literal['longest_neurite'],
+                                        Literal['betweenness']] = 'betweenness',
                           reroot_soma: bool = False) -> Union[int, List[int]]:
-    """Return the branch point at which the two largest branches converge.
+    """Find main branch point of unipolar (e.g. insect) neurons.
 
     Note that this might produce garbage if the neuron is fragmented.
 
@@ -824,6 +827,13 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     ----------
     x :                 TreeNeuron | NeuronList
                         May contain multiple neurons.
+    method :            "longest_neurite" | "centrality"
+                        The method to use:
+                          - "longest_neurite" assumes that the main branch point
+                            is where the two largest branches converge
+                          - "betweenness" uses centrality to determine the point
+                            which most shortest paths traverse
+
     reroot_soma :       bool, optional
                         If True, neuron will be rerooted to soma.
 
@@ -851,13 +861,8 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     2  TreeNeuron     3656             0          63       66  648285.745750    None
 
     """
-    if isinstance(x, core.NeuronList):
-        res = []
-        for n in config.tqdm(x, desc='Searching',
-                             disable=config.pbar_hide or len(x) == 1,
-                             leave=config.pbar_leave):
-            res.append(find_main_branchpoint(n, reroot_soma=reroot_soma))
-        return np.array(res)
+    utils.eval_param(method, name='method',
+                     allowed_values=('longest_neurite', 'betweenness'))
 
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
@@ -872,19 +877,38 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     if reroot_soma and not isinstance(x.soma, type(None)):
         x = x.reroot(x.soma, inplace=False)
 
-    G = graph.neuron2nx(x)
+    if method == 'longest_neurite':
+        G = x.graph
 
-    # First, find longest path
-    longest = nx.dag_longest_path(G, weight='weight')
+        # First, find longest path
+        longest = nx.dag_longest_path(G, weight='weight')
 
-    # Remove longest path
-    G.remove_nodes_from(longest)
+        # Remove longest path
+        # (use subgraph to avoid editing original or copying raph)
+        keep = ~np.isin(G.nodes, longest)
+        G = G.subgraph(np.array(G.nodes)[keep])
 
-    # Find second longst path
-    sc_longest = nx.dag_longest_path(G, weight='weight')
+        # Find second longst path
+        sc_longest = nx.dag_longest_path(G, weight='weight')
 
-    # Parent of the last node in sc_longest is the common branch point
-    bp = list(x.graph.successors(sc_longest[-1]))[0]
+        # Parent of the last node in sc_longest is the common branch point
+        bp = list(x.graph.successors(sc_longest[-1]))[0]
+    else:
+        # Get betweenness for each node
+        x = morpho.betweeness_centrality(x)
+        # Get branch points with high centrality
+        high_between = x.branch_points.betweenness >= x.branch_points.betweenness.max() * 0.8
+        candidates = x.branch_points[high_between]
+
+        # If only one nodes just go with it
+        if candidates.shape[0] == 1:
+            bp = candidates.node_id.values[0]
+        else:
+            # If multiple points get the one closest to the root
+            root_dists = dist_to_root(x)
+            bp = sorted(candidates.node_id.values,
+                        key=lambda x: root_dists[x])[0]
+
 
     # This makes sure we get the same data type as in the node table
     # -> Network X seems to sometimes convert integers to floats
