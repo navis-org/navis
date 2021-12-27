@@ -1049,6 +1049,7 @@ def sholl_analysis(x: 'core.NeuronObject',
                            reroot_soma=True,
                            node_props=['betweenness'])
 def betweeness_centrality(x: 'core.NeuronObject',
+                          leafs_only=False,
                           directed=True) -> 'core.NeuronObject':
     """Calculate vertex/node betweenness.
 
@@ -1057,9 +1058,12 @@ def betweeness_centrality(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-    directed :  bool
-                Whether to use the directed or undirected graph.
+    x :             TreeNeuron | MeshNeuron | NeuronList
+    leafs_only :    bool
+                    If True will only consider paths from leafs to root(s). Only
+                    implemented for ``directed=True``.
+    directed :      bool
+                    Whether to use the directed or undirected graph.
 
     Returns
     -------
@@ -1075,27 +1079,35 @@ def betweeness_centrality(x: 'core.NeuronObject',
     >>> n.reroot(n.soma, inplace=True)
     >>> _ = navis.betweeness_centrality(n)
     >>> n[0].nodes.betweenness.max()
-    6
+    436866
     >>> m = navis.example_neurons(1, kind='mesh')
     >>> _ = navis.betweeness_centrality(m)
     >>> m.betweenness.max()
-    5
+    59637
 
     """
     utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
 
-    if x.igraph and config.use_igraph:
-        G = x.igraph
+    G = x.igraph
+    if not leafs_only:
         bc = dict(zip(G.vs.get_attribute_values('node_id'),
                       G.betweenness(directed=directed)))
     else:
-        G = x.graph
         if not directed:
-            G = G.to_undirected()
-        # Sampling only 1% of the nodes should be sufficient
-        k = min(len(G), max(10, len(G) * 0.01))
-        bc = nx.centrality.betweenness_centrality(G, k=int(k))
+            raise ValueError('`leafs_only` not implemented for `directed=True`')
+        paths = []
+        leafs = G.vs.select(_indegree=0)
+        roots = G.vs.select(_outdegree=0)
+        for r in roots:
+            paths += G.get_shortest_paths(r, to=leafs, mode='in')
+        # Drop too short paths
+        paths = [p for p in paths if len(p) > 2]
+        flat_ix = [i for p in paths for i in p[:-1]]
+        ix, counts = np.unique(flat_ix, return_counts=True)
+        ids = [G.vs[i]['node_id'] for i in ix]
+        bc = {i: 0 for i in x.nodes.node_id.values}
+        bc.update(dict(zip(ids, counts)))
 
-    x.nodes['betweenness'] = x.nodes.node_id.map(bc)
+    x.nodes['betweenness'] = x.nodes.node_id.map(bc).astype(int)
 
     return x
