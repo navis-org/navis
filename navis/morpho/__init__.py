@@ -22,6 +22,8 @@ from .manipulation import (prune_by_strahler, stitch_skeletons,
                            drop_fluff, smooth_voxels)
 from .analyze import find_soma
 from .subset import subset_neuron
+from .persistence import (persistence_points, persistence_vectors,
+                          persistence_distances)
 
 __all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
            'segregation_index', 'arbor_segregation_index', 'tortuosity',
@@ -29,4 +31,6 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
            'average_skeletons', 'despike_skeleton', 'guess_radius', 'smooth_skeleton',
            'heal_skeleton', 'break_fragments', 'prune_twigs',
            'find_soma', 'prune_at_depth', 'cell_body_fiber', 'drop_fluff',
-           'subset_neuron', 'smooth_voxels', 'sholl_analysis']
+           'subset_neuron', 'smooth_voxels', 'sholl_analysis',
+           'persistence_points', 'betweeness_centrality',
+           'persistence_vectors', 'persistence_distances']

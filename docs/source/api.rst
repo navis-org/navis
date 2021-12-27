@@ -313,7 +313,6 @@ Functions to edit morphology:
     navis.prune_twigs
     navis.prune_at_depth
     navis.reroot_skeleton
-    navis.sholl_analysis
     navis.split_axon_dendrite
     navis.split_into_fragments
     navis.stitch_skeletons
@@ -321,7 +320,7 @@ Functions to edit morphology:
     navis.smooth_skeleton
     navis.smooth_mesh
     navis.smooth_voxels
-    navis.tortuosity
+
 
 Resampling
 ----------
@@ -343,11 +342,23 @@ Functions to analyze morphology.
     :toctree: generated/
 
     navis.find_main_branchpoint
+    navis.persistence_points
+    navis.persistence_vectors
     navis.strahler_index
+    navis.sholl_analysis
+    navis.tortuosity
+    navis.betweeness_centrality
+
+Functions to compare morphology.
+
+.. autosummary::
+    :toctree: generated/
     navis.nblast
     navis.nblast_smart
     navis.nblast_allbyall
+    navis.vxnblast
     navis.synblast
+    navis.persistence_distances
 
 Polarity metrics
 ----------------
@@ -369,6 +380,7 @@ Functions to calculate Euclidian and geodesic ("along-the-arbor") distances.
     navis.cable_overlap
     navis.distal_to
     navis.dist_between
+    navis.dist_to_root
     navis.geodesic_matrix
     navis.segment_length
 
