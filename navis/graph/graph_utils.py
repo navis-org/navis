@@ -895,19 +895,19 @@ def find_main_branchpoint(x: 'core.NeuronObject',
         bp = list(x.graph.successors(sc_longest[-1]))[0]
     else:
         # Get betweenness for each node
-        x = morpho.betweeness_centrality(x)
-        # Get branch points with high centrality
-        high_between = x.branch_points.betweenness >= x.branch_points.betweenness.max() * 0.8
+        x = morpho.betweeness_centrality(x, directed=True, leafs_only=True)
+        # Get branch points with highest centrality
+        high_between = x.branch_points.betweenness >= x.branch_points.betweenness.max() * .8
         candidates = x.branch_points[high_between]
 
         # If only one nodes just go with it
         if candidates.shape[0] == 1:
             bp = candidates.node_id.values[0]
         else:
-            # If multiple points get the one closest to the root
+            # If multiple points get the farthest one from the root
             root_dists = dist_to_root(x)
             bp = sorted(candidates.node_id.values,
-                        key=lambda x: root_dists[x])[0]
+                        key=lambda x: root_dists[x])[-1]
 
 
     # This makes sure we get the same data type as in the node table
