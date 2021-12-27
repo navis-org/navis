@@ -35,11 +35,13 @@ __all__ = sorted(['classify_nodes', 'cut_skeleton', 'longest_neurite',
                   'generate_list_of_childs', 'geodesic_matrix',
                   'node_label_sorting',
                   'segment_length', 'rewire_skeleton', 'insert_nodes',
-                  'remove_nodes'])
+                  'remove_nodes', 'dist_to_root'])
 
 
+@utils.map_neuronlist(desc='Gen. segments', allow_parallel=True)
 def _generate_segments(x: 'core.NeuronObject',
-                       weight: Optional[str] = None) -> list:
+                       weight: Optional[str] = None,
+                       return_lengths: bool = False) -> Union[list, Tuple[list, list]]:
     """Generate segments maximizing segment lengths.
 
     Parameters
@@ -47,14 +49,19 @@ def _generate_segments(x: 'core.NeuronObject',
     x :         TreeNeuron | NeuronList
                 May contain multiple neurons.
     weight :    'weight' | None, optional
-                If ``"weight"`` use physical length to determine segment
-                length. If ``None`` use number of nodes.
+                If ``"weight"`` use physical, geodesic length to determine
+                segment length. If ``None`` use number of nodes (faster).
+    return_lengths : bool
+                If True, also return lengths of segments according to ``weight``.
 
     Returns
     -------
-    list
+    segments :  list
                 Segments as list of lists containing node IDs. List is
                 sorted by segment lengths.
+    lengths :   list
+                Length for each segment according to ``weight``. Only provided
+                if `return_lengths` is True.
 
     Examples
     --------
@@ -66,33 +73,16 @@ def _generate_segments(x: 'core.NeuronObject',
     >>> weighted = navis.graph_utils._generate_segments(n, weight='weight')
 
     """
-    if isinstance(x, core.NeuronList):
-        return [_generate_segments(x[i],
-                                   weight=weight) for i in range(x.shape[0])]
-
     if not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Expected TreeNeuron, got "{type(x)}"')
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
 
-    if weight == 'weight':
-        # Get distances from end nodes to root
-        m = geodesic_matrix(x,
-                            directed=True,
-                            weight=weight,
-                            from_=x.nodes[x.nodes.type == 'end'].node_id.values)
-
-        # Sort by distance to the root(s)
-        endNodeIDs = m.sort_values(x.root.tolist(),
-                                   inplace=False,
-                                   ascending=False).index.values
-    elif not weight:
-        d = _edge_count_to_root(x, igraph_indices=False)
-        endNodeIDs = x.nodes[x.nodes.type == 'end'].node_id.values
-        endNodeIDs = sorted(endNodeIDs, key=lambda x: d.get(x, 0), reverse=True)
-    else:
-        raise ValueError(f'Unable to use weight "{weight}"')
+    assert weight in ('weight', None), f'Unable to use weight "{weight}"'
+    d = dist_to_root(x, igraph_indices=False, weight=weight)
+    endNodeIDs = x.nodes[x.nodes.type == 'end'].node_id.values
+    endNodeIDs = sorted(endNodeIDs, key=lambda x: d.get(x, 0), reverse=True)
 
     if config.use_igraph and x.igraph:
         g: igraph.Graph = x.igraph
@@ -126,14 +116,13 @@ def _generate_segments(x: 'core.NeuronObject',
         sequences = [[ix2id[ix] for ix in s] for s in sequences]
 
     # Sort sequences by length
-    if weight == 'weight':
-        sequences = sorted(
-            sequences, key=lambda x: m.loc[x[0], x[-1]], reverse=True)
-    else:
-        sequences = sorted(
-            sequences, key=lambda x: d[x[0]] - d[x[-1]], reverse=True)
+    lengths = [d[s[0]] - d[s[-1]] for s in sequences]
+    sequences = [x for _, x in sorted(zip(lengths, sequences), reverse=True)]
 
-    return sequences
+    if return_lengths:
+        return sequences, sorted(lengths, reverse=True)
+    else:
+        return sequences
 
 
 def _connected_components(x: Union['core.TreeNeuron', 'core.MeshNeuron']) -> List[Set[int]]:
@@ -261,11 +250,25 @@ def _break_segments(x: 'core.NeuronObject') -> list:
 
 
 @utils.lock_neuron
-def _edge_count_to_root(x: 'core.TreeNeuron',
-                        igraph_indices: bool = False) -> dict:
-    """Return a map of nodeID vs number of edges to the root.
+def dist_to_root(x: 'core.TreeNeuron',
+                 weight=None,
+                 igraph_indices: bool = False) -> dict:
+    """Calculate distance to root for each node.
 
-    Starts from the first node that lacks successors (aka the root).
+    Parameters
+    ----------
+    x :                 TreeNeuron
+    weight :            str, optional
+                        Use "weight" if you want geodesic distance and ``None``
+                        if you want node count.
+    igraph_indices :    bool
+                        Whether to return igraph node indices instead of node
+                        IDs. This is mainly used for internal functions.
+
+    Returns
+    -------
+    dist :              dict
+                        Dictionary with root distances.
 
     Examples
     --------
@@ -273,12 +276,20 @@ def _edge_count_to_root(x: 'core.TreeNeuron',
 
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> seg = navis.graph_utils._edge_count_to_root(n)
+    >>> seg = navis.graph_utils.root_dist(n)
+
+    See Also
+    --------
+    :func:`navis.geodesic_matrix`
+                        For distances between all points.
 
     """
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron, got {type(x)}')
+
     dist = {}
     for root in x.root:
-        dist.update(nx.shortest_path_length(x.graph, target=root))
+        dist.update(nx.shortest_path_length(x.graph, target=root, weight=weight))
 
     # Map node ID to vertex index for igraph
     if igraph_indices:
@@ -603,10 +614,12 @@ def geodesic_matrix(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`~navis.distal_to`
+    :func:`navis.distal_to`
         Check if a node A is distal to node B.
-    :func:`~navis.dist_between`
+    :func:`navis.dist_between`
         Get point-to-point geodesic distances.
+    :func:`navis.dist_to_root`
+        Distances from all skeleton node to their root(s).
 
     Examples
     --------
