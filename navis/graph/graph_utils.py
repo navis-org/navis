@@ -276,7 +276,7 @@ def dist_to_root(x: 'core.TreeNeuron',
 
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> seg = navis.graph_utils.root_dist(n)
+    >>> seg = navis.graph.dist_to_root(n)
 
     See Also
     --------
@@ -833,7 +833,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
                       - "longest_neurite" assumes that the main branch point
                         is where the two largest branches converge
                       - "betweenness" uses centrality to determine the point
-                        which most shortest paths traverse 
+                        which most shortest paths traverse
     threshold :     float [0-1]
                     Sets the cutoff for method "betweenness". Decrease threshold
                     to be more inclusive (useful if the cell body fiber has
