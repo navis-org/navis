@@ -818,6 +818,7 @@ def dist_between(x: 'core.NeuronObject',
 def find_main_branchpoint(x: 'core.NeuronObject',
                           method: Union[Literal['longest_neurite'],
                                         Literal['betweenness']] = 'betweenness',
+                          threshold: float = .95,
                           reroot_soma: bool = False) -> Union[int, List[int]]:
     """Find main branch point of unipolar (e.g. insect) neurons.
 
@@ -825,22 +826,26 @@ def find_main_branchpoint(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
-                        May contain multiple neurons.
-    method :            "longest_neurite" | "centrality"
-                        The method to use:
-                          - "longest_neurite" assumes that the main branch point
-                            is where the two largest branches converge
-                          - "betweenness" uses centrality to determine the point
-                            which most shortest paths traverse
-
-    reroot_soma :       bool, optional
-                        If True, neuron will be rerooted to soma.
+    x :             TreeNeuron | NeuronList
+                    May contain multiple neurons.
+    method :        "longest_neurite" | "centrality"
+                    The method to use:
+                      - "longest_neurite" assumes that the main branch point
+                        is where the two largest branches converge
+                      - "betweenness" uses centrality to determine the point
+                        which most shortest paths traverse 
+    threshold :     float [0-1]
+                    Sets the cutoff for method "betweenness". Decrease threshold
+                    to be more inclusive (useful if the cell body fiber has
+                    little bristles), increase to be more stringent (i.e. when
+                    the skeleton is very clean).
+    reroot_soma :   bool, optional
+                    If True, neuron will be rerooted to soma.
 
     Returns
     -------
-    branch_point :     int | list of int
-                       Node ID or list of node IDs of the main branch point(s).
+    branch_point :  int | list of int
+                    Node ID or list of node IDs of the main branch point(s).
 
     Examples
     --------
@@ -897,7 +902,7 @@ def find_main_branchpoint(x: 'core.NeuronObject',
         # Get betweenness for each node
         x = morpho.betweeness_centrality(x, directed=True, leafs_only=True)
         # Get branch points with highest centrality
-        high_between = x.branch_points.betweenness >= x.branch_points.betweenness.max() * .8
+        high_between = x.branch_points.betweenness >= x.branch_points.betweenness.max() * threshold
         candidates = x.branch_points[high_between]
 
         # If only one nodes just go with it
