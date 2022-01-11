@@ -257,7 +257,12 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
     # Filter nodes
     # Note that we are setting the nodes directly (here and later) thereby
     # circumventing (or rather postponing) checks and safeguards.
-    x._nodes = x.nodes[x.nodes.node_id.isin(subset)]
+    if isinstance(subset, np.ndarray) and subset.dtype == bool:
+        # For boolean mask
+        x._nodes = x._nodes.loc[subset]
+    else:
+        # For sets of nodes
+        x._nodes = x.nodes[x.nodes.node_id.isin(subset)]
 
     # Make sure that there are root nodes
     # This is the fastest "pandorable" way: instead of overwriting the column,
