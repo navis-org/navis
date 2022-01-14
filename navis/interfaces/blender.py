@@ -570,7 +570,11 @@ class Handler:
 
             # Construct the bmesh cube and assign it to the blender mesh.
             bm = bmesh.new()
-            bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, diameter=rad)
+            # Blender 3.0 uses `radius` instead of `diameter`
+            try:
+                bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=rad * 2)
+            except:
+                bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, diameter=rad)
             bm.to_mesh(mesh)
             bm.free()
 
