@@ -139,9 +139,9 @@ class NBlaster(Blaster):
     """
 
     def __init__(self, use_alpha=False, normalized=True, smat='auto',
-                 limit_dist=None, progress=True):
+                 limit_dist=None, dtype=np.float64, progress=True):
         """Initialize class."""
-        super().__init__(progress=progress)
+        super().__init__(progress=progress, dtype=dtype)
         self.use_alpha = use_alpha
         self.normalized = normalized
         self.desc = "NBlasting"
@@ -245,6 +245,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  use_alpha: bool = False,
                  smat: Optional[Union[str, pd.DataFrame]] = 'auto',
                  limit_dist: Optional[Union[Literal['auto'], int, float]] = 'auto',
+                 precision: Union[int, str, np.dtype] = 64,
                  n_cores: int = os.cpu_count() // 2,
                  progress: bool = True) -> pd.DataFrame:
     """Smart(er) NBLAST query against target neurons.
@@ -312,6 +313,12 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
                     "auto", will extract that value from the scoring matrix.
+    precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
+                    Precision for scores. Defaults to 64 bit (double) floats.
+                    This is useful to reduce the memory footprint for very large
+                    matrices. In real-world scenarios 32 bit (single)- and
+                    depending on the purpose even 16 bit (half) - are typically
+                    sufficient.
     progress :      bool
                     Whether to show progress bars.
 
@@ -417,6 +424,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                                 normalized=normalized,
                                 smat=smat,
                                 limit_dist=limit_dist,
+                                dtype=precision,
                                 progress=progress)
                 # Add queries and targets
                 for n in qq:
@@ -439,7 +447,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                                       scores=pre_scores)
     else:
         with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
-            # Each nblaster is passed to it's own process
+            # Each nblaster is passed to its own process
             futures = [pool.submit(this.multi_query_target,
                                    q_idx=this.queries,
                                    t_idx=this.targets,
@@ -447,7 +455,8 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
 
             results = [f.result() for f in futures]
 
-        scr = pd.DataFrame(np.zeros((len(query_dps), len(target_dps))),
+        scr = pd.DataFrame(np.zeros((len(query_dps), len(target_dps)),
+                                     dtype=this.dtype),
                            index=query_dps.id, columns=target_dps.id)
 
         for res in results:
@@ -490,6 +499,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                                 normalized=normalized,
                                 smat=smat,
                                 limit_dist=limit_dist,
+                                dtype=precision,
                                 progress=progress)
                 # Add queries and targets
                 for n in query_dps[q]:
@@ -548,6 +558,7 @@ def nblast(query: Union[Dotprops, NeuronList],
            smat: Optional[Union[str, pd.DataFrame]] = 'auto',
            limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
            n_cores: int = os.cpu_count() // 2,
+           precision: Union[int, str, np.dtype] = 64,
            batch_size: Optional[int] = None,
            progress: bool = True) -> pd.DataFrame:
     """NBLAST query against target neurons.
@@ -599,6 +610,12 @@ def nblast(query: Union[Dotprops, NeuronList],
                     ``os.cpu_count() - 2``. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
+    precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
+                    Precision for scores. Defaults to 64 bit (double) floats.
+                    This is useful to reduce the memory footprint for very large
+                    matrices. In real-world scenarios 32 bit (single)- and
+                    depending on the purpose even 16 bit (half) - are typically
+                    sufficient.
     batch_size :    int, optional
                     Set the number of Dotprops per process. This can be useful
                     to reduce the memory footprint at the cost of longer run
@@ -664,6 +681,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                                 normalized=normalized,
                                 smat=smat,
                                 limit_dist=limit_dist,
+                                dtype=precision,
                                 progress=progress)
 
                 # Use better description if we process in batches
@@ -698,7 +716,8 @@ def nblast(query: Union[Dotprops, NeuronList],
 
         results = [f.result() for f in futures]
 
-    scores = pd.DataFrame(np.zeros((len(query_dps), len(target_dps))),
+    scores = pd.DataFrame(np.zeros((len(query_dps), len(target_dps)),
+                                    dtype=this.dtype),
                           index=query_dps.id, columns=target_dps.id)
 
     for res in results:
@@ -712,6 +731,7 @@ def nblast_allbyall(x: NeuronList,
                     use_alpha: bool = False,
                     smat: Optional[Union[str, pd.DataFrame]] = 'auto',
                     limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
+                    precision: Union[int, str, np.dtype] = 64,
                     n_cores: int = os.cpu_count() // 2,
                     progress: bool = True) -> pd.DataFrame:
     """All-by-all NBLAST of inputs neurons.
@@ -745,6 +765,12 @@ def nblast_allbyall(x: NeuronList,
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
                     "auto", will extract that value from the scoring matrix.
+    precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
+                    Precision for scores. Defaults to 64 bit (double) floats.
+                    This is useful to reduce the memory footprint for very large
+                    matrices. In real-world scenarios 32 bit (single)- and
+                    depending on the purpose even 16 bit (half) - are typically
+                    sufficient.
     progress :      bool
                     Whether to show progress bars.
 
@@ -803,6 +829,7 @@ def nblast_allbyall(x: NeuronList,
                                 normalized=normalized,
                                 smat=smat,
                                 limit_dist=limit_dist,
+                                dtype=precision,
                                 progress=progress)
 
                 # Make sure we don't add the same neuron twice
@@ -835,7 +862,8 @@ def nblast_allbyall(x: NeuronList,
 
         results = [f.result() for f in futures]
 
-    scores = pd.DataFrame(np.zeros((len(dps), len(dps))),
+    scores = pd.DataFrame(np.zeros((len(dps), len(dps)),
+                                   dtype=this.dtype),
                           index=dps.id, columns=dps.id)
 
     for res in results:

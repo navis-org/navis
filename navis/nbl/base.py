@@ -1,4 +1,3 @@
-
 #    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
@@ -21,12 +20,16 @@ from abc import ABC, abstractmethod
 
 from .. import utils, config
 
+INT_DTYPES = {16: np.int16, 32: np.int32, 64: np.int64, None: None}
+FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
+
 
 class Blaster(ABC):
     """Base class for blasting."""
 
-    def __init__(self, progress=True):
+    def __init__(self, dtype=np.float64, progress=True):
         """Initialize class."""
+        self.dtype = dtype
         self.progress = progress
         self.desc = "Blasting"
         self.self_hits = []
@@ -47,6 +50,23 @@ class Blaster(ABC):
     def single_query_target(self, q_idx, t_idx, scores='forward'):
         """Query single target against single target."""
         pass
+
+    @property
+    def dtype(self):
+        """Data type used for scores."""
+        return self._dtype
+
+    @dtype.setter
+    def dtype(self, dtype):
+        try:
+            self._dtype = np.dtype(dtype)
+        except TypeError:
+            try:
+                self._dtype = FLOAT_DTYPES[dtype]
+            except KeyError:
+                raise ValueError(
+                    f'Unknown precision/dtype {dtype}. Expected on of the following: 16, 32 or 64 (default)'
+                )
 
     def pair_query_target(self, pairs, scores='forward'):
         """BLAST multiple pairs.
@@ -104,19 +124,18 @@ class Blaster(ABC):
         else:
             position = getattr(self, 'pbar_position', 0)
 
-        rows = []
-        for q in config.tqdm(q_idx,
-                             desc=self.desc,
-                             leave=False,
-                             position=position,
-                             disable=not self.progress):
-            rows.append([])
-            for t in t_idx:
-                score = self.single_query_target(q, t, scores=scores)
-                rows[-1].append(score)
+        res = np.zeros((len(q_idx), len(t_idx)),
+                       dtype=self.dtype)
+        for i, q in enumerate(config.tqdm(q_idx,
+                                          desc=self.desc,
+                                          leave=False,
+                                          position=position,
+                                          disable=not self.progress)):
+            for k, t in enumerate(t_idx):
+                res[i, k] = self.single_query_target(q, t, scores=scores)
 
         # Generate results
-        res = pd.DataFrame(rows)
+        res = pd.DataFrame(res)
         res.columns = [self.ids[t] for t in t_idx]
         res.index = [self.ids[q] for q in q_idx]
 
