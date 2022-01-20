@@ -359,8 +359,17 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     utils.eval_param(criterion, name='criterion',
                      allowed_values=("percentile", "score", "N"))
 
+    # We will make a couple tweaks for speed things up if this is
+    # an all-by-all NBLAST
+    aba = False
+    pre_scores = scores
     if isinstance(target, type(None)):
         target = query
+        aba = True
+        # For all-by-all's we can compute only forward scores and
+        # produce the mean later
+        if scores == 'mean':
+            pre_scores = 'forward'
 
     try:
         t = int(t)
@@ -390,7 +399,10 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
 
     # Make simplified dotprops
     query_dps_simp = query_dps.downsample(10, inplace=False)
-    target_dps_simp = target_dps.downsample(10, inplace=False)
+    if not aba:
+        target_dps_simp = target_dps.downsample(10, inplace=False)
+    else:
+        target_dps_simp = query_dps_simp
 
     # First we NBLAST the highly simplified dotprops against another
     nblasters = []
@@ -424,14 +436,14 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     if n_cores == 1:
         scr = this.multi_query_target(this.queries,
                                       this.targets,
-                                      scores=scores)
+                                      scores=pre_scores)
     else:
         with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
             # Each nblaster is passed to it's own process
             futures = [pool.submit(this.multi_query_target,
                                    q_idx=this.queries,
                                    t_idx=this.targets,
-                                   scores=scores) for this in nblasters]
+                                   scores=pre_scores) for this in nblasters]
 
             results = [f.result() for f in futures]
 
@@ -440,6 +452,11 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
 
         for res in results:
             scr.loc[res.index, res.columns] = res.values
+
+    # If this is an all-by-all and we would have computed only forward scores
+    # during pre-NBLAST
+    if aba and scores == 'mean':
+        scr = (scr + scr.T.values) / 2
 
     # Now select targets of interest for each query
     if criterion == 'percentile':
