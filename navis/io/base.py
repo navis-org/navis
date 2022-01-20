@@ -212,6 +212,7 @@ class BaseReader(ABC):
                     Additional attributes to use when creating the neuron.
                     Will be overwritten by later additions (e.g. from `fmt`).
     """
+
     def __init__(
         self,
         fmt: str,
@@ -232,7 +233,7 @@ class BaseReader(ABC):
     def files_in_dir(self,
                      dpath: Path,
                      include_subdirs: bool = DEFAULT_INCLUDE_SUBDIRS
-    ) -> Iterable[Path]:
+                     ) -> Iterable[Path]:
         """List files to read in directory."""
         pattern = '*'
         if include_subdirs:
@@ -365,6 +366,7 @@ class BaseReader(ABC):
     def read_zip(
         self, fpath: os.PathLike,
         parallel="auto",
+        limit: Optional[int] = None,
         attrs: Optional[Dict[str, Any]] = None,
         on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
     ) -> 'core.NeuronList':
@@ -376,6 +378,8 @@ class BaseReader(ABC):
         ----------
         fpath :     str | os.PathLike
                     Path to zip file.
+        limit :     int, optional
+                    Limit the number of files read from this directory.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
         on_error :  'ignore' | 'raise'
@@ -391,6 +395,7 @@ class BaseReader(ABC):
         neurons = parallel_read_zip(read_fn=read_fn,
                                     fpath=fpath,
                                     file_ext=self.is_valid_file,
+                                    limit=limit,
                                     parallel=parallel)
         return core.NeuronList(neurons)
 
@@ -398,6 +403,7 @@ class BaseReader(ABC):
         self, path: os.PathLike,
         include_subdirs=DEFAULT_INCLUDE_SUBDIRS,
         parallel="auto",
+        limit: Optional[int] = None,
         attrs: Optional[Dict[str, Any]] = None
     ) -> 'core.NeuronList':
         """Read directory of files into a NeuronList.
@@ -409,6 +415,8 @@ class BaseReader(ABC):
         include_subdirs :   bool, optional
                             Whether to descend into subdirectories, default False.
         parallel :          str | bool | "auto"
+        limit :             int, optional
+                            Limit the number of files read from this directory.
         attrs :             dict or None
                             Arbitrary attributes to include in the TreeNeurons
                             of the NeuronList
@@ -418,6 +426,10 @@ class BaseReader(ABC):
         core.NeuronList
         """
         files = list(self.files_in_dir(Path(path), include_subdirs))
+
+        if limit:
+            files = files[:limit]
+
         read_fn = partial(self.read_file_path, attrs=attrs)
         neurons = parallel_read(read_fn, files, parallel)
         return core.NeuronList(neurons)
@@ -612,7 +624,8 @@ class BaseReader(ABC):
         obj,
         include_subdirs=DEFAULT_INCLUDE_SUBDIRS,
         parallel="auto",
-        attrs: Optional[Dict[str, Any]] = None
+        limit=None,
+        attrs: Optional[Dict[str, Any]] = None,
     ) -> 'core.NeuronObject':
         """Attempt to read an arbitrary object into a neuron.
 
@@ -632,14 +645,14 @@ class BaseReader(ABC):
             try:
                 if os.path.isdir(obj):
                     return self.read_directory(
-                        obj, include_subdirs, parallel, attrs
+                        obj, include_subdirs, parallel, limit, attrs
                     )
             except TypeError:
                 pass
 
             try:
                 if os.path.isfile(obj) and str(obj).endswith('.zip'):
-                    return self.read_zip(obj, parallel, attrs)
+                    return self.read_zip(obj, parallel, limit, attrs)
             except TypeError:
                 pass
 
@@ -709,7 +722,6 @@ class BaseReader(ABC):
                     props[p] = match.group(i + 1)
         return props
 
-
     def _extract_connectors(
         self, nodes: pd.DataFrame
     ) -> Optional[pd.DataFrame]:
@@ -775,7 +787,7 @@ def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
     return neurons
 
 
-def parallel_read_zip(read_fn, fpath, file_ext, parallel="auto") -> List['core.NeuronList']:
+def parallel_read_zip(read_fn, fpath, file_ext, limit=None, parallel="auto") -> List['core.NeuronList']:
     """Read neurons from a ZIP file, potentially in parallel.
 
     Reader function must be picklable.
@@ -790,6 +802,8 @@ def parallel_read_zip(read_fn, fpath, file_ext, parallel="auto") -> List['core.N
                     To include all files use `'*'`. Can also be callable that
                     accepts a filename and returns True or False depending on
                     if it should be included.
+    limit :         int, optional
+                    Limit the number of files read from this directory.
     parallel :      str | bool | int
                     "auto" or True for n_cores - 2, otherwise int for number of
                     jobs, or false for serial.
@@ -813,6 +827,9 @@ def parallel_read_zip(read_fn, fpath, file_ext, parallel="auto") -> List['core.N
                 to_read.append(file)
             elif '.' not in file.filename:
                 to_read.append(file)
+
+    if limit:
+        to_read = to_read[:limit]
 
     prog = partial(
         config.tqdm,

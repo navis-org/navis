@@ -236,6 +236,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
              precision: int = 32,
              fmt: str = "{name}.swc",
              read_meta: bool = True,
+             limit: Optional[int] = None,
              **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from SWC file.
 
@@ -297,6 +298,11 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         meta data e.g. (``# Meta: {'id': 123}``), these data
                         will be read as neuron properties. `fmt` takes
                         precedence.
+    limit :             int, optional
+                        If reading from a folder you can use this parameter to
+                        read only the first ``limit`` SWC files. Useful if
+                        wanting to get a sample from a large library of
+                        skeletons.
     **kwargs
                         Keyword arguments passed to the construction of
                         ``navis.TreeNeuron``. You can use this to e.g. set
@@ -323,7 +329,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                        read_meta=read_meta,
                        fmt=fmt,
                        attrs=kwargs)
-    return reader.read_any(f, include_subdirs, parallel)
+    return reader.read_any(f, include_subdirs, parallel, limit=limit)
 
 
 def write_swc(x: 'core.NeuronObject',
