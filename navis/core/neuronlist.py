@@ -777,7 +777,7 @@ class NeuronList:
         return self.summary(N=slice(-N, len(self)))
 
     def remove_duplicates(self,
-                          key: str = 'neuron_name',
+                          key: str = 'name',
                           inplace: bool = False
                           ) -> Optional['NeuronList']:
         """Remove duplicate neurons from list.
@@ -796,7 +796,7 @@ class NeuronList:
         if inplace:
             x = self
         else:
-            x = self.copy(deepcopy=False)
+            x = self.copy()
 
         key = utils.make_iterable(key)
 
