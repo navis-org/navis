@@ -26,12 +26,25 @@ from .. import core, config, utils
 from .b3d import simplify_mesh_blender, smooth_mesh_blender
 from .pyml import simplify_mesh_pyml
 from .o3d import simplify_mesh_open3d, smooth_mesh_open3d
+from .fqmr import simplify_mesh_fqmr
 from .mesh_utils import smooth_mesh_trimesh
 
 
-def available_backends():
+def available_backends(only_first=False):
     """Search for available backends."""
     backends = []
+
+    try:
+        import pyfqmr
+        backends.append('pyfqmr')
+    except ImportError:
+        pass
+    except BaseException:
+        raise
+
+    if only_first and len(backends):
+        return backends
+
     try:
         import open3d
         backends.append('open3d')
@@ -39,6 +52,9 @@ def available_backends():
         pass
     except BaseException:
         raise
+
+    if only_first and len(backends):
+        return backends
 
     try:
         with warnings.catch_warnings():
@@ -70,9 +86,9 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
                 0.5 will reduce the number of faces to 50%.
                 Integers (>1) are intepreted as target face count. For example,
                 an F of 5000 will attempt to reduce the number of faces to 5000.
-    backend :   "auto" | "open3d" | "blender" | "pymeshlab"
-                Which backend to use. Currenly we support ``open3d``, Blender 3D
-                and ``pymeshlab``.
+    backend :   "auto" | "pyfmqr" | "open3d" | "blender" | "pymeshlab"
+                Which backend to use. Currenly we support ``pyfqmr``, ``open3d``,
+                Blender 3D and ``pymeshlab``.
     inplace :   bool
                 If True, will perform simplication on ``x``. If False, will
                 simplify and return a copy.
@@ -89,6 +105,8 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
     --------
     :func:`navis.downsample_neuron`
                 Downsample all kinds of neurons.
+    :func:`navis.meshes.simplify_mesh_fqmr`
+                pyfqmr implementation for mesh simplification.
     :func:`navis.meshes.simplify_mesh_open3d`
                 Open3D implementation for mesh simplification.
     :func:`navis.meshes.simplify_mesh_pyml`
@@ -101,12 +119,12 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
         raise TypeError(f'`backend` must be string, got "{type(backend)}"')
 
     backend = backend.lower()
-    backends = available_backends()
+    backends = available_backends(only_first=backend == 'auto')
 
     if not backends:
         raise BaseException("None of the supported backends appear to be "
-                            "available. Please install either `open3d` or "
-                            "`pymeshlab` via `pip`, or install Blender 3D.")
+                            "available. Please install either `pyfqmr`, `open3d` "
+                            "or `pymeshlab` via `pip`, or install Blender 3D.")
     elif backend == 'auto':
         backend = backends[0]
     elif backend not in backends:
@@ -117,7 +135,12 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
     if not inplace:
         x = x.copy()
 
-    if backend == 'open3d':
+    if backend == 'pyfqmr':
+        # This expects a target face count
+        if F < 1:
+            F = F * len(x.faces)
+        _ = simplify_mesh_fqmr(x, F=F, inplace=True, **kwargs)
+    elif backend == 'open3d':
         # This expects a target face count
         if F < 1:
             F = F * len(x.faces)

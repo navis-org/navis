@@ -16,5 +16,6 @@ from .operations import simplify_mesh, available_backends, smooth_mesh
 from .o3d import simplify_mesh_open3d
 from .b3d import simplify_mesh_blender
 from .pyml import simplify_mesh_pyml
+from .fqmr import simplify_mesh_fqmr
 
 __all__ = ['fix_mesh', 'simplify_mesh', 'smooth_mesh']

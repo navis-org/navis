@@ -47,6 +47,7 @@ pykdtree
 #extra: meshes
 
 open3d
+pyfqmr
 
 # extra: hash
 
