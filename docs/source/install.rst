@@ -35,7 +35,7 @@ To get the most recent development version from
 
 ::
 
-   pip3 install git+git://github.com/navis-org/navis@master
+   pip3 install git+https://github.com/navis-org/navis@master
 
 
 **Installing from source**

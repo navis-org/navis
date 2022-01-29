@@ -1,2 +1,2 @@
-git+git://github.com/navis-org/navis@master
+git+https://github.com/navis-org/navis@master
 jupyter_contrib_nbextensions==0.5.0
