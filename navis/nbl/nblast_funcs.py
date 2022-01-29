@@ -607,7 +607,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                     "auto", will extract that value from the scoring matrix.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() - 2``. This should ideally be an even
+                    ``os.cpu_count() // 2``. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
@@ -654,6 +654,9 @@ def nblast(query: Union[Dotprops, NeuronList],
                 A synapse-based variant of NBLAST.
 
     """
+    if isinstance(target, type(None)):
+        target = query
+
     # Make sure we're working on NeuronLists
     query_dps = NeuronList(query)
     target_dps = NeuronList(target)
@@ -746,7 +749,7 @@ def nblast_allbyall(x: NeuronList,
                     similar sampling resolutions.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() - 2``. This should ideally be an even
+                    ``os.cpu_count() // 2``. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
     use_alpha :     bool, optional
