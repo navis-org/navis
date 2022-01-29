@@ -60,7 +60,7 @@ def eval_param(value: Any,
 
     if allowed_types:
         if not isinstance(value, allowed_types):
-            msg = (f'Unexpected type for "{name}": {type(value)}. ',
+            msg = (f'Unexpected type for "{name}": {type(value)}. '
                    f'Allowed type(s): {", ".join([str(t) for t in allowed_types])}')
             if on_error == 'raise':
                 raise ValueError(msg)
@@ -69,7 +69,7 @@ def eval_param(value: Any,
 
     if allowed_values:
         if value not in allowed_values:
-            msg = (f'Unexpected value for "{name}": {value}. ',
+            msg = (f'Unexpected value for "{name}": {value}. '
                    f'Allowed value(s): {", ".join([str(t) for t in allowed_values])}')
             if on_error == 'raise':
                 raise ValueError(msg)
