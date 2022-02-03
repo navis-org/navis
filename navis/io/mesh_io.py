@@ -151,7 +151,7 @@ def read_mesh(f: Union[str, Iterable],
         attrs = {'name': fname, 'origin': f}
         attrs.update(kwargs)
         if output == 'volume':
-            return core.Volume(mesh.vertices, mesh.faces, *attrs)
+            return core.Volume(mesh.vertices, mesh.faces, **attrs)
         else:
             return core.MeshNeuron(mesh, **attrs)
     except BaseException as e:
