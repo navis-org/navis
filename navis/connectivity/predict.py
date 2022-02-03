@@ -32,7 +32,8 @@ NeuronObject = Union[TreeNeuron, NeuronList]
 def cable_overlap(a: NeuronObject,
                   b: NeuronObject,
                   dist: Union[float, str] = 2,
-                  method: Union[Literal['min'], Literal['max'], Literal['avg']] = 'min'
+                  method: Union[Literal['min'], Literal['max'], Literal['mean'],
+                                Literal['foward'], Literal['reverse']] = 'min'
                   ) -> pd.DataFrame:
     """Calculate the amount of cable of neuron A within distance of neuron B.
 
