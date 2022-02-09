@@ -17,6 +17,8 @@ import os
 
 import matplotlib as mpl
 
+from .units import ureg  # noqa: F401
+
 logger = logging.getLogger('navis')
 
 
@@ -68,9 +70,6 @@ use_igraph = True
 
 # Default color for neurons
 default_color = (.95, .65, .04)
-
-# Unit registry
-ureg = pint.UnitRegistry()
 
 # Set to true to prevent Viewer from ever showing
 headless = os.environ.get('NAVIS_HEADLESS', 'False').lower() == 'true'

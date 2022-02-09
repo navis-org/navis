@@ -22,14 +22,18 @@ import numpy as np
 import pandas as pd
 
 from concurrent.futures import ProcessPoolExecutor
-from typing import Union, Optional, List
+from typing import Union, Optional
 from typing_extensions import Literal
+import pint
+
+from pint.quantity import Quantity
 
 from navis.nbl.smat import Lookup2d, smat_fcwb
 
 from .. import utils, config
 from ..core import NeuronList, Dotprops, make_dotprops
 from .base import Blaster, NestedIndices
+from ..units import as_unit
 
 __all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 
@@ -105,7 +109,7 @@ class NBlaster(Blaster):
         else:
             self.distance_upper_bound = limit_dist
 
-    def append(self, dotprops) -> NestedIndices:
+    def append(self, dotprops, ignore_units=False) -> NestedIndices:
         """Append dotprops.
 
         Returns the numerical index appended dotprops.
@@ -113,15 +117,28 @@ class NBlaster(Blaster):
         return a (possibly nested) list of indices.
         """
         if isinstance(dotprops, Dotprops):
-            return self._append_dotprops(dotprops)
+            return self._append_dotprops(dotprops, ignore_units)
 
         try:
-            return [self.append(n) for n in dotprops]
+            return [self.append(n, ignore_units) for n in dotprops]
         except TypeError:  # i.e. not iterable
             raise ValueError(f"Expected Dotprops or iterable thereof; got {type(dotprops)}")
 
-    def _append_dotprops(self, dotprops: Dotprops) -> int:
-        next_id = len(self)
+    def _append_dotprops(self, dotprops: Dotprops, ignore_units) -> int:
+        if not ignore_units:
+            # if isinstance(dotprops.units, pint.Quantity):
+            #     if np.allclose(1, dotprops.units):
+            #         units = dotprops.units.units
+            #     else:
+            #         logger.warning(
+            #             "Dotprops coordinates are not unitary (%s). "
+            #             "This might lead to unexpected results.",
+            #             dotprops.units
+            #         )
+            # elif dotprops:
+            #     units = as_unit(dotprops.units)
+
+            # if as_unit(dotprops.units)
         self.neurons.append(dotprops)
         self.ids.append(dotprops.id)
         # Calculate score for self hit
