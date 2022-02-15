@@ -53,6 +53,10 @@ pyfqmr
 
 xxhash
 
+#extra: graphviz
+
+pygraphviz
+
 #extra: test-notebook
 
 jupyter
