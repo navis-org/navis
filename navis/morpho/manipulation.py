@@ -17,6 +17,7 @@
 import pandas as pd
 import numpy as np
 import networkx as nx
+import trimesh as tm
 
 from collections import namedtuple
 from itertools import combinations
@@ -36,7 +37,7 @@ __all__ = sorted(['prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite'
                   'smooth_skeleton', 'smooth_voxels',
                   'heal_skeleton', 'cell_body_fiber',
                   'break_fragments', 'prune_twigs', 'prune_at_depth',
-                  'drop_fluff'])
+                  'drop_fluff', 'combine_neurons'])
 
 NeuronObject = Union['core.NeuronList', 'core.TreeNeuron']
 
@@ -815,6 +816,90 @@ def split_axon_dendrite(x: NeuronObject,
     return core.NeuronList(nl)
 
 
+def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
+                     ) -> 'core.NeuronObject':
+    """Combine multiple neurons into one.
+
+    Parameters
+    ----------
+    x :                 NeuronList | Neuron/List
+                        Neurons to combine. Must all be of the same type. Does
+                        not yet work with VoxelNeurons. The combined neuron will
+                        inherit its name, id, units, etc. from the first neuron
+                        in ``x``.
+
+    Returns
+    -------
+    Neuron
+                        Combined neuron.
+
+    See Also
+    --------
+    :func:`navis.stitch_skeletons`
+                        Stitches multiple skeletons together to create one
+                        continuous neuron.
+
+    Examples
+    --------
+    Combine skeletons:
+
+    >>> import navis
+    >>> nl = navis.example_neurons(3)
+    >>> comb = navis.combine_neurons(nl)
+
+    Combine meshes:
+
+    >>> import navis
+    >>> nl = navis.example_neurons(3, kind='mesh')
+    >>> comb = navis.combine_neurons(nl)
+
+    Combine dotprops:
+
+    >>> import navis
+    >>> nl = navis.example_neurons(3)
+    >>> dp = navis.make_dotprops(nl)
+    >>> comb = navis.combine_neurons(dp)
+
+    """
+    # Compile list of individual neurons
+    nl = utils.unpack_neurons(x)
+    nl = core.NeuronList(nl)
+
+    # Check that neurons are all of the same type
+    ty = nl.types
+    if len(ty) > 1:
+        raise TypeError('Unable to combine neurons of different types')
+    ty = ty[0]
+
+    if ty == core.TreeNeuron:
+        x = stitch_skeletons(*nl, method='NONE', master='FIRST')
+    elif ty == core.MeshNeuron:
+        x = nl[0].copy()
+        comb = tm.util.concatenate([n.trimesh for n in nl])
+        x._vertices = comb.vertices
+        x._faces = comb.faces
+
+        if any(nl.has_connectors):
+            x._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
+                                      ignore_index=True)
+    elif ty == core.Dotprops:
+        x = nl[0].copy()
+        x._points = np.vstack(nl._points)
+
+        x._vect = np.vstack(nl.vect)
+        x._alpha = np.hstack(nl.alpha)
+
+        if any(nl.has_connectors):
+            x._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
+                                      ignore_index=True)
+    elif ty == core.VoxelNeuron:
+        raise TypeError('Combining VoxelNeuron not (yet) supported')
+    else:
+        raise TypeError(f'Unable to combine {ty}')
+
+    return x
+
+
 def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                      method: Union[Literal['LEAFS'],
                                    Literal['ALL'],
@@ -870,6 +955,13 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     -------
     TreeNeuron
                         Stitched neuron.
+
+    See Also
+    --------
+    :func:`navis.combine_neurons`
+                        Combines multiple neurons of the same type into one
+                        without stitching. Works on TreeNeurons, MeshNeurons
+                        and Dotprops.
 
     Examples
     --------
