@@ -48,29 +48,32 @@ def cell_body_fiber(x: NeuronObject,
                                   Literal['betweenness']] = 'betweenness',
                     reroot_soma: bool = True,
                     heal: bool = True,
+                    threshold: float = 0.95,
                     inplace: bool = False):
     """Prune neuron to its cell body fiber.
 
-    Here, "cell body fiber" refers to the tract connecting the soma to the
-    backbone in unipolar neuron (common in e.g. insects). This function works by
-    finding the main branch point from the root (soma if available). If neuron
-    has no branches (i.e. is one long segment), it will be returned unaltered.
+    Here, "cell body fiber" (CBF) refers to the tract connecting the soma to the
+    backbone in unipolar neuron (common in e.g. insects). This function works
+    best for typical neurons with clean skeletons.
 
     Parameters
     ----------
     x :             TreeNeuron | MeshNeuron | NeuronList
-    method :        "longest_neurite" | "centrality"
+    method :        "longest_neurite" | "betweenness"
                     The method to use:
                       - "longest_neurite" assumes that the main branch point
                         is where the two largest branches converge
                       - "betweenness" uses centrality to determine the point
                         which most shortest paths traverse
     reroot_soma :   bool
-                    If True and neuron has a soma, neuron will be rerooted to
-                    its soma.
+                    If True (recommended) and neuron has a soma, it will be
+                    rerooted to its soma.
     heal :          bool
-                    If True, will heal fragmented neurons. Fragmented neurons
-                    are not guaranteed to have correct cell body fibers.
+                    If True (recommended), will heal fragmented neurons.
+                    Fragmented neurons are not guaranteed to have correct CBFs.
+    threshold :     float [0-1]
+                    For method "betweenness" only: threshold at which to cut the
+                    cell body fiber. Lower thresholds produce longer CBFs.
     inplace :       bool, optional
                     If False, pruning is performed on copy of original neuron
                     which is then returned.
@@ -78,7 +81,8 @@ def cell_body_fiber(x: NeuronObject,
     Returns
     -------
     TreeNeuron/List
-                    Pruned neuron(s).
+                    Pruned neuron(s). Neuron without branches (i.e. a single
+                    long segment), it will be returned unaltered.
 
     Examples
     --------
@@ -89,7 +93,19 @@ def cell_body_fiber(x: NeuronObject,
     >>> len(cbf.segments)
     1
 
+    See Also
+    --------
+    :func:`navis.find_main_branchpoint`
+                    Find the main branch point.
+
+    :func:`navis.betweeness_centrality`
+                    Calculate the per-node betweeness centrality. This is used
+                    under the hood for ``method='betweeness'``.
+
     """
+    utils.eval_param(method, 'method',
+                     allowed_values=('longest_neurite', 'betweenness'))
+
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
@@ -108,12 +124,13 @@ def cell_body_fiber(x: NeuronObject,
         x.reroot(x.soma, inplace=True)
 
     # Find main branch point
-    mbp = graph.find_main_branchpoint(x, method=method, reroot_soma=False)
+    cut = graph.find_main_branchpoint(x, method=method, threshold=threshold,
+                                      reroot_soma=False)
 
     # Find the path to root (and account for multiple roots)
     for r in x.root:
         try:
-            path = nx.shortest_path(x.graph, target=r, source=mbp)
+            path = nx.shortest_path(x.graph, target=r, source=cut)
             break
         except nx.NetworkXNoPath:
             continue

@@ -28,6 +28,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
+        pip install zstandard==0.16.0
         pip install numpy
         pip install flybrains --no-deps
         pip install pathos

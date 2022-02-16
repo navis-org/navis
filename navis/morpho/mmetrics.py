@@ -1049,8 +1049,11 @@ def sholl_analysis(x: 'core.NeuronObject',
                            reroot_soma=True,
                            node_props=['betweenness'])
 def betweeness_centrality(x: 'core.NeuronObject',
-                          leafs_only=False,
-                          directed=True) -> 'core.NeuronObject':
+                          from_: Optional[Union[Literal['leafs'],
+                                                Literal['branch_points'],
+                                                Sequence]
+                                          ] = None,
+                          directed: bool = True) -> 'core.NeuronObject':
     """Calculate vertex/node betweenness.
 
     Betweenness is (roughly) defined by the number of shortest paths going
@@ -1059,9 +1062,14 @@ def betweeness_centrality(x: 'core.NeuronObject',
     Parameters
     ----------
     x :             TreeNeuron | MeshNeuron | NeuronList
-    leafs_only :    bool
-                    If True will only consider paths from leafs to root(s). Only
-                    implemented for ``directed=True``.
+    from_ :         "leafs" | "branch_points" | iterable, optional
+                    If provided will only consider paths from given nodes to
+                    root(s):
+                      - ``leafs`` will only use paths from leafs to the root
+                      - ``branch_points`` will only use paths from branch points
+                        to the root
+                      - ``from_`` can also be a list/array of node IDs
+                    Only implemented for ``directed=True``!
     directed :      bool
                     Whether to use the directed or undirected graph.
 
@@ -1088,18 +1096,32 @@ def betweeness_centrality(x: 'core.NeuronObject',
     """
     utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
 
+    if isinstance(from_, str):
+        utils.eval_param(from_, name='from_',
+                         allowed_values=('leafs', 'branch_points'))
+    else:
+        utils.eval_param(from_, name='from_',
+                         allowed_types=(type(None), np.ndarray, list, tuple, set))
+
     G = x.igraph
-    if not leafs_only:
+    if isinstance(from_, type(None)):
         bc = dict(zip(G.vs.get_attribute_values('node_id'),
                       G.betweenness(directed=directed)))
     else:
         if not directed:
-            raise ValueError('`leafs_only` not implemented for `directed=True`')
+            raise ValueError('`from_!=None` only implemented for `directed=True`')
         paths = []
-        leafs = G.vs.select(_indegree=0)
+
+        if from_ == 'leafs':
+            sources = G.vs.select(_indegree=0)
+        elif from_ == 'branch_points':
+            sources = G.vs.select(_indegree_ge=2)
+        else:
+            sources = G.vs.select(node_id_in=from_)
+
         roots = G.vs.select(_outdegree=0)
         for r in roots:
-            paths += G.get_shortest_paths(r, to=leafs, mode='in')
+            paths += G.get_shortest_paths(r, to=sources, mode='in')
         # Drop too short paths
         paths = [p for p in paths if len(p) > 2]
         flat_ix = [i for p in paths for i in p[:-1]]
