@@ -119,8 +119,8 @@ def plot_flat(x,
 
         >>> # First downsample to speed up processing
         >>> ds = navis.downsample_neuron(n, 10, preserve_nodes='connectors')
-        >>> ax, pos = navis.plot_flat(ds, layout='dot', connectors=True)
-        >>> plt.show() # doctest: +SKIP
+        >>> ax, pos = navis.plot_flat(ds, layout='dot', connectors=True) # doctest: +SKIP
+        >>> plt.show()                                                   # doctest: +SKIP
 
     To close all figures (only for doctests)
 
