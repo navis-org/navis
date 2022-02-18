@@ -992,30 +992,34 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
         logger.warning(f'Need at least 2 neurons to stitch, found {len(nl)}')
         return nl[0]
 
+    # If no soma, switch to largest
+    if master == 'SOMA' and not any(nl.has_soma):
+        master = 'LARGEST'
+
     # First find master
     if master == 'SOMA':
-        has_soma = [n for n in nl if not isinstance(n.soma, type(None))]
-        if len(has_soma) > 0:
-            m = has_soma[0]
-        else:
-            m = sorted(nl.neurons,
-                       key=lambda x: x.n_nodes,
-                       reverse=True)[0]
+        # Pick the first neuron with a soma
+        m_ix = [i for i, n in enumerate(nl) if n.has_soma][0]
     elif master == 'LARGEST':
-        m = sorted(nl.neurons,
-                   key=lambda x: x.n_nodes,
-                   reverse=True)[0]
+        # Pick the largest neuron
+        m_ix = sorted(list(range(len(nl))),
+                      key=lambda x: nl[x].n_nodes,
+                      reverse=True)[0]
     else:
-        # Simply pick the first neuron
-        m = nl[0]
+        # Pick the first neuron
+        m_ix = 0
+    m = nl[m_ix]
 
     # Check if we need to make any node IDs unique
     if nl.nodes.duplicated(subset='node_id').sum() > 0:
         # Master neuron will not be changed
         seen_tn: Set[int] = set(m.nodes.node_id)
-        for n in nl:
+        for i, n in enumerate(nl):
             # Skip the master neuron
-            if n == m:
+            # Note we're using the index in case we have two neurons that are
+            # equal (by our definition) - happens e.g. if a neuron has been
+            # mirrored
+            if i == m_ix:
                 continue
 
             # Grab nodes
