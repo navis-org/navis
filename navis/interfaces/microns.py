@@ -268,6 +268,6 @@ def _fetch_single_neuron(id, lod, vol, client, with_synapses=False, **kwargs):
         if len(to_concat) == 1:
             n.connectors = to_concat[0]
         elif len(to_concat) == 2:
-            n.connectors = pd.concat(to_concat, axis=0)
+            n.connectors = pd.concat(to_concat, axis=0).reset_index(drop=True)
 
     return n
