@@ -20,7 +20,8 @@ import requests
 
 import pandas as pd
 
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..core import TreeNeuron, NeuronList
 from ..io import read_swc
@@ -30,7 +31,10 @@ from .. import utils, config
 baseurl = 'http://neuromorpho.org'
 
 
-def find_neurons(page_limit=None, **filters) -> pd.DataFrame:
+def find_neurons(page_limit: Optional[int] = None,
+                 parallel: bool = True,
+                 max_threads: int = 4,
+                 **filters) -> pd.DataFrame:
     """Find neurons matching by given criteria.
 
     Parameters
@@ -71,30 +75,36 @@ def find_neurons(page_limit=None, **filters) -> pd.DataFrame:
         page_limit = float('inf')
 
     data: List[str] = []
-    page = 0
-    with config.tqdm(total=1,
-                     disable=config.pbar_hide,
-                     leave=config.pbar_leave,
-                     desc='Fetching') as pbar:
+
+    # Load the first page to get the total number of pages
+    resp = requests.post(f'{url}?page=0', json=filters)
+    content = resp.json()
+    total_pages = content['page']['totalPages'] - 1
+    page_limit = min(page_limit, total_pages)
+    data += content['_embedded']['neuronResources']
+
+    page = 1   # start with 1 because we already have 0
+
+    with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
+        futures = {}
         while page < page_limit:
-            resp = requests.post(f'{url}?page={page}', json=filters)
-
-            resp.raise_for_status()
-
-            content = resp.json()
-
-            data += content['_embedded']['neuronResources']
-
-            if page == (content['page']['totalPages'] - 1):
-                break
-
-            if page_limit == float('inf'):
-                pbar.total = content['page']['totalPages']
-            else:
-                pbar.total = page_limit
-
-            pbar.update(1)
+            f = executor.submit(requests.post, f'{url}?page={page}', json=filters)
+            futures[f] = page
             page += 1
+
+        with config.tqdm(desc='Fetching',
+                         total=len(futures) + 1,
+                         leave=config.pbar_leave,
+                         disable=len(futures) == 1 or config.pbar_hide) as pbar:
+            pbar.update(1)  # for the first page fetched
+            for f in as_completed(futures):
+                pbar.update(1)
+                try:
+                    resp = f.result()
+                    resp.raise_for_status()
+                    data += resp.json()['_embedded']['neuronResources']
+                except Exception as exc:
+                    print(f'Page {futures[f]} generated an exception:', exc)
 
     return pd.DataFrame.from_records(data)
 
@@ -136,17 +146,24 @@ def get_neuron_info(x: Union[str, int]) -> pd.Series:
     return pd.Series(resp.json())
 
 
-def get_neuron(x: Union[str, int, Dict[str, str]], **kwargs) -> TreeNeuron:
+def get_neuron(x: Union[str, int, Dict[str, str]],
+               parallel: bool = True,
+               max_threads: int = 4,
+               **kwargs) -> TreeNeuron:
     """Fetch neuron by ID or by name.
 
     Parameters
     ----------
-    x :         int | str | dict | pandas.DataFrame
-                Integer is intepreted as ID, string as neuron name. Dictionary
-                and DataFrame must contain 'archive' (e.g. "Wearne_Hof") and
-                'neuron_name' (e.g. "cnic_001").
+    x :             int | str | dict | pandas.DataFrame
+                    Integer is intepreted as ID, string as neuron name. Dictionary
+                    and DataFrame must contain 'archive' (e.g. "Wearne_Hof") and
+                    'neuron_name' (e.g. "cnic_001").
+    parallel :      bool
+                    If True, will use parallel threads to fetch data.
+    max_threads :   int
+                    Max number of parallel threads to use.
     **kwargs
-                Keyword arguments passed on to :func:`navis.read_swc`.
+                    Keyword arguments passed on to :func:`navis.read_swc`.
 
     Returns
     -------
@@ -169,10 +186,32 @@ def get_neuron(x: Union[str, int, Dict[str, str]], **kwargs) -> TreeNeuron:
 
     """
     if isinstance(x, pd.DataFrame):
-        return NeuronList([get_neuron(r) for r in config.tqdm(x.to_dict(orient='records'),
-                                                              desc='Fetching',
-                                                              disable=config.pbar_hide,
-                                                              leave=config.pbar_leave)])
+        nl = []
+        with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
+            futures = {}
+            for r in x.to_dict(orient='records'):
+                f = executor.submit(get_neuron, r, **kwargs)
+                futures[f] = r.get('neuron_id', r.get('neuron_name', 'NA'))
+
+            with config.tqdm(desc='Fetching',
+                             total=len(x),
+                             leave=config.pbar_leave,
+                             disable=len(x) == 1 or config.pbar_hide) as pbar:
+                for f in as_completed(futures):
+                    id = futures[f]
+                    pbar.update(1)
+                    try:
+                        nl.append(f.result())
+                    except Exception as exc:
+                        print(f'{id} generated an exception:', exc)
+
+        # Make sure we return in same order as input
+        nl = NeuronList(nl)
+
+        if 'neuron_id' in x.columns:
+            nl = nl.idx[x.neuron_id.values]
+
+        return nl
 
     if not isinstance(x, (pd.Series, dict)):
         info = get_neuron_info(x)
