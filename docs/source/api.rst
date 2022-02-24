@@ -32,6 +32,7 @@ In addition ``navis`` has interfaces to various external datasets and tools:
 - :ref:`Blender 3D<api_interfaces.blender>`
 - :ref:`Cytoscape<api_interfaces.cytoscape>`
 - :ref:`Allen MICrONS datasets<api_interfaces.microns>`
+- :ref:`Allen Cell Type Atlas<api_interfaces.celltypes>`
 - :ref:`R and the natverse libraries<api_interfaces.r>`
 
 Most of these functions include examples of how to use them. Click on them to
@@ -354,6 +355,7 @@ Functions to compare morphology.
 
 .. autosummary::
     :toctree: generated/
+
     navis.nblast
     navis.nblast_smart
     navis.nblast_allbyall
@@ -513,6 +515,24 @@ Functions to import/export neurons.
     navis.write_precomputed
     navis.read_precomputed
 
+
+.. _api_utility:
+
+Utility
++++++++
+Various utility functions.
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.health_check
+    navis.set_pbars
+    navis.set_loggers
+    navis.set_default_connector_colors
+    navis.config.remove_log_handlers
+    navis.patch_cloudvolume
+
+
 .. _api_interfaces:
 
 Interfaces
@@ -538,10 +558,10 @@ A single-neuron compartment model is represented by
 :class:`~navis.interfaces.neuron.comp.CompartmentModel`:
 
 .. autosummary::
-    :toctree: generated/
+   :toctree: generated/
 
-    navis.interfaces.neuron.comp.CompartmentModel
-    navis.interfaces.neuron.comp.DrosophilaPN
+   navis.interfaces.neuron.comp.CompartmentModel
+   navis.interfaces.neuron.comp.DrosophilaPN
 
 The :class:`~navis.interfaces.neuron.comp.DrosophilaPN` class is a subclass
 of :class:`~navis.interfaces.neuron.comp.CompartmentModel` with
@@ -594,9 +614,9 @@ A network of point-processes is represented by
 .. currentmodule:: navis.interfaces.neuron.network
 
 .. autosummary::
-    :toctree: generated/
+   :toctree: generated/
 
-    navis.interfaces.neuron.network.PointNetwork
+   navis.interfaces.neuron.network.PointNetwork
 
 .. rubric:: Class methods
 
@@ -620,13 +640,14 @@ A network of point-processes is represented by
 .. currentmodule:: navis.interfaces.neuron.network
 
 .. autosummary::
+   :toctree: generated/
 
    ~PointNetwork.edges
    ~PointNetwork.ids
    ~PointNetwork.labels
    ~PointNetwork.neurons
 
-
+.. currentmodule:: navis.interfaces
 .. _api_interfaces.neuromorpho:
 
 NeuroMorpho API
@@ -641,12 +662,13 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.neuromorpho.get_neuron_info
-    navis.interfaces.neuromorpho.get_neuron
-    navis.interfaces.neuromorpho.get_neuron_fields
-    navis.interfaces.neuromorpho.get_available_field_values
+    neuromorpho.get_neuron_info
+    neuromorpho.get_neuron
+    neuromorpho.get_neuron_fields
+    neuromorpho.get_available_field_values
 
 
+.. currentmodule:: navis.interfaces
 .. _api_interfaces.neuprint:
 
 neuPrint API
@@ -659,18 +681,23 @@ installed for this to work::
 
 You can then import neuprint from navis like so::
 
-    import navis.interfaces.neuprint as neu
+    from navis.interfaces import neuprint
+
+
+These are the additional functions added by navis:
 
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.neuprint.fetch_roi
-    navis.interfaces.neuprint.fetch_skeletons
-    navis.interfaces.neuprint.fetch_mesh_neuron
+    neuprint.fetch_roi
+    neuprint.fetch_skeletons
+    neuprint.fetch_mesh_neuron
 
 Please also check out the :ref:`tutorials<example_gallery>` for examples of how
 to fetch and work with data from neuPrint.
 
+
+.. currentmodule:: navis.interfaces
 .. _api_interfaces.insectdb:
 
 InsectBrain DB API
@@ -685,15 +712,16 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.insectbrain_db.authenticate
-    navis.interfaces.insectbrain_db.get_brain_meshes
-    navis.interfaces.insectbrain_db.get_species_info
-    navis.interfaces.insectbrain_db.get_available_species
-    navis.interfaces.insectbrain_db.get_skeletons
-    navis.interfaces.insectbrain_db.get_skeletons_species
-    navis.interfaces.insectbrain_db.search_neurons
+    ]insectbrain_db.authenticate
+    insectbrain_db.get_brain_meshes
+    insectbrain_db.get_species_info
+    insectbrain_db.get_available_species
+    insectbrain_db.get_skeletons
+    insectbrain_db.get_skeletons_species
+    insectbrain_db.search_neurons
 
 
+.. currentmodule:: navis.interfaces
 .. _api_interfaces.blender:
 
 Blender API
@@ -715,52 +743,53 @@ programmatically once they are imported.
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.blender.Handler
+    blender.Handler
 
 Objects
 -------
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.blender.Handler.add
-    navis.interfaces.blender.Handler.clear
-    navis.interfaces.blender.Handler.select
-    navis.interfaces.blender.Handler.hide
-    navis.interfaces.blender.Handler.unhide
+    blender.Handler.add
+    blender.Handler.clear
+    blender.Handler.select
+    blender.Handler.hide
+    blender.Handler.unhide
 
 Materials
 ---------
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.blender.Handler.color
-    navis.interfaces.blender.Handler.colorize
-    navis.interfaces.blender.Handler.emit
-    navis.interfaces.blender.Handler.use_transparency
-    navis.interfaces.blender.Handler.alpha
-    navis.interfaces.blender.Handler.bevel
+    blender.Handler.color
+    blender.Handler.colorize
+    blender.Handler.emit
+    blender.Handler.use_transparency
+    blender.Handler.alpha
+    blender.Handler.bevel
 
 Selections
 ----------
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.blender.Handler.select
+    blender.Handler.select
 
-    navis.interfaces.blender.ObjectList.select
-    navis.interfaces.blender.ObjectList.color
-    navis.interfaces.blender.ObjectList.colorize
-    navis.interfaces.blender.ObjectList.emit
-    navis.interfaces.blender.ObjectList.use_transparency
-    navis.interfaces.blender.ObjectList.alpha
-    navis.interfaces.blender.ObjectList.bevel
-    navis.interfaces.blender.ObjectList.hide
-    navis.interfaces.blender.ObjectList.unhide
-    navis.interfaces.blender.ObjectList.hide_others
-    navis.interfaces.blender.ObjectList.delete
-    navis.interfaces.blender.ObjectList.to_json
+    blender.ObjectList.select
+    blender.ObjectList.color
+    blender.ObjectList.colorize
+    blender.ObjectList.emit
+    blender.ObjectList.use_transparency
+    blender.ObjectList.alpha
+    blender.ObjectList.bevel
+    blender.ObjectList.hide
+    blender.ObjectList.unhide
+    blender.ObjectList.hide_others
+    blender.ObjectList.delete
+    blender.ObjectList.to_json
 
 
+.. currentmodule:: navis.interfaces
 .. _api_interfaces.cytoscape:
 
 Cytoscape API
@@ -774,10 +803,11 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.cytoscape.generate_network
-    navis.interfaces.cytoscape.get_client
+    cytoscape.generate_network
+    cytoscape.get_client
 
 
+.. currentmodule:: navis.interfaces
 .. _api_interfaces.microns:
 
 Allen MICrONS datasets
@@ -785,9 +815,9 @@ Allen MICrONS datasets
 Functions to fetch neurons (including synapses) from the Allen Institute's
 `MICrONS <https://www.microns-explorer.org/>`_ EM datasets.
 
-Requires ``caveclient`` as additional dependencies::
+Requires ``caveclient`` and ``cloud-volume`` as additional dependencies::
 
-    pip3 install caveclient -U
+    pip3 install caveclient cloud-volume -U
 
 Please see ``caveclient's`` `docs <https://caveclient.readthedocs.io>`_ for
 details on how to retrieve and set credentials.
@@ -799,12 +829,13 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.microns.fetch_neurons
-    navis.interfaces.microns.get_somas
-
+    microns.fetch_neurons
+    microns.get_somas
 
 Please also see the :ref:`MICrONS tutorial<microns_tut>`.
 
+
+.. currentmodule:: navis.interfaces
 .. _api_interfaces.r:
 
 R interface
@@ -818,33 +849,18 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
-    navis.interfaces.r.data2py
-    navis.interfaces.r.get_neuropil
-    navis.interfaces.r.init_rcatmaid
-    navis.interfaces.r.load_rda
-    navis.interfaces.r.nblast
-    navis.interfaces.r.nblast_allbyall
-    navis.interfaces.r.NBLASTresults
-    navis.interfaces.r.neuron2py
-    navis.interfaces.r.neuron2r
-    navis.interfaces.r.xform_brain
-    navis.interfaces.r.mirror_brain
+    r.data2py
+    r.get_neuropil
+    r.init_rcatmaid
+    r.load_rda
+    r.nblast
+    r.nblast_allbyall
+    r.NBLASTresults
+    r.neuron2py
+    r.neuron2r
+    r.xform_brain
+    r.mirror_brain
 
-.. _api_utility:
-
-Utility
-+++++++
-Various utility functions.
-
-.. autosummary::
-    :toctree: generated/
-
-    navis.health_check
-    navis.set_pbars
-    navis.set_loggers
-    navis.set_default_connector_colors
-    navis.config.remove_log_handlers
-    navis.patch_cloudvolume
 
 
 .. _api_func_matrix:
@@ -917,6 +933,11 @@ Below table has an overview for which functions work with which neuron types.
      - no
      - no
      - no
+   * - :func:`navis.make_dotprops`
+     - yes
+     - yes
+     - yes
+     - -
    * - NBLAST (e.g. :func:`navis.nblast`)
      - no
      - no
@@ -925,7 +946,7 @@ Below table has an overview for which functions work with which neuron types.
    * - :func:`navis.xform_brain`
      - yes
      - yes
-     - yes
+     - yes (slow!)
      - yes
    * - :func:`navis.mirror_brain`
      - yes
