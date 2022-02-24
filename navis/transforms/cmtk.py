@@ -52,8 +52,7 @@ def find_cmtkbin(tool: str = 'streamxform') -> str:
             continue
 
         try:
-            next(path.glob(tool))
-            return path
+            return next(path.glob(tool)).resolve().parent            
         except StopIteration:
             continue
         except BaseException:
