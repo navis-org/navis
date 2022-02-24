@@ -1,5 +1,5 @@
 h5py>=3.1
-matplotlib>=3.2
+matplotlib>=3.3
 morphops>=0.1.11
 ncollpyde>=0.18
 networkx>=2.4
