@@ -91,6 +91,7 @@ function. There you will also find more examples.
    tutorials/neuprint
    tutorials/microns_tut
    tutorials/cloudvolume_tut
+   tutorials/neuromorpho_tut
    tutorials/insectbraindb
    tutorials/r_doc
 
