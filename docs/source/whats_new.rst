@@ -14,6 +14,28 @@ repository.
    * - Version
      - Date
      -
+   * - 1.2.0
+     - 24/02/22
+     - - new function: :func:`navis.betweeness_centrality`
+       - new function: :func:`navis.combine_neurons` to simply concatenate neurons
+       - new set of persistence functions: :func:`navis.persistence_vectors`,
+         :func:`navis.persistence_points` and :func:`navis.persistence_distances`
+       - improvements to various functions: e.g. :func:`navis.bending_flow`,
+         :func:`navis.flow_centrality`, :func:`navis.split_axon_dendrite`,
+         :func:`navis.longest_neurite`
+       - :func:`navis.read_swc` now accepts a ``limit`` parameter that enables
+         reading on the the first N neurons (useful to sample large collections)
+       - :func:`navis.write_nrrd` and :func:`navis.read_nrrd` can now be used to
+         write/read Dotprops to/from NRRD files
+       - :func:`navis.nblast` (and variants) now accept a ``precision`` parameter
+         that allows setting the datatype for the matrix (useful to keep memory
+         usage low for large NBLASTs)
+       - :func:`navis.simplify_mesh` (and therefore :func:`navis.downsample_neuron`
+         with skeletons) now uses the ``pyfqmr`` if present (much faster!)
+       - improved the interface to Neuromorpho
+       - added a new interface with the Allen Cell Types Atlas (see
+         :mod:`navis.interfaces.allen_celltypes`)
+       - myriads of small and big bugfixes
    * - 1.1.0
      - 18/11/21
      - - new function :func:`navis.sholl_analysis`
