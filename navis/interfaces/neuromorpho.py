@@ -19,6 +19,7 @@ See http://neuromorpho.org/apiReference.html for documentation.
 import requests
 
 import pandas as pd
+import numpy as np
 
 from typing import List, Dict, Union, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -159,7 +160,7 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
                     and DataFrame must contain 'archive' (e.g. "Wearne_Hof") and
                     'neuron_name' (e.g. "cnic_001").
     parallel :      bool
-                    If True, will use parallel threads to fetch data.
+                    If True, will use threads to fetch data.
     max_threads :   int
                     Max number of parallel threads to use.
     **kwargs
@@ -205,11 +206,14 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
                     except Exception as exc:
                         print(f'{id} generated an exception:', exc)
 
-        # Make sure we return in same order as input
+        # Turn into neuronlist
         nl = NeuronList(nl)
 
+        # Make sure we return in same order as input
         if 'neuron_id' in x.columns:
-            nl = nl.idx[x.neuron_id.values]
+            ids = x.neuron_id.values
+            ids = ids[np.isin(ids, nl.id)]  # drop failed IDs
+            nl = nl.idx[ids]
 
         return nl
 
