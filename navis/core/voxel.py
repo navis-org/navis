@@ -83,10 +83,10 @@ class VoxelNeuron(BaseNeuron):
     soma: Optional[Union[list, np.ndarray]]
 
     #: Attributes used for neuron summary
-    SUMMARY_PROPS = ['type', 'name', 'units', 'shape', 'data_type']
+    SUMMARY_PROPS = ['type', 'name', 'units', 'shape', 'dtype']
 
     #: Attributes to be used when comparing two neurons.
-    EQ_ATTRIBUTES = ['name', 'shape', 'data_type']
+    EQ_ATTRIBUTES = ['name', 'shape', 'dtype']
 
     #: Temporary attributes that need clearing when neuron data changes
     TEMP_ATTR = ['_memory_usage', '_shape', '_voxels', '_grid']
@@ -178,7 +178,7 @@ class VoxelNeuron(BaseNeuron):
             return 'voxels'
 
     @property
-    def data_type(self) -> type:
+    def dtype(self) -> type:
         """Data type of voxel values."""
         return self._data.dtype
 
@@ -316,7 +316,6 @@ class VoxelNeuron(BaseNeuron):
                 self._shape = tuple(self.voxels.max(axis=0) + 1)
             else:
                 self._shape = self._data.shape
-
         return self._shape
 
     @property
@@ -373,3 +372,11 @@ class VoxelNeuron(BaseNeuron):
 
         if not inplace:
             return x
+
+    def min(self) -> Union[int, float]:
+        """Minimum value (excludes zeros)."""
+        return self.values.min()
+
+    def max(self) -> Union[int, float]:
+        """Maximum value (excludes zeros)."""
+        return self.values.max()
