@@ -191,11 +191,14 @@ class Handler:
 
         Examples
         --------
+        Add one of the example neurons:
+
         >>> h = navis.interfaces.blender.Handler()
         >>> n = navis.example_neurons(1)
         >>> h.add(n, connectors=True)
 
-        Change connector settings
+        Change connector settings:
+
         >>> h.cn_dict['display'] = 'sphere'
         >>> h.cn_dict[0]['color'] = (1, 1, 0)
 
