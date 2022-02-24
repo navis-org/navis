@@ -180,7 +180,7 @@ def read_nrrd(f: Union[str, Iterable],
                         neurons. Integer will be interpreted as the number of
                         cores (otherwise defaults to ``os.cpu_count() - 2``).
     output :            "voxels" | "dotprops" | "raw"
-                        Determines function's output. See Returns.
+                        Determines function's output. See Returns for details.
     errors :            "raise" | "log" | "ignore"
                         If "log" or "ignore", errors will not be raised but
                         instead empty neuron will be returned.
@@ -189,16 +189,26 @@ def read_nrrd(f: Union[str, Iterable],
                         Keyword arguments passed to :func:`navis.make_dotprops`
                         if ``output='dotprops'``. Use this to adjust e.g. the
                         number of nearest neighbors used for calculating the
-                        tangent vector.
+                        tangent vector by passing e.g. ``k=5``.
 
     Returns
     -------
     navis.VoxelNeuron
-                        If ``output="voxels"`` (default). Contains NRRD header
-                        as ``.nrrd_header`` attribute.
+                        If ``output="voxels"`` (default): requires NRRD data to
+                        be 3-dimensional voxels. VoxelNeuron will have NRRD file
+                        header as ``.nrrd_header`` attribute.
     navis.Dotprops
-                        If ``output="dotprops"``. Contains NRRD header as
-                        ``.nrrd_header`` attribute.
+                        If ``output="dotprops"``: requires NRRD data to be
+                        either:
+                          - ``(N, M, K)`` (i.e. 3D) in which case we will turn
+                            voxels into a point cloud (see also ``threshold``
+                            parameter)
+                          - ``(N, 3)`` = x/y/z points
+                          - ``(N, 6)`` = x/y/z points + x/y/z vectors
+                          - ``(N, 7)`` = x/y/z points + x/y/z vectors + alpha
+
+                        Dotprops will contain NRRD header as ``.nrrd_header``
+                        attribute.
     navis.NeuronList
                         If import of multiple NRRD will return NeuronList of
                         Dotprops/VoxelNeurons.
@@ -289,20 +299,44 @@ def read_nrrd(f: Union[str, Iterable],
 
     try:
         if output == 'dotprops':
-            if threshold:
-                data = data >= threshold
+            # If we're trying to get voxels from an image
+            if data.ndim == 3:
+                if threshold:
+                    data = data >= threshold
 
-            # Data is in voxels - we have to convert it to x/y/z coordinates
-            # We need to multiply units first otherwise the KNN will be wrong
-            x, y, z = np.where(data)
-            points = np.vstack((x, y, z)).T
-            points = points * voxdim
+                # Convert data to x/y/z coordinates
+                # Note we need to multiply units before creating the Dotprops
+                # - otherwise the KNN will be wrong
+                x, y, z = np.where(data)
+                points = np.vstack((x, y, z)).T
+                points = points * voxdim
 
-            x = core.make_dotprops(points, **kwargs)
+                x = core.make_dotprops(points, **kwargs)
+            elif data.ndim == 2:
+                if data.shape[1] == 3:
+                    points, vect, alpha = data, None, None
+                elif data.shape[1] == 6:
+                    points, vect, alpha = data[:, :3], data[:, 3:6], None
+                elif data.shape[1] == 7:
+                    points, vect, alpha = data[:, :3], data[:, 3:6], data[:, 6]
+                else:
+                    raise ValueError('Expected data to be either (N, 3), (N, 6) '
+                                     f'or (N, 7) but NRRD file contains {data.shape}')
+                # Get `k` either from provided kwargs or the file's header
+                k = kwargs.pop('k', header.get('k', 20))
+
+                x = core.Dotprops(points, k=k, vect=vect, alpha=alpha, **kwargs)
+            else:
+                raise ValueError('Data must be 2- or 3-dimensional to extract '
+                                 f'Dotprops, got {data.ndim}')
 
             if su and len(su) == 3:
                 x.units = [f'1 {s}' for s in su]
         else:
+            if data.ndim == 2:
+                logger.warning(f'Data in NRRD file is of shape {data.shape} - '
+                               'i.e. 2D. Could this be a point cloud/dotprops '
+                               'instead of voxels?')
             x = core.VoxelNeuron(data, units=units)
     except BaseException as e:
         msg = f'Error converting file {fname} to neuron.'
