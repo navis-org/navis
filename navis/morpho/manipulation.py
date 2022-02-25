@@ -510,7 +510,7 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
 @utils.map_neuronlist(desc='Splitting', allow_parallel=True)
 @utils.meshneuron_skeleton(method='split',
                            include_connectors=True,
-                           copy_properties=['color'],
+                           copy_properties=['color', 'compartment'],
                            disallowed_kwargs={'label_only': True},
                            heal=True)
 def split_axon_dendrite(x: NeuronObject,
