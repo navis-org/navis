@@ -368,7 +368,7 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
                       write_info: bool = True,
                       write_manifest: bool = False,
                       radius: bool = False) -> None:
-    """Export skeletons or meshes to neuroglancers' (legacy) precomputed format.
+    """Export skeletons or meshes to neuroglancer's (legacy) precomputed format.
 
     Note that you should not mix meshes and skeletons in the same folder!
 
@@ -453,6 +453,9 @@ def _write_precomputed(x: Union['core.TreeNeuron', 'core.MeshNeuron', 'core.Volu
     """Write single neuron to neuroglancer's precomputed format."""
     if filepath and os.path.isdir(filepath):
         if isinstance(x, core.BaseNeuron):
+            if not x.id:
+                raise ValueError('Neuron(s) must have an ID when destination '
+                                 'is a folder')
             filepath = os.path.join(filepath, f'{x.id}')
         elif isinstance(x, core.Volume):
             filepath = os.path.join(filepath, f'{x.name}')
