@@ -725,10 +725,10 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     library to be installed: ``pip3 install flybrains``
 
     Also, if you haven't already, you will need to have the optional Saalfeld
-    lab transforms installed (this is a one-off):
+    lab (Janelia Research Campus) transforms installed (this is a one-off):
 
     >>> import flybrains                                        # doctest: +SKIP
-    >>> flybrains.download_saalfeldlab_transforms()             # doctest: +SKIP
+    >>> flybrains.download_jrc_transforms()                     # doctest: +SKIP
 
     Once ``flybrains`` is installed and you have downloaded the registrations,
     you can run this:
@@ -1029,10 +1029,10 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     library to be installed: ``pip3 install flybrains``
 
     Also, if you haven't already, you will need to have the optional Saalfeld
-    lab transforms installed (this is a one-off):
+    lab (Janelia Research Campus) transforms installed (this is a one-off):
 
     >>> import flybrains                                        # doctest: +SKIP
-    >>> flybrains.download_saalfeldlab_transforms()             # doctest: +SKIP
+    >>> flybrains.download_jrc_transforms()                     # doctest: +SKIP
 
     Once ``flybrains`` is installed and you have downloaded the registrations,
     you can run this:
