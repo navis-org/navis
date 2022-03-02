@@ -51,17 +51,20 @@ class PrecomputedMeshReader(base.BaseReader):
                          name_fallback='mesh',
                          read_binary=True)
 
-    def is_valid_file(self, filename):
+    def is_valid_file(self, file):
         """Return True if file should be considered for reading."""
-        filename = str(filename)
+        if not file.is_file():
+            return False
+
+        file = str(file.name)
         # Drop anything with a file extension or hidden files (e.g. ".DS_store")
-        if '.' in filename:
+        if '.' in file:
             return False
         # Ignore the info file
-        if filename == 'info':
+        if file == 'info':
             return False
         # Ignore manifests
-        if filename.endswith(':0'):
+        if file.endswith(':0'):
             return False
         return True
 

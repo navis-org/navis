@@ -239,11 +239,11 @@ class BaseReader(ABC):
         if include_subdirs:
             pattern = os.path.join("**", pattern)
 
-        yield from (f for f in dpath.glob(pattern) if self.is_valid_file(f.name))
+        yield from (f for f in dpath.glob(pattern) if self.is_valid_file(f))
 
-    def is_valid_file(self, filename):
+    def is_valid_file(self, file):
         """Return true if file should be considered for reading."""
-        if str(filename).endswith(self.file_ext):
+        if str(file).endswith(self.file_ext):
             return True
         return False
 
