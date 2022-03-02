@@ -339,7 +339,7 @@ def write_swc(x: 'core.NeuronObject',
               labels: Union[str, dict, bool] = True,
               export_connectors: bool = False,
               return_node_map: bool = False) -> None:
-    """Generate SWC file from neuron(s).
+    """Write TreeNeuron(s) to SWC.
 
     Follows the format specified
     `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_.
@@ -435,6 +435,16 @@ def write_swc(x: 'core.NeuronObject',
                         Import skeleton from SWC files.
 
     """
+    # Make sure inputs are only TreeNeurons
+    if isinstance(x, core.NeuronList):
+        for n in x:
+            if not isinstance(n, core.TreeNeuron):
+                raise TypeError('Can only write TreeNeurons to SWC, not '
+                                f'"{type(n)}"')
+    elif not isinstance(x, core.TreeNeuron):
+        raise TypeError('Can only write TreeNeurons to SWC, not '
+                        f'"{type(x)}"')
+
     writer = base.Writer(write_func=_write_swc, ext='.swc')
 
     return writer.write_any(x,
