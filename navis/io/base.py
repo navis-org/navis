@@ -27,7 +27,7 @@ from functools import partial
 from pathlib import Path
 from typing import List, Union, Iterable, Dict, Optional, Any, IO
 from typing_extensions import Literal
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 
 from .. import config, utils, core
 
@@ -245,6 +245,11 @@ class BaseReader(ABC):
 
     def is_valid_file(self, file):
         """Return true if file should be considered for reading."""
+        if isinstance(file, ZipInfo):
+            file = file.filename
+        elif isinstance(file, Path):
+            file = file.name
+
         if str(file).endswith(self.file_ext):
             return True
         return False
