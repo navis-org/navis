@@ -23,7 +23,7 @@ import pandas as pd
 from pathlib import Path
 from typing import Union, Dict, Optional, Any, IO
 from typing_extensions import Literal
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 
 from .. import config, utils, core
 from . import base
@@ -39,24 +39,18 @@ except ImportError:
 DEFAULT_FMT = "{name}"
 
 
-class PrecomputedMeshReader(base.BaseReader):
-    def __init__(
-        self,
-        fmt: str = DEFAULT_FMT,
-        attrs: Optional[Dict[str, Any]] = None
-    ):
-        super().__init__(fmt=fmt,
-                         attrs=attrs,
-                         file_ext='',
-                         name_fallback='mesh',
-                         read_binary=True)
-
+class PrecomputedReader(base.BaseReader):
     def is_valid_file(self, file):
         """Return True if file should be considered for reading."""
-        if not file.is_file():
-            return False
+        if isinstance(file, zipfile.ZipInfo):
+            file = str(file.filename)
+        elif isinstance(file, Path):
+            if not file.is_file():
+                return False
+            file = str(file.name)
+        else:
+            file = str(file)
 
-        file = str(file.name)
         # Drop anything with a file extension or hidden files (e.g. ".DS_store")
         if '.' in file:
             return False
@@ -67,6 +61,19 @@ class PrecomputedMeshReader(base.BaseReader):
         if file.endswith(':0'):
             return False
         return True
+
+
+class PrecomputedMeshReader(PrecomputedReader):
+    def __init__(
+        self,
+        fmt: str = DEFAULT_FMT,
+        attrs: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(fmt=fmt,
+                         attrs=attrs,
+                         file_ext='',
+                         name_fallback='mesh',
+                         read_binary=True)
 
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
@@ -98,7 +105,7 @@ class PrecomputedMeshReader(base.BaseReader):
                                                          'origin': 'DataFrame'}, attrs)))
 
 
-class PrecomputedSkeletonReader(base.BaseReader):
+class PrecomputedSkeletonReader(PrecomputedReader):
     def __init__(
         self,
         fmt: str = DEFAULT_FMT,
@@ -111,20 +118,6 @@ class PrecomputedSkeletonReader(base.BaseReader):
                          name_fallback='skeleton',
                          read_binary=True)
         self.info = info
-
-    def is_valid_file(self, filename):
-        """Return True if file should be considered for reading."""
-        filename = str(filename)
-        # Drop anything with a file extension or hidden files (e.g. ".DS_store")
-        if '.' in filename:
-            return False
-        # Ignore the info file
-        if filename == 'info':
-            return False
-        # Ignore manifests
-        if filename.endswith(':0'):
-            return False
-        return True
 
     def read_buffer(
         self,

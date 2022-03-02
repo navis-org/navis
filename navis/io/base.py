@@ -205,7 +205,9 @@ class BaseReader(ABC):
     file_ext :      str
                     The file extension to look for when searching folders.
                     For example '.swc'. Alternatively, you can re-implement
-                    the `is_valid_file` method for more complex filters.
+                    the `is_valid_file` method for more complex filters. That
+                    method needs to be able to deal with: Path objects, ZipInfo
+                    objects and strings.
     name_fallback : str
                     Fallback for name when reading from e.g. string.
     attrs :         dict
@@ -819,7 +821,7 @@ def parallel_read_zip(read_fn, fpath, file_ext, limit=None, parallel="auto") -> 
     with ZipFile(p, 'r') as zip:
         for file in zip.filelist:
             if callable(file_ext):
-                if file_ext(file.filename):
+                if file_ext(file):
                     to_read.append(file)
             elif file_ext == '*':
                 to_read.append(file)
