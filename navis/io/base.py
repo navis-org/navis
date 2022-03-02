@@ -686,7 +686,7 @@ class BaseReader(ABC):
         prop_names = []
         for prop in re.findall("{.*?}", fmt):
             prop_names.append(prop[1:-1].replace(" ", ""))
-            fmt = fmt.replace(prop, "(.*?)")
+            fmt = fmt.replace(prop, "(.*)")
 
         # Match
         match = re.search(fmt, filename)
