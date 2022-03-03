@@ -1064,7 +1064,9 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
         m._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
                                   ignore_index=True)
 
-    m.tags = {}  # type: ignore  # TreeNeuron has no tags
+    if not m.has_tags or not isinstance(m.tags, dict):
+        m.tags = {}  # type: ignore  # TreeNeuron has no tags
+
     for n in nl:
         for k, v in getattr(n, 'tags', {}).items():
             m.tags[k] = m.tags.get(k, []) + list(utils.make_iterable(v))
