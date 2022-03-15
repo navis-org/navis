@@ -279,7 +279,7 @@ def resample_skeleton(x: 'core.NeuronObject',
     # Expects `tags` to be a dictionary {'tag': [node_id1, node_id2, ...]}
     if x.has_tags and isinstance(x.tags, dict):
         # Get nodes that need remapping
-        nodes_to_remap = {n for l in x.tags.values() for n in l}
+        nodes_to_remap = list({n for l in x.tags.values() for n in l})
 
         # Get position of old tag-bearing nodes
         old_tn_position = nodes.loc[nodes_to_remap, ['x', 'y', 'z']].values
