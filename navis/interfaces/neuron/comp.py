@@ -43,6 +43,7 @@ Initialize and run a simple model. For debugging/testing only
 >>> # It's in 8x8x8 nm voxels so we need to convert to convert
 >>> n = navis.example_neurons(1) / 125
 >>> n.reroot(n.soma, inplace=True)
+>>> navis.smooth_skeleton(n, to_smooth='radius', inplace=True, window=3)
 
 >>> # Get dendritic postsynapses
 >>> post = n.connectors[n.connectors.type == 'post']
@@ -56,9 +57,9 @@ Initialize and run a simple model. For debugging/testing only
 >>> cmp.add_synaptic_current(post.node_id.unique()[0:10], max_syn_cond=.1,
                              rev_pot=-10)
 
->>> # Add voltage recording at the soma and one of the synapses
+>>> # Add voltage recording at the soma and some of the synapses
 >>> cmp.add_voltage_record(n.soma, label='soma')
->>> cmp.add_voltage_record(post.node_id.unique()[0:10])
+>>> cmp.add_voltage_record(post.node_id.unique()[0:3])
 
 >>> # Let's also check out the synaptic current at one of the synapses
 >>> cmp.add_current_record(post.node_id.unique()[0])

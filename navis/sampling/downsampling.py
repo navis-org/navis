@@ -80,7 +80,7 @@ def downsample_neuron(x: 'core.NeuronObject',
                              resolution. This will change node IDs!
     :func:`navis.simplify_mesh`
                              This is the function used for ``MeshNeurons``. Use
-                             directly for more control.
+                             directly for more control of the simplification.
 
     """
     if downsampling_factor <= 1:

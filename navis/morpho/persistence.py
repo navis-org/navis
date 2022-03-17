@@ -335,7 +335,7 @@ def persistence_diagram(pers, ax=None):
     Parameters
     ----------
     pers :      pd.DataFrame
-                Peristent points from :func:`navis.persistence_points`.
+                Persistent points from :func:`navis.persistence_points`.
     ax :        matplotlib ax, optional
                 Ax to plot on.
 

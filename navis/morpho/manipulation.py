@@ -1714,10 +1714,10 @@ def heal_skeleton(x: 'core.NeuronList',
                 Fragmented skeleton(s).
     method :    'LEAFS' | 'ALL', optional
                 Method used to heal fragments:
-                        (1) 'LEAFS': Only leaf (including root) nodes will
-                            be used to heal gaps.
-                        (2) 'ALL': All nodes can be used to reconnect
-                            fragments.
+                 - 'LEAFS': Only leaf (including root) nodes will be used to
+                   heal gaps. This can be much faster depending on the size of
+                   the neuron
+                 - 'ALL': All nodes can be used to reconnect fragments.
     max_dist :  float | str, optional
                 This effectively sets the max length for newly added edges. Use
                 it to prevent far away fragments to be forcefully connected.

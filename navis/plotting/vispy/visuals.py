@@ -14,8 +14,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along
 
-""" Module contains functions to plot neurons in 2D and 3D.
-"""
+"""Functions to generate vispy visuals."""
 import uuid
 import warnings
 

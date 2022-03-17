@@ -397,7 +397,7 @@ class MeshNeuron(BaseNeuron):
         heal :      bool
                     Whether to heal a fragmented skeleton after skeletonization.
         inv_dist :  int | float
-                    Only required foor method "teasar": invalidation distance for
+                    Only required for method "teasar": invalidation distance for
                     the traversal. Smaller ``inv_dist`` captures smaller features
                     but is slower and vice versa. A good starting value is around
                     2-5 microns.
