@@ -371,7 +371,7 @@ class Dotprops(BaseNeuron):
         # If we are using pykdtree we need to make sure that self.points is
         # of the same dtype as other.points - not a problem with scipy but
         # the overhead is typically only a few micro seconds anyway
-        points = self.points.astype(other.points.dtype)
+        points = self.points.astype(other.points.dtype, copy=False)
 
         # Scipy's KDTree does not like the distance to be None
         diub = distance_upper_bound if distance_upper_bound else np.inf
