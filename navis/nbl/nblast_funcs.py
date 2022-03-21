@@ -139,11 +139,13 @@ class NBlaster(Blaster):
     """
 
     def __init__(self, use_alpha=False, normalized=True, smat='auto',
-                 limit_dist=None, dtype=np.float64, progress=True):
+                 limit_dist=None, approx_nn=False, dtype=np.float64,
+                 progress=True):
         """Initialize class."""
         super().__init__(progress=progress, dtype=dtype)
         self.use_alpha = use_alpha
         self.normalized = normalized
+        self.approx_nn = approx_nn
         self.desc = "NBlasting"
 
         if smat == 'auto':
@@ -204,6 +206,8 @@ class NBlaster(Blaster):
         # Run nearest-neighbor search for query against target
         data = self.neurons[q_idx].dist_dots(self.neurons[t_idx],
                                              alpha=self.use_alpha,
+                                             # eps=0.1 means we accept 10% inaccuracy
+                                             eps=.1 if self.approx_nn else 0,
                                              distance_upper_bound=self.distance_upper_bound)
         if self.use_alpha:
             dists, dots, alpha = data
@@ -245,6 +249,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  use_alpha: bool = False,
                  smat: Optional[Union[str, pd.DataFrame]] = 'auto',
                  limit_dist: Optional[Union[Literal['auto'], int, float]] = 'auto',
+                 approx_nn: bool = False,
                  precision: Union[int, str, np.dtype] = 64,
                  n_cores: int = os.cpu_count() // 2,
                  progress: bool = True) -> pd.DataFrame:
@@ -272,18 +277,15 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     ``criterion`` parameter for details.
     criterion :     "percentile" | "score" | "N"
                     Criterion for selecting query-target pairs for full NBLAST:
-
                       - "percentile" runs full NBLAST on the ``t``-th percentile
                       - "score" runs full NBLAST on all scores above ``t``
                       - "N" runs full NBLAST on top ``t`` targets
-
     return_mask :   bool
                     If True, will also return a boolean mask that shows which
                     scores are based on a full NBLAST and which ones only on
                     the pre-NBLAST.
     scores :        'forward' | 'mean' | 'min' | 'max'
                     Determines the final scores:
-
                       - 'forward' (default) returns query->target scores
                       - 'mean' returns the mean of query->target and
                         target->query scores
@@ -291,12 +293,6 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                         target->query scores
                       - 'max' returns the maximum between query->target and
                         target->query scores
-
-    n_cores :       int, optional
-                    Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() // 2``. This should ideally be an even
-                    number as that allows optimally splitting queries onto
-                    individual processes.
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
                     that have lots of branches.
@@ -313,12 +309,21 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
                     "auto", will extract that value from the scoring matrix.
+    approx_nn :     bool
+                    If True, will use approximate nearest neighbors. This gives
+                    a >2X speed up but also produces only approximate scores.
+                    Impact depends on the use case - testing recommened.
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                     Precision for scores. Defaults to 64 bit (double) floats.
                     This is useful to reduce the memory footprint for very large
                     matrices. In real-world scenarios 32 bit (single)- and
                     depending on the purpose even 16 bit (half) - are typically
                     sufficient.
+    n_cores :       int, optional
+                    Max number of cores to use for nblasting. Default is
+                    ``os.cpu_count() // 2``. This should ideally be an even
+                    number as that allows optimally splitting queries onto
+                    individual processes.
     progress :      bool
                     Whether to show progress bars.
 
@@ -413,7 +418,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
 
     # First we NBLAST the highly simplified dotprops against another
     nblasters = []
-    with config.tqdm(desc='Prep. pre-NBLAST',
+    with config.tqdm(desc='Prep. pre-NBLASTs',
                      total=n_rows * n_cols,
                      leave=False,
                      disable=not progress) as pbar:
@@ -425,6 +430,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                                 smat=smat,
                                 limit_dist=limit_dist,
                                 dtype=precision,
+                                approx_nn=approx_nn,
                                 progress=progress)
                 # Add queries and targets
                 for n in qq:
@@ -435,7 +441,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                 this.queries = np.arange(len(qq))
                 this.targets = np.arange(len(tt)) + len(qq)
                 this.pbar_position = len(nblasters)
-                this.desc = 'Pre(NBLASTING)'
+                this.desc = 'Pre-NBLAST'
 
                 nblasters.append(this)
                 pbar.update()
@@ -488,7 +494,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
 
     # Now re-generate the NBLASTERs with the full dotprops
     nblasters = []
-    with config.tqdm(desc='Preparing full NBLASTs',
+    with config.tqdm(desc='Prep. full NBLASTs',
                      total=n_rows * n_cols,
                      leave=False,
                      disable=not progress) as pbar:
@@ -500,6 +506,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                                 smat=smat,
                                 limit_dist=limit_dist,
                                 dtype=precision,
+                                approx_nn=approx_nn,
                                 progress=progress)
                 # Add queries and targets
                 for n in query_dps[q]:
@@ -522,6 +529,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
 
                 # Make sure position of progress bar checks out
                 this.pbar_position = len(nblasters)
+                this.desc = 'Full NBLAST'
 
                 nblasters.append(this)
                 pbar.update()
@@ -557,9 +565,10 @@ def nblast(query: Union[Dotprops, NeuronList],
            use_alpha: bool = False,
            smat: Optional[Union[str, pd.DataFrame]] = 'auto',
            limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
-           n_cores: int = os.cpu_count() // 2,
+           approx_nn: bool = False,
            precision: Union[int, str, np.dtype] = 64,
            batch_size: Optional[int] = None,
+           n_cores: int = os.cpu_count() // 2,
            progress: bool = True) -> pd.DataFrame:
     """NBLAST query against target neurons.
 
@@ -605,6 +614,10 @@ def nblast(query: Union[Dotprops, NeuronList],
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
                     "auto", will extract that value from the scoring matrix.
+    approx_nn :     bool
+                    If True, will use approximate nearest neighbors. This gives
+                    a >2x speed up but also produces only approximate scores.
+                    Impact depends on the use case - testing recommened.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
                     ``os.cpu_count() // 2``. This should ideally be an even
@@ -685,6 +698,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                                 smat=smat,
                                 limit_dist=limit_dist,
                                 dtype=precision,
+                                approx_nn=approx_nn,
                                 progress=progress)
 
                 # Use better description if we process in batches
@@ -734,6 +748,7 @@ def nblast_allbyall(x: NeuronList,
                     use_alpha: bool = False,
                     smat: Optional[Union[str, pd.DataFrame]] = 'auto',
                     limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
+                    approx_nn: bool = False,
                     precision: Union[int, str, np.dtype] = 64,
                     n_cores: int = os.cpu_count() // 2,
                     progress: bool = True) -> pd.DataFrame:
@@ -768,6 +783,10 @@ def nblast_allbyall(x: NeuronList,
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
                     "auto", will extract that value from the scoring matrix.
+    approx_nn :     bool
+                    If True, will use approximate nearest neighbors. This gives
+                    a >2x speed up but also produces only approximate scores.
+                    Impact depends on the use case - testing recommened.
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                     Precision for scores. Defaults to 64 bit (double) floats.
                     This is useful to reduce the memory footprint for very large
@@ -833,6 +852,7 @@ def nblast_allbyall(x: NeuronList,
                                 smat=smat,
                                 limit_dist=limit_dist,
                                 dtype=precision,
+                                approx_nn=approx_nn,
                                 progress=progress)
 
                 # Make sure we don't add the same neuron twice
