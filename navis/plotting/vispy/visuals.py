@@ -89,9 +89,12 @@ def volume2vispy(x, **kwargs):
             s.shininess = 0
 
         # Possible presets are "additive", "translucent", "opaque"
-        s.set_gl_state('additive' if color[3] < 1 else 'opaque',
+        s.set_gl_state('additive',
                        cull_face=True,
-                       depth_test=False if color[3] < 1 else True)
+                       depth_test=False)
+        #s.set_gl_state('additive' if color[3] < 1 else 'opaque',
+        #               cull_face=True,
+        #               depth_test=False if color[3] < 1 else True)
 
         # Make sure volumes are always drawn after neurons
         s.order = kwargs.get('order', 10)
