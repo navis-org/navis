@@ -83,7 +83,8 @@ def get_cloudvol(url, cache=True):
     url :     str
 
     """
-    return cv.CloudVolume(url, cache=cache, use_https=True, progress=False)
+    return cv.CloudVolume(url, cache=cache, use_https=True,
+                          progress=False, fill_missing=True)
 
 
 def get_somas(root_ids, table='nucleus_neuron_svm', datastack='cortex65'):
@@ -121,7 +122,8 @@ def get_somas(root_ids, table='nucleus_neuron_svm', datastack='cortex65'):
     """
     if datastack != 'cortex65':
         warnings.warn('To our knowledge there is no nucleus segmentation '
-                      f'for "{datastack}"')
+                      f'for "{datastack}". If that has changed please '
+                      'get in touch on navis Github.')
 
     # Get/Initialize the CAVE client
     client = get_cave_client(datastack)
@@ -271,3 +273,95 @@ def _fetch_single_neuron(id, lod, vol, client, with_synapses=False, **kwargs):
             n.connectors = pd.concat(to_concat, axis=0).reset_index(drop=True)
 
     return n
+
+
+def get_voxels(x, mip=0, datastack='cortex65'):
+    """Fetch voxels making a up given root ID.
+
+    Parameters
+    ----------
+    x :             int
+                    A single root ID.
+    mip :           int
+                    Scale at which to fetch voxels.
+    datastack :     "cortex65" | "cortex35" | "layer 2/3"
+                    Which dataset to use. Internally these are mapped to the
+                    corresponding sources (e.g. "minnie65_public_v117" for
+                    "cortex65").
+
+    Returns
+    -------
+    voxels :        (N, 3) np.ndarray
+                    In voxel space according to `mip`.
+
+    """
+    client = get_cave_client(datastack)
+    # Need to get the graphene (not the precomputed) version of the data
+    vol_graphene = cv.CloudVolume(client.chunkedgraph.cloudvolume_path,
+                                  use_https=True, progress=False)
+    if datastack in SEG_URLS:
+        url = SEG_URLS[datastack]
+    else:
+        url = client.info.get_datastack_info()['segmentation_source']
+    vol_prec = get_cloudvol(url)
+
+    # Get L2 chunks making up this neuron
+    l2_ids = client.chunkedgraph.get_leaves(x, stop_layer=2)
+
+    # Turn l2_ids into chunk indices
+    l2_ix = [np.array(vol_graphene.mesh.meta.meta.decode_chunk_position(l)) for l in l2_ids]
+    l2_ix = np.unique(l2_ix, axis=0)
+
+    # Convert to nm
+    l2_nm = np.asarray(_chunks_to_nm(l2_ix, vol=vol_graphene))
+
+    # Convert back to voxel space (according to mip)
+    l2_vxl = l2_nm // vol_prec.meta.scales[mip]["resolution"]
+
+    voxels = []
+    ch_size = np.array(vol_graphene.mesh.meta.meta.graph_chunk_size)
+    ch_size = ch_size // (vol_prec.mip_resolution(mip) / vol_prec.mip_resolution(0))
+    ch_size = np.asarray(ch_size).astype(int)
+    old_mip = vol_prec.mip
+    try:
+        vol_prec.mip = mip
+        for ch in config.tqdm(l2_vxl, desc='Loading'):
+            ct = vol_prec[ch[0]:ch[0] + ch_size[0],
+                          ch[1]:ch[1] + ch_size[1],
+                          ch[2]:ch[2] + ch_size[2]][:, :, :, 0]
+            this_vxl = np.dstack(np.where(ct == x))[0]
+            this_vxl = this_vxl + ch
+            voxels.append(this_vxl)
+    except BaseException:
+        raise
+    finally:
+        vol_prec.mip = old_mip
+    return np.vstack(voxels)
+
+
+def _chunks_to_nm(xyz_ch, vol, voxel_resolution=[4, 4, 40]):
+    """Map a chunk location to Euclidean space.
+
+    Parameters
+    ----------
+    xyz_ch :            array-like
+                        (N, 3) array of chunk indices.
+    vol :               cloudvolume.CloudVolume
+                        CloudVolume object associated with the chunked space.
+    voxel_resolution :  list, optional
+                        Voxel resolution.
+
+    Returns
+    -------
+    np.array
+                        (N, 3) array of spatial points.
+
+    """
+    mip_scaling = vol.mip_resolution(0) // np.array(voxel_resolution, dtype=int)
+
+    x_vox = np.atleast_2d(xyz_ch) * vol.mesh.meta.meta.graph_chunk_size
+    return (
+        (x_vox + np.array(vol.mesh.meta.meta.voxel_offset(0)))
+        * voxel_resolution
+        * mip_scaling
+    )
