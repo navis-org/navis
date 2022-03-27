@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import os
+import json
 
 import networkx as nx
 import pandas as pd
@@ -155,6 +156,12 @@ def example_neurons(n: Optional[int] = None,
 
             if isinstance(n, MeshNeuron):
                 n._connectors.drop('node_id', axis=1, inplace=True)
+
+    with open(os.path.join(fp, 'meta.json'), 'r') as f:
+        meta = json.load(f)
+
+    for n in nl:
+        n.name = meta[str(n.id)]['instance']
 
     if len(nl) == 1:
         return nl[0]
