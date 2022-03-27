@@ -710,14 +710,14 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
             ax.scatter(x, y,
                        c=cn_layout[c]['color'],
                        edgecolor='none',
-                       s=cn_layout['size'])
+                       s=kwargs.get('cn_size', cn_layout['size']))
             ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
     elif method in ['3d', '3d_complex']:
         all_cn = neuron.connectors
         c = [cn_layout[i]['color'] for i in all_cn.type.values]
         ax.scatter(all_cn.x.values, all_cn.y.values, all_cn.z.values,
                    c=c,
-                   s=cn_layout['size'],
+                   s=kwargs.get('cn_size', cn_layout['size']),
                    depthshade=cn_layout.get('depthshade', False),
                    edgecolor='none')
         ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
