@@ -6,9 +6,9 @@ import numpy as np
 from pathlib import Path
 
 
-@pytest.mark.parametrize("filename", ['', '{neuron.name}.swc',
+@pytest.mark.parametrize("filename", ['', '{neuron.id}.swc',
                                       'neurons.zip',
-                                      '{neuron.name}.swc@neurons.zip'])
+                                      '{neuron.id}.swc@neurons.zip'])
 def test_swc_io(filename):
     with tempfile.TemporaryDirectory() as tempdir:
         filepath = Path(tempdir) / filename
