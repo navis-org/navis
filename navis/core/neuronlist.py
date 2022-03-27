@@ -694,7 +694,8 @@ class NeuronList:
 
     def summary(self,
                 N: Optional[Union[int, slice]] = None,
-                add_props: list = []
+                add_props: list = [],
+                progress=False
                 ) -> pd.DataFrame:
         """Get summary over all neurons in this NeuronList.
 
@@ -705,6 +706,9 @@ class NeuronList:
         add_props : list, optional
                     Additional properties to add to summary. If attribute not
                     available will return 'NA'.
+        progress :  bool
+                    Whether to show a progress bar. Can be useful for very
+                    large list.
 
         Returns
         -------
@@ -730,7 +734,10 @@ class NeuronList:
             N = slice(N)
 
         return pd.DataFrame(data=[[getattr(n, a, 'NA') for a in props]
-                                  for n in self.neurons[N]],
+                                  for n in config.tqdm(self.neurons[N],
+                                                       desc='Summarizing',
+                                                       leave=False,
+                                                       disable=not progress)],
                             columns=props)
 
     def itertuples(self):
