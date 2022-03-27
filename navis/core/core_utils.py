@@ -102,7 +102,7 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     >>> dp = navis.make_dotprops(n)
     >>> dp
     type        navis.Dotprops
-    name            1734350788
+    name             DA1_lPN_R
     id              1734350788
     k                       20
     units          8 nanometer
