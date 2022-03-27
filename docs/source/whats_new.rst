@@ -14,6 +14,14 @@ repository.
    * - Version
      - Date
      -
+   * - dev
+     - ongoing
+     - - new interface to fetch data from Virtual Fly Brain: ``navis.interfaces.vfb``
+       - nblasts: new ``approx_nn`` parameter (sacrifices precision for speed)
+       - fixed a bug in :func:`navis.stitch_skeletons`
+   * - 1.2.1
+     - 25/02/22
+     - - hot fix for :func:`navis.split_axon_dendrite`
    * - 1.2.0
      - 24/02/22
      - - new function: :func:`navis.betweeness_centrality`
