@@ -7,10 +7,6 @@ NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis
 ## Documentation
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
-Version `1.0.0` comes with some breaking changes! Please check out the 
-[changelog](https://navis.readthedocs.io/en/latest/source/whats_new.html) for a
-list of relevant changes.
-
 ## Features
 * work in Jupyter or terminal
 * support for various neuron types: **skeletons**, **meshes**, **dotprops**, **voxels**
@@ -38,6 +34,11 @@ Currently, this is `igraph`, `shapely`, `pykdtree` and `pathos`.
 Alternatively click on the *launch binder* badge above to try out navis hosted by [mybinder](https://mybinder.org)!
 
 ![movie](https://user-images.githubusercontent.com/7161148/114312307-28a72700-9aea-11eb-89a6-ee1d72bfa730.mov)
+
+## Changelog
+
+A summary of changes can be found
+[here](https://navis.readthedocs.io/en/latest/source/whats_new.html).
 
 ## NAVis & friends
 <p align="center">
