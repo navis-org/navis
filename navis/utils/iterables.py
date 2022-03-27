@@ -51,9 +51,7 @@ def make_iterable(x,
     if isinstance(x, (dict, set)):
         x = list(x)
 
-    if force_type:
-        return np.asarray(x).astype(force_type)
-    return np.asarray(x)
+    return np.asarray(x, dtype=force_type)
 
 
 def make_non_iterable(x):
