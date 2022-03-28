@@ -486,7 +486,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
         # Sort such that the top hit is to the left
         srt = np.argsort(scr.values, axis=1)[:, ::-1]
         # Generate the mask
-        mask = pd.DataFrame(np.zeros(scr.shape), dtype=bool,
+        mask = pd.DataFrame(np.zeros(scr.shape, dtype=bool),
                             columns=scr.columns, index=scr.index)
         _ = np.arange(mask.shape[0])
         for N in range(t):
