@@ -48,9 +48,17 @@ pykdtree
 open3d
 pyfqmr
 
-# extra: hash
+#extra: hash
 
 xxhash
+
+#extra: flybrains
+
+flybrains
+
+#extra: cloudvolume
+
+cloud-volume
 
 #extra: test-notebook
 
