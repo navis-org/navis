@@ -13,10 +13,13 @@
 
 """Module containing base classes for BLASTING."""
 
+import atexit
+
 import numpy as np
 import pandas as pd
 
 from abc import ABC, abstractmethod
+from multiprocessing import shared_memory
 
 from .. import utils, config
 
@@ -165,3 +168,98 @@ class Blaster(ABC):
             res.loc[:, :] = np.dstack((res, res.T)).max(axis=2)
 
         return res
+
+
+class SharedBlaster(Blaster, ABC):
+    """Version of the Blaster that works with shared memory buffers."""
+
+    def create_array(self, shm, shape, offset=None):
+        """Create array from shared memory buffer."""
+        # Generate the out array from shared memory buffer
+        arr = np.ndarray(shape, dtype=self.dtype, buffer=shm.buf)
+
+        if not isinstance(offset, type(None)):
+            arr = arr[offset]
+
+        return arr
+
+    def multi_query_target(self, q_idx, t_idx, shm, shape, offset=None, scores='forward'):
+        """BLAST multiple queries against multiple targets.
+
+        Parameters
+        ----------
+        q_idx,t_idx :   iterable
+                        Iterable of query/target neuron indices to BLAST.
+        shm :           multiprocessing.shared_memory.SharedMemory
+        shape :         tuple (N, M)
+        dtype :         str | np.ndtype
+                        Shape and dtype of the array to be reconstituted from shm.
+        offset :        tuple (slice, slice)
+                        The view inside the full array to pass through as `out` to
+                        `multi_query_target`.
+        scores :        "forward" | "mean" | "min" | "max"
+                        Which scores to produce.
+
+        """
+        out = self.create_array(shm, shape, offset=offset)
+
+        _ = super().multi_query_target(q_idx, t_idx, scores=scores, out=out)
+
+    def all_by_all(self, shm, shape, offset=None, scores='forward'):
+        """BLAST all-by-all neurons."""
+        out = self.create_array(shm, shape, offset=offset)
+
+        _ = super().multi_query_target(range(len(self.neurons)),
+                                       range(len(self.neurons)),
+                                       scores='forward',
+                                       out=out)
+
+        # For all-by-all BLAST we can get the mean score by
+        # transposing the scores
+        if scores == 'mean':
+            out[:, :] = (out + out.T) / 2
+        elif scores == 'min':
+            out[:, :] = np.dstack((out, out.T)).min(axis=2)
+        elif scores == 'max':
+            out[:, :] = np.dstack((out, out.T)).max(axis=2)
+
+
+def create_shared_array(shape, dtype):
+    """Create shared array.
+
+    Parameters
+    ----------
+    shape :     tuple
+    dtype :     str | np.dtype
+
+    Returns
+    -------
+    multiprocessing.shared_memory.SharedMemory
+                The shared memory buffer for the array.
+    np.ndarray
+                A numpy array accessing the shared memory buffer.
+
+    """
+    # Get the number of items in the requested array
+    if utils.is_iterable(shape):
+        items = np.prod(shape)
+    else:
+        items = shape
+
+    # Force dtype to numpy dtype
+    dtype = np.dtype(dtype)
+    # Calculate required size for memory buffer
+    size = dtype.itemsize * items
+
+    # Create shared memory buffer
+    shm = shared_memory.SharedMemory(create=True, size=size)
+
+    # We need to make sure that the memory is released on exit of this process
+    # Note: order is reverse -> last registered is executed first
+    atexit.register(shm.unlink)
+    atexit.register(shm.close)
+
+    # Create array based on buffer
+    arr = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
+
+    return shm, arr
