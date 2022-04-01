@@ -103,16 +103,22 @@ class SwcReader(base.BaseReader):
             f = io.TextIOWrapper(f, encoding="utf-8")
 
         header_rows = read_header_rows(f)
-        nodes = pd.read_csv(
-            f,
-            delimiter=self.delimiter,
-            skipinitialspace=True,
-            skiprows=len(header_rows),
-            comment=COMMENT,
-            header=None,
-            na_values=NA_VALUES
-        )
-        nodes.columns = NODE_COLUMNS
+        try:
+            nodes = pd.read_csv(
+                f,
+                delimiter=self.delimiter,
+                skipinitialspace=True,
+                skiprows=len(header_rows),
+                comment=COMMENT,
+                header=None,
+                na_values=NA_VALUES
+            )
+            nodes.columns = NODE_COLUMNS
+        except pd.errors.EmptyDataError:
+            # If file is totally empty, return an empty neuron
+            # Note that the TreeNeuron will still complain but it's a better
+            # error message
+            nodes = pd.DataFrame(columns=NODE_COLUMNS)
 
         # Check for row with JSON-formatted meta data
         # Expected format '# Meta: {"id": "12345"}'
@@ -178,7 +184,7 @@ class SwcReader(base.BaseReader):
         return pd.concat(to_concat, axis=0)
 
 
-def sanitise_nodes(nodes: pd.DataFrame) -> pd.DataFrame:
+def sanitise_nodes(nodes: pd.DataFrame, allow_empty=True) -> pd.DataFrame:
     """Check that nodes dataframe is non-empty and is not missing any data.
 
     Parameters
@@ -189,7 +195,7 @@ def sanitise_nodes(nodes: pd.DataFrame) -> pd.DataFrame:
     -------
     pandas.DataFrame
     """
-    if nodes.empty:
+    if not allow_empty and nodes.empty:
         raise ValueError('No data found in SWC.')
 
     is_na = nodes[['node_id', 'parent_id', 'x', 'y', 'z']].isna().any(axis=1)
