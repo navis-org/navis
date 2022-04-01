@@ -61,15 +61,7 @@ class Blaster(ABC):
 
     @dtype.setter
     def dtype(self, dtype):
-        try:
-            self._dtype = np.dtype(dtype)
-        except TypeError:
-            try:
-                self._dtype = FLOAT_DTYPES[dtype]
-            except KeyError:
-                raise ValueError(
-                    f'Unknown precision/dtype {dtype}. Expected on of the following: 16, 32 or 64 (default)'
-                )
+        self._dtype = parse_precision(dtype)
 
     def pair_query_target(self, pairs, scores='forward'):
         """BLAST multiple pairs.
@@ -263,3 +255,15 @@ def create_shared_array(shape, dtype):
     arr = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
 
     return shm, arr
+
+
+def parse_precision(dtype):
+    """Parse precision into numpy dtype."""
+    try:
+        return np.dtype(dtype)
+    except TypeError:
+        try:
+            return FLOAT_DTYPES[dtype]
+        except KeyError:
+            raise ValueError(f'Unknown precision/dtype {dtype}. Expected one '
+                             'of the following: 16, 32 or 64 (default)')
