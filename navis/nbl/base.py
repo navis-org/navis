@@ -28,7 +28,7 @@ FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
 
 
 class Blaster(ABC):
-    """Base class for blasting."""
+    """Base class for Blasting."""
 
     def __init__(self, dtype=np.float64, progress=True):
         """Initialize class."""
@@ -182,10 +182,9 @@ class SharedBlaster(Blaster, ABC):
         ----------
         q_idx,t_idx :   iterable
                         Iterable of query/target neuron indices to BLAST.
-        shm :           multiprocessing.shared_memory.SharedMemory
+        shm :           multiprocessing.shared_memory.SharedMemory                        
         shape :         tuple (N, M)
-        dtype :         str | np.ndtype
-                        Shape and dtype of the array to be reconstituted from shm.
+                        Shape of the array in the memory buffer.
         offset :        tuple (slice, slice)
                         The view inside the full array to pass through as `out` to
                         `multi_query_target`.
