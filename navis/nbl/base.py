@@ -101,7 +101,7 @@ class Blaster(ABC):
 
         return scr
 
-    def multi_query_target(self, q_idx, t_idx, scores='forward'):
+    def multi_query_target(self, q_idx, t_idx, scores='forward', out=None):
         """BLAST multiple queries against multiple targets.
 
         Parameters
@@ -110,6 +110,8 @@ class Blaster(ABC):
                             Iterable of query/target neuron indices to BLAST.
         scores :            "forward" | "mean" | "min" | "max"
                             Which scores to return.
+        out :               np.ndarray, optional
+                            Array to write results to.
 
         """
         if utils.is_jupyter() and config.tqdm == config.tqdm_notebook:
@@ -124,18 +126,24 @@ class Blaster(ABC):
         else:
             position = getattr(self, 'pbar_position', 0)
 
-        res = np.zeros((len(q_idx), len(t_idx)),
-                       dtype=self.dtype)
+        shape = (len(q_idx), len(t_idx))
+        if not isinstance(out, np.ndarray):
+            out = np.zeros(shape, dtype=self.dtype)
+        elif out.shape != shape:
+            raise TypeError(f'Expected out array of shape {shape}, got {out.shape}')
+        elif out.dtype != self.dtype:
+            raise TypeError(f'Expected out array to be {self.dtype}, got {out.dtype}')
+
         for i, q in enumerate(config.tqdm(q_idx,
                                           desc=self.desc,
                                           leave=False,
                                           position=position,
                                           disable=not self.progress)):
             for k, t in enumerate(t_idx):
-                res[i, k] = self.single_query_target(q, t, scores=scores)
+                out[i, k] = self.single_query_target(q, t, scores=scores)
 
         # Generate results
-        res = pd.DataFrame(res)
+        res = pd.DataFrame(out)
         res.columns = [self.ids[t] for t in t_idx]
         res.index = [self.ids[q] for q in q_idx]
 
