@@ -1982,6 +1982,9 @@ def remove_nodes(x: 'core.TreeNeuron',
     # Drop nodes
     x.nodes = x.nodes[~x.nodes.node_id.isin(which)].copy()
 
+    # Clear temporary attributes
+    x._clear_temp_attr()
+
     return x
 
 
