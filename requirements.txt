@@ -24,34 +24,22 @@ molesq>=0.2.0
 rdata>=0.5
 skeletor>=1.0.0
 
-#extra: igraph
+python-igraph  #extra: igraph
 
-python-igraph
+pathos>=0.2.7  #extra: pathos
 
-#extra: pathos
+Shapely>=1.6.0  #extra: shapely
 
-pathos>=0.2.7
+rpy2  #extra: r
 
-#extra: shapely
+pykdtree  #extra: kdtree
 
-Shapely>=1.6.0
-
-#extra: r
-
-rpy2
-
-#extra: kdtree
-
-pykdtree
+xxhash  #extra: hash
 
 #extra: meshes
 
 open3d
 pyfqmr
-
-# extra: hash
-
-xxhash
 
 #extra: test-notebook
 
