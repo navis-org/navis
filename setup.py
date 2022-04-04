@@ -1,30 +1,16 @@
 from setuptools import setup, find_packages
-from collections import defaultdict
-from typing import List, DefaultDict
+from pathlib import Path
+from runpy import run_path
 
-import re
+from extreqs import parse_requirement_files
 
-VERSIONFILE = "navis/__version__.py"
-verstrline = open(VERSIONFILE, "rt").read()
-VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
-mo = re.search(VSRE, verstrline, re.M)
-if mo:
-    verstr = mo.group(1)
-else:
-    raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
+HERE = Path(__file__).resolve().parent
 
+verstr = run_path(str(HERE / "navis" / "__version__.py"))["__version__"]
 
-extras_require: DefaultDict[str, List[str]] = defaultdict(list)
-install_requires: List[str] = []
-reqs = install_requires
-
-with open("requirements.txt") as f:
-    for line in f:
-        if line.startswith("#extra: "):
-            extra = line[8:].split("#")[0].strip()
-            reqs = extras_require[extra]
-        elif not line.startswith("#") and line.strip():
-            reqs.append(line.strip())
+install_requires, extras_require = parse_requirement_files(
+    HERE / "requirements.txt",
+)
 
 dev_only = ["test-notebook", "dev"]
 specialized = ['r']
