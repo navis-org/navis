@@ -312,6 +312,8 @@ class Dotprops(BaseNeuron):
             self._soma = types.MethodType(value, self)
         elif isinstance(value, type(None)):
             self._soma = None
+        elif isinstance(value, bool) and not value:
+            self._soma = None            
         else:
             if 0 < value < self.points.shape[0]:
                 self._soma = value

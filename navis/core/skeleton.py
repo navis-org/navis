@@ -510,6 +510,8 @@ class TreeNeuron(BaseNeuron):
             self._soma = types.MethodType(value, self)
         elif isinstance(value, type(None)):
             self._soma = None
+        elif isinstance(value, bool) and not value:
+            self._soma = None
         else:
             if value in self.nodes.node_id.values:
                 self._soma = value
