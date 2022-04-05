@@ -113,9 +113,14 @@ class BaseNeuron:
         # Set a random ID -> may be replaced later
         self.id = uuid.uuid4()
 
+        # Make a copy of summary and temp props so that if we register
+        # additional properties we don't change this for every single neuron
+        self.SUMMARY_PROPS = self.SUMMARY_PROPS.copy()
+        self.TEMP_ATTR = self.TEMP_ATTR.copy()
+
         self._lock = 0
         for k, v in kwargs.items():
-            setattr(self, k, v)
+            self._register_attr(name=k, value=v)
 
         # Base neurons has no data
         self._current_md5 = None
