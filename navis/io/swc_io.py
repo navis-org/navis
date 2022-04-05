@@ -145,13 +145,27 @@ class SwcReader(base.BaseReader):
         -------
         core.TreeNeuron
         """
-        return core.TreeNeuron(
+        n = core.TreeNeuron(
             sanitise_nodes(
                 nodes.astype(self._dtypes, errors='ignore', copy=False)
             ),
-            connectors=self._extract_connectors(nodes),
-            **(self._make_attributes({'name': 'SWC', 'origin': 'DataFrame'}, attrs))
-        )
+            connectors=self._extract_connectors(nodes))
+
+        # Try adding properties one-by-one. If one fails, we'll keep track of it
+        # in the `.meta` attribute
+        meta = {}
+        for k, v in self._make_attributes({'name': 'SWC',
+                                           'origin': 'DataFrame'},
+                                          attrs).items():
+            try:
+                n._register_attr(k, v)
+            except (AttributeError, ValueError, TypeError):
+                meta[k] = v
+
+        if meta:
+            n.meta = meta
+
+        return n
 
     def _extract_connectors(
         self, nodes: pd.DataFrame
@@ -303,7 +317,10 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         If True and SWC header contains a line with JSON-encoded
                         meta data e.g. (``# Meta: {'id': 123}``), these data
                         will be read as neuron properties. `fmt` takes
-                        precedence.
+                        precedence. Will try to assign meta data directly as
+                        neuron attribute (e.g. ``neuron.id``). Failing that
+                        (can happen for properties intrinsic to the neuron),
+                        will add a ``.meta`` dictionary to the neuron.
     limit :             int, optional
                         If reading from a folder you can use this parameter to
                         read only the first ``limit`` SWC files. Useful if
@@ -335,7 +352,22 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                        read_meta=read_meta,
                        fmt=fmt,
                        attrs=kwargs)
-    return reader.read_any(f, include_subdirs, parallel, limit=limit)
+    res = reader.read_any(f, include_subdirs, parallel, limit=limit)
+
+    failed = []
+    for n in core.NeuronList(res):
+        if not hasattr(n, 'meta'):
+            continue
+        failed += list(n.meta.keys())
+
+    if failed:
+        failed = list(set(failed))
+        logger.warning('Some meta data could not be directly attached to the '
+                       'neuron(s) - probably some clash with intrinsic '
+                       'properties. You can find these data attached as '
+                       '`.meta` dictionary.')
+
+    return res
 
 
 def write_swc(x: 'core.NeuronObject',
