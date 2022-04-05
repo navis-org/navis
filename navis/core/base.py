@@ -328,6 +328,15 @@ class BaseNeuron:
         return [k for k, v in self.__dict__.items() if isinstance(v, pd.DataFrame)]
 
     @property
+    def extents(self) -> np.ndarray:
+        """Extents of neuron in x/y/z direction (includes connectors)."""
+        if not hasattr(self, 'bbox'):
+            raise ValueError('Neuron must implement `.bbox` (bounding box) '
+                             'property to calculate extents.')
+        bbox = self.bbox
+        return bbox[:, 1] - bbox[:, 0]
+
+    @property
     def id(self) -> Any:
         """Hashable ID."""
         return getattr(self, '_id', None)
