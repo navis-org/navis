@@ -130,7 +130,10 @@ class Dotprops(BaseNeuron):
         self.soma = None
 
         for k, v in metadata.items():
-            setattr(self, k, v)
+            try:
+                setattr(self, k, v)
+            except AttributeError:
+                raise AttributeError(f"Unable to set neuron's `{k}` attribute.")
 
         self.units = units
 
@@ -313,7 +316,7 @@ class Dotprops(BaseNeuron):
         elif isinstance(value, type(None)):
             self._soma = None
         elif isinstance(value, bool) and not value:
-            self._soma = None            
+            self._soma = None
         else:
             if 0 < value < self.points.shape[0]:
                 self._soma = value

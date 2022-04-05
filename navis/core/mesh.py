@@ -144,7 +144,10 @@ class MeshNeuron(BaseNeuron):
             raise utils.ConstructionError(f'Unable to construct MeshNeuron from "{type(x)}"')
 
         for k, v in metadata.items():
-            setattr(self, k, v)
+            try:
+                setattr(self, k, v)
+            except AttributeError:
+                raise AttributeError(f"Unable to set neuron's `{k}` attribute.")
 
         if process and self.vertices.shape[0]:
             # For some reason we can't do self._trimesh at this stage

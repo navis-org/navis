@@ -118,7 +118,10 @@ class VoxelNeuron(BaseNeuron):
                 raise utils.ConstructionError(f'Unable to construct VoxelNeuron from {x.shape} array.')
 
         for k, v in metadata.items():
-            setattr(self, k, v)
+            try:
+                setattr(self, k, v)
+            except AttributeError:
+                raise AttributeError(f"Unable to set neuron's `{k}` attribute.")
 
         self.cache = cache
         self.units = units
