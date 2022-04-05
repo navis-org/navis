@@ -151,12 +151,15 @@ class SwcReader(base.BaseReader):
             ),
             connectors=self._extract_connectors(nodes))
 
+        attrs = self._make_attributes({'name': 'SWC', 'origin': 'DataFrame'}, attrs)
+
+        # SWC is special - we do not want to register it
+        n.swc_header = attrs.pop('swc_header', '')
+
         # Try adding properties one-by-one. If one fails, we'll keep track of it
         # in the `.meta` attribute
         meta = {}
-        for k, v in self._make_attributes({'name': 'SWC',
-                                           'origin': 'DataFrame'},
-                                          attrs).items():
+        for k, v in attrs.items():
             try:
                 n._register_attr(k, v)
             except (AttributeError, ValueError, TypeError):
