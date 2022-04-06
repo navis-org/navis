@@ -17,8 +17,8 @@ import math
 import os
 import re
 import requests
+import sys
 import urllib
-
 
 import numpy as np
 import pandas as pd
@@ -251,54 +251,166 @@ def map_neuronlist(desc: str = "",
                 return function(*args, **kwargs)
 
         # Update the docstring
-        lines = wrapper.__doc__.split('\n')
-
-        # Find a line with a parameter
-        pline = [l for l in lines if ' : ' in l][0]
-        # Get the leading whitespaces
-        wspaces = ' ' * re.search('( *)', pline).end(1)
-        # Get the offset for type and description
-        offset = re.search('( *: *)', pline).end(1) - len(wspaces)
-
-        # Find index of the last parameters (assuming there is a single empty
-        # line between Returns and the last parameter)
-        lastp = [i for i, l in enumerate(lines) if ' Returns' in l][0] - 1
-
-        msg = ''
-        if allow_parallel:
-            msg += dedent(f"""\
-            parallel :{" " * (offset - 10)}bool
-                      {" " * (offset - 10)}If True and input is NeuronList, use parallel
-                      {" " * (offset - 10)}processing. Requires `pathos`.
-            n_cores : {" " * (offset - 10)}int, optional
-                      {" " * (offset - 10)}Numbers of cores to use if ``parallel=True``.
-                      {" " * (offset - 10)}Defaults to half the available cores.
-            """)
-
-        msg += dedent(f"""\
-        progress :{" " * (offset - 10)}bool
-                  {" " * (offset - 10)}Whether to show a progress bar. Overruled by
-                  {" " * (offset - 10)}``navis.set_pbars``.
-        omit_failures :{" " * (offset - 15)}bool
-                       {" " * (offset - 15)}If True will omit failures instead of raising
-                       {" " * (offset - 15)}an exception. Ignored if input is single neuron.
-        """)
-
-        # Insert new docstring
-        lines.insert(lastp, indent(msg, wspaces))
-
-        # Update docstring
-        wrapper.__doc__ = '\n'.join(lines)
+        wrapper = map_neuronlist_update_docstring(wrapper, allow_parallel)
 
         return wrapper
 
     return decorator
 
 
+def map_neuronlist_df(desc: str = "",
+                      id_col: str = "neuron",
+                      allow_parallel: bool = False):
+    """Decorate function to run on all neurons in the NeuronList.
+
+    This version of the decorator is meant for functions that return a
+    DataFrame. This decorator will add a `neuron` column with the respective
+    neuron's ID and will then concatenate the dataframes.
+
+    Parameters
+    ----------
+    desc :           str
+                     Descriptor to show in the progress bar if run over multiple
+                     neurons.
+    id_col :         str
+                     Name of the ID column to be added to the results dataframe.
+    allow_parallel : bool
+                     If True and the function is called with `parallel=True`,
+                     will use multiple cores to process the neuronlist. Number
+                     of cores a can be set using `n_cores` keyword argument.
+
+    """
+    # TODO:
+    # - make can_zip/must_zip work with positional-only argumens to, i.e. let
+    #   it work with integers instead of strings
+    def decorator(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            # Get the function's signature
+            sig = inspect.signature(function)
+
+            try:
+                fnname = function.__name__
+            except BaseException:
+                fnname = str(function)
+
+            parallel = kwargs.pop('parallel', False)
+            if parallel and not allow_parallel:
+                raise ValueError(f'Function {fnname} does not allow parallel '
+                                 'processing.')
+
+            # First, we need to extract the neuronlist
+            if args:
+                # If there are positional arguments, the first one is
+                # the input neuron(s)
+                nl = args[0]
+                nl_key = '__args'
+            else:
+                # If not, we need to look for the name of the first argument
+                # in the signature
+                nl_key = list(sig.parameters.keys())[0]
+                nl = kwargs.get(nl_key, None)
+
+            # Complain if we did not get what we expected
+            if isinstance(nl, type(None)):
+                raise ValueError('Unable to identify the neurons for call'
+                                 f'{fnname}:\n {args}\n {kwargs}')
+
+            # If we have a neuronlist
+            if isinstance(nl, core.NeuronList):
+                # Pop the neurons from kwargs or args so we don't pass the
+                # neurons twice
+                if nl_key == '__args':
+                    args = args[1:]
+                else:
+                    _ = kwargs.pop(nl_key)
+
+                # Prepare processor
+                n_cores = kwargs.pop('n_cores', os.cpu_count() // 2)
+                chunksize = kwargs.pop('chunksize', 1)
+                excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
+                proc = core.NeuronProcessor(nl, function,
+                                            parallel=parallel,
+                                            desc=desc,
+                                            warn_inplace=False,
+                                            progress=kwargs.pop('progress', True),
+                                            omit_failures=kwargs.pop('omit_failures', False),
+                                            chunksize=chunksize,
+                                            exclude_zip=excl,
+                                            n_cores=n_cores)
+                # Apply function
+                res = proc(nl, *args, **kwargs)
+
+                for n, df in zip(nl, res):
+                    df.insert(0, column=id_col, value=n.id)
+
+                df = pd.concat(res, axis=0)
+
+            else:
+                # If single neuron just pass through
+                df = function(*args, **kwargs)
+                df.insert(0, column=id_col, value=nl.id)
+
+            return df
+
+        # Update the docstring
+        wrapper = map_neuronlist_update_docstring(wrapper, allow_parallel)
+
+        return wrapper
+
+    return decorator
+
+
+def map_neuronlist_update_docstring(func, allow_parallel):
+    """Add additional parameters to docstring of function."""
+    # Parse docstring
+    lines = func.__doc__.split('\n')
+
+    # Find a line with a parameter
+    pline = [l for l in lines if ' : ' in l][0]
+    # Get the leading whitespaces
+    wspaces = ' ' * re.search('( *)', pline).end(1)
+    # Get the offset for type and description
+    offset = re.search('( *: *)', pline).end(1) - len(wspaces)
+
+    # Find index of the last parameters (assuming there is a single empty
+    # line between Returns and the last parameter)
+    lastp = [i for i, l in enumerate(lines) if ' Returns' in l][0] - 1
+
+    msg = ''
+    if allow_parallel:
+        msg += dedent(f"""\
+        parallel :{" " * (offset - 10)}bool
+                  {" " * (offset - 10)}If True and input is NeuronList, use parallel
+                  {" " * (offset - 10)}processing. Requires `pathos`.
+        n_cores : {" " * (offset - 10)}int, optional
+                  {" " * (offset - 10)}Numbers of cores to use if ``parallel=True``.
+                  {" " * (offset - 10)}Defaults to half the available cores.
+        """)
+
+    msg += dedent(f"""\
+    progress :{" " * (offset - 10)}bool
+              {" " * (offset - 10)}Whether to show a progress bar. Overruled by
+              {" " * (offset - 10)}``navis.set_pbars``.
+    omit_failures :{" " * (offset - 15)}bool
+                   {" " * (offset - 15)}If True will omit failures instead of raising
+                   {" " * (offset - 15)}an exception. Ignored if input is single neuron.
+    """)
+
+    # Insert new docstring
+    lines.insert(lastp, indent(msg, wspaces))
+
+    # Update docstring
+    func.__doc__ = '\n'.join(lines)
+
+    return func
+
+
 def meshneuron_skeleton(method: Union[Literal['subset'],
                                       Literal['split'],
                                       Literal['node_properties'],
-                                      Literal['node_to_vertex']],
+                                      Literal['node_to_vertex'],
+                                      Literal['pass_through']],
                         include_connectors: bool = False,
                         copy_properties: list = [],
                         disallowed_kwargs: dict = {},
@@ -311,13 +423,14 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
 
     Parameters
     ----------
-    method :    "subset" | "split" | "node_to_vertex" | "node_properties"
+    method :    str
                 What to do with the results:
                   - 'subset': subset MeshNeuron to what's left of the skeleton
                   - 'split': split MeshNeuron following the skeleton's splits
                   - 'node_to_vertex': map the returned node ID to the vertex IDs
                   - 'node_properties' map node properties to vertices (requires
                     `node_props` parameter)
+                  - 'pass_through' simply passes through the return value
     include_connectors : bool
                 If True, will try to make sure that if the MeshNeuron has
                 connectors, they will be carried over to the skeleton.
@@ -341,7 +454,8 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
     assert isinstance(disallowed_kwargs, dict)
     assert isinstance(node_props, list)
 
-    allowed_methods = ('subset', 'node_to_vertex', 'split', 'node_properties')
+    allowed_methods = ('subset', 'node_to_vertex', 'split', 'node_properties',
+                       'pass_through')
     if method not in allowed_methods:
         raise ValueError(f'Unknown method "{method}"')
 
@@ -445,6 +559,8 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
                     node_map = sk.nodes.set_index('node_id')[p].to_dict()
                     vertex_props = np.array([node_map[n] for n in sk.vertex_map])
                     setattr(x, p, vertex_props)
+            elif method == 'pass_through':
+                return res
 
             return x
 
@@ -527,6 +643,20 @@ def is_jupyter() -> bool:
 
     """
     return _type_of_script() in ('jupyter', 'colab')
+
+
+def is_blender() -> bool:
+    """Test if navis is run inside Blender.
+
+    Examples
+    --------
+    >>> from navis.utils import is_blender
+    >>> # If run outside Blender
+    >>> is_blender()
+    False
+
+    """
+    return 'blender' in sys.executable.lower()
 
 
 def set_loggers(level: str = 'INFO'):
@@ -723,7 +853,7 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     # Collect and parse volumes
     volumes = [ob for ob in x if not isinstance(ob, (core.BaseNeuron,
                                                      core.NeuronList))
-                                 and is_mesh(ob)]
+               and is_mesh(ob)]
     # Add templatebrains
     volumes += [ob.mesh for ob in x if isinstance(ob, TemplateBrain)]
     # Converts any non-navis meshes into Volumes
