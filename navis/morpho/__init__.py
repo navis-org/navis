@@ -13,7 +13,7 @@
 
 from .mmetrics import (strahler_index, bending_flow, flow_centrality, sholl_analysis,
                        segregation_index, arbor_segregation_index, tortuosity,
-                       betweeness_centrality)
+                       betweeness_centrality, segment_analysis)
 from .manipulation import (prune_by_strahler, stitch_skeletons,
                            split_axon_dendrite, average_skeletons,
                            despike_skeleton, guess_radius, smooth_skeleton,
@@ -33,4 +33,5 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
            'find_soma', 'prune_at_depth', 'cell_body_fiber', 'drop_fluff',
            'subset_neuron', 'smooth_voxels', 'sholl_analysis',
            'persistence_points', 'betweeness_centrality',
-           'persistence_vectors', 'persistence_distances', 'combine_neurons']
+           'persistence_vectors', 'persistence_distances', 'combine_neurons',
+           'segment_analysis']

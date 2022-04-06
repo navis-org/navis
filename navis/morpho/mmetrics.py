@@ -32,7 +32,7 @@ logger = config.logger
 
 __all__ = sorted(['strahler_index', 'bending_flow', 'sholl_analysis',
                   'flow_centrality', 'segregation_index', 'tortuosity',
-                  'betweeness_centrality'])
+                  'betweeness_centrality', 'segment_analysis'])
 
 
 def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
@@ -114,6 +114,12 @@ def strahler_index(x: 'core.NeuronObject',
                 Adds "strahler_index" as column in the node table (for
                 TreeNeurons) or as `."strahler_index` property
                 (for MeshNeurons).
+
+    See Also
+    --------
+    :func:`navis.segment_analysis`
+                This function provides by-segment morphometrices, including
+                Strahler indices.
 
     Examples
     --------
@@ -229,6 +235,127 @@ def strahler_index(x: 'core.NeuronObject',
     x.nodes['strahler_index'] = x.nodes.strahler_index.astype(np.int16)
 
     return x
+
+
+@utils.map_neuronlist_df(desc='Analyzing', allow_parallel=True)
+@utils.meshneuron_skeleton(method='pass_through',
+                           reroot_soma=True)
+def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
+    """Calculate morphometric properties a neuron's segments.
+
+    This currently includes Strahler index, length, distance to root and
+    tortuosity.
+
+    Parameters
+    ----------
+    x :                 TreeNeuron | MeshNeuron
+
+    Returns
+    -------
+    pandas.DataFrame
+                        Each row represents one linear segment between
+                        leafs/branch nodes (see examples):
+                          - `strahler_index` is the Strahler Index of this segment
+                          - `length` is the geodesic length of the segment
+                          - `tortuosity` is the arc-chord ratio, i.e. the
+                            ratio of `length` to the distance between its ends
+                          - `root_dist` is the distance from the base of the
+                            segment to the root
+
+    See Also
+    --------
+    :func:`navis.strahler_index`
+                        This function calculates the Strahler index for every
+                        nodes/vertex in the neuron.
+    :func:`navis.tortuosity`
+                        This function calculates a tortuosity for the entire
+                        neuron.
+
+    Examples
+    --------
+
+    Run analysis on a single neuron:
+
+    >>> import navis
+    >>> n = navis.example_neurons(1, kind='skeleton')
+    >>> n.reroot(n.soma, inplace=True)
+    >>> sa = navis.segment_analysis(n)
+    >>> sa.head()
+       strahler_index       length  tortuosity     root_dist
+    0               1  1073.535053    1.151022    229.448586
+    1               1   112.682839    1.092659  10279.037511
+    2               1   214.124934    1.013030   9557.521377
+    3               1   159.585328    1.074575   9747.866968
+    4               6   229.448586    1.000000      0.000000
+    >>> # Get per Strahler index means
+    >>> sa.groupby('strahler_index').mean()
+                        length  tortuosity     root_dist
+    strahler_index
+    1               200.957415    1.111979  13889.593659
+    2               171.283617    1.047736  14167.056400
+    3               134.788019    1.023672  13409.920288
+    4               711.063734    1.016606  15768.886051
+    5               146.350195    1.000996   8443.345668
+    6               685.852990    1.056258   1881.594266
+
+    Compare across neurons:
+
+    >>> import navis
+    >>> nl = navis.example_neurons(5, kind='skeleton')
+    >>> sa = navis.segment_analysis(nl)
+    >>> # Note the `neuron` column when running the analysis on NeuronLists
+    >>> sa.head()
+           neuron  strahler_index       length  tortuosity     root_dist
+    0  1734350788               1   112.682839    1.092659  11123.123978
+    1  1734350788               1   214.124934    1.013030  10401.607843
+    2  1734350788               1   159.585328    1.074575  10591.953435
+    3  1734350788               6  1073.535053    1.151022      0.000000
+    4  1734350788               6   260.538727    1.000000   1073.535053
+    >>> # Get Strahler index counts for each neuron
+    >>> si_counts = sa.groupby(['neuron', 'strahler_index']).size().unstack()
+    >>> si_counts
+    strahler_index      1      2      3      4     5     6     7
+    neuron
+    722817260       656.0  336.0  167.0   74.0  32.0  24.0   NaN
+    754534424       726.0  345.0  176.0  111.0  37.0   9.0  18.0
+    754538881       642.0  344.0  149.0   88.0  21.0  24.0   NaN
+    1734350788      618.0  338.0  138.0   74.0  38.0  11.0   NaN
+    1734350908      761.0  363.0  203.0  116.0  20.0  33.0   NaN
+
+    """
+    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+
+    if 'strahler_index' not in x.nodes:
+        strahler_index(x)
+
+    # Get small segments for this neuron
+    segs = graph._break_segments(x)
+
+    # For each segment get the SI
+    nodes = x.nodes.set_index('node_id')
+    SI = nodes.loc[[s[0] for s in segs], 'strahler_index'].values
+
+    # Get segment lengths
+    seg_lengths = np.array([graph.segment_length(x, s) for s in segs])
+
+    # Get tortuosity
+    start = nodes.loc[[s[0] for s in segs], ['x', 'y', 'z']].values
+    end = nodes.loc[[s[-1] for s in segs], ['x', 'y', 'z']].values
+    L = np.sqrt(((start - end) ** 2).sum(axis=1))
+    tort = seg_lengths / L
+
+    # Get distance from root
+    root_dists_dict = graph.dist_to_root(x, weight='weight')
+    root_dists = np.array([root_dists_dict[s[-1]] for s in segs])
+
+    # Compile results
+    res = pd.DataFrame()
+    res['length'] = seg_lengths
+    res['tortuosity'] = tort
+    res['root_dist'] = root_dists
+    res['strahler_index'] = SI
+
+    return res
 
 
 def segregation_index(x: Union['core.NeuronObject', dict]) -> float:

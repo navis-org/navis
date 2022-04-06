@@ -347,6 +347,7 @@ Functions to analyze morphology.
     navis.persistence_points
     navis.persistence_vectors
     navis.strahler_index
+    navis.segment_analysis
     navis.sholl_analysis
     navis.tortuosity
     navis.betweeness_centrality
