@@ -349,7 +349,7 @@ def map_neuronlist_df(desc: str = "",
             else:
                 # If single neuron just pass through
                 df = function(*args, **kwargs)
-                df.insert(0, column=id_col, value=nl.id)
+                # df.insert(0, column=id_col, value=nl.id)
 
             return df
 

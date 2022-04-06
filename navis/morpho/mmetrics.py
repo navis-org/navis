@@ -281,12 +281,12 @@ def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
     >>> n.reroot(n.soma, inplace=True)
     >>> sa = navis.segment_analysis(n)
     >>> sa.head()
-       strahler_index       length  tortuosity     root_dist
-    0               1  1073.535053    1.151022    229.448586
-    1               1   112.682839    1.092659  10279.037511
-    2               1   214.124934    1.013030   9557.521377
-    3               1   159.585328    1.074575   9747.866968
-    4               6   229.448586    1.000000      0.000000
+            length  tortuosity     root_dist  strahler_index
+    0  1073.535053    1.151022    229.448586               1
+    1   112.682839    1.092659  10279.037511               1
+    2   214.124934    1.013030   9557.521377               1
+    3   159.585328    1.074575   9747.866968               1
+    4   229.448586    1.000000      0.000000               6
     >>> # Get per Strahler index means
     >>> sa.groupby('strahler_index').mean()
                         length  tortuosity     root_dist
@@ -305,12 +305,12 @@ def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
     >>> sa = navis.segment_analysis(nl)
     >>> # Note the `neuron` column when running the analysis on NeuronLists
     >>> sa.head()
-           neuron  strahler_index       length  tortuosity     root_dist
-    0  1734350788               1   112.682839    1.092659  11123.123978
-    1  1734350788               1   214.124934    1.013030  10401.607843
-    2  1734350788               1   159.585328    1.074575  10591.953435
-    3  1734350788               6  1073.535053    1.151022      0.000000
-    4  1734350788               6   260.538727    1.000000   1073.535053
+           neuron       length  tortuosity     root_dist  strahler_index
+    0  1734350788   112.682839    1.092659  11123.123978               1
+    1  1734350788   214.124934    1.013030  10401.607843               1
+    2  1734350788   159.585328    1.074575  10591.953435               1
+    3  1734350788  1073.535053    1.151022      0.000000               6
+    4  1734350788   260.538727    1.000000   1073.535053               6
     >>> # Get Strahler index counts for each neuron
     >>> si_counts = sa.groupby(['neuron', 'strahler_index']).size().unstack()
     >>> si_counts
