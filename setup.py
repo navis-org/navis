@@ -26,6 +26,17 @@ for k, v in extras_require.items():
 extras_require["all"] = all_deps
 extras_require["all-dev"] = all_dev_deps
 
+vispy_req = extras_require["vispy"][0]
+default_backend = vispy_req.split("[")[1].split("]")[0]
+# listed here: https://vispy.org/installation.html#backend-requirements
+for alt in [
+    "pyglet",
+    "pyqt5", "pyqt6",
+    "pyside", "pyside2", "pyside6",
+    "glfw", "sdl2", "wx", "tk",
+]:
+    extras_require[f"vispy-{alt}"] = [vispy_req.replace(default_backend, alt)]
+
 with open("README.md") as f:
     long_description = f.read()
 

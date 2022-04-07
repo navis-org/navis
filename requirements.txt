@@ -36,6 +36,12 @@ pykdtree  #extra: kdtree
 
 xxhash  #extra: hash
 
+flybrains  #extra: flybrains
+
+cloud-volume  #extra: cloudvolume
+
+vispy[pyside6]>=0.6.4  #extra: vispy
+
 #extra: meshes
 
 open3d

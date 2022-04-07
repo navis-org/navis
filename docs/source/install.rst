@@ -193,3 +193,22 @@ You can install all of them with the ``all`` extra.
   If you need that extra bit of speed, there is iGraph.
   It is written in C and therefore very fast.
   If available, navis will try using iGraph over NetworkX.
+
+.. _vispy:
+
+``vispy``: `vispy <https://vispy.org>`
+  For 3D visualisation.
+
+  Vispy provides a high-performance viewer for 3D visualisation of neurons.
+  Vispy itself has a choice of backends: the one which works for you will depend on
+  your operating system, and how you're using navis.
+  The default, supplied with navis' ``vispy`` extra, is pyside6;
+  this works best when called from an ``ipython`` console.
+  Each of vispy's other backends, listed
+  `here <https://vispy.org/installation.html#backend-requirements>`,
+  can be installed through vispy and its extras, or navis' `vispy-*` extras.
+
+  ::
+    pip3 install navis[vispy-pyqt5]
+    # or
+    pip3 install vispy[pyqt5]
