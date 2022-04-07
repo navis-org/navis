@@ -9,7 +9,7 @@ NAVis comes with an interface to import neurons into
 `Blender 3D <https://www.blender.org>`_ for high quality renderings and
 videos: :mod:`navis.interfaces.blender`
 
-Because NAVis requires Python at least 3.6 this only works with Blender 2.8x
+Because NAVis requires Python at least 3.7 this only works with Blender 2.8x
 or higher!
 
 Installation
@@ -24,28 +24,29 @@ built-in Python. The easiest way is probably this:
 1. Find out where Blender's Python lives (this depends on your OS). In
    :red:`Blender's Python console` run this::
 
-    >>> bpy.app.binary_path_python
-    '[..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m'
+    >>> import sys
+    >>> sys.executable
+    '[..]/blender.app/Contents/Resources/3.0/python/bin/python3.9'
 
 2. Check if Blender's Python already came with the package manager `pip`::
 
-    [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m -m pip --version
+    [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -m pip --version
 
    If the above command throws an error along the lines of "No module named pip":
    get `pip` by downloading ``get-pip.py`` from
    `here <https://pip.pypa.io/en/stable/installing/>`_ and install by executing
    with your Python distribution::
 
-    [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m get-pip.py
+    [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 get-pip.py
 
    If `pip` is there but horrendously outdated, you can update it like so::
 
-    [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m -m pip install pip -U
+    [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -m pip install pip -U
 
 3. Use `pip` to install NAVis (or any other package for that matter). Please note
    we have to - again - specify that we want to install for Blender's Python::
 
-    [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m -m pip install navis
+    [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -m pip install navis
 
 .. important::
    It's possible that this install fails with an error message along the lines
@@ -55,7 +56,7 @@ built-in Python. The easiest way is probably this:
 
    First, find out the *exact* Blender Python version::
 
-    [..]/blender.app/Contents/Resources/2.80/python/bin/python3.7m -V
+    [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -V
 
    Next point your browser at https://www.python.org/downloads/source/ and
    download the Gzipped source tarball from the exact same Python version,
@@ -67,7 +68,7 @@ built-in Python. The easiest way is probably this:
 
     cd ~/Downloads/
     tar -xzf Python-3.X.X.tgz
-    cp Python-3.X.X/Include/* [..]/blender.app/Contents/Resources/2.80/python/include/python3.7/
+    cp Python-3.X.X/Include/* [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9
 
 4. You should now be all set to use NAVis in Blender. Check out Quickstart!
 
