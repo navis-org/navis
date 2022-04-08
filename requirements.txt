@@ -9,7 +9,6 @@ pint>=0.10
 plotly>=4.9
 pynrrd>=0.4.2
 pypng>=0.0.18
-PyQt5>=5.15
 requests>=2.20
 seaborn>=0.10
 setuptools>=50.6
