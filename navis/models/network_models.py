@@ -362,7 +362,7 @@ class BayesianTraversalModel(TraversalModel):
     >>> # Initialize model
     >>> model = BayesianTraversalModel(edges, seeds=list(G.nodes)[:10])
     >>> # Run model
-    >>> model.run()
+    >>> res = model.run()
     >>> # Get a summary
     >>> model.summary.tail()                                    # doctest: +SKIP
           layer_min  layer_max  layer_mean  layer_median
@@ -493,14 +493,13 @@ class BayesianTraversalModel(TraversalModel):
                 changed = set(next_changed)
 
         self.iterations = 1
-        results = pd.DataFrame({'node': ids, 'cmf': list(cmfs)})
-        self.results = results
-
-        return results
+        self.results = pd.DataFrame({'node': ids, 'cmf': list(cmfs)})
+        return self.results
 
     def run_parallel(self, *args, **kwargs) -> None:
         warnings.warn(f"{self.__class__.__name__} should not be run in parallel. Falling back to run.")
         self.run(**kwargs)
+
 
 def linear_activation_p(
     w: np.ndarray,
@@ -525,6 +524,7 @@ def linear_activation_p(
 
     """
     return np.clip((w - min_w) / (max_w - min_w), 0., 1.)
+
 
 def random_activation_function(
     w: np.ndarray,
@@ -555,6 +555,7 @@ def random_activation_function(
     act = w_norm >= r
 
     return act
+
 
 def random_linear_activation_function(w: np.ndarray,
                                       min_w: float = 0,
