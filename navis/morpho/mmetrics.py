@@ -118,7 +118,7 @@ def strahler_index(x: 'core.NeuronObject',
     See Also
     --------
     :func:`navis.segment_analysis`
-                This function provides by-segment morphometrices, including
+                This function provides by-segment morphometrics, including
                 Strahler indices.
 
     Examples
@@ -244,11 +244,13 @@ def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
     """Calculate morphometric properties a neuron's segments.
 
     This currently includes Strahler index, length, distance to root and
-    tortuosity.
+    tortuosity. If neuron has a radius will also calculate radius-based metrics
+    such as volume.
 
     Parameters
     ----------
     x :                 TreeNeuron | MeshNeuron
+                        Neuron(s) to produce segment analysis for.
 
     Returns
     -------
@@ -259,8 +261,14 @@ def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
                           - `length` is the geodesic length of the segment
                           - `tortuosity` is the arc-chord ratio, i.e. the
                             ratio of `length` to the distance between its ends
-                          - `root_dist` is the distance from the base of the
-                            segment to the root
+                          - `root_dist` is the geodesic distance from the base
+                            of the segment to the root
+                        If neuron node table has a `radius` column will also
+                        compute the following properties:
+                          - `radius_mean`
+                          - `radius_max`
+                          - `radius_min`
+                          - `volume`
 
     See Also
     --------
@@ -280,23 +288,23 @@ def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
     >>> n = navis.example_neurons(1, kind='skeleton')
     >>> n.reroot(n.soma, inplace=True)
     >>> sa = navis.segment_analysis(n)
-    >>> sa.head()
-            length  tortuosity     root_dist  strahler_index
-    0  1073.535053    1.151022    229.448586               1
-    1   112.682839    1.092659  10279.037511               1
-    2   214.124934    1.013030   9557.521377               1
-    3   159.585328    1.074575   9747.866968               1
-    4   229.448586    1.000000      0.000000               6
+    >>> sa.head()                                               # doctest: +SKIP
+            length  tortuosity     root_dist  strahler_index  ...        volume
+    0  1073.535053    1.151022    229.448586               1  ...  4.159788e+07
+    1   112.682839    1.092659  10279.037511               1  ...  1.153095e+05
+    2   214.124934    1.013030   9557.521377               1  ...  8.618440e+05
+    3   159.585328    1.074575   9747.866968               1  ...  9.088157e+05
+    4   229.448586    1.000000      0.000000               6  ...  3.206231e+07
     >>> # Get per Strahler index means
-    >>> sa.groupby('strahler_index').mean()
-                        length  tortuosity     root_dist
+    >>> sa.groupby('strahler_index').mean()                     # doctest: +SKIP
+                        length  tortuosity     root_dist  ...        volume
     strahler_index
-    1               200.957415    1.111979  13889.593659
-    2               171.283617    1.047736  14167.056400
-    3               134.788019    1.023672  13409.920288
-    4               711.063734    1.016606  15768.886051
-    5               146.350195    1.000996   8443.345668
-    6               685.852990    1.056258   1881.594266
+    1               200.957415    1.111979  13889.593659  ...  8.363172e+05
+    2               171.283617    1.047736  14167.056400  ...  1.061405e+06
+    3               134.788019    1.023672  13409.920288  ...  9.212662e+05
+    4               711.063734    1.016606  15768.886051  ...  7.304981e+06
+    5               146.350195    1.000996   8443.345668  ...  2.262917e+06
+    6               685.852990    1.056258   1881.594266  ...  1.067976e+07
 
     Compare across neurons:
 
@@ -304,16 +312,16 @@ def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
     >>> nl = navis.example_neurons(5, kind='skeleton')
     >>> sa = navis.segment_analysis(nl)
     >>> # Note the `neuron` column when running the analysis on NeuronLists
-    >>> sa.head()
-           neuron       length  tortuosity     root_dist  strahler_index
-    0  1734350788   112.682839    1.092659  11123.123978               1
-    1  1734350788   214.124934    1.013030  10401.607843               1
-    2  1734350788   159.585328    1.074575  10591.953435               1
-    3  1734350788  1073.535053    1.151022      0.000000               6
-    4  1734350788   260.538727    1.000000   1073.535053               6
+    >>> sa.head()                                               # doctest: +SKIP
+           neuron       length  tortuosity     root_dist  ...        volume
+    0  1734350788   112.682839    1.092659  11123.123978  ...  1.153095e+05
+    1  1734350788   214.124934    1.013030  10401.607843  ...  8.618440e+05
+    2  1734350788   159.585328    1.074575  10591.953435  ...  9.088157e+05
+    3  1734350788  1073.535053    1.151022      0.000000  ...  4.159788e+07
+    4  1734350788   260.538727    1.000000   1073.535053  ...  3.593405e+07
     >>> # Get Strahler index counts for each neuron
     >>> si_counts = sa.groupby(['neuron', 'strahler_index']).size().unstack()
-    >>> si_counts
+    >>> si_counts                                               # doctest: +SKIP
     strahler_index      1      2      3      4     5     6     7
     neuron
     722817260       656.0  336.0  167.0   74.0  32.0  24.0   NaN
@@ -354,6 +362,30 @@ def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
     res['tortuosity'] = tort
     res['root_dist'] = root_dists
     res['strahler_index'] = SI
+
+    if 'radius' in nodes:
+        # Generate radius dict
+        radii = nodes.radius.to_dict()
+
+        seg_radii = [[radii.get(n, 0) for n in s] for s in segs]
+        res['radius_mean'] = [np.nanmean(s) for s in seg_radii]
+        res['radius_min'] = [np.nanmin(s) for s in seg_radii]
+        res['radius_max'] = [np.nanmax(s) for s in seg_radii]
+
+        # Get radii for each cylinder
+        r1 = nodes.index.map(radii).values
+        r2 = nodes.parent_id.map(radii).values
+        r2[np.isnan(r2)] = 0
+
+        # Get the height for each node -> parent cylinder
+        h = parent_dist(x, root_dist=0)
+
+        # Radii for top and bottom of tapered cylinder
+        vols = (1/3 * np.pi * (r1**2 + r1 * r2 + r2**2) * h)
+        vols_dict = dict(zip(nodes.index.values, vols))
+
+        # For each segment get the volume
+        res['volume'] = [np.nansum([vols_dict.get(n, 0) for n in s[:-1]]) for s in segs]
 
     return res
 
@@ -941,6 +973,12 @@ def tortuosity(x: 'core.NeuronObject',
                         If x is single TreeNeuron, will return either a
                         single float (if single seg_length is queried) or a
                         DataFrame (if multiple seg_lengths are queried).
+
+    See Also
+    --------
+    :func:`navis.segment_analysis`
+                This function provides by-segment morphometrics, including
+                tortuosity.
 
     Examples
     --------
