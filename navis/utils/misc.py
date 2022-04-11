@@ -938,6 +938,7 @@ def check_vispy():
     --------
     >>> import navis
     >>> navis.utils.check_vispy()
+    <navis.plotting.vispy.viewer.Viewer object at 0x...>
     >>> # When the viewer and neurons show up...
     >>> navis.close3()
     """
