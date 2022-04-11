@@ -28,18 +28,14 @@ import operator
 import math
 from collections import defaultdict
 
-import pint
 import numpy as np
 import pandas as pd
 
-from ..config import ureg
 from ..core.neurons import Dotprops
-from ..units import parse_quantity, reduce_units, as_unit, DIMENSIONLESS
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_SEED = 1991
-DIMENSIONLESS = pint.Unit("dimensionless")
 
 epsilon = sys.float_info.epsilon
 cpu_count = max(1, (os.cpu_count() or 2) - 1)
@@ -437,23 +433,7 @@ def is_monotonically_increasing(lst):
     return True
 
 
-def parse_interval(item: str) -> Tuple[Tuple[float, float], bool, pint.Unit]:
-    """Parse a string representing a half-open interval.
-
-    Parameters
-    ----------
-    item : str
-        An interval formatted like ``[1 nm, inf nm)``
-
-    Returns
-    -------
-    Tuple[Tuple[float, float], bool, pint.Unit]
-        (
-            (lower_bound, upper_bound),
-            include_right,
-            units
-        )
-    """
+def parse_boundary(item: str):
     explicit_interval = item[0] + item[-1]
     if explicit_interval == "[)":
         right = False
@@ -463,18 +443,7 @@ def parse_interval(item: str) -> Tuple[Tuple[float, float], bool, pint.Unit]:
         raise ValueError(
             f"Enclosing characters '{explicit_interval}' do not match a half-open interval"
         )
-
-    out = []
-    units = []
-    for s in item[1:-1].split(","):
-        q = parse_quantity(s)
-        out.append(q.magnitude)
-        units.append(q.units)
-
-    if len(out) != 2:
-        raise ValueError(f"Could not parse interval, got {len(out)} values instead of 2")
-
-    return tuple(out), right, reduce_units(units)
+    return tuple(float(i) for i in item[1:-1].split(",")), right
 
 
 T = TypeVar("T")
@@ -482,8 +451,6 @@ T = TypeVar("T")
 
 class LookupAxis(ABC, Generic[T]):
     """Class converting some data into a linear index."""
-
-    units: pint.Unit = DIMENSIONLESS
 
     @abstractmethod
     def __len__(self) -> int:
@@ -505,13 +472,6 @@ class LookupAxis(ABC, Generic[T]):
             If a scalar was given, return a scalar; otherwise, a numpy array of ints.
         """
         pass
-
-    def same_units(self, unit: Union[str, pint.Unit]) -> bool:
-        try:
-            reduce_units([self.units, as_unit(unit)])
-        except ValueError:
-            return False
-        return True
 
 
 class SimpleLookup(LookupAxis[Hashable]):
@@ -548,8 +508,6 @@ class Digitizer(LookupAxis[float]):
         boundaries: Sequence[float],
         clip: Tuple[bool, bool] = (True, True),
         right=False,
-        *,
-        units=DIMENSIONLESS,
     ):
         """Class converting continuous values into discrete indices.
 
@@ -588,7 +546,6 @@ class Digitizer(LookupAxis[float]):
             raise ValueError("Boundaries are not monotonically increasing")
 
         self.boundaries = np.asarray(boundaries)
-        self.units = as_unit(units)
 
     def __len__(self):
         return len(self.boundaries) - 1
@@ -613,14 +570,8 @@ class Digitizer(LookupAxis[float]):
         b = self.boundaries.copy()
         b[0] = self._min
         b[-1] = self._max
-
-        if self.units == DIMENSIONLESS:
-            unit = ""
-        else:
-            unit = " " + str(self.units)
-
         return [
-            f"{lb}{lower}{unit},{upper}{unit}{rb}"
+            f"{lb}{lower},{upper}{rb}"
             for lower, upper in zip(b[:-1], b[1:])
         ]
 
@@ -645,10 +596,8 @@ class Digitizer(LookupAxis[float]):
         bounds: List[float] = []
         last_upper = None
         last_right = None
-        units = []
         for item in interval_strs:
-            (lower, upper), right, unit = parse_interval(item)
-            units.append(unit)
+            (lower, upper), right = parse_boundary(item)
             bounds.append(float(lower))
 
             if last_right is not None:
@@ -664,10 +613,10 @@ class Digitizer(LookupAxis[float]):
             last_upper = upper
 
         bounds.append(float(last_upper))
-        return cls(bounds, right=last_right, units=reduce_units(units))
+        return cls(bounds, right=last_right)
 
     @classmethod
-    def from_linear(cls, lower: float, upper: float, nbins: int, right=False, *, units=DIMENSIONLESS):
+    def from_linear(cls, lower: float, upper: float, nbins: int, right=False):
         """Choose digitizer boundaries spaced linearly between two values.
 
         Input values will be clipped to fit within the given interval.
@@ -689,10 +638,10 @@ class Digitizer(LookupAxis[float]):
         Digitizer
         """
         arr = np.linspace(lower, upper, nbins + 1, endpoint=True)
-        return cls(arr, right=right, units=units)
+        return cls(arr, right=right)
 
     @classmethod
-    def from_geom(cls, lowest_upper: float, highest_lower: float, nbins: int, right=False, *, units=DIMENSIONLESS):
+    def from_geom(cls, lowest_upper: float, highest_lower: float, nbins: int, right=False):
         """Choose digitizer boundaries in a geometric sequence.
 
         Additional bins will be added above and below the given values.
@@ -715,7 +664,7 @@ class Digitizer(LookupAxis[float]):
         Digitizer
         """
         arr = np.geomspace(lowest_upper, highest_lower, nbins - 1, True)
-        return cls(arr, clip=(False, False), right=right, units=units)
+        return cls(arr, clip=(False, False), right=right)
 
     @classmethod
     def from_data(cls, data: Sequence[float], nbins: int, right=False):
@@ -735,13 +684,8 @@ class Digitizer(LookupAxis[float]):
         -------
         Digitizer
         """
-        if isinstance(data, pint.Quantity):
-            data = data.magnitude
-            units = data.units
-        else:
-            units = DIMENSIONLESS
         arr = np.quantile(data, np.linspace(0, 1, nbins + 1, True))
-        return cls(arr, right=right, units=units)
+        return cls(arr, right=right)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Digitizer):
@@ -767,10 +711,6 @@ class LookupNd:
         idxs = tuple(d(arg) for d, arg in zip(self.axes, args))
         out = self.cells[idxs]
         return out
-
-    @property
-    def units(self):
-        return tuple(ax.units for ax in self.axes)
 
 
 class Lookup2d(LookupNd):
@@ -836,8 +776,7 @@ def _smat_fcwb(alpha=False):
     fname = ("smat_fcwb.csv", "smat_alpha_fcwb.csv")[alpha]
     fpath = smat_path / fname
 
-    lookup = Lookup2d.from_dataframe(pd.read_csv(fpath, index_col=0))
-    lookup.axes[0].units = ureg.Unit("micrometer")
+    return Lookup2d.from_dataframe(pd.read_csv(fpath, index_col=0))
 
 
 def smat_fcwb(alpha=False):
