@@ -196,7 +196,7 @@ You can install all of them with the ``all`` extra.
 
 .. _vispy:
 
-``vispy`` backends: `vispy <https://vispy.org>`
+``vispy-*`` backends: `vispy <https://vispy.org>`
   For 3D visualisation.
 
   Vispy provides a high-performance viewer for 3D visualisation of neurons.
@@ -212,3 +212,23 @@ You can install all of them with the ``all`` extra.
     pip3 install navis[vispy-pyqt5]
     # or
     pip3 install vispy[pyqt5]
+
+.. _hash:
+
+``hash``: `xxhash <https://cyan4973.github.io/xxHash/>`
+  For speeding up some lookup tables.
+
+.. _flybrains:
+
+``flybrains``: `flybrains <https://github.com/navis-org/navis-flybrains>`
+  Transforming data between some template *Drosophila* brains.
+
+.. _cloudvolume:
+
+``cloudvolume``: `cloud-volume <https://github.com/seung-lab/cloud-volume>`
+  Reading and writing images, meshes, and skeletons in Neuroglancer precomputed format.
+
+.. _meshes:
+
+``meshes``: `open3d <https://pypi.org/project/open3d/>`, `pyfqmr <https://github.com/Kramer84/pyfqmr-Fast-quadric-Mesh-Reduction>`
+  Assorted functionality associated with meshes.
