@@ -26,7 +26,7 @@ for k, v in extras_require.items():
 extras_require["all"] = all_deps
 extras_require["all-dev"] = all_dev_deps
 
-vispy_req = extras_require["vispy"][0]
+vispy_req = extras_require["vispy-default"][0]
 default_backend = vispy_req.split("[")[1].split("]")[0]
 # listed here: https://vispy.org/installation.html#backend-requirements
 for alt in [
