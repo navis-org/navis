@@ -13,10 +13,13 @@
 
 """Module containing base classes for BLASTING."""
 
+import atexit
+
 import numpy as np
 import pandas as pd
 
 from abc import ABC, abstractmethod
+from multiprocessing import shared_memory
 
 from .. import utils, config
 
@@ -25,7 +28,7 @@ FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
 
 
 class Blaster(ABC):
-    """Base class for blasting."""
+    """Base class for Blasting."""
 
     def __init__(self, dtype=np.float64, progress=True):
         """Initialize class."""
@@ -58,15 +61,7 @@ class Blaster(ABC):
 
     @dtype.setter
     def dtype(self, dtype):
-        try:
-            self._dtype = np.dtype(dtype)
-        except TypeError:
-            try:
-                self._dtype = FLOAT_DTYPES[dtype]
-            except KeyError:
-                raise ValueError(
-                    f'Unknown precision/dtype {dtype}. Expected on of the following: 16, 32 or 64 (default)'
-                )
+        self._dtype = parse_precision(dtype)
 
     def pair_query_target(self, pairs, scores='forward'):
         """BLAST multiple pairs.
@@ -101,7 +96,7 @@ class Blaster(ABC):
 
         return scr
 
-    def multi_query_target(self, q_idx, t_idx, scores='forward'):
+    def multi_query_target(self, q_idx, t_idx, scores='forward', out=None):
         """BLAST multiple queries against multiple targets.
 
         Parameters
@@ -110,6 +105,8 @@ class Blaster(ABC):
                             Iterable of query/target neuron indices to BLAST.
         scores :            "forward" | "mean" | "min" | "max"
                             Which scores to return.
+        out :               np.ndarray, optional
+                            Array to write results to.
 
         """
         if utils.is_jupyter() and config.tqdm == config.tqdm_notebook:
@@ -124,18 +121,24 @@ class Blaster(ABC):
         else:
             position = getattr(self, 'pbar_position', 0)
 
-        res = np.zeros((len(q_idx), len(t_idx)),
-                       dtype=self.dtype)
+        shape = (len(q_idx), len(t_idx))
+        if not isinstance(out, np.ndarray):
+            out = np.zeros(shape, dtype=self.dtype)
+        elif out.shape != shape:
+            raise TypeError(f'Expected out array of shape {shape}, got {out.shape}')
+        elif out.dtype != self.dtype:
+            raise TypeError(f'Expected out array to be {self.dtype}, got {out.dtype}')
+
         for i, q in enumerate(config.tqdm(q_idx,
                                           desc=self.desc,
                                           leave=False,
                                           position=position,
                                           disable=not self.progress)):
             for k, t in enumerate(t_idx):
-                res[i, k] = self.single_query_target(q, t, scores=scores)
+                out[i, k] = self.single_query_target(q, t, scores=scores)
 
         # Generate results
-        res = pd.DataFrame(res)
+        res = pd.DataFrame(out)
         res.columns = [self.ids[t] for t in t_idx]
         res.index = [self.ids[q] for q in q_idx]
 
@@ -157,3 +160,109 @@ class Blaster(ABC):
             res.loc[:, :] = np.dstack((res, res.T)).max(axis=2)
 
         return res
+
+
+class SharedBlaster(Blaster, ABC):
+    """Version of the Blaster that works with shared memory buffers."""
+
+    def create_array(self, shm, shape, offset=None):
+        """Create array from shared memory buffer."""
+        # Generate the out array from shared memory buffer
+        arr = np.ndarray(shape, dtype=self.dtype, buffer=shm.buf)
+
+        if not isinstance(offset, type(None)):
+            arr = arr[offset]
+
+        return arr
+
+    def multi_query_target(self, q_idx, t_idx, shm, shape, offset=None, scores='forward'):
+        """BLAST multiple queries against multiple targets.
+
+        Parameters
+        ----------
+        q_idx,t_idx :   iterable
+                        Iterable of query/target neuron indices to BLAST.
+        shm :           multiprocessing.shared_memory.SharedMemory                        
+        shape :         tuple (N, M)
+                        Shape of the array in the memory buffer.
+        offset :        tuple (slice, slice)
+                        The view inside the full array to pass through as `out` to
+                        `multi_query_target`.
+        scores :        "forward" | "mean" | "min" | "max"
+                        Which scores to produce.
+
+        """
+        out = self.create_array(shm, shape, offset=offset)
+
+        _ = super().multi_query_target(q_idx, t_idx, scores=scores, out=out)
+
+    def all_by_all(self, shm, shape, offset=None, scores='forward'):
+        """BLAST all-by-all neurons."""
+        out = self.create_array(shm, shape, offset=offset)
+
+        _ = super().multi_query_target(range(len(self.neurons)),
+                                       range(len(self.neurons)),
+                                       scores='forward',
+                                       out=out)
+
+        # For all-by-all BLAST we can get the mean score by
+        # transposing the scores
+        if scores == 'mean':
+            out[:, :] = (out + out.T) / 2
+        elif scores == 'min':
+            out[:, :] = np.dstack((out, out.T)).min(axis=2)
+        elif scores == 'max':
+            out[:, :] = np.dstack((out, out.T)).max(axis=2)
+
+
+def create_shared_array(shape, dtype):
+    """Create shared array.
+
+    Parameters
+    ----------
+    shape :     tuple
+    dtype :     str | np.dtype
+
+    Returns
+    -------
+    multiprocessing.shared_memory.SharedMemory
+                The shared memory buffer for the array.
+    np.ndarray
+                A numpy array accessing the shared memory buffer.
+
+    """
+    # Get the number of items in the requested array
+    if utils.is_iterable(shape):
+        items = np.prod(shape)
+    else:
+        items = shape
+
+    # Force dtype to numpy dtype
+    dtype = np.dtype(dtype)
+    # Calculate required size for memory buffer
+    size = dtype.itemsize * items
+
+    # Create shared memory buffer
+    shm = shared_memory.SharedMemory(create=True, size=size)
+
+    # We need to make sure that the memory is released on exit of this process
+    # Note: order is reverse -> last registered is executed first
+    atexit.register(shm.unlink)
+    atexit.register(shm.close)
+
+    # Create array based on buffer
+    arr = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
+
+    return shm, arr
+
+
+def parse_precision(dtype):
+    """Parse precision into numpy dtype."""
+    try:
+        return np.dtype(dtype)
+    except TypeError:
+        try:
+            return FLOAT_DTYPES[dtype]
+        except KeyError:
+            raise ValueError(f'Unknown precision/dtype {dtype}. Expected one '
+                             'of the following: 16, 32 or 64 (default)')

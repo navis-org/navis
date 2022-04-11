@@ -27,7 +27,7 @@ from typing_extensions import Literal
 
 from .. import utils, config
 from ..core import NeuronList, Dotprops, make_dotprops
-from .base import Blaster
+from .base import Blaster, SharedBlaster, create_shared_array, parse_precision
 
 __all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 
@@ -234,6 +234,11 @@ class NBlaster(Blaster):
         return scr
 
 
+class SharedNBlaster(NBlaster, SharedBlaster):
+    """An NBLASTER working with shared memory."""
+    pass
+
+
 def nblast_smart(query: Union[Dotprops, NeuronList],
                  target: Optional[str] = None,
                  t: Union[int, float] = 90,
@@ -316,7 +321,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                     Precision for scores. Defaults to 64 bit (double) floats.
                     This is useful to reduce the memory footprint for very large
-                    matrices. In real-world scenarios 32 bit (single)- and
+                    matrices. In real-world scenarios 32 bit (single) - and
                     depending on the purpose even 16 bit (half) - are typically
                     sufficient.
     n_cores :       int, optional
@@ -685,21 +690,30 @@ def nblast(query: Union[Dotprops, NeuronList],
     else:
         n_rows, n_cols = find_batch_partition(batch_size, query_dps, target_dps)
 
+    # Force precision into numpy dtype
+    dtype = parse_precision(precision)
+
+    # Create scores array
+    shm, arr = create_shared_array(shape=(len(query_dps), len(target_dps)),
+                                   dtype=dtype)
+
     nblasters = []
     with config.tqdm(desc='Preparing',
                      total=n_rows * n_cols,
                      leave=False,
                      disable=not progress) as pbar:
+        offset_x = 0
         for q in np.array_split(query_dps, n_rows):
+            offset_y = 0
             for t in np.array_split(target_dps, n_cols):
                 # Initialize NBlaster
-                this = NBlaster(use_alpha=use_alpha,
-                                normalized=normalized,
-                                smat=smat,
-                                limit_dist=limit_dist,
-                                dtype=precision,
-                                approx_nn=approx_nn,
-                                progress=progress)
+                this = SharedNBlaster(use_alpha=use_alpha,
+                                      normalized=normalized,
+                                      smat=smat,
+                                      limit_dist=limit_dist,
+                                      dtype=dtype,
+                                      approx_nn=approx_nn,
+                                      progress=progress)
 
                 # Use better description if we process in batches
                 if batch_size:
@@ -713,32 +727,41 @@ def nblast(query: Union[Dotprops, NeuronList],
                 # Keep track of indices of queries and targets
                 this.queries = np.arange(len(q))
                 this.targets = np.arange(len(t)) + len(q)
+
+                # Make sure progress bars don't overlap
                 this.pbar_position = len(nblasters) % n_cores
+
+                # This is the offset into the shared array
+                this.offset_x = slice(offset_x, offset_x + len(q))
+                this.offset_y = slice(offset_y, offset_y + len(t))
 
                 nblasters.append(this)
                 pbar.update(1)
+                offset_y += len(t)
+            offset_x += len(q)
 
     # If only one core, we don't need to break out the multiprocessing
     if n_cores == 1:
-        return this.multi_query_target(this.queries,
-                                       this.targets,
-                                       scores=scores)
+        _ =  this.multi_query_target(this.queries,
+                                     this.targets,
+                                     shm=shm,
+                                     shape=arr.shape,
+                                     offset=None,
+                                     scores=scores)
+    else:
+        with ProcessPoolExecutor(max_workers=n_cores) as pool:
+            # Each nblaster is passed to its own process
+            futures = [pool.submit(this.multi_query_target,
+                                   q_idx=this.queries,
+                                   t_idx=this.targets,
+                                   shm=shm,
+                                   shape=arr.shape,
+                                   offset=(this.offset_x, this.offset_y),
+                                   scores=scores) for this in nblasters]
 
-    with ProcessPoolExecutor(max_workers=n_cores) as pool:
-        # Each nblaster is passed to its own process
-        futures = [pool.submit(this.multi_query_target,
-                               q_idx=this.queries,
-                               t_idx=this.targets,
-                               scores=scores) for this in nblasters]
+            _ = [f.result() for f in futures]
 
-        results = [f.result() for f in futures]
-
-    scores = pd.DataFrame(np.zeros((len(query_dps), len(target_dps)),
-                                    dtype=this.dtype),
-                          index=query_dps.id, columns=target_dps.id)
-
-    for res in results:
-        scores.loc[res.index, res.columns] = res.values
+    scores = pd.DataFrame(arr, index=query_dps.id, columns=target_dps.id)
 
     return scores
 
