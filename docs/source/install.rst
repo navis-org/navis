@@ -196,15 +196,15 @@ You can install all of them with the ``all`` extra.
 
 .. _vispy:
 
-``vispy``: `vispy <https://vispy.org>`
+``vispy`` backends: `vispy <https://vispy.org>`
   For 3D visualisation.
 
   Vispy provides a high-performance viewer for 3D visualisation of neurons.
   Vispy itself has a choice of backends: the one which works for you will depend on
-  your operating system, and how you're using navis.
-  The default, supplied with navis' ``vispy`` extra, is pyside6;
+  your operating system, hardware, other installed packages, and how you're using navis.
+  The default, supplied with navis' ``vispy-default`` extra, is pyside6;
   this works best when called from an ``ipython`` console.
-  Each of vispy's other backends, listed
+  Each of vispy's backends, listed
   `here <https://vispy.org/installation.html#backend-requirements>`,
   can be installed through vispy and its extras, or navis' `vispy-*` extras.
 

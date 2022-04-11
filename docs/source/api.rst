@@ -270,7 +270,9 @@ has some useful perks: :class:`navis.Volume`.
 Vispy 3D viewer
 ---------------
 Using :func:`navis.plot3d` from a terminal will spawn a Vispy 3D viewer object
-which has a bunch of useful methods:
+which has a bunch of useful methods.
+Note that this requires one of navis' ``vispy-*`` extras to be installed,
+so that vispy has a backend.
 
 .. autosummary::
     :toctree: generated/

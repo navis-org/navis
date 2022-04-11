@@ -17,6 +17,15 @@ on Github.
      - Manually download and copy required files into Blender's Python directory. Follow the instructions `here <https://blender.stackexchange.com/questions/81740/python-h-missing-in-blender-python>`_.
    * - **Plotting**
      -
+   * - Trying to use 3D plots raises an error referencing VisPy backends
+     - Choice of VisPy backend depends on your python distribution, OS, hardware, and how you run it.
+       A minimal navis installation chooses no backend, but `all backends <https://vispy.org/installation.html#backend-requirements>`
+       are available as navis extras; e.g.
+
+          pip install 'navis[vispy-pyside6]'
+
+       You may need to experiment to find the best backend for your environment.
+
    * - 3D plots with VisPy as backend use only one quarter of the canvas.
      - Try installing the developer version from GitHub (https://github.com/vispy/vispy). As one-liner::
 
