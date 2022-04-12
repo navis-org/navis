@@ -16,7 +16,7 @@
 
 import numbers
 import os
-import uuid
+import operator
 
 import numpy as np
 import pandas as pd
@@ -25,9 +25,11 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import Union, Optional, List
 from typing_extensions import Literal
 
+from navis.nbl.smat import Lookup2d, smat_fcwb
+
 from .. import utils, config
 from ..core import NeuronList, Dotprops, make_dotprops
-from .base import Blaster
+from .base import Blaster, NestedIndices
 
 __all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 
@@ -36,75 +38,6 @@ smat_path = os.path.join(fp, 'score_mats')
 
 logger = config.logger
 
-
-class ScoringFunction:
-    """Class representing scoring function."""
-
-    def __init__(self, smat):
-        if isinstance(smat, type(None)):
-            self.scoring_function = self.pass_through
-        elif isinstance(smat, (pd.DataFrame, str)):
-            self.parse_matrix(smat)
-            self.scoring_function = self.score_lookup
-        else:
-            raise TypeError
-
-    def __call__(self, dist, dot):
-        return self.scoring_function(dist, dot)
-
-    @property
-    def max_dist(self):
-        """Max distance considered by the scoring matrix.
-
-        Returns ``None`` if pass through.
-        """
-        if self.scoring_function == self.pass_through:
-            return None
-        # The last bin is always `np.inf`, so we need the second last bin
-        return self.dist_bins[-2]
-
-    def pass_through(self, dist, dot):
-        """Pass-through scores if no scoring matrix."""
-        return dist * dot
-
-    def score_lookup(self, dist, dot):
-        return self.cells[
-                          np.digitize(dist, self.dist_bins),
-                          np.digitize(dot, self.dot_bins),
-                         ]
-
-    def parse_matrix(self, smat):
-        """Parse matrix."""
-        if isinstance(smat, str):
-            smat = pd.read_csv(smat, index_col=0)
-
-        if not isinstance(smat, pd.DataFrame):
-            raise TypeError(f'Excepted filepath or DataFrame, got "{type(smat)}"')
-
-        self.cells = smat.to_numpy()
-
-        self.dist_thresholds = [self.parse_interval(s) for s in smat.index]
-        # Make sure right bin is open
-        self.dist_thresholds[-1] = np.inf
-        self.dist_bins = np.array(self.dist_thresholds, float)
-
-        self.dot_thresholds = [self.parse_interval(s) for s in smat.columns]
-        # Make sure right bin is open
-        self.dot_thresholds[-1] = np.inf
-        self.dot_bins = np.array(self.dot_thresholds, float)
-
-    def parse_interval(self, s):
-        """Strip brackets and parse right interval.
-
-        Example
-        -------
-        >>> parse_intervals("(0,0.1]")                          # doctest: +SKIP
-        0.1
-        """
-        return float(s.strip("([])").split(",")[-1])
-
-
-NeuronId = Union[int, str, uuid.UUID]
 
 class NBlaster(Blaster):
     """Implements version 2 of the NBLAST algorithm.
@@ -122,10 +55,16 @@ class NBlaster(Blaster):
     normalized :    bool
                     If True, will normalize scores by the best possible score
                     (i.e. self-self) of the query neuron.
-    smat :          str | pd.DataFrame
-                    Score matrix. If 'auto' (default), will use scoring matrices
+    smat :          navis.nbl.smat.Lookup2d | pd.DataFrame | str
+                    How to convert the point match pairs into an NBLAST score,
+                    usually by a lookup table.
+                    If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
-                    implementation. If ``smat=None`` the scores will be
+                    implementation.
+                    Dataframes will be used to build a ``Lookup2d``.
+                    If ``limit_dist`` is not given,
+                    will attempt to infer from the first axis of the lookup table.
+                    If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
     limit_dist :    float | "auto" | None
@@ -148,27 +87,30 @@ class NBlaster(Blaster):
         self.approx_nn = approx_nn
         self.desc = "NBlasting"
 
-        if smat == 'auto':
-            if self.use_alpha:
-                smat = pd.read_csv(f'{smat_path}/smat_alpha_fcwb.csv',
-                                   index_col=0)
-            else:
-                smat = pd.read_csv(f'{smat_path}/smat_fcwb.csv',
-                                   index_col=0)
+        if smat is None:
+            self.score_fn = operator.mul
+        elif smat == 'auto':
+            self.score_fn = smat_fcwb(self.use_alpha)
+        elif isinstance(smat, pd.DataFrame):
+            self.score_fn = Lookup2d.from_dataframe(smat)
+        else:
+            self.score_fn = smat
 
-        self.score_fn = ScoringFunction(smat)
-
-        if limit_dist == 'auto':
-            self.distance_upper_bound = self.score_fn.max_dist
+        if limit_dist == "auto":
+            try:
+                self.distance_upper_bound = self.score_fn.axes[0]._max
+            except AttributeError:
+                logger.warning("Could not infer distance upper bound from scoring function")
+                self.distance_upper_bound = None
         else:
             self.distance_upper_bound = limit_dist
 
-    def append(self, dotprops) -> Union[List[NeuronId], NeuronId]:
+    def append(self, dotprops) -> NestedIndices:
         """Append dotprops.
 
-        Returns the ID of the appended dotprops.
+        Returns the numerical index appended dotprops.
         If dotprops is a (possibly nested) sequence of dotprops,
-        return a (possibly nested) list of IDs.
+        return a (possibly nested) list of indices.
         """
         if isinstance(dotprops, Dotprops):
             return self._append_dotprops(dotprops)
@@ -178,12 +120,13 @@ class NBlaster(Blaster):
         except TypeError:  # i.e. not iterable
             raise ValueError(f"Expected Dotprops or iterable thereof; got {type(dotprops)}")
 
-    def _append_dotprops(self, dotprops: Dotprops) -> NeuronId:
+    def _append_dotprops(self, dotprops: Dotprops) -> int:
+        next_id = len(self)
         self.neurons.append(dotprops)
         self.ids.append(dotprops.id)
         # Calculate score for self hit
         self.self_hits.append(self.calc_self_hit(dotprops))
-        return dotprops.id
+        return next_id
 
     def calc_self_hit(self, dotprops):
         """Non-normalized value for self hit."""
@@ -195,7 +138,7 @@ class NBlaster(Blaster):
             dots = np.repeat(1, len(dotprops.points)) * np.sqrt(alpha)
             return self.score_fn(dists, dots).sum()
 
-    def single_query_target(self, q_idx, t_idx, scores='forward'):
+    def single_query_target(self, q_idx: int, t_idx: int, scores='forward'):
         """Query single target against single target."""
         # Take a short-cut if this is a self-self comparison
         if q_idx == t_idx:

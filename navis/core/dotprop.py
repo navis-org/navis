@@ -332,7 +332,9 @@ class Dotprops(BaseNeuron):
                   other: 'Dotprops',
                   alpha: bool = False,
                   distance_upper_bound: Optional[float] = None,
-                  **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+                  **kwargs) -> Union[
+                      Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]
+                    ]:
         """Query this Dotprops against another.
 
         This function is mainly for ``navis.nblast``.
@@ -622,3 +624,6 @@ class Dotprops(BaseNeuron):
         tn._soma = self._soma
 
         return tn
+
+    def __len__(self):
+        return len(self.points)

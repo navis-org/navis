@@ -364,6 +364,15 @@ Functions to compare morphology.
     navis.synblast
     navis.persistence_distances
 
+Utilities for creating your own score matrices for NBLAST can be found in
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.nbl.smat.Lookup2d
+    navis.nbl.smat.Digitizer
+    navis.nbl.smat.LookupDistDotBuilder
+
 Polarity metrics
 ----------------
 .. autosummary::

@@ -15,6 +15,7 @@
 """Module contains functions implementing SyNBLAST."""
 
 import os
+import operator
 
 import numpy as np
 import pandas as pd
@@ -27,10 +28,11 @@ from typing_extensions import Literal
 from .. import config, utils
 from ..core import NeuronList, BaseNeuron
 
-from .base import Blaster
+from .base import Blaster, NestedIndices
+from .smat import Lookup2d
 
-from .nblast_funcs import (check_microns, find_optimal_partition, ScoringFunction,
-                           nblast_preflight)
+from .nblast_funcs import (check_microns, find_optimal_partition,
+                           nblast_preflight, smat_fcwb)
 
 __all__ = ['synblast']
 
@@ -59,10 +61,14 @@ class SynBlaster(Blaster):
     by_type :       bool
                     If True will only compare synapses with the same value in
                     the "type" column.
-    smat :          str | pd.DataFrame
-                    Score matrix. If 'auto' (default), will use scoring matrices
+    smat :          navis.nbl.smat.Lookup2d | pd.DataFrame | str
+                    How to convert the point match pairs into an NBLAST score,
+                    usually by a lookup table.
+                    If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
-                    implementation. If ``smat=None`` the scores will be
+                    implementation.
+                    Dataframes will be used to build a ``Lookup2d``.
+                    If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
     progress :      bool
@@ -77,15 +83,19 @@ class SynBlaster(Blaster):
         self.normalized = normalized
         self.by_type = by_type
 
-        if smat == 'auto':
-            smat = pd.read_csv(f'{smat_path}/smat_fcwb.csv',
-                               index_col=0)
+        if smat is None:
+            self.score_fn = operator.mul
+        elif smat == 'auto':
+            self.score_fn = smat_fcwb()
+        elif isinstance(smat, pd.DataFrame):
+            self.score_fn = Lookup2d.from_dataframe(smat)
+        else:
+            self.score_fn = smat
 
-        self.score_fn = ScoringFunction(smat)
         self.ids = []
 
-    def append(self, neuron, id=None):
-        """Append neurons/connector tables, returning ids of added objects"""
+    def append(self, neuron, id=None) -> NestedIndices:
+        """Append neurons/connector tables, returning numerical indices of added objects"""
         if isinstance(neuron, pd.DataFrame):
             return self._append_connectors(neuron, id)
 
@@ -102,10 +112,11 @@ class SynBlaster(Blaster):
                 f"{type(neuron)}"
             )
 
-    def _append_connectors(self, connectors: pd.DataFrame, id):
+    def _append_connectors(self, connectors: pd.DataFrame, id) -> int:
         if id is None:
             raise ValueError("Explicit non-None id required for appending connectors")
 
+        next_idx = len(self)
         self.ids.append(id)
         self.neurons.append({})
         if not self.by_type:
@@ -123,13 +134,13 @@ class SynBlaster(Blaster):
 
         # Calculate score for self hit
         self.self_hits.append(self.calc_self_hit(connectors))
-        return id
+        return next_idx
 
     def calc_self_hit(self, cn):
         """Non-normalized value for self hit."""
         return cn.shape[0] * self.score_fn(0, 1)
 
-    def single_query_target(self, q_idx, t_idx, scores='forward'):
+    def single_query_target(self, q_idx: int, t_idx: int, scores='forward'):
         """Query single target against single target."""
         # Take a short-cut if this is a self-self comparison
         if q_idx == t_idx:
