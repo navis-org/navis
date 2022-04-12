@@ -939,7 +939,7 @@ def check_vispy():
     >>> import navis
     >>> viewer = navis.utils.check_vispy()
     >>> # When the viewer and neurons show up...
-    >>> navis.close3()
+    >>> navis.close3d()
     """
     from ..data import example_neurons
     nl = example_neurons()
