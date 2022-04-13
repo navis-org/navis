@@ -25,11 +25,24 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:
 
 ```sh
-pip3 install navis[all]
+pip3 install 'navis[all]'
 ```
 
 which includes all optional extras providing features and/or performance improvements.
-Currently, this is `igraph`, `shapely`, `pykdtree` and `pathos`.
+Currently, this is
+`igraph`,
+`pathos`,
+`shapely`,
+`kdtree`,
+`hash`,
+`flybrains`,
+`cloudvolume`,
+`meshes`,
+and `vispy-default`.
+
+3D plotting from a python REPL is provided by `vispy`, which has a choice of backends.
+Different backends work best on different combinations of hardware, OS, python distribution, and REPL, so there may be some trial and error involved.
+`vispy`'s backends are [listed here](https://vispy.org/installation.html#backend-requirements), and each can be installed as a navis extra, e.g. `pip3 install 'navis[vispy-pyqt6]'`.
 
 Alternatively click on the *launch binder* badge above to try out navis hosted by [mybinder](https://mybinder.org)!
 

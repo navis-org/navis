@@ -9,7 +9,6 @@ pint>=0.10
 plotly>=4.9
 pynrrd>=0.4.2
 pypng>=0.0.18
-PyQt5>=5.15
 requests>=2.20
 seaborn>=0.10
 setuptools>=50.6
@@ -18,6 +17,7 @@ six>=1.11
 tqdm>=4.45
 typing-extensions>=3.7.4
 trimesh>=3.8
+# without backend, as we use some utility functions
 vispy>=0.6.4
 fuzzywuzzy>=0.18
 molesq>=0.2.0
@@ -35,6 +35,13 @@ rpy2  #extra: r
 pykdtree  #extra: kdtree
 
 xxhash  #extra: hash
+
+flybrains  #extra: flybrains
+
+cloud-volume  #extra: cloudvolume
+
+# this should inherit the vispy version constraint from above
+vispy[pyside6]  #extra: vispy-default
 
 #extra: meshes
 

@@ -924,3 +924,23 @@ def make_url(baseurl, *args: str, **GET) -> str:
     if GET:
         url += f'?{urllib.parse.urlencode(GET)}'
     return url
+
+
+def check_vispy():
+    """Check that vispy works.
+
+    Returns
+    -------
+    vispy.Viewer
+        A viewer which can be closed after use.
+
+    Examples
+    --------
+    >>> import navis
+    >>> viewer = navis.utils.check_vispy()
+    >>> # When the viewer and neurons show up...
+    >>> navis.close3d()
+    """
+    from ..data import example_neurons
+    nl = example_neurons()
+    return nl.plot3d()
