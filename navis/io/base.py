@@ -778,6 +778,14 @@ def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
         leave=config.pbar_leave
     )
 
+    if (
+        isinstance(parallel, str)
+        and parallel.lower() == 'auto'
+        and not isinstance(length, type(None))
+        and length < 200
+    ):
+        parallel = False
+
     if parallel:
         # Do not swap this as ``isinstance(True, int)`` returns ``True``
         if isinstance(parallel, (bool, str)):
