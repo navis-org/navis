@@ -132,7 +132,7 @@ and how to install those dependencies directly, are below.
   The default, supplied with navis' ``vispy-default`` extra, is pyside6;
   this works best when called from an ``ipython`` console.
   Each of vispy's backends, listed
-  `here <https://vispy.org/installation.html#backend-requirements>`,
+  `here <https://vispy.org/installation.html#backend-requirements>`_,
   can be installed through vispy and its extras, or navis' `vispy-*` extras.
 
   ::
