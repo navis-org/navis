@@ -15,7 +15,9 @@ flybrains
 ---------
 `flybrains <https://github.com/navis-org/navis-flybrains>`_ is a package that
 bundles fly template brains and transforms that navis can use to map spatial
-data (e.g. neurons) from one brain space to another.
+data (e.g. neurons) from one brain space to another. If you installed ``navis``
+via ``pip`` with the ``[all]`` option, ``flybrains`` will already be on your
+system.
 
 pymaid
 ------
