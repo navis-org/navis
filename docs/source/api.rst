@@ -554,6 +554,18 @@ imported explicitly as they are not imported at top level.
 
 .. _api_interfaces.neuron:
 
+
+Network Models
+++++++++++++++
+Navis comes with a simple network traversal model
+(see `Schlegel, Bates et al., 2021 <https://elifesciences.org/articles/66018>`_).
+
+.. autosummary::
+   :toctree: generated/
+
+   navis.models.network_models.TraversalModel
+   navis.models.network_models.BayesianTraversalModel
+
 NEURON simulator
 ++++++++++++++++
 Functions to facilitate creating models of neurons/networks. Please see
