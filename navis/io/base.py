@@ -807,7 +807,10 @@ def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
     return neurons
 
 
-def parallel_read_zip(read_fn, fpath, file_ext, limit=None, parallel="auto") -> List['core.NeuronList']:
+def parallel_read_zip(read_fn, fpath, file_ext,
+                      limit=None,
+                      parallel="auto",
+                      ignore_hidden=True) -> List['core.NeuronList']:
     """Read neurons from a ZIP file, potentially in parallel.
 
     Reader function must be picklable.
@@ -827,6 +830,13 @@ def parallel_read_zip(read_fn, fpath, file_ext, limit=None, parallel="auto") -> 
     parallel :      str | bool | int
                     "auto" or True for n_cores - 2, otherwise int for number of
                     jobs, or false for serial.
+    ignore_hidden : bool
+                    Archives zipped on OSX can end up containing a
+                    `__MACOSX` folder with files that mirror the name of other
+                    files. For example if there is a `123456.swc` in the archive
+                    you might also find a `__MACOSX/._123456.swc`. Reading the
+                    latter will result in an error. If ignore_hidden=True
+                    we will simply ignore all file that starts with "._".
 
     Returns
     -------
@@ -838,12 +848,15 @@ def parallel_read_zip(read_fn, fpath, file_ext, limit=None, parallel="auto") -> 
     to_read = []
     with ZipFile(p, 'r') as zip:
         for file in zip.filelist:
+            fname = file.filename.split('/')[-1]
+            if ignore_hidden and fname.startswith('._'):
+                continue
             if callable(file_ext):
                 if file_ext(file):
                     to_read.append(file)
             elif file_ext == '*':
                 to_read.append(file)
-            elif file_ext and file.filename.endswith(file_ext):
+            elif file_ext and fname.endswith(file_ext):
                 to_read.append(file)
             elif '.' not in file.filename:
                 to_read.append(file)
