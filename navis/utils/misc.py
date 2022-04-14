@@ -260,6 +260,7 @@ def map_neuronlist(desc: str = "",
 
 def map_neuronlist_df(desc: str = "",
                       id_col: str = "neuron",
+                      reset_index: bool = True,
                       allow_parallel: bool = False):
     """Decorate function to run on all neurons in the NeuronList.
 
@@ -274,6 +275,9 @@ def map_neuronlist_df(desc: str = "",
                      neurons.
     id_col :         str
                      Name of the ID column to be added to the results dataframe.
+    reset_index :    bool
+                     Whether to reset the index of the dataframe after
+                     concatenating.
     allow_parallel : bool
                      If True and the function is called with `parallel=True`,
                      will use multiple cores to process the neuronlist. Number
@@ -345,6 +349,9 @@ def map_neuronlist_df(desc: str = "",
                     df.insert(0, column=id_col, value=n.id)
 
                 df = pd.concat(res, axis=0)
+
+                if reset_index:
+                    df = df.reset_index(drop=True)
 
             else:
                 # If single neuron just pass through
