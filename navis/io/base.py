@@ -560,8 +560,8 @@ class BaseReader(ABC):
             return self.read_file_path(obj, attrs)
         if isinstance(obj, str):
             # See if this might be a file (make sure to expand user)
-            p = Path(obj).expanduser()
-            if p.is_file():
+            if os.path.isdir(os.path.expanduser(obj)):
+                p = Path(obj).expanduser()
                 if p.suffix == '.zip':
                     return self.read_zip(p, attrs=attrs)
                 return self.read_file_path(p, attrs)
@@ -614,7 +614,7 @@ class BaseReader(ABC):
         new_objs = []
         for obj in objs:
             try:
-                if Path(obj).expanduser().is_dir():
+                if os.path.isdir(os.path.expanduser(obj)):
                     new_objs.extend(self.files_in_dir(obj, include_subdirs))
                     continue
             except TypeError:
@@ -656,14 +656,14 @@ class BaseReader(ABC):
             return self.read_any_multi(obj, parallel, include_subdirs, attrs)
         else:
             try:
-                if Path(obj).expanduser().is_dir():
+                if os.path.isdir(os.path.expanduser(obj)):
                     return self.read_directory(
                         obj, include_subdirs, parallel, limit, attrs
                     )
             except TypeError:
                 pass
             try:
-                if Path(obj).expanduser().is_file() and str(obj).endswith('.zip'):
+                if os.path.isdir(os.path.expanduser(obj)) and str(obj).endswith('.zip'):
                     return self.read_zip(obj, parallel, limit, attrs)
             except TypeError:
                 pass
