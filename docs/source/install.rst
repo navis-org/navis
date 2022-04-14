@@ -45,6 +45,7 @@ Development branch from Github
 To install the most recent development branch from Github:
 
 ::
+
     pip3 install git+https://github.com/navis-org/navis@master
 
 
@@ -122,7 +123,7 @@ and how to install those dependencies directly, are below.
 
 .. _vispy:
 
-``vispy-*`` backends: `vispy <https://vispy.org>`
+``vispy-*`` backends: `vispy <https://vispy.org>`_
   For 3D visualisation.
 
   Vispy provides a high-performance viewer for 3D visualisation of neurons.
@@ -135,28 +136,29 @@ and how to install those dependencies directly, are below.
   can be installed through vispy and its extras, or navis' `vispy-*` extras.
 
   ::
+
     pip3 install navis[vispy-pyqt5]
     # or
     pip3 install vispy[pyqt5]
 
 .. _hash:
 
-``hash``: `xxhash <https://cyan4973.github.io/xxHash/>`
+``hash``: `xxhash <https://cyan4973.github.io/xxHash/>`_
   For speeding up some lookup tables.
 
 .. _flybrains:
 
-``flybrains``: `flybrains <https://github.com/navis-org/navis-flybrains>`
+``flybrains``: `flybrains <https://github.com/navis-org/navis-flybrains>`_
   Transforming data between some template *Drosophila* brains.
 
 .. _cloudvolume:
 
-``cloudvolume``: `cloud-volume <https://github.com/seung-lab/cloud-volume>`
+``cloudvolume``: `cloud-volume <https://github.com/seung-lab/cloud-volume>`_
   Reading and writing images, meshes, and skeletons in Neuroglancer precomputed format.
-  This is required, e.g. for the MICrONs interface.
+  This is required required for e.g. the MICrONs interface.
 
 .. _meshes:
 
-``meshes``: `open3d <https://pypi.org/project/open3d/>`, `pyfqmr <https://github.com/Kramer84/pyfqmr-Fast-quadric-Mesh-Reduction>`
+``meshes``: `open3d <https://pypi.org/project/open3d/>`_, `pyfqmr <https://github.com/Kramer84/pyfqmr-Fast-quadric-Mesh-Reduction>`_
   Assorted functionality associated with meshes. ``pyfqmr`` in particular is
   highly recommended if you want to downsample meshes.
