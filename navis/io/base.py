@@ -237,6 +237,9 @@ class BaseReader(ABC):
                      include_subdirs: bool = DEFAULT_INCLUDE_SUBDIRS
                      ) -> Iterable[Path]:
         """List files to read in directory."""
+        if not isinstance(dpath, Path):
+            dpath = Path(dpath)
+        dpath = dpath.expanduser()
         pattern = '*'
         if include_subdirs:
             pattern = os.path.join("**", pattern)
@@ -395,7 +398,9 @@ class BaseReader(ABC):
         Returns
         -------
         core.NeuronList
+
         """
+        fpath = Path(fpath).expanduser()
         read_fn = partial(self.read_from_zip,
                           zippath=fpath, attrs=attrs,
                           on_error=on_error)
@@ -554,8 +559,9 @@ class BaseReader(ABC):
                 return self.read_zip(obj, attrs=attrs)
             return self.read_file_path(obj, attrs)
         if isinstance(obj, str):
-            if os.path.isfile(obj):
-                p = Path(obj)
+            # See if this might be a file (make sure to expand user)
+            p = Path(obj).expanduser()
+            if p.is_file():
                 if p.suffix == '.zip':
                     return self.read_zip(p, attrs=attrs)
                 return self.read_file_path(p, attrs)
@@ -608,7 +614,7 @@ class BaseReader(ABC):
         new_objs = []
         for obj in objs:
             try:
-                if os.path.isdir(obj):
+                if Path(obj).expand_user().is_dir():
                     new_objs.extend(self.files_in_dir(obj, include_subdirs))
                     continue
             except TypeError:
@@ -650,15 +656,14 @@ class BaseReader(ABC):
             return self.read_any_multi(obj, parallel, include_subdirs, attrs)
         else:
             try:
-                if os.path.isdir(obj):
+                if Path(obj).expanduser().is_dir():
                     return self.read_directory(
                         obj, include_subdirs, parallel, limit, attrs
                     )
             except TypeError:
                 pass
-
             try:
-                if os.path.isfile(obj) and str(obj).endswith('.zip'):
+                if Path(obj).expanduser().is_file() and str(obj).endswith('.zip'):
                     return self.read_zip(obj, parallel, limit, attrs)
             except TypeError:
                 pass
