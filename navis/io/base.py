@@ -560,7 +560,7 @@ class BaseReader(ABC):
             return self.read_file_path(obj, attrs)
         if isinstance(obj, str):
             # See if this might be a file (make sure to expand user)
-            if os.path.isdir(os.path.expanduser(obj)):
+            if os.path.isfile(os.path.expanduser(obj)):
                 p = Path(obj).expanduser()
                 if p.suffix == '.zip':
                     return self.read_zip(p, attrs=attrs)
@@ -663,7 +663,7 @@ class BaseReader(ABC):
             except TypeError:
                 pass
             try:
-                if os.path.isdir(os.path.expanduser(obj)) and str(obj).endswith('.zip'):
+                if os.path.isfile(os.path.expanduser(obj)) and str(obj).endswith('.zip'):
                     return self.read_zip(obj, parallel, limit, attrs)
             except TypeError:
                 pass
