@@ -614,7 +614,7 @@ class BaseReader(ABC):
         new_objs = []
         for obj in objs:
             try:
-                if Path(obj).expand_user().is_dir():
+                if Path(obj).expanduser().is_dir():
                     new_objs.extend(self.files_in_dir(obj, include_subdirs))
                     continue
             except TypeError:
