@@ -137,9 +137,9 @@ class NMXReader(base.BaseReader):
 
 
 def read_nmx(f: Union[str, pd.DataFrame, Iterable],
+             include_subdirs: bool = False,
              parallel: Union[bool, int] = 'auto',
              precision: int = 32,
-             read_meta: bool = True,
              limit: Optional[int] = None,
              **kwargs) -> 'core.NeuronObject':
     """Read NMX files into Neuron/Lists.
@@ -153,11 +153,12 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
     f :                 str
                         Filename or folder. If folder, will import all ``.nmx``
                         files.
-    delimiter :         str
-                        Delimiter to use. Passed to ``pandas.read_csv``.
+    include_subdirs :   bool, optional
+                        If True and ``f`` is a folder, will also search
+                        subdirectories for ``.nmx`` files.
     parallel :          "auto" | bool | int
                         Defaults to ``auto`` which means only use parallel
-                        processing if more than 200 SWC are imported. Spawning
+                        processing if more than 200 files are imported. Spawning
                         and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
@@ -167,14 +168,9 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
                         Precision for data. Defaults to 32 bit integers/floats.
                         If ``None`` will let pandas infer data types - this
                         typically leads to higher than necessary precision.
-    read_meta :         bool
-                        If True and SWC header contains a line with JSON-encoded
-                        meta data e.g. (``# Meta: {'id': 123}``), these data
-                        will be read as neuron properties. `fmt` takes
-                        precedence.
     limit :             int, optional
                         If reading from a folder you can use this parameter to
-                        read only the first ``limit`` SWC files. Useful if
+                        read only the first ``limit`` NMX files. Useful if
                         wanting to get a sample from a large library of
                         skeletons.
     **kwargs
@@ -186,7 +182,6 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
     -------
     navis.NeuronList
 
-
     """
     reader = NMXReader(precision=precision,
                        attrs=kwargs)
@@ -194,7 +189,7 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
     neurons = reader.read_any(f,
                               parallel=parallel,
                               limit=limit,
-                              include_subdirs=False)
+                              include_subdirs=include_subdirs)
 
     # Failed reads will produce empty neurons which we need to remove
     if isinstance(neurons, core.NeuronList):
