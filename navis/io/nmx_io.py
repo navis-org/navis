@@ -140,6 +140,7 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
              parallel: Union[bool, int] = 'auto',
              precision: int = 32,
              read_meta: bool = True,
+             limit: Optional[int] = None,
              **kwargs) -> 'core.NeuronObject':
     """Read NMX files into Neuron/Lists.
 
@@ -170,7 +171,12 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
                         If True and SWC header contains a line with JSON-encoded
                         meta data e.g. (``# Meta: {'id': 123}``), these data
                         will be read as neuron properties. `fmt` takes
-                        precedene.
+                        precedence.
+    limit :             int, optional
+                        If reading from a folder you can use this parameter to
+                        read only the first ``limit`` SWC files. Useful if
+                        wanting to get a sample from a large library of
+                        skeletons.
     **kwargs
                         Keyword arguments passed to the construction of
                         ``navis.TreeNeuron``. You can use this to e.g. set
@@ -185,7 +191,13 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
     reader = NMXReader(precision=precision,
                        attrs=kwargs)
     # Read neurons
-    neurons = reader.read_any(f, parallel=parallel, include_subdirs=False)
+    neurons = reader.read_any(f,
+                              parallel=parallel,
+                              limit=limit,
+                              include_subdirs=False)
 
     # Failed reads will produce empty neurons which we need to remove
-    return neurons[neurons.has_nodes]
+    if isinstance(neurons, core.NeuronList):
+        neurons = neurons[neurons.has_nodes]
+
+    return neurons
