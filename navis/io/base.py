@@ -142,7 +142,7 @@ class Writer:
 
     def write_zip(self, x, filepath, **kwargs):
         """Write files to zip."""
-        filepath = Path(filepath)
+        filepath = Path(filepath).expanduser()
         # Parse pattern, if given
         pattern = '{neuron.id}' + (self.ext if self.ext else '')
         if '@' in str(filepath):
