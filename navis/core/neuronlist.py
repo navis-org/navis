@@ -533,12 +533,30 @@ class NeuronList:
             return NotImplemented
 
     def append(self, v):
-        """Add Neuron(s) to this list."""
+        """Add neuron(s) to this list.
+
+        Examples
+        --------
+        >>> import navis
+        >>> # This is mostly for doctests
+        >>> nl = navis.example_neurons()
+        >>> len(nl)
+        5
+        >>> nl.append(nl[0])
+        >>> len(nl)
+        6
+        >>> nl.append(nl)
+        >>> len(nl)
+        12
+
+        """
         if isinstance(v, core.BaseNeuron):
             self.neurons.append(v)
         elif isinstance(v, NeuronList):
             self.neurons += v.neurons
-        raise NotImplementedError
+        else:
+            raise NotImplementedError('Unable to append data of type'
+                                      f'{type(v)} to NeuronList')
 
     def apply(self,
               func: Callable,
