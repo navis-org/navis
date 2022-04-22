@@ -76,8 +76,7 @@ class TPStransform(BaseTransform):
             raise ValueError('Number of source landmarks must match number of '
                              'target landmarks.')
 
-        # Calculate coefficients
-        self._calc_tps_coefs()
+        self._W, self._A = None, None
 
     def __eq__(self, other) -> bool:
         """Implement equality comparison."""
@@ -95,7 +94,21 @@ class TPStransform(BaseTransform):
 
     def _calc_tps_coefs(self):
         # Calculate thinplate coefficients
-        self.W, self.A = mops.tps_coefs(self.source, self.target)
+        self._W, self._A = mops.tps_coefs(self.source, self.target)
+
+    @property
+    def W(self):
+        if isinstance(self._W, type(None)):
+            # Calculate coefficients
+            self._calc_tps_coefs()
+        return self._W
+
+    @property
+    def A(self):
+        if isinstance(self._A, type(None)):
+            # Calculate coefficients
+            self._calc_tps_coefs()
+        return self._A
 
     def copy(self):
         """Make copy."""
