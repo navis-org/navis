@@ -438,8 +438,15 @@ def voxel2vispy(neuron, neuron_color, object_id, **kwargs):
 
 def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
     """Convert skeleton (i.e. TreeNeuron) into vispy visuals."""
+    if neuron.nodes.empty:
+        logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.id}')
+        return []
+    elif neuron.nodes.shape[0] == 1:
+        logger.warning(f'Skipping single-node TreeNeuron: {neuron.label}')
+        return []
+
     visuals = []
-    if not kwargs.get('connectors_only', False) and not neuron.nodes.empty:
+    if not kwargs.get('connectors_only', False):
         # Make sure we have one color for each node
         neuron_color = np.asarray(neuron_color)
         if neuron_color.ndim == 1:

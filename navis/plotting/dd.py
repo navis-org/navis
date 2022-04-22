@@ -434,11 +434,13 @@ def plot2d(x: Union[core.NeuronObject,
                 neuron = _neuron
 
             if isinstance(neuron, core.TreeNeuron) and neuron.nodes.empty:
-                logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.id}')
+                logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.label}')
+            if isinstance(neuron, core.TreeNeuron) and neuron.nodes.shape[0] == 1:
+                logger.warning(f'Skipping single-node TreeNeuron: {neuron.label}')
             elif isinstance(neuron, core.MeshNeuron) and neuron.faces.size == 0:
-                logger.warning(f'Skipping MeshNeuron w/o faces: {neuron.id}')
+                logger.warning(f'Skipping MeshNeuron w/o faces: {neuron.label}')
             elif isinstance(neuron, core.Dotprops) and neuron.points.size == 0:
-                logger.warning(f'Skipping Dotprops w/o points: {neuron.id}')
+                logger.warning(f'Skipping Dotprops w/o points: {neuron.label}')
             elif isinstance(neuron, core.TreeNeuron):
                 lc, sc = _plot_skeleton(neuron, neuron_cmap[i], method, ax, **kwargs)
                 # Keep track of visuals related to this neuron
@@ -1056,6 +1058,10 @@ def update_axes3d_bounds(ax):
             points.append(c._vec[:3, :].T)
         elif isinstance(c, (Path3DCollection, Patch3DCollection)):
             points.append(np.array(c._offsets3d).T)
+
+    if not len(points):
+        return
+
     points = np.vstack(points)
 
     # If this is the first set of points, we need to overwrite the defaults

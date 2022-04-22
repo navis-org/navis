@@ -234,7 +234,10 @@ def voxel2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
 def skeleton2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
     """Convert skeleton (i.e. TreeNeuron) to plotly line plot."""
     if neuron.nodes.empty:
-        logger.warning(f'Skipping empty neuron: {neuron.label}')
+        logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.label}')
+        return []
+    elif neuron.nodes.shape[0] == 1:
+        logger.warning(f'Skipping single-node skeleton: {neuron.label}')
         return []
 
     coords = segments_to_coords(neuron, neuron.segments)
