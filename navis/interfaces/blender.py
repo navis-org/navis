@@ -28,6 +28,7 @@ import uuid
 
 import pandas as pd
 import numpy as np
+import seaborn as sns
 import trimesh as tm
 
 from .. import core, utils, config
@@ -146,6 +147,9 @@ class Handler:
             return ObjectList(self._selection_helper('SOMA'))
         elif key == 'selected':
             return ObjectList([ob.name for ob in bpy.context.selected_objects if 'navis_object' in ob])
+        elif key == 'visible':
+            objects = [o for o in self.neurons if not o.hide] 
+            return ObjectList(objects)
         elif key == 'presynapses':
             return ObjectList(self._cn_selection_helper(0))
         elif key == 'postsynapses':
@@ -230,7 +234,7 @@ class Handler:
                     bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
                 wm.progress_update(i)
             wm.progress_end()
-        elif isinstance(x, core.Volume):
+        elif isinstance(x, tm.Trimesh):
             self._create_volume(x, collection=collection)
         elif isinstance(x, np.ndarray):
             self._create_scatter(x, collection=collection, **kwargs)
@@ -914,6 +918,38 @@ class ObjectList:
         return ObjectList(list(set(self.object_names + to_add.object_names)),
                           handler=self.handler)
 
+    @property
+    def objects(self):
+        """Objects in this list."""
+        objects = []
+        for n in self.object_names:
+            if n in bpy.data.objects:
+                objects.append(bpy.data.objects[n])
+        return objects
+
+    def add_to_collection(self, collection, unlink_from_other=False):
+        if not collection:
+            col = bpy.context.scene.collection
+        elif collection in bpy.data.collections:
+            col = bpy.data.collections[collection]
+        else:
+            col = bpy.data.collections.new(collection)
+            bpy.context.scene.collection.children.link(col)
+
+        for ob in self.objects:
+            if ob.name not in col.objects:
+                col.objects.link(ob)
+
+            if unlink_from_other:
+                if ob.name in bpy.context.scene.collection.objects:
+                    bpy.context.scene.collection.objects.unlink(ob)
+
+                for col2 in bpy.data.collections:
+                    if col2 == col:
+                        continue
+                    if ob.name in col2.objects:
+                        col2.objects.unlink(ob)
+
     def select(self, unselect_others=True):
         """Select objects in 3D viewer
 
@@ -944,41 +980,68 @@ class ObjectList:
                 Alpha value, range 0-1
 
         """
-        for ob in bpy.data.objects:
-            if ob.name in self.object_names:
-                ob.active_material.diffuse_color = eval_color((r, g, b, a),
+        for ob in self.objects:
+            ob.active_material.diffuse_color = eval_color((r, g, b, a),
+                                                          color_range=1,
+                                                          force_alpha=True)
+
+    def colorize(self, groups=None, palette='hls'):
+        """Assign colors across the color spectrum.
+
+        Parameters
+        ----------
+        groups :    dict, optional
+                    A dictionary mapping either neuron ID (always str!) or
+                    object name to a group (str). Neurons of the same group will
+                    receive the same color.
+        palette :   str
+                    Name of a seaborn color palette.
+
+        """
+        objects = self.objects
+        if isinstance(groups, type(None)):
+            colors = sns.color_palette(palette, len(objects))
+            cmap = dict(zip(objects, colors))
+        elif isinstance(groups, dict):
+            # Make sure keys are strings
+            groups = {str(k): v for k, v in groups.items()}
+
+            # Get unique groups & create a color map
+            groups_uni = list(set(list(groups.values())))
+            colors = sns.color_palette(palette, len(groups_uni))
+            groups_cmap = dict(zip(groups_uni, colors))
+
+            # Make the actual color map
+            cmap = {}
+            for ob in objects:
+                # Get the group either by name or ID
+                g = groups.get(ob.name, groups.get(ob.get('id'), None))
+                cmap[ob] = groups_cmap.get(g, (.1, .1, .1))
+        else:
+            raise TypeError(f'`groups` must be either None or dict, got {type(groups)}')
+
+        for ob in objects:
+            try:
+                ob.active_material.diffuse_color = eval_color(cmap[ob],
                                                               color_range=1,
                                                               force_alpha=True)
-
-    def colorize(self):
-        """Assign colors across the color spectrum."""
-        for i, n in enumerate(self.object_names):
-            c = colorsys.hsv_to_rgb(1 / (len(self) + 1) * i, 1, 1)
-            if n in bpy.data.objects:
-                try:
-                    bpy.data.objects[n].active_material.diffuse_color = eval_color(c,
-                                                                                   color_range=1,
-                                                                                   force_alpha=True)
-                except BaseException:
-                    logger.warning(f'Error changing color of object "{n}"')
+            except BaseException:
+                logger.warning(f'Error changing color of object "{ob}"')
 
     def emit(self, e):
         """Change emit value."""
-        for ob in bpy.data.objects:
-            if ob.name in self.object_names:
-                ob.active_material.emit = e
+        for ob in self.objects:
+            ob.active_material.emit = e
 
     def use_transparency(self, t):
         """Change transparency (True/False)."""
-        for ob in bpy.data.objects:
-            if ob.name in self.object_names:
-                ob.active_material.use_transparency = t
+        for ob in self.objects:
+            ob.active_material.use_transparency = t
 
     def alpha(self, a):
         """Change alpha (0-1)."""
-        for ob in bpy.data.objects:
-            if ob.name in self.object_names:
-                ob.active_material.alpha = a
+        for ob in self.objects:
+            ob.active_material.alpha = a
 
     def bevel(self, r):
         """Change bevel radius of objects.
@@ -989,22 +1052,25 @@ class ObjectList:
                     New bevel radius.
 
         """
-        for n in self.object_names:
-            if n in bpy.data.objects:
-                if bpy.data.objects[n].type == 'CURVE':
-                    bpy.data.objects[n].data.bevel_depth = r
+        for ob in self.objects:
+            if ob.type == 'CURVE':
+                ob.data.bevel_depth = r
 
-    def hide(self):
+    def hide(self, viewport=True, render=False):
         """Hide objects."""
-        for i, n in enumerate(self.object_names):
-            if n in bpy.data.objects:
-                bpy.data.objects[n].hide = True
+        for ob in self.objects:
+            if viewport:
+                ob.hide_set(True)
+            if render:
+                ob.hide_render = True
 
-    def unhide(self):
+    def unhide(self, viewport=True, render=False):
         """Unhide objects."""
-        for i, n in enumerate(self.object_names):
-            if n in bpy.data.objects:
-                bpy.data.objects[n].hide = False
+        for ob in self.objects:
+            if viewport:
+                ob.hide_set(False)
+            if render:
+                ob.hide_render = False
 
     def hide_others(self):
         """Hide everything BUT these objects."""
