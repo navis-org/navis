@@ -866,14 +866,12 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
     nl = core.NeuronList(nl)
 
     # Check that neurons are all of the same type
-    ty = nl.types
-    if len(ty) > 1:
+    if len(nl.types) > 1:
         raise TypeError('Unable to combine neurons of different types')
-    ty = ty[0]
 
-    if ty == core.TreeNeuron:
+    if isinstance(nl[0], core.TreeNeuron):
         x = stitch_skeletons(*nl, method='NONE', master='FIRST')
-    elif ty == core.MeshNeuron:
+    elif isinstance(nl[0], core.MeshNeuron):
         x = nl[0].copy()
         comb = tm.util.concatenate([n.trimesh for n in nl])
         x._vertices = comb.vertices
@@ -882,7 +880,7 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
         if any(nl.has_connectors):
             x._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
                                       ignore_index=True)
-    elif ty == core.Dotprops:
+    elif isinstance(nl[0], core.Dotprops):
         x = nl[0].copy()
         x._points = np.vstack(nl._points)
 
@@ -892,7 +890,7 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
         if any(nl.has_connectors):
             x._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
                                       ignore_index=True)
-    elif ty == core.VoxelNeuron:
+    elif isinstance(nl[0], core.VoxelNeuron):
         raise TypeError('Combining VoxelNeuron not (yet) supported')
     else:
         raise TypeError(f'Unable to combine {ty}')
