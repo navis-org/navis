@@ -87,7 +87,7 @@ def fetch_roi(roi, *, client=None):
 
 
 @inject_client
-def fetch_mesh_neuron(x, *, lod=1, with_synapses=True, missing_mesh='raise',
+def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                       parallel=True, max_threads=5, seg_source=None,
                       client=None, **kwargs):
     """Fetch mesh neuron.
@@ -282,7 +282,7 @@ def __fetch_mesh(r, *, vol, lod, client, with_synapses=True, missing_mesh='raise
 
 
 @inject_client
-def fetch_skeletons(x, *, with_synapses=True, heal=False, missing_swc='raise',
+def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
                     parallel=True, max_threads=5, client=None):
     """Construct navis.TreeNeuron/List from neuprint neurons.
 
