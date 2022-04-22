@@ -223,6 +223,10 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
 
     nl = NeuronList(nl)
 
+    # Make an effort to retain the original order
+    if not isinstance(x, NeuronCriteria):
+        nl = nl.idx[np.asarray(x)[np.isin(x, nl.id)]]
+
     return nl
 
 
@@ -377,6 +381,10 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
                     print(f'{bodyId} generated an exception:', exc)
 
     nl = NeuronList(nl)
+
+    # Make an effort to retain the original order
+    if not isinstance(x, NeuronCriteria):
+        nl = nl.idx[np.asarray(x)[np.isin(x, nl.id)]]
 
     return nl
 
