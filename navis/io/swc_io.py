@@ -322,7 +322,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         will be read as neuron properties. `fmt` takes
                         precedence. Will try to assign meta data directly as
                         neuron attribute (e.g. ``neuron.id``). Failing that
-                        (can happen for properties intrinsic to the neuron),
+                        (can happen for properties intrinsic to ``TreeNeurons``),
                         will add a ``.meta`` dictionary to the neuron.
     limit :             int, optional
                         If reading from a folder you can use this parameter to
@@ -348,6 +348,19 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         Export neurons as SWC files.
 
     """
+    # SwcReader will try its best to read whatever you throw at it - with limit
+    # sanity checks. For example: if you misspell a filepath, it will assume
+    # that it's a SWC string (because anything that's a string but doesn't
+    # point to an existing file or a folder MUST be a SWC) which will lead to
+    # strange error messages.
+    # The easiest fix is to implement a small sanity check here:
+    if isinstance(f, str) and '\n' not in f and not utils.is_url(f):
+        # If this looks like a path
+        p = Path(f).expanduser()
+        if not p.is_dir() and not p.is_file():
+            raise FileNotFoundError(f'"{f}" looks like a directory or filepath '
+                                    'but does not appear to exist.')
+
     reader = SwcReader(connector_labels=connector_labels,
                        soma_label=soma_label,
                        delimiter=delimiter,
