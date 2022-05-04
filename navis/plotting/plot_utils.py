@@ -18,13 +18,13 @@
 """
 from .. import config, core
 
-import collections
 import math
 import random
 import warnings
 
 import numpy as np
 
+from collections.abc import Iterable
 from typing import Tuple, Optional, List, Dict
 
 with warnings.catch_warnings():
@@ -181,7 +181,7 @@ def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
     vertices = np.empty((0, 3), dtype=np.float)
     indices = np.empty((0, 3), dtype=np.uint32)
 
-    if not isinstance(radii, collections.Iterable):
+    if not isinstance(radii, Iterable):
         radii = [[radii] * len(points) for points in segments]
 
     for points, radius in zip(segments, radii):
@@ -195,7 +195,7 @@ def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
 
         n_segments = len(points) - 1
 
-        if not isinstance(radius, collections.Iterable):
+        if not isinstance(radius, Iterable):
             radius = [radius] * len(points)
 
         radius = np.array(radius)

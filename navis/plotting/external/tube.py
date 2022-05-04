@@ -11,13 +11,13 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+import numpy as np
+
+from collections.abc import Iterable
 from vispy.visuals import MeshVisual
 from vispy.color import ColorArray
-import numpy as np
 from vispy.visuals.tube import _frenet_frames
 from vispy.scene.visuals import create_visual_node
-
-import collections
 
 
 class TubeVisual(MeshVisual):
@@ -71,7 +71,7 @@ class TubeVisual(MeshVisual):
 
         segments = len(points) - 1
 
-        if not isinstance(radius, collections.Iterable):
+        if not isinstance(radius, Iterable):
             radius = [radius] * len(points)
 
         # get the positions of each vertex

@@ -1,7 +1,6 @@
 #    This script is part of pymaid (http://www.github.com/navis-org/navis).
 #    but has been adapted from vispy (http://www.vispy.org)
 
-import collections
 import warnings
 
 with warnings.catch_warnings():
@@ -14,6 +13,7 @@ with warnings.catch_warnings():
 
 import numpy as np
 from numpy.linalg import norm
+from collections.abc import Iterable
 
 
 class NeuronVisual(MeshVisual):
@@ -64,7 +64,7 @@ class NeuronVisual(MeshVisual):
         vertices = np.empty((0, 3), dtype=np.float)
         indices = np.empty((0, 3), dtype=np.uint32)
 
-        if not isinstance(radii, collections.Iterable):
+        if not isinstance(radii, Iterable):
                 radii = [[radii] * len(points) for points in segments]
 
         for points, radius in zip(segments, radii):
@@ -78,7 +78,7 @@ class NeuronVisual(MeshVisual):
 
             n_segments = len(points) - 1
 
-            if not isinstance(radius, collections.Iterable):
+            if not isinstance(radius, Iterable):
                 radius = [radius] * len(points)
 
             radius = np.array(radius)
@@ -221,7 +221,7 @@ class TubeVisual(MeshVisual):
 
         segments = len(points) - 1
 
-        if not isinstance(radius, collections.Iterable):
+        if not isinstance(radius, Iterable):
             radius = [radius] * len(points)
 
         # get the positions of each vertex
