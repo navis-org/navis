@@ -176,6 +176,12 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     # Last but not least: map connectors
     if connectors and x.has_connectors:
         cn_table = x.connectors.copy()
+
+        # A connector/id column is currently required for skeletons but not
+        # meshes
+        if not any(np.isin(('id', 'connector_id'), cn_table.columns)):
+            cn_table.insert(0, 'connector_id', np.arange(len(cn_table)))
+
         cn_table['node_id'] = x.snap(cn_table[['x', 'y', 'z']].values)[0]
         node_map = dict(zip(np.arange(len(s.vertex_map)), s.vertex_map))
         cn_table['node_id'] = cn_table.node_id.map(node_map)
