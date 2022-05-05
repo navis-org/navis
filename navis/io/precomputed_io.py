@@ -281,7 +281,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
                              'specify using the `datatype` parameter.')
         f = io.BytesIO(f)
     elif datatype == 'auto':
-        f = Path(f)
+        f = Path(f).expanduser()
         if str(f).endswith('.zip'):
             with ZipFile(f, 'r') as zip:
                 if 'info' not in [f.filename for f in zip.filelist]:
