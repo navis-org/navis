@@ -104,7 +104,7 @@ def read_mesh(f: Union[str, Iterable],
 
     Read single file into :class:`navis.Volume`:
 
-    >>> nl = navis.read_mesh('mesh.obj', output='volume')       # doctest: +SKIP    
+    >>> nl = navis.read_mesh('mesh.obj', output='volume')       # doctest: +SKIP
 
     """
     utils.eval_param(output, name='output',
@@ -254,7 +254,7 @@ def write_mesh(x: Union['core.NeuronList', 'core.MeshNeuron', 'core.Volume', 'tm
 
     >>> import navis
     >>> nl = navis.example_neurons(3, kind='mesh')
-    >>> navis.write_mesh(nl, tmp_dir / 'meshes.zip')
+    >>> navis.write_mesh(nl, tmp_dir / 'meshes.zip', filetype='obj')
 
     """
     ALLOWED_FILETYPES = ('stl', 'ply', 'obj')
