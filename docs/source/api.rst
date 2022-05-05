@@ -520,6 +520,7 @@ Functions to import/export neurons.
     navis.read_nrrd
     navis.write_nrrd
     navis.read_mesh
+    navis.write_mesh
     navis.read_nmx
     navis.read_rda
     navis.read_json

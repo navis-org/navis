@@ -21,6 +21,7 @@ from typing import Union, Iterable, Optional, Dict, Any
 from typing_extensions import Literal
 
 from .. import config, utils, core
+from . import base
 
 # Set up logging
 logger = config.logger
@@ -166,3 +167,112 @@ def read_mesh(f: Union[str, Iterable],
 def _worker_wrapper(kwargs):
     """Helper for importing meshes using multiple processes."""
     return read_mesh(**kwargs)
+
+
+def write_mesh(x: Union['core.NeuronList', 'core.MeshNeuron', 'core.Volume', 'tm.Trimesh'],
+               filepath: Optional[str] = None,
+               filetype: str = None,
+               ) -> None:
+    """Export meshes (MeshNeurons, Volumes, Trimeshes) to disk.
+
+    Under the hood this is using trimesh to export meshes.
+
+    Parameters
+    ----------
+    x :                 MeshNeuron | Volume | Trimesh | NeuronList
+                        If multiple objects, will generate a file for each
+                        neuron (see also ``filepath``).
+    filepath :          None | str | list, optional
+                        If ``None``, will return byte string or list of
+                        thereof. If filepath will save to this file. If path
+                        will save neuron(s) in that path using ``{x.id}``
+                        as filename(s). If list, input must be NeuronList and
+                        a filepath must be provided for each neuron.
+    filetype :          stl | ply | obj, optional
+                        If ``filepath`` does not include the file extension,
+                        you need to provide it as ``filetype``.
+
+    Returns
+    -------
+    None
+                        If filepath is not ``None``.
+    bytes
+                        If filepath is ``None``.
+
+    See Also
+    --------
+    :func:`navis.read_mesh`
+                        Import neurons.
+    :func:`navis.write_precomputed`
+                        Write meshes to Neuroglancer's precomputed format.
+
+    Examples
+    --------
+
+    Write ``MeshNeurons`` to folder:
+
+    >>> import navis
+    >>> nl = navis.example_neurons(3, kind='mesh')
+    >>> navis.write_mesh(nl, tmp_dir, filetype='obj')
+
+    Specify the filenames:
+
+    >>> import navis
+    >>> nl = navis.example_neurons(3, kind='mesh')
+    >>> navis.write_mesh(nl, tmp_dir / '{neuron.name}.obj')
+
+    Write directly to zip archive:
+
+    >>> import navis
+    >>> nl = navis.example_neurons(3, kind='mesh')
+    >>> navis.write_mesh(nl, tmp_dir / 'meshes.zip')
+
+    """
+    ALLOWED_FILETYPES = ('stl', 'ply', 'obj')
+    if filetype is not None:
+        utils.eval_param(filetype, name='filetype', allowed_values=ALLOWED_FILETYPES)
+    else:
+        # See if we can get filetype from filepath
+        if filepath is not None:
+            for f in ALLOWED_FILETYPES:
+                if str(filepath).endswith(f'.{f}'):
+                    filetype = f
+                    break
+
+        if not filetype:
+            raise ValueError('Must provide mesh type either explicitly via '
+                             '`filetype` variable or implicitly via the '
+                             'file extension in `filepath`')
+
+    writer = base.Writer(_write_mesh, ext=f'.{filetype}')
+
+    return writer.write_any(x,
+                            filepath=filepath)
+
+
+def _write_mesh(x: Union['core.MeshNeuron', 'core.Volume', 'tm.Trimesh'],
+                filepath: Optional[str] = None) -> None:
+    """Write single mesh to disk."""
+    if filepath and os.path.isdir(filepath):
+        if isinstance(x, core.MeshNeuron):
+            if not x.id:
+                raise ValueError('Neuron(s) must have an ID when destination '
+                                 'is a folder')
+            filepath = os.path.join(filepath, f'{x.id}')
+        elif isinstance(x, core.Volume):
+            filepath = os.path.join(filepath, f'{x.name}')
+        else:
+            raise ValueError(f'Unable to generate filename for {type(x)}')
+
+    if isinstance(x, core.MeshNeuron):
+        mesh = x.trimesh
+    elif isinstance(x, tm.Trimesh):
+        mesh = x
+    else:
+        raise TypeError(f'Unable to write data of type "{type(x)}"')
+
+    # Write to disk (will only return content if filename is None)
+    content = mesh.export(filepath)
+
+    if not filepath:
+        return content
