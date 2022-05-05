@@ -8,17 +8,19 @@ NAVis is a Python 3 (3.7 or later) library for **N**euron **A**nalysis and **Vis
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
 ## Features
-* work in Jupyter or terminal
+* works as Jupyter notebook, script or from terminal
 * support for various neuron types: **skeletons**, **meshes**, **dotprops**, **voxels**
 * 2D (matplotlib) and 3D (vispy, plotly or k3d) **plotting**
 * neuron **surgery**: cutting, stitching, pruning, rerooting, intersections, ...
-* analyze morphology (e.g. **NBLAST**) and connectivity
+* **morphometrics**: Strahler analysis, cable length, volume, tortuosity, ...
+* compare & cluster by morphology (e.g. **NBLAST**, persistence, form factor) and connectivity
 * **transform** data between template brains (support for e.g. HDF5, CMTK, Elastix and thin plate spline transforms)
 * load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and others
 * simulate neurons and networks using the **NEURON** simulator
-* interface with **Blender 3D**
+* interface with **Blender 3D** for high quality [renderings](https://youtu.be/wl3sFG7WQJc)
 * interface with **R** neuron libraries (e.g. [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr))
 * import-export from/to **SWC**, neuroglancer's ["**precomputed**"](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed) format and more
+* scalable thanks to out-of-the-box support for multiprocessing
 * designed to be **extensible** - see for example [pymaid](https://pymaid.readthedocs.io/en/latest/)
 
 ## Getting started
@@ -43,8 +45,6 @@ and `vispy-default`.
 3D plotting from a python REPL is provided by `vispy`, which has a choice of backends.
 Different backends work best on different combinations of hardware, OS, python distribution, and REPL, so there may be some trial and error involved.
 `vispy`'s backends are [listed here](https://vispy.org/installation.html#backend-requirements), and each can be installed as a navis extra, e.g. `pip3 install 'navis[vispy-pyqt6]'`.
-
-Alternatively click on the *launch binder* badge above to try out navis hosted by [mybinder](https://mybinder.org)!
 
 ![movie](https://user-images.githubusercontent.com/7161148/114312307-28a72700-9aea-11eb-89a6-ee1d72bfa730.mov)
 
