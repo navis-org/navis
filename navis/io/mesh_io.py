@@ -87,6 +87,25 @@ def read_mesh(f: Union[str, Iterable],
                         If ``output!="neuron"`` and import has multiple meshes
                         will return list of Volumes or Trimesh.
 
+    Examples
+    --------
+
+    Read a single file into :class:`navis.MeshNeuron`:
+
+    >>> m = navis.read_mesh('mesh.obj')                         # doctest: +SKIP
+
+    Read all e.g. .obj files in a directory:
+
+    >>> nl = navis.read_mesh('/some/directory/*.obj')           # doctest: +SKIP
+
+    Sample first 50 files in folder:
+
+    >>> nl = navis.read_mesh('/some/directory/*.obj', limit=50) # doctest: +SKIP
+
+    Read single file into :class:`navis.Volume`:
+
+    >>> nl = navis.read_mesh('mesh.obj', output='volume')       # doctest: +SKIP    
+
     """
     utils.eval_param(output, name='output',
                      allowed_values=('neuron', 'volume', 'trimesh'))

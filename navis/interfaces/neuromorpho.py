@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-"""Set of functions to interface with the neuromorpho.org database o neurons.
+"""Set of functions to interface with the neuromorpho.org database of neurons.
 
 See http://neuromorpho.org/apiReference.html for documentation.
 """

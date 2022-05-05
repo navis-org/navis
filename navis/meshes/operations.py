@@ -86,7 +86,7 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
                 0.5 will reduce the number of faces to 50%.
                 Integers (>1) are intepreted as target face count. For example,
                 an F of 5000 will attempt to reduce the number of faces to 5000.
-    backend :   "auto" | "pyfmqr" | "open3d" | "blender" | "pymeshlab"
+    backend :   "auto" | "pyfqmr" | "open3d" | "blender" | "pymeshlab"
                 Which backend to use. Currenly we support ``pyfqmr``, ``open3d``,
                 Blender 3D and ``pymeshlab``.
     inplace :   bool

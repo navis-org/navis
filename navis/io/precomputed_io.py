@@ -219,7 +219,6 @@ def read_precomputed(f: Union[str, io.BytesIO],
                         Formatter to specify what files to look for (when `f` is
                         directory) and how they are parsed into neuron
                         attributes. Some illustrative examples:
-
                           - ``{name}`` (default) uses the filename
                             (minus the suffix) as the neuron's name property
                           - ``{id}`` (default) uses the filename as the neuron's ID
@@ -241,7 +240,6 @@ def read_precomputed(f: Union[str, io.BytesIO],
                         filename. Ignored for DataFrames.
     info :              bool | str | dict
                         An info file describing the data:
-
                           - ``True`` = will look for `info` file in base folder
                           - ``False`` = do not use/look for `info` file
                           - ``str`` = filepath to `info` file
@@ -375,8 +373,8 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     ----------
     x :                 TreeNeuron | MeshNeuron | Volume | Trimesh | NeuronList
                         If multiple neurons, will generate a file for each
-                        neuron (see also ``filename``). For use in neuroglancer
-                        data should ideally be in nanometers.
+                        neuron (see also ``filepath``). For use in neuroglancer
+                        coordinates should generally be in nanometers.
     filepath :          None | str | list, optional
                         If ``None``, will return byte string or list of
                         thereof. If filepath will save to this file. If path
@@ -403,12 +401,14 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     None
                         If filepath is not ``None``.
     bytes
-                        If fillepath is ``None``.
+                        If filepath is ``None``.
 
     See Also
     --------
     :func:`navis.read_precomputed`
                         Import neurons from neuroglancer's precomputed format.
+    :func:`navis.write_mesh`
+                        Write meshes to generic mesh formats (obj, stl, etc).
 
     Examples
     --------

@@ -269,7 +269,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     Parameters
     ----------
     f :                 str | pandas.DataFrame | iterable
-                        SWC string, URL, filename, folder or DataFrame.
+                        Filename, folder, SWC string, URL or DataFrame.
                         If folder, will import all ``.swc`` files. If a
                         ``.zip`` file will read all SWC files in the file.
     connector_labels :  dict, optional
@@ -346,6 +346,25 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     --------
     :func:`navis.write_swc`
                         Export neurons as SWC files.
+
+    Examples
+    --------
+
+    Read a single file:
+
+    >>> s = navis.read_swc('skeleton.swc')                      # doctest: +SKIP
+
+    Read all .swc files in a directory:
+
+    >>> s = navis.read_swc('/some/directory/')                  # doctest: +SKIP
+
+    Read all .swc files in a zip archive:
+
+    >>> s = navis.read_swc('skeletons.zip')                     # doctest: +SKIP
+
+    Sample first 100 SWC files a zip archive:
+
+    >>> s = navis.read_swc('skeletons.zip', limit=100)          # doctest: +SKIP
 
     """
     # SwcReader will try its best to read whatever you throw at it - with limit
@@ -443,6 +462,11 @@ def write_swc(x: 'core.NeuronObject',
     node_map :          dict
                         Only if ``return_node_map=True``.
 
+    See Also
+    --------
+    :func:`navis.read_swc`
+                        Import skeleton from SWC files.
+
     Examples
     --------
     Save a single neuron to a specific file:
@@ -482,11 +506,6 @@ def write_swc(x: 'core.NeuronObject',
     >>> import navis
     >>> nl = navis.example_neurons(5, kind='skeleton')
     >>> navis.write_swc(nl, tmp_dir / 'skel-{neuron.name}.swc@neuronlist.zip')
-
-    See Also
-    --------
-    :func:`navis.read_swc`
-                        Import skeleton from SWC files.
 
     """
     # Make sure inputs are only TreeNeurons

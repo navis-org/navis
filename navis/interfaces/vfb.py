@@ -60,7 +60,7 @@ def get_vfb_ids(x, database=None, attach=True):
                 assume that their IDs correspond to the `accession` (=external)
                 ID in VFB.
     database :  str
-                Database `x` belongs to. This can be e.g.:
+                Database `x` belongs to. This can be, for example:
                     - 'FAFB'
                     - 'neuronbridge'
                     - 'hemibrain:v1.0.1'
@@ -112,7 +112,7 @@ def get_vfb_meta(x, database, raw=False):
                 assume that their IDs correspond to the `accession` (=external)
                 ID in VFB.
     database :  str
-                Database `x` belongs to. This can be e.g.:
+                Database `x` belongs to. This can be, for example:
                     - 'FAFB'
                     - 'neuronbridge'
                     - 'hemibrain:v1.0.1'
