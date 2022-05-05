@@ -36,6 +36,7 @@ def read_mesh(f: Union[str, Iterable],
               errors: Union[Literal['raise'],
                             Literal['log'],
                             Literal['ignore']] = 'log',
+              limit: Optional[int] = None,
               **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from mesh.
 
@@ -52,7 +53,7 @@ def read_mesh(f: Union[str, Iterable],
                         subdirectories for meshes.
     parallel :          "auto" | bool | int,
                         Defaults to ``auto`` which means only use parallel
-                        processing if more than 10 NRRD files are imported.
+                        processing if more than 100 mesh files are imported.
                         Spawning and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the number of
@@ -61,6 +62,11 @@ def read_mesh(f: Union[str, Iterable],
                         Determines function's output. See Returns.
     errors :            "raise" | "log" | "ignore"
                         If "log" or "ignore", errors will not be raised.
+    limit :             int, optional
+                        If reading from a folder you can use this parameter to
+                        read only the first ``limit`` files. Useful when
+                        wanting to get a sample from a large library of
+                        meshes.
     **kwargs
                         Keyword arguments passed to :class:`navis.MeshNeuron`
                         or :class:`navis.Volume`. You can use this to e.g.
@@ -88,19 +94,23 @@ def read_mesh(f: Union[str, Iterable],
     # If is directory, compile list of filenames
     if isinstance(f, str) and '*' in f:
         f, ext = f.split('*')
+        f = Path(f).expanduser()
 
-        if not os.path.isdir(f):
-            raise ValueError(f'{f} is not a path')
+        if not f.is_dir():
+            raise ValueError(f'{f} does not appear to exist')
 
         if not include_subdirs:
-            f = list(Path(f).glob(f'*{ext}'))
+            f = list(f.glob(f'*{ext}'))
         else:
-            f = list(Path(f).rglob(f'*{ext}'))
+            f = list(f.rglob(f'*{ext}'))
+
+        if limit:
+            f = f[:limit]
 
     if utils.is_iterable(f):
         # Do not use if there is only a small batch to import
         if isinstance(parallel, str) and parallel.lower() == 'auto':
-            if len(f) < 10:
+            if len(f) < 100:
                 parallel = False
 
         if parallel:
