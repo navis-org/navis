@@ -221,7 +221,8 @@ def read_nrrd(f: Union[str, Iterable],
                      allowed_values=('raw', 'dotprops', 'voxels'))
 
     # If is directory, compile list of filenames
-    if isinstance(f, str) and os.path.isdir(f):
+    if isinstance(f, (str, Path)) and Path(f).expanduser().is_dir():
+        f = Path(f).expanduser()
         if not include_subdirs:
             f = [os.path.join(f, x) for x in os.listdir(f) if
                  os.path.isfile(os.path.join(f, x)) and x.endswith('.nrrd')]
@@ -275,6 +276,7 @@ def read_nrrd(f: Union[str, Iterable],
         return core.NeuronList([r for r in res if r])
 
     # Open the file
+    f = str(Path(f).expanduser())
     fname = os.path.basename(f).split('.')[0]
     data, header = nrrd.read(f)
 
