@@ -255,7 +255,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     approx_nn :     bool
                     If True, will use approximate nearest neighbors. This gives
                     a >2X speed up but also produces only approximate scores.
-                    Impact depends on the use case - testing recommened.
+                    Impact depends on the use case - testing recommended.
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                     Precision for scores. Defaults to 64 bit (double) floats.
                     This is useful to reduce the memory footprint for very large
@@ -274,7 +274,8 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     -------
     scores :        pandas.DataFrame
                     Matrix with NBLAST scores. Rows are query neurons, columns
-                    are targets.
+                    are targets. The order is the same as in ``query``/``target``
+                    and the labels are based on the neurons' ``.id`` property.
     mask :          np.ndarray
                     Only if ``return_mask=True``: a boolean mask with same shape
                     as ``scores`` that shows which scores are based on a full
@@ -336,9 +337,9 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
             raise ValueError('Expected `t` to be integer between 0 and 100 for '
                              f'criterion "percentile", got {t}')
     elif criterion == 'N':
-        if (t < 0 or t >= len(target)):
-            raise ValueError('`t` must be between 0 and the total number of'
-                             f'targets ({len(target)} for criterion "N", '
+        if (t < 0 or t > len(target)):
+            raise ValueError('`t` must be between 0 and the total number of '
+                             f'targets ({len(target)}) for criterion "N", '
                              f'got {t}')
 
     # Make sure we're working on NeuronLists
@@ -560,7 +561,7 @@ def nblast(query: Union[Dotprops, NeuronList],
     approx_nn :     bool
                     If True, will use approximate nearest neighbors. This gives
                     a >2x speed up but also produces only approximate scores.
-                    Impact depends on the use case - testing recommened.
+                    Impact depends on the use case - testing recommended.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
                     ``os.cpu_count() // 2``. This should ideally be an even
@@ -579,6 +580,13 @@ def nblast(query: Union[Dotprops, NeuronList],
                     evenly distributed across n_cores. Ignored if ``n_cores=1``.
     progress :      bool
                     Whether to show progress bars.
+
+    Returns
+    -------
+    scores :        pandas.DataFrame
+                    Matrix with NBLAST scores. Rows are query neurons, columns
+                    are targets. The order is the same as in ``query``/``target``
+                    and the labels are based on the neurons' ``.id`` property.
 
     References
     ----------
@@ -697,7 +705,7 @@ def nblast_allbyall(x: NeuronList,
                     progress: bool = True) -> pd.DataFrame:
     """All-by-all NBLAST of inputs neurons.
 
-    A slightly more efficient way of running ``nblast(query=x, target=x)``.
+    A slightly more efficient way than running ``nblast(query=x, target=x)``.
 
     Parameters
     ----------
@@ -729,7 +737,7 @@ def nblast_allbyall(x: NeuronList,
     approx_nn :     bool
                     If True, will use approximate nearest neighbors. This gives
                     a >2x speed up but also produces only approximate scores.
-                    Impact depends on the use case - testing recommened.
+                    Impact depends on the use case - testing recommended.
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                     Precision for scores. Defaults to 64 bit (double) floats.
                     This is useful to reduce the memory footprint for very large
@@ -742,7 +750,9 @@ def nblast_allbyall(x: NeuronList,
     Returns
     -------
     scores :        pandas.DataFrame
-                    Matrix with NBLAST scores.
+                    Matrix with NBLAST scores. Rows are query neurons, columns
+                    are targets. The order is the same as in ``x``
+                    and the labels are based on the neurons' ``.id`` property.
 
     References
     ----------
