@@ -710,7 +710,7 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
             x, y = _parse_view2d(this_cn[['x', 'y', 'z']].values, view)
 
             ax.scatter(x, y,
-                       c=cn_layout[c]['color'],
+                       color=cn_layout[c]['color'],
                        edgecolor='none',
                        s=kwargs.get('cn_size', cn_layout['size']))
             ax.get_children()[-1].set_gid(f'CN_{neuron.id}')
@@ -718,7 +718,7 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
         all_cn = neuron.connectors
         c = [cn_layout[i]['color'] for i in all_cn.type.values]
         ax.scatter(all_cn.x.values, all_cn.y.values, all_cn.z.values,
-                   c=c,
+                   color=c,
                    s=kwargs.get('cn_size', cn_layout['size']),
                    depthshade=cn_layout.get('depthshade', False),
                    edgecolor='none')
