@@ -1,3 +1,4 @@
+
 .. _whats_new:
 
 What's new?
@@ -18,8 +19,8 @@ repository.
      - ongoing
      - - new interface to fetch data from Virtual Fly Brain: ``navis.interfaces.vfb``
        - tools to build custom NBLAST score matrices (big thanks to Chris Barnes!), see the new :ref:`tutorial <smat_intro>`
-       - Bayesian implementation of the networ travesal model: :class:`~navis.models.network_models.BayesianTraversalModel` (big thanks to Andrew Champion!)
-       - nblasts: new ``approx_nn`` parameter (sacrifices precision for speed)
+       - Bayesian implementation of the network traversal model: :class:`~navis.models.network_models.BayesianTraversalModel` (big thanks to Andrew Champion!)
+       - NBLASTs: new ``approx_nn`` parameter (sacrifices precision for speed)
        - new morphometrics function: :func:`navis.segment_analysis`
        - fixed a bug in :func:`navis.stitch_skeletons`
    * - 1.2.1

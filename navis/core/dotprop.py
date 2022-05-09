@@ -572,7 +572,8 @@ class Dotprops(BaseNeuron):
                     ) -> core.TreeNeuron:
         """Turn dotprops into a skeleton.
 
-        Note that only minimal meta data is carried over.
+        This is mainly for things like plotting as it does not produce
+        meaningful edges. Also note that only minimal meta data is carried over.
 
         Parameters
         ----------
