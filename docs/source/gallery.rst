@@ -13,14 +13,55 @@ function. There you will also find more examples.
          <div class="col-md-3">
             <div class="panel panel-default">
                <div class="panel-heading">
-                  <h3 class="panel-title">Neuron/Lists</h3>
+                  <h3 class="panel-title">Data types</h3>
                </div>
                <div class="panel-body">
+
+Tutorials on how to work with ``navis`` neurons:
 
 .. toctree::
    :maxdepth: 1
 
    tutorials/neurons_intro
+
+
+.. raw:: html
+
+               </div>
+            </div>
+            <div class="panel panel-default">
+               <div class="panel-heading">
+                  <h3 class="panel-title">Import/Export</h3>
+               </div>
+               <div class="panel-body">
+
+Get data in and out of ``navis``:
+
+.. toctree::
+   :maxdepth: 1
+
+   tutorials/local_data
+
+.. raw:: html
+
+               </div>
+            </div>
+            <div class="panel panel-default">
+               <div class="panel-heading">
+                  <h3 class="panel-title">Load remote data</h3>
+               </div>
+               <div class="panel-body">
+
+Import data from remote data sources & repositories:
+
+.. toctree::
+   :maxdepth: 1
+
+   tutorials/neuprint
+   tutorials/microns_tut
+   tutorials/cloudvolume_tut
+   tutorials/neuromorpho_tut
+   tutorials/insectbraindb
 
 .. raw:: html
 
@@ -33,6 +74,8 @@ function. There you will also find more examples.
                   <h3 class="panel-title">Plotting</h3>
                </div>
                <div class="panel-body">
+
+Visualize your neurons:
 
 .. toctree::
    :maxdepth: 1
@@ -48,6 +91,8 @@ function. There you will also find more examples.
                   <h3 class="panel-title">Morphology</h3>
                </div>
                <div class="panel-body">
+
+Various morphological analyses:
 
 .. toctree::
    :maxdepth: 2
@@ -65,6 +110,8 @@ function. There you will also find more examples.
                   <h3 class="panel-title">NBLAST</h3>
                </div>
                <div class="panel-body">
+
+Learn how to run & interpret NBLAST:
 
 .. toctree::
    :maxdepth: 2
@@ -84,16 +131,13 @@ function. There you will also find more examples.
                </div>
                <div class="panel-body">
 
+Use ``navis`` in combination with other tools:
+
 .. toctree::
    :maxdepth: 1
 
    tutorials/neuron
    blender
-   tutorials/neuprint
-   tutorials/microns_tut
-   tutorials/cloudvolume_tut
-   tutorials/neuromorpho_tut
-   tutorials/insectbraindb
    tutorials/r_doc
 
 
@@ -108,6 +152,8 @@ function. There you will also find more examples.
                   <h3 class="panel-title">Transformations</h3>
                </div>
                <div class="panel-body">
+
+Transform spatial data (e.g. neurons) between brain spaces:
 
 .. toctree::
    :maxdepth: 2

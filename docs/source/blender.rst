@@ -86,7 +86,7 @@ First, import and set up NAVis like you are used to.
 
 Now initialise the interface with Blender and import the neurons.
 
->>> # The blender interface has be imported explicitly
+>>> # The blender interface has to be imported explicitly
 >>> import navis.interfaces.blender as b3d
 >>> # Initialise handler
 >>> h = b3d.Handler()

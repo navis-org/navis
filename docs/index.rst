@@ -37,9 +37,10 @@ bug reports and general questions are very welcome and best placed in a
 
 * works in Jupyter notebooks, from terminal or as script
 * supports various neuron types: skeletons, meshes, dotprops, voxels
-* process neurons: smoothing, resampling, skeletonization, meshing, etc.
-* virtual neuron surgery: cutting, stitching, pruning, rerooting, etc.
-* cluster by morphology (e.g. NBLAST) and connectivity
+* process neurons: smoothing, resampling, skeletonization, meshing, ...
+* virtual neuron surgery: cutting, stitching, pruning, rerooting, ...
+* morphometrics: Strahler analysis, cable length, volume, tortuosity, ...
+* cluster by morphology (e.g. NBLAST, persistence, form factor) or connectivity
 * 2D (matplotlib) and 3D (vispy & plotly) plotting
 * transform neurons between template brains
 * Python bindings for R natverse library
@@ -47,6 +48,7 @@ bug reports and general questions are very welcome and best placed in a
 * simulate neurons and networks using `NEURON`
 * interface with :ref:`Blender 3D<blender3d>`
 * import-export from/to SWC, NRRD, Neuroglancer's precomputed format and more
+* scalable thanks to out-of-the-box support for multiprocessing
 * highly extensible - see the :ref:`ecosystem <other_libs>`
 
 .. raw:: html
