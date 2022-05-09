@@ -127,8 +127,16 @@ Last but not least, here's a little taster of what you can do with Blender:
 Reference
 ~~~~~~~~~
 
-Objects
-+++++++
+The :class:`navis.interfaces.blender.Handler` is providing the interface between
+navis and Blender.
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.interfaces.blender.Handler
+
+To manipulate objects (i.e. neurons, synapses and such):
+
 .. autosummary::
     :toctree: generated/
 

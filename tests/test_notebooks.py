@@ -23,7 +23,12 @@ SKIP = ['transforming.ipynb',  # requires navis-flybrains + transforms
         'r_doc.ipynb',  # requires rpy2
         'nblast_flycircuit.ipynb',  # requires downloading flycircuit dotprops
         'nblast_hemibrain.ipynb',  # requires downloading data
-        'microns_tut.ipynb'  # requires credentials
+        'microns_tut.ipynb',  # requires credentials
+        'local_data_skeletons.ipynb',  # requires downloaded data
+        'local_data_dotprops.ipynb',  # requires downloaded data
+        'local_data_meshes.ipynb',  # requires downloaded data
+        'local_data_voxels.ipynb',  # requires downloaded data
+        'local_data_pickling.ipynb',  # requires downloaded data
         ]
 
 if __name__ == '__main__':

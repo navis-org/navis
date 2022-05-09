@@ -19,7 +19,7 @@ This API reference is a more or less complete account of the primary functions:
 3. :ref:`Manipulate or analyze neuron morphology<api_morph>`
 4. :ref:`Transforming and mirroring data<transfm>`
 5. :ref:`Analyze connectivity<api_con>`
-6. :ref:`Import/Export<io>`
+6. :ref:`Import/Export<api_io>`
 7. :ref:`Utility functions<api_utility>`
 8. :ref:`Which functions work with which neuron types?<api_func_matrix>`
 
@@ -338,8 +338,8 @@ Functions to down- or resample neurons.
     navis.downsample_neuron
     navis.simplify_mesh
 
-Analysis
---------
+Morphometrics
+-------------
 Functions to analyze morphology.
 
 .. autosummary::
@@ -506,7 +506,7 @@ Functions to analyse/cluster neurons based on connectivity.
     navis.cable_overlap
     navis.synapse_similarity
 
-.. _io:
+.. _api_io:
 
 Import/Export
 +++++++++++++

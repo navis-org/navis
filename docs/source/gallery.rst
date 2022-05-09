@@ -13,7 +13,7 @@ function. There you will also find more examples.
          <div class="col-md-3">
             <div class="panel panel-default">
                <div class="panel-heading">
-                  <h3 class="panel-title">Data types</h3>
+                  <h3 class="panel-title">The Basics</h3>
                </div>
                <div class="panel-body">
 
@@ -35,22 +35,16 @@ Tutorials on how to work with ``navis`` neurons:
                </div>
                <div class="panel-body">
 
-Get data in and out of ``navis``:
+Get local data in and out of ``navis``:
 
 .. toctree::
    :maxdepth: 1
 
-   tutorials/local_data
-
-.. raw:: html
-
-               </div>
-            </div>
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">Load remote data</h3>
-               </div>
-               <div class="panel-body">
+   tutorials/local_data_skeletons
+   tutorials/local_data_meshes
+   tutorials/local_data_voxels
+   tutorials/local_data_dotprops
+   tutorials/local_data_pickling
 
 Import data from remote data sources & repositories:
 
@@ -92,12 +86,19 @@ Visualize your neurons:
                </div>
                <div class="panel-body">
 
-Various morphological analyses:
+Morphometrics:
 
 .. toctree::
    :maxdepth: 2
 
    tutorials/morph_analysis
+
+Various morphological operations:
+
+.. toctree::
+   :maxdepth: 2
+
+   tutorials/morph_processing
 
 .. raw:: html
 

@@ -1242,7 +1242,7 @@ def betweeness_centrality(x: 'core.NeuronObject',
     -------
     neuron
                 Adds "betweenness" as column in the node table (for
-                TreeNeurons) or as `."betweenness` property
+                TreeNeurons) or as ``.betweenness`` property
                 (for MeshNeurons).
 
     Examples
