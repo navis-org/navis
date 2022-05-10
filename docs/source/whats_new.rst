@@ -17,12 +17,18 @@ repository.
      -
    * - dev
      - ongoing
-     - - new interface to fetch data from Virtual Fly Brain: ``navis.interfaces.vfb``
+     - - TODO
+   * - 1.3.0
+     - 10/05/22
+     - - as of this version `pip install navis` won't install a vispy backend (see :ref:`install instructions <installing>` for details)
+       - new interface to fetch data from Virtual Fly Brain: ``navis.interfaces.vfb``
        - tools to build custom NBLAST score matrices (big thanks to Chris Barnes!), see the new :ref:`tutorial <smat_intro>`
        - Bayesian implementation of the network traversal model: :class:`~navis.models.network_models.BayesianTraversalModel` (big thanks to Andrew Champion!)
        - NBLASTs: new ``approx_nn`` parameter (sacrifices precision for speed)
+       - example neurons now come with some meta data
        - new morphometrics functions: :func:`navis.segment_analysis` & :func:`navis.form_factor`
-       - fixed a bug in :func:`navis.stitch_skeletons`
+       - new function to write meshes: :func:`navis.write_mesh`
+       - lots of fixes and improvements in particular for i/o-related functions
    * - 1.2.1
      - 25/02/22
      - - hot fix for :func:`navis.split_axon_dendrite`
