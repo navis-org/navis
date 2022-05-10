@@ -24,6 +24,8 @@ from .analyze import find_soma
 from .subset import subset_neuron
 from .persistence import (persistence_points, persistence_vectors,
                           persistence_distances)
+from .fq import form_factor
+
 
 __all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
            'segregation_index', 'arbor_segregation_index', 'tortuosity',
@@ -34,4 +36,4 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
            'subset_neuron', 'smooth_voxels', 'sholl_analysis',
            'persistence_points', 'betweeness_centrality',
            'persistence_vectors', 'persistence_distances', 'combine_neurons',
-           'segment_analysis']
+           'segment_analysis', 'form_factor']

@@ -346,6 +346,7 @@ Functions to analyze morphology.
     :toctree: generated/
 
     navis.find_main_branchpoint
+    navis.form_factor
     navis.persistence_points
     navis.persistence_vectors
     navis.strahler_index

@@ -21,7 +21,7 @@ repository.
        - tools to build custom NBLAST score matrices (big thanks to Chris Barnes!), see the new :ref:`tutorial <smat_intro>`
        - Bayesian implementation of the network traversal model: :class:`~navis.models.network_models.BayesianTraversalModel` (big thanks to Andrew Champion!)
        - NBLASTs: new ``approx_nn`` parameter (sacrifices precision for speed)
-       - new morphometrics function: :func:`navis.segment_analysis`
+       - new morphometrics functions: :func:`navis.segment_analysis` & :func:`navis.form_factor`
        - fixed a bug in :func:`navis.stitch_skeletons`
    * - 1.2.1
      - 25/02/22
