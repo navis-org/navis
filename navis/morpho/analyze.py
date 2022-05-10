@@ -14,6 +14,8 @@
 import pint
 import warnings
 
+import numpy as np
+
 from .. import config, core
 
 from typing import Sequence
