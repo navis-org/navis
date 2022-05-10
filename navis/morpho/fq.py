@@ -95,7 +95,7 @@ def form_factor(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     >>> x = np.logspace(-3, 3,  601)
     >>> fig, ax = plt.subplots()
     >>> for i in range(len(Fq)):
-    ...     ax.plot(x, Fq[i])
+    ...     _ = ax.plot(x, Fq[i])
     >>> # Make log-log
     >>> ax.set_xscale('log')
     >>> ax.set_yscale('log')
