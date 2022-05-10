@@ -20,6 +20,7 @@ jobs:
         pip install
         wheel
         setuptools
+        extreqs
         --user
         --upgrade
     - name: Build a binary wheel and a source tarball
