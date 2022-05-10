@@ -147,7 +147,14 @@ class VoxelNeuron(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.units = (n.units / other).to_compact()
+
+            # Convert units
+            # Note: .to_compact() throws a RuntimeWarning and returns unchanged
+            # values  when `units` is a iterable
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                n.units = (n.units / other).to_compact()
+
             n.offset = n.offset / other
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] /= other
@@ -162,7 +169,14 @@ class VoxelNeuron(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.units = (n.units * other).to_compact()
+
+            # Convert units
+            # Note: .to_compact() throws a RuntimeWarning and returns unchanged
+            # values  when `units` is a iterable
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                n.units = (n.units * other).to_compact()
+
             n.offset = n.offset * other
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other

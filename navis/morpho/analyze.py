@@ -67,11 +67,13 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
         if not soma_nodes.empty:
             if isinstance(soma_radius, pint.Quantity):
                 if isinstance(x.units, (pint.Quantity, pint.Unit)) and \
-                   not x.units.dimensionless:
+                   not x.units.dimensionless and \
+                   not isinstance(x.units._magnitude, np.ndarray):
                     # Do NOT remove the .values here -> otherwise conversion to units won't work
                     is_large = soma_nodes.radius.values * x.units >= soma_radius
                 else:
-                    # If neurons has no units, assume they are the same as the soma radius
+                    # If neurons has no units or if units are non-isotropic,
+                    # assume they are the same as the soma radius
                     is_large = soma_nodes.radius.values * soma_radius.units >= soma_radius
             else:
                 is_large = soma_nodes.radius >= soma_radius

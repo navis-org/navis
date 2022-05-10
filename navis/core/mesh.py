@@ -17,6 +17,7 @@ import os
 import pint
 import warnings
 import scipy
+import warnings
 
 import networkx as nx
 import numpy as np
@@ -197,7 +198,11 @@ class MeshNeuron(BaseNeuron):
                 n.connectors.loc[:, ['x', 'y', 'z']] /= other
 
             # Convert units
-            n.units = (n.units * other).to_compact()
+            # Note: .to_compact() throws a RuntimeWarning and returns unchanged
+            # values  when `units` is a iterable
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                n.units = (n.units * other).to_compact()
 
             self._clear_temp_attr()
 
@@ -214,7 +219,11 @@ class MeshNeuron(BaseNeuron):
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other
 
             # Convert units
-            n.units = (n.units / other).to_compact()
+            # Note: .to_compact() throws a RuntimeWarning and returns unchanged
+            # values  when `units` is a iterable
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                n.units = (n.units / other).to_compact()
 
             self._clear_temp_attr()
 

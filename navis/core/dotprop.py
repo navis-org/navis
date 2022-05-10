@@ -151,7 +151,11 @@ class Dotprops(BaseNeuron):
                 delattr(n, '_tree')
 
             # Convert units
-            n.units = (n.units * other).to_compact()
+            # Note: .to_compact() throws a RuntimeWarning and returns unchanged
+            # values  when `units` is a iterable
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                n.units = (n.units * other).to_compact()
 
             return n
         return NotImplemented
@@ -170,15 +174,11 @@ class Dotprops(BaseNeuron):
                 delattr(n, '_tree')
 
             # Convert units
-            # If multiplication is isometric
-            if isinstance(other, numbers.Number):
+            # Note: .to_compact() throws a RuntimeWarning and returns unchanged
+            # values  when `units` is a iterable
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
                 n.units = (n.units / other).to_compact()
-            # If other is iterable but multiplication is still isometric
-            elif len(set(other)) == 1:
-                n.units = (n.units / other[0]).to_compact()
-            # If non-isometric remove units
-            else:
-                n.units = None
 
             return n
         return NotImplemented

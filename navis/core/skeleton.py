@@ -204,11 +204,12 @@ class TreeNeuron(BaseNeuron):
     def __truediv__(self, other, copy=True):
         """Implement division for coordinates (nodes, connectors)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
-            if utils.is_iterable(other) and len(other) != 4:
+            if utils.is_iterable(other):
+                # If divisor is isotropic use only single value
                 if len(set(other)) == 1:
                     other == other[0]
-                else:
-                    raise ValueError('Division by list/array requires '
+                elif len(other) != 4:
+                    raise ValueError('Division by list/array requires 4 '
                                      'divisors for x/y/z and radius - '
                                      f'got {len(other)}')
 
@@ -227,7 +228,11 @@ class TreeNeuron(BaseNeuron):
                     n.soma_radius /= other
 
             # Convert units
-            n.units = (n.units * other).to_compact()
+            # Note: .to_compact() throws a RuntimeWarning and returns unchanged
+            # values  when `units` is a iterable
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                n.units = (n.units * other).to_compact()
 
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
@@ -236,11 +241,12 @@ class TreeNeuron(BaseNeuron):
     def __mul__(self, other, copy=True):
         """Implement multiplication for coordinates (nodes, connectors)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
-            if utils.is_iterable(other) and len(other) != 4:
+            if utils.is_iterable(other):
+                # If multiplicator is isotropic use only single value
                 if len(set(other)) == 1:
                     other == other[0]
-                else:
-                    raise ValueError('Multiplication by list/array requires '
+                elif len(other) != 4:
+                    raise ValueError('Multiplication by list/array requires 4'
                                      'multipliers for x/y/z and radius - '
                                      f'got {len(other)}')
 
@@ -259,7 +265,11 @@ class TreeNeuron(BaseNeuron):
                     n.soma_radius *= other
 
             # Convert units
-            n.units = (n.units / other).to_compact()
+            # Note: .to_compact() throws a RuntimeWarning and returns unchanged
+            # values  when `units` is a iterable
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                n.units = (n.units / other).to_compact()
 
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
