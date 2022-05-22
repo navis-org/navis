@@ -315,7 +315,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
             # Keep track of indices of queries and targets
             this.queries = np.arange(len(q))
             this.targets = np.arange(len(t)) + len(q)
-            this.pbar_position = len(blasters)
+            this.pbar_position = len(blasters) if not utils.is_jupyter() else None
 
             blasters.append(this)
 

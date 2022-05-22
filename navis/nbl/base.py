@@ -83,23 +83,14 @@ class Blaster(ABC):
                             Which scores to return.
 
         """
-        if utils.is_jupyter() and config.tqdm == config.tqdm_notebook:
-            # Jupyter does not like the progress bar position for some reason
-            position = None
-
-            # For some reason we have to do this if we are in a Jupyter environment
-            # and are using multi-processing because otherwise the progress bars
-            # won't show. See this issue:
-            # https://github.com/tqdm/tqdm/issues/485#issuecomment-473338308
-            print(' ', end='', flush=True)
-        else:
-            position = getattr(self, 'pbar_position', 0)
-
+        # See `multi_query_target` for explanation on progress bars
         scr = []
-        for p in config.tqdm(pairs,
+        for p in config.tqdm_classic(pairs,
                              desc=f'{self.desc} pairs',
                              leave=False,
-                             position=position,
+                             position=getattr(self,
+                                              'pbar_position',
+                                              None),
                              disable=not self.progress):
             scr.append(self.single_query_target(p[0], p[1], scores=scores))
 
@@ -116,24 +107,34 @@ class Blaster(ABC):
                             Which scores to return.
 
         """
-        if utils.is_jupyter() and config.tqdm == config.tqdm_notebook:
-            # Jupyter does not like the progress bar position for some reason
-            position = None
-
-            # For some reason we have to do this if we are in a Jupyter environment
-            # and are using multi-processing because otherwise the progress bars
-            # won't show. See this issue:
-            # https://github.com/tqdm/tqdm/issues/485#issuecomment-473338308
-            print(' ', end='', flush=True)
-        else:
-            position = getattr(self, 'pbar_position', 0)
+        # There are currently a few issues with Jupyter (lab?) and tqdm:
+        # 1. Subprocesses don't know that they were spawned from a Jupyter
+        #    environment and consequently use classic tqdm. This by itself would
+        #    be an easy fix but see below:
+        # 2. Even forcing tqdm.notebook in subprocesses does not produce a Jupyter
+        #    widget progress bar in the notebook - it just shows nothing until
+        #    the process finishes. Even that empty print(' ', end='', flush=True)
+        #    does not do the trick anymore.
+        # 3. Using classic tqdm from multiple processes from inside a Jupyter
+        #    enviroment leads to only one progress bar being shown... UNLESS
+        #    `position!=None` in which case every update is printed on a new
+        #    line which produces a horrendous mess. With `position=None` we
+        #    only ever see a single classic progress bar but at least there is
+        #    some feedback for the user without stdout exploding.
+        # So it seems the only viable solution for now is:
+        # - always use classic tqdm
+        # - only use position when spawned outside a Jupyter environment
+        # We could allow Jupyter progress bars on single cores but how often
+        # does that happen?
 
         res = np.zeros((len(q_idx), len(t_idx)),
                        dtype=self.dtype)
-        for i, q in enumerate(config.tqdm(q_idx,
+        for i, q in enumerate(config.tqdm_classic(q_idx,
                                           desc=self.desc,
                                           leave=False,
-                                          position=position,
+                                          position=getattr(self,
+                                                           'pbar_position',
+                                                           None),
                                           disable=not self.progress)):
             for k, t in enumerate(t_idx):
                 res[i, k] = self.single_query_target(q, t, scores=scores)

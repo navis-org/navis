@@ -384,7 +384,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                 # Keep track of indices of queries and targets
                 this.queries = np.arange(len(qq))
                 this.targets = np.arange(len(tt)) + len(qq)
-                this.pbar_position = len(nblasters)
+                this.pbar_position = len(nblasters) if not utils.is_jupyter() else None
                 this.desc = 'Pre-NBLAST'
 
                 nblasters.append(this)
@@ -472,7 +472,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                 this.mask[q[0]:q[-1]+1, t[0]:t[-1]+1] = submask
 
                 # Make sure position of progress bar checks out
-                this.pbar_position = len(nblasters)
+                this.pbar_position = len(nblasters) if not utils.is_jupyter() else None
                 this.desc = 'Full NBLAST'
 
                 nblasters.append(this)
@@ -664,7 +664,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                 # Keep track of indices of queries and targets
                 this.queries = np.arange(len(q))
                 this.targets = np.arange(len(t)) + len(q)
-                this.pbar_position = len(nblasters) % n_cores
+                this.pbar_position = (len(nblasters) % n_cores) if not utils.is_jupyter() else None
 
                 nblasters.append(this)
                 pbar.update(1)
@@ -820,7 +820,7 @@ def nblast_allbyall(x: NeuronList,
                 # Keep track of indices of queries and targets
                 this.queries = [ixmap[ix] for ix in qix]
                 this.targets = [ixmap[ix] for ix in tix]
-                this.pbar_position = len(nblasters)
+                this.pbar_position = len(nblasters) if not utils.is_jupyter() else None
 
                 nblasters.append(this)
                 pbar.update()
