@@ -456,7 +456,7 @@ def scatter2plotly(x, **kwargs):
         if isinstance(scatter, pd.DataFrame):
             if not all([c in scatter.columns for c in ['x', 'y', 'z']]):
                 raise ValueError('DataFrame must have x, y and z columns')
-            scatter = [['x', 'y', 'z']].values
+            scatter = scatter[['x', 'y', 'z']].values
 
         if not isinstance(scatter, np.ndarray):
             scatter = np.array(scatter)
