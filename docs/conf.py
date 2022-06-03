@@ -17,6 +17,12 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
+from subprocess import check_call as sh
+import navis.interfaces.neuprint
+import mock
+import sys
+import matplotlib.pyplot as plt
+import matplotlib.sphinxext.plot_directive
 import os
 import numpydoc
 import sphinx_bootstrap_theme
@@ -26,21 +32,19 @@ import re
 import matplotlib as mpl
 mpl.use("Agg")
 
-import matplotlib.sphinxext.plot_directive
-import matplotlib.pyplot as plt
 
-import sys
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../..'))
 sys.path.insert(0, os.path.abspath('tools'))
 
 #This needs to be removed in order to built locally
-import mock
 MOCK_MODULES = ['py2cytoscape.data.cyrest_client.CyRestClient',
                 'rpy2.robjects.packages.importr'
                 'rpy2.robjects.pandas2ri',
                 'rpy2.robjects.numpy2ri',
+                'caveclient', 'caveclient.CAVEclient',
+                'cloudvolume',
                 'rpy2.robjects.conversion.localconverter']
 
 for module in MOCK_MODULES:
@@ -52,13 +56,10 @@ for module in MOCK_MODULES:
 sys.modules['rpy2'].__version_vector__ = (3, 0, 0)
 sys.modules['rpy2'].__version__ = '3.0.0'
 
-import navis
+# import navis
 # from navis.interfaces import cytoscape
 # import navis.interfaces.blender
 # from navis.interfaces import r
-import navis.interfaces.neuprint
-
-from subprocess import check_call as sh
 
 
 def convert_nb(nbname, execute=False):
@@ -92,6 +93,7 @@ def remove_hbox(filepath):
         s = re.sub(".. parsed-literal::\n\n.*?HTML\(value=''\)\)\)", '', s)
         with open(filepath, 'w') as f:
             f.write(s)
+
 
 def remove_pbars(filepath):
     """Drop accidental progress bars '... [00:00<?, ?it/s]' lines from .rst files."""
@@ -131,7 +133,7 @@ extensions = [
     #'nbsphinx',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
-    'sphinx.ext.viewcode', # This will add links to source code to autodoc
+    'sphinx.ext.viewcode',  # This will add links to source code to autodoc
     #'sphinx.ext.linkcode', # This is similar to viewcode but links to external source -> need to define a function for this
     'sphinx.ext.napoleon',
     #'sphinx.ext.mathjax', # mathjax is interactive and configurable but can also misbehave when rendering - switched to imgmath instead
