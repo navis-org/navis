@@ -154,6 +154,7 @@ These are methods and properties specific to ``MeshNeurons``.
     ~navis.MeshNeuron.volume
     ~navis.MeshNeuron.validate
 
+
 VoxelNeurons
 ------------
 VoxelNeurons (e.g. from confocal stacks) are a relatively new addition to
@@ -738,7 +739,7 @@ Not imported at top level! Must be imported explicitly::
 .. autosummary::
     :toctree: generated/
 
-    ]insectbrain_db.authenticate
+    insectbrain_db.authenticate
     insectbrain_db.get_brain_meshes
     insectbrain_db.get_species_info
     insectbrain_db.get_available_species

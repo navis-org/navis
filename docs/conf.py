@@ -415,6 +415,12 @@ latex_elements = {
      # 'figure_align': 'htbp',
 }
 
+# Render math elements in a different color
+imgmath_latex_preamble = '''
+\\usepackage{xcolor}
+\\everymath{\\color{red}}
+'''
+
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
