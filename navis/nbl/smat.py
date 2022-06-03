@@ -356,11 +356,17 @@ class LookupNdBuilder:
             If None, act in serial.
             If 0, use cpu_count - 1.
             Otherwise, use the given value.
+            Will be clipped at number of available cores - 1.
 
         Returns
         -------
         LookupNd
         """
+        # Asking for more threads than available CPU seems so crash on Github
+        # actions
+        if threads and threads >= cpu_count:
+            threads = cpu_counts
+
         dig, cells = self._build(threads, cache)
         return LookupNd(dig, cells)
 
