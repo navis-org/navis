@@ -35,7 +35,7 @@ Tutorials on how to work with ``navis`` neurons:
                </div>
                <div class="panel-body">
 
-Get local data in and out of ``navis``:
+Local data:
 
 .. toctree::
    :maxdepth: 1
@@ -46,7 +46,7 @@ Get local data in and out of ``navis``:
    tutorials/local_data_dotprops
    tutorials/local_data_pickling
 
-Import data from remote data sources & repositories:
+Remote data sources & repositories:
 
 .. toctree::
    :maxdepth: 1
@@ -93,7 +93,7 @@ Morphometrics:
 
    tutorials/morph_analysis
 
-Various morphological operations:
+Processing:
 
 .. toctree::
    :maxdepth: 2
@@ -185,5 +185,5 @@ Transform spatial data (e.g. neurons) between brain spaces:
       </div>
    </div>
 
-Not seeing what you're looking for or need additional pointers? Open an
-`issue <https://github.com/navis-org/navis/issues>`_ on Github!
+Not seeing what you're looking for, need additional pointers or found a broken
+example? Open an `issue <https://github.com/navis-org/navis/issues>`_ on Github!

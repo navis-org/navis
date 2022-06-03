@@ -53,22 +53,25 @@ def temp_property(func):
 
 
 @utils.map_neuronlist(desc='Dotprops', allow_parallel=True)
-def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.MeshNeuron'],
+def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
+                           'core.TreeNeuron', 'core.MeshNeuron',
+                           'core.VoxelNeuron', 'core.NeuronList'],
                   k: int = 20,
                   resample: Union[float, int, bool, str] = False,
-                  threshold: float = None) -> 'core.Dotprops':
-    """Produce dotprops from x/y/z points.
+                  threshold: float = None) -> Union['core.Dotprops', 'core.NeuronList']:
+    """Produce dotprops from neurons or x/y/z points.
 
-    This is following the implementation in R's nat library.
+    This is following the implementation in R's `nat` library.
 
     Parameters
     ----------
-    x :         pandas.DataFrame | numpy.ndarray | TreeNeuron | MeshNeuron
+    x :         TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList | pandas.DataFrame | numpy.ndarray
                 Data/object to generate dotprops from. DataFrame must have
                 'x', 'y' and 'z' columns.
     k :         int (> 1), optional
                 Number of nearest neighbours to use for tangent vector
                 calculation. Some notes:
+
                   - ``k=0`` or ``k=None`` is possible but only for
                     ``TreeNeurons`` where we then use child->parent connections
                     to define points (midpoint) and their vectors
@@ -79,14 +82,16 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
                     likely produce nonsense dotprops
 
     resample :  float | int | str, optional
-                If provided will resample neurons to the given resolution.
+                If provided will resample neurons to the given resolution:
+
                   - for ``MeshNeurons`` and ``VoxelNeurons``, we are using
                     ``trimesh.points.remove_close`` to remove surface vertices
-                     closer than the given resolution. Note that this is only
-                     approximate and it also means that ``Mesh/VoxelNeurons``
-                     can not be up-sampled!
+                    closer than the given resolution. Note that this is only
+                    approximate and also means that ``Mesh/VoxelNeurons``
+                    can not be up-sampled!
                   - if the neuron has ``.units`` set you can also provide this
                     as string, e.g. "1 micron".
+
     threshold : float, optional
                 Only for ``VoxelNeurons``: determines which voxels will be
                 converted to dotprops points.
@@ -94,6 +99,9 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray, 'core.TreeNeuron', 'core.Me
     Returns
     -------
     navis.Dotprops
+
+                If input is multiple neurons, will return a
+                :class:`~navis.NeuronList` of :class:`~navis.Dotprops`.
 
     Examples
     --------

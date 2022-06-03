@@ -17,7 +17,6 @@ from ..core import MeshNeuron, NeuronList
 from .. import config, utils
 import pandas as pd
 import numpy as np
-import cloudvolume as cv
 import warnings
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,15 +26,17 @@ from textwrap import dedent
 err_msg = dedent("""
       Failed to import `caveclient` library. Please install using pip:
 
-            pip install caveclient
+            pip install caveclient -U
 
       """)
 
 try:
     from caveclient import CAVEclient
+    import cloudvolume as cv
 except ImportError:
     logger.error(err_msg)
     CAVEclient = None
+    cv = None
 except BaseException:
     raise
 
@@ -83,6 +84,9 @@ def get_cloudvol(url, cache=True):
     url :     str
 
     """
+    if not cv:
+        raise ImportError(err_msg)
+
     return cv.CloudVolume(url, cache=cache, use_https=True,
                           progress=False, fill_missing=True)
 
