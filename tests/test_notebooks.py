@@ -29,6 +29,7 @@ SKIP = ['transforming.ipynb',  # requires navis-flybrains + transforms
         'local_data_meshes.ipynb',  # requires downloaded data
         'local_data_voxels.ipynb',  # requires downloaded data
         'local_data_pickling.ipynb',  # requires downloaded data
+        'neuromorpho_tut.iypnb',  # some certificate issue at the moment
         ]
 
 if __name__ == '__main__':
