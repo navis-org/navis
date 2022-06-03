@@ -86,13 +86,16 @@ def form_factor(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     Examples
     --------
     >>> import navis
-    >>> nl = navis.example_neurons()
+    >>> nl = navis.example_neurons(3)
+    >>> # Resample to 1 node / micron
+    >>> rs = navis.resample_skeleton(nl, '1 micron')
     >>> # Calculate form factor
-    >>> Fq = navis.form_factor(nl, start=-3, stop=3, num=601)
+    >>> Fq = navis.form_factor(rs, start=-3, stop=3, num=301,
+    ...                        parallel=True, n_cores=3)
     >>> # Plot
     >>> import matplotlib.pyplot as plt
     >>> import numpy as np
-    >>> x = np.logspace(-3, 3,  601)
+    >>> x = np.logspace(-3, 3,  301)
     >>> fig, ax = plt.subplots()
     >>> for i in range(len(Fq)):
     ...     _ = ax.plot(x, Fq[i])
