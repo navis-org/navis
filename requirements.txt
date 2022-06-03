@@ -26,7 +26,10 @@ skeletor>=1.0.0
 
 python-igraph  #extra: igraph
 
-pathos>=0.2.7  #extra: pathos
+#extra: pathos
+
+pathos>=0.2.7
+dill==0.3.4
 
 Shapely>=1.6.0  #extra: shapely
 
@@ -38,7 +41,7 @@ xxhash  #extra: hash
 
 flybrains  #extra: flybrains
 
-cloud-volume  #extra: cloudvolume
+cloud-volume>=5.2.0  #extra: cloudvolume
 
 # this should inherit the vispy version constraint from above
 vispy[pyside6]  #extra: vispy-default
