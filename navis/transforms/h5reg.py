@@ -171,7 +171,7 @@ class H5transform(BaseTransform):
                                   dtype=self.dtype)
             # This is a mask that tells us which values have already been cached
             self.cached = np.zeros(self.shape[:-1],
-                                   dtype=np.bool)
+                                   dtype=bool)
             self._use_cache = True
         # If was True and now is set to False, deconstruct cache
         elif getattr(self, '_use_cache', False) and not value:
