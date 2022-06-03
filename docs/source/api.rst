@@ -154,19 +154,19 @@ These are methods and properties specific to ``MeshNeurons``.
     ~navis.MeshNeuron.volume
     ~navis.MeshNeuron.validate
 
-  VoxelNeurons
-  ------------
-  VoxelNeurons (e.g. from confocal stacks) are a relatively new addition to
-  navis and the interface might still change.
-  These are methods and properties specific to ``VoxelNeurons``.
+VoxelNeurons
+------------
+VoxelNeurons (e.g. from confocal stacks) are a relatively new addition to
+navis and the interface might still change.
+These are methods and properties specific to ``VoxelNeurons``.
 
-  .. autosummary::
-      :toctree: generated/
+.. autosummary::
+    :toctree: generated/
 
-      ~navis.VoxelNeuron.grid
-      ~navis.VoxelNeuron.voxels
-      ~navis.VoxelNeuron.shape
-      ~navis.VoxelNeuron.strip
+    ~navis.VoxelNeuron.grid
+    ~navis.VoxelNeuron.voxels
+    ~navis.VoxelNeuron.shape
+    ~navis.VoxelNeuron.strip
 
 
 Dotprops
