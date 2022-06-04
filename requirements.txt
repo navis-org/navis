@@ -26,10 +26,7 @@ skeletor>=1.0.0
 
 python-igraph  #extra: igraph
 
-#extra: pathos
-
-pathos>=0.2.7
-dill==0.3.4
+pathos>=0.2.7 #extra: pathos
 
 Shapely>=1.6.0  #extra: shapely
 
