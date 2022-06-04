@@ -306,6 +306,11 @@ class LookupNdBuilder:
         return matching_pairs, nonmatching_pairs
 
     def _build(self, threads, cache=False) -> Tuple[List[Digitizer], np.ndarray]:
+        # Asking for more threads than available CPUs seems to crash on Github
+        # actions
+        if threads and threads >= cpu_count:
+            threads = cpu_count
+
         if self.digitizers is None and self.bin_counts is None:
             raise ValueError(
                 "Builder needs either digitizers or bin_counts; see with_* methods"
@@ -362,11 +367,6 @@ class LookupNdBuilder:
         -------
         LookupNd
         """
-        # Asking for more threads than available CPU seems so crash on Github
-        # actions
-        if threads and threads >= cpu_count:
-            threads = cpu_counts
-
         dig, cells = self._build(threads, cache)
         return LookupNd(dig, cells)
 
