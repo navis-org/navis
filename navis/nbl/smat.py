@@ -63,17 +63,19 @@ def concat_results(results: Iterable[List[np.ndarray]]) -> List[np.ndarray]:
     return [np.concatenate(arrs) for arrs in intermediate.values()]
 
 
-DotpropKey = Hashable
+NeuronKey = Hashable
+NeuronObject = object
 
 
 class LookupNdBuilder:
     def __init__(
         self,
-        dotprops: Union[List[Dotprops], Mapping[DotpropKey, Dotprops]],
-        matching_lists: List[List[DotpropKey]],
-        match_fn: Callable[[Dotprops, Dotprops], List[np.ndarray]],
-        nonmatching_list: Optional[List[DotpropKey]] = None,
-        seed: int = DEFAULT_SEED,
+        neurons: Union[List[NeuronObject], Mapping[NeuronKey, NeuronObject]],
+        matching_lists: List[List[NeuronKey]],
+        match_fn: Callable[[NeuronObject, NeuronObject], List[np.ndarray]],
+        size_fn: Optional[Callable[NeuronObject, int]] = None,
+        nonmatching_list: Optional[List[NeuronKey]] = None,
+        seed: int = DEFAULT_SEED
     ) -> None:
         f"""Class for building an N-dimensional score lookup for NBLAST.
 
@@ -86,33 +88,50 @@ class LookupNdBuilder:
         Parameters
         ----------
 
-        dotprops : dict or list of Dotprops
+        neurons : dict or list of neurons
             An indexable, consistently-ordered sequence of all neurons
-            which will be used as the training set, as Dotprops objects.
-        matching_sets : list of lists of index into dotprops
-            Lists of neurons, as indices into ``dotprops``, which should be considered matches.
-        match_fn : Callable[[Dotprops, Dotprops], List[np.ndarray[float]]]
-            Function taking 2 arguments,
-            both instances of ``navis.core.neurons.Dotprops``,
+            which will be used as the training set.
+        matching_sets : list of lists of index into ``neurons``
+            Lists of neurons, as indices into ``neurons``, which should be considered matches.
+        match_fn : Callable[[neuron, neuron], List[np.ndarray[float]]]
+            Function taking 2 arguments, both instances of ``neurons``,
             and returning a list of 1D ``numpy.ndarray``s of floats.
             The length of the list must be the same as the length of ``boundaries``.
             The length of the ``array``s must be the same
             as the number of points in the first argument.
             This function returns values describing the quality of
             point matches from a query to a target neuron.
-        nonmatching : list of index into dotprops, optional
-            List of neurons, as indices into ``dotprops``,
+        size_fn : Callable[object, int]
+            Function taking a single argument, an object from ``neurons``, and
+            returns an integer. This is used to match the pool of non-matching
+            and matching pairs in size. By default, all objects are weighted
+            equally but if your ``match_fn`` is based on some property with a
+            size, it might be worth factoring that in. For example, if you are
+            using the neurons' synapses, you could define a function that
+            takes a single neuron as input and returns its synapse count to make
+            sure both pools contain roughly the same number of synapses. Note
+            that you must NOT use `lambda` functions as these can not be pickled
+            for multi-processing.
+        nonmatching : list of index into ``neurons``, optional
+            List of neurons, as indices into ``neurons``,
             which should not be considered matches.
-            If not given, all ``dotprops`` will be used
+            If not given, all ``neurons`` will be used
             (on the assumption that matches are a small subset of possible pairs).
         seed : int, optional
             Non-matching pairs are drawn at random using this seed,
             by default {DEFAULT_SEED}
         """
-        self.dotprops = dotprops
+        self.neurons = neurons
         self.matching_lists = matching_lists
         self._nonmatching_list = nonmatching_list
         self.match_fn = match_fn
+
+        if isinstance(size_fn, type(None)):
+            # If not specified, use a function that always returns 1
+            # This is effectively the same as `lambda x: 1` but is pickleable
+            self.size_fn = return_one
+        else:
+            self.size_fn = size_fn
 
         self.digitizers: Optional[List[Digitizer]] = None
         self.bin_counts: Optional[List[int]] = None
@@ -123,7 +142,7 @@ class LookupNdBuilder:
     @property
     def ndim(self) -> int:
         if self._ndim is None:
-            idx1, idx2 = self._dotprop_keys()[:2]
+            idx1, idx2 = self._neuron_keys()[:2]
             self._ndim = len(self._query(idx1, idx2))
             self._query.cache_clear()
         return self._ndim
@@ -175,26 +194,26 @@ class LookupNdBuilder:
         self.digitizers = None
         return self
 
-    def _dotprop_keys(self) -> Sequence[DotpropKey]:
-        """Get all indices into dotprops instance member"""
+    def _neuron_keys(self) -> Sequence[NeuronKey]:
+        """Get all indices into neurons instance member"""
         try:
-            return self.dotprops.keys()
+            return self.neurons.keys()
         except AttributeError:
-            return range(len(self.dotprops))
+            return range(len(self.neurons))
 
     @property
-    def nonmatching(self) -> List[DotpropKey]:
+    def nonmatching(self) -> List[NeuronKey]:
         """Indices of nonmatching set of neurons"""
         if self._nonmatching_list is None:
-            return list(self._dotprop_keys())
+            return list(self._neuron_keys())
         return self._nonmatching_list
 
-    def _yield_matching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+    def _yield_matching_pairs(self) -> Iterator[Tuple[NeuronKey, NeuronKey]]:
         """Yield all index pairs within all matching pairs"""
         for ms in self.matching_lists:
             yield from yield_not_same(permutations(ms, 2))
 
-    def _yield_nonmatching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+    def _yield_nonmatching_pairs(self) -> Iterator[Tuple[NeuronKey, NeuronKey]]:
         """Yield all index pairs within nonmatching list"""
         # todo: this could be much better, use meshgrid or shuffle index arrays
         return yield_not_same(permutations(self.nonmatching, 2))
@@ -206,11 +225,11 @@ class LookupNdBuilder:
 
     @lru_cache(None)
     def _query(self, q_idx, t_idx) -> List[np.ndarray]:
-        """Get the results of applying the match function to dotprops specified by indices"""
-        return self.match_fn(self.dotprops[q_idx], self.dotprops[t_idx])
+        """Get the results of applying the match function to neurons specified by indices"""
+        return self.match_fn(self.neurons[q_idx], self.neurons[t_idx])
 
     def _query_many(self, idx_pairs, threads=None) -> Iterator[List[np.ndarray]]:
-        """Yield results from querying many pairs of dotprop indices"""
+        """Yield results from querying many pairs of neurons indices"""
         if threads is None or threads == 0 and cpu_count == 1:
             for q_idx, t_idx in idx_pairs:
                 yield self._query(q_idx, t_idx)
@@ -289,17 +308,17 @@ class LookupNdBuilder:
             idx = rng.integers(0, len(all_nonmatching_pairs))
             nonmatching_pair = all_nonmatching_pairs.pop(idx)
             nonmatching_pairs.append(nonmatching_pair)
-            n_nonmatching_qual_vals += len(self.dotprops[nonmatching_pair[0]])
+            n_nonmatching_qual_vals += self.size_fn(self.neurons[nonmatching_pair[0]])
 
         return nonmatching_pairs
 
     def _get_pairs(self):
         matching_pairs = list(set(self._yield_matching_pairs()))
-        # need to know the eventual distdot count
+        # need to know the eventual neuron size
         # so we know how many non-matching pairs to draw
         q_idx_count = Counter(p[0] for p in matching_pairs)
         n_matching_qual_vals = sum(
-            len(self.dotprops[q_idx]) * n_reps for q_idx, n_reps in q_idx_count.items()
+            self.size_fn(self.neurons[q_idx]) * n_reps for q_idx, n_reps in q_idx_count.items()
         )
 
         nonmatching_pairs = self._pick_nonmatching_pairs(n_matching_qual_vals)
@@ -347,13 +366,13 @@ class LookupNdBuilder:
         """Build the score matrix.
 
         All non-identical neuron pairs within all matching sets are selected,
-        and distdots calculated for those pairs.
+        and similarity metrics calculated for those pairs.
         Then, the minimum number of non-matching pairs are randomly drawn
-        so that at least as many distdots can be calculated for non-matching
+        so that at least as many metrics can be calculated for non-matching
         pairs.
 
-        In each bin of the score matrix, the log2 odds ratio of a distdot
-        in that bin belonging to a match vs. non-match is calculated.
+        In each bin of the score matrix, the log2 odds ratio of the similarity
+        metric in that bin belonging to a match vs. non-match is calculated.
 
         Parameters
         ----------
@@ -371,6 +390,11 @@ class LookupNdBuilder:
         return LookupNd(dig, cells)
 
 
+def return_one(x):
+    """Always returns one."""
+    return 1
+
+
 def dist_dot(q: Dotprops, t: Dotprops):
     return list(q.dist_dots(t))
 
@@ -383,9 +407,9 @@ def dist_dot_alpha(q: Dotprops, t: Dotprops):
 class LookupDistDotBuilder(LookupNdBuilder):
     def __init__(
         self,
-        dotprops: Union[List[Dotprops], Mapping[DotpropKey, Dotprops]],
-        matching_lists: List[List[DotpropKey]],
-        nonmatching_list: Optional[List[DotpropKey]] = None,
+        dotprops: Union[List[Dotprops], Mapping[NeuronKey, Dotprops]],
+        matching_lists: List[List[NeuronKey]],
+        nonmatching_list: Optional[List[NeuronKey]] = None,
         use_alpha: bool = False,
         seed: int = DEFAULT_SEED,
     ):
@@ -419,11 +443,12 @@ class LookupDistDotBuilder(LookupNdBuilder):
         """
         match_fn = dist_dot_alpha if use_alpha else dist_dot
         super().__init__(
-            dotprops,
-            matching_lists,
-            match_fn,
-            nonmatching_list,
-            seed,
+            neurons=dotprops,
+            matching_lists=matching_lists,
+            match_fn=match_fn,
+            size_fn=len,
+            nonmatching_list=nonmatching_list,
+            seed=seed,
         )
         self._ndim = 2
 
