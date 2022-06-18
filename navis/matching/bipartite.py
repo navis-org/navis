@@ -124,12 +124,12 @@ def bipartite_match(scores: pd.DataFrame,
     scores.columns = scores.columns.astype(str)
 
     # Make sure columns and indices are unique
-    if len(set(scores.index) | set(scores.columns)) < (scores.shape[0] + scores.shape[1]):
+    if any(scores.index.duplicated()) or any(scores.columns.duplicated()):
         raise ValueError('Indices and columns in scores DataFrame must be unique.')
 
     # Turn into edges
     ix_name = scores.index.name if scores.index.name else 'index'
-    edges = scores.reset_index(drop=False).melt(id_vars=ix_name)
+    edges = scores.T.unstack().reset_index()
     edges.columns = ['U', 'V', 'score']
 
     # Set distance of below threshold scores to an insanely high value
@@ -167,8 +167,9 @@ def bipartite_match(scores: pd.DataFrame,
     left_ix, right_ix = scipy.optimize.linear_sum_assignment(scores_final, maximize=True)
 
     # Drop matches that have effectively minus infinity scores
-    is_above = scores_final.values[left_ix, right_ix] > 1e-10
+    is_above = scores_final.values[left_ix, right_ix] > -1e10
     left_ix, right_ix = left_ix[is_above], right_ix[is_above]
+
 
     # Convert to row/column names
     left_id = scores_final.index[left_ix]
@@ -178,7 +179,7 @@ def bipartite_match(scores: pd.DataFrame,
     missing = np.array(list(set(scores.index) - set(left_id)))
 
     # We can only rematch neurons that have a possible match to being with
-    missing = missing[scores_final.loc[missing].max(axis=1) > 1e-10]
+    missing = missing[scores_final.loc[missing].max(axis=1) > -1e10]
 
     if not one_to_one and len(missing) > 0:
         while len(missing) > 0:
