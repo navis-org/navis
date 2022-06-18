@@ -1126,6 +1126,8 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                       template=template,
                                       mirror_axis=mirror_axis,
                                       warp=warp)
+            # We also need to flip the normals
+            x.faces = x.faces[:, ::-1]
         else:
             raise TypeError(f"Don't know how to transform neuron of type '{type(x)}'")
 
@@ -1141,6 +1143,9 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                   template=template,
                                   mirror_axis=mirror_axis,
                                   warp=warp)
+
+        # We also need to flip the normals
+        x.faces = x.faces[:, ::-1]
         return x
     elif isinstance(x, pd.DataFrame):
         if any([c not in x.columns for c in ['x', 'y', 'z']]):
