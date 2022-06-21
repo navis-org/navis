@@ -701,25 +701,40 @@ def split_axon_dendrite(x: NeuronObject,
         sm['n_pre'] = [pre[pre.node_id.isin(c)].shape[0] for c in cc]
         sm['n_post'] = [post[post.node_id.isin(c)].shape[0] for c in cc]
         sm['prepost_ratio'] = (sm.n_pre / sm.n_post)
-        sm['frac_post'] = sm.n_post / sm.n_post.sum()  # this is for debugging
+        sm['frac_post'] = sm.n_post / sm.n_post.sum()
         sm['frac_pre'] = sm.n_pre / sm.n_pre.sum()
+
+        # In theory, we encounter have neurons with either no pre- or no
+        # postsynapses (e.g. sensory neurons).
+        # For those n_pre/post.sum() would cause a division by 0 which in turn
+        # causes frac_pre/post to be NaN. By filling, we make sure that the
+        # split doesn't fail further down but they might end up missing either
+        # an axon or a dendrite (which may actually be OK?).
+        sm['frac_post'] = sm['frac_post'].fillna(0)
+        sm['frac_pre'] = sm['frac_pre'].fillna(0)
+
+        # Produce the ratio of pre- to postsynapses
         sm['frac_prepost'] = (sm.frac_pre / sm.frac_post)
 
+        # Some small side branches might have either no pre- or no postsynapses.
+        # Even if they have synapses: if the total count is low they might be
+        # incorrectly assigned to a compartment. Here, we will make sure that
+        # they are disregarded for now to avoid introducing noise. Instead we
+        # will connect them onto their parent compartment later.
         sm.loc[sm[['frac_pre', 'frac_post']].max(axis=1) < 0.01,
                ['prepost_ratio', 'frac_prepost']] = np.nan
-        # Above code makes it so that prepost is NaN if there are either no pre-
-        # OR postsynapses on a given fragment or the fragment is small.
-        # These fragments are typically small sidebranches of the linker.
-        # We will disregard them for now because they just introduce noise
-        # and will connect them onto their parent compartment later.
         logger.debug(sm)
 
         # Each fragment is considered separately as either giver or recipient
         # of flow:
         # - prepost < 1 = dendritic
         # - prepost > 1 = axonic
-        dendrite = set.union(*[cc[i] for i in sm[sm.frac_prepost < 1].index.values])
-        axon = set.union(*[cc[i] for i in sm[sm.frac_prepost >= 1].index.values])
+        dendrite = [cc[i] for i in sm[sm.frac_prepost < 1].index.values]
+        if len(dendrite):
+            dendrite = set.union(*dendrite)
+        axon = [cc[i] for i in sm[sm.frac_prepost >= 1].index.values]
+        if len(axon):
+            axon = set.union(*axon)
     else:
         for c in cc:
             # If original root present assume it's the proximal dendrites
