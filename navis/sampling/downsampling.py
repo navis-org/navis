@@ -209,7 +209,7 @@ def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
         while True:
             stop = False
             new_p = list_of_parents[this_node]
-            if new_p > 0:
+            if new_p >= 0:
                 i = 0
                 while i < downsampling_factor:
                     if new_p in fix_points or new_p < 0:
