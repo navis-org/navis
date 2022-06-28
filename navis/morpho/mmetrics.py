@@ -621,7 +621,7 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> 'core.NeuronObject':
                            heal=True,
                            node_props=['bending_flow'])
 def bending_flow(x: 'core.NeuronObject') -> 'core.NeuronObject':
-    """Calculate bending flow.
+    """Calculate synapse "bending" flow.
 
     This is a variation of the algorithm for calculating synapse flow from
     Schneider-Mizell et al. (eLife, 2016).
@@ -759,6 +759,118 @@ def bending_flow(x: 'core.NeuronObject') -> 'core.NeuronObject':
     return x
 
 
+def _flow_centrality_igraph(x: 'core.NeuronObject',
+                    mode: Union[Literal['centrifugal'],
+                                Literal['centripetal'],
+                                Literal['sum']] = 'sum'
+                    ) -> 'core.NeuronObject':
+    """iGraph-based flow centrality.
+
+    Turns out this is much slower than the other implementation. Will keep it
+    here to preserve the code.
+
+    Parameters
+    ----------
+    x :         TreeNeuron | MeshNeuron | NeuronList
+                Neuron(s) to calculate flow centrality for. Must have
+                connectors!
+    mode :      'centrifugal' | 'centripetal' | 'sum', optional
+                Type of flow centrality to calculate. There are three flavors::
+                (1) centrifugal counts paths from proximal inputs to distal outputs
+                (2) centripetal counts paths from distal inputs to proximal outputs
+                (3) the sum of both - this is the original implementation
+
+    Returns
+    -------
+    neuron
+                Adds "flow_centrality" as column in the node table (for
+                TreeNeurons) or as `.flow_centrality` property
+                (for MeshNeurons).
+
+    """
+    if mode not in ['centrifugal', 'centripetal', 'sum']:
+        raise ValueError(f'Unknown "mode" parameter: {mode}')
+
+    if not isinstance(x, core.TreeNeuron):
+        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
+
+    if not x.has_connectors:
+        raise ValueError('Neuron must have connectors.')
+
+    if np.any(x.soma) and not np.all(np.isin(x.soma, x.root)):
+        logger.warning(f'Neuron {x.id} is not rooted to its soma!')
+
+    # Figure out how connector types are labeled
+    cn_types = x.connectors.type.unique()
+    if any(np.isin(['pre', 'post'], cn_types)):
+        pre, post = 'pre', 'post'
+    elif any(np.isin([0, 1], cn_types)):
+        pre, post = 0, 1
+    else:
+        raise ValueError(f'Unable to parse connector types "{cn_types}" for neuron {x.id}')
+
+    # Get list of nodes with pre/postsynapses
+    pre_node_ids, pre_counts = np.unique(x.connectors[x.connectors.type == pre].node_id.values,
+                                         return_counts=True)
+    pre_counts_dict = dict(zip(pre_node_ids, pre_counts))
+    post_node_ids, post_counts = np.unique(x.connectors[x.connectors.type == post].node_id.values,
+                                           return_counts=True)
+    post_counts_dict = dict(zip(post_node_ids, post_counts))
+
+    # Note: even downsampling the neuron doesn't really speed things up much
+    #y = sampling.downsample_neuron(x=x,
+    #                               downsampling_factor=float('inf'),
+    #                               inplace=False,
+    #                               preserve_nodes=np.append(pre_node_ids, post_node_ids))
+
+    G = x.igraph
+    sources = G.vs.select(node_id_in=post_node_ids)
+    targets = G.vs.select(node_id_in=pre_node_ids)
+
+    if mode in ('centrifugal', ):
+        paths = [G.get_all_shortest_paths(so, targets, mode='in') for so in sources]
+        # Mode "in" paths are sorted by child -> parent
+        # We'll invert them to make our life easier
+        paths = [v[::-1] for p in paths for v in p]
+    elif mode in ('centripetal', ):
+        paths = [G.get_all_shortest_paths(so, targets, mode='out') for so in sources]
+    else:
+        paths = [G.get_all_shortest_paths(so, targets, mode='all') for so in sources]
+
+    # Calculate the flow
+    flow = {}
+    # Go over each collection of path
+    for pp in paths:
+        # Skip the rare empty paths
+        if not pp:
+            continue
+
+        # Get the source for all these paths
+        so = G.vs[pp[0][0]]
+        # Find the post (i.e. source) multiplier
+        post_mul = post_counts_dict[so.attributes()['node_id']]
+
+        # Go over individual paths
+        for vs in pp:
+            # Translate path to node IDs
+            v_id = G.vs[vs].get_attribute_values('node_id')
+
+            # Get the pre (i.e. target) multiplier
+            pre_mul = pre_counts_dict[v_id[-1]]
+
+            # Add up the flows
+            # This is way faster than collecting IDs & using np.unique afterwards
+            for i in v_id:
+                flow[i] = flow.get(i, 0) + post_mul * pre_mul
+
+    x.nodes['flow_centrality'] = x.nodes.node_id.map(flow).fillna(0).astype(int)
+
+    # Add info on method/mode used for flow centrality
+    x.centrality_method = mode  # type: ignore
+
+    return x
+
+
 @utils.map_neuronlist(desc='Calc. flow', allow_parallel=True)
 @utils.meshneuron_skeleton(method='node_properties',
                            include_connectors=True,
@@ -827,6 +939,12 @@ def flow_centrality(x: 'core.NeuronObject',
             Tries splitting a neuron into axon and dendrite.
 
     """
+    # Quick disclaimer:
+    # This function may look unnecessarily complicated. I did also try out an
+    # implementation using igraph + shortest paths which works like a charm and
+    # causes less headaches. It is, however, about >10X slower than this version!
+    # Note to self: do not go down that rabbit hole again!
+
     if mode not in ['centrifugal', 'centripetal', 'sum']:
         raise ValueError(f'Unknown "mode" parameter: {mode}')
 
@@ -922,6 +1040,17 @@ def flow_centrality(x: 'core.NeuronObject',
                 flow[s[i]] = flow[s[i-1]]
 
     x.nodes['flow_centrality'] = x.nodes.node_id.map(flow).fillna(0).astype(int)
+
+    # Need to add a restriction, that a branchpoint cannot have a lower
+    # flow than its highest child -> this happens at the main branch point to
+    # the cell body fiber because the flow doesn't go "through" it in
+    # child -> parent direction but rather "across" it from one child to the
+    # other
+    bp = x.nodes.loc[is_bp, 'node_id'].values
+    bp_childs = x.nodes[x.nodes.parent_id.isin(bp)]
+    max_flow = bp_childs.groupby('parent_id').flow_centrality.max()
+    x.nodes.loc[is_bp, 'flow_centrality'] = max_flow.loc[bp].values
+    x.nodes['flow_centrality'] = x.nodes.flow_centrality.astype(int)
 
     # Add info on method/mode used for flow centrality
     x.centrality_method = mode  # type: ignore
@@ -1209,7 +1338,7 @@ def sholl_analysis(x: 'core.NeuronObject',
                                  'cable_length', 'branch_points']).set_index('radius')
 
 
-@utils.map_neuronlist(desc='Calc. SI', allow_parallel=True)
+@utils.map_neuronlist(desc='Calc. betweeness', allow_parallel=True)
 @utils.meshneuron_skeleton(method='node_properties',
                            reroot_soma=True,
                            node_props=['betweenness'])
