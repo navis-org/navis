@@ -286,12 +286,12 @@ def update_scores(queries, targets, scores, nblast_func, **kwargs):
         kwargs['precision'] = scores.values.dtype
 
     if new_q:
-        qt = nblast_func(new_q, targets, precision=precision, **kwargs)
+        qt = nblast_func(new_q, targets, **kwargs)
         scores.loc[qt.index, qt.columns] = qt.values
 
     # NBLAST old queries against new targets
     if new_t:
-        tq = nblast_func(queries, new_t, precision=precision, **kwargs)
+        tq = nblast_func(queries, new_t, **kwargs)
         scores.loc[tq.index, tq.columns] = tq.values
 
     return scores
