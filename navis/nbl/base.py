@@ -24,6 +24,7 @@ from .. import utils, config
 INT_DTYPES = {16: np.int16, 32: np.int32, 64: np.int64, None: None}
 FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
 
+logger = config.logger
 
 NestedIndices = Union[int, List['NestedIndices']]
 
@@ -79,7 +80,7 @@ class Blaster(ABC):
         ----------
         pairs :             tuples
                             Tuples of (query_ix, target_ix) to query.
-        scores :            "forward" | "mean" | "min" | "max"
+        scores :            "forward" | "mean" | "min" | "max" | "both"
                             Which scores to return.
 
         """
@@ -103,7 +104,7 @@ class Blaster(ABC):
         ----------
         q_idx,t_idx :       iterable
                             Iterable of query/target neuron indices to BLAST.
-        scores :            "forward" | "mean" | "min" | "max"
+        scores :            "forward" | "mean" | "min" | "max" | "both"
                             Which scores to return.
 
         """
@@ -127,8 +128,8 @@ class Blaster(ABC):
         # We could allow Jupyter progress bars on single cores but how often
         # does that happen?
 
-        res = np.zeros((len(q_idx), len(t_idx)),
-                       dtype=self.dtype)
+        shape = (len(q_idx), len(t_idx)) if scores != 'both' else (len(q_idx), len(t_idx), 2)
+        res = np.zeros(shape, dtype=self.dtype)
         for i, q in enumerate(config.tqdm_classic(q_idx,
                                           desc=self.desc,
                                           leave=False,
@@ -140,9 +141,23 @@ class Blaster(ABC):
                 res[i, k] = self.single_query_target(q, t, scores=scores)
 
         # Generate results
-        res = pd.DataFrame(res)
-        res.columns = [self.ids[t] for t in t_idx]
-        res.index = [self.ids[q] for q in q_idx]
+        if res.ndim == 2:
+            res = pd.DataFrame(res)
+            res.columns = [self.ids[t] for t in t_idx]
+            res.index = [self.ids[q] for q in q_idx]
+            res.index.name = 'query'
+            res.columns.name = 'target'
+        else:
+            # For scores='both' we will create a DataFrame with multi-index
+            ix = pd.MultiIndex.from_product([[self.ids[q] for q in q_idx],
+                                             ['forward', 'reverse']],
+                                            names=["query", "score"])
+            res = pd.DataFrame(np.hstack((res[:, :, 0],
+                                          res[:, :, 1])).reshape(len(q_idx) * 2,
+                                                                 len(t_idx)),
+                               index=ix,
+                               columns=[self.ids[t] for t in t_idx])
+            res.columns.name = 'target'
 
         return res
 
@@ -160,6 +175,14 @@ class Blaster(ABC):
             res.loc[:, :] = np.dstack((res, res.T)).min(axis=2)
         elif scores == 'max':
             res.loc[:, :] = np.dstack((res, res.T)).max(axis=2)
+        elif scores == 'both':
+            ix = pd.MultiIndex.from_product([res.index, ['forward', 'reverse']],
+                                            names=["query", "score"])
+            res = pd.DataFrame(np.hstack((res[:, :, 0],
+                                          res[:, :, 1])).reshape(res.shape[0] * 2,
+                                                                 res.shape[1]),
+                               index=ix,
+                               columns=res.columns)
 
         return res
 

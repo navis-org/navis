@@ -98,7 +98,12 @@ class NBlaster(Blaster):
 
         if limit_dist == "auto":
             try:
-                self.distance_upper_bound = self.score_fn.axes[0]._max
+                if self.score_fn.axes[0].boundaries[-1] != np.inf:
+                    self.distance_upper_bound = self.score_fn.axes[0].boundaries[-1]
+                else:
+                    # If the right boundary is open (i.e. infinity), we will use
+                    # the second highest boundary plus a 5% offset
+                    self.distance_upper_bound = self.score_fn.axes[0].boundaries[-2] * 1.05
             except AttributeError:
                 logger.warning("Could not infer distance upper bound from scoring function")
                 self.distance_upper_bound = None
@@ -252,10 +257,17 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
                     "auto", will extract that value from the scoring matrix.
+                    While this can give a ~2X speed up, it will introduce slight
+                    inaccuracies because we won't have a vector component for
+                    points without a nearest neighbour within the distance
+                    limits. The impact depends on the scoring function but with
+                    the default FCWB ``smat``, this is typically limited to the
+                    third decimal (0.0086 +/- 0.0027 for an all-by-all of 1k
+                    neurons).
     approx_nn :     bool
                     If True, will use approximate nearest neighbors. This gives
                     a >2X speed up but also produces only approximate scores.
-                    Impact depends on the use case - testing recommended.
+                    Impact depends on the use case - testing highly recommended!
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                     Precision for scores. Defaults to 64 bit (double) floats.
                     This is useful to reduce the memory footprint for very large
@@ -558,10 +570,17 @@ def nblast(query: Union[Dotprops, NeuronList],
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
                     "auto", will extract that value from the scoring matrix.
+                    While this can give a ~2X speed up, it will introduce slight
+                    inaccuracies because we won't have a vector component for
+                    points without a nearest neighbour within the distance
+                    limits. The impact depends on the scoring function but with
+                    the default FCWB ``smat``, this is typically limited to the
+                    third decimal (0.0086 +/- 0.0027 for an all-by-all of 1k
+                    neurons).
     approx_nn :     bool
                     If True, will use approximate nearest neighbors. This gives
-                    a >2x speed up but also produces only approximate scores.
-                    Impact depends on the use case - testing recommended.
+                    a >2X speed up but also produces only approximate scores.
+                    Impact depends on the use case - testing highly recommended!
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
                     ``os.cpu_count() // 2``. This should ideally be an even
@@ -734,10 +753,17 @@ def nblast_allbyall(x: NeuronList,
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
                     "auto", will extract that value from the scoring matrix.
+                    While this can give a ~2X speed up, it will introduce slight
+                    inaccuracies because we won't have a vector component for
+                    points without a nearest neighbour within the distance
+                    limits. The impact depends on the scoring function but with
+                    the default FCWB ``smat``, this is typically limited to the
+                    third decimal (0.0086 +/- 0.0027 for an all-by-all of 1k
+                    neurons).
     approx_nn :     bool
                     If True, will use approximate nearest neighbors. This gives
-                    a >2x speed up but also produces only approximate scores.
-                    Impact depends on the use case - testing recommended.
+                    a >2X speed up but also produces only approximate scores.
+                    Impact depends on the use case - testing highly recommended!
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                     Precision for scores. Defaults to 64 bit (double) floats.
                     This is useful to reduce the memory footprint for very large
@@ -1106,3 +1132,15 @@ def nblast_preflight(query, target, n_cores, batch_size=None,
     if batch_size is not None:
         if batch_size <= 0:
             raise ValueError('`batch_size` must be >= 1 or `None`.')
+
+
+def eval_limit_dist(x):
+    """Evaluate `limit_dist` parameter."""
+    if x == 'auto':
+        return
+    if isinstance(x, type(None)):
+        return
+    if isinstance(x, numbers.Number):
+        return
+
+    raise ValueError(f'`limit_dist` must be None, "auto" or float, got {x}' )
