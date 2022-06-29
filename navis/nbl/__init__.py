@@ -15,6 +15,6 @@
 
 from .nblast_funcs import nblast, nblast_allbyall, nblast_smart
 from .synblast_funcs import synblast
-from .base import extract_matches
+from .base import extract_matches, update_scores
 
 __all__ = ['nblast', 'nblast_allbyall', 'nblast_smart', 'synblast']

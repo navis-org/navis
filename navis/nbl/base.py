@@ -248,3 +248,50 @@ def extract_matches(scores, N=1, axis=0, distances=False):
         matches[f'score_{i + 1}'] = top_scores[:, -(i + 1)]
 
     return matches
+
+
+def update_scores(queries, targets, scores, nblast_func, **kwargs):
+    """Update score matrix by running only new query->target pairs.
+
+    Parameters
+    ----------
+    queries :       Dotprops
+    targets :       Dotprops
+    scores :        pandas.DataFrame
+                    DataFrame with existing scores.
+    nblast_func :   callable
+                    The NBLAST to use. For example: ``navis.nblast``.
+    **kwargs
+                    Argument passed to ``nblast_func``.
+
+    Returns
+    -------
+    pandas.DataFrame
+                    Updated scores.
+
+    """
+    if not callable(nblast_func):
+        raise TypeError('`nblast_func` must be callable.')
+    # The np.isin query is much faster if we force the strings to <U18
+    new_q = queries[~np.isin(queries.id, np.array(scores.index))]
+    new_t = targets[~np.isin(targets.id, np.array(scores.columns))]
+
+    logger.info(f'Found {len(new_q)} new queries and {len(new_t)} new targets.')
+
+    # Reindex old scores
+    scores = scores.reindex(index=queries.id, columns=targets.id).copy()
+
+    # NBLAST new queries against all targets
+    if 'precision' not in kwargs:
+        kwargs['precision'] = scores.values.dtype
+
+    if new_q:
+        qt = nblast_func(new_q, targets, precision=precision, **kwargs)
+        scores.loc[qt.index, qt.columns] = qt.values
+
+    # NBLAST old queries against new targets
+    if new_t:
+        tq = nblast_func(queries, new_t, precision=precision, **kwargs)
+        scores.loc[tq.index, tq.columns] = tq.values
+
+    return scores
