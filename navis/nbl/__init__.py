@@ -15,5 +15,6 @@
 
 from .nblast_funcs import nblast, nblast_allbyall, nblast_smart
 from .synblast_funcs import synblast
+from .base import extract_matches
 
 __all__ = ['nblast', 'nblast_allbyall', 'nblast_smart', 'synblast']

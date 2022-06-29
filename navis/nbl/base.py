@@ -188,3 +188,63 @@ class Blaster(ABC):
 
     def __len__(self):
         return len(self.neurons)
+
+
+def extract_matches(scores, N=1, axis=0, distances=False):
+    """Extract top N matches from score matrix.
+
+    Parameters
+    ----------
+    scores :    pd.DataFrame
+                Score matrix (e.g. from :func:`navis.nblast`).
+    N :         int
+                Number of matches to extract.
+    axis :      0 | 1
+                For which axis to produce matches.
+    distances : bool
+                Set to True if input is distances instead of similarities (i.e.
+                we need to look for the lowest instead of the highest values).
+
+    Returns
+    -------
+    pd.DataFrame
+
+    """
+    assert axis in (0, 1), '`axis` must be 0 or 1'
+
+    # Transposing is easier than dealing with the different axis further down
+    if axis == 1:
+        scores = scores.T
+
+    if not distances:
+        if N > 1:
+            # This partitions of the largest N values (faster than argsort)
+            # Their correct order, however, is not guaranteed
+            top_n = np.argpartition(scores.values, -N, axis=-1)[:, -N:]
+        else:
+            # For N=1 this is still faster
+            top_n = np.argmax(scores.values, axis=-1).reshape(-1, 1)
+    else:
+        if N > 1:
+            top_n = np.argpartition(scores.values, N, axis=-1)[:, :N]
+        else:
+            top_n = np.argmin(scores.values, axis=-1).reshape(-1, 1)
+
+    # This make sure we order them properly
+    top_scores = scores.values[np.arange(len(scores)).reshape(-1, 1), top_n]
+    ind_ordered = np.argsort(top_scores, axis=1)
+
+    if distances:
+        ind_ordered = ind_ordered[:, ::-1]
+
+    top_n = top_n[np.arange(len(top_n)).reshape(-1, 1), ind_ordered]
+    top_scores = top_scores[np.arange(len(top_scores)).reshape(-1, 1), ind_ordered]
+
+    # Now collate matches
+    matches = pd.DataFrame()
+    matches['id'] = scores.index.values
+    for i in range(N):
+        matches[f'match_{i + 1}'] = scores.columns[top_n[:, -(i + 1)]]
+        matches[f'score_{i + 1}'] = top_scores[:, -(i + 1)]
+
+    return matches
