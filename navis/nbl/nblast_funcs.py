@@ -703,17 +703,42 @@ def nblast(query: Union[Dotprops, NeuronList],
                                        scores=scores)
 
     with ProcessPoolExecutor(max_workers=n_cores) as pool:
-        # Each nblaster is passed to its own process
-        futures = [pool.submit(this.multi_query_target,
-                               q_idx=this.queries,
-                               t_idx=this.targets,
-                               scores=scores) for this in nblasters]
+        # A chunksize of 100 seems to be a fair value: it produces frequent
+        # enough updates without producing too many chunks. If no progress bar
+        # required we don't have to chunk things which speeds things up slightly
+        chunksize = 100 if progress else (max(len(this.queries), len(this.targets)) + 1)
+        futures = []
+        for this in nblasters:
+            this.progress=False  # no progress bar for individual NBLASTers
+            for q in range(0, len(this.queries), chunksize):
+                for t in range(0, len(this.targets), chunksize):
+                    futures.append(pool.submit(this.multi_query_target,
+                                               q_idx=this.queries[q:q+chunksize],
+                                               t_idx=this.targets[t:t+chunksize],
+                                               scores=scores))
 
-        results = [f.result() for f in futures]
+        # We're dropping the "N / N_total" bit from the progress bar because its
+        # not helpful here
+        fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}, '
+               '{rate_fmt}{postfix}]')
+        results = [f.result() for f in config.tqdm(futures,
+                                                   bar_format=fmt,
+                                                   disable=not progress,
+                                                   leave=False)]
 
-    scores = pd.DataFrame(np.zeros((len(query_dps), len(target_dps)),
-                                    dtype=this.dtype),
-                          index=query_dps.id, columns=target_dps.id)
+    if scores != 'both':
+        scores = pd.DataFrame(np.zeros((len(query_dps), len(target_dps)),
+                                        dtype=this.dtype),
+                              index=query_dps.id, columns=target_dps.id)
+        scores.index.name = 'query'
+        scores.columns.name = 'target'
+    else:
+        ix = pd.MultiIndex.from_product([query_dps.id, ['forward', 'reverse']],
+                                        names=["query", "score"])
+        scores = pd.DataFrame(np.zeros((len(query_dps) * 2, len(target_dps)),
+                                        dtype=this.dtype),
+                              index=ix, columns=target_dps.id)
+        scores.columns.name = 'target'
 
     for res in results:
         scores.loc[res.index, res.columns] = res.values
