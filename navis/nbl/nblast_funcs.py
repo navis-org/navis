@@ -362,7 +362,9 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     target_dps = NeuronList(target)
 
     # Run NBLAST preflight checks
-    nblast_preflight(query_dps, target_dps, n_cores, req_unique_ids=True)
+    nblast_preflight(query_dps, target_dps, n_cores,
+                     req_unique_ids=True,
+                     req_microns=isinstance(smat, str) and smat=='auto')
 
     # Find an optimal partition that minimizes the number of neurons
     # we have to send to each process
@@ -651,7 +653,8 @@ def nblast(query: Union[Dotprops, NeuronList],
 
     # Run NBLAST preflight checks
     nblast_preflight(query_dps, target_dps, n_cores,
-                     batch_size=batch_size, req_unique_ids=True)
+                     batch_size=batch_size, req_unique_ids=True,
+                     req_microns=isinstance(smat, str) and smat=='auto')
 
     # Find an optimal partition that minimizes the number of neurons
     # we have to send to each process
@@ -817,7 +820,9 @@ def nblast_allbyall(x: NeuronList,
     # Run NBLAST preflight checks
     # Note that we are passing the same dotprops twice to avoid having to
     # change the function's signature. Should have little to no overhead.
-    nblast_preflight(dps, dps, n_cores, req_unique_ids=True)
+    nblast_preflight(dps, dps, n_cores,
+                     req_unique_ids=True,
+                     req_microns=isinstance(smat, str) and smat=='auto')
 
     # Find an optimal partition that minimizes the number of neurons
     # we have to send to each process
@@ -1095,7 +1100,8 @@ def sim_to_dist(x):
 
 
 def nblast_preflight(query, target, n_cores, batch_size=None,
-                     req_unique_ids=False, req_dotprops=True):
+                     req_unique_ids=False, req_dotprops=True,
+                     req_microns=True):
     """Run preflight checks for NBLAST."""
     if req_dotprops:
         if query.types != (Dotprops, ):
@@ -1115,12 +1121,13 @@ def nblast_preflight(query, target, n_cores, batch_size=None,
 
     # Check if query or targets are in microns
     # Note this test can return `None` if it can't be determined
-    if check_microns(query) is False:
-        logger.warning('NBLAST is optimized for data in microns and it looks '
-                       'like your queries are not in microns.')
-    if check_microns(target) is False:
-        logger.warning('NBLAST is optimized for data in microns and it looks '
-                       'like your targets are not in microns.')
+    if req_microns:
+        if check_microns(query) is False:
+            logger.warning('NBLAST is optimized for data in microns and it looks '
+                           'like your queries are not in microns.')
+        if check_microns(target) is False:
+            logger.warning('NBLAST is optimized for data in microns and it looks '
+                           'like your targets are not in microns.')
 
     if not isinstance(n_cores, numbers.Number) or n_cores < 1:
         raise TypeError('`n_cores` must be an integer > 0')

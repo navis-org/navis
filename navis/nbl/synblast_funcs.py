@@ -274,7 +274,9 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
     target = NeuronList(target)
 
     # Run pre-flight checks
-    nblast_preflight(query, target, n_cores, req_unique_ids=True, req_dotprops=False)
+    nblast_preflight(query, target, n_cores,
+                     req_unique_ids=True, req_dotprops=False,
+                     req_microns=isinstance(smat, str) and smat=='auto')
 
     # Make sure all neurons have connectors
     if not all(query.has_connectors):
