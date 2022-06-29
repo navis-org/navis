@@ -170,7 +170,7 @@ class NBlaster(Blaster):
             scr /= self.self_hits[q_idx]
 
         # For the mean score we also have to produce the reverse score
-        if scores in ('mean', 'min', 'max'):
+        if scores in ('mean', 'min', 'max', 'both'):
             reverse = self.single_query_target(t_idx, q_idx, scores='forward')
             if scores == 'mean':
                 scr = (scr + reverse) / 2
@@ -178,6 +178,9 @@ class NBlaster(Blaster):
                 scr = min(scr, reverse)
             elif scores == 'max':
                 scr = max(scr, reverse)
+            elif scores == 'both':
+                # If both scores are requested
+                scr = [scr, reverse]
 
         return scr
 
@@ -543,7 +546,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                     microns as NBLAST is optimized for that and have
                     similar sampling resolutions. If not provided, will NBLAST
                     queries against themselves.
-    scores :        'forward' | 'mean' | 'min' | 'max'
+    scores :        'forward' | 'mean' | 'min' | 'max' | 'both'
                     Determines the final scores:
 
                       - 'forward' (default) returns query->target scores
@@ -553,6 +556,8 @@ def nblast(query: Union[Dotprops, NeuronList],
                         target->query scores
                       - 'max' returns the maximum between query->target and
                         target->query scores
+                      - 'both' will return foward and reverse scores as
+                        multi-index DataFrame
 
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
