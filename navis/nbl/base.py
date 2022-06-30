@@ -250,14 +250,14 @@ def extract_matches(scores, N=1, axis=0, distances=False):
     return matches
 
 
-def update_scores(queries, targets, scores, nblast_func, **kwargs):
+def update_scores(queries, targets, scores_ex, nblast_func, **kwargs):
     """Update score matrix by running only new query->target pairs.
 
     Parameters
     ----------
     queries :       Dotprops
     targets :       Dotprops
-    scores :        pandas.DataFrame
+    scores_ex :     pandas.DataFrame
                     DataFrame with existing scores.
     nblast_func :   callable
                     The NBLAST to use. For example: ``navis.nblast``.
@@ -269,29 +269,49 @@ def update_scores(queries, targets, scores, nblast_func, **kwargs):
     pandas.DataFrame
                     Updated scores.
 
+    Examples
+    --------
+
+    Mostly for testing but also illustrates the principle:
+
+    >>> import navis
+    >>> import numpy as np
+    >>> nl = navis.example_neurons(n=5)
+    >>> dp = navis.make_dotprops(nl, k=5) / 125
+    >>> # Full NBLAST
+    >>> scores = navis.nblast(dp, dp, n_cores=1)
+    >>> # Subset and fill in
+    >>> scores2 = navis.nbl.update_scores(dp, dp,
+    ...                                   scores_ex=scores.iloc[:3, 2:],
+    ...                                   nblast_func=navis.nblast,
+    ...                                   n_cores=1)
+    >>> np.all(scores == scores2)
+    True
+
     """
     if not callable(nblast_func):
         raise TypeError('`nblast_func` must be callable.')
     # The np.isin query is much faster if we force the strings to <U18
-    new_q = queries[~np.isin(queries.id, np.array(scores.index))]
-    new_t = targets[~np.isin(targets.id, np.array(scores.columns))]
+    is_new_q = ~np.isin(queries.id, np.array(scores_ex.index))
+    is_new_t = ~np.isin(targets.id, np.array(scores_ex.columns))
 
-    logger.info(f'Found {len(new_q)} new queries and {len(new_t)} new targets.')
+    logger.info(f'Found {is_new_q.sum()} new queries and '
+                f'{is_new_t.sum()} new targets.')
 
     # Reindex old scores
-    scores = scores.reindex(index=queries.id, columns=targets.id).copy()
+    scores = scores_ex.reindex(index=queries.id, columns=targets.id).copy()
 
     # NBLAST new queries against all targets
     if 'precision' not in kwargs:
         kwargs['precision'] = scores.values.dtype
 
-    if new_q:
-        qt = nblast_func(new_q, targets, **kwargs)
+    if any(is_new_q):
+        qt = nblast_func(queries[is_new_q], targets, **kwargs)
         scores.loc[qt.index, qt.columns] = qt.values
 
-    # NBLAST old queries against new targets
-    if new_t:
-        tq = nblast_func(queries, new_t, **kwargs)
+    # NBLAST all old queries against new targets
+    if any(is_new_t):
+        tq = nblast_func(queries[~is_new_q], targets[is_new_t], **kwargs)
         scores.loc[tq.index, tq.columns] = tq.values
 
     return scores
