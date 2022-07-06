@@ -291,7 +291,8 @@ def update_scores(queries, targets, scores_ex, nblast_func, **kwargs):
     """
     if not callable(nblast_func):
         raise TypeError('`nblast_func` must be callable.')
-    # The np.isin query is much faster if we force the strings to <U18
+    # The np.isin query is much faster if we force any strings to <U18 by
+    # converting to arrays
     is_new_q = ~np.isin(queries.id, np.array(scores_ex.index))
     is_new_t = ~np.isin(targets.id, np.array(scores_ex.columns))
 
@@ -306,11 +307,13 @@ def update_scores(queries, targets, scores_ex, nblast_func, **kwargs):
         kwargs['precision'] = scores.values.dtype
 
     if any(is_new_q):
+        logger.info(f'Updating new queries -> targets scores')
         qt = nblast_func(queries[is_new_q], targets, **kwargs)
         scores.loc[qt.index, qt.columns] = qt.values
 
     # NBLAST all old queries against new targets
     if any(is_new_t):
+        logger.info(f'Updating old queries -> new targets scores')
         tq = nblast_func(queries[~is_new_q], targets[is_new_t], **kwargs)
         scores.loc[tq.index, tq.columns] = tq.values
 
