@@ -705,8 +705,9 @@ def nblast(query: Union[Dotprops, NeuronList],
     with ProcessPoolExecutor(max_workers=n_cores) as pool:
         if progress:
             # For large NBLASTs the progress bar appears to slow things down if
-            # update too frequently. We will clip the granularity at ~1% per chunk
-            perc_per_blaster = 100 / len(nblasters)  # percent of total per blaster
+            # update too frequently. We will aim for ~1% per chunk
+            perc_per_blaster = 100 / len(nblasters)
+            # Note the square root: we chunk over both queries and targets
             n_chunks = max(1, int(np.sqrt(perc_per_blaster)))
         else:
             # If no progress, just set chunksize to max possible
@@ -716,6 +717,8 @@ def nblast(query: Union[Dotprops, NeuronList],
             this.progress=False  # no progress bar for individual NBLASTers
             q_chunks = np.linspace(0, len(this.queries), n_chunks + 1).astype(int)
             t_chunks = np.linspace(0, len(this.targets), n_chunks + 1).astype(int)
+            q_chunks = np.unique(q_chunks)  # avoid issues when less queries than chunks
+            t_chunks = np.unique(t_chunks)  # avoid issues when less targets than chunks
             for q1, q2 in zip(q_chunks[:-1], q_chunks[1:]):
                 for t1, t2 in zip(t_chunks[:-1], t_chunks[1:]):
                     futures.append(pool.submit(this.multi_query_target,
