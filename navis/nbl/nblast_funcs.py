@@ -703,24 +703,28 @@ def nblast(query: Union[Dotprops, NeuronList],
                                        scores=scores)
 
     with ProcessPoolExecutor(max_workers=n_cores) as pool:
-        # A chunksize of 100 seems to be a fair value: it produces frequent
-        # enough updates without producing too many chunks. If no progress bar
-        # required we don't have to chunk things which speeds things up slightly
-        chunksize = 100 if progress else (max(len(this.queries), len(this.targets)) + 1)
+        if progress:
+            # For large NBLASTs the progress bar appears to slow things down if
+            # update too frequently. We will clip the granularity at ~1% per chunk
+            perc_per_blaster = 100 / len(nblasters)  # percent of total per blaster
+            n_chunks = max(1, int(np.sqrt(perc_per_blaster)))
+        else:
+            # If no progress, just set chunksize to max possible
+            n_chunks = 1
         futures = []
         for this in nblasters:
             this.progress=False  # no progress bar for individual NBLASTers
-            for q in range(0, len(this.queries), chunksize):
-                for t in range(0, len(this.targets), chunksize):
+            q_chunks = np.linspace(0, len(this.queries), n_chunks + 1).astype(int)
+            t_chunks = np.linspace(0, len(this.targets), n_chunks + 1).astype(int)
+            for q1, q2 in zip(q_chunks[:-1], q_chunks[1:]):
+                for t1, t2 in zip(t_chunks[:-1], t_chunks[1:]):
                     futures.append(pool.submit(this.multi_query_target,
-                                               q_idx=this.queries[q:q+chunksize],
-                                               t_idx=this.targets[t:t+chunksize],
+                                               q_idx=this.queries[q1:q2],
+                                               t_idx=this.targets[t1:t2],
                                                scores=scores))
-
         # We're dropping the "N / N_total" bit from the progress bar because its
         # not helpful here
-        fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}, '
-               '{rate_fmt}{postfix}]')
+        fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]')
         results = [f.result() for f in config.tqdm(futures,
                                                    bar_format=fmt,
                                                    disable=not progress,
