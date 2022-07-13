@@ -87,7 +87,7 @@ class NBlaster(Blaster):
 
     def __init__(self, use_alpha=False, normalized=True, smat='auto',
                  limit_dist=None, approx_nn=False, dtype=np.float64,
-                 progress=True, smat_kwargs=None):
+                 progress=True, smat_kwargs=dict()):
         """Initialize class."""
         super().__init__(progress=progress, dtype=dtype)
         self.use_alpha = use_alpha
@@ -100,8 +100,9 @@ class NBlaster(Blaster):
         elif smat == 'auto':
             self.score_fn = smat_fcwb(self.use_alpha)
         elif smat == 'v1':
-            if 'sigma_scoring' in kwargs:
-                self.score_fn = partial(_nblast_v1_scoring(sigma_scoring=kwargs.get('sigma_scoring', 10)))
+            self.score_fn = partial(
+                _nblast_v1_scoring, sigma_scoring = smat_kwargs.get('sigma_scoring', 10)
+            )
         elif isinstance(smat, pd.DataFrame):
             self.score_fn = Lookup2d.from_dataframe(smat)
         else:
@@ -215,7 +216,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  precision: Union[int, str, np.dtype] = 64,
                  n_cores: int = os.cpu_count() // 2,
                  progress: bool = True,
-                 smat_kwargs: Optional[Dict] = None) -> pd.DataFrame:
+                 smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
     """Smart(er) NBLAST query against target neurons.
 
     In contrast to :func:`navis.nblast` this function will first run a
@@ -553,7 +554,7 @@ def nblast(query: Union[Dotprops, NeuronList],
            batch_size: Optional[int] = None,
            n_cores: int = os.cpu_count() // 2,
            progress: bool = True,
-           smat_kwargs: Optional[Dict] = None) -> pd.DataFrame:
+           smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
     """NBLAST query against target neurons.
 
     This implements the NBLAST algorithm from Costa et al. (2016) (see
@@ -794,7 +795,7 @@ def nblast_allbyall(x: NeuronList,
                     precision: Union[int, str, np.dtype] = 64,
                     n_cores: int = os.cpu_count() // 2,
                     progress: bool = True,
-                    smat_kwargs: Optional[Dict] = None) -> pd.DataFrame:
+                    smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
     """All-by-all NBLAST of inputs neurons.
 
     A slightly more efficient way than running ``nblast(query=x, target=x)``.
