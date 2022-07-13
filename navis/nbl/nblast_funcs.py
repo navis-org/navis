@@ -17,15 +17,16 @@
 import numbers
 import os
 import operator
+from functools import partial
 
 import numpy as np
 import pandas as pd
 
 from concurrent.futures import ProcessPoolExecutor
-from typing import Callable, Union, Optional, List
+from typing import Callable, Dict, Union, Optional, List
 from typing_extensions import Literal
 
-from navis.nbl.smat import Lookup2d, smat_fcwb
+from navis.nbl.smat import Lookup2d, smat_fcwb, _nblast_v1_scoring
 
 from .. import utils, config
 from ..core import NeuronList, Dotprops, make_dotprops
@@ -37,33 +38,6 @@ fp = os.path.dirname(__file__)
 smat_path = os.path.join(fp, 'score_mats')
 
 logger = config.logger
-
-
-def _nblast_v1_scoring(dist : float, dp : float, sigma_scoring : int = 10):
-    """NBLAST analytical scoring function following Kohl et al. (2013)
-
-    Parameters
-    ----------
-    dist :          float
-                    Distance between two points.
-    dp :            float
-                    Absolute dot product between points.
-    sigma_scoring : int
-                    Sigma of the exponential decrease.
-                    It determines how close in space points must be to be considered similar
-                    Defaults to 10.
-    Returns
-    -------
-    scores :        float
-                    Score value.
-
-    References
-    ----------
-    Kohl J, Ostrovsky AD, Frechter S, Jefferis GS. A bidirectional circuit switch
-    reroutes pheromone signals in male and female brains. Cell. 2013 Dec;155(7) 1610-1623.
-    doi: 10.1016/j.cell.2013.11.025. 
-    """
-    return np.sqrt(np.abs(dp) * np.exp(-(dist ** 2)/(2 * sigma_scoring ** 2)))
 
 
 class NBlaster(Blaster):
@@ -89,8 +63,8 @@ class NBlaster(Blaster):
                     from FCWB. Same behaviour as in R's nat.nblast
                     implementation.
                     If ``smat='v1'`` it uses the analytic formulation of the
-                    NBLAST scoring from Kohl et. al (2013). You can change the default
-                    ``sigma_scaling = 10`` to adjust the distance impact.
+                    NBLAST scoring from Kohl et. al (2013). You can adjust parameter
+                    ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
                     Dataframes will be used to build a ``Lookup2d``.
                     If ``limit_dist`` is not given,
                     will attempt to infer from the first axis of the lookup table.
@@ -99,6 +73,8 @@ class NBlaster(Blaster):
                     If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
+    smat_kwargs:    Dictionary with additional parameters passed to scoring
+                    functions. For example: ``smat_kwargs["sigma_scoring"] = 10``.
     limit_dist :    float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
@@ -111,7 +87,7 @@ class NBlaster(Blaster):
 
     def __init__(self, use_alpha=False, normalized=True, smat='auto',
                  limit_dist=None, approx_nn=False, dtype=np.float64,
-                 progress=True, **kwargs):
+                 progress=True, smat_kwargs=None):
         """Initialize class."""
         super().__init__(progress=progress, dtype=dtype)
         self.use_alpha = use_alpha
@@ -125,9 +101,7 @@ class NBlaster(Blaster):
             self.score_fn = smat_fcwb(self.use_alpha)
         elif smat == 'v1':
             if 'sigma_scoring' in kwargs:
-                self.score_fn = lambda x, y: _nblast_v1_scoring(x, y, sigma_scoring=kwargs['sigma_scoring'])
-            else:
-                self.score_fn = _nblast_v1_scoring
+                self.score_fn = partial(_nblast_v1_scoring(sigma_scoring=kwargs.get('sigma_scoring', 10)))
         elif isinstance(smat, pd.DataFrame):
             self.score_fn = Lookup2d.from_dataframe(smat)
         else:
@@ -241,7 +215,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  precision: Union[int, str, np.dtype] = 64,
                  n_cores: int = os.cpu_count() // 2,
                  progress: bool = True,
-                 **kwargs) -> pd.DataFrame:
+                 smat_kwargs: Optional[Dict] = None) -> pd.DataFrame:
     """Smart(er) NBLAST query against target neurons.
 
     In contrast to :func:`navis.nblast` this function will first run a
@@ -292,13 +266,15 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     from FCWB. Same behaviour as in R's nat.nblast
                     implementation.
                     If ``smat='v1'`` it uses the analytic formulation of the
-                    NBLAST scoring from Kohl et. al (2013). You can change the default
-                    ``sigma_scaling = 10`` to adjust the distance impact.
+                    NBLAST scoring from Kohl et. al (2013). You can adjust parameter
+                    ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
                     If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
                     If ``Callable`` given, it passes distance and dot products as
                     first and second argument respectively.
+    smat_kwargs:    Dictionary with additional parameters passed to scoring
+                    functions. 
     limit_dist :    float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
@@ -437,7 +413,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                                 dtype=precision,
                                 approx_nn=approx_nn,
                                 progress=progress,
-                                **kwargs)
+                                smat_kwargs=smat_kwargs)
                 # Add queries and targets
                 for n in qq:
                     this.append(n)
@@ -514,7 +490,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                                 dtype=precision,
                                 approx_nn=approx_nn,
                                 progress=progress,
-                                **kwargs)
+                                smat_kwargs=smat_kwargs)
                 # Add queries and targets
                 for n in query_dps[q]:
                     this.append(n)
@@ -577,7 +553,7 @@ def nblast(query: Union[Dotprops, NeuronList],
            batch_size: Optional[int] = None,
            n_cores: int = os.cpu_count() // 2,
            progress: bool = True,
-           **kwargs) -> pd.DataFrame:
+           smat_kwargs: Optional[Dict] = None) -> pd.DataFrame:
     """NBLAST query against target neurons.
 
     This implements the NBLAST algorithm from Costa et al. (2016) (see
@@ -618,8 +594,8 @@ def nblast(query: Union[Dotprops, NeuronList],
                     from FCWB. Same behaviour as in R's nat.nblast
                     implementation.
                     If ``smat='v1'`` it uses the analytic formulation of the
-                    NBLAST scoring from Kohl et. al (2013). You can change the default
-                    ``sigma_scaling = 10`` to adjust the distance impact.
+                    NBLAST scoring from Kohl et. al (2013). You can adjust parameter
+                    ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
                     If ``Callable`` given, it passes distance and dot products as
                     first and second argument respectively.
                     If ``smat=None`` the scores will be
@@ -659,6 +635,8 @@ def nblast(query: Union[Dotprops, NeuronList],
                     evenly distributed across n_cores. Ignored if ``n_cores=1``.
     progress :      bool
                     Whether to show progress bars.
+    smat_kwargs:    Dictionary with additional parameters passed to scoring
+                    functions.
 
     Returns
     -------
@@ -731,7 +709,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                                 dtype=precision,
                                 approx_nn=approx_nn,
                                 progress=progress,
-                                **kwargs)
+                                smat_kwargs=smat_kwargs)
 
                 # Use better description if we process in batches
                 if batch_size:
@@ -816,7 +794,7 @@ def nblast_allbyall(x: NeuronList,
                     precision: Union[int, str, np.dtype] = 64,
                     n_cores: int = os.cpu_count() // 2,
                     progress: bool = True,
-                    **kwargs) -> pd.DataFrame:
+                    smat_kwargs: Optional[Dict] = None) -> pd.DataFrame:
     """All-by-all NBLAST of inputs neurons.
 
     A slightly more efficient way than running ``nblast(query=x, target=x)``.
@@ -842,8 +820,8 @@ def nblast_allbyall(x: NeuronList,
                     from FCWB. Same behaviour as in R's nat.nblast
                     implementation.
                     If ``smat='v1'`` it uses the analytic formulation of the
-                    NBLAST scoring from Kohl et. al (2013). You can change the default
-                    ``sigma_scaling = 10`` to adjust the distance impact.
+                    NBLAST scoring from Kohl et. al (2013). You can adjust parameter
+                    ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
                     If ``smat=None`` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
@@ -873,6 +851,8 @@ def nblast_allbyall(x: NeuronList,
                     sufficient.
     progress :      bool
                     Whether to show progress bars.
+    smat_kwargs:    Dictionary with additional parameters passed to scoring
+                    functions.
 
     Returns
     -------
@@ -936,7 +916,7 @@ def nblast_allbyall(x: NeuronList,
                                 dtype=precision,
                                 approx_nn=approx_nn,
                                 progress=progress,
-                                **kwargs)
+                                smat_kwargs=smat_kwargs)
 
                 # Make sure we don't add the same neuron twice
                 # Map indices to neurons
