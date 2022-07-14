@@ -62,6 +62,32 @@ def concat_results(results: Iterable[List[np.ndarray]]) -> List[np.ndarray]:
 
     return [np.concatenate(arrs) for arrs in intermediate.values()]
 
+def _nblast_v1_scoring(dist : float, dp : float, sigma_scoring : int = 10):
+    """NBLAST analytical scoring function following Kohl et al. (2013)
+
+    Parameters
+    ----------
+    dist :          float
+                    Distance between two points.
+    dp :            float
+                    Absolute dot product between points.
+    sigma_scoring : int
+                    Sigma of the exponential decrease.
+                    It determines how close in space points must be to be considered similar
+                    Defaults to 10.
+    Returns
+    -------
+    scores :        float
+                    Score value.
+
+    References
+    ----------
+    Kohl J, Ostrovsky AD, Frechter S, Jefferis GS. A bidirectional circuit switch
+    reroutes pheromone signals in male and female brains. Cell. 2013 Dec;155(7) 1610-1623.
+    doi: 10.1016/j.cell.2013.11.025. 
+    """
+    return np.sqrt(np.abs(dp) * np.exp(-(dist ** 2)/(2 * sigma_scoring ** 2)))
+
 
 DotpropKey = Hashable
 
