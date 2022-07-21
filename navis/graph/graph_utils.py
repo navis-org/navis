@@ -1608,13 +1608,18 @@ def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
     return {n: [e[0] for e in g.in_edges(n)] for n in g.nodes}
 
 
-def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
+def node_label_sorting(x: 'core.TreeNeuron',
+                       weighted: bool = False) -> List[Union[str, int]]:
     """Return nodes ordered by node label sorting according to Cuntz
     et al., PLoS Computational Biology (2010).
 
     Parameters
     ----------
     x :         TreeNeuron
+    weighted :  bool
+                If True will use actual distances instead of just node count.
+                Depending on how evenly spaced your points are, this might not
+                make much difference.
 
     Returns
     -------
@@ -1631,11 +1636,11 @@ def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
     if len(x.root) > 1:
         raise ValueError('Unable to process multi-root neurons!')
 
-    # Get relevant branch points
+    # Get relevant terminal nodes
     term = x.nodes[x.nodes.type == 'end'].node_id.values
 
-    # Get distance from all branch_points
-    geo = geodesic_matrix(x, from_=term, directed=True)
+    # Get distance from terminals to all other nodes
+    geo = geodesic_matrix(x, from_=term, directed=True, weight='weight' if weighted else None)
     # Set distance between unreachable points to None
     # Need to reinitialise SparseMatrix to replace float('inf') with NaN
     # dist_mat[geo == float('inf')] = None
@@ -1645,15 +1650,18 @@ def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
                             columns=geo.columns,
                             index=geo.index)
 
-    # Get starting points and sort by longest path to a terminal
+    # Get starting points (i.e. branches off the root) and sort by longest
+    # path to a terminal (note we're operating on the simplified version
+    # of the skeleton)
     curr_points = sorted(list(x.simple.graph.predecessors(x.root[0])),
                          key=lambda n: dist_mat[n].max(),
                          reverse=True)
 
-    # Walk from root along towards terminals, prioritising longer branches
+    # Walk from root towards terminals, prioritising longer branches
     nodes_walked = []
     while curr_points:
         nodes_walked.append(curr_points.pop(0))
+        # If the current point is a terminal point, stop here
         if nodes_walked[-1] in term:
             pass
         else:
@@ -1664,11 +1672,16 @@ def node_label_sorting(x: 'core.TreeNeuron') -> List[Union[str, int]]:
 
     # Translate into segments
     node_list = [x.root[0]]
-    segments = _break_segments(x)
-    for n in nodes_walked:
-        node_list += [seg for seg in segments if seg[0] == n][0][:-1]
+    # Note that we're inverting here so that the segments are ordered
+    # proximal -> distal (i.e. root to tips)
+    seg_dict = {s[0]: s[::-1] for s in _break_segments(x)}
 
-    return node_list
+    for n in nodes_walked:
+        # Note that we're skipping the first (proximal) node to avoid double
+        # counting nodes
+        node_list += seg_dict[n][1:]
+
+    return np.array(node_list)
 
 
 def _igraph_to_sparse(graph, weight_attr=None):
