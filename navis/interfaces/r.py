@@ -1540,10 +1540,10 @@ def get_neuropil(x: str, template: str = 'FCWB') -> core.Volume:
 
     # Remove superfluous vertices
     verts_required = np.unique(faces.values)
-    this_verts = all_vertices.loc[verts_required]
+    this_verts = all_vertices.iloc[verts_required]
 
     # Reorder and remap - DO NOT use ".index" here!
-    new_map = {old: new for old, new in zip(this_verts.index,
+    new_map = {int(old)-1: new for old, new in zip(this_verts.index,
                                             np.arange(0, this_verts.shape[0]).astype(int))}
     faces['V1'] = faces.V1.map(new_map)
     faces['V2'] = faces.V2.map(new_map)
