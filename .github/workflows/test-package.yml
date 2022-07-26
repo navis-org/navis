@@ -37,6 +37,8 @@ jobs:
     - run: pip install python-igraph
       if: ${{ matrix.igraph == 'igraph' }}
     - name: Test
-      run: |
-        export NAVIS_HEADLESS=TRUE
-        pytest --verbose
+      uses: GabrielBB/xvfb-action@v1
+      with:
+        run: |
+          export NAVIS_HEADLESS=TRUE
+          pytest --verbose
