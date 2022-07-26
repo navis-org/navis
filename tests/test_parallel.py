@@ -33,10 +33,10 @@ def test_parallel_inplace():
     assert pr[0].n_nodes == pr2[0].n_nodes
 
     # Test apply with inplace=True -> this should not work
-    pr = nl.apply(navis.prune_by_strahler, to_prune=1, inplace=True,
-                  parallel=True)
-    assert len(pr) == len(nl)
-    assert all(pr.n_nodes < nl.n_nodes)
+    #pr = nl.apply(navis.prune_by_strahler, to_prune=1, inplace=True,
+    #              parallel=True)
+    #assert len(pr) == len(nl)
+    #assert all(pr.n_nodes < nl.n_nodes)
 
 
 def test_apply():
