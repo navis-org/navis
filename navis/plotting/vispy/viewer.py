@@ -118,7 +118,7 @@ class Viewer:
     >>> # Set background to green
     >>> v = navis.Viewer(bgcolor='green')
     >>> # Set background back to white
-    >>> v.canvas.bgcolor = (1, 1, 1)
+    >>> v.set_bgcolor((1, 1, 1))
     >>> # Alternative to v.close():
     >>> navis.close3d()
 
@@ -132,8 +132,11 @@ class Viewer:
                         bgcolor='black')
         defaults.update(kwargs)
 
-        if getattr(config, 'headless'):
-            defaults['show'] = False
+        # If we're runningg in headless mode (primarily for tests on CI) we will
+        # simply not initialize the vispy objects. Not ideal but it turns
+        # out to be very annoying to correctly setup on Github Actions.
+        if getattr(config, 'headless', False):
+            return
 
         # Set border rim -> this depends on how the framework (e.g. QT5)
         # renders the window
@@ -518,6 +521,10 @@ class Viewer:
 
     def clear(self):
         """Clear canvas."""
+        # Skip if running in headless mode
+        if getattr(config, 'headless', False):
+            return
+
         for v in self.visuals:
             v.parent = None
 
@@ -750,6 +757,12 @@ class Viewer:
         if combine:
             visuals = combine_visuals(visuals, kwargs.get('name'))
 
+        # If we're runningg in headless mode (primarily for tests on CI) we will
+        # simply not add the objects. Not ideal but it turns out to be very
+        # annoying to correctly setup on Github Actions.
+        if getattr(config, 'headless', False):
+            return
+
         for v in visuals:
             # Give visuals an _object_id if they don't already have one
             if not hasattr(v, '_object_id'):
@@ -770,13 +783,18 @@ class Viewer:
     def show(self):
         """Show viewer."""
         # This is for e.g. headless testing
-        if not getattr(config, 'headless', False):
-            self.canvas.show()
-        else:
+        if getattr(config, 'headless', False):
             logger.info("Viewer widget not shown - navis running in headless mode. ")
+            return
+
+        self.canvas.show()
 
     def close(self):
         """Close viewer."""
+        # Skip if this is headless mode
+        if getattr(config, 'headless', False):
+            return
+
         # Clear first to free all visuals
         self.clear()
         if self == getattr(config, 'primary_viewer', None):
@@ -1011,6 +1029,8 @@ class Viewer:
 
     def set_bgcolor(self, c):
         """Set background color."""
+        if getattr(config, 'headless', False):
+            return
         self.canvas.bgcolor = c
 
     def _cycle_neurons(self, increment):
