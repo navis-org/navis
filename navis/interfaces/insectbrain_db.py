@@ -125,7 +125,7 @@ class Session:
 
     def preflight(self):
         """Check if we're ready to make requests."""
-        if not self.token or self.token_expired:
+        if self.token and self.token_expired:
             self.fetch_token()
 
     def get(self, *args, **kwargs):
