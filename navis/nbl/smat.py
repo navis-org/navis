@@ -421,7 +421,7 @@ class LookupNdBuilder:
             (self.match_counts_ * self.matching_factor_ + epsilon) / (self.nonmatch_counts_ + epsilon)
         )
 
-        return self.digitizers, self._cells
+        return self.digitizers, self.cells_
 
     def build(self, threads=None) -> LookupNd:
         """Build the score matrix.
