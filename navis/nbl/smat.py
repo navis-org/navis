@@ -31,14 +31,14 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
-from ..core.neurons import Dotprops
+from .. import config
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_SEED = 1991
 
 epsilon = sys.float_info.epsilon
-cpu_count = max(1, (os.cpu_count() or 2) - 1)
+cpu_count = max(1, os.cpu_count() - 1)
 
 fp = Path(__file__).resolve().parent
 smat_path = fp / "score_mats"
@@ -54,88 +54,104 @@ def yield_not_same(pairs: Iterable[Tuple[Any, Any]]) -> Iterator[Tuple[Any, Any]
             yield a, b
 
 
-def concat_results(results: Iterable[List[np.ndarray]]) -> List[np.ndarray]:
+def concat_results(results: Iterable[List[np.ndarray]],
+                   total: Optional[int] = None,
+                   desc: str = 'Querying',
+                   progress: bool = True) -> List[np.ndarray]:
+    """Helper function to concatenate batches of e.g. [(dist, dots), (dist, dots)]
+    into single (dist, dot) arrays.
+    """
     intermediate = defaultdict(list)
-    for result_lst in results:
-        for idx, array in enumerate(result_lst):
-            intermediate[idx].append(array)
+    with config.tqdm(desc=desc,
+                     total=total,
+                     leave=False,
+                     disable=not progress) as pbar:
+        for result_lst in results:
+            for idx, array in enumerate(result_lst):
+                intermediate[idx].append(array)
+            pbar.update(1)
 
     return [np.concatenate(arrs) for arrs in intermediate.values()]
 
 def _nblast_v1_scoring(dist : float, dp : float, sigma_scoring : int = 10):
-    """NBLAST analytical scoring function following Kohl et al. (2013)
+    """NBLAST analytical scoring function following Kohl et al. (2013).
 
     Parameters
     ----------
-    dist :          float
+    dist :          float | array thereof
                     Distance between two points.
-    dp :            float
+    dp :            float | array thereof
                     Absolute dot product between points.
     sigma_scoring : int
                     Sigma of the exponential decrease.
-                    It determines how close in space points must be to be considered similar
-                    Defaults to 10.
+                    It determines how close in space points must be to be
+                    considered similar. Defaults to 10.
     Returns
     -------
-    scores :        float
-                    Score value.
+    scores :        float or array thereof
+                    Score value(s).
 
     References
     ----------
     Kohl J, Ostrovsky AD, Frechter S, Jefferis GS. A bidirectional circuit switch
-    reroutes pheromone signals in male and female brains. Cell. 2013 Dec;155(7) 1610-1623.
-    doi: 10.1016/j.cell.2013.11.025. 
+    reroutes pheromone signals in male and female brains.
+    Cell. 2013 Dec;155(7) 1610-1623. doi: 10.1016/j.cell.2013.11.025.
     """
     return np.sqrt(np.abs(dp) * np.exp(-(dist ** 2)/(2 * sigma_scoring ** 2)))
 
 
-DotpropKey = Hashable
+NeuronKey = Hashable
 
 
 class LookupNdBuilder:
     def __init__(
         self,
-        dotprops: Union[List[Dotprops], Mapping[DotpropKey, Dotprops]],
-        matching_lists: List[List[DotpropKey]],
-        match_fn: Callable[[Dotprops, Dotprops], List[np.ndarray]],
-        nonmatching_list: Optional[List[DotpropKey]] = None,
+        neurons: Union[List[object], Mapping[NeuronKey, object]],
+        matching_lists: List[List[NeuronKey]],
+        match_fn: Callable[[object, object], List[np.ndarray]],
+        nonmatching_list: Optional[List[NeuronKey]] = None,
         seed: int = DEFAULT_SEED,
     ) -> None:
-        f"""Class for building an N-dimensional score lookup for NBLAST.
+        f"""Class for building an N-dimensional score lookup (for e.g. NBLAST).
 
         Once instantiated, the axes of the lookup table must be defined.
-        Call ``.with_digitizers()`` to manually define them,
-        or ``.with_bin_counts()`` to learn them from the matched-pair data.
+        Call ``.with_digitizers()`` to manually define them, or
+        ``.with_bin_counts()`` to learn them from the matched-pair data.
 
         Then call ``.build()`` to build the lookup table.
 
         Parameters
         ----------
+        neurons :       dict or list of objects (e.g. Dotprops)
+                        An indexable, consistently-ordered sequence of all
+                        objects (typically neurons) which will be used as the
+                        training set.
+        matching_sets : list of lists of index into ``neurons``
+                        Lists of neurons, as indices into ``neurons``, which
+                        should be considered matches:
 
-        dotprops : dict or list of Dotprops
-            An indexable, consistently-ordered sequence of all neurons
-            which will be used as the training set, as Dotprops objects.
-        matching_sets : list of lists of index into dotprops
-            Lists of neurons, as indices into ``dotprops``, which should be considered matches.
-        match_fn : Callable[[Dotprops, Dotprops], List[np.ndarray[float]]]
-            Function taking 2 arguments,
-            both instances of ``navis.core.neurons.Dotprops``,
-            and returning a list of 1D ``numpy.ndarray``s of floats.
-            The length of the list must be the same as the length of ``boundaries``.
-            The length of the ``array``s must be the same
-            as the number of points in the first argument.
-            This function returns values describing the quality of
-            point matches from a query to a target neuron.
-        nonmatching : list of index into dotprops, optional
-            List of neurons, as indices into ``dotprops``,
-            which should not be considered matches.
-            If not given, all ``dotprops`` will be used
-            (on the assumption that matches are a small subset of possible pairs).
-        seed : int, optional
-            Non-matching pairs are drawn at random using this seed,
-            by default {DEFAULT_SEED}
+                          [[0, 1, 2, 4], [5, 6], [9, 10, 11]]
+
+        match_fn :      Callable[[object, object], List[np.ndarray[float]]]
+                        Function taking 2 arguments, both instances of type
+                        ``neurons``, and returning a list of 1D
+                        ``numpy.ndarray``s of floats. The length of the list
+                        must be the same as the length of ``boundaries``.
+                        The length of the ``array``s must be the same as the
+                        number of points in the first argument. This function
+                        returns values describing the quality of point matches
+                        from a query to a target neuron.
+        nonmatching :   list of index into ``neurons``, optional
+                        List of objects, as indices into ``neurons``, which
+                        should be be considered NON-matches. If not given,
+                        all ``neurons`` will be used (on the assumption that
+                        matches are a small subset of possible pairs).
+        seed :          int, optional
+                        Non-matching pairs are drawn at random using this seed,
+                        by default {DEFAULT_SEED}.
+
         """
-        self.dotprops = dotprops
+        self.objects = neurons
         self.matching_lists = matching_lists
         self._nonmatching_list = nonmatching_list
         self.match_fn = match_fn
@@ -149,9 +165,8 @@ class LookupNdBuilder:
     @property
     def ndim(self) -> int:
         if self._ndim is None:
-            idx1, idx2 = self._dotprop_keys()[:2]
+            idx1, idx2 = self._object_keys()[:2]
             self._ndim = len(self._query(idx1, idx2))
-            self._query.cache_clear()
         return self._ndim
 
     def with_digitizers(self, digitizers: List[Digitizer]):
@@ -201,43 +216,49 @@ class LookupNdBuilder:
         self.digitizers = None
         return self
 
-    def _dotprop_keys(self) -> Sequence[DotpropKey]:
-        """Get all indices into dotprops instance member"""
+    def _object_keys(self) -> Sequence[DotpropKey]:
+        """Get all indices into objects instance member."""
         try:
-            return self.dotprops.keys()
+            return self.objects.keys()
         except AttributeError:
-            return range(len(self.dotprops))
+            return range(len(self.objects))
 
     @property
     def nonmatching(self) -> List[DotpropKey]:
-        """Indices of nonmatching set of neurons"""
+        """Indices of nonmatching set of neurons."""
         if self._nonmatching_list is None:
-            return list(self._dotprop_keys())
+            return list(self._object_keys())
         return self._nonmatching_list
 
     def _yield_matching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
-        """Yield all index pairs within all matching pairs"""
+        """Yield all index pairs within all matching pairs."""
         for ms in self.matching_lists:
             yield from yield_not_same(permutations(ms, 2))
 
-    def _yield_nonmatching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
-        """Yield all index pairs within nonmatching list"""
-        # todo: this could be much better, use meshgrid or shuffle index arrays
-        return yield_not_same(permutations(self.nonmatching, 2))
+    def _yield_nonmatching_pairs(self, rng=None) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+        """Yield all index pairs within nonmatching list."""
+        nonmatching = np.array(self.nonmatching)
+
+        # If `rng` is provided, shuffle the nonmatching indices before
+        # producing pairs
+        if rng:
+            idx = np.arange(len(nonmatching))
+            rng.shuffle(idx)
+            nonmatching = nonmatching[idx]
+        return yield_not_same(permutations(nonmatching, 2))
 
     def _empty_counts(self) -> np.ndarray:
         """Create an empty array in which to store counts; shape determined by digitizer sizes."""
         shape = [len(b) for b in self.digitizers]
         return np.zeros(shape, int)
 
-    @lru_cache(None)
     def _query(self, q_idx, t_idx) -> List[np.ndarray]:
-        """Get the results of applying the match function to dotprops specified by indices"""
-        return self.match_fn(self.dotprops[q_idx], self.dotprops[t_idx])
+        """Get the results of applying the match function to objects specified by indices."""
+        return self.match_fn(self.objects[q_idx], self.objects[t_idx])
 
     def _query_many(self, idx_pairs, threads=None) -> Iterator[List[np.ndarray]]:
-        """Yield results from querying many pairs of dotprop indices"""
-        if threads is None or threads == 0 and cpu_count == 1:
+        """Yield results from querying many pairs of neuron indices."""
+        if threads is None or (threads == 0 and cpu_count == 1):
             for q_idx, t_idx in idx_pairs:
                 yield self._query(q_idx, t_idx)
             return
@@ -247,12 +268,13 @@ class LookupNdBuilder:
         chunks = chunksize(len(idx_pairs), threads)
 
         with ProcessPoolExecutor(threads) as exe:
-            yield from exe.map(
-                self._query, idx_pairs[:, 0], idx_pairs[:, 1], chunksize=chunks
-            )
+            yield from exe.map(self.match_fn,
+                               [self.objects[ix] for ix in idx_pairs[:, 0]],
+                               [self.objects[ix] for ix in idx_pairs[:, 1]],
+                               chunksize=chunks)
 
     def _query_to_idxs(self, q_idx, t_idx, counts=None):
-        """Produce a digitized counts array from a given query-target pair"""
+        """Produce a digitized counts array from a given query-target pair."""
         return self._count_results(self._query(q_idx, t_idx), counts)
 
     def _count_results(self, results: List[np.ndarray], counts=None):
@@ -260,24 +282,41 @@ class LookupNdBuilder:
 
         Requires digitizers.
         """
+        # Digitize
         idxs = [dig(r) for dig, r in zip(self.digitizers, results)]
 
+        # Make a stack
+        stack = np.vstack(idxs).T
+
+        # Create empty matrix if necessary
         if counts is None:
             counts = self._empty_counts()
 
-        for idx in zip(*idxs):
-            counts[idx] += 1
+        # Get counts per cell -> this is the actual bottleneck of this function
+        cells, cnt = np.unique(stack, axis=0, return_counts=True)
+
+        # Fill matrix (for loop should be fine here since we have at most
+        # cells.size values to fill in)
+        for ce, cn in zip(cells, cnt):
+            counts[ce[0], ce[1]] += cn
 
         return counts
 
-    def _counts_array(self, idx_pairs, threads=None, cache=False):
+    def _counts_array(self,
+                      idx_pairs,
+                      threads=None,
+                      progress=True,
+                      desc=None,
+                      ):
         """Convert index pairs into a digitized counts array.
 
         Requires digitizers.
         """
         counts = self._empty_counts()
-        if threads is None or threads == 0 and cpu_count == 1:
-            for q_idx, t_idx in idx_pairs:
+        if threads is None or (threads == 0 and cpu_count == 1):
+            for q_idx, t_idx in config.tqdm(idx_pairs,
+                                            leave=False,
+                                            disable=not progress):
                 counts = self._query_to_idxs(q_idx, t_idx, counts)
             return counts
 
@@ -288,15 +327,19 @@ class LookupNdBuilder:
         # because digitizing is not necessarily free,
         # keep this parallelisation separate to that in _query_many
         with ProcessPoolExecutor(threads) as exe:
-            for these_counts in exe.map(
-                self._query_to_idxs,
-                idx_pairs[:, 0],
-                idx_pairs[:, 1],
-                chunksize=chunks,
-            ):
-                counts += these_counts
-                if not cache:
-                    self._query.cache_clear
+            # This is the progress bar
+            with config.tqdm(desc=desc,
+                             total=len(idx_pairs),
+                             leave=False,
+                             disable=not progress) as pbar:
+                for distdots in exe.map(
+                    self.match_fn,
+                    [self.objects[ix] for ix in idx_pairs[:, 0]],
+                    [self.objects[ix] for ix in idx_pairs[:, 1]],
+                    chunksize=chunks,
+                ):
+                    counts = self._count_results(distdots, counts)
+                    pbar.update(1)
 
         return counts
 
@@ -307,15 +350,15 @@ class LookupNdBuilder:
         # means that we can parallelise the later step more effectively.
         # Slowdowns here are practically meaningless
         # because of how long distdot calculation will take
-        all_nonmatching_pairs = list(self._yield_nonmatching_pairs())
         nonmatching_pairs = []
         n_nonmatching_qual_vals = 0
         rng = np.random.default_rng(self.seed)
-        while n_nonmatching_qual_vals < n_matching_qual_vals:
-            idx = rng.integers(0, len(all_nonmatching_pairs))
-            nonmatching_pair = all_nonmatching_pairs.pop(idx)
+        for nonmatching_pair in self._yield_nonmatching_pairs(rng=rng):
             nonmatching_pairs.append(nonmatching_pair)
-            n_nonmatching_qual_vals += len(self.dotprops[nonmatching_pair[0]])
+            n_nonmatching_qual_vals += len(self.objects[nonmatching_pair[0]])
+
+            if n_nonmatching_qual_vals >= n_matching_qual_vals:
+                break
 
         return nonmatching_pairs
 
@@ -325,75 +368,89 @@ class LookupNdBuilder:
         # so we know how many non-matching pairs to draw
         q_idx_count = Counter(p[0] for p in matching_pairs)
         n_matching_qual_vals = sum(
-            len(self.dotprops[q_idx]) * n_reps for q_idx, n_reps in q_idx_count.items()
+            len(self.objects[q_idx]) * n_reps for q_idx, n_reps in q_idx_count.items()
         )
 
         nonmatching_pairs = self._pick_nonmatching_pairs(n_matching_qual_vals)
         return matching_pairs, nonmatching_pairs
 
-    def _build(self, threads, cache=False) -> Tuple[List[Digitizer], np.ndarray]:
+    def _build(self, threads, progress=True) -> Tuple[List[Digitizer], np.ndarray]:
         # Asking for more threads than available CPUs seems to crash on Github
         # actions
         if threads and threads >= cpu_count:
             threads = cpu_count
 
         if self.digitizers is None and self.bin_counts is None:
-            raise ValueError(
-                "Builder needs either digitizers or bin_counts; see with_* methods"
-            )
+            raise ValueError("Builder needs either digitizers or bin_counts - "
+                             "see with_* methods.")
 
         matching_pairs, nonmatching_pairs = self._get_pairs()
 
+        logger.info('Comparing matching pairs')
         if self.digitizers:
-            match_counts = self._counts_array(matching_pairs, threads, cache)
+            self.match_counts_ = self._counts_array(matching_pairs,
+                                                   threads=threads,
+                                                   progress=progress,
+                                                   desc='Comparing matching pairs')
         else:
-            match_results = concat_results(self._query_many(matching_pairs, threads))
+            match_results = concat_results(self._query_many(matching_pairs, threads),
+                                           progress=progress,
+                                           desc='Matching pairs',
+                                           total=len(matching_pairs))
             self.digitizers = [
                 Digitizer.from_data(data, nbins)
                 for data, nbins in zip(match_results, self.bin_counts)
             ]
-            if not cache:
-                self._query.cache_clear()
-            match_counts = self._count_results(match_results)
 
-        nonmatch_counts = self._counts_array(nonmatching_pairs, threads)
+            logger.info('Counting results (this may take a while)')
+            self.match_counts_ = self._count_results(match_results)
 
-        # account for there being different total numbers of match/nonmatch dist dots
-        matching_factor = nonmatch_counts.sum() / match_counts.sum()
-        if np.any(match_counts + nonmatch_counts == 0):
+        logger.info('Comparing non-matching pairs')
+        self.nonmatch_counts_ = self._counts_array(nonmatching_pairs,
+                                                  threads=threads,
+                                                  progress=progress,
+                                                  desc='Comparing non-matching pairs')
+
+        # Account for there being different total numbers of datapoints for
+        # matches and nonmatches
+        self.matching_factor_ = self.nonmatch_counts_.sum() / self.match_counts_.sum()
+        if np.any(self.match_counts_ + self.nonmatch_counts_ == 0):
             logger.warning("Some lookup cells have no data in them")
 
-        cells = np.log2(
-            (match_counts * matching_factor + epsilon) / (nonmatch_counts + epsilon)
+        self.cells_ = np.log2(
+            (self.match_counts_ * self.matching_factor_ + epsilon) / (self.nonmatch_counts_ + epsilon)
         )
 
-        return self.digitizers, cells
+        return self.digitizers, self._cells
 
-    def build(self, threads=None, cache=False) -> LookupNd:
+    def build(self, threads=None) -> LookupNd:
         """Build the score matrix.
 
         All non-identical neuron pairs within all matching sets are selected,
-        and distdots calculated for those pairs.
+        and the scoring function is evaluated for those pairs.
         Then, the minimum number of non-matching pairs are randomly drawn
-        so that at least as many distdots can be calculated for non-matching
+        so that at least as many data points can be calculated for non-matching
         pairs.
 
-        In each bin of the score matrix, the log2 odds ratio of a distdot
+        In each bin of the score matrix, the log2 odds ratio of a score
         in that bin belonging to a match vs. non-match is calculated.
 
         Parameters
         ----------
-        threads : int, optional
-            If None, act in serial.
-            If 0, use cpu_count - 1.
-            Otherwise, use the given value.
-            Will be clipped at number of available cores - 1.
+        threads :   int, optional
+                    If None, act in serial.
+                    If 0, use cpu_count - 1.
+                    Otherwise, use the given value.
+                    Will be clipped at number of available cores - 1.
+                    Note that with the currently implementation a large number
+                    of threads might (and somewhat counterintuitively) actually
+                    be slower than running building the scoring function in serial.
 
         Returns
         -------
         LookupNd
         """
-        dig, cells = self._build(threads, cache)
+        dig, cells = self._build(threads)
         return LookupNd(dig, cells)
 
 
@@ -425,23 +482,25 @@ class LookupDistDotBuilder(LookupNdBuilder):
 
         Parameters
         ----------
-        dotprops : dict or list of Dotprops
-            An indexable sequence of all neurons which will be used as the training set,
-            as Dotprops objects.
-        matching_lists : list of lists of indices into dotprops
-            List of neurons, as indices into ``dotprops``, which should be considered matches.
-        nonmatching_list : list of indices into dotprops, optional
-            List of neurons, as indices into ``dotprops``,
-            which should not be considered matches.
-            If not given, all ``dotprops`` will be used
-            (on the assumption that matches are a small subset of possible pairs).
-        use_alpha : bool, optional
-            If true, multiply the dot product by the geometric mean
-            of the matched points' alpha values
-            (i.e. ``sqrt(alpha1 * alpha2)``).
-        seed : int, optional
-            Non-matching pairs are drawn at random using this seed,
-            by default {DEFAULT_SEED}
+        dotprops :          dict or list of Dotprops
+                            An indexable sequence of all neurons which will be
+                            used as the training set, as Dotprops objects.
+        matching_lists :    list of lists of indices into dotprops
+                            List of neurons, as indices into ``dotprops``, which
+                            should be considered matches.
+        nonmatching_list :  list of indices into dotprops, optional
+                            List of neurons, as indices into ``dotprops``,
+                            which should not be considered matches.
+                            If not given, all ``dotprops`` will be used
+                            (on the assumption that matches are a small subset
+                            of possible pairs).
+        use_alpha :         bool, optional
+                            If true, multiply the dot product by the geometric
+                            mean of the matched points' alpha values
+                            (i.e. ``sqrt(alpha1 * alpha2)``).
+        seed :              int, optional
+                            Non-matching pairs are drawn at random using this
+                            seed, by default {DEFAULT_SEED}.
         """
         match_fn = dist_dot_alpha if use_alpha else dist_dot
         super().__init__(
@@ -453,8 +512,8 @@ class LookupDistDotBuilder(LookupNdBuilder):
         )
         self._ndim = 2
 
-    def build(self, threads=None, cache=False) -> Lookup2d:
-        (dig0, dig1), cells = self._build(threads, cache)
+    def build(self, threads=None) -> Lookup2d:
+        (dig0, dig1), cells = self._build(threads)
         return Lookup2d(dig0, dig1, cells)
 
 
