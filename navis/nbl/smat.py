@@ -253,8 +253,8 @@ class LookupNdBuilder:
 
         This function tries to generate truely random draws of all possible
         non-matching pairs without actually having to generate all pairs.
-        Instead we generate new randomly permutated pairs in batches and
-        remove already existing batches.
+        Instead, we generate new randomly permutated pairs in batches from which
+        we then remove previously seen pairs.
 
         This works reasonable well as long as we only need a small subset
         of all possible non-matches. Otherwise this becomes inefficient.
