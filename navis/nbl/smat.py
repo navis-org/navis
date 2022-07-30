@@ -462,7 +462,7 @@ class LookupNdBuilder:
             raise ValueError("Builder needs either digitizers or bin_counts - "
                              "see with_* methods.")
 
-        matching_pairs, nonmatching_pairs = self._get_pairs()
+        matching_pairs, self.nonmatching_pairs = self._get_pairs()
 
         logger.info('Comparing matching pairs')
         if self.digitizers:
@@ -484,10 +484,10 @@ class LookupNdBuilder:
             self.match_counts_ = self._count_results(match_results)
 
         logger.info('Comparing non-matching pairs')
-        self.nonmatch_counts_ = self._counts_array(nonmatching_pairs,
-                                                  threads=threads,
-                                                  progress=progress,
-                                                  desc='Comparing non-matching pairs')
+        self.nonmatch_counts_ = self._counts_array(self.nonmatching_pairs,
+                                                   threads=threads,
+                                                   progress=progress,
+                                                   desc='Comparing non-matching pairs')
 
         # Account for there being different total numbers of datapoints for
         # matches and nonmatches
