@@ -21,7 +21,6 @@ import matplotlib.colors as mcl
 import mpl_toolkits
 from mpl_toolkits.mplot3d.art3d import (Line3DCollection, Poly3DCollection,
                                         Path3DCollection, Patch3DCollection)
-from mpl_toolkits.mplot3d import proj3d
 from matplotlib.collections import LineCollection, PatchCollection
 from matplotlib.cm import ScalarMappable
 
@@ -362,9 +361,9 @@ def plot2d(x: Union[core.NeuronObject,
     # Set axis projection
     if method in ['3d', '3d_complex']:
         if kwargs.get('orthogonal', True):
-            proj3d.persp_transformation = _orthogonal_proj
+            mpl_toolkits.mplot3d.proj3d.persp_transformation = _orthogonal_proj
         else:
-            proj3d.persp_transformation = _perspective_proj
+            mpl_toolkits.mplot3d.proj3d.persp_transformation = _perspective_proj
 
     # Generate axes
     if not ax:

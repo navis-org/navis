@@ -110,6 +110,7 @@ class LookupNdBuilder:
         matching_lists: List[List[NeuronKey]],
         match_fn: Callable[[object, object], List[np.ndarray]],
         nonmatching_list: Optional[List[NeuronKey]] = None,
+        draw_strat: str = 'batched',
         seed: int = DEFAULT_SEED,
     ) -> None:
         f"""Class for building an N-dimensional score lookup (for e.g. NBLAST).
@@ -125,7 +126,8 @@ class LookupNdBuilder:
         neurons :       dict or list of objects (e.g. Dotprops)
                         An indexable, consistently-ordered sequence of all
                         objects (typically neurons) which will be used as the
-                        training set.
+                        training set. Importantly: each object must have a
+                        ``len()``!
         matching_sets : list of lists of index into ``neurons``
                         Lists of neurons, as indices into ``neurons``, which
                         should be considered matches:
@@ -146,6 +148,11 @@ class LookupNdBuilder:
                         should be be considered NON-matches. If not given,
                         all ``neurons`` will be used (on the assumption that
                         matches are a small subset of possible pairs).
+        draw_strat :    "batched" | "greedy"
+                        Strategy for randomly drawing non-matching pairs.
+                        "batched" should be the right choice in most scenarios.
+                        "greedy" can be better if your pool of neurons is very
+                        small.
         seed :          int, optional
                         Non-matching pairs are drawn at random using this seed,
                         by default {DEFAULT_SEED}.
@@ -155,6 +162,7 @@ class LookupNdBuilder:
         self.matching_lists = matching_lists
         self._nonmatching_list = nonmatching_list
         self.match_fn = match_fn
+        self.nonmatching_draw = draw_strat
 
         self.digitizers: Optional[List[Digitizer]] = None
         self.bin_counts: Optional[List[int]] = None
@@ -235,17 +243,50 @@ class LookupNdBuilder:
         for ms in self.matching_lists:
             yield from yield_not_same(permutations(ms, 2))
 
-    def _yield_nonmatching_pairs(self, rng=None) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+    def _yield_nonmatching_pairs_greedy(self, rng=None) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
         """Yield all index pairs within nonmatching list."""
+        return yield_not_same(permutations(self.nonmatching, 2))
+
+    def _yield_nonmatching_pairs_batched(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+        """Yield all index pairs within nonmatching list.
+
+        This function tries to generate truely random draws of all possible
+        non-matching pairs without actually having to generate all pairs.
+        Instead we generate new randomly permutated pairs in batches and
+        remove already existing batches.
+
+        This works reasonable well as long as we only need a small subset
+        of all possible non-matches. Otherwise this becomes inefficient.
+
+        """
         nonmatching = np.array(self.nonmatching)
 
-        # If `rng` is provided, shuffle the nonmatching indices before
-        # producing pairs
-        if rng:
-            idx = np.arange(len(nonmatching))
-            rng.shuffle(idx)
-            nonmatching = nonmatching[idx]
-        return yield_not_same(permutations(nonmatching, 2))
+        seen = []
+        rng = np.random.default_rng(self.seed)
+
+        # Generate random pairs
+        pairs = np.vstack((rng.permutation(nonmatching),
+                           rng.permutation(nonmatching))).T
+        pairs = pairs[pairs[:, 0] != pairs[:, 1]]  # drop self hits
+        seen = set([tuple(p) for p in pairs])  # track already seen pairs
+        i = 0
+        while True:
+            # If exhausted, generate a new batch of random permutation
+            if i >= len(pairs):
+                pairs = np.vstack((rng.permutation(nonmatching),
+                                   rng.permutation(nonmatching))).T
+                pairs = pairs[pairs[:, 0] != pairs[:, 1]]  # drop self hits
+                pairs = set([tuple(p) for p in pairs])
+                pairs = pairs - seen
+                seen = seen | pairs
+                pairs = list(pairs)
+                i = 0
+
+            # Pick a pair
+            ix1, ix2 = pairs[i]
+            i += 1
+
+            yield (ix1, ix2)
 
     def _empty_counts(self) -> np.ndarray:
         """Create an empty array in which to store counts; shape determined by digitizer sizes."""
@@ -316,6 +357,7 @@ class LookupNdBuilder:
         if threads is None or (threads == 0 and cpu_count == 1):
             for q_idx, t_idx in config.tqdm(idx_pairs,
                                             leave=False,
+                                            desc=desc,
                                             disable=not progress):
                 counts = self._query_to_idxs(q_idx, t_idx, counts)
             return counts
@@ -343,8 +385,8 @@ class LookupNdBuilder:
 
         return counts
 
-    def _pick_nonmatching_pairs(self, n_matching_qual_vals):
-        """Using the seeded RNG, pick which nonmatching pairs to use."""
+    def _pick_nonmatching_pairs(self, n_matching_qual_vals, progress=True):
+        """Using the seeded RNG, pick which non-matching pairs to use."""
         # pre-calculating which pairs we're going to use,
         # rather than drawing them as we need them,
         # means that we can parallelise the later step more effectively.
@@ -352,13 +394,48 @@ class LookupNdBuilder:
         # because of how long distdot calculation will take
         nonmatching_pairs = []
         n_nonmatching_qual_vals = 0
-        rng = np.random.default_rng(self.seed)
-        for nonmatching_pair in self._yield_nonmatching_pairs(rng=rng):
-            nonmatching_pairs.append(nonmatching_pair)
-            n_nonmatching_qual_vals += len(self.objects[nonmatching_pair[0]])
+        if self.nonmatching_draw == 'batched':
+            # This is a generator that tries to generate random pairs in
+            # batches to avoid having to calculate all possible pairs
+            gen = self._yield_nonmatching_pairs_batched()
+            with config.tqdm(desc='Drawing non-matching pairs',
+                             total=n_matching_qual_vals,
+                             leave=False,
+                             disable=not progress) as pbar:
+                # Draw non-matching pairs until we have enough data
+                for nonmatching_pair in gen:
+                    nonmatching_pairs.append(nonmatching_pair)
+                    new_vals = len(self.objects[nonmatching_pair[0]])
+                    n_nonmatching_qual_vals += new_vals
 
-            if n_nonmatching_qual_vals >= n_matching_qual_vals:
-                break
+                    pbar.update(new_vals)
+
+                    if n_nonmatching_qual_vals >= n_matching_qual_vals:
+                        break
+        elif self.nonmatching_draw == 'greedy':
+            # Generate all possible non-matching pairs
+            possible_pairs = len(self.nonmatching) ** 2 - len(self.nonmatching)
+            all_nonmatching_pairs = [p for p in config.tqdm(self._yield_nonmatching_pairs_greedy(),
+                                                            total=possible_pairs,
+                                                            desc='Generating non-matching pairs')]
+            # Randomly pick non-matching pairs until we have enough data
+            rng = np.random.default_rng(self.seed)
+            with config.tqdm(desc='Drawing non-matching pairs',
+                             total=n_matching_qual_vals,
+                             leave=False,
+                             disable=not progress) as pbar:
+                while n_nonmatching_qual_vals < n_matching_qual_vals:
+                    idx = rng.integers(0, len(all_nonmatching_pairs))
+                    nonmatching_pair = all_nonmatching_pairs.pop(idx)
+                    nonmatching_pairs.append(nonmatching_pair)
+
+                    new_vals = len(self.objects[nonmatching_pair[0]])
+                    n_nonmatching_qual_vals += new_vals
+
+                    pbar.update(new_vals)
+        else:
+            raise ValueError('Unknown strategy for non-matching pair draw:'
+                             f'{self.nonmatching_draw}')
 
         return nonmatching_pairs
 
@@ -395,7 +472,7 @@ class LookupNdBuilder:
         else:
             match_results = concat_results(self._query_many(matching_pairs, threads),
                                            progress=progress,
-                                           desc='Matching pairs',
+                                           desc='Comparing matching pairs',
                                            total=len(matching_pairs))
             self.digitizers = [
                 Digitizer.from_data(data, nbins)
@@ -470,6 +547,7 @@ class LookupDistDotBuilder(LookupNdBuilder):
         matching_lists: List[List[DotpropKey]],
         nonmatching_list: Optional[List[DotpropKey]] = None,
         use_alpha: bool = False,
+        draw_strat: str = 'batched',
         seed: int = DEFAULT_SEED,
     ):
         f"""Class for building a 2-dimensional score lookup for NBLAST.
@@ -498,6 +576,11 @@ class LookupDistDotBuilder(LookupNdBuilder):
                             If true, multiply the dot product by the geometric
                             mean of the matched points' alpha values
                             (i.e. ``sqrt(alpha1 * alpha2)``).
+        draw_strat :    "batched" | "greedy"
+                        Strategy for randomly drawing non-matching pairs.
+                        "batched" should be the right choice in most scenarios.
+                        "greedy" can be better if your pool of neurons is very
+                        small.
         seed :              int, optional
                             Non-matching pairs are drawn at random using this
                             seed, by default {DEFAULT_SEED}.
@@ -508,7 +591,8 @@ class LookupDistDotBuilder(LookupNdBuilder):
             matching_lists,
             match_fn,
             nonmatching_list,
-            seed,
+            draw_strat=draw_strat,
+            seed=seed,
         )
         self._ndim = 2
 
@@ -672,13 +756,14 @@ class Digitizer(LookupAxis[float]):
 
         e.g. ``["(0, 1]", "(1, 5]", "(5, 10]"]``
 
-        The lowermost and uppermost boundaries are converted to -infinity and infinity respectively.
+        The lowermost and uppermost boundaries are converted to -infinity and
+        infinity respectively.
 
         Parameters
         ----------
         bound_strs : Sequence[str]
-            Strings representing intervals, which must abut and have open/closed boundaries
-            specified by brackets.
+            Strings representing intervals, which must abut and have open/closed
+            boundaries specified by brackets.
 
         Returns
         -------
