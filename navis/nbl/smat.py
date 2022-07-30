@@ -101,14 +101,15 @@ def _nblast_v1_scoring(dist : float, dp : float, sigma_scoring : int = 10):
 
 
 NeuronKey = Hashable
+T = TypeVar("T")
 
 
 class LookupNdBuilder:
     def __init__(
         self,
-        neurons: Union[List[object], Mapping[NeuronKey, object]],
+        neurons: Union[List[T], Mapping[NeuronKey, T]],
         matching_lists: List[List[NeuronKey]],
-        match_fn: Callable[[object, object], List[np.ndarray]],
+        match_fn: Callable[[T, T], List[np.ndarray]],
         nonmatching_list: Optional[List[NeuronKey]] = None,
         draw_strat: str = 'batched',
         seed: int = DEFAULT_SEED,
