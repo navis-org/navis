@@ -462,19 +462,19 @@ class LookupNdBuilder:
             raise ValueError("Builder needs either digitizers or bin_counts - "
                              "see with_* methods.")
 
-        matching_pairs, self.nonmatching_pairs = self._get_pairs()
+        self.matching_pairs, self.nonmatching_pairs = self._get_pairs()
 
         logger.info('Comparing matching pairs')
         if self.digitizers:
-            self.match_counts_ = self._counts_array(matching_pairs,
-                                                   threads=threads,
-                                                   progress=progress,
-                                                   desc='Comparing matching pairs')
+            self.match_counts_ = self._counts_array(self.matching_pairs,
+                                                    threads=threads,
+                                                    progress=progress,
+                                                    desc='Comparing matching pairs')
         else:
-            match_results = concat_results(self._query_many(matching_pairs, threads),
+            match_results = concat_results(self._query_many(self.matching_pairs, threads),
                                            progress=progress,
                                            desc='Comparing matching pairs',
-                                           total=len(matching_pairs))
+                                           total=len(self.matching_pairs))
             self.digitizers = [
                 Digitizer.from_data(data, nbins)
                 for data, nbins in zip(match_results, self.bin_counts)
