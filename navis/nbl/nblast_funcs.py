@@ -275,7 +275,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     If ``Callable`` given, it passes distance and dot products as
                     first and second argument respectively.
     smat_kwargs:    Dictionary with additional parameters passed to scoring
-                    functions. 
+                    functions.
     limit_dist :    float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
@@ -762,6 +762,8 @@ def nblast(query: Union[Dotprops, NeuronList],
         # not helpful here
         fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]')
         results = [f.result() for f in config.tqdm(futures,
+                                                   desc='NBLASTing',
+
                                                    bar_format=fmt,
                                                    disable=not progress,
                                                    leave=False)]
@@ -940,18 +942,44 @@ def nblast_allbyall(x: NeuronList,
     if n_cores == 1:
         return this.all_by_all()
 
-    with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
-        # Each nblaster is passed to it's own process
-        futures = [pool.submit(this.multi_query_target,
-                               q_idx=this.queries,
-                               t_idx=this.targets,
-                               scores='forward') for this in nblasters]
+    with ProcessPoolExecutor(max_workers=n_cores) as pool:
+        if progress:
+            # For large NBLASTs the progress bar appears to slow things down if
+            # update too frequently. We will aim for ~1% per chunk
+            perc_per_blaster = 100 / len(nblasters)
+            # Note the square root: we chunk over both queries and targets
+            n_chunks = max(1, int(np.sqrt(perc_per_blaster)))
+        else:
+            # If no progress, just set chunksize to max possible
+            n_chunks = 1
+        futures = []
+        for this in nblasters:
+            this.progress=False  # no progress bar for individual NBLASTers
+            q_chunks = np.linspace(0, len(this.queries), n_chunks + 1).astype(int)
+            t_chunks = np.linspace(0, len(this.targets), n_chunks + 1).astype(int)
+            q_chunks = np.unique(q_chunks)  # avoid issues when less queries than chunks
+            t_chunks = np.unique(t_chunks)  # avoid issues when less targets than chunks
+            for q1, q2 in zip(q_chunks[:-1], q_chunks[1:]):
+                for t1, t2 in zip(t_chunks[:-1], t_chunks[1:]):
+                    futures.append(pool.submit(this.multi_query_target,
+                                               q_idx=this.queries[q1:q2],
+                                               t_idx=this.targets[t1:t2],
+                                               scores='forward'))
+        # We're dropping the "N / N_total" bit from the progress bar because its
+        # not helpful here
+        fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]')
+        results = [f.result() for f in config.tqdm(futures,
+                                                   desc='NBLASTing',
 
-        results = [f.result() for f in futures]
+                                                   bar_format=fmt,
+                                                   disable=not progress,
+                                                   leave=False)]
 
-    scores = pd.DataFrame(np.zeros((len(dps), len(dps)),
+    scores = pd.DataFrame(np.empty((len(dps), len(dps)),
                                    dtype=this.dtype),
                           index=dps.id, columns=dps.id)
+    scores.index.name = 'query'
+    scores.columns.name = 'target'
 
     for res in results:
         scores.loc[res.index, res.columns] = res.values
