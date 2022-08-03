@@ -21,8 +21,10 @@ from typing import Union, List
 
 from .. import utils, config
 
-INT_DTYPES = {16: np.int16, 32: np.int32, 64: np.int64, None: None}
-FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None}
+INT_DTYPES = {16: np.int16, 32: np.int32, 64: np.int64, None: None,
+              'single': np.int32, 'double': np.int64}
+FLOAT_DTYPES = {16: np.float16, 32: np.float32, 64: np.float64, None: None,
+                'single': np.float32, 'double': np.float64}
 
 logger = config.logger
 
