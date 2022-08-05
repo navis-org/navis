@@ -43,6 +43,9 @@ class Blaster(ABC):
         self.neurons = []
         self.ids = []
 
+    def __len__(self):
+        return len(self.neurons)
+
     @abstractmethod
     def append(self, neurons) -> NestedIndices:
         """Append neurons."""
@@ -131,7 +134,7 @@ class Blaster(ABC):
         # does that happen?
 
         shape = (len(q_idx), len(t_idx)) if scores != 'both' else (len(q_idx), len(t_idx), 2)
-        res = np.zeros(shape, dtype=self.dtype)
+        res = np.empty(shape, dtype=self.dtype)
         for i, q in enumerate(config.tqdm_classic(q_idx,
                                           desc=self.desc,
                                           leave=False,
