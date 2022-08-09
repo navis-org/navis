@@ -150,7 +150,8 @@ class LookupNdBuilder:
                         all ``neurons`` will be used (on the assumption that
                         matches are a small subset of possible pairs).
         draw_strat :    "batched" | "greedy"
-                        Strategy for randomly drawing non-matching pairs.
+                        Strategy for randomly drawing non-matching pairs. Only
+                        relevant if ``nonmatching`` is not provided.
                         "batched" should be the right choice in most scenarios.
                         "greedy" can be better if your pool of neurons is very
                         small.
@@ -242,6 +243,13 @@ class LookupNdBuilder:
     def _yield_matching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
         """Yield all index pairs within all matching pairs."""
         for ms in self.matching_lists:
+            yield from yield_not_same(permutations(ms, 2))
+
+    def _yield_nonmatching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+        """Yield all index pairs within all non-matching pairs."""
+        if self._nonmatching_list is None:
+            raise ValueError('Must provide non-matching pairs explicitly.')
+        for ms in self._nonmatching_list:
             yield from yield_not_same(permutations(ms, 2))
 
     def _yield_nonmatching_pairs_greedy(self, rng=None) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
@@ -442,14 +450,20 @@ class LookupNdBuilder:
 
     def _get_pairs(self):
         matching_pairs = list(set(self._yield_matching_pairs()))
-        # need to know the eventual distdot count
-        # so we know how many non-matching pairs to draw
-        q_idx_count = Counter(p[0] for p in matching_pairs)
-        n_matching_qual_vals = sum(
-            len(self.objects[q_idx]) * n_reps for q_idx, n_reps in q_idx_count.items()
-        )
 
-        nonmatching_pairs = self._pick_nonmatching_pairs(n_matching_qual_vals)
+        # If no explicit non-matches provided, pick them from the entire pool
+        if self._nonmatching_list is None:
+            # need to know the eventual distdot count
+            # so we know how many non-matching pairs to draw
+            q_idx_count = Counter(p[0] for p in matching_pairs)
+            n_matching_qual_vals = sum(
+                len(self.objects[q_idx]) * n_reps for q_idx, n_reps in q_idx_count.items()
+            )
+
+            nonmatching_pairs = self._pick_nonmatching_pairs(n_matching_qual_vals)
+        else:
+            nonmatching_pairs = list(set(self._yield_nonmatching_pairs()))
+
         return matching_pairs, nonmatching_pairs
 
     def _build(self, threads, progress=True) -> Tuple[List[Digitizer], np.ndarray]:
