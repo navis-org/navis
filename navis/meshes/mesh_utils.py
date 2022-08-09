@@ -29,7 +29,7 @@ try:
 except ImportError:
     skimage = None
 
-from .. import core, config, intersection
+from .. import core, config, intersection, graph, morpho
 
 
 logger = config.logger
@@ -450,3 +450,76 @@ def pointlabels_to_meshes(points, labels, res, threshold=0.05, drop_fluff=True,
 def _worker_wrapper(x):
     f, args, kwargs = x
     return f(*args, **kwargs)
+
+
+
+def face_dist_sorting(x, from_, strahler_weight=False, inplace=False):
+    """Sort faces by distance from given point.
+
+    This allows you to e.g. use Blender's "build" modifier to grow neurons
+    from a point of origin.
+
+    Parameters
+    ----------
+    x :         navis.MeshNeuron
+                Mesh to sort faces for.
+    from_ :     int | list of int
+                Must be either a vertex index (single int) or an x/y/z coordinate.
+    strahler_weight :   bool
+                If True, will use Strahler index to grow twigs slower than
+                backbone.
+    inplace :   bool
+                Whether to modify the input mesh or a copy thereof.
+
+    Returns
+    -------
+    navis.MeshNeuron
+
+    Examples
+    --------
+
+    >>> import navis
+    >>> x = navis.example_neurons(1, kind='mesh')
+    >>> x = navis.meshes.mesh_utils.face_dist_sorting(x, from_=x.soma_pos)
+
+    """
+    # Turn vertex indices to coordinates
+    if isinstance(from_, (int, np.int64, np.int32, np.int16, np.int)):
+        from_ = x.vertices[from_]
+
+    # Generate the skeleton
+    # (note we don't shave to avoid issues with vertex map)
+    sk = x.skeletonize(heal=True, shave=False)
+
+    # Get the node index for our from_
+    seed = sk.snap(from_)[0]
+
+    # Get distances from
+    dists = graph.geodesic_matrix(sk, from_=seed).iloc[0]
+
+    if strahler_weight:
+        sk.reroot(seed, inplace=True)
+        _ = morpho.strahler_index(sk)
+        dists = dists / sk.nodes.strahler_index
+
+    # Get sorting by distance
+    srt = np.argsort(dists.values)
+
+    # Map sorting back onto vertices
+    verts_srt = srt[sk.vertex_map]
+
+    # For each face get the skeleton nodes it maps to
+    face_nodes = sk.vertex_map[x.faces]
+
+    # For each face get the mean distance
+    face_dist = dists.values[face_nodes].mean(axis=1)
+
+    # Sort the faces
+    faces_srt = np.array(x.faces)[np.argsort(face_dist)]
+
+    if not inplace:
+        x = x.copy()
+
+    x.faces = faces_srt
+
+    return x
