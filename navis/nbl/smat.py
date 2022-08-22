@@ -345,10 +345,8 @@ class LookupNdBuilder:
         # Get counts per cell -> this is the actual bottleneck of this function
         cells, cnt = np.unique(stack, axis=0, return_counts=True)
 
-        # Fill matrix (for loop should be fine here since we have at most
-        # cells.size values to fill in)
-        for ce, cn in zip(cells, cnt):
-            counts[ce[0], ce[1]] += cn
+        # Fill matrix
+        counts[tuple(cells[:, i] for i in range(cells.shape[1]))] += cnt
 
         return counts
 
