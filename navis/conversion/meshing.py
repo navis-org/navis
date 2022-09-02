@@ -433,7 +433,7 @@ def parse_obj(obj):
     return np.array(verts), np.array(faces) - 1
 
 
-def _voxels_to_matrix(voxels, fill=False, pad=1, dtype=np.bool):
+def _voxels_to_matrix(voxels, fill=False, pad=1, dtype=bool):
     """Generate matrix from voxels/blocks.
 
     Parameters
