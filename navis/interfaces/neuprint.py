@@ -18,6 +18,7 @@ navis-specific functions.
 
 import trimesh
 
+from urllib.parse import urlparse
 from textwrap import dedent
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -92,13 +93,16 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                       client=None, **kwargs):
     """Fetch mesh neuron.
 
-    Requires `cloudvolume <https://github.com/seung-lab/cloud-volume>`_::
+    Requires additional packages depending on the mesh source.
+
+    For DVID you need `dvid-tools <https://github.com/flyconnectome/dvid_tools>`_::
+
+        pip3 install git+https://github.com/flyconnectome/dvid_tools@master
+
+    For everything else you need `cloudvolume <https://github.com/seung-lab/cloud-volume>`_::
 
         pip3 install cloud-volume
 
-    Notes
-    -----
-    Synapses will be attached to the closest node on the mesh.
 
     Parameters
     ----------
@@ -106,9 +110,10 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                     Body ID(s). Multiple Ids can be provided as list-like or
                     DataFrame with "bodyId" or "bodyid" column.
     lod :           int
-                    Level of detail. Higher ``lod`` = coarser.
+                    Level of detail. Higher ``lod`` = coarser. Ignored if mesh
+                    source is DVID.
     with_synapses : bool, optional
-                    If True will also attach synapses as ``.connectors``.
+                    If True will download and attach synapses as ``.connectors``.
     missing_mesh :  'raise' | 'warn' | 'skip'
                     What to do if no mesh is found for a given body ID::
 
@@ -120,11 +125,9 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                     If True, will use parallel threads to fetch data.
     max_threads :   int
                     Max number of parallel threads to use.
-    seg_source :    str | cloudvolume.CloudVolume
-                    Segmentation source that can be parsed by
-                    ``cloudvolume.CloudVolume`` or a ``CloudVolume`` itself. If
-                    not provided will try to extract from neuprint ``client``
-                    meta data.
+    seg_source :    str | cloudvolume.CloudVolume, optional
+                    Use this to override the segmentation source specified by
+                    neuPrint.
     client :        neuprint.Client, optional
                     If ``None`` will try using global client.
     **kwargs
@@ -138,13 +141,6 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                     neuprint (synapses, skeletons, etc).
 
     """
-    try:
-        from cloudvolume import CloudVolume
-    except ImportError:
-        raise ImportError('navis.interfaces.neuprint.fetch_mesh_neuron '
-                          'requires the CloudVolume library. Please install '
-                          'using e.g. pip:   pip3 install cloud-volume')
-
     if isinstance(x, pd.DataFrame):
         if 'bodyId' in x.columns:
             x = x['bodyId'].values
@@ -165,13 +161,31 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
             logger.warning(f'{len(segs)} segmentation sources found. Using the '
                            f'first entry: "{seg_source}"')
 
-    # Initialize volume
-    if isinstance(seg_source, CloudVolume):
-        vol = seg_source
+    if isinstance(seg_source, str) and seg_source.startswith('dvid'):
+        try:
+            import dvid as dv
+        except ImportError:
+            raise ImportError('This looks like a DVID mesh source. For this we '
+                              'need the `dvid-tools` library:\n'
+                              '  pip3 install git+https://'
+                              'github.com/flyconnectome/dvid_tools@master -U')
+        o = urlparse(seg_source.replace('dvid://', ''))
+        server = f'{o.scheme}://{o.netloc}'
+        node = o.path.split('/')[1]
     else:
-        defaults = dict(use_https=True)
-        defaults.update(kwargs)
-        vol = CloudVolume(seg_source, **defaults)
+        try:
+            from cloudvolume import CloudVolume
+        except ImportError:
+            raise ImportError("You need to install the `cloudvolume` library"
+                              'to fetch meshes from this mesh source:\n'
+                              '  pip3 install cloud-volume -U')
+        # Initialize volume
+        if isinstance(seg_source, CloudVolume):
+            vol = seg_source
+        else:
+            defaults = dict(use_https=True)
+            defaults.update(kwargs)
+            vol = CloudVolume(seg_source, **defaults)
 
     if isinstance(x, NeuronCriteria):
         query = x
@@ -196,32 +210,76 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
         meta['somaLocation'] = None
         meta['somaRadius'] = None
 
-    nl = []
-    with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
-        futures = {}
-        for r in meta.itertuples():
-            f = executor.submit(__fetch_mesh,
-                                r,
-                                vol=vol,
-                                lod=lod,
-                                client=client,
-                                with_synapses=with_synapses,
-                                missing_mesh=missing_mesh)
-            futures[f] = r.bodyId
+    if isinstance(seg_source, str) and seg_source.startswith('dvid'):
+        # Fetch the meshes
+        nl = dv.get_meshes(meta.bodyId.values,
+                           on_error=missing_mesh,
+                           output='navis',
+                           progress=meta.shape[0] == 1 or config.pbar_hide,
+                           max_threads=1 if not parallel else max_threads,
+                           server=server,
+                           node=node)
+    else:
+        nl = []
+        with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
+            futures = {}
+            for r in meta.itertuples():
+                f = executor.submit(__fetch_mesh,
+                                    r.bodyId,
+                                    vol=vol,
+                                    lod=lod,
+                                    missing_mesh=missing_mesh)
+                futures[f] = r.bodyId
 
-        with config.tqdm(desc='Fetching',
-                         total=meta.shape[0],
-                         leave=config.pbar_leave,
-                         disable=meta.shape[0] == 1 or config.pbar_hide) as pbar:
-            for f in as_completed(futures):
-                bodyId = futures[f]
-                pbar.update(1)
-                try:
-                    nl.append(f.result())
-                except Exception as exc:
-                    print(f'{bodyId} generated an exception:', exc)
+            with config.tqdm(desc='Fetching',
+                             total=len(futures),
+                             leave=config.pbar_leave,
+                             disable=meta.shape[0] == 1 or config.pbar_hide) as pbar:
+                for f in as_completed(futures):
+                    bodyId = futures[f]
+                    pbar.update(1)
+                    try:
+                        nl.append(f.result())
+                    except Exception as exc:
+                        print(f'{bodyId} generated an exception:', exc)
 
     nl = NeuronList(nl)
+
+    # Add meta data
+    instances = meta.set_index('bodyId').instance.to_dict()
+    sizes = meta.set_index('bodyId')['size'].to_dict()
+    status = meta.set_index('bodyId').status.to_dict()
+    statuslabel = meta.set_index('bodyId').statusLabel.to_dict()
+    somalocs = meta.set_index('bodyId').somaLocation.to_dict()
+    radii = meta.set_index('bodyId').somaRadius.to_dict()
+
+    for n in nl:
+        n.name = instances[n.id]
+        n.status = status[n.id]
+        n.statusLabel = statuslabel[n.id]
+        n.n_voxels = sizes[n.id]
+        n.somaLocation = somalocs[n.id]
+
+        if n.somaLocation:
+            n.soma_radius = radii[n.id] / n.units.to('nm').magnitude
+            n.soma = n.somaLocation
+
+        # Meshes come out in units (e.g. nanometers) but most other data (synapses,
+        # skeletons, etc) come out in voxels, we will therefore scale meshes to voxels
+        n.vertices /= np.array(client.meta['voxelSize']).reshape(1, 3)
+        n.units=f'{client.meta["voxelSize"][0]} {client.meta["voxelUnits"]}'
+
+    if with_synapses:
+        # Fetch synapses
+        syn = fetch_synapses(meta.bodyId.values,
+                             synapse_criteria=SynapseCriteria(primary_only=True),
+                             client=client)
+
+        for n in nl:
+            this_syn = syn[syn.bodyId == n.id]
+            if not this_syn.empty:
+                # Keep only relevant columns
+                n.connectors = syn[['type', 'x', 'y', 'z', 'roi', 'confidence']]
 
     # Make an effort to retain the original order
     if not isinstance(x, NeuronCriteria):
@@ -230,57 +288,26 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
     return nl
 
 
-def __fetch_mesh(r, *, vol, lod, client, with_synapses=True, missing_mesh='raise'):
+def __fetch_mesh(bodyId, *, vol, lod, missing_mesh='raise'):
     """Fetch a single mesh (+ synapses) and construct navis MeshNeuron."""
     # Fetch mesh
     import cloudvolume
     try:
-        mesh = vol.mesh.get(r.bodyId, lod=lod)[r.bodyId]
+        mesh = vol.mesh.get(bodyId, lod=lod)[bodyId]
     except cloudvolume.exceptions.MeshDecodeError as err:
         if 'not found' in str(err):
             if missing_mesh in ['warn', 'skip']:
                 if missing_mesh == 'warn':
-                    logger.warning(f'No SWC found for {r.bodyId}')
+                    logger.warning(f'No mesh found for {r.bodyId}')
+                return
             else:
                 raise
         else:
             raise
 
-    # Meshes come out in units (e.g. nanometers) but most other data (synapses,
-    # skeletons, etc) come out in voxels, we will therefore scale meshes down
-    mesh.vertices /= np.array(client.meta['voxelSize']).reshape(1, 3)
-
-    # Generate neuron
-    n = MeshNeuron(mesh,
-                   units=f'{client.meta["voxelSize"][0]} {client.meta["voxelUnits"]}')
-
-    # Add some missing meta data
-    n.id = r.bodyId
-
-    if hasattr(r, 'instance'):
-        n.name = r.instance
-
-    n.n_voxels = r.size
-    n.status = r.status
-    n.statusLabel = r.statusLabel
+    n = MeshNeuron(mesh)
     n.lod = lod
-
-    # Set soma
-    n.somaLocation = r.somaLocation
-    if r.somaLocation:
-        n.soma_radius = r.somaRadius / n.units.to('nm').magnitude
-        n.soma = r.somaLocation
-
-    if with_synapses:
-        # Fetch synapses
-        syn = fetch_synapses(r.bodyId,
-                             synapse_criteria=SynapseCriteria(primary_only=True),
-                             client=client)
-
-        if not syn.empty:
-            # Keep only relevant columns
-            syn = syn[['type', 'x', 'y', 'z', 'roi', 'confidence']]
-            n.connectors = syn
+    n.id =bodyId
 
     return n
 
