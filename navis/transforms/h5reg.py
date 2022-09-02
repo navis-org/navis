@@ -319,6 +319,13 @@ class H5transform(BaseTransform):
             else:
                 field = h5[self.field]
 
+            # We need the field to be (z, y, x, offsets) with `offsets` being
+            # three values - for example: (293, 470, 1010, 3)
+            # If that's not the case, something is fishy!
+            if field.shape[-1] != 3:
+                logger.warning('Expected the deformation field to be of shape '
+                               f'(z, y, x, 3), got {field.shape}.')
+
             if 'affine' in field.attrs:
                 # The affine part of the transform is a 4 x 4 matrix where the upper
                 # 3 x 4 part (row x columns) is an attribute of the h5 dataset
@@ -329,7 +336,7 @@ class H5transform(BaseTransform):
                 affine = False
 
             # Get quantization multiplier for later use
-            quantization_multiplier = field.attrs['quantization_multiplier']
+            quantization_multiplier = field.attrs.get('quantization_multiplier', 1)
 
             # For forward direction, the affine part is applied first
             if self.direction == 'inverse' and affine:
