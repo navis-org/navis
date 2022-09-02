@@ -97,7 +97,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
 
     For DVID you need `dvid-tools <https://github.com/flyconnectome/dvid_tools>`_::
 
-        pip3 install git+https://github.com/flyconnectome/dvid_tools@master
+        pip3 install dvidtools
 
     For everything else you need `cloudvolume <https://github.com/seung-lab/cloud-volume>`_::
 
@@ -167,8 +167,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
         except ImportError:
             raise ImportError('This looks like a DVID mesh source. For this we '
                               'need the `dvid-tools` library:\n'
-                              '  pip3 install git+https://'
-                              'github.com/flyconnectome/dvid_tools@master -U')
+                              '  pip3 install dvidtools -U')
         o = urlparse(seg_source.replace('dvid://', ''))
         server = f'{o.scheme}://{o.netloc}'
         node = o.path.split('/')[1]
