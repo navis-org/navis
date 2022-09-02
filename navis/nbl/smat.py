@@ -201,7 +201,7 @@ class LookupNdBuilder:
         self.bin_counts = None
         return self
 
-    def with_bin_counts(self, bin_counts: List[int]):
+    def with_bin_counts(self, bin_counts: List[int], method='quantile'):
         """Specify the number of bins on each axis of the output lookup table.
 
         The bin boundaries will be determined by evenly partitioning the data
@@ -210,6 +210,8 @@ class LookupNdBuilder:
         Parameters
         ----------
         bin_counts : List[int]
+        method :     'quantile' | 'geometric' | 'linear'
+                     Method used to tile the data space.
 
         Returns
         -------
@@ -224,6 +226,7 @@ class LookupNdBuilder:
 
         self.bin_counts = bin_counts
         self.digitizers = None
+        self.bin_method = method
         return self
 
     def _object_keys(self) -> Sequence[DotpropKey]:
@@ -487,10 +490,18 @@ class LookupNdBuilder:
                                            progress=progress,
                                            desc='Comparing matching pairs',
                                            total=len(self.matching_pairs))
-            self.digitizers = [
-                Digitizer.from_data(data, nbins)
-                for data, nbins in zip(match_results, self.bin_counts)
-            ]
+
+            self.digitizers = []
+            for i, (data, nbins) in enumerate(zip(match_results, self.bin_counts)):
+                if not isinstance(nbins, Digitizer):
+                    try:
+                        self.digitizers.append(Digitizer.from_data(data, nbins,
+                                                                   method=self.bin_method))
+                    except BaseException as e:
+                        logger.error(f'Error creating digitizers for axes {i + 1}')
+                        raise e
+                else:
+                    self.digitizers.append(nbins)
 
             logger.info('Counting results (this may take a while)')
             self.match_counts_ = self._count_results(match_results)
@@ -705,12 +716,13 @@ class Digitizer(LookupAxis[float]):
             N boundaries specifying N-1 bins.
             Must be monotonically increasing.
         clip : Tuple[bool, bool], optional
-            Whether to set the bottom and top boundaries to -infinity and infinity respectively,
-            effectively clipping incoming values: by default (True, True).
+            Whether to set the bottom and top boundaries to -infinity and
+            infinity respectively, effectively clipping incoming values: by
+            default (True, True).
             False means "add a new bin for out-of-range values".
         right : bool, optional
             Whether bins should include their right (rather than left) boundary,
-            by default False
+            by default False.
         """
         self.right = right
 
@@ -731,7 +743,8 @@ class Digitizer(LookupAxis[float]):
             boundaries.append(math.inf)
 
         if not is_monotonically_increasing(boundaries):
-            raise ValueError("Boundaries are not monotonically increasing")
+            raise ValueError("Boundaries are not monotonically increasing: "
+                             f"{boundaries}")
 
         self.boundaries = np.asarray(boundaries)
 
@@ -747,7 +760,14 @@ class Digitizer(LookupAxis[float]):
             - 1
         )
 
-    def to_strings(self) -> List[str]:
+    def to_strings(self, round=None) -> List[str]:
+        """Turn boundaries into list of labels.
+
+        Parameters
+        ----------
+        round :     int, optional
+                    Use to round bounds to the Nth decimal.
+        """
         if self.right:
             lb = "("
             rb = "]"
@@ -758,6 +778,10 @@ class Digitizer(LookupAxis[float]):
         b = self.boundaries.copy()
         b[0] = self._min
         b[-1] = self._max
+
+        if round:
+            b = [np.round(x, round) for x in b]
+
         return [
             f"{lb}{lower},{upper}{rb}"
             for lower, upper in zip(b[:-1], b[1:])
@@ -838,8 +862,9 @@ class Digitizer(LookupAxis[float]):
         Parameters
         ----------
         lowest_upper : float
-            Upper bound of the lowest bin.
-            The lower bound of the lowest bin is often 0, which cannot be represented in a nontrivial geometric sequence.
+            Upper bound of the lowest bin. The lower bound of the lowest bin is
+            often 0, which cannot be represented in a nontrivial geometric
+            sequence.
         highest_lower : float
             Lower bound of the highest bin.
         nbins : int
@@ -856,24 +881,47 @@ class Digitizer(LookupAxis[float]):
         return cls(arr, clip=(False, False), right=right)
 
     @classmethod
-    def from_data(cls, data: Sequence[float], nbins: int, right=False):
+    def from_data(cls,
+                  data: Sequence[float],
+                  nbins: int,
+                  right=False,
+                  method='quantile'):
         """Choose digitizer boundaries to evenly partition the given values.
 
         Parameters
         ----------
         data : Sequence[float]
-            Data which should be evenly partitioned by the resulting digitizer.
+            Data which should be partitioned by the resulting digitizer.
         nbins : int
             Number of bins
         right : bool, optional
             Whether bins should include their right (rather than left) boundary,
             by default False
+        method : "quantile" | "linear" | "geometric"
+            Method to use for partitioning the data space:
+             - 'quantile' (default) will partition the data such that each bin
+               contains the same number of data points. This is usually the
+               method of choice because it is robust against outlier and because
+               we are guaranteed to not have empty bin.
+             - 'linear' will partition the data into evenly spaced bins.
+             - 'geometric' will produce a log scale partition. This will not work
+               if data has negative values.
 
         Returns
         -------
         Digitizer
         """
-        arr = np.quantile(data, np.linspace(0, 1, nbins + 1, True))
+        assert method in ('quantile', 'linear', 'geometric')
+
+        if method == 'quantile':
+            arr = np.quantile(data, np.linspace(0, 1, nbins + 1, True))
+        elif method == 'linear':
+            arr = np.linspace(min(data), max(data), nbins + 1, True)
+        elif method == 'geometric':
+            if min(data) <= 0:
+                raise ValueError('Data must not have values <= 0 for creating '
+                                 'geometric (logarithmic) bins.')
+            arr = np.geomspace(min(data), max(data), nbins + 1, True)
         return cls(arr, right=right)
 
     def __eq__(self, other: object) -> bool:
