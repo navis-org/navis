@@ -259,14 +259,14 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
         n.n_voxels = sizes[n.id]
         n.somaLocation = somalocs[n.id]
 
-        if n.somaLocation:
-            n.soma_radius = radii[n.id] / n.units.to('nm').magnitude
-            n.soma = n.somaLocation
-
         # Meshes come out in units (e.g. nanometers) but most other data (synapses,
         # skeletons, etc) come out in voxels, we will therefore scale meshes to voxels
         n.vertices /= np.array(client.meta['voxelSize']).reshape(1, 3)
         n.units=f'{client.meta["voxelSize"][0]} {client.meta["voxelUnits"]}'
+
+        if n.somaLocation:
+            n.soma_radius = radii[n.id] / n.units.to('nm').magnitude
+            n.soma = n.somaLocation
 
     if with_synapses:
         # Fetch synapses
