@@ -377,7 +377,9 @@ class TemplateRegistry:
         return G
 
     def find_bridging_path(self, source: str,
-                           target: str, reciprocal=True) -> tuple:
+                           target: str,
+                           via: Optional[str] = None,
+                           reciprocal=True) -> tuple:
         """Find bridging path from source to target.
 
         Parameters
@@ -386,6 +388,8 @@ class TemplateRegistry:
                         Source from which to transform to ``target``.
         target :        str
                         Target to which to transform to.
+        via :           str, optional
+                        Force a specific intermediate template.
         reciprocal :    bool | float
                         If True or float, will add forward and inverse edges for
                         transforms that are invertible. If float, the inverse
@@ -421,12 +425,27 @@ class TemplateRegistry:
                              f'registrations. Did you mean "{best_match[0]}" '
                              'instead?')
 
+        if via and via not in G.nodes:
+            best_match = fw.process.extractOne(via, nodes,
+                                               scorer=fw.fuzz.token_sort_ratio)
+            raise ValueError(f'Via "{via}" has no known bridging '
+                             f'registrations. Did you mean "{best_match[0]}" '
+                             'instead?')
+
         # This will raise a error message if no path is found
-        try:
-            path = nx.shortest_path(G, source, target, weight='weight')
-        except nx.NetworkXNoPath:
-            raise nx.NetworkXNoPath(f'No bridging path connecting {source} and'
-                                    f' {target} found.')
+        if not via:
+            try:
+                path = nx.shortest_path(G, source, target, weight='weight')
+            except nx.NetworkXNoPath:
+                raise nx.NetworkXNoPath(f'No bridging path connecting {source} '
+                                        f'and {target} found.')
+        else:
+            for path in nx.all_simple_paths(G, source, target):
+                if via in path:
+                    break
+            if via not in path:
+                raise nx.NetworkXNoPath(f'No bridging path connecting {source}'
+                                        f'and {target} via {via} found.')
 
         # `path` holds the sequence of nodes we are traversing but not which
         # transforms (i.e. edges) to use
@@ -665,6 +684,7 @@ class TemplateRegistry:
 def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 source: str,
                 target: str,
+                via: Optional[str] = None,
                 affine_fallback: bool = True,
                 caching: bool = True,
                 verbose = True) -> Union['core.NeuronObject',
@@ -681,7 +701,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     (e.g. nm -> um) is inferred by comparing distances between x/y/z coordinates
     before and after transform. This guesstimate is then used to convert
     ``.units`` and node/soma radii. This works reasonably well with base 10
-    increments (e.g. nm -> um) but is off with odd changes in units.
+    increments (e.g. nm -> um) but may be off with odd changes in units (e.g.
+    physical -> voxel space).
 
     Parameters
     ----------
@@ -693,6 +714,9 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     target :            str
                         Target template brain that the data should be
                         transformed into.
+    via :               str, optional
+                        Optional define an intermediate template. This can be
+                        helpful to force a specific transformation sequence.
     affine_fallback :   bool
                         In same cases the non-rigid transformation of points
                         can fail - for example if points are outside the
@@ -754,7 +778,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         TypeError(f'Expected target of type str, got "{type(target)}"')
 
     # Get the transformation sequence
-    path, transforms = registry.find_bridging_path(source, target)
+    path, transforms = registry.find_bridging_path(source, target, via=via)
 
     if verbose:
         path_str = path[0]
