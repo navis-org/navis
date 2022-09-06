@@ -149,9 +149,12 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             # can regenerate the rest. If not, we need to make helper points
             # to carry over vectors
             if isinstance(xf.k, type(None)) or xf.k <= 0:
-                # Here is a question whether those helper points should be
-                # farther away to make things less noisy?
-                hp = xf.points + xf.vect
+                # To avoid problems with these helpers we need to make sure
+                # they aren't too close to their cognate points (otherwise we'll
+                # get NaNs later). We can fix this by scaling the vector by the
+                # sampling resolution which should also help make things less
+                # noisy.
+                hp = xf.points + xf.vect * xf.sampling_resolution
                 xyz = np.append(xyz, hp, axis=0)
         else:
             raise TypeError(f"Don't know how to transform neuron of type '{type(xf)}'")
