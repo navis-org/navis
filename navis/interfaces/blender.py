@@ -148,7 +148,7 @@ class Handler:
         elif key == 'selected':
             return ObjectList([ob.name for ob in bpy.context.selected_objects if 'navis_object' in ob])
         elif key == 'visible':
-            objects = [o for o in self.neurons if not o.hide] 
+            objects = [o for o in self.neurons if not o.hide]
             return ObjectList(objects)
         elif key == 'presynapses':
             return ObjectList(self._cn_selection_helper(0))
@@ -386,7 +386,7 @@ class Handler:
         verts = x.vertices.copy()
 
         # Convert to Blender space
-        verts *= self.scaling
+        verts = verts * self.scaling
         verts = verts[:, self.axes_order]
         verts *= self.ax_translate
 
@@ -700,7 +700,7 @@ class Handler:
         verts = volume.vertices.copy()
 
         # Convert to Blender space
-        verts *= self.scaling
+        verts = verts * self.scaling
         verts = verts[:, self.axes_order]
         verts *= self.ax_translate
 
