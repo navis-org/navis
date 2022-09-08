@@ -458,7 +458,7 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
     if r.somaLocation:
         d, i = tree.query([r.somaLocation])
         n.soma = int(n.nodes.iloc[i[0]].node_id)
-        n.soma_radius = r.somaRadius
+        n.soma_radius = r.somaRadius if r.somaRadius else 'radius'
     else:
         n.soma = None
 
