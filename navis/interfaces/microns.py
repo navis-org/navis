@@ -279,7 +279,7 @@ def _fetch_single_neuron(id, lod, vol, client, with_synapses=False, **kwargs):
     return n
 
 
-def get_voxels(x, mip=0, datastack='cortex65'):
+def get_voxels(x, mip=0, bounds=None, datastack='cortex65'):
     """Fetch voxels making a up given root ID.
 
     Parameters
@@ -288,6 +288,9 @@ def get_voxels(x, mip=0, datastack='cortex65'):
                     A single root ID.
     mip :           int
                     Scale at which to fetch voxels.
+    bounds :        list, optional
+                    Bounding box [xmin, xmax, ymin, ymax, zmin, zmax] in voxel
+                    space.
     datastack :     "cortex65" | "cortex35" | "layer 2/3"
                     Which dataset to use. Internally these are mapped to the
                     corresponding sources (e.g. "minnie65_public_v117" for
@@ -327,6 +330,14 @@ def get_voxels(x, mip=0, datastack='cortex65'):
     ch_size = ch_size // (vol_prec.mip_resolution(mip) / vol_prec.mip_resolution(0))
     ch_size = np.asarray(ch_size).astype(int)
     old_mip = vol_prec.mip
+
+    if not isinstance(bounds, type(None)):
+        bounds = np.asarray(bounds)
+        if not bounds.ndim == 1 or len(bounds) != 6:
+            raise ValueError('`bounds` must be [xmin, xmax, ymin, ymax, zmin, zmax]')
+        l2_vxl = l2_vxl[np.all(l2_vxl >= bounds[::2], axis=1)]
+        l2_vxl = l2_vxl[np.all(l2_vxl < bounds[1::2] + ch_size, axis=1)]
+
     try:
         vol_prec.mip = mip
         for ch in config.tqdm(l2_vxl, desc='Loading'):
@@ -340,7 +351,13 @@ def get_voxels(x, mip=0, datastack='cortex65'):
         raise
     finally:
         vol_prec.mip = old_mip
-    return np.vstack(voxels)
+    voxels = np.vstack(voxels)
+
+    if not isinstance(bounds, type(None)):
+        voxels = voxels[np.all(voxels >= bounds[::2], axis=1)]
+        voxels = voxels[np.all(voxels < bounds[1::2], axis=1)]
+
+    return voxels
 
 
 def _chunks_to_nm(xyz_ch, vol, voxel_resolution=[4, 4, 40]):
