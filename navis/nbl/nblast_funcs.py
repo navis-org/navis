@@ -401,10 +401,6 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                      req_unique_ids=True,
                      req_microns=isinstance(smat, str) and smat=='auto')
 
-    # Find an optimal partition that minimizes the number of neurons
-    # we have to send to each process
-    n_rows, n_cols = find_optimal_partition(n_cores, query_dps, target_dps)
-
     # Make simplified dotprops
     query_dps_simp = query_dps.downsample(10, inplace=False)
     if not aba:
@@ -412,58 +408,116 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     else:
         target_dps_simp = query_dps_simp
 
-    # First we NBLAST the highly simplified dotprops against another
-    nblasters = []
-    with config.tqdm(desc='Prep. pre-NBLASTs',
-                     total=n_rows * n_cols,
-                     leave=False,
-                     disable=not progress) as pbar:
-        for qq in np.array_split(query_dps_simp, n_rows):
-            for tt in np.array_split(target_dps_simp, n_cols):
-                # Initialize NBlaster
-                this = NBlaster(use_alpha=use_alpha,
-                                normalized=normalized,
-                                smat=smat,
-                                limit_dist=limit_dist,
-                                dtype=precision,
-                                approx_nn=approx_nn,
-                                progress=progress,
-                                smat_kwargs=smat_kwargs)
-                # Add queries and targets
-                for n in qq:
-                    this.append(n)
-                for n in tt:
-                    this.append(n)
-                # Keep track of indices of queries and targets
-                this.queries = np.arange(len(qq))
-                this.targets = np.arange(len(tt)) + len(qq)
-                this.pbar_position = len(nblasters) if not utils.is_jupyter() else None
-                this.desc = 'Pre-NBLAST'
-
-                nblasters.append(this)
-                pbar.update()
-
-    # If only one core, we don't need to break out the multiprocessing
-    if n_cores == 1:
-        scr = this.multi_query_target(this.queries,
-                                      this.targets,
-                                      scores=pre_scores)
+    # Find a partition that produces batches that each run in approximately
+    # 10 seconds
+    if n_cores and n_cores > 1:
+        if progress:
+            # If progress bar, we need to make smaller mini batches.
+            # These mini jobs must not be too small - otherwise the overhead
+            # from spawning and sending results between processes slows things
+            # down dramatically. Hence we want to make sure that each job runs
+            # for >10s. The run time depends on the system and how big the neurons
+            # are. Here, we run a quick test and try to extrapolate from there
+            n_rows, n_cols = find_batch_partition(query_dps_simp, target_dps_simp,
+                                                  T=10 * JOB_SIZE_MULTIPLIER)
+        else:
+            # If no progress bar needed, we can just split neurons evenly across
+            # all available cores
+            n_rows, n_cols = find_optimal_partition(n_cores, query_dps_simp, target_dps_simp)
     else:
-        with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
-            # Each nblaster is passed to its own process
-            futures = [pool.submit(this.multi_query_target,
-                                   q_idx=this.queries,
-                                   t_idx=this.targets,
-                                   scores=pre_scores) for this in nblasters]
+        n_rows = n_cols = 1
 
-            results = [f.result() for f in futures]
+    # Calculate self-hits once for all neurons
+    nb = NBlaster(use_alpha=use_alpha,
+                  normalized=normalized,
+                  smat=smat,
+                  limit_dist=limit_dist,
+                  dtype=precision,
+                  approx_nn=approx_nn,
+                  progress=progress,
+                  smat_kwargs=smat_kwargs)
+    query_self_hits = np.array([nb.calc_self_hit(n) for n in query_dps_simp])
+    target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps_simp])
 
-        scr = pd.DataFrame(np.zeros((len(query_dps), len(target_dps)),
-                                     dtype=this.dtype),
-                           index=query_dps.id, columns=target_dps.id)
+    # Initialize a pool of workers
+    # Note that we're forcing "spawn" instead of "fork" (default on linux)!
+    # This is to reduce the memory footprint since "fork" appears to inherit all
+    # variables (including all neurons) while "spawn" appears to get only
+    # what's required to run the job?
+    with ProcessPoolExecutor(max_workers=n_cores,
+                             mp_context=mp.get_context('spawn')) as pool:
+        with config.tqdm(desc='Prep. pre-NBLAST',
+                         total=n_rows * n_cols,
+                         leave=False,
+                         disable=not progress) as pbar:
+            futures = {}
+            nblasters = []
+            for qix in np.array_split(np.arange(len(query_dps_simp)), n_rows):
+                for tix in np.array_split(np.arange(len(target_dps_simp)), n_cols):
+                    # Initialize NBlaster
+                    this = NBlaster(use_alpha=use_alpha,
+                                    normalized=normalized,
+                                    smat=smat,
+                                    limit_dist=limit_dist,
+                                    dtype=precision,
+                                    approx_nn=approx_nn,
+                                    progress=progress,
+                                    smat_kwargs=smat_kwargs)
 
-        for res in results:
-            scr.loc[res.index, res.columns] = res.values
+                    # Add queries and targets
+                    for i, ix in enumerate(qix):
+                        this.append(query_dps_simp[ix], query_self_hits[ix])
+                    for i, ix in enumerate(tix):
+                        this.append(target_dps_simp[ix], target_self_hits[ix])
+
+                    # Keep track of indices of queries and targets
+                    this.queries = np.arange(len(qix))
+                    this.targets = np.arange(len(tix)) + len(qix)
+                    this.queries_ix = qix  # this facilitates filling in the big matrix later
+                    this.targets_ix = tix  # this facilitates filling in the big matrix later
+                    this.pbar_position = len(nblasters) if not utils.is_jupyter() else None
+
+                    nblasters.append(this)
+                    pbar.update()
+
+                    # If multiple cores requested, submit job to the pool right away
+                    if n_cores and n_cores > 1 and (n_cols > 1 or n_rows > 1):
+                        this.progress=False  # no progress bar for individual NBLASTERs
+                        futures[pool.submit(this.multi_query_target,
+                                            q_idx=this.queries,
+                                            t_idx=this.targets,
+                                            scores=scores)] = this
+
+        # Collect results
+        if futures and len(futures) > 1:
+            # Prepare empty score matrix
+            scr = pd.DataFrame(np.empty((len(query_dps_simp),
+                                         len(target_dps_simp)),
+                                        dtype=this.dtype),
+                                  index=query_dps_simp.id,
+                                  columns=target_dps_simp.id)
+            scr.index.name = 'query'
+            scr.columns.name = 'target'
+
+            # Collect results
+            # We're dropping the "N / N_total" bit from the progress bar because
+            # it's not helpful here
+            fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]')
+            for f in config.tqdm(as_completed(futures),
+                                 desc='Pre-NBLASTs',
+                                 bar_format=fmt,
+                                 total=len(futures),
+                                 smoothing=0,
+                                 disable=not progress,
+                                 leave=False):
+                res = f.result()
+                this = futures[f]
+                # Fill-in big score matrix
+                scr.iloc[this.queries_ix, this.targets_ix] = res.values
+        else:
+            scr = this.multi_query_target(this.queries,
+                                          this.targets,
+                                          scores=scores)
 
     # If this is an all-by-all and we would have computed only forward scores
     # during pre-NBLAST
@@ -489,63 +543,88 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
         for N in range(t):
             mask.values[_, srt[:, N]] = True
 
-    # Now re-generate the NBLASTERs with the full dotprops
-    nblasters = []
-    with config.tqdm(desc='Prep. full NBLASTs',
-                     total=n_rows * n_cols,
-                     leave=False,
-                     disable=not progress) as pbar:
-        for q in np.array_split(np.arange(len(query_dps)), n_rows):
-            for t in np.array_split(np.arange(len(target_dps)), n_cols):
-                # Initialize NBlaster
-                this = NBlaster(use_alpha=use_alpha,
-                                normalized=normalized,
-                                smat=smat,
-                                limit_dist=limit_dist,
-                                dtype=precision,
-                                approx_nn=approx_nn,
-                                progress=progress,
-                                smat_kwargs=smat_kwargs)
-                # Add queries and targets
-                for n in query_dps[q]:
-                    this.append(n)
-                for n in target_dps[t]:
-                    this.append(n)
+    # Calculate self-hits for full neurons
+    query_self_hits = np.array([nb.calc_self_hit(n) for n in query_dps])
+    target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps])
 
-                # Find the pairs to NBLAST in this part of the matrix
-                submask = mask.loc[query_dps[q].id,
-                                   target_dps[t].id]
-                # `pairs` is an array of `[[query, target], [...]]` pairs
-                this.pairs = np.vstack(np.where(submask)).T
+    # Initialize a pool of workers
+    # Note that we're forcing "spawn" instead of "fork" (default on linux)!
+    # This is to reduce the memory footprint since "fork" appears to inherit all
+    # variables (including all neurons) while "spawn" appears to get only
+    # what's required to run the job?
+    with ProcessPoolExecutor(max_workers=n_cores,
+                             mp_context=mp.get_context('spawn')) as pool:
+        with config.tqdm(desc='Prep. full NBLAST',
+                         total=n_rows * n_cols,
+                         leave=False,
+                         disable=not progress) as pbar:
+            futures = {}
+            nblasters = []
+            for qix in np.array_split(np.arange(len(query_dps)), n_rows):
+                for tix in np.array_split(np.arange(len(target_dps)), n_cols):
+                    # Initialize NBlaster
+                    this = NBlaster(use_alpha=use_alpha,
+                                    normalized=normalized,
+                                    smat=smat,
+                                    limit_dist=limit_dist,
+                                    dtype=precision,
+                                    approx_nn=approx_nn,
+                                    progress=progress,
+                                    smat_kwargs=smat_kwargs)
 
-                # Offset the query indices
-                this.pairs[:, 1] += len(q)
+                    # Add queries and targets
+                    for i, ix in enumerate(qix):
+                        this.append(query_dps[ix], query_self_hits[ix])
+                    for i, ix in enumerate(tix):
+                        this.append(target_dps[ix], target_self_hits[ix])
 
-                # Track this NBLASTER's mask relative to the original big one
-                this.mask = np.zeros(mask.shape, dtype=bool)
-                this.mask[q[0]:q[-1]+1, t[0]:t[-1]+1] = submask
+                    # Find the pairs to NBLAST in this part of the matrix
+                    submask = mask.loc[query_dps[qix].id,
+                                       target_dps[tix].id]
+                    # `pairs` is an array of `[[query, target], [...]]` pairs
+                    this.pairs = np.vstack(np.where(submask)).T
 
-                # Make sure position of progress bar checks out
-                this.pbar_position = len(nblasters) if not utils.is_jupyter() else None
-                this.desc = 'Full NBLAST'
+                    # Offset the query indices
+                    this.pairs[:, 1] += len(qix)
 
-                nblasters.append(this)
-                pbar.update()
+                    # Track this NBLASTER's mask relative to the original big one
+                    this.mask = np.zeros(mask.shape, dtype=bool)
+                    this.mask[qix[0]:qix[-1]+1, tix[0]:tix[-1]+1] = submask
 
-    # If only one core, we don't need to break out the multiprocessing
-    if n_cores == 1:
-        scr[mask] = this.pair_query_target(this.pairs, scores=scores)
-    else:
-        with ProcessPoolExecutor(max_workers=len(nblasters)) as pool:
-            # Each nblaster is passed to its own process
-            futures = [pool.submit(this.pair_query_target,
-                                   pairs=this.pairs,
-                                   scores=scores) for this in nblasters]
+                    # Make sure position of progress bar checks out
+                    this.pbar_position = len(nblasters) if not utils.is_jupyter() else None
+                    this.desc = 'Full NBLAST'
 
-            results = [f.result() for f in futures]
+                    nblasters.append(this)
+                    pbar.update()
 
-        for res, nbl in zip(results, nblasters):
-            scr[nbl.mask] = res
+                    # If multiple cores requested, submit job to the pool right away
+                    if n_cores and n_cores > 1 and (n_cols > 1 or n_rows > 1):
+                        this.progress=False  # no progress bar for individual NBLASTERs
+                        futures[pool.submit(this.pair_query_target,
+                                            pairs=this.pairs,
+                                            scores=scores)] = this
+
+        # Collect results
+        if futures and len(futures) > 1:
+            # Collect results
+            # We're dropping the "N / N_total" bit from the progress bar because
+            # it's not helpful here
+            fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]')
+            for f in config.tqdm(as_completed(futures),
+                                 desc='NBLASTing',
+                                 bar_format=fmt,
+                                 total=len(futures),
+                                 smoothing=0,
+                                 disable=not progress,
+                                 leave=False):
+                res = f.result()
+                this = futures[f]
+
+                # Fill-in big score matrix
+                scr[this.mask] = res
+        else:
+            scr[mask] = this.pair_query_target(this.pairs, scores=scores)
 
     if return_mask:
         return scr, mask
