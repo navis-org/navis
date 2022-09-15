@@ -529,7 +529,7 @@ def _write_mesh(vertices, faces, filename, write_manifest=False):
 
         if write_manifest:
             with open(filename.parent / f'{filename.name}:0', 'w') as f:
-                json.dump({'fragments': filename.name}, f)
+                json.dump({'fragments': [filename.name]}, f)
     else:
         return results
 
