@@ -546,6 +546,7 @@ Various utility functions.
     navis.set_default_connector_colors
     navis.config.remove_log_handlers
     navis.patch_cloudvolume
+    navis.nbl.extract_matches
 
 
 .. _api_interfaces:

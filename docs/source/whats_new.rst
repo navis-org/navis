@@ -17,7 +17,13 @@ repository.
      -
    * - dev
      - ongoing
-     - - TODO
+     - - NBLASTs: single progress bar instead of one for each process
+       - new ``via`` parameter for :func:`navis.xform_brain`
+       - new utility function: :func:`navis.nbl.extract_matches`
+       - various bug fixes
+   * - 1.3.1
+     - 10/06/06
+       - fixed various bugs
    * - 1.3.0
      - 10/05/22
      - - as of this version `pip install navis` won't install a vispy backend (see :ref:`install instructions <installing>` for details)
@@ -39,7 +45,7 @@ repository.
        - new set of persistence functions: :func:`navis.persistence_vectors`,
          :func:`navis.persistence_points` and :func:`navis.persistence_distances`
        - improvements to various functions: e.g. :func:`navis.bending_flow`,
-         :func:`navis.flow_centrality`, :func:`navis.split_axon_dendrite`,
+         :func:`navis.synapse_flow_centrality`, :func:`navis.split_axon_dendrite`,
          :func:`navis.longest_neurite`
        - :func:`navis.read_swc` now accepts a ``limit`` parameter that enables
          reading on the the first N neurons (useful to sample large collections)
@@ -227,7 +233,7 @@ repository.
            - side-effect: renamed ``navis.from_swc`` -> ``read_swc`` and ``navis.to_swc`` -> ``write_swc``
            - improved conversion between nat and navis ``Dotprops``
        - full rework of topology-related functions:
-           - :func:`navis.strahler_index`, :func:`navis.segregation_index`, :func:`navis.bending_flow`, :func:`navis.flow_centrality` and :func:`navis.split_axon_dendrite` now work better, faster and more accurately. See their docs for details.
+           - :func:`navis.strahler_index`, :func:`navis.segregation_index`, :func:`navis.bending_flow`, :func:`navis.synapse_flow_centrality` and :func:`navis.split_axon_dendrite` now work better, faster and more accurately. See their docs for details.
            - new function: :func:`navis.arbor_segregation_index`
        - new ``color_by`` and ``shade_by`` parameters for ``plot3d`` and ``plot2d`` that lets you color/shade a
          neuron by custom properties (e.g. by Strahler index or compartment)
