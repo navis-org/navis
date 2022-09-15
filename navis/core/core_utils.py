@@ -28,7 +28,11 @@ from .. import config, graph, utils, core
 
 
 try:
-    from pathos.multiprocessing import ProcessingPool
+    #from pathos.multiprocessing import ProcessingPool
+    # pathos' ProcessingPool apparently ignores chunksize
+    # (see https://stackoverflow.com/questions/55611806/how-to-set-chunk-size-when-using-pathos-processingpools-map)
+    import pathos
+    ProcessingPool = pathos.pools._ProcessPool
 except ImportError:
     ProcessingPool = None
 
