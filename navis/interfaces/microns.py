@@ -192,10 +192,11 @@ def fetch_neurons(x, *, lod=2,
     if datastack == 'cortex65':
         try:
             somas = get_somas(x, datastack=datastack)
+            soma_pos = somas.set_index('pt_root_id').pt_position.to_dict()
         except BaseException as e:
             logger.warning('Failed to fetch somas via nucleus segmentation'
                            f'(){e})')
-        soma_pos = somas.set_index('pt_root_id').pt_position.to_dict()
+            soma_pos = {}        
     else:
         soma_pos = {}
 
