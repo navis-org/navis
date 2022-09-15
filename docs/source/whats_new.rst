@@ -23,7 +23,7 @@ repository.
        - various bug fixes
    * - 1.3.1
      - 10/06/06
-       - fixed various bugs
+     - - fixed various bugs
    * - 1.3.0
      - 10/05/22
      - - as of this version `pip install navis` won't install a vispy backend (see :ref:`install instructions <installing>` for details)
