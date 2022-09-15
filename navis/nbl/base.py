@@ -113,29 +113,9 @@ class Blaster(ABC):
                             Which scores to return.
 
         """
-        # There are currently a few issues with Jupyter (lab?) and tqdm:
-        # 1. Subprocesses don't know that they were spawned from a Jupyter
-        #    environment and consequently use classic tqdm. This by itself would
-        #    be an easy fix but see below:
-        # 2. Even forcing tqdm.notebook in subprocesses does not produce a Jupyter
-        #    widget progress bar in the notebook - it just shows nothing until
-        #    the process finishes. Even that empty print(' ', end='', flush=True)
-        #    does not do the trick anymore.
-        # 3. Using classic tqdm from multiple processes from inside a Jupyter
-        #    enviroment leads to only one progress bar being shown... UNLESS
-        #    `position!=None` in which case every update is printed on a new
-        #    line which produces a horrendous mess. With `position=None` we
-        #    only ever see a single classic progress bar but at least there is
-        #    some feedback for the user without stdout exploding.
-        # So it seems the only viable solution for now is:
-        # - always use classic tqdm
-        # - only use position when spawned outside a Jupyter environment
-        # We could allow Jupyter progress bars on single cores but how often
-        # does that happen?
-
         shape = (len(q_idx), len(t_idx)) if scores != 'both' else (len(q_idx), len(t_idx), 2)
         res = np.empty(shape, dtype=self.dtype)
-        for i, q in enumerate(config.tqdm_classic(q_idx,
+        for i, q in enumerate(config.tqdm(q_idx,
                                           desc=self.desc,
                                           leave=False,
                                           position=getattr(self,
