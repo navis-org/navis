@@ -24,7 +24,7 @@ molesq>=0.2.0
 rdata>=0.5
 skeletor>=1.0.0
 
-python-igraph  #extra: igraph
+igraph  #extra: igraph
 
 pathos>=0.2.7 #extra: pathos
 
