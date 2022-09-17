@@ -19,10 +19,12 @@ from .hdf_io import read_h5, write_h5, inspect_h5
 from .rda_io import read_rda
 from .nmx_io import read_nmx
 from .mesh_io import read_mesh, write_mesh
+from .tiff_io import read_tiff
 
 __all__ = ['write_json', 'read_json',
            'read_swc', 'write_swc',
            'read_nrrd', 'write_nrrd',
            'read_h5', 'write_h5', 'inspect_h5',
            'write_precomputed', 'read_precomputed',
+           'read_tiff',
            'read_rda', 'read_nmx', 'read_mesh', 'write_mesh']

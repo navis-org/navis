@@ -21,6 +21,7 @@ repository.
          and a new non-synaptic :func:`navis.flow_centrality` function was added. This also
          impacts :func:`navis.split_axon_dendrite` in that you should start
          using `metric='synapse_flow_centrality'`!
+       - new function: :func:`navis.read_tiff` to read image stacks from TIFF files
        - NBLASTs: single progress bar instead of one for each process
        - new ``via`` parameter for :func:`navis.xform_brain`
        - new utility function: :func:`navis.nbl.extract_matches`
