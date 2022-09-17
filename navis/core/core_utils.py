@@ -74,11 +74,11 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
                 'x', 'y' and 'z' columns.
     k :         int (> 1), optional
                 Number of nearest neighbours to use for tangent vector
-                calculation. Some notes:
+                calculation:
 
                   - ``k=0`` or ``k=None`` is possible but only for
-                    ``TreeNeurons`` where we then use child->parent connections
-                    to define points (midpoint) and their vectors
+                    ``TreeNeurons`` where we then use the midpoints between
+                    child -> parent nodes and their vectors
                   - ``k`` is only guaranteed if the input has at least ``k``
                     points
                   - ``k`` includes self-hits and while ``k=1`` is not
@@ -88,7 +88,7 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
     resample :  float | int | str, optional
                 If provided will resample neurons to the given resolution:
 
-                  - for ``MeshNeurons`` and ``VoxelNeurons``, we are using
+                  - for ``MeshNeurons``, ``VoxelNeurons`` and point clouds, we are using
                     ``trimesh.points.remove_close`` to remove surface vertices
                     closer than the given resolution. Note that this is only
                     approximate and also means that ``Mesh/VoxelNeurons``
@@ -162,6 +162,8 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
 
         if resample:
             x, _ = tm.points.remove_close(x, resample)
+    elif isinstance(x, np.ndarray) and resample:
+        x, _ = tm.points.remove_close(x, resample)
 
     if not isinstance(x, np.ndarray):
         raise TypeError(f'Unable to generate dotprops from data of type "{type(x)}"')
