@@ -384,6 +384,7 @@ Polarity metrics
 
     navis.bending_flow
     navis.flow_centrality
+    navis.synapse_flow_centrality
     navis.arbor_segregation_index
     navis.segregation_index
 

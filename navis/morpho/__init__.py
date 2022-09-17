@@ -11,7 +11,8 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .mmetrics import (strahler_index, bending_flow, flow_centrality, sholl_analysis,
+from .mmetrics import (strahler_index, bending_flow,
+                       flow_centrality, synapse_flow_centrality, sholl_analysis,
                        segregation_index, arbor_segregation_index, tortuosity,
                        betweeness_centrality, segment_analysis)
 from .manipulation import (prune_by_strahler, stitch_skeletons,
@@ -27,7 +28,7 @@ from .persistence import (persistence_points, persistence_vectors,
 from .fq import form_factor
 
 
-__all__ = ['strahler_index', 'bending_flow', 'flow_centrality',
+__all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_centrality',
            'segregation_index', 'arbor_segregation_index', 'tortuosity',
            'prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite',
            'average_skeletons', 'despike_skeleton', 'guess_radius', 'smooth_skeleton',

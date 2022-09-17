@@ -18,6 +18,7 @@
 import math
 import itertools
 import scipy
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -31,7 +32,8 @@ from .. import config, graph, sampling, core, utils
 logger = config.logger
 
 __all__ = sorted(['strahler_index', 'bending_flow', 'sholl_analysis',
-                  'flow_centrality', 'segregation_index', 'tortuosity',
+                  'flow_centrality', 'synapse_flow_centrality',
+                  'segregation_index', 'tortuosity',
                   'betweeness_centrality', 'segment_analysis'])
 
 
@@ -514,7 +516,7 @@ def arbor_segregation_index(x: 'core.NeuronObject') -> 'core.NeuronObject':
     :func:`~navis.segregation_index`
             Calculate segregation score (polarity) between two fragments of
             a neuron.
-    :func:`~navis.flow_centrality`
+    :func:`~navis.synapse_flow_centrality`
             Calculate synapse flow centrality after Schneider-Mizell et al.
     :func:`~navis.bending_flow`
             Variation on the Schneider-Mizell et al. synapse flow.
@@ -659,7 +661,7 @@ def bending_flow(x: 'core.NeuronObject') -> 'core.NeuronObject':
 
     See Also
     --------
-    :func:`~navis.flow_centrality`
+    :func:`~navis.synapse_flow_centrality`
             Calculate synapse flow centrality after Schneider-Mizell et al.
     :func:`~navis.segregation_index`
             Calculate segregation score (polarity).
@@ -783,8 +785,8 @@ def _flow_centrality_igraph(x: 'core.NeuronObject',
     Returns
     -------
     neuron
-                Adds "flow_centrality" as column in the node table (for
-                TreeNeurons) or as `.flow_centrality` property
+                Adds "synapse_flow_centrality" as column in the node table (for
+                TreeNeurons) or as `.synapse_flow_centrality` property
                 (for MeshNeurons).
 
     """
@@ -863,7 +865,7 @@ def _flow_centrality_igraph(x: 'core.NeuronObject',
             for i in v_id:
                 flow[i] = flow.get(i, 0) + post_mul * pre_mul
 
-    x.nodes['flow_centrality'] = x.nodes.node_id.map(flow).fillna(0).astype(int)
+    x.nodes['synapse_flow_centrality'] = x.nodes.node_id.map(flow).fillna(0).astype(int)
 
     # Add info on method/mode used for flow centrality
     x.centrality_method = mode  # type: ignore
@@ -875,12 +877,12 @@ def _flow_centrality_igraph(x: 'core.NeuronObject',
 @utils.meshneuron_skeleton(method='node_properties',
                            include_connectors=True,
                            heal=True,
-                           node_props=['flow_centrality'])
-def flow_centrality(x: 'core.NeuronObject',
-                    mode: Union[Literal['centrifugal'],
-                                Literal['centripetal'],
-                                Literal['sum']] = 'sum'
-                    ) -> 'core.NeuronObject':
+                           node_props=['synapse_flow_centrality'])
+def synapse_flow_centrality(x: 'core.NeuronObject',
+                            mode: Union[Literal['centrifugal'],
+                            Literal['centripetal'],
+                            Literal['sum']] = 'sum'
+                           ) -> 'core.NeuronObject':
     """Calculate synapse flow centrality (SFC).
 
     From Schneider-Mizell et al. (2016): "We use flow centrality for
@@ -903,7 +905,7 @@ def flow_centrality(x: 'core.NeuronObject',
     Parameters
     ----------
     x :         TreeNeuron | MeshNeuron | NeuronList
-                Neuron(s) to calculate flow centrality for. Must have
+                Neuron(s) to calculate synapse flow centrality for. Must have
                 connectors!
     mode :      'centrifugal' | 'centripetal' | 'sum', optional
                 Type of flow centrality to calculate. There are three flavors::
@@ -914,8 +916,8 @@ def flow_centrality(x: 'core.NeuronObject',
     Returns
     -------
     neuron
-                Adds "flow_centrality" as column in the node table (for
-                TreeNeurons) or as `.flow_centrality` property
+                Adds "synapse_flow_centrality" as column in the node table (for
+                TreeNeurons) or as `.synapse_flow_centrality` property
                 (for MeshNeurons).
 
     Examples
@@ -923,20 +925,22 @@ def flow_centrality(x: 'core.NeuronObject',
     >>> import navis
     >>> n = navis.example_neurons(2)
     >>> n.reroot(n.soma, inplace=True)
-    >>> _ = navis.flow_centrality(n)
-    >>> n[0].nodes.flow_centrality.max()
+    >>> _ = navis.synapse_flow_centrality(n)
+    >>> n[0].nodes.synapse_flow_centrality.max()
     786969
 
     See Also
     --------
     :func:`~navis.bending_flow`
-            Variation of flow centrality: calculates bending flow.
+            Variation of synapse flow centrality: calculates bending flow.
     :func:`~navis.arbor_segregation_index`
             By-arbor segregation index.
     :func:`~navis.segregation_index`
             Calculates segregation score (polarity) of a neuron.
     :func:`~navis.split_axon_dendrite`
             Tries splitting a neuron into axon and dendrite.
+    :func:`~navis.flow_centrality`
+            Leaf-based version of flow centrality.
 
     """
     # Quick disclaimer:
@@ -1039,7 +1043,7 @@ def flow_centrality(x: 'core.NeuronObject',
             if s[i] not in flow:
                 flow[s[i]] = flow[s[i-1]]
 
-    x.nodes['flow_centrality'] = x.nodes.node_id.map(flow).fillna(0).astype(int)
+    x.nodes['synapse_flow_centrality'] = x.nodes.node_id.map(flow).fillna(0).astype(int)
 
     # Need to add a restriction, that a branchpoint cannot have a lower
     # flow than its highest child -> this happens at the main branch point to
@@ -1048,12 +1052,126 @@ def flow_centrality(x: 'core.NeuronObject',
     # other
     bp = x.nodes.loc[is_bp, 'node_id'].values
     bp_childs = x.nodes[x.nodes.parent_id.isin(bp)]
-    max_flow = bp_childs.groupby('parent_id').flow_centrality.max()
-    x.nodes.loc[is_bp, 'flow_centrality'] = max_flow.loc[bp].values
-    x.nodes['flow_centrality'] = x.nodes.flow_centrality.astype(int)
+    max_flow = bp_childs.groupby('parent_id').synapse_flow_centrality.max()
+    x.nodes.loc[is_bp, 'synapse_flow_centrality'] = max_flow.loc[bp].values
+    x.nodes['synapse_flow_centrality'] = x.nodes.synapse_flow_centrality.astype(int)
 
     # Add info on method/mode used for flow centrality
     x.centrality_method = mode  # type: ignore
+
+    return x
+
+
+@utils.map_neuronlist(desc='Calc. flow', allow_parallel=True)
+@utils.meshneuron_skeleton(method='node_properties',
+                           include_connectors=True,
+                           heal=True,
+                           node_props=['flow_centrality'])
+def flow_centrality(x: 'core.NeuronObject') -> 'core.NeuronObject':
+    """Calculate flow between leaf nodes.
+
+    Parameters
+    ----------
+    x :         TreeNeuron | MeshNeuron | NeuronList
+                Neuron(s) to calculate flow centrality for.
+
+    Returns
+    -------
+    neuron
+                Adds "flow_centrality" as column in the node table (for
+                TreeNeurons) or as `.flow_centrality` property
+                (for MeshNeurons).
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(2)
+    >>> n.reroot(n.soma, inplace=True)
+    >>> _ = navis.flow_centrality(n)
+    >>> n[0].nodes.flow_centrality.max()
+    91234
+
+    See Also
+    --------
+    :func:`~navis.synapse_flow_centrality`
+            Synapse-based flow centrality.
+
+    """
+    # Quick disclaimer:
+    # This function may look unnecessarily complicated. I did also try out an
+    # implementation using igraph + shortest paths which works like a charm and
+    # causes less headaches. It is, however, about >10X slower than this version!
+    # Note to self: do not go down that rabbit hole again!
+    msg = ("Synapse-based flow centrality has been moved from "
+           "`navis.flow_centrality` to `navis.synapse_flow_centrality`. "
+           "This warning will be removed in a future version of navis.")
+    warnings.warn(msg, DeprecationWarning)
+    logger.warning(msg)
+
+    if not isinstance(x, core.TreeNeuron):
+        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
+
+    if np.any(x.soma) and not np.all(np.isin(x.soma, x.root)):
+        logger.warning(f'Neuron {x.id} is not rooted to its soma!')
+
+    # Get list of leafs
+    leafs = x.leafs.node_id.values
+    total_leafs = len(leafs)
+
+    # Get list of points to calculate flow centrality for:
+    calc_node_ids = x.branch_points.node_id.values
+
+    # We will be processing a super downsampled version of the neuron to
+    # speed up calculations
+    current_level = logger.level
+    current_state = config.pbar_hide
+    logger.setLevel('ERROR')
+    config.pbar_hide = True
+    y = sampling.downsample_neuron(x=x,
+                                   downsampling_factor=float('inf'),
+                                   inplace=False,
+                                   preserve_nodes=calc_node_ids)
+    logger.setLevel(current_level)
+    config.pbar_hide = current_state
+
+    # Get number of leafs distal to each branch's childs
+    # Note that we're using geodesic matrix here because it is much more
+    # efficient than for `distal_to` for larger queries/neurons
+    dists = graph.geodesic_matrix(y,
+                                  from_=leafs,
+                                  directed=True,
+                                  weight=None)
+    distal = (dists[calc_node_ids] < np.inf).sum(axis=0)
+
+    # Calculate the flow
+    flow = {n: (total_leafs - distal[n]) * distal[n] for n in calc_node_ids}
+
+    # At this point there is only flow for branch points and connectors nodes.
+    # Let's complete that mapping by adding flow for the nodes between branch points.
+    for s in x.small_segments:
+        # Segments' orientation goes from distal -> proximal
+
+        # If first node in the segment has no flow, set to 0
+        flow[s[0]] = flow.get(s[0], 0)
+
+        # For each node get the flow of its child
+        for i in range(1, len(s)):
+            if s[i] not in flow:
+                flow[s[i]] = flow[s[i-1]]
+
+    x.nodes['flow_centrality'] = x.nodes.node_id.map(flow).fillna(0).astype(int)
+
+    # Need to add a restriction, that a branchpoint cannot have a lower
+    # flow than its highest child -> this happens at the main branch point to
+    # the cell body fiber because the flow doesn't go "through" it in
+    # child -> parent direction but rather "across" it from one child to the
+    # other
+    is_bp = x.nodes['type'] == 'branch'
+    bp = x.nodes.loc[is_bp, 'node_id'].values
+    bp_childs = x.nodes[x.nodes.parent_id.isin(bp)]
+    max_flow = bp_childs.groupby('parent_id').flow_centrality.max()
+    x.nodes.loc[is_bp, 'flow_centrality'] = max_flow.loc[bp].values
+    x.nodes['flow_centrality'] = x.nodes.flow_centrality.astype(int)
 
     return x
 

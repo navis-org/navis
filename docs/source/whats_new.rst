@@ -3,7 +3,7 @@
 
 What's new?
 ===========
-This is a selection of features added, changes made and bugs fixed in each version.
+This is a selection of features added, changes made and bugs fixed with each version.
 For a full list of changes please see the
 `commits <https://github.com/navis-org/navis/commits/master>`_ on navis' Github
 repository.
@@ -17,7 +17,11 @@ repository.
      -
    * - dev
      - ongoing
-     - - NBLASTs: single progress bar instead of one for each process
+     - - BREAKING: ``navis.flow_centrality`` was renamed to :func:`navis.synapse_flow_centrality`
+         and a new non-synaptic :func:`navis.flow_centrality` function was added. This also
+         impacts :func:`navis.split_axon_dendrite` in that you should start
+         using `metric='synapse_flow_centrality'`!
+       - NBLASTs: single progress bar instead of one for each process
        - new ``via`` parameter for :func:`navis.xform_brain`
        - new utility function: :func:`navis.nbl.extract_matches`
        - various bug fixes
@@ -26,7 +30,7 @@ repository.
      - - fixed various bugs
    * - 1.3.0
      - 10/05/22
-     - - as of this version `pip install navis` won't install a vispy backend (see :ref:`install instructions <installing>` for details)
+     - - as of this version ``pip install navis`` won't install a vispy backend (see :ref:`install instructions <installing>` for details)
        - new interface to fetch data from Virtual Fly Brain: ``navis.interfaces.vfb``
        - tools to build custom NBLAST score matrices (big thanks to Chris Barnes!), see the new :ref:`tutorial <smat_intro>`
        - Bayesian implementation of the network traversal model: :class:`~navis.models.network_models.BayesianTraversalModel` (big thanks to Andrew Champion!)
