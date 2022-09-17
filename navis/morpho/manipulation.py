@@ -516,9 +516,9 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
                            disallowed_kwargs={'label_only': True},
                            heal=True)
 def split_axon_dendrite(x: NeuronObject,
-                        metric: Union[Literal['flow_centrality'],
+                        metric: Union[Literal['synapse_flow_centrality'],
                                       Literal['bending_flow'],
-                                      Literal['segregation_index']] = 'flow_centrality',
+                                      Literal['segregation_index']] = 'synapse_flow_centrality',
                         flow_thresh: float = .9,
                         split: Union[Literal['prepost'],
                                      Literal['distance']] = 'prepost',
@@ -544,6 +544,7 @@ def split_axon_dendrite(x: NeuronObject,
                         splitting the neuron(s). There are three flavors:
 
                          - 'synapse_flow_centrality' via :func:`~navis.synapse_flow_centrality`
+                           (note that this metric was previously called just "flow_centrality")
                          - 'bending_flow' via :func:`~navis.bending_flow`
                          - 'segregation_index' via :func:`~navis.arbor_segregation_index`
 
