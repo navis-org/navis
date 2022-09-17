@@ -16,7 +16,7 @@ import trimesh as tm
 from typing import Union, Optional
 from typing_extensions import Literal
 
-from scipy.ndimage.morphology import binary_erosion, binary_fill_holes
+from scipy.ndimage import binary_erosion, binary_fill_holes
 
 from .. import core, config, utils
 
