@@ -252,8 +252,7 @@ class LookupNdBuilder:
         """Yield all index pairs within all non-matching pairs."""
         if self._nonmatching_list is None:
             raise ValueError('Must provide non-matching pairs explicitly.')
-        for ms in self._nonmatching_list:
-            yield from yield_not_same(permutations(ms, 2))
+        yield from yield_not_same(permutations(self._nonmatching_list, 2))
 
     def _yield_nonmatching_pairs_greedy(self, rng=None) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
         """Yield all index pairs within nonmatching list."""
