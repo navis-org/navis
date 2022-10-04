@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from .. import config
+from ..core import Dotprops
 
 logger = logging.getLogger(__name__)
 
@@ -229,7 +230,7 @@ class LookupNdBuilder:
         self.bin_method = method
         return self
 
-    def _object_keys(self) -> Sequence[DotpropKey]:
+    def _object_keys(self) -> Sequence[NeuronKey]:
         """Get all indices into objects instance member."""
         try:
             return self.objects.keys()
@@ -237,28 +238,28 @@ class LookupNdBuilder:
             return range(len(self.objects))
 
     @property
-    def nonmatching(self) -> List[DotpropKey]:
+    def nonmatching(self) -> List[NeuronKey]:
         """Indices of nonmatching set of neurons."""
         if self._nonmatching_list is None:
             return list(self._object_keys())
         return self._nonmatching_list
 
-    def _yield_matching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+    def _yield_matching_pairs(self) -> Iterator[Tuple[NeuronKey, NeuronKey]]:
         """Yield all index pairs within all matching pairs."""
         for ms in self.matching_lists:
             yield from yield_not_same(permutations(ms, 2))
 
-    def _yield_nonmatching_pairs(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+    def _yield_nonmatching_pairs(self) -> Iterator[Tuple[NeuronKey, NeuronKey]]:
         """Yield all index pairs within all non-matching pairs."""
         if self._nonmatching_list is None:
             raise ValueError('Must provide non-matching pairs explicitly.')
         yield from yield_not_same(permutations(self._nonmatching_list, 2))
 
-    def _yield_nonmatching_pairs_greedy(self, rng=None) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+    def _yield_nonmatching_pairs_greedy(self, rng=None) -> Iterator[Tuple[NeuronKey, NeuronKey]]:
         """Yield all index pairs within nonmatching list."""
         return yield_not_same(permutations(self.nonmatching, 2))
 
-    def _yield_nonmatching_pairs_batched(self) -> Iterator[Tuple[DotpropKey, DotpropKey]]:
+    def _yield_nonmatching_pairs_batched(self) -> Iterator[Tuple[NeuronKey, NeuronKey]]:
         """Yield all index pairs within nonmatching list.
 
         This function tries to generate truely random draws of all possible
@@ -566,9 +567,9 @@ def dist_dot_alpha(q: Dotprops, t: Dotprops):
 class LookupDistDotBuilder(LookupNdBuilder):
     def __init__(
         self,
-        dotprops: Union[List[Dotprops], Mapping[DotpropKey, Dotprops]],
-        matching_lists: List[List[DotpropKey]],
-        nonmatching_list: Optional[List[DotpropKey]] = None,
+        dotprops: Union[List[Dotprops], Mapping[NeuronKey, Dotprops]],
+        matching_lists: List[List[NeuronKey]],
+        nonmatching_list: Optional[List[NeuronKey]] = None,
         use_alpha: bool = False,
         draw_strat: str = 'batched',
         seed: int = DEFAULT_SEED,
@@ -642,9 +643,6 @@ def parse_boundary(item: str):
             f"Enclosing characters '{explicit_interval}' do not match a half-open interval"
         )
     return tuple(float(i) for i in item[1:-1].split(",")), right
-
-
-T = TypeVar("T")
 
 
 class LookupAxis(ABC, Generic[T]):
