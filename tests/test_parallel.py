@@ -3,7 +3,7 @@ import navis
 import numpy as np
 
 
-def test_parallel():
+def test_parallel(benchmark):
     # Load example neurons
     nl = navis.example_neurons(kind='skeleton')
 
@@ -11,7 +11,7 @@ def test_parallel():
     ref = navis.prune_by_strahler(nl, 1, parallel=False, inplace=False)
 
     # Test decorator
-    pr = navis.prune_by_strahler(nl, 1, parallel=True, inplace=False)
+    pr = benchmark(navis.prune_by_strahler, nl, 1, parallel=True, inplace=False)
 
     assert isinstance(pr, navis.NeuronList)
     assert len(pr) == len(nl)

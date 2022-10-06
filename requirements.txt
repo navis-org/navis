@@ -60,6 +60,7 @@ flake8
 wheel
 mypy
 pytest
+pytest-benchmark
 pytest-env
 pytest-xvfb
 gitpython
