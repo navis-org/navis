@@ -174,7 +174,8 @@ def map_neuronlist(desc: str = "",
                                             omit_failures=kwargs.pop('omit_failures', False),
                                             chunksize=chunksize,
                                             exclude_zip=excl,
-                                            n_cores=n_cores)
+                                            n_cores=n_cores,
+                                            executor=kwargs.pop("executor", None))
                 # Apply function
                 res = proc(nl, *args, **kwargs)
 

@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import functools
+import itertools
 import numbers
 import os
 import pint
@@ -25,16 +26,6 @@ from typing import Union, Sequence, Optional, Callable
 from typing_extensions import Literal
 
 from .. import config, graph, utils, core
-
-
-try:
-    #from pathos.multiprocessing import ProcessingPool
-    # pathos' ProcessingPool apparently ignores chunksize
-    # (see https://stackoverflow.com/questions/55611806/how-to-set-chunk-size-when-using-pathos-processingpools-map)
-    import pathos
-    ProcessingPool = pathos.pools._ProcessPool
-except ImportError:
-    ProcessingPool = None
 
 __all__ = ['make_dotprops', 'to_neuron_space']
 
@@ -319,7 +310,8 @@ class NeuronProcessor:
                  warn_inplace: bool = True,
                  omit_failures: bool = False,
                  exclude_zip: list = [],
-                 desc: Optional[str] = None):
+                 desc: Optional[str] = None,
+                 executor: Optional['core.executors.Executor'] = None):
         if utils.is_iterable(function):
             if len(function) != len(nl):
                 raise ValueError('Number of functions must match neurons.')
@@ -341,6 +333,7 @@ class NeuronProcessor:
         self.warn_inplace = warn_inplace
         self.exclude_zip = exclude_zip
         self.omit_failures = omit_failures
+        self.executor = executor
 
         # This makes sure that help and name match the functions being called
         functools.update_wrapper(self, self.function)
@@ -349,31 +342,30 @@ class NeuronProcessor:
         # Explicitly providing these parameters overwrites defaults
         parallel = kwargs.pop('parallel', self.parallel)
         n_cores = kwargs.pop('n_cores', self.n_cores)
+        chunksize = kwargs.pop('chunksize', self.chunksize)
 
         # We will check, for each argument, if it matches the number of
-        # functions to run. If they it does, we will zip the values
-        # with the neurons
+        # functions to run. If they it does, we will pass directly as iterables.
+        # Otherwise, repeat the value for each neuron.
+
         parsed_args = []
-        parsed_kwargs = []
+        parsed_kwargs = {}
 
-        for i, n in enumerate(self.nl):
-            parsed_args.append([])
-            parsed_kwargs.append({})
-            for k, a in enumerate(args):
-                if k in self.exclude_zip:
-                    parsed_args[i].append(a)
-                elif not utils.is_iterable(a) or len(a) != len(self.nl):
-                    parsed_args[i].append(a)
-                else:
-                    parsed_args[i].append(a[i])
+        for k, a in enumerate(args):
+            if k in self.exclude_zip:
+                parsed_args.append(itertools.repeat(a))
+            elif not utils.is_iterable(a) or len(a) != len(self.nl):
+                parsed_args.append(itertools.repeat(a))
+            else:
+                parsed_args.append(a)
 
-            for k, v in kwargs.items():
-                if k in self.exclude_zip:
-                    parsed_kwargs[i][k] = v
-                elif not utils.is_iterable(v) or len(v) != len(self.nl):
-                    parsed_kwargs[i][k] = v
-                else:
-                    parsed_kwargs[i][k] = v[i]
+        for k, v in kwargs.items():
+            if k in self.exclude_zip:
+                parsed_kwargs[k] = itertools.repeat(v)
+            elif not utils.is_iterable(v) or len(v) != len(self.nl):
+                parsed_kwargs[k] = itertools.repeat(v)
+            else:
+                parsed_kwargs[k] = v
 
         # Silence loggers (except Errors)
         level = logger.getEffectiveLevel()
@@ -381,52 +373,22 @@ class NeuronProcessor:
         if level < 30:
             logger.setLevel('WARNING')
 
-        # Apply function
-        if parallel:
-            if not ProcessingPool:
-                raise ImportError('navis relies on pathos for multiprocessing!'
-                                  'Please install pathos and try again:\n'
-                                  '  pip3 install pathos -U')
-
-            if self.warn_inplace and kwargs.get('inplace', False):
-                logger.warning('`inplace=True` does not work with '
-                               'multiprocessing ')
-
-            with ProcessingPool(n_cores) as pool:
-                combinations = list(zip(self.funcs,
-                                        parsed_args,
-                                        parsed_kwargs))
-                chunksize = kwargs.pop('chunksize', self.chunksize)  # max(int(len(combinations) / 100), 1)
-
-                if not self.omit_failures:
-                    wrapper = _call
-                else:
-                    wrapper = _try_call
-
-                res = list(config.tqdm(pool.imap(wrapper,
-                                                 combinations,
-                                                 chunksize=chunksize),
-                                       total=len(combinations),
-                                       desc=self.desc,
-                                       disable=config.pbar_hide or not self.progress,
-                                       leave=config.pbar_leave))
+        if self.executor:
+            executor = self.executor
         else:
-            res = []
-            for i, n in enumerate(config.tqdm(self.nl, desc=self.desc,
-                                              disable=(config.pbar_hide
-                                                       or not self.progress
-                                                       or len(self.nl) <= 1),
-                                              leave=config.pbar_leave)):
-                try:
-                    res.append(self.funcs[i](*parsed_args[i], **parsed_kwargs[i]))
-                except BaseException as e:
-                    if self.omit_failures:
-                        res.append(FailedRun(func=self.funcs[i],
-                                             args=parsed_args[i],
-                                             kwargs=parsed_kwargs[i],
-                                             exception=e))
-                    else:
-                        raise
+            if parallel:
+                executor = core.executors.PathosProcessPoolExecutor(progress=self.progress, n_cores=n_cores)
+            else:
+                executor = core.executors.Executor(progress=self.progress)
+
+        if self.warn_inplace and kwargs.get('inplace', False) and not executor.supports_inplace():
+            logger.warning('`inplace=True` does not work with '
+                            'multiprocessing ')
+
+        with executor as executor:
+            res = list(executor.map(
+                    self.funcs, *parsed_args, **parsed_kwargs, chunksize=chunksize, desc=self.desc
+            ))
 
         # Reset logger level to previous state
         logger.setLevel(level)
