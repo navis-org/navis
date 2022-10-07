@@ -159,7 +159,7 @@ def map_neuronlist(desc: str = "",
                     # All things failing assume it's not inplace
                     inplace = False
 
-                if parallel and 'inplace' in sig.parameters:
+                if parallel and 'inplace' not in kwargs and 'inplace' in sig.parameters:
                     kwargs['inplace'] = True
 
                 # Prepare processor
