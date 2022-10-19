@@ -98,7 +98,7 @@ Schneider-Mizell CM, Gerhard S, Longair M, Kazimiers T, Li, Feng L, Zwart M … 
 1. Fork this repository
 2. `git clone` it to your local machine
 3. Install the full development dependencies with `pip install -r requirements.txt`
-4. Install the package in editable mode with `pip install -e .[all]`
+4. Install the package in editable mode with `pip install -e ".[all]"`
 5. Create, `git add`, `git commit`, `git push`, and pull request your changes.
 
 Run the tests locally with `pytest -v`.
