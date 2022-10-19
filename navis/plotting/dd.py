@@ -1158,17 +1158,24 @@ def _fix_default_dict(x):
     return x
 
 
-def _perspective_proj(zfront, zback):
-    """Copy of the original matplotlib perspective projection."""
-    a = (zfront + zback) / (zfront - zback)
-    b = -2 * (zfront * zback) / (zfront - zback)
-    return np.array([[1, 0, 0, 0],
-                     [0, 1, 0, 0],
-                     [0, 0, a, b],
-                     [0, 0, -1, 0]])
+def _perspective_proj(zfront, zback, focal_length=1):
+    """Copy of the original matplotlib projection matrix.
+
+    Notably, we set a default value for focal_length because this was only added
+    with version 3.6 of matplotlib.
+    """
+    e = focal_length
+    a = 1  # aspect ratio
+    b = (zfront+zback)/(zfront-zback)
+    c = -2*(zfront*zback)/(zfront-zback)
+    proj_matrix = np.array([[e,   0,  0, 0],
+                            [0, e/a,  0, 0],
+                            [0,   0,  b, c],
+                            [0,   0, -1, 0]])
+    return proj_matrix
 
 
-def _orthogonal_proj(zfront, zback):
+def _orthogonal_proj(zfront, zback, focal_length=None):
     """Get matplotlib to use orthogonal instead of perspective view.
 
     Usage:
