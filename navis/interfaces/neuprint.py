@@ -151,15 +151,11 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
 
     # Extract source
     if not seg_source:
-        segs = [s for s in client.meta['neuroglancerMeta'] if s.get('dataType') == 'segmentation']
-        if len(segs) < 1:
-            raise ValueError('Segmentation source could not be automatically '
-                             'determined. Please provide via ``seg_source``.')
+        seg_source = get_seg_source(client=client)
 
-        seg_source = segs[0]['source']
-        if len(segs) > 1:
-            logger.warning(f'{len(segs)} segmentation sources found. Using the '
-                           f'first entry: "{seg_source}"')
+    if not seg_source:
+        raise ValueError('Segmentation source could not be automatically '
+                         'determined. Please provide via ``seg_source``.')
 
     if isinstance(seg_source, str) and seg_source.startswith('dvid'):
         try:
@@ -544,3 +540,43 @@ def remove_soma_hairball(x: 'core.TreeNeuron',
 
     if not inplace:
         return x
+
+
+@inject_client
+def get_seg_source(*, client=None):
+    """Get segmentation source for given client+dataset."""
+    # First try to fetch the scene for the neuroglancer
+    url = f'{client.server}/api/npexplorer/nglayers/{client.dataset}.json'
+
+    r = client.session.get(url)
+    try:
+        r.raise_for_status()
+        scene = r.json()
+        segs = [s for s in scene['layers'] if s.get('type') == 'segmentation']
+    except BaseException:
+        segs = []
+
+    # If we didn't find a `dataset.json`, will check the client's meta data for a seg source
+    if not segs:
+        segs = [s for s in client.meta['neuroglancerMeta'] if s.get('dataType') == 'segmentation']
+
+    if not len(segs):
+        return None
+
+    # Check if any segmentation source matches our dataset exactly
+    named_segs = [s for s in segs if s.get('name') == client.dataset]
+    if len(named_segs):
+        segs = named_segs
+
+    # Get the first entry
+    seg_source = segs[0]['source']
+
+    # Make sure it's actually a string and not a {'source': url, 'subsources'...} dict
+    if isinstance(seg_source, dict):
+        seg_source = seg_source['url']
+
+    if len(segs) > 1:
+        logger.warning(f'{len(segs)} segmentation sources found. Using the '
+                       f'first entry: "{seg_source}"')
+
+    return seg_source
