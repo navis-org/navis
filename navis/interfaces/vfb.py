@@ -39,7 +39,7 @@ from io import StringIO
 
 from .. import config, utils, core
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 # For convenience some shorthands for datasets

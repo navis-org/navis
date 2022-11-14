@@ -21,7 +21,7 @@ from .. import core, config, utils
 from .converters import neuron2voxels, mesh2skeleton, tree2meshneuron
 from .meshing import voxels2mesh
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 @utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)

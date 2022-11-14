@@ -20,6 +20,8 @@ from typing import Optional
 
 from .. import utils, config
 
+logger = config.get_logger(__name__)
+
 
 def bipartite_match(scores: pd.DataFrame,
                     one_to_one: bool = True,
@@ -234,7 +236,7 @@ def bipartite_match(scores: pd.DataFrame,
     V_miss['score'] = None
 
     if not U_miss.empty or not V_miss.empty:
-        config.logger.info(f'{U_miss.shape[0] + V_miss.shape[0]} neurons could '
+        logger.info(f'{U_miss.shape[0] + V_miss.shape[0]} neurons could '
                            'not be matched under the given constraints.')
 
     return pd.concat([matches, U_miss, V_miss], axis=0).reset_index(drop=True)

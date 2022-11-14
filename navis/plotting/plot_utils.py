@@ -33,7 +33,7 @@ with warnings.catch_warnings():
 
 __all__ = ['tn_pairs_to_coords', 'segments_to_coords', 'fibonacci_sphere', 'make_tube']
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def tn_pairs_to_coords(x: core.TreeNeuron,

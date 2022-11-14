@@ -31,7 +31,7 @@ from .. import utils, config, core, graph
 
 
 # Setup logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 @utils.map_neuronlist(desc='Calc. persistence', allow_parallel=True)

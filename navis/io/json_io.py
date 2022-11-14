@@ -21,7 +21,7 @@ from pathlib import Path
 from .. import config, core
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 __all__ = ['write_json', 'read_json']

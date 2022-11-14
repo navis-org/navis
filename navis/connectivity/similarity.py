@@ -28,7 +28,7 @@ from concurrent.futures import ProcessPoolExecutor
 from .. import config, core, utils
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 __all__ = sorted(['connectivity_similarity',  'synapse_similarity'])

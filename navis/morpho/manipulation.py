@@ -32,7 +32,7 @@ from .. import graph, utils, config, core
 from . import mmetrics, subset
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = sorted(['prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite',
                   'average_skeletons', 'despike_skeleton', 'guess_radius',

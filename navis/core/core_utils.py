@@ -39,7 +39,7 @@ except ImportError:
 __all__ = ['make_dotprops', 'to_neuron_space']
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def temp_property(func):

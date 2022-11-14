@@ -32,7 +32,7 @@ except ImportError:
 from .. import core, config, intersection, graph, morpho
 
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def fix_mesh(mesh: Union[tm.Trimesh, 'core.MeshNeuron'],

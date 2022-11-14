@@ -41,7 +41,7 @@ except ImportError:
 __all__ = ["BaseReader"]
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 DEFAULT_INCLUDE_SUBDIRS = False
 

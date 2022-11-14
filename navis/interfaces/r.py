@@ -45,7 +45,7 @@ if rpy2_major_version >= 3:
 
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def try_importr(x):

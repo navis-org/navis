@@ -20,7 +20,7 @@ from typing import Optional, Union, List
 from .. import config, graph, core, utils, meshes
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = ['downsample_neuron']
 

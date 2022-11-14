@@ -21,6 +21,8 @@ from inspect import signature
 
 from .. import utils, config
 
+logger = config.get_logger(__name__)
+
 
 def trigger_init(func):
     """Trigger delayed initialization."""
@@ -315,7 +317,7 @@ class TransOptimizer:
             return
 
         if not config.pbar_hide:
-            config.logger.info('Pre-caching deformation field(s) for transforms...')
+            logger.info('Pre-caching deformation field(s) for transforms...')
 
         bbox_xf = self.bbox
         for tr in self.transforms:

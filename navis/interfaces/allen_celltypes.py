@@ -35,7 +35,7 @@ import pandas as pd
 from .. import config, utils
 from ..core import TreeNeuron, NeuronList
 
-logger = config.logger
+logger = config.get_logger(__name__)
 dataset = None
 
 DTYPES = {

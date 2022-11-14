@@ -25,7 +25,7 @@ from typing_extensions import Literal
 from .. import config, core, utils, graph
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = ['resample_skeleton', 'resample_along_axis']
 

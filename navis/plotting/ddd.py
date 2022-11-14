@@ -32,7 +32,7 @@ from .plotly.graph_objs import (neuron2plotly, volume2plotly, scatter2plotly,
 
 __all__ = ['plot3d']
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def plot3d(x: Union[core.NeuronObject,

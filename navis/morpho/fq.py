@@ -28,7 +28,7 @@ from typing_extensions import Literal
 from .. import config, core, utils
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = sorted(['form_factor'])
 

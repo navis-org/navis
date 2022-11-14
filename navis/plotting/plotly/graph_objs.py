@@ -26,7 +26,7 @@ from ..colors import vertex_colors, prepare_colormap, eval_color
 from ..plot_utils import segments_to_coords, fibonacci_sphere
 from ... import core, utils, config, conversion
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = ['neuron2plotly', 'scatter2plotly', 'dotprops2plotly',
            'volume2plotly', 'layout2plotly']

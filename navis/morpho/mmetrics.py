@@ -29,7 +29,7 @@ from typing_extensions import Literal
 from .. import config, graph, sampling, core, utils
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = sorted(['strahler_index', 'bending_flow', 'sholl_analysis',
                   'flow_centrality', 'synapse_flow_centrality',

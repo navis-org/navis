@@ -21,7 +21,7 @@ from typing import Union, Optional
 
 from .. import core, config, utils, morpho, graph
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 @utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)

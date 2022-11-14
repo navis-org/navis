@@ -26,7 +26,7 @@ from .. import config, utils, core
 from . import base
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def write_nrrd(x: 'core.NeuronObject',

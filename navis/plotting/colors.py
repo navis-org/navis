@@ -32,7 +32,7 @@ __all__ = ['generate_colors', 'prepare_connector_cmap', 'prepare_colormap',
            'eval_color', 'hex_to_rgb', 'vary_colors', 'vertex_colors',
            'color_to_int']
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 # Some definitions for mypy
 RGB_color = Tuple[float, float, float]

@@ -24,7 +24,7 @@ from typing import Optional, Union, Dict, Tuple, Any
 
 from .. import core, config, graph
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 colortype = Union[str,
                   Tuple[float, float, float],

@@ -25,7 +25,7 @@ from .ray import *
 from .convex import *
 
 # Set up logging -> has to be before try statement!
-logger = config.logger
+logger = config.get_logger(__name__)
 
 try:
     from pyoctree import pyoctree

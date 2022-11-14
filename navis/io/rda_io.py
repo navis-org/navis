@@ -26,7 +26,7 @@ from .. import config, utils, core
 __all__ = ['read_rda']
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def read_rda(f: str,

@@ -24,7 +24,7 @@ from ..core import TreeNeuron, NeuronList
 from .. import config, graph
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 NeuronObject = Union[TreeNeuron, NeuronList]
 

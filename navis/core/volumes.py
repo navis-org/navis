@@ -29,7 +29,7 @@ from typing_extensions import Literal
 from .. import utils, config
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 class Volume(trimesh.Trimesh):

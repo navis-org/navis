@@ -36,7 +36,7 @@ from .. import config
 from ..core import Volume, TreeNeuron, NeuronList
 from ..utils import make_url, make_iterable
 
-logger = config.logger
+logger = config.get_logger(__name__)
 baseurl = 'https://www.insectbraindb.org'
 
 

@@ -27,7 +27,7 @@ from . import base
 __all__ = ["read_nmx"]
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 NODE_COLUMNS = ('node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id')
 DEFAULT_PRECISION = 32
