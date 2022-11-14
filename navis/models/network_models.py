@@ -238,7 +238,7 @@ class TraversalModel(BaseNetworkModel):
         self._summary = summary
         return self._summary
 
-    def run(self, iterations: int = 100, return_iterations=False, **kwargs) -> None:
+    def run(self, iterations: int = 100, return_iterations=False, **kwargs) -> pd.DataFrame:
         """Run model (single process).
 
         Use ``.run_parallel`` to use parallel processes.
@@ -307,8 +307,8 @@ class TraversalModel(BaseNetworkModel):
         cols = ['steps', 'node']
         if return_iterations:
             cols += ['iteration']
-
-        return pd.DataFrame(all_trav, columns=cols).astype(int)
+        self.results = pd.DataFrame(all_trav, columns=cols).astype(int)
+        return self.results
 
 
 class BayesianTraversalModel(TraversalModel):
@@ -431,7 +431,7 @@ class BayesianTraversalModel(TraversalModel):
         self._summary = summary
         return self._summary
 
-    def run(self, **kwargs) -> None:
+    def run(self, **kwargs) -> pd.DataFrame:
         """Run model (single process)."""
 
         # For some reason this is required for progress bars in Jupyter to show
