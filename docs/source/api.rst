@@ -549,6 +549,8 @@ Various utility functions.
     navis.config.remove_log_handlers
     navis.patch_cloudvolume
     navis.nbl.extract_matches
+    navis.example_neurons
+    navis.example_volume
 
 
 .. _api_interfaces:
