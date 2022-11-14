@@ -42,7 +42,7 @@ except ImportError:
 __all__ = ['TreeNeuron']
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 # This is to prevent pint to throw a warning about numpy integration
 with warnings.catch_warnings():

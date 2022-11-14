@@ -31,7 +31,7 @@ from .iterables import is_iterable, make_iterable
 from ..transforms.templates import TemplateBrain
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def round_smart(num: Union[int, float], prec: int = 8) -> float:

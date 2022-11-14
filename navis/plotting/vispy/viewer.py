@@ -35,7 +35,7 @@ from .visuals import *
 
 __all__ = ['Viewer']
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def block_all(function):

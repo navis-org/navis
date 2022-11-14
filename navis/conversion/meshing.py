@@ -31,7 +31,7 @@ try:
 except ImportError:
     skimage = None
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],

@@ -49,7 +49,7 @@ with warnings.catch_warnings():
 
 __all__ = ['xform_brain', 'mirror_brain', 'symmetrize_brain']
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 # Defines entry the registry needs to register a transform
 transform_reg = namedtuple('Transform',

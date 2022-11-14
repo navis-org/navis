@@ -32,7 +32,7 @@ from ... import utils, config
 
 __all__ = ['Viewer']
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 class Browser:

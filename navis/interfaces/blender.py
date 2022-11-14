@@ -34,7 +34,7 @@ import trimesh as tm
 from .. import core, utils, config
 from ..plotting.colors import eval_color
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 try:
     import bpy

@@ -21,7 +21,7 @@ from .. import config, core
 from typing import Sequence
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")

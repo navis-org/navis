@@ -22,7 +22,7 @@ from typing import Iterable, Union, Optional, Callable
 from .. import config
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = ['BayesianTraversalModel', 'TraversalModel', 'linear_activation_p', 'random_linear_activation_function']
 

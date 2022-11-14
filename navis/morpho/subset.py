@@ -21,7 +21,7 @@ from typing import Union, Sequence
 from .. import utils, config, core, graph
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = sorted(['subset_neuron'])
 

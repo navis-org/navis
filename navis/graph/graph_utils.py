@@ -27,7 +27,7 @@ from scipy.sparse import csgraph, csr_matrix
 from .. import graph, utils, config, core, morpho
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = sorted(['classify_nodes', 'cut_skeleton', 'longest_neurite',
                   'split_into_fragments', 'reroot_skeleton', 'distal_to',

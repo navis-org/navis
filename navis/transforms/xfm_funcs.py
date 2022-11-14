@@ -27,7 +27,7 @@ from .. import utils, core, config
 from .base import BaseTransform, TransformSequence, TransOptimizer
 from .affine import AffineTransform
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],

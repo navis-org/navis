@@ -23,7 +23,7 @@ from .. import config, core
 from .iterables import make_iterable
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 # Boolean, unsigned integer, signed integer, float, complex.
 _NUMERIC_KINDS = set('buifc')

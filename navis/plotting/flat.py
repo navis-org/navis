@@ -30,7 +30,7 @@ from ..morpho.mmetrics import parent_dist
 
 from .colors import prepare_connector_cmap
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = ['plot_flat']
 

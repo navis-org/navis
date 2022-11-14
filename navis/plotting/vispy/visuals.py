@@ -36,7 +36,7 @@ with warnings.catch_warnings():
 __all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy', 'voxel2vispy',
            'points2vispy', 'combine_visuals']
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def volume2vispy(x, **kwargs):

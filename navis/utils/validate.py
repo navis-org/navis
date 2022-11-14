@@ -20,7 +20,7 @@ from .. import config, core
 from .iterables import *
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def validate_options(x: 'core.TreeNeuron',

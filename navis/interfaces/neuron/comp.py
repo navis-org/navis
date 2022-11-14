@@ -106,7 +106,7 @@ from neuron.units import ms, mV
 neuron.h.load_file('stdrun.hoc')
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = []
 

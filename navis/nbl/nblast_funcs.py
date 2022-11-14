@@ -39,7 +39,7 @@ __all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
 fp = os.path.dirname(__file__)
 smat_path = os.path.join(fp, 'score_mats')
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 # This multiplier controls job size for NBLASTs (only relevant for
 # multiprocessing and if progress=True).

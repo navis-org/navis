@@ -39,7 +39,7 @@ __all__ = ['synblast']
 fp = os.path.dirname(__file__)
 smat_path = os.path.join(fp, 'score_mats')
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 class SynBlaster(Blaster):

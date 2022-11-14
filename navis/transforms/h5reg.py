@@ -27,7 +27,7 @@ from .affine import AffineTransform
 
 from .. import config
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 class H5transform(BaseTransform):

@@ -27,7 +27,7 @@ except ImportError:
 from .. import config, core
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
                   'neuron2nx', 'neuron2KDTree', 'neuron2tangents'])

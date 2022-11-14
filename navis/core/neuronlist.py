@@ -31,7 +31,7 @@ from .. import utils, config, core
 __all__ = ['NeuronList']
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 class NeuronList:

@@ -36,7 +36,7 @@ except ImportError:
 __all__ = ["SwcReader", "read_swc", "write_swc"]
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 NODE_COLUMNS = ('node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id')
 COMMENT = "#"

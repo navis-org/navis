@@ -38,7 +38,7 @@ from .plot_utils import segments_to_coords, tn_pairs_to_coords
 
 __all__ = ['plot2d']
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")

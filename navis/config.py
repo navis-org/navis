@@ -53,6 +53,13 @@ skip_log_setup = os.environ.get('NAVIS_SKIP_LOG_SETUP', '').lower() == 'true'
 if not skip_log_setup:
     default_logging()
 
+
+def get_logger(name: str):
+    if skip_log_setup:
+        return logging.getLogger(name)
+    return logger
+
+
 # Default settings for progress bars
 pbar_hide = False
 pbar_leave = False

@@ -23,7 +23,7 @@ from typing import Union, Optional
 from .. import utils, config
 
 # Set up logging
-logger = config.logger
+logger = config.get_logger(__name__)
 
 
 def group_matrix(mat: Union[pd.DataFrame, np.ndarray],

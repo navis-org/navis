@@ -50,7 +50,7 @@ from ..core import Volume, TreeNeuron, MeshNeuron, NeuronList
 from ..graph import neuron2KDTree
 from ..morpho import subset_neuron
 
-logger = config.logger
+logger = config.get_logger(__name__)
 
 # Define some integer types
 int_types = (int, np.int32, np.int64, np.int, np.int0)
