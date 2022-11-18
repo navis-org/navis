@@ -119,6 +119,8 @@ class TreeNeuron(BaseNeuron):
     # Set default function for soma finding. Default = :func:`navis.morpho.find_soma`
     _soma: Union[Callable[['TreeNeuron'], Sequence[int]], int] = morpho.find_soma
 
+    tags: Optional[Dict[str, List[int]]] = None
+
     #: Attributes to be used when comparing two neurons.
     EQ_ATTRIBUTES = ['n_nodes', 'n_connectors', 'soma', 'root',
                      'n_branches', 'n_leafs', 'cable_length', 'name']

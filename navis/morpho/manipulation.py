@@ -1085,7 +1085,7 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                 if n.has_connectors:
                     n.connectors['node_id'] = n.connectors.node_id.map(lambda x: new_map.get(x, x))
 
-                if hasattr(n, 'tags'):
+                if getattr(n, 'tags', None) is not None:
                     n.tags = {new_map.get(k, k): v for k, v in n.tags.items()}  # type: ignore
 
                 # Remap parent IDs
@@ -1110,7 +1110,7 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
         m.tags = {}  # type: ignore  # TreeNeuron has no tags
 
     for n in nl:
-        for k, v in getattr(n, 'tags', {}).items():
+        for k, v in (getattr(n, 'tags', None) or {}).items():
             m.tags[k] = m.tags.get(k, []) + list(utils.make_iterable(v))
 
     # Reset temporary attributes of our final neuron
