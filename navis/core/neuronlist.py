@@ -743,6 +743,9 @@ class NeuronList:
 
         # Add ID to properties - unless all are generic UUIDs
         if any([not isinstance(n.id, uuid.UUID) for n in self.neurons]):
+            # Make sure we don't have two IDs
+            if 'id' in props:
+                props.remove('id')
             props = np.insert(props, 2, 'id')
 
         if add_props:
