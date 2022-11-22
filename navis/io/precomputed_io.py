@@ -500,7 +500,7 @@ def write_info_file(data, filepath, add_props={}):
             u = 1
         tr = np.zeros((4, 3), dtype=int)
         tr[:3, :3] = np.diag([u, u, u])
-        info['transform'] = tr.flatten().tolist()
+        info['transform'] = tr.T.flatten().tolist()
 
     else:
         raise TypeError(f'Unable to write info file for data of type "{type(data)}"')
@@ -539,14 +539,15 @@ def _write_skeleton(x, filename, radius=False):
     # Below code modified from:
     # https://github.com/google/neuroglancer/blob/master/python/neuroglancer/skeleton.py#L34
     result = io.BytesIO()
-    vertex_positions = x.nodes[['x', 'y', 'z']].values.astype('float32')
+    vertex_positions = x.nodes[['x', 'y', 'z']].values.astype('float32', order='C')
     # Map edges node IDs to node indices
     node_ix = pd.Series(x.nodes.reset_index(drop=True).index, index=x.nodes.node_id)
-    edges = x.edges.copy().astype('uint32')
+    edges = x.edges.copy().astype('uint32', order='C')
     edges[:, 0] = node_ix.loc[edges[:, 0]].values
     edges[:, 1] = node_ix.loc[edges[:, 1]].values
+    edges = edges[:, [1, 0]]  # For some reason we have to switch direction
 
-    result.write(struct.pack('<II', vertex_positions.shape[0], edges.shape[0] // 2))
+    result.write(struct.pack('<II', vertex_positions.shape[0], edges.shape[0]))
     result.write(vertex_positions.tobytes())
     result.write(edges.tobytes())
 
