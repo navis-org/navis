@@ -1180,6 +1180,9 @@ def reroot_skeleton(x: 'core.NeuronObject',
 
         # If new root is a tag, rather than a ID, try finding that node
         if isinstance(root, str):
+            if x.tags is None:
+                raise ValueError("Neuron does not have tags")
+
             if root not in x.tags:
                 raise ValueError(f'#{x.id}: Found no nodes with tag {root}'
                                  ' - please double check!')
@@ -1416,6 +1419,8 @@ def cut_skeleton(x: 'core.NeuronObject',
     for cn in where:
         # If cut_node is a tag (rather than an ID), try finding that node
         if isinstance(cn, str):
+            if x.tags is None:
+                raise ValueError(f"Neuron {x.id} has no tags")
             if cn not in x.tags:
                 raise ValueError(f'#{x.id}: Found no node with tag {cn}'
                                  ' - please double check!')

@@ -283,7 +283,7 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
         x._connectors = x.connectors[x.connectors.node_id.isin(subset)]
         x._connectors.reset_index(inplace=True, drop=True)
 
-    if hasattr(x, 'tags'):
+    if getattr(x, 'tags', None) is not None:
         # Filter tags
         x.tags = {t: [tn for tn in x.tags[t] if tn in subset] for t in x.tags}  # type: ignore  # TreeNeuron has no tags
 
