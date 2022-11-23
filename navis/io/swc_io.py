@@ -22,6 +22,7 @@ from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
 from urllib3 import HTTPResponse
 
 import pandas as pd
+import numpy as np
 
 from .. import config, utils, core
 from . import base
