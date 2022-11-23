@@ -593,7 +593,7 @@ def _write_swc(x: Union['core.TreeNeuron', 'core.Dotprops'],
         return node_map
 
 
-def sort_swc(df: pd.DataFrame, roots, sort_children=True, inplace=False):
+def _sort_swc_dfs(df: pd.DataFrame, roots, sort_children=True, inplace=False):
     """Depth-first search tree to ensure parents are always defined before children."""
     children = defaultdict(list)
     node_id_to_orig_idx = dict()
@@ -629,6 +629,10 @@ def sort_swc(df: pd.DataFrame, roots, sort_children=True, inplace=False):
     df.sort_values("_order", inplace=True)
     df.drop(columns=["_order"])
     return df
+
+
+def _sort_swc_parent(df, inplace=False):
+    return df.sort_values("parent_id", inplace=inplace)
 
 
 def make_swc_table(x: 'core.TreeNeuron',
@@ -675,8 +679,8 @@ def make_swc_table(x: 'core.TreeNeuron',
     if isinstance(x, core.Dotprops):
         x = x.to_skeleton()
 
-    # Work on a copy
-    swc = sort_swc(x.nodes, x.root, inplace=False)
+    # Work on a copy sorted in depth-first order
+    swc = _sort_swc_dfs(x.nodes, x.root, inplace=False)
 
     # Add labels
     swc['label'] = 0
@@ -697,8 +701,6 @@ def make_swc_table(x: 'core.TreeNeuron',
             # Add synapse label
             pre_ids = x.presynapses.node_id.values
             post_ids = x.postsynapses.node_id.values
-            swc.loc[swc.node_id.isin(pre_ids), 'label'] = 7
-            swc.loc[swc.node_id.isin(post_ids), 'label'] = 8
 
             is_pre = swc["node_id"].isin(pre_ids)
             swc.loc[is_pre, 'label'] = 7
@@ -714,7 +716,7 @@ def make_swc_table(x: 'core.TreeNeuron',
 
     # Make sure radius has no `None` or negative
     swc['radius'] = swc.radius.fillna(0)
-    swc['radius'][swc['radius'] < 0] = 0
+    swc.loc[swc["radius"] < 0, "radius"] = 0
 
     if return_node_map is not None:
         # remap IDs
