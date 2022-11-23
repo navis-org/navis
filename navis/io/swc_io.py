@@ -576,7 +576,7 @@ def _write_swc(x: Union['core.TreeNeuron', 'core.Dotprops'],
         """)
         if export_connectors:
             header += dedent("""\
-            # 7 = presynapses, 8 = postsynapses
+            # 7 = presynapses, 8 = postsynapses, 9 = both pre- and post-synapses
             """)
     elif not header.endswith('\n'):
         header += '\n'
