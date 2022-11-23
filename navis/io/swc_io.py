@@ -601,14 +601,13 @@ def sort_swc(df: pd.DataFrame, roots, sort_children=True, inplace=False):
         child = row.node_id
         parent = row.parent_id
         children[parent].append(child)
-        node_id_to_orig_idx[child] = row.index
+        node_id_to_orig_idx[child] = row.Index
 
     if sort_children:
         to_visit = sorted(roots, reverse=True)
     else:
         to_visit = list(roots)[::-1]
 
-    idx = 0
     order = np.full(len(df), np.nan)
     count = 0
     while to_visit:
@@ -616,9 +615,9 @@ def sort_swc(df: pd.DataFrame, roots, sort_children=True, inplace=False):
         order[node_id_to_orig_idx[node_id]] = count
         cs = children.pop(order[-1], [])
         if sort_children:
-            to_visit.append(sorted(sort_children, reverse=True))
+            to_visit.extend(sorted(cs, reverse=True))
         else:
-            to_visit.append(cs[::-1])
+            to_visit.extend(cs[::-1])
         count += 1
 
     # undefined behaviour if any nodes are not reachable from the given roots
