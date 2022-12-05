@@ -139,6 +139,7 @@ extensions = [
     #'sphinx.ext.mathjax', # mathjax is interactive and configurable but can also misbehave when rendering - switched to imgmath instead
     'sphinx.ext.imgmath',
     'sphinx_copybutton',
+    'sphinx_design',
     'matplotlib.sphinxext.plot_directive',
     'sphinx_autodoc_typehints',  # unfortunately this does not play nicely with mocking
     #'numpydoc'
@@ -314,6 +315,7 @@ html_favicon = '_static/favicon.ico'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_css_files = ['style.css']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied

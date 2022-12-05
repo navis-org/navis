@@ -83,3 +83,8 @@ dt:target, span.highlighted {
 code {
     background-color: rgb(200, 200, 200) !important;
 }
+
+:root {
+  --sd-color-card-header: rgb(70, 70, 70);
+  --sd-color-card-background: rgb(40, 40, 40);
+}

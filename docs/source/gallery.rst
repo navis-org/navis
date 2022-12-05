@@ -6,184 +6,131 @@ These tutorials are meant to illustrate certain NAVis functions. As per usual:
 have a look at the :ref:`API reference <api>` to find out details about a given
 function. There you will also find more examples.
 
-.. raw:: html
 
-   <div class="container-fluid">
-      <div class="row">
-         <div class="col-md-3">
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">The Basics</h3>
-               </div>
-               <div class="panel-body">
+.. grid:: 1 2 3 4
 
-Tutorials on how to work with ``navis`` neurons:
+    .. grid-item-card::
 
-.. toctree::
-   :maxdepth: 1
+        The Basics
+        ^^^
 
-   tutorials/neurons_intro
+        Tutorials on how to work with ``navis`` neurons:
 
+        .. toctree::
+           :maxdepth: 1
 
-.. raw:: html
+           tutorials/neurons_intro        
 
-               </div>
-            </div>
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">Import/Export</h3>
-               </div>
-               <div class="panel-body">
+    .. grid-item-card::
 
-Local data:
+        Import/Export
+        ^^^
 
-.. toctree::
-   :maxdepth: 1
+        Local data:
 
-   tutorials/local_data_skeletons
-   tutorials/local_data_meshes
-   tutorials/local_data_voxels
-   tutorials/local_data_dotprops
-   tutorials/local_data_pickling
+        .. toctree::
+           :maxdepth: 1
 
-Remote data sources & repositories:
+           tutorials/local_data_skeletons
+           tutorials/local_data_meshes
+           tutorials/local_data_voxels
+           tutorials/local_data_dotprops
+           tutorials/local_data_pickling
 
-.. toctree::
-   :maxdepth: 1
+        Remote data sources & repositories:
 
-   tutorials/neuprint
-   tutorials/microns_tut
-   tutorials/cloudvolume_tut
-   tutorials/neuromorpho_tut
-   tutorials/insectbraindb
+        .. toctree::
+           :maxdepth: 1
 
-.. raw:: html
+           tutorials/neuprint
+           tutorials/microns_tut
+           tutorials/cloudvolume_tut
+           tutorials/neuromorpho_tut
+           tutorials/insectbraindb
 
-               </div>
-            </div>
-         </div>
-         <div class="col-md-3">
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">Plotting</h3>
-               </div>
-               <div class="panel-body">
+    .. grid-item-card::
 
-Visualize your neurons:
+        Plotting
+        ^^^
 
-.. toctree::
-   :maxdepth: 1
+        Visualize your neurons
 
-   tutorials/plotting
+        .. toctree::
+           :maxdepth: 1
 
-.. raw:: html
+           tutorials/plotting
 
-               </div>
-            </div>
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">Morphology</h3>
-               </div>
-               <div class="panel-body">
+    .. grid-item-card::
 
-Morphometrics:
+        Morphology
+        ^^^
+        Morphometrics:
 
-.. toctree::
-   :maxdepth: 2
+        .. toctree::
+           :maxdepth: 2
 
-   tutorials/morph_analysis
+           tutorials/morph_analysis
 
-Processing:
+        Processing:
 
-.. toctree::
-   :maxdepth: 2
+        .. toctree::
+           :maxdepth: 2
 
-   tutorials/morph_processing
-
-.. raw:: html
-
-               </div>
-            </div>
-         </div>
-         <div class="col-md-3">
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">NBLAST</h3>
-               </div>
-               <div class="panel-body">
-
-Learn how to run & interpret NBLAST:
-
-.. toctree::
-   :maxdepth: 2
-
-   tutorials/nblast
-   tutorials/nblast_flycircuit
-   tutorials/nblast_hemibrain
-   tutorials/smat
-
-.. raw:: html
-
-               </div>
-            </div>
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">Interfaces</h3>
-               </div>
-               <div class="panel-body">
-
-Use ``navis`` in combination with other tools:
-
-.. toctree::
-   :maxdepth: 1
-
-   tutorials/neuron
-   blender
-   tutorials/r_doc
+           tutorials/morph_processing
 
 
-.. raw:: html
+.. grid:: 1 2 3 4
 
-               </div>
-            </div>
-         </div>
-         <div class="col-md-3">
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">Transformations</h3>
-               </div>
-               <div class="panel-body">
+    .. grid-item-card::
 
-Transform spatial data (e.g. neurons) between brain spaces:
+        NBLAST
+        ^^^
+        Learn how to run & interpret NBLAST:
 
-.. toctree::
-   :maxdepth: 2
+        .. toctree::
+           :maxdepth: 2
 
-   tutorials/transforming
+           tutorials/nblast
+           tutorials/nblast_flycircuit
+           tutorials/nblast_hemibrain
+           tutorials/smat
 
-.. raw:: html
+    .. grid-item-card::
 
-               </div>
-            </div>
-            <div class="panel panel-default">
-               <div class="panel-heading">
-                  <h3 class="panel-title">Misc</h3>
-               </div>
-               <div class="panel-body">
+        Interfaces
+        ^^^
 
-.. toctree::
-   :maxdepth: 2
+        Use ``navis`` in combination with other tools:
 
-   tutorials/multiprocessing
-   Troubleshooting <troubleshooting>
+        .. toctree::
+           :maxdepth: 1
 
-.. raw:: html
+           tutorials/neuron
+           blender
+           tutorials/r_doc
 
-               </div>
-            </div>
-         </div>
-      </div>
-   </div>
+    .. grid-item-card::
+
+        Transformations
+        ^^^
+
+        Transform spatial data (e.g. neurons) between brain spaces:
+
+        .. toctree::
+           :maxdepth: 2
+
+           tutorials/transforming
+
+    .. grid-item-card::
+
+        Misc
+        ^^^
+        .. toctree::
+           :maxdepth: 2
+
+           tutorials/multiprocessing
+           Troubleshooting <troubleshooting>
+
 
 Not seeing what you're looking for, need additional pointers or found a broken
 example? Open an `issue <https://github.com/navis-org/navis/issues>`_ on Github!

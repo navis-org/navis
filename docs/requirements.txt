@@ -12,6 +12,7 @@ sphinx>=3.1
 sphinx-bootstrap-theme
 sphinx-autodoc-typehints
 sphinx-copybutton
+sphinx_design
 neuprint-python
 wheel>=0.35.1
 # Optional dependency - required for plot_flat
