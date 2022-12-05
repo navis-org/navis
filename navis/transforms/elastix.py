@@ -74,6 +74,8 @@ def setup_elastix():
 
     # Note that `LD_LIBRARY_PATH` works for both Linux and OSX
     os.environ['LD_LIBRARY_PATH'] = var
+    # As per navis/issues/112
+    os.environ['DYLD_LIBRARY_PATH'] = var
 
 
 setup_elastix()
