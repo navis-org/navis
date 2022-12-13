@@ -203,6 +203,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
     # Make sure there is a somaLocation and somaRadius column
     if 'somaLocation' not in meta.columns:
         meta['somaLocation'] = None
+    if 'somaRadius' not in meta.columns
         meta['somaRadius'] = None
 
     if isinstance(seg_source, str) and seg_source.startswith('dvid'):
