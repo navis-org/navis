@@ -377,6 +377,7 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
     # Make sure there is a somaLocation and somaRadius column
     if 'somaLocation' not in meta.columns:
         meta['somaLocation'] = None
+    if 'somaRadius' not in meta.columns:
         meta['somaRadius'] = None
 
     nl = []
