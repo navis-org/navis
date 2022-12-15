@@ -30,6 +30,7 @@ import pint
 import warnings
 
 from typing import Union, List, Tuple
+import copy
 from typing_extensions import Literal
 
 from .. import utils, config, core, conversion
@@ -698,8 +699,13 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
     if not kwargs.get('cn_mesh_colors', False):
         cn_layout = config.default_connector_colors.copy()
     else:
-        cn_layout = {{'name': c, 'color': color}
-                     for c in neuron.connectors.type.unique()}
+        cn_layout = copy.deepcopy(config.default_connector_colors)
+        # change all of the colors to color
+        for inner_dict in cn_layout.values():
+            if not isinstance(inner_dict, dict):
+                continue
+            inner_dict["color"] = color
+        
     cn_layout.update(kwargs.get('synapse_layout', {}))
 
     if method == '2d':
