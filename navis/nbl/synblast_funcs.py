@@ -16,12 +16,13 @@
 
 import os
 import operator
+import time
 
 import numpy as np
 import pandas as pd
+import multiprocessing as mp
 
-from concurrent.futures import ProcessPoolExecutor
-from scipy.spatial import cKDTree
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Union, Optional
 from typing_extensions import Literal
 
@@ -34,12 +35,24 @@ from .smat import Lookup2d
 from .nblast_funcs import (check_microns, find_optimal_partition,
                            nblast_preflight, smat_fcwb)
 
+try:
+    from pykdtree.kdtree import KDTree
+except ImportError:
+    from scipy.spatial import cKDTree as KDTree
+
 __all__ = ['synblast']
 
 fp = os.path.dirname(__file__)
 smat_path = os.path.join(fp, 'score_mats')
 
 logger = config.get_logger(__name__)
+
+
+# This multiplier controls job size for syNBLASTs (only relevant for
+# multiprocessing and if progress=True).
+# Larger multiplier = larger job sizes = fewer jobs = slower updates & less overhead
+# Smaller multiplier = smaller job sizes = more jobs = faster updates & more overhead
+JOB_SIZE_MULTIPLIER = 1
 
 
 class SynBlaster(Blaster):
@@ -94,15 +107,19 @@ class SynBlaster(Blaster):
 
         self.ids = []
 
-    def append(self, neuron, id=None) -> NestedIndices:
-        """Append neurons/connector tables, returning numerical indices of added objects"""
+    def append(self, neuron, id=None, self_hit=None) -> NestedIndices:
+        """Append neurons/connector tables, returning numerical indices of added objects.
+
+        Note that `self_hit` is ignored and hence calculated from scratch
+        when `neuron` is a (nested) list of neurons.
+        """
         if isinstance(neuron, pd.DataFrame):
-            return self._append_connectors(neuron, id)
+            return self._append_connectors(neuron, id, self_hit=self_hit)
 
         if isinstance(neuron, BaseNeuron):
             if not neuron.has_connectors:
                 raise ValueError('Neuron must have synapses')
-            return self._append_connectors(neuron.connectors, neuron.id)
+            return self._append_connectors(neuron.connectors, neuron.id, self_hit=self_hit)
 
         try:
             return [self.append(n) for n in neuron]
@@ -112,7 +129,7 @@ class SynBlaster(Blaster):
                 f"{type(neuron)}"
             )
 
-    def _append_connectors(self, connectors: pd.DataFrame, id) -> int:
+    def _append_connectors(self, connectors: pd.DataFrame, id, self_hit=None) -> int:
         if id is None:
             raise ValueError("Explicit non-None id required for appending connectors")
 
@@ -122,7 +139,7 @@ class SynBlaster(Blaster):
         if not self.by_type:
             data = connectors[['x', 'y', 'z']].values
             # Generate the KDTree
-            self.neurons[-1]['all'] = cKDTree(data)
+            self.neurons[-1]['all'] = KDTree(data)
         else:
             if 'type' not in connectors.columns:
                 raise ValueError('Connector tables must have a "type" column '
@@ -130,10 +147,13 @@ class SynBlaster(Blaster):
             for ty in connectors['type'].unique():
                 data = connectors.loc[connectors['type'] == ty, ['x', 'y', 'z']].values
                 # Generate the KDTree
-                self.neurons[-1][ty] = cKDTree(data)
+                self.neurons[-1][ty] = KDTree(data)
 
-        # Calculate score for self hit
-        self.self_hits.append(self.calc_self_hit(connectors))
+        # Calculate score for self hit if required
+        if not self_hit:
+            self_hit = self.calc_self_hit(connectors)
+        self.self_hits.append(self_hit)
+
         return next_idx
 
     def calc_self_hit(self, cn):
@@ -164,7 +184,11 @@ class SynBlaster(Blaster):
                 dists = np.append(dists, [self.score_fn.max_dist] * qt.data.shape[0])
             else:
                 tt = t_trees[ty]
-                dists = np.append(dists, tt.query(qt.data)[0])
+                data = qt.data
+                # pykdtree tracks data as flat array
+                if data.ndim == 1:
+                    data = data.reshape((qt.n, qt.ndim))
+                dists = np.append(dists, tt.query(data)[0])
 
         # We use the same scoring function as for normal NBLAST but ignore the
         # vector dotproduct component
@@ -242,7 +266,8 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
     progress :      bool
-                    Whether to show progress bars.
+                    Whether to show progress bars. This may cause some overhead,
+                    so switch off if you don't really need it.
 
     Returns
     -------
@@ -291,6 +316,119 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
         if any(['type' not in n.connectors.columns for n in query]):
             raise ValueError('Connector tables must have a "type" column if '
                              '`by_type=True` or `cn_types` is not `None`.')
+
+    # Find a partition that produces batches that each run in approximately
+    # 10 seconds
+    if n_cores and n_cores > 1:
+        if progress:
+            # If progress bar, we need to make smaller mini batches.
+            # These mini jobs must not be too small - otherwise the overhead
+            # from spawning and sending results between processes slows things
+            # down dramatically. Hence we want to make sure that each job runs
+            # for >10s. The run time depends on the system and how big the neurons
+            # are. Here, we run a quick test and try to extrapolate from there
+            n_rows, n_cols = find_batch_partition(query, target,
+                                                  T=10 * JOB_SIZE_MULTIPLIER)
+        else:
+            # If no progress bar needed, we can just split neurons evenly across
+            # all available cores
+            n_rows, n_cols = find_optimal_partition(n_cores, query, target)
+    else:
+        n_rows = n_cols = 1
+
+    # Calculate self-hits once for all neurons
+    nb = SynBlaster(normalized=normalized,
+                    by_type=by_type,
+                    smat=smat,
+                    progress=progress)
+
+    def get_connectors(n):
+        """Gets the required connectors from a neuron."""
+        if not isinstance(cn_types, type(None)):
+            return n.connectors[n.connectors['type'].isin(cn_types)]
+        else:
+            return n.connectors
+
+    query_self_hits = np.array([nb.calc_self_hit(get_connectors(n)) for n in query])
+    target_self_hits = np.array([nb.calc_self_hit(get_connectors(n)) for n in target])
+
+    # Initialize a pool of workers
+    # Note that we're forcing "spawn" instead of "fork" (default on linux)!
+    # This is to reduce the memory footprint since "fork" appears to inherit all
+    # variables (including all neurons) while "spawn" appears to get only
+    # what's required to run the job?
+    with ProcessPoolExecutor(max_workers=n_cores,
+                             mp_context=mp.get_context('spawn')) as pool:
+        with config.tqdm(desc='Preparing',
+                         total=n_rows * n_cols,
+                         leave=False,
+                         disable=not progress) as pbar:
+            futures = {}
+            blasters = []
+            for qix in np.array_split(np.arange(len(query)), n_rows):
+                for tix in np.array_split(np.arange(len(target)), n_cols):
+                    # Initialize NBlaster
+                    this = SynBlaster(normalized=normalized,
+                                      by_type=by_type,
+                                      smat=smat,
+                                      progress=progress)
+
+                    # Add queries and targets
+                    for i, ix in enumerate(qix):
+                        n = query[ix]
+                        this.append(get_connectors(n), id=n.id, self_hit=query_self_hits[ix])
+                    for i, ix in enumerate(tix):
+                        n = target[ix]
+                        this.append(get_connectors(n), id=n.id, self_hit=target_self_hits[ix])
+
+                    # Keep track of indices of queries and targets
+                    this.queries = np.arange(len(qix))
+                    this.targets = np.arange(len(tix)) + len(qix)
+                    this.queries_ix = qix  # this facilitates filling in the big matrix later
+                    this.targets_ix = tix  # this facilitates filling in the big matrix later
+                    this.pbar_position = len(blasters) if not utils.is_jupyter() else None
+
+                    blasters.append(this)
+                    pbar.update()
+
+                    # If multiple cores requested, submit job to the pool right away
+                    if n_cores and n_cores > 1 and (n_cols > 1 or n_rows > 1):
+                        this.progress=False  # no progress bar for individual NBLASTERs
+                        futures[pool.submit(this.multi_query_target,
+                                            q_idx=this.queries,
+                                            t_idx=this.targets,
+                                            scores=scores)] = this
+
+        # Collect results
+        if futures and len(futures) > 1:
+            # Prepare empty score matrix
+            scores = pd.DataFrame(np.empty((len(query), len(target)),
+                                           dtype=this.dtype),
+                                  index=query.id, columns=target.id)
+            scores.index.name = 'query'
+            scores.columns.name = 'target'
+
+            # Collect results
+            # We're dropping the "N / N_total" bit from the progress bar because
+            # it's not helpful here
+            fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]')
+            for f in config.tqdm(as_completed(futures),
+                                 desc='NBLASTing',
+                                 bar_format=fmt,
+                                 total=len(futures),
+                                 smoothing=0,
+                                 disable=not progress,
+                                 leave=False):
+                res = f.result()
+                this = futures[f]
+                # Fill-in big score matrix
+                scores.iloc[this.queries_ix, this.targets_ix] = res.values
+        else:
+            scores = this.multi_query_target(this.queries,
+                                             this.targets,
+                                             scores=scores)
+
+    return scores
 
     # Find an optimal partition that minimizes the number of neurons
     # we have to send to each process
@@ -343,3 +481,32 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
         scores.loc[res.index, res.columns] = res.values
 
     return scores
+
+
+def find_batch_partition(q, t, T=10):
+    """Find partitions such that each batch takes about `T` seconds."""
+    # Get a median-sized query and target
+    q_ix = np.argsort(q.n_connectors)[len(q)//2]
+    t_ix = np.argsort(t.n_connectors)[len(t)//2]
+
+    # Generate the KDTree
+    tree = KDTree(q[q_ix].connectors[['x', 'y', 'z']].values)
+
+    # Run a quick single query benchmark
+    timings = []
+    for i in range(10):  # Run 10 tests
+        s = time.time()
+        _ = tree.query(t[t_ix].connectors[['x', 'y', 'z']].values)  #  ignoring scoring / normalizing
+        timings.append(time.time() - s)
+    time_per_query = min(timings)  # seconds per medium sized query
+
+    # Number of queries per job such that each job runs in `T` second
+    queries_per_batch = T / time_per_query
+
+    # Number of neurons per batch
+    neurons_per_batch  = max(1, int(np.sqrt(queries_per_batch)))
+
+    n_rows = len(q) // neurons_per_batch
+    n_cols = len(t) // neurons_per_batch
+
+    return max(1, n_rows), max(1, n_cols)
