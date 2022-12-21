@@ -933,7 +933,9 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
         x._points = np.vstack(nl._points)
 
         x._vect = np.vstack(nl.vect)
-        x._alpha = np.hstack(nl.alpha)
+
+        if not any([isinstance(n._alpha, type(None)) for n in nl]):
+            x._alpha = np.hstack(nl.alpha)
 
         if any(nl.has_connectors):
             x._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
