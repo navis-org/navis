@@ -14,12 +14,12 @@ function. There you will also find more examples.
         The Basics
         ^^^
 
-        Tutorials on how to work with ``navis`` neurons:
+        Working with ``navis`` neurons:
 
         .. toctree::
            :maxdepth: 1
 
-           tutorials/neurons_intro        
+           tutorials/neurons_intro
 
     .. grid-item-card::
 
@@ -85,7 +85,7 @@ function. There you will also find more examples.
 
         NBLAST
         ^^^
-        Learn how to run & interpret NBLAST:
+        Run & interpret NBLAST:
 
         .. toctree::
            :maxdepth: 2
