@@ -18,8 +18,6 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from vispy.geometry import create_sphere
-
 from ..colors import vertex_colors, eval_color, color_to_int
 from ..plot_utils import segments_to_coords, fibonacci_sphere
 from ... import core, utils, config, conversion
@@ -306,12 +304,12 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
                 n = neuron.nodes.set_index('node_id').loc[s]
                 r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
 
-                sp = create_sphere(7, 7, radius=r)
+                sp = tm.primitives.Sphere(radius=r, subdivisions=2)
 
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    trace_data.append(k3d.mesh(vertices=sp.get_vertices() + n[['x', 'y', 'z']].values.astype('float32'),
-                                               indices=sp.get_faces().astype('uint32'),
+                    trace_data.append(k3d.mesh(vertices=sp.vertices + n[['x', 'y', 'z']].values.astype('float32'),
+                                               indices=sp.faces.astype('uint32'),
                                                color=soma_color,
                                                flat_shading=False,
                                                name=f"soma of {label}"
