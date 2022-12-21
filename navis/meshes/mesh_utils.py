@@ -484,7 +484,7 @@ def face_dist_sorting(x, from_, strahler_weight=False, inplace=False):
 
     """
     # Turn vertex indices to coordinates
-    if isinstance(from_, (int, np.int64, np.int32, np.int16, np.int)):
+    if isinstance(from_, (int, np.integer)):
         from_ = x.vertices[from_]
 
     # Generate the skeleton

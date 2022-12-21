@@ -53,7 +53,7 @@ from ..morpho import subset_neuron
 logger = config.get_logger(__name__)
 
 # Define some integer types
-int_types = (int, np.int32, np.int64, np.int, np.int0)
+int_types = (int, np.integer)
 
 
 @inject_client

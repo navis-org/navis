@@ -1113,7 +1113,7 @@ def longest_neurite(x: 'core.NeuronObject',
 
     segments = _generate_segments(x, weight='weight')
 
-    if isinstance(n, (int, np.int_)):
+    if isinstance(n, (int, np.integer)):
         tn_to_preserve: List[int] = [tn for s in segments[:n] for tn in s]
     elif isinstance(n, slice):
         tn_to_preserve = [tn for s in segments[n] for tn in s]

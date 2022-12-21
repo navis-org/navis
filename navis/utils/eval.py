@@ -168,7 +168,7 @@ def eval_id(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
                     List containing IDs.
 
     """
-    if isinstance(x, (uuid.UUID, str, np.str, int, np.int64, np.int)):
+    if isinstance(x, (uuid.UUID, str, np.str, int, np.integer)):
         return [x]
     elif isinstance(x, (list, np.ndarray, set)):
         uu: List[uuid.UUID] = []
@@ -282,7 +282,7 @@ def eval_node_ids(x: Union[int, str,
                     List containing node IDs (integer)
 
     """
-    if isinstance(x, (int, np.int64, np.int32, np.int)):
+    if isinstance(x, (int, np.integer)):
         return [x]
     elif isinstance(x, (str, np.str)):
         try:
