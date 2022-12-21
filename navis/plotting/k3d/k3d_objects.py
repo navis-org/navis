@@ -17,6 +17,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import trimesh as tm
 
 from ..colors import vertex_colors, eval_color, color_to_int
 from ..plot_utils import segments_to_coords, fibonacci_sphere
