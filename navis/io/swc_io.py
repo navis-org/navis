@@ -419,7 +419,7 @@ def write_swc(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 TreeNeuron | Dotprops | NeuronList
                         If multiple neurons, will generate a single SWC file
                         for each neuron (see also ``filepath``).
     filepath :          str | pathlib.Path | list thereof
@@ -508,14 +508,14 @@ def write_swc(x: 'core.NeuronObject',
     >>> navis.write_swc(nl, tmp_dir / 'skel-{neuron.name}.swc@neuronlist.zip')
 
     """
-    # Make sure inputs are only TreeNeurons
+    # Make sure inputs are only TreeNeurons or Dotprops
     if isinstance(x, core.NeuronList):
         for n in x:
-            if not isinstance(n, core.TreeNeuron):
-                raise TypeError('Can only write TreeNeurons to SWC, not '
-                                f'"{type(n)}"')
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError('Can only write TreeNeurons to SWC, not '
+            if not isinstance(n, (core.TreeNeuron, core.Dotprops)):
+                raise TypeError('Can only write TreeNeurons or Dotprops to SWC '
+                                f', not "{type(n)}"')
+    elif not isinstance(x, (core.TreeNeuron, core.Dotprops)):
+        raise TypeError('Can only write TreeNeurons or Dotprops to SWC, not '
                         f'"{type(x)}"')
 
     writer = base.Writer(write_func=_write_swc, ext='.swc')
@@ -529,7 +529,7 @@ def write_swc(x: 'core.NeuronObject',
                             return_node_map=return_node_map)
 
 
-def _write_swc(x: 'core.TreeNeuron',
+def _write_swc(x: Union['core.TreeNeuron', 'core.Dotprops'],
                filepath: Union[str, Path],
                header: Optional[str] = None,
                write_meta: Union[bool, List[str], dict] = True,
@@ -589,7 +589,7 @@ def _write_swc(x: 'core.TreeNeuron',
         return node_map
 
 
-def make_swc_table(x: 'core.TreeNeuron',
+def make_swc_table(x: Union['core.TreeNeuron', 'core.Dotprops'],
                    labels: Union[str, dict, bool] = None,
                    export_connectors: bool = False,
                    return_node_map: bool = False) -> pd.DataFrame:
@@ -600,7 +600,9 @@ def make_swc_table(x: 'core.TreeNeuron',
 
     Parameters
     ----------
-    x :                 TreeNeuron
+    x :                 TreeNeuron | Dotprops
+                        Dotprops will be turned from points + vectors to
+                        individual segments.
     labels :            str | dict | bool, optional
                         Node labels. Can be::
 
@@ -625,6 +627,9 @@ def make_swc_table(x: 'core.TreeNeuron',
                         Only if ``return_node_map=True``.
 
     """
+    if isinstance(x, core.Dotprops):
+        x = x.to_skeleton()
+
     # Work on a copy
     swc = x.nodes.copy()
 
