@@ -1102,8 +1102,10 @@ def flow_centrality(x: 'core.NeuronObject') -> 'core.NeuronObject':
     # implementation using igraph + shortest paths which works like a charm and
     # causes less headaches. It is, however, about >10X slower than this version!
     # Note to self: do not go down that rabbit hole again!
-    msg = ("Synapse-based flow centrality has been moved from "
-           "`navis.flow_centrality` to `navis.synapse_flow_centrality`. "
+    msg = ("Synapse-based flow centrality has been moved to "
+           "`navis.synapse_flow_centrality` in navis "
+           "version 1.4.0. `navis.flow_centrality` now calculates "
+           "morphology-only flow."
            "This warning will be removed in a future version of navis.")
     warnings.warn(msg, DeprecationWarning)
     logger.warning(msg)

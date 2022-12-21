@@ -517,6 +517,7 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
                            heal=True)
 def split_axon_dendrite(x: NeuronObject,
                         metric: Union[Literal['synapse_flow_centrality'],
+                                      Literal['flow_centrality'],
                                       Literal['bending_flow'],
                                       Literal['segregation_index']] = 'synapse_flow_centrality',
                         flow_thresh: float = .9,
@@ -537,20 +538,21 @@ def split_axon_dendrite(x: NeuronObject,
     ----------
     x :                 TreeNeuron | MeshNeuron | NeuronList
                         Neuron(s) to split into axon, dendrite (and cell body
-                        fiber if possible). MUST HAVE CONNECTORS.
                         fiber if possible).
     metric :            'synapse_flow_centrality' | 'bending_flow' | 'segregation_index' | "flow_centrality", optional
                         Defines which flow metric we will try to maximize when
-                        splitting the neuron(s). There are three flavors:
+                        splitting the neuron(s). There are four flavors:
 
                          - 'synapse_flow_centrality' via :func:`~navis.synapse_flow_centrality`
                            (note that this metric was previously called just "flow_centrality")
                          - 'bending_flow' via :func:`~navis.bending_flow`
                          - 'segregation_index' via :func:`~navis.arbor_segregation_index`
+                         - 'flow_centrality' via :func:`~navis.flow_centrality`
 
                         Will try using existing columns in the node table. If
                         not present, will invoke the respective functions with
-                        default parameters.
+                        default parameters. All but `flow_centrality` require
+                        the neuron to have connectors.
     flow_thresh :       float [0-1]
                         The "linker" between axon and dendrites will be the part
                         of the neuron with the highest flow (see metric). We
@@ -639,7 +641,11 @@ def split_axon_dendrite(x: NeuronObject,
         raise TypeError(f'Can only process TreeNeurons, got "{type(x)}"')
 
     if not x.has_connectors:
-        raise ValueError('Neuron must have connectors.')
+        if metric != 'flow_centrality':
+            raise ValueError('Neuron must have connectors.')
+        elif split == 'prepost':
+            raise ValueError('Set `split="distance"` when trying to split neurons '
+                             'without connectors.')
 
     _METRIC = ('synapse_flow_centrality', 'bending_flow', 'segregation_index',
                'flow_centrality')
@@ -649,13 +655,13 @@ def split_axon_dendrite(x: NeuronObject,
                      allowed_values=('soma', 'root', False))
 
     if metric == 'flow_centrality':
-        msg = ("In a future version of navis the 'flow_centrality' "
-               "method will refer to a non-synapse-based flow. "
-               "Please start using `metric='synapse_flow_centrality'`")
-        warnings.warn(msg,
-                      DeprecationWarning)
+        msg = ("As of navis version 1.4.0 `method='flow_centrality'` "
+               "uses synapse-independent, morphology-only flow to generate splits."
+               "Please use `method='synapse_flow_centrality' for "
+               "synapse-based axon-dendrite splits.  "
+               "This warning will be removed in a future version of navis.")
+        warnings.warn(msg, DeprecationWarning)
         logger.warning(msg)
-        metric = 'synapse_flow_centrality'
 
     if len(x.root) > 1:
         raise ValueError(f'Unable to split neuron {x.id}: multiple roots. '
@@ -672,9 +678,7 @@ def split_axon_dendrite(x: NeuronObject,
     FUNCS = {
              'bending_flow': mmetrics.bending_flow,
              'synapse_flow_centrality':  mmetrics.synapse_flow_centrality,
-             # In the future this will be used
-             #'flow_centrality':  mmetrics.flow_centrality,
-             #'synapse_flow_centrality':  mmetrics.synapse_flow_centrality,
+             'flow_centrality':  mmetrics.flow_centrality,
              'segregation_index':  mmetrics.arbor_segregation_index
              }
 
