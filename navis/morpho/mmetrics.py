@@ -239,7 +239,7 @@ def strahler_index(x: 'core.NeuronObject',
     return x
 
 
-@utils.map_neuronlist_df(desc='Analyzing', allow_parallel=True)
+@utils.map_neuronlist_df(desc='Analyzing', allow_parallel=True, reset_index=True)
 @utils.meshneuron_skeleton(method='pass_through',
                            reroot_soma=True)
 def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
@@ -258,7 +258,7 @@ def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
     -------
     pandas.DataFrame
                         Each row represents one linear segment between
-                        leafs/branch nodes (see examples):
+                        leafs/branch nodes (corresponds to `x.small_segments`):
                           - `strahler_index` is the Strahler Index of this segment
                           - `length` is the geodesic length of the segment
                           - `tortuosity` is the arc-chord ratio, i.e. the
