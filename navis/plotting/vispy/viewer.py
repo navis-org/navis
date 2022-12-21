@@ -23,15 +23,19 @@ import seaborn as sns
 import trimesh as tm
 
 from functools import wraps
-from vispy import scene
-from vispy.util.quaternion import Quaternion
-
 from collections import OrderedDict
 
 from ... import utils, config
 from ..colors import *
 from .vputils import *
-from .visuals import *
+
+
+try:
+    from vispy import scene
+    from vispy.util.quaternion import Quaternion
+except ImportError:
+    scene = None
+
 
 __all__ = ['Viewer']
 
@@ -125,6 +129,9 @@ class Viewer:
     """
 
     def __init__(self, picking=False, **kwargs):
+        if not scene:            
+            raise ImportError('`navis.Viewer` requires the `vispy` package to '
+                              'be installed:\n  pip3 install vispy')
         # Update some defaults as necessary
         defaults = dict(keys=None,
                         show=True,
@@ -736,6 +743,8 @@ class Viewer:
         None
 
         """
+        from .visuals import neuron2vispy, volume2vispy, points2vispy, combine_visuals
+
         (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
         if len(set(kwargs) & set(['c', 'color', 'colors'])) > 1:

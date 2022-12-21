@@ -27,10 +27,6 @@ import numpy as np
 from collections.abc import Iterable
 from typing import Tuple, Optional, List, Dict
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    from vispy.util.transforms import rotate
-
 __all__ = ['tn_pairs_to_coords', 'segments_to_coords', 'fibonacci_sphere', 'make_tube']
 
 logger = config.get_logger(__name__)
@@ -308,3 +304,33 @@ def _frenet_frames(points):
     binormals = np.cross(tangents, normals)
 
     return tangents, normals, binormals
+
+
+def rotate(angle, axis, dtype=None):
+    """Generate a 4x4 rotation matrix for rotation about a vector.
+
+    Modified from `vispy.utils.transforms`.
+
+    Parameters
+    ----------
+    angle :     float
+                The angle of rotation, in degrees.
+    axis :      ndarray
+                The x, y, z coordinates of the axis direction vector.
+
+    Returns
+    -------
+    M :     ndarray
+            Transformation matrix describing the rotation.
+
+    """
+    angle = np.radians(angle)
+    assert len(axis) == 3
+    x, y, z = axis / np.linalg.norm(axis)
+    c, s = math.cos(angle), math.sin(angle)
+    cx, cy, cz = (1 - c) * x, (1 - c) * y, (1 - c) * z
+    M = np.array([[cx * x + c, cy * x - z * s, cz * x + y * s, .0],
+                  [cx * y + z * s, cy * y + c, cz * y - x * s, 0.],
+                  [cx * z - y * s, cy * z + x * s, cz * z + c, 0.],
+                  [0., 0., 0., 1.]], dtype).T
+    return M

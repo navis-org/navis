@@ -20,10 +20,6 @@ import numpy as np
 
 from typing import Union, List, Optional
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    import vispy
-
 from .. import utils, config, core
 from .vispy.viewer import Viewer
 from .colors import prepare_colormap
@@ -33,6 +29,7 @@ from .plotly.graph_objs import (neuron2plotly, volume2plotly, scatter2plotly,
 __all__ = ['plot3d']
 
 logger = config.get_logger(__name__)
+_first_warning = True
 
 
 def plot3d(x: Union[core.NeuronObject,
@@ -62,14 +59,14 @@ def plot3d(x: Union[core.NeuronObject,
                       be minor differences in what feature/parameters are
                       supported depending on the backend:
                         - ``auto`` selects backend based on context: ``vispy``
-                          for terminal and ``plotly`` for Jupyter environments.
-                          You can override this by setting an environment
-                          variable `NAVIS_JUPYTER_PLOT3D_BACKEND="k3d"`.
+                          for terminal (if available) and ``plotly`` for Jupyter
+                          environments. You can override this by setting an
+                          environment variable `NAVIS_JUPYTER_PLOT3D_BACKEND="k3d"`.
                         - ``vispy`` uses OpenGL to generate high-performance
                           3D plots. Works in terminals.
                         - ``plotly`` generates 3D plots using WebGL. Works
                           "inline" in Jupyter notebooks but can also produce a
-                          html file that can be opened in any browers.
+                          HTML file that can be opened in any browers.
                         - ``k3d`` generates 3D plots using k3d. Works only in
                           Jupyter notebooks!
     connectors :      bool, default=False
@@ -237,7 +234,22 @@ def plot3d(x: Union[core.NeuronObject,
         if utils.is_jupyter():
             backend = os.environ.get('NAVIS_JUPYTER_PLOT3D_BACKEND', 'plotly')
         else:
-            backend = 'vispy'
+            try:
+                import vispy
+                backend = 'vispy'
+            except ImportError:
+                # This is a warning (instead of logging) so that it only comes
+                # up ones
+                global _first_warning
+                if _first_warning:  # warn only the first time
+                    _first_warning = False
+                    warnings.warn('The default backend for 3D plotting outside of '
+                                  'Jupyter environments is `vispy` but it looks '
+                                  'like vispy is not installed. Falling '
+                                  'back to the plotly backend! If you would like '
+                                  'to use vispy instead:\n\n  pip3 install vispy\n',
+                                  category=UserWarning, stacklevel=2)
+                backend = os.environ.get('NAVIS_JUPYTER_PLOT3D_BACKEND', 'plotly')
     elif backend.lower() not in allowed_backends:
         raise ValueError(f'Unknown backend "{backend}". '
                          f'Permitted: {".".join(allowed_backends)}.')
@@ -262,6 +274,13 @@ def plot3d_vispy(x, **kwargs):
     existing viewer or generate a new one.
 
     """
+    try:
+        import vispy
+    except ImportError:
+        raise ImportError('`navis.plot3d` requires the `vispy` package. Either '
+                          'set e.g. `backend="plotly"` or install vispy:\n'
+                          '  pip3 install vispy')
+
     # Parse objects to plot
     (neurons, volumes, points, visuals) = utils.parse_objects(x)
 

@@ -15,10 +15,6 @@ import warnings
 
 from ... import config
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    from vispy.gloo.util import _screenshot
-
 __all__ = ['get_viewer', 'clear3d', 'close3d', 'screenshot']
 
 
@@ -83,6 +79,10 @@ def screenshot(file='screenshot.png', alpha=True):
                 Take screenshot of specific canvas.
 
     """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        from vispy.gloo.util import _screenshot
+
     if alpha:
         mode = 'RGBA'
     else:

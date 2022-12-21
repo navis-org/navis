@@ -17,8 +17,6 @@ six>=1.11
 tqdm>=4.45
 typing-extensions>=3.7.4
 trimesh>=3.8
-# without backend, as we use some utility functions
-vispy>=0.6.4
 fuzzywuzzy>=0.18
 molesq>=0.2.0
 rdata>=0.5
@@ -40,7 +38,7 @@ flybrains  #extra: flybrains
 cloud-volume>=5.2.0  #extra: cloudvolume
 
 # this should inherit the vispy version constraint from above
-vispy[pyside6]  #extra: vispy-default
+vispy[pyside6]>=0.6.4  #extra: vispy-default
 
 #extra: meshes
 
