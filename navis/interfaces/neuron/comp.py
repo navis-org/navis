@@ -655,7 +655,7 @@ class CompartmentModel:
             else:
                 nc = neuron.h.NetCon(pre, syn)
 
-            # Set connection paramters
+            # Set connection parameters
             nc.threshold = cn_thresh
             nc.delay = cn_delay
             nc.weight[0] = cn_weight
@@ -845,6 +845,7 @@ class CompartmentModel:
             for i, (k, v) in enumerate(self.records[t].items()):
                 if not len(v):
                     continue
+                v = v.as_numpy()
                 # For spikes the vector contains the times
                 if t == 'spikes':
                     # Calculate spike rate
