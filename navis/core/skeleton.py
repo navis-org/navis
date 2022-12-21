@@ -649,13 +649,13 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def sampling_resolution(self) -> float:
-        """Average cable length between 2 nodes. """
+        """Average cable length between 2 nodes."""
         return self.cable_length / self.n_nodes
 
     @temp_property
     def segments(self) -> List[list]:
-        """Neuron broken down into linear segments."""
-        # If graph does not exist, create and return
+        """Neuron broken down into linear segments (see also `.small_segments`)."""
+        # Calculate if required
         if not hasattr(self, '_segments'):
             # This also sets the attribute
             self._segments = self._get_segments(how='length')
@@ -663,8 +663,8 @@ class TreeNeuron(BaseNeuron):
 
     @temp_property
     def small_segments(self) -> List[list]:
-        """Neuron broken down into small linear segments."""
-        # If graph does not exist, create and return
+        """Neuron broken down into small linear segments (see also `.segments`)."""
+        # Calculate if required
         if not hasattr(self, '_small_segments'):
             # This also sets the attribute
             self._small_segments = self._get_segments(how='break')
