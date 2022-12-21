@@ -17,15 +17,22 @@ repository.
      -
    * - dev
      - ongoing
+     - -
+   * - 1.4.0
+     - 21/12/22
      - - BREAKING: ``navis.flow_centrality`` was renamed to :func:`navis.synapse_flow_centrality`
          and a new non-synaptic :func:`navis.flow_centrality` function was added. This also
-         impacts :func:`navis.split_axon_dendrite` in that you should start
-         using `metric='synapse_flow_centrality'`!
+         impacts the ``method`` parameter in :func:`navis.split_axon_dendrite`!
+       - `vispy` is now a soft dependency
        - new function: :func:`navis.read_tiff` to read image stacks from TIFF files
        - NBLASTs: single progress bar instead of one for each process
        - new ``via`` parameter for :func:`navis.xform_brain`
        - new utility function: :func:`navis.nbl.extract_matches`
-       - various bug fixes
+       - :func:`navis.write_swc` can now save Dotprops to SWC files
+       - :func:`navis.make_dotprops` can now downsample point cloud inputs
+       - various improvements to :func:`navis.split_axon_dendrite`, :func:`navis.nblast_allbyall`,
+         :func:`navis.interfaces.neuprint.fetch_mesh_neuron`, :func:`navis.interfaces.neuprint.fetch_skeletons`
+       - tons of bug fixes
    * - 1.3.1
      - 10/06/06
      - - fixed various bugs
