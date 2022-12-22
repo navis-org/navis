@@ -262,7 +262,10 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
         n.units=f'{client.meta["voxelSize"][0]} {client.meta["voxelUnits"]}'
 
         if n.somaLocation:
-            n.soma_radius = radii[n.id] / n.units.to('nm').magnitude
+            if radii[n.id]:
+                n.soma_radius = radii[n.id] / n.units.to('nm').magnitude
+            else:
+                n.soma_radius = None
             n.soma = n.somaLocation
 
     if with_synapses:
