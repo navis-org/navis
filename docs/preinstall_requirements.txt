@@ -2,4 +2,4 @@
 # For some odd reason, readthedocs uses a really old version of setuptools
 # Note: as of v58.0.0 the `2to3` option for setup() is gone which breaks
 # ALL installs of sphinx-bootstrap-theme
-setuptools==57.5.0
+setuptools==65.5.1
