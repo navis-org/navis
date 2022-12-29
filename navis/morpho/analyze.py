@@ -83,6 +83,10 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
             soma_nodes = soma_nodes[is_large]
 
     if not isinstance(soma_label, type(None)) and 'label' in soma_nodes.columns:
-        soma_nodes = soma_nodes[soma_nodes.label.astype(str) == str(soma_label)]
+        # Important: we need to use np.asarray here because the `label` column
+        # can be categorical in which case a `soma_nodes.label.astype(str)` might
+        # throw annoying runtime warnings
+        labels = np.asarray(soma_nodes.label).astype(str)
+        soma_nodes = soma_nodes[labels == str(soma_label)]
 
     return soma_nodes.node_id.values
