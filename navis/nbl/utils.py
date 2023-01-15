@@ -59,11 +59,6 @@ def extract_matches(scores, N=None, threshold=None, percentage=None,
                     Note that the format is slightly different depending on
                     the criterion.
 
-    See Also
-    --------
-    :func:navis.nbl.extract_matches_threshold`
-                If you all matches above a given threshold.
-
     """
     assert axis in (0, 1), '`axis` must be 0 or 1'
 
@@ -256,6 +251,36 @@ def update_scores(queries, targets, scores_ex, nblast_func, **kwargs):
         tq = nblast_func(queries[~is_new_q], targets[is_new_t], **kwargs)
         scores.loc[tq.index, tq.columns] = tq.values
 
+    return scores
+
+
+def compress_scores(scores, threshold=None, digits=None):
+    """Compress scores.
+
+    This will not necessarily reduce the in-memory footprint but will lead to
+    much smaller file sizes when saved to disk.
+
+    Parameters
+    ----------
+    scores :        pandas.DataFrame
+    threshold :     float, optional
+                    Scores lower than this will be capped at `threshold`.
+    digits :        int, optional
+                    Round scores to the Nth digit.
+
+    Returns
+    -------
+    scores_comp :   pandas.DataFrame
+                    Copy of the original dataframe with the data cast to 32bit
+                    floats and the optional filters (see `threshold` and
+                    `digits`) applied.
+
+    """
+    scores = scores.astype(np.float32)
+    if digits is not None:
+        scores = scores.round(digits)
+    if threshold is not None:
+        scores[scores < threshold] = threshold
     return scores
 
 
