@@ -795,8 +795,30 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     trans_seq = TransformSequence(*transforms)
 
     # Apply transform and returned xformed points
-    return xform(x, transform=trans_seq, caching=caching,
-                 affine_fallback=affine_fallback)
+    xf = xform(x, transform=trans_seq, caching=caching,
+               affine_fallback=affine_fallback)
+
+    # We might be able to set the correct units based on the target template's
+    # meta data (the "guessed" new units can be very off if the transform is
+    # not base 10 which happens for voxels -> physical space)
+    if isinstance(xf, (core.NeuronList, core.BaseNeuron)):
+        # Firt we need to find the last non-alias template space
+        for tmp, tr in zip(path[::-1], transforms[::-1]):
+            if not isinstance(tr, AliasTransform):
+                # There is a chance that there is no meta data for this template
+                try:
+                    last_temp = registry.find_template(tmp)
+                except ValueError:
+                    break
+                except BaseException:
+                    raise
+                # If this template brain has a property for navis units
+                if hasattr(last_temp, '_navis_units'):
+                    for n in core.NeuronList(xf):
+                        n.units = last_temp._navis_units
+                break
+
+    return xf
 
 
 def _guess_change(xyz_before: np.ndarray,
