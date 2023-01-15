@@ -381,9 +381,11 @@ class NeuronList:
 
         # Check if this attribute exists in the neurons
         if any([hasattr(n, key) for n in self.neurons]):
-            logger.warning('It looks like you are trying to add a Neuron '
-                           f'attribute to a NeuronList. "{key}" will not '
-                           'propagated to the neurons it contains!')
+            logger.warning('It looks like you are trying to add a neuron '
+                           'attribute to a NeuronList. Setting the attribute '
+                           f'"{key}" on the NeuronList will not propagated to '
+                           'the neurons it contains! To set neuron attributes '
+                           'use the `NeuronList.set_neuron_attributes()` method.')
 
         self.__dict__[key] = value
 
@@ -414,8 +416,8 @@ class NeuronList:
             if all([isinstance(k, (bool, np.bool_)) for k in key]):
                 if len(key) != len(self.neurons):
                     raise IndexError('boolean index did not match indexed '
-                                     f'NeuronList; dimension is {len(self.neurons)}'
-                                     ' but corresponding boolean dimension is'
+                                     f'NeuronList; dimension is {len(self.neurons)} '
+                                     'but corresponding boolean dimension is '
                                      f'{len(key)}')
                 subset = [n for i, n in enumerate(self.neurons) if key[i]]
             else:
@@ -764,6 +766,77 @@ class NeuronList:
     def itertuples(self):
         """Helper to mimic ``pandas.DataFrame.itertuples()``."""
         return self.neurons
+
+    def set_neuron_attributes(self, x, name, na='raise'):
+        """Set attributes of neurons contained in the NeuronList.
+
+        Parameters
+        ----------
+        x :         any | list | np.ndarray | dict | function
+                    Value of the property:
+                      - lists and arrays are expected to contain a value for
+                        each neuron and hence have to match the length of the
+                        NeuronList
+                      - dict is expected to map ``{neuron.id: value}``
+                      - a function is expected to take ``neuron.id`` as input
+                        and return a value
+        name :      str
+                    Name of the property to set.
+        na :        'raise' | 'propagate' | 'skip'
+                    What to do if `x` is a dictionary and does not contain a
+                    value for a neuron:
+                     - 'raise' will raise a KeyError
+                     - 'propagate' will set the attribute to `None`
+                     - 'skip' will not set the attribute
+
+        Examples
+        --------
+        >>> import navis
+        >>> nl = navis.example_neurons(5)
+        >>> # Set a single value
+        >>> nl.set_neuron_attributes('some_value', name='my_attr')
+        >>> nl[0].my_attr
+        'some_value'
+        >>> # Set individual values as iterable
+        >>> nl.set_neuron_attributes([1, 2, 3, 4, 5], name='my_attr')
+        >>> nl[0].my_attr
+        1
+        >>> nl.my_attr
+        array([1, 2, 3, 4, 5])
+        >>> # Set individual values using a dictionary
+        >>> val_dict = dict(zip(nl.id, ['test', 2, 2.2, 4, 'test2']))
+        >>> nl.set_neuron_attributes(val_dict, name='my_attr')
+        >>> nl[0].my_attr
+        'test'
+
+        """
+        utils.eval_param(na, name='na',
+                         allowed_values=('raise', 'propagate', 'skip'))
+        utils.eval_param(name, name='name', allowed_types=(str, ))
+
+        if isinstance(x, dict):
+            if na == 'raise':
+                miss = ~np.isin(self.id, list(x))
+                if any(miss):
+                    raise KeyError('Dictionary `x` is missing entries for IDs: '
+                                   f'{self.id[miss]}')
+            for n in self.neurons:
+                v = x.get(n.id, None)
+                if (v is None) and (na == 'skip'):
+                    continue
+                setattr(n, name, v)
+        elif isinstance(x, (list, np.ndarray)):
+            if len(x) != len(self):
+                raise ValueError(f'Got {len(x)} values for the{len(self)} '
+                                 'neurons in the NeuronList.')
+            for n, v in zip(self.neurons, x):
+                setattr(n, name, v)
+        elif callable(x):
+            for n in self.neurons:
+                setattr(n, name, x(n.id))
+        else:
+            for n in self.neurons:
+                setattr(n, name, x)
 
     def sort_values(self, key: str, ascending: bool = False):
         """Sort neurons by given key.
