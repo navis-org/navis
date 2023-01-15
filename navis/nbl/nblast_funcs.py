@@ -486,7 +486,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                         futures[pool.submit(this.multi_query_target,
                                             q_idx=this.queries,
                                             t_idx=this.targets,
-                                            scores=scores)] = this
+                                            scores=pre_scores)] = this
 
         # Collect results
         if futures and len(futures) > 1:
