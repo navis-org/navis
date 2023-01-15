@@ -806,6 +806,7 @@ class NeuronList:
 
     def remove_duplicates(self,
                           key: str = 'name',
+                          keep: str = 'first',
                           inplace: bool = False
                           ) -> Optional['NeuronList']:
         """Remove duplicate neurons from list.
@@ -816,6 +817,8 @@ class NeuronList:
                     Attribute(s) by which to identify duplicates. In case of
                     multiple, all attributes must match to flag a neuron as
                     duplicate.
+        keep :      str
+                    Which of the duplicated neurons to keep.
         inplace :   bool, optional
                     If False will return a copy of the original with
                     duplicates removed.
@@ -833,10 +836,10 @@ class NeuronList:
                           columns=key)
 
         # Find out which neurons to keep
-        keep = ~df.duplicated(keep='first').values
+        to_keep = ~df.duplicated(keep=keep).values
 
         # Reassign neurons
-        x.neurons = x[keep].neurons
+        x.neurons = x[to_keep].neurons
 
         if not inplace:
             return x
