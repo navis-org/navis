@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .converters import tree2meshneuron, neuron2voxels, mesh2skeleton
+from .converters import tree2meshneuron, neuron2voxels, mesh2skeleton, points2skeleton
 from .meshing import voxels2mesh
 from .wrappers import skeletonize, voxelize, mesh
 

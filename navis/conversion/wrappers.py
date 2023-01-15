@@ -18,39 +18,42 @@ from typing import Union, Optional
 from typing_extensions import Literal
 
 from .. import core, config, utils
-from .converters import neuron2voxels, mesh2skeleton, tree2meshneuron
+from .converters import (neuron2voxels, mesh2skeleton, tree2meshneuron,
+                         points2skeleton)
 from .meshing import voxels2mesh
 
 logger = config.get_logger(__name__)
 
 
 @utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
-def skeletonize(x: 'core.MeshNeuron',
+def skeletonize(x: Union['core.MeshNeuron', 'core.Dotprops', np.ndarray],
                 **kwargs):
     """Turn neuron into skeleton.
 
-    Currently, we can only skeletonize meshes but are looking into ways to do
-    the same for VoxelNeuron.
+    Currently, we can only skeletonize meshes, dotprops and point clouds but
+    are looking into ways to also do it for ``VoxelNeurons``.
 
-    This function is a thin-wrapper for `skeletor`. It uses sensible defaults
-    for neurons but if you want to fine-tune your skeletons you should look
-    into using `skeletor` directly.
+    For meshes, this function is a thin-wrapper for `skeletor`. It uses sensible
+    defaults for neurons but if you want to fine-tune your skeletons you should
+    look into using `skeletor` directly.
 
     Parameters
     ----------
-    x :         MeshNeuron | trimesh.Trimesh
+    x :         MeshNeuron | trimesh.Trimesh | Dotprops
                 Mesh(es) to skeletonize. Note that the quality of the results
                 very much depends on the mesh, so it might be worth doing some
                 pre-processing (see below).
     **kwargs
                 Keyword arguments are passed through to the respective
-                converters: currently only :func:`navis.conversion.mesh2skeleton`.
+                converters:
+                    - meshes: :func:`navis.conversion.mesh2skeleton`
+                    - dotprops and point clouds: :func:`navis.conversion.points2skeleton`
 
     Returns
     -------
     skeleton :  navis.TreeNeuron
-                Has a `.vertex_map` attribute that maps each vertex in the
-                input mesh to a skeleton node ID.
+                For meshes, this has a `.vertex_map` attribute that maps each
+                vertex in the input mesh to a skeleton node ID.
 
     See Also
     --------
@@ -60,6 +63,7 @@ def skeletonize(x: 'core.MeshNeuron',
 
     Examples
     --------
+    # Skeletonize a mesh
     >>> import navis
     >>> # Get a mesh neuron
     >>> n = navis.example_neurons(1, kind='mesh')
@@ -69,9 +73,24 @@ def skeletonize(x: 'core.MeshNeuron',
     >>> sk.vertex_map                                           # doctest: +SKIP
     array([938, 990, 990, ...,  39, 234, 234])
 
+    # Skeletonize dotprops (i.e. point-clouds)
+    >>> import navis
+    >>> # Get a skeleton and turn into dotprops
+    >>> dp = navis.make_dotprops(navis.example_neurons(1))
+    >>> # Turn back into a skeleton
+    >>> sk = navis.skeletonize(dp)
+
     """
     if isinstance(x, (core.MeshNeuron, tm.Trimesh)):
         return mesh2skeleton(x, **kwargs)
+    elif isinstance(x, (core.Dotprops, )):
+        sk = points2skeleton(x.points, **kwargs)
+        for attr in ('id', 'units', 'name'):
+            if hasattr(x, attr):
+                setattr(sk, attr, getattr(x, attr))
+        return sk
+    elif isinstance(x, np.ndarray):
+        return points2skeleton(x.points, **kwargs)
 
     raise TypeError(f'Unable to skeletonize data of type {type(x)}')
 

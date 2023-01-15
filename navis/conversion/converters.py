@@ -14,6 +14,7 @@
 import numpy as np
 import skeletor as sk
 import trimesh as tm
+import networkx as nx
 
 from numbers import Number
 from scipy.ndimage import gaussian_filter
@@ -22,6 +23,90 @@ from typing import Union, Optional
 from .. import core, config, utils, morpho, graph
 
 logger = config.get_logger(__name__)
+
+
+@utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
+def points2skeleton(x: Union['core.Dotprops', np.ndarray],
+                    k: int = 10,
+                    max_dist: Optional[float] = None):
+    """Turn points into skeleton.
+
+    This function works by:
+     1. Compute the ``k`` nearest neighbors for each point
+     2. Generate a graph from the nearest-neighbor edges
+     3. Extract a minimum-spanning tree (MST) from the graph
+     4. Process the MST into a skeleton
+
+    Parameters
+    ----------
+    x :         (N, 3) array | Dotprops
+                Points to skeletonize.
+    k :         int
+                Number of nearest neighbors to consider. Too low values of `k`
+                can lead to disconnected skeletons.
+    max_dist :  float, optional
+                Edges longer than this will be ignored. This can lead to a
+                fragmented (i.e. multi-root) skeleton!
+
+    Returns
+    -------
+    skeleton :  navis.TreeNeuron
+
+    Examples
+    --------
+    >>> import navis
+    >>> # Get a mesh neuron
+    >>> n = navis.example_neurons(1)
+    >>> # Get the points
+    >>> pts = n.nodes[['x', 'y', 'z']].values
+    >>> # Convert points back into skeleton
+    >>> sk = navis.conversion.points2skeleton(pts)
+
+    """
+    utils.eval_param(x, name='x', allowed_types=(core.Dotprops, np.ndarray))
+
+    if isinstance(x, core.Dotprops):
+        pts = x.points
+    else:
+        if (x.ndim != 2) and (x.shape[1] != 3):
+            raise ValueError(f'Points must be shape (N, 3), got {x.shape}')
+        pts = x
+
+    # Get the list of nearest neighbours
+    tree = core.dotprop.KDTree(pts)
+
+    dists, NN = tree.query(pts, k=k + 1, distance_upper_bound=max_dist)
+
+    # Drop self-hits
+    dists, NN = dists[:, 1:], NN[:, 1:]
+
+    # Turn into edges
+    edges = []
+    ix1 = np.arange(len(dists))
+    for i in range(k):
+        ix2 = NN[:, i]
+        le = dists[:, i]
+        # If a max dist was set we have to remove NN that have dist np.inf
+        if max_dist is None:
+            edges += list(zip(ix1, ix2, le))
+        else:
+            not_inf = le != np.inf
+            edges += list(zip(ix1[not_inf], ix2[not_inf], le[not_inf]))
+
+    # Generate graph
+    G = nx.Graph()
+    G.add_nodes_from(ix1)
+    G.add_weighted_edges_from(edges)
+
+    # Extract minimum spanning tree
+    G_mst = nx.minimum_spanning_tree(G)
+
+    # Add the coordinates as node properties
+    nx.set_node_attributes(G_mst, dict(zip(G.nodes, pts[:, 0])), name='x')
+    nx.set_node_attributes(G_mst, dict(zip(G.nodes, pts[:, 1])), name='y')
+    nx.set_node_attributes(G_mst, dict(zip(G.nodes, pts[:, 2])), name='z')
+
+    return graph.nx2neuron(G_mst)
 
 
 @utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
