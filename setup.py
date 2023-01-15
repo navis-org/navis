@@ -56,7 +56,7 @@ setup(
     },
     author='Philipp Schlegel',
     author_email='pms70@cam.ac.uk',
-    keywords='Neuron Analysis Visualization Anatomy Connectivity Transform Neuroscience NBLAST Skeletons SWC neuPrint',
+    keywords='Neuron Analysis Visualization Morphometrics Morphology Anatomy Connectivity Transform Neuroscience NBLAST Skeletons SWC neuPrint',
     classifiers=[
         'Development Status :: 4 - Beta',
 
@@ -69,13 +69,13 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
     install_requires=install_requires,
     extras_require=dict(extras_require),
     tests_require=extras_require["dev"],
     # CI runs against >=3.7
-    # but R-Python interface ships with 3.6 so this is necessary
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     zip_safe=False,
 
     include_package_data=True
