@@ -1347,7 +1347,7 @@ def sim_to_dist(x):
 
 
 def nblast_preflight(query, target, n_cores, batch_size=None,
-                     req_unique_ids=False, req_dotprops=True,
+                     req_unique_ids=False, req_dotprops=True, req_points=True,
                      req_microns=True):
     """Run preflight checks for NBLAST."""
     if req_dotprops:
@@ -1358,6 +1358,16 @@ def nblast_preflight(query, target, n_cores, batch_size=None,
         if target.types != (Dotprops, ):
             raise TypeError(f'`target` must be Dotprop(s), got "{target.types}". '
                             'Use `navis.make_dotprops` to convert neurons.')
+
+        if req_points:
+            no_points = query.n_points == 0
+            if any(no_points):
+                raise ValueError('Some query dotprops appear to have no points: '
+                                 f'{query.id[no_points]}')
+            no_points = target.n_points == 0
+            if any(no_points):
+                raise ValueError('Some target dotprops appear to have no points: '
+                                 f'{target.id[no_points]}')
 
     if req_unique_ids:
         # At the moment, neurons need to have a unique ID for things to work
