@@ -464,7 +464,7 @@ def scatter2plotly(x, **kwargs):
         trace_data.append(go.Scatter3d(x=scatter[:, 0],
                                        y=scatter[:, 1],
                                        z=scatter[:, 2],
-                                       mode='markers',
+                                       mode=kwargs.get('mode', 'markers'),
                                        marker=dict(color='rgb%s' % str(c),
                                                    size=s,
                                                    opacity=kwargs.get('opacity', 1)),
