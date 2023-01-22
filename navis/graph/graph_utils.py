@@ -1043,6 +1043,7 @@ def longest_neurite(x: 'core.NeuronObject',
                     n: int = 1,
                     reroot_soma: bool = False,
                     from_root: bool = True,
+                    inverse: bool = False,
                     inplace: bool = False) -> 'core.NeuronObject':
     """Return a neuron consisting of only the longest neurite(s).
 
@@ -1063,6 +1064,8 @@ def longest_neurite(x: 'core.NeuronObject',
                         If True, will look for longest neurite from root.
                         If False, will look for the longest neurite between any
                         two tips.
+    inverse :           bool
+                        If True, will instead *remove* the longest neurite.
     inplace :           bool
                         If False, copy of the neuron will be trimmed down to
                         longest neurite and returned.
@@ -1124,7 +1127,11 @@ def longest_neurite(x: 'core.NeuronObject',
     else:
         raise TypeError(f'Unable to use N of type "{type(n)}"')
 
-    _ = morpho.subset_neuron(x, tn_to_preserve, inplace=True)
+    if not inverse:
+        _ = morpho.subset_neuron(x, tn_to_preserve, inplace=True)
+    else:
+        _ = morpho.subset_neuron(x, ~np.isin(x.nodes.node_id.values, tn_to_preserve),
+                                 inplace=True)
 
     return x
 
