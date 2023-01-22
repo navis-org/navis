@@ -662,8 +662,12 @@ def geodesic_matrix(x: 'core.NeuronObject',
     else:
         nodeList = np.array(x.graph.nodes())
 
-        m = nx.to_scipy_sparse_matrix(x.graph, nodeList,
-                                      weight=weight)
+        if hasattr(nx, 'to_scipy_sparse_matrix'):
+            m = nx.to_scipy_sparse_matrix(x.graph, nodeList,
+                                          weight=weight)
+        else:
+            m = nx.to_scipy_sparse_array(x.graph, nodeList,
+                                         weight=weight)
 
     if not isinstance(from_, type(None)):
         from_ = np.unique(utils.make_iterable(from_))
