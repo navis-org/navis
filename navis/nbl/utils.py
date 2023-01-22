@@ -280,7 +280,7 @@ def compress_scores(scores, threshold=None, digits=None):
     if digits is not None:
         scores = scores.round(digits)
     if threshold is not None:
-        scores[scores < threshold] = threshold
+        scores.clip(lower=threshold, inplace=True)
     return scores
 
 
