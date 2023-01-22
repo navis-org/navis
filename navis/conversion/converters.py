@@ -75,7 +75,12 @@ def points2skeleton(x: Union['core.Dotprops', np.ndarray],
     # Get the list of nearest neighbours
     tree = core.dotprop.KDTree(pts)
 
-    dists, NN = tree.query(pts, k=k + 1, distance_upper_bound=max_dist)
+    defaults = {}
+    if max_dist is not None:
+        # We have to avoid passing `None` because scipy's KDTree does not like
+        # that (pykdtree does not care)
+        defaults['distance_upper_bound'] = max_dist
+    dists, NN = tree.query(pts, k=k + 1, **defaults)
 
     # Drop self-hits
     dists, NN = dists[:, 1:], NN[:, 1:]
