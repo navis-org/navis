@@ -22,6 +22,7 @@ molesq>=0.2.0
 rdata>=0.5
 igraph!=0.10.0,!=0.10.1
 skeletor>=1.0.0
+threadpoolctl>=3.0.0
 
 pathos>=0.2.7 #extra: pathos
 
