@@ -415,8 +415,10 @@ class BayesianTraversalModel(TraversalModel):
 
         cmfs = np.stack(self.results.cmf)
         layer_min = (cmfs != 0).argmax(axis=1)
+        valid = np.any(cmfs != 0, axis=1)
         layer_max = (cmfs == 1.).argmax(axis=1)
-        layer_median = (cmfs >= .5).argmax(axis=1)
+        layer_max[~np.any(cmfs == 1., axis=1)] = cmfs.shape[1]
+        layer_median = (cmfs >= .5).argmax(axis=1).astype(float)
         pmfs = np.diff(cmfs, axis=1, prepend=0.)
         layer_pmfs = pmfs * np.arange(pmfs.shape[1])
         layer_mean = np.sum(layer_pmfs, axis=1)
@@ -428,6 +430,9 @@ class BayesianTraversalModel(TraversalModel):
                 'layer_median': layer_median + 1,
             }, index=self.results.node)
 
+        # Discard nodes that are never activated
+        summary = summary[valid]
+
         self._summary = summary
         return self._summary
 
@@ -438,11 +443,13 @@ class BayesianTraversalModel(TraversalModel):
         print(' ', end='', flush=True)
         # For faster access, use the raw array
         edges = self.edges[[self.source, self.target, self.weights]].values
+        id_type = self.edges[self.source].dtype
         # Transform weights to traversal probabilities
         edges[:, 2] = self.traversal_func(edges[:, 2])
 
         # Change node IDs into indices in [0, len(nodes))
         ids, edges_idx = np.unique(edges[:, :2], return_inverse=True)
+        ids = ids.astype(id_type)
         edges_idx = edges_idx.reshape((edges.shape[0], 2))
         edges_idx = np.concatenate(
             (edges_idx, np.expand_dims(edges[:, 2], axis=1)),
@@ -451,7 +458,7 @@ class BayesianTraversalModel(TraversalModel):
         cmfs = np.zeros((len(ids), self.max_steps), dtype=np.float64)
         seed_idx = np.searchsorted(ids, self.seeds)
         cmfs[seed_idx, :] = 1.
-        changed = set(edges_idx[seed_idx, 1].astype(np.int64))
+        changed = set(edges_idx[np.isin(edges_idx[:, 0], seed_idx), 1].astype(id_type))
 
         with config.tqdm(
                 total=0,
@@ -486,7 +493,7 @@ class BayesianTraversalModel(TraversalModel):
                     cmfs[idx, :] = new_cmf
 
                     # Notify downstream nodes that they have changed next iteration.
-                    post_idx = edges_idx[edges_idx[:, 0] == idx, 1].astype(np.int64)
+                    post_idx = edges_idx[edges_idx[:, 0] == idx, 1].astype(id_type)
                     next_changed.extend(list(post_idx))
 
                 pbar.update(len(changed))
