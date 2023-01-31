@@ -52,6 +52,7 @@ def cell_body_fiber(x: NeuronObject,
                     reroot_soma: bool = True,
                     heal: bool = True,
                     threshold: float = 0.95,
+                    inverse: bool = False,
                     inplace: bool = False):
     """Prune neuron to its cell body fiber.
 
@@ -77,6 +78,8 @@ def cell_body_fiber(x: NeuronObject,
     threshold :     float [0-1]
                     For method "betweenness" only: threshold at which to cut the
                     cell body fiber. Lower thresholds produce longer CBFs.
+    inverse :       bool
+                    If True, will instead *remove* the cell body fiber.
     inplace :       bool, optional
                     If False, pruning is performed on copy of original neuron
                     which is then returned.
@@ -140,7 +143,12 @@ def cell_body_fiber(x: NeuronObject,
         except BaseException:
             raise
 
-    _ = subset.subset_neuron(x, path, inplace=True)
+    if not inverse:
+        keep = path
+    else:
+        keep = x.nodes.node_id.values[~np.isin(x.nodes.node_id, path)]
+
+    _ = subset.subset_neuron(x, keep, inplace=True)
 
     return x
 
