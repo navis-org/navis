@@ -767,7 +767,7 @@ class NeuronList:
         """Helper to mimic ``pandas.DataFrame.itertuples()``."""
         return self.neurons
 
-    def set_neuron_attributes(self, x, name, na='raise'):
+    def set_neuron_attributes(self, x, name, register=False, na='raise'):
         """Set attributes of neurons contained in the NeuronList.
 
         Parameters
@@ -782,6 +782,9 @@ class NeuronList:
                         and return a value
         name :      str
                     Name of the property to set.
+        register :  bool
+                    If True, will also register the attribute(s) as properties
+                    that should show up in the summary.
         na :        'raise' | 'propagate' | 'skip'
                     What to do if `x` is a dictionary and does not contain a
                     value for a neuron:
@@ -824,19 +827,19 @@ class NeuronList:
                 v = x.get(n.id, None)
                 if (v is None) and (na == 'skip'):
                     continue
-                setattr(n, name, v)
+                n._register_attr(name, v, summary=register)
         elif isinstance(x, (list, np.ndarray)):
             if len(x) != len(self):
                 raise ValueError(f'Got {len(x)} values for the{len(self)} '
                                  'neurons in the NeuronList.')
             for n, v in zip(self.neurons, x):
-                setattr(n, name, v)
+                n._register_attr(name, v, summary=register)
         elif callable(x):
             for n in self.neurons:
-                setattr(n, name, x(n.id))
+                n._register_attr(name, x(n.id), summary=register)
         else:
             for n in self.neurons:
-                setattr(n, name, x)
+                n._register_attr(name, x, summary=register)
 
     def sort_values(self, key: str, ascending: bool = False):
         """Sort neurons by given key.
