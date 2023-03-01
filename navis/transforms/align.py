@@ -8,40 +8,52 @@
 #
 #    This program is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #    GNU General Public License for more details.
 
 import numpy as np
 import pandas as pd
+
+from threadpoolctl import ThreadpoolController
+from functools import partial
 
 from .. import config, core, utils
 from navis.nbl.smat import smat_fcwb
 
 
 def nblast_align(q, t=None, method='rigid', scores='mean', normalized=True,
-                 progress=True, **kwargs):
+                 progress=True, max_threads=None, **kwargs):
     """Run NBLAST on pairwise-aligned neurons.
+
+    Requires the `pycpd` library.
 
     Parameters
     ----------
-    q :         navis.NeuronList
-                Query neurons.
-    t :         navis.NeuronList, optional
-                Target neurons. If ``None``, will run an all-by-all NBLAST of
-                ``x``.
-    method :    "rigid" | "deform" | "pca"
-                Which method to use for alignment. Maps to the respective
-                ``navis.align_{method}`` function.
-    scores :    "mean" | "forward"
-                Which NBLAST scores to generate.
+    q :             navis.NeuronList
+                    Query neurons.
+    t :             navis.NeuronList, optional
+                    Target neurons. If ``None``, will run an all-by-all NBLAST of
+                    ``x``.
+    method :        "rigid" | "deform" | "pca"
+                    Which method to use for alignment. Maps to the respective
+                    ``navis.align_{method}`` function.
+    scores :        "mean" | "forward"
+                    Which NBLAST scores to generate.
+    max_threads :   int, optional
+                    Use this to set the number of threads numpy is allowed to
+                    use for the registration. If ``None`` will use system
+                    defaults which is typically the number of CPUs.
     **kwargs
-                Keyword arguments are passed through to the respective
-                alignment function.
+                    Keyword arguments are passed through to the respective
+                    alignment function.
 
     Returns
     -------
-    scores:     pandas.DataFrame
-                DataFrame with the NBLAST scores.
+    scores :    pandas.DataFrame
+                DataFrame with the NBLAST scores. Important to note that even
+                when ``q == t`` and with ``scores=mean`` the matrix will not be
+                symmetrical because we run separate alignments for the forward
+                and the reverse comparisons.
 
     """
     squared = False
@@ -63,44 +75,50 @@ def nblast_align(q, t=None, method='rigid', scores='mean', normalized=True,
     score_fn = smat_fcwb(False)
     self_hits = {}
 
+    controller = ThreadpoolController()
+
     sc = np.zeros((len(q), len(t)), dtype=np.float32)
-    for i, n2 in config.tqdm(enumerate(t),
-                             desc='NBLASTing',
-                             total=len(t),
-                             disable=not progress or (len(t) ==1)):
-        dp2 = core.make_dotprops(n2, k=5)
-        for k, n1 in enumerate(q):
-            if n1 == n2:
-                xf = n1
-            else:
-                xf = func(n1, target=n2, **kwargs, progress=False)[0][0]
-            dp1 = core.make_dotprops(xf, k=5)
 
-            dists, dots = dp1.dist_dots(dp2, alpha=False)
-            scr = score_fn(dists, dots).sum()
+    with controller.limit(limits=max_threads, user_api='blas'):
+        for i, n2 in config.tqdm(enumerate(t),
+                                 desc='NBLASTing',
+                                 total=len(t),
+                                 disable=not progress or (len(t) ==1)):
+            dp2 = core.make_dotprops(n2, k=5)
+            for k, n1 in enumerate(q):
+                if n1 == n2:
+                    xf = n1
+                else:
+                    xf = func(n1, target=n2, **kwargs, progress=False)[0][0]
+                dp1 = core.make_dotprops(xf, k=5)
 
-            if normalized:
-                if dp1 not in self_hits:
-                    self_hits[dp1] = len(dp1.points) * score_fn(0, 1.0)
-                scr /= self_hits[dp1]
+                dists, dots = dp1.dist_dots(dp2, alpha=False)
+                scr = score_fn(dists, dots).sum()
 
-            if scores == 'mean':
-                dists, dots = dp2.dist_dots(dp1, alpha=False)
-                reverse = score_fn(dists, dots).sum()
                 if normalized:
-                    if dp2 not in self_hits:
-                        self_hits[dp2] = len(dp2.points) * score_fn(0, 1.0)
-                    reverse /= self_hits[dp2]
+                    if dp1 not in self_hits:
+                        self_hits[dp1] = len(dp1.points) * score_fn(0, 1.0)
+                    scr /= self_hits[dp1]
 
-                scr = (scr + reverse) / 2
+                if scores == 'mean':
+                    dists, dots = dp2.dist_dots(dp1, alpha=False)
+                    reverse = score_fn(dists, dots).sum()
+                    if normalized:
+                        if dp2 not in self_hits:
+                            self_hits[dp2] = len(dp2.points) * score_fn(0, 1.0)
+                        reverse /= self_hits[dp2]
 
-            sc[k, i] = scr
+                    scr = (scr + reverse) / 2
+
+                sc[k, i] = scr
 
     return pd.DataFrame(sc, index=q.id, columns=t.id)
 
 
 def align_pairwise(x, y=None, method='rigid', progress=True, **kwargs):
     """Run a pairwise alignment between given neurons.
+
+    Requires the `pycpd` library.
 
     Parameters
     ----------
