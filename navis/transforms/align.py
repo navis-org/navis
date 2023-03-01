@@ -11,6 +11,8 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #    GNU General Public License for more details.
 
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -229,14 +231,16 @@ def align_rigid(x, target=None, scale=False, progress=True):
                                    s=1,
                                    w=w
                                    )
-                TY, params = reg.register()
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    TY, params = reg.register()
+                _set_coords(n, TY)
                 break
             except np.linalg.LinAlgError:
                 if w == 0:
                     w += 0.000000001
                 else:
                     w *= 10
-        _set_coords(n, TY)
         regs.append(reg)
 
     return xf, regs
