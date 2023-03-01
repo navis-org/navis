@@ -151,7 +151,7 @@ def align_pairwise(x, y=None, method='rigid', progress=True, **kwargs):
     return np.array(aligned)
 
 
-def align_rigid(x, target=None, affine_only=True, progress=True):
+def align_rigid(x, target=None, scale=False, progress=True):
     """Align neurons using a rigid registration.
 
     Requires the `pycpd` library.
@@ -163,9 +163,8 @@ def align_rigid(x, target=None, affine_only=True, progress=True):
     target :        navis.Neuron | np.ndarray
                     The neuron that all neurons in `x` will be aligned to.
                     If `None`, neurons will be aligned to the first neuron `x`!
-    affine_only :   bool
-                    If True (default) will not perform any scaling, only
-                    translation and rotation.
+    scale :         bool
+                    If True, will also scale the neuron.
     progress :      bool
                     Whether to show a progress bar.
 
@@ -178,10 +177,7 @@ def align_rigid(x, target=None, affine_only=True, progress=True):
 
     """
     try:
-        if affine_only:
-            from pycpd import RigidRegistration as Registration
-        else:
-            from pycpd import AffineRegistration as Registration
+        from pycpd import RigidRegistration as Registration
     except ImportError:
         raise ImportError('`rigid_align()` requires the `pycpd` library:\n'
                           '  pip3 install pycpd -U')
@@ -201,8 +197,27 @@ def align_rigid(x, target=None, affine_only=True, progress=True):
     for n in config.tqdm(xf, disable=not progress, desc='Aligning'):
         if n == target:
             continue
-        reg = Registration(X=target_co, Y=_extract_coords(n))
-        TY, params = reg.register()
+        # `w` is used to account for outliers -> higher w = more forgiving
+        # the default is w=0 which can lead to failure to converge on a solution
+        # in particular when scale=False
+        # Our work-around here is to start at w=0 and incrementally increase w
+        # if we fail to converge
+        w = 0
+        while w <= 0.001:
+            try:
+                reg = Registration(X=target_co,
+                                   Y=_extract_coords(n),
+                                   scale=scale,
+                                   s=1,
+                                   w=w
+                                   )
+                TY, params = reg.register()
+                break
+            except np.linalg.LinAlgError:
+                if w == 0:
+                    w += 0.000000001
+                else:
+                    w *= 10
         _set_coords(n, TY)
         regs.append(reg)
 
