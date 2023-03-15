@@ -170,7 +170,8 @@ def _subset_dotprops(x, subset, keep_disc_cn):
     # 2. There might not be enough points left after downsampling given the
     #    original k.
     if isinstance(x._vect, type(None)) and x.k:
-        x.recalculate_tangents(k=x.k, inplace=True)
+        if x.n_points >= x.k:
+            x.recalculate_tangents(k=x.k, inplace=True)
     x._vect = x._vect[mask]
 
     # Mask alphas if exists
