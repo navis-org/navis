@@ -700,7 +700,7 @@ def align_pairwise(x, y=None, method='rigid', progress=True, **kwargs):
     return np.array(aligned)
 
 
-def align_rigid(x, target=None, scale=False, progress=True):
+def align_rigid(x, target=None, scale=False, verbose=False, progress=True):
     """Align neurons using a rigid registration.
 
     Requires the `pycpd` library.
@@ -743,7 +743,9 @@ def align_rigid(x, target=None, scale=False, progress=True):
 
     xf = x.copy()
     regs = []
-    for n in config.tqdm(xf, disable=not progress, desc='Aligning'):
+    for n in config.tqdm(xf,
+                         disable=(not progress) or (len(xf) == 1),
+                         desc='Aligning'):
         if n == target:
             continue
         # `w` is used to account for outliers -> higher w = more forgiving
@@ -751,7 +753,11 @@ def align_rigid(x, target=None, scale=False, progress=True):
         # in particular when scale=False
         # Our work-around here is to start at w=0 and incrementally increase w
         # if we fail to converge
+        # Also note that pycpd ignores the `scale` in earlier versions. The
+        # version on PyPI is currently outdated. From what I understand we need
+        # the Github version.
         w = 0
+        converged = False
         while w <= 0.001:
             try:
                 reg = Registration(X=target_co,
@@ -764,12 +770,17 @@ def align_rigid(x, target=None, scale=False, progress=True):
                     warnings.simplefilter("ignore")
                     TY, params = reg.register()
                 _set_coords(n, TY)
+                converged = True
                 break
             except np.linalg.LinAlgError:
                 if w == 0:
                     w += 0.000000001
                 else:
                     w *= 10
+
+        if verbose and not converged:
+            logger.info(f'Registration of {n.id} onto {target.id} did not converge')
+
         regs.append(reg)
 
     return xf, regs
