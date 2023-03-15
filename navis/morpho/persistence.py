@@ -1,4 +1,3 @@
-
 #    This script is part of navis (http://www.github.com/navis-org/navis).
 #    Copyright (C) 2018 Philipp Schlegel
 #
@@ -40,7 +39,7 @@ def persistence_points(x: 'core.NeuronObject',
                                          Literal['root_dist']
                                          ] = 'root_dist',
                        remove_cbf: bool = False
-                       ) -> 'core.NeuronObject':
+                       ) -> pd.DataFrame:
     """Calculate points for a persistence diagram.
 
     Based on Li et al., PLoS One (2017). Briefly, this cuts the neuron into
@@ -139,10 +138,8 @@ def persistence_points(x: 'core.NeuronObject',
 
 def persistence_distances(q: 'core.NeuronObject',
                           t: Optional['core.NeuronObject'] = None,
-                          scores: Union[Literal['forward'],
-                                        Literal['reverse'],
-                                        Literal['mean']] = 'mean',
                           augment: bool = True,
+                          normalize: bool = True,
                           bw: float = .2,
                           **persistence_kwargs):
     """Calculate morphological similarity using persistence diagrams.
@@ -159,8 +156,9 @@ def persistence_distances(q: 'core.NeuronObject',
                 Queries and targets, respectively. If ``t=None`` will run
                 queries against queries. Neurons should have the same units,
                 ideally nanometers.
-    scores :    "forward" | "reverse" | "mean"
-
+    normalize : bool
+                If True, will normalized the vector for each neuron to be within
+                0-1. Set to False if the total number of linear segments matter.
     bw :        float
                 Bandwidth for Gaussian kernel: larger = smoother, smaller =
                 more detailed.
@@ -218,7 +216,10 @@ def persistence_distances(q: 'core.NeuronObject',
     vectors, samples = persistence_vectors(pers, samples=100, bw=bw)
 
     # Normalizing the vectors will produce more useful distances
-    vectors = vectors / vectors.max(axis=1).reshape(-1, 1)
+    if normalize:
+        vectors = vectors / vectors.max(axis=1).reshape(-1, 1)
+    else:
+        vectors = vectors / vectors.max()
 
     if augment:
         # Collect extra data. Note that this adds only 3 more to the existing
@@ -245,11 +246,12 @@ def persistence_distances(q: 'core.NeuronObject',
         return pd.DataFrame(squareform(pdist(vectors)), index=q.id, columns=q.id)
 
 
-def persistence_vectors(pers,
+def persistence_vectors(x,
                         threshold: Optional[float] = None,
                         samples: int = 100,
                         bw: float = .2,
-                        center: bool = False):
+                        center: bool = False,
+                        **kwargs):
     """Produce vectors from persistence points.
 
     Works by creating a Gaussian and sampling ``samples`` evenly spaced
@@ -257,7 +259,7 @@ def persistence_vectors(pers,
 
     Parameters
     ----------
-    pers :      pd.DataFrame | list thereof
+    x :         navis.NeuronList | pd.DataFrame | list thereof
                 The persistence points (see :func:`navis.persistence_points`).
                 For vectors for multiple neurons, provide either a list of
                 persistence points DataFrames or a single DataFrame with a
@@ -297,6 +299,21 @@ def persistence_vectors(pers,
                 Get distances based on (augmented) persistence vectors.
 
     """
+    if isinstance(x, core.BaseNeuron):
+        x = core.NeuronList(x)
+
+    if isinstance(x, pd.DataFrame):
+        pers = [x]
+    elif isinstance(x, core.NeuronList):
+        pers = [persistence_points(n, **kwargs) for n in x]
+    elif isinstance(x, list):
+        if not all([isinstance(l, pd.DataFrame) for l in x]):
+            raise ValueError('Expected lists to contain only DataFrames')
+        pers = x
+    else:
+        raise TypeError('Unable to work extract persistence vectors from data '
+                        f'of type "{x}"')
+
     # Get the max distance
     max_pdist = max([p.birth.max() for p in pers])
     samples = np.linspace(0, max_pdist * 1.05, samples)
@@ -329,7 +346,7 @@ def persistence_vectors(pers,
     return vectors, samples
 
 
-def persistence_diagram(pers, ax=None):
+def persistence_diagram(pers, ax=None, **kwargs):
     """Plot a persistence diagram.
 
     Parameters
@@ -338,19 +355,24 @@ def persistence_diagram(pers, ax=None):
                 Persistent points from :func:`navis.persistence_points`.
     ax :        matplotlib ax, optional
                 Ax to plot on.
+    **kwargs
+                Keyword arguments are passed to `LineCollection`.
 
     Returns
     -------
     ax :        matplotlib ax
 
     """
+    if not isinstance(pers, pd.DataFrame):
+        raise TypeError(f'Expected DataFrame, got "{type(pers)}"')
+
     if not ax:
         fig, ax = plt.subplots()
 
     segs = []
     for i, (b, d) in enumerate(zip(pers.birth.values, pers.death.values)):
         segs.append([[b, i], [d, i]])
-    lc = LineCollection(segs)
+    lc = LineCollection(segs, **kwargs)
     ax.add_collection(lc)
 
     ax.set_xlim(-5, pers.death.max())
@@ -358,5 +380,45 @@ def persistence_diagram(pers, ax=None):
 
     ax.set_ylabel('segments')
     ax.set_xlabel('time')
+
+    return ax
+
+
+def persistence_vector_plot(x, normalize=True, ax=None,
+                            persistence_kwargs={}, vector_kwargs={}):
+    """Plot persistence vectors.
+
+    Parameters
+    ----------
+    x :         TreeNeuron | MeshNeuron | NeuronList
+                Neuron(s) to calculate persistence points for. For MeshNeurons,
+                we will use the skeleton produced by/associated with its
+                ``.skeleton`` property.
+
+    Returns
+    -------
+    ax
+
+    """
+    if not isinstance(x, core.NeuronList):
+        x = core.NeuronList(x)
+
+    # Get persistence points for each skeleton
+    pers = persistence_points(x, **persistence_kwargs)
+
+    # Get the vectors
+    vectors, samples = persistence_vectors(pers, **vector_kwargs)
+
+    # Normalizing the vectors will produce more useful distances
+    if normalize:
+        vectors = vectors / vectors.max(axis=1).reshape(-1, 1)
+    else:
+        vectors = vectors / vectors.max()
+
+    if not ax:
+        fig, ax = plt.subplots()
+
+    for n, v in zip(x, vectors):
+        ax.plot(samples, v, label=n.label)
 
     return ax
