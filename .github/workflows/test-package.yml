@@ -35,6 +35,7 @@ jobs:
         pip install zstandard==0.16.0
         pip install numpy
         pip install flybrains --no-deps
+        pip install git+https://github.com/siavashk/pycpd@master
         pip install k3d
     - name: Install navis
       run: pip install -e .[dev,vispy-pyqt5,pathos,cloudvolume]
