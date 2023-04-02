@@ -47,11 +47,24 @@ __all__ = []
 main_t = None
 
 Stimulus = namedtuple('Stimulus', ['start', 'stop', 'frequency', 'randomness',
-                                   'neurons', 'netstim', 'netcon'])
+                                   'neurons', 'netstim', 'netcon', 'label'])
 
+
+"""
+Note to self: it would best best if PointNetwork would not actually
+build the model until it's executed. That way we can run the entire
+simulation in a separate thread (or multiple cores).
+"""
 
 class PointNetwork:
-    """A Network in which all neurons are represented as LIF point processes."""
+    """A Network of Leaky-Integrate-and-Fire (LIF) point processes.
+
+    Examples
+    --------
+    >>> import navis.interfaces.neuron as nrn
+    >>> N = nrn.PointNetwork()
+    >>>
+    """
 
     def __init__(self):
         self._neurons = []
@@ -130,7 +143,10 @@ class PointNetwork:
         target_col :    str
                         Name of the column with the target IDs.
         weight_col :    str
-                        Name of the column with the weights.
+                        Name of the column with the weights. The important thing
+                        to note here is that weight is expected to be in the 0-1
+                        range with 1 effectively guaranteeing that a presynaptic
+                        spike triggers a postsynaptic spike.
         **props
                         Keyword arguments are passed through to ``add_neurons``.
                         Use to set e.g. labels, threshold or additional
@@ -231,7 +247,7 @@ class PointNetwork:
                           independent=independent)
 
     def add_stimulus(self, ids, start, frequency, stop=None, duration=None,
-                     randomness=.5, independent=True, weight=1):
+                     randomness=.5, independent=True, label=None, weight=1):
         """Add stimulus to given neurons.
 
         Important
@@ -264,6 +280,8 @@ class PointNetwork:
         independent :   bool
                         If True (default), each neuron will get its own
                         independent stimulus.
+        label :         str, optional
+                        A label to identify the stimulus.
         weight :        float
                         Weight for the connection between the stimulator and
                         the neuron. This really should be 1 to make sure each
@@ -318,10 +336,26 @@ class PointNetwork:
             nc.weight[0] = weight
             nc.delay = 0
 
-            self._stimuli.append(Stimulus(start, stop, f, randomness, i, ns, nc))
+            self._stimuli.append(Stimulus(start, stop, f, randomness, i, ns, nc, label))
 
     def connect(self, source, target, weight, delay=5):
-        """Connect two neurons."""
+        """Connect two neurons.
+
+        Parameters
+        ----------
+        source :    int | str
+                    ID of the source.
+        target :    int | str
+                    ID of the target
+        weight :    float
+                    Weight of the edge. The important thing to note here is that
+                    the weight is expected to be in the 0-1 range with 1
+                    effectively guaranteeing that a presynaptic spike triggers
+                    a postsynaptic spike.
+        delay :     int
+                    Delay in ms between a pre- and a postsynaptic spike.
+
+        """
         # Get the point processes corresponding to source and target
         pre = self.idx[source]
         post = self.idx[target]
@@ -334,7 +368,7 @@ class PointNetwork:
         # Keep track
         self._edges.append([source, target, weight, nc])
 
-    def plot_raster(self, subset=None, group=False, ax=None, label=False,
+    def plot_raster(self, subset=None, group=False, stimuli=True, ax=None, label=False,
                     backend='auto', **kwargs):
         """Raster plot of spike timings.
 
@@ -392,7 +426,11 @@ class PointNetwork:
         if backend == 'plotly':
             return _plot_raster_plotly(x, y, ids, fig=ax, labels=labels, **kwargs)
         elif backend == 'matplotlib':
-            return _plot_raster_mpl(x, y, ids, ax=ax, labels=labels, **kwargs)
+            ax = _plot_raster_mpl(x, y, ids, ax=ax, labels=labels,
+                                  stimuli=self._stimuli if stimuli else None,
+                                  **kwargs)
+            ax.set_xlim(0, neuron.h.t)
+            return ax
         else:
             raise ValueError(f'Unknown backend "{backend}"')
 
@@ -438,7 +476,7 @@ class PointNetwork:
 
         if self.labels:
             ld = dict(zip(self._ids, self._labels))
-            labels = [ld[i] for i in ids]
+            labels = [f'{i} ({ld[i]})' for i in ids]
         else:
             labels = None
 
@@ -449,22 +487,22 @@ class PointNetwork:
                 backend = 'matplotlib'
 
         if isinstance(group, bool) and group:
-            std = freq.groupby(dict(zip(self._ids, self._labels))).sem()
+            sem = freq.groupby(dict(zip(self._ids, self._labels))).sem()
             freq = freq.groupby(dict(zip(self._ids, self._labels))).mean()
             labels = freq.index.values.tolist()
         elif not isinstance(group, bool):
-            std = freq.groupby(group).sem()
+            sem = freq.groupby(group).sem()
             freq = freq.groupby(group).mean()
             labels = freq.index.values.tolist()
         else:
-            std = None
+            sem = None
 
         if backend == 'plotly':
             return _plot_traces_plotly(freq, fig=ax, labels=labels,
                                        stimuli=self._stimuli if stimuli else None,
-                                       std=std, **kwargs)
+                                       env=sem, **kwargs)
         elif backend == 'matplotlib':
-            return _plot_traces_mpl(freq, ax=ax, std=std,
+            return _plot_traces_mpl(freq, ax=ax, env=sem,
                                     stimuli=self._stimuli if stimuli else None,
                                     **kwargs)
         else:
@@ -497,7 +535,8 @@ class PointNetwork:
         neuron.h.finitialize(v_init)
         neuron.h.continuerun(duration)
 
-    def get_spike_counts(self, bin_size=50, subset=None, rolling_window=None):
+    def get_spike_counts(self, bin_size=50, subset=None, rolling_window=None,
+                         group=False):
         """Get matrix of spike counts.
 
         Parameters
@@ -507,6 +546,9 @@ class PointNetwork:
                             If None, will simply return total counts.
         rolling_window :    int, optional
                             Average spike counts in a rolling window.
+        group :             bool
+                            If True, will return the spike counts per unique
+                            label.
 
         Returns
         -------
@@ -536,7 +578,12 @@ class PointNetwork:
                 hist, _ = np.histogram(timings, bins)
                 counts[i, :] = hist
 
-        counts = pd.DataFrame(counts, index=ids, columns=bins[:-1])
+        counts = pd.DataFrame(counts, index=ids, columns=bins[1:])
+
+        if group:
+            if not self._labels:
+                raise ValueError('Unable to group: Network has no labels.')
+            counts = counts.groupby(counts.index.map(dict(zip(self.ids, self._labels)))).sum()
 
         if rolling_window:
             avg = sliding_window_view(counts, rolling_window, axis=1).mean(axis=2)
@@ -585,7 +632,7 @@ class NetworkIdIndexer:
             return neurons[id]
 
 
-def _plot_raster_mpl(x, y, ids, ax=None, labels=None, **kwargs):
+def _plot_raster_mpl(x, y, ids, ax=None, labels=None, stimuli=None, **kwargs):
     if not ax:
         fig, ax = plt.subplots(figsize=kwargs.pop('figsize', (12, min(20, len(ids)))))
 
@@ -603,10 +650,22 @@ def _plot_raster_mpl(x, y, ids, ax=None, labels=None, **kwargs):
         ax.set_yticks([])
         ax.set_yticklabels([])
 
+    if stimuli:
+        y = len(ids) + max(1, len(ids) / 100)
+        stimuli = np.unique([(s.start, s.stop) for s in stimuli], axis=0)
+        for st in stimuli:
+            # Skip background noise
+            if st[1] >= 999_999_999:
+                continue
+            ax.plot([st[0], st[1]], [y, y], lw=4,
+                    color=kwargs.get('color', (.5, .5, .5)))
+
+        ax.set_ylim(top=y + 1)
+
     return ax
 
 
-def _plot_traces_mpl(freq, ax=None, show=True, std=None, stimuli=None, **kwargs):
+def _plot_traces_mpl(freq, ax=None, show=True, env=None, stimuli=None, **kwargs):
     if not ax:
         fig, ax = plt.subplots(figsize=kwargs.pop('figsize', (12, 7)))
 
@@ -634,15 +693,15 @@ def _plot_traces_mpl(freq, ax=None, show=True, std=None, stimuli=None, **kwargs)
     lc = LineCollection(segs, **DEFAULTS, colors=colors)
     ax.add_collection(lc)
 
-    if not isinstance(std, type(None)):
-        for i, s in enumerate(std.index.values):
-            # If no std (single neuron)
-            if not std.loc[s].any():
+    if not isinstance(env, type(None)):
+        for i, s in enumerate(env.index.values):
+            # If no envelope (single neuron)
+            if not env.loc[s].any():
                 continue
 
-            y1 = freq.loc[s].values + std.loc[s].values
-            y2 = freq.loc[s].values - std.loc[s].values
-            ax.fill_between(std.columns.values, y1, y2,
+            y1 = freq.loc[s].values + env.loc[s].values
+            y2 = freq.loc[s].values - env.loc[s].values
+            ax.fill_between(env.columns.values, y1, y2,
                             facecolor=colors[i],
                             alpha=0.5)
 
@@ -695,7 +754,7 @@ def _plot_raster_plotly(x, y, ids, fig=None, labels=None, show=True, **kwargs):
 
 
 def _plot_traces_plotly(freq, fig=None, labels=None, show=True, stimuli=None,
-                        std=None, **kwargs):
+                        env=None, **kwargs):
     if not fig:
         fig = go.Figure()
 
@@ -734,9 +793,9 @@ def _plot_traces_plotly(freq, fig=None, labels=None, show=True, stimuli=None,
                                    line=dict(color=color_str,
                                              width=kwargs.get('width', 1.5))))
 
-        if not isinstance(std, type(None)):
-            y = (freq.iloc[i].values + std.iloc[i].values).tolist()
-            y += (freq.iloc[i].values - std.iloc[i].values).tolist()[::-1]
+        if not isinstance(env, type(None)):
+            y = (freq.iloc[i].values + env.iloc[i].values).tolist()
+            y += (freq.iloc[i].values - env.iloc[i].values).tolist()[::-1]
             fig.add_trace(go.Scattergl(x=x.tolist() + x.tolist()[::-1],
                                        y=y,
                                        fill='toself',
@@ -749,16 +808,21 @@ def _plot_traces_plotly(freq, fig=None, labels=None, show=True, stimuli=None,
                                                  width=kwargs.get('width', 1.5))))
 
     if stimuli:
+        timings = [(st.start, st.stop) for st in stimuli]
+        to_plot = np.unique(timings, axis=0, return_index=True)[1]
         y = freq.max().max() + 20
-        stimuli = np.unique([(s.start, s.stop) for s in stimuli], axis=0)
-        for i, st in enumerate(stimuli):
+        for i, ix in enumerate(to_plot):
+            st = stimuli[ix]
             # Skip background noise
-            if st[1] >= 999_999_999:
+            if st.stop >= 999_999_999:
                 continue
-            fig.add_trace(go.Scattergl(x=[st[0], st[1]], y=[y, y],
+            fig.add_trace(go.Scattergl(x=[st.start, st.stop], y=[y+i, y+i],
                                        mode='lines',
                                        line=dict(color='rgb(155,155,155)',
                                                  width=4),
+                                       name=st.label,
+                                       hovertext=st.label,
+                                       hoverinfo='text',
                                        showlegend=False))
 
     fig.update_layout(paper_bgcolor='rgba(0,0,0,0)',
