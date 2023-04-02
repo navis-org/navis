@@ -1003,8 +1003,8 @@ def nblast_allbyall(x: NeuronList,
 
     """
     # Check if pykdtree flag needed to be set
-    if n_cores and n_cores > 1:
-        check_pykdtree_flag()
+    #if n_cores and n_cores > 1:
+    #    check_pykdtree_flag()
 
     # Make sure we're working on NeuronLists
     dps = NeuronList(x)
