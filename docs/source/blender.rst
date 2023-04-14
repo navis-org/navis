@@ -70,6 +70,19 @@ built-in Python. The easiest way is probably this:
     tar -xzf Python-3.X.X.tgz
     cp Python-3.X.X/Include/* [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9
 
+  If the above fails you have one more option: figure out which dependency fails
+  to compile and compile it on your system's Python.
+
+    a) Install the *exact* same version of Python as Blender is running on your
+       system
+    b) Download the source code for the offending dependency either from PyPI
+       where it'll likely be some ``tar.gz`` file under "Download files" or
+       from the Github repository
+    c) Run ``python setup.py bdist_wheel`` to compile the dependency into a wheel
+       file (will appear as ``.whl`` file in a ``/dist`` subdirectory)
+    d) Go back to Blender's Python and install the dependency from that wheel:
+       ``[..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -m pip install <full file name of wheel file with .whl extension>``
+
 4. You should now be all set to use NAVis in Blender. Check out Quickstart!
 
 Quickstart
