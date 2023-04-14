@@ -427,6 +427,7 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
             if missing_swc in ['warn', 'skip']:
                 if missing_swc == 'warn':
                     logger.warning(f'No SWC found for {r.bodyId}')
+                    return
             else:
                 raise
         else:
