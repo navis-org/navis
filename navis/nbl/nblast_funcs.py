@@ -27,7 +27,6 @@ import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Callable, Dict, Union, Optional, List
 from typing_extensions import Literal
-from threadpoolctl import threadpool_limits
 
 from navis.nbl.smat import Lookup2d, smat_fcwb, _nblast_v1_scoring
 
@@ -48,6 +47,10 @@ logger = config.get_logger(__name__)
 # Smaller multiplier = smaller job sizes = more jobs = faster updates & more overhead
 JOB_SIZE_MULTIPLIER = 1
 
+# This controls how many threads we allow pykdtree to use during multi-core
+# NBLAST
+OMP_NUM_THREADS_LIMIT = 1
+
 
 class NBlaster(Blaster):
     """Implements version 2 of the NBLAST algorithm.
@@ -67,28 +70,27 @@ class NBlaster(Blaster):
                     (i.e. self-self) of the query neuron.
     smat :          navis.nbl.smat.Lookup2d | pd.DataFrame | str | Callable
                     How to convert the point match pairs into an NBLAST score,
-                    usually by a lookup table.
-                    If 'auto' (default), will use scoring matrices
-                    from FCWB. Same behaviour as in R's nat.nblast
-                    implementation.
-                    If ``smat='v1'`` it uses the analytic formulation of the
-                    NBLAST scoring from Kohl et. al (2013). You can adjust parameter
-                    ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
-                    Dataframes will be used to build a ``Lookup2d``.
-                    If ``limit_dist`` is not given,
-                    will attempt to infer from the first axis of the lookup table.
-                    If ``Callable`` given, it passes distance and dot products as
-                    first and second argument respectively.
-                    If ``smat=None`` the scores will be
-                    generated as the product of the distances and the dotproduct
-                    of the vectors of nearest-neighbor pairs.
+                    usually by a lookup table:
+                     - if 'auto' (default), will use the "official" NBLAST scoring
+                       matrices based on FCWB data. Same behaviour as in R's
+                       nat.nblast implementation.
+                     - if ``smat='v1'`` it uses the analytic formulation of the
+                       NBLAST scoring from Kohl et. al (2013). You can adjust parameter
+                       ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
+                     - DataFrames will be used to build a ``Lookup2d``
+                     - if ``Callable`` given, it passes distance and dot products as
+                       first and second argument respectively
+                     - if ``smat=None`` the scores will be generated as the
+                       product of the distances and the dotproduct of the vectors
+                       of nearest-neighbor pairs
     smat_kwargs:    Dictionary with additional parameters passed to scoring
                     functions. For example: ``smat_kwargs["sigma_scoring"] = 10``.
     limit_dist :    float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
-                    "auto", will extract that value from the scoring matrix.
+                    "auto", will extract that value from the first axis of the
+                    scoring matrix.
     progress :      bool
                     If True, will show a progress bar.
 
@@ -441,8 +443,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps_simp])
 
     # This makes sure we don't run into multiple layers of concurrency
-    with threadpool_limits(limits=1 if (n_cores and n_cores > 1) else None,
-                           user_api='openmp'):
+    with set_omp_flag(limit=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
         # Initialize a pool of workers
         # Note that we're forcing "spawn" instead of "fork" (default on linux)!
         # This is to reduce the memory footprint since "fork" appears to inherit all
@@ -552,8 +553,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps])
 
     # This makes sure we don't run into multiple layers of concurrency
-    with threadpool_limits(limits=1 if (n_cores and n_cores > 1) else None,
-                           user_api='openmp'):
+    with set_omp_flag(limit=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
         # Initialize a pool of workers
         # Note that we're forcing "spawn" instead of "fork" (default on linux)!
         # This is to reduce the memory footprint since "fork" appears to inherit all
@@ -815,8 +815,7 @@ def nblast(query: Union[Dotprops, NeuronList],
     target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps])
 
     # This makes sure we don't run into multiple layers of concurrency
-    with threadpool_limits(limits=1 if (n_cores and n_cores > 1) else None,
-                           user_api='openmp'):
+    with set_omp_flag(limit=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
         # Initialize a pool of workers
         # Note that we're forcing "spawn" instead of "fork" (default on linux)!
         # This is to reduce the memory footprint since "fork" appears to inherit all
@@ -1047,8 +1046,7 @@ def nblast_allbyall(x: NeuronList,
     self_hits = np.array([nb.calc_self_hit(n) for n in dps])
 
     # This makes sure we don't run into multiple layers of concurrency
-    with threadpool_limits(limits=1 if (n_cores and n_cores > 1) else None,
-                           user_api='openmp'):
+    with set_omp_flag(limit=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
         # Initialize a pool of workers
         # Note that we're forcing "spawn" instead of "fork" (default on linux)!
         # This is to reduce the memory footprint since "fork" appears to inherit all
@@ -1449,8 +1447,42 @@ def check_pykdtree_flag():
 
     import os
     if os.environ.get('OMP_NUM_THREADS', None) != "1":
-        msg = ('`OMP_NUM_THREADS` environment variable not set to "1". '
-               'This may cause multiple layers of concurrency which in turn will'
+        msg = ('`OMP_NUM_THREADS` environment variable not set to 1. This may '
+               'result in multiple layers of concurrency which in turn will '
                'slow down NBLAST when using multiple cores. '
                'See also https://github.com/navis-org/navis/issues/49')
         logger.warning(msg)
+
+
+def set_omp_flag(limits=1):
+    """Set OMP_NUM_THREADS flag to given value.
+
+    This is to avoid pykdtree causing multiple layers of concurrency which
+    will over-subcribe and slow down NBLAST on multi-core systems.
+
+    Use as context manager!
+    """
+    class OMPSetter:
+        def __init__(self, num_threads):
+            assert isinstance(num_threads, int)
+            self.num_threads = num_threads
+
+        def __enter__(self):
+            if self.num_threads is None:
+                return
+            # Track old value (if there is one)
+            self.old_value = os.environ.get('OMP_NUM_THREADS', None)
+            # Set flag
+            os.environ['OMP_NUM_THREADS'] = str(self.num_threads)
+
+        def __exit__(self):
+            if self.num_threads is None:
+                return
+
+            # Reset flag
+            if self.old_value:
+                os.environ['OMP_NUM_THREADS'] = str(self.old_value)
+            else:
+                os.environ.pop('OMP_NUM_THREADS', None)
+
+    return OMPSetter(limits)
