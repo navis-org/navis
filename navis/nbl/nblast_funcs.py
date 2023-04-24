@@ -1477,7 +1477,7 @@ def set_omp_flag(limits=1):
             # Set flag
             os.environ['OMP_NUM_THREADS'] = str(self.num_threads)
 
-        def __exit__(self):
+        def __exit__(self, *args, **kwargs):
             if self.num_threads is None:
                 return
 
