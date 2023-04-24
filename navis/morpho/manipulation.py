@@ -1411,7 +1411,7 @@ def despike_skeleton(x: NeuronObject,
             dist_AC = np.linalg.norm(A - C, axis=1)
 
             # Get the spikes
-            spikes_ix = np.where((dist_AB / dist_AC) > sigma)[0]
+            spikes_ix = np.where(np.divide(dist_AB, dist_AC, where=dist_AC != 0) > sigma)[0]
             spikes = this_B.iloc[spikes_ix]
 
             if not spikes.empty:
