@@ -1466,7 +1466,7 @@ def set_omp_flag(limits=1):
     """
     class OMPSetter:
         def __init__(self, num_threads):
-            assert isinstance(num_threads, int)
+            assert isinstance(num_threads, (int, type(None)))
             self.num_threads = num_threads
 
         def __enter__(self):
