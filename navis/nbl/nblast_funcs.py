@@ -443,7 +443,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps_simp])
 
     # This makes sure we don't run into multiple layers of concurrency
-    with set_omp_flag(limit=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
+    with set_omp_flag(limits=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
         # Initialize a pool of workers
         # Note that we're forcing "spawn" instead of "fork" (default on linux)!
         # This is to reduce the memory footprint since "fork" appears to inherit all
@@ -553,7 +553,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps])
 
     # This makes sure we don't run into multiple layers of concurrency
-    with set_omp_flag(limit=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
+    with set_omp_flag(limits=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
         # Initialize a pool of workers
         # Note that we're forcing "spawn" instead of "fork" (default on linux)!
         # This is to reduce the memory footprint since "fork" appears to inherit all
@@ -796,8 +796,10 @@ def nblast(query: Union[Dotprops, NeuronList],
             n_rows, n_cols = find_batch_partition(query_dps, target_dps,
                                                   T=10 * JOB_SIZE_MULTIPLIER)
         else:
-            # If no progress bar needed, we can just split neurons evenly across
-            # all available cores
+            # If no progress bar needed, we could just split neurons evenly across
+            # all available cores but that can lead to one core lagging behind
+            # and finishing much later than all the others. To avoid this, we
+            # should probably
             n_rows, n_cols = find_optimal_partition(n_cores, query_dps, target_dps)
     else:
         n_rows = n_cols = 1
@@ -815,7 +817,7 @@ def nblast(query: Union[Dotprops, NeuronList],
     target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps])
 
     # This makes sure we don't run into multiple layers of concurrency
-    with set_omp_flag(limit=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
+    with set_omp_flag(limits=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
         # Initialize a pool of workers
         # Note that we're forcing "spawn" instead of "fork" (default on linux)!
         # This is to reduce the memory footprint since "fork" appears to inherit all
@@ -1046,7 +1048,7 @@ def nblast_allbyall(x: NeuronList,
     self_hits = np.array([nb.calc_self_hit(n) for n in dps])
 
     # This makes sure we don't run into multiple layers of concurrency
-    with set_omp_flag(limit=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
+    with set_omp_flag(limits=OMP_NUM_THREADS_LIMIT if n_cores and (n_cores > 1) else None):
         # Initialize a pool of workers
         # Note that we're forcing "spawn" instead of "fork" (default on linux)!
         # This is to reduce the memory footprint since "fork" appears to inherit all
