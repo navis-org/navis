@@ -33,7 +33,7 @@ def swc_source(request, swc_paths: List[Path]):
         with open(swc_path, "rb") as f:
             yield f
     elif request.param == "DataFrame":
-        df = pd.read_csv(swc_path, " ", header=None, comment="#")
+        df = pd.read_csv(swc_path, sep=" ", header=None, comment="#")
         df.columns = navis.io.swc_io.NODE_COLUMNS
         yield df
     else:
