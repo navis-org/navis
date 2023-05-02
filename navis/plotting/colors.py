@@ -314,7 +314,7 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
                                  ' to a color.')
 
     # First check if data is numerical or categorical
-    is_num = [utils.is_numeric(a, bool_numeric=False) for a in values]
+    is_num = [utils.is_numeric(a, bool_numeric=False, try_convert=False) for a in values]
     # If numerical
     if all(is_num):
         # Get min/max values

@@ -77,7 +77,9 @@ def eval_param(value: Any,
                 logger.warning(msg)
 
 
-def is_numeric(array: np.ndarray, bool_numeric: bool = True) -> bool:
+def is_numeric(array: np.ndarray,
+               bool_numeric: bool = True,
+               try_convert: bool = False) -> bool:
     """Determine whether the argument has a numeric datatype.
 
     Booleans, unsigned integers, signed integers, floats and complex
@@ -91,6 +93,8 @@ def is_numeric(array: np.ndarray, bool_numeric: bool = True) -> bool:
                     The array to check.
     bool_numeric :  bool
                     If True (default), we count booleans as numeric data types.
+    try_convert :   bool
+                    If True, will try to convert array to floats.
 
     Returns
     -------
@@ -101,7 +105,7 @@ def is_numeric(array: np.ndarray, bool_numeric: bool = True) -> bool:
     array = np.asarray(array)
 
     # If array
-    if array.dtype.kind == 'O':
+    if array.dtype.kind == 'O' and try_convert:
         try:
             array = array.astype(float)
         except ValueError:
