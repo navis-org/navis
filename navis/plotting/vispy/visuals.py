@@ -511,7 +511,7 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
                     n = neuron.nodes.set_index('node_id').loc[s]
                     r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
                     sp = create_sphere(7, 7, radius=r)
-                    verts = sp.get_vertices() + n[['x', 'y', 'z']].values
+                    verts = sp.get_vertices() + n[['x', 'y', 'z']].values.astype(np.float32)
                     s = scene.visuals.Mesh(vertices=verts,
                                            shading='smooth',
                                            faces=sp.get_faces(),
