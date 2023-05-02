@@ -3,7 +3,7 @@
 Install
 =======
 
-NAVis currently requires Python 3.7 or later. Below instructions assume that
+NAVis currently requires Python 3.8 or later. Below instructions assume that
 you have already installed Python and its package manager ``pip``.
 
 .. topic:: By the way

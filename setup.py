@@ -66,7 +66,6 @@ setup(
         'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
 
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
@@ -74,8 +73,8 @@ setup(
     install_requires=install_requires,
     extras_require=dict(extras_require),
     tests_require=extras_require["dev"],
-    # CI runs against >=3.7
-    python_requires='>=3.7',
+    # CI runs against >=3.8
+    python_requires='>=3.8',
     zip_safe=False,
 
     include_package_data=True

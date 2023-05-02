@@ -17,7 +17,7 @@ repository.
      -
    * - dev
      - ongoing
-     - -
+     - - dropped support for Python 3.7
    * - 1.4.0
      - 21/12/22
      - - BREAKING: ``navis.flow_centrality`` was renamed to :func:`navis.synapse_flow_centrality`

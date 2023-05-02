@@ -9,13 +9,13 @@ NAVis comes with an interface to import neurons into
 `Blender 3D <https://www.blender.org>`_ for high quality renderings and
 videos: :mod:`navis.interfaces.blender`
 
-Because NAVis requires Python at least 3.7 this only works with Blender 2.8x
+Because NAVis requires Python at least 3.8 this only works with Blender 2.8x
 or higher!
 
 Installation
 ============
 
-Blender comes with its own Python 3.7 distribution! So you need to install
+Blender comes with its own Python 3.X distribution! So you need to install
 NAVis explicitly for this distribution in order to use it within Blender.
 
 There are several ways to install additional packages for Blender's
