@@ -1757,7 +1757,7 @@ def heal_skeleton(x: 'core.NeuronList',
                   max_dist: Optional[float] = None,
                   min_size: Optional[float] = None,
                   drop_disc: float = False,
-                  use_radii: bool = False,
+                  mask: Optional[Sequence] = None,
                   inplace: bool = False) -> Optional[NeuronObject]:
     """Heal fragmented skeleton(s).
 
@@ -1788,6 +1788,9 @@ def heal_skeleton(x: 'core.NeuronList',
                 ``max_dist`` or ``min_size`` prevented a full connect), we will
                 keep only the largest (by number of nodes) connected component
                 and discard all other fragments.
+    mask :      list-like, optional
+                Either a boolean mask or a list of node IDs. If provided will
+                only heal breaks between these nodes.
     inplace :   bool, optional
                 If False, will perform healing on and return a copy.
 
@@ -1823,7 +1826,7 @@ def heal_skeleton(x: 'core.NeuronList',
     """
     method = str(method).upper()
 
-    if method not in ['LEAFS', 'ALL']:
+    if method not in ('LEAFS', 'ALL'):
         raise ValueError(f'Unknown method "{method}"')
 
     # The decorator makes sure that at this point we have single neurons
@@ -1840,6 +1843,7 @@ def heal_skeleton(x: 'core.NeuronList',
                     nodes=method,
                     max_dist=max_dist,
                     min_size=min_size,
+                    mask=mask,
                     inplace=True)
 
     # See if we need to drop remaining disconnected fragments
@@ -1859,6 +1863,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
                               list] = 'ALL',
                 max_dist: Optional[float] = np.inf,
                 min_size: Optional[float] = None,
+                mask: Optional[Sequence] = None,
                 inplace: bool = False) -> Optional['core.TreeNeuron']:
     """Stitch disconnected neuron using a minimum spanning tree.
 
@@ -1868,7 +1873,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
                     Neuron to stitch.
     nodes :         "ALL" | "LEAFS" | list of IDs
                     Nodes that can be used to stitch the neuron. Can be "ALL"
-                    nodes, just "LEAFS" or a list of node IDs.
+                    nodes, just "LEAFS".
     max_dist :      int | float | str
                     If given, will only connect fragments if they are within
                     ``max_distance``. Use this to prevent the creation of
@@ -1877,6 +1882,9 @@ def _stitch_mst(x: 'core.TreeNeuron',
                     Minimum size in nodes for fragments to be reattached.
                     Fragments smaller than ``min_size`` will be ignored during
                     stitching and hence remain disconnected.
+    mask :          list-like, optional
+                    Either a boolean mask or a list of node IDs. If provided
+                    will only heal breaks between these nodes.
     inplace :       bool
                     If True, will stitch the original neuron in place.
 
@@ -1891,6 +1899,14 @@ def _stitch_mst(x: 'core.TreeNeuron',
     # https://github.com/connectome-neuprint/neuprint-python
     if max_dist is True or not max_dist:
         max_dist = np.inf
+
+    if not isinstance(mask, type(None)):
+        mask = np.asarray(mask)
+        if mask.dtype == bool:
+            if len(mask) != len(x.nodes):
+                raise ValueError("Length of boolean mask must match number of "
+                                 "nodes in the neuron")
+            mask = x.nodes.node_id.values[mask]
 
     g = x.graph.to_undirected()
 
@@ -1909,11 +1925,13 @@ def _stitch_mst(x: 'core.TreeNeuron',
 
         df = x.nodes.query('node_id in @cc')
 
+        # If mask, drop everything that is masked out
+        if not isinstance(mask, type(None)):
+            df = df[df.node_id.isin(mask)]
+
         # Filter to leaf nodes if applicable
-        if isinstance(nodes, str) and nodes == 'LEAFS':
+        if nodes == 'LEAFS':
             df = df[df['type'].isin(['end', 'root'])]
-        if utils.is_iterable(nodes):
-            df = df[df['node_id'].isin(nodes)]
 
         if not df.empty:
             kd = cKDTree(df[[*'xyz']].values)
