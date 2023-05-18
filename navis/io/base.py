@@ -593,7 +593,7 @@ class BaseReader(ABC):
                             Whether to include subdirectories of a given
                             directory.
         parallel :          str | bool | int | None
-                            "auto" or True for n_cores - 2, otherwise int for
+                            "auto" or True for n_cores // 2, otherwise int for
                             number of jobs, or False for serial.
         attrs :             dict or None
                             Arbitrary attributes to include in each TreeNeuron
@@ -828,7 +828,7 @@ def parallel_read_zip(read_fn, fpath, file_ext,
     limit :         int, optional
                     Limit the number of files read from this directory.
     parallel :      str | bool | int
-                    "auto" or True for n_cores - 2, otherwise int for number of
+                    "auto" or True for n_cores // 2, otherwise int for number of
                     jobs, or false for serial.
     ignore_hidden : bool
                     Archives zipped on OSX can end up containing a
@@ -882,7 +882,7 @@ def parallel_read_zip(read_fn, fpath, file_ext,
     if parallel:
         # Do not swap this as ``isinstance(True, int)`` returns ``True``
         if isinstance(parallel, (bool, str)):
-            n_cores = max(1, os.cpu_count() - 2)
+            n_cores = max(1, os.cpu_count() // 2)
         else:
             n_cores = int(parallel)
 
