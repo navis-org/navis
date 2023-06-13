@@ -13,7 +13,9 @@ OTHER = "__OTHER__"
 class NeuronConnector:
     """Class which creates a connectivity graph from a set of neurons.
 
-    Progressively add neurons with the `add_neuron` and `add_neurons` methods.
+    Connectivity is determined by shared IDs in the ``connectors`` table.
+
+    Add neurons with the `add_neuron` and `add_neurons` methods.
     Alternatively, supply an iterable of neurons in the constructor.
 
     See the `to_(multi)digraph` method for output.
@@ -76,6 +78,12 @@ class NeuronConnector:
             if row.type == 0:
                 self.outputs.setdefault(row.connector_id, []).append((nrn.name, row.node_id))
             elif row.type == 1:
+                if row.connector_id in self.inputs:
+                    logger.warning(
+                        "Connector with ID %s has multiple inputs: "
+                        "connector tables are probably inconsistent",
+                        row.connector_id
+                    )
                 self.inputs[row.connector_id] = (nrn.name, row.node_id)
 
         return self
