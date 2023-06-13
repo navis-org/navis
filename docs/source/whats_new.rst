@@ -15,6 +15,10 @@ repository.
    * - Version
      - Date
      -
+   * - dev
+     - ongoing
+     - - :class:`navis.NeuronConnector` class for creating connectivity graphs
+         from groups neurons with consistent connector IDs.
    * - 1.5.0
      - 27/07/23
      - - BREAKING: dropped support for Python 3.7
