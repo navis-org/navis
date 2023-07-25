@@ -19,6 +19,8 @@ def test_traversal_models():
         model = m(edges, seeds=[1], max_steps=8)
         model.run(iterations=1)
         res = model.summary
+        if res.index.name != 'node':  # issue here with older pandas versions
+            res.set_index('node', inplace=True)
         assert 0 not in res.index
         assert 9 not in res.index
         assert 10 not in res.index
