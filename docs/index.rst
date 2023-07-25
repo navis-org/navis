@@ -32,7 +32,7 @@
 
             .. card:: :octicon:`beaker` Morphometrics
 
-                Run Strahler analysis, cable length, volume, tortuosity and more.
+                Calculate Strahler indices, cable length, volume, tortuosity and more.
 
             .. card:: :octicon:`paintbrush` Plotting
 
@@ -81,4 +81,4 @@
                 :link: other_libs
                 :link-type: ref
 
-                Write your own library building on or extending navis functions.
+                Write your own library built on top of navis functions.

@@ -291,7 +291,8 @@ def get_voxels(x, mip=0, bounds=None, datastack='cortex65'):
                     Scale at which to fetch voxels.
     bounds :        list, optional
                     Bounding box [xmin, xmax, ymin, ymax, zmin, zmax] in voxel
-                    space.
+                    space. For example, the voxel resolution for mip 0
+                    segmentation is 8 x 8 x 40 nm.
     datastack :     "cortex65" | "cortex35" | "layer 2/3"
                     Which dataset to use. Internally these are mapped to the
                     corresponding sources (e.g. "minnie65_public_v117" for

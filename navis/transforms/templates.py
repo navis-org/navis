@@ -8,7 +8,7 @@
 #
 #    This program is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #    GNU General Public License for more details.
 
 """Functions to work with templates."""
@@ -57,12 +57,12 @@ transform_reg = namedtuple('Transform',
                             'invertible', 'weight'])
 
 # Check for environment variable pointing to registries
-_os_transpaths = os.environ.get('NAVIS_TRANSFORMS', '')
+_OS_TRANSPATHS = os.environ.get('NAVIS_TRANSFORMS', '')
 try:
-    _os_transpaths = [i for i in _os_transpaths.split(';') if len(i) > 0]
+    _OS_TRANSPATHS = [i for i in _OS_TRANSPATHS.split(';') if len(i) > 0]
 except BaseException:
     logger.error('Error parsing the `NAVIS_TRANSFORMS` environment variable')
-    _os_transpaths = []
+    _OS_TRANSPATHS = []
 
 
 class TemplateRegistry:
@@ -74,10 +74,9 @@ class TemplateRegistry:
                     If True will scan paths on initialization.
 
     """
-
     def __init__(self, scan_paths: bool = True):
         # Paths to scan for transforms
-        self._transpaths = _os_transpaths
+        self._transpaths = _OS_TRANSPATHS.copy()
         # Transforms
         self._transforms = []
         # Template brains
@@ -687,22 +686,25 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 via: Optional[str] = None,
                 affine_fallback: bool = True,
                 caching: bool = True,
-                verbose = True) -> Union['core.NeuronObject',
-                                         'pd.DataFrame',
-                                         'np.ndarray']:
+                verbose: bool = True) -> Union['core.NeuronObject',
+                                               'pd.DataFrame',
+                                               'np.ndarray']:
     """Transform 3D data between template brains.
 
     This requires the appropriate transforms to be registered with ``navis``.
-    See the docs for details.
+    See the docs/tutorials for details.
 
     Notes
     -----
-    For Neurons only: whether there is a change in units during transformation
-    (e.g. nm -> um) is inferred by comparing distances between x/y/z coordinates
-    before and after transform. This guesstimate is then used to convert
-    ``.units`` and node/soma radii. This works reasonably well with base 10
-    increments (e.g. nm -> um) but may be off with odd changes in units (e.g.
-    physical -> voxel space).
+    For Neurons only: transforms can introduce a change in the units (e.g. if
+    the transform goes from micron to nanometer space). Some template brains have
+    their units hard-coded in their meta data (as ``_navis_units``). If that's
+    not the case we fall-back to trying to infer any change in units by comparing
+    distances between x/y/z coordinate before and after the transform. That
+    approach works reasonably well with base 10 increments (e.g. nm -> um) but
+    may be off with odd changes in units (e.g. physical -> voxel space).
+    Regardless of whether hard-coded or inferred, any change in units is used to
+    update the ``.units`` property and node/soma radii for TreeNeurons.
 
     Parameters
     ----------
@@ -715,20 +717,20 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                         Target template brain that the data should be
                         transformed into.
     via :               str, optional
-                        Optional define an intermediate template. This can be
+                        Optionally set an intermediate template. This can be
                         helpful to force a specific transformation sequence.
     affine_fallback :   bool
-                        In same cases the non-rigid transformation of points
+                        In some cases the non-rigid transformation of points
                         can fail - for example if points are outside the
                         deformation field. If that happens, they will be
-                        returned as ``NaN``. Unless ``affine_fallback`` is
-                        ``True``, in which case we will apply only the rigid
-                        affine  part of the transformation to at least get close
-                        to the correct coordinates.
+                        returned as ``NaN``. If ``affine_fallback=True``
+                        we will apply only the rigid affine part of the
+                        transformation to those points to get as close as
+                        possible to the correct coordinates.
     caching :           bool
                         If True, will (pre-)cache data for transforms whenever
                         possible. Depending on the data and the type of
-                        transforms this can tremendously speed things up at the
+                        transforms this can speed things up significantly at the
                         cost of increased memory usage:
                           - ``False`` = no upfront cost, lower memory footprint
                           - ``True`` = higher upfront cost, most definitely faster
@@ -769,6 +771,9 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     :func:`navis.xform`
                     Lower level entry point that takes data and applies a given
                     transform or sequence thereof.
+    :func:`navis.mirror_brain`
+                    Uses non-rigid transforms to mirror neurons from the left
+                    to the right side of given template brain and vice versa.
 
     """
     if not isinstance(source, str):
@@ -799,10 +804,10 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                affine_fallback=affine_fallback)
 
     # We might be able to set the correct units based on the target template's
-    # meta data (the "guessed" new units can be very off if the transform is
-    # not base 10 which happens for voxels -> physical space)
+    # meta data (the "guessed" new units can be off if the transform is
+    # not base 10 which happens for e.g. voxels -> physical space)
     if isinstance(xf, (core.NeuronList, core.BaseNeuron)):
-        # Firt we need to find the last non-alias template space
+        # First we need to find the last non-alias template space
         for tmp, tr in zip(path[::-1], transforms[::-1]):
             if not isinstance(tr, AliasTransform):
                 # There is a chance that there is no meta data for this template
@@ -884,6 +889,8 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
                     By default ("auto") it will find and apply the closest
                     mirror transform. You can also specify a template that
                     should be used. That template must have a mirror transform!
+    verbose :       bool
+                    If True, will print some useful info on the transform(s).
 
     Returns
     -------
@@ -1052,15 +1059,18 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     mirror_axis :   'x' | 'y' | 'z', optional
                     Axis to mirror. Defaults to `x`.
     warp :          bool | "auto" | Transform, optional
-                    If 'auto', will check if a mirror transformation exists
-                    for the given ``template`` and apply it after the flipping.
-                    You can also just pass a Transform or TransformSequence.
+                    If 'auto', will check if a non-rigi mirror transformation
+                    exists for the given ``template`` and apply it after the
+                    flipping. Alternatively, you can also pass a Transform or
+                    TransformSequence directly.
     via :           str | None
                     If provided, (e.g. "FCWB") will first transform coordinates
                     into that space, then mirror and transform back.
                     Use this if there is no mirror registration for the original
                     template, or to transform to a symmetrical template in which
                     flipping is sufficient.
+    verbose :       bool
+                    If True, will print some useful info on the transform(s).
 
     Returns
     -------
@@ -1276,8 +1286,8 @@ class TemplateBrain:
 
     See `navis-flybrains <https://github.com/navis-org/navis-flybrains>`_ for
     an example of how to use template brains.
-    """
 
+    """
     def __init__(self, **properties):
         """Initialize class."""
         for k, v in properties.items():

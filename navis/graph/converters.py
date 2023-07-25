@@ -448,7 +448,7 @@ def nx2neuron(g: nx.Graph,
     """Generate node table from NetworkX Graph.
 
     This function will try to generate a neuron-like tree structure from
-    the Graph. Therefore the graph may not contain loops!
+    the Graph. Therefore the graph must not contain loops!
 
     Node attributes (e.g. ``x``, ``y``, ``z``, ``radius``) need
     to be properties of the graph's nodes. All node property will be added to
@@ -475,7 +475,7 @@ def nx2neuron(g: nx.Graph,
     """
     # First some sanity checks
     if not isinstance(g, nx.Graph):
-        raise TypeError(f'`g` must be NetworkX Graph, not "{type(g)}"')
+        raise TypeError(f'`g` must be NetworkX Graph, got "{type(g)}"')
 
     # We need an undirected Graph
     if isinstance(g, nx.DiGraph):

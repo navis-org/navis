@@ -12,8 +12,8 @@
 #    GNU General Public License for more details.
 
 
-""" This module contains functions to analyse neuron's form factors.
-"""
+""" This module contains functions to analyse neuron's form factors."""
+
 import os
 import scipy
 

@@ -2034,7 +2034,7 @@ def rewire_skeleton(x: 'core.TreeNeuron',
                 Neuron to be rewired.
     g :         networkx.Graph
                 Graph to use for rewiring. Please note that directionality (if
-                present) is note taken into account. Nodes not included in the
+                present) is not taken into account. Nodes not included in the
                 graph will be disconnected (i.e. won't have a parent). Nodes
                 in the graph but not in the table are ignored!
     root :      int
