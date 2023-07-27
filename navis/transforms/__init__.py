@@ -21,5 +21,7 @@ from .h5reg import H5transform
 from .cmtk import CMTKtransform
 from .moving_least_squares import MovingLeastSquaresTransform
 
+from .import align
+
 # Make sure that only these functions are avaialable at top level
-__all__ = ['xform_brain', 'mirror_brain', 'xform', 'mirror', 'symmetrize_brain']
+__all__ = ['xform_brain', 'mirror_brain', 'xform', 'mirror', 'symmetrize_brain', 'align']
