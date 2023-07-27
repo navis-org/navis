@@ -388,6 +388,7 @@ Utilities for NBLAST
     navis.nbl.update_scores
     navis.nbl.compress_scores
     navis.nbl.extract_matches
+    navis.nbl.nblast_prime
 
 
 Polarity metrics
