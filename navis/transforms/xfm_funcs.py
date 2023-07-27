@@ -169,7 +169,12 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                        affine_fallback=affine_fallback)
 
         # Guess change in spatial units
-        change, magnitude = _guess_change(xyz, xyz_xf, sample=1000)
+        if xyz.shape[0] > 1:
+            change, magnitude = _guess_change(xyz, xyz_xf, sample=1000)
+        else:
+            change, magnitude = 1, 0
+            logger.warning(f'Unable to assess change of units for neuron {x.id}: '
+                           'must have at least two nodes/points.')
 
         # Round change -> this rounds to the first non-zero digit
         # change = np.around(change, decimals=-magnitude)
