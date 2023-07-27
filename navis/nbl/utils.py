@@ -11,14 +11,12 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-"""Module containing base classes for BLASTING."""
+"""Module containing utility functions for BLASTING."""
 
 import numpy as np
 import pandas as pd
 import scipy.cluster.hierarchy as sch
 
-from abc import ABC, abstractmethod
-from typing import Union, List
 from scipy.spatial.distance import squareform
 
 from .. import config
@@ -132,22 +130,10 @@ def _extract_matches_threshold(scores, threshold=.3, distances=False):
         ind, cols = np.where(scores.values <= threshold)
 
     matches = pd.DataFrame()
-    matches.index = scores.index
-
-    match_str = []
-    scores_str = []
-    for i in range(len(matches)):
-        this = cols[ind == i]
-        sc = scores.iloc[i].values[this]
-        srt = np.argsort(sc)[::-1]
-        m = scores.columns[this][srt]
-        sc = sc[srt]
-
-        match_str.append(','.join(m.astype(str)))
-        scores_str.append(','.join(sc.round(3).astype(str)))
-
-    matches['matches'] = match_str
-    matches['scores'] = scores_str
+    matches['query'] = scores.index[ind]
+    matches['match'] = scores.columns[cols]
+    matches['score'] = scores.values[ind, cols]
+    matches = matches.sort_values(['query', 'match', 'score']).set_index(['query', 'match'])
 
     return matches
 
@@ -170,7 +156,7 @@ def _extract_matches_perc(scores, perc=.05, distances=False):
     scores_str = []
     for i in range(len(matches)):
         this = cols[ind == i]
-        sc = scores.iloc[i].values[this]
+        sc = scores.values[i, this]
         srt = np.argsort(sc)[::-1]
         m = scores.columns[this][srt]
         sc = sc[srt]
