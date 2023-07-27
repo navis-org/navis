@@ -250,6 +250,7 @@ Various functions for plotting neurons and volumes.
     navis.plot_flat
     navis.clear3d
     navis.close3d
+    navis.pop3d
     navis.get_viewer
     navis.screenshot
 
@@ -364,6 +365,7 @@ Functions to compare morphology.
     navis.nblast
     navis.nblast_smart
     navis.nblast_allbyall
+    navis.nblast_align
     navis.vxnblast
     navis.synblast
     navis.persistence_distances
@@ -376,6 +378,17 @@ Utilities for creating your own score matrices for NBLAST can be found in
     navis.nbl.smat.Lookup2d
     navis.nbl.smat.Digitizer
     navis.nbl.smat.LookupDistDotBuilder
+
+Utilities for NBLAST
+
+.. autosummary::
+    :toctree: generated/
+
+    navis.nbl.make_clusters
+    navis.nbl.update_scores
+    navis.nbl.compress_scores
+    navis.nbl.extract_matches
+
 
 Polarity metrics
 ----------------
@@ -416,8 +429,8 @@ Functions to intersect points and neurons with volumes.
 
 Transforming and Mirroring
 ++++++++++++++++++++++++++
-Functions to transform spatial data between (e.g. neurons) template brains.
-Check out the :ref:`tutorials<example_gallery>` for example on how to use them.
+Functions to transform spatial data e.g. between template brains.
+Check out the :ref:`tutorials<example_gallery>` for examples on how to use them.
 
 High-level functions:
 
@@ -429,6 +442,10 @@ High-level functions:
     navis.symmetrize_brain
     navis.mirror_brain
     navis.transforms.mirror
+    navis.align.align_rigid
+    navis.align.align_deform
+    navis.align.align_pca
+    navis.align.align_pairwise
 
 ``navis`` supports several types of transforms:
 
@@ -548,7 +565,6 @@ Various utility functions.
     navis.set_default_connector_colors
     navis.config.remove_log_handlers
     navis.patch_cloudvolume
-    navis.nbl.extract_matches
     navis.example_neurons
     navis.example_volume
 
