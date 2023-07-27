@@ -15,7 +15,7 @@ import warnings
 
 from ... import config
 
-__all__ = ['get_viewer', 'clear3d', 'close3d', 'screenshot']
+__all__ = ['get_viewer', 'clear3d', 'close3d', 'screenshot', 'pop3d']
 
 
 def get_viewer():
@@ -61,6 +61,12 @@ def close3d():
         del viewer
     except BaseException:
         pass
+
+
+def pop3d():
+    """Remove the last item added to the 3D canvas."""
+    viewer = get_viewer()
+    viewer.pop()
 
 
 def screenshot(file='screenshot.png', alpha=True):

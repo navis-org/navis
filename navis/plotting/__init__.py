@@ -20,4 +20,4 @@ from .vispy import *
 from .colors import vary_colors
 
 __all__ = ['plot1d', 'plot2d', 'plot3d', 'plot_flat', 'vary_colors', 'Viewer',
-           'get_viewer', 'clear3d', 'close3d', 'screenshot']
+           'get_viewer', 'clear3d', 'close3d', 'pop3d', 'screenshot']
