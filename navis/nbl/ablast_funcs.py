@@ -12,28 +12,26 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-"""Module contains functions implementing align=NBLAST."""
+"""Module contains functions implementing alignNBLAST."""
 
-
-import warnings
 import os
+import operator
 
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
 
-from threadpoolctl import ThreadpoolController
 from functools import partial
-from typing import Callable, Dict, Union, Optional, List
+from typing import Callable, Dict, Union, Optional
 from typing_extensions import Literal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from .. import config, utils, core
-from ..transforms.align import align_rigid, align_deform, align_pca
+from ..transforms.align import align_rigid, align_deform, align_pca, _align_rigid_deform
 
 from .base import Blaster, NestedIndices
-from .nblast_funcs import nblast_preflight, find_batch_partition, find_optimal_partition
-
+from .nblast_funcs import (nblast_preflight,find_optimal_partition, set_omp_flag)
+from .smat import Lookup2d, _nblast_v1_scoring
 
 logger = config.logger
 
@@ -90,7 +88,7 @@ class NBlasterAlign(Blaster):
     """
 
     def __init__(self,
-                 align_func, two_way_align=True,
+                 align_func, two_way_align=True, sample_align=None,
                  use_alpha=False, normalized=True, smat='auto',
                  limit_dist=None, approx_nn=False, dtype=np.float64,
                  progress=True,
@@ -102,6 +100,7 @@ class NBlasterAlign(Blaster):
         super().__init__(progress=progress, dtype=dtype)
         self.align_func = align_func
         self.two_way_align = two_way_align
+        self.sample_align = sample_align
         self.use_alpha = use_alpha
         self.normalized = normalized
         self.approx_nn = approx_nn
@@ -166,8 +165,11 @@ class NBlasterAlign(Blaster):
 
     def get_dotprop(self, ix):
         if ix not in self.dotprops:
-            self.dotprops[ix] = core.make_dotprops(self.neurons[ix],
-                                                   **self.dotprop_kwargs)
+            if not isinstance(self.neurons[ix], core.Dotprops):
+                self.dotprops[ix] = core.make_dotprops(self.neurons[ix],
+                                                    **self.dotprop_kwargs)
+            else:
+                self.dotprops[ix] = self.neurons[ix]
         return self.dotprops[ix]
 
     def get_self_hit(self, ix):
@@ -220,10 +222,12 @@ class NBlasterAlign(Blaster):
         # Align the query to the target
         q_xf = self.align_func(self.neurons[q_idx],
                                target=self.neurons[t_idx],
+                               sample=self.sample_align,
                                progress=False,
                                **self.align_kwargs)[0][0]
 
-        # The query must always be made into new dotprops
+        # The query must always be made into new dotprops because it has been
+        # moved around
         q_dp = core.make_dotprops(q_xf, **self.dotprop_kwargs)
 
         # The target dotprop has to be compute only once
@@ -258,6 +262,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                                      Literal['deform'],
                                      Literal['pca']] = 'rigid',
                  two_way_align: bool = True,
+                 sample_align: Optional[float] = None,
                  scores: Union[Literal['forward'],
                                Literal['mean'],
                                Literal['min'],
@@ -282,16 +287,16 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
 
     Parameters
     ----------
-    query :         TreeNeuron | NeuronList
+    query :         Neuron | NeuronList
                     Query neuron(s) to NBLAST against the targets. Neurons
                     should be in microns as NBLAST is optimized for that and
                     have similar sampling resolutions.
-    target :        TreeNeuron | NeuronList, optional
+    target :        Neuron | NeuronList, optional
                     Target neuron(s) to NBLAST against. Neurons should be in
                     microns as NBLAST is optimized for that and have
                     similar sampling resolutions. If not provided, will NBLAST
                     queries against themselves.
-    align_method :  "rigid" | "deform" | "pca"
+    align_method :  "rigid" | "deform" | "pca" | "rigid+deform"
                     Which method to use for alignment. Maps to the respective
                     ``navis.align_{method}`` function.
     two_way_align : bool
@@ -299,6 +304,10 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     query->target as well as query->target direction. This is
                     highly recommended because it reduces the chance that a
                     single bad alignment will mess up your scores.
+    sample_align :  float [0-1], optional
+                    If provided, will calculate an initial alignment on just a
+                    fraction of the points followed by a landmark transform
+                    to transform the rest. Use this to speed things up.
     scores :        'forward' | 'mean' | 'min' | 'max' | 'both'
                     Determines the final scores:
 
@@ -369,7 +378,8 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     function.
     dotprop_kwargs : dict, optional
                     Dictionary with additional parameters passed to
-                    ``navis.make_dotprops``.
+                    ``navis.make_dotprops``. Only relevant if inputs aren't
+                    already dotprops.
 
 
     Returns
@@ -400,7 +410,8 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
     >>> nl_um = nl * (8 / 1000)
     >>> # Run the align nblast
     >>> scores = navis.nblast_align(nl_um[:3], nl_um[3:],
-    ...                          dotprop_kwargs=dict(k=5))
+    ...                             dotprop_kwargs=dict(k=5),
+    ...                             sample_align=.2)
 
     See Also
     --------
@@ -424,7 +435,8 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
     if not callable(align_method):
         align_func = {'rigid': align_rigid,
                       'deform': align_deform,
-                      'pca': align_pca}[align_method]
+                      'pca': align_pca,
+                      'rigid+deform': _align_rigid_deform}[align_method]
     else:
         align_func = align_method
 
@@ -437,24 +449,22 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
     # Find a partition that produces batches that each run in approximately
     # 10 seconds
     if n_cores and n_cores > 1:
+        n_rows, n_cols = find_optimal_partition(n_cores, query, target)
         if progress:
             # If progress bar, we need to make smaller mini batches.
             # These mini jobs must not be too small - otherwise the overhead
             # from spawning and sending results between processes slows things
             # down dramatically. Here we hardcode such that we get updates
             # at most every 1%
-            n_rows = max(1, len(query) // 10)
-            n_cols = max(1, len(target) // 10)
-        else:
-            n_rows, n_cols = find_optimal_partition(n_cores, query, target)
+            n_rows = max(n_rows, len(query) // 10)
+            n_cols = max(n_cols, len(target) // 10)
     else:
         n_rows = n_cols = 1
 
     # This makes sure we don't run into multiple layers of concurrency
-    controller = ThreadpoolController()
-    with controller.limit(limits=1 if (n_cores and n_cores > 1) else None,
-                          user_api=None # None means all APIs
-                          ):
+    # Note that it doesn't do anything for the parent process (which is great
+    # if we end up not actually using multiple cores)
+    with set_omp_flag(limits=1):
         # Initialize a pool of workers
         # Note that we're forcing "spawn" instead of "fork" (default on linux)!
         # This is to reduce the memory footprint since "fork" appears to inherit all
@@ -473,6 +483,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                         # Initialize NBlaster
                         this = NBlasterAlign(align_func=align_func,
                                              two_way_align=two_way_align,
+                                             sample_align=sample_align,
                                              use_alpha=use_alpha,
                                              normalized=normalized,
                                              smat=smat,
@@ -538,115 +549,3 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                                                  scores=scores)
 
     return scores
-
-
-# This is the old reference implementation - will keep for a little longer
-def _nblast_align(q, t=None, method='rigid', scores='mean', normalized=True,
-                 progress=True, max_threads=None, dotprop_kwargs={}, **kwargs):
-    """Run NBLAST on pairwise-aligned neurons.
-
-    Requires the `pycpd` library.
-
-    Parameters
-    ----------
-    q :             NeuronList
-                    Query neurons.
-    t :             NeuronList, optional
-                    Target neurons. If ``None``, will run an all-by-all NBLAST of
-                    ``x``.
-    method :        "rigid" | "deform" | "pca"
-                    Which method to use for alignment. Maps to the respective
-                    ``navis.align_{method}`` function.
-    scores :        "mean" | "forward"
-                    Which NBLAST scores to generate.
-    max_threads :   int, optional
-                    Use this to set the number of threads numpy is allowed to
-                    use for the registration. If ``None`` will use system
-                    defaults which is typically the number of CPUs.
-    **kwargs
-                    Keyword arguments are passed through to the respective
-                    alignment function.
-
-    Returns
-    -------
-    scores :    pandas.DataFrame
-                DataFrame with the NBLAST scores. Important to note that even
-                when ``q == t`` and with ``scores=mean`` the matrix will not be
-                symmetrical because we run separate alignments for the forward
-                and the reverse comparisons.
-
-    """
-    # Notes:
-    # We could massively speed things up by daisy-chaining the transforms, i.e.
-    # calculcate transform from t[0] -> t[1], t[0] -> t[2], etc.
-    # Then we only have to calculate a transform from each query to t[0] (i.e.
-    # q[0] -> t[1], q[1] -> t[1]) and from there use the existing transforms
-    # While this does make a difference it appears to get neurons at least
-    # "in the right ball-park". So perhaps this should be an option of a
-    # quick & dirty aligned NBLAST?
-    # The problem is that if the q -> t[0] transform is bad all subsequent
-    # transforms will be bad. Same if t[0] just doesn't map well onto the rest
-    # of the targets (e.g. if it's really big or really small)
-
-    # Alternatively we could "warm-up" by first aligning both query and target
-    # neurons to a single neuron to bring them into roughly the same space. This
-    # make subsequent pairwise transforms converge ~20% faster. I haven't tested
-    # how it affects the transforms though.
-
-    squared = False
-    if t is None:
-        t = q
-        squared = True
-
-    utils.eval_param(q, name='q', allowed_types=(core.NeuronList, ))
-    utils.eval_param(t, name='t', allowed_types=(core.NeuronList, ))
-    utils.eval_param(method, name='method',
-                     allowed_values=('rigid', 'deform', 'pca'))
-    utils.eval_param(scores, name='scores',
-                     allowed_values=('forward', 'mean'))
-
-    func = {'rigid': align_rigid,
-            'deform': align_deform,
-            'pca': align_pca}[method]
-
-    score_fn = smat_fcwb(False)
-    self_hits = {}
-
-    controller = ThreadpoolController()
-
-    sc = np.zeros((len(q), len(t)), dtype=np.float64)
-
-    with controller.limit(limits=max_threads, user_api='blas'):
-        for i, n2 in config.tqdm(enumerate(t),
-                                 desc='NBLASTing',
-                                 total=len(t),
-                                 disable=not progress or (len(t) ==1)):
-            dp2 = core.make_dotprops(n2, k=5)
-            for k, n1 in enumerate(q):
-                if n1 == n2:
-                    xf = n1
-                else:
-                    xf = func(n1, target=n2, **kwargs, progress=False)[0][0]
-                dp1 = core.make_dotprops(xf, k=5)
-
-                dists, dots = dp1.dist_dots(dp2, alpha=False)
-                scr = score_fn(dists, dots).sum()
-
-                if normalized:
-                    if dp1 not in self_hits:
-                        self_hits[dp1] = len(dp1.points) * score_fn(0, 1.0)
-                    scr /= self_hits[dp1]
-
-                if scores == 'mean':
-                    dists, dots = dp2.dist_dots(dp1, alpha=False)
-                    reverse = score_fn(dists, dots).sum()
-                    if normalized:
-                        if dp2 not in self_hits:
-                            self_hits[dp2] = len(dp2.points) * score_fn(0, 1.0)
-                        reverse /= self_hits[dp2]
-
-                    scr = (scr + reverse) / 2
-
-                sc[k, i] = scr
-
-    return pd.DataFrame(sc, index=q.id, columns=t.id)
