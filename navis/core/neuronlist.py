@@ -109,13 +109,16 @@ class NeuronList:
         elif utils.is_iterable(x):
             # If x is a list of mixed objects we need to unpack/flatten that
             # E.g. x = [NeuronList, NeuronList, core.TreeNeuron]
-            to_unpack = [e for e in x if isinstance(e, NeuronList)]
-            x = [e for e in x if not isinstance(e, NeuronList)]
-            x += [n for ob in to_unpack for n in ob.neurons]
-
-            # We have to convert from numpy ndarray to list
-            # Do NOT remove list() here!
-            self.neurons = list(x)  # type: ignore
+            # We need to make sure the order is retained though (important for
+            # e.g. plotting)
+            self.neurons = []
+            for n in x:
+                # Unpack neuronlists
+                if isinstance(n, NeuronList):
+                    self.neurons += n.neurons
+                # Everything else is just appended - will throw error later
+                else:
+                    self.neurons.append(n)
         elif isinstance(x, type(None)):
             # Empty Neuronlist
             self.neurons = []
