@@ -256,8 +256,8 @@ def align_deform(x, target=None, sample=None, progress=True, **kwargs):
     Examples
     --------
     >>> import navis
-    >>> n1, n2 = navis.align.example_neurons(2, kind='skeleton')
-    >>> n1_aligned, regs = navis.align_deform(n1, n2, sample=.2)
+    >>> n1, n2 = navis.example_neurons(2, kind='skeleton')
+    >>> n1_aligned, regs = navis.align.align_deform(n1, n2, sample=.2)
 
     """
     try:
@@ -327,7 +327,7 @@ def align_pca(x, individually=True):
     --------
     >>> import navis
     >>> n1, n2 = navis.example_neurons(2, kind='skeleton')
-    >>> n1_aligned, pcas = navis.align_pca(n1, n2)
+    >>> n1_aligned, pcas = navis.align.align_pca(n1, n2)
 
     """
     try:
