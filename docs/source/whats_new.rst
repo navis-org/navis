@@ -15,9 +15,21 @@ repository.
    * - Version
      - Date
      -
-   * - dev
-     - ongoing
-     - - dropped support for Python 3.7
+   * - 1.5.0
+     - 27/07/23
+     - - BREAKING: dropped support for Python 3.7
+       - new function: :func:`navis.pop3d` removes the most recently added object from the vispy 3d viewer
+       - new experimental functions for (pairwise) alignment of neurons using the ``pycpd`` package:
+         :func:`navis.nblast_align`, :func:`navis.align.align_deform`, :func:`navis.align.align_rigid`,
+         :func:`navis.align.align_pca`, :func:`navis.align.align_pairwise`
+       - :func:`navis.xform_brain` now recognizes the target template's units if available
+       - new ``NeuronList`` method: :func:`navis.NeuronList.set_neuron_attributes`
+       - new utility functions: :func:`navis.nbl.compress_scores`, :func:`navis.nbl.nblast_prime`
+       - improved persistence functions: :func:`navis.persistence_distances`, :func:`navis.persistence_vector`, :func:`navis.persistence_diagram`
+       - :func:`navis.longest_neurite` and :func:`navis.cell_bofy_fiber` now also allow
+         removing the longest neurite and CBF, respectively
+       - :func:`navis.heal_skeleton` now accepts a `mask` parameter that allows restricting where fragments are stitched
+       - various other bugfixes
    * - 1.4.0
      - 21/12/22
      - - BREAKING: ``navis.flow_centrality`` was renamed to :func:`navis.synapse_flow_centrality`
