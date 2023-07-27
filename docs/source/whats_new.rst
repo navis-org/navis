@@ -26,7 +26,7 @@ repository.
        - new ``NeuronList`` method: :func:`navis.NeuronList.set_neuron_attributes`
        - new utility functions: :func:`navis.nbl.compress_scores`, :func:`navis.nbl.nblast_prime`
        - improved persistence functions: :func:`navis.persistence_distances`, :func:`navis.persistence_vector`, :func:`navis.persistence_diagram`
-       - :func:`navis.longest_neurite` and :func:`navis.cell_bofy_fiber` now also allow
+       - :func:`navis.longest_neurite` and :func:`navis.cell_body_fiber` now also allow
          removing the longest neurite and CBF, respectively
        - :func:`navis.heal_skeleton` now accepts a `mask` parameter that allows restricting where fragments are stitched
        - various other bugfixes
