@@ -69,7 +69,7 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList | pandas.DataFrame | numpy.ndarray
+    x :         Neuron | NeuronList | pandas.DataFrame | numpy.ndarray
                 Data/object to generate dotprops from. DataFrame must have
                 'x', 'y' and 'z' columns.
     k :         int (> 1), optional
@@ -147,6 +147,11 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
     elif isinstance(x, core.MeshNeuron):
         properties.update({'units': x.units, 'name': x.name, 'id': x.id})
         x = x.vertices
+        if resample:
+            x, _ = tm.points.remove_close(x, resample)
+    elif isinstance(x, core.Dotprops):
+        properties.update({'units': x.units, 'name': x.name, 'id': x.id})
+        x = x.points
         if resample:
             x, _ = tm.points.remove_close(x, resample)
     elif isinstance(x, core.VoxelNeuron):
