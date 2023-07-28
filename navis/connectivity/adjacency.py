@@ -1,4 +1,4 @@
-from typing import Iterable, Optional
+from typing import Iterable, Optional, NamedTuple
 from ..core import TreeNeuron
 import networkx as nx
 import pandas as pd
@@ -9,6 +9,13 @@ logger = get_logger(__name__)
 
 OTHER = "__OTHER__"
 
+class Edge(NamedTuple):
+    connector_id: int
+    source_name: str
+    target_name: str
+    source_node: Optional[int]
+    target_node: Optional[int]
+
 
 class NeuronConnector:
     """Class which creates a connectivity graph from a set of neurons.
@@ -17,6 +24,7 @@ class NeuronConnector:
 
     Add neurons with the `add_neuron` and `add_neurons` methods.
     Alternatively, supply an iterable of neurons in the constructor.
+    Neurons must have unique names.
 
     See the `to_(multi)digraph` method for output.
     """
@@ -24,8 +32,10 @@ class NeuronConnector:
     def __init__(self, nrns: Optional[Iterable[TreeNeuron]] = None) -> None:
         self.neurons = dict()
         self.connector_xyz = dict()
-        self.inputs = dict()
-        self.outputs = dict()
+        # connectors and the treenodes presynaptic to them
+        self.conn_inputs = dict()
+        # connectors and the treenodes postsynaptic to them
+        self.conn_outputs = dict()
 
         if nrns is not None:
             self.add_neurons(nrns)
@@ -35,6 +45,8 @@ class NeuronConnector:
 
     def add_neurons(self, nrns: Iterable[TreeNeuron]):
         """Add several neurons to the connector.
+
+        All neurons must have unique names.
 
         Parameters
         ----------
@@ -50,6 +62,8 @@ class NeuronConnector:
 
     def add_neuron(self, nrn: TreeNeuron):
         """Add a single neuron to the connector.
+
+        All neurons must have unique names.
 
         Parameters
         ----------
@@ -75,20 +89,20 @@ class NeuronConnector:
         for row in nrn.connectors.itertuples():
             # connector_id, node_id, x, y, z, is_input
             self.connector_xyz[row.connector_id] = (row.x, row.y, row.z)
-            if row.type == 0:
-                self.outputs.setdefault(row.connector_id, []).append((nrn.name, row.node_id))
-            elif row.type == 1:
-                if row.connector_id in self.inputs:
+            if row.type == 1:
+                self.conn_outputs.setdefault(row.connector_id, []).append((nrn.name, row.node_id))
+            elif row.type == 0:
+                if row.connector_id in self.conn_inputs:
                     logger.warning(
                         "Connector with ID %s has multiple inputs: "
                         "connector tables are probably inconsistent",
                         row.connector_id
                     )
-                self.inputs[row.connector_id] = (nrn.name, row.node_id)
+                self.conn_inputs[row.connector_id] = (nrn.name, row.node_id)
 
         return self
 
-    def edges(self, include_other=True):
+    def edges(self, include_other=True) -> Iterable[Edge]:
         """Iterate through all synapse edges.
 
         Parameters
@@ -103,14 +117,14 @@ class NeuronConnector:
         tuple[int, str, str, int, int]
             Connector ID, source name, target name, source treenode, target treenode.
         """
-        for conn_id in set(self.inputs).union(self.outputs):
-            src, src_node = self.inputs.get(conn_id, (OTHER, None))
+        for conn_id in set(self.conn_inputs).union(self.conn_outputs):
+            src, src_node = self.conn_inputs.get(conn_id, (OTHER, None))
             if src_node is None and not include_other:
                 continue
-            for tgt, tgt_node in self.outputs.get(conn_id, [(OTHER, None)]):
+            for tgt, tgt_node in self.conn_outputs.get(conn_id, [(OTHER, None)]):
                 if tgt_node is None and not include_other:
                     continue
-                yield (conn_id, src, tgt, src_node, tgt_node)
+                yield Edge(conn_id, src, tgt, src_node, tgt_node)
 
     def to_adjacency(self, include_other=True) -> pd.DataFrame:
         """Create an adjacency matrix of neuron connectivity.
@@ -135,9 +149,9 @@ class NeuronConnector:
         if include_other:
             index.append(OTHER)
         data = np.zeros((len(index), len(index)), np.uint64)
-        df = pd.DataFrame(data, index)
+        df = pd.DataFrame(data, index, index)
         for _, src, tgt, _, _ in self.edges(include_other):
-            df[src, tgt] += 1
+            df[tgt][src] += 1
 
         return df
 
@@ -169,9 +183,9 @@ class NeuronConnector:
 
         g.graph["connector_xyz"] = self.connector_xyz
         headers = {
-            "connector_id": pd.UInt64Dtype,
-            "pre_node": pd.UInt64Dtype,
-            "post_node": pd.UInt64Dtype,
+            "connector_id": pd.UInt64Dtype(),
+            "pre_node": pd.UInt64Dtype(),
+            "post_node": pd.UInt64Dtype(),
         }
         edges = dict()
         for conn_id, src, tgt, src_node, tgt_node in self.edges(include_other):
