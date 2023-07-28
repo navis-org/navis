@@ -51,7 +51,7 @@ class NodeConnectorRelation(IntEnum):
 
     i.e. "the (tree)node is <NodeConnectorType> the connector node"
 
-    Based on the `CATMAID link types`_.
+    Inspired by the `CATMAID link types`_.
     A node PRESYNAPTIC_TO a connector is an output site.
     A node POSTSYNAPTIC_TO a connector is an input site.
 
@@ -59,12 +59,28 @@ class NodeConnectorRelation(IntEnum):
     """
     PRESYNAPTIC_TO = 0
     POSTSYNAPTIC_TO = 1
-    ABUTTING = 2
-    GAPJUNCTION_WITH = 3
-    TIGHTJUNCTION_WITH = 4
-    DESMOSOME_WITH = 5
-    ATTACHMENT_TO = 6
-    CLOSE_TO = 7
+    # ABUTTING = 2
+    # GAPJUNCTION_WITH = 3
+    # TIGHTJUNCTION_WITH = 4
+    # DESMOSOME_WITH = 5
+    # ATTACHMENT_TO = 6
+    # CLOSE_TO = 7
+
+    def is_output_node(self) -> bool:
+        """Whether the node is sending output via the connector"""
+        return self == NodeConnectorRelation.PRESYNAPTIC_TO
+
+    def is_input_node(self) -> bool:
+        """Whether the node is receiving input via the connector"""
+        return self == NodeConnectorRelation.POSTSYNAPTIC_TO
+
+    def is_output_connector(self) -> bool:
+        """Whether the connector is sending output to the node"""
+        return self.is_input_node()
+
+    def is_input_connector(self) -> bool:
+        """Whether the connector is receiving input from the node"""
+        return self.is_output_node()
 
 
 def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
