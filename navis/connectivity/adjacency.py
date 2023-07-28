@@ -9,6 +9,7 @@ logger = get_logger(__name__)
 
 OTHER = "__OTHER__"
 
+
 class Edge(NamedTuple):
     connector_id: int
     source_name: str
