@@ -1,3 +1,5 @@
+from typing import List, Tuple
+
 import pytest
 import pandas as pd
 import numpy as np
@@ -27,7 +29,7 @@ def test_neuron_connector():
     assert mdg.number_of_edges() == 0
 
 
-def path_neuron(path: list[int]):
+def path_neuron(path: List[int]):
     nrn = navis.TreeNeuron(None)
     nrn.name = "".join(str(n) for n in path)
     dtypes = {
@@ -49,8 +51,8 @@ def path_neuron(path: list[int]):
 
 def add_connectors(
     nrn: navis.TreeNeuron,
-    incoming: list[tuple[int, int]],
-    outgoing: list[tuple[int, int]],
+    incoming: List[Tuple[int, int]],
+    outgoing: List[Tuple[int, int]],
 ):
     """Add connectors to a neuron.
 
