@@ -450,7 +450,7 @@ def write_swc(x: 'core.NeuronObject',
 
     export_connectors : bool, optional
                         If True, will label nodes with pre- ("7") and
-                        postsynapse ("8"). Because only one label can be given
+                        postsynapse ("8"), or both ("9"). Because only one label can be given
                         this might drop synapses (i.e. in case of multiple
                         pre- and/or postsynapses on a single node)! ``labels``
                         must be ``True`` for this to have any effect.
@@ -613,7 +613,7 @@ def _sort_swc_dfs(df: pd.DataFrame, roots, sort_children=True, inplace=False):
     while to_visit:
         node_id = to_visit.pop()
         order[node_id_to_orig_idx[node_id]] = count
-        cs = children.pop(order[-1], [])
+        cs = children.pop(node_id, [])
         if sort_children:
             to_visit.extend(sorted(cs, reverse=True))
         else:
@@ -627,7 +627,7 @@ def _sort_swc_dfs(df: pd.DataFrame, roots, sort_children=True, inplace=False):
 
     df["_order"] = order
     df.sort_values("_order", inplace=True)
-    df.drop(columns=["_order"])
+    df.drop(columns=["_order"], inplace=True)
     return df
 
 
@@ -680,6 +680,7 @@ def make_swc_table(x: 'core.TreeNeuron',
         x = x.to_skeleton()
 
     # Work on a copy sorted in depth-first order
+    # swc = _sort_swc_parent(x.nodes, inplace=False)
     swc = _sort_swc_dfs(x.nodes, x.root, inplace=False)
 
     # Add labels
