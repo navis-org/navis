@@ -81,4 +81,5 @@
                 :link: other_libs
                 :link-type: ref
 
-                Write your own library built on top of navis functions.
+                Write your own library built on top of navis functions. See
+                our :ref:`ecosystem <other_libs>` for examples.

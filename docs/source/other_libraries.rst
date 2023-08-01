@@ -32,7 +32,7 @@ fafbseg
 `fafbseg <https://fafbseg-py.readthedocs.io/en/latest/index.html>`_ contains
 tools to work with autosegmented data for the
 `FAFB <https://www.temca2data.org>`_ (full adult fly brain)
-EM dataset. It brings together data from `flywire <https://flywire.ai/>`_,
+EM dataset. It brings together data from `FlyWire <https://flywire.ai/>`_,
 `Google's <http://fafb-ffn1.storage.googleapis.com/landing.html>`_ segmentation
 of FAFB and `synapse predictions <https://github.com/funkelab/synful>`_ by
 Buhmann et al. (2019).
