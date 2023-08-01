@@ -7,7 +7,9 @@ API Reference
 at top level (e.g. ``navis.plot3d``) and easily another 100 secondary functions
 available via submodules (e.g. ``navis.morpho.find_soma``). This can be a bit
 daunting at first - especially if you don't exactly know what you are looking
-for. I recommend you either just have a browse, use the search field
+for.
+
+I recommend you either just have a browse, use the search field
 (upper right) or simply search in page (CONTROL/CMD-F). Failing that, please
 feel free to open an `issue <https://github.com/navis-org/navis/issues>`_ on
 the Github repo with your question.
