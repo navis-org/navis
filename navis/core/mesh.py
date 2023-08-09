@@ -17,7 +17,6 @@ import os
 import pint
 import warnings
 import scipy
-import warnings
 
 import networkx as nx
 import numpy as np
@@ -56,7 +55,7 @@ class MeshNeuron(BaseNeuron):
 
     Parameters
     ----------
-    x
+    x :             mesh-like | tuple | dictionary | filepath | None
                     Data to construct neuron from:
                      - any object that has ``.vertices`` and ``.faces``
                        properties (e.g. a trimesh.Trimesh)
@@ -102,11 +101,7 @@ class MeshNeuron(BaseNeuron):
     CORE_DATA = ['vertices', 'faces']
 
     def __init__(self,
-                 x: Union[pd.DataFrame,
-                          BufferedIOBase,
-                          str,
-                          'TreeNeuron',
-                          nx.DiGraph],
+                 x,
                  units: Union[pint.Unit, str] = None,
                  process: bool = True,
                  validate: bool = False,
