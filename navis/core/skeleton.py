@@ -607,6 +607,32 @@ class TreeNeuron(BaseNeuron):
         return self._cable_length
 
     @property
+    def surface_area(self) -> float:
+        """Radius-based lateral surface area."""
+        if 'radius' not in self.nodes.columns:
+            raise ValueError(f'Neuron {self.id} does not have radius information')
+
+        if any(self.nodes.radius < 0):
+            logger.warning(f'Neuron {self.id} has negative radii - area will not be correct.')
+
+        if any(self.nodes.radius.isnull()):
+            logger.warning(f'Neuron {self.id} has NaN radii - area will not be correct.')
+
+        # Generate radius dict
+        radii = self.nodes.set_index('node_id').radius.to_dict()
+        # Drop root node(s)
+        not_root = self.nodes.parent_id >= 0
+        # For each cylinder get the height
+        h = morpho.mmetrics.parent_dist(self, root_dist=0)[not_root]
+
+        # Radii for top and bottom of tapered cylinder
+        nodes = self.nodes[not_root]
+        r1 = nodes.node_id.map(radii).values
+        r2 = nodes.parent_id.map(radii).values
+
+        return (np.pi * (r1 + r2) * np.sqrt( (r1-r2)**2 + h**2)).sum()
+
+    @property
     def volume(self) -> float:
         """Radius-based volume."""
         if 'radius' not in self.nodes.columns:
