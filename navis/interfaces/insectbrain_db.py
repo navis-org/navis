@@ -183,7 +183,8 @@ def authenticate(username=None, password=None, token=None):
 
 
 def get_brain_meshes(species: Union[str, int],
-                     combine: bool = False
+                     combine: bool = False,
+                     max_threads: int = 4
                      ) -> Optional[List[Volume]]:
     """Fetch brain meshes for given species.
 
@@ -195,6 +196,8 @@ def get_brain_meshes(species: Union[str, int],
     combine :       bool, optional
                     If True, will combine subvolumes (i.e. neuropils) into
                     a single navis.Volume - else will return list with volumes.
+    max_threads :   int
+                    Number of parallel threads to use for fetching meshes.
 
     Returns
     -------
@@ -208,8 +211,6 @@ def get_brain_meshes(species: Union[str, int],
     >>> navis.plot3d(v)
 
     """
-    obj_url = 'https://s3.eu-central-1.amazonaws.com/ibdb-file-storage/'
-
     # Get info with all available neuropils
     sp_info = get_species_info(species)
 
@@ -227,46 +228,66 @@ def get_brain_meshes(species: Union[str, int],
         # If no reconstructions, continue
         if not brain.get('viewer_files'):  # type: ignore
             continue
-        for file in config.tqdm(brain['viewer_files'],
-                                desc='Neuropils',
-                                disable=config.pbar_hide,
-                                leave=config.pbar_leave):
-            filename = file['p_file']['file_name']
-            path = file['p_file']['path']
-            url = make_url(obj_url, path)
 
-            resp = requests.get(url)
-            resp.raise_for_status()
+        with ThreadPoolExecutor(max_workers=max_threads) as executor:
+            futures = {}
+            for file in brain['viewer_files']:
+                # If no file UUID, continue
+                if not file['p_file']['uuid']:
+                    continue
+                filename = file['p_file']['file_name']
+                f = executor.submit(_get_neuropil_mesh, file,)
+                futures[f] = filename
 
-            f = io.BytesIO(resp.content)
-            mesh = tm.load_mesh(f, file_type='obj')
-
-            structures = file.get('structures')
-            if structures:
-                structure = structures[0].get('structure')
-                hemisphere = structures[0].get('hemisphere')
-                if structure:
-                    color = structure.get('color')
-                    if color:
-                        color = mcl.to_rgba(color, alpha=.5)
-                    else:
-                        color = (.85, .85, .85, .5)
-                name = structure.get('name', filename)
-
-                if hemisphere:
-                    name = f'{name} ({hemisphere})'
-
-            v = Volume(mesh, name=name, color=color)
-            this_v.append(v)
+            with config.tqdm(desc='Fetching',
+                            total=len(futures),
+                            leave=config.pbar_leave,
+                            disable=len(futures) == 1 or config.pbar_hide) as pbar:
+                for f in as_completed(futures):
+                    name = futures[f]
+                    pbar.update(1)
+                    try:
+                        this_v.append(f.result())
+                    except Exception as exc:
+                        print(f'{name} generated an exception:', exc)
 
         # Combine all volumes in this brain
         if combine:
             this_v = [Volume.combine(this_v)]
             this_v[0].color = (.85, .85, .85, .5)
+            this_v[0].name = sp_info.scientific_name
 
         volumes += this_v
 
     return volumes
+
+
+def _get_neuropil_mesh(file):
+    filename = file['p_file']['file_name']
+    url = _get_download_url(file['p_file']['uuid'])
+
+    resp = requests.get(url)
+    resp.raise_for_status()
+
+    f = io.BytesIO(resp.content)
+    mesh = tm.load_mesh(f, file_type='obj')
+
+    structures = file.get('structures')
+    if structures:
+        structure = structures[0].get('structure')
+        hemisphere = structures[0].get('hemisphere')
+        if structure:
+            color = structure.get('color')
+            if color:
+                color = mcl.to_rgba(color, alpha=.5)
+            else:
+                color = (.85, .85, .85, .5)
+        name = structure.get('name', filename)
+
+        if hemisphere:
+            name = f'{name} ({hemisphere})'
+
+    return Volume(mesh, name=name, color=color)
 
 
 @lru_cache()
@@ -700,6 +721,14 @@ def _sort_columns(df):
     cols = sorted(df.columns, key=lambda x: prio.get(x, 10))
 
     return df[cols]
+
+
+def _get_download_url(uuid):
+    """Get AWS download URL for given object."""
+    url = f"https://www.insectbraindb.org/filestore/download_url/?uuid={uuid}"
+    r = requests.get(url)
+    r.raise_for_status()
+    return r.json()['url']
 
 
 session = Session()
