@@ -574,13 +574,18 @@ class CompartmentModel:
         if rec_type not in self.records:
             self.records[rec_type] = {}
 
-        for w in where:
+        # # Get node segments only for nodes
+        is_node = ~np.array([is_NEURON_object(w) for w in where])
+        node_segs = np.zeros(len(where), dtype=object)
+        node_segs[is_node] = self.get_node_segment(where[is_node])
+
+        for i, w in enumerate(where):
             # If this is a neuron object (e.g. segment, section or point
             # process) we assume this does not need mapping
             if is_NEURON_object(w):
                 seg = w
             else:
-                seg = self.get_node_segment(w)
+                seg = node_segs[i]
 
             rec = neuron.h.Vector().record(getattr(seg, what))
 
