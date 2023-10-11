@@ -281,12 +281,12 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
 
     # Filter connectors
     if not keep_disc_cn and x.has_connectors:
-        x._connectors = x.connectors[x.connectors.node_id.isin(subset)]
+        x._connectors = x.connectors[x.connectors.node_id.isin(x.nodes.node_id)]
         x._connectors.reset_index(inplace=True, drop=True)
 
     if getattr(x, 'tags', None) is not None:
         # Filter tags
-        x.tags = {t: [tn for tn in x.tags[t] if tn in subset] for t in x.tags}  # type: ignore  # TreeNeuron has no tags
+        x.tags = {t: [tn for tn in x.tags[t] if tn in x.nodes.node_id.values] for t in x.tags}  # type: ignore  # TreeNeuron has no tags
 
         # Remove empty tags
         x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}  # type: ignore  # TreeNeuron has no tags
