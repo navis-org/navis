@@ -292,7 +292,10 @@ def __fetch_mesh(bodyId, *, vol, lod, missing_mesh='raise'):
     # Fetch mesh
     import cloudvolume
     try:
-        mesh = vol.mesh.get(bodyId, lod=lod)[bodyId]
+        if lod is None:
+            mesh = vol.mesh.get(bodyId)
+        else:
+            mesh = vol.mesh.get(bodyId, lod=lod)
     except cloudvolume.exceptions.MeshDecodeError as err:
         if 'not found' in str(err):
             if missing_mesh in ['warn', 'skip']:
