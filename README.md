@@ -2,7 +2,7 @@
 
 <img src="https://github.com/navis-org/navis/raw/master/docs/_static/favicon.png" height="60">
 
-NAVis is a Python 3 (3.8 or later) library for **N**euron **A**nalysis and **Vis**ualization.
+NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization.
 
 ## Documentation
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
@@ -64,8 +64,28 @@ libraries built on top of NAVis:
 * [pymaid](https://pymaid.readthedocs.io/en/latest/) pulls and pushes data from/to CATMAID servers
 * [fafbseg](https://fafbseg-py.readthedocs.io/en/latest/index.html) contains tools to work with auto-segmented data for the FAFB EM dataset including FlyWire
 
+## Who uses NAVis?
+NAVis has been used in a range of neurobiological publications. Here's a semi-random sample
+of recent papers:
+
+```
+BIFROST: a method for registering diverse imaging datasets, Brezovec et al., bioRxiv (2023); doi: https://doi.org/10.1101/2023.06.09.544408
+
+Vimo: Visual Analysis of Neuronal Connectivity Motifs, Troidl et al., bioRxiv (2022); doi: https://doi.org/10.1101/2022.12.09.519772
+
+Information flow, cell types and stereotypy in a full olfactory connectome, Schlegel, Bates et al., eLife (2021); doi: https://doi.org/10.7554/eLife.66018
+
+Synaptic wiring motifs in posterior parietal cortex support decision-making, Kuan et al., bioRxiv (2022); doi: https://doi.org/10.1101/2022.04.13.488176
+```
+
+Want to see your work listed here? Open an [Issue](https://github.com/navis-org/navis/issues) and tell us about it!
+
+## Citing NAVis
+We'd love to know if you found NAVis useful for your research! You can help us
+spread the word by citing the DOI provided by Zenodo [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8191725.svg)](https://zenodo.org/doi/10.5281/zenodo.4699382)
+
 ## License
-This code is under GNU GPL V3
+This code is under [GNU GPL V3](LICENSE).
 
 ## Acknowledgments
 NAVis is inspired by and inherits much of its design from the excellent
