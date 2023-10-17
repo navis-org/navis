@@ -2,7 +2,7 @@
 
 Current formats for storing neuroanatomical data typically focus on one neuron per file. Unsurprisingly this doesn't scale well to tens of thousands of neurons: reading and writing a large number of small files quickly becomes painfully slow.
 
-Here, we propose a file format that stores an arbitrary number of neurons in a single Parquet file. What is Parquet? Apache Parquet is a column-oriented data file format designed for efficient data storage and retrieval. It has two important properties for what we are trying to do:
+Here, we propose a file format that stores an arbitrary number of neurons in a single Parquet file. What is Parquet you ask? Why, Apache Parquet is a column-oriented data file format designed for efficient data storage and retrieval. It has two important properties for what we are trying to do:
 
 1. Because it is column-oriented we can quickly search for a given neuron without having to load the entire file.
 2. It allows storage of arbitrary meta-data which we can use to store neuron properties
@@ -51,7 +51,9 @@ The table for two dotprops with IDs `12345` and `67890` would look like this:
   15970  36362  23044 -0.459681 -0.524251  0.716836   67890
 ```
 
-The node table must contain the following columns: `x`, `y`, `z`, `vec_x`, `vec_y`, `vec_z` and `neuron`. Additional columns are allowed but may be ignored by the reader.
+The node table must contain the following columns: `x`, `y`, `z`, and `neuron`.
+Additional columns such as `vec_x`, `vec_y`, `vec_z` or `alpha` are allowed but
+may be ignored by the reader.
 
 ### Meta data
 
@@ -61,11 +63,11 @@ Meta data can be stored in Parquet files as `{key: value}` dictionary where both
 This means that floats/integers need to be converted to bytes or strings.
 
 To keep track of which neuron has which property, the meta data is encoded in
-the dictionary as `{ID_PROPERTY: VALUE}`. For example, if our two neurons in the
+the dictionary as `{ID:PROPERTY: VALUE}`. For example, if our two neurons in the
 examples above had names they would be encode as:
 
 ```
-{"12345_name": "Humpty", "67890_name": "Dumpty"}
+{"12345:name": "Humpty", "67890:name": "Dumpty"}
 ```
 
 The datatype of the `ID` (i.e. whether ID is `12345` or `"12345"`) can be inferred
@@ -73,7 +75,20 @@ from the node table itself. In our example, the names (Humpty and Dumpty) are
 quite obviously supposed to be strings. This may be less obvious for other
 (byte-encoded) properties or values. It is on the reader to decide how to parse
 them. In the future, we could add additional meta data to determine data
-types e.g. via `{"_dtype_name": "str", "_dtype_id": "int"}`.
+types e.g. via `{"_dtype:name": "str", "_dtype:id": "int"}`.
+
+### Synapses
+
+Synapses and other similar data typically associated with a neuron must be
+stored in separate parquet files.
+
+We propose using a simple zip archive where:
+
+```bash
+skeletons.parquet.zip
+├── skeletons.parquet  <- contains the actual skeletons
+└── synapses.parquet   <- contains the synapse data
+```
 
 ## Benchmarks
 
