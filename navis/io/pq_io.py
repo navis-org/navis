@@ -321,7 +321,7 @@ def write_parquet(x: 'core.NeuronObject',
 
     >>> import navis
     >>> contents = navis.scan_parquet(tmp_dir / 'skeletons.parquet')
-    >>> contents
+    >>> contents                                                # doctest: +SKIP
                id        units       name    soma
     0   722817260  8 nanometer  DA1_lPN_R     NaN
     1  1734350908  8 nanometer  DA1_lPN_R     [6]
