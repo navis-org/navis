@@ -556,6 +556,9 @@ Functions to import/export neurons.
     navis.write_json
     navis.write_precomputed
     navis.read_precomputed
+    navis.read_parquet
+    navis.write_parquet
+    navis.scan_parquet
 
 
 .. _api_utility:

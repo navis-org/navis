@@ -11,20 +11,24 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .json_io import write_json, read_json
+from .json_io import read_json, write_json
 from .swc_io import read_swc, write_swc
 from .nrrd_io import read_nrrd, write_nrrd
-from .precomputed_io import write_precomputed, read_precomputed
+from .precomputed_io import read_precomputed, write_precomputed
 from .hdf_io import read_h5, write_h5, inspect_h5
 from .rda_io import read_rda
 from .nmx_io import read_nmx
 from .mesh_io import read_mesh, write_mesh
 from .tiff_io import read_tiff
+from .pq_io import read_parquet, write_parquet, scan_parquet
 
-__all__ = ['write_json', 'read_json',
+__all__ = ['read_json', 'write_json',
            'read_swc', 'write_swc',
            'read_nrrd', 'write_nrrd',
            'read_h5', 'write_h5', 'inspect_h5',
-           'write_precomputed', 'read_precomputed',
+           'read_precomputed', 'write_precomputed',
            'read_tiff',
-           'read_rda', 'read_nmx', 'read_mesh', 'write_mesh']
+           'read_rda',
+           'read_nmx',
+           'read_mesh', 'write_mesh',
+           'read_parquet', 'write_parquet', 'scan_parquet']
