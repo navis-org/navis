@@ -36,6 +36,7 @@ jobs:
         pip install flybrains --no-deps
         pip install git+https://github.com/siavashk/pycpd@master
         pip install k3d
+        pip install pyarrow
     - name: Install navis
       run: pip install -e .[dev,vispy-pyqt5,pathos,cloudvolume]
     - run: pip install python-igraph
