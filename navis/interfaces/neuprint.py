@@ -292,7 +292,10 @@ def __fetch_mesh(bodyId, *, vol, lod, missing_mesh='raise'):
     # Fetch mesh
     import cloudvolume
     try:
-        mesh = vol.mesh.get(bodyId, lod=lod)[bodyId]
+        if lod is None:
+            mesh = vol.mesh.get(bodyId)
+        else:
+            mesh = vol.mesh.get(bodyId, lod=lod)
     except cloudvolume.exceptions.MeshDecodeError as err:
         if 'not found' in str(err):
             if missing_mesh in ['warn', 'skip']:
@@ -574,12 +577,22 @@ def get_seg_source(*, client=None):
     if len(named_segs):
         segs = named_segs
 
-    # Get the first entry
+    # If there are multiple segmentation layers, select the first entry
     seg_source = segs[0]['source']
 
-    # Make sure it's actually a string and not a {'source': url, 'subsources'...} dict
+    # If there are multiple segmentation sources for
+    # the layer we picked, select the first source.
+    if isinstance(seg_source, list):
+        seg_source = seg_source[0]
+
+    # If it's a dict like {'source': url, 'subsources'...},
+    # select the url.
     if isinstance(seg_source, dict):
         seg_source = seg_source['url']
+
+    if not isinstance(seg_source, str):
+        e = f"Could not understand segmentation source: {seg_source}"
+        raise RuntimeError(e)
 
     if len(segs) > 1:
         logger.warning(f'{len(segs)} segmentation sources found. Using the '
