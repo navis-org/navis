@@ -350,7 +350,7 @@ def voxel2plotly(neuron, legendgroup, showlegend, label, color,
 
 def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
     """Convert skeleton (i.e. TreeNeuron) to plotly line plot."""
-    if hasattr(neuron, 'nodes') and neuron.nodes.empty:
+    if not hasattr(neuron, 'nodes') or neuron.nodes.empty:
         logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.label}')
         return []
     elif neuron.nodes.shape[0] == 1:
