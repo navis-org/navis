@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import pytest
 import pandas as pd
@@ -125,7 +125,7 @@ def test_neuron_connector_synthetic(simple_network):
 
 
 def test_neuron_connector_real(
-    neuron_connections: Tuple[NeuronList, dict[int, dict[int, int]]]
+    neuron_connections: Tuple[NeuronList, Dict[int, Dict[int, int]]]
 ):
     nl, exp = neuron_connections
     nc = NeuronConnector(nl)
