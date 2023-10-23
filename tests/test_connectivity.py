@@ -6,6 +6,7 @@ import numpy as np
 
 import navis
 from navis.connectivity import NeuronConnector
+from navis import NeuronList
 
 
 def test_neuron_connector():
@@ -121,3 +122,17 @@ def test_neuron_connector_synthetic(simple_network):
     assert mdg.number_of_nodes() == dg.number_of_nodes()
     assert mdg.number_of_edges() == 4
     assert sorted(mdg.edges()) == expected_edges
+
+
+def test_neuron_connector_real(
+    neuron_connections: Tuple[NeuronList, dict[int, dict[int, int]]]
+):
+    nl, exp = neuron_connections
+    nc = NeuronConnector(nl)
+    dg = nc.to_digraph(include_other=False)
+    for pre_n, post_n, edata in dg.edges(data=True):
+        pre_skid = dg.nodes[pre_n]["neuron"].id
+        post_skid = dg.nodes[post_n]["neuron"].id
+        n = edata["weight"]
+
+        assert exp[pre_skid][post_skid] == n
