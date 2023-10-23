@@ -126,7 +126,7 @@ def treeneuron_dfs(swc_paths, synapses_paths):
 @pytest.fixture
 def neuron_connections(fixture_dir: Path):
     expected_jso = json.loads(
-        fixture_dir.joinpath("network_connector", "expected.json").read_text()
+        fixture_dir.joinpath("neuron_connector", "expected.json").read_text()
     )
     expected = {
         int(pre): {
@@ -135,7 +135,7 @@ def neuron_connections(fixture_dir: Path):
     }
 
     nl = navis.read_json(
-        str(fixture_dir.joinpath("network_connector", "network.json"))
+        str(fixture_dir.joinpath("neuron_connector", "network.json"))
     )
     nrns = []
     for nrn in nl:
