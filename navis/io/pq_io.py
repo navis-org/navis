@@ -103,6 +103,7 @@ def read_parquet(f: Union[str, Path],
                  read_meta: bool = True,
                  limit: Optional[int] = None,
                  subset: Optional[List[Union[str, int]]] = None,
+                 progress=True
                  ) -> 'core.NeuronObject':
     """Read parquet file into Neuron/List.
 
@@ -201,15 +202,18 @@ def read_parquet(f: Union[str, Path],
     else:
         neurons = []
         # Note: this could be done in threads
-        for i, id in enumerate(table.neuron.unique()):
+        for i, (id, this_table) in enumerate(config.tqdm(table.groupby('neuron'),
+                                             disable=not progress,
+                                             leave=False,
+                                             desc='Making nrn')):
             if limit and i >= limit:
                 break
-            this_table = table[table.neuron == id].drop("neuron", axis=1)
+            this_table = this_table.drop("neuron", axis=1)
             neurons.append(_extract_neuron(this_table, id, neuron_meta))
         return core.NeuronList(neurons)
 
 
-def _extract_skeleton(table, id, metadata):
+def _extract_skeleton(nodes, id, metadata):
     """Extract a single skeleton."""
     # Meta data is encoded as "{ID}_{PROPERTY}"
     str_id = str(id)
@@ -231,7 +235,7 @@ def _extract_skeleton(table, id, metadata):
 
     # Make the neuron
     this_meta['id'] = id
-    tn = core.TreeNeuron(table, **this_meta)
+    tn = core.TreeNeuron(nodes, **this_meta)
 
     # Fix soma
     if soma:
