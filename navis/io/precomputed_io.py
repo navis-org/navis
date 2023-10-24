@@ -347,9 +347,9 @@ class PrecomputedWriter(base.Writer):
         if write_info:
             add_props = {}
             if kwargs.get('radius', False):
-                add_props['vertex_attributes'] = {'id': 'radius',
+                add_props['vertex_attributes'] = [{'id': 'radius',
                                                   'data_type': 'float32',
-                                                  'num_components': 1}
+                                                  'num_components': 1}]
 
             if str(self.path).endswith('.zip'):
                 with ZipFile(self.path, mode='a') as zf:
