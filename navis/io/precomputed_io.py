@@ -16,12 +16,14 @@ import json
 import os
 import struct
 import tempfile
+import requests
 
 import numpy as np
 import pandas as pd
 
 from pathlib import Path
-from typing import Union, Dict, Optional, Any, IO
+from functools import lru_cache
+from typing import Union, Dict, Optional, Any, IO, List
 from typing_extensions import Literal
 from zipfile import ZipFile, ZipInfo
 
@@ -110,7 +112,7 @@ class PrecomputedSkeletonReader(PrecomputedReader):
         self,
         fmt: str = DEFAULT_FMT,
         attrs: Optional[Dict[str, Any]] = None,
-        info: Dict[str, Any] ={}
+        info: Dict[str, Any] = {}
     ):
         super().__init__(fmt=fmt,
                          attrs=attrs,
@@ -135,6 +137,7 @@ class PrecomputedSkeletonReader(PrecomputedReader):
         Returns
         -------
         core.TreeNeuron
+
         """
         if not isinstance(f.read(0), bytes):
             raise ValueError(f'Expected bytes, got {type(f.read(0))}')
@@ -272,48 +275,59 @@ def read_precomputed(f: Union[str, io.BytesIO],
                                                                 'mesh',
                                                                 'auto'))
 
-    # Parse data type from info file (if required)
-    if isinstance(f, bytes):
-        if datatype == 'auto':
-            raise ValueError('Unable to infer data type from bytes. Please '
-                             'specify using the `datatype` parameter.')
-        f = io.BytesIO(f)
-    elif datatype == 'auto':
-        f = Path(f).expanduser()
+    # See if we can get the info file from somewhere
+    if info is True and not isinstance(f, bytes):
+        # Find info in zip archive
         if str(f).endswith('.zip'):
-            with ZipFile(f, 'r') as zip:
-                if 'info' not in [f.filename for f in zip.filelist]:
+            with ZipFile(Path(f).expanduser(), 'r') as zip:
+                if 'info' in [f.filename for f in zip.filelist]:
+                    info = json.loads(zip.read('info').decode())
+                elif datatype == 'auto':
                     raise ValueError('No `info` file found in zip file. Please '
                                      'specify data type using the `datatype` '
                                      'parameter.')
-                info = json.loads(zip.read('info').decode())
+        # Try loading info from URL
+        elif utils.is_url(str(f)):
+            base_url = '/'.join(str(f).split('/')[:-1])
+            info = _fetch_info_file(base_url, raise_missing=False)
+        # Try loading info from parent path
         else:
             fp = Path(str(f))
             # Find first existing root
             while not fp.is_dir():
                 fp = fp.parent
             fp = fp / 'info'
-            if not fp.is_file():
-                raise ValueError(f'No `info` file found in {fp.parent}. Please '
-                                 'specify data type using the `datatype` '
-                                 'parameter.')
-            with open(fp, 'r') as info_file:
-                info = json.load(info_file)
-        if not isinstance(info, dict) or '@type' not in info:
-            raise ValueError('`info` file does not contain a `@type` property. '
-                             'Please specify data type using the `datatype` '
-                             'parameter.')
+            if fp.is_file():
+                with open(fp, 'r') as info_file:
+                    info = json.load(info_file)
 
-        if info['@type'] == 'neuroglancer_legacy_mesh':
+    # At this point we should have a dictionary - even if it's empty
+    if not isinstance(info, dict):
+        info = {}
+
+    # Parse data type from info file (if required)
+    if datatype == 'auto':
+        if '@type' not in info:
+            raise ValueError('Either no `info` file found or it does not specify '
+                             'a data type. Please provide data type using the '
+                             '`datatype` parameter.')
+
+        if info.get('@type', None) == 'neuroglancer_legacy_mesh':
             datatype = 'mesh'
-        elif info['@type'] == 'neuroglancer_skeletons':
+        elif info.get('@type', None) == 'neuroglancer_skeletons':
             datatype = 'skeleton'
         else:
             raise ValueError('Data type specified in `info` file unknown: '
-                             f'{info["@type"]}.')
+                             f'{info.get("@type", None)}. Please provide data '
+                             'type using the `datatype` parameter.')
+
+    if isinstance(f, bytes):
+        f = io.BytesIO(f)
 
     if datatype == 'skeleton':
-        reader = PrecomputedSkeletonReader(fmt=fmt, attrs=kwargs)
+        if not isinstance(info, dict):
+            info = {}
+        reader = PrecomputedSkeletonReader(fmt=fmt, attrs=kwargs, info=info)
     else:
         reader = PrecomputedMeshReader(fmt=fmt, attrs=kwargs)
 
@@ -561,3 +575,23 @@ def _write_skeleton(x, filename, radius=False):
             f.write(result.getvalue())
     else:
         return result.getvalue()
+
+
+@lru_cache
+def _fetch_info_file(base_url, raise_missing=True):
+    """Try and fetch `info` file for given base url."""
+    if not base_url.endswith('/'):
+        base_url += '/'
+    r = requests.get(f'{base_url}info')
+
+    try:
+        r.raise_for_status()
+    except requests.HTTPError:
+        if raise_missing:
+            raise
+        else:
+            return {}
+    except BaseException:
+        raise
+
+    return r.json()
