@@ -151,6 +151,10 @@ class PrecomputedSkeletonReader(PrecomputedReader):
 
         swc = self.make_swc(nodes, edges)
 
+        # Check for malformed vertex attributes (should be list of dicts)
+        if isinstance(self.info.get('vertex_attributes', None), dict):
+            self.info['vertex_attributes'] = [self.info['vertex_attributes']]
+
         # Parse additional vertex attributes if specified as per the info file
         for attr in self.info.get('vertex_attributes', []):
             dtype = np.dtype(attr['data_type'])
