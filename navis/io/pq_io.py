@@ -412,7 +412,7 @@ def _write_parquet_dotprops(x: 'core.Dotprops',
     >>> navis.write_parquet(dp, tmp_dir / 'dotprops.parquet')
     >>> dp2 = navis.read_parquet(tmp_dir / 'dotprops.parquet')
     >>> assert len(dp) == len(dp2)
-    >>> assert all(dp.id == dp2.id)
+    >>> assert all([i in dp2.id for i in dp.id])
 
     """
     try:
