@@ -63,7 +63,7 @@ Meta data can be stored in Parquet files as `{key: value}` dictionary where both
 This means that floats/integers need to be converted to bytes or strings.
 
 To keep track of which neuron has which property, the meta data is encoded in
-the dictionary as `{ID:PROPERTY: VALUE}`. For example, if our two neurons in the
+the dictionary as `{"ID:PROPERTY": "VALUE"}`. For example, if our two neurons in the
 examples above had names they would be encode as:
 
 ```
@@ -74,10 +74,12 @@ The datatype of the `ID` (i.e. whether ID is `12345` or `"12345"`) can be inferr
 from the node table itself. In our example, the names (Humpty and Dumpty) are
 quite obviously supposed to be strings. This may be less obvious for other
 (byte-encoded) properties or values. It is on the reader to decide how to parse
-them. In the future, we could add additional meta data to determine data
+them.
+
+In the future, we could add additional meta data to determine data
 types e.g. via `{"_dtype:name": "str", "_dtype:id": "int"}`.
 
-### Synapses
+### Synapses (not implemented yet)
 
 Synapses and other similar data typically associated with a neuron must be
 stored in separate parquet files.
@@ -97,25 +99,25 @@ Testcase: 1,000 skeletons on a 2018 MacBook Pro
 
 | Writing           | Timing|
 |-------------------|-------|
-|Write to SWC files: | 2:37min|
-|Write to Zip: | 2:55min |
-|Write to Parquet: |0:25min|
+|Write to SWC files: | 1:34min|
+|Write to Zip: | 1:41min |
+|Write to Parquet: |0:32min|
 
 
 | Size on disk      |       |
 |-------------------|-------|
-|SWC files: | 200.7MB |
-|Zip archive: | 55.6MB|
-|Parquet file: | 35.6MB|
+|SWC files: | 192.5MB |
+|Zip archive: | 52.1MB|
+|Parquet file: | 15.7MB|
 
 | Reading           | Timing|
 |-------------------|-------|
-|SWC files (single thread): | 0:42min |
-|SWC files (multi-thread): | 0:24min |
-|Zip archive (single thread): | 1:01min |
-|Zip archive (multi-thread): | 0:28min |
-|Parquet file: | 0:35min |
+|SWC files (single thread): | 0:22min |
+|SWC files (multi-thread): | 0:14min |
+|Zip archive (single thread): | 0:35min |
+|Zip archive (multi-thread): | 0:17min |
+|Parquet file (single thread): | 0:16min |
 
 As you can see, in these preliminary tests parquet is ahead in terms of
 writing speed and size on disk. It beats reading if compared to single-threaded
-reads but is slightly slower compared to multi-threaded.
+reads and is on par with multi-threaded (6 threads) reads.
