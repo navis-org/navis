@@ -25,7 +25,7 @@ import pandas as pd
 import multiprocessing as mp
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Callable, Dict, Union, Optional, List
+from typing import Callable, Dict, Union, Optional
 from typing_extensions import Literal
 
 from navis.nbl.smat import Lookup2d, smat_fcwb, _nblast_v1_scoring
@@ -46,6 +46,7 @@ logger = config.get_logger(__name__)
 # Larger multiplier = larger job sizes = fewer jobs = slower updates & less overhead
 # Smaller multiplier = smaller job sizes = more jobs = faster updates & more overhead
 JOB_SIZE_MULTIPLIER = 1
+JOB_MAX_TIME_SECONDS = 60 * 30
 
 # This controls how many threads we allow pykdtree to use during multi-core
 # NBLAST
@@ -799,8 +800,11 @@ def nblast(query: Union[Dotprops, NeuronList],
             # If no progress bar needed, we could just split neurons evenly across
             # all available cores but that can lead to one core lagging behind
             # and finishing much later than all the others. To avoid this, we
-            # should probably
-            n_rows, n_cols = find_optimal_partition(n_cores, query_dps, target_dps)
+            # should aim for each batch to finish in a certain amount of time
+            n_rows, n_cols = find_batch_partition(query_dps, target_dps,
+                                                  T=JOB_MAX_TIME_SECONDS)
+            if (n_rows * n_cols) < n_cores:
+                n_rows, n_cols = find_optimal_partition(n_cores, query_dps, target_dps)
     else:
         n_rows = n_cols = 1
 
@@ -1132,19 +1136,42 @@ def nblast_allbyall(x: NeuronList,
     return scores
 
 
-def find_batch_partition(q, t, T=10):
-    """Find partitions such that each batch takes about `T` seconds."""
+def test_single_query_time(q, t, it=20):
+    """Test average time of a single NBLAST query."""
     # Get a median-sized query and target
     q_ix = np.argsort(q.n_points)[len(q)//2]
     t_ix = np.argsort(t.n_points)[len(t)//2]
 
     # Run a quick single query benchmark
     timings = []
-    for i in range(10):  # Run 10 tests
+    for i in range(it):  # Run N tests
         s = time.time()
         _ = t[t_ix].dist_dots(q[q_ix])  # Dist dot (ignore scoring / normalizing)
         timings.append(time.time() - s)
-    time_per_query = min(timings)  # seconds per medium sized query
+    return np.mean(timings)  # seconds per medium sized query
+
+
+def find_batch_partition(q, t, T=10, N_cores=None):
+    """Find partitions such that each batch takes about `T` seconds.
+
+    Parameters
+    ----------
+    q,t :       NeuronList of Dotprops
+                Query and targets, respectively.
+    T :         int
+                Time (in seconds) to aim for.
+    N_cores :   int, optional
+                Number of cores that will be used. If provided, will try to
+                make sure that (n_rows * n_cols) is a multiple of n_cores by
+                increasing the number of rows (thereby decreasing the time
+                per batch).
+
+    Returns
+    -------
+    n_rows, n_cols
+
+    """
+    time_per_query = test_single_query_time(q, t)
 
     # Number of queries per job such that each job runs in `T` second
     queries_per_batch = T / time_per_query
@@ -1152,16 +1179,34 @@ def find_batch_partition(q, t, T=10):
     # Number of neurons per batch
     neurons_per_batch  = max(1, int(np.sqrt(queries_per_batch)))
 
-    n_rows = len(q) // neurons_per_batch
-    n_cols = len(t) // neurons_per_batch
+    #n_rows = max(1, len(q) // neurons_per_batch)
+    #n_cols = max(1, len(t) // neurons_per_batch)
+    n_rows = max(1, 1000 // neurons_per_batch)
+    n_cols = max(1, 1000 // neurons_per_batch)
 
-    return max(1, n_rows), max(1, n_cols)
+    if N_cores and ((n_rows * n_cols) > N_cores):
+        while (n_rows * n_cols) % N_cores:
+            print(n_rows, n_cols, (n_rows * n_cols) % N_cores)
+            n_rows += 1
+
+    return n_rows, n_cols
 
 
 def find_optimal_partition(N_cores, q, t):
-    """Find an optimal partition for given NBLAST query."""
-    # Find an optimal partition that minimizes the number of neurons
-    # we have to send to each process
+    """Find an optimal partition for given NBLAST query.
+
+    Parameters
+    ----------
+    N_cores :   int
+                Number of available cores.
+    q,t :       NeuronList of Dotprops
+                Query and targets, respectively.
+
+    Returns
+    -------
+    n_rows, n_cols
+
+    """
     neurons_per_query = []
     for n_rows in range(1, N_cores + 1):
         # Skip splits we can't make
