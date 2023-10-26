@@ -181,7 +181,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
         # Map xformed coordinates back
         if isinstance(xf, core.TreeNeuron):
-            xf.nodes.loc[:, ['x', 'y', 'z']] = xyz_xf[:xf.n_nodes]
+            xf.nodes[['x', 'y', 'z']] = xyz_xf[:xf.n_nodes]
             # Fix radius based on our best estimate
             if 'radius' in xf.nodes.columns:
                 xf.nodes['radius'] *= 10**magnitude
@@ -202,7 +202,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             xf.vertices = xyz_xf[:xf.vertices.shape[0]]
 
         if xf.has_connectors:
-            xf.connectors.loc[:, ['x', 'y', 'z']] = xyz_xf[-xf.connectors.shape[0]:]
+            xf.connectors[['x', 'y', 'z']] = xyz_xf[-xf.connectors.shape[0]:]
 
         # Make an educated guess as to whether the units have changed
         if hasattr(xf, 'units') and magnitude != 0:
@@ -218,9 +218,9 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         if any([c not in x.columns for c in ['x', 'y', 'z']]):
             raise ValueError('DataFrame must have x, y and z columns.')
         x = x.copy()
-        x.loc[:, ['x', 'y', 'z']] = xform(x[['x', 'y', 'z']].values,
-                                          transform=transform,
-                                          affine_fallback=affine_fallback)
+        x[['x', 'y', 'z']] = xform(x[['x', 'y', 'z']].values,
+                                   transform=transform,
+                                   affine_fallback=affine_fallback)
         return x
     elif isinstance(x, tm.Trimesh):
         x = x.copy()
