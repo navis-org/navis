@@ -546,6 +546,7 @@ Functions to import/export neurons.
     navis.write_mesh
     navis.read_tiff
     navis.read_nmx
+    navis.read_nml
     navis.read_rda
     navis.read_json
     navis.write_json
