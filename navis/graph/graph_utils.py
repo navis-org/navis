@@ -2072,6 +2072,8 @@ def rewire_skeleton(x: 'core.TreeNeuron',
     if g.is_directed():
         g = g.to_undirected()
 
+    g = nx.minimum_spanning_tree(g, weight='weight')
+
     if not root:
         root = x.root[0] if x.root[0] in g.nodes else next(iter(g.nodes))
 
