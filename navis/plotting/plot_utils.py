@@ -265,6 +265,11 @@ def _frenet_frames(points):
     tangents[-1] = points[-1] - points[-2]
 
     mags = np.sqrt(np.sum(tangents * tangents, axis=1))
+
+    # Make sure we don't have any zeros in `mags` that would mess with the
+    # subdivision ->  we will set those to the smallest possible value
+    mags[mags == 0] = np.finfo(mags.dtype).resolution
+
     tangents /= mags[:, np.newaxis]
 
     # Get initial normal and binormal
