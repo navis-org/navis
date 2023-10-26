@@ -32,7 +32,8 @@ import numpy as np
 import pandas as pd
 
 from .. import config
-from ..core import Dotprops
+#from ..core import Dotprops
+from .. import core
 
 logger = logging.getLogger(__name__)
 
@@ -555,11 +556,11 @@ class LookupNdBuilder:
         return LookupNd(dig, cells)
 
 
-def dist_dot(q: Dotprops, t: Dotprops):
+def dist_dot(q: 'core.Dotprops', t: 'core.Dotprops'):
     return list(q.dist_dots(t))
 
 
-def dist_dot_alpha(q: Dotprops, t: Dotprops):
+def dist_dot_alpha(q: 'core.Dotprops', t: 'core.Dotprops'):
     dist, dot, alpha = q.dist_dots(t, alpha=True)
     return [dist, dot * np.sqrt(alpha)]
 
@@ -567,7 +568,7 @@ def dist_dot_alpha(q: Dotprops, t: Dotprops):
 class LookupDistDotBuilder(LookupNdBuilder):
     def __init__(
         self,
-        dotprops: Union[List[Dotprops], Mapping[NeuronKey, Dotprops]],
+        dotprops: Union[List['core.Dotprops'], Mapping[NeuronKey, 'core.Dotprops']],
         matching_lists: List[List[NeuronKey]],
         nonmatching_list: Optional[List[NeuronKey]] = None,
         use_alpha: bool = False,
