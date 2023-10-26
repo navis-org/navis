@@ -213,7 +213,7 @@ class TemplateRegistry:
         skip_existing :     bool
                             If True will skip if transform is already in registry.
         weight :            int
-                            Giving a transform a higher weight will make it
+                            Giving a transform a lower weight will make it
                             preferable when plotting bridging sequences.
 
         See Also
@@ -378,6 +378,7 @@ class TemplateRegistry:
     def find_bridging_path(self, source: str,
                            target: str,
                            via: Optional[str] = None,
+                           avoid: Optional[str] = None,
                            reciprocal=True) -> tuple:
         """Find bridging path from source to target.
 
@@ -387,8 +388,10 @@ class TemplateRegistry:
                         Source from which to transform to ``target``.
         target :        str
                         Target to which to transform to.
-        via :           str, optional
-                        Force a specific intermediate template.
+        via :           str | list thereof, optional
+                        Force specific intermediate template(s).
+        avoid :         str | list thereof, optional
+                        Avoid going through specific intermediate template(s).
         reciprocal :    bool | float
                         If True or float, will add forward and inverse edges for
                         transforms that are invertible. If float, the inverse
@@ -396,6 +399,142 @@ class TemplateRegistry:
 
         Returns
         -------
+        path :          list
+                        Path from source to target: [source, ..., target]
+        transforms :    list
+                        Transforms as [[path_to_transform, inverse], ...]
+
+        """
+        # Generate (or get cached) bridging graph
+        G = self.bridging_graph(reciprocal=reciprocal)
+
+        if len(G) == 0:
+            raise ValueError('No bridging registrations available')
+
+        # Do not remove the conversion to list - fuzzy matching does act up
+        # otherwise
+        nodes = list(G.nodes)
+        if source not in nodes:
+            best_match = fw.process.extractOne(source, nodes,
+                                               scorer=fw.fuzz.token_sort_ratio)
+            raise ValueError(f'Source "{source}" has no known bridging '
+                             f'registrations. Did you mean "{best_match[0]}" '
+                             'instead?')
+        if target not in G.nodes:
+            best_match = fw.process.extractOne(target, nodes,
+                                               scorer=fw.fuzz.token_sort_ratio)
+            raise ValueError(f'Target "{target}" has no known bridging '
+                             f'registrations. Did you mean "{best_match[0]}" '
+                             'instead?')
+
+        if via:
+            via = list(utils.make_iterable(via))  # do not remove the list() here
+            for v in via:
+                if v not in G.nodes:
+                    best_match = fw.process.extractOne(v, nodes,
+                                                       scorer=fw.fuzz.token_sort_ratio)
+                    raise ValueError(f'Via "{v}" has no known bridging '
+                                    f'registrations. Did you mean "{best_match[0]}" '
+                                    'instead?')
+
+        if avoid:
+            avoid = list(utils.make_iterable(avoid))
+
+        # This will raise a error message if no path is found
+        if not via and not avoid:
+            try:
+                path = nx.shortest_path(G, source, target, weight='weight')
+            except nx.NetworkXNoPath:
+                raise nx.NetworkXNoPath(f'No bridging path connecting {source} '
+                                        f'and {target} found.')
+        else:
+            # Go through all possible paths and find one that...
+            found_any = False  # track if we found any path
+            found_good = False  # track if we found a path matching the criteria
+            for path in nx.all_simple_paths(G, source, target):
+                found_any = True
+                # ... has all `via`s...
+                if via and all([v in path for v in via]):
+                    # ... and none of the `avoid``
+                    if avoid:
+                        if not any([v in path for v in avoid]):
+                            found_good = True
+                            break
+                    else:
+                        found_good = True
+                        break
+                # If we only have `avoid`` but no `via`
+                elif avoid and not any([v in path for v in avoid]):
+                    found_good = True
+                    break
+
+            if not found_any:
+                raise nx.NetworkXNoPath(f'No bridging path connecting {source} '
+                                        f'and {target} found.')
+            elif not found_good:
+                if via and avoid:
+                    raise nx.NetworkXNoPath(f'No bridging path connecting {source}'
+                                            f'and {target} via "{via}" and '
+                                            f'avoiding "{avoid}" found')
+                elif via:
+                    raise nx.NetworkXNoPath(f'No bridging path connecting {source}'
+                                            f'and {target} via "{via}" found.')
+                else:
+                    raise nx.NetworkXNoPath(f'No bridging path connecting {source}'
+                                            f'and {target} avoiding "{avoid}" found.')
+
+        # `path` holds the sequence of nodes we are traversing but not which
+        # transforms (i.e. edges) to use
+        transforms = []
+        for n1, n2 in zip(path[:-1], path[1:]):
+            this_edges = []
+            i = 0
+            # First collect all edges between those two nodes
+            # - this is annoyingly complicated with MultiDiGraphs
+            while True:
+                try:
+                    e = G.edges[(n1, n2, i)]
+                except KeyError:
+                    break
+                this_edges.append([e['transform'], e['weight']])
+                i += 1
+
+            # Now find the edge with the highest weight
+            # (inverse transforms might have a lower weight)
+            this_edges = sorted(this_edges, key=lambda x: x[-1])
+            transforms.append(this_edges[-1][0])
+
+        return path, transforms
+
+    def find_all_bridging_paths(self, source: str,
+                                target: str,
+                                via: Optional[str] = None,
+                                avoid: Optional[str] = None,
+                                reciprocal: bool = True,
+                                cutoff: int = None) -> tuple:
+        """Find all bridging paths from source to target.
+
+        Parameters
+        ----------
+        source :        str
+                        Source from which to transform to ``target``.
+        target :        str
+                        Target to which to transform to.
+        via :           str | list thereof, optional
+                        Force specific intermediate template(s).
+        avoid :         str | list thereof, optional
+                        Avoid specific intermediate template(s).
+        reciprocal :    bool | float
+                        If True or float, will add forward and inverse edges for
+                        transforms that are invertible. If float, the inverse
+                        edges' weights will be scaled by that factor.
+        cutoff :        int, optional
+                        Depth to stop the search. Only paths of length
+                        <= cutoff are returned.
+
+        Returns
+        -------
+
         path :          list
                         Path from source to target: [source, ..., target]
         transforms :    list
@@ -432,42 +571,41 @@ class TemplateRegistry:
                              'instead?')
 
         # This will raise a error message if no path is found
-        if not via:
-            try:
-                path = nx.shortest_path(G, source, target, weight='weight')
-            except nx.NetworkXNoPath:
-                raise nx.NetworkXNoPath(f'No bridging path connecting {source} '
-                                        f'and {target} found.')
-        else:
-            for path in nx.all_simple_paths(G, source, target):
-                if via in path:
-                    break
-            if via not in path:
-                raise nx.NetworkXNoPath(f'No bridging path connecting {source}'
-                                        f'and {target} via {via} found.')
+        for path in nx.all_simple_paths(G, source, target, cutoff=cutoff):
+            # Skip paths that don't contain `via`
+            if isinstance(via, str) and (via not in path):
+                continue
+            elif isinstance(via, (list, tuple, np.ndarray)) and not all([v in path for v in via]):
+                continue
 
-        # `path` holds the sequence of nodes we are traversing but not which
-        # transforms (i.e. edges) to use
-        transforms = []
-        for n1, n2 in zip(path[:-1], path[1:]):
-            this_edges = []
-            i = 0
-            # First collect all edges between those two nodes
-            # - this is annoyingly complicated with MultiDiGraphs
-            while True:
-                try:
-                    e = G.edges[(n1, n2, i)]
-                except KeyError:
-                    break
-                this_edges.append([e['transform'], e['weight']])
-                i += 1
+            # Skip paths that contain `avoid`
+            if isinstance(avoid, str) and (avoid in path):
+                continue
+            elif isinstance(avoid, (list, tuple, np.ndarray)) and any([v in path for v in avoid]):
+                continue
 
-            # Now find the edge with the highest weight
-            # (inverse transforms might have a lower weight)
-            this_edges = sorted(this_edges, key=lambda x: x[-1])
-            transforms.append(this_edges[-1][0])
+            # `path` holds the sequence of nodes we are traversing but not which
+            # transforms (i.e. edges) to use
+            transforms = []
+            for n1, n2 in zip(path[:-1], path[1:]):
+                this_edges = []
+                i = 0
+                # First collect all edges between those two nodes
+                # - this is annoyingly complicated with MultiDiGraphs
+                while True:
+                    try:
+                        e = G.edges[(n1, n2, i)]
+                    except KeyError:
+                        break
+                    this_edges.append([e['transform'], e['weight']])
+                    i += 1
 
-        return path, transforms
+                # Now find the edge with the highest weight
+                # (inverse transforms might have a lower weight)
+                this_edges = sorted(this_edges, key=lambda x: x[-1])
+                transforms.append(this_edges[-1][0])
+
+            yield path, transforms
 
     @functools.lru_cache()
     def shortest_bridging_seq(self, source: str, target: str,
@@ -578,7 +716,7 @@ class TemplateRegistry:
         temps_w_mirrors += [t.label for t in self.templates if getattr(t, 'symmetrical', False) == True]
 
         if not temps_w_mirrors:
-            raise ValueError(f'No mirror transformations registered')
+            raise ValueError('No mirror transformations registered')
 
         # If this template has a mirror registration:
         if template in temps_w_mirrors:
@@ -684,6 +822,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 source: str,
                 target: str,
                 via: Optional[str] = None,
+                avoid: Optional[str] = None,
                 affine_fallback: bool = True,
                 caching: bool = True,
                 verbose: bool = True) -> Union['core.NeuronObject',
@@ -716,9 +855,11 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     target :            str
                         Target template brain that the data should be
                         transformed into.
-    via :               str, optional
-                        Optionally set an intermediate template. This can be
+    via :               str | list thereof, optional
+                        Optionally set intermediate template(s). This can be
                         helpful to force a specific transformation sequence.
+    avoid :             str | list thereof, optional
+                        Prohibit going through specific intermediate template(s).
     affine_fallback :   bool
                         In some cases the non-rigid transformation of points
                         can fail - for example if points are outside the
@@ -783,7 +924,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         TypeError(f'Expected target of type str, got "{type(target)}"')
 
     # Get the transformation sequence
-    path, transforms = registry.find_bridging_path(source, target, via=via)
+    path, transforms = registry.find_bridging_path(source, target, via=via, avoid=avoid)
 
     if verbose:
         path_str = path[0]
