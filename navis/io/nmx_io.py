@@ -17,14 +17,18 @@ import networkx as nx
 import pandas as pd
 import xml.etree.ElementTree as ET
 
-from typing import Union, Dict, Optional, Any, IO, Iterable
+from pathlib import Path
+
+
+from typing import Union, Dict, Optional, Any, IO, Iterable, List
 from zipfile import ZipFile
 
 from .. import config, core
 from . import base
+from .swc_io import make_swc_table
 
 
-__all__ = ["read_nmx", "read_nml"]
+__all__ = ["read_nmx", "read_nml", "write_nmx", "write_nml"]
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -286,3 +290,96 @@ def read_nml(f: Union[str, pd.DataFrame, Iterable],
                               include_subdirs=include_subdirs)
 
     return neurons
+
+
+def write_nml(x: 'core.NeuronObject',
+              filepath: Union[str, Path],
+              return_node_map: bool = False) -> None:
+    """Write TreeNeuron(s) to NML.
+
+    Follows the format described
+    `here <https://docs.webknossos.org/webknossos/data_formats.html>`_.
+
+    Parameters
+    ----------
+    x :                 TreeNeuron | Dotprops | NeuronList
+                        If multiple neurons, will generate a single SWC file
+                        for each neuron (see also ``filepath``).
+    filepath :          str | pathlib.Path | list thereof
+                        Destination for the SWC files. See examples for options.
+                        If ``x`` is multiple neurons, ``filepath`` must either
+                        be a folder, a "formattable" filename, a filename ending
+                        in `.zip` or a list of filenames (one for each neuron
+                        in ``x``). Existing files will be overwritten!
+
+    return_node_map :   bool
+                        If True, will return a dictionary mapping the old node
+                        ID to the new reindexed node IDs in the file.
+
+    Returns
+    -------
+    node_map :          dict
+                        Only if ``return_node_map=True``.
+
+    See Also
+    --------
+    :func:`navis.read_nml`
+                        Import skeleton from NML files.
+
+    """
+
+    root = ET.Element('things')
+
+    # Parameters section
+    parameters = ET.SubElement(root, 'parameters')
+    offset = ET.SubElement(parameters, 'offset', x='0', y='0', z='0')
+    scale = ET.SubElement(parameters, 'scale', x='1', y='1', z='1')
+
+    # This neuron
+    thing = ET.SubElement(root, 'thing', id="1")
+    thing.attrib["name"] = x.name
+    thing.attrib.update({"color.r": '0.0',
+                         "color.g": '0.0',
+                         "color.b": '1.0',
+                         "color.a": '1.0'})
+    
+    nodes = ET.SubElement(thing, 'nodes')
+    edges = ET.SubElement(thing, 'edges')
+
+    # Use the SWC table as the basis for nodes & edges
+    res = make_swc_table(x,
+        labels=False,
+        export_connectors=False,
+        return_node_map=return_node_map)
+    
+    if return_node_map:
+        swc, node_map = res[0], res[1]
+    else:
+        swc = res
+    
+    for index, row in swc.iterrows():
+        node = ET.SubElement(nodes, 'node')
+        node.attrib.update({"id": str(int(row["PointNo"])),
+                            "radius": str(row["Radius"]),
+                            "x": str(row["X"]),
+                            "y": str(row["Y"]),
+                            "z": str(row["Z"])})
+        if row["Parent"] != -1:
+            edge = ET.SubElement(edges, 'edge', source=str(int(row["Parent"])),
+                                 target=str(int(row["PointNo"])))
+
+    with open(filepath, 'wb') as file:
+        tree = ET.ElementTree(root)
+        ET.indent(tree, space="  ", level=0)
+        tree.write(file)
+
+    if return_node_map:
+        return node_map
+
+
+
+def write_nmx():
+    """
+    TODO: Generate NMX files (collection of NML files)
+    """
+    raise NotImplementedError("Not yet implemented")
