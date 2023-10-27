@@ -1,6 +1,6 @@
-[![Documentation Status](https://readthedocs.org/projects/navis/badge/?version=latest)](http://navis.readthedocs.io/en/latest/?badge=latest) [![Tests](https://github.com/navis-org/navis/actions/workflows/test-package.yml/badge.svg)](https://github.com/navis-org/navis/actions/workflows/test-package.yml) [![Run notebooks](https://github.com/navis-org/navis/actions/workflows/notebooktest-package.yml/badge.svg)](https://github.com/navis-org/navis/actions/workflows/notebooktest-package.yml) [![Coverage Status](https://coveralls.io/repos/github/navis-org/navis/badge.svg?branch=master)](https://coveralls.io/github/navis-org/navis?branch=master) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/navis-org/navis/blob/master/examples/colab.ipynb) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8191725.svg)](https://zenodo.org/doi/10.5281/zenodo.4699382) [![Downloads](https://pepy.tech/badge/navis)](https://pepy.tech/project/navis)
+[![Documentation Status](https://readthedocs.org/projects/navis/badge/?version=latest)](http://navis.readthedocs.io/en/latest/?badge=latest) [![Tests](https://github.com/navis-org/navis/actions/workflows/test-package.yml/badge.svg)](https://github.com/navis-org/navis/actions/workflows/test-package.yml) [![Run notebooks](https://github.com/navis-org/navis/actions/workflows/notebooktest-package.yml/badge.svg)](https://github.com/navis-org/navis/actions/workflows/notebooktest-package.yml) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/navis-org/navis/blob/master/examples/colab.ipynb) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8191725.svg)](https://zenodo.org/doi/10.5281/zenodo.4699382) [![Downloads](https://pepy.tech/badge/navis)](https://pepy.tech/project/navis)
 
-<img src="https://github.com/navis-org/navis/raw/master/docs/_static/favicon.png" height="60">
+<img src="https://github.com/navis-org/navis/raw/master/docs/_static/logo_new.png" height="120">
 
 NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization.
 
@@ -8,20 +8,20 @@ NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization.
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
 ## Features
-* **polyglot**: ``navis`` works with skeletons,meshes dotprops and image data
+* **polyglot**: ``navis`` works with skeletons, meshes, dotprops and image data
 * **visualize**: 2D (matplotlib) and 3D (vispy, plotly or k3d)
-* **process**: skeletonization, smoothing, repair, downsampling, etc.
-* **surgery**: e.g. cutting, stitching, pruning, rerooting or intersections
+* **process**: skeletonization, meshing, smoothing, repairing, downsampling, etc.
+* **edit**: e.g. cutting, stitching, pruning, rerooting or intersecting
 * **morphometrics**: Strahler analysis, cable length, volume, tortuosity and more
-* **similarity**: compare & cluster by morphology (e.g. NBLAST, persistence, form factor) or connectivity metrics
+* **similarity**: compare & cluster by morphology (e.g. NBLAST, persistence or form factor) or connectivity metrics
 * **transform**: move data between template brains (built-in support for HDF5, CMTK, Elastix and landmark-based transforms)
 * **interface**: load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and other data sources
 * **simulate** neurons and networks using the *NEURON* simulator
-* **render**: use **Blender 3D** for high quality [visualizations](https://youtu.be/wl3sFG7WQJc)
+* **render**: use Blender 3D for high quality [visualizations](https://youtu.be/wl3sFG7WQJc)
 * **R** neuron libraries: interfaces with [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr) and more
 * **import-export**: read/write SWCs, neuroglancer's ["*precomputed*"](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed) format, NMX/NML, NRRD, mesh-files and more
 * **scalable**: out-of-the-box support for multiprocessing
-* **extensible**: build your own package on top of navis - see for example [pymaid](https://pymaid.readthedocs.io/en/latest/)
+* **extensible**: build your own package on top of navis - see [pymaid](https://pymaid.readthedocs.io/en/latest/) for example
 
 ## Getting started
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:
@@ -47,6 +47,10 @@ Different backends work best on different combinations of hardware, OS, python d
 `vispy`'s backends are [listed here](https://vispy.org/installation.html#backend-requirements), and each can be installed as a navis extra, e.g. `pip3 install 'navis[vispy-pyqt6]'`.
 
 ![movie](https://user-images.githubusercontent.com/7161148/114312307-28a72700-9aea-11eb-89a6-ee1d72bfa730.mov)
+
+## Questions?
+Questions on how to use `navis` are best placed in [discussions](https://github.com/navis-org/navis/discussions). Same goes for cool projects or analyses you made using `navis` -
+we'd love to hear from you!
 
 ## Changelog
 
@@ -115,6 +119,19 @@ Schneider-Mizell CM, Gerhard S, Longair M, Kazimiers T, Li, Feng L, Zwart M … 
 
 ## Contributing
 
+Want to contribute? Great, here is how!
+
+### Report bugs or request features
+Open an [issue](https://github.com/navis-org/navis/issues). For bug reports
+please make sure to include some code/data with a minimum example for us to
+reproduce the bug.
+
+### Contribute code
+We're always happy for people to contribute code - be it a small bug fix, a
+new feature or improved documentation/tutorials.
+
+Here's how you'd do it in a nutshell:
+
 1. Fork this repository
 2. `git clone` it to your local machine
 3. Install the full development dependencies with `pip install -r requirements.txt`
@@ -130,3 +147,6 @@ and/or use [pytest](https://docs.pytest.org/en/stable/) in the `./tests` directo
 
 Doctests have access to the `tmp_dir: pathlib.Path` variable,
 which should be used if any files need to be written.
+
+Feel free to get in touch either through an [issue](https://github.com/navis-org/navis/issues) or [discussion](https://github.com/navis-org/navis/discussions) if you need
+pointers or input on how to implement an idea.
