@@ -218,6 +218,11 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
     -------
     navis.NeuronList
 
+    See Also
+    --------
+    :func:`navis.read_nml`
+                        Read NML file(s).
+
     """
     reader = NMXReader(precision=precision,
                        attrs=kwargs)
@@ -275,6 +280,11 @@ def read_nml(f: Union[str, pd.DataFrame, Iterable],
     Returns
     -------
     navis.NeuronList
+
+    See Also
+    --------
+    :func:`navis.read_nmx`
+                        Read NMX files (collections of NML files).
 
     """
     reader = NMLReader(precision=precision,
