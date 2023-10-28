@@ -15,6 +15,29 @@ repository.
    * - Version
      - Date
      -
+   * - dev
+     - ongoing
+     - - Additions:
+         - new property ``Treenode.surface_area``
+         - new functions :func:`navis.read_parquet` and :func:`navis.write_parquet`
+           store skeletons and dotprops in parquet files
+           (see `here <https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md>`_
+           for format specs and benchmarks)
+         - new :func:`navis.read_nml` function to read single NML file (complements
+           existing :func:`navis.read_nmx` files which are collections of NMLs)
+       - Improvements:
+         - made adding recordings to ``CompartmentModel`` faster
+         - improved logic for splitting NBLAST across cores
+         - :func:`navis.xform_brain`: now allows to specify multiple intermediate
+           template spaces through the ``via`` parameter and to ignore spaces
+           through the ``avoid`` parameter
+       - Fixes:
+         - fixed interface to InsectBrainDB
+         - :func:`navis.read_precomputed` now correctly parses the `info` file
+           depending on the source
+         - fixed writing vertex properties in :func:`navis.write_precomputed`
+         - fixed an occasional issue when plotting skeletons with radii
+         - fix bug in ``subset_neuron`` that caused connectors to be dropped when using mask
    * - 1.5.0
      - 27/07/23
      - - BREAKING: dropped support for Python 3.7

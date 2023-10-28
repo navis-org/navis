@@ -14,12 +14,15 @@
         :ref:`example gallery<example_gallery>` and :ref:`API reference <api>` to see
         what you can do with navis.
 
+        Need help? Use `discussions <https://github.com/navis-org/navis/discussions>`_
+        on Github to ask questions!
+
         NAVis is designed to be highly extensible. Make sure to check out the other
         libraries in the navis :ref:`ecosystem <other_libs>`.
 
         NAVis is licensed under the GNU GPL v3+ license. The source code is hosted
-        at `Github <https://github.com/navis-org/navis>`_. Feedback, feature requests,
-        bug reports and general questions are very welcome and best placed in a
+        at `Github <https://github.com/navis-org/navis>`_. Feedback, feature requests
+        and bug reports are very welcome and best placed in a
         `Github issue <https://github.com/navis-org/navis/issues>`_.
 
     .. grid-item::
