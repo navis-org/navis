@@ -159,7 +159,7 @@ def map_neuronlist(desc: str = "",
                     # All things failing assume it's not inplace
                     inplace = False
 
-                if parallel and 'inplace' in sig.parameters:
+                if parallel and 'inplace' not in kwargs and 'inplace' in sig.parameters:
                     kwargs['inplace'] = True
 
                 # Prepare processor
@@ -174,7 +174,8 @@ def map_neuronlist(desc: str = "",
                                             omit_failures=kwargs.pop('omit_failures', False),
                                             chunksize=chunksize,
                                             exclude_zip=excl,
-                                            n_cores=n_cores)
+                                            n_cores=n_cores,
+                                            executor=kwargs.pop("executor", None))
                 # Apply function
                 res = proc(nl, *args, **kwargs)
 

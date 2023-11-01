@@ -45,7 +45,7 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
-def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
+def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'core.TreeNeuron', 'core.MeshNeuron'],
            **metadata):
     """Constructor for Neuron objects. Depending on the input, either a
     ``TreeNeuron`` or a ``MeshNeuron`` is returned.

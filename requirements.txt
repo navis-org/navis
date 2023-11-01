@@ -14,7 +14,7 @@ seaborn>=0.10
 setuptools>=65.5.1
 scipy>=1.5
 six>=1.11
-tqdm>=4.45
+tqdm>=4.59
 typing-extensions>=3.7.4
 trimesh>=3.8
 fuzzywuzzy>=0.18
@@ -37,6 +37,8 @@ flybrains  #extra: flybrains
 
 cloud-volume>=5.2.0  #extra: cloudvolume
 
+dask  #extra: dask
+
 # this should inherit the vispy version constraint from above
 vispy[pyside6]>=0.6.4  #extra: vispy-default
 
@@ -57,6 +59,7 @@ flake8
 wheel
 mypy
 pytest
+pytest-benchmark
 pytest-env
 pytest-xvfb
 gitpython
