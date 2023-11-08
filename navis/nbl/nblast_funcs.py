@@ -52,6 +52,8 @@ JOB_MAX_TIME_SECONDS = 60 * 30
 # NBLAST
 OMP_NUM_THREADS_LIMIT = 1
 
+ALLOWED_SCORES = ('forward', 'mean', 'min', 'max', 'both')
+
 
 class NBlaster(Blaster):
     """Implements version 2 of the NBLAST algorithm.
@@ -368,6 +370,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     """
     utils.eval_param(criterion, name='criterion',
                      allowed_values=("percentile", "score", "N"))
+    utils.eval_param(scores, name='scores', allowed_values=ALLOWED_SCORES)
 
     # We will make a couple tweaks for speed things up if this is
     # an all-by-all NBLAST
@@ -772,6 +775,8 @@ def nblast(query: Union[Dotprops, NeuronList],
                 A synapse-based variant of NBLAST.
 
     """
+    utils.eval_param(scores, name='scores', allowed_values=ALLOWED_SCORES)
+
     if isinstance(target, type(None)):
         target = query
 
