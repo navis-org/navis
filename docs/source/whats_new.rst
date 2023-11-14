@@ -27,7 +27,7 @@ repository.
             existing :func:`navis.read_nmx` files which are collections of NMLs)
           - new :class:`navis.NeuronConnector` class for creating connectivity graphs
          from groups neurons with consistent connector IDs.
- Improvements:
+       - Improvements:
           - made adding recordings to ``CompartmentModel`` faster
           - improved logic for splitting NBLAST across cores
           - :func:`navis.xform_brain`: now allows to specify multiple intermediate
