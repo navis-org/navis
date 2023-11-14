@@ -13,8 +13,10 @@
 
 from .predict import cable_overlap
 from .matrix_utils import group_matrix
+from .adjacency import NeuronConnector
 from .cnmetrics import connectivity_sparseness
 from .similarity import connectivity_similarity, synapse_similarity
 
 __all__ = ['connectivity_sparseness', 'cable_overlap',
-           'connectivity_similarity', 'synapse_similarity']
+           'connectivity_similarity', 'synapse_similarity',
+           'NeuronConnector']
