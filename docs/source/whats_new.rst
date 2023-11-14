@@ -28,6 +28,8 @@ repository.
           - :class:`navis.NodeConnectorRelation` is an :class:`enum.IntEnum`
             encoding relationships between (tree)nodes and connector nodes,
             used in neurons' connector tables.
+          - new :class:`navis.NeuronConnector` class for creating connectivity graphs
+         from groups neurons with consistent connector IDs.
        - Improvements:
           - made adding recordings to ``CompartmentModel`` faster
           - improved logic for splitting NBLAST across cores

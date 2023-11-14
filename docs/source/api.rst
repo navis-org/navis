@@ -501,6 +501,11 @@ Connectivity
 ++++++++++++
 Collection of functions to work with graphs and adjacency matrices.
 
+.. autosummary::
+    :toctree: generated/
+
+    navis.NeuronConnector
+
 Graphs
 ------
 Functions to convert neurons and networkx to iGraph or networkX graphs.

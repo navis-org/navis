@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import os
 from typing import List
@@ -13,6 +14,11 @@ import navis
 @pytest.fixture(scope="session")
 def data_dir():
     return Path(__file__).resolve().parent.parent / "navis" / "data"
+
+
+@pytest.fixture(scope="session")
+def fixture_dir():
+    return Path(__file__).resolve().parent / "fixtures"
 
 
 @pytest.fixture(
@@ -115,3 +121,26 @@ def treeneuron_dfs(swc_paths, synapses_paths):
         neuron.connectors = pd.read_csv(syn_path)
         out.append(neuron)
     return out
+
+
+@pytest.fixture
+def neuron_connections(fixture_dir: Path):
+    expected_jso = json.loads(
+        fixture_dir.joinpath("neuron_connector", "expected.json").read_text()
+    )
+    expected = {
+        int(pre): {
+            int(post): n for post, n in d.items()
+        } for pre, d in expected_jso.items()
+    }
+
+    nl = navis.read_json(
+        str(fixture_dir.joinpath("neuron_connector", "network.json"))
+    )
+    nrns = []
+    for nrn in nl:
+        nrn.name = f"skeleton {nrn.id}"
+        nrn.id = int(nrn.id)
+        nrns.append(nrn)
+
+    return nrns, expected
