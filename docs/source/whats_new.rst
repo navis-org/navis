@@ -17,7 +17,8 @@ repository.
      -
    * - dev
      - ongoing
-     - - Additions:
+     - - BREAKING: dropped support for Python 3.8, per `NEP 29 <https://numpy.org/neps/nep-0029-deprecation_policy.html>`_
+       - Additions:
           - new property ``Treenode.surface_area``
           - new functions :func:`navis.read_parquet` and :func:`navis.write_parquet`
             store skeletons and dotprops in parquet files (see
