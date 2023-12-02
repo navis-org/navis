@@ -2,6 +2,7 @@ import navis
 import pytest
 import tempfile
 import numpy as np
+import pandas as pd
 
 from pathlib import Path
 
@@ -27,6 +28,48 @@ def test_swc_io(filename):
 
         # Assert that we loaded the same number of neurons
         assert len(n) == len(n2)
+
+
+@pytest.fixture
+def simple_neuron():
+    """Neuron with 1 branch and no connectors.
+
+    [3]
+     |
+     2 -- 4
+     |
+     1
+    """
+    nrn = navis.TreeNeuron(None)
+    dtypes = {
+        "node_id": np.uint64,
+        "parent_id": np.int64,
+        "x": float,
+        "y": float,
+        "z": float,
+    }
+    df = pd.DataFrame([
+        [1, 2, 0, 2, 0],
+        [2, 3, 0, 1, 0],
+        [3, -1, 0, 0, 0],  # root
+        [4, 2, 1, 1, 0]
+    ], columns=list(dtypes)).astype(dtypes)
+    nrn.nodes = df
+    return nrn
+
+
+def assert_parent_defined(df: pd.DataFrame):
+    defined = set()
+    for node, _structure, _x, _y, _z, _r, parent in df.itertuples(index=False):
+        defined.add(node)
+        if parent == -1:
+            continue
+        assert parent in defined, f"Child {node} has undefined parent {parent}"
+
+
+def test_swc_io_order(simple_neuron):
+    df = navis.io.swc_io.make_swc_table(simple_neuron, True)
+    assert_parent_defined(df)
 
 
 @pytest.mark.parametrize("filename", ['',
