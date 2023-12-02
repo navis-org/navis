@@ -1,6 +1,6 @@
 ## Publications
 
-Navis has been used in a range of high-profile publications. See below for a (probably incomplete) list of.
+NAVis has been used in a range of high-profile publications. See below for a (probably incomplete) list.
 
 Want to see your work listed here? Open an [Issue](https://github.com/navis-org/navis/issues), start a [Discussion](https://github.com/navis-org/navis/discussions) or open a PR to tell us about it!
 
@@ -23,7 +23,7 @@ Want to see your work listed here? Open an [Issue](https://github.com/navis-org/
 
 9. _Multisensory learning binds modality-specific neurons into a cross-modal memory engram._ Zeynep Okray, Pedro F. Jacob, Ciara Stern, Kieran Desmond, Nils Otto, Paola Vargas-Gutierrez, Scott Waddell, bioRxiv (2022); doi: https://doi.org/10.1101/2022.07.08.499174
 
-10. _Diversity of visual inputs to Kenyon cells of the Drosophila mushroom body._ Ganguly I, Heckman EL, Litwin-Kumar A, Clowney EJ, Behnia R, bioRxiv  (2023); doi: 10.1101/2023.10.12.561793
+10. _Diversity of visual inputs to Kenyon cells of the Drosophila mushroom body._ Ganguly I, Heckman EL, Litwin-Kumar A, Clowney EJ, Behnia R, bioRxiv  (2023); doi: https://doi.org/10.1101/2023.10.12.561793
 
 11. _Synaptic and peptidergic connectomes of the Drosophila circadian clock._ Nils Reinhard, Ayumi Fukuda, Giulia Manoli, Emilia Derksen, Aika Saito, Gabriel Möller, Manabu Sekiguchi, Dirk Rieger, Charlotte Helfrich-Förster, Taishi Yoshii, Meet Zandawala, bioRxiv (2023); doi: https://doi.org/10.1101/2023.09.11.557222
 
@@ -40,7 +40,7 @@ Want to see your work listed here? Open an [Issue](https://github.com/navis-org/
 ## 2021
 16. _Information flow, cell types and stereotypy in a full olfactory connectome._ Schlegel, Bates et al., eLife (2021); doi: https://doi.org/10.7554/eLife.66018
 
-17. _A sex-specific switch between visual and olfactory inputs underlies adaptive sex differences in behavior._ Nojima T, Rings A, Allen AM, Otto N, Verschut TA, Billeter JC, Neville MC, Goodwin SF. Curr Biol. (2021); doi: 10.1016/j.cub.2020.12.047
+17. _A sex-specific switch between visual and olfactory inputs underlies adaptive sex differences in behavior._ Nojima T, Rings A, Allen AM, Otto N, Verschut TA, Billeter JC, Neville MC, Goodwin SF. Curr Biol. (2021); doi: https://doi.org/10.1016/j.cub.2020.12.047
 
 ## 2020
 18. _Complete connectomic reconstruction of olfactory projection neurons in the fly brain._ Bates, Alexander S., et al., Current Biology (2020); doi: https://doi.org/10.1016/j.cub.2020.06.042
