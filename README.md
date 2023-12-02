@@ -1,6 +1,6 @@
 [![Documentation Status](https://readthedocs.org/projects/navis/badge/?version=latest)](http://navis.readthedocs.io/en/latest/?badge=latest) [![Tests](https://github.com/navis-org/navis/actions/workflows/test-package.yml/badge.svg)](https://github.com/navis-org/navis/actions/workflows/test-package.yml) [![Run notebooks](https://github.com/navis-org/navis/actions/workflows/notebooktest-package.yml/badge.svg)](https://github.com/navis-org/navis/actions/workflows/notebooktest-package.yml) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/navis-org/navis/blob/master/examples/colab.ipynb) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8191725.svg)](https://zenodo.org/doi/10.5281/zenodo.4699382) [![Downloads](https://pepy.tech/badge/navis)](https://pepy.tech/project/navis)
 
-<img src="https://github.com/navis-org/navis/raw/master/docs/_static/logo_new.png" height="120">
+<img src="https://github.com/navis-org/navis/raw/master/docs/_static/logo_new.png" height="150">
 
 NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization.
 
@@ -8,15 +8,14 @@ NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization.
 NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 
 ## Features
-* **polyglot**: ``navis`` works with skeletons, meshes, dotprops and image data
+* **polyglot**: work and convert between neuron skeletons, meshes, dotprops and images
 * **visualize**: 2D (matplotlib) and 3D (vispy, plotly or k3d)
-* **process**: skeletonization, meshing, smoothing, repairing, downsampling, etc.
-* **edit**: e.g. cutting, stitching, pruning, rerooting or intersecting
+* **process**: skeletonization, meshing, smoothing, repair, downsampling, etc.
 * **morphometrics**: Strahler analysis, cable length, volume, tortuosity and more
 * **similarity**: compare & cluster by morphology (e.g. NBLAST, persistence or form factor) or connectivity metrics
 * **transform**: move data between template brains (built-in support for HDF5, CMTK, Elastix and landmark-based transforms)
 * **interface**: load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and other data sources
-* **simulate** neurons and networks using the *NEURON* simulator
+* **model** neurons and networks using the *NEURON* simulator
 * **render**: use Blender 3D for high quality [visualizations](https://youtu.be/wl3sFG7WQJc)
 * **R** neuron libraries: interfaces with [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr) and more
 * **import-export**: read/write SWCs, neuroglancer's ["*precomputed*"](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed) format, NMX/NML, NRRD, mesh-files and more
@@ -69,20 +68,17 @@ libraries built on top of NAVis:
 * [fafbseg](https://fafbseg-py.readthedocs.io/en/latest/index.html) contains tools to work with auto-segmented data for the FAFB EM dataset including FlyWire
 
 ## Who uses NAVis?
-NAVis has been used in a range of neurobiological publications. Here's a semi-random sample
-of recent papers:
+NAVis has been used in a range of neurobiological publications. See [publications](publications.md) for a list.
 
-```
-BIFROST: a method for registering diverse imaging datasets, Brezovec et al., bioRxiv (2023); doi: https://doi.org/10.1101/2023.06.09.544408
+We have implemented various published algorithms or methods:
 
-Vimo: Visual Analysis of Neuronal Connectivity Motifs, Troidl et al., bioRxiv (2022); doi: https://doi.org/10.1101/2022.12.09.519772
+1. NBLAST: Comparison of neurons based on morphology [(Costa et al., 2016)](https://www.cell.com/neuron/fulltext/S0896-6273(16)30265-3?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS0896627316302653%3Fshowall%3Dtrue)
+2. Vertex Similarity: Comparison of neurons based on connectivity [(Jarrell et al., 2012)](http://science.sciencemag.org/content/337/6093/437.long)
+3. Comparison of neurons based on synapse distribution
+[(Schlegel et al., 2016)](https://elifesciences.org/content/5/e16799)
+4. Synapse flow centrality for axon-dendrite splits[(Schneider-Mizell et al., 2016)](https://elifesciences.org/articles/12059)
 
-Information flow, cell types and stereotypy in a full olfactory connectome, Schlegel, Bates et al., eLife (2021); doi: https://doi.org/10.7554/eLife.66018
-
-Synaptic wiring motifs in posterior parietal cortex support decision-making, Kuan et al., bioRxiv (2022); doi: https://doi.org/10.1101/2022.04.13.488176
-```
-
-Want to see your work listed here? Open an [Issue](https://github.com/navis-org/navis/issues) and tell us about it!
+Working on your own cool new method? Consider contributing it to NAVis!
 
 ## Citing NAVis
 We'd love to know if you found NAVis useful for your research! You can help us
@@ -96,26 +92,6 @@ NAVis is inspired by and inherits much of its design from the excellent
 [natverse](http://natverse.org) R packages by
 [Greg Jefferis](https://github.com/jefferis), [Alex Bates](https://github.com/alexanderbates),
 [James Manton](https://github.com/ajdm) and others.
-
-## References
-NAVis implements or provides interfaces with algorithms described in:
-
-1. **Comparison of neurons based on morphology**: Neuron. 2016 doi: 10.1016/j.neuron.2016.06.012
-*NBLAST: Rapid, Sensitive Comparison of Neuronal Structure and Construction of Neuron Family Databases.*
-Costa M, Manton JD, Ostrovsky AD, Prohaska S, Jefferis GSXE.
-[link](https://www.cell.com/neuron/fulltext/S0896-6273(16)30265-3?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS0896627316302653%3Fshowall%3Dtrue)
-2. **Comparison of neurons based on connectivity**: Science. 2012 Jul 27;337(6093):437-44. doi: 10.1126/science.1221762.
-*The connectome of a decision-making neural network.*
-Jarrell TA, Wang Y, Bloniarz AE, Brittin CA, Xu M, Thomson JN, Albertson DG, Hall DH, Emmons SW.
-[link](http://science.sciencemag.org/content/337/6093/437.long)
-3. **Comparison of neurons based on synapse distribution**: eLife. doi: 10.7554/eLife.16799
-*Synaptic transmission parallels neuromodulation in a central food-intake circuit.*
-Schlegel P, Texada MJ, Miroschnikow A, Schoofs A, Hückesfeld S, Peters M, … Pankratz MJ.
-[link](https://elifesciences.org/content/5/e16799)
-4. **Synapse flow centrality and segregation index**: eLife. doi: 10.7554/eLife.12059
-*Quantitative neuroanatomy for connectomics in Drosophila.*
-Schneider-Mizell CM, Gerhard S, Longair M, Kazimiers T, Li, Feng L, Zwart M … Cardona A.
-[link](https://elifesciences.org/articles/12059)
 
 ## Contributing
 
@@ -148,5 +124,6 @@ and/or use [pytest](https://docs.pytest.org/en/stable/) in the `./tests` directo
 Doctests have access to the `tmp_dir: pathlib.Path` variable,
 which should be used if any files need to be written.
 
-Feel free to get in touch either through an [issue](https://github.com/navis-org/navis/issues) or [discussion](https://github.com/navis-org/navis/discussions) if you need
+Feel free to get in touch either through an [issue](https://github.com/navis-org/navis/issues)
+or [discussion](https://github.com/navis-org/navis/discussions) if you need
 pointers or input on how to implement an idea.
