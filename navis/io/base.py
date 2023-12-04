@@ -17,6 +17,7 @@ import os
 import re
 import requests
 import tempfile
+import tarfile
 
 import multiprocessing as mp
 import numpy as np
@@ -250,6 +251,8 @@ class BaseReader(ABC):
         """Return true if file should be considered for reading."""
         if isinstance(file, ZipInfo):
             file = file.filename
+        elif isinstance(file, tarfile.TarInfo):
+            file = file.name
         elif isinstance(file, Path):
             file = file.name
 
@@ -404,11 +407,96 @@ class BaseReader(ABC):
         read_fn = partial(self.read_from_zip,
                           zippath=fpath, attrs=attrs,
                           on_error=on_error)
-        neurons = parallel_read_zip(read_fn=read_fn,
+        neurons = parallel_read_archive(read_fn=read_fn,
                                     fpath=fpath,
                                     file_ext=self.is_valid_file,
                                     limit=limit,
                                     parallel=parallel)
+        return core.NeuronList(neurons)
+
+    def read_from_tar(
+        self, files: Union[str, List[str]],
+        tarpath: os.PathLike,
+        attrs: Optional[Dict[str, Any]] = None,
+        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
+    ) -> 'core.NeuronList':
+        """Read given files from a tar into a NeuronList.
+
+        Typically not used directly but via `read_tar()` dispatcher.
+
+        Parameters
+        ----------
+        files :     tarfile.TarInfo | list thereof
+                    Files inside the tar file to read.
+        tarpath :   str | os.PathLike
+                    Path to tar file.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
+        on_error :  'ignore' | 'raise'
+                    What do do when error is encountered.
+
+        Returns
+        -------
+        core.NeuronList
+
+        """
+        p = Path(tarpath)
+        files = utils.make_iterable(files)
+
+        neurons = []
+        with tarfile.open(p, 'r') as tf:
+            for file in files:
+                # Note the `file` is of type tarfile.TarInfo here
+                props = self.parse_filename(file.name.split('/')[-1])
+                props['origin'] = str(p)
+                try:
+                    n = self.read_bytes(tf.extractfile(file).read(),
+                                        merge_dicts(props, attrs))
+                    neurons.append(n)
+                except BaseException:
+                    if on_error == 'ignore':
+                        logger.warning(f'Failed to read "{file.filename}" from tar.')
+                    else:
+                        raise
+
+        return core.NeuronList(neurons)
+
+    def read_tar(
+        self, fpath: os.PathLike,
+        parallel="auto",
+        limit: Optional[int] = None,
+        attrs: Optional[Dict[str, Any]] = None,
+        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
+    ) -> 'core.NeuronList':
+        """Read files from a tar archive into a NeuronList.
+
+        This is a dispatcher for `.read_from_tar`.
+
+        Parameters
+        ----------
+        fpath :     str | os.PathLike
+                    Path to tar file.
+        limit :     int, optional
+                    Limit the number of files read from this directory.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
+        on_error :  'ignore' | 'raise'
+                    What do do when error is encountered.
+
+        Returns
+        -------
+        core.NeuronList
+
+        """
+        fpath = Path(fpath).expanduser()
+        read_fn = partial(self.read_from_tar,
+                          tarpath=fpath, attrs=attrs,
+                          on_error=on_error)
+        neurons = parallel_read_archive(read_fn=read_fn,
+                                        fpath=fpath,
+                                        file_ext=self.is_valid_file,
+                                        limit=limit,
+                                        parallel=parallel)
         return core.NeuronList(neurons)
 
     def read_directory(
@@ -557,6 +645,8 @@ class BaseReader(ABC):
         if isinstance(obj, os.PathLike):
             if str(obj).endswith('.zip'):
                 return self.read_zip(obj, attrs=attrs)
+            elif ".tar" in str(obj):
+                return self.read_tar(obj, attrs=attrs)
             return self.read_file_path(obj, attrs)
         if isinstance(obj, str):
             # See if this might be a file (make sure to expand user)
@@ -665,9 +755,10 @@ class BaseReader(ABC):
             try:
                 if os.path.isfile(os.path.expanduser(obj)) and str(obj).endswith('.zip'):
                     return self.read_zip(obj, parallel, limit, attrs)
+                if os.path.isfile(os.path.expanduser(obj)) and ".tar" in str(obj):
+                    return self.read_tar(obj, parallel, limit, attrs)
             except TypeError:
                 pass
-
             return self.read_any_single(obj, attrs)
 
     def parse_filename(
@@ -807,11 +898,11 @@ def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
     return neurons
 
 
-def parallel_read_zip(read_fn, fpath, file_ext,
+def parallel_read_archive(read_fn, fpath, file_ext,
                       limit=None,
                       parallel="auto",
                       ignore_hidden=True) -> List['core.NeuronList']:
-    """Read neurons from a ZIP file, potentially in parallel.
+    """Read neurons from a archive (zip or tar), potentially in parallel.
 
     Reader function must be picklable.
 
@@ -846,23 +937,46 @@ def parallel_read_zip(read_fn, fpath, file_ext,
     # Check zip content
     p = Path(fpath)
     to_read = []
-    with ZipFile(p, 'r') as zip:
-        for file in zip.filelist:
-            fname = file.filename.split('/')[-1]
-            if ignore_hidden and fname.startswith('._'):
-                continue
-            if callable(file_ext):
-                if file_ext(file):
-                    to_read.append(file)
-            elif file_ext == '*':
-                to_read.append(file)
-            elif file_ext and fname.endswith(file_ext):
-                to_read.append(file)
-            elif '.' not in file.filename:
-                to_read.append(file)
 
-    if limit:
-        to_read = to_read[:limit]
+    if p.name.endswith('.zip'):
+        with ZipFile(p, 'r') as zip:
+            for i, file in enumerate(zip.filelist):
+                fname = file.filename.split('/')[-1]
+                if ignore_hidden and fname.startswith('._'):
+                    continue
+                if callable(file_ext):
+                    if file_ext(file):
+                        to_read.append(file)
+                elif file_ext == '*':
+                    to_read.append(file)
+                elif file_ext and fname.endswith(file_ext):
+                    to_read.append(file)
+                elif '.' not in file.filename:
+                    to_read.append(file)
+
+                if isinstance(limit, int) and i >= limit:
+                    break
+    elif '.tar' in p.name:  # can be ".tar", "tar.gz" or "tar.bz"
+        with tarfile.open(p, 'r') as tf:
+            for i, file in enumerate(tf):
+                fname = file.name.split('/')[-1]
+                if ignore_hidden and fname.startswith('._'):
+                    continue
+                if callable(file_ext):
+                    if file_ext(file):
+                        to_read.append(file)
+                elif file_ext == '*':
+                    to_read.append(file)
+                elif file_ext and fname.endswith(file_ext):
+                    to_read.append(file)
+                elif '.' not in file.filename:
+                    to_read.append(file)
+
+                if isinstance(limit, int) and i >= limit:
+                    break
+
+    if isinstance(limit, list):
+        to_read = [f for f in to_read if f in limit]
 
     prog = partial(
         config.tqdm,
