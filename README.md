@@ -68,17 +68,17 @@ libraries built on top of NAVis:
 * [fafbseg](https://fafbseg-py.readthedocs.io/en/latest/index.html) contains tools to work with auto-segmented data for the FAFB EM dataset including FlyWire
 
 ## Who uses NAVis?
-NAVis has been used in a range of neurobiological publications. See [publications](publications.md) for a list.
+NAVis has been used in a range of neurobiological publications. See [here](publications.md) for a list.
 
-We have implemented various published algorithms or methods:
+We have implemented various published algorithms and methods:
 
 1. NBLAST: Comparison of neurons based on morphology [(Costa et al., 2016)](https://www.cell.com/neuron/fulltext/S0896-6273(16)30265-3?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS0896627316302653%3Fshowall%3Dtrue)
 2. Vertex Similarity: Comparison of neurons based on connectivity [(Jarrell et al., 2012)](http://science.sciencemag.org/content/337/6093/437.long)
 3. Comparison of neurons based on synapse distribution
 [(Schlegel et al., 2016)](https://elifesciences.org/content/5/e16799)
-4. Synapse flow centrality for axon-dendrite splits[(Schneider-Mizell et al., 2016)](https://elifesciences.org/articles/12059)
+4. Synapse flow centrality for axon-dendrite splits [(Schneider-Mizell et al., 2016)](https://elifesciences.org/articles/12059)
 
-Working on your own cool new method? Consider contributing it to NAVis!
+Working on your own cool new method? Consider adding it to NAVis!
 
 ## Citing NAVis
 We'd love to know if you found NAVis useful for your research! You can help us
@@ -94,17 +94,16 @@ NAVis is inspired by and inherits much of its design from the excellent
 [James Manton](https://github.com/ajdm) and others.
 
 ## Contributing
-
 Want to contribute? Great, here is how!
 
-### Report bugs or request features
+#### Report bugs or request features
 Open an [issue](https://github.com/navis-org/navis/issues). For bug reports
 please make sure to include some code/data with a minimum example for us to
 reproduce the bug.
 
-### Contribute code
+#### Contribute code
 We're always happy for people to contribute code - be it a small bug fix, a
-new feature or improved documentation/tutorials.
+new feature or improved documentation.
 
 Here's how you'd do it in a nutshell:
 
