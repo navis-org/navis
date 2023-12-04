@@ -45,26 +45,28 @@ Want to see your work listed here? Open an [Issue](https://github.com/navis-org/
 
 19. _Structured sampling of olfactory input by the fly mushroom body._ Zhihao Zheng, Feng Li, Corey Fisher, Iqbal J. Ali, Nadiya Sharifi, Steven Calle-Schuler, Joseph Hsu, Najla Masoodpanah, Lucia Kmecova, Tom Kazimiers, Eric Perlman, Matthew Nichols, Peter H. Li, Viren Jain, Davi D. Bock, Current Biology (2022); doi: https://doi.org/10.1016/j.cub.2022.06.031
 
+20. _The connectome of an insect brain._ Winding M, Pedigo BD, Barnes CL, Patsolic HG, Park Y, Kazimiers T, Fushiki A, Andrade IV, Khandelwal A, Valdes-Aleman J, Li F, Randel N, Barsotti E, Correia A, Fetter RD, Hartenstein V, Priebe CE, Vogelstein JT, Cardona A, Zlatic M, Science (2023 ); doi: 10.1126/science.add9330
+
 ## 2021
-20. _Information flow, cell types and stereotypy in a full olfactory connectome._ Schlegel, Bates et al., eLife (2021); doi: https://doi.org/10.7554/eLife.66018
+21. _Information flow, cell types and stereotypy in a full olfactory connectome._ Schlegel, Bates et al., eLife (2021); doi: https://doi.org/10.7554/eLife.66018
 
-21. _A sex-specific switch between visual and olfactory inputs underlies adaptive sex differences in behavior._ Nojima T, Rings A, Allen AM, Otto N, Verschut TA, Billeter JC, Neville MC, Goodwin SF. Curr Biol. (2021); doi: https://doi.org/10.1016/j.cub.2020.12.047
+22. _A sex-specific switch between visual and olfactory inputs underlies adaptive sex differences in behavior._ Nojima T, Rings A, Allen AM, Otto N, Verschut TA, Billeter JC, Neville MC, Goodwin SF. Curr Biol. (2021); doi: https://doi.org/10.1016/j.cub.2020.12.047
 
-22. _A developmental framework linking neurogenesis and circuit formation in the Drosophila CNS._ Brandon Mark, Sen-Lin Lai, Aref Arzan Zarin, Laurina Manning, Ashok Litwin-Kumar, Albert Cardona, James W. Truman, Chris Q. Doe, eLife (2021); doi: https://doi.org/10.7554/eLife.67510
+23. _A developmental framework linking neurogenesis and circuit formation in the Drosophila CNS._ Brandon Mark, Sen-Lin Lai, Aref Arzan Zarin, Laurina Manning, Ashok Litwin-Kumar, Albert Cardona, James W. Truman, Chris Q. Doe, eLife (2021); doi: https://doi.org/10.7554/eLife.67510
 
-23. _Reconstruction of motor control circuits in adult Drosophila using automated transmission electron microscopy._ Jasper S. Phelps, David Grant Colburn Hildebrand, Brett J. Graham, Aaron T. Kuan, Logan A. Thomas, Tri M. Nguyen, Julia Buhmann, Anthony W. Azevedo, Anne Sustar, Sweta Agrawal, Mingguan Liu, Brendan L. Shanny, Jan Funke, John C. Tuthill, Wei-Chung Allen Lee,
+24. _Reconstruction of motor control circuits in adult Drosophila using automated transmission electron microscopy._ Jasper S. Phelps, David Grant Colburn Hildebrand, Brett J. Graham, Aaron T. Kuan, Logan A. Thomas, Tri M. Nguyen, Julia Buhmann, Anthony W. Azevedo, Anne Sustar, Sweta Agrawal, Mingguan Liu, Brendan L. Shanny, Jan Funke, John C. Tuthill, Wei-Chung Allen Lee,
 Cell (2021); doi: https://doi.org/10.1016/j.cell.2020.12.013.
 
 
 ## 2020
-24. _Complete connectomic reconstruction of olfactory projection neurons in the fly brain._ Bates, Alexander S., et al., Current Biology (2020); doi: https://doi.org/10.1016/j.cub.2020.06.042
+25. _Complete connectomic reconstruction of olfactory projection neurons in the fly brain._ Bates, Alexander S., et al., Current Biology (2020); doi: https://doi.org/10.1016/j.cub.2020.06.042
 
-25. _Convergence of distinct subpopulations of mechanosensory neurons onto a neural circuit that elicits grooming._ Stefanie Hampel, Katharina Eichler, Daichi Yamada, Hyunsoo Kim, Mihoko Horigome, Romain Franconville, Davi D. Bock, Azusa Kamikouchi, Andrew M. Seeds, bioRxiv (2020); doi: https://doi.org/10.1101/2020.06.08.141341
+26. _Convergence of distinct subpopulations of mechanosensory neurons onto a neural circuit that elicits grooming._ Stefanie Hampel, Katharina Eichler, Daichi Yamada, Hyunsoo Kim, Mihoko Horigome, Romain Franconville, Davi D. Bock, Azusa Kamikouchi, Andrew M. Seeds, bioRxiv (2020); doi: https://doi.org/10.1101/2020.06.08.141341
 
-26. _The Wiring Logic of an Identified Serotonergic Neuron That Spans Sensory Networks._ Kaylynn E. Coates, Steven A. Calle-Schuler, Levi M. Helmick, Victoria L. Knotts, Brennah N. Martik, Farzaan Salman, Lauren T. Warner, Sophia V. Valla, Davi D. Bock, Andrew M. Dacks, Journal of Neuroscience (2020); doi: https://doi.org/10.1523/JNEUROSCI.0552-20.2020
+27. _The Wiring Logic of an Identified Serotonergic Neuron That Spans Sensory Networks._ Kaylynn E. Coates, Steven A. Calle-Schuler, Levi M. Helmick, Victoria L. Knotts, Brennah N. Martik, Farzaan Salman, Lauren T. Warner, Sophia V. Valla, Davi D. Bock, Andrew M. Dacks, Journal of Neuroscience (2020); doi: https://doi.org/10.1523/JNEUROSCI.0552-20.2020
 
-27. _Input Connectivity Reveals Additional Heterogeneity of Dopaminergic Reinforcement in Drosophila._ Nils Otto, Markus W. Pleijzier, Isabel C. Morgan, Amelia J. Edmondson-Stait, Konrad J. Heinz, Ildiko Stark, Georgia Dempsey, Masayoshi Ito, Ishaan Kapoor, Joseph Hsu, Philipp M. Schlegel, Alexander S. Bates, Li Feng, Marta Costa, Kei Ito, Davi D. Bock, Gerald M. Rubin, Gregory S.X.E. Jefferis, Scott Waddell, Current Biology (2020); doi: https://doi.org/10.1016/j.cub.2020.05.077
+28. _Input Connectivity Reveals Additional Heterogeneity of Dopaminergic Reinforcement in Drosophila._ Nils Otto, Markus W. Pleijzier, Isabel C. Morgan, Amelia J. Edmondson-Stait, Konrad J. Heinz, Ildiko Stark, Georgia Dempsey, Masayoshi Ito, Ishaan Kapoor, Joseph Hsu, Philipp M. Schlegel, Alexander S. Bates, Li Feng, Marta Costa, Kei Ito, Davi D. Bock, Gerald M. Rubin, Gregory S.X.E. Jefferis, Scott Waddell, Current Biology (2020); doi: https://doi.org/10.1016/j.cub.2020.05.077
 
-28. _The Neuroanatomical Ultrastructure and Function of a Biological Ring Attractor._ Turner-Evans DB, Jensen KT, Ali S, Paterson T, Sheridan A, Ray RP, Wolff T, Lauritzen JS, Rubin GM, Bock DD, Jayaraman V.,  Neuron (2020); doi: https://doi.org/10.1016/j.neuron.2020.08.006
+29. _The Neuroanatomical Ultrastructure and Function of a Biological Ring Attractor._ Turner-Evans DB, Jensen KT, Ali S, Paterson T, Sheridan A, Ray RP, Wolff T, Lauritzen JS, Rubin GM, Bock DD, Jayaraman V.,  Neuron (2020); doi: https://doi.org/10.1016/j.neuron.2020.08.006
 
-29. _Connectomics Analysis Reveals First-, Second-, and Third-Order Thermosensory and Hygrosensory Neurons in the Adult Drosophila Brain._ Marin EC, Büld L, Theiss M, Sarkissian T, Roberts RJV, Turnbull R, Tamimi IFM, Pleijzier MW, Laursen WJ, Drummond N, Schlegel P, Bates AS, Li F, Landgraf M, Costa M, Bock DD, Garrity PA, Jefferis GSXE, Curr Biol. (2020); doi: https://doi.org/10.1016/j.cub.2020.06.028
+30. _Connectomics Analysis Reveals First-, Second-, and Third-Order Thermosensory and Hygrosensory Neurons in the Adult Drosophila Brain._ Marin EC, Büld L, Theiss M, Sarkissian T, Roberts RJV, Turnbull R, Tamimi IFM, Pleijzier MW, Laursen WJ, Drummond N, Schlegel P, Bates AS, Li F, Landgraf M, Costa M, Bock DD, Garrity PA, Jefferis GSXE, Curr Biol. (2020); doi: https://doi.org/10.1016/j.cub.2020.06.028
