@@ -951,7 +951,7 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
     elif isinstance(nl[0], core.VoxelNeuron):
         raise TypeError('Combining VoxelNeuron not (yet) supported')
     else:
-        raise TypeError(f'Unable to combine {ty}')
+        raise TypeError(f'Unable to combine {type(nl[0])}')
 
     return x
 
