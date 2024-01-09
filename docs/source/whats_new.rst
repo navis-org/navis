@@ -26,6 +26,9 @@ repository.
             for format specs and benchmarks)
           - new :func:`navis.read_nml` function to read single NML file (complements
             existing :func:`navis.read_nmx` files which are collections of NMLs)
+          - :class:`navis.NodeConnectorRelation` is an :class:`enum.IntEnum`
+            encoding relationships between (tree)nodes and connector nodes,
+            used in neurons' connector tables.
           - new :class:`navis.NeuronConnector` class for creating connectivity graphs
          from groups neurons with consistent connector IDs.
        - Improvements:

@@ -12,7 +12,7 @@
 #    GNU General Public License for more details.
 
 from .volumes import Volume
-from .base import Neuron, BaseNeuron
+from .base import Neuron, BaseNeuron, NodeConnectorRelation
 from .skeleton import TreeNeuron
 from .mesh import MeshNeuron
 from .dotprop import Dotprops
@@ -25,4 +25,5 @@ from typing import Union
 NeuronObject = Union[NeuronList, TreeNeuron, BaseNeuron, MeshNeuron]
 
 __all__ = ['Volume', 'Neuron', 'BaseNeuron', 'TreeNeuron', 'MeshNeuron',
-           'Dotprops', 'VoxelNeuron', 'NeuronList', 'make_dotprops']
+           'Dotprops', 'VoxelNeuron', 'NeuronList', 'make_dotprops',
+           'NodeConnectorRelation']
