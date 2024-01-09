@@ -682,6 +682,10 @@ def geodesic_matrix(x: 'core.NeuronObject',
         indices = None
         ix = nodeList
 
+    # For some reason csgrpah.dijkstra expects indices/indptr as int32
+    # igraph seems to do that by default but networkx uses int64 for indices
+    m.indptr = m.indptr.astype('int32', copy=False)
+    m.indices = m.indices.astype('int32', copy=False)
     dmat = csgraph.dijkstra(m,
                             directed=directed,
                             indices=indices,
