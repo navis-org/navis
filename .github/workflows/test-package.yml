@@ -41,6 +41,8 @@ jobs:
       run: pip install -e .[dev,vispy-pyqt5,pathos,cloudvolume]
     - run: pip install python-igraph
       if: ${{ matrix.igraph == 'igraph' }}
+    - name: Report dependency versions
+      run: pip freeze -r requirements.txt
     - name: Test
       uses: GabrielBB/xvfb-action@v1
       with:
