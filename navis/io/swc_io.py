@@ -271,7 +271,8 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     f :                 str | pandas.DataFrame | iterable
                         Filename, folder, SWC string, URL or DataFrame.
                         If folder, will import all ``.swc`` files. If a
-                        ``.zip`` file will read all SWC files in the file.
+                        ``.zip``, ``.tar`` or ``.tar.gz`` file will read all
+                        SWC files in the file. See also ``limit`` parameter.
     connector_labels :  dict, optional
                         If provided will extract connectors from SWC.
                         Dictionary must map type to label:
