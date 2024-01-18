@@ -338,7 +338,11 @@ class BaseNeuron:
 
     @property
     def id(self) -> Any:
-        """Hashable ID."""
+        """ID of the neuron.
+
+        Must be hashable. If not set, will assign a random unique identifier.
+        Can be indexed by using the ``NeuronList.idx[]`` locator.
+        """
         return getattr(self, '_id', None)
 
     @id.setter
@@ -412,7 +416,7 @@ class BaseNeuron:
 
     @property
     def presynapses(self):
-        """Table with presynapses.
+        """Table with presynapses (filtered from connectors table).
 
         Requires a "type" column in connector table. Will look for type labels
         that include "pre" or that equal 0 or "0".
@@ -433,7 +437,7 @@ class BaseNeuron:
 
     @property
     def postsynapses(self):
-        """Table with postsynapses.
+        """Table with postsynapses (filtered from connectors table).
 
         Requires a "type" column in connector table. Will look for type labels
         that include "post" or that equal 1 or "1".

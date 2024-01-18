@@ -42,15 +42,14 @@ learn more!
 
 .. _api_neurons:
 
-Neuron/List
-+++++++++++
+Neurons & NeuronLists
++++++++++++++++++++++
 ``TreeNeurons``, ``MeshNeurons``, ``VoxelNeurons`` and ``Dotprops`` are neuron
 classes. ``NeuronLists`` are containers thereof.
 
 .. autosummary::
     :toctree: generated/
 
-    navis.BaseNeuron
     navis.TreeNeuron
     navis.MeshNeuron
     navis.VoxelNeuron
@@ -94,8 +93,9 @@ to all neurons:
 
 TreeNeurons
 -----------
-These are class methods available specific for ``TreeNeurons``. Most of them are
-simply short-hands for the other navis functions:
+A :class:`navis.TreeNeuron` is a skeletons. These are class methods available specific for
+this neuron type. Note that most of them are simply short-hands for the other
+``navis`` functions:
 
 .. autosummary::
     :toctree: generated/
@@ -116,7 +116,7 @@ simply short-hands for the other navis functions:
     ~navis.TreeNeuron.resample
     ~navis.TreeNeuron.snap
 
-In addition ``TreeNeurons`` have a range of different properties:
+In addition, a :class:`navis.TreeNeuron` has a range of different properties:
 
 .. autosummary::
     :toctree: generated/
@@ -143,25 +143,33 @@ In addition ``TreeNeurons`` have a range of different properties:
 
 MeshNeurons
 -----------
-These are methods and properties specific to ``MeshNeurons``.
+Properties specific to :class:`navis.MeshNeuron`:
 
 .. autosummary::
     :toctree: generated/
 
     ~navis.MeshNeuron.faces
     ~navis.MeshNeuron.vertices
-    ~navis.MeshNeuron.skeletonize
-    ~navis.MeshNeuron.snap
     ~navis.MeshNeuron.trimesh
     ~navis.MeshNeuron.volume
+    ~navis.MeshNeuron.sampling_resolution
+
+Methods specific to :class:`navis.MeshNeuron`:
+
+.. autosummary::
+    :toctree: generated/
+
+    ~navis.MeshNeuron.skeletonize
+    ~navis.MeshNeuron.snap
     ~navis.MeshNeuron.validate
 
 
 VoxelNeurons
 ------------
-VoxelNeurons (e.g. from confocal stacks) are a relatively new addition to
-navis and the interface might still change.
-These are methods and properties specific to ``VoxelNeurons``.
+:class:`navis.VoxelNeurons` (e.g. from confocal image stacks) are a relatively
+recet addition to navis and the interface might still change.
+
+These are methods and properties specific to ``VoxelNeurons``:
 
 .. autosummary::
     :toctree: generated/
@@ -174,7 +182,10 @@ These are methods and properties specific to ``VoxelNeurons``.
 
 Dotprops
 --------
-These are methods and properties specific to ``Dotprops``.
+:class:`navis.Dotprops`` are typically indirectly generated from e.g. skeletons or
+point clouds using :func:`navis.make_dotprops`.
+
+These are methods and properties specific to ``Dotprops``:
 
 .. autosummary::
     :toctree: generated/
@@ -184,9 +195,6 @@ These are methods and properties specific to ``Dotprops``.
     ~navis.Dotprops.alpha
     ~navis.Dotprops.to_skeleton
     ~navis.Dotprops.snap
-
-Dotprops are typically indirectly generated from e.g. skeletons or
-point clouds using :func:`navis.make_dotprops`.
 
 
 Conversion
@@ -200,6 +208,8 @@ There are a couple functions to convert from one neuron type to another:
     navis.skeletonize
     navis.mesh
     navis.voxelize
+    navis.conversion.voxels2mesh
+    navis.conversion.tree2meshneuron
 
 
 NeuronList methods
@@ -236,6 +246,9 @@ Properties:
     ~navis.NeuronList.is_mixed
     ~navis.NeuronList.shape
     ~navis.NeuronList.types
+
+Please see the ref:`tutorial<neuron_overview>` on ``NeuronLists`` for more
+information, including how to index them.
 
 .. _api_plot:
 
@@ -420,7 +433,8 @@ Functions to calculate Euclidian and geodesic ("along-the-arbor") distances.
 
 Intersection
 ------------
-Functions to intersect points and neurons with volumes.
+Functions to intersect points and neurons with volumes. For example, if you'd
+like to know which part of a neuron is inside a certain brain region.
 
 .. autosummary::
     :toctree: generated/
@@ -432,8 +446,9 @@ Functions to intersect points and neurons with volumes.
 
 Transforming and Mirroring
 ++++++++++++++++++++++++++
-Functions to transform spatial data e.g. between template brains.
-Check out the :ref:`tutorials<example_gallery>` for examples on how to use them.
+Functions to transform spatial data, e.g. move neurons from one brain space to
+another. Check out the :ref:`tutorials<example_gallery>` for examples on how to
+use them.
 
 High-level functions:
 
@@ -470,10 +485,14 @@ The ``TemplateRegistry`` keeps track of template brains, transforms and such:
 
     ~navis.transforms.templates.TemplateRegistry
 
-This relevant instance of this class is ``navis.transforms.registry``. So to
-register a new transform you would for example do this::
+The relevant instance of this class is ``navis.transforms.registry``. So to
+register and use a new transform you would do this for example::
 
-  >>> navis.transforms.registry.register_transform(transform, ...)
+  >>> transform = navis.transforms.AffineTransform(...)
+  >>> navis.transforms.registry.register_transform(transform,
+  ...                                              source='brainA',
+  ...                                              target='brainB')
+  >>> xf = navis.xform_brain(data, 'brainA', 'brainB')
 
 These are the methods and properties of ``registry``:
 
@@ -508,7 +527,7 @@ Collection of functions to work with graphs and adjacency matrices.
 
 Graphs
 ------
-Functions to convert neurons and networkx to iGraph or networkX graphs.
+Functions to convert between neurons graph representation (networkx or iGraph).
 
 .. autosummary::
     :toctree: generated/
@@ -930,11 +949,11 @@ Neuron types and functions
 ++++++++++++++++++++++++++
 
 As you can imagine not all functions will work on all neuron types. For example
-it is currently not possible to find the longest neurite
-(:func:`navis.longest_neurite`) in a ``VoxelNeuron``. Conversely, some
+it is currently not possible to find the longest neurite via
+:func:`navis.longest_neurite` for a ``VoxelNeuron``. Conversely, some
 functionality like "smoothing" makes sense for multiple neuron types but the
 application is so vastly different between e.g. meshes and skeletons that
-there is no single function but one for each neuron type.
+there are specicialized functions for every neuron type.
 
 Below table has an overview for which functions work with which neuron types.
 

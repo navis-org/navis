@@ -458,7 +458,7 @@ class TreeNeuron(BaseNeuron):
     @property
     @requires_nodes
     def cycles(self) -> Optional[List[int]]:
-        """Cycles in neuron if any.
+        """Cycles in neuron (if any).
 
         See also
         --------
@@ -477,11 +477,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def simple(self) -> 'TreeNeuron':
-        """Return simple neuron representation.
-
-        Consists only of root, branch points and leafs.
-
-        """
+        """Simplified representation consisting only of root, branch points and leafs."""
         if not hasattr(self, '_simple'):
             self._simple = self.downsample(float('inf'),
                                            inplace=False)
@@ -594,6 +590,12 @@ class TreeNeuron(BaseNeuron):
         """Number of branch points."""
         return self.nodes[self.nodes.type == 'branch'].shape[0]
 
+    @property
+    @requires_nodes
+    def n_leafs(self) -> Optional[int]:
+        """Number of leaf nodes."""
+        return self.nodes[self.nodes.type == 'end'].shape[0]
+
     @temp_property
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
@@ -675,7 +677,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def sampling_resolution(self) -> float:
-        """Average cable length between 2 nodes."""
+        """Average cable length between child -> parent nodes."""
         return self.cable_length / self.n_nodes
 
     @temp_property
@@ -710,7 +712,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def n_skeletons(self) -> int:
-        """Return number of seperate skeletons in this neuron."""
+        """Number of seperate skeletons in this neuron."""
         return len(self.root)
 
     def _clear_temp_attr(self, exclude: list = []) -> None:

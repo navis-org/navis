@@ -150,7 +150,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     shave :     bool
                 Whether to "shave" the resulting skeleton to reduce bristles
                 on the backbone.
-    heal :      bool
+    heal :      bool | "LEAFS" | "ALL"
                 Whether to heal the resulting skeleton if it is fragmented.
                 For more control over the stitching set `heal=False` and use
                 :func:`navis.heal_skeleton` directly. Note that this
