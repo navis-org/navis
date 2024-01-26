@@ -133,9 +133,8 @@ def resample_skeleton(x: 'core.NeuronObject',
         x = x.copy()
 
     # Collect some information for later
-    nodes = x.nodes.set_index('node_id', inplace=False)
-    locs = nodes[['x', 'y', 'z']]
-    radii = nodes['radius'].to_dict()
+    locs = dict(zip(x.nodes.node_id.values, x.nodes[['x', 'y', 'z']].values))
+    radii = dict(zip(x.nodes.node_id.values, x.nodes.radius.values))
 
     new_nodes: List = []
     max_tn_id = x.nodes.node_id.max() + 1
@@ -145,7 +144,7 @@ def resample_skeleton(x: 'core.NeuronObject',
     # Iterate over segments
     for i, seg in enumerate(x.small_segments):
         # Get coordinates
-        coords = locs.loc[seg].values.astype(float)
+        coords = np.vstack([locs[n] for n in seg])
         # Get radii
         rad = [radii[tn] for tn in seg]
 
