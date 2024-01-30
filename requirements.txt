@@ -1,7 +1,7 @@
 h5py>=3.1
 matplotlib>=3.6
 morphops>=0.1.11
-ncollpyde>=0.18
+ncollpyde>=0.18,<0.20
 networkx>=2.4
 numpy>=1.16
 pandas>=1.0
