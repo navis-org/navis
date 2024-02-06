@@ -17,6 +17,7 @@
 """Experimental plotting module using pygfx."""
 
 import uuid
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -35,6 +36,91 @@ except ImportError:
 __all__ = ["volume2gfx", "neuron2gfx", "dotprop2gfx", "voxel2gfx", "points2gfx"]
 
 logger = config.get_logger(__name__)
+
+
+class Plotter:
+    allowed_kwargs = []
+
+    def __init__(self, **kwargs):
+        self.parse_kwargs(**kwargs)
+
+    def __call__(self):
+        """Plot objects."""
+        return self.plot()
+
+    def parse_kwargs(self, **kwargs):
+        """Parse kwargs."""
+        # Check for invalid kwargs
+        invalid_kwargs = list(kwargs)
+        for k in self.allowed_kwargs:
+            # If this is a tuple of possible kwargs (e.g. "lw" or "linewidth")
+            if isinstance(k, (tuple, list, set)):
+                # Check if we have multiple kwargs for the same thing
+                if len([kk for kk in k if kk in invalid_kwargs]) > 1:
+                    raise ValueError(f'Please use only one of "{k}"')
+
+                for kk in k:
+                    if kk in invalid_kwargs:
+                        # Make sure we always use the first kwarg
+                        kwargs[k[0]] = kwargs.pop(kk)
+                        invalid_kwargs.pop(kk)
+            else:
+                if k in invalid_kwargs:
+                    invalid_kwargs.pop(k)
+
+        if len(invalid_kwargs):
+            warnings.warn(
+                f"Unknown kwargs for {self.backend} backend: {', '.join([f'{k}' for k in invalid_kwargs])}"
+            )
+
+        self.kwargs = kwargs
+
+    def add_objects(self, x):
+        """Add objects to the plot."""
+        (neurons, volumes, points, visual) = utils.parse_objects(x)
+
+    def plot(self):
+        """Plot objects."""
+        # Generate
+        colors = self.kwargs.get('color', None)
+        palette = self.kwargs.get("palette", None)
+
+        neuron_cmap, volumes_cmap = prepare_colormap(
+            colors,
+            neurons=self.neurons,
+            volumes=self.volumes,
+            palette=palette,
+            clusters=self.kwargs.get("clusters", None),
+            alpha=self.kwargs.get("alpha", None),
+            color_range=255,
+        )
+
+
+class GfxPlotter(Plotter):
+    allowed_kwargs = {
+        ("color", "c", "colors"),
+        "cn_colors",
+        ("linewidth", "lw"),
+        "scatter_kws",
+        "synapse_layout",
+        "dps_scale_vec",
+        "width",
+        "height",
+        "alpha",
+        "radius",
+        "soma",
+        "connectors",
+        "connectors_only",
+        "palette",
+        "color_by",
+        "shade_by",
+        "vmin",
+        "vmax",
+        "smin",
+        "smax",
+        "volume_legend",
+    }
+    backend = "pygfx"
 
 
 def volume2gfx(x, **kwargs):
@@ -283,7 +369,9 @@ def connectors2gfx(neuron, neuron_color, object_id, **kwargs):
 
             # Zip coordinates and add a row of NaNs to indicate breaks in the
             # segments
-            coords = np.hstack((pos, tn_coords, np.full(pos.shape, fill_value=np.nan))).reshape((len(pos) * 3, 3))
+            coords = np.hstack(
+                (pos, tn_coords, np.full(pos.shape, fill_value=np.nan))
+            ).reshape((len(pos) * 3, 3))
             coords = coords.astype(np.float32, copy=False)
 
             # Create line plot from segments
