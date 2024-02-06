@@ -190,7 +190,7 @@ class PrecomputedSkeletonReader(PrecomputedReader):
         swc['x'], swc['y'], swc['z'] = nodes[:, 0], nodes[:, 1], nodes[:, 2]
 
         edge_dict = dict(zip(edges[:, 1], edges[:, 0]))
-        swc['parent_id'] = swc.node_id.map(lambda x: edge_dict.get(x, -1))
+        swc['parent_id'] = swc.node_id.map(lambda x: edge_dict.get(x, -1)).astype(np.int32)
 
         return swc
 
