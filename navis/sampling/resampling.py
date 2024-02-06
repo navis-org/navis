@@ -242,6 +242,7 @@ def resample_skeleton(x: 'core.NeuronObject',
     # than one soma is detected now. Also a "label" column in the node
     # table would be lost at this point.
     # We will go for the easy option which is to pin the soma at this point.
+    nodes = x.nodes.set_index('node_id', inplace=False)
     if np.any(getattr(x, 'soma')):
         soma_nodes = utils.make_iterable(x.soma)
         old_pos = nodes.loc[soma_nodes, ['x', 'y', 'z']].values
