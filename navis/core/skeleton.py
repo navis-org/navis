@@ -394,6 +394,13 @@ class TreeNeuron(BaseNeuron):
                                            rename=True,
                                            optional={('radius', 'W'): 0},
                                            restrict=False)
+
+        # Make sure we don't end up with object dtype anywhere as this can
+        # cause problems
+        for c in ('node_id', 'parent_id'):
+            if self._nodes[c].dtype == 'O':
+                self._nodes[c] = self._nodes[c].astype(int)
+
         graph.classify_nodes(self)
 
     @property
