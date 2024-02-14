@@ -420,7 +420,7 @@ def write_swc(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                 TreeNeuron | Dotprops | NeuronList
+    x :                 TreeNeuron | NeuronList
                         If multiple neurons, will generate a single SWC file
                         for each neuron (see also ``filepath``).
     filepath :          str | pathlib.Path | list thereof
@@ -509,15 +509,21 @@ def write_swc(x: 'core.NeuronObject',
     >>> navis.write_swc(nl, tmp_dir / 'skel-{neuron.name}.swc@neuronlist.zip')
 
     """
-    # Make sure inputs are only TreeNeurons or Dotprops
+    # Make sure inputs are only TreeNeurons
     if isinstance(x, core.NeuronList):
         for n in x:
-            if not isinstance(n, (core.TreeNeuron, core.Dotprops)):
-                raise TypeError('Can only write TreeNeurons or Dotprops to SWC '
-                                f', not "{type(n)}"')
-    elif not isinstance(x, (core.TreeNeuron, core.Dotprops)):
-        raise TypeError('Can only write TreeNeurons or Dotprops to SWC, not '
-                        f'"{type(x)}"')
+            if not isinstance(n, core.TreeNeuron):
+                msg = f'Can only write TreeNeurons to SWC, not "{type(n)}"'
+                if isinstance(n, core.Dotprops):
+                    msg += (". For Dotprops, you can use either `navis.write_nrrd`"
+                            " or `navis.write_parquet`.")
+                raise TypeError(msg)
+    elif not isinstance(x, core.TreeNeuron):
+        msg = f'Can only write TreeNeurons to SWC, not "{type(n)}"'
+        if isinstance(n, core.Dotprops):
+            msg += (". For Dotprops, you can use either `navis.write_nrrd`"
+                    " or `navis.write_parquet`.")
+        raise TypeError(msg)
 
     writer = base.Writer(write_func=_write_swc, ext='.swc')
 

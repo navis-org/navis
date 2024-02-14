@@ -17,7 +17,9 @@ repository.
      -
    * - dev
      - ongoing
-     - - BREAKING: dropped support for Python 3.8, per `NEP 29 <https://numpy.org/neps/nep-0029-deprecation_policy.html>`_
+     - - BREAKING:
+          - dropped support for Python 3.8, per `NEP 29 <https://numpy.org/neps/nep-0029-deprecation_policy.html>`_
+          - :func:`navis.write_swc` does not anymore support writing `Dotprops`
        - Additions:
           - new property ``Treenode.surface_area``
           - new functions :func:`navis.read_parquet` and :func:`navis.write_parquet`
