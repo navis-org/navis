@@ -4,8 +4,6 @@ import navis
 
 import pytest
 
-from .common import with_igraph
-
 
 def test_deepcopy():
     nrn = navis.core.BaseNeuron()
@@ -23,7 +21,6 @@ def test_from_swc_multi(swc_source_multi, parallel):
     assert isinstance(n, navis.NeuronList)
 
 
-@with_igraph
 def test_from_gml():
     n = navis.example_neurons(n=1, source='gml')
     assert isinstance(n, navis.TreeNeuron)
