@@ -24,6 +24,8 @@ import numpy as np
 
 import matplotlib.colors as mcl
 
+from wgpu.gui.auto import WgpuCanvas, run
+
 from ... import core, config, utils, conversion
 from ..colors import eval_color, prepare_colormap, vertex_colors
 from ..plot_utils import segments_to_coords
@@ -39,10 +41,14 @@ logger = config.get_logger(__name__)
 
 
 class Plotter:
-    allowed_kwargs = []
+    ALLOWED_KWARGS = []
 
     def __init__(self, **kwargs):
         self.parse_kwargs(**kwargs)
+        self.neurons = []
+        self.volumes = []
+        self.points = []
+        self.visuals = []
 
     def __call__(self):
         """Plot objects."""
@@ -52,7 +58,7 @@ class Plotter:
         """Parse kwargs."""
         # Check for invalid kwargs
         invalid_kwargs = list(kwargs)
-        for k in self.allowed_kwargs:
+        for k in self.ALLOWED_KWARGS:
             # If this is a tuple of possible kwargs (e.g. "lw" or "linewidth")
             if isinstance(k, (tuple, list, set)):
                 # Check if we have multiple kwargs for the same thing
@@ -63,41 +69,35 @@ class Plotter:
                     if kk in invalid_kwargs:
                         # Make sure we always use the first kwarg
                         kwargs[k[0]] = kwargs.pop(kk)
-                        invalid_kwargs.pop(kk)
+                        invalid_kwargs.remove(kk)
             else:
                 if k in invalid_kwargs:
-                    invalid_kwargs.pop(k)
+                    invalid_kwargs.remove(k)
 
         if len(invalid_kwargs):
             warnings.warn(
-                f"Unknown kwargs for {self.backend} backend: {', '.join([f'{k}' for k in invalid_kwargs])}"
+                f"Unknown kwargs for {self.BACKEND} backend: {', '.join([f'{k}' for k in invalid_kwargs])}"
             )
 
         self.kwargs = kwargs
 
     def add_objects(self, x):
         """Add objects to the plot."""
-        (neurons, volumes, points, visual) = utils.parse_objects(x)
+        (neurons, volumes, points, visuals) = utils.parse_objects(x)
+        self.neurons += neurons.neurons   # this is NeuronList
+        self.volumes += volumes
+        self.points += points
+        self.visuals += visuals
+
+        return self
 
     def plot(self):
         """Plot objects."""
-        # Generate
-        colors = self.kwargs.get('color', None)
-        palette = self.kwargs.get("palette", None)
-
-        neuron_cmap, volumes_cmap = prepare_colormap(
-            colors,
-            neurons=self.neurons,
-            volumes=self.volumes,
-            palette=palette,
-            clusters=self.kwargs.get("clusters", None),
-            alpha=self.kwargs.get("alpha", None),
-            color_range=255,
-        )
+        raise NotImplementedError
 
 
 class GfxPlotter(Plotter):
-    allowed_kwargs = {
+    ALLOWED_KWARGS = {
         ("color", "c", "colors"),
         "cn_colors",
         ("linewidth", "lw"),
@@ -120,7 +120,47 @@ class GfxPlotter(Plotter):
         "smax",
         "volume_legend",
     }
-    backend = "pygfx"
+    BACKEND = "pygfx"
+    
+    def plot(self):
+        """Generate the plot."""
+        colors = self.kwargs.get('color', None)
+        palette = self.kwargs.get("palette", None)
+
+        self.neuron_cmap, volumes_cmap = prepare_colormap(
+            colors,
+            neurons=self.neurons,
+            volumes=self.volumes,
+            palette=palette,
+            clusters=self.kwargs.get("clusters", None),
+            alpha=self.kwargs.get("alpha", None),
+            color_range=255,
+        )
+
+
+        # Generate scene 
+        scene = gfx.Group()
+        scene.add(*neuron2gfx(core.NeuronList(self.neurons), **self.kwargs))
+        scene.add(*volume2gfx(self.volumes, **self.kwargs))
+        scene.add(*points2gfx(self.points, **self.kwargs))
+
+        # Add background 
+        scene.add(
+            gfx.Background(material=gfx.BackgroundMaterial([1, 1, 1, 1]))
+        )
+
+        # Add light 
+        scene.add(gfx.AmbientLight())
+
+        camera = gfx.OrthographicCamera()
+        camera.show_object(scene, scale=1.4)
+
+        #renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
+        #renderer_svg.render(scene, camera)
+
+        #gfx.show(scene)        
+        disp = gfx.Display() # (camera=camera)
+        disp.show(scene)
 
 
 def volume2gfx(x, **kwargs):
@@ -421,7 +461,7 @@ def mesh2gfx(neuron, neuron_color, object_id, **kwargs):
             positions=neuron.vertices.astype(np.float32, copy=False),
             **obj_color_kwargs,
         ),
-        gfx.MeshBasicMaterial(**mat_color_kwargs),
+        gfx.MeshPhongMaterial(**mat_color_kwargs),
     )
 
     # Add custom attributes
@@ -574,10 +614,13 @@ def skeleton2gfx(neuron, neuron_color, object_id, **kwargs):
                     )
                     s = gfx.Mesh(
                         gfx.sphere_geometry(
-                            radius=r, width_segments=16, height_segments=8
+                            radius=r * 2, width_segments=16, height_segments=8
                         ),
                         gfx.MeshPhongMaterial(color=soma_color),
                     )
+                    s.local.y = n.y
+                    s.local.x = n.x
+                    s.local.z = n.z
 
                     # Add custom attributes
                     s._object_type = "neuron"
