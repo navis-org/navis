@@ -29,19 +29,23 @@ repository.
           - new :func:`navis.read_nml` function to read single NML file (complements
             existing :func:`navis.read_nmx` files which are collections of NMLs)
           - new :class:`navis.NeuronConnector` class for creating connectivity graphs
-         from groups neurons with consistent connector IDs.
+            from groups neurons with consistent connector IDs.
        - Improvements:
           - made adding recordings to ``CompartmentModel`` faster
           - improved logic for splitting NBLAST across cores
           - :func:`navis.xform_brain`: now allows to specify multiple intermediate
             template spaces through the ``via`` parameter and to ignore spaces
             through the ``avoid`` parameter
+          - i/o functions such as :func:`navis.read_swc` can now read directly from
+            `tar.gz` archives (`.zip` was already supported)
        - Fixes:
           - fixed interface to InsectBrainDB
+          - neuprint interface now supports loading single-resolution neuroglancer meshes
           - :func:`navis.read_precomputed` now correctly parses the `info` file depending on the source
           - fixed writing vertex properties in :func:`navis.write_precomputed`
           - fixed an occasional issue when plotting skeletons with radii
           - fix bug in :func:`navis.subset_neuron` that caused connectors to be dropped when using mask
+          - trying to plot empty TreeNeurons now results in empty plot instead of throwing an error
    * - 1.5.0
      - 27/07/23
      - - BREAKING: dropped support for Python 3.7
@@ -73,7 +77,7 @@ repository.
          :func:`navis.interfaces.neuprint.fetch_mesh_neuron`, :func:`navis.interfaces.neuprint.fetch_skeletons`
        - tons of bug fixes
    * - 1.3.1
-     - 10/06/06
+     - 10/06/22
      - - fixed various bugs
    * - 1.3.0
      - 10/05/22
