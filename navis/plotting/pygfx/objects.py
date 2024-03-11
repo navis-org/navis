@@ -146,11 +146,12 @@ class GfxPlotter(Plotter):
 
         # Add background 
         scene.add(
-            gfx.Background(material=gfx.BackgroundMaterial([1, 1, 1, 1]))
+            gfx.Background(material=gfx.BackgroundMaterial([0, 0, 0]))
         )
 
         # Add light 
         scene.add(gfx.AmbientLight())
+        scene.add(gfx.DirectionalLight())
 
         camera = gfx.OrthographicCamera()
         camera.show_object(scene, scale=1.4)
@@ -158,9 +159,23 @@ class GfxPlotter(Plotter):
         #renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
         #renderer_svg.render(scene, camera)
 
-        #gfx.show(scene)        
-        disp = gfx.Display() # (camera=camera)
-        disp.show(scene)
+        canvas = WgpuCanvas(size=(1000, 800))
+        renderer = gfx.WgpuRenderer(canvas, show_fps=True)
+        controller = gfx.TrackballController(camera, register_events=renderer)
+        gfx.show(scene,
+                 canvas=canvas,
+                 controller=controller,
+                 camera=camera,
+                 renderer=renderer)
+                 #draw_function=lambda : poll_for_input(renderer, scene, camera))        
+        #disp = gfx.Display() # (camera=camera)
+        #disp.show(scene)
+
+
+#def poll_for_input(renderer, scene, camera):
+#    renderer.render(scene, camera)
+    
+    
 
 
 def volume2gfx(x, **kwargs):
@@ -204,7 +219,7 @@ def volume2gfx(x, **kwargs):
                 indices=v.faces.astype(np.int32, copy=False),
                 positions=v.vertices.astype(np.float32, copy=False),
             ),
-            gfx.MeshBasicMaterial(
+            gfx.MeshStandardMaterial(  # MeshBasicMaterial
                 color=color, flat_shading=kwargs.get("shading", "smooth") == "flat"
             ),
         )
