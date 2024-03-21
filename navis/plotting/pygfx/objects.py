@@ -568,22 +568,36 @@ def skeleton2gfx(neuron, neuron_color, object_id, **kwargs):
     visuals = []
     if not kwargs.get("connectors_only", False):
         # Make sure we have one color for each node
-        neuron_color = np.asarray(neuron_color)
+        neuron_color = np.asarray(neuron_color).astype(np.float32, copy=False)
 
         # if neuron_color.ndim == 1:
         #    neuron_color = np.tile(neuron_color, (neuron.nodes.shape[0], 1))
 
         # Generate coordinates, breaks in segments are indicated by NaNs
-        coords = segments_to_coords(neuron, neuron.segments)
+        if neuron_color.ndim == 1:
+            coords = segments_to_coords(neuron, neuron.segments)
+        else:
+            coords, vertex_colors = segments_to_coords(neuron, neuron.segments, node_colors=neuron_color)  
+            # `neuron_color` is now a list of colors for each segment; we have to flatten it 
+            # and add `None` to match the breaks            
+            vertex_colors = np.vstack([np.append(t, [[None] * t.shape[1]], axis=0) for t in vertex_colors]).astype(np.float32, copy=False)
+
         coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
         coords = coords.astype(np.float32, copy=False)
 
         # Create line plot from segments
         linewidth = kwargs.get("linewidth", kwargs.get("lw", 2))
-        line = gfx.Line(
-            gfx.Geometry(positions=coords),
-            gfx.LineMaterial(thickness=linewidth, color=neuron_color),
-        )
+
+        if neuron_color.ndim == 1:
+            line = gfx.Line(
+                gfx.Geometry(positions=coords),
+                gfx.LineMaterial(thickness=linewidth, color=neuron_color),
+            )
+        else:
+            line = gfx.Line(
+                gfx.Geometry(positions=coords, colors=vertex_colors),
+                gfx.LineMaterial(thickness=linewidth, color_mode='vertex'),
+            )
 
         # Add custom attributes
         line._object_type = "neuron"
