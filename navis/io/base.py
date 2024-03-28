@@ -550,12 +550,21 @@ class BaseReader(ABC):
         -------
         core.BaseNeuron
         """
-        with requests.get(url, stream=True) as r:
+        # Note: originally, we used stream=True and passed `r.raw` to the
+        # read_buffer function but that caused issue when there was more
+        # than one chunk which would require us to concatenate the chunks
+        # `via r.raw.iter_content()`.
+        # Instead, we will simply read the whole content, wrap it in a BytesIO
+        # and pass that to the read_buffer function. This is not ideal as it
+        # will load the whole file into memory while the streaming solution
+        # may have raised an exception earlier if the file was corrupted or
+        # the wrong format.
+        with requests.get(url, stream=False) as r:
             r.raise_for_status()
             props = self.parse_filename(url.split('/')[-1])
             props['origin'] = url
             return self.read_buffer(
-                r.raw,
+                io.BytesIO(r.content),
                 merge_dicts(props, attrs)
             )
 
