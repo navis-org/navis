@@ -19,33 +19,39 @@ repository.
      - ongoing
      - - BREAKING:
           - dropped support for Python 3.8, per `NEP 29 <https://numpy.org/neps/nep-0029-deprecation_policy.html>`_
-          - :func:`navis.write_swc` does not anymore support writing `Dotprops`
+          - :func:`navis.write_swc` no longer supports writing Dotprops to SWC files
        - Additions:
           - new property ``Treenode.surface_area``
           - new functions :func:`navis.read_parquet` and :func:`navis.write_parquet`
             store skeletons and dotprops in parquet files (see
-            `here <https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md>`_
-            for format specs and benchmarks)
+            `here <https://github.com/clbarnes/neurarrow>`_
+            for format specs)
           - new :func:`navis.read_nml` function to read single NML file (complements
             existing :func:`navis.read_nmx` files which are collections of NMLs)
           - new :class:`navis.NeuronConnector` class for creating connectivity graphs
-            from groups neurons with consistent connector IDs.
+         from groups neurons with consistent connector IDs.
        - Improvements:
-          - made adding recordings to ``CompartmentModel`` faster
+          - improved performance for:
+            - adding recordings to ``CompartmentModel``
+            - :func:`navis.heal_skeleton` and :func:`navis.resample_skeleton`
           - improved logic for splitting NBLAST across cores
           - :func:`navis.xform_brain`: now allows to specify multiple intermediate
             template spaces through the ``via`` parameter and to ignore spaces
             through the ``avoid`` parameter
-          - i/o functions such as :func:`navis.read_swc` can now read directly from
-            `tar.gz` archives (`.zip` was already supported)
+          - i/o functions can now read directly from `.tar` or `.tar.gz` files (`.zip`
+            was already supported)
+          - :func:`navis.read_precomputed` now accepts a ``limit`` parameter similar
+            to :func:`navis.read_swc`
        - Fixes:
           - fixed interface to InsectBrainDB
-          - neuprint interface now supports loading single-resolution neuroglancer meshes
-          - :func:`navis.read_precomputed` now correctly parses the `info` file depending on the source
+          - :func:`navis.read_precomputed`:
+            - now correctly parses the `info` file depending on the source
+            - reading large files (i.e. meshes) directly from a URL should not break anymore
           - fixed writing vertex properties in :func:`navis.write_precomputed`
+          - fixed a bug in :func:`navis.resample_skeleton`
           - fixed an occasional issue when plotting skeletons with radii
           - fix bug in :func:`navis.subset_neuron` that caused connectors to be dropped when using mask
-          - trying to plot empty TreeNeurons now results in empty plot instead of throwing an error
+          - fixed two small bugs in :func:`navis.interfaces.neuprint.fetch_mesh_neuron`
    * - 1.5.0
      - 27/07/23
      - - BREAKING: dropped support for Python 3.7
