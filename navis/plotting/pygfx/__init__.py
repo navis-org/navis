@@ -11,6 +11,8 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+import skeletor as sk
+
 from ... import core, config
 from .objects import neuron2gfx
 
@@ -27,10 +29,17 @@ def register_neuron2gfx():
     # Register the neuron2gfx converter
     oc.register_converter(core.BaseNeuron, neuron2gfx)
     oc.register_converter(core.NeuronList, neuron2gfx)
+    oc.register_converter(sk.Skeleton, skeletor2gfx)
 
     oc.Viewer.add_neuron = add_neuron
 
     logger.info("neuron2gfx converter registered with octarine.")
+
+
+def skeletor2gfx(s, **kwargs):
+    """Convert a skeletor skeleton to a neuron2gfx object."""
+    s = core.TreeNeuron(s, soma=None, id=0)
+    return neuron2gfx(s, **kwargs)
 
 
 def add_neuron(
