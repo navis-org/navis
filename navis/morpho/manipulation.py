@@ -1399,7 +1399,7 @@ def despike_skeleton(x: NeuronObject,
     # spikes first
     for l in list(range(1, max_spike_length + 1))[::-1]:
         # Go over all segments
-        for seg in x.segments:
+        for seg in segs_to_walk:
             # Get nodes A, B and C of this segment
             this_A = this_nodes.loc[seg[:-l - 1]]
             this_B = this_nodes.loc[seg[l:-1]]
