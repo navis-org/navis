@@ -317,15 +317,21 @@ def _get_coordinates_map(transform, bbox, shape, spacing):
     # Here, we convert bbox back to arrays
     bbox = np.array(bbox).reshape(3, 2)
 
+    # We could just use the two points of the source's bounding box to calculate
+    # the target's bounding box. However, this can yield incorrect results.
+    # It's better to sample a couple more points on the surface of the source's
+    # bounding box
+    b = tm.primitives.Box(extents=bbox[:, 1] - bbox[:, 0]).to_mesh()
+    b.vertices += bbox.mean(axis=1)
+    b = b.subdivide().vertices  # Subdivide to get more points on the surface
+
     # Temporarily ignore warnings
     current_level = int(logger.level)
     try:
         logger.setLevel('ERROR')
-        # First transform the bounding box. We are doing this in two steps (one for
-        # each point) to avoid caching large volumes
-        mn = xform(bbox[:, :1].T, transform=transform, affine_fallback=True)
-        mx = xform(bbox[:, 1:].T, transform=transform, affine_fallback=True)
-        bbox_xf = np.vstack((mn, mx)).T
+        # Transform points individually to avoid caching the entire volume
+        b_xf = np.vstack([transform.xform(p.reshape(-1, 3), affine_fallback=True) for p in b])
+        bbox_xf = np.vstack([np.min(b_xf, axis=0), np.max(b_xf, axis=0)]).T
     except BaseException:
         raise
     finally:
@@ -333,7 +339,7 @@ def _get_coordinates_map(transform, bbox, shape, spacing):
 
     # Next: generate a voxel grid in the target space of the same shape as
     # our input grid
-    target_voxel_size = (bbox_xf[:, 1] - bbox_xf[:, 0]) / shape
+    target_voxel_size = np.abs((bbox_xf[:, 1] - bbox_xf[:, 0]) / shape)
 
     # Generate a grid of xyz coordinates
     XX, YY, ZZ = np.meshgrid(range(shape[0]),
@@ -343,6 +349,7 @@ def _get_coordinates_map(transform, bbox, shape, spacing):
     # Coordinate grid has, for each voxel, in the (M, N, K) voxel grid an xyz
     # index coordinate -> hence shape is (3, M, N, K)
     ix_grid = np.array([XX, YY, ZZ])
+
     # Potential idea:
     # - generate a downsampled grid and upsample by interpolation later
     #   -> tried that but the interpolation during upsampling is just as
