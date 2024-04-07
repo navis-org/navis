@@ -1600,7 +1600,7 @@ def smooth_skeleton(x: NeuronObject,
         x = x.copy()
 
     # Prepare nodes (add parent_dist for later, set index)
-    mmetrics.parent_dist(x, root_dist=0)
+    # mmetrics.parent_dist(x, root_dist=0)
     nodes = x.nodes.set_index('node_id', inplace=False).copy()
 
     to_smooth = utils.make_iterable(to_smooth)
