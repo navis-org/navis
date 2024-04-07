@@ -121,7 +121,7 @@ class GfxPlotter(Plotter):
         "volume_legend",
     }
     BACKEND = "pygfx"
-    
+
     def plot(self):
         """Generate the plot."""
         colors = self.kwargs.get('color', None)
@@ -138,18 +138,18 @@ class GfxPlotter(Plotter):
         )
 
 
-        # Generate scene 
+        # Generate scene
         scene = gfx.Group()
         scene.add(*neuron2gfx(core.NeuronList(self.neurons), **self.kwargs))
         scene.add(*volume2gfx(self.volumes, **self.kwargs))
         scene.add(*points2gfx(self.points, **self.kwargs))
 
-        # Add background 
+        # Add background
         scene.add(
             gfx.Background(material=gfx.BackgroundMaterial([0, 0, 0]))
         )
 
-        # Add light 
+        # Add light
         scene.add(gfx.AmbientLight())
         scene.add(gfx.DirectionalLight())
 
@@ -167,15 +167,13 @@ class GfxPlotter(Plotter):
                  controller=controller,
                  camera=camera,
                  renderer=renderer)
-                 #draw_function=lambda : poll_for_input(renderer, scene, camera))        
+                 #draw_function=lambda : poll_for_input(renderer, scene, camera))
         #disp = gfx.Display() # (camera=camera)
         #disp.show(scene)
 
 
 #def poll_for_input(renderer, scene, camera):
 #    renderer.render(scene, camera)
-    
-    
 
 
 def volume2gfx(x, **kwargs):
@@ -235,7 +233,7 @@ def volume2gfx(x, **kwargs):
     return visuals
 
 
-def neuron2gfx(x, **kwargs):
+def neuron2gfx(x, color=None, **kwargs):
     """Convert a Neuron/List to pygfx visuals.
 
     Parameters
@@ -291,7 +289,7 @@ def neuron2gfx(x, **kwargs):
     else:
         raise TypeError(f'Unable to process data of type "{type(x)}"')
 
-    colors = kwargs.get("color", kwargs.get("c", kwargs.get("colors", None)))
+    colors = color if color is not None else kwargs.get("c", kwargs.get("colors", None))
     palette = kwargs.get("palette", None)
     color_by = kwargs.get("color_by", None)
     shade_by = kwargs.get("shade_by", None)
@@ -577,9 +575,9 @@ def skeleton2gfx(neuron, neuron_color, object_id, **kwargs):
         if neuron_color.ndim == 1:
             coords = segments_to_coords(neuron, neuron.segments)
         else:
-            coords, vertex_colors = segments_to_coords(neuron, neuron.segments, node_colors=neuron_color)  
-            # `neuron_color` is now a list of colors for each segment; we have to flatten it 
-            # and add `None` to match the breaks            
+            coords, vertex_colors = segments_to_coords(neuron, neuron.segments, node_colors=neuron_color)
+            # `neuron_color` is now a list of colors for each segment; we have to flatten it
+            # and add `None` to match the breaks
             vertex_colors = np.vstack([np.append(t, [[None] * t.shape[1]], axis=0) for t in vertex_colors]).astype(np.float32, copy=False)
 
         coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
