@@ -417,13 +417,10 @@ def _classify_nodes_old(x: 'core.NeuronObject',
 
 @utils.map_neuronlist(desc='Classifying', allow_parallel=True)
 @utils.lock_neuron
-def classify_nodes(x: 'core.NeuronObject',
-                   categorical=True,
-                   inplace: bool = True
-                    ) -> Optional['core.NeuronObject']:
+def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = True):
     """Classify neuron's nodes into end nodes, branches, slabs or root.
 
-    Adds ``'type'`` column to ``x.nodes`` table.
+    Adds a ``'type'`` column to ``x.nodes`` table.
 
     Parameters
     ----------
@@ -453,27 +450,23 @@ def classify_nodes(x: 'core.NeuronObject',
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
+    if x.nodes.empty:
+        x.nodes["type"] = None
+        return x
 
     # Make sure there are nodes to classify
-    if not x.nodes.empty:
-        x.nodes['type'] = 'slab'
-        x.nodes.loc[~x.nodes.node_id.isin(x.nodes.parent_id), 'type'] = 'end'
-        bp = x.nodes.parent_id.value_counts()
-        bp = bp[bp > 1].index.values
-        x.nodes.loc[x.nodes.node_id.isin(bp), 'type'] = 'branch'
-        x.nodes.loc[x.nodes.parent_id < 0, 'type'] = 'root'
-    else:
-        x.nodes['type'] = None
-
-    # Turn into categorical data - saves tons of memory
-    # Note that we have to make sure all categories are set even if they
-    # don't exist (e.g. if a neuron has no branch points)
+    # Note: I have tried to optimized the s**t out of this, i.e. every
+    # single line of code here has been tested for speed. Do not
+    # change anything unless you know what you're doing!
+    cl = np.full(len(x.nodes), "slab", dtype="<U6")
+    cl[~np.isin(x.nodes.node_id, x.nodes.parent_id)] = "end"
+    bp = x.nodes.parent_id.value_counts()
+    bp = bp.index.values[bp.values > 1]
+    cl[np.isin(x.nodes.node_id.values, bp)] = "branch"
+    cl[x.nodes.parent_id.values < 0] = "root"
     if categorical:
-        cat_types = CategoricalDtype(categories=["end", "branch", "root", "slab"],
-                                    ordered=False)
-        x.nodes['type'] = x.nodes['type'].astype(cat_types)
+        cl = pd.Categorical(cl, categories=["end", "branch", "root", "slab"], ordered=False)
+    x.nodes["type"] = cl
 
     return x
 
