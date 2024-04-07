@@ -16,7 +16,7 @@ repository.
      - Date
      -
    * - 1.6.0
-     - ongoing
+     - 07/04/24
      - - BREAKING:
           - dropped support for Python 3.8, per `NEP 29 <https://numpy.org/neps/nep-0029-deprecation_policy.html>`_
           - :func:`navis.write_swc` no longer supports writing Dotprops to SWC files
