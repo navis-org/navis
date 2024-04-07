@@ -1770,8 +1770,11 @@ def _igraph_to_sparse(graph, weight_attr=None):
     if not graph.is_directed():
         edges.extend([(v, u) for u, v in edges])
         weights.extend(weights)
-    return csr_matrix((weights, zip(*edges)),
-                      shape=(len(graph.vs), len(graph.vs)))
+    # Note: previously, we used a generator (weights, zip(*egdes)) as input to
+    # csr_matrix but with Scipy 1.13.0 this has stopped working
+    edges = np.array(edges)
+    return csr_matrix((weights, (edges[:,0], edges[:,1])),
+                       shape=(len(graph.vs), len(graph.vs)))
 
 
 def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
