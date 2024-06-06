@@ -632,16 +632,16 @@ def bending_flow(x: 'core.NeuronObject') -> 'core.NeuronObject':
     and counting the number of pre->post synapse paths that "flow" from one
     child branch to the other(s).
 
-    Parameters
-    ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                Neuron(s) to calculate bending flow for. Must have connectors!
-
     Notes
     -----
     This is algorithm appears to be more reliable than synapse flow
     centrality for identifying the main branch point for neurons that have
     incompletely annotated synapses.
+
+    Parameters
+    ----------
+    x :         TreeNeuron | MeshNeuron | NeuronList
+                Neuron(s) to calculate bending flow for. Must have connectors!
 
     Returns
     -------

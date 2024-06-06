@@ -198,7 +198,7 @@ class Dotprops(BaseNeuron):
 
     @property
     def alpha(self):
-        """Alpha value for tangent vectors."""
+        """Alpha value for tangent vectors (optional)."""
         if isinstance(self._alpha, type(None)):
             if isinstance(self.k, type(None)) or (self.k <= 0):
                 raise ValueError('Unable to calculate `alpha` for Dotprops not '

@@ -132,5 +132,7 @@ function. There you will also find more examples.
            Troubleshooting <troubleshooting>
 
 
-Not seeing what you're looking for, need additional pointers or found a broken
-example? Open an `issue <https://github.com/navis-org/navis/issues>`_ on Github!
+Not seeing what you're looking for? Need additional pointers? Found a broken
+example? Open an `issue <https://github.com/navis-org/navis/issues>`_ or
+use `discussions <https://github.com/navis-org/navis/discussions>`_ on Github
+to ask questions!

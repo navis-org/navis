@@ -25,7 +25,7 @@ logger = config.logger
 
 
 def extract_matches(scores, N=None, threshold=None, percentage=None,
-                    axis=0, distances=False):
+                    axis=0, distances='auto'):
     """Extract top matches from score matrix.
 
     See `N`, `threshold` or `percentage` for the criterion.
@@ -47,9 +47,11 @@ def extract_matches(scores, N=None, threshold=None, percentage=None,
                     strings for match ID and match score, respectively.
     axis :          0 | 1
                     For which axis to produce matches.
-    distances :     bool
-                    Set to True if input is distances instead of similarities (i.e.
+    distances :     "auto" | bool
+                    Whether `scores` is distances or similarities (i.e. whether
                     we need to look for the lowest instead of the highest values).
+                    "auto" (default) will infer based on the diagonal of the
+                    `scores` matrix. Use boolean to override.
 
     Returns
     -------
@@ -68,7 +70,10 @@ def extract_matches(scores, N=None, threshold=None, percentage=None,
         raise ValueError('Please provide either `N`, `threshold` or '
                          '`percentage` as criterion for match extraction.')
 
-    # Transposing is easier than dealing with the different axis further down
+    if distances == 'auto':
+        distances = True if most(np.diag(scores.values).round(2) == 0) else False
+
+    # Transposing is easier than dealing with the different axes further down
     if axis == 1:
         scores = scores.T
 
@@ -415,3 +420,10 @@ def nblast_prime(scores, n_dim=.2, metric='euclidean'):
     dist = pdist(X_new, metric=metric)
 
     return pd.DataFrame(1 - squareform(dist), index=scores.index, columns=scores.columns)
+
+
+def most(x, f=.9):
+    """Check if most (as opposed to all) entries are True."""
+    if x.sum() >= (x.shape[0] * f):
+        return True
+    return False

@@ -158,6 +158,16 @@ def read_parquet(f: Union[str, Path],
         raise ImportError('Reading parquet files requires the pyarrow library:\n'
                           ' pip3 install pyarrow')
 
+    if limit is not None:
+        if subset not in (None, False):
+            raise ValueError('You can provide either a `subset` or a `limit` but '
+                             'not both.')
+        scan = scan_parquet(f)
+        subset = scan.id.values[:limit]
+
+    if isinstance(subset, (pd.Series)):
+        subset = subset.values
+
     # Read the table
     if subset is None or subset is False:
         table = pq.read_table(f)
@@ -206,8 +216,6 @@ def read_parquet(f: Union[str, Path],
                                              disable=not progress,
                                              leave=False,
                                              desc='Making nrn')):
-            if limit and i >= limit:
-                break
             this_table = this_table.drop("neuron", axis=1)
             neurons.append(_extract_neuron(this_table, id, neuron_meta))
         return core.NeuronList(neurons)

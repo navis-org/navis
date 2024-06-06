@@ -85,7 +85,7 @@ def _generate_segments(x: 'core.NeuronObject',
     endNodeIDs = sorted(endNodeIDs, key=lambda x: d.get(x, 0), reverse=True)
 
     if config.use_igraph and x.igraph:
-        g: igraph.Graph = x.igraph
+        g: igraph.Graph = x.igraph  # noqa
         # Convert endNodeIDs to indices
         id2ix = dict(zip(x.igraph.vs['node_id'], range(len(x.igraph.vs))))
         endNodeIDs = [id2ix[n] for n in endNodeIDs]
@@ -151,7 +151,7 @@ def _connected_components(x: Union['core.TreeNeuron', 'core.MeshNeuron']) -> Lis
     assert isinstance(x, (core.TreeNeuron, core.MeshNeuron))
 
     if config.use_igraph and x.igraph:
-        G: igraph.Graph = x.igraph
+        G: igraph.Graph = x.igraph  # noqa
         # Get the vertex clustering
         vc = G.components(mode='WEAK')
         # Membership maps indices to connected components
@@ -207,7 +207,7 @@ def _break_segments(x: 'core.NeuronObject') -> list:
     x: core.TreeNeuron
 
     if x.igraph and config.use_igraph:
-        g: Union['igraph.Graph', 'nx.DiGraph'] = x.igraph
+        g: Union['igraph.Graph', 'nx.DiGraph'] = x.igraph # noqa
         end = g.vs.select(_indegree=0).indices
         branch = g.vs.select(_indegree_gt=1, _outdegree=1).indices
         root = g.vs.select(_outdegree=0).indices
@@ -308,7 +308,7 @@ def _edge_count_to_root_old(x: 'core.TreeNeuron') -> dict:
 
     """
     current_level: List[int]
-    g: Union['igraph.Graph', 'nx.DiGraph']
+    g: Union['igraph.Graph', 'nx.DiGraph']  # noqa
     if x.igraph and config.use_igraph:
         g = x.igraph
         current_level = g.vs(_outdegree=0).indices
@@ -340,9 +340,9 @@ def _edge_count_to_root_old(x: 'core.TreeNeuron') -> dict:
 
 @utils.map_neuronlist(desc='Classifying', allow_parallel=True)
 @utils.lock_neuron
-def classify_nodes(x: 'core.NeuronObject',
-                   inplace: bool = True
-                   ) -> Optional['core.NeuronObject']:
+def _classify_nodes_old(x: 'core.NeuronObject',
+                        inplace: bool = True
+                        ) -> Optional['core.NeuronObject']:
     """Classify neuron's nodes into end nodes, branches, slabs or root.
 
     Adds ``'type'`` column to ``x.nodes``.
@@ -410,6 +410,74 @@ def classify_nodes(x: 'core.NeuronObject',
     cat_types = CategoricalDtype(categories=["end", "branch", "root", "slab"],
                                  ordered=False)
     x.nodes['type'] = x.nodes['type'].astype(cat_types)
+
+    return x
+
+
+
+@utils.map_neuronlist(desc='Classifying', allow_parallel=True)
+@utils.lock_neuron
+def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = True):
+    """Classify neuron's nodes into end nodes, branches, slabs or root.
+
+    Adds a ``'type'`` column to ``x.nodes`` table.
+
+    Parameters
+    ----------
+    x :         TreeNeuron | NeuronList
+                Neuron(s) whose nodes to classify.
+    categorical : bool
+                If True (default), will use categorical data type which takes
+                up much less memory at a small run-time overhead.
+    inplace :   bool, optional
+                If ``False``, nodes will be classified on a copy which is then
+                returned leaving the original neuron unchanged.
+
+    Returns
+    -------
+    TreeNeuron/List
+
+    Examples
+    --------
+    >>> import navis
+    >>> nl = navis.example_neurons(2)
+    >>> _ = navis.graph.classify_nodes(nl, inplace=True)
+
+    """
+    if not inplace:
+        x = x.copy()
+
+    if not isinstance(x, core.TreeNeuron):
+        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
+
+    if x.nodes.empty:
+        x.nodes["type"] = None
+        return x
+
+    # Make sure there are nodes to classify
+    # Note: I have tried to optimized the s**t out of this, i.e. every
+    # single line of code here has been tested for speed. Do not
+    # change anything unless you know what you're doing!
+
+    # Turns out that numpy.isin() recently started to complain if the
+    # node_ids are uint64 and the parent_ids are int64 (but strangely
+    # not with 32bit integers). If that's the case we have to convert
+    # the node_ids to int64.
+    node_ids = x.nodes.node_id.values
+    parent_ids = x.nodes.parent_id.values
+
+    if node_ids.dtype == np.uint64:
+        node_ids = node_ids.astype(np.int64)
+
+    cl = np.full(len(x.nodes), "slab", dtype="<U6")
+    cl[~np.isin(node_ids, parent_ids)] = "end"
+    bp = x.nodes.parent_id.value_counts()
+    bp = bp.index.values[bp.values > 1]
+    cl[np.isin(node_ids, bp)] = "branch"
+    cl[parent_ids < 0] = "root"
+    if categorical:
+        cl = pd.Categorical(cl, categories=["end", "branch", "root", "slab"], ordered=False)
+    x.nodes["type"] = cl
 
     return x
 
@@ -682,6 +750,10 @@ def geodesic_matrix(x: 'core.NeuronObject',
         indices = None
         ix = nodeList
 
+    # For some reason csgrpah.dijkstra expects indices/indptr as int32
+    # igraph seems to do that by default but networkx uses int64 for indices
+    m.indptr = m.indptr.astype('int32', copy=False)
+    m.indices = m.indices.astype('int32', copy=False)
     dmat = csgraph.dijkstra(m,
                             directed=directed,
                             indices=indices,
@@ -777,7 +849,7 @@ def dist_between(x: 'core.NeuronObject',
             raise ValueError(f'Need a single TreeNeuron, got {len(x)}')
 
     if isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
-        G: Union['igraph.Graph',
+        G: Union['igraph.Graph',  # noqa
                  'nx.DiGraph'] = x.igraph if (x.igraph and config.use_igraph) else x.graph
     elif isinstance(x, nx.DiGraph):
         G = x
@@ -1709,8 +1781,11 @@ def _igraph_to_sparse(graph, weight_attr=None):
     if not graph.is_directed():
         edges.extend([(v, u) for u, v in edges])
         weights.extend(weights)
-    return csr_matrix((weights, zip(*edges)),
-                      shape=(len(graph.vs), len(graph.vs)))
+    # Note: previously, we used a generator (weights, zip(*egdes)) as input to
+    # csr_matrix but with Scipy 1.13.0 this has stopped working
+    edges = np.array(edges)
+    return csr_matrix((weights, (edges[:,0], edges[:,1])),
+                       shape=(len(graph.vs), len(graph.vs)))
 
 
 def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],

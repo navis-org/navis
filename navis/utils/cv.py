@@ -11,6 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+import uuid
 import functools
 
 from .. import config, core, io
@@ -32,15 +33,19 @@ def patch_cloudvolume():
     >>> import cloudvolume as cv
     >>> # Monkey patch cloudvolume
     >>> navis.patch_cloudvolume()
-    >>> # Connect to the public microns dataset
-    >>> vol = cv.CloudVolume('precomputed://gs://iarpa_microns/minnie/minnie65/seg',
-    ...                      use_https=True)
+    >>> # Connect to the Google segmentation of FAFB
+    >>> vol = cv.CloudVolume('precomputed://gs://fafb-ffn1-20200412/segmentation',
+    ...                       use_https=True,
+    ...                       progress=False)
+    >>> ids = [2137190164, 2268989790]
     >>> # Fetch as navis neuron using newly added method or ...
-    >>> nl = vol.mesh.get_navis(864691135293126156, lod=3)
+    >>> nl = vol.mesh.get_navis(ids, lod=3)
     >>> # ... alternatively use `as_navis` keyword argument in original method
-    >>> nl = vol.mesh.get(864691135293126156, lod=3, as_navis=True)
+    >>> nl = vol.mesh.get(ids, lod=3, as_navis=True)
     >>> type(nl)
     <class 'navis.core.neuronlist.NeuronList'>
+    >>> # The same works for skeletons
+    >>> skels = vol.skeleton.get_navis(ids)
 
     """
     global cv
@@ -87,10 +92,10 @@ def return_navis(func, only_on_kwarg=False):
 
         if not only_on_kwarg or ret_navis:
             neurons = []
-            if isinstance(res, list):
-                res = {getattr(n, 'id', 'NA'): n for n in res}
+            if isinstance(res, (list, tuple)):
+                res = {getattr(n, "id", uuid.uuid4()): n for n in res}
             if isinstance(res, (cv.Mesh, cv.Skeleton)):
-                res = {getattr(res, 'id', 'NA'): res}
+                res = {getattr(res, "id", uuid.uuid4()): res}
 
             for k, v in res.items():
                 if isinstance(v, cv.Mesh):

@@ -190,7 +190,7 @@ class PrecomputedSkeletonReader(PrecomputedReader):
         swc['x'], swc['y'], swc['z'] = nodes[:, 0], nodes[:, 1], nodes[:, 2]
 
         edge_dict = dict(zip(edges[:, 1], edges[:, 0]))
-        swc['parent_id'] = swc.node_id.map(lambda x: edge_dict.get(x, -1))
+        swc['parent_id'] = swc.node_id.map(lambda x: edge_dict.get(x, -1)).astype(np.int32)
 
         return swc
 
@@ -202,6 +202,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
                      include_subdirs: bool = False,
                      fmt: str = '{id}',
                      info: Union[bool, str, dict] = True,
+                     limit: Optional[int] = None,
                      parallel: Union[bool, int] = 'auto',
                      **kwargs) -> 'core.NeuronObject':
     """Read skeletons and meshes from neuroglancer's precomputed format.
@@ -213,8 +214,8 @@ def read_precomputed(f: Union[str, io.BytesIO],
     ----------
     f :                 filepath | folder | zip file | bytes
                         Filename, folder or bytes. If folder, will import all
-                        files. If a ``.zip`` archive will read all files in the
-                        file.
+                        files. If a ``.zip``, ``.tar`` or ``.tar.gz`` file will
+                        read all files in the archive. See also ``limit`` parameter.
     datatype :          "auto" | "skeleton" | "mesh"
                         Which data type we expect to read from the files. If
                         "auto", we require a "info" file in the same directory
@@ -251,6 +252,11 @@ def read_precomputed(f: Union[str, io.BytesIO],
                           - ``False`` = do not use/look for `info` file
                           - ``str`` = filepath to `info` file
                           - ``dict`` = already parsed info file
+    limit :             int, optional
+                        If reading from a folder you can use this parameter to
+                        read only the first ``limit`` files. Useful if
+                        wanting to get a sample from a large library of
+                        skeletons/meshes.
     parallel :          "auto" | bool | int
                         Defaults to ``auto`` which means only use parallel
                         processing if more than 200 files are imported. Spawning
@@ -335,7 +341,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
     else:
         reader = PrecomputedMeshReader(fmt=fmt, attrs=kwargs)
 
-    return reader.read_any(f, include_subdirs, parallel)
+    return reader.read_any(f, include_subdirs, parallel, limit=limit)
 
 
 class PrecomputedWriter(base.Writer):

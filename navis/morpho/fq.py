@@ -67,7 +67,8 @@ def form_factor(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
                 Number of cores to use when ``x`` is a NeuronList and
                 ``parallel=True``. Even on a single core this function makes
                 heavy use of numpy which itself uses multiple threads - it is
-                therefore not
+                therefore not advisable to use all your cores as this would
+                create a bottleneck.
     progress :  bool
                 Whether to show a progress bar.
 
@@ -87,6 +88,7 @@ def form_factor(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     --------
     >>> import navis
     >>> nl = navis.example_neurons(3)
+    >>> nl = nl.convert_units('microns')
     >>> # Resample to 1 node / micron
     >>> rs = navis.resample_skeleton(nl, '1 micron')
     >>> # Calculate form factor

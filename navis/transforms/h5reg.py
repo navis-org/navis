@@ -101,7 +101,7 @@ class H5transform(BaseTransform):
 
                 # Data type of deformation field
                 self.dtype = h5[self.level][self.field].dtype
-            elif 'dfield' in h5.keys():
+            elif self.field in h5.keys():
                 # Set level
                 self._level = None
 
@@ -196,6 +196,10 @@ class H5transform(BaseTransform):
 
     def full_ingest(self):
         """Fully ingest the deformation field."""
+        # Skip if already ingested
+        if getattr(self, '_fully_ingested', False):
+            return
+
         with h5py.File(self.file, 'r') as h5:
             # Read in the entire field
             if self.level:

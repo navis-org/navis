@@ -307,9 +307,13 @@ def __fetch_mesh(bodyId, *, vol, lod, missing_mesh='raise'):
         else:
             raise
 
+    # Make sure we don't pass through a {bodyId: MeshObject} dictionary
+    if isinstance(mesh, dict):
+        mesh = mesh[bodyId]
+
     n = MeshNeuron(mesh)
     n.lod = lod
-    n.id =bodyId
+    n.id = bodyId
 
     return n
 
@@ -430,7 +434,7 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
             if missing_swc in ['warn', 'skip']:
                 if missing_swc == 'warn':
                     logger.warning(f'No SWC found for {r.bodyId}')
-                    return
+                return
             else:
                 raise
         else:

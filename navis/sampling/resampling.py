@@ -133,9 +133,8 @@ def resample_skeleton(x: 'core.NeuronObject',
         x = x.copy()
 
     # Collect some information for later
-    nodes = x.nodes.set_index('node_id', inplace=False)
-    locs = nodes[['x', 'y', 'z']]
-    radii = nodes['radius'].to_dict()
+    locs = dict(zip(x.nodes.node_id.values, x.nodes[['x', 'y', 'z']].values))
+    radii = dict(zip(x.nodes.node_id.values, x.nodes.radius.values))
 
     new_nodes: List = []
     max_tn_id = x.nodes.node_id.max() + 1
@@ -145,7 +144,7 @@ def resample_skeleton(x: 'core.NeuronObject',
     # Iterate over segments
     for i, seg in enumerate(x.small_segments):
         # Get coordinates
-        coords = locs.loc[seg].values.astype(float)
+        coords = np.vstack([locs[n] for n in seg])
         # Get radii
         rad = [radii[tn] for tn in seg]
 
@@ -243,6 +242,7 @@ def resample_skeleton(x: 'core.NeuronObject',
     # than one soma is detected now. Also a "label" column in the node
     # table would be lost at this point.
     # We will go for the easy option which is to pin the soma at this point.
+    nodes = x.nodes.set_index('node_id', inplace=False)
     if np.any(getattr(x, 'soma')):
         soma_nodes = utils.make_iterable(x.soma)
         old_pos = nodes.loc[soma_nodes, ['x', 'y', 'z']].values

@@ -592,10 +592,10 @@ class Volume(trimesh.Trimesh):
                 raise ValueError(f'Unable to parse "{ax}" view')
 
         try:
-            from shapely.ops import cascaded_union, polygonize  # type: ignore
+            from shapely.ops import unary_union, polygonize  # type: ignore
             import shapely.geometry as geometry  # type: ignore
         except ImportError:
-            raise ImportError('This function needs the shapely package.')
+            raise ImportError('This function needs the shapely>=1.8.0')
 
         coords: np.ndarray
 
@@ -612,9 +612,9 @@ class Volume(trimesh.Trimesh):
         edges: set = set()
         edge_points: list = []
         # loop over triangles:
-        # ia, ib, ic = indices of corner points of the
-        # triangle
-        for ia, ib, ic in tri.vertices:
+        # ia, ib, ic = indices of corner points of the triangle
+        # Note that "vertices" property was renamed to "simplices"
+        for ia, ib, ic in getattr(tri, 'simplices', getattr(tri, 'vertices', [])):
             pa: np.ndarray = coords[ia]  # type: ignore
             pb: np.ndarray = coords[ib]  # type: ignore
             pc: np.ndarray = coords[ic]  # type: ignore
@@ -635,7 +635,7 @@ class Volume(trimesh.Trimesh):
 
         m = geometry.MultiLineString(edge_points)
         triangles = list(polygonize(m))
-        concave_hull = cascaded_union(triangles)
+        concave_hull = unary_union(triangles)
 
         # Try with current settings, if this is not successful, try again
         # with lower alpha
