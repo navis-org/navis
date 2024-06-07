@@ -245,16 +245,14 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
         # Collect weight
         weights = np.sqrt(np.sum((nodes.loc[edges[:, 0], ['x', 'y', 'z']].values.astype(float)
                                   - nodes.loc[edges[:, 1], ['x', 'y', 'z']].values.astype(float)) ** 2, axis=1))
-        # Generate weight dictionary
-        edge_dict = np.array([{'weight': w} for w in weights])
-        # Add weights to dictionary
-        edges = np.append(edges, edge_dict.reshape(len(edges), 1), axis=1)
+        # It's fastest to generate a list of (source, target, weight) tuples to pass to networkX
+        elist = [(e[0], e[1], l) for e, l in zip(edges, weights)]
         # Create empty directed Graph
         G = nx.DiGraph()
         # Add nodes (in case we have disconnected nodes)
         G.add_nodes_from(x.nodes.node_id.values)
         # Add edges
-        G.add_edges_from(edges)
+        G.add_weighted_edges_from(elist)
     elif isinstance(x, core.MeshNeuron):
         G = nx.Graph()
         G.add_nodes_from(np.arange(x.n_vertices))
