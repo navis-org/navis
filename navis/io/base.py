@@ -329,12 +329,13 @@ class BaseReader(ABC):
         core.BaseNeuron
         """
         p = Path(fpath)
-        with open(p, 'rb' if self.read_binary else 'r') as f:
-            props = self.parse_filename(f.name)
-            props['origin'] = str(p)
-            return self.read_buffer(
-                f, merge_dicts(props, attrs)
-            )
+        with open(p, "rb" if self.read_binary else "r") as f:
+            try:
+                props = self.parse_filename(f.name)
+                props["origin"] = str(p)
+                return self.read_buffer(f, merge_dicts(props, attrs))
+            except BaseException as e:
+                raise ValueError(f"Error reading file {p}") from e
 
     def read_from_zip(
         self, files: Union[str, List[str]],
