@@ -89,11 +89,13 @@ def plot3d(x: Union[core.NeuronObject,
                       Name of a matplotlib or seaborn palette. If ``color`` is
                       not specified will pick colors from this palette.
     color_by :        str | array | list of arrays, default = None
-                      Can be the name of a column in the node table of
-                      ``TreeNeurons`` or an array of (numerical or categorical)
-                      values for each node. Numerical values will be normalized.
-                      You can control the normalization by passing a ``vmin``
-                      and/or ``vmax`` parameter.
+                      Color neurons by a property. Can be:
+                        - a list/array of labels, one per each neuron
+                        - a neuron property (str)
+                        - a column name in the node table of ``TreeNeurons``
+                        - a list/array of values for each node
+                      Numerical values will be normalized. You can control
+                      the normalization by passing a ``vmin`` and/or ``vmax`` parameter.
     shade_by :        str | array | list of arrays, default=None
                       Similar to ``color_by`` but will affect only the alpha
                       channel of the color. If ``shade_by='strahler'`` will
@@ -105,10 +107,6 @@ def plot3d(x: Union[core.NeuronObject,
     alpha :           float [0-1], optional
                       Alpha value for neurons. Overriden if alpha is provided
                       as fourth value in ``color`` (rgb*a*).
-    clusters :        list, optional
-                      A list assigning a cluster to each neuron (e.g.
-                      ``[0, 0, 0, 1, 1]``). Overrides ``color`` and uses
-                      ``palette`` to generate colors according to clusters.
     radius :          bool, default=False
                       If True, will plot TreeNeurons as 3D tubes using the
                       ``radius`` column in their node tables.
@@ -278,14 +276,14 @@ def plot3d_vispy(x, **kwargs):
         import vispy
     except ImportError:
         raise ImportError('`navis.plot3d` requires the `vispy` package. Either '
-                          'set e.g. `backend="plotly"` or install vispy:\n'
-                          '  pip3 install vispy')
+                          'change the backend (via e.g. `backend="plotly"`) '
+                          ' or install vispy:\n pip3 install vispy')
 
     # Parse objects to plot
     (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
     # Check for allowed static parameters
-    ALLOWED = {'color', 'c', 'colors', 'clusters',
+    ALLOWED = {'color', 'c', 'colors',
                'cn_colors', 'linewidth', 'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'alpha',
                'auto_limits', 'autolimits', 'viewer', 'radius', 'center',
@@ -343,7 +341,7 @@ def plot3d_plotly(x, **kwargs):
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors', 'cn_colors',
                'linewidth', 'lw', 'legend_group',
-               'scatter_kws', 'synapse_layout', 'clusters',
+               'scatter_kws', 'synapse_layout',
                'dps_scale_vec', 'title', 'width', 'height', 'fig_autosize',
                'inline', 'alpha', 'radius', 'fig', 'soma',
                'connectors', 'connectors_only', 'palette', 'color_by',
@@ -366,14 +364,29 @@ def plot3d_plotly(x, **kwargs):
     colors = kwargs.pop('color',
                         kwargs.pop('c',
                                    kwargs.pop('colors', None)))
-
+    color_by = kwargs.get('color_by', None)
     palette = kwargs.get('palette', None)
+
+    # Color_by can be a per-node/vertex color, or a per-neuron color
+    # such as property of the neuron
+    color_neurons_by = None
+    if color_by is not None and neurons:
+        # Check if this is a neuron property
+        if isinstance(color_by, str):
+            if hasattr(neurons[0], color_by):
+                # If it is, use it to color neurons
+                color_neurons_by = [getattr(neuron, color_by) for neuron in neurons]
+                kwargs.pop('color_by')  # remove from kwargs
+        elif isinstance(color_by, (list, np.ndarray)):
+            if len(color_by) == len(neurons):
+                color_neurons_by = color_by
+                kwargs.pop('color_by')  # remove from kwargs
 
     neuron_cmap, volumes_cmap = prepare_colormap(colors,
                                                  neurons=neurons,
                                                  volumes=volumes,
                                                  palette=palette,
-                                                 clusters=kwargs.get('clusters', None),
+                                                 color_by=color_neurons_by,
                                                  alpha=kwargs.get('alpha', None),
                                                  color_range=255)
 
@@ -403,7 +416,6 @@ def plot3d_plotly(x, **kwargs):
 
     if kwargs.get('inline', True) and utils.is_jupyter():
         fig.show()
-        return
     else:
         logger.info('Use the `.show()` method to plot the figure.')
         return fig
@@ -426,7 +438,7 @@ def plot3d_k3d(x, **kwargs):
     # Check for allowed static parameters
     ALLOWED = {'color', 'c', 'colors',
                'cn_colors', 'linewidth', 'lw', 'scatter_kws',
-               'synapse_layout', 'clusters',
+               'synapse_layout',
                'dps_scale_vec', 'height',
                'inline', 'alpha', 'radius', 'plot', 'soma',
                'connectors', 'connectors_only', 'palette', 'color_by',
@@ -448,14 +460,29 @@ def plot3d_k3d(x, **kwargs):
     colors = kwargs.pop('color',
                         kwargs.pop('c',
                                    kwargs.pop('colors', None)))
-
+    color_by = kwargs.get('color_by', None)
     palette = kwargs.get('palette', None)
+
+    # Color_by can be a per-node/vertex color, or a per-neuron color
+    # such as property of the neuron
+    color_neurons_by = None
+    if color_by is not None and neurons:
+        # Check if this is a neuron property
+        if isinstance(color_by, str):
+            if hasattr(neurons[0], color_by):
+                # If it is, use it to color neurons
+                color_neurons_by = [getattr(neuron, color_by) for neuron in neurons]
+                kwargs.pop('color_by')  # remove from kwargs
+        elif isinstance(color_by, (list, np.ndarray)):
+            if len(color_by) == len(neurons):
+                color_neurons_by = color_by
+                kwargs.pop('color_by')  # remove from kwargs
 
     neuron_cmap, volumes_cmap = prepare_colormap(colors,
                                                  neurons=neurons,
                                                  volumes=volumes,
                                                  palette=palette,
-                                                 clusters=kwargs.get('clusters', None),
+                                                 color_by=color_neurons_by,
                                                  alpha=kwargs.get('alpha', None),
                                                  color_range=255)
 

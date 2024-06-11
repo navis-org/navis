@@ -440,17 +440,20 @@ def prepare_colormap(colors,
         # This happens when there is only a scatter plot
         return [None], [None]
 
-    # If groups are provided override all existing colors
-    if not isinstance(clusters, type(None)):
-        clusters = utils.make_iterable(clusters)
-        if len(clusters) != len(neurons):
-            raise ValueError('Must provide a group for all neurons: got '
-                             f'{len(clusters)} groups for {len(neurons)} neurons')
-        cmap = {g: c for g, c in zip(np.unique(clusters),
-                                     generate_colors(len(np.unique(clusters)),
+    # If labels are provided override all existing colors
+    if not isinstance(color_by, type(None)):
+        if isinstance(color_by, str):
+            color_by = getattr(neurons, color_by)
+
+        color_by = utils.make_iterable(color_by)
+        if len(color_by) != len(neurons):
+            raise ValueError('Must provide a label for all neurons: got '
+                             f'{len(color_by)} groups for {len(neurons)} neurons')
+        cmap = {g: c for g, c in zip(np.unique(color_by),
+                                     generate_colors(len(np.unique(color_by)),
                                                      palette=palette,
                                                      color_range=color_range))}
-        colors = [cmap[g] for g in clusters]
+        colors = [cmap[g] for g in color_by]
         colors += [getattr(v, 'color', (1, 1, 1)) for v in volumes]
 
     # If no colors, generate random colors
