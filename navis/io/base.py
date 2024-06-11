@@ -814,7 +814,7 @@ class BaseReader(ABC):
         if not match:
             raise ValueError(f'Unable to match "{self.fmt}" to filename "{filename}"')
 
-        props = {}
+        props = {'file': filename}
         for i, prop in enumerate(prop_names):
             for p in prop.split(','):
                 # Ignore empty ("{}")
