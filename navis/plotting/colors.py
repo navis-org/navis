@@ -369,7 +369,7 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
         raise ValueError('Data appears to be mixed numeric and non-numeric.')
     else:
         # Find unique values
-        unique_v = np.unique([np.unique(v) for v in values])
+        unique_v = np.unique([v for l in values for v in np.unique(l)])
 
         if isinstance(palette, str):
             palette = sns.color_palette(palette, len(unique_v))
@@ -414,7 +414,7 @@ def prepare_colormap(colors,
                      neurons: Optional['core.NeuronObject'] = None,
                      volumes: Optional[List] = None,
                      alpha: Optional[float] = None,
-                     clusters: Optional[List[Any]] = None,
+                     color_by: Optional[List[Any]] = None,
                      palette: Optional[str] = None,
                      color_range: Union[Literal[1],
                                         Literal[255]] = 255):
