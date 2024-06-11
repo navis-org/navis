@@ -33,6 +33,11 @@ __all__ = ['NeuronList']
 # Set up logging
 logger = config.get_logger(__name__)
 
+# Max number of neurons in NeuronList to search for attributes
+# This is to avoid searching through a huge list of neurons
+# and freezing the interpreter
+MAX_SEARCH = 100
+
 
 class NeuronList:
     """Collection of neurons.
@@ -280,7 +285,7 @@ class NeuronList:
 
     def __dir__(self):
         """Custom __dir__ to add some parameters that we want to make searchable."""
-        add_attr = set.union(*[set(dir(n)) for n in self.neurons])
+        add_attr = set.union(*[set(dir(n)) for n in self.neurons[:MAX_SEARCH]])
 
         return list(set(super().__dir__() + list(add_attr)))
 
