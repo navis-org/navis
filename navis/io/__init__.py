@@ -17,7 +17,7 @@ from .nrrd_io import read_nrrd, write_nrrd
 from .precomputed_io import read_precomputed, write_precomputed
 from .hdf_io import read_h5, write_h5, inspect_h5
 from .rda_io import read_rda
-from .nmx_io import read_nmx, read_nml
+from .nmx_io import read_nml, read_nmx, write_nml, write_nmx
 from .mesh_io import read_mesh, write_mesh
 from .tiff_io import read_tiff
 from .pq_io import read_parquet, write_parquet, scan_parquet
@@ -29,6 +29,7 @@ __all__ = ['read_json', 'write_json',
            'read_precomputed', 'write_precomputed',
            'read_tiff',
            'read_rda',
-           'read_nmx', 'read_nml',
+           'read_nml', 'write_nml',
+           'read_nmx', 'write_nmx',
            'read_mesh', 'write_mesh',
            'read_parquet', 'write_parquet', 'scan_parquet']
