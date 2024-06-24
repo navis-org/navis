@@ -175,6 +175,21 @@ def neuron2vispy(x, **kwargs):
     color_by = kwargs.get('color_by', None)
     shade_by = kwargs.get('shade_by', None)
 
+    # Color_by can be a per-node/vertex color, or a per-neuron color
+    # such as property of the neuron
+    color_neurons_by = None
+    if color_by is not None and x:
+        # Check if this is a neuron property
+        if isinstance(color_by, str):
+            if hasattr(x[0], color_by):
+                # If it is, use it to color neurons
+                color_neurons_by = [getattr(neuron, color_by) for neuron in x]
+                color_by = None
+        elif isinstance(color_by, (list, np.ndarray)):
+            if len(color_by) == len(x):
+                color_neurons_by = color_by
+                color_by = None
+
     if not isinstance(color_by, type(None)):
         if not palette:
             raise ValueError('Must provide `palette` (e.g. "viridis") argument '
@@ -193,7 +208,7 @@ def neuron2vispy(x, **kwargs):
                                        neurons=x,
                                        palette=palette,
                                        alpha=kwargs.get('alpha', None),
-                                       clusters=kwargs.get('clusters', None),
+                                       color_by=color_neurons_by,
                                        color_range=1)
 
     if not isinstance(shade_by, type(None)):
@@ -399,7 +414,7 @@ def to_vispy_cmap(color, fade=True):
     cmap = vispy.color.colormap.Colormap(colors=colors)
 
     # cmap consists of two colors
-    # We will set the alpha value of the first color to 0
+    # We will set first color to black and transparent
     if fade:
         col_arr = cmap.colors.rgba
         col_arr[1][:] = 0

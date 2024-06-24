@@ -214,23 +214,27 @@ class BaseReader(ABC):
     attrs :         dict
                     Additional attributes to use when creating the neuron.
                     Will be overwritten by later additions (e.g. from `fmt`).
+    ignore_hidden : bool
+                    Whether to ignore files that start with "._".
     """
 
     def __init__(
         self,
         fmt: str,
         file_ext: str,
-        name_fallback: str = 'NA',
+        name_fallback: str = "NA",
         read_binary: bool = False,
-        attrs: Optional[Dict[str, Any]] = None
+        attrs: Optional[Dict[str, Any]] = None,
+        ignore_hidden=True,
     ):
         self.attrs = attrs
         self.fmt = fmt
         self.file_ext = file_ext
         self.name_fallback = name_fallback
         self.read_binary = read_binary
+        self.ignore_hidden = ignore_hidden
 
-        if self.file_ext.startswith('*'):
+        if self.file_ext.startswith("*"):
             raise ValueError('File extension must be ".ext", not "*.ext"')
 
     def files_in_dir(self,
@@ -255,6 +259,9 @@ class BaseReader(ABC):
             file = file.name
         elif isinstance(file, Path):
             file = file.name
+
+        if self.ignore_hidden and str(file).startswith("._"):
+            return False
 
         if str(file).endswith(self.file_ext):
             return True
@@ -322,12 +329,13 @@ class BaseReader(ABC):
         core.BaseNeuron
         """
         p = Path(fpath)
-        with open(p, 'rb' if self.read_binary else 'r') as f:
-            props = self.parse_filename(f.name)
-            props['origin'] = str(p)
-            return self.read_buffer(
-                f, merge_dicts(props, attrs)
-            )
+        with open(p, "rb" if self.read_binary else "r") as f:
+            try:
+                props = self.parse_filename(f.name)
+                props["origin"] = str(p)
+                return self.read_buffer(f, merge_dicts(props, attrs))
+            except BaseException as e:
+                raise ValueError(f"Error reading file {p}") from e
 
     def read_from_zip(
         self, files: Union[str, List[str]],
@@ -806,7 +814,7 @@ class BaseReader(ABC):
         if not match:
             raise ValueError(f'Unable to match "{self.fmt}" to filename "{filename}"')
 
-        props = {}
+        props = {'file': filename}
         for i, prop in enumerate(prop_names):
             for p in prop.split(','):
                 # Ignore empty ("{}")

@@ -23,6 +23,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
+from pathlib import Path
 from typing import (Sequence, Union, Iterable, List,
                     Optional, Callable, Iterator)
 
@@ -32,6 +33,11 @@ __all__ = ['NeuronList']
 
 # Set up logging
 logger = config.get_logger(__name__)
+
+# Max number of neurons in NeuronList to search for attributes
+# This is to avoid searching through a huge list of neurons
+# and freezing the interpreter
+MAX_SEARCH = 100
 
 
 class NeuronList:
@@ -280,7 +286,7 @@ class NeuronList:
 
     def __dir__(self):
         """Custom __dir__ to add some parameters that we want to make searchable."""
-        add_attr = set.union(*[set(dir(n)) for n in self.neurons])
+        add_attr = set.union(*[set(dir(n)) for n in self.neurons[:MAX_SEARCH]])
 
         return list(set(super().__dir__() + list(add_attr)))
 
@@ -770,6 +776,70 @@ class NeuronList:
         """Helper to mimic ``pandas.DataFrame.itertuples()``."""
         return self.neurons
 
+    def add_metadata(self, meta, id_col='id', neuron_id='id', columns=None, register=False, missing='raise'):
+        """Add neuron metadata from a DataFrame.
+
+        Parameters
+        ----------
+        meta :      pd.DataFrame | str | Path
+                    DataFrame or filepath to a CSV file containing metadata.
+                    Must contain a column with neuron IDs.
+        id_col :    str
+                    Name of the column containing neuron IDs.
+        neuron_id : str
+                    Name of the attribute in the neuron that corresponds to
+                    the `id_col`.
+        columns :   list, optional
+                    List of columns to add. If None, will add all columns except
+                    for `id_col`.
+        register :  bool
+                    If True, will also register the attribute(s) as properties
+                    that should show up in the summary.
+        missing :   'raise' | 'warn' | 'ignore'
+                    What to do if `meta` is missing a value for a neuron.
+
+        See Also
+        --------
+        navis.NeuronList.set_neuron_attributes
+                    Set individual attributes of neurons contained in the NeuronList.
+
+        """
+        assert missing in ('raise', 'warn', 'ignore')
+
+        if isinstance(meta, (str, Path)):
+            meta = pd.read_csv(meta)
+
+        if not isinstance(meta, pd.DataFrame):
+            raise TypeError('`meta` must be a DataFrame or a path to a CSV file, '
+                            f'got {type(meta)}')
+
+        if id_col not in meta.columns:
+            raise KeyError(f'Column "{id_col}" not found in metadata.')
+
+        # Index meta data by the neuron_id
+        neuron_id = getattr(self, neuron_id)
+        miss = ~np.isin(neuron_id, meta[id_col].values)
+        if any(miss):
+            msg = f'Metadata is missing entries for IDs: {neuron_id[miss]}'
+            if missing == 'raise':
+                raise KeyError(msg)
+            elif missing == 'warn':
+                logger.warning(msg)
+
+        meta = meta.set_index(id_col).reindex(neuron_id)
+
+        if columns is None:
+            columns = meta.columns
+
+        for c in columns:
+            if c == id_col:
+                continue
+            self.set_neuron_attributes(
+                meta[c].values.tolist(),
+                name=c,
+                register=register
+                )
+
     def set_neuron_attributes(self, x, name, register=False, na='raise'):
         """Set attributes of neurons contained in the NeuronList.
 
@@ -794,6 +864,11 @@ class NeuronList:
                      - 'raise' will raise a KeyError
                      - 'propagate' will set the attribute to `None`
                      - 'skip' will not set the attribute
+
+        See Also
+        --------
+        navis.NeuronList.add_metadata
+                    Set metadata from a dataframe.
 
         Examples
         --------

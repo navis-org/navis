@@ -1348,7 +1348,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         if any([c not in x.columns for c in ['x', 'y', 'z']]):
             raise ValueError('DataFrame must have x, y and z columns.')
         x = x.copy()
-        x.loc[:, ['x', 'y', 'z']] = mirror_brain(x[['x', 'y', 'z']].values.astype(float),
+        x.loc[:, ['x', 'y', 'z']] = mirror_brain(x[['x', 'y', 'z']].values.astype(x.dtypes['x']),
                                                  template=template,
                                                  mirror_axis=mirror_axis,
                                                  warp=warp)

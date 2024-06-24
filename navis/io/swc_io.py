@@ -151,6 +151,11 @@ class SwcReader(base.BaseReader):
             ),
             connectors=self._extract_connectors(nodes))
 
+        if self.soma_label is not None:
+            is_soma_node = n.nodes.label.values == self.soma_label
+            if any(is_soma_node):
+                n.soma = n.nodes.node_id.values[is_soma_node][0]
+
         attrs = self._make_attributes({'name': 'SWC', 'origin': 'DataFrame'}, attrs)
 
         # SWC is special - we do not want to register it

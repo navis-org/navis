@@ -224,6 +224,7 @@ Methods:
     :toctree: generated/
 
     ~navis.NeuronList.apply
+    ~navis.NeuronList.add_metadata
     ~navis.NeuronList.head
     ~navis.NeuronList.itertuples
     ~navis.NeuronList.mean

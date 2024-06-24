@@ -127,11 +127,13 @@ def plot2d(x: Union[core.NeuronObject,
                         Name of a matplotlib or seaborn palette. If ``color`` is
                         not specified will pick colors from this palette.
     color_by :          str | array | list of arrays, default = None
-                        Can be the name of a column in the node table of
-                        ``TreeNeurons`` or an array of (numerical or
-                        categorical) values for each node. Numerical values will
-                        be normalized. You can control the normalization by
-                        passing a ``vmin`` and/or ``vmax`` parameter.
+                        Color neurons by a property. Can be:
+                          - a list/array of labels, one per each neuron
+                          - a neuron property (str)
+                          - a column name in the node table of ``TreeNeurons``
+                          - a list/array of values for each node
+                        Numerical values will be normalized. You can control
+                        the normalization by passing a ``vmin`` and/or ``vmax`` parameter.
     shade_by :          str | array | list of arrays, default=None
                         Similar to ``color_by`` but will affect only the alpha
                         channel of the color. If ``shade_by='strahler'`` will
@@ -143,10 +145,6 @@ def plot2d(x: Union[core.NeuronObject,
                         Alpha value for neurons. Overriden if alpha is provided
                         as fourth value in ``color`` (rgb*a*). You can override
                         alpha value for connectors by using ``cn_alpha``.
-    clusters :          list, default=None
-                        A list assigning a cluster to each neuron (e.g.
-                        ``[0, 0, 0, 1, 1]``). Overrides ``color`` and uses
-                        ``palette`` to generate colors according to clusters.
     depth_coloring :    bool, default=False
                         If True, will color encode depth (Z). Overrides
                         ``color``. Does not work with ``method = '3d_complex'``.
@@ -273,7 +271,7 @@ def plot2d(x: Union[core.NeuronObject,
                         'ax', 'color', 'colors', 'c', 'view', 'scalebar',
                         'cn_mesh_colors', 'linewidth', 'cn_size', 'cn_alpha',
                         'orthogonal', 'group_neurons', 'scatter_kws', 'figsize',
-                        'linestyle', 'rasterize', 'clusters', 'synapse_layout',
+                        'linestyle', 'rasterize', 'synapse_layout',
                         'alpha', 'depth_coloring', 'autoscale', 'depth_scale',
                         'ls', 'lw', 'volume_outlines', 'radius',
                         'dps_scale_vec', 'palette', 'color_by', 'shade_by',
@@ -311,20 +309,36 @@ def plot2d(x: Union[core.NeuronObject,
     color_by = kwargs.get('color_by', None)
     shade_by = kwargs.get('shade_by', None)
 
+    # Color_by can be a per-node/vertex color, or a per-neuron color
+    # such as property of the neuron
+    color_neurons_by = None
+    if color_by is not None and neurons:
+        if not palette:
+            raise ValueError('Must provide palette via e.g. `palette="viridis"` '
+                             'when using `color_by` argument.')
+
+        # Check if this is a neuron property
+        if isinstance(color_by, str):
+            if hasattr(neurons[0], color_by):
+                # If it is, use it to color neurons
+                color_neurons_by = [getattr(neuron, color_by) for neuron in neurons]
+                color_by = None
+        elif isinstance(color_by, (list, np.ndarray)):
+            if len(color_by) == len(neurons):
+                color_neurons_by = color_by
+                color_by = None
+
     # Generate the colormaps
     (neuron_cmap,
      volumes_cmap) = prepare_colormap(colors,
                                       neurons=neurons,
                                       volumes=volumes,
                                       palette=palette,
-                                      clusters=kwargs.get('clusters', None),
+                                      color_by=color_neurons_by,
                                       alpha=kwargs.get('alpha', None),
                                       color_range=1)
 
     if not isinstance(color_by, type(None)):
-        if not palette:
-            raise ValueError('Must provide `palette` (e.g. "viridis") argument '
-                             'if using `color_by`')
         neuron_cmap = vertex_colors(neurons,
                                     by=color_by,
                                     use_alpha=False,
@@ -705,7 +719,7 @@ def _plot_connectors(neuron, color, method, ax, **kwargs):
             if not isinstance(inner_dict, dict):
                 continue
             inner_dict["color"] = color
-        
+
     cn_layout.update(kwargs.get('synapse_layout', {}))
 
     if method == '2d':
@@ -1113,7 +1127,7 @@ def set_axes3d_equal(ax):
 
     # The plot bounding box is a sphere in the sense of the infinity
     # norm, hence I call half the max range the plot radius.
-    plot_radius = 0.5*max([x_range, y_range, z_range])
+    plot_radius = 0.5 * max([x_range, y_range, z_range])
 
     ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
     ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
