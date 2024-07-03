@@ -18,7 +18,7 @@ NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
 * **model** neurons and networks using the *NEURON* simulator
 * **render**: use Blender 3D for high quality [visualizations](https://youtu.be/wl3sFG7WQJc)
 * **R** neuron libraries: interfaces with [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr) and more
-* **import-export**: read/write SWCs, neuroglancer's ["*precomputed*"](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed) format, NMX/NML, NRRD, mesh-files and more
+* **import-export**: read/write SWCs, neuroglancer's ["*precomputed*"](https://github.com/google/neuroglancer/tree/master/src/datasource/precomputed) format, NMX/NML, NRRD, mesh-files and more
 * **scalable**: out-of-the-box support for multiprocessing
 * **extensible**: build your own package on top of navis - see [pymaid](https://pymaid.readthedocs.io/en/latest/) for example
 
