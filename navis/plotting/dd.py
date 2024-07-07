@@ -845,9 +845,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
     if method == '2d':
         if not depth_coloring and not (isinstance(color, np.ndarray) and color.ndim == 2):
             # Generate by-segment coordinates
-            coords = segments_to_coords(neuron,
-                                        neuron.segments,
-                                        modifier=(1, 1, 1))
+            coords = segments_to_coords(neuron, modifier=(1, 1, 1))
 
             # We have to add (None, None, None) to the end of each
             # slab to make that line discontinuous there
@@ -929,7 +927,6 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
             else:
                 # Generate by-segment coordinates
                 coords = segments_to_coords(neuron,
-                                            neuron.segments,
                                             modifier=(1, 1, 1))
                 line_color = color
 
@@ -953,7 +950,6 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
         elif method == '3d_complex':
             # Generate by-segment coordinates
             coords = segments_to_coords(neuron,
-                                        neuron.segments,
                                         modifier=(1, 1, 1))
             for c in coords:
                 lc = Line3DCollection([c],

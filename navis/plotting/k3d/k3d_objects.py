@@ -239,7 +239,7 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
         logger.warning(f'Skipping single-node skeleton: {neuron.label}')
         return []
 
-    coords = segments_to_coords(neuron, neuron.segments)
+    coords = segments_to_coords(neuron)
     linewidth = kwargs.get('linewidth', kwargs.get('lw', 1))
 
     # We have to add (None, None, None) to the end of each segment to

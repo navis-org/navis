@@ -29,19 +29,32 @@ from .. import graph, utils, config, core, morpho
 # Set up logging
 logger = config.get_logger(__name__)
 
-__all__ = sorted(['classify_nodes', 'cut_skeleton', 'longest_neurite',
-                  'split_into_fragments', 'reroot_skeleton', 'distal_to',
-                  'dist_between', 'find_main_branchpoint',
-                  'generate_list_of_childs', 'geodesic_matrix',
-                  'node_label_sorting',
-                  'segment_length', 'rewire_skeleton', 'insert_nodes',
-                  'remove_nodes', 'dist_to_root'])
+__all__ = sorted(
+    [
+        "classify_nodes",
+        "cut_skeleton",
+        "longest_neurite",
+        "split_into_fragments",
+        "reroot_skeleton",
+        "distal_to",
+        "dist_between",
+        "find_main_branchpoint",
+        "generate_list_of_childs",
+        "geodesic_matrix",
+        "node_label_sorting",
+        "segment_length",
+        "rewire_skeleton",
+        "insert_nodes",
+        "remove_nodes",
+        "dist_to_root",
+    ]
+)
 
 
-@utils.map_neuronlist(desc='Gen. segments', allow_parallel=True)
-def _generate_segments(x: 'core.NeuronObject',
-                       weight: Optional[str] = None,
-                       return_lengths: bool = False) -> Union[list, Tuple[list, list]]:
+@utils.map_neuronlist(desc="Gen. segments", allow_parallel=True)
+def _generate_segments(
+    x: "core.NeuronObject", weight: Optional[str] = None, return_lengths: bool = False
+) -> Union[list, Tuple[list, list]]:
     """Generate segments maximizing segment lengths.
 
     Parameters
@@ -65,7 +78,7 @@ def _generate_segments(x: 'core.NeuronObject',
 
     Examples
     --------
-    This is for doctests mostly
+    This is primarily for doctests:
 
     >>> import navis
     >>> n = navis.example_neurons(1)
@@ -79,15 +92,29 @@ def _generate_segments(x: 'core.NeuronObject',
     # At this point x is TreeNeuron
     x: core.TreeNeuron
 
-    assert weight in ('weight', None), f'Unable to use weight "{weight}"'
+    assert weight in ("weight", None), f'Unable to use weight "{weight}"'
+
+    if utils.fastcore and not return_lengths:
+        if weight == "weight":
+            weight = utils.fastcore.dag.parent_dist(
+                x.nodes.node_id.values,
+                x.nodes.parent_id.values,
+                x.nodes[["x", "y", "z"]].values,
+                root_dist=0,
+            )
+
+        return utils.fastcore.generate_segments(
+            x.nodes.node_id.values, x.nodes.parent_id.values, weights=weight
+        )
+
     d = dist_to_root(x, igraph_indices=False, weight=weight)
-    endNodeIDs = x.nodes[x.nodes.type == 'end'].node_id.values
+    endNodeIDs = x.nodes[x.nodes.type == "end"].node_id.values
     endNodeIDs = sorted(endNodeIDs, key=lambda x: d.get(x, 0), reverse=True)
 
     if config.use_igraph and x.igraph:
         g: igraph.Graph = x.igraph  # noqa
         # Convert endNodeIDs to indices
-        id2ix = dict(zip(x.igraph.vs['node_id'], range(len(x.igraph.vs))))
+        id2ix = dict(zip(x.igraph.vs["node_id"], range(len(x.igraph.vs))))
         endNodeIDs = [id2ix[n] for n in endNodeIDs]
     else:
         g: nx.DiGraph = x.graph
@@ -125,8 +152,12 @@ def _generate_segments(x: 'core.NeuronObject',
         return sequences
 
 
-def _connected_components(x: Union['core.TreeNeuron', 'core.MeshNeuron']) -> List[Set[int]]:
+def _connected_components(
+    x: Union["core.TreeNeuron", "core.MeshNeuron"],
+) -> List[Set[int]]:
     """Extract the connected components within a neuron.
+
+    Will use `navis-fastcore` for skeletons, if available.
 
     Parameters
     ----------
@@ -150,15 +181,22 @@ def _connected_components(x: Union['core.TreeNeuron', 'core.MeshNeuron']) -> Lis
     """
     assert isinstance(x, (core.TreeNeuron, core.MeshNeuron))
 
-    if config.use_igraph and x.igraph:
+    if isinstance(x, core.TreeNeuron) and utils.fastcore:
+        # This returns for each node the ID of its root
+        ms = utils.fastcore.connected_components(
+            x.nodes.node_id.values, x.nodes.parent_id.values
+        )
+        # Translate into list of sets
+        cc = [x.nodes.node_id.values[ms == i] for i in np.unique(ms)]
+    elif config.use_igraph and x.igraph:
         G: igraph.Graph = x.igraph  # noqa
         # Get the vertex clustering
-        vc = G.components(mode='WEAK')
+        vc = G.components(mode="WEAK")
         # Membership maps indices to connected components
         ms = np.array(vc.membership)
         if isinstance(x, core.TreeNeuron):
             # For skeletons we need node IDs
-            ids = np.array(G.vs['node_id'])
+            ids = np.array(G.vs["node_id"])
         else:
             # For MeshNeurons we can use the indices directly
             ids = np.array(G.vs.indices)
@@ -173,7 +211,7 @@ def _connected_components(x: Union['core.TreeNeuron', 'core.MeshNeuron']) -> Lis
     return cc
 
 
-def _break_segments(x: 'core.NeuronObject') -> list:
+def _break_segments(x: "core.NeuronObject") -> list:
     """Break neuron into small segments connecting ends, branches and root.
 
     Parameters
@@ -200,14 +238,18 @@ def _break_segments(x: 'core.NeuronObject') -> list:
     elif isinstance(x, core.TreeNeuron):
         pass
     else:
-        logger.error('Unexpected datatype: %s' % str(type(x)))
+        logger.error("Unexpected datatype: %s" % str(type(x)))
         raise ValueError
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
 
-    if x.igraph and config.use_igraph:
-        g: Union['igraph.Graph', 'nx.DiGraph'] = x.igraph # noqa
+    if utils.fastcore:
+        seg_list = utils.fastcore.break_segments(
+            x.nodes.node_id.values, x.nodes.parent_id.values
+        )
+    elif x.igraph and config.use_igraph:
+        g: Union["igraph.Graph", "nx.DiGraph"] = x.igraph  # noqa
         end = g.vs.select(_indegree=0).indices
         branch = g.vs.select(_indegree_gt=1, _outdegree=1).indices
         root = g.vs.select(_outdegree=0).indices
@@ -228,12 +270,13 @@ def _break_segments(x: 'core.NeuronObject') -> list:
                 seg.append(parent)
             seg_list.append(seg)
         # Translate indices to node IDs
-        ix_id = {v: n for v, n in zip(g.vs.indices,
-                                      g.vs.get_attribute_values('node_id'))}
+        ix_id = {
+            v: n for v, n in zip(g.vs.indices, g.vs.get_attribute_values("node_id"))
+        }
         seg_list = [[ix_id[n] for n in s] for s in seg_list]
     else:
-        seeds = x.nodes[x.nodes.type.isin(['branch', 'end'])].node_id.values
-        stops = x.nodes[x.nodes.type.isin(['branch', 'root'])].node_id.values
+        seeds = x.nodes[x.nodes.type.isin(["branch", "end"])].node_id.values
+        stops = x.nodes[x.nodes.type.isin(["branch", "root"])].node_id.values
         # Converting to set speeds up the "parent in stops" check
         stops = set(stops)
         g = x.graph
@@ -648,12 +691,13 @@ def distal_to(x: 'core.TreeNeuron',
         return df
 
 
-def geodesic_matrix(x: 'core.NeuronObject',
-                    from_: Optional[Iterable[int]] = None,
-                    directed: bool = False,
-                    weight: Optional[str] = 'weight',
-                    limit: Union[float, int] = np.inf
-                    ) -> pd.DataFrame:
+def geodesic_matrix(
+    x: "core.NeuronObject",
+    from_: Optional[Iterable[int]] = None,
+    directed: bool = False,
+    weight: Optional[str] = "weight",
+    limit: Union[float, int] = np.inf,
+) -> pd.DataFrame:
     """Generate geodesic ("along-the-arbor") distance matrix between nodes/vertices.
 
     Parameters
@@ -709,11 +753,51 @@ def geodesic_matrix(x: 'core.NeuronObject',
         if len(x) == 1:
             x = x[0]
         else:
-            raise ValueError('Cannot process more than a single neuron.')
+            raise ValueError("Cannot process more than a single neuron.")
     elif not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
-    limit = x.map_units(limit, on_error='raise')
+    limit = x.map_units(limit, on_error="raise")
+
+    # Use fastcore if available
+    if utils.fastcore and isinstance(x, core.TreeNeuron):
+        # Calculate node distances
+        if weight == "weight":
+            weight = utils.fastcore.dag.parent_dist(
+                x.nodes.node_id.values,
+                x.nodes.parent_id.values,
+                x.nodes[["x", "y", "z"]].values,
+                root_dist=0,
+            )
+
+        # Check for missing sources
+        if not isinstance(from_, type(None)):
+            from_ = np.unique(utils.make_iterable(from_))
+
+            miss = from_[~np.isin(from_, x.nodes.node_id.values)]
+            if len(miss):
+                raise ValueError(
+                    f'Node/vertex IDs not present: {", ".join(miss.astype(str))}'
+                )
+            ix = from_
+        else:
+            ix = x.nodes.node_id.values
+
+        dmat = utils.fastcore.geodesic_matrix(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            weights=weight,
+            directed=directed,
+            sources=from_,
+        )
+
+        # Fastcore returns -1 for non-connected nodes
+        dmat[dmat < 0] = np.inf
+
+        if limit is not None and limit is not np.inf:
+            dmat[dmat > limit] = np.inf
+
+        return pd.DataFrame(dmat, index=ix, columns=x.nodes.node_id.values)
 
     # Makes no sense to use directed for MeshNeurons
     if isinstance(x, core.MeshNeuron):
@@ -721,7 +805,7 @@ def geodesic_matrix(x: 'core.NeuronObject',
 
     if x.igraph and config.use_igraph:
         if isinstance(x, core.TreeNeuron):
-            nodeList = np.array(x.igraph.vs.get_attribute_values('node_id'))
+            nodeList = np.array(x.igraph.vs.get_attribute_values("node_id"))
         else:
             nodeList = np.arange(len(x.igraph.vs))
 
@@ -730,18 +814,16 @@ def geodesic_matrix(x: 'core.NeuronObject',
     else:
         nodeList = np.array(x.graph.nodes())
 
-        if hasattr(nx, 'to_scipy_sparse_matrix'):
-            m = nx.to_scipy_sparse_matrix(x.graph, nodeList,
-                                          weight=weight)
+        if hasattr(nx, "to_scipy_sparse_matrix"):
+            m = nx.to_scipy_sparse_matrix(x.graph, nodeList, weight=weight)
         else:
-            m = nx.to_scipy_sparse_array(x.graph, nodeList,
-                                         weight=weight)
+            m = nx.to_scipy_sparse_array(x.graph, nodeList, weight=weight)
 
     if not isinstance(from_, type(None)):
         from_ = np.unique(utils.make_iterable(from_))
 
         miss = from_[~np.isin(from_, nodeList)].astype(str)
-        if any(miss):
+        if len(miss):
             raise ValueError(f'Node/vertex IDs not present: {", ".join(miss)}')
 
         indices = np.where(np.isin(nodeList, from_))[0]
@@ -752,19 +834,15 @@ def geodesic_matrix(x: 'core.NeuronObject',
 
     # For some reason csgrpah.dijkstra expects indices/indptr as int32
     # igraph seems to do that by default but networkx uses int64 for indices
-    m.indptr = m.indptr.astype('int32', copy=False)
-    m.indices = m.indices.astype('int32', copy=False)
-    dmat = csgraph.dijkstra(m,
-                            directed=directed,
-                            indices=indices,
-                            limit=limit)
+    m.indptr = m.indptr.astype("int32", copy=False)
+    m.indices = m.indices.astype("int32", copy=False)
+    dmat = csgraph.dijkstra(m, directed=directed, indices=indices, limit=limit)
 
     return pd.DataFrame(dmat, columns=nodeList, index=ix)  # type: ignore  # no stubs
 
 
 @utils.lock_neuron
-def segment_length(x: 'core.TreeNeuron',
-                   segment: List[int]) -> float:
+def segment_length(x: "core.TreeNeuron", segment: List[int]) -> float:
     """Get length of a linear segment.
 
     This function is superfast but has no checks - you must provide a

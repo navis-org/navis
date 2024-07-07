@@ -291,7 +291,7 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
         # Remove empty tags
         x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}  # type: ignore  # TreeNeuron has no tags
 
-    # Fix graph representations
+    # Fix graph representations (avoids having to recompute them)
     if '_graph_nx' in x.__dict__:
         x._graph_nx = x.graph.subgraph(x.nodes.node_id.values)
     if '_igraph' in x.__dict__:

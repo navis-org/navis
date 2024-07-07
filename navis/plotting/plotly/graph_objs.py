@@ -357,7 +357,7 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, **kwargs):
         logger.warning(f'Skipping single-node TreeNeuron: {neuron.label}')
         return []
 
-    coords = segments_to_coords(neuron, neuron.segments)
+    coords = segments_to_coords(neuron)
     linewidth = kwargs.get('linewidth', kwargs.get('lw', 2))
 
     # We have to add (None, None, None) to the end of each segment to

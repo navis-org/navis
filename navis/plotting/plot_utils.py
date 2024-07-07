@@ -69,20 +69,19 @@ def tn_pairs_to_coords(x: core.TreeNeuron,
     return coords.reshape((coords.shape[0], 2, 3))
 
 
-def segments_to_coords(x: core.TreeNeuron,
-                       segments: List[List[int]],
-                       modifier: Optional[Tuple[float,
-                                                float,
-                                                float]] = (1, 1, 1),
-                       node_colors: Optional[np.ndarray] = None,
-                       ) -> List[np.ndarray]:
+def segments_to_coords(
+    x: core.TreeNeuron,
+    modifier: Optional[Tuple[float, float, float]] = (1, 1, 1),
+    node_colors: Optional[np.ndarray] = None,
+) -> List[np.ndarray]:
     """Turn lists of node IDs into coordinates.
+
+    Will use navis-fastcore if available.
 
     Parameters
     ----------
     x :             TreeNeuron
                     Must contain the nodes
-    segments :      list of lists node IDs
     node_colors :   numpy.ndarray, optional
                     A color for each node in ``x.nodes``. If provided, will
                     also return a list of colors sorted to match coordinates.
@@ -98,43 +97,60 @@ def segments_to_coords(x: core.TreeNeuron,
                     to match ``coords``.
 
     """
-    if not isinstance(modifier, np.ndarray):
-        modifier = np.array(modifier)
+    colors = None
 
-    # Using a dictionary here is orders of manitude faster than .loc[]!
-    locs: Dict[int, Tuple[float, float, float]]
-    # Oddly, this is also the fastest way to generate the dictionary
-    nodes = x.nodes
-    locs = {i: (x, y, z) for i, x, y, z in zip(nodes.node_id.values,
-                                               nodes.x.values,
-                                               nodes.y.values,
-                                               nodes.z.values)}  # type: ignore
-    # locs = {r.node_id: (r.x, r.y, r.z) for r in x.nodes.itertuples()}  # type: ignore
-    coords = [[locs[tn] for tn in s] for s in segments]
+    if utils.fastcore is not None:
+        if node_colors is None:
+            coords = utils.fastcore.segment_coords(
+                x.nodes.node_id.values,
+                x.nodes.parent_id.values,
+                x.nodes[["x", "y", "z"]].values,
+            )
+        else:
+            coords, colors = utils.fastcore.segment_coords(
+                x.nodes.node_id.values,
+                x.nodes.parent_id.values,
+                x.nodes[["x", "y", "z"]].values,
+                node_colors=node_colors,
+            )
+    else:
+        # Using a dictionary here is orders of manitude faster than .loc[]!
+        locs: Dict[int, Tuple[float, float, float]]
+        # Oddly, this is also the fastest way to generate the dictionary
+        nodes = x.nodes
+        locs = {
+            i: (x, y, z)
+            for i, x, y, z in zip(
+                nodes.node_id.values, nodes.x.values, nodes.y.values, nodes.z.values
+            )
+        }  # type: ignore
+        # locs = {r.node_id: (r.x, r.y, r.z) for r in x.nodes.itertuples()}  # type: ignore
+        coords = [np.array([locs[tn] for tn in s]) for s in x.segments]
 
-    if any(modifier != 1):
-        coords = [(np.array(c) * modifier).tolist() for c in coords]
+        if not isinstance(node_colors, type(None)):
+            ilocs = dict(zip(x.nodes.node_id.values, np.arange(x.nodes.shape[0])))
+            colors = [node_colors[[ilocs[tn] for tn in s]] for s in x.segments]
 
-    if not isinstance(node_colors, type(None)):
-        ilocs = dict(zip(x.nodes.node_id.values,
-                         np.arange(x.nodes.shape[0])))
-        colors = [node_colors[[ilocs[tn] for tn in s]] for s in segments]
+    modifier = np.asarray(modifier)
+    if (modifier != 1).any():
+        for seg in coords:
+            np.multiply(seg, modifier, out=seg)
 
+    if colors is not None:
         return coords, colors
 
     return coords
 
 
-def fibonacci_sphere(samples: int = 1,
-                     randomize: bool = True) -> list:
+def fibonacci_sphere(samples: int = 1, randomize: bool = True) -> list:
     """Generate points on a sphere."""
-    rnd = 1.
+    rnd = 1.0
     if randomize:
         rnd = random.random() * samples
 
     points = []
-    offset = 2. / samples
-    increment = math.pi * (3. - math.sqrt(5.))
+    offset = 2.0 / samples
+    increment = math.pi * (3.0 - math.sqrt(5.0))
 
     for i in range(samples):
         y = ((i * offset) - 1) + (offset / 2)

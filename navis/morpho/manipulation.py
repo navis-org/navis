@@ -392,33 +392,53 @@ def _prune_twigs_simple(neuron: 'core.TreeNeuron',
     if not inplace:
         neuron = neuron.copy()
 
-    # Find terminal nodes
-    leafs = neuron.nodes[neuron.nodes.type == 'end'].node_id.values
+    if utils.fastcore:
+        nodes_to_keep = utils.fastcore.prune_twigs(
+            neuron.nodes.node_id.values,
+            neuron.nodes.parent_id.values,
+            threshold=size,
+            weights=utils.fastcore.dag.parent_dist(
+                neuron.nodes.node_id.values,
+                neuron.nodes.parent_id.values,
+                neuron.nodes[['x', 'y', 'z']].values,
+            )
+        )
 
-    # Find terminal segments
-    segs = graph._break_segments(neuron)
-    segs = np.array([s for s in segs if s[0] in leafs], dtype=object)
+        if len(nodes_to_keep) < neuron.n_nodes:
+            subset.subset_neuron(neuron,
+                                 nodes_to_keep,
+                                 inplace=True)
 
-    # Get segment lengths
-    seg_lengths = np.array([graph.segment_length(neuron, s) for s in segs])
+            if recursive:
+                recursive -= 1
+                prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
+    else:
+        # Find terminal nodes
+        leafs = neuron.nodes[neuron.nodes.type == 'end'].node_id.values
 
-    # Find out which to delete
-    segs_to_delete = segs[seg_lengths <= size]
+        # Find terminal segments
+        segs = graph._break_segments(neuron)
+        segs = np.array([s for s in segs if s[0] in leafs], dtype=object)
 
-    if segs_to_delete.any():
-        # Unravel the into list of node IDs -> skip the last parent
-        nodes_to_delete = [n for s in segs_to_delete for n in s[:-1]]
+        # Get segment lengths
+        seg_lengths = np.array([graph.segment_length(neuron, s) for s in segs])
 
-        # Subset neuron
-        nodes_to_keep = neuron.nodes[~neuron.nodes.node_id.isin(nodes_to_delete)].node_id.values
-        subset.subset_neuron(neuron,
-                             nodes_to_keep,
-                             inplace=True)
+        # Find out which to delete
+        segs_to_delete = segs[seg_lengths <= size]
+        if len(segs_to_delete):
+            # Unravel the into list of node IDs -> skip the last parent
+            nodes_to_delete = [n for s in segs_to_delete for n in s[:-1]]
 
-        # Go recursive
-        if recursive:
-            recursive -= 1
-            prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
+            # Subset neuron
+            nodes_to_keep = neuron.nodes[~neuron.nodes.node_id.isin(nodes_to_delete)].node_id.values
+            subset.subset_neuron(neuron,
+                                nodes_to_keep,
+                                inplace=True)
+
+            # Go recursive
+            if recursive:
+                recursive -= 1
+                prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
 
     return neuron
 
@@ -973,7 +993,7 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     """Stitch multiple skeletons together.
 
     Uses minimum spanning tree to determine a way to connect all fragments
-    while minimizing length (Euclidian distance) of the new edges. Nodes
+    while minimizing length (Euclidean distance) of the new edges. Nodes
     that have been stitched will get a "stitched" tag.
 
     Important
@@ -1912,10 +1932,8 @@ def _stitch_mst(x: 'core.TreeNeuron',
                                  "nodes in the neuron")
             mask = x.nodes.node_id.values[mask]
 
-    g = x.graph.to_undirected()
-
     # Get connected components
-    cc = list(nx.connected_components(g))
+    cc = graph._connected_components(x)
     if len(cc) == 1:
         # There's only one component -- no healing necessary
         return x
@@ -1998,6 +2016,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
 
     # For each inter-fragment edge, add the corresponding
     # fine-grained edge between skeleton nodes in the original graph.
+    g = x.graph.to_undirected()
     to_add = [[e[2]['node_a'], e[2]['node_b']] for e in frag_edges]
     g.add_edges_from(to_add)
 
