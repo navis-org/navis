@@ -14,9 +14,9 @@
 #    You should have received a copy of the GNU General Public License
 #    along
 
-""" Module contains functions to plot neurons in 2D and 3D.
-"""
-from .. import config, core
+"""Module contains functions to plot neurons in 2D and 3D."""
+
+from .. import config, core, utils
 
 import math
 import random
