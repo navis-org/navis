@@ -212,12 +212,8 @@ def strahler_index(
         logger.debug(f"New starting point. Remaining: {len(starting_points)}")
         this_node = starting_points.pop()
 
-        print(this_node)
-
         # Get upstream indices for this branch
         previous_indices = [SI[c] for c in list_of_childs[this_node]]
-
-        print(" ", previous_indices)
 
         # If this is a not-a-branch branch
         if this_node in to_ignore:
@@ -250,9 +246,6 @@ def strahler_index(
             parent_node = parents[this_node]
             segment.append(this_node)
             seen.add(this_node)
-
-        print(" ", this_branch_index)
-        print(" ", segment)
 
         # Update indices for the entire segment
         SI.update({n: this_branch_index for n in segment})
