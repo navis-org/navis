@@ -77,12 +77,16 @@ def test_synapse_flow_centrality(mode):
     fastcore = navis.utils.fastcore
 
     # Compute flow with fastcore
-    sfc_with = navis.synapse_flow_centrality(n, mode=mode).nodes.synapse_flow_centrality.values
+    sfc_with = navis.synapse_flow_centrality(
+        n, mode=mode
+    ).nodes.synapse_flow_centrality.values
 
     # Compute flow without fastcore
     try:
         navis.utils.fastcore = None
-        sfc_without = navis.synapse_flow_centrality(n, mode=mode).nodes.synapse_flow_centrality.values
+        sfc_without = navis.synapse_flow_centrality(
+            n, mode=mode
+        ).nodes.synapse_flow_centrality.values
     except:
         raise
     finally:
@@ -114,3 +118,35 @@ def test_parent_dist():
         navis.utils.fastcore = fastcore
 
     assert np.allclose(pd_with, pd_without)
+
+
+@pytest.mark.parametrize("min_twig_size", [None, 2])
+@pytest.mark.parametrize("to_ignore", [[], np.array([465, 548], dtype=int)])
+@pytest.mark.parametrize("method", ["standard", "greedy"])
+def test_strahler_index(method, to_ignore, min_twig_size):
+    n = navis.example_neurons(1, kind="skeleton")
+
+    # Make sure that the fastcore package is installed (otherwise this test is useless)
+    if navis.utils.fastcore is None:
+        return
+
+    # Save fastcore
+    fastcore = navis.utils.fastcore
+
+    # Compute strahler index with fastcore
+    si_with = navis.strahler_index(
+        n, to_ignore=to_ignore, method=method, min_twig_size=min_twig_size
+    ).nodes.strahler_index.values
+
+    # Compute strahler index without fastcore
+    try:
+        navis.utils.fastcore = None
+        si_without = navis.strahler_index(
+            n, to_ignore=to_ignore, method=method, min_twig_size=min_twig_size
+        ).nodes.strahler_index.values
+    except:
+        raise
+    finally:
+        navis.utils.fastcore = fastcore
+
+    assert np.allclose(si_with, si_without)

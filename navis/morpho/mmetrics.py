@@ -12,8 +12,7 @@
 #    GNU General Public License for more details.
 
 
-""" This module contains functions to analyse and manipulate neuron morphology.
-"""
+"""This module contains functions to analyse and manipulate neuron morphology."""
 
 import math
 import itertools
@@ -160,30 +159,49 @@ def strahler_index(
     5
 
     """
-    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+
+    if method not in ["standard", "greedy"]:
+        raise ValueError(f'`method` must be "standard" or "greedy", got "{method}"')
+
+    if utils.fastcore:
+        x.nodes['strahler_index'] = utils.fastcore.strahler_index(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            method=method,
+            to_ignore=to_ignore,
+            min_twig_size=min_twig_size,
+        ).astype(np.int16)
+        x.nodes['strahler_index'] = x.nodes.strahler_index.fillna(1)
+        return x
 
     # Find branch, root and end nodes
-    if 'type' not in x.nodes:
+    if "type" not in x.nodes:
         graph.classify_nodes(x)
 
-    end_nodes = x.nodes[x.nodes.type == 'end'].node_id.values
-    branch_nodes = x.nodes[x.nodes.type == 'branch'].node_id.values
-    root = x.nodes[x.nodes.type == 'root'].node_id.values
+    end_nodes = x.nodes[x.nodes.type == "end"].node_id.values
+    branch_nodes = x.nodes[x.nodes.type == "branch"].node_id.values
+    root = x.nodes[x.nodes.type == "root"].node_id.values
 
     end_nodes = set(end_nodes)
     branch_nodes = set(branch_nodes)
     root = set(root)
 
     if min_twig_size:
-        to_ignore = np.append(to_ignore,
-                              [seg[0] for seg in x.small_segments if seg[0]
-                               in end_nodes and len(seg) < min_twig_size])
+        to_ignore = np.append(
+            to_ignore,
+            [
+                seg[0]
+                for seg in x.small_segments
+                if seg[0] in end_nodes and len(seg) < min_twig_size
+            ],
+        ).astype(int)
 
     # Generate dicts for childs and parents
     list_of_childs = graph.generate_list_of_childs(x)
 
-    # Get a node ID -> parent ID dictionary for FAST lookups
-    parents = x.nodes.set_index('node_id').parent_id.to_dict()
+    # Get a node ID -> parent ID dictionary for fast lookups
+    parents = x.nodes.set_index("node_id").parent_id.to_dict()
 
     # Do NOT name any parameter `strahler_index` - this overwrites the function!
     SI: Dict[int, int] = {}
@@ -191,23 +209,30 @@ def strahler_index(
     starting_points = end_nodes
     seen = set()
     while starting_points:
-        logger.debug(f'New starting point. Remaining: {len(starting_points)}')
+        logger.debug(f"New starting point. Remaining: {len(starting_points)}")
         this_node = starting_points.pop()
 
+        print(this_node)
+
         # Get upstream indices for this branch
-        previous_indices = [SI.get(c, None) for c in list_of_childs[this_node]]
+        previous_indices = [SI[c] for c in list_of_childs[this_node]]
+
+        print(" ", previous_indices)
 
         # If this is a not-a-branch branch
         if this_node in to_ignore:
-            this_branch_index = None
+            this_branch_index = 0
         # If this is an end node: start at 1
-        elif len(previous_indices) == 0:
+        elif not len(previous_indices):
             this_branch_index = 1
         # If this is a slab: assign SI of predecessor
         elif len(previous_indices) == 1:
             this_branch_index = previous_indices[0]
+        # If this is a branch point and we're using the greedy method
+        elif method == "greedy":
+            this_branch_index = sum(previous_indices)
         # If this is a branch point at which similar indices collide: +1
-        elif method == 'greedy' or previous_indices.count(max(previous_indices)) >= 2:
+        elif previous_indices.count(max(previous_indices)) >= 2:
             this_branch_index = max(previous_indices) + 1
         # If just a branch point: continue max SI
         else:
@@ -226,6 +251,9 @@ def strahler_index(
             segment.append(this_node)
             seen.add(this_node)
 
+        print(" ", this_branch_index)
+        print(" ", segment)
+
         # Update indices for the entire segment
         SI.update({n: this_branch_index for n in segment})
 
@@ -243,9 +271,11 @@ def strahler_index(
                 starting_points.add(parent_node)
 
     # Fix branches that were ignored
-    if to_ignore:
+    if len(to_ignore):
         # Go over all terminal branches with the tag
-        for tn in x.nodes[(x.nodes.type == 'end') & x.nodes.node_id.isin(to_ignore)].node_id.values:
+        for tn in x.nodes[
+            (x.nodes.type == "end") & x.nodes.node_id.isin(to_ignore)
+        ].node_id.values:
             # Get this terminal's segment
             this_seg = [s for s in x.small_segments if s[0] == tn][0]
             # Get strahler index of parent branch
@@ -254,18 +284,17 @@ def strahler_index(
 
     # Disconnected single nodes (e.g. after pruning) will end up w/o an entry
     # --> we will give them an SI of 1
-    x.nodes['strahler_index'] = x.nodes.node_id.map(lambda x: SI.get(x, 1))
+    x.nodes["strahler_index"] = x.nodes.node_id.map(lambda x: SI.get(x, 1))
 
     # Set correct data type
-    x.nodes['strahler_index'] = x.nodes.strahler_index.astype(np.int16)
+    x.nodes["strahler_index"] = x.nodes.strahler_index.astype(np.int16)
 
     return x
 
 
-@utils.map_neuronlist_df(desc='Analyzing', allow_parallel=True, reset_index=True)
-@utils.meshneuron_skeleton(method='pass_through',
-                           reroot_soma=True)
-def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
+@utils.map_neuronlist_df(desc="Analyzing", allow_parallel=True, reset_index=True)
+@utils.meshneuron_skeleton(method="pass_through", reroot_soma=True)
+def segment_analysis(x: "core.NeuronObject") -> "core.NeuronObject":
     """Calculate morphometric properties a neuron's segments.
 
     This currently includes Strahler index, length, distance to root and
