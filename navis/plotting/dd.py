@@ -619,7 +619,7 @@ def _add_scalebar(scalebar, neurons, method, ax):
 
         lc = Line3DCollection(sbar, color='black', lw=1)
         lc.set_gid(f'{scalebar}_scalebar')
-        ax.add_collection3d(lc)
+        ax.add_collection3d(lc, autolim=False)
 
 
 def _plot_scatter(points, method, ax, kwargs, **scatter_kws):
@@ -943,7 +943,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                 lc.set_gid(neuron.id)
             # Need to get this before adding data
             line3D_collection = lc
-            ax.add_collection3d(lc)
+            ax.add_collection3d(lc, autolim=False)
 
         # For complex scenes, add each segment as a single collection
         # -> helps reducing Z-order errors
@@ -960,7 +960,7 @@ def _plot_skeleton(neuron, color, method, ax, **kwargs):
                                       linestyle=linestyle)
                 if group_neurons:
                     lc.set_gid(neuron.id)
-                ax.add_collection3d(lc)
+                ax.add_collection3d(lc, autolim=False)
             line3D_collection = None
 
         surf3D_collections = []
