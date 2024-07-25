@@ -15,7 +15,6 @@ import copy
 import numbers
 import pint
 import types
-import uuid
 import warnings
 
 import numpy as np

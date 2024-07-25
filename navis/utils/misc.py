@@ -11,9 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import inspect
 import math
-import os
 import requests
 import sys
 import urllib
@@ -22,12 +20,11 @@ import numpy as np
 import pandas as pd
 
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
-from typing_extensions import Literal
 
 from .. import config, core
 from .eval import is_mesh
-from .iterables import is_iterable, make_iterable
 from ..transforms.templates import TemplateBrain
+
 
 # Set up logging
 logger = config.get_logger(__name__)
