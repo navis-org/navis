@@ -492,7 +492,7 @@ def plot2d(x: Union[core.NeuronObject,
     def set_depth():
         """Set depth information for neurons according to camera position."""
         # Get projected coordinates
-        proj_co = mpl_toolkits.mplot3d.proj3d.proj_points(all_co, ax.get_proj())
+        proj_co = proj_points(all_co, ax.get_proj())
 
         # Get min and max of z coordinates
         z_min, z_max = min(proj_co[:, 2]), max(proj_co[:, 2])
@@ -515,8 +515,7 @@ def plot2d(x: Union[core.NeuronObject,
                 raise ValueError(f'Neither mesh nor skeleton found for neuron {neuron.id}')
 
             # Get projected coordinates
-            this_proj = mpl_toolkits.mplot3d.proj3d.proj_points(this_co,
-                                                                ax.get_proj())
+            this_proj = proj_points(this_co, ax.get_proj())
 
             # Normalise z coordinates
             ns = norm(this_proj[:, 2]).data
@@ -532,8 +531,7 @@ def plot2d(x: Union[core.NeuronObject,
                 # Get depth of soma(s)
                 soma = utils.make_iterable(neuron.soma)
                 soma_co = neuron.nodes.set_index('node_id').loc[soma][['x', 'y', 'z']].values
-                soma_proj = mpl_toolkits.mplot3d.proj3d.proj_points(soma_co,
-                                                                    ax.get_proj())
+                soma_proj = proj_points(soma_co, ax.get_proj())
                 soma_cs = norm(soma_proj[:, 2]).data
 
                 # Set soma color
@@ -1206,3 +1204,20 @@ def _orthogonal_proj(zfront, zback, focal_length=None):
                      [0, 1, 0, 0],
                      [0, 0, a, b],
                      [0, 0, -0.0001, zback]])
+
+
+def proj_points(points, M):
+    """Project points using a projection matrix.
+
+    This was previously done using the analagous function
+    mpl_toolkits.mplot3d.proj3d.proj_points but that is deprecated.
+    """
+    xs, ys, zs = zip(*points)
+    vec = np.array([xs, ys, zs, np.ones_like(xs)])
+
+    vecw = np.dot(M, vec)
+    w = vecw[3]
+    # clip here..
+    txs, tys, tzs = vecw[0]/w, vecw[1]/w, vecw[2]/w
+
+    return np.column_stack((txs, tys, tzs))
