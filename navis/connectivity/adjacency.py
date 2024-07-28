@@ -152,7 +152,7 @@ class NeuronConnector:
         data = np.zeros((len(index), len(index)), np.uint64)
         df = pd.DataFrame(data, index, index)
         for _, src, tgt, _, _ in self.edges(include_other):
-            df[tgt][src] += 1
+            df.loc[src, tgt] += 1
 
         return df
 
