@@ -527,7 +527,9 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
     # will be deleted anyway
     if not all(to_remove):
         new_loc = loc1 - vec_norm * len_to_prune.reshape(-1, 1)
-        neuron.nodes.loc[is_new_leaf, ['x', 'y', 'z']] = new_loc
+        neuron.nodes.loc[is_new_leaf, ['x', 'y', 'z']] = new_loc.astype(
+            neuron.nodes.x.dtype, copy=False
+        )
 
     if any(to_remove):
         leafs_to_remove = new_leafs[to_remove]
@@ -1347,9 +1349,9 @@ def average_skeletons(x: 'core.NeuronList',
     mean_z[np.isnan(mean_z)] = base_nodes[np.isnan(mean_z), 2]
 
     # Change coordinates accordingly
-    bn.nodes.loc[:, 'x'] = mean_x
-    bn.nodes.loc[:, 'y'] = mean_y
-    bn.nodes.loc[:, 'z'] = mean_z
+    bn.nodes['x'] = mean_x
+    bn.nodes['y'] = mean_y
+    bn.nodes['z'] = mean_z
 
     return bn
 
@@ -1533,7 +1535,9 @@ def guess_radius(x: NeuronObject,
     nodes.loc[nodes.radius <= 0, 'radius'] = None
 
     # Assign radii to nodes
-    nodes.loc[cn_grouped.index, 'radius'] = cn_grouped.values
+    nodes.loc[cn_grouped.index, 'radius'] = cn_grouped.values.astype(
+        nodes.radius.dtype, copy=False
+    )
 
     # Go over each segment and interpolate radii
     for s in config.tqdm(x.segments, desc='Interp.', disable=config.pbar_hide,
@@ -1639,7 +1643,10 @@ def smooth_skeleton(x: NeuronObject,
 
         interp = this_co.rolling(window, min_periods=1).mean()
 
-        nodes.loc[s, to_smooth] = interp.values
+        for i, c in enumerate(to_smooth):
+            nodes.loc[s, c] = interp.iloc[:, i].values.astype(
+                nodes[c].dtype, copy=False
+            )
 
     # Reassign nodes
     x.nodes = nodes.reset_index(drop=False, inplace=False)

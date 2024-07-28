@@ -217,13 +217,13 @@ class TreeNeuron(BaseNeuron):
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
+            n.nodes[['x', 'y', 'z', 'radius']] /= other
 
             # At this point we can ditch any 4th unit
             if utils.is_iterable(other):
                 other = other[:3]
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+                n.connectors[['x', 'y', 'z']] /= other
 
             if hasattr(n, 'soma_radius'):
                 if isinstance(n.soma_radius, numbers.Number):
@@ -254,13 +254,13 @@ class TreeNeuron(BaseNeuron):
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
+            n.nodes[['x', 'y', 'z', 'radius']] *= other
 
             # At this point we can ditch any 4th unit
             if utils.is_iterable(other):
                 other = other[:3]
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+                n.connectors[['x', 'y', 'z']] *= other
 
             if hasattr(n, 'soma_radius'):
                 if isinstance(n.soma_radius, numbers.Number):
