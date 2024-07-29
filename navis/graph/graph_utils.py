@@ -655,7 +655,7 @@ def distal_to(x: 'core.TreeNeuron',
         tnB = [id2ix[n] for n in tnB]  # type: ignore
 
         # Get path lengths
-        le = x.igraph.shortest_paths(tnA, tnB, mode='OUT')
+        le = x.igraph.distances(tnA, tnB, mode="OUT")
 
         # Converting to numpy array first is ~2X as fast
         le = np.asarray(le)
@@ -962,9 +962,7 @@ def dist_between(x: 'core.NeuronObject',
             b = G.vs.find(node_id=b)
 
         # If not, we're assuming g is an iGraph object
-        return G.shortest_paths(a, b,
-                                weights='weight',
-                                mode='ALL')[0][0]
+        return G.distances(a, b, weights="weight", mode="ALL")[0][0]
 
 
 @utils.map_neuronlist(desc='Searching', allow_parallel=True)
