@@ -1835,7 +1835,7 @@ def node_label_sorting(x: 'core.TreeNeuron',
             curr_points = new_points + curr_points
 
     # Translate into segments
-    node_list = [x.root[0]]
+    node_list = [x.root[0:]]
     # Note that we're inverting here so that the segments are ordered
     # proximal -> distal (i.e. root to tips)
     seg_dict = {s[0]: s[::-1] for s in _break_segments(x)}
@@ -1843,9 +1843,9 @@ def node_label_sorting(x: 'core.TreeNeuron',
     for n in nodes_walked:
         # Note that we're skipping the first (proximal) node to avoid double
         # counting nodes
-        node_list += seg_dict[n][1:]
+        node_list.append(seg_dict[n][1:])
 
-    return np.array(node_list)
+    return np.concatenate(node_list, dtype=int)
 
 
 def _igraph_to_sparse(graph, weight_attr=None):
