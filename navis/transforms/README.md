@@ -26,17 +26,23 @@ Transforms come in two flavours:
      flipped obviously).
 
 In addition to these flavours, transforms can be off different types. Off the
-bat, navis supports 4 types of transforms:
-  1. `navis.transforms.affine.AffineTransform` implements simple rigid affine
-     transforms (scale, shear, offset, etc.).
-  2. `navis.transforms.thinplate.TPStransform` implements thin-plate spine
-     transforms: given the same set of landmarks in two different template
-     spaces it will calculate and apply a thin-plate spine transform.
-  3. `navis.transforms.cmtk.CMTKtransform` provides an interface with
+bat, navis supports 6 types of transforms:
+  1. `navis.transforms.affine.AffineTransform` is a simple rigid affine
+     transforms (scale, shear, translation, etc.).
+  2. `navis.transforms.thinplate.TPStransform` uses thin-plate spine
+     transforms (via the `morphops` library) to transform points based
+     on landmarks.
+  3. `navis.transforms.thinplate.MovingLeastSquaresTransform` uses
+     the Moving Least Squares algorithm (via the `molseq` library) to
+     transform points based on landmarks.
+  4. `navis.transforms.cmtk.CMTKtransform` provides an interface with
      [CMTK](https://www.nitrc.org/projects/cmtk/) to use CMTK's `.list`
      transforms. CMTK needs to be installed separately.
-  4. `navis.transforms.h5reg.H5transform` provides an interface to use the
-     Saalfeld lab's h5 deformation field-based transforms. 
+  5. `navis.transforms.h5reg.H5transform` provides an interface to use the
+     Saalfeld lab's h5 deformation field-based transforms.
+  6. `navis.transforms.elastix.ElastixTransform` provides an interface with
+     [Elastix](https://github.com/SuperElastix/elastix/).
+     Elastix needs to be installed separately.
 
 You can subclass ``navis.transforms.base.BaseTransform`` to implement other
 types of transforms for navis to use.
