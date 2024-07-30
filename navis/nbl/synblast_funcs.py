@@ -196,8 +196,11 @@ class SynBlaster(Blaster):
                     t_trees[ty] = KDTree(t_trees[ty])
 
                 tt = t_trees[ty]
+                if isinstance(qt, KDTree):
+                    data = qt.data
+                else:
+                    data = qt
 
-                data = qt.data
                 # pykdtree tracks data as flat array
                 if data.ndim == 1:
                     data = data.reshape((qt.n, qt.ndim))
@@ -411,8 +414,6 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
                                             q_idx=this.queries,
                                             t_idx=this.targets,
                                             scores=scores)] = this
-
-        return futures
 
         # Collect results
         if futures and len(futures) > 1:
