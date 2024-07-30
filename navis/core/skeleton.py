@@ -217,13 +217,13 @@ class TreeNeuron(BaseNeuron):
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes.loc[:, ['x', 'y', 'z', 'radius']] /= other
+            n.nodes[['x', 'y', 'z', 'radius']] /= other
 
             # At this point we can ditch any 4th unit
             if utils.is_iterable(other):
                 other = other[:3]
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+                n.connectors[['x', 'y', 'z']] /= other
 
             if hasattr(n, 'soma_radius'):
                 if isinstance(n.soma_radius, numbers.Number):
@@ -254,13 +254,13 @@ class TreeNeuron(BaseNeuron):
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes.loc[:, ['x', 'y', 'z', 'radius']] *= other
+            n.nodes[['x', 'y', 'z', 'radius']] *= other
 
             # At this point we can ditch any 4th unit
             if utils.is_iterable(other):
                 other = other[:3]
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+                n.connectors[['x', 'y', 'z']] *= other
 
             if hasattr(n, 'soma_radius'):
                 if isinstance(n.soma_radius, numbers.Number):
@@ -606,17 +606,8 @@ class TreeNeuron(BaseNeuron):
     @temp_property
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
-        if hasattr(self, '_cable_length'):
-            return self._cable_length
-
-        # The by far fastest way to get the cable length is to work on the node table
-        # Using the igraph representation is about the same speed - if it is already calculated!
-        # However, one problem with the graph representation is that with large neuronlists
-        # it adds a lot to the memory footprint.
-        not_root = (self.nodes.parent_id >= 0).values
-        xyz = self.nodes[['x', 'y', 'z']].values[not_root]
-        xyz_parent = self.nodes.set_index('node_id').loc[self.nodes.parent_id.values[not_root], ['x', 'y', 'z']].values
-        self._cable_length = np.sum(np.linalg.norm(xyz - xyz_parent, axis=1))
+        if not hasattr(self, '_cable_length'):
+            self._cable_length = morpho.cable_length(self)
         return self._cable_length
 
     @property

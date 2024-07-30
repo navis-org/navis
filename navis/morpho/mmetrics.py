@@ -12,8 +12,7 @@
 #    GNU General Public License for more details.
 
 
-""" This module contains functions to analyse and manipulate neuron morphology.
-"""
+"""This module contains functions to analyse and manipulate neuron morphology."""
 
 import math
 import itertools
@@ -23,7 +22,7 @@ import warnings
 import pandas as pd
 import numpy as np
 
-from typing import Union, Optional, Sequence, List, Dict, overload
+from typing import Union, Optional, Sequence, Dict
 from typing_extensions import Literal
 
 from .. import config, graph, sampling, core, utils
@@ -31,14 +30,25 @@ from .. import config, graph, sampling, core, utils
 # Set up logging
 logger = config.get_logger(__name__)
 
-__all__ = sorted(['strahler_index', 'bending_flow', 'sholl_analysis',
-                  'flow_centrality', 'synapse_flow_centrality',
-                  'segregation_index', 'tortuosity',
-                  'betweeness_centrality', 'segment_analysis'])
+__all__ = sorted(
+    [
+        "strahler_index",
+        "bending_flow",
+        "sholl_analysis",
+        "flow_centrality",
+        "synapse_flow_centrality",
+        "segregation_index",
+        "tortuosity",
+        "betweeness_centrality",
+        "segment_analysis",
+        "cable_length",
+    ]
+)
 
 
-def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
-                root_dist: Optional[int] = None) -> None:
+def parent_dist(
+    x: Union["core.TreeNeuron", pd.DataFrame], root_dist: Optional[int] = None
+) -> None:
     """Get child->parent distances for skeleton nodes.
 
     Parameters
@@ -61,31 +71,43 @@ def parent_dist(x: Union['core.TreeNeuron', pd.DataFrame],
     else:
         raise TypeError(f'Need TreeNeuron or DataFrame, got "{type(x)}"')
 
-    # Extract node coordinates
-    tn_coords = nodes[['x', 'y', 'z']].values
+    if not utils.fastcore:
+        # Extract node coordinates
+        tn_coords = nodes[["x", "y", "z"]].values
 
-    # Get parent coordinates
-    parent_coords = nodes.set_index('node_id').reindex(nodes.parent_id.values)[['x', 'y', 'z']].values
+        # Get parent coordinates
+        parent_coords = (
+            nodes.set_index("node_id")
+            .reindex(nodes.parent_id.values)[["x", "y", "z"]]
+            .values
+        )
 
-    # Calculate distances between nodes and their parents
-    w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1))
+        # Calculate distances between nodes and their parents
+        w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1))
 
-    # Replace root dist (nan by default)
-    w[np.isnan(w)] = root_dist
+        # Replace root dist (nan by default)
+        w[np.isnan(w)] = root_dist
+    else:
+        w = utils.fastcore.dag.parent_dist(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            x.nodes[["x", "y", "z"]].values,
+            root_dist=root_dist,
+        )
 
     return w
 
 
-@utils.map_neuronlist(desc='Calc. SI', allow_parallel=True)
-@utils.meshneuron_skeleton(method='node_properties',
-                           reroot_soma=True,
-                           node_props=['strahler_index'])
-def strahler_index(x: 'core.NeuronObject',
-                   method: Union[Literal['standard'],
-                                 Literal['greedy']] = 'standard',
-                   to_ignore: list = [],
-                   min_twig_size: Optional[int] = None
-                   ) -> 'core.NeuronObject':
+@utils.map_neuronlist(desc="Calc. SI", allow_parallel=True)
+@utils.meshneuron_skeleton(
+    method="node_properties", reroot_soma=True, node_props=["strahler_index"]
+)
+def strahler_index(
+    x: "core.NeuronObject",
+    method: Union[Literal["standard"], Literal["greedy"]] = "standard",
+    to_ignore: list = [],
+    min_twig_size: Optional[int] = None,
+) -> "core.NeuronObject":
     """Calculate Strahler Index (SI).
 
     Starts with SI of 1 at each leaf and walks to root. At forks with different
@@ -137,30 +159,49 @@ def strahler_index(x: 'core.NeuronObject',
     5
 
     """
-    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+
+    if method not in ["standard", "greedy"]:
+        raise ValueError(f'`method` must be "standard" or "greedy", got "{method}"')
+
+    if utils.fastcore:
+        x.nodes['strahler_index'] = utils.fastcore.strahler_index(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            method=method,
+            to_ignore=to_ignore,
+            min_twig_size=min_twig_size,
+        ).astype(np.int16)
+        x.nodes['strahler_index'] = x.nodes.strahler_index.fillna(1)
+        return x
 
     # Find branch, root and end nodes
-    if 'type' not in x.nodes:
+    if "type" not in x.nodes:
         graph.classify_nodes(x)
 
-    end_nodes = x.nodes[x.nodes.type == 'end'].node_id.values
-    branch_nodes = x.nodes[x.nodes.type == 'branch'].node_id.values
-    root = x.nodes[x.nodes.type == 'root'].node_id.values
+    end_nodes = x.nodes[x.nodes.type == "end"].node_id.values
+    branch_nodes = x.nodes[x.nodes.type == "branch"].node_id.values
+    root = x.nodes[x.nodes.type == "root"].node_id.values
 
     end_nodes = set(end_nodes)
     branch_nodes = set(branch_nodes)
     root = set(root)
 
     if min_twig_size:
-        to_ignore = np.append(to_ignore,
-                              [seg[0] for seg in x.small_segments if seg[0]
-                               in end_nodes and len(seg) < min_twig_size])
+        to_ignore = np.append(
+            to_ignore,
+            [
+                seg[0]
+                for seg in x.small_segments
+                if seg[0] in end_nodes and len(seg) < min_twig_size
+            ],
+        ).astype(int)
 
     # Generate dicts for childs and parents
     list_of_childs = graph.generate_list_of_childs(x)
 
-    # Get a node ID -> parent ID dictionary for FAST lookups
-    parents = x.nodes.set_index('node_id').parent_id.to_dict()
+    # Get a node ID -> parent ID dictionary for fast lookups
+    parents = x.nodes.set_index("node_id").parent_id.to_dict()
 
     # Do NOT name any parameter `strahler_index` - this overwrites the function!
     SI: Dict[int, int] = {}
@@ -168,23 +209,26 @@ def strahler_index(x: 'core.NeuronObject',
     starting_points = end_nodes
     seen = set()
     while starting_points:
-        logger.debug(f'New starting point. Remaining: {len(starting_points)}')
+        logger.debug(f"New starting point. Remaining: {len(starting_points)}")
         this_node = starting_points.pop()
 
         # Get upstream indices for this branch
-        previous_indices = [SI.get(c, None) for c in list_of_childs[this_node]]
+        previous_indices = [SI[c] for c in list_of_childs[this_node]]
 
         # If this is a not-a-branch branch
         if this_node in to_ignore:
-            this_branch_index = None
+            this_branch_index = 0
         # If this is an end node: start at 1
-        elif len(previous_indices) == 0:
+        elif not len(previous_indices):
             this_branch_index = 1
         # If this is a slab: assign SI of predecessor
         elif len(previous_indices) == 1:
             this_branch_index = previous_indices[0]
+        # If this is a branch point and we're using the greedy method
+        elif method == "greedy":
+            this_branch_index = sum(previous_indices)
         # If this is a branch point at which similar indices collide: +1
-        elif method == 'greedy' or previous_indices.count(max(previous_indices)) >= 2:
+        elif previous_indices.count(max(previous_indices)) >= 2:
             this_branch_index = max(previous_indices) + 1
         # If just a branch point: continue max SI
         else:
@@ -220,9 +264,11 @@ def strahler_index(x: 'core.NeuronObject',
                 starting_points.add(parent_node)
 
     # Fix branches that were ignored
-    if to_ignore:
+    if len(to_ignore):
         # Go over all terminal branches with the tag
-        for tn in x.nodes[(x.nodes.type == 'end') & x.nodes.node_id.isin(to_ignore)].node_id.values:
+        for tn in x.nodes[
+            (x.nodes.type == "end") & x.nodes.node_id.isin(to_ignore)
+        ].node_id.values:
             # Get this terminal's segment
             this_seg = [s for s in x.small_segments if s[0] == tn][0]
             # Get strahler index of parent branch
@@ -231,18 +277,17 @@ def strahler_index(x: 'core.NeuronObject',
 
     # Disconnected single nodes (e.g. after pruning) will end up w/o an entry
     # --> we will give them an SI of 1
-    x.nodes['strahler_index'] = x.nodes.node_id.map(lambda x: SI.get(x, 1))
+    x.nodes["strahler_index"] = x.nodes.node_id.map(lambda x: SI.get(x, 1))
 
     # Set correct data type
-    x.nodes['strahler_index'] = x.nodes.strahler_index.astype(np.int16)
+    x.nodes["strahler_index"] = x.nodes.strahler_index.astype(np.int16)
 
     return x
 
 
-@utils.map_neuronlist_df(desc='Analyzing', allow_parallel=True, reset_index=True)
-@utils.meshneuron_skeleton(method='pass_through',
-                           reroot_soma=True)
-def segment_analysis(x: 'core.NeuronObject') -> 'core.NeuronObject':
+@utils.map_neuronlist_df(desc="Analyzing", allow_parallel=True, reset_index=True)
+@utils.meshneuron_skeleton(method="pass_through", reroot_soma=True)
+def segment_analysis(x: "core.NeuronObject") -> "core.NeuronObject":
     """Calculate morphometric properties a neuron's segments.
 
     This currently includes Strahler index, length, distance to root and
@@ -873,16 +918,17 @@ def _flow_centrality_igraph(x: 'core.NeuronObject',
     return x
 
 
-@utils.map_neuronlist(desc='Calc. flow', allow_parallel=True)
-@utils.meshneuron_skeleton(method='node_properties',
-                           include_connectors=True,
-                           heal=True,
-                           node_props=['synapse_flow_centrality'])
-def synapse_flow_centrality(x: 'core.NeuronObject',
-                            mode: Union[Literal['centrifugal'],
-                            Literal['centripetal'],
-                            Literal['sum']] = 'sum'
-                           ) -> 'core.NeuronObject':
+@utils.map_neuronlist(desc="Calc. flow", allow_parallel=True)
+@utils.meshneuron_skeleton(
+    method="node_properties",
+    include_connectors=True,
+    heal=True,
+    node_props=["synapse_flow_centrality"],
+)
+def synapse_flow_centrality(
+    x: "core.NeuronObject",
+    mode: Union[Literal["centrifugal"], Literal["centripetal"], Literal["sum"]] = "sum",
+) -> "core.NeuronObject":
     """Calculate synapse flow centrality (SFC).
 
     From Schneider-Mizell et al. (2016): "We use flow centrality for
@@ -899,8 +945,7 @@ def synapse_flow_centrality(x: 'core.NeuronObject',
     of each skeleton node in a 3d view, providing a characteristic signature of
     the arbor that enables subjective evaluation of its identity."
 
-    Losely based on Alex Bates' implemention in `catnat
-    <https://github.com/alexanderbates/catnat>`_.
+    Uses navis-fastcore if available.
 
     Parameters
     ----------
@@ -949,26 +994,62 @@ def synapse_flow_centrality(x: 'core.NeuronObject',
     # causes less headaches. It is, however, about >10X slower than this version!
     # Note to self: do not go down that rabbit hole again!
 
-    if mode not in ['centrifugal', 'centripetal', 'sum']:
+    if mode not in ["centrifugal", "centripetal", "sum"]:
         raise ValueError(f'Unknown "mode" parameter: {mode}')
 
     if not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     if not x.has_connectors:
-        raise ValueError('Neuron must have connectors.')
+        raise ValueError("Neuron must have connectors.")
 
     if np.any(x.soma) and not np.all(np.isin(x.soma, x.root)):
-        logger.warning(f'Neuron {x.id} is not rooted to its soma!')
+        logger.warning(f"Neuron {x.id} is not rooted to its soma!")
 
     # Figure out how connector types are labeled
     cn_types = x.connectors.type.unique()
-    if any(np.isin(['pre', 'post'], cn_types)):
-        pre, post = 'pre', 'post'
+    if any(np.isin(["pre", "post"], cn_types)):
+        pre, post = "pre", "post"
     elif any(np.isin([0, 1], cn_types)):
         pre, post = 0, 1
     else:
-        raise ValueError(f'Unable to parse connector types "{cn_types}" for neuron {x.id}')
+        raise ValueError(
+            f'Unable to parse connector types "{cn_types}" for neuron {x.id}'
+        )
+
+    if utils.fastcore:
+        x.nodes["synapse_flow_centrality"] = utils.fastcore.synapse_flow_centrality(
+            node_ids=x.nodes.node_id.values,
+            parent_ids=x.nodes.parent_id.values,
+            presynapses=x.nodes.node_id.map(
+                x.connectors[(x.connectors.type == pre)].node_id.value_counts()
+            )
+            .fillna(0)
+            .astype(int)
+            .values,
+            postsynapses=x.nodes.node_id.map(
+                x.connectors[(x.connectors.type == post)].node_id.value_counts()
+            )
+            .fillna(0)
+            .astype(int)
+            .values,
+            mode=mode,
+        )
+        # Add info on method/mode used for flow centrality
+        x.centrality_method = mode  # type: ignore
+
+        # Need to add a restriction, that a branchpoint cannot have a lower
+        # flow than its highest child -> this happens at the main branch point to
+        # the cell body fiber because the flow doesn't go "through" it in
+        # child -> parent direction but rather "across" it from one child to the
+        # other
+        is_bp = x.nodes["type"] == "branch"
+        bp = x.nodes.loc[is_bp, "node_id"].values
+        bp_childs = x.nodes[x.nodes.parent_id.isin(bp)]
+        max_flow = bp_childs.groupby("parent_id").synapse_flow_centrality.max()
+        x.nodes.loc[is_bp, "synapse_flow_centrality"] = max_flow.loc[bp].values
+        x.nodes["synapse_flow_centrality"] = x.nodes.synapse_flow_centrality.astype(int)
+        return x
 
     # Get list of nodes with pre/postsynapses
     pre_node_ids = x.connectors[x.connectors.type == pre].node_id.values
@@ -1547,3 +1628,47 @@ def betweeness_centrality(x: 'core.NeuronObject',
     x.nodes['betweenness'] = x.nodes.node_id.map(bc).astype(int)
 
     return x
+
+
+@utils.map_neuronlist(desc="Cable length", allow_parallel=True)
+@utils.meshneuron_skeleton(method="pass_through")
+def cable_length(x) -> Union[int, float]:
+    """Calculate cable length.
+
+    Parameters
+    ----------
+    x :             TreeNeuron | MeshNeuron | NeuronList
+                    Neuron(s) for which to calculate cable length.
+
+    Returns
+    -------
+    cable_length :  float | array of float
+                    Cable length of the neuron(s).
+
+    """
+    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+
+    # See if we can use fastcore
+    if not utils.fastcore:
+        # The by far fastest way to get the cable length is to work on the node table
+        # Using the igraph representation is about the same speed... if it is already calculated!
+        # However, one problem with the graph representation is that with large neuronlists
+        # it adds a lot to the memory footprint.
+        not_root = (x.nodes.parent_id >= 0).values
+        xyz = x.nodes[["x", "y", "z"]].values[not_root]
+        xyz_parent = (
+            x.nodes.set_index("node_id")
+            .loc[x.nodes.parent_id.values[not_root], ["x", "y", "z"]]
+            .values
+        )
+        cable_length = np.sum(np.linalg.norm(xyz - xyz_parent, axis=1))
+    else:
+        cable_length = utils.fastcore.dag.parent_dist(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            x.nodes[["x", "y", "z"]].values,
+            root_dist=0,
+        ).sum()
+
+    return cable_length
+

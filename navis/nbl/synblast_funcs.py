@@ -139,7 +139,7 @@ class SynBlaster(Blaster):
         if not self.by_type:
             data = connectors[['x', 'y', 'z']].values
             # Generate the KDTree
-            self.neurons[-1]['all'] = KDTree(data)
+            self.neurons[-1]['all'] = data # KDTree(data)
         else:
             if 'type' not in connectors.columns:
                 raise ValueError('Connector tables must have a "type" column '
@@ -147,7 +147,7 @@ class SynBlaster(Blaster):
             for ty in connectors['type'].unique():
                 data = connectors.loc[connectors['type'] == ty, ['x', 'y', 'z']].values
                 # Generate the KDTree
-                self.neurons[-1][ty] = KDTree(data)
+                self.neurons[-1][ty] = data # KDTree(data)
 
         # Calculate score for self hit if required
         if not self_hit:
@@ -155,6 +155,12 @@ class SynBlaster(Blaster):
         self.self_hits.append(self_hit)
 
         return next_idx
+
+    def _build_trees(self):
+        """Build KDTree for all neurons."""
+        for i, n in enumerate(self.neurons):
+            for ty, data in n.items():
+                n[ty] = KDTree(data)
 
     def calc_self_hit(self, cn):
         """Non-normalized value for self hit."""
@@ -183,8 +189,18 @@ class SynBlaster(Blaster):
                 # score possible in the scoring function
                 dists = np.append(dists, [self.score_fn.max_dist] * qt.data.shape[0])
             else:
+                # Note: we're building the trees lazily here once we actually need them.
+                # The main reason is that pykdtree is not picklable and hence
+                # we can't pass it to the worker processes.
+                if not isinstance(t_trees[ty], KDTree):
+                    t_trees[ty] = KDTree(t_trees[ty])
+
                 tt = t_trees[ty]
-                data = qt.data
+                if isinstance(qt, KDTree):
+                    data = qt.data
+                else:
+                    data = qt
+
                 # pykdtree tracks data as flat array
                 if data.ndim == 1:
                     data = data.reshape((qt.n, qt.ndim))

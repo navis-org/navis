@@ -431,8 +431,8 @@ def prepare_colormap(colors,
     if not isinstance(volumes, np.ndarray):
         volumes = np.array(volumes)
 
-    # Only neurons REQUIRE a color
-    # Volumes are second class citiziens here :(
+    # Only neurons absolutely REQUIRE a color
+    # (Volumes are second class citiziens here)
     colors_required = neurons.shape[0]
 
     if not colors_required and not len(volumes):
@@ -449,11 +449,20 @@ def prepare_colormap(colors,
         if len(color_by) != len(neurons):
             raise ValueError('Must provide a label for all neurons: got '
                              f'{len(color_by)} groups for {len(neurons)} neurons')
+
+        # Turn e.g. labels into colors
         cmap = {g: c for g, c in zip(np.unique(color_by),
                                      generate_colors(len(np.unique(color_by)),
                                                      palette=palette,
                                                      color_range=color_range))}
-        colors = [cmap[g] for g in color_by]
+
+        colors = []
+        for cb in color_by:
+            if utils.is_iterable(cb):
+                colors.append(np.array([cmap[g] for g in cb]))
+            else:
+                colors += [cmap[cb]]
+
         colors += [getattr(v, 'color', (1, 1, 1)) for v in volumes]
 
     # If no colors, generate random colors
@@ -500,7 +509,15 @@ def prepare_colormap(colors,
         volumes_cmap = [getattr(v, 'color', (.95, .95, .95, .1)) for v in volumes]
     # If list of colors
     elif isinstance(colors, (list, tuple, np.ndarray)):
-        # If color is a single color, convert to list
+        if isinstance(colors, np.ndarray):
+            # If this is an array of a single color convert to rgba tuple
+            if colors.ndim == 1 and colors.shape[0] in (3, 4):
+                colors = colors.tolist()
+            # If this is an array of multiple colors convert to list of rgba arrays
+            elif colors.ndim == 2:
+                colors = [c for c in colors]
+
+        # If color is a single color, convert to list of colors, one for each neuron
         if all([isinstance(elem, numbers.Number) for elem in colors]):
             # Generate at least one color
             colors = [colors] * max(colors_required, 1)
@@ -553,7 +570,7 @@ def add_alpha(c, alpha):
 
 def eval_color(x, color_range=255, force_alpha=False):
     """Evaluate colors and return tuples."""
-    if color_range not in [1, 255]:
+    if color_range not in (1, 255):
         raise ValueError('"color_range" must be 1 or 255')
 
     if isinstance(x, str):
@@ -570,10 +587,16 @@ def eval_color(x, color_range=255, force_alpha=False):
                 raise
     elif isinstance(x, dict):
         return {k: eval_color(v, color_range=color_range) for k, v in x.items()}
-    elif isinstance(x, (list, tuple, np.ndarray)):
+    elif isinstance(x, (list, tuple)):
         # If is this is not a list of RGB values:
         if any([not isinstance(elem, numbers.Number) for elem in x]):
             return [eval_color(c, color_range=color_range) for c in x]
+        # If this is a single RGB color:
+        c = x
+    elif isinstance(x, np.ndarray):
+        # If is this is not a list of RGB values:
+        if any([not isinstance(elem, numbers.Number) for elem in x]):
+            return np.array([eval_color(c, color_range=color_range) for c in x])
         # If this is a single RGB color:
         c = x
     elif isinstance(x, type(None)):

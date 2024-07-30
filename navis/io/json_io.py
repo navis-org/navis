@@ -11,6 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+import io
 import json
 
 import pandas as pd
@@ -140,13 +141,13 @@ def read_json(s: str, **kwargs) -> 'core.NeuronList':
 
         if '_nodes' in n:
             try:
-                cn._nodes = pd.read_json(n['_nodes'])
+                cn._nodes = pd.read_json(io.StringIO(n['_nodes']))
             except ValueError:
                 cn._nodes = None
 
         if '_connectors' in n:
             try:
-                cn._connectors = pd.read_json(n['_connectors'])
+                cn._connectors = pd.read_json(io.StringIO(n['_connectors']))
             except ValueError:
                 cn._connectors = None
 

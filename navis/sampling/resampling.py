@@ -196,8 +196,7 @@ def resample_skeleton(x: 'core.NeuronObject',
         new_coords = np.array([xnew, ynew, znew]).T
 
         # Generate new ids (start and end node IDs of this segment are kept)
-        new_ids = seg[:1] + [max_tn_id +
-                             i for i in range(len(new_coords) - 2)] + seg[-1:]
+        new_ids = np.concatenate((seg[:1], [max_tn_id + i for i in range(len(new_coords) - 2)], seg[-1:]))
 
         # Increase max index
         max_tn_id += len(new_ids)
@@ -291,8 +290,8 @@ def resample_skeleton(x: 'core.NeuronObject',
         node_map = dict(zip(nodes_to_remap, new_nodes.node_id.values[ix]))
         x.tags = {k: [node_map[n] for n in v] for k, v in x.tags.items()}
 
-    # Set nodes
-    x.nodes = new_nodes
+    # Set nodes (avoid setting on copy warning)
+    x.nodes = new_nodes.copy()
 
     # Clear and regenerate temporary attributes
     x._clear_temp_attr()

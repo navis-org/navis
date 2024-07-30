@@ -13,8 +13,6 @@
 
 """Module to generate and analyze persistence diagrams."""
 
-import os
-
 import numpy as np
 import pandas as pd
 
@@ -23,7 +21,7 @@ from matplotlib.collections import LineCollection
 
 from scipy.spatial.distance import pdist, cdist, squareform
 from scipy.stats import gaussian_kde
-from typing import Union, Optional, Sequence, List, Dict, overload
+from typing import Union, Optional
 from typing_extensions import Literal
 
 from .. import utils, config, core, graph

@@ -38,7 +38,7 @@ def lookup_args(ndim):
     )
     """
     shape = tuple(range(SMALLEST_DIM_SIZE, SMALLEST_DIM_SIZE + ndim))
-    cells = np.arange(np.product(shape)).reshape(shape)
+    cells = np.arange(np.prod(shape)).reshape(shape)
     digitizers = [Digitizer(np.arange(s + 1, dtype=float)) for s in shape]
     return digitizers, cells
 

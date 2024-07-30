@@ -392,33 +392,53 @@ def _prune_twigs_simple(neuron: 'core.TreeNeuron',
     if not inplace:
         neuron = neuron.copy()
 
-    # Find terminal nodes
-    leafs = neuron.nodes[neuron.nodes.type == 'end'].node_id.values
+    if utils.fastcore:
+        nodes_to_keep = utils.fastcore.prune_twigs(
+            neuron.nodes.node_id.values,
+            neuron.nodes.parent_id.values,
+            threshold=size,
+            weights=utils.fastcore.dag.parent_dist(
+                neuron.nodes.node_id.values,
+                neuron.nodes.parent_id.values,
+                neuron.nodes[['x', 'y', 'z']].values,
+            )
+        )
 
-    # Find terminal segments
-    segs = graph._break_segments(neuron)
-    segs = np.array([s for s in segs if s[0] in leafs], dtype=object)
+        if len(nodes_to_keep) < neuron.n_nodes:
+            subset.subset_neuron(neuron,
+                                 nodes_to_keep,
+                                 inplace=True)
 
-    # Get segment lengths
-    seg_lengths = np.array([graph.segment_length(neuron, s) for s in segs])
+            if recursive:
+                recursive -= 1
+                prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
+    else:
+        # Find terminal nodes
+        leafs = neuron.nodes[neuron.nodes.type == 'end'].node_id.values
 
-    # Find out which to delete
-    segs_to_delete = segs[seg_lengths <= size]
+        # Find terminal segments
+        segs = graph._break_segments(neuron)
+        segs = np.array([s for s in segs if s[0] in leafs], dtype=object)
 
-    if segs_to_delete.any():
-        # Unravel the into list of node IDs -> skip the last parent
-        nodes_to_delete = [n for s in segs_to_delete for n in s[:-1]]
+        # Get segment lengths
+        seg_lengths = np.array([graph.segment_length(neuron, s) for s in segs])
 
-        # Subset neuron
-        nodes_to_keep = neuron.nodes[~neuron.nodes.node_id.isin(nodes_to_delete)].node_id.values
-        subset.subset_neuron(neuron,
-                             nodes_to_keep,
-                             inplace=True)
+        # Find out which to delete
+        segs_to_delete = segs[seg_lengths <= size]
+        if len(segs_to_delete):
+            # Unravel the into list of node IDs -> skip the last parent
+            nodes_to_delete = [n for s in segs_to_delete for n in s[:-1]]
 
-        # Go recursive
-        if recursive:
-            recursive -= 1
-            prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
+            # Subset neuron
+            nodes_to_keep = neuron.nodes[~neuron.nodes.node_id.isin(nodes_to_delete)].node_id.values
+            subset.subset_neuron(neuron,
+                                nodes_to_keep,
+                                inplace=True)
+
+            # Go recursive
+            if recursive:
+                recursive -= 1
+                prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
 
     return neuron
 
@@ -507,7 +527,9 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
     # will be deleted anyway
     if not all(to_remove):
         new_loc = loc1 - vec_norm * len_to_prune.reshape(-1, 1)
-        neuron.nodes.loc[is_new_leaf, ['x', 'y', 'z']] = new_loc
+        neuron.nodes.loc[is_new_leaf, ['x', 'y', 'z']] = new_loc.astype(
+            neuron.nodes.x.dtype, copy=False
+        )
 
     if any(to_remove):
         leafs_to_remove = new_leafs[to_remove]
@@ -973,7 +995,7 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     """Stitch multiple skeletons together.
 
     Uses minimum spanning tree to determine a way to connect all fragments
-    while minimizing length (Euclidian distance) of the new edges. Nodes
+    while minimizing length (Euclidean distance) of the new edges. Nodes
     that have been stitched will get a "stitched" tag.
 
     Important
@@ -1327,9 +1349,9 @@ def average_skeletons(x: 'core.NeuronList',
     mean_z[np.isnan(mean_z)] = base_nodes[np.isnan(mean_z), 2]
 
     # Change coordinates accordingly
-    bn.nodes.loc[:, 'x'] = mean_x
-    bn.nodes.loc[:, 'y'] = mean_y
-    bn.nodes.loc[:, 'z'] = mean_z
+    bn.nodes['x'] = mean_x
+    bn.nodes['y'] = mean_y
+    bn.nodes['z'] = mean_z
 
     return bn
 
@@ -1513,7 +1535,9 @@ def guess_radius(x: NeuronObject,
     nodes.loc[nodes.radius <= 0, 'radius'] = None
 
     # Assign radii to nodes
-    nodes.loc[cn_grouped.index, 'radius'] = cn_grouped.values
+    nodes.loc[cn_grouped.index, 'radius'] = cn_grouped.values.astype(
+        nodes.radius.dtype, copy=False
+    )
 
     # Go over each segment and interpolate radii
     for s in config.tqdm(x.segments, desc='Interp.', disable=config.pbar_hide,
@@ -1619,7 +1643,10 @@ def smooth_skeleton(x: NeuronObject,
 
         interp = this_co.rolling(window, min_periods=1).mean()
 
-        nodes.loc[s, to_smooth] = interp.values
+        for i, c in enumerate(to_smooth):
+            nodes.loc[s, c] = interp.iloc[:, i].values.astype(
+                nodes[c].dtype, copy=False
+            )
 
     # Reassign nodes
     x.nodes = nodes.reset_index(drop=False, inplace=False)
@@ -1912,10 +1939,8 @@ def _stitch_mst(x: 'core.TreeNeuron',
                                  "nodes in the neuron")
             mask = x.nodes.node_id.values[mask]
 
-    g = x.graph.to_undirected()
-
     # Get connected components
-    cc = list(nx.connected_components(g))
+    cc = graph._connected_components(x)
     if len(cc) == 1:
         # There's only one component -- no healing necessary
         return x
@@ -1998,6 +2023,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
 
     # For each inter-fragment edge, add the corresponding
     # fine-grained edge between skeleton nodes in the original graph.
+    g = x.graph.to_undirected()
     to_add = [[e[2]['node_a'], e[2]['node_b']] for e in frag_edges]
     g.add_edges_from(to_add)
 

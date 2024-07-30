@@ -1200,7 +1200,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     mirror_axis :   'x' | 'y' | 'z', optional
                     Axis to mirror. Defaults to `x`.
     warp :          bool | "auto" | Transform, optional
-                    If 'auto', will check if a non-rigi mirror transformation
+                    If 'auto', will check if a non-rigid mirror transformation
                     exists for the given ``template`` and apply it after the
                     flipping. Alternatively, you can also pass a Transform or
                     TransformSequence directly.
