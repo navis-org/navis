@@ -302,6 +302,11 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
             vs = x.igraph.vs[indices]
             x._igraph = x.igraph.subgraph(vs)
 
+    if hasattr(x, '_soma') and x._soma is not None:
+        # Check if soma is still in the neuron
+        if x._soma not in x.nodes.node_id.values:
+            x._soma = None
+
     # Reset indices of data tables
     x.nodes.reset_index(inplace=True, drop=True)
 
