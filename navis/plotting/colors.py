@@ -509,7 +509,15 @@ def prepare_colormap(colors,
         volumes_cmap = [getattr(v, 'color', (.95, .95, .95, .1)) for v in volumes]
     # If list of colors
     elif isinstance(colors, (list, tuple, np.ndarray)):
-        # If color is a single color, convert to list
+        if isinstance(colors, np.ndarray):
+            # If this is an array of a single color convert to rgba tuple
+            if colors.ndim == 1 and colors.shape[0] in (3, 4):
+                colors = colors.tolist()
+            # If this is an array of multiple colors convert to list of rgba arrays
+            elif colors.ndim == 2:
+                colors = [c for c in colors]
+
+        # If color is a single color, convert to list of colors, one for each neuron
         if all([isinstance(elem, numbers.Number) for elem in colors]):
             # Generate at least one color
             colors = [colors] * max(colors_required, 1)
