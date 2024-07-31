@@ -26,10 +26,10 @@ from zipfile import ZipFile
 
 from .. import config, core
 from . import base
-from .swc_io import make_swc_table
+from .swc_io import make_swc_table, read_swc, write_swc
 
 
-__all__ = ["read_nmx", "read_nml", "write_nmx", "write_nml"]
+__all__ = ["read_nmx", "read_nml", "write_nmx", "write_nml", "swc_to_nml", "nml_to_swc"]
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -387,10 +387,19 @@ def write_nml(x, filepath, return_node_map=False, single_file=True):
             tree.write(file)
             file.close()
 
-
-
 def write_nmx():
     """
     TODO: Generate NMX files (collection of NML files)
     """
     raise NotImplementedError("Not yet implemented")
+
+def swc_to_nml(filepath: Union[str, Path],
+               outpath: Union[str, Path]):
+    skels = read_swc(filepath)
+    for sk in core.NeuronList(skels):
+        write_nml(sk,os.path.join(outpath, sk.id + ".nml"))
+    
+def nml_to_swc(filepath: Union[str, Path],
+               outpath: Union[str, Path]):
+    sk = read_nml(filepath)
+    write_swc(sk,outpath)
