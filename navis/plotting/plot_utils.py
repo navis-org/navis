@@ -27,16 +27,15 @@ import numpy as np
 from collections.abc import Iterable
 from typing import Tuple, Optional, List, Dict
 
-__all__ = ['tn_pairs_to_coords', 'segments_to_coords', 'fibonacci_sphere', 'make_tube']
+
+__all__ = ["tn_pairs_to_coords", "segments_to_coords", "fibonacci_sphere", "make_tube"]
 
 logger = config.get_logger(__name__)
 
 
-def tn_pairs_to_coords(x: core.TreeNeuron,
-                       modifier: Optional[Tuple[float,
-                                                float,
-                                                float]] = (1, 1, 1)
-                       ) -> np.ndarray:
+def tn_pairs_to_coords(
+    x: core.TreeNeuron, modifier: Optional[Tuple[float, float, float]] = (1, 1, 1)
+) -> np.ndarray:
     """Return pairs of child->parent node coordinates.
 
     Parameters
@@ -57,9 +56,10 @@ def tn_pairs_to_coords(x: core.TreeNeuron,
 
     nodes = x.nodes[x.nodes.parent_id >= 0]
 
-    tn_co = nodes.loc[:, ['x', 'y', 'z']].values
-    parent_co = x.nodes.set_index('node_id').loc[nodes.parent_id.values,
-                                                 ['x', 'y', 'z']].values
+    tn_co = nodes.loc[:, ["x", "y", "z"]].values
+    parent_co = (
+        x.nodes.set_index("node_id").loc[nodes.parent_id.values, ["x", "y", "z"]].values
+    )
 
     coords = np.append(tn_co, parent_co, axis=1)
 
@@ -215,14 +215,28 @@ def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
         # Vertices for each point on the circle
         verts = np.repeat(points, tube_points, axis=0)
 
-        v = np.arange(tube_points,
-                      dtype=np.float_) / tube_points * 2 * np.pi
+        v = np.arange(tube_points, dtype=np.float_) / tube_points * 2 * np.pi
 
-        all_cx = (radius * -1. * np.tile(np.cos(v), points.shape[0]).reshape((tube_points, points.shape[0]), order='F')).T
-        cx_norm = (all_cx[:, :, np.newaxis] * normals[:, np.newaxis, :]).reshape(verts.shape)
+        all_cx = (
+            radius
+            * -1.0
+            * np.tile(np.cos(v), points.shape[0]).reshape(
+                (tube_points, points.shape[0]), order="F"
+            )
+        ).T
+        cx_norm = (all_cx[:, :, np.newaxis] * normals[:, np.newaxis, :]).reshape(
+            verts.shape
+        )
 
-        all_cy = (radius * np.tile(np.sin(v), points.shape[0]).reshape((tube_points, points.shape[0]), order='F')).T
-        cy_norm = (all_cy[:, :, np.newaxis] * binormals[:, np.newaxis, :]).reshape(verts.shape)
+        all_cy = (
+            radius
+            * np.tile(np.sin(v), points.shape[0]).reshape(
+                (tube_points, points.shape[0]), order="F"
+            )
+        ).T
+        cy_norm = (all_cy[:, :, np.newaxis] * binormals[:, np.newaxis, :]).reshape(
+            verts.shape
+        )
 
         verts = verts + cx_norm + cy_norm
 
@@ -248,8 +262,12 @@ def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
         ix_d = np.append(ix_d[:, 1:], ix_d[:, [0]], axis=1)
         ix_d = ix_d.ravel()
 
-        faces1 = np.concatenate((ix_a, ix_b, ix_d), axis=0).reshape((n_segments * tube_points, 3), order='F')
-        faces2 = np.concatenate((ix_b, ix_c, ix_d), axis=0).reshape((n_segments * tube_points, 3), order='F')
+        faces1 = np.concatenate((ix_a, ix_b, ix_d), axis=0).reshape(
+            (n_segments * tube_points, 3), order="F"
+        )
+        faces2 = np.concatenate((ix_b, ix_c, ix_d), axis=0).reshape(
+            (n_segments * tube_points, 3), order="F"
+        )
 
         faces = np.append(faces1, faces2, axis=0)
 
@@ -293,7 +311,7 @@ def _frenet_frames(points):
 
     smallest = np.argmin(t)
     normal = np.zeros(3)
-    normal[smallest] = 1.
+    normal[smallest] = 1.0
 
     vec = np.cross(tangents[0], normal)
     normals[0] = np.cross(tangents[0], vec)
@@ -314,13 +332,12 @@ def _frenet_frames(points):
 
     # Compute normal and binormal vectors along the path
     for i in range(1, len(points)):
-        normals[i] = normals[i-1]
+        normals[i] = normals[i - 1]
 
-        vec_norm = all_vec_norm[i-1]
-        vec = all_vec[i-1]
+        vec_norm = all_vec_norm[i - 1]
+        vec = all_vec[i - 1]
         if vec_norm > epsilon:
-            normals[i] = rotate(-np.degrees(th[i-1]),
-                                vec)[:3, :3].dot(normals[i])
+            normals[i] = rotate(-np.degrees(th[i - 1]), vec)[:3, :3].dot(normals[i])
 
     binormals = np.cross(tangents, normals)
 
@@ -350,8 +367,13 @@ def rotate(angle, axis, dtype=None):
     x, y, z = axis / np.linalg.norm(axis)
     c, s = math.cos(angle), math.sin(angle)
     cx, cy, cz = (1 - c) * x, (1 - c) * y, (1 - c) * z
-    M = np.array([[cx * x + c, cy * x - z * s, cz * x + y * s, .0],
-                  [cx * y + z * s, cy * y + c, cz * y - x * s, 0.],
-                  [cx * z - y * s, cy * z + x * s, cz * z + c, 0.],
-                  [0., 0., 0., 1.]], dtype).T
+    M = np.array(
+        [
+            [cx * x + c, cy * x - z * s, cz * x + y * s, 0.0],
+            [cx * y + z * s, cy * y + c, cz * y - x * s, 0.0],
+            [cx * z - y * s, cy * z + x * s, cz * z + c, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ],
+        dtype,
+    ).T
     return M

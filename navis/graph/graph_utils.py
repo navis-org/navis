@@ -293,9 +293,9 @@ def _break_segments(x: "core.NeuronObject") -> list:
 
 
 @utils.lock_neuron
-def dist_to_root(x: 'core.TreeNeuron',
-                 weight=None,
-                 igraph_indices: bool = False) -> dict:
+def dist_to_root(
+    x: "core.TreeNeuron", weight=None, igraph_indices: bool = False
+) -> dict:
     """Calculate distance to root for each node.
 
     Parameters
@@ -328,7 +328,7 @@ def dist_to_root(x: 'core.TreeNeuron',
 
     """
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron, got {type(x)}')
+        raise TypeError(f"Expected TreeNeuron, got {type(x)}")
 
     dist = {}
     for root in x.root:
@@ -337,21 +337,21 @@ def dist_to_root(x: 'core.TreeNeuron',
     # Map node ID to vertex index for igraph
     if igraph_indices:
         if not x.igraph:
-            raise ValueError('Neuron does not have an igraph representation.')
-        id2ix = dict(zip(x.igraph.vs['node_id'], range(len(x.igraph.vs))))
+            raise ValueError("Neuron does not have an igraph representation.")
+        id2ix = dict(zip(x.igraph.vs["node_id"], range(len(x.igraph.vs))))
         dist = {id2ix[k]: v for k, v in dist.items()}
 
     return dist
 
 
-def _edge_count_to_root_old(x: 'core.TreeNeuron') -> dict:
+def _edge_count_to_root_old(x: "core.TreeNeuron") -> dict:
     """Return a map of nodeID vs number of edges.
 
     Starts from the first node that lacks successors (aka the root).
 
     """
     current_level: List[int]
-    g: Union['igraph.Graph', 'nx.DiGraph']  # noqa
+    g: Union["igraph.Graph", "nx.DiGraph"]  # noqa
     if x.igraph and config.use_igraph:
         g = x.igraph
         current_level = g.vs(_outdegree=0).indices
@@ -376,16 +376,16 @@ def _edge_count_to_root_old(x: 'core.TreeNeuron') -> dict:
     if x.igraph and config.use_igraph:
         # Grab graph once to avoid overhead from stale checks
         g = x.igraph
-        dist = {g.vs[k]['node_id']: v for k, v in dist.items()}
+        dist = {g.vs[k]["node_id"]: v for k, v in dist.items()}
 
     return dist
 
 
-@utils.map_neuronlist(desc='Classifying', allow_parallel=True)
+@utils.map_neuronlist(desc="Classifying", allow_parallel=True)
 @utils.lock_neuron
-def _classify_nodes_old(x: 'core.NeuronObject',
-                        inplace: bool = True
-                        ) -> Optional['core.NeuronObject']:
+def _classify_nodes_old(
+    x: "core.NeuronObject", inplace: bool = True
+) -> Optional["core.NeuronObject"]:
     """Classify neuron's nodes into end nodes, branches, slabs or root.
 
     Adds ``'type'`` column to ``x.nodes``.
@@ -424,13 +424,13 @@ def _classify_nodes_old(x: 'core.NeuronObject',
             # Get graph representation of neuron
             vs = x.igraph.vs
             # Get branch/end nodes based on their degree of connectivity
-            ends = vs.select(_indegree=0).get_attribute_values('node_id')
-            branches = vs.select(_indegree_gt=1).get_attribute_values('node_id')
+            ends = vs.select(_indegree=0).get_attribute_values("node_id")
+            branches = vs.select(_indegree_gt=1).get_attribute_values("node_id")
         else:
             # Get graph representation of neuron
             g = x.graph
             # Get branch/end nodes based on their degree of connectivity
-            deg = pd.DataFrame.from_dict(dict(g.degree()), orient='index')
+            deg = pd.DataFrame.from_dict(dict(g.degree()), orient="index")
             # [ n for n in g.nodes if g.degree(n) == 1 ]
             ends = deg[deg.iloc[:, 0] == 1].index.values
             # [ n for n in g.nodes if g.degree(n) > 2 ]
@@ -439,26 +439,26 @@ def _classify_nodes_old(x: 'core.NeuronObject',
         # This also resets the column if it already exists. This is important
         # because an existing column will be categorical and if we try setting
         # types that didn't previously exist, it will throw exceptions.
-        x.nodes['type'] = 'slab'
+        x.nodes["type"] = "slab"
 
-        x.nodes.loc[x.nodes.node_id.isin(ends), 'type'] = 'end'
-        x.nodes.loc[x.nodes.node_id.isin(branches), 'type'] = 'branch'
-        x.nodes.loc[x.nodes.parent_id < 0, 'type'] = 'root'
+        x.nodes.loc[x.nodes.node_id.isin(ends), "type"] = "end"
+        x.nodes.loc[x.nodes.node_id.isin(branches), "type"] = "branch"
+        x.nodes.loc[x.nodes.parent_id < 0, "type"] = "root"
     else:
-        x.nodes['type'] = None
+        x.nodes["type"] = None
 
     # Turn into categorical data - saves tons of memory
     # Note that we have to make sure all categories are set even if they
     # don't exist (e.g. if a neuron has no branch points)
-    cat_types = CategoricalDtype(categories=["end", "branch", "root", "slab"],
-                                 ordered=False)
-    x.nodes['type'] = x.nodes['type'].astype(cat_types)
+    cat_types = CategoricalDtype(
+        categories=["end", "branch", "root", "slab"], ordered=False
+    )
+    x.nodes["type"] = x.nodes["type"].astype(cat_types)
 
     return x
 
 
-
-@utils.map_neuronlist(desc='Classifying', allow_parallel=True)
+@utils.map_neuronlist(desc="Classifying", allow_parallel=True)
 @utils.lock_neuron
 def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = True):
     """Classify neuron's nodes into end nodes, branches, slabs or root.
@@ -519,7 +519,9 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
     cl[np.isin(node_ids, bp)] = "branch"
     cl[parent_ids < 0] = "root"
     if categorical:
-        cl = pd.Categorical(cl, categories=["end", "branch", "root", "slab"], ordered=False)
+        cl = pd.Categorical(
+            cl, categories=["end", "branch", "root", "slab"], ordered=False
+        )
     x.nodes["type"] = cl
 
     return x
@@ -527,36 +529,40 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
 
 #  only this combination will return a single bool
 @overload
-def distal_to(x: 'core.TreeNeuron',
-              a: Union[str, str],
-              b: Union[str, int],
-              ) -> bool:
+def distal_to(
+    x: "core.TreeNeuron",
+    a: Union[str, str],
+    b: Union[str, int],
+) -> bool:
     pass
 
 
 #  if above types don't a DataFrame will be returned
 @overload
-def distal_to(x: 'core.TreeNeuron',
-              a: Optional[List[Union[str, int]]],
-              b: Optional[Union[str, int, List[Union[str, int]]]],
-              ) -> pd.DataFrame:
+def distal_to(
+    x: "core.TreeNeuron",
+    a: Optional[List[Union[str, int]]],
+    b: Optional[Union[str, int, List[Union[str, int]]]],
+) -> pd.DataFrame:
     pass
 
 
 #  if above types don't a DataFrame will be returned
 @overload
-def distal_to(x: 'core.TreeNeuron',
-              a: Optional[Union[str, int, List[Union[str, int]]]],
-              b: Optional[List[Union[str, int]]],
-              ) -> pd.DataFrame:
+def distal_to(
+    x: "core.TreeNeuron",
+    a: Optional[Union[str, int, List[Union[str, int]]]],
+    b: Optional[List[Union[str, int]]],
+) -> pd.DataFrame:
     pass
 
 
 @utils.lock_neuron
-def distal_to(x: 'core.TreeNeuron',
-              a: Optional[Union[str, int, List[Union[str, int]]]] = None,
-              b: Optional[Union[str, int, List[Union[str, int]]]] = None,
-              ) -> Union[bool, pd.DataFrame]:
+def distal_to(
+    x: "core.TreeNeuron",
+    a: Optional[Union[str, int, List[Union[str, int]]]] = None,
+    b: Optional[Union[str, int, List[Union[str, int]]]] = None,
+) -> Union[bool, pd.DataFrame]:
     """Check if nodes A are distal to nodes B.
 
     Important
@@ -626,7 +632,7 @@ def distal_to(x: 'core.TreeNeuron',
         x = x[0]
 
     if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Please pass a single TreeNeuron, got {type(x)}')
+        raise ValueError(f"Please pass a single TreeNeuron, got {type(x)}")
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
@@ -647,8 +653,7 @@ def distal_to(x: 'core.TreeNeuron',
 
     if x.igraph and config.use_igraph:
         # Map node ID to index
-        id2ix = {n: v for v, n in zip(x.igraph.vs.indices,
-                                      x.igraph.vs['node_id'])}
+        id2ix = {n: v for v, n in zip(x.igraph.vs.indices, x.igraph.vs["node_id"])}
 
         # Convert node IDs to indices
         tnA = [id2ix[n] for n in tnA]  # type: ignore
@@ -661,22 +666,26 @@ def distal_to(x: 'core.TreeNeuron',
         le = np.asarray(le)
 
         # Convert to True/False
-        le = le != float('inf')
+        le = le != float("inf")
 
-        df = pd.DataFrame(le,
-                          index=x.igraph.vs[tnA]['node_id'],
-                          columns=x.igraph.vs[tnB]['node_id'])
+        df = pd.DataFrame(
+            le, index=x.igraph.vs[tnA]["node_id"], columns=x.igraph.vs[tnB]["node_id"]
+        )
     else:
         # Generate empty DataFrame
-        df = pd.DataFrame(np.zeros((len(tnA), len(tnB)), dtype=bool),
-                          columns=tnB, index=tnA)
+        df = pd.DataFrame(
+            np.zeros((len(tnA), len(tnB)), dtype=bool), columns=tnB, index=tnA
+        )
 
         # Iterate over all targets
         # Grab graph once to avoid overhead from stale checks
         g = x.graph
-        for nB in config.tqdm(tnB, desc='Querying paths',
-                              disable=(len(tnB) < 1000) | config.pbar_hide,
-                              leave=config.pbar_leave):
+        for nB in config.tqdm(
+            tnB,
+            desc="Querying paths",
+            disable=(len(tnB) < 1000) | config.pbar_hide,
+            leave=config.pbar_leave,
+        ):
             # Get all paths TO this target. This function returns a dictionary:
             # { source1 : path_length, source2 : path_length, ... } containing
             # all nodes distal to this node.
@@ -878,15 +887,14 @@ def segment_length(x: "core.TreeNeuron", segment: List[int]) -> float:
 
     # Get graph once to avoid overhead from validation - do NOT change this
     graph = x.graph
-    dist = np.array([graph.edges[(c, p)]['weight']
-                     for c, p in zip(segment[:-1], segment[1:])])
+    dist = np.array(
+        [graph.edges[(c, p)]["weight"] for c, p in zip(segment[:-1], segment[1:])]
+    )
     return sum(dist)
 
 
 @utils.lock_neuron
-def dist_between(x: 'core.NeuronObject',
-                 a: int,
-                 b: int) -> float:
+def dist_between(x: "core.NeuronObject", a: int, b: int) -> float:
     """Get the geodesic distance between nodes in nanometers.
 
     Parameters
@@ -924,23 +932,29 @@ def dist_between(x: 'core.NeuronObject',
         if len(x) == 1:
             x = x[0]
         else:
-            raise ValueError(f'Need a single TreeNeuron, got {len(x)}')
+            raise ValueError(f"Need a single TreeNeuron, got {len(x)}")
 
     if isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
-        G: Union['igraph.Graph',  # noqa
-                 'nx.DiGraph'] = x.igraph if (x.igraph and config.use_igraph) else x.graph
+        G: Union[
+            "igraph.Graph",  # noqa
+            "nx.DiGraph",
+        ] = x.igraph if (x.igraph and config.use_igraph) else x.graph
     elif isinstance(x, nx.DiGraph):
         G = x
-    elif 'igraph' in str(type(x.igraph)):
+    elif "igraph" in str(type(x.igraph)):
         # We can't use isinstance here because igraph library might not be installed
         G = x
     else:
-        raise ValueError(f'Unable to process data of type {type(x)}')
+        raise ValueError(f"Unable to process data of type {type(x)}")
 
-    if ((utils.is_iterable(a) and len(a) > 1)  # type: ignore  # this is just a check
-            or (utils.is_iterable(b) and len(b) > 1)):   # type: ignore  # this is just a check
-        raise ValueError('Can only process single nodes/vertices. Use '
-                         'navis.geodesic_matrix instead.')
+    if (
+        (utils.is_iterable(a) and len(a) > 1)  # type: ignore  # this is just a check
+        or (utils.is_iterable(b) and len(b) > 1)
+    ):  # type: ignore  # this is just a check
+        raise ValueError(
+            "Can only process single nodes/vertices. Use "
+            "navis.geodesic_matrix instead."
+        )
 
     a = utils.make_non_iterable(a)
     b = utils.make_non_iterable(b)
@@ -949,13 +963,15 @@ def dist_between(x: 'core.NeuronObject',
         _ = int(a)
         _ = int(b)
     except BaseException:
-        raise ValueError('a, b need to be node IDs or vertex indices!')
+        raise ValueError("a, b need to be node IDs or vertex indices!")
 
     # If we're working with network X DiGraph
     if isinstance(G, nx.DiGraph):
-        return int(nx.algorithms.shortest_path_length(G.to_undirected(as_view=True),
-                                                      a, b,
-                                                      weight='weight'))
+        return int(
+            nx.algorithms.shortest_path_length(
+                G.to_undirected(as_view=True), a, b, weight="weight"
+            )
+        )
     else:
         if isinstance(x, core.TreeNeuron):
             a = G.vs.find(node_id=a)
@@ -965,13 +981,14 @@ def dist_between(x: 'core.NeuronObject',
         return G.distances(a, b, weights="weight", mode="ALL")[0][0]
 
 
-@utils.map_neuronlist(desc='Searching', allow_parallel=True)
-@utils.meshneuron_skeleton(method='node_to_vertex')
-def find_main_branchpoint(x: 'core.NeuronObject',
-                          method: Union[Literal['longest_neurite'],
-                                        Literal['betweenness']] = 'betweenness',
-                          threshold: float = .95,
-                          reroot_soma: bool = False) -> Union[int, List[int]]:
+@utils.map_neuronlist(desc="Searching", allow_parallel=True)
+@utils.meshneuron_skeleton(method="node_to_vertex")
+def find_main_branchpoint(
+    x: "core.NeuronObject",
+    method: Union[Literal["longest_neurite"], Literal["betweenness"]] = "betweenness",
+    threshold: float = 0.95,
+    reroot_soma: bool = False,
+) -> Union[int, List[int]]:
     """Find main branch point of unipolar (e.g. insect) neurons.
 
     Note that this might produce garbage if the neuron is fragmented.
@@ -1018,8 +1035,9 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     2  TreeNeuron     3656             0          63       66  648285.745750    None
 
     """
-    utils.eval_param(method, name='method',
-                     allowed_values=('longest_neurite', 'betweenness'))
+    utils.eval_param(
+        method, name="method", allowed_values=("longest_neurite", "betweenness")
+    )
 
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
@@ -1028,33 +1046,35 @@ def find_main_branchpoint(x: 'core.NeuronObject',
     x: core.TreeNeuron
 
     # If no branches
-    if x.nodes[x.nodes.type == 'branch'].empty:
-        raise ValueError('Neuron has no branch points.')
+    if x.nodes[x.nodes.type == "branch"].empty:
+        raise ValueError("Neuron has no branch points.")
 
     if reroot_soma and not isinstance(x.soma, type(None)):
         x = x.reroot(x.soma, inplace=False)
 
-    if method == 'longest_neurite':
+    if method == "longest_neurite":
         G = x.graph
 
         # First, find longest path
-        longest = nx.dag_longest_path(G, weight='weight')
+        longest = nx.dag_longest_path(G, weight="weight")
 
         # Remove longest path
         # (use subgraph to avoid editing original or copying raph)
         keep = ~np.isin(G.nodes, longest)
         G = G.subgraph(np.array(G.nodes)[keep])
 
-        # Find second longst path
-        sc_longest = nx.dag_longest_path(G, weight='weight')
+        # Find second longest path
+        sc_longest = nx.dag_longest_path(G, weight="weight")
 
         # Parent of the last node in sc_longest is the common branch point
         bp = list(x.graph.successors(sc_longest[-1]))[0]
     else:
         # Get betweenness for each node
-        x = morpho.betweeness_centrality(x, directed=True, from_='branch_points')
+        x = morpho.betweeness_centrality(x, directed=True, from_="branch_points")
         # Get branch points with highest centrality
-        high_between = x.branch_points.betweenness >= x.branch_points.betweenness.max() * threshold
+        high_between = (
+            x.branch_points.betweenness >= x.branch_points.betweenness.max() * threshold
+        )
         candidates = x.branch_points[high_between]
 
         # If only one nodes just go with it
@@ -1063,20 +1083,20 @@ def find_main_branchpoint(x: 'core.NeuronObject',
         else:
             # If multiple points get the farthest one from the root
             root_dists = dist_to_root(x)
-            bp = sorted(candidates.node_id.values,
-                        key=lambda x: root_dists[x])[-1]
-
+            bp = sorted(candidates.node_id.values, key=lambda x: root_dists[x])[-1]
 
     # This makes sure we get the same data type as in the node table
     # -> Network X seems to sometimes convert integers to floats
     return x.nodes.node_id.dtype.type(bp)
 
 
-@utils.meshneuron_skeleton(method='split')
-def split_into_fragments(x: 'core.NeuronObject',
-                         n: int = 2,
-                         min_size: Optional[Union[float, str]] = None,
-                         reroot_soma: bool = False) -> 'core.NeuronList':
+@utils.meshneuron_skeleton(method="split")
+def split_into_fragments(
+    x: "core.NeuronObject",
+    n: int = 2,
+    min_size: Optional[Union[float, str]] = None,
+    reroot_soma: bool = False,
+) -> "core.NeuronList":
     """Split neuron into fragments.
 
     Cuts are based on longest neurites: the first cut is made where the second
@@ -1117,19 +1137,21 @@ def split_into_fragments(x: 'core.NeuronObject',
         if len(x) == 1:
             x = x[0]
         else:
-            raise Exception(f'{x.shape[0]} neurons provided. Please provide '
-                            'only a single neuron!')
+            raise Exception(
+                f"{x.shape[0]} neurons provided. Please provide "
+                "only a single neuron!"
+            )
 
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected a single TreeNeuron, got "{type(x)}"')
 
     if n < 2:
-        raise ValueError('Number of fragments must be at least 2.')
+        raise ValueError("Number of fragments must be at least 2.")
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
 
-    min_size = x.map_units(min_size, on_error='raise')
+    min_size = x.map_units(min_size, on_error="raise")
 
     if reroot_soma and not isinstance(x.soma, type(None)):
         x.reroot(x.soma, inplace=True)
@@ -1153,8 +1175,13 @@ def split_into_fragments(x: 'core.NeuronObject',
 
         # Check if fragment is still long enough
         if min_size:
-            this_length = sum([v for k, v in nx.get_edge_attributes(
-                g, 'weight').items() if k[1] in longest_path])
+            this_length = sum(
+                [
+                    v
+                    for k, v in nx.get_edge_attributes(g, "weight").items()
+                    if k[1] in longest_path
+                ]
+            )
             if this_length <= min_size:
                 break
 
@@ -1176,7 +1203,7 @@ def split_into_fragments(x: 'core.NeuronObject',
     # Next, we need to remove nodes that are in subsequent graphs from
     # those graphs
     for i, g in enumerate(graphs):
-        for g2 in graphs[i + 1:]:
+        for g2 in graphs[i + 1 :]:
             g.remove_nodes_from(g2.nodes)
 
     # Now make neurons
@@ -1185,14 +1212,16 @@ def split_into_fragments(x: 'core.NeuronObject',
     return nl
 
 
-@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
-@utils.meshneuron_skeleton(method='subset')
-def longest_neurite(x: 'core.NeuronObject',
-                    n: int = 1,
-                    reroot_soma: bool = False,
-                    from_root: bool = True,
-                    inverse: bool = False,
-                    inplace: bool = False) -> 'core.NeuronObject':
+@utils.map_neuronlist(desc="Pruning", allow_parallel=True)
+@utils.meshneuron_skeleton(method="subset")
+def longest_neurite(
+    x: "core.NeuronObject",
+    n: int = 1,
+    reroot_soma: bool = False,
+    from_root: bool = True,
+    inverse: bool = False,
+    inplace: bool = False,
+) -> "core.NeuronObject":
     """Return a neuron consisting of only the longest neurite(s).
 
     Based on geodesic distances.
@@ -1244,7 +1273,7 @@ def longest_neurite(x: 'core.NeuronObject',
         raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     if isinstance(n, numbers.Number) and n < 1:
-        raise ValueError('Number of longest neurites to preserve must be >=1')
+        raise ValueError("Number of longest neurites to preserve must be >=1")
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
@@ -1266,7 +1295,7 @@ def longest_neurite(x: 'core.NeuronObject',
     elif reroot_soma and not isinstance(x.soma, type(None)):
         x.reroot(x.soma, inplace=True)
 
-    segments = _generate_segments(x, weight='weight')
+    segments = _generate_segments(x, weight="weight")
 
     if isinstance(n, (int, np.integer)):
         tn_to_preserve: List[int] = [tn for s in segments[:n] for tn in s]
@@ -1278,16 +1307,17 @@ def longest_neurite(x: 'core.NeuronObject',
     if not inverse:
         _ = morpho.subset_neuron(x, tn_to_preserve, inplace=True)
     else:
-        _ = morpho.subset_neuron(x, ~np.isin(x.nodes.node_id.values, tn_to_preserve),
-                                 inplace=True)
+        _ = morpho.subset_neuron(
+            x, ~np.isin(x.nodes.node_id.values, tn_to_preserve), inplace=True
+        )
 
     return x
 
 
 @utils.lock_neuron
-def reroot_skeleton(x: 'core.NeuronObject',
-                    new_root: Union[int, str],
-                    inplace: bool = False) -> 'core.TreeNeuron':
+def reroot_skeleton(
+    x: "core.NeuronObject", new_root: Union[int, str], inplace: bool = False
+) -> "core.TreeNeuron":
     """Reroot neuron to new root.
 
     Parameters
@@ -1324,7 +1354,7 @@ def reroot_skeleton(x: 'core.NeuronObject',
         if len(x) == 1:
             x = x[0]
         else:
-            raise ValueError(f'Expected a single neuron, got {len(x)}')
+            raise ValueError(f"Expected a single neuron, got {len(x)}")
 
     if not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Unable to reroot object of type "{type(x)}"')
@@ -1335,7 +1365,7 @@ def reroot_skeleton(x: 'core.NeuronObject',
     # Parse new roots
     for i, root in enumerate(new_roots):
         if root is None:
-            raise ValueError('New root can not be <None>')
+            raise ValueError("New root can not be <None>")
 
         # If new root is a tag, rather than a ID, try finding that node
         if isinstance(root, str):
@@ -1343,12 +1373,15 @@ def reroot_skeleton(x: 'core.NeuronObject',
                 raise ValueError("Neuron does not have tags")
 
             if root not in x.tags:
-                raise ValueError(f'#{x.id}: Found no nodes with tag {root}'
-                                 ' - please double check!')
+                raise ValueError(
+                    f"#{x.id}: Found no nodes with tag {root}" " - please double check!"
+                )
 
             elif len(x.tags[root]) > 1:
-                raise ValueError(f'#{x.id}: Found multiple node with tag '
-                                 f'{root} - please double check!')
+                raise ValueError(
+                    f"#{x.id}: Found multiple node with tag "
+                    f"{root} - please double check!"
+                )
             else:
                 new_roots[i] = x.tags[root][0]
 
@@ -1383,11 +1416,14 @@ def reroot_skeleton(x: 'core.NeuronObject',
                 warnings.simplefilter("ignore")
 
                 # Find paths to all roots
-                path = g.get_shortest_paths(g.vs.find(node_id=new_root),
-                                            [g.vs.find(node_id=r) for r in x.root])
-                epath = g.get_shortest_paths(g.vs.find(node_id=new_root),
-                                             [g.vs.find(node_id=r) for r in x.root],
-                                             output='epath')
+                path = g.get_shortest_paths(
+                    g.vs.find(node_id=new_root), [g.vs.find(node_id=r) for r in x.root]
+                )
+                epath = g.get_shortest_paths(
+                    g.vs.find(node_id=new_root),
+                    [g.vs.find(node_id=r) for r in x.root],
+                    output="epath",
+                )
 
             # Extract paths that actually worked (i.e. within a continuous fragment)
             path = [p for p in path if p][0]
@@ -1395,16 +1431,16 @@ def reroot_skeleton(x: 'core.NeuronObject',
 
             edges = [(s, t) for s, t in zip(path[:-1], path[1:])]
 
-            weights = [g.es[e]['weight'] for e in epath]
+            weights = [g.es[e]["weight"] for e in epath]
 
             # Get all weights and append inversed new weights
-            all_weights = g.es['weight'] + weights
+            all_weights = g.es["weight"] + weights
 
             # Add inverse edges: old_root->new_root
             g.add_edges([(e[1], e[0]) for e in edges])
 
             # Re-set weights
-            g.es['weight'] = all_weights
+            g.es["weight"] = all_weights
 
             # Remove new_root->old_root
             g.delete_edges(edges)
@@ -1413,19 +1449,21 @@ def reroot_skeleton(x: 'core.NeuronObject',
             old_root_deg = len(g.es.select(_target=path[-1]))
 
             # Translate path indices to node IDs
-            ix2id = {ix: n for ix, n in zip(g.vs.indices,
-                                            g.vs.get_attribute_values('node_id'))}
+            ix2id = {
+                ix: n
+                for ix, n in zip(g.vs.indices, g.vs.get_attribute_values("node_id"))
+            }
             path = [ix2id[i] for i in path]
         else:
             # Grab graph once to avoid overhead from stale checks
             g = x.graph
             # If this NetworkX graph is just an (immutable) view, turn it into a
             # full, independent graph
-            nx_main_version = '.'.join(nx.__version__.split(".")[:2])
+            nx_main_version = ".".join(nx.__version__.split(".")[:2])
             if float(nx_main_version) < 2.2:
                 if isinstance(g, nx.classes.graphviews.ReadOnlyGraph):
                     x._graph_nx = g = nx.DiGraph(g)
-            elif hasattr(g, '_NODE_OK'):
+            elif hasattr(g, "_NODE_OK"):
                 x._graph_nx = g = nx.DiGraph(g)
             elif nx.is_frozen(g):
                 x._graph_nx = g = nx.DiGraph(g)
@@ -1439,14 +1477,16 @@ def reroot_skeleton(x: 'core.NeuronObject',
             path = [new_root]
             weights = []
             while parent is not None:
-                weights.append(g[path[-1]][parent]['weight'])
+                weights.append(g[path[-1]][parent]["weight"])
                 g.remove_edge(path[-1], parent)
                 path.append(parent)
                 parent = next(g.successors(parent), None)
 
             # Invert path and add weights
-            new_edges = [(path[i + 1], path[i],
-                          {'weight': weights[i]}) for i in range(len(path) - 1)]
+            new_edges = [
+                (path[i + 1], path[i], {"weight": weights[i]})
+                for i in range(len(path) - 1)
+            ]
 
             # Add inverted path between old and new root
             g.add_edges_from(new_edges)
@@ -1455,45 +1495,44 @@ def reroot_skeleton(x: 'core.NeuronObject',
             old_root_deg = g.in_degree(path[-1])
 
         # Set index to node ID for later
-        x.nodes.set_index('node_id', inplace=True)
+        x.nodes.set_index("node_id", inplace=True)
 
         # Propagate changes in graph back to node table
         # Assign new node type to old root
-        x.nodes.loc[path[1:], 'parent_id'] = path[:-1]
+        x.nodes.loc[path[1:], "parent_id"] = path[:-1]
         if old_root_deg == 1:
-            x.nodes.loc[path[-1], 'type'] = 'slab'
+            x.nodes.loc[path[-1], "type"] = "slab"
         elif old_root_deg > 1:
-            x.nodes.loc[path[-1], 'type'] = 'branch'
+            x.nodes.loc[path[-1], "type"] = "branch"
         else:
-            x.nodes.loc[path[-1], 'type'] = 'end'
+            x.nodes.loc[path[-1], "type"] = "end"
         # Make new root node type "root"
-        x.nodes.loc[path[0], 'type'] = 'root'
+        x.nodes.loc[path[0], "type"] = "root"
 
         # Set new root's parent to None
-        x.nodes.loc[new_root, 'parent_id'] = -1
+        x.nodes.loc[new_root, "parent_id"] = -1
 
         # Reset index
         x.nodes.reset_index(drop=False, inplace=True)
 
     # Make sure node ID has the same datatype as before
     if x.nodes.node_id.dtype != nodeid_dtype:
-        x.nodes['node_id'] = x.nodes.node_id.astype(nodeid_dtype, copy=False)
+        x.nodes["node_id"] = x.nodes.node_id.astype(nodeid_dtype, copy=False)
 
     # Finally: only reset non-graph related attributes
     if x.igraph and config.use_igraph:
-        x._clear_temp_attr(exclude=['igraph', 'classify_nodes'])
+        x._clear_temp_attr(exclude=["igraph", "classify_nodes"])
     else:
-        x._clear_temp_attr(exclude=['graph', 'classify_nodes'])
+        x._clear_temp_attr(exclude=["graph", "classify_nodes"])
 
     return x
 
 
-def cut_skeleton(x: 'core.NeuronObject',
-                 where: Union[int, str, List[Union[int, str]]],
-                 ret: Union[Literal['both'],
-                            Literal['proximal'],
-                            Literal['distal']] = 'both'
-                 ) -> 'core.NeuronList':
+def cut_skeleton(
+    x: "core.NeuronObject",
+    where: Union[int, str, List[Union[int, str]]],
+    ret: Union[Literal["both"], Literal["proximal"], Literal["distal"]] = "both",
+) -> "core.NeuronList":
     """Split skeleton at given point and returns two new neurons.
 
     Split is performed between cut node and its parent node. The cut node itself
@@ -1549,22 +1588,23 @@ def cut_skeleton(x: 'core.NeuronObject',
             Returns a neuron consisting of a subset of its nodes.
 
     """
-    utils.eval_param(ret, name='ret',
-                     allowed_values=('proximal', 'distal', 'both'))
+    utils.eval_param(ret, name="ret", allowed_values=("proximal", "distal", "both"))
 
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
             x = x[0]
         else:
-            raise Exception(f'Expected a single TreeNeuron, got {len(x)}')
+            raise Exception(f"Expected a single TreeNeuron, got {len(x)}")
 
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected a single TreeNeuron, got "{type(x)}"')
 
     if x.n_trees != 1:
-        raise ValueError(f'Unable to cut: neuron {x.id} consists of multiple '
-                         'disconnected trees. Use navis.heal_skeleton()'
-                         ' to fix.')
+        raise ValueError(
+            f"Unable to cut: neuron {x.id} consists of multiple "
+            "disconnected trees. Use navis.heal_skeleton()"
+            " to fix."
+        )
 
     # At this point x is TreeNeuron
     x: core.TreeNeuron
@@ -1581,8 +1621,9 @@ def cut_skeleton(x: 'core.NeuronObject',
             if x.tags is None:
                 raise ValueError(f"Neuron {x.id} has no tags")
             if cn not in x.tags:
-                raise ValueError(f'#{x.id}: Found no node with tag {cn}'
-                                 ' - please double check!')
+                raise ValueError(
+                    f"#{x.id}: Found no node with tag {cn}" " - please double check!"
+                )
             cn_ids += x.tags[cn]
         elif cn not in x.nodes.node_id.values:
             raise ValueError(f'No node with ID "{cn}" found.')
@@ -1596,7 +1637,7 @@ def cut_skeleton(x: 'core.NeuronObject',
     cn_ids = [cn for cn in cn_ids if not (cn in seen or seen.add(cn))]
 
     # Warn if not all returned
-    if len(cn_ids) > 1 and ret != 'both':
+    if len(cn_ids) > 1 and ret != "both":
         logger.warning('Multiple cuts should use `ret = "both"`.')
 
     # Go over all cut_nodes -> order matters!
@@ -1626,11 +1667,9 @@ def cut_skeleton(x: 'core.NeuronObject',
     return core.NeuronList(res)
 
 
-def _cut_igraph(x: 'core.TreeNeuron',
-                cut_node: int,
-                ret: str) -> Union['core.TreeNeuron',
-                                   Tuple['core.TreeNeuron',
-                                         'core.TreeNeuron']]:
+def _cut_igraph(
+    x: "core.TreeNeuron", cut_node: int, ret: str
+) -> Union["core.TreeNeuron", Tuple["core.TreeNeuron", "core.TreeNeuron"]]:
     """Use iGraph to cut a neuron."""
     # Make a copy
     g = x.igraph.copy()
@@ -1647,112 +1686,101 @@ def _cut_igraph(x: 'core.TreeNeuron',
     # Make graph undirected -> otherwise .decompose() throws an error
     # This issue is fixed in the up-to-date branch of igraph-python
     # (which is not on PyPI O_o )
-    g.to_undirected(combine_edges='first')
+    g.to_undirected(combine_edges="first")
 
     # Get subgraph -> fastest way to get sets of nodes for subsetting
-    a, b = g.decompose(mode='WEAK')
+    a, b = g.decompose(mode="WEAK")
     # IMPORTANT: a,b are now UNDIRECTED graphs -> we must not keep using them!
 
-    if x.root[0] in a.vs['node_id']:
+    if x.root[0] in a.vs["node_id"]:
         dist_graph, prox_graph = b, a
     else:
         dist_graph, prox_graph = a, b
 
-    if ret == 'distal' or ret == 'both':
-        dist = morpho.subset_neuron(x,
-                                    subset=dist_graph.vs['node_id'],
-                                    inplace=False)
+    if ret == "distal" or ret == "both":
+        dist = morpho.subset_neuron(x, subset=dist_graph.vs["node_id"], inplace=False)
 
         # Change new root for dist
-        dist.nodes.loc[dist.nodes.node_id == cut_node, 'type'] = 'root'
+        dist.nodes.loc[dist.nodes.node_id == cut_node, "type"] = "root"
 
         # Clear other temporary attributes
-        dist._clear_temp_attr(exclude=['igraph', 'type', 'classify_nodes'])
+        dist._clear_temp_attr(exclude=["igraph", "type", "classify_nodes"])
 
-    if ret == 'proximal' or ret == 'both':
-        ss: Sequence[int] = prox_graph.vs['node_id'] + [cut_node]
-        prox = morpho.subset_neuron(x,
-                                    subset=ss,
-                                    inplace=False)
+    if ret == "proximal" or ret == "both":
+        ss: Sequence[int] = prox_graph.vs["node_id"] + [cut_node]
+        prox = morpho.subset_neuron(x, subset=ss, inplace=False)
 
         # Change new root for dist
-        prox.nodes.loc[prox.nodes.node_id == cut_node, 'type'] = 'end'
+        prox.nodes.loc[prox.nodes.node_id == cut_node, "type"] = "end"
 
         # Clear other temporary attributes
-        prox._clear_temp_attr(exclude=['igraph', 'type', 'classify_nodes'])
+        prox._clear_temp_attr(exclude=["igraph", "type", "classify_nodes"])
 
-    if ret == 'both':
+    if ret == "both":
         return dist, prox
-    elif ret == 'distal':
+    elif ret == "distal":
         return dist
     else:  # elif ret == 'proximal':
         return prox
 
 
-def _cut_networkx(x: 'core.TreeNeuron',
-                  cut_node: Union[int, str],
-                  ret: str) -> Union['core.TreeNeuron',
-                                     Tuple['core.TreeNeuron',
-                                           'core.TreeNeuron']]:
+def _cut_networkx(
+    x: "core.TreeNeuron", cut_node: Union[int, str], ret: str
+) -> Union["core.TreeNeuron", Tuple["core.TreeNeuron", "core.TreeNeuron"]]:
     """Use networkX graph to cut a neuron."""
     # Get subgraphs consisting of nodes distal to cut node
     dist_graph: nx.DiGraph = nx.bfs_tree(x.graph, cut_node, reverse=True)
 
-    if ret == 'distal' or ret == 'both':
+    if ret == "distal" or ret == "both":
         # bfs_tree does not preserve 'weight'
         # -> need to subset original graph by those nodes
         dist_graph = x.graph.subgraph(dist_graph.nodes)
 
         # Generate new neurons
         # This is the actual bottleneck of the function: ~70% of time
-        dist = morpho.subset_neuron(x,
-                                    subset=dist_graph,
-                                    inplace=False)  # type: ignore  # doesn't know nx.DiGraph
+        dist = morpho.subset_neuron(x, subset=dist_graph, inplace=False)  # type: ignore  # doesn't know nx.DiGraph
 
         # Change new root for dist
-        dist.nodes.loc[dist.nodes.node_id == cut_node, 'parent_id'] = -1
-        dist.nodes.loc[dist.nodes.node_id == cut_node, 'type'] = 'root'
+        dist.nodes.loc[dist.nodes.node_id == cut_node, "parent_id"] = -1
+        dist.nodes.loc[dist.nodes.node_id == cut_node, "type"] = "root"
 
         # Reassign graphs
         dist._graph_nx = dist_graph
 
         # Clear other temporary attributes
-        dist._clear_temp_attr(exclude=['graph', 'type', 'classify_nodes'])
+        dist._clear_temp_attr(exclude=["graph", "type", "classify_nodes"])
 
-    if ret == 'proximal' or ret == 'both':
+    if ret == "proximal" or ret == "both":
         # bfs_tree does not preserve 'weight'
         # need to subset original graph by those nodes
-        ss_nodes = [n for n in x.graph.nodes if n not in dist_graph.nodes] + \
-                   [cut_node]
+        ss_nodes = [n for n in x.graph.nodes if n not in dist_graph.nodes] + [cut_node]
         prox_graph: nx.DiGraph = x.graph.subgraph(ss_nodes)
 
         # Generate new neurons
         # This is the actual bottleneck of the function: ~70% of time
-        prox = morpho.subset_neuron(x,
-                                    subset=prox_graph,
-                                    inplace=False)
+        prox = morpho.subset_neuron(x, subset=prox_graph, inplace=False)
 
         # Change cut node to end node for prox
-        prox.nodes.loc[prox.nodes.node_id == cut_node, 'type'] = 'end'
+        prox.nodes.loc[prox.nodes.node_id == cut_node, "type"] = "end"
 
         # Reassign graphs
         prox._graph_nx = prox_graph
 
         # Clear other temporary attributes
-        prox._clear_temp_attr(exclude=['graph', 'type', 'classify_nodes'])
+        prox._clear_temp_attr(exclude=["graph", "type", "classify_nodes"])
 
     # ATTENTION: prox/dist_graph contain pointers to the original graph
     # -> changes to attributes will propagate back
 
-    if ret == 'both':
+    if ret == "both":
         return dist, prox
-    elif ret == 'distal':
+    elif ret == "distal":
         return dist
     else:  # elif ret == 'proximal':
         return prox
 
 
-def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
+def generate_list_of_childs(x: "core.NeuronObject") -> Dict[int, List[int]]:
     """Return list of childs.
 
     Parameters
@@ -1772,8 +1800,9 @@ def generate_list_of_childs(x: 'core.NeuronObject') -> Dict[int, List[int]]:
     return {n: [e[0] for e in g.in_edges(n)] for n in g.nodes}
 
 
-def node_label_sorting(x: 'core.TreeNeuron',
-                       weighted: bool = False) -> List[Union[str, int]]:
+def node_label_sorting(
+    x: "core.TreeNeuron", weighted: bool = False
+) -> List[Union[str, int]]:
     """Return nodes ordered by node label sorting according to Cuntz
     et al., PLoS Computational Biology (2010).
 
@@ -1798,28 +1827,36 @@ def node_label_sorting(x: 'core.TreeNeuron',
         raise TypeError(f'Expected a singleTreeNeuron, got "{type(x)}"')
 
     if len(x.root) > 1:
-        raise ValueError('Unable to process multi-root neurons!')
+        raise ValueError("Unable to process multi-root neurons!")
 
     # Get relevant terminal nodes
-    term = x.nodes[x.nodes.type == 'end'].node_id.values
+    term = x.nodes[x.nodes.type == "end"].node_id.values
 
     # Get distance from terminals to all other nodes
-    geo = geodesic_matrix(x, from_=term, directed=True, weight='weight' if weighted else None)
+    geo = geodesic_matrix(
+        x, from_=term, directed=True, weight="weight" if weighted else None
+    )
     # Set distance between unreachable points to None
     # Need to reinitialise SparseMatrix to replace float('inf') with NaN
     # dist_mat[geo == float('inf')] = None
-    dist_mat = pd.DataFrame(np.where(geo == float('inf'),  # type: ignore  # no stubs for SparseDataFrame
-                                     np.nan,
-                                     geo),
-                            columns=geo.columns,
-                            index=geo.index)
+    dist_mat = pd.DataFrame(
+        np.where(
+            geo == float("inf"),  # type: ignore  # no stubs for SparseDataFrame
+            np.nan,
+            geo,
+        ),
+        columns=geo.columns,
+        index=geo.index,
+    )
 
     # Get starting points (i.e. branches off the root) and sort by longest
     # path to a terminal (note we're operating on the simplified version
     # of the skeleton)
-    curr_points = sorted(list(x.simple.graph.predecessors(x.root[0])),
-                         key=lambda n: dist_mat[n].max(),
-                         reverse=True)
+    curr_points = sorted(
+        list(x.simple.graph.predecessors(x.root[0])),
+        key=lambda n: dist_mat[n].max(),
+        reverse=True,
+    )
 
     # Walk from root towards terminals, prioritising longer branches
     nodes_walked = []
@@ -1829,9 +1866,11 @@ def node_label_sorting(x: 'core.TreeNeuron',
         if nodes_walked[-1] in term:
             pass
         else:
-            new_points = sorted(list(x.simple.graph.predecessors(nodes_walked[-1])),
-                                key=lambda n: dist_mat[n].max(),
-                                reverse=True)
+            new_points = sorted(
+                list(x.simple.graph.predecessors(nodes_walked[-1])),
+                key=lambda n: dist_mat[n].max(),
+                reverse=True,
+            )
             curr_points = new_points + curr_points
 
     # Translate into segments
@@ -1860,12 +1899,14 @@ def _igraph_to_sparse(graph, weight_attr=None):
     # Note: previously, we used a generator (weights, zip(*egdes)) as input to
     # csr_matrix but with Scipy 1.13.0 this has stopped working
     edges = np.array(edges)
-    return csr_matrix((weights, (edges[:,0], edges[:,1])),
-                       shape=(len(graph.vs), len(graph.vs)))
+    return csr_matrix(
+        (weights, (edges[:, 0], edges[:, 1])), shape=(len(graph.vs), len(graph.vs))
+    )
 
 
-def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
-                       ss: Sequence[Union[str, int]]) -> Tuple[np.ndarray, Union[int, str]]:
+def connected_subgraph(
+    x: Union["core.TreeNeuron", nx.DiGraph], ss: Sequence[Union[str, int]]
+) -> Tuple[np.ndarray, Union[int, str]]:
     """Return set of nodes necessary to connect all nodes in subset ``ss``.
 
     Parameters
@@ -1958,8 +1999,7 @@ def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
         this_ss = ss & cc
         if this_ss - include:
             # Make sure the new root is set correctly
-            nr = sorted(this_ss - include,
-                        key=lambda x: longest_path.index(x))[-1]
+            nr = sorted(this_ss - include, key=lambda x: longest_path.index(x))[-1]
             new_roots.append(nr)
             # Add those nodes to be included
             include = set.union(include, this_ss)
@@ -1969,11 +2009,13 @@ def connected_subgraph(x: Union['core.TreeNeuron', nx.DiGraph],
     return np.array(list(include)), new_roots
 
 
-def insert_nodes(x: 'core.TreeNeuron',
-                 where: List[tuple],
-                 coords: List[tuple] = None,
-                 validate: bool = True,
-                 inplace: bool = False) -> Optional['core.TreeNeuron']:
+def insert_nodes(
+    x: "core.TreeNeuron",
+    where: List[tuple],
+    coords: List[tuple] = None,
+    validate: bool = True,
+    inplace: bool = False,
+) -> Optional["core.TreeNeuron"]:
     """Insert new nodes between existing nodes.
 
     Parameters
@@ -2017,17 +2059,18 @@ def insert_nodes(x: 'core.TreeNeuron',
     4565
 
     """
-    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
 
     where = np.asarray(where)
     if where.ndim != 2 or where.shape[1] != 2:
-        raise ValueError('Expected `where` to be a (N, 2) list of pairs. '
-                         f'Got {where.shape}')
+        raise ValueError(
+            "Expected `where` to be a (N, 2) list of pairs. " f"Got {where.shape}"
+        )
 
     # Validate if that's desired
     if validate:
         # Setup to get parents
-        parent = x.nodes.set_index('node_id').parent_id
+        parent = x.nodes.set_index("node_id").parent_id
 
         # Get parents of the left and the right nodes of each pair
         parent_left = parent.loc[where[:, 0]].values
@@ -2039,8 +2082,9 @@ def insert_nodes(x: 'core.TreeNeuron',
         not_connected = ~(correct_order | swapped)
 
         if np.any(not_connected):
-            raise ValueError('The following pairs are not connected: '
-                             f'{where[not_connected]}')
+            raise ValueError(
+                "The following pairs are not connected: " f"{where[not_connected]}"
+            )
 
         # Flip nodes where necessary to sure we have (parent, child) order
         if np.any(swapped):
@@ -2048,7 +2092,7 @@ def insert_nodes(x: 'core.TreeNeuron',
 
     # If not provided, generate coordinates in the center between each node pair
     if isinstance(coords, type(None)):
-        node_locs = x.nodes.set_index('node_id')[['x', 'y', 'z']]
+        node_locs = x.nodes.set_index("node_id")[["x", "y", "z"]]
         left_loc = node_locs.loc[where[:, 0]].values
         right_loc = node_locs.loc[where[:, 1]].values
 
@@ -2058,12 +2102,14 @@ def insert_nodes(x: 'core.TreeNeuron',
     coords = np.asarray(coords)
     # Make sure we have correct coordinates
     if coords.shape[0] != where.shape[0]:
-        raise ValueError(f'Expected {where.shape[0]} coordinates or distances, '
-                         f'got {coords.shape[0]}')
+        raise ValueError(
+            f"Expected {where.shape[0]} coordinates or distances, "
+            f"got {coords.shape[0]}"
+        )
 
     # If array of fractional distances translate to coordinates
     if coords.ndim == 1:
-        node_locs = x.nodes.set_index('node_id')[['x', 'y', 'z']]
+        node_locs = x.nodes.set_index("node_id")[["x", "y", "z"]]
         left_loc = node_locs.loc[where[:, 0]].values
         right_loc = node_locs.loc[where[:, 1]].values
 
@@ -2071,27 +2117,30 @@ def insert_nodes(x: 'core.TreeNeuron',
         coords = left_loc + (right_loc - left_loc) * coords.reshape(-1, 1)
 
     # For the moment, we will interpolate the radius
-    rad = x.nodes.set_index('node_id').radius
+    rad = x.nodes.set_index("node_id").radius
     new_rad = (rad.loc[where[:, 0]].values + rad.loc[where[:, 1]].values) / 2
 
     # Generate table for new nodes
     new_nodes = pd.DataFrame()
     max_id = x.nodes.node_id.max() + 1
-    new_nodes['node_id'] = np.arange(max_id, max_id + where.shape[0]).astype(int)
-    new_nodes['parent_id'] = where[:, 0]
-    new_nodes['x'] = coords[:, 0]
-    new_nodes['y'] = coords[:, 1]
-    new_nodes['z'] = coords[:, 2]
-    new_nodes['radius'] = new_rad
+    new_nodes["node_id"] = np.arange(max_id, max_id + where.shape[0]).astype(int)
+    new_nodes["parent_id"] = where[:, 0]
+    new_nodes["x"] = coords[:, 0]
+    new_nodes["y"] = coords[:, 1]
+    new_nodes["z"] = coords[:, 2]
+    new_nodes["radius"] = new_rad
 
     # Merge tables
-    nodes = pd.concat([x.nodes, new_nodes],
-                      join='outer', axis=0, sort=True, ignore_index=True)
+    nodes = pd.concat(
+        [x.nodes, new_nodes], join="outer", axis=0, sort=True, ignore_index=True
+    )
 
     # Remap nodes
     new_parents = dict(zip(where[:, 1], new_nodes.node_id.values))
     to_rewire = nodes.node_id.isin(new_parents)
-    nodes.loc[to_rewire, 'parent_id'] = nodes.loc[to_rewire, 'node_id'].map(new_parents)
+    nodes.loc[to_rewire, "parent_id"] = nodes.loc[to_rewire, "node_id"].map(new_parents).values.astype(
+        nodes.dtypes["parent_id"], copy=False
+    )
 
     if not inplace:
         x = x.copy()
@@ -2101,9 +2150,9 @@ def insert_nodes(x: 'core.TreeNeuron',
     return x
 
 
-def remove_nodes(x: 'core.TreeNeuron',
-                 which: List[int],
-                 inplace: bool = False) -> Optional['core.TreeNeuron']:
+def remove_nodes(
+    x: "core.TreeNeuron", which: List[int], inplace: bool = False
+) -> Optional["core.TreeNeuron"]:
     """Drop nodes from neuron without disconnecting it.
 
     Dropping node 2 from 1->2->3 will lead to connectivity 1->3.
@@ -2136,7 +2185,7 @@ def remove_nodes(x: 'core.TreeNeuron',
     4365
 
     """
-    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
 
     if not utils.is_iterable(which):
         which = [which]
@@ -2144,7 +2193,7 @@ def remove_nodes(x: 'core.TreeNeuron',
 
     miss = ~np.isin(which, x.nodes.node_id.values)
     if np.any(miss):
-        raise ValueError(f'{len(miss)} node IDs not found in neuron')
+        raise ValueError(f"{len(miss)} node IDs not found in neuron")
 
     if not inplace:
         x = x.copy()
@@ -2157,7 +2206,7 @@ def remove_nodes(x: 'core.TreeNeuron',
         lop.update({c: lop[n] for c, p in lop.items() if p == n})
 
     # Rewire neuron
-    x.nodes['parent_id'] = x.nodes.node_id.map(lop)
+    x.nodes["parent_id"] = x.nodes.node_id.map(lop)
 
     # Drop nodes
     x.nodes = x.nodes[~x.nodes.node_id.isin(which)].copy()
@@ -2168,10 +2217,9 @@ def remove_nodes(x: 'core.TreeNeuron',
     return x
 
 
-def rewire_skeleton(x: 'core.TreeNeuron',
-                    g: nx.Graph,
-                    root: Optional[id] = None,
-                    inplace: bool = False) -> Optional['core.TreeNeuron']:
+def rewire_skeleton(
+    x: "core.TreeNeuron", g: nx.Graph, root: Optional[id] = None, inplace: bool = False
+) -> Optional["core.TreeNeuron"]:
     """Rewire neuron from graph.
 
     This function takes a graph representation of a neuron and rewires its
@@ -2214,8 +2262,8 @@ def rewire_skeleton(x: 'core.TreeNeuron',
     2
 
     """
-    assert isinstance(x, core.TreeNeuron), f'Expected TreeNeuron, got {type(x)}'
-    assert isinstance(g, nx.Graph), f'Expected networkx graph, got {type(g)}'
+    assert isinstance(x, core.TreeNeuron), f"Expected TreeNeuron, got {type(x)}"
+    assert isinstance(g, nx.Graph), f"Expected networkx graph, got {type(g)}"
 
     if not inplace:
         x = x.copy()
@@ -2223,7 +2271,7 @@ def rewire_skeleton(x: 'core.TreeNeuron',
     if g.is_directed():
         g = g.to_undirected()
 
-    g = nx.minimum_spanning_tree(g, weight='weight')
+    g = nx.minimum_spanning_tree(g, weight="weight")
 
     if not root:
         root = x.root[0] if x.root[0] in g.nodes else next(iter(g.nodes))
@@ -2243,7 +2291,7 @@ def rewire_skeleton(x: 'core.TreeNeuron',
                 lop.update({e[1]: e[0] for e in tree.edges})
 
     # Update parent IDs
-    x.nodes['parent_id'] = x.nodes.node_id.map(lambda x: lop.get(x, -1))
+    x.nodes["parent_id"] = x.nodes.node_id.map(lambda x: lop.get(x, -1))
 
     x._clear_temp_attr()
 
