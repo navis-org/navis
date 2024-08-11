@@ -200,6 +200,10 @@ def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
         # Need to make sure points are floats
         points = np.array(points).astype(float)
 
+        # Skip single points
+        if len(points) < 2:
+            continue
+
         if use_normals:
             tangents, normals, binormals = _frenet_frames(points)
         else:
