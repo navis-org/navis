@@ -3,16 +3,20 @@ import navis
 import numpy as np
 
 
-def test_parallel():
+def test_parallel(benchmark):
     # Load example neurons
     nl = navis.example_neurons(kind='skeleton')
 
+    # Use serial reference for comparison
+    ref = navis.prune_by_strahler(nl, 1, parallel=False, inplace=False)
+
     # Test decorator
-    pr = navis.prune_by_strahler(nl, 1, parallel=True, inplace=False)
+    pr = benchmark(navis.prune_by_strahler, nl, 1, parallel=True, inplace=False)
 
     assert isinstance(pr, navis.NeuronList)
     assert len(pr) == len(nl)
     assert pr[0].n_nodes < nl[0].n_nodes
+    assert pr == ref
 
     # Test apply
     pr = nl.apply(navis.prune_by_strahler, to_prune=1, inplace=False,
@@ -20,6 +24,7 @@ def test_parallel():
     assert isinstance(pr, navis.NeuronList)
     assert len(pr) == len(nl)
     assert all(pr.n_nodes < nl.n_nodes)
+    assert pr == ref
 
 
 def test_parallel_inplace():

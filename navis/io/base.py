@@ -341,7 +341,7 @@ class BaseReader(ABC):
         self, files: Union[str, List[str]],
         zippath: os.PathLike,
         attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
+        on_error: Union[Literal['ignore'], Literal['raise']] = 'ignore'
     ) -> 'core.NeuronList':
         """Read given files from a zip into a NeuronList.
 
@@ -389,7 +389,7 @@ class BaseReader(ABC):
         parallel="auto",
         limit: Optional[int] = None,
         attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal['ignore', Literal['raise']]] = 'ignore'
+        on_error: Union[Literal['ignore'], Literal['raise']] = 'ignore'
     ) -> 'core.NeuronList':
         """Read files from a zip into a NeuronList.
 
