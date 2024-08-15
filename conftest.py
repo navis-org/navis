@@ -4,15 +4,15 @@ def pytest_ignore_collect(path, config):
     more specific hooks.
     """
     path = str(path)
-    if 'interfaces' in path:
-        return True
-    if '/docs' in path:
-        return True
-    if '/stubs' in path:
-        return True
-    if '/examples' in path:
-        return True
-    if '/dist/' in path:
-        return True
-    if '/binder' in path:
-        return True
+    for pattern in (
+        "interfaces",
+        "/docs",
+        "/stubs",
+        "/examples",
+        "/dist/",
+        "/binder",
+        "/site",
+        "/scripts",
+    ):
+        if pattern in path:
+            return True

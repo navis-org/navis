@@ -107,11 +107,11 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
     Parameters
     ----------
     x :             str | int | list-like | pandas.DataFrame | SegmentCriteria
-                    Body ID(s). Multiple Ids can be provided as list-like or
+                    Body ID(s). Multiple IDs can be provided as list-like or
                     DataFrame with "bodyId" or "bodyid" column.
     lod :           int
                     Level of detail. Higher ``lod`` = coarser. Ignored if mesh
-                    source is DVID.
+                    source does not support LODs (e.g. for DVID).
     with_synapses : bool, optional
                     If True will download and attach synapses as ``.connectors``.
     missing_mesh :  'raise' | 'warn' | 'skip'
@@ -160,27 +160,44 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
     if isinstance(seg_source, str) and seg_source.startswith('dvid'):
         try:
             import dvid as dv
-        except ImportError:
-            raise ImportError('This looks like a DVID mesh source. For this we '
-                              'need the `dvid-tools` library:\n'
-                              '  pip3 install dvidtools -U')
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                'This looks like a DVID mesh source. For this we '
+                'need the `dvid-tools` library:\n'
+                '  pip3 install dvidtools -U')
         o = urlparse(seg_source.replace('dvid://', ''))
         server = f'{o.scheme}://{o.netloc}'
         node = o.path.split('/')[1]
+
+        if lod is not None:
+                logger.warning(
+                    'This dataset does not support LODs. '
+                    'Will ignore the `lod` argument. '
+                    'You can silence this warning by setting `lod=None`.')
+                lod = None
     else:
         try:
             from cloudvolume import CloudVolume
-        except ImportError:
-            raise ImportError("You need to install the `cloudvolume` library"
-                              'to fetch meshes from this mesh source:\n'
-                              '  pip3 install cloud-volume -U')
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "You need to install the `cloudvolume` library"
+                "to fetch meshes from this mesh source:\n"
+                "  pip3 install cloud-volume -U")
         # Initialize volume
         if isinstance(seg_source, CloudVolume):
             vol = seg_source
         else:
-            defaults = dict(use_https=True)
+            defaults = dict(use_https=True, progress=False)
             defaults.update(kwargs)
             vol = CloudVolume(seg_source, **defaults)
+
+            # Check if vol.mesh.get has a lod argument
+            if lod is not None and 'lod' not in vol.mesh.get.__code__.co_varnames:
+                logger.warning(
+                    'This dataset does not support LODs. '
+                    'Will ignore the `lod` argument. '
+                    'You can silence this warning by setting `lod=None`.')
+                lod = None
 
     if isinstance(x, NeuronCriteria):
         query = x
@@ -281,7 +298,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                 n.connectors = syn[['type', 'x', 'y', 'z', 'roi', 'confidence']]
 
     # Make an effort to retain the original order
-    if not isinstance(x, NeuronCriteria):
+    if not isinstance(x, NeuronCriteria) and not nl.empty:
         nl = nl.idx[np.asarray(x)[np.isin(x, nl.id)]]
 
     return nl

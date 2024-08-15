@@ -29,11 +29,9 @@ class MovingLeastSquaresTransform(BaseTransform):
     ) -> None:
         """Moving Least Squares transforms of 3D spatial data.
 
-        Uses the
-        `molesq <https://github.com/clbarnes/molesq>`_
-        library, which packages the
-        `implementation by Casey Schneider-Mizell <https://github.com/ceesem/catalysis/blob/master/catalysis/transform.py>`_
-        of the affine algorithm published in
+        Uses the `molesq <https://github.com/clbarnes/molesq>`_ library, which packages the
+        `implementation<https://github.com/ceesem/catalysis/blob/master/catalysis/transform.py>`_
+        by Casey Schneider-Mizell of the affine algorithm published in
         `Schaefer et al. 2006 <https://dl.acm.org/doi/pdf/10.1145/1179352.1141920>`_.
 
         Parameters
@@ -55,8 +53,8 @@ class MovingLeastSquaresTransform(BaseTransform):
         >>> tr = transforms.MovingLeastSquaresTransform(src, trg)
         >>> points = np.array([[0, 0, 0], [50, 50, 50]])
         >>> tr.xform(points)
-        array([[ 1.        , 15.        ,  5.        ],
-               [17.56361725, 43.32071504, 59.3147564 ]])
+        array([[  1.        ,  15.        ,   5.        ],
+               [ 81.56361725, 155.32071504, 187.3147564 ]])
 
         """
         assert direction in ('forward', 'inverse')

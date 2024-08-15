@@ -11,9 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import inspect
 import math
-import os
 import requests
 import sys
 import urllib
@@ -22,12 +20,11 @@ import numpy as np
 import pandas as pd
 
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
-from typing_extensions import Literal
 
 from .. import config, core
 from .eval import is_mesh
-from .iterables import is_iterable, make_iterable
 from ..transforms.templates import TemplateBrain
+
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -296,7 +293,7 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     Neurons :       navis.NeuronList
     Volume :        list of navis.Volume (trimesh.Trimesh will be converted)
     Points :        list of arrays
-    Visuals :       list of vispy visuals
+    Visuals :       list of vispy and pygfx visuals
 
     Examples
     --------
@@ -319,8 +316,8 @@ def parse_objects(x) -> Tuple['core.NeuronList',
     (<class 'list'>, 1)
     >>> type(points[0])
     <class 'numpy.ndarray'>
-    >>> type(vis), len(points)
-    (<class 'list'>, 1)
+    >>> type(vis), len(vis)
+    (<class 'list'>, 0)
 
     """
     # Make sure this is a list.
@@ -342,7 +339,7 @@ def parse_objects(x) -> Tuple['core.NeuronList',
                               make_copy=False)
 
     # Collect visuals
-    visuals = [ob for ob in x if 'vispy' in str(type(ob))]
+    visuals = [ob for ob in x if 'vispy' in str(type(ob)) or 'pygfx.objects' in str(type(ob))]
 
     # Collect and parse volumes
     volumes = [ob for ob in x if not isinstance(ob, (core.BaseNeuron,

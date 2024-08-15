@@ -24,5 +24,12 @@ from .cv import (patch_cloudvolume)
 from .decorators import (meshneuron_skeleton, map_neuronlist_df, map_neuronlist,
                          lock_neuron)
 
+try:
+    import navis_fastcore as fastcore
+except ModuleNotFoundError:
+    fastcore = None
+except ImportError:
+    raise
+
 __all__ = ['set_loggers', 'set_pbars', 'set_default_connector_colors',
            'patch_cloudvolume']

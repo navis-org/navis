@@ -23,9 +23,8 @@ import numpy as np
 
 import matplotlib.colors as mcl
 
-from ... import core, config, utils, morpho, conversion
+from ... import core, config, utils, conversion
 from ..colors import *
-from ..plot_utils import segments_to_coords, make_tube
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")

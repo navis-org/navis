@@ -3,7 +3,7 @@
 Install
 =======
 
-NAVis currently requires Python 3.8 or later. Below instructions assume that
+NAVis currently requires Python 3.9 or later. Below instructions assume that
 you have already installed Python and its package manager ``pip``.
 
 .. topic:: By the way
@@ -66,6 +66,19 @@ These extras can be installed directly, or along with navis with
 
 The user-facing extras, the dependencies they install,
 and how to install those dependencies directly, are below.
+
+.. _fastcore:
+
+``fastcore``: `navis-fastcore <https://github.com/schlegelp/fastcore-rs>`_
+  ``navis-fastcore`` re-implements a bunch of low-level functions in Rust
+  and wraps them in Python. ``navis`` will use ``fastcore`` under-the-hood
+  if it is available. This is a highly recommended extra as it will
+  speed up certain operations such as geodesic distances, Strahler Index
+  or pruning by several orders of magnitude.
+
+  ::
+
+    pip3 install navis-fastcore
 
 
 .. _pykd:
