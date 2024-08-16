@@ -219,9 +219,11 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
         subset = np.arange(0, len(x.vertices))[np.isin(sk.vertex_map, subset)]
 
     # Filter connectors
+    # (connectors are associated with vertices, not faces which is why
+    # our `subset` is always a list of vertex indices)
     if not keep_disc_cn and x.has_connectors:
-        if 'vertex_id' not in x.connectors.columns:
-            x.connectors['vertex'] = x.snap(x.connectors[['x', 'y', 'z']].values)[0]
+        if "vertex_id" not in x.connectors.columns:
+            x.connectors["vertex"] = x.snap(x.connectors[["x", "y", "z"]].values)[0]
 
         x._connectors = x.connectors[x.connectors.vertex.isin(subset)].copy()
         x._connectors.reset_index(inplace=True, drop=True)
@@ -229,18 +231,10 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
         # Make old -> new indices map
         new_ix = dict(zip(subset, np.arange(0, len(subset))))
 
-        x.connectors['vertex'] = x.connectors.vertex.map(new_ix)
+        x.connectors["vertex"] = x.connectors.vertex.map(new_ix)
 
-    # Subset the mesh (by faces)
-    # Build the mask bit by bit to be more efficient:
-    subset_faces = np.full(len(x.faces), True)
-    for i in range(3):
-        subset_faces[subset_faces] = np.isin(x.faces[subset_faces, i], subset)
-    subset_faces = np.where(subset_faces)[0]
-
-    if len(subset_faces):
-        submesh = x.trimesh.submesh([subset_faces], append=True)
-        x.vertices, x.faces = submesh.vertices, submesh.faces
+    if len(subset):
+        x.vertices, x.faces = submesh(x, vertex_index=subset)
     else:
         x.vertices, x.faces = np.empty((0, 3)), np.empty((0, 3))
 
@@ -324,3 +318,86 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
         x.reroot(new_root, inplace=True)
 
     return x
+
+
+def submesh(mesh, *, faces_index=None, vertex_index=None):
+    """Re-imlementation of trimesh.submesh that is faster for our use case.
+
+    Notably we:
+     - ignore normals (possibly needed) and visuals (definitely not needed)
+     - allow only one set of faces to be passed
+     - return vertices and faces instead of a new mesh
+     - make as few copies as possible
+     - allow passing vertex indices instead of faces
+
+    This function is 5-10x faster than trimesh.submesh for our use case.
+    Note that the speed of this function was never the bottleneck though,
+    it's about the memory footprint.
+    See https://github.com/navis-org/navis/issues/154.
+
+    Parameters
+    ----------
+    mesh :          trimesh.Trimesh
+                    Mesh to submesh.
+    faces_index :   array-like
+                    Indices of faces to keep.
+    vertex_index :  array-like
+                    Indices of vertices to keep.
+
+    Returns
+    -------
+    vertices :  np.ndarray
+                Vertices of submesh.
+    faces :     np.ndarray
+                Faces of submesh.
+
+    """
+    if faces_index is None and vertex_index is None:
+        raise ValueError("Either `faces_index` or `vertex_index` must be provided.")
+    elif faces_index is not None and vertex_index is not None:
+        raise ValueError("Only one of `faces_index` or `vertex_index` can be provided.")
+
+    # First check if we can return either an empty mesh or the original mesh right away
+    if faces_index is not None:
+        if len(faces_index) == 0:
+            return np.array([]), np.array([])
+        elif len(faces_index) == len(mesh.faces):
+            if len(np.unique(faces_index)) == len(mesh.faces):
+                return mesh.vertices.copy(), mesh.faces.copy()
+    else:
+        if len(vertex_index) == 0:
+            return np.array([]), np.array([])
+        elif len(vertex_index) == len(mesh.vertices):
+            if len(np.unique(vertex_index)) == len(mesh.vertices):
+                return mesh.vertices.copy(), mesh.faces.copy()
+
+    # Use a view of the original data
+    original_faces = mesh.faces.view(np.ndarray)
+    original_vertices = mesh.vertices.view(np.ndarray)
+
+    # If we're starting with vertices, find faces that contain at least one of our vertices
+    # This way we will also make sure to drop unreferenced vertices
+    if vertex_index is not None:
+        faces_index = np.arange(len(original_faces))[
+            np.isin(original_faces, vertex_index).all(axis=1)
+        ]
+
+    # Get unique vertices in the to-be-kept faces
+    faces = original_faces[faces_index]
+    unique = np.unique(faces.reshape(-1))
+
+    # Generate a mask for the vertices
+    # (using int32 here since we're unlikey to have more than 2B vertices)
+    mask = np.arange(len(original_vertices), dtype=np.int32)
+
+    # Remap the vertices to the new indices
+    mask[unique] = np.arange(len(unique))
+
+    # Grab the vertices in the order they are referenced
+    vertices = original_vertices[unique].copy()
+
+    # Remap the faces to the new vertex indices
+    # (making a copy to allow `mask` to be garbage collected)
+    faces = mask[faces].copy()
+
+    return vertices, faces
