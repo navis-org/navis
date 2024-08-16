@@ -194,8 +194,8 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
             # Check if vol.mesh.get has a lod argument
             if lod is not None and 'lod' not in vol.mesh.get.__code__.co_varnames:
                 logger.warning(
-                    'This dataset does not support LODs. '
-                    'Will ignore the `lod` argument. '
+                    'This dataset does not have multi-resolution meshes and '
+                    'the `lod` parameter will be ignored. '
                     'You can silence this warning by setting `lod=None`.')
                 lod = None
 
@@ -228,7 +228,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
         nl = dv.get_meshes(meta.bodyId.values,
                            on_error=missing_mesh,
                            output='navis',
-                           progress=meta.shape[0] == 1 or config.pbar_hide,
+                           progress=meta.shape[0] > 1 and not config.pbar_hide,
                            max_threads=1 if not parallel else max_threads,
                            server=server,
                            node=node)
