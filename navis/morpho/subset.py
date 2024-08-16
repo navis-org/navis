@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 
-from typing import Union, Sequence
+from typing import Union, Sequence, Callable
 
 from .. import utils, config, core, graph
 
@@ -28,8 +28,8 @@ __all__ = sorted(['subset_neuron'])
 
 @utils.lock_neuron
 def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
-                  subset: Union[Sequence[Union[int, str]],
-                                nx.DiGraph,
+    x: Union["core.TreeNeuron", "core.MeshNeuron"],
+    subset: Union[Sequence[Union[int, str]], nx.DiGraph, pd.DataFrame, Callable],
                                 pd.DataFrame],
                   inplace: bool = False,
                   keep_disc_cn: bool = False,
@@ -45,18 +45,23 @@ def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     ----------
     x :                   TreeNeuron | MeshNeuron | Dotprops
                           Neuron to subset.
-    subset :              list-like | set | NetworkX.Graph | pandas.DataFrame
-                          For TreeNeurons:
-                           - node IDs to subset the neuron to
-                           - a boolean mask
-                           - DataFrame with ``node_id`` column
-                          For MeshNeurons:
-                           - vertex indices
-                           - a boolean mask
-                          For Dotprops:
-                           - point indices
-                           - a boolean mask
-
+    subset :              list-like | set | NetworkX.Graph | pandas.DataFrame | Callable
+                          Subset of the neuron to keep. Depending on the neuron:
+                            For TreeNeurons:
+                             - node IDs
+                             - a boolean mask matching the number of nodes
+                             - DataFrame with ``node_id`` column
+                            For MeshNeurons:
+                             - vertex indices
+                             - a boolean mask matching either the number of
+                               vertices or faces
+                            For Dotprops:
+                             - point indices
+                             - a boolean mask matching the number of points
+                          Alternatively, you can pass a function that accepts
+                          a neuron and returns a suitable `subset` as described
+                          above. This is useful e.g. when wanting to subset a
+                          list of neurons.
     keep_disc_cn :        bool, optional
                           If False, will remove disconnected connectors that
                           have "lost" their parent node/vertex.
@@ -98,8 +103,12 @@ def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
-    utils.eval_param(x, name='x',
-                     allowed_types=(core.TreeNeuron, core.MeshNeuron, core.Dotprops))
+    utils.eval_param(
+        x, name="x", allowed_types=(core.TreeNeuron, core.MeshNeuron, core.Dotprops)
+    )
+
+    if callable(subset):
+        subset = subset(x)
 
     # Make a copy of the neuron
     if not inplace:
