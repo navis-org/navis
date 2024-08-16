@@ -174,7 +174,7 @@ class Writer:
                     finally:
                         # Remove temporary file - we do this inside the loop
                         # to avoid unnecessarily occupying space as we write
-                        if f:
+                        if os.path.exists(f):
                             os.remove(f)
 
         # Set filepath to zipfile -> this overwrite filepath set in write_single

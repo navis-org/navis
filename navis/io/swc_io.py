@@ -15,13 +15,14 @@ import csv
 import datetime
 import io
 import json
-
-import pandas as pd
-
+from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Union, Iterable, Dict, Optional, Any, TextIO, IO
 from urllib3 import HTTPResponse
+
+import pandas as pd
+import numpy as np
 
 from .. import config, utils, core
 from . import base
@@ -455,13 +456,16 @@ def write_swc(x: 'core.NeuronObject',
 
     export_connectors : bool, optional
                         If True, will label nodes with pre- ("7") and
-                        postsynapse ("8"). Because only one label can be given
+                        postsynapse ("8"), or both ("9"). Because only one label can be given
                         this might drop synapses (i.e. in case of multiple
                         pre- and/or postsynapses on a single node)! ``labels``
                         must be ``True`` for this to have any effect.
-    return_node_map :   bool
+    return_node_map :   bool, optional
                         If True, will return a dictionary mapping the old node
                         ID to the new reindexed node IDs in the file.
+                        If False (default), will reindex nodes but not return the mapping.
+                        If None, will not reindex nodes (i.e. their current IDs will be written).
+
 
     Returns
     -------
@@ -547,7 +551,7 @@ def _write_swc(x: Union['core.TreeNeuron', 'core.Dotprops'],
                write_meta: Union[bool, List[str], dict] = True,
                labels: Union[str, dict, bool] = True,
                export_connectors: bool = False,
-               return_node_map: bool = False) -> None:
+               return_node_map: Optional[bool] = False) -> None:
     """Write single TreeNeuron to file."""
     # Generate SWC table
     res = make_swc_table(x,
@@ -584,7 +588,7 @@ def _write_swc(x: Union['core.TreeNeuron', 'core.Dotprops'],
         """)
         if export_connectors:
             header += dedent("""\
-            # 7 = presynapses, 8 = postsynapses
+            # 7 = presynapses, 8 = postsynapses, 9 = both pre- and post-synapses
             """)
     elif not header.endswith('\n'):
         header += '\n'
@@ -601,7 +605,49 @@ def _write_swc(x: Union['core.TreeNeuron', 'core.Dotprops'],
         return node_map
 
 
-def make_swc_table(x: Union['core.TreeNeuron', 'core.Dotprops'],
+def _sort_swc_dfs(df: pd.DataFrame, roots, sort_children=True, inplace=False):
+    """Depth-first search tree to ensure parents are always defined before children."""
+    children = defaultdict(list)
+    node_id_to_orig_idx = dict()
+    for row in df.itertuples():
+        child = row.node_id
+        parent = row.parent_id
+        children[parent].append(child)
+        node_id_to_orig_idx[child] = row.Index
+
+    if sort_children:
+        to_visit = sorted(roots, reverse=True)
+    else:
+        to_visit = list(roots)[::-1]
+
+    order = np.full(len(df), np.nan)
+    count = 0
+    while to_visit:
+        node_id = to_visit.pop()
+        order[node_id_to_orig_idx[node_id]] = count
+        cs = children.pop(node_id, [])
+        if sort_children:
+            to_visit.extend(sorted(cs, reverse=True))
+        else:
+            to_visit.extend(cs[::-1])
+        count += 1
+
+    # undefined behaviour if any nodes are not reachable from the given roots
+
+    if not inplace:
+        df = df.copy()
+
+    df["_order"] = order
+    df.sort_values("_order", inplace=True)
+    df.drop(columns=["_order"], inplace=True)
+    return df
+
+
+def _sort_swc_parent(df, inplace=False):
+    return df.sort_values("parent_id", inplace=inplace)
+
+
+def make_swc_table(x: 'core.TreeNeuron',
                    labels: Union[str, dict, bool] = None,
                    export_connectors: bool = False,
                    return_node_map: bool = False) -> pd.DataFrame:
@@ -620,17 +666,20 @@ def make_swc_table(x: Union['core.TreeNeuron', 'core.Dotprops'],
 
                         str : column name in node table
                         dict: must be of format {node_id: 'label', ...}.
-                        bool: if True, will generate automatic labels, if False all nodes have label "0".
+                        bool: if True, will generate automatic labels for branches ("5") and ends ("6"),
+                        soma where labelled ("1"), and optionally connectors (see below).
+                        If False (or for all nodes not labelled as above) all nodes have label "0".
 
     export_connectors : bool, optional
-                        If True, will label nodes with pre- ("7") and
-                        postsynapse ("8"). Because only one label can be given
-                        this might drop synapses (i.e. in case of multiple
-                        pre- or postsynapses on a single node)! ``labels``
-                        must be ``True`` for this to have any effect.
-    return_node_map :   bool
+                        If True, will label nodes with only presynapses ("7"),
+                        only postsynapses ("8"), or both ("9").
+                        This overrides branch/end/soma labels.
+                        ``labels`` must be ``True`` for this to have any effect.
+    return_node_map :   bool, optional
                         If True, will return a dictionary mapping the old node
                         ID to the new reindexed node IDs in the file.
+                        If False, will remap IDs but not return the mapping.
+                        If None, will not remap IDs.
 
     Returns
     -------
@@ -642,8 +691,9 @@ def make_swc_table(x: Union['core.TreeNeuron', 'core.Dotprops'],
     if isinstance(x, core.Dotprops):
         x = x.to_skeleton()
 
-    # Work on a copy
-    swc = x.nodes.copy()
+    # Work on a copy sorted in depth-first order
+    # swc = _sort_swc_parent(x.nodes, inplace=False)
+    swc = _sort_swc_dfs(x.nodes, x.root, inplace=False)
 
     # Add labels
     swc['label'] = 0
@@ -659,31 +709,41 @@ def make_swc_table(x: Union['core.TreeNeuron', 'core.Dotprops'],
         if not isinstance(x.soma, type(None)):
             soma = utils.make_iterable(x.soma)
             swc.loc[swc.node_id.isin(soma), 'label'] = 1
+
         if export_connectors:
             # Add synapse label
             pre_ids = x.presynapses.node_id.values
             post_ids = x.postsynapses.node_id.values
-            swc.loc[swc.node_id.isin(pre_ids), 'label'] = 7
-            swc.loc[swc.node_id.isin(post_ids), 'label'] = 8
 
-    # Sort such that the parent is always before the child
-    swc.sort_values('parent_id', ascending=True, inplace=True)
+            is_pre = swc["node_id"].isin(pre_ids)
+            swc.loc[is_pre, 'label'] = 7
 
-    # Reset index
-    swc.reset_index(drop=True, inplace=True)
+            is_post = swc["node"].isin(post_ids)
+            swc.loc[is_post, 'label'] = 8
 
-    # Generate mapping
-    new_ids = dict(zip(swc.node_id.values, swc.index.values + 1))
+            is_both = np.logical_and(is_pre, is_post)
+            swc.loc[is_both, 'label'] = 9
 
-    swc['node_id'] = swc.node_id.map(new_ids)
-    # Lambda prevents potential issue with missing parents
-    swc['parent_id'] = swc.parent_id.map(lambda x: new_ids.get(x, -1))
-
-    # Get things in order
+    # Order columns
     swc = swc[['node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id']]
 
-    # Make sure radius has no `None`
+    # Make sure radius has no `None` or negative
     swc['radius'] = swc.radius.fillna(0)
+    swc.loc[swc["radius"] < 0, "radius"] = 0
+
+    if return_node_map is not None:
+        # remap IDs
+
+        # Reset index
+        swc.reset_index(drop=True, inplace=True)
+
+        # Generate mapping
+        new_ids = dict(zip(swc.node_id.values, swc.index.values + 1))
+
+        swc['node_id'] = swc.node_id.map(new_ids)
+        # Lambda prevents potential issue with missing parents
+        swc['parent_id'] = swc.parent_id.map(lambda x: new_ids.get(x, -1))
+
 
     # Adjust column titles
     swc.columns = ['PointNo', 'Label', 'X', 'Y', 'Z', 'Radius', 'Parent']
