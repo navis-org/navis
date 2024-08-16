@@ -91,7 +91,17 @@ def subset_neuron(
     >>> # Flatten segments into list of nodes
     >>> nodes_to_keep = [n for s in short_segs for n in s]
     >>> # Subset neuron
-    >>> n_short = navis.subset_neuron(n, nodes_to_keep)
+    >>> n_short = navis.subset_neuron(n, subset=nodes_to_keep)
+
+    Subset multiple neurons using a callable
+
+    >>> import navis
+    >>> nl = navis.example_neurons(2)
+    >>> # Subset neurons to all leaf nodes
+    >>> nl_end = navis.subset_neuron(
+    ...     nl,
+    ...     subset=lambda x: x.leafs.node_id
+    ... )
 
     See Also
     --------
