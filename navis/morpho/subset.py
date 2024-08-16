@@ -23,18 +23,18 @@ from .. import utils, config, core, graph
 # Set up logging
 logger = config.get_logger(__name__)
 
-__all__ = sorted(['subset_neuron'])
+__all__ = sorted(["subset_neuron"])
 
 
+@utils.map_neuronlist(desc="Subsetting", allow_parallel=True)
 @utils.lock_neuron
-def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
+def subset_neuron(
     x: Union["core.TreeNeuron", "core.MeshNeuron"],
     subset: Union[Sequence[Union[int, str]], nx.DiGraph, pd.DataFrame, Callable],
-                                pd.DataFrame],
-                  inplace: bool = False,
-                  keep_disc_cn: bool = False,
-                  prevent_fragments: bool = False
-                  ) -> 'core.NeuronObject':
+    inplace: bool = False,
+    keep_disc_cn: bool = False,
+    prevent_fragments: bool = False,
+) -> "core.NeuronObject":
     """Subset a neuron to a given set of nodes/vertices.
 
     Note that for ``MeshNeurons`` it is not guaranteed that all vertices in
@@ -43,8 +43,9 @@ def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
     Parameters
     ----------
-    x :                   TreeNeuron | MeshNeuron | Dotprops
-                          Neuron to subset.
+    x :                   TreeNeuron | MeshNeuron | Dotprops | NeuronList
+                          Neuron to subset. When passing a NeuronList, it's advised
+                          to use a function for `subset` (see below).
     subset :              list-like | set | NetworkX.Graph | pandas.DataFrame | Callable
                           Subset of the neuron to keep. Depending on the neuron:
                             For TreeNeurons:
@@ -74,7 +75,7 @@ def subset_neuron(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
     Returns
     -------
-    TreeNeuron | MeshNeuron
+    TreeNeuron | MeshNeuron | Dotprops | NeuronList
 
     Examples
     --------
