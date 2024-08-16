@@ -116,27 +116,31 @@ def subset_neuron(
         x = x.copy()
         # We have to run this in a separate function so that the lock is applied
         # to the copy
-        subset_neuron(x,
-                      subset=subset,
-                      inplace=True,
-                      keep_disc_cn=keep_disc_cn,
-                      prevent_fragments=prevent_fragments)
+        subset_neuron(
+            x,
+            subset=subset,
+            inplace=True,
+            keep_disc_cn=keep_disc_cn,
+            prevent_fragments=prevent_fragments,
+        )
         return x
 
     if isinstance(x, core.TreeNeuron):
-        x = _subset_treeneuron(x,
-                               subset=subset,
-                               keep_disc_cn=keep_disc_cn,
-                               prevent_fragments=prevent_fragments)
+        x = _subset_treeneuron(
+            x,
+            subset=subset,
+            keep_disc_cn=keep_disc_cn,
+            prevent_fragments=prevent_fragments,
+        )
     elif isinstance(x, core.MeshNeuron):
-        x = _subset_meshneuron(x,
-                               subset=subset,
-                               keep_disc_cn=keep_disc_cn,
-                               prevent_fragments=prevent_fragments)
+        x = _subset_meshneuron(
+            x,
+            subset=subset,
+            keep_disc_cn=keep_disc_cn,
+            prevent_fragments=prevent_fragments,
+        )
     elif isinstance(x, core.Dotprops):
-        x = _subset_dotprops(x,
-                             subset=subset,
-                             keep_disc_cn=keep_disc_cn)
+        x = _subset_dotprops(x, subset=subset, keep_disc_cn=keep_disc_cn)
 
     return x
 
@@ -144,23 +148,25 @@ def subset_neuron(
 def _subset_dotprops(x, subset, keep_disc_cn):
     """Subset Dotprops."""
     if not utils.is_iterable(subset):
-        raise TypeError('Can only subset Dotprops to list, set or '
-                        f'numpy.ndarray, not "{type(subset)}"')
+        raise TypeError(
+            "Can only subset Dotprops to list, set or "
+            f'numpy.ndarray, not "{type(subset)}"'
+        )
 
     subset = utils.make_iterable(subset)
 
     # Convert indices to mask
     if subset.dtype == bool:
-        if subset.shape != (x.points.shape[0], ):
-            raise ValueError('Boolean mask must be of same length as points.')
+        if subset.shape != (x.points.shape[0],):
+            raise ValueError("Boolean mask must be of same length as points.")
         mask = subset
     else:
         mask = np.isin(np.arange(0, len(x.points)), subset)
 
     # Filter connectors
     if not keep_disc_cn and x.has_connectors:
-        if 'point' not in x.connectors.columns:
-            x.connectors['point'] = x.snap(x.connectors[['x', 'y', 'z']].values)[0]
+        if "point" not in x.connectors.columns:
+            x.connectors["point"] = x.snap(x.connectors[["x", "y", "z"]].values)[0]
 
         if subset.dtype == bool:
             subset = np.arange(0, len(x.points))[subset]
@@ -171,7 +177,7 @@ def _subset_dotprops(x, subset, keep_disc_cn):
         # Make old -> new indices map
         new_ix = dict(zip(subset, np.arange(0, len(subset))))
 
-        x.connectors['point'] = x.connectors.point.map(new_ix)
+        x.connectors["point"] = x.connectors.point.map(new_ix)
 
     # Mask vectors
     # This will also trigger re-calculation which is necessary for two reasons:
@@ -259,8 +265,10 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
         # This forces subset into numpy array (important for e.g. sets)
         subset = utils.make_iterable(subset)
     else:
-        raise TypeError('Can only subset to list, set, numpy.ndarray or'
-                        f'networkx.Graph, not "{type(subset)}"')
+        raise TypeError(
+            "Can only subset to list, set, numpy.ndarray or"
+            f'networkx.Graph, not "{type(subset)}"'
+        )
 
     if prevent_fragments:
         subset, new_root = graph.connected_subgraph(x, subset)
@@ -280,41 +288,54 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
     # Make sure that there are root nodes
     # This is the fastest "pandorable" way: instead of overwriting the column,
     # concatenate a new column to this DataFrame
-    x._nodes = pd.concat([x.nodes.drop('parent_id', inplace=False, axis=1),  # type: ignore  # no stubs for concat
-                          x.nodes[['parent_id']].where(x.nodes.parent_id.isin(x.nodes.node_id.values),
-                                                       other=-1, inplace=False)],
-                         axis=1)
+    x._nodes = pd.concat(
+        [
+            x.nodes.drop("parent_id", inplace=False, axis=1),  # type: ignore  # no stubs for concat
+            x.nodes[["parent_id"]].where(
+                x.nodes.parent_id.isin(x.nodes.node_id.values), other=-1, inplace=False
+            ),
+        ],
+        axis=1,
+    )
 
     # Make sure any new roots or leafs are properly typed
     # We won't produce new slabs but roots and leaves might change
-    x.nodes.loc[x.nodes.parent_id < 0, 'type'] = 'root'
-    x.nodes.loc[(~x.nodes.node_id.isin(x.nodes.parent_id.values)
-                 & (x.nodes.parent_id >= 0)), 'type'] = 'end'
+    x.nodes.loc[x.nodes.parent_id < 0, "type"] = "root"
+    x.nodes.loc[
+        (~x.nodes.node_id.isin(x.nodes.parent_id.values) & (x.nodes.parent_id >= 0)),
+        "type",
+    ] = "end"
 
     # Filter connectors
     if not keep_disc_cn and x.has_connectors:
         x._connectors = x.connectors[x.connectors.node_id.isin(x.nodes.node_id)]
         x._connectors.reset_index(inplace=True, drop=True)
 
-    if getattr(x, 'tags', None) is not None:
+    if getattr(x, "tags", None) is not None:
         # Filter tags
-        x.tags = {t: [tn for tn in x.tags[t] if tn in x.nodes.node_id.values] for t in x.tags}  # type: ignore  # TreeNeuron has no tags
+        x.tags = {
+            t: [tn for tn in x.tags[t] if tn in x.nodes.node_id.values] for t in x.tags
+        }  # type: ignore  # TreeNeuron has no tags
 
         # Remove empty tags
         x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}  # type: ignore  # TreeNeuron has no tags
 
     # Fix graph representations (avoids having to recompute them)
-    if '_graph_nx' in x.__dict__:
+    if "_graph_nx" in x.__dict__:
         x._graph_nx = x.graph.subgraph(x.nodes.node_id.values)
-    if '_igraph' in x.__dict__:
+    if "_igraph" in x.__dict__:
         if x.igraph and config.use_igraph:
-            id2ix = {n: ix for ix, n in zip(x.igraph.vs.indices,
-                                            x.igraph.vs.get_attribute_values('node_id'))}
+            id2ix = {
+                n: ix
+                for ix, n in zip(
+                    x.igraph.vs.indices, x.igraph.vs.get_attribute_values("node_id")
+                )
+            }
             indices = [id2ix[n] for n in x.nodes.node_id.values]
             vs = x.igraph.vs[indices]
             x._igraph = x.igraph.subgraph(vs)
 
-    if hasattr(x, '_soma') and x._soma is not None:
+    if hasattr(x, "_soma") and x._soma is not None:
         # Check if soma is still in the neuron
         if x._soma not in x.nodes.node_id.values:
             x._soma = None
