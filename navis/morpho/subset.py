@@ -197,16 +197,24 @@ def _subset_dotprops(x, subset, keep_disc_cn):
 def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
     """Subset MeshNeuron."""
     if not utils.is_iterable(subset):
-        raise TypeError('Can only subset MeshNeuron to list, set or '
-                        f'numpy.ndarray, not "{type(subset)}"')
+        raise TypeError(
+            "Can only subset MeshNeuron to list, set or "
+            f'numpy.ndarray, not "{type(subset)}"'
+        )
 
     subset = utils.make_iterable(subset)
 
-    # Convert mask to indices
+    # Convert mask to vertex indices
     if subset.dtype == bool:
-        if subset.shape != (x.vertices.shape[0], ):
-            raise ValueError('Boolean mask must be of same length as vertices.')
-        subset = np.arange(0, len(x.vertices))[subset]
+        if subset.shape[0] == x.vertices.shape[0]:
+            subset = np.arange(len(x.vertices))[subset]
+        elif subset.shape[0] == x.faces.shape[0]:
+            # Translate face mask to vertex indices
+            subset = np.unique(x.faces[subset])
+        else:
+            raise ValueError(
+                "Boolean mask must be of same length as vertices or faces."
+            )
 
     if prevent_fragments:
         # Generate skeleton
