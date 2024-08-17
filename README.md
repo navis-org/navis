@@ -33,6 +33,7 @@ pip3 install 'navis[all]'
 which includes all optional extras providing features and/or performance improvements.
 Currently, this is
 `igraph`,
+`navis-fastcore`,
 `pathos`,
 `shapely`,
 `kdtree`,
