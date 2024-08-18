@@ -25,44 +25,48 @@ from typing import Optional, Union, Any, List
 from typing_extensions import Literal
 
 from .. import core, config, utils
-
 from ..morpho.mmetrics import parent_dist
-
 from .colors import prepare_connector_cmap
 
 logger = config.get_logger(__name__)
 
-__all__ = ['plot_flat']
+__all__ = ["plot_flat", "print_skeleton"]
 
-_DEFAULTS = dict(origin=(0, 0),  # Origin in coordinate system
-                 start_angle=0,  # Start angle (0 -> to right)
-                 angle_change=45,  # Angle between branch and its child
-                 angle_decrease=0,  # Angle decrease with each branch point
-                 syn_marker_size=.5,  # Length of orthogonal synapse markers/size of scatter
-                 switch_dist=1,  # Distance threshold for inverting angle (i.e. flip branch direction)
-                 syn_linewidth=1.5,  # Line width for connectors
-                 syn_highlight_color=(1, 0, 0),  # Color for highlighted connectors
-                 force_nx=False,  # Force using networkx over igraph
-                 color=(0.1, 0.1, 0.1)  # Color for neurites
-                 )
+_DEFAULTS = dict(
+    origin=(0, 0),  # Origin in coordinate system
+    start_angle=0,  # Start angle (0 -> to right)
+    angle_change=45,  # Angle between branch and its child
+    angle_decrease=0,  # Angle decrease with each branch point
+    syn_marker_size=0.5,  # Length of orthogonal synapse markers/size of scatter
+    switch_dist=1,  # Distance threshold for inverting angle (i.e. flip branch direction)
+    syn_linewidth=1.5,  # Line width for connectors
+    syn_highlight_color=(1, 0, 0),  # Color for highlighted connectors
+    force_nx=False,  # Force using networkx over igraph
+    color=(0.1, 0.1, 0.1),  # Color for neurites
+)
+
+_NODE_POSITIONS = {}
 
 
-def plot_flat(x,
-              layout: Union[Literal['subway'],
-                            Literal['dot'],
-                            Literal['neato'],
-                            Literal['fpd'],
-                            Literal['sfpd'],
-                            Literal['twopi'],
-                            Literal['circo'],
-                            ] = 'subway',
-              connectors: bool = False,
-              highlight_connectors: Optional[List[int]] = None,
-              shade_by_length: bool = False,
-              normalize_distance: bool = False,
-              reroot_soma: bool = False,
-              ax: Optional[Any] = None,
-              **kwargs):
+def plot_flat(
+    x,
+    layout: Union[
+        Literal["subway"],
+        Literal["dot"],
+        Literal["neato"],
+        Literal["fpd"],
+        Literal["sfpd"],
+        Literal["twopi"],
+        Literal["circo"],
+    ] = "subway",
+    connectors: bool = False,
+    highlight_connectors: Optional[List[int]] = None,
+    shade_by_length: bool = False,
+    normalize_distance: bool = False,
+    reroot_soma: bool = False,
+    ax: Optional[Any] = None,
+    **kwargs,
+):
     """Plot neuron as flat diagrams.
 
     Parameters
@@ -132,9 +136,12 @@ def plot_flat(x,
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
-    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron,))
-    utils.eval_param(layout, name='layout',
-                     allowed_values=('subway', 'dot', 'neato', 'fdp', 'sfdp', 'twopi', 'circo'))
+    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(
+        layout,
+        name="layout",
+        allowed_values=("subway", "dot", "neato", "fdp", "sfdp", "twopi", "circo"),
+    )
 
     # Work on the copy of the neuron
     x = x.copy()
@@ -143,45 +150,59 @@ def plot_flat(x,
     if reroot_soma and x.soma:
         x.reroot(x.soma, inplace=True)
 
-    if layout == 'subway':
-        return _plot_subway(x,
-                            connectors=connectors,
-                            highlight_connectors=highlight_connectors,
-                            shade_by_length=shade_by_length,
-                            normalize_distance=normalize_distance,
-                            ax=ax, **kwargs)
+    if layout == "subway":
+        return _plot_subway(
+            x,
+            connectors=connectors,
+            highlight_connectors=highlight_connectors,
+            shade_by_length=shade_by_length,
+            normalize_distance=normalize_distance,
+            ax=ax,
+            **kwargs,
+        )
     else:
-        return _plot_force(x,
-                           prog=layout,
-                           connectors=connectors,
-                           highlight_connectors=highlight_connectors,
-                           ax=ax, **kwargs)
+        return _plot_force(
+            x,
+            prog=layout,
+            connectors=connectors,
+            highlight_connectors=highlight_connectors,
+            ax=ax,
+            **kwargs,
+        )
 
 
-def _plot_subway(x, connectors=False, highlight_connectors=[],
-                 shade_by_length=False, normalize_distance=False, ax=None,
-                 **kwargs):
+def _plot_subway(
+    x,
+    connectors=False,
+    highlight_connectors=[],
+    shade_by_length=False,
+    normalize_distance=False,
+    ax=None,
+    **kwargs,
+):
     """Plot neuron as dendrogram. Preserves distances along branches."""
     DEFAULTS = _DEFAULTS.copy()
     DEFAULTS.update(kwargs)
     if len(x.root) > 1:
-        raise ValueError('Unable to plot neuron with multiple roots. Use '
-                         '`navis.heal_skeleton` to merge the fragments.')
+        raise ValueError(
+            "Unable to plot neuron with multiple roots. Use "
+            "`navis.heal_skeleton` to merge the fragments."
+        )
 
     # Change scale of markers if we normalise to max neurite length
     if normalize_distance:
-        DEFAULTS['syn_marker_len'] /= 1000
-        DEFAULTS['switch_dist'] /= 1000
+        DEFAULTS["syn_marker_len"] /= 1000
+        DEFAULTS["switch_dist"] /= 1000
 
     if not ax:
-        fig, ax = plt.subplots(figsize=kwargs.get('figsize', (10, 10)))
+        fig, ax = plt.subplots(figsize=kwargs.get("figsize", (10, 10)))
         # Make background transparent (nicer for dark themes)
         fig.patch.set_alpha(0)
         ax.patch.set_alpha(0)
 
     # For each node get the distance to its root
-    if 'parent_dist' not in x.nodes.columns:
-        x.nodes['parent_dist'] = parent_dist(x, 0)
+    if "parent_dist" not in x.nodes.columns:
+        x.nodes["parent_dist"] = parent_dist(x, 0)
 
     # First collect leafs, branches and root
     leaf_nodes = x.leafs.node_id.values
@@ -189,16 +210,16 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
     branch_nodes = set(x.branch_points.node_id.values)
 
     # Use igraph if possible:
-    if x.igraph and not DEFAULTS['force_nx']:
+    if x.igraph and not DEFAULTS["force_nx"]:
         # Convert node IDs to igraph vertex indices
         leaf_vs = x.igraph.vs.select(node_id_in=leaf_nodes)
         root_vs = x.igraph.vs.select(node_id_in=root_nodes)
 
         # Now get paths from all tips to the root
-        paths = x.igraph.get_shortest_paths(root_vs[0], leaf_vs, mode='ALL')
+        paths = x.igraph.get_shortest_paths(root_vs[0], leaf_vs, mode="ALL")
 
         # Translate indices back into node ids
-        ids = np.array(x.igraph.vs.get_attribute_values('node_id'))
+        ids = np.array(x.igraph.vs.get_attribute_values("node_id"))
         paths_tn = [ids[p] for p in paths]
     else:
         # Fall back to networkX
@@ -206,20 +227,20 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
         paths_tn = [iterator[l][::-1] for l in leaf_nodes]
 
     # Generate DataFrame with all the info
-    nodes = x.nodes.set_index('node_id')
+    nodes = x.nodes.set_index("node_id")
     path_df = pd.DataFrame()
-    path_df['path'] = paths_tn
+    path_df["path"] = paths_tn
     pdist = nodes.parent_dist.to_dict()
-    path_df['distances'] = path_df.path.map(lambda x: np.array([pdist[n] for n in x]))
-    path_df['cable'] = path_df.distances.map(lambda x: sum(x))
+    path_df["distances"] = path_df.path.map(lambda x: np.array([pdist[n] for n in x]))
+    path_df["cable"] = path_df.distances.map(lambda x: sum(x))
 
     # Sort DataFrame by cable length
-    path_df.sort_values('cable', inplace=True, ascending=False)
+    path_df.sort_values("cable", inplace=True, ascending=False)
     path_df.reset_index(inplace=True)
 
     # Prepare for plotting by finding starts points and defining angles
-    positions = {x.root[0]: DEFAULTS['origin']}
-    angles = {x.root[0]: DEFAULTS['start_angle']}
+    positions = {x.root[0]: DEFAULTS["origin"]}
+    angles = {x.root[0]: DEFAULTS["start_angle"]}
 
     seen = {x.root[0]}
     for k, path in enumerate(path_df.path.values):
@@ -249,18 +270,20 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
         # Make sure the longest neurite goes horizontally
         # (or whatever START_ANGLE is)
         if k != 0:
-            angle = DEFAULTS['angle_change'] - (DEFAULTS['angle_decrease'] * n_branch_points)
-            angle = max(angle, DEFAULTS['angle_decrease'])
+            angle = DEFAULTS["angle_change"] - (
+                DEFAULTS["angle_decrease"] * n_branch_points
+            )
+            angle = max(angle, DEFAULTS["angle_decrease"])
         else:
-            angle = DEFAULTS['start_angle']
+            angle = DEFAULTS["start_angle"]
 
         # Invert angle depending on odd or even branch points
         # (only to this if major branch -> SWITCH_DIST)
-        if n_branch_points % 2 != 0 and distances[-1] >= DEFAULTS['switch_dist']:
-            angle *= - 1
+        if n_branch_points % 2 != 0 and distances[-1] >= DEFAULTS["switch_dist"]:
+            angle *= -1
 
         # Angle to radians
-        angle *= math.pi/180
+        angle *= math.pi / 180
 
         # Add to last angle
         angle += last_angle
@@ -274,16 +297,18 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
         x_coords += start_point[0]
 
         # Apply shade
-        color = DEFAULTS['color']
+        color = DEFAULTS["color"]
         if shade_by_length:
-            a = .8 - .8 * distances[-1] / path_df.cable.max()
+            a = 0.8 - 0.8 * distances[-1] / path_df.cable.max()
             color = mcl.to_rgba(color, alpha=a)
 
         # Change linewidths with path length
-        lw = 1 * distances[-1] / path_df.cable.max() + .5
+        lw = 1 * distances[-1] / path_df.cable.max() + 0.5
 
         # Plot
-        ax.plot(x_coords, y_coords, color=color, zorder=path_df.shape[0]-k, linewidth=lw)
+        ax.plot(
+            x_coords, y_coords, color=color, zorder=path_df.shape[0] - k, linewidth=lw
+        )
 
         # Keep track of positions for each treenode and angle of each path
         for i, coords in enumerate(zip(x_coords, y_coords)):
@@ -302,26 +327,34 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
         angles = (x.connectors.node_id.map(angles) + 90 * (math.pi / 180)).values
 
         # Create lines orthogonal to parent branch
-        y_coords = np.sin(angles) * DEFAULTS['syn_marker_size']
-        y_coords = np.dstack((y_coords + centers[:, 1],
-                              -y_coords + centers[:, 1],
-                              [None] * len(y_coords))
-                             ).flatten()
-        x_coords = np.cos(angles) * DEFAULTS['syn_marker_size']
-        x_coords = np.dstack((x_coords + centers[:, 0],
-                              -x_coords + centers[:, 0],
-                              [None] * len(x_coords))
-                             ).flatten()
+        y_coords = np.sin(angles) * DEFAULTS["syn_marker_size"]
+        y_coords = np.dstack(
+            (
+                y_coords + centers[:, 1],
+                -y_coords + centers[:, 1],
+                [None] * len(y_coords),
+            )
+        ).flatten()
+        x_coords = np.cos(angles) * DEFAULTS["syn_marker_size"]
+        x_coords = np.dstack(
+            (
+                x_coords + centers[:, 0],
+                -x_coords + centers[:, 0],
+                [None] * len(x_coords),
+            )
+        ).flatten()
 
         cn_cmap = prepare_connector_cmap(x)
         for ty in x.connectors.type.unique():
             is_type = x.connectors.type == ty
             is_type = np.dstack((is_type, is_type, is_type)).flatten()
-            ax.plot(x_coords[is_type],
-                    y_coords[is_type],
-                    color=cn_cmap[ty]['color'],
-                    zorder=path_df.shape[0] + 1,
-                    linewidth=DEFAULTS['syn_linewidth'])
+            ax.plot(
+                x_coords[is_type],
+                y_coords[is_type],
+                color=cn_cmap[ty]["color"],
+                zorder=path_df.shape[0] + 1,
+                linewidth=DEFAULTS["syn_linewidth"],
+            )
 
     # Plot highlighted connectors
     if not isinstance(highlight_connectors, type(None)) and x.has_connectors:
@@ -332,39 +365,53 @@ def _plot_subway(x, connectors=False, highlight_connectors=[],
         angles = (this.node_id.map(angles) + 90 * (math.pi / 180)).values
 
         # Create lines orthogonal to parent branch
-        y_coords = np.sin(angles) * DEFAULTS['syn_marker_size']
-        y_coords = np.dstack((y_coords + centers[:, 1],
-                              -y_coords + centers[:, 1],
-                              [None] * len(y_coords))
-                             ).flatten()
-        x_coords = np.cos(angles) * DEFAULTS['syn_marker_size']
-        x_coords = np.dstack((x_coords + centers[:, 0],
-                              -x_coords + centers[:, 0],
-                              [None] * len(x_coords))
-                             ).flatten()
+        y_coords = np.sin(angles) * DEFAULTS["syn_marker_size"]
+        y_coords = np.dstack(
+            (
+                y_coords + centers[:, 1],
+                -y_coords + centers[:, 1],
+                [None] * len(y_coords),
+            )
+        ).flatten()
+        x_coords = np.cos(angles) * DEFAULTS["syn_marker_size"]
+        x_coords = np.dstack(
+            (
+                x_coords + centers[:, 0],
+                -x_coords + centers[:, 0],
+                [None] * len(x_coords),
+            )
+        ).flatten()
 
-        ax.plot(x_coords,
-                y_coords,
-                color=DEFAULTS['syn_highlight_color'],
-                zorder=path_df.shape[0] + 2,
-                linewidth=DEFAULTS['syn_linewidth'])
+        ax.plot(
+            x_coords,
+            y_coords,
+            color=DEFAULTS["syn_highlight_color"],
+            zorder=path_df.shape[0] + 2,
+            linewidth=DEFAULTS["syn_linewidth"],
+        )
 
     # Plot soma
     if x.has_soma:
         soma = utils.make_iterable(x.soma)[0]
         soma_pos = positions[soma]
-        ax.scatter([soma_pos[0]], [soma_pos[1]],
-                   s=40, color=(.1, .1, .1))
+        ax.scatter([soma_pos[0]], [soma_pos[1]], s=40, color=(0.1, 0.1, 0.1))
 
     # Make sure x/y axis are equal
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
 
     # Return axis
     return ax, positions
 
 
-def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
-                ax=None, **kwargs):
+def _plot_force(
+    x,
+    connectors=False,
+    highlight_connectors=None,
+    prog="dot",
+    ax=None,
+    use_cache=True,
+    **kwargs,
+):
     """Plot neurons as dendrograms using graphviz layouts."""
     DEFAULTS = _DEFAULTS.copy()
     DEFAULTS.update(kwargs)
@@ -374,52 +421,129 @@ def _plot_force(x, connectors=False, highlight_connectors=None, prog='dot',
     # Generate and populate networkX graph representation of the neuron
     G = x.graph.copy()
     # graphviz needs "len" not "weight"
-    nx.set_edge_attributes(G, nx.get_edge_attributes(G, 'weight'), name='len')
+    nx.set_edge_attributes(G, nx.get_edge_attributes(G, "weight"), name="len")
 
     # Calculate layout
-    logger.info('Calculating node positions.')
-    positions = nx.nx_agraph.graphviz_layout(G, prog=prog,
-                                             root=utils.make_iterable(x.soma)[0] if x.has_soma else None)
+    if x.core_md5 in _NODE_POSITIONS and use_cache:
+        logger.info(
+            "Using cached node positions. Set `use_cache=False` to "
+            "calculate from scratch."
+        )
+        positions = _NODE_POSITIONS[x.core_md5]
+    else:
+        logger.info("Calculating node positions.")
+        # Make sure this doesn't grow out of proportion
+        while len(_NODE_POSITIONS) > 8:
+            _ = _NODE_POSITIONS.popitem()
+
+        positions = nx.nx_agraph.graphviz_layout(
+            G, prog=prog, root=utils.make_iterable(x.soma)[0] if x.has_soma else None
+        )
+        _NODE_POSITIONS[x.core_md5] = positions
 
     # Plot tree with above layout
-    logger.info('Plotting tree.')
+    logger.info("Plotting tree.")
     if not ax:
-        fig, ax = plt.subplots(figsize=kwargs.get('figsize', (12, 6)))
+        fig, ax = plt.subplots(figsize=kwargs.get("figsize", (12, 6)))
         # Make background transparent (nicer for dark themes)
         fig.patch.set_alpha(0)
         ax.patch.set_alpha(0)
 
-    nx.draw(G, positions,
-            node_size=0,
-            arrows=False,
-            edge_color=DEFAULTS['color'],
-            ax=ax)
+    nx.draw(
+        G, positions, node_size=0, arrows=False, edge_color=DEFAULTS["color"], ax=ax
+    )
 
     # Add soma
     if x.has_soma:
         for s in utils.make_iterable(x.soma):
-            ax.scatter([positions[s][0]], [positions[s][1]],
-                       s=40, color=DEFAULTS['color'],
-                       zorder=1)
+            ax.scatter(
+                [positions[s][0]],
+                [positions[s][1]],
+                s=40,
+                color=DEFAULTS["color"],
+                zorder=1,
+            )
 
     if connectors and x.has_connectors:
         cn_cmap = prepare_connector_cmap(x)
         for ty in x.connectors.type.unique():
             this = x.connectors[x.connectors.type == ty]
             coords = np.vstack(this.node_id.map(positions))
-            ax.scatter(coords[:, 0], coords[:, 1],
-                       color=cn_cmap[ty]['color'],
-                       zorder=2,
-                       s=DEFAULTS['syn_marker_size'] * 10)
+            ax.scatter(
+                coords[:, 0],
+                coords[:, 1],
+                color=cn_cmap[ty]["color"],
+                zorder=2,
+                s=DEFAULTS["syn_marker_size"] * 10,
+            )
 
     if not isinstance(highlight_connectors, type(None)) and x.has_connectors:
         this = x.connectors[x.connectors.connector_id.isin(highlight_connectors)]
-        coords = np.vstack(this.node_id.map(positions))
-        ax.scatter(coords[:, 0], coords[:, 1],
-                   color=DEFAULTS['syn_highlight_color'],
-                   zorder=3,
-                   s=DEFAULTS['syn_marker_size'] * 10)
+        if this.empty:
+            logger.warning(
+                "None of the connector IDs in `highlight_connectors`"
+                "were found in neuron"
+            )
+        else:
+            coords = np.vstack(this.node_id.map(positions))
+            ax.scatter(
+                coords[:, 0],
+                coords[:, 1],
+                color=DEFAULTS["syn_highlight_color"],
+                zorder=3,
+                s=DEFAULTS["syn_marker_size"] * 10,
+            )
 
-    logger.debug(f'Done in {time.time()-start}s')
+    logger.debug(f"Done in {time.time()-start}s")
 
     return ax, positions
+
+
+def print_skeleton(x, print_func=print, add_props=None):
+    """Print skeleton as hierarchical tree.
+
+    Note: this really only makes sense for small neurons.
+
+    Parameters
+    ----------
+    x :             TreeNeuron
+                    Neuron to print.
+    print_func :    callable, optional
+                    Function to use for printing. Default is `print`.
+
+    Returns
+    -------
+    None
+    """
+
+    def _print_tree(node, last=True, header=""):
+        """Recursive print function."""
+        elbow = "└──"
+        pipe = "│  "
+        tee = "├──"
+        blank = "   "
+        line = f"{header}{elbow if last else tee}{node}"
+        if add_props:
+            line += f" ({add_props[node]})"
+        print_func(line)
+        children = list(x.graph.predecessors(node))
+        for i, c in enumerate(children):
+            _print_tree(
+                c,
+                header=header + (blank if last else pipe),
+                last=i == len(children) - 1,
+            )
+
+    if isinstance(add_props, str):
+        add_props = x.nodes.set_index("node_id")[add_props].to_dict()
+    elif isinstance(add_props, (list, np.ndarray, tuple)):
+        if len(add_props) != len(x.nodes):
+            raise ValueError("Length of add_props must be the same as number of")
+        add_props = dict(zip(x.nodes.node_id, add_props))
+    elif not isinstance(add_props, (dict, type(None))):
+        raise ValueError(
+            "add_props must be either None, a string, list, tuple or dict."
+        )
+
+    for root in x.root:
+        _print_tree(root)
