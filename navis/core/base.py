@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import copy
+from enum import IntEnum
 import hashlib
 import numbers
 import pint
@@ -43,6 +44,43 @@ logger = config.get_logger(__name__)
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     pint.Quantity([])
+
+
+class NodeConnectorRelation(IntEnum):
+    """An integer describing a (tree)node-connector relationship.
+
+    i.e. "the (tree)node is <NodeConnectorType> the connector node"
+
+    Inspired by the `CATMAID link types`_.
+    A node PRESYNAPTIC_TO a connector is an output site.
+    A node POSTSYNAPTIC_TO a connector is an input site.
+
+    .. _`CATMAID link types`: https://github.com/catmaid/CATMAID/blob/2964e04e6e9772aff5d305e72c1b878030fe0e25/django/applications/catmaid/control/link.py#L16
+    """
+    PRESYNAPTIC_TO = 0
+    POSTSYNAPTIC_TO = 1
+    # ABUTTING = 2
+    # GAPJUNCTION_WITH = 3
+    # TIGHTJUNCTION_WITH = 4
+    # DESMOSOME_WITH = 5
+    # ATTACHMENT_TO = 6
+    # CLOSE_TO = 7
+
+    def is_output_node(self) -> bool:
+        """Whether the node is sending output via the connector"""
+        return self == NodeConnectorRelation.PRESYNAPTIC_TO
+
+    def is_input_node(self) -> bool:
+        """Whether the node is receiving input via the connector"""
+        return self == NodeConnectorRelation.POSTSYNAPTIC_TO
+
+    def is_output_connector(self) -> bool:
+        """Whether the connector is sending output to the node"""
+        return self.is_input_node()
+
+    def is_input_connector(self) -> bool:
+        """Whether the connector is receiving input from the node"""
+        return self.is_output_node()
 
 
 def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
@@ -425,7 +463,8 @@ class BaseNeuron:
             raise ValueError('No connector table found.')
         # Make an educated guess what presynapses are
         types = self.connectors['type'].unique()
-        pre = [t for t in types if 'pre' in str(t) or t in [0, "0"]]
+        pre_int = NodeConnectorRelation.PRESYNAPTIC_TO.value
+        pre = [t for t in types if 'pre' in str(t) or t in [pre_int, str(pre_int)]]
 
         if len(pre) == 0:
             logger.debug(f'Unable to find presynapses in types: {types}')
@@ -446,7 +485,8 @@ class BaseNeuron:
             raise ValueError('No connector table found.')
         # Make an educated guess what presynapses are
         types = self.connectors['type'].unique()
-        post = [t for t in types if 'post' in str(t) or t in [1, "1"]]
+        post_int = NodeConnectorRelation.POSTSYNAPTIC_TO.value
+        post = [t for t in types if 'post' in str(t) or t in [post_int, str(post_int)]]
 
         if len(post) == 0:
             logger.debug(f'Unable to find postsynapses in types: {types}')
