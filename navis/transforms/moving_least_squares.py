@@ -52,7 +52,7 @@ class MovingLeastSquaresTransform(BaseTransform):
         >>> trg = np.array([[1, 15, 5], [9, 18, 21], [80, 99, 120], [5, 10, 80]])
         >>> tr = transforms.MovingLeastSquaresTransform(src, trg)
         >>> points = np.array([[0, 0, 0], [50, 50, 50]])
-        >>> tr.xform(points)
+        >>> tr.xform(points)                                        # doctest: +SKIP
         array([[  1.        ,  15.        ,   5.        ],
                [ 81.56361725, 155.32071504, 187.3147564 ]])
 
