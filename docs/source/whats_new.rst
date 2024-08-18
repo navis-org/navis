@@ -15,6 +15,32 @@ repository.
    * - Version
      - Date
      -
+   * - 1.7.0
+     - 25/07/24
+     - - BREAKING:
+          - plotting functions: dropped the ``cluster`` parameter in favour of an improved ``color_by`` logic (see below)
+       - Additions:
+          - ``navis`` now uses `navis-fastcore <https://github.com/schlegelp/fastcore-rs/tree/main/py>`
+            if present to dramatically speed up core functions (see updated install instructions)
+          - new method :meth:`navis.NeuronList.add_metadata` to quickly add metadata to neurons
+       - Improvements:
+          - :func:`navis.find_soma` and :func:`navis.graph.neuron2nx` (used under the hood) are now much faster
+          - all I/O functions such as :func:`navis.read_swc` now show which file caused an error (if any); original
+            filenames are tracked as ``file`` property
+          - :class:`navis.NeuronList` will only search the first 100 neurons for autocompletion to avoid freezing with
+            large lists
+          - plotting functions: `color_by` now accepts either a list of labels (one per neuron) or the name of a neuron property
+          - :func:`navis.subset_neuron` is now faster and more memory efficient when subsetting meshes
+          - :meth:`navis.TreeNeuron.cable_length` is now faster
+       - Fixes:
+          - all I/O functions such as :func:`navis.read_swc` now ignore hidden files (filename starts with `._`)
+          - :func:`navis.read_swc` now actually uses the soma label (if present) to set the soma node
+          - fixed a bug in plotting when using vertex colors
+          - fixed the progress bar in :func:`navis.interfaces.neuprint.fetch_mesh_neuron`
+          - fixed a bug in :func:`navis.synblast` that caused multiprocessing to fail (pickling issue with `pykdtree`)
+          - :func:`navis.interfaces.neuprint.fetch_mesh_neuron` will now ignore the `lod` parameter if the data source does not
+            support it instead of breaking
+          - fixed  a number of depcrecation warnings in the codebase
    * - 1.6.0
      - 07/04/24
      - - BREAKING:
