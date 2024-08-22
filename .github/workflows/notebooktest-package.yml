@@ -10,12 +10,12 @@ jobs:
     steps:
       # This cancels any such job that is still running
     - name: Cancel Previous Runs
-      uses: styfle/cancel-workflow-action@0.9.1
+      uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{ github.token }}
     - uses: actions/checkout@v4
     - name: Set up Python 3.10
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v4
       with:
         python-version: '3.10'
     - name: Install graphviz

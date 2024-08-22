@@ -13,22 +13,18 @@
 
 """Functions to use CMTK transforms."""
 
-import os
-import re
-import nrrd
 import copy
-import pathlib
-import tempfile
-import platform
 import functools
+import os
+import pathlib
+import platform
+import re
 import subprocess
 
 import numpy as np
 import pandas as pd
 
-from subprocess import check_call
-
-from .. import utils, config
+from .. import utils
 from .base import BaseTransform, TransformSequence
 
 __all__ = ['xform_cmtk']
@@ -440,154 +436,3 @@ class CMTKtransform(BaseTransform):
                 xf[not_xf] = self.xform(points.loc[not_xf], affine_only=True)
 
         return xf
-    
-    def xform_image(self,
-                    im,
-                    target,
-                    out=None,
-                    interpolation="linear",                    
-                    verbose=False,
-                    ):
-        """Transform an image using CMTK's reformatx.
-        
-        Parameters 
-        ----------
-        im :        3D numpy array | filepath
-                    The floating image to transform.
-        target :    str | TemplateBrain | (Nx, Ny, Nz, dx, dy, dz) | (Nx, Ny, Nz, dx, dy, dz, Ox, Oy, Oz)
-                    Defines the target image: dimensions in voxels (N), the voxel size (d) and optionally 
-                    an origin (0) for the target image. Can be provided as a string (name of a template),
-                    a TemplateBrain object, a tuple/list/array with the target specs.
-        out :       str, optional
-                    The filepath to save the transformed image. If None (default), will return the 
-                    transformed image as np.ndarray.
-        interpolation : "linear" | "nn" | "cubic" | "pv" | "sinc-cosine" | "sinc-hamming"
-                    The interpolation method to use.
-        verbose :   bool
-                    Whether to print CMTK output.
-
-        Returns
-        -------
-        np.ndarray | None
-                    If out is None, returns the transformed image as np.ndarray. Otherwise, None.
-        
-        """
-        assert interpolation in ("linear", "nn", "cubic", "pv", "sinc-cosine", "sinc-hamming")
-
-        # `reformatx` expects this format:
-        # ./reformatx --floating {INPUT_FILE} -o {OUTPUT_FILE} {REFERENCE_SPECS} {TRANSFORMS} 
-        # where:
-        # - {INPUT_FILE} is the image to transform
-        # - {OUTPUT_FILE} is where the output will be saved
-        # - {REFERENCE_SPECS} defines the target space; this needs to be eitheran NRRD
-        #   file from which CMTK can extract the target grid or the actual specs: 
-        #   "--target-grid Nx,Ny,Nz:dX,dY,dZ:[Ox,Oy,Oz]" where N is the number of
-        #   voxels in each dimension and d is the voxel size. The optional O is the
-        #   origin of the image. If not provided, it is assumed to be (0, 0, 0).
-        # - {TRANSFORMS} are the CMTK transform(s) to apply; prefix with "--inverse" to invert
-        # Below command works to convert JFRC2 to FCWB:
-        # /opt/local/lib/cmtk/bin/reformatx --verbose --floating JFRC2.nrrd -o JFRC2_xf.nrrd FCWB.nrrd --inverse /Users/philipps/flybrain-data/BridgingRegistrations/JFRC2_FCWB.list
-        # This took XX minutes - should check if that is actually faster than the look-up approach we 
-        # use in `images.py`
-
-        target_specs = parse_target_specs(target)
-
-        to_remove = []
-        if isinstance(im, (str, pathlib.Path)):
-            floating = pathlib.Path(im)
-            if not im.is_file():
-                raise ValueError(f"Image file not found: {im}")
-        elif isinstance(im, np.ndarray):
-            assert im.ndim == 3
-            # Save to temporary file
-            with tempfile.NamedTemporaryFile(suffix=".nrrd", delete=False, delete_on_close=False) as tf:
-                nrrd.write(tf.name, im)
-                floating = tf.name
-                to_remove.append(tf.name)
-        else:
-            raise ValueError(f"Invalid image type: {type(im)}")
-        
-        if out is None:
-            outfile = tempfile.NamedTemporaryFile(suffix=".nrrd", delete=False, delete_on_close=False).name
-            to_remove.append(outfile)
-        elif isinstance(out, (str, pathlib.Path)):
-            outfile = pathlib.Path(out).resolve()
-        else:
-            raise ValueError(f"Invalid output type: {type(out)}")
-        
-        # Compile the command 
-        args = [str(_cmtkbin / 'reformatx')]
-        args += [f'-o {outfile}']
-        args += [f'--floating {floating}']
-        args += [f'--{interpolation}']
-        args += [target_specs]
-
-        # Add the regargs
-        args += self.regargs      
-
-        try:
-            # run the binary
-            # avoid resourcewarnings with null
-            with open(os.devnull, "w") as devnull:
-                startupinfo = None
-                if platform.system() == "Windows":
-                    startupinfo = subprocess.STARTUPINFO()
-                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                if verbose:
-                    # in debug mode print the output
-                    stdout = None
-                else:
-                    stdout = devnull
-
-                if verbose:
-                    config.logger.info("executing: {}".format(" ".join(args)))
-                check_call(
-                    args,
-                    stdout=stdout,
-                    stderr=subprocess.STDOUT,
-                    startupinfo=startupinfo,
-                )  
-
-            if out is None:
-                # Return transformed image
-                return nrrd.read(outfile)
-            elif verbose:
-                config.logger.info(f"Transformed image saved to {outfile}")
-        except BaseException:
-            raise 
-        finally:
-            # Clean up temporary files
-            for f in to_remove:
-                os.remove(f) 
-        
-
-def parse_target_specs(target):
-    """Parse target specs into argument that can be passed to CMTK."""
-    # Note to self: this function should also deal with VoxelNeurons and NRRD filepaths
-    # For NRRD filepaths: we need to add an empty "--" before the filepath (I think)
-
-    from .templates import TemplateBrain
-
-    assert isinstance(target, (str, TemplateBrain, np.ndarray, list, tuple))
-
-    if isinstance(target, str):
-        from . import registry 
-        target = registry.find_template(target)
-    
-    if isinstance(target, TemplateBrain):
-        specs = list(target.dims) + list(target.voxdims)
-        # Note to self: need to check TemplateBrain (and flybrains) consistent definition of 
-        # dims, voxdims and origin (maybe even add origin)
-
-    # At this point we expect specs to be an iterable      
-    specs = np.asarray(target)
-    assert len(specs) in (6, 9), f"Target specs must be of length 6 or 9, got {len(specs)}"    
-    target = "--target-grid "
-    target += ",".join(map(str, specs[:3].astype(int)))  # Number of voxels (must be integer)
-    target += ":"
-    target += ",".join(map(str, specs[3:].astype(float))) # Voxel size (can be float)
-    if len(specs) == 9:
-        target += ":"
-        target += ",".join(map(str, specs[6:].astype(float))) # Origin (can be float)
-
-    return target

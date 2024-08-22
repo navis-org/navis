@@ -338,10 +338,6 @@ class PointNetwork:
 
             self._stimuli.append(Stimulus(start, stop, f, randomness, i, ns, nc, label))
 
-    def clear_stimuli(self):
-        """Clear stimuli."""
-        self._stimuli = {}
-
     def connect(self, source, target, weight, delay=5):
         """Connect two neurons.
 

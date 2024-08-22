@@ -141,9 +141,7 @@ extensions = [
     'sphinx_copybutton',
     'sphinx_design',
     'matplotlib.sphinxext.plot_directive',
-    # `sphinx-autodoc-typehints`` has been causing errors recently:
-    #   "... threw an exception (exception: :4: (SEVERE/4) Unexpected section title."
-    #'sphinx_autodoc_typehints',  # unfortunately this does not play nicely with mocking
+    'sphinx_autodoc_typehints',  # unfortunately this does not play nicely with mocking
     #'numpydoc'
 ]
 

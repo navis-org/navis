@@ -1399,7 +1399,7 @@ def despike_skeleton(x: NeuronObject,
     # spikes first
     for l in list(range(1, max_spike_length + 1))[::-1]:
         # Go over all segments
-        for seg in segs_to_walk:
+        for seg in x.segments:
             # Get nodes A, B and C of this segment
             this_A = this_nodes.loc[seg[:-l - 1]]
             this_B = this_nodes.loc[seg[l:-1]]
@@ -1600,7 +1600,7 @@ def smooth_skeleton(x: NeuronObject,
         x = x.copy()
 
     # Prepare nodes (add parent_dist for later, set index)
-    # mmetrics.parent_dist(x, root_dist=0)
+    mmetrics.parent_dist(x, root_dist=0)
     nodes = x.nodes.set_index('node_id', inplace=False).copy()
 
     to_smooth = utils.make_iterable(to_smooth)
