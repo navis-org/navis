@@ -519,7 +519,9 @@ def neuron2voxels(x: 'core.BaseNeuron',
 @utils.map_neuronlist(desc='Converting', allow_parallel=True)
 def tree2meshneuron(x: 'core.TreeNeuron',
                     tube_points: int = 8,
-                    use_normals: bool = True) -> 'core.MeshNeuron':
+                    radius_scale_factor: float = 1,
+                    use_normals: bool = True
+                    ) -> 'core.MeshNeuron':
     """Convert TreeNeuron to MeshNeuron.
 
     Uses the ``radius`` to convert skeleton to 3D tube mesh. Missing radii are
@@ -532,6 +534,8 @@ def tree2meshneuron(x: 'core.TreeNeuron',
     tube_points :   int
                     Number of points making up the circle of the cross-section
                     of the tube.
+    radius_scale_factor : float
+                    Factor to scale radii by.
     use_normals :   bool
                     If True will rotate tube along its curvature.
 
@@ -556,22 +560,34 @@ def tree2meshneuron(x: 'core.TreeNeuron',
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Expected TreeNeuron, got "{type(x)}"')
 
-    # Note that we are treating missing radii as "0"
-    radii_map = x.nodes.set_index('node_id').radius.fillna(0)
+    # Map segments of node IDs to segments of node indices
+    id2ix = dict(zip(x.nodes.node_id, np.arange(len(x.nodes))))
+    segments = [np.array([id2ix[n] for n in seg]) for seg in x.segments]
 
+    # Note that we are treating missing radii as "0"
+    radii_map = x.nodes.radius.fillna(0).values
     if (radii_map <= 0).any():
         logger.warning('At least some radii are missing or <= 0. Mesh will '
                        'look funny.')
 
     # Map radii onto segments
-    radii = [radii_map.loc[seg].values for seg in x.segments]
-    co_map = x.nodes.set_index('node_id')[['x', 'y', 'z']]
-    seg_points = [co_map.loc[seg].values for seg in x.segments]
+    radii = [radii_map[seg] * radius_scale_factor for seg in segments]
+    co_map = x.nodes[['x', 'y', 'z']].values
+    seg_points = [co_map[seg] for seg in segments]
 
     vertices, faces = make_tube(seg_points,
                                 radii=radii,
                                 tube_points=tube_points,
                                 use_normals=use_normals)
 
-    return core.MeshNeuron({'vertices': vertices, 'faces': faces},
-                           units=x.units, name=x.name, id=x.id)
+    # Note: the `process=False` is necessary to not break correspondence
+    # by e.g. merging duplicate vertices
+    m = core.MeshNeuron({'vertices': vertices, 'faces': faces},
+                        units=x.units, name=x.name, id=x.id, process=False)
+
+
+    # For each vertex, track the original node: the first `tube_points` vertices
+    # correspond to the first node of the first segment and so on.
+    m.vertex_map = np.concatenate([np.repeat(seg, tube_points) for seg in segments])
+
+    return m
