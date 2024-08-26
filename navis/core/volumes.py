@@ -567,8 +567,7 @@ class Volume(trimesh.Trimesh):
                     Smaller numbers don't fall inward as much as larger
                     numbers. Too large, and you lose everything!
         view :      tuple
-                    Determines axis. Can be prefixed with a '-' to invert
-                    the axis.
+                    Determines axis.
 
         Returns
         -------
@@ -604,9 +603,7 @@ class Volume(trimesh.Trimesh):
         x_ix = map[view[0].replace('-', '').replace('+', '')]
         y_ix = map[view[1].replace('-', '').replace('+', '')]
 
-        xmod = -1 if '-' in view[0] else 1
-        ymod = -1 if '-' in view[1] else 1
-        coords = self.vertices[:, [x_ix, y_ix]] * np.array([xmod, ymod])
+        coords = self.vertices[:, [x_ix, y_ix]]
 
         tri = scipy.spatial.Delaunay(coords)
         edges: set = set()
