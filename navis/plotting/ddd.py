@@ -393,7 +393,14 @@ def plot3d_octarine(x, **kwargs):
     existing viewer or generate a new one.
 
     """
-    import octarine as oc
+    # Lazy import because octarine is not a hard dependency
+    try:
+        import octarine as oc
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "navis.plot3d() with the `octarine` backend requires the `octarine3d` library "
+            "to be installed:\n  pip3 install octarine3 octarine-navis-plugin -U"
+        )
 
     if not hasattr(oc.Viewer, "add_neurons"):
         raise ModuleNotFoundError(
@@ -456,12 +463,19 @@ def plot3d_plotly(x, **kwargs):
     Plot3d() helper function to generate plotly 3D plots. This is just to
     improve readability and structure of the code.
     """
-    from .plotly.graph_objs import (
-        neuron2plotly,
-        volume2plotly,
-        scatter2plotly,
-        layout2plotly,
-    )
+    # Lazy import because plotly is not a hard dependency
+    try:
+        from .plotly.graph_objs import (
+            neuron2plotly,
+            volume2plotly,
+            scatter2plotly,
+            layout2plotly,
+        )
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "navis.plot3d() with the `plotly` backend requires the `plotly` library "
+            "to be installed:\n  pip3 install plotly -U"
+        )
 
     settings = PlotlySettings().update_settings(**kwargs)
 
@@ -516,7 +530,7 @@ def plot3d_k3d(x, **kwargs):
         import k3d
     except ModuleNotFoundError:
         raise ModuleNotFoundError(
-            "plot3d with `k3d` backend requires the k3d library "
+            "navis.plot3d() with `k3d` backend requires the k3d library "
             "to be installed:\n  pip3 install k3d -U"
         )
 
