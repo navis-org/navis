@@ -27,6 +27,7 @@ jobs:
         python -m pip install pathos pygraphviz neuron cloud-volume k3d scikit-image open3d
         python -m pip install -e .[test-notebook,all]
     - name: Run notebooks
+      uses: coactions/setup-xvfb@v1
       env:
         NEUPRINT_APPLICATION_CREDENTIALS: ${{ secrets.neuprint }}
         INSECT_BRAIN_DB_USER: ${{ secrets.insect_brain_db_user }}
