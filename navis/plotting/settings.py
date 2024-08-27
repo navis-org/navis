@@ -114,7 +114,7 @@ class BasePlottingSettings(Settings):
 class Matplotlib2dSettings(BasePlottingSettings):
     """Additional plotting parameters for Matplotlib 2d backend."""
 
-    method: Literal["2d", "3d", "3d_complex"] = "2d"
+    method: Literal["2d", "3d", "3d_complex"] = "3d"
     group_neurons: bool = False
     autoscale: bool = True
     orthogonal: bool = True
