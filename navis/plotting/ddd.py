@@ -336,9 +336,7 @@ def plot3d_vispy(x, **kwargs):
 
     if settings.viewer is None:
         # If does not exists yet, initialise a canvas object and make global
-        if not getattr(config, "primary_viewer", None) or not isinstance(
-            config.primary_viewer, Viewer
-        ):
+        if not isinstance(getattr(config, "primary_viewer", None), Viewer):
             viewer = config.primary_viewer = Viewer(size=settings.size)
         else:
             viewer = getattr(config, "primary_viewer", None)
@@ -387,7 +385,7 @@ def plot3d_octarine(x, **kwargs):
 
     if settings.viewer in (None, "new"):
         # If does not exists yet, initialise a canvas object and make global
-        if not getattr(config, "primary_viewer", None) or not isinstance(
+        if not isinstance(getattr(config, "primary_viewer", None), oc.Viewer):
             config.primary_viewer, oc.Viewer
         ):
             viewer = config.primary_viewer = oc.Viewer(
