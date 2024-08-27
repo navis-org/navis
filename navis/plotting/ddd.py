@@ -386,10 +386,11 @@ def plot3d_octarine(x, **kwargs):
     if settings.viewer in (None, "new"):
         # If does not exists yet, initialise a canvas object and make global
         if not isinstance(getattr(config, "primary_viewer", None), oc.Viewer):
-            config.primary_viewer, oc.Viewer
-        ):
             viewer = config.primary_viewer = oc.Viewer(
-                size=kwargs.pop("size", None), show=False
+                size=settings.size,
+                camera=settings.camera,
+                control=settings.control,
+                show=False,
             )
         else:
             viewer = getattr(config, "primary_viewer", None)
