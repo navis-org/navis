@@ -16,7 +16,6 @@
 import os
 import warnings
 
-import plotly.graph_objs as go
 import numpy as np
 
 from typing import Union, List
@@ -465,6 +464,7 @@ def plot3d_plotly(x, **kwargs):
     """
     # Lazy import because plotly is not a hard dependency
     try:
+        import plotly.graph_objs as go
         from .plotly.graph_objs import (
             neuron2plotly,
             volume2plotly,
