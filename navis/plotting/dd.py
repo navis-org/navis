@@ -28,6 +28,7 @@ from matplotlib.collections import LineCollection, PolyCollection
 from matplotlib.cm import ScalarMappable
 
 import numpy as np
+import pandas as pd
 
 import pint
 import warnings
@@ -467,7 +468,24 @@ def plot2d(
         )
     ):
         if not settings.connectors_only:
-            if isinstance(neuron, core.TreeNeuron) and settings.radius:
+            if isinstance(neuron, core.TreeNeuron) and neuron.nodes.empty:
+                logger.warning(f"Skipping TreeNeuron w/o nodes: {neuron.label}")
+                continue
+            if isinstance(neuron, core.TreeNeuron) and neuron.nodes.shape[0] == 1:
+                logger.warning(f"Skipping single-node TreeNeuron: {neuron.label}")
+                continue
+            elif isinstance(neuron, core.MeshNeuron) and neuron.faces.size == 0:
+                logger.warning(f"Skipping MeshNeuron w/o faces: {neuron.label}")
+                continue
+            elif isinstance(neuron, core.Dotprops) and neuron.points.size == 0:
+                logger.warning(f"Skipping Dotprops w/o points: {neuron.label}")
+                continue
+
+            if (
+                isinstance(neuron, core.TreeNeuron)
+                and settings.radius
+                and neuron.nodes.get("radius", pd.Series([])).notnull().any()  # make sure we have at least some radii
+            ):
                 _neuron = conversion.tree2meshneuron(
                     neuron,
                     radius_scale_factor=settings.linewidth,
@@ -480,15 +498,7 @@ def plot2d(
                 if isinstance(neuron_cmap[i], np.ndarray) and neuron_cmap[i].ndim == 2:
                     neuron_cmap[i] = neuron_cmap[i][neuron.vertex_map]
 
-            if isinstance(neuron, core.TreeNeuron) and neuron.nodes.empty:
-                logger.warning(f"Skipping TreeNeuron w/o nodes: {neuron.label}")
-            if isinstance(neuron, core.TreeNeuron) and neuron.nodes.shape[0] == 1:
-                logger.warning(f"Skipping single-node TreeNeuron: {neuron.label}")
-            elif isinstance(neuron, core.MeshNeuron) and neuron.faces.size == 0:
-                logger.warning(f"Skipping MeshNeuron w/o faces: {neuron.label}")
-            elif isinstance(neuron, core.Dotprops) and neuron.points.size == 0:
-                logger.warning(f"Skipping Dotprops w/o points: {neuron.label}")
-            elif isinstance(neuron, core.TreeNeuron):
+            if isinstance(neuron, core.TreeNeuron):
                 lc, sc = _plot_skeleton(neuron, neuron_cmap[i], ax, settings)
                 # Keep track of visuals related to this neuron
                 visuals[neuron] = {"skeleton": lc, "somata": sc}
@@ -664,6 +674,7 @@ def _add_scalebar(scalebar, neurons, ax, settings):
 
         lc = Line3DCollection(sbar, color="black", lw=1)
         lc.set_gid(f"{scalebar}_scalebar")
+
         ax.add_collection3d(lc, autolim=False)
 
 
