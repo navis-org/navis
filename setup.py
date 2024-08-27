@@ -13,7 +13,7 @@ install_requires, extras_require = parse_requirement_files(
 )
 
 dev_only = ["test-notebook", "dev"]
-specialized = ['r']
+specialized = ["r", "flybrains", "cloud-volume"]
 all_dev_deps = []
 all_deps = []
 for k, v in extras_require.items():
