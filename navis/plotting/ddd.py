@@ -35,7 +35,9 @@ BACKENDS = tuple(
     b for b in ("octarine", "vispy", "plotly", "k3d") if find_spec(b) is not None
 )
 JUPYTER_BACKENDS = tuple(b for b in ("plotly", "octarine", "k3d") if b in BACKENDS)
-NON_JUPYTER_BACKENDS = tuple(b for b in ("octarine", "vispy", "plotly") if b in BACKENDS)
+NON_JUPYTER_BACKENDS = tuple(
+    b for b in ("octarine", "vispy", "plotly") if b in BACKENDS
+)
 AUTO_BACKEND = None  # choose the backend only the first time
 
 
@@ -68,25 +70,38 @@ def plot3d(
 
     Object parameters
     -----------------
-    connectors :      bool, default=False
-                      Plot connectors (e.g. synapses) if available.
     color :           None | str | tuple | list | dict, default=None
                       Use single str (e.g. ``'red'``) or ``(r, g, b)`` tuple
                       to give all neurons the same color. Use ``list`` of
                       colors to assign colors: ``['red', (1, 0, 1), ...].
                       Use ``dict`` to map colors to neurons:
                       ``{neuron.id: (r, g, b), ...}``.
-    cn_colors :       str | tuple | dict | "neuron"
-                      Overrides the default connector (e.g. synpase) colors:
-                        - single color as str (e.g. ``'red'``) or rgb tuple
-                          (e.g. ``(1, 0, 0)``)
-                        - dict mapping the connectors tables ``type`` column to
-                          a color (e.g. `{"pre": (1, 0, 0)}`)
-                        - with "neuron", connectors will receive the same color
-                          as their neuron
     palette :         str | array | list of arrays, default=None
                       Name of a matplotlib or seaborn palette. If ``color`` is
                       not specified will pick colors from this palette.
+    alpha :           float [0-1], optional
+                      Alpha value for neurons. Overriden if alpha is provided
+                      as color specified in ``color`` has an alpha channel.
+    connectors :      bool, default=False
+                      Plot connectors (e.g. synapses) if available. Use these
+                      parameters to adjust the way connectors are plotted:
+                        - `cn_colors` (str | tuple | dict | "neuron" ) overrides
+                          the default connector (e.g. synpase) colors:
+                            - single color as str (e.g. ``'red'``) or rgb tuple
+                              (e.g. ``(1, 0, 0)``)
+                            - dict mapping the connectors tables ``type`` column to
+                              a color (e.g. `{"pre": (1, 0, 0)}`)
+                            - with "neuron", connectors will receive the same color
+                              as their neuron
+                        - `cn_layout` (dict): Layout of the connectors. See
+                          `navis.config.default_connector_colors` for options.
+                        - `cn_size` (float): Size of the connectors.
+                        - `cn_alpha` (float): Transparency of the connectors.
+                        - `cn_mesh_colors` (bool): Whether to color the connectors
+                          by the neuron's color.
+    connectors_only : bool, default=False
+                      Plot only connectors (e.g. synapses) if available and
+                      ignore the neurons.
     color_by :        str | array | list of arrays, default = None
                       Color neurons by a property. Can be:
                         - a list/array of labels, one per each neuron
@@ -94,7 +109,8 @@ def plot3d(
                         - a column name in the node table of ``TreeNeurons``
                         - a list/array of values for each node
                       Numerical values will be normalized. You can control
-                      the normalization by passing a ``vmin`` and/or ``vmax`` parameter.
+                      the normalization by passing a ``vmin`` and/or ``vmax``
+                      parameter. Must specify a colormap via ``palette``.
     shade_by :        str | array | list of arrays, default=None
                       Similar to ``color_by`` but will affect only the alpha
                       channel of the color. If ``shade_by='strahler'`` will
@@ -103,17 +119,19 @@ def plot3d(
                       normalized. You can control the normalization by passing
                       a ``smin`` and/or ``smax`` parameter. Does not work with
                       `k3d` backend.
-    alpha :           float [0-1], optional
-                      Alpha value for neurons. Overriden if alpha is provided
-                      as fourth value in ``color`` (rgb*a*).
     radius :          bool, default=True
-                      If True, will plot TreeNeurons as 3D tubes using the
-                      ``radius`` column in their node tables.
+                      TreeNeurons only: If True, will plot skeleotns as 3D tubes
+                      using the ``radius`` column in their node tables. Silently
+                      ignored if neuron has no/empty radius column.
     soma :            bool, default=True
-                      Whether to plot soma if it exists (TreeNeurons only). Size
+                      TreeNeurons only: Whether to plot soma if it exists. Size
                       of the soma is determined by the neuron's ``.soma_radius``
                       property which defaults to the "radius" column for
                       ``TreeNeurons``.
+    linewidth :       float, default=1
+                      TreeNeurons only.
+    linestyle :       str, default='-'
+                      TreeNeurons only. Follows the same rules as in matplotlib.
     scatter_kws :     dict, optional
                       Use to modify scatter plots. Accepted parameters are:
                         - ``size`` to adjust size of dots
@@ -138,11 +156,6 @@ def plot3d(
                           HTML file that can be opened in any browers.
                         - ``k3d`` generates 3D plots using k3d. Works only in
                           Jupyter notebooks!
-    inline :          bool, default=True
-                      If True and you are in an Jupyter environment, will
-                      render plotly/k3d plots inline. If False, will generate
-                      and return either a plotly Figure or a k3d Plot object
-                      without immediately showing it.
 
                       ``Below parameters are for plotly backend only:``
     fig :             plotly.graph_objs.Figure
@@ -150,6 +163,8 @@ def plot3d(
                       not change layout.
     title :           str, default=None
                       For plotly only! Change plot title.
+    width/height :    int, optional
+                      Use to adjust figure size.
     fig_autosize :    bool, default=False
                       For plotly only! Autoscale figure size.
                       Attention: autoscale overrides width and height
@@ -161,6 +176,11 @@ def plot3d(
                       A dictionary mapping neuron IDs to labels (strings).
                       Use this to group neurons under a common label in the
                       legend.
+    inline :          bool, default=True
+                      If True and you are in an Jupyter environment, will
+                      render plotly/k3d plots inline. If False, will generate
+                      and return either a plotly Figure or a k3d Plot object
+                      without immediately showing it.
 
                       ``Below parameters are for the Octarine/vispy backends only:``
     clear :           bool, default = False
@@ -172,8 +192,8 @@ def plot3d(
                       If True, will combine objects of the same type into a
                       single visual. This can greatly improve performance but
                       also means objects can't be selected individually
-                      anymore.
-    width/height :    int, optional
+                      anymore. This is Vispy only.
+    size :            (width, height) tuple, optional
                       Use to adjust figure/window size.
     show :            bool, default=True
                       Whether to immediately show the viewer.
@@ -246,8 +266,8 @@ def plot3d(
     >>> vol.color = (255, 0, 0, .5)
     >>> # This plots a neuronlists, a single neuron and a volume
     >>> v = navis.plot3d([nl[0:2], nl[3], vol])
-    >>> # Clear viewer (works only with vispy)
-    >>> v = navis.plot3d(nl, clear3d=True)
+    >>> # Clear viewer (works only with octarine and vispy)
+    >>> v = navis.plot3d(nl, clear=True)
 
     See the :ref:`plotting tutorial <plot_intro>` for even more examples.
 
