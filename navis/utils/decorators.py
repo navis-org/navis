@@ -32,6 +32,8 @@ from textwrap import dedent, indent
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
 from typing_extensions import Literal
 
+from .iterables import is_iterable, make_iterable
+
 
 def map_neuronlist(desc: str = "",
                    can_zip: List[Union[str, int]] = [],

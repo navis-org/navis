@@ -205,9 +205,9 @@ def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
             continue
 
         if use_normals:
-            tangents, normals, binormals = _frenet_frames(points)
+            _, normals, binormals = _frenet_frames(points)
         else:
-            tangents = normals = binormals = np.ones((len(points), 3))
+            _ = normals = binormals = np.ones((len(points), 3))
 
         n_segments = len(points) - 1
 

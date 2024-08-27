@@ -129,7 +129,7 @@ class Viewer:
     """
 
     def __init__(self, picking=False, **kwargs):
-        if not scene:            
+        if not scene:
             raise ImportError('`navis.Viewer` requires the `vispy` package to '
                               'be installed:\n  pip3 install vispy')
         # Update some defaults as necessary
@@ -306,6 +306,15 @@ class Viewer:
                                              font_size=6)
 
         return overlay
+
+    @property
+    def size(self):
+        """Size of canvas."""
+        return self.canvas.size
+
+    @size.setter
+    def size(self, size):
+        self.canvas.size = size
 
     @property
     def show_legend(self):
@@ -744,18 +753,18 @@ class Viewer:
 
         """
         from .visuals import neuron2vispy, volume2vispy, points2vispy, combine_visuals
+        from ..settings import VispySettings
+
+        settings = VispySettings().update_settings(**kwargs)
 
         (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
-        if len(set(kwargs) & set(['c', 'color', 'colors'])) > 1:
-            raise ValueError('Must not provide colors via multiple arguments')
-
         if neurons:
-            visuals += neuron2vispy(neurons, **kwargs)
+            visuals += neuron2vispy(neurons, settings)
         if volumes:
-            visuals += volume2vispy(volumes, **kwargs)
+            visuals += volume2vispy(volumes, settings)
         if points:
-            visuals += points2vispy(points, **kwargs.get('scatter_kws', {}))
+            visuals += points2vispy(points, **settings.scatter_kws)
 
         if not visuals:
             raise ValueError('No visuals created.')
@@ -764,7 +773,7 @@ class Viewer:
             self.clear()
 
         if combine:
-            visuals = combine_visuals(visuals, kwargs.get('name'))
+            visuals = combine_visuals(visuals, settings.name)
 
         # If we're runningg in headless mode (primarily for tests on CI) we will
         # simply not add the objects. Not ideal but it turns out to be very
@@ -797,6 +806,11 @@ class Viewer:
             return
 
         self.canvas.show()
+
+        # To actually show the widget, we need to return the canvas
+        if utils.is_jupyter():
+            from IPython.display import display
+            display(self.canvas)
 
     def close(self):
         """Close viewer."""

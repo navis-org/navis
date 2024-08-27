@@ -16,7 +16,7 @@ class Settings:
     """Class that works a bit like a dictionary but can validate keys and has some extra features."""
 
     # We can define synonyms for arguments, so that they can be used interchangeably
-    synonyms: List[Tuple] = field(default_factory=list)
+    _synonyms: List[Tuple] = field(default_factory=list)
 
     def __setattr__(self, key, value, check_valid=False):
         if check_valid and key not in self.properties:
@@ -34,7 +34,7 @@ class Settings:
 
     def update_settings(self, **kwargs):
         # Deal with synonyms
-        for syn in self.synonyms:
+        for syn in self._synonyms:
             present = [s for s in syn if s in kwargs]
             if len(present) > 1:
                 raise ValueError(f"Multiple synonyms for the same argument: {present}")
@@ -50,7 +50,7 @@ class Settings:
         return self
 
     def to_dict(self):
-        return {k: v for k, v in self.__dict__.items() if not k.startswith("__")}
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
     def get(self, key, default=None):
         return self.__dict__.get(key, default)
@@ -75,8 +75,8 @@ class BasePlottingSettings(Settings):
     # All neurons
     connectors: bool = False
     connectors_only: bool = False
-    cn_size: float = 1
-    cn_alpha: float = 1
+    cn_size: Optional[float] = None
+    cn_alpha: Optional[float] = None
     cn_layout: dict = field(default_factory=dict)
     cn_colors: dict = field(default_factory=dict)
     cn_mesh_colors: bool = False
@@ -101,8 +101,8 @@ class BasePlottingSettings(Settings):
     # Other
     scatter_kws: dict = field(default_factory=dict)
 
-    synonyms: List[Tuple] = field(
-        default_factory=lambda : [
+    _synonyms: List[Tuple] = field(
+        default_factory=lambda: [
             ("linestyle", "ls"),
             ("linewidth", "lw"),
             ("color", "colors", "c"),
@@ -158,7 +158,9 @@ class VispySettings(BasePlottingSettings):
     viewer: Optional["navis.Viewer"] = None
     shininess: float = 0
     shading: str = "smooth"
-    size: Optional[Tuple[int, int]] = None
+    size: Optional[Tuple[int, int]] = (800, 600)
+    show: bool = True
+    name: Optional[str] = None
 
 
 @dataclass
@@ -182,3 +184,4 @@ class K3dSettings(BasePlottingSettings):
     height: int = 600
     inline: bool = True
     legend_group: Optional[str] = None
+    plot: Optional["k3d.Plot"] = None
