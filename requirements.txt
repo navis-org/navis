@@ -1,12 +1,11 @@
 h5py>=3.1
-matplotlib>=3.7
+matplotlib>=3.9
 morphops>=0.1.11
 ncollpyde>=0.18
 networkx>=2.4
 numpy>=1.16
 pandas>=1.0
 pint>=0.10
-plotly>=4.9
 pynrrd>=0.4.2
 pypng>=0.0.18
 requests>=2.20
@@ -39,8 +38,19 @@ cloud-volume>=5.2.0  #extra: cloudvolume
 
 navis-fastcore>=0.0.4  #extra: fastcore
 
-# this should inherit the vispy version constraint from above
-vispy[pyside6]>=0.6.4  #extra: vispy-default
+plotly>=4.9  #extra: plotly
+
+k3d #extra: k3d
+
+#extra: vispy-default
+
+vispy[pyside6]>=0.6.4
+jupyter_rfb>=0.4.1
+
+#extra: octarine-default
+
+octarine3d[all]
+octarine-navis-plugin
 
 #extra: meshes
 
