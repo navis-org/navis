@@ -865,7 +865,6 @@ def _plot_mesh(neuron, color, ax, settings):
 
         if settings.depth_coloring:
             ts.set_cmap(DEPTH_CMAP)
-            ts.set_norm(settings.norm)
             ts.set_alpha(settings.alpha)
         else:
             ts.set_facecolor(color)
