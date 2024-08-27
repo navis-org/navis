@@ -349,7 +349,7 @@ def plot3d_vispy(x, **kwargs):
 
     # We need to pop clear/clear3d to prevent clearing again later
     if settings.clear:
-        settings.clear=False
+        settings.clear = False
         viewer.clear()
 
     # Add objects (the viewer currently takes care of producing the visuals)
@@ -395,7 +395,7 @@ def plot3d_octarine(x, **kwargs):
         else:
             viewer = getattr(config, "primary_viewer", None)
     else:
-        viewer = settings.get("viewer", getattr(config, "primary_viewer"))
+        viewer = settings.pop("viewer", getattr(config, "primary_viewer"))
 
     # Make sure viewer is visible
     if settings.show:
@@ -408,7 +408,11 @@ def plot3d_octarine(x, **kwargs):
 
     # Add object (the viewer currently takes care of producing the visuals)
     if neurons:
-        viewer.add(neurons, center=settings.center, **kwargs)
+        neuron_settings = settings.to_dict()
+        # We need to pop these to prevent errors
+        for key in ("scatter_kws", "viewer", "show", "camera", "control", "size"):
+            neuron_settings.pop(key, None)
+        viewer.add_neurons(neurons, **neuron_settings)
     if volumes:
         for v in volumes:
             viewer.add_mesh(v, **settings.to_dict())
