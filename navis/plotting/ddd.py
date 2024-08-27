@@ -403,6 +403,7 @@ def plot3d_octarine(x, **kwargs):
 
     # We need to pop clear/clear3d to prevent clearing again later
     if settings.clear:
+        settings.clear = False  # clear only once
         viewer.clear()
 
     # Add object (the viewer currently takes care of producing the visuals)
