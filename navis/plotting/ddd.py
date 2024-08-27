@@ -435,7 +435,13 @@ def plot3d_octarine(x, **kwargs):
         viewer.add_neurons(neurons, **neuron_settings)
     if volumes:
         for v in volumes:
-            viewer.add_mesh(v, **settings.to_dict())
+            viewer.add_mesh(
+                v,
+                name=getattr(v, "name", None),
+                color=getattr(v, "color", (0.95, 0.95, 0.95, 0.1)),
+                alpha=getattr(v, "alpha", None),
+                center=settings.center,
+            )
     if points:
         viewer.add_points(points, center=settings.center, **settings.scatter_kws)
 
