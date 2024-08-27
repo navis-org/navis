@@ -25,7 +25,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install pathos pygraphviz neuron cloud-volume k3d scikit-image open3d
-        python -m pip install -e .[test-notebook]
+        python -m pip install -e .[test-notebook,all]
     - name: Run notebooks
       env:
         NEUPRINT_APPLICATION_CREDENTIALS: ${{ secrets.neuprint }}
