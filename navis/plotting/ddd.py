@@ -296,7 +296,9 @@ def plot3d(
                         "No 3D plotting backends available for REPL/script. Please "
                         "install one of the following: octarine, vispy, plotly."
                     )
-                backend = os.environ.get("NAVIS_PLOT3D_BACKEND", NON_JUPYTER_BACKENDS[0])
+                backend = os.environ.get(
+                    "NAVIS_PLOT3D_BACKEND", NON_JUPYTER_BACKENDS[0]
+                )
 
             # Set the backend for the next time
             AUTO_BACKEND = backend
@@ -339,11 +341,12 @@ def plot3d_vispy(x, **kwargs):
     from .vispy.viewer import Viewer
 
     # If this likely the first invoke, warn the user that vispy is deprecated
-    if not hasattr(config, 'primary_viewer'):
+    if not hasattr(config, "primary_viewer"):
         warnings.warn(
-            ("The `vispy` backend is depcrecated and will be removed in a future version of navis. "
-            "We recommend to use the `octarine` backend instead. If that is for some reason not possible, "
-            "please let us know via the issue tracker at https://github.com/navis-org/navis/issues asap."
+            (
+                "The `vispy` backend is depcrecated and will be removed in a future version of navis. "
+                "We recommend to use the `octarine` backend instead. If that is for some reason not possible, "
+                "please let us know via the issue tracker at https://github.com/navis-org/navis/issues asap."
             ),
             DeprecationWarning,
             stacklevel=2,
