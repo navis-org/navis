@@ -38,7 +38,7 @@ jobs:
         pip install git+https://github.com/siavashk/pycpd@master
         pip install pyarrow
     - name: Install navis
-      run: pip install -e .[all]
+      run: pip install -e .[dev,all]
     - run: pip install python-igraph
       if: ${{ matrix.igraph == 'igraph' }}
     - name: Report dependency versions
