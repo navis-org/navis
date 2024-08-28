@@ -188,6 +188,7 @@ class OctarineSettings(BasePlottingSettings):
         "show",
         "size",
         "offscreen",
+        "scatter_kws"
     )
 
 
