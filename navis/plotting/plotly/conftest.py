@@ -4,6 +4,6 @@ Should be importable (but not useful)
 without development dependencies.
 """
 try:
-    import k3d
+    import plotly.graph_objs as go
 except ModuleNotFoundError:
     collect_ignore_glob = ["*.py"]
