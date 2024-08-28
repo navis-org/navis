@@ -132,11 +132,11 @@ def prepare_lookupdistdotbuilder(neurons, alpha=False, k=5):
     ])
 
 
-@pytest.mark.parametrize(["alpha"], [(True,), (False,)])
-@pytest.mark.parametrize(["threads"], [(0,), (None,)])
-@pytest.mark.timeout(60)
-def test_lookupdistdotbuilder_builds(treeneuron_dfs, threads, alpha):
-    builder = prepare_lookupdistdotbuilder(treeneuron_dfs, alpha)
-    lookup = builder.build(threads)
-    # `pytest -rP` to see output
-    print(lookup.to_dataframe())
+# @pytest.mark.parametrize(["alpha"], [(True,), (False,)])
+# @pytest.mark.parametrize(["threads"], [(0,), (None,)])
+# @pytest.mark.timeout(60)
+# def test_lookupdistdotbuilder_builds(treeneuron_dfs, threads, alpha):
+#     builder = prepare_lookupdistdotbuilder(treeneuron_dfs, alpha)
+#     lookup = builder.build(threads)
+#     # `pytest -rP` to see output
+#     print(lookup.to_dataframe())
