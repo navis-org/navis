@@ -420,8 +420,9 @@ def plot2d(
         # ax.set_axis_off()
     else:
         # Check if correct axis were provided
-        if not isinstance(ax, mpl.axes.Axes):
+        if not isinstance(settings.ax, mpl.axes.Axes):
             raise TypeError('Ax must be of type "mpl.axes.Axes", ' f'not "{type(ax)}"')
+        ax = settings.ax
         fig = ax.get_figure()
         if settings.method in ("3d", "3d_complex") and ax.name != "3d":
             raise TypeError("Axis must be 3d.")
@@ -525,8 +526,9 @@ def plot2d(
         if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
             _ = _plot_connectors(neuron, neuron_cmap[i], ax, settings)
 
+    # Plot points
     for p in points:
-        _ = _plot_scatter(p, settings)
+        _ = _plot_scatter(p, ax, settings)
 
     # Note: autoscaling is a bitch for 3d. In particular when we use Collections, because
     # these are currently ignored by matplotlib's built-in autoscaling.
