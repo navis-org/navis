@@ -45,8 +45,13 @@ jobs:
     - name: Report dependency versions
       run: pip freeze -r requirements.txt
     - name: Test
-      uses: coactions/setup-xvfb@v1
-      with:
-        run: |
-          export NAVIS_HEADLESS=TRUE
-          pytest --verbose
+      run: |
+        export NAVIS_HEADLESS=TRUE
+        pytest --verbose
+
+    # - name: Test
+    #   uses: coactions/setup-xvfb@v1
+    #   with:
+    #     run: |
+    #       export NAVIS_HEADLESS=TRUE
+    #       pytest --verbose
