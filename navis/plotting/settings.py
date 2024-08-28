@@ -177,6 +177,19 @@ class OctarineSettings(BasePlottingSettings):
     size: Optional[Tuple[int, int]] = None
     offscreen: bool = False
 
+    # These are viewer-specific settings that we must not pass to the plotting
+    # function
+    _viewer_settings: tuple[str] = (
+        "clear",
+        "center",
+        "viewer",
+        "camera",
+        "control",
+        "show",
+        "size",
+        "offscreen",
+    )
+
 
 @dataclass
 class K3dSettings(BasePlottingSettings):

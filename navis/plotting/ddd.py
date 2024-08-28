@@ -438,9 +438,9 @@ def plot3d_octarine(x, **kwargs):
 
     # Add object (the viewer currently takes care of producing the visuals)
     if neurons:
+        # We need to pop viewer-specific settings to prevent errors in plotting functions
         neuron_settings = settings.to_dict()
-        # We need to pop these to prevent errors
-        for key in ("scatter_kws", "viewer", "show", "camera", "control", "size"):
+        for key in settings._viewer_settings:
             neuron_settings.pop(key, None)
         viewer.add_neurons(neurons, **neuron_settings)
     if volumes:
