@@ -11,8 +11,8 @@ jobs:
           - "3.9"
           - "3.10"
           - "3.11"
-          # - "3.12"
-        igraph: ["igraph", "no-igraph"]
+          - "3.12"
+        # igraph: ["igraph", "no-igraph"]
     steps:
       # This cancels any such job that is still runnning
     - name: Cancel Previous Runs
@@ -39,8 +39,8 @@ jobs:
         pip install pyarrow
     - name: Install navis
       run: pip install -e .[dev,all]
-    - run: pip install python-igraph
-      if: ${{ matrix.igraph == 'igraph' }}
+    # - run: pip install python-igraph
+    #   if: ${{ matrix.igraph == 'igraph' }}
     - name: Report dependency versions
       run: pip freeze -r requirements.txt
     - name: Test
