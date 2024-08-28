@@ -249,11 +249,11 @@ def plot3d(
     >>> # Plot inline
     >>> nl.plot3d(backend='k3d')                                # doctest: +SKIP
 
-    In a terminal using vispy as backend.
+    In a terminal using octarine as backend.
 
     >>> # Plot list of neurons
     >>> nl = navis.example_neurons()
-    >>> v = navis.plot3d(nl, backend='vispy')
+    >>> v = navis.plot3d(nl, backend='octarine')                # doctest: +SKIP
     >>> # Clear canvas
     >>> navis.clear3d()
 
