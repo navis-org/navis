@@ -32,5 +32,7 @@ jobs:
         NEUPRINT_APPLICATION_CREDENTIALS: ${{ secrets.neuprint }}
         INSECT_BRAIN_DB_USER: ${{ secrets.insect_brain_db_user }}
         INSECT_BRAIN_DB_PASSWORD: ${{ secrets.insect_brain_db_password }}
-      run: |
-        python tests/test_notebooks.py
+      with:
+        run: |
+          export NAVIS_HEADLESS=TRUE
+          python tests/test_notebooks.py
