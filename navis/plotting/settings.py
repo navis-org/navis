@@ -175,6 +175,7 @@ class OctarineSettings(BasePlottingSettings):
     control: Literal["trackball", "panzoom", "fly", "orbit"] = "trackball"
     show: bool = True
     size: Optional[Tuple[int, int]] = None
+    offscreen: bool = False
 
 
 @dataclass

@@ -420,6 +420,7 @@ def plot3d_octarine(x, **kwargs):
                 camera=settings.camera,
                 control=settings.control,
                 show=False,
+                offscreen=settings.offscreen or os.environ.get("NAVIS_HEADLESS", False)
             )
         else:
             viewer = getattr(config, "primary_viewer", None)
