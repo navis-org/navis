@@ -22,8 +22,8 @@ import plotly.graph_objs as go
 
 from scipy import ndimage
 
-from ..colors import vertex_colors, prepare_colormap, eval_color
-from ..plot_utils import segments_to_coords, fibonacci_sphere
+from ..colors import vertex_colors, eval_color
+from ..plot_utils import segments_to_coords
 from ... import core, utils, config, conversion
 
 logger = config.get_logger(__name__)
@@ -609,7 +609,7 @@ def lines2plotly(x, **kwargs):
 def dotprops2plotly(x, legendgroup, showlegend, label, color, settings):
     """Convert Dotprops to plotly graph object."""
     return skeleton2plotly(
-        x.to_skeleton(scale_vec=settings.scale_vec),
+        x.to_skeleton(scale_vec=settings.dps_scale_vec),
         legendgroup,
         showlegend,
         label,
