@@ -40,7 +40,7 @@ jobs:
         pip install git+https://github.com/siavashk/pycpd@master
         pip install pyarrow
     - name: Install navis
-      run: pip install -e .[dev,plotly]
+      run: pip install -e .[dev,plotly,octarine]
     # - run: pip install python-igraph
     #   if: ${{ matrix.igraph == 'igraph' }}
     - name: Report dependency versions
