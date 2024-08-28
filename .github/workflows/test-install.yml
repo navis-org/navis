@@ -42,6 +42,6 @@ jobs:
         run: |
           pip install --upgrade pip wheel
       - name: Install navis from Github
-        run: pip install git+https://github.com/navis-org/navis@master
+        run: pip install -e .[all]
       - name: Test import
         run: python3 -c "import navis"
