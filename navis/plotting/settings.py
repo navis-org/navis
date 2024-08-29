@@ -17,11 +17,12 @@ class Settings:
 
     # We can define synonyms for arguments, so that they can be used interchangeably
     _synonyms: List[Tuple] = field(default_factory=list)
+    _name = "Settings"
 
     def __setattr__(self, key, value, check_valid=False):
         if check_valid and key not in self.properties:
             raise AttributeError(
-                f"The '{key}' argument is invalid. Valid arguments are: {', '.join(self.properties)}"
+                f"The '{key}' argument is invalid for {self._name}. Valid arguments are: {', '.join(self.properties)}"
             )
         self.__dict__[key] = value
 
@@ -70,6 +71,8 @@ class Settings:
 @dataclass
 class BasePlottingSettings(Settings):
     """Plotting parameters common to all functions/backends."""
+
+    _name = "BasePlottingSettings"
 
     # For TreeNeurons
     soma: bool = True
@@ -122,6 +125,8 @@ class BasePlottingSettings(Settings):
 class Matplotlib2dSettings(BasePlottingSettings):
     """Additional plotting parameters for Matplotlib 2d backend."""
 
+    _name = "matplotlib backend"
+
     method: Literal["2d", "3d", "3d_complex"] = "3d"
     group_neurons: bool = False
     autoscale: bool = True
@@ -143,6 +148,8 @@ class Matplotlib2dSettings(BasePlottingSettings):
 class PlotlySettings(BasePlottingSettings):
     """Additional plotting parameters for Plotly backend."""
 
+    _name = "plotly backend"
+
     fig: Optional[Union["plotly.Figure", dict]] = None
     inline: bool = True
     title: Optional[str] = None
@@ -159,6 +166,8 @@ class PlotlySettings(BasePlottingSettings):
 class VispySettings(BasePlottingSettings):
     """Additional plotting parameters for Vispy backend."""
 
+    _name = "vispy backend"
+
     clear: bool = False
     center: bool = True
     combine: bool = False
@@ -174,6 +183,8 @@ class VispySettings(BasePlottingSettings):
 @dataclass
 class OctarineSettings(BasePlottingSettings):
     """Additional plotting parameters for Octarine backend."""
+
+    _name = "octarine backend"
 
     clear: bool = False
     center: bool = True
@@ -196,13 +207,15 @@ class OctarineSettings(BasePlottingSettings):
         "show",
         "size",
         "offscreen",
-        "scatter_kws"
+        "scatter_kws",
     )
 
 
 @dataclass
 class K3dSettings(BasePlottingSettings):
     """Additional plotting parameters for K3d backend."""
+
+    _name = "k3d backend"
 
     height: int = 600
     inline: bool = True
