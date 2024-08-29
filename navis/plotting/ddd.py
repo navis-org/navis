@@ -407,7 +407,7 @@ def plot3d_octarine(x, **kwargs):
             "Please install it via pip:\n  pip install octarine-navis-plugin"
         )
 
-    settings = OctarineSettings(**kwargs)
+    settings = OctarineSettings().update_settings(**kwargs)
 
     # Parse objects to plot
     (neurons, volumes, points, visuals) = utils.parse_objects(x)
