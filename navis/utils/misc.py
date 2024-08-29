@@ -434,4 +434,4 @@ def check_vispy():
     """
     from ..data import example_neurons
     nl = example_neurons()
-    return nl.plot3d()
+    return nl.plot3d(backend='vispy')

@@ -25,49 +25,52 @@ from ... import core, utils, config, conversion
 
 logger = config.get_logger(__name__)
 
-__all__ = ['neuron2k3d', 'scatter2k3d', 'dotprops2k3d', 'voxel2k3d',
-           'volume2k3d']
+__all__ = ["neuron2k3d", "scatter2k3d", "dotprops2k3d", "voxel2k3d", "volume2k3d"]
 
 # Generate sphere for somas
 fib_points = fibonacci_sphere(samples=30)
 
 
-def neuron2k3d(x, colormap, **kwargs):
+def neuron2k3d(x, colormap, settings):
     """Convert neurons to k3d objects."""
     if isinstance(x, core.BaseNeuron):
         x = core.NeuronList(x)
     elif not isinstance(x, core.NeuronList):
         raise TypeError('Unable to process data of type "{}"'.format(type(x)))
 
-    palette = kwargs.get('palette', None)
-    color_by = kwargs.get('color_by', None)
-    shade_by = kwargs.get('shade_by', None)
-    lg = kwargs.pop('legend_group', None)
+    # palette = kwargs.get("palette", None)
+    # color_by = kwargs.get("color_by", None)
+    # shade_by = kwargs.get("shade_by", None)
+    # lg = kwargs.pop("legend_group", None)
 
-    if not isinstance(color_by, type(None)):
-        if not palette:
-            raise ValueError('Must provide `palette` (e.g. "viridis") argument '
-                             'if using `color_by`')
+    if settings.color_by is not None:
+        if not settings.palette:
+            raise ValueError(
+                'Must provide `palette` (e.g. "viridis") argument '
+                "if using `color_by`"
+            )
 
-        colormap = vertex_colors(x,
-                                 by=color_by,
-                                 alpha=kwargs.get('alpha', 1),
-                                 use_alpha=False,
-                                 palette=palette,
-                                 vmin=kwargs.get('vmin', None),
-                                 vmax=kwargs.get('vmax', None),
-                                 na=kwargs.get('na', 'raise'),
-                                 color_range=255)
+        colormap = vertex_colors(
+            x,
+            by=settings.color_by,
+            alpha=settings.alpha,
+            use_alpha=False,
+            palette=settings.palette,
+            vmin=settings.vmin,
+            vmax=settings.vmax,
+            na="raise",
+            color_range=255,
+        )
 
-    if not isinstance(shade_by, type(None)):
-        logger.warning('`shade_by` does not work with the k3d backend')
+    if not isinstance(settings.shade_by, type(None)):
+        logger.warning("`shade_by` does not work with the k3d backend")
 
     cn_lay = config.default_connector_colors.copy()
-    cn_lay.update(kwargs.get('synapse_layout', {}))
+    cn_lay.update(settings.cn_layout)
 
     trace_data = []
     for i, neuron in enumerate(x):
-        name = str(getattr(neuron, 'name', neuron.id))
+        name = str(getattr(neuron, "name", neuron.id))
         color = colormap[i]
 
         try:
@@ -79,106 +82,147 @@ def neuron2k3d(x, colormap, **kwargs):
 
         showlegend = True
         label = neuron.label
-        if isinstance(lg, dict) and neuron.id in lg:
+        if (
+            isinstance(settings.legend_group, dict)
+            and neuron.id in settings.legend_group
+        ):
             # Check if this the first entry for this legendgroup
-            label = legendgroup = lg[neuron.id]
+            label = legendgroup = settings.legend_group[neuron.id]
             for d in trace_data:
                 # If it is not the first entry, hide it
-                if getattr(d, 'legendgroup', None) == legendgroup:
+                if getattr(d, "legendgroup", None) == legendgroup:
                     showlegend = False
                     break
-        elif isinstance(lg, str):
-            legendgroup = lg
+        elif isinstance(settings.legend_group, str):
+            legendgroup = settings.legend_group
         else:
             legendgroup = neuron_id
 
-        if kwargs.get('radius', False):
+        if (
+            isinstance(neuron, core.TreeNeuron)
+            and settings.radius
+            and neuron.nodes.get("radius", pd.Series([]))
+            .notnull()
+            .any()  # make sure we have at least some radii
+        ):
             # Convert and carry connectors with us
             if isinstance(neuron, core.TreeNeuron):
                 _neuron = conversion.tree2meshneuron(neuron)
                 _neuron.connectors = neuron.connectors
                 neuron = _neuron
 
-        if not kwargs.get('connectors_only', False):
+        if not settings.connectors_only:
             if isinstance(neuron, core.TreeNeuron):
-                trace_data += skeleton2k3d(neuron,
-                                           label=label,
-                                           legendgroup=legendgroup,
-                                           showlegend=showlegend,
-                                           color=color, **kwargs)
+                trace_data += skeleton2k3d(
+                    neuron,
+                    label=label,
+                    legendgroup=legendgroup,
+                    showlegend=showlegend,
+                    color=color,
+                    settings=settings,
+                )
             elif isinstance(neuron, core.MeshNeuron):
-                trace_data += mesh2k3d(neuron,
-                                       label=label,
-                                       legendgroup=legendgroup,
-                                       showlegend=showlegend,
-                                       color=color, **kwargs)
+                trace_data += mesh2k3d(
+                    neuron,
+                    label=label,
+                    legendgroup=legendgroup,
+                    showlegend=showlegend,
+                    color=color,
+                    settings=settings,
+                )
             elif isinstance(neuron, core.Dotprops):
-                trace_data += dotprops2k3d(neuron,
-                                           label=label,
-                                           legendgroup=legendgroup,
-                                           showlegend=showlegend,
-                                           color=color, **kwargs)
+                trace_data += dotprops2k3d(
+                    neuron,
+                    label=label,
+                    legendgroup=legendgroup,
+                    showlegend=showlegend,
+                    color=color,
+                    settings=settings,
+                )
             elif isinstance(neuron, core.VoxelNeuron):
-                trace_data += voxel2k3d(neuron,
-                                        label=label,
-                                        legendgroup=legendgroup,
-                                        showlegend=showlegend,
-                                        color=color, **kwargs)
+                trace_data += voxel2k3d(
+                    neuron,
+                    label=label,
+                    legendgroup=legendgroup,
+                    showlegend=showlegend,
+                    color=color,
+                    settings=settings,
+                )
             else:
                 raise TypeError(f'Unable to plot neurons of type "{type(neuron)}"')
 
         # Add connectors
-        if (kwargs.get('connectors', False)
-            or kwargs.get('connectors_only', False)) and neuron.has_connectors:
-            cn_colors = kwargs.get('cn_colors', None)
+        if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
             for j in neuron.connectors.type.unique():
-                if isinstance(cn_colors, dict):
-                    c = cn_colors.get(j, cn_lay.get(j, {'color': (10, 10, 10)})['color'])
-                elif cn_colors == 'neuron':
+                if isinstance(settings.cn_colors, dict):
+                    c = settings.cn_colors.get(
+                        j, cn_lay.get(j, {"color": (10, 10, 10)})["color"]
+                    )
+                elif settings.cn_colors == "neuron":
                     c = color
-                elif cn_colors:
-                    c = cn_colors
+                elif settings.cn_colors:
+                    c = settings.cn_colors
                 else:
-                    c = cn_lay.get(j, {'color': (10, 10, 10)})['color']
+                    c = cn_lay.get(j, {"color": (10, 10, 10)})["color"]
 
                 c = color_to_int(eval_color(c, color_range=255))
 
                 this_cn = neuron.connectors[neuron.connectors.type == j]
                 cn_label = f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}'
 
-                if cn_lay['display'] == 'circles' or not isinstance(neuron, core.TreeNeuron):
+                if cn_lay["display"] == "circles" or not isinstance(
+                    neuron, core.TreeNeuron
+                ):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")
-                        trace_data.append(k3d.points(
-                            positions=this_cn[['x', 'y', 'z']].values,
-                            name=cn_label,
-                            shader='flat',
-                            point_size=1000,
-                            color=c
-                        ))
-                elif cn_lay['display'] == 'lines':
+                        trace_data.append(
+                            k3d.points(
+                                positions=this_cn[["x", "y", "z"]].values,
+                                name=cn_label,
+                                shader="flat",
+                                point_size=settings.cn_size if settings.cn_size else cn_lay['size'] * 50,
+                                color=c,
+                            )
+                        )
+                elif cn_lay["display"] == "lines":
                     # Find associated treenodes
-                    co1 = this_cn[['x', 'y', 'z']].values
-                    co2 = neuron.nodes.set_index('node_id').loc[this_cn.node_id.values,
-                                                                ['x', 'y', 'z']].values
+                    co1 = this_cn[["x", "y", "z"]].values
+                    co2 = (
+                        neuron.nodes.set_index("node_id")
+                        .loc[this_cn.node_id.values, ["x", "y", "z"]]
+                        .values
+                    )
 
-                    coords = np.array([co for seg in zip(co1, co1, co2, co2, [[np.nan] * 3] * len(co1)) for co in seg])
+                    coords = np.array(
+                        [
+                            co
+                            for seg in zip(
+                                co1, co1, co2, co2, [[np.nan] * 3] * len(co1)
+                            )
+                            for co in seg
+                        ]
+                    )
 
-                    lw = kwargs.get('linewidth', kwargs.get('lw', 1))
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")
-                        trace_data.append(k3d.line(coords,
-                                                   color=c,
-                                                   name=cn_label,
-                                                   width=lw,
-                                                   shader='thick'))
+                        trace_data.append(
+                            k3d.line(
+                                coords,
+                                color=c,
+                                name=cn_label,
+                                width=settings.linewidth,
+                                shader="thick",
+                            )
+                        )
                 else:
-                    raise ValueError(f'Unknown display type for connectors "{cn_lay["display"]}"')
+                    raise ValueError(
+                        f'Unknown display type for connectors "{cn_lay["display"]}"'
+                    )
 
     return trace_data
 
 
-def mesh2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
+def mesh2k3d(neuron, legendgroup, showlegend, label, color, settings):
     """Convert MeshNeuron to k3d object."""
     # Skip empty neurons
     if neuron.n_vertices == 0:
@@ -190,7 +234,7 @@ def mesh2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
             color = [color_to_int(c) for c in color]
             color_kwargs = dict(colors=color)
         else:
-            raise ValueError('Colors must match number of vertices for K3D meshes.')
+            raise ValueError("Colors must match number of vertices for K3D meshes.")
     else:
         c = color_to_int(color)
         color_kwargs = dict(color=c)
@@ -200,17 +244,21 @@ def mesh2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        trace_data = [k3d.mesh(vertices=neuron.vertices.astype('float32'),
-                               indices=neuron.faces.astype('uint32'),
-                               name=label,
-                               flat_shading=False,
-                               opacity=opacity,
-                               **color_kwargs)]
+        trace_data = [
+            k3d.mesh(
+                vertices=neuron.vertices.astype("float32"),
+                indices=neuron.faces.astype("uint32"),
+                name=label,
+                flat_shading=False,
+                opacity=opacity,
+                **color_kwargs,
+            )
+        ]
 
     return trace_data
 
 
-def voxel2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
+def voxel2k3d(neuron, legendgroup, showlegend, label, color, settings):
     """Convert VoxelNeuron to k3d object."""
     # Skip empty neurons
     if min(neuron.shape) == 0:
@@ -222,31 +270,35 @@ def voxel2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        trace_data = [k3d.volume(img.T,
-                                 bounds=neuron.bbox.flatten(),
-                                 interpolation=False,
-                                 )]
+        trace_data = [
+            k3d.volume(
+                img.T,
+                bounds=neuron.bbox.flatten(),
+                interpolation=False,
+            )
+        ]
 
     return trace_data
 
 
-def skeleton2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
+def skeleton2k3d(neuron, legendgroup, showlegend, label, color, settings):
     """Convert skeleton (i.e. TreeNeuron) to plotly line plot."""
     if neuron.nodes.empty:
-        logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.label}')
+        logger.warning(f"Skipping TreeNeuron w/o nodes: {neuron.label}")
         return []
     elif neuron.nodes.shape[0] == 1:
-        logger.warning(f'Skipping single-node skeleton: {neuron.label}')
+        logger.warning(f"Skipping single-node skeleton: {neuron.label}")
         return []
 
     coords = segments_to_coords(neuron)
-    linewidth = kwargs.get('linewidth', kwargs.get('lw', 1))
 
     # We have to add (None, None, None) to the end of each segment to
     # make that line discontinuous. For reasons I don't quite understand
     # we have to also duplicate the first and the last coordinate in each segment
     # (possibly a bug)
-    coords = np.concatenate([co for seg in coords for co in [seg[:1], seg, seg[-1:], [[None] * 3]]], axis=0)
+    coords = np.concatenate(
+        [co for seg in coords for co in [seg[:1], seg, seg[-1:], [[None] * 3]]], axis=0
+    )
 
     color_kwargs = {}
     if isinstance(color, np.ndarray) and color.ndim == 2:
@@ -258,7 +310,9 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
         ix = dict(zip(neuron.nodes.node_id.values, np.arange(neuron.n_nodes)))
         # Construct sequence node IDs just like we did in `coords`
         # (note that we insert a "-1" for breaks between segments)
-        seg_ids = [co for seg in neuron.segments for co in [seg[:1], seg, seg[-1:], [-1]]]
+        seg_ids = [
+            co for seg in neuron.segments for co in [seg[:1], seg, seg[-1:], [-1]]
+        ]
         seg_ids = np.concatenate(seg_ids, axis=0)
         # Translate to node indices
         seg_ix = [ix.get(n, 0) for n in seg_ids]
@@ -266,27 +320,33 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
         # Now map this to vertex colors
         seg_colors = [c[i] for i in seg_ix]
 
-        color_kwargs['colors'] = seg_colors
+        color_kwargs["colors"] = seg_colors
     else:
-        color_kwargs['color'] = c = color_to_int(color)
+        color_kwargs["color"] = c = color_to_int(color)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        trace_data = [k3d.line(coords,
-                               width=linewidth,
-                               shader='thick',
-                               name=label,
-                               **color_kwargs)]
+        trace_data = [
+            k3d.line(
+                coords,
+                width=settings.linewidth,
+                shader="thick",
+                name=label,
+                **color_kwargs,
+            )
+        ]
 
     # Add soma(s):
     soma = utils.make_iterable(neuron.soma)
-    if kwargs.get('soma', True):
+    if settings.soma:
         # If soma detection is messed up we might end up producing
         # hundrets of soma which will freeze the session
         if len(soma) >= 10:
-            logger.warning(f'Neuron {neuron.id} appears to have {len(soma)} '
-                           'somas. That does not look right - will ignore '
-                           'them for plotting.')
+            logger.warning(
+                f"Neuron {neuron.id} appears to have {len(soma)} "
+                "somas. That does not look right - will ignore "
+                "them for plotting."
+            )
         else:
             for s in soma:
                 # Skip `None` somas
@@ -302,60 +362,68 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, **kwargs):
                 else:
                     soma_color = int(c)
 
-                n = neuron.nodes.set_index('node_id').loc[s]
-                r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
+                n = neuron.nodes.set_index("node_id").loc[s]
+                r = (
+                    getattr(n, neuron.soma_radius)
+                    if isinstance(neuron.soma_radius, str)
+                    else neuron.soma_radius
+                )
 
                 sp = tm.primitives.Sphere(radius=r, subdivisions=2)
 
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    trace_data.append(k3d.mesh(vertices=sp.vertices + n[['x', 'y', 'z']].values.astype('float32'),
-                                               indices=sp.faces.astype('uint32'),
-                                               color=soma_color,
-                                               flat_shading=False,
-                                               name=f"soma of {label}"
-                                               ))
+                    trace_data.append(
+                        k3d.mesh(
+                            vertices=sp.vertices
+                            + n[["x", "y", "z"]].values.astype("float32"),
+                            indices=sp.faces.astype("uint32"),
+                            color=soma_color,
+                            flat_shading=False,
+                            name=f"soma of {label}",
+                        )
+                    )
 
     return trace_data
 
 
 def scatter2k3d(x, **kwargs):
     """Convert DataFrame with x,y,z columns to plotly scatter plot."""
-    c = eval_color(kwargs.get('color', kwargs.get('c', (100, 100, 100))),
-                   color_range=255)
+    c = eval_color(
+        kwargs.get("color", kwargs.get("c", (100, 100, 100))), color_range=255
+    )
     c = color_to_int(c)
-    s = kwargs.get('size', kwargs.get('s', 1))
-    name = kwargs.get('name', None)
+    s = kwargs.get("size", kwargs.get("s", 1))
+    name = kwargs.get("name", None)
 
     trace_data = []
     for scatter in x:
         if isinstance(scatter, pd.DataFrame):
-            if not all([c in scatter.columns for c in ['x', 'y', 'z']]):
-                raise ValueError('DataFrame must have x, y and z columns')
-            scatter = [['x', 'y', 'z']].values
+            if not all([c in scatter.columns for c in ["x", "y", "z"]]):
+                raise ValueError("DataFrame must have x, y and z columns")
+            scatter = [["x", "y", "z"]].values
 
         if not isinstance(scatter, np.ndarray):
             scatter = np.array(scatter)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            trace_data.append(k3d.points(positions=scatter,
-                                         name=name,
-                                         color=c,
-                                         point_size=s,
-                                         shader='dot'))
+            trace_data.append(
+                k3d.points(
+                    positions=scatter, name=name, color=c, point_size=s, shader="dot"
+                )
+            )
     return trace_data
 
 
-def dotprops2k3d(x, legendgroup, showlegend, label, color, **kwargs):
+def dotprops2k3d(x, legendgroup, showlegend, label, color, settings):
     """Convert Dotprops to plotly graph object."""
-    scale_vec = kwargs.get('dps_scale_vec', 'auto')
-    tn = x.to_skeleton(scale_vec=scale_vec)
+    tn = x.to_skeleton(scale_vec=settings.dps_scale_vec)
 
-    return skeleton2k3d(tn, legendgroup, showlegend, label, color, **kwargs)
+    return skeleton2k3d(tn, legendgroup, showlegend, label, color, settings=settings)
 
 
-def volume2k3d(x, colormap, **kwargs):
+def volume2k3d(x, colormap, settings):
     """Convert Volumes to plotly objects."""
     trace_data = []
     for i, v in enumerate(x):
@@ -366,7 +434,7 @@ def volume2k3d(x, colormap, **kwargs):
         elif not v.vertices:
             continue
 
-        name = getattr(v, 'name', None)
+        name = getattr(v, "name", None)
 
         c = colormap[i]
         if len(c) == 4:
@@ -376,11 +444,15 @@ def volume2k3d(x, colormap, **kwargs):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            trace_data = [k3d.mesh(vertices=v.vertices.astype('float32'),
-                                   indices=v.faces.astype('uint32'),
-                                   name=name,
-                                   color=color_to_int(c[:3]),
-                                   flat_shading=False,
-                                   opacity=opacity)]
+            trace_data = [
+                k3d.mesh(
+                    vertices=v.vertices.astype("float32"),
+                    indices=v.faces.astype("uint32"),
+                    name=name,
+                    color=color_to_int(c[:3]),
+                    flat_shading=False,
+                    opacity=opacity,
+                )
+            ]
 
     return trace_data

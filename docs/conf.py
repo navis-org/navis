@@ -153,6 +153,9 @@ plot_formats = [("png", 90)]
 plot_html_show_formats = False
 plot_html_show_source_link = False
 
+napoleon_use_param = False
+napoleon_custom_sections = [('Figure parameters', 'params_style'), ('Object parameters', 'params_style')]
+
 # generate autosummary pages
 autosummary_generate = True
 autoclass_content = 'both'

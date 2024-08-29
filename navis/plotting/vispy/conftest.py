@@ -4,6 +4,7 @@ Should be importable (but not useful)
 without development dependencies.
 """
 try:
-    import k3d
-except ModuleNotFoundError:
+    import vispy
+
+except ImportError:
     collect_ignore_glob = ["*.py"]

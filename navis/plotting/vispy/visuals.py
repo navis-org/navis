@@ -15,6 +15,7 @@
 #    along
 
 """Functions to generate vispy visuals."""
+
 import uuid
 import warnings
 
@@ -24,7 +25,7 @@ import numpy as np
 import matplotlib.colors as mcl
 
 from ... import core, config, utils, conversion
-from ..colors import *
+from ..colors import prepare_colormap, vertex_colors, eval_color
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -32,13 +33,19 @@ with warnings.catch_warnings():
     from vispy import scene
     from vispy.geometry import create_sphere
 
-__all__ = ['volume2vispy', 'neuron2vispy', 'dotprop2vispy', 'voxel2vispy',
-           'points2vispy', 'combine_visuals']
+__all__ = [
+    "volume2vispy",
+    "neuron2vispy",
+    "dotprop2vispy",
+    "voxel2vispy",
+    "points2vispy",
+    "combine_visuals",
+]
 
 logger = config.get_logger(__name__)
 
 
-def volume2vispy(x, **kwargs):
+def volume2vispy(x, settings):
     """Convert Volume(s) to vispy visuals."""
     # Must not use make_iterable here as this will turn into list of keys!
     if not isinstance(x, (list, np.ndarray)):
@@ -52,10 +59,10 @@ def volume2vispy(x, **kwargs):
 
         object_id = uuid.uuid4()
 
-        if 'color' in kwargs or 'c' in kwargs:
-            color = kwargs.get('color', kwargs.get('c', (.95, .95, .95, .1)))
+        if settings.color is not None:
+            color = settings.color
         else:
-            color = getattr(v, 'color', (.95, .95, .95, .1))
+            color = getattr(v, "color", (0.95, 0.95, 0.95, 0.1))
 
         # Colors might be list, need to pick the correct color for this volume
         if isinstance(color, list):
@@ -69,39 +76,40 @@ def volume2vispy(x, **kwargs):
 
         # Add alpha
         if len(color) < 4:
-            color = np.append(color, [.1])
+            color = np.append(color, [0.1])
 
         if max(color) > 1:
             color[:3] = color[:3] / 255
 
-        s = scene.visuals.Mesh(vertices=v.vertices,
-                               faces=v.faces, color=color,
-                               shading=kwargs.get('shading', 'smooth'))
+        s = scene.visuals.Mesh(
+            vertices=v.vertices,
+            faces=v.faces,
+            color=color,
+            shading=settings.shading,
+        )
 
         # Set some aesthetic parameters
         # Note that for larger meshes adjusting the shading filter actually
         # surprisingly slow (e.g. ~4s @ 400k faces). Since volumes typically
         # don't have too many faces, we will keep setting the shininess.
-        if int(vispy.__version__.split('.')[1]) >= 7:
+        if int(vispy.__version__.split(".")[1]) >= 7:
             s.shading_filter.shininess = 0
         else:
             s.shininess = 0
 
         # Possible presets are "additive", "translucent", "opaque"
-        s.set_gl_state('additive',
-                       cull_face=True,
-                       depth_test=False)
-        #s.set_gl_state('additive' if color[3] < 1 else 'opaque',
+        s.set_gl_state("additive", cull_face=True, depth_test=False)
+        # s.set_gl_state('additive' if color[3] < 1 else 'opaque',
         #               cull_face=True,
         #               depth_test=False if color[3] < 1 else True)
 
         # Make sure volumes are always drawn after neurons
-        s.order = kwargs.get('order', 10)
+        s.order = 10
 
         # Add custom attributes
         s.unfreeze()
-        s._object_type = 'volume'
-        s._volume_name = getattr(v, 'name', None)
+        s._object_type = "volume"
+        s._volume_name = getattr(v, "name", None)
         s._object = v
         s._object_id = object_id
         s.freeze()
@@ -111,7 +119,7 @@ def volume2vispy(x, **kwargs):
     return visuals
 
 
-def neuron2vispy(x, **kwargs):
+def neuron2vispy(x, settings):
     """Convert a Neuron/List to vispy visuals.
 
     Parameters
@@ -135,8 +143,8 @@ def neuron2vispy(x, **kwargs):
                       Set linewidth. Might not work depending on your backend.
     cn_mesh_colors :  bool, optional
                       If True, connectors will have same color as the neuron.
-    synapse_layout :  dict, optional
-                      Sets synapse layout. For example::
+    cn_layout :       dict, optional
+                      Sets connector (e.g. synapse) layout. For example::
 
                         {
                             0: {
@@ -167,63 +175,71 @@ def neuron2vispy(x, **kwargs):
     else:
         raise TypeError(f'Unable to process data of type "{type(x)}"')
 
-    colors = kwargs.get('color',
-                        kwargs.get('c',
-                                   kwargs.get('colors', None)))
-    palette = kwargs.get('palette', None)
-    color_by = kwargs.get('color_by', None)
-    shade_by = kwargs.get('shade_by', None)
+    # colors = kwargs.get('color',
+    #                     kwargs.get('c',
+    #                                kwargs.get('colors', None)))
+    # palette = kwargs.get('palette', None)
+    # color_by = kwargs.get('color_by', None)
+    # shade_by = kwargs.get('shade_by', None)
 
     # Color_by can be a per-node/vertex color, or a per-neuron color
     # such as property of the neuron
     color_neurons_by = None
-    if color_by is not None and x:
+    if settings.color_by is not None and x:
         # Check if this is a neuron property
-        if isinstance(color_by, str):
-            if hasattr(x[0], color_by):
+        if isinstance(settings.color_by, str):
+            if hasattr(x[0], settings.color_by):
                 # If it is, use it to color neurons
-                color_neurons_by = [getattr(neuron, color_by) for neuron in x]
-                color_by = None
-        elif isinstance(color_by, (list, np.ndarray)):
-            if len(color_by) == len(x):
-                color_neurons_by = color_by
-                color_by = None
+                color_neurons_by = [getattr(neuron, settings.color_by) for neuron in x]
+                settings.color_by = None
+        elif isinstance(settings.color_by, (list, np.ndarray)):
+            if len(settings.color_by) == len(x):
+                color_neurons_by = settings.color_by
+                settings.color_by = None
 
-    if not isinstance(color_by, type(None)):
-        if not palette:
-            raise ValueError('Must provide `palette` (e.g. "viridis") argument '
-                             'if using `color_by`')
+    if not isinstance(settings.color_by, type(None)):
+        if not settings.palette:
+            raise ValueError(
+                'Must provide `palette` (e.g. "viridis") argument '
+                "if using `color_by`"
+            )
 
-        colormap = vertex_colors(x,
-                                 by=color_by,
-                                 alpha=kwargs.get('alpha', 1),
-                                 palette=palette,
-                                 vmin=kwargs.get('vmin', None),
-                                 vmax=kwargs.get('vmax', None),
-                                 na=kwargs.get('na', 'raise'),
-                                 color_range=1)
+        colormap = vertex_colors(
+            x,
+            by=settings.color_by,
+            alpha=settings.alpha,
+            palette=settings.palette,
+            vmin=settings.vmin,
+            vmax=settings.vmax,
+            na="raise",
+            color_range=1,
+        )
     else:
-        colormap, _ = prepare_colormap(colors,
-                                       neurons=x,
-                                       palette=palette,
-                                       alpha=kwargs.get('alpha', None),
-                                       color_by=color_neurons_by,
-                                       color_range=1)
+        colormap, _ = prepare_colormap(
+            settings.color,
+            neurons=x,
+            palette=settings.palette,
+            alpha=settings.alpha,
+            color_by=color_neurons_by,
+            color_range=1,
+        )
 
-    if not isinstance(shade_by, type(None)):
-        alphamap = vertex_colors(x,
-                                 by=shade_by,
-                                 use_alpha=True,
-                                 palette='viridis',  # palette is irrelevant here
-                                 vmin=kwargs.get('smin', None),
-                                 vmax=kwargs.get('smax', None),
-                                 na=kwargs.get('na', 'raise'),
-                                 color_range=1)
+    if not isinstance(settings.shade_by, type(None)):
+        alphamap = vertex_colors(
+            x,
+            by=settings.shade_by,
+            use_alpha=True,
+            palette="viridis",  # palette is irrelevant here
+            vmin=settings.smin,
+            vmax=settings.smax,
+            na="raise",
+            color_range=1,
+        )
 
         new_colormap = []
         for c, a in zip(colormap, alphamap):
             if not (isinstance(c, np.ndarray) and c.ndim == 2):
-                c = np.tile(c, (a.shape[0],  1))
+                c = np.tile(c, (a.shape[0], 1))
 
             if c.shape[1] == 4:
                 c[:, 3] = a[:, 3]
@@ -239,103 +255,105 @@ def neuron2vispy(x, **kwargs):
         # Generate random ID -> we need this in case we have duplicate IDs
         object_id = uuid.uuid4()
 
-        if kwargs.get('radius', False):
-            # Convert and carry connectors with us
-            if isinstance(neuron, core.TreeNeuron):
-                _neuron = conversion.tree2meshneuron(neuron)
-                _neuron.connectors = neuron.connectors
-                neuron = _neuron
+        if (
+            isinstance(neuron, core.TreeNeuron)
+            and settings.radius
+            and neuron.nodes.get("radius", pd.Series([]))
+            .notnull()
+            .any()  # make sure we have at least some radii
+        ):
+            _neuron = conversion.tree2meshneuron(neuron)
+            _neuron.connectors = neuron.connectors
+            neuron = _neuron
 
         neuron_color = colormap[i]
-        if not kwargs.get('connectors_only', False):
+        if not settings.connectors_only:
             if isinstance(neuron, core.TreeNeuron):
-                visuals += skeleton2vispy(neuron,
-                                          neuron_color,
-                                          object_id,
-                                          **kwargs)
+                visuals += skeleton2vispy(neuron, neuron_color, object_id, settings)
             elif isinstance(neuron, core.MeshNeuron):
-                visuals += mesh2vispy(neuron,
-                                      neuron_color,
-                                      object_id,
-                                      **kwargs)
+                visuals += mesh2vispy(neuron, neuron_color, object_id, settings)
             elif isinstance(neuron, core.Dotprops):
-                visuals += dotprop2vispy(neuron,
-                                         neuron_color,
-                                         object_id,
-                                         **kwargs)
+                visuals += dotprop2vispy(neuron, neuron_color, object_id, settings)
             elif isinstance(neuron, core.VoxelNeuron):
-                visuals += voxel2vispy(neuron,
-                                       neuron_color,
-                                       object_id,
-                                       **kwargs)
+                visuals += voxel2vispy(neuron, neuron_color, object_id, settings)
             else:
-                logger.warning(f"Don't know how to plot neuron of type '{type(neuron)}'")
+                logger.warning(
+                    f"Don't know how to plot neuron of type '{type(neuron)}'"
+                )
 
-        if (kwargs.get('connectors', False)
-            or kwargs.get('connectors_only', False)) and neuron.has_connectors:
-            visuals += connectors2vispy(neuron,
-                                        neuron_color,
-                                        object_id,
-                                        **kwargs)
+        if settings.connectors or settings.connectors_only and neuron.has_connectors:
+            visuals += connectors2vispy(neuron, neuron_color, object_id, settings)
 
     return visuals
 
 
-def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
+def connectors2vispy(neuron, neuron_color, object_id, settings):
     """Convert connectors to vispy visuals."""
     cn_lay = config.default_connector_colors.copy()
-    cn_lay.update(kwargs.get('synapse_layout', {}))
+    cn_lay.update(settings.cn_layout)
 
     visuals = []
-    cn_colors = kwargs.get('cn_colors', None)
     for j in neuron.connectors.type.unique():
-        if isinstance(cn_colors, dict):
-            color = cn_colors.get(j, cn_lay.get(j, {}).get('color', (.1, .1, .1)))
-        elif cn_colors == 'neuron':
+        if isinstance(settings.cn_colors, dict):
+            color = settings.cn_colors.get(
+                j, cn_lay.get(j, {}).get("color", (0.1, 0.1, 0.1))
+            )
+        elif settings.cn_colors == "neuron":
             color = neuron_color
-        elif cn_colors:
-            color = cn_colors
+        elif settings.cn_colors is not None:
+            color = settings.cn_colors
         else:
-            color = cn_lay.get(j, {}).get('color', (.1, .1, .1))
+            color = cn_lay.get(j, {}).get("color", (0.1, 0.1, 0.1))
 
         color = eval_color(color, color_range=1)
 
         this_cn = neuron.connectors[neuron.connectors.type == j]
 
-        pos = this_cn[['x', 'y', 'z']].apply(pd.to_numeric).values
+        pos = this_cn[["x", "y", "z"]].apply(pd.to_numeric).values
 
-        mode = cn_lay['display']
-        if mode == 'circles' or isinstance(neuron, core.MeshNeuron):
-            con = scene.visuals.Markers(spherical=cn_lay.get('spherical', True),
-                                        scaling=cn_lay.get('scale', False))
+        mode = cn_lay["display"]
+        if mode == "circles" or isinstance(neuron, core.MeshNeuron):
+            con = scene.visuals.Markers(
+                spherical=cn_lay.get("spherical", True),
+                scaling=cn_lay.get("scale", False),
+            )
 
-            con.set_data(pos=np.array(pos),
-                         face_color=color,
-                         edge_color=color,
-                         size=cn_lay.get('size', 100))
+            con.set_data(
+                pos=np.array(pos),
+                face_color=color,
+                edge_color=color,
+                size=settings.cn_size if settings.cn_size else cn_lay["size"],
+            )
 
-        elif mode == 'lines':
-            tn_coords = neuron.nodes.set_index('node_id').loc[this_cn.node_id.values][['x', 'y', 'z']].apply(pd.to_numeric).values
+        elif mode == "lines":
+            tn_coords = (
+                neuron.nodes.set_index("node_id")
+                .loc[this_cn.node_id.values][["x", "y", "z"]]
+                .apply(pd.to_numeric)
+                .values
+            )
 
             segments = [item for sublist in zip(pos, tn_coords) for item in sublist]
 
-            con = scene.visuals.Line(pos=np.array(segments),
-                                     color=color,
-                                     # Can only be used with method 'agg'
-                                     width=kwargs.get('linewidth', 1),
-                                     connect='segments',
-                                     antialias=False,
-                                     method='gl')
+            con = scene.visuals.Line(
+                pos=np.array(segments),
+                color=color,
+                # Can only be used with method 'agg'
+                width=settings.linewidth,
+                connect="segments",
+                antialias=False,
+                method="gl",
+            )
             # method can also be 'agg' -> has to use connect='strip'
         else:
             raise ValueError(f'Unknown connector display mode "{mode}"')
 
         # Add custom attributes
         con.unfreeze()
-        con._object_type = 'neuron'
-        con._neuron_part = 'connectors'
+        con._object_type = "neuron"
+        con._neuron_part = "connectors"
         con._id = neuron.id
-        con._name = str(getattr(neuron, 'name', neuron.id))
+        con._name = str(getattr(neuron, "name", neuron.id))
         con._object_id = object_id
         con._object = neuron
         con.freeze()
@@ -344,7 +362,7 @@ def connectors2vispy(neuron, neuron_color, object_id, **kwargs):
     return visuals
 
 
-def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
+def mesh2vispy(neuron, neuron_color, object_id, settings):
     """Convert mesh (i.e. MeshNeuron) to vispy visuals."""
     # Skip empty neurons
     if not len(neuron.faces):
@@ -369,33 +387,33 @@ def mesh2vispy(neuron, neuron_color, object_id, **kwargs):
     if neuron.faces.dtype.isbuiltin == 0:
         neuron.faces = neuron.faces.astype(neuron.faces.dtype.str)
 
-    m = scene.visuals.Mesh(vertices=neuron.vertices,
-                           faces=neuron.faces,
-                           shading=kwargs.get('shading', 'smooth'),
-                           **color_kwargs)
+    m = scene.visuals.Mesh(
+        vertices=neuron.vertices,
+        faces=neuron.faces,
+        shading=settings.shading,
+        **color_kwargs,
+    )
 
     # Set some aesthetic parameters
     # Vispy 0.7.0 uses a new shading filter
-    # Note that for larger meshes adjusting the shading filter actually
+    # Note that for larger meshes adjusting the shading filter is actually
     # surprisingly slow (e.g. ~4s @ 400k faces)
-    if isinstance(kwargs.get('shininess', None), (int, float)):
-        if int(vispy.__version__.split('.')[1]) >= 7:
-            m.shading_filter.shininess = kwargs['shininess']
+    if isinstance(settings.shininess, (int, float)):
+        if int(vispy.__version__.split(".")[1]) >= 7:
+            m.shading_filter.shininess = settings.shininess
         else:
-            m.shininess = kwargs['shininess']
+            m.shininess = settings.shininess
 
     # Possible presets are "additive", "translucent", "opaque"
     if len(neuron_color) == 4 and neuron_color[3] < 1:
-        m.set_gl_state('additive',
-                       cull_face=True,
-                       depth_test=False)
+        m.set_gl_state("additive", cull_face=True, depth_test=False)
 
     # Add custom attributes
     m.unfreeze()
-    m._object_type = 'neuron'
-    m._neuron_part = 'neurites'
+    m._object_type = "neuron"
+    m._neuron_part = "neurites"
     m._id = neuron.id
-    m._name = str(getattr(neuron, 'name', neuron.id))
+    m._name = str(getattr(neuron, "name", neuron.id))
     m._object_id = object_id
     m._object = neuron
     m.freeze()
@@ -422,7 +440,7 @@ def to_vispy_cmap(color, fade=True):
     return cmap
 
 
-def voxel2vispy(neuron, neuron_color, object_id, **kwargs):
+def voxel2vispy(neuron, neuron_color, object_id, settings):
     """Convert voxels (i.e. VoxelNeuron) to vispy visuals."""
     # Note the transpose: currently, vispy expects zyx for volumes but this
     # might change in the future
@@ -430,68 +448,68 @@ def voxel2vispy(neuron, neuron_color, object_id, **kwargs):
     # Vispy doesn't like boolean matrices here
     if grid.dtype == bool:
         grid = grid.astype(int)
-    vx = scene.visuals.Volume(vol=grid,
-                              cmap=to_vispy_cmap(neuron_color))
+    vx = scene.visuals.Volume(vol=grid, cmap=to_vispy_cmap(neuron_color))
 
     # Add transforms
-    vx.set_transform('st',
-                     scale=neuron.units_xyz.magnitude,
-                     translate=neuron.offset)
+    vx.set_transform("st", scale=neuron.units_xyz.magnitude, translate=neuron.offset)
 
     # Add custom attributes
     vx.unfreeze()
-    vx._object_type = 'neuron'
-    vx._neuron_part = 'neurites'
+    vx._object_type = "neuron"
+    vx._neuron_part = "neurites"
     vx._id = neuron.id
-    vx._name = str(getattr(neuron, 'name', neuron.id))
+    vx._name = str(getattr(neuron, "name", neuron.id))
     vx._object_id = object_id
     vx._object = neuron
     vx.freeze()
     return [vx]
 
 
-def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
+def skeleton2vispy(neuron, neuron_color, object_id, settings):
     """Convert skeleton (i.e. TreeNeuron) into vispy visuals."""
     if neuron.nodes.empty:
-        logger.warning(f'Skipping TreeNeuron w/o nodes: {neuron.id}')
+        logger.warning(f"Skipping TreeNeuron w/o nodes: {neuron.id}")
         return []
     elif neuron.nodes.shape[0] == 1:
-        logger.warning(f'Skipping single-node TreeNeuron: {neuron.label}')
+        logger.warning(f"Skipping single-node TreeNeuron: {neuron.label}")
         return []
 
     visuals = []
-    if not kwargs.get('connectors_only', False):
+    if not settings.connectors_only:
         # Make sure we have one color for each node
         neuron_color = np.asarray(neuron_color)
         if neuron_color.ndim == 1:
-            neuron_color = np.tile(neuron_color, (neuron.nodes.shape[0],  1))
+            neuron_color = np.tile(neuron_color, (neuron.nodes.shape[0], 1))
 
         # Get nodes
         non_roots = neuron.nodes[neuron.nodes.parent_id >= 0]
         connect = np.zeros((non_roots.shape[0], 2), dtype=int)
-        node_ix = pd.Series(np.arange(neuron.nodes.shape[0]),
-                            index=neuron.nodes.node_id.values)
+        node_ix = pd.Series(
+            np.arange(neuron.nodes.shape[0]), index=neuron.nodes.node_id.values
+        )
         connect[:, 0] = node_ix.loc[non_roots.node_id].values
         connect[:, 1] = node_ix.loc[non_roots.parent_id].values
 
         # Create line plot from segments.
-        t = scene.visuals.Line(pos=neuron.nodes[['x', 'y', 'z']].values,
-                               color=neuron_color,
-                               # Can only be used with method 'agg'
-                               width=kwargs.get('linewidth', 1),
-                               connect=connect,
-                               antialias=True,
-                               method='gl')
+        t = scene.visuals.Line(
+            pos=neuron.nodes[["x", "y", "z"]].values,
+            color=neuron_color,
+            # Can only be used with method 'agg'
+            width=settings.linewidth,
+            connect=connect,
+            antialias=True,
+            method="gl",
+        )
         # method can also be 'agg' -> has to use connect='strip'
         # Make visual discoverable
         t.interactive = True
 
         # Add custom attributes
         t.unfreeze()
-        t._object_type = 'neuron'
-        t._neuron_part = 'neurites'
+        t._object_type = "neuron"
+        t._neuron_part = "neurites"
         t._id = neuron.id
-        t._name = str(getattr(neuron, 'name', neuron.id))
+        t._name = str(getattr(neuron, "name", neuron.id))
         t._object = neuron
         t._object_id = object_id
         t.freeze()
@@ -500,13 +518,15 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
 
         # Extract and plot soma
         soma = utils.make_iterable(neuron.soma)
-        if kwargs.get('soma', True):
+        if settings.soma:
             # If soma detection is messed up we might end up producing
             # hundrets of soma which will freeze the session
             if len(soma) >= 10:
-                logger.warning(f'Neuron {neuron.id} appears to have {len(soma)}'
-                               ' somas. That does not look right - will ignore '
-                               'them for plotting.')
+                logger.warning(
+                    f"Neuron {neuron.id} appears to have {len(soma)}"
+                    " somas. That does not look right - will ignore "
+                    "them for plotting."
+                )
             else:
                 for s in soma:
                     # Skip `None` somas
@@ -522,20 +542,28 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
                     else:
                         soma_color = neuron_color
 
-                    n = neuron.nodes.set_index('node_id').loc[s]
-                    r = getattr(n, neuron.soma_radius) if isinstance(neuron.soma_radius, str) else neuron.soma_radius
+                    n = neuron.nodes.set_index("node_id").loc[s]
+                    r = (
+                        getattr(n, neuron.soma_radius)
+                        if isinstance(neuron.soma_radius, str)
+                        else neuron.soma_radius
+                    )
                     sp = create_sphere(7, 7, radius=r)
-                    verts = sp.get_vertices() + n[['x', 'y', 'z']].values.astype(np.float32)
-                    s = scene.visuals.Mesh(vertices=verts,
-                                           shading='smooth',
-                                           faces=sp.get_faces(),
-                                           color=soma_color)
+                    verts = sp.get_vertices() + n[["x", "y", "z"]].values.astype(
+                        np.float32
+                    )
+                    s = scene.visuals.Mesh(
+                        vertices=verts,
+                        shading="smooth",
+                        faces=sp.get_faces(),
+                        color=soma_color,
+                    )
                     # Vispy 0.7.0 uses a new shading filter
-                    if int(vispy.__version__.split('.')[1]) >= 7:
-                        s.shading_filter.ambient_light = vispy.color.Color('white')
+                    if int(vispy.__version__.split(".")[1]) >= 7:
+                        s.shading_filter.ambient_light = vispy.color.Color("white")
                         s.shading_filter.shininess = 0
                     else:
-                        s.ambient_light_color = vispy.color.Color('white')
+                        s.ambient_light_color = vispy.color.Color("white")
                         s.shininess = 0
 
                     # Make visual discoverable
@@ -543,10 +571,10 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
 
                     # Add custom attributes
                     s.unfreeze()
-                    s._object_type = 'neuron'
-                    s._neuron_part = 'soma'
+                    s._object_type = "neuron"
+                    s._neuron_part = "soma"
                     s._id = neuron.id
-                    s._name = str(getattr(neuron, 'name', neuron.id))
+                    s._name = str(getattr(neuron, "name", neuron.id))
                     s._object = neuron
                     s._object_id = object_id
                     s.freeze()
@@ -556,7 +584,7 @@ def skeleton2vispy(neuron, neuron_color, object_id, **kwargs):
     return visuals
 
 
-def dotprop2vispy(x, neuron_color, object_id, **kwargs):
+def dotprop2vispy(x, neuron_color, object_id, settings):
     """Convert dotprops(s) to vispy visuals.
 
     Parameters
@@ -575,9 +603,8 @@ def dotprop2vispy(x, neuron_color, object_id, **kwargs):
         return []
 
     # Generate TreeNeuron
-    scale_vec = kwargs.get('dps_scale_vec', 'auto')
-    tn = x.to_skeleton(scale_vec=scale_vec)
-    return skeleton2vispy(tn, neuron_color, object_id, **kwargs)
+    tn = x.to_skeleton(scale_vec=settings.dps_scale_vec)
+    return skeleton2vispy(tn, neuron_color, object_id, settings)
 
 
 def points2vispy(x, **kwargs):
@@ -598,10 +625,10 @@ def points2vispy(x, **kwargs):
                     Contains vispy visuals for points.
 
     """
-    colors = kwargs.get('color',
-                        kwargs.get('c',
-                                   kwargs.get('colors',
-                                              eval_color(config.default_color, 1))))
+    colors = kwargs.get(
+        "color",
+        kwargs.get("c", kwargs.get("colors", eval_color(config.default_color, 1))),
+    )
 
     visuals = []
     for p in x:
@@ -609,16 +636,19 @@ def points2vispy(x, **kwargs):
         if not isinstance(p, np.ndarray):
             p = np.array(p)
 
-        con = scene.visuals.Markers(spherical=kwargs.get('spherical', True),
-                                    scaling=kwargs.get('scale', False))
-        con.set_data(pos=p,
-                     face_color=colors,
-                     edge_color=colors,
-                     size=kwargs.get('size', kwargs.get('s', 2)))
+        con = scene.visuals.Markers(
+            spherical=kwargs.get("spherical", True), scaling=kwargs.get("scale", False)
+        )
+        con.set_data(
+            pos=p,
+            face_color=colors,
+            edge_color=colors,
+            size=kwargs.get("size", kwargs.get("s", 2)),
+        )
 
         # Add custom attributes
         con.unfreeze()
-        con._object_type = 'points'
+        con._object_type = "points"
         con._object_id = object_id
         con.freeze()
 
@@ -644,17 +674,17 @@ def combine_visuals(visuals, name=None):
 
     """
     if any([not isinstance(v, scene.visuals.VisualNode) for v in visuals]):
-        raise TypeError('Visuals must all be instances of VisualNode')
+        raise TypeError("Visuals must all be instances of VisualNode")
 
     # Combining visuals (i.e. adding pos AND changing colors) fails if
     # they are already on a canvas
     if any([v.parent for v in visuals]):
-        raise ValueError('Visuals must not have parents when combined.')
+        raise ValueError("Visuals must not have parents when combined.")
 
     # Sort into types
     types = set([type(v) for v in visuals])
 
-    by_type = {ty: [v for v in visuals if type(v) == ty] for ty in types}
+    by_type = {ty: [v for v in visuals if type(v) is ty] for ty in types}
 
     combined = []
 
@@ -684,23 +714,25 @@ def combine_visuals(visuals, name=None):
             connect = np.concatenate(connect)
             colors = np.concatenate(colors)
 
-            t = scene.visuals.Line(pos=pos,
-                                   color=colors,
-                                   # Can only be used with method 'agg'
-                                   connect=connect,
-                                   antialias=True,
-                                   method='gl')
+            t = scene.visuals.Line(
+                pos=pos,
+                color=colors,
+                # Can only be used with method 'agg'
+                connect=connect,
+                antialias=True,
+                method="gl",
+            )
             # method can also be 'agg' -> has to use connect='strip'
             # Make visual discoverable
             t.interactive = True
 
             # Add custom attributes
             t.unfreeze()
-            t._object_type = 'neuron'
-            t._neuron_part = 'neurites'
-            t._id = 'NA'
+            t._object_type = "neuron"
+            t._neuron_part = "neurites"
+            t._id = "NA"
             t._object_id = uuid.uuid4()
-            t._name = name if name else 'NeuronCollection'
+            t._name = name if name else "NeuronCollection"
             t.freeze()
 
             combined.append(t)
@@ -717,7 +749,9 @@ def combine_visuals(visuals, name=None):
                 if not isinstance(vc, type(None)):
                     color.append(vc)
                 else:
-                    color.append(np.tile(vis.color.rgba, len(vertices[-1])).reshape(-1, 4))
+                    color.append(
+                        np.tile(vis.color.rgba, len(vertices[-1])).reshape(-1, 4)
+                    )
 
             faces = np.vstack(faces)
             vertices = np.vstack(vertices)
@@ -728,19 +762,21 @@ def combine_visuals(visuals, name=None):
             else:
                 base_color = (1, 1, 1, 1)
 
-            t = scene.visuals.Mesh(vertices,
-                                   faces=faces,
-                                   color=base_color,
-                                   vertex_colors=color,
-                                   shading=by_type[ty][0].shading,
-                                   mode=by_type[ty][0].mode)
+            t = scene.visuals.Mesh(
+                vertices,
+                faces=faces,
+                color=base_color,
+                vertex_colors=color,
+                shading=by_type[ty][0].shading,
+                mode=by_type[ty][0].mode,
+            )
 
             # Add custom attributes
             t.unfreeze()
-            t._object_type = 'neuron'
-            t._neuron_part = 'neurites'
-            t._id = 'NA'
-            t._name = name if name else 'MeshNeuronCollection'
+            t._object_type = "neuron"
+            t._neuron_part = "neurites"
+            t._id = "NA"
+            t._name = name if name else "MeshNeuronCollection"
             t._object_id = uuid.uuid4()
             t.freeze()
 
