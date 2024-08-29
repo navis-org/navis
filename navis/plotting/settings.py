@@ -30,7 +30,15 @@ class Settings:
 
     @property
     def properties(self):
-        return tuple([p for p in dir(self) if not p.startswith("_")])
+        return tuple(
+            [
+                p
+                for p in dir(self)
+                if not p.startswith("_")
+                and (p != "properties")   # we need this to avoid infinite recursion
+                and not callable(getattr(self, p, None))
+            ]
+        )
 
     def update_settings(self, **kwargs):
         # Deal with synonyms
