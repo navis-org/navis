@@ -325,6 +325,11 @@ class MeshNeuron(BaseNeuron):
         self._skeleton = s
 
     @property
+    def soma(self):
+        """Not implemented for MeshNeurons - use `.soma_pos`."""
+        raise AttributeError("MeshNeurons have a soma position (`.soma_pos`), not a soma.")
+
+    @property
     def type(self) -> str:
         """Neuron type."""
         return 'navis.MeshNeuron'
