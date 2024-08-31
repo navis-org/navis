@@ -151,7 +151,7 @@ def xform_cmtk(points: np.ndarray, transforms, inverse: bool = False,
 class CMTKtransform(BaseTransform):
     """CMTK transforms of 3D spatial data.
 
-    Requires `CMTK <https://www.nitrc.org/projects/cmtk/>`_ to be installed.
+    Requires [CMTK](https://www.nitrc.org/projects/cmtk/) to be installed.
 
     Parameters
     ----------

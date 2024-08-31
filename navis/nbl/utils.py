@@ -185,9 +185,9 @@ def update_scores(queries, targets, scores_ex, nblast_func, **kwargs):
     scores_ex :     pandas.DataFrame
                     DataFrame with existing scores.
     nblast_func :   callable
-                    The NBLAST to use. For example: ``navis.nblast``.
+                    The NBLAST to use. For example: `navis.nblast`.
     **kwargs
-                    Argument passed to ``nblast_func``.
+                    Argument passed to `nblast_func`.
 
     Returns
     -------
@@ -309,9 +309,9 @@ def dendrogram(x, method='ward', **kwargs):
                     Pandas DataFrame is assumed to be NBLAST scores. Array is
                     assumed to be a linkage.
     method :        str
-                    Method for ``linkage``. Ignored if ``x`` is already a linkage.
+                    Method for `linkage`. Ignored if `x` is already a linkage.
     **kwargs
-                    Keyword argument passed to scipy's ``dendrogram``.
+                    Keyword argument passed to scipy's `dendrogram`.
 
     Returns
     -------
@@ -332,8 +332,8 @@ def dendrogram(x, method='ward', **kwargs):
 def make_clusters(x, t, criterion='n_clusters', method='ward', **kwargs):
     """Form flat clusters.
 
-    This is a thin wrapper around ``scipy.cluster.hierarchy.cut_tree`` and
-    ``scipy.cluster.hierarchy.fcluster`` functions.
+    This is a thin wrapper around `scipy.cluster.hierarchy.cut_tree` and
+    `scipy.cluster.hierarchy.fcluster` functions.
 
     Parameters
     ----------
@@ -341,19 +341,19 @@ def make_clusters(x, t, criterion='n_clusters', method='ward', **kwargs):
                     Pandas DataFrame is assumed to be NBLAST scores. Array is
                     assumed to be a linkage.
     t :             scalar
-                    See ``method``.
+                    See `method`.
     criterion :     str
                     Method to use for creating clusters:
-                     - `n_clusters` uses ``cut_tree`` to create ``t`` clusters
-                     - `height` uses ``cut_tree`` to cut the dendrogram at
-                        height ``t``
+                     - `n_clusters` uses `cut_tree` to create `t` clusters
+                     - `height` uses `cut_tree` to cut the dendrogram at
+                        height `t`
                      - `inconsistent`, `distance`, `maxclust`, etc are passed
-                       through to ``fcluster``
+                       through to `fcluster`
     method :        str
-                    Method for ``linkage``. Ignored if ``x`` is already a linkage.
+                    Method for `linkage`. Ignored if `x` is already a linkage.
     **kwargs
                     Additional keyword arguments are passed through to the
-                    cluster functions ``cut_tree`` and ``fcluster``.
+                    cluster functions `cut_tree` and `fcluster`.
 
     Returns
     -------

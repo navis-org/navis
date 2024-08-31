@@ -59,16 +59,16 @@ def plot1d(x: 'core.NeuronObject',
     color :     tuple | dict
                 Color. If dict must map neuron UUID to color.
     palette :   str | array | list of arrays, default=None
-                Name of a matplotlib or seaborn palette. If ``color`` is
+                Name of a matplotlib or seaborn palette. If `color` is
                 not specified will pick colors from this palette.
     color_by :  str | array | list of arrays, default = None
                 Can be the name of a column in the node table of
-                ``TreeNeurons`` or an array of (numerical or categorical)
+                `TreeNeurons` or an array of (numerical or categorical)
                 values for each node. Numerical values will be normalized.
-                You can control the normalization by passing a ``vmin``
-                and/or ``vmax`` parameter.
+                You can control the normalization by passing a `vmin`
+                and/or `vmax` parameter.
     **kwargs
-                Will be passed to ``matplotlib.patches.Rectangle``.
+                Will be passed to `matplotlib.patches.Rectangle`.
 
     Returns
     -------

@@ -157,7 +157,7 @@ def read_nrrd(f: Union[str, Iterable],
               **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from NRRD file.
 
-    See `here <http://teem.sourceforge.net/nrrd/format.html>`_ for specs of
+    See [here](http://teem.sourceforge.net/nrrd/format.html) for specs of
     NRRD file format including description of the headers.
 
     Parameters

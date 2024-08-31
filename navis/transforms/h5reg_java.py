@@ -47,7 +47,7 @@ class H5JavaTransform(BaseTransform):
 
         pip3 install JPype1
 
-    See `here <https://github.com/saalfeldlab/template-building/wiki/Hdf5-Deformation-fields>`_
+    See [here](https://github.com/saalfeldlab/template-building/wiki/Hdf5-Deformation-fields)
     for specifications of the format.
 
     Parameters
@@ -186,7 +186,7 @@ class H5JavaTransform(BaseTransform):
         -------
         pointsxf :      (N, 3) numpy array
                         Transformed points. Points that failed to transform will
-                        be ``np.nan``.
+                        be `np.nan`.
 
         """
         if isinstance(points, pd.DataFrame):

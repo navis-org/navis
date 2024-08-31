@@ -888,8 +888,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     Examples
     --------
     This example requires the
-    `flybrains <https://github.com/navis-org/navis-flybrains>`_
-    library to be installed: ``pip3 install flybrains``
+    [flybrains](https://github.com/navis-org/navis-flybrains)
+    library to be installed: `pip3 install flybrains`
 
     Also, if you haven't already, you will need to have the optional Saalfeld
     lab (Janelia Research Campus) transforms installed (this is a one-off):
@@ -1042,7 +1042,7 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
     Examples
     --------
     This example requires the
-    `flybrains <https://github.com/navis-org/navis-flybrains>`_
+    [flybrains](https://github.com/navis-org/navis-flybrains)
     library to be installed: `pip3 install flybrains`
 
     >>> import navis
@@ -1222,7 +1222,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     Examples
     --------
     This example requires the
-    `flybrains <https://github.com/navis-org/navis-flybrains>`_
+    [flybrains](https://github.com/navis-org/navis-flybrains)
     library to be installed: `pip3 install flybrains`
 
     Also, if you haven't already, you will need to have the optional Saalfeld
@@ -1425,7 +1425,7 @@ class TemplateBrain:
     Minimally, a template should have a `name` and `label` property. For
     mirroring, it also needs a `boundingbox`.
 
-    See `navis-flybrains <https://github.com/navis-org/navis-flybrains>`_ for
+    See [flybrains](https://github.com/navis-org/navis-flybrains) for
     an example of how to use template brains.
 
     """

@@ -702,7 +702,7 @@ def read_h5(filepath: str,
     """Read Neuron/List from Hdf5 file.
 
     This import is following the schema specified
-    `here <http://www.>`_
+    [here](https://github.com/flyconnectome/hnf)
 
     Parameters
     ----------
@@ -943,7 +943,7 @@ def write_h5(n: 'core.NeuronObject',
                         Whether to write the neurons' raw data to file. This
                         is required to re-generate neurons from tools other
                         than `navis` (e.g. R's `nat`). This follows the schema
-                        specified `here <https://github.com/flyconnectome/hnf>`_.
+                        specified [here](https://github.com/flyconnectome/hnf).
     append :            bool
                         If file already exists, whether to append data or to
                         overwrite the entire file.

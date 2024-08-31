@@ -165,7 +165,7 @@ def prune_by_strahler(x: NeuronObject,
                       reroot_soma: bool = True,
                       force_strahler_update: bool = False,
                       relocate_connectors: bool = False) -> NeuronObject:
-    """Prune neuron based on `Strahler order <https://en.wikipedia.org/wiki/Strahler_number>`_.
+    """Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 
     Parameters
     ----------

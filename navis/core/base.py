@@ -48,7 +48,7 @@ with warnings.catch_warnings():
 def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
            **metadata):
     """Constructor for Neuron objects. Depending on the input, either a
-    ``TreeNeuron`` or a ``MeshNeuron`` is returned.
+    `TreeNeuron` or a `MeshNeuron` is returned.
 
     Parameters
     ----------

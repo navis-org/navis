@@ -1452,7 +1452,7 @@ def sholl_analysis(
 
     References
     ----------
-    See the `Wikipedia <https://en.wikipedia.org/wiki/Sholl_analysis>`_ entry
+    See the [Wikipedia article](https://en.wikipedia.org/wiki/Sholl_analysis)
     for a brief explanation.
 
     Examples

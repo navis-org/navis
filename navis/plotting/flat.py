@@ -98,7 +98,7 @@ def plot_flat(
     -------
     ax :                    matplotlib.ax
     pos :                   dict
-                            (X, Y) positions for each node: ``{node_id: (x, y)}``.
+                            (X, Y) positions for each node: `{node_id: (x, y)}`.
 
 
     Examples

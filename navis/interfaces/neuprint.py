@@ -93,17 +93,21 @@ def fetch_roi(roi, *, client=None):
 def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                       parallel=True, max_threads=5, seg_source=None,
                       client=None, **kwargs):
-    """Fetch mesh neuron.
+    """Fetch neuron meshes as navis.MeshNeuron.
 
     Requires additional packages depending on the mesh source.
 
-    For DVID you need `dvid-tools <https://github.com/flyconnectome/dvid_tools>`_::
+    For DVID you need [`dvid-tools`](https://github.com/flyconnectome/dvid_tools):
 
+        ``` shell
         pip3 install dvidtools
+        ```
 
-    For everything else you need `cloudvolume <https://github.com/seung-lab/cloud-volume>`_::
+    For everything else you need [cloudvolume](https://github.com/seung-lab/cloud-volume):
 
+        ``` shell
         pip3 install cloud-volume
+        ```
 
 
     Parameters
@@ -340,7 +344,7 @@ def __fetch_mesh(bodyId, *, vol, lod, missing_mesh='raise'):
 @inject_client
 def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
                     parallel=True, max_threads=5, client=None):
-    """Construct navis.TreeNeuron/List from neuprint neurons.
+    """Fetch neuron skeletons as navis.TreeNeurons.
 
     Notes
     -----

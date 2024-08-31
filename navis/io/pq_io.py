@@ -107,7 +107,7 @@ def read_parquet(f: Union[str, Path],
                  ) -> 'core.NeuronObject':
     """Read parquet file into Neuron/List.
 
-    See `here <https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md>`_
+    See [here](https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md)
     for format specifications.
 
     Parameters
@@ -298,7 +298,7 @@ def write_parquet(x: 'core.NeuronObject',
                   write_meta: bool = True) -> None:
     """Write TreeNeuron(s) or Dotprops to parquet file.
 
-    See `here <https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md>`_
+    See [here](https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md)
     for format specifications.
 
     Parameters

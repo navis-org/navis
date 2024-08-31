@@ -538,7 +538,7 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
     """All-by-all NBLAST using R's `nat.nblast::nblast_allbyall`.
 
     NBLAST is optimized for data in microns. Original nat function can be found
-    `here <https://github.com/jefferislab/nat.nblast/>`_.
+    [here](https://github.com/jefferislab/nat.nblast/).
 
     Parameters
     ----------

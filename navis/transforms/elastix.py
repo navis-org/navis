@@ -119,8 +119,8 @@ def elastix_version(as_string=False):
 class ElastixTransform(BaseTransform):
     """Elastix transforms of 3D spatial data.
 
-    Requires `Elastix <https://github.com/SuperElastix/elastix/>`_. Based on
-    code by Jasper Phelps (https://github.com/jasper-tms/pytransformix).
+    Requires [Elastix](https://github.com/SuperElastix/elastix/). Based on
+    code by Jasper Phelps (<https://github.com/jasper-tms/pytransformix>).
 
     Note that elastix transforms can not be inverted!
 

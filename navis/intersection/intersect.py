@@ -131,9 +131,9 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
 
     Notes
     -----
-    This function requires `ncollpyde <https://github.com/clbarnes/ncollpyde>`_
+    This function requires [ncollpyde](https://github.com/clbarnes/ncollpyde)
     (recommended and installed with `navis`) or
-    `pyoctree <https://github.com/mhogg/pyoctree>`_ as backends for raycasting.
+    [pyoctree](https://github.com/mhogg/pyoctree) as backends for raycasting.
     If neither is installed, we can fall back to using scipy's ConvexHull
     instead. This is, however, slower and will give wrong positives for concave
     meshes!

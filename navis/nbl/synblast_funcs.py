@@ -80,8 +80,8 @@ class SynBlaster(Blaster):
                     If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
                     implementation.
-                    Dataframes will be used to build a ``Lookup2d``.
-                    If ``smat=None`` the scores will be
+                    Dataframes will be used to build a `Lookup2d`.
+                    If `smat=None` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
     progress :      bool
@@ -270,7 +270,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
 
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() // 2``. This should ideally be an even
+                    `os.cpu_count() // 2`. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
     normalized :    bool, optional
@@ -278,7 +278,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
     smat :          str | pd.DataFrame, optional
                     Score matrix. If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
-                    implementation. If ``smat=None`` the scores will be
+                    implementation. If `smat=None` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
     progress :      bool

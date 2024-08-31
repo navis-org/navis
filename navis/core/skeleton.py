@@ -1015,8 +1015,7 @@ class TreeNeuron(BaseNeuron):
     def prune_by_strahler(self,
                           to_prune: Union[int, List[int], slice],
                           inplace: bool = False) -> Optional['TreeNeuron']:
-        """Prune neuron based on `Strahler order
-        <https://en.wikipedia.org/wiki/Strahler_number>`_.
+        """Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 
         Will reroot neuron to soma if possible.
 

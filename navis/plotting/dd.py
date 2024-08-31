@@ -72,7 +72,7 @@ def plot2d(
     control over layering objects in 3D. Therefore neurites are not necessarily
     plotted in the right Z order. This becomes especially troublesome when
     plotting a complex scene with lots of neurons criss-crossing. See the
-    ``method`` parameter for details.
+    `method` parameter for details.
 
     Parameters
     ----------
@@ -86,55 +86,55 @@ def plot2d(
     -----------------
     soma :              bool, default=True
                         Plot soma if one exists. Size of the soma is determined
-                        by the neuron's ``.soma_radius`` property which defaults
-                        to the "radius" column for ``TreeNeurons``.
+                        by the neuron's `.soma_radius` property which defaults
+                        to the "radius" column for `TreeNeurons`.
     radius :            bool, default=True
-                        If True, will plot neurites of ``TreeNeurons`` with radius
+                        If True, will plot neurites of `TreeNeurons` with radius
                         (if present). The radius can be scaled by `linewidth`.
                         Note that this will increase rendering time.
     linewidth :         int | float, default=.5
-                        Width of neurites. Also accepts alias ``lw``.
+                        Width of neurites. Also accepts alias `lw`.
     linestyle :         str, default='-'
-                        Line style of neurites. Also accepts alias ``ls``.
+                        Line style of neurites. Also accepts alias `ls`.
     color :             None | str | tuple | list | dict, default=None
-                        Use single str (e.g. ``'red'``) or ``(r, g, b)`` tuple
-                        to give all neurons the same color. Use ``list`` of
-                        colors to assign colors: ``['red', (1, 0, 1), ...].
-                        Use ``dict`` to map colors to neuron IDs:
-                        ``{id: (r, g, b), ...}``.
+                        Use single str (e.g. `'red'`) or `(r, g, b)` tuple
+                        to give all neurons the same color. Use `list` of
+                        colors to assign colors: `['red', (1, 0, 1), ...].
+                        Use `dict` to map colors to neuron IDs:
+                        `{id: (r, g, b), ...}`.
     palette :           str | array | list of arrays, default=None
-                        Name of a matplotlib or seaborn palette. If ``color`` is
+                        Name of a matplotlib or seaborn palette. If `color` is
                         not specified will pick colors from this palette.
     color_by :          str | array | list of arrays, default = None
                         Color neurons by a property. Can be:
                           - a list/array of labels, one per each neuron
                           - a neuron property (str)
-                          - a column name in the node table of ``TreeNeurons``
+                          - a column name in the node table of `TreeNeurons`
                           - a list/array of values for each node
                         Numerical values will be normalized. You can control
-                        the normalization by passing a ``vmin`` and/or ``vmax`` parameter.
+                        the normalization by passing a `vmin` and/or `vmax` parameter.
     shade_by :          str | array | list of arrays, default=None
-                        Similar to ``color_by`` but will affect only the alpha
-                        channel of the color. If ``shade_by='strahler'`` will
+                        Similar to `color_by` but will affect only the alpha
+                        channel of the color. If `shade_by='strahler'` will
                         compute Strahler order if not already part of the node
                         table (TreeNeurons only). Numerical values will be
                         normalized. You can control the normalization by passing
-                        a ``smin`` and/or ``smax`` parameter.
+                        a `smin` and/or `smax` parameter.
     alpha :             float [0-1], default=1
                         Alpha value for neurons. Overriden if alpha is provided
-                        as fourth value in ``color`` (rgb*a*). You can override
-                        alpha value for connectors by using ``cn_alpha``.
+                        as fourth value in `color` (rgb*a*). You can override
+                        alpha value for connectors by using `cn_alpha`.
     mesh_shade :        bool, default=False
-                        Only relevant for meshes (e.g. ``MeshNeurons``) and
-                        ``TreeNeurons`` with radius, and when method is 3d or
+                        Only relevant for meshes (e.g. `MeshNeurons`) and
+                        `TreeNeurons` with radius, and when method is 3d or
                         3d complex. Whether to shade the object which will give it
                         a 3D look.
     depth_coloring :    bool, default=False
                         If True, will use neuron color to encode depth (Z).
-                        Overrides ``color`` argument. Does not work with
-                        ``method = '3d_complex'``.
+                        Overrides `color` argument. Does not work with
+                        `method = '3d_complex'`.
     depth_scale :       bool, default=True
-                        If True and ``depth_coloring=True`` will plot a scale.
+                        If True and `depth_coloring=True` will plot a scale.
     connectors :        bool, default=True
                         Plot connectors.
     connectors_only :   boolean, default=False
@@ -143,13 +143,13 @@ def plot2d(
                         Size of connectors.
     cn_layout :         dict, default={}
                         Defines default settings (color, style) for connectors.
-                        See ``navis.config.default_connector_colors`` for the
+                        See `navis.config.default_connector_colors` for the
                         default layout.
     cn_colors :         str | tuple | dict | "neuron"
                         Overrides the default connector (e.g. synpase) colors:
-                            - single color as str (e.g. ``'red'``) or rgb tuple
-                            (e.g. ``(1, 0, 0)``)
-                            - dict mapping the connectors tables ``type`` column to
+                            - single color as str (e.g. `'red'`) or rgb tuple
+                            (e.g. `(1, 0, 0)`)
+                            - dict mapping the connectors tables `type` column to
                             a color (e.g. `{"pre": (1, 0, 0)}`)
                             - with "neuron", connectors will receive the same color
                             as their neuron
@@ -157,7 +157,7 @@ def plot2d(
                         If True, will use the neuron's color for its connectors.
     scatter_kws :       dict, default={}
                         Parameters to be used when plotting points. Accepted
-                        keywords are: ``size`` and ``color``.
+                        keywords are: `size` and `color`.
     volume_outlines :   bool | "both", default=False
                         If True will plot volume outline with no fill. Only
                         works with `method="2d"`. Requires the `shapely` package.
@@ -170,7 +170,7 @@ def plot2d(
                         Method used to generate plot. Comes in three flavours:
                          1. `2d` uses normal matplotlib. Neurons are plotted on
                             top of one another in the order their are passed to
-                            the function. Use the ``view`` parameter (below) to
+                            the function. Use the `view` parameter (below) to
                             set the view (default = xy).
                          2. `3d` uses matplotlib's 3D axis. Here, matplotlib
                             decide the depth order (zorder) of plotting. Can
@@ -181,9 +181,9 @@ def plot2d(
                             zorders to be rendered correctly. Slows down
                             rendering!
     view :              tuple, default = ("x", "y")
-                        Sets view for ``method='2d'``. Can be any combination of
+                        Sets view for `method='2d'`. Can be any combination of
                         "x", "y", "z" and their negations. For example, to plot
-                        from the top, use ``view=('x', '-y')``. For 3D ``methods``,
+                        from the top, use `view=('x', '-y')`. For 3D `methods`,
                         this will set the initial view which can be changed by
                         adjusting `ax.azim`, `ax.elev` and `ax.roll` (see examples).
     non_view_axes3d :   "show" | "hide" (default) | "fade"
@@ -202,9 +202,9 @@ def plot2d(
                         will create an axis object.
     ax :                matplotlib.Axes, default=None
                         Pass an axis object if you want to plot on an existing
-                        canvas. Must match ``method`` - i.e. 2D or 3D axis.
+                        canvas. Must match `method` - i.e. 2D or 3D axis.
     figsize :           tuple, default=None
-                        Size of figure. Ignored if ``ax`` is provided.
+                        Size of figure. Ignored if `ax` is provided.
     rasterize :         bool, default=False
                         Neurons produce rather complex vector graphics which can
                         lead to large files when saving to SVG, PDF or PS. Use
@@ -215,7 +215,7 @@ def plot2d(
                         methods '3d' and '3d_complex'.
     group_neurons :     bool, default=False
                         If True, neurons will be grouped. Works with SVG export
-                        but not PDF. Does NOT work with ``method='3d_complex'``.
+                        but not PDF. Does NOT work with `method='3d_complex'`.
 
     Returns
     -------

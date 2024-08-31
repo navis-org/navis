@@ -956,8 +956,8 @@ class Lookup2d(LookupNd):
     def __init__(self, axis0: Digitizer, axis1: Digitizer, cells: np.ndarray):
         """2D lookup table for convert NBLAST matches to scores.
 
-        Commonly read from a ``pandas.DataFrame``
-        or trained on data using a ``LookupDistDotBuilder``.
+        Commonly read from a `pandas.DataFrame`
+        or trained on data using a `LookupDistDotBuilder`.
 
         Parameters
         ----------
@@ -971,7 +971,7 @@ class Lookup2d(LookupNd):
         super().__init__([axis0, axis1], cells)
 
     def to_dataframe(self) -> pd.DataFrame:
-        """Convert the lookup table into a ``pandas.DataFrame``.
+        """Convert the lookup table into a `pandas.DataFrame`.
 
         From there, it can be shared, saved, and so on.
 

@@ -115,7 +115,7 @@ def voxelize(x: 'core.BaseNeuron',
                     iterable of dimensions in (x, y, z).
     bounds :        (3, 2)  or (2, 3) array, optional
                     Boundaries [in units of `x`] for the voxel grid. If not
-                    provided, will use ``x.bbox``.
+                    provided, will use `x.bbox`.
     counts :        bool
                     If True, voxel grid will have point counts for values
                     instead of just True/False.

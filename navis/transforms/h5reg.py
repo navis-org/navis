@@ -33,7 +33,7 @@ logger = config.get_logger(__name__)
 class H5transform(BaseTransform):
     """Hdf5 transform of 3D spatial data.
 
-    See `here <https://github.com/saalfeldlab/template-building/wiki/Hdf5-Deformation-fields>`_
+    See [here](https://github.com/saalfeldlab/template-building/wiki/Hdf5-Deformation-fields)
     for specifications of the format.
 
     Parameters

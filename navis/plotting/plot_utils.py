@@ -48,7 +48,7 @@ def tn_pairs_to_coords(
     Returns
     -------
     coords :    np.array
-                ``[[[x1, y1, z1], [x2, y2, z2]], [[x3, y3, y4], [x4, y4, z4]]]``
+                `[[[x1, y1, z1], [x2, y2, z2]], [[x3, y3, y4], [x4, y4, z4]]]`
 
     """
     if not isinstance(modifier, np.ndarray):
@@ -83,7 +83,7 @@ def segments_to_coords(
     x :             TreeNeuron
                     Must contain the nodes
     node_colors :   numpy.ndarray, optional
-                    A color for each node in ``x.nodes``. If provided, will
+                    A color for each node in `x.nodes`. If provided, will
                     also return a list of colors sorted to match coordinates.
     modifier :      ints, optional
                     Use e.g. to modify/invert x/y/z axes.
@@ -93,8 +93,8 @@ def segments_to_coords(
     coords :        list of tuples
                     [(x, y, z), (x, y, z), ... ]
     colors :        list of colors
-                    If ``node_colors`` provided will return a copy of it sorted
-                    to match ``coords``.
+                    If `node_colors` provided will return a copy of it sorted
+                    to match `coords`.
 
     """
     colors = None
@@ -177,7 +177,7 @@ def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
                     List of lists of x/y/z coordinates.
     radii :         float | list of floats
                     Either a single radius used for all nodes or list of lists of
-                    floats with the same shape as ``segments``.
+                    floats with the same shape as `segments`.
     tube_points :   int
                     Number of points making up the circle of the cross-section
                     of the tube.

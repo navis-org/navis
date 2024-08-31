@@ -181,7 +181,7 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
     """Read NMX files into Neuron/Lists.
 
     NMX is an xml-based format used by pyKNOSSOS.
-    See e.g. `here <https://doi.org/10.5281/zenodo.58985>`_ for a data dump
+    See e.g. [here](https://doi.org/10.5281/zenodo.58985) for a data dump
     of neurons from Wanner et al. (2016).
 
     Parameters

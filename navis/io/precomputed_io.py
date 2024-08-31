@@ -208,7 +208,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
     """Read skeletons and meshes from neuroglancer's precomputed format.
 
     Follows the formats specified
-    `here <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed>`_.
+    [here](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed).
 
     Parameters
     ----------
@@ -391,7 +391,7 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     Note that you should not mix meshes and skeletons in the same folder!
 
     Follows the formats specified
-    `here <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed>`_.
+    [here](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed).
 
     Parameters
     ----------

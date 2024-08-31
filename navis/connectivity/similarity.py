@@ -56,7 +56,7 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
        * - Metric
          - Explanation
        * - cosine
-         - Cosine similarity (see `here <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cosine.html>`_)
+         - Cosine similarity (see [here](https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cosine.html))
        * - rank_index
          - Normalized difference in rank of synaptic partners.
        * - matching_index
@@ -79,7 +79,7 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
        * - vertex
          - Matching index that rewards shared and punishes non-shared partners.
            Based on
-           `Jarrell et al., 2012 <http://science.sciencemag.org/content/337/6093/437>`_:
+           [Jarrell et al., 2012](http://science.sciencemag.org/content/337/6093/437):
 
            .. math::
 
@@ -336,7 +336,7 @@ def synapse_similarity(x: 'core.NeuronList',
     and (2) comparing the synapse density around synapse A and B.
     This is type-sensitive: presynapses will only be matched with presynapses,
     post with post, etc. The formula is described in
-    `Schlegel et al., eLife (2017) <https://elifesciences.org/articles/16799>`_:
+    [Schlegel et al., eLife (2017)](https://elifesciences.org/articles/16799):
 
     .. math::
 

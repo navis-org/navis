@@ -269,7 +269,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     """Create Neuron/List from SWC file.
 
     This import is following format specified
-    `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_
+    [here](http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html).
 
     Parameters
     ----------
@@ -303,20 +303,20 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         Formatter to specify how filenames are parsed into
                         neuron attributes. Some illustrative examples:
 
-                          - ``{name}.swc`` (default) uses the filename
+                          - `{name}.swc` (default) uses the filename
                             (minus the suffix) as the neuron's name property
-                          - ``{id}.swc`` uses the filename as the neuron's ID
+                          - `{id}.swc` uses the filename as the neuron's ID
                             property
-                          - ``{name,id}.swc`` uses the filename as the neuron's
+                          - `{name,id}.swc` uses the filename as the neuron's
                             name and ID properties
-                          - ``{name}.{id}.swc`` splits the filename at a "."
+                          - `{name}.{id}.swc` splits the filename at a "."
                             and uses the first part as name and the second as ID
-                          - ``{name,id:int}.swc`` same as above but converts
+                          - `{name,id:int}.swc` same as above but converts
                             into integer for the ID
-                          - ``{name}_{myproperty}.swc`` splits the filename at
+                          - `{name}_{myproperty}.swc` splits the filename at
                             "_" and uses the first part as name and as a
                             generic "myproperty" property
-                          - ``{name}_{}_{id}.swc`` splits the filename at
+                          - `{name}_{}_{id}.swc` splits the filename at
                             "_" and uses the first part as name and the last as
                             ID. The middle part is ignored.
 
@@ -421,7 +421,7 @@ def write_swc(x: 'core.NeuronObject',
     """Write TreeNeuron(s) to SWC.
 
     Follows the format specified
-    `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_.
+    [here](http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html).
 
     Parameters
     ----------
@@ -608,7 +608,7 @@ def make_swc_table(x: Union['core.TreeNeuron', 'core.Dotprops'],
     """Generate a node table compliant with the SWC format.
 
     Follows the format specified
-    `here <http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html>`_.
+    [here](http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html).
 
     Parameters
     ----------

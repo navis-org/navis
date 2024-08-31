@@ -59,9 +59,9 @@ def connectivity_sparseness(x: Union[pd.DataFrame, np.ndarray],
 
     Notes
     -----
-    ``NaN`` values will be ignored. You can use that to e.g. ignore zero
-    values in a large connectivity matrix by changing these values to ``NaN``
-    before passing it to ``navis.sparseness``.
+    `NaN` values will be ignored. You can use that to e.g. ignore zero
+    values in a large connectivity matrix by changing these values to `NaN`
+    before passing it to `navis.sparseness`.
 
 
     Parameters
@@ -77,8 +77,8 @@ def connectivity_sparseness(x: Union[pd.DataFrame, np.ndarray],
     Returns
     -------
     sparseness
-                ``pandas.Series`` if input was pandas DataFrame, else
-                ``numpy.array``.
+                `pandas.Series` if input was pandas DataFrame, else
+                `numpy.array`.
 
     Examples
     --------
