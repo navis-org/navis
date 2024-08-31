@@ -789,7 +789,7 @@ class Digitizer(LookupAxis[float]):
     def from_strings(cls, interval_strs: Sequence[str]):
         """Set digitizer boundaries based on a sequence of interval expressions.
 
-        e.g. ``["(0, 1]", "(1, 5]", "(5, 10]"]``
+        e.g. `["(0, 1]", "(1, 5]", "(5, 10]"]`
 
         The lowermost and uppermost boundaries are converted to -infinity and
         infinity respectively.
@@ -992,7 +992,7 @@ class Lookup2d(LookupNd):
         f"""Parse score matrix from a dataframe with string index and column labels.
 
         Expects the index and column labels to specify an interval
-        like ``f"[{{lower}},{{upper}})"``.
+        like `f"[{{lower}},{{upper}})"`.
         Will replace the lowermost and uppermost bound with -inf and inf
         if they are not already.
         """
@@ -1027,9 +1027,9 @@ def check_score_fn(fn: Callable, nargs=2, scalar=True, array=True):
     nargs : optional int, default 2
         How many positional arguments the score function should have.
     scalar : optional bool, default True
-        Check that the function can be used on ``nargs`` scalars.
+        Check that the function can be used on `nargs` scalars.
     array : optional bool, default True
-        Check that the function can be used on ``nargs`` 1D ``numpy.ndarray``s.
+        Check that the function can be used on `nargs` 1D `numpy.ndarray`s.
 
     Raises
     ------
@@ -1060,26 +1060,24 @@ NBLAST score functions take 2 floats or N-length numpy arrays of floats
 (for matched dotprop points/tangents, distance and dot product;
 the latter possibly scaled by the geometric mean of the alpha colinearity values)
 and returns a float or N-length numpy array of floats.
-""".strip().replace(
-    "\n", " "
-)
+""".strip().replace("\n", " ")
 
 
 def parse_score_fn(smat, alpha=False):
-    f"""Interpret ``smat`` as a score function.
+    f"""Interpret `smat` as a score function.
     Primarily for backwards compatibility.
     {SCORE_FN_DESCR}
     Parameters
     ----------
     smat : None | "auto" | str | os.PathLike | pandas.DataFrame | Callable[[float, float], float]
-        If ``None``, use ``operator.mul``.
-        If ``"auto"``, use ``navis.nbl.smat.smat_fcwb(alpha)``.
-        If a dataframe, use ``navis.nbl.smat.Lookup2d.from_dataframe(smat)``.
+        If `None`, use `operator.mul`.
+        If `"auto"`, use `navis.nbl.smat.smat_fcwb(alpha)`.
+        If a dataframe, use `navis.nbl.smat.Lookup2d.from_dataframe(smat)`.
         If another string or path-like, load from CSV in a dataframe and uses as above.
         Also checks the signature of the callable.
         Raises an error, probably a ValueError, if it can't be interpreted.
     alpha : optional bool, default False
-        If ``smat`` is ``"auto"``, choose whether to use the FCWB matrices
+        If `smat` is `"auto"`, choose whether to use the FCWB matrices
         with or without alpha.
     Returns
     -------

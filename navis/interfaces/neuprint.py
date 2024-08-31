@@ -67,7 +67,7 @@ def fetch_roi(roi, *, client=None):
     roi :           str
                     Name of an ROI.
     client :        neuprint.Client, optional
-                    If ``None`` will try using global client.
+                    If `None` will try using global client.
 
     Returns
     -------
@@ -112,10 +112,10 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                     Body ID(s). Multiple IDs can be provided as list-like or
                     DataFrame with "bodyId" or "bodyid" column.
     lod :           int
-                    Level of detail. Higher ``lod`` = coarser. Ignored if mesh
+                    Level of detail. Higher `lod` = coarser. Ignored if mesh
                     source does not support LODs (e.g. for DVID).
     with_synapses : bool, optional
-                    If True will download and attach synapses as ``.connectors``.
+                    If True will download and attach synapses as `.connectors`.
     missing_mesh :  'raise' | 'warn' | 'skip'
                     What to do if no mesh is found for a given body ID::
 
@@ -131,9 +131,9 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                     Use this to override the segmentation source specified by
                     neuPrint.
     client :        neuprint.Client, optional
-                    If ``None`` will try using global client.
+                    If `None` will try using global client.
     **kwargs
-                    Will be passed to ``cloudvolume.CloudVolume``.
+                    Will be passed to `cloudvolume.CloudVolume`.
 
     Returns
     -------
@@ -157,7 +157,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
 
     if not seg_source:
         raise ValueError('Segmentation source could not be automatically '
-                         'determined. Please provide via ``seg_source``.')
+                         'determined. Please provide via `seg_source`.')
 
     if isinstance(seg_source, str) and seg_source.startswith('dvid'):
         try:
@@ -352,10 +352,10 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
                     Body ID(s). Multiple Ids can be provided as list-like or
                     DataFrame with "bodyId"  or "bodyid" column.
     with_synapses : bool, optional
-                    If True will also attach synapses as ``.connectors``.
+                    If True will also attach synapses as `.connectors`.
     heal :          bool | int | float, optional
                     If True, will automatically heal fragmented skeletons using
-                    neuprint-python's ``heal_skeleton`` function. Pass a float
+                    neuprint-python's `heal_skeleton` function. Pass a float
                     or an int to limit the max distance at which nodes are
                     allowed to be re-connected (requires neuprint-python >= 0.4.11).
     missing_swc :   'raise' | 'warn' | 'skip'
@@ -370,7 +370,7 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
     max_threads :   int
                     Max number of parallel threads to use.
     client :        neuprint.Client, optional
-                    If ``None`` will try using global client.
+                    If `None` will try using global client.
 
     Returns
     -------

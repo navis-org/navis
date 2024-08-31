@@ -42,7 +42,7 @@ def persistence_points(x: 'core.NeuronObject',
 
     Based on Li et al., PLoS One (2017). Briefly, this cuts the neuron into
     linear segments, the start (birth) and end (death) of which are assigned a
-    value (see ``descriptor`` parameter). In combination, these points represent
+    value (see `descriptor` parameter). In combination, these points represent
     a fingerprint for the topology of the neuron.
 
     Parameters
@@ -50,17 +50,17 @@ def persistence_points(x: 'core.NeuronObject',
     x :         TreeNeuron | MeshNeuron | NeuronList
                 Neuron(s) to calculate persistence poinst for. For MeshNeurons,
                 we will use the skeleton produced by/associated with its
-                ``.skeleton`` property.
+                `.skeleton` property.
     descriptor : 'root_dist'
                 Descriptor function used to calculate birth and death "time" of
                 the segments:
-                  - ``root_dist`` distance from root
+                  - `root_dist` distance from root
     remove_cbf : bool
                 In unipolar neurons (e.g. in insects) the soma is separate and
                 connects to the neuron's backbone via "cell body fiber" (CBF).
                 The length of the CBF can vary quite a bit. Discounting the
                 CBF can make the persistence points more stable.
-                If ``remove_cbf=True`` and the neuron has a soma (!) we ignore
+                If `remove_cbf=True` and the neuron has a soma (!) we ignore
                 the CBF for the birth & death times. Neurons will also be
                 automatically be rooted onto their soma!
 
@@ -151,7 +151,7 @@ def persistence_distances(q: 'core.NeuronObject',
     Parameters
     ----------
     q/t :       NeuronList
-                Queries and targets, respectively. If ``t=None`` will run
+                Queries and targets, respectively. If `t=None` will run
                 queries against queries. Neurons should have the same units,
                 ideally nanometers.
     normalize : bool
@@ -252,7 +252,7 @@ def persistence_vectors(x,
                         **kwargs):
     """Produce vectors from persistence points.
 
-    Works by creating a Gaussian and sampling ``samples`` evenly spaced
+    Works by creating a Gaussian and sampling `samples` evenly spaced
     points across it.
 
     Parameters
@@ -272,7 +272,7 @@ def persistence_vectors(x,
                 more detailed.
     center :    bool
                 Whether to center the individual curves on their highest value.
-                This is done by "rolling" the axis (using ``np.roll``) which
+                This is done by "rolling" the axis (using `np.roll`) which
                 means that elements that roll beyond the last position are
                 re-introduced at the first.
 
@@ -280,7 +280,7 @@ def persistence_vectors(x,
     -------
     vectors :   np.ndarray
     samples :   np.ndarray
-                Sampled distances. If ``center=True`` the absolute values don't
+                Sampled distances. If `center=True` the absolute values don't
                 make much sense anymore.
 
     References
@@ -391,7 +391,7 @@ def persistence_vector_plot(x, normalize=True, ax=None,
     x :         TreeNeuron | MeshNeuron | NeuronList
                 Neuron(s) to calculate persistence points for. For MeshNeurons,
                 we will use the skeleton produced by/associated with its
-                ``.skeleton`` property.
+                `.skeleton` property.
 
     Returns
     -------

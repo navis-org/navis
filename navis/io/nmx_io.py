@@ -187,31 +187,31 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
     Parameters
     ----------
     f :                 str
-                        Filename or folder. If folder, will import all ``.nmx``
+                        Filename or folder. If folder, will import all `.nmx`
                         files.
     include_subdirs :   bool, optional
-                        If True and ``f`` is a folder, will also search
-                        subdirectories for ``.nmx`` files.
+                        If True and `f` is a folder, will also search
+                        subdirectories for `.nmx` files.
     parallel :          "auto" | bool | int
-                        Defaults to ``auto`` which means only use parallel
+                        Defaults to `auto` which means only use parallel
                         processing if more than 200 files are imported. Spawning
                         and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
-                        ``os.cpu_count() // 2``).
+                        `os.cpu_count() // 2`).
     precision :         int [8, 16, 32, 64] | None
                         Precision for data. Defaults to 32 bit integers/floats.
-                        If ``None`` will let pandas infer data types - this
+                        If `None` will let pandas infer data types - this
                         typically leads to higher than necessary precision.
     limit :             int, optional
                         If reading from a folder you can use this parameter to
-                        read only the first ``limit`` NMX files. Useful if
+                        read only the first `limit` NMX files. Useful if
                         wanting to get a sample from a large library of
                         skeletons.
     **kwargs
                         Keyword arguments passed to the construction of
-                        ``navis.TreeNeuron``. You can use this to e.g. set
+                        `navis.TreeNeuron`. You can use this to e.g. set
                         meta data.
 
     Returns
@@ -250,31 +250,31 @@ def read_nml(f: Union[str, pd.DataFrame, Iterable],
     Parameters
     ----------
     f :                 str
-                        Filename or folder. If folder, will import all ``.nml``
+                        Filename or folder. If folder, will import all `.nml`
                         files.
     include_subdirs :   bool, optional
-                        If True and ``f`` is a folder, will also search
-                        subdirectories for ``.nml`` files.
+                        If True and `f` is a folder, will also search
+                        subdirectories for `.nml` files.
     parallel :          "auto" | bool | int
-                        Defaults to ``auto`` which means only use parallel
+                        Defaults to `auto` which means only use parallel
                         processing if more than 200 files are imported. Spawning
                         and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
-                        ``os.cpu_count() // 2``).
+                        `os.cpu_count() // 2`).
     precision :         int [8, 16, 32, 64] | None
                         Precision for data. Defaults to 32 bit integers/floats.
-                        If ``None`` will let pandas infer data types - this
+                        If `None` will let pandas infer data types - this
                         typically leads to higher than necessary precision.
     limit :             int, optional
                         If reading from a folder you can use this parameter to
-                        read only the first ``limit`` NML files. Useful if
+                        read only the first `limit` NML files. Useful if
                         wanting to get a sample from a large library of
                         skeletons.
     **kwargs
                         Keyword arguments passed to the construction of
-                        ``navis.TreeNeuron``. You can use this to e.g. set
+                        `navis.TreeNeuron`. You can use this to e.g. set
                         meta data.
 
     Returns

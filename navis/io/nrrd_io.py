@@ -39,12 +39,12 @@ def write_nrrd(x: 'core.NeuronObject',
     ----------
     x :                 VoxelNeuron | Dotprops | NeuronList
                         If multiple neurons, will generate a NRRD file
-                        for each neuron (see also ``filepath``).
+                        for each neuron (see also `filepath`).
     filepath :          str | pathlib.Path | list thereof
                         Destination for the NRRD files. See examples for options.
-                        If ``x`` is multiple neurons, ``filepath`` must either
+                        If `x` is multiple neurons, `filepath` must either
                         be a folder, a "formattable" filename (see Examples) or
-                        a list of filenames (one for each neuron in ``x``).
+                        a list of filenames (one for each neuron in `x`).
                         Existing files will be overwritten!
     compression_level : int 1-9
                         Lower = faster writing but larger files. Higher = slower
@@ -164,21 +164,21 @@ def read_nrrd(f: Union[str, Iterable],
     ----------
     f :                 str | iterable
                         Filename(s) or folder. If folder, will import all
-                        ``.nrrd`` files.
+                        `.nrrd` files.
     threshold :         int | float | None
-                        For ``output='dotprops'`` only: a threshold to filter
-                        low intensity voxels. If ``None``, no threshold is
+                        For `output='dotprops'` only: a threshold to filter
+                        low intensity voxels. If `None`, no threshold is
                         applied and all values > 0 are converted to points.
     include_subdirs :   bool, optional
-                        If True and ``f`` is a folder, will also search
-                        subdirectories for ``.nrrd`` files.
+                        If True and `f` is a folder, will also search
+                        subdirectories for `.nrrd` files.
     parallel :          "auto" | bool | int,
-                        Defaults to ``auto`` which means only use parallel
+                        Defaults to `auto` which means only use parallel
                         processing if more than 10 NRRD files are imported.
                         Spawning and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the number of
-                        cores (otherwise defaults to ``os.cpu_count() - 2``).
+                        cores (otherwise defaults to `os.cpu_count() - 2`).
     output :            "voxels" | "dotprops" | "raw"
                         Determines function's output. See Returns for details.
     errors :            "raise" | "log" | "ignore"
@@ -186,34 +186,34 @@ def read_nrrd(f: Union[str, Iterable],
                         instead empty neuron will be returned.
 
     **kwargs
-                        Keyword arguments passed to :func:`navis.make_dotprops`
-                        if ``output='dotprops'``. Use this to adjust e.g. the
+                        Keyword arguments passed to [`navis.make_dotprops`][]
+                        if `output='dotprops'`. Use this to adjust e.g. the
                         number of nearest neighbors used for calculating the
-                        tangent vector by passing e.g. ``k=5``.
+                        tangent vector by passing e.g. `k=5`.
 
     Returns
     -------
     navis.VoxelNeuron
-                        If ``output="voxels"`` (default): requires NRRD data to
+                        If `output="voxels"` (default): requires NRRD data to
                         be 3-dimensional voxels. VoxelNeuron will have NRRD file
-                        header as ``.nrrd_header`` attribute.
+                        header as `.nrrd_header` attribute.
     navis.Dotprops
-                        If ``output="dotprops"``: requires NRRD data to be
+                        If `output="dotprops"`: requires NRRD data to be
                         either:
-                          - ``(N, M, K)`` (i.e. 3D) in which case we will turn
-                            voxels into a point cloud (see also ``threshold``
+                          - `(N, M, K)` (i.e. 3D) in which case we will turn
+                            voxels into a point cloud (see also `threshold`
                             parameter)
-                          - ``(N, 3)`` = x/y/z points
-                          - ``(N, 6)`` = x/y/z points + x/y/z vectors
-                          - ``(N, 7)`` = x/y/z points + x/y/z vectors + alpha
+                          - `(N, 3)` = x/y/z points
+                          - `(N, 6)` = x/y/z points + x/y/z vectors
+                          - `(N, 7)` = x/y/z points + x/y/z vectors + alpha
 
-                        Dotprops will contain NRRD header as ``.nrrd_header``
+                        Dotprops will contain NRRD header as `.nrrd_header`
                         attribute.
     navis.NeuronList
                         If import of multiple NRRD will return NeuronList of
                         Dotprops/VoxelNeurons.
     (image, header)     (np.ndarray, OrderedDict)
-                        If ``output='raw'`` return raw data contained in NRRD
+                        If `output='raw'` return raw data contained in NRRD
                         file.
 
     """
@@ -236,7 +236,7 @@ def read_nrrd(f: Union[str, Iterable],
                 parallel = False
 
         if parallel:
-            # Do not swap this as ``isinstance(True, int)`` returns ``True``
+            # Do not swap this as `isinstance(True, int)` returns `True`
             if isinstance(parallel, (bool, str)):
                 n_cores = os.cpu_count() - 2
             else:

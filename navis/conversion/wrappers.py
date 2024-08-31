@@ -31,7 +31,7 @@ def skeletonize(x: Union['core.MeshNeuron', 'core.Dotprops', np.ndarray],
     """Turn neuron into skeleton.
 
     Currently, we can only skeletonize meshes, dotprops and point clouds but
-    are looking into ways to also do it for ``VoxelNeurons``.
+    are looking into ways to also do it for `VoxelNeurons`.
 
     For meshes, this function is a thin-wrapper for `skeletor`. It uses sensible
     defaults for neurons but if you want to fine-tune your skeletons you should
@@ -126,8 +126,8 @@ def voxelize(x: 'core.BaseNeuron',
                     If True, will also return a grid with alpha values as
                     `.alpha` property.
     smooth :        int
-                    If non-zero, will apply a Gaussian filter with ``smooth``
-                    as ``sigma``.
+                    If non-zero, will apply a Gaussian filter with `smooth`
+                    as `sigma`.
 
     Returns
     -------
@@ -136,8 +136,8 @@ def voxelize(x: 'core.BaseNeuron',
                     and `.alphas` properties. `.grid` data type depends
                     on settings:
                      - default = bool (i.e. True/False)
-                     - if ``counts=True`` = integer
-                     - if ``smooth=True`` = float
+                     - if `counts=True` = integer
+                     - if `smooth=True` = float
                     Empty voxels will have vector (0, 0, 0) and alpha 0. Also
                     note that data tables (e.g. `connectors`) are not carried
                     over from the input neuron.

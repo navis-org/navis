@@ -84,11 +84,11 @@ def example_neurons(n: Optional[int] = None,
     Returns
     -------
     TreeNeuron
-                If ``n=1`` and ``kind='skeleton'``.
+                If `n=1` and `kind='skeleton'`.
     MeshNeuron
-                If ``n=1`` and ``kind='mesh'``.
+                If `n=1` and `kind='mesh'`.
     NeuronList
-                List of the above neuron types if ``n>1``.
+                List of the above neuron types if `n>1`.
 
     References
     ----------

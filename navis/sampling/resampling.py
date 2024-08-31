@@ -83,7 +83,7 @@ def resample_skeleton(x: 'core.NeuronObject',
                         neuron(s) have their `.units` parameter, you can also
                         pass a string such as "1 micron".
     method :            str, optional
-                        See ``scipy.interpolate.interp1d`` for possible
+                        See `scipy.interpolate.interp1d` for possible
                         options. By default, we're using linear interpolation.
     inplace :           bool, optional
                         If True, will modify original neuron. If False, a

@@ -38,7 +38,7 @@ def read_rda(f: str,
     Currently supports parsing neurons, dotprops and mesh3d. Note that this is
     rather slow and I do not recommend doing this for large collections of
     neurons. For large scale conversion I recommend using the R interface
-    (``navis.interfaces.r``, see online tutorials) via ``rpy2``.
+    (`navis.interfaces.r`, see online tutorials) via `rpy2`.
 
     Parameters
     ----------
@@ -60,10 +60,10 @@ def read_rda(f: str,
     Returns
     -------
     navis.NeuronList
-                        If ``combine=True`` and ``neurons_only=True`` returns
+                        If `combine=True` and `neurons_only=True` returns
                         a single NeuronList with the parsed neurons.
     dict
-                        If ``combine=False`` or ``neurons_only=False`` returns
+                        If `combine=False` or `neurons_only=False` returns
                         a dictionary with the original R object name as key and
                         the parsed object as value.
 

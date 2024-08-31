@@ -32,7 +32,7 @@ def points2skeleton(x: Union['core.Dotprops', np.ndarray],
     """Turn points into skeleton.
 
     This function works by:
-     1. Compute the ``k`` nearest neighbors for each point
+     1. Compute the `k` nearest neighbors for each point
      2. Generate a graph from the nearest-neighbor edges
      3. Extract a minimum-spanning tree (MST) from the graph
      4. Process the MST into a skeleton
@@ -162,7 +162,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
                 vertex.
     inv_dist :  int | float | str
                 Only required for method "teasar": invalidation distance for
-                the traversal. Smaller ``inv_dist`` captures smaller features
+                the traversal. Smaller `inv_dist` captures smaller features
                 but is slower and more noisy, and vice versa. A good starting
                 value is around 2-5 microns. Can be a unit string - e.g.
                 "5 microns" - if your neuron has its units set.
@@ -301,7 +301,7 @@ def _make_voxels(x: 'core.BaseNeuron',
     voxels :    numpy array
                 Array of voxel indices.
     offset :    (3, ) numpy array
-                Offset for voxels. Will be (0, 0, 0) if ``strip=False``.
+                Offset for voxels. Will be (0, 0, 0) if `strip=False`.
 
     See Also
     --------
@@ -361,7 +361,7 @@ def neuron2voxels(x: 'core.BaseNeuron',
                     iterable of dimensions in (x, y, z).
     bounds :        (3, 2)  or (2, 3) array, optional
                     Boundaries [in units of `x`] for the voxel grid. If not
-                    provided, will use ``x.bbox``.
+                    provided, will use `x.bbox`.
     counts :        bool
                     If True, voxel grid will have point counts for values
                     instead of just True/False.
@@ -372,8 +372,8 @@ def neuron2voxels(x: 'core.BaseNeuron',
                     If True, will also return a grid with alpha values as
                     `.alpha` property.
     smooth :        int
-                    If non-zero, will apply a Gaussian filter with ``smooth``
-                    as ``sigma``.
+                    If non-zero, will apply a Gaussian filter with `smooth`
+                    as `sigma`.
 
     Returns
     -------
@@ -382,8 +382,8 @@ def neuron2voxels(x: 'core.BaseNeuron',
                     and `.alphas` properties. `.grid` data type depends
                     on settings:
                      - default = bool (i.e. True/False)
-                     - if ``counts=True`` = integer
-                     - if ``smooth=True`` = float
+                     - if `counts=True` = integer
+                     - if `smooth=True` = float
                     Empty voxels will have vector (0, 0, 0) and alpha 0. Also
                     note that data tables (e.g. `connectors`) are not carried
                     over from the input neuron.
@@ -524,7 +524,7 @@ def tree2meshneuron(x: 'core.TreeNeuron',
                     ) -> 'core.MeshNeuron':
     """Convert TreeNeuron to MeshNeuron.
 
-    Uses the ``radius`` to convert skeleton to 3D tube mesh. Missing radii are
+    Uses the `radius` to convert skeleton to 3D tube mesh. Missing radii are
     treated as zeros.
 
     Parameters

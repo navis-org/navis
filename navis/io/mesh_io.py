@@ -49,22 +49,22 @@ def read_mesh(f: Union[str, Iterable],
                         Filename(s) or folder. If folder must include file
                         extension (e.g. `my/dir/*.ply`).
     include_subdirs :   bool, optional
-                        If True and ``f`` is a folder, will also search
+                        If True and `f` is a folder, will also search
                         subdirectories for meshes.
     parallel :          "auto" | bool | int,
-                        Defaults to ``auto`` which means only use parallel
+                        Defaults to `auto` which means only use parallel
                         processing if more than 100 mesh files are imported.
                         Spawning and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the number of
-                        cores (otherwise defaults to ``os.cpu_count() - 2``).
+                        cores (otherwise defaults to `os.cpu_count() - 2`).
     output :            "neuron" | "volume" | "trimesh"
                         Determines function's output. See Returns.
     errors :            "raise" | "log" | "ignore"
                         If "log" or "ignore", errors will not be raised.
     limit :             int, optional
                         If reading from a folder you can use this parameter to
-                        read only the first ``limit`` files. Useful when
+                        read only the first `limit` files. Useful when
                         wanting to get a sample from a large library of
                         meshes.
     **kwargs
@@ -75,16 +75,16 @@ def read_mesh(f: Union[str, Iterable],
     Returns
     -------
     navis.MeshNeuron
-                        If ``output="neuron"`` (default).
+                        If `output="neuron"` (default).
     navis.Volume
-                        If ``output="volume"``.
+                        If `output="volume"`.
     trimesh.Trimesh
-                        If ``output='trimesh'``.
+                        If `output='trimesh'`.
     navis.NeuronList
-                        If ``output="neuron"`` and import has multiple meshes
+                        If `output="neuron"` and import has multiple meshes
                         will return NeuronList of MeshNeurons.
     list
-                        If ``output!="neuron"`` and import has multiple meshes
+                        If `output!="neuron"` and import has multiple meshes
                         will return list of Volumes or Trimesh.
 
     Examples
@@ -133,7 +133,7 @@ def read_mesh(f: Union[str, Iterable],
                 parallel = False
 
         if parallel:
-            # Do not swap this as ``isinstance(True, int)`` returns ``True``
+            # Do not swap this as `isinstance(True, int)` returns `True`
             if isinstance(parallel, (bool, str)):
                 n_cores = os.cpu_count() - 2
             else:
@@ -210,23 +210,23 @@ def write_mesh(x: Union['core.NeuronList', 'core.MeshNeuron', 'core.Volume', 'tm
     ----------
     x :                 MeshNeuron | Volume | Trimesh | NeuronList
                         If multiple objects, will generate a file for each
-                        neuron (see also ``filepath``).
+                        neuron (see also `filepath`).
     filepath :          None | str | list, optional
-                        If ``None``, will return byte string or list of
+                        If `None`, will return byte string or list of
                         thereof. If filepath will save to this file. If path
-                        will save neuron(s) in that path using ``{x.id}``
+                        will save neuron(s) in that path using `{x.id}`
                         as filename(s). If list, input must be NeuronList and
                         a filepath must be provided for each neuron.
     filetype :          stl | ply | obj, optional
-                        If ``filepath`` does not include the file extension,
-                        you need to provide it as ``filetype``.
+                        If `filepath` does not include the file extension,
+                        you need to provide it as `filetype`.
 
     Returns
     -------
     None
-                        If filepath is not ``None``.
+                        If filepath is not `None`.
     bytes
-                        If filepath is ``None``.
+                        If filepath is `None`.
 
     See Also
     --------
@@ -238,7 +238,7 @@ def write_mesh(x: Union['core.NeuronList', 'core.MeshNeuron', 'core.Volume', 'tm
     Examples
     --------
 
-    Write ``MeshNeurons`` to folder:
+    Write `MeshNeurons` to folder:
 
     >>> import navis
     >>> nl = navis.example_neurons(3, kind='mesh')

@@ -219,7 +219,7 @@ class H5transform(BaseTransform):
         Parameters
         ----------
         bbox :      list | array
-                    Must be ``[[x1, x2], [y1, y2], [z1, z2]]``.
+                    Must be `[[x1, x2], [y1, y2], [z1, z2]]`.
         padding :   bool
                     If True, will add the (required!) padding to the bounding
                     box.
@@ -296,8 +296,8 @@ class H5transform(BaseTransform):
         force_deform :      bools
                             If True, points outside the deformation field be
                             deformed using the closest point inside the
-                            deformation field. Ignored if ``affine_fallback`` is
-                            ``False``.
+                            deformation field. Ignored if `affine_fallback` is
+                            `False`.
 
         Returns
         -------

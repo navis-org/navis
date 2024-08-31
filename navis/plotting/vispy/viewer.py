@@ -87,29 +87,29 @@ class Viewer:
     Parameters
     ----------
     picking :   bool, default = False
-                If ``True``, allow selecting neurons by shift-clicking on
+                If `True`, allow selecting neurons by shift-clicking on
                 neurons and placing a 3D cursor via control-click (for OSX:
                 command-click).
     **kwargs
-              Keyword arguments passed to ``vispy.scene.SceneCanvas``.
+              Keyword arguments passed to `vispy.scene.SceneCanvas`.
 
     Attributes
     ----------
     picking :       bool,
-                    Set to ``True`` to allow picking via shift-clicking.
+                    Set to `True` to allow picking via shift-clicking.
     selected :      np.array
                     List of currently selected neurons. Can also be used to
                     set the selection.
     show_legend :   bool
-                    Set to ``True`` or press ``L`` to show legend. This may
+                    Set to `True` or press `L` to show legend. This may
                     impact performance.
     legend_font_size : int
                     Font size for legend.
 
     Examples
     --------
-    This viewer is what :func:`navis.plot3d` uses when ``backend='vispy'``.
-    Instead of :func:`navis.plot3d` we can interact with the viewer directly:
+    This viewer is what [`navis.plot3d`][] uses when `backend='vispy'`.
+    Instead of [`navis.plot3d`][] we can interact with the viewer directly:
 
     >>> # Open a 3D viewer
     >>> import navis
@@ -318,7 +318,7 @@ class Viewer:
 
     @property
     def show_legend(self):
-        """Set to ``True`` to hide neuron legend."""
+        """Set to `True` to hide neuron legend."""
         return self.__show_legend
 
     @show_legend.setter
@@ -344,7 +344,7 @@ class Viewer:
 
     @property
     def picking(self):
-        """Set to ``True`` to allow picking."""
+        """Set to `True` to allow picking."""
         return self.__picking
 
     def toggle_picking(self):
@@ -498,7 +498,7 @@ class Viewer:
         Returns
         -------
         OrderedDict
-                    ``{id: [neurites, soma]}``
+                    `{id: [neurites, soma]}`
 
         """
         # Collect neuron objects (neurites + somata)
@@ -577,7 +577,7 @@ class Viewer:
 
     @property
     def show_bounds(self):
-        """Set to ``True`` to show bounding box."""
+        """Set to `True` to show bounding box."""
         return self._show_bounds
 
     def toggle_bounds(self):
@@ -845,7 +845,7 @@ class Viewer:
     def unhide_neurons(self, n=None, check_alpha=False):
         """Unhide given neuron(s).
 
-        Use ``n`` to unhide specific neurons.
+        Use `n` to unhide specific neurons.
 
         """
         neurons = self.neurons  # grab once to speed things up
@@ -894,7 +894,7 @@ class Viewer:
     def unpin_neurons(self, n=None):
         """Unpin given neuron(s).
 
-        Use ``n`` to unhide specific neurons.
+        Use `n` to unhide specific neurons.
 
         """
         neurons = self.neurons  # grab once to speed things up
@@ -1129,7 +1129,7 @@ class Viewer:
                                f' [{self._cycle_index + 1}/{len(neurons)}]'
 
     def _draw_fps(self, fps):
-        """Callback for ``canvas.measure_fps``."""
+        """Callback for `canvas.measure_fps`."""
         self._fps_text.text = f'{fps:.2f} FPS'
 
     def _toggle_fps(self):

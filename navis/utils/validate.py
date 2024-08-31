@@ -29,7 +29,7 @@ def validate_options(x: 'core.TreeNeuron',
                      raise_on_error: bool = True) -> None:
     """Check if neuron contains all required data.
 
-    E.g. for ``plot3d(plot_connectors=True)``.
+    E.g. for `plot3d(plot_connectors=True)`.
 
     Parameters
     ----------
@@ -74,23 +74,23 @@ def validate_table(x: pd.DataFrame,
                 DataFrame to validate.
     required :  iterable
                 Columns to check for. If column is given as tuple (e.g.
-                ``('type', 'relation', 'label')`` one of these columns
+                `('type', 'relation', 'label')` one of these columns
                 has to exist)
     rename :    bool, optional
                 If True and a required column is given as tuple, will rename
                 that column to the first entry in tuple.
     restrict :  bool, optional
-                If True, will return only ``required`` columns.
+                If True, will return only `required` columns.
     optional :  dict, optional
                 Optional columns. If column not present will be generated.
                 Dictionary must map column name to default value. Keys can also
-                be tuples - like ``required``.
+                be tuples - like `required`.
 
     Returns
     -------
     pandas.DataFrame
-                If ``restrict=True`` will return DataFrame subset to only the
-                required columns. Columns defined in ``optional`` will be
+                If `restrict=True` will return DataFrame subset to only the
+                required columns. Columns defined in `optional` will be
                 added if they don't already exist.
 
     Examples

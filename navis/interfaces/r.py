@@ -37,8 +37,8 @@ from rpy2.robjects import pandas2ri, numpy2ri
 
 from .. import core, plotting, config, utils
 
-# Inconventiently, rpy2's version vector differs in the way it's constructed
-# between 2.X ``((2, 9, 4), '')`` and 3.X (3, 3, 2)
+# Inconveniently, rpy2's version vector differs in the way it's constructed
+# between 2.X `((2, 9, 4), '')` and 3.X (3, 3, 2)
 rpy2_major_version = int(rpy2.__version__.split('.')[0])
 if rpy2_major_version >= 3:
     from rpy2.robjects.conversion import localconverter
@@ -205,8 +205,8 @@ def init_rcatmaid(**kwargs):
 
 
 def data2py(data, **kwargs):
-    """Convert data from rcatmaid (e.g. ``catmaidneuron`` from
-    ``read.neuron.catmaid``) and converts into Python Data.
+    """Convert data from rcatmaid (e.g. `catmaidneuron` from
+    `read.neuron.catmaid`) and converts into Python Data.
 
     Notes
     -----
@@ -370,7 +370,7 @@ def neuron2r(x: 'core.NeuronObject',
     ----------
     x :                 TreeNeuron | Dotprops | NeuronList
     unit_conversion :   bool | int | float, optional
-                        If not ``False`` will multiply units by given factor.
+                        If not `False` will multiply units by given factor.
     add_metadata :      bool, optional
                         If False, will use minimal data necessary to construct
                         the R neuron. If True, will add additional data
@@ -535,7 +535,7 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
                     resample: Optional[int] = None,
                     n_cores: int = os.cpu_count() - 2,
                     use_alpha: bool = False) -> pd.DataFrame:
-    """All-by-all NBLAST using R's ``nat.nblast::nblast_allbyall``.
+    """All-by-all NBLAST using R's `nat.nblast::nblast_allbyall`.
 
     NBLAST is optimized for data in microns. Original nat function can be found
     `here <https://github.com/jefferislab/nat.nblast/>`_.
@@ -547,18 +547,18 @@ def nblast_allbyall(x: 'core.NeuronList',  # type: ignore  # doesn't like n_core
                         data should be in microns.
     k :                 int, optional
                         Number of nearest neighbors to use for dotprops generation.
-                        Only relevant if input data is not already ``Dotprops``.
+                        Only relevant if input data is not already `Dotprops`.
     resample :          int | bool, optional
                         Resampling during dotprops generation. A good value
-                        is ``1`` which means if data is in microns (which it
+                        is `1` which means if data is in microns (which it
                         should!) it will be resampled to 1 tangent vector per
                         micron. Only relevant if input data is not already
-                        ``Dotprops``.
+                        `Dotprops`.
     normalized :        bool, optional
                         If True, matrix is normalized using z-score.
     n_cores :           int, optional
                         Number of cores to use for nblasting. Default is
-                        ``os.cpu_count() - 2``.
+                        `os.cpu_count() - 2`.
     use_alpha :         bool, optional
                         Emphasizes neurons' straight parts (backbone) over
                         parts that have lots of branches.
@@ -629,7 +629,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
            use_alpha: bool = False,
            k: int = 5,
            resample: Optional[int] = None) -> pd.DataFrame:
-    """NBLAST using R's ``nat.nblast::nblast``.
+    """NBLAST using R's `nat.nblast::nblast`.
 
     Please note that NBLAST is optimized for units in microns.
 
@@ -641,10 +641,10 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
                     Neuron(s) to run the query against. If a str, must be
                     either:
 
-                        1. the name of a file in ``'flycircuit.datadir'``
-                        2. a path (e.g. ``'.../gmrdps.rds'``)
-                        3. an R file object (e.g. ``robjects.r("load('.../gmrdps.rds')")``)
-                        4. a URL to load the list from (e.g. ``'http://.../gmrdps.rds'``)
+                        1. the name of a file in `'flycircuit.datadir'`
+                        2. a path (e.g. `'.../gmrdps.rds'`)
+                        3. an R file object (e.g. `robjects.r("load('.../gmrdps.rds')")`)
+                        4. a URL to load the list from (e.g. `'http://.../gmrdps.rds'`)
                         5. "flycircuit"
 
     scores :        'forward' | 'mean' | 'min' | 'max'
@@ -657,7 +657,7 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
 
     n_cores :       int, optional
                     Number of cores to use for nblasting. Default is
-                    ``os.cpu_count() - 2``.
+                    `os.cpu_count() - 2`.
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
                     that have lots of branches.
@@ -665,13 +665,13 @@ def nblast(query: Union['core.TreeNeuron', 'core.NeuronList', 'core.Dotprops'], 
                     Whether to return normalized NBLAST scores.
     k :             int, optional
                     Number of nearest neighbors to use for dotprops generation.
-                    Only relevant if input data is not already ``Dotprops``.
+                    Only relevant if input data is not already `Dotprops`.
     resample :      int | bool, optional
                     Resampling during dotprops generation. A good value
-                    is ``1`` which means if data is in microns (which it
+                    is `1` which means if data is in microns (which it
                     should!) it will be resampled to 1 tangent vector per
                     micron. Only relevant if input data is not already
-                    ``Dotprops``.
+                    `Dotprops`.
 
     Returns
     -------
@@ -933,35 +933,35 @@ class NBLASTresults:
                plot_neuron: bool = True,
                plot_brain: bool = True,
                **kwargs):
-        """Plot nblast hits using ``navis.plot3d()``.
+        """Plot nblast hits using `navis.plot3d()`.
 
         Parameters
         ----------
         hits :  int | str | list thereof, optional
                 Nblast hits to plot (default = 5). Can be:
 
-                1. int: e.g. ``hits=5`` for top 5 hits
-                2 .list of ints: e.g. ``hits=[2,5]`` to plot hits 2 and 5
-                3. string: e.g. ``hits='THMARCM-198F_seg1'`` to plot this neuron
-                4. list of strings: e.g. ``['THMARCM-198F_seg1', npfMARCM-'F000003_seg002']`` to plot multiple neurons by their gene name
+                1. int: e.g. `hits=5` for top 5 hits
+                2 .list of ints: e.g. `hits=[2,5]` to plot hits 2 and 5
+                3. string: e.g. `hits='THMARCM-198F_seg1'` to plot this neuron
+                4. list of strings: e.g. `['THMARCM-198F_seg1', npfMARCM-'F000003_seg002']` to plot multiple neurons by their gene name
 
         plot_neuron :   bool
-                        If ``True``, the nblast query neuron will be plotted.
+                        If `True`, the nblast query neuron will be plotted.
         plot_brain :    bool
-                        If ``True``, the reference brain will be plotted.
+                        If `True`, the reference brain will be plotted.
         **kwargs
-                        Parameters passed to :func:`~navis.plot3d`.
-                        See ``help(navis.plot3d)`` for details.
+                        Parameters passed to [`navis.plot3d`][].
+                        See `help(navis.plot3d)` for details.
 
         Returns
         -------
-        Depending on the backends used by ``navis.plot3d()``:
+        Depending on the backends used by `navis.plot3d()`:
 
         vispy (default) : canvas, view
         plotly : plotly figure dictionary
 
-        You can specify the backend by using e.g. ``backend='plotly'`` in
-        **kwargs. See ``help(navis.plot3d)`` for details.
+        You can specify the backend by using e.g. `backend='plotly'` in
+        **kwargs. See `help(navis.plot3d)` for details.
 
         """
         nl = self.get_dps(hits)
@@ -1006,11 +1006,11 @@ class NBLASTresults:
         entries :   int | str | list thereof, optional
                     Neurons to extract from DPS database. Can be:
 
-                    1. int: e.g. ``hits=5`` for top 5 hits
-                    2 .list of ints: e.g. ``hits=[2,5]`` to plot hits 2 and 5
-                    3. string: e.g. ``hits = 'THMARCM-198F_seg1'`` to plot this neuron
+                    1. int: e.g. `hits=5` for top 5 hits
+                    2 .list of ints: e.g. `hits=[2,5]` to plot hits 2 and 5
+                    3. string: e.g. `hits = 'THMARCM-198F_seg1'` to plot this neuron
                     4. list of strings:
-                       e.g. ``['THMARCM-198F_seg1', npfMARCM-'F000003_seg002']``
+                       e.g. `['THMARCM-198F_seg1', npfMARCM-'F000003_seg002']`
                        to plot multiple neurons by their gene name
 
         Returns
@@ -1044,20 +1044,20 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                    'np.ndarray']:
     """Transform 3D data between template brains.
 
-    This is a simple wrapper for ``nat.templatebrains:xform_brain``.
+    This is a simple wrapper for `nat.templatebrains:xform_brain`.
 
     Notes
     -----
     For Neurons only: whether there is a change in units during transformation
     (e.g. nm -> um) is inferred by comparing distances between x/y/z coordinates
     before and after transform. This guesstimate is then used to convert
-    ``.units`` and node radii (for TreeNeurons).
+    `.units` and node radii (for TreeNeurons).
 
     Parameters
     ----------
     x :         Neuron/List | numpy.ndarray | pandas.DataFrame
-                Data to transform. Dataframe must contain ``['x', 'y', 'z']``
-                columns. Numpy array must be shape ``(N, 3)``.
+                Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                columns. Numpy array must be shape `(N, 3)`.
     source :    str
                 Source template brain that the data currently is in.
     target :    str
@@ -1066,19 +1066,19 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 If "AFFINE", will fall back to affine transformation if CMTK
                 transformation fails. Else coordinates of points for which the
                 transformation failed (e.g. b/c they are out of bounds), will
-                be returned as ``None``.
+                be returned as `None`.
     bulk :      bool | int
                 If True or number and input is NeuronList, will xform all
                 coordinates in chunks (default=100k) instead of neuron-by-neuron.
                 This can be ~2x faster (due to reduced overhead) is very memory
-                intensive! If ``bulk`` is a number will process chunks of
+                intensive! If `bulk` is a number will process chunks of
                 given size.
     **kwargs
-                Keyword arguments passed to ``nat.templatebrains:xform_brain``
+                Keyword arguments passed to `nat.templatebrains:xform_brain`
 
     Returns
     -------
-    same type as ``x``
+    same type as `x`
                 Copy of input with transformed coordinates.
 
     """
@@ -1329,13 +1329,13 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                     'np.ndarray']:
     """Mirror 3D object along given axixs.
 
-    This is a simple wrapper for ``nat.templatebrains:mirror_brain``.
+    This is a simple wrapper for `nat.templatebrains:mirror_brain`.
 
     Parameters
     ----------
     x :             Neuron/List | numpy.ndarray | pandas.DataFrame
-                    Data to transform. Dataframe must contain ``['x', 'y', 'z']``
-                    columns. Numpy array must be shape ``(N, 3)``.
+                    Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                    columns. Numpy array must be shape `(N, 3)`.
     template :      str
                     Source template brain space that the data is in.
     mirror_axis :   'X' | 'Y' | 'Z', optional
@@ -1349,11 +1349,11 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                     for the original template.
     **kwargs
                     Keyword arguments passed to
-                    ``nat.templatebrains:mirror_brain``.
+                    `nat.templatebrains:mirror_brain`.
 
     Returns
     -------
-    same type as ``x``
+    same type as `x`
                 Copy of input with transformed coordinates.
 
     """
@@ -1462,7 +1462,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
 
 def get_brain_template_mesh(x: str) -> core.Volume:
-    """Fetch brain surface model from ``nat.flybrains``, ``flycircuit`` or ``elmr``.
+    """Fetch brain surface model from `nat.flybrains`, `flycircuit` or `elmr`.
 
     Parameters
     ----------
@@ -1498,7 +1498,7 @@ def get_brain_template_mesh(x: str) -> core.Volume:
 
 
 def get_neuropil(x: str, template: str = 'FCWB') -> core.Volume:
-    """Fetch given neuropil from ``nat.flybrains``, ``flycircuit`` or ``elmr``.
+    """Fetch given neuropil from `nat.flybrains`, `flycircuit` or `elmr`.
 
     Parameters
     ----------
@@ -1567,7 +1567,7 @@ def load_rda(fp: str, convert: bool = True):
                 Filepath to rda file.
     convert :   bool | function
                 If True, will attempt to convert data from R to Python. If
-                ``convert`` is a function, we expect it to accept the raw R data
+                `convert` is a function, we expect it to accept the raw R data
                 and return the converted.
 
     Returns

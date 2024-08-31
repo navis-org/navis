@@ -55,8 +55,8 @@ def parent_dist(
     ----------
     x :         TreeNeuron | node table
     root_dist : int | None
-                ``parent_dist`` for the root's row. Set to ``None``, to leave
-                at ``NaN`` or e.g. to ``0`` to set to 0.
+                `parent_dist` for the root's row. Set to `None`, to leave
+                at `NaN` or e.g. to `0` to set to 0.
 
     Returns
     -------
@@ -1196,7 +1196,7 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
         "Synapse-based flow centrality has been moved to "
         "`navis.synapse_flow_centrality` in navis "
         "version 1.4.0. `navis.flow_centrality` now calculates "
-        "morphology-only flow."
+        "morphology-only flow. "
         "This warning will be removed in a future version of navis."
     )
     warnings.warn(msg, DeprecationWarning)
@@ -1277,12 +1277,12 @@ def tortuosity(
 
     See Stepanyants et al., Neuron (2004) for detailed explanation. Briefly,
     tortuosity index `T` is defined as the ratio of the branch segment length
-    `L` (``seg_length``) to the Euclidian distance `R` between its ends.
+    `L` (`seg_length`) to the Euclidian distance `R` between its ends.
 
     The way this is implemented in `navis`:
 
      1. Each linear stretch (i.e. between branch points or branch points to a
-        leaf node) is divided into segments of exactly ``seg_length``
+        leaf node) is divided into segments of exactly `seg_length`
         geodesic length. Any remainder is skipped.
      2. For each of these segments we divide its geodesic length `L`
         (i.e. `seg_length`) by the Euclidian distance `R` between its start and
@@ -1301,8 +1301,8 @@ def tortuosity(
                         use a skeleton representation.
     seg_length :        int | float | str | list thereof, optional
                         Target segment length(s) `L`. If neuron(s) have their
-                        ``.units`` set, you can also pass a string such as
-                        "1 micron". ``seg_length`` must be larger than the
+                        `.units` set, you can also pass a string such as
+                        "1 micron". `seg_length` must be larger than the
                         current sampling resolution of the neuron.
 
     Returns
@@ -1431,7 +1431,7 @@ def sholl_analysis(
                 If integer, will produce N evenly space radii covering the
                 distance between the center and the most distal node.
                 Alternatively, you can also provide a list of radii to check.
-                If `x` is multiple neurons, must provide a list of ``radii``!
+                If `x` is multiple neurons, must provide a list of `radii`!
     center :    "centermass" | "root" | "soma" | int | list-like
                 The center to use for Sholl analysis:
                     - "centermass" (default) uses the mean across nodes positions
@@ -1581,11 +1581,11 @@ def betweeness_centrality(
     from_ :         "leafs" | "branch_points" | iterable, optional
                     If provided will only consider paths from given nodes to
                     root(s):
-                      - ``leafs`` will only use paths from leafs to the root
-                      - ``branch_points`` will only use paths from branch points
+                      - `leafs` will only use paths from leafs to the root
+                      - `branch_points` will only use paths from branch points
                         to the root
-                      - ``from_`` can also be a list/array of node IDs
-                    Only implemented for ``directed=True``!
+                      - `from_` can also be a list/array of node IDs
+                    Only implemented for `directed=True`!
     directed :      bool
                     Whether to use the directed or undirected graph.
 
@@ -1593,7 +1593,7 @@ def betweeness_centrality(
     -------
     neuron
                 Adds "betweenness" as column in the node table (for
-                TreeNeurons) or as ``.betweenness`` property
+                TreeNeurons) or as `.betweenness` property
                 (for MeshNeurons).
 
     Examples

@@ -374,12 +374,12 @@ class BaseNeuron(UnitObject):
     def core_md5(self) -> str:
         """MD5 checksum of core data.
 
-        Generated from ``.CORE_DATA`` properties.
+        Generated from `.CORE_DATA` properties.
 
         Returns
         -------
         md5 :   string
-                MD5 checksum of core data. ``None`` if no core data.
+                MD5 checksum of core data. `None` if no core data.
 
         """
         hash = ''
@@ -426,7 +426,7 @@ class BaseNeuron(UnitObject):
         """ID of the neuron.
 
         Must be hashable. If not set, will assign a random unique identifier.
-        Can be indexed by using the ``NeuronList.idx[]`` locator.
+        Can be indexed by using the `NeuronList.idx[]` locator.
         """
         return getattr(self, '_id', None)
 
@@ -486,8 +486,8 @@ class BaseNeuron(UnitObject):
 
     @property
     def connectors(self) -> pd.DataFrame:
-        """Connector table. If none, will return ``None``."""
-        return getattr(self, '_connectors', None)
+        """Connector table. If none, will return `None`."""
+        return getattr(self, "_connectors", None)
 
     @connectors.setter
     def connectors(self, v):
@@ -579,7 +579,7 @@ class BaseNeuron(UnitObject):
                       inplace: bool = False) -> Optional['BaseNeuron']:
         """Convert coordinates to different unit.
 
-        Only works if neuron's ``.units`` is not dimensionless.
+        Only works if neuron's `.units` is not dimensionless.
 
         Parameters
         ----------
@@ -707,7 +707,7 @@ class BaseNeuron(UnitObject):
                                   Literal['ignore']] = 'raise') -> Union[int, float]:
         """Convert units to match neuron space.
 
-        Only works if neuron's ``.units`` is isometric and not dimensionless.
+        Only works if neuron's `.units` is isometric and not dimensionless.
 
         Parameters
         ----------
@@ -716,7 +716,7 @@ class BaseNeuron(UnitObject):
                     passed through.
         on_error :  "raise" | "ignore"
                     What to do if an error occurs (e.g. because `neuron` does not
-                    have units specified). If "ignore" will simply return ``units``
+                    have units specified). If "ignore" will simply return `units`
                     unchanged.
 
         See Also

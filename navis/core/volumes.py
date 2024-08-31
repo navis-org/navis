@@ -36,13 +36,13 @@ logger = config.get_logger(__name__)
 class Volume(UnitObject, trimesh.Trimesh):
     """Mesh consisting of vertices and faces.
 
-    Subclass of ``trimesh.Trimesh`` with a few additional methods.
+    Subclass of `trimesh.Trimesh` with a few additional methods.
 
     Parameters
     ----------
     vertices :  list | array | mesh-like
                 `(N, 3)` vertices coordinates or an object that has
-                ``.vertices`` and ``.faces`` attributes in which case ``faces``
+                `.vertices` and `.faces` attributes in which case `faces`
                 parameter will be ignored.
     faces :     list | array
                 `(M, 3)` array of indexed triangle faces.
@@ -51,9 +51,9 @@ class Volume(UnitObject, trimesh.Trimesh):
     color :     tuple, optional
                 RGB(A) color.
     id :        int, optional
-                If not provided, neuron will be assigned a random UUID as ``.id``.
+                If not provided, neuron will be assigned a random UUID as `.id`.
     **kwargs
-                Keyword arguments passed through to ``trimesh.Trimesh``
+                Keyword arguments passed through to `trimesh.Trimesh`
 
     See Also
     --------
@@ -137,7 +137,7 @@ class Volume(UnitObject, trimesh.Trimesh):
         faces :         filepath | file-like
                         CSV file containing faces.
         **kwargs
-                        Keyword arguments passed to ``csv.reader``.
+                        Keyword arguments passed to `csv.reader`.
 
         Returns
         -------
@@ -164,10 +164,10 @@ class Volume(UnitObject, trimesh.Trimesh):
         Parameters
         ----------
         filename :      str
-                        Filename to use. Will get a ``_vertices.csv`` and
-                        ``_faces.csv`` suffix.
+                        Filename to use. Will get a `_vertices.csv` and
+                        `_faces.csv` suffix.
         **kwargs
-                        Keyword arguments passed to ``csv.reader``.
+                        Keyword arguments passed to `csv.reader`.
 
         """
         for data, suffix in zip([self.faces, self.vertices],
@@ -187,7 +187,7 @@ class Volume(UnitObject, trimesh.Trimesh):
         ----------
         filename
         import_kwargs
-                        Keyword arguments passed to ``json.load``.
+                        Keyword arguments passed to `json.load`.
         **init_kwargs
                     Keyword arguments passed to navis.Volume upon
                     initialization.
@@ -207,11 +207,9 @@ class Volume(UnitObject, trimesh.Trimesh):
                    vertices=data['vertices'], **init_kwargs)
 
     @classmethod
-    def from_object(cls,
-                    obj: Any,
-                    **init_kwargs) -> 'Volume':
-        """Load volume from generic object that has ``.vertices`` and
-        ``.faces`` attributes.
+    def from_object(cls, obj: Any, **init_kwargs) -> "Volume":
+        """Load volume from generic object that has `.vertices` and
+        `.faces` attributes.
 
         Parameters
         ----------
@@ -243,8 +241,8 @@ class Volume(UnitObject, trimesh.Trimesh):
                         File to load from.
         import_kwargs
                         Keyword arguments passed to importer:
-                          - ``json.load`` for JSON file
-                          - ``trimesh.load_mesh`` for OBJ and STL files
+                          - `json.load` for JSON file
+                          - `trimesh.load_mesh` for OBJ and STL files
         **init_kwargs
                     Keyword arguments passed to navis.Volume upon
                     initialization.
@@ -343,7 +341,7 @@ class Volume(UnitObject, trimesh.Trimesh):
 
     @property
     def verts(self) -> np.ndarray:
-        """Legacy access to ``.vertices``."""
+        """Legacy access to `.vertices`."""
         return self.vertices
 
     @verts.setter
@@ -420,8 +418,8 @@ class Volume(UnitObject, trimesh.Trimesh):
         x :         int | float
                     Resizing factor. For methods "center", "centroid" and
                     "origin" this is the fraction of original size (e.g.
-                    ``.5`` for half size). For method "normals", this is
-                    is the absolute displacement (e.g. ``-1000`` to shrink
+                    `.5` for half size). For method "normals", this is
+                    is the absolute displacement (e.g. `-1000` to shrink
                     volume by that many units)!
         method :    "center" | "centroid" | "normals" | "origin"
                     Point in space to use for resizing.
@@ -442,7 +440,7 @@ class Volume(UnitObject, trimesh.Trimesh):
                             (0, 0, 0)
                         * - normals
                           - resize using face normals. Note that this method
-                            uses absolute displacement for parameter ``x``.
+                            uses absolute displacement for parameter `x`.
 
         inplace :   bool, optional
                     If False, will return resized copy.
@@ -450,9 +448,9 @@ class Volume(UnitObject, trimesh.Trimesh):
         Returns
         -------
         :class:`navis.Volume`
-                    Resized copy of original volume. Only if ``inplace=False``.
+                    Resized copy of original volume. Only if `inplace=False`.
         None
-                    If ``inplace=True``.
+                    If `inplace=True`.
 
         """
         assert isinstance(method, str)
@@ -503,7 +501,7 @@ class Volume(UnitObject, trimesh.Trimesh):
         ----------
         **kwargs
                 Keyword arguments. Will be passed to :func:`navis.plot3d`.
-                See ``help(navis.plot3d)`` for a list of keywords.
+                See `help(navis.plot3d)` for a list of keywords.
 
         See Also
         --------
@@ -525,12 +523,12 @@ class Volume(UnitObject, trimesh.Trimesh):
         return plotting.plot3d(self, **kwargs)
 
     def show(self, **kwargs):
-        """See ``.plot3d``."""
+        """See `.plot3d`."""
         # This is mostly to override trimesh.Trimesh method
         return self.plot3d(**kwargs)
 
-    def _outlines_3d(self, view='xy', **kwargs):
-        """Generate 3d outlines along a given view (see ``.to_2d()``).
+    def _outlines_3d(self, view="xy", **kwargs):
+        """Generate 3d outlines along a given view (see `.to_2d()`).
 
         Parameters
         ----------
@@ -541,7 +539,7 @@ class Volume(UnitObject, trimesh.Trimesh):
         -------
         list
                     Coordinates of 2d circumference.
-                    e.g. ``[(x1, y1, z1), (x2, y2, z2), (x3, y3, z3), ...]``
+                    e.g. `[(x1, y1, z1), (x2, y2, z2), (x3, y3, z3), ...]`
                     Third dimension is averaged.
 
         """
@@ -577,9 +575,10 @@ class Volume(UnitObject, trimesh.Trimesh):
         -------
         list
                     Coordinates of 2d circumference
-                    e.g. ``[(x1, y1), (x2, y2), (x3, y3), ...]``
+                    e.g. `[(x1, y1), (x2, y2), (x3, y3), ...]`
 
         """
+
         def add_edge(edges, edge_points, coords, i, j):
             """Add line between the i-th and j-th points."""
             if (i, j) in edges or (j, i) in edges:
@@ -660,11 +659,13 @@ class Volume(UnitObject, trimesh.Trimesh):
 
 
 def _force_volume(f):
-    """Convert result from ``trimesh.Trimesh`` to ``navis.Volume``."""
+    """Convert result from `trimesh.Trimesh` to `navis.Volume`."""
+
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         res = f(*args, **kwargs)
         if isinstance(res, trimesh.Trimesh):
             res = Volume(res.vertices, res.faces, **res.metadata)
         return res
+
     return wrapper

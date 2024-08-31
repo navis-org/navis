@@ -31,13 +31,13 @@ def simplify_mesh_open3d(x, F, method='quadric', inplace=False, **kwargs):
     method :    "quadric" | "cluster"
                 Which method to use for simplification: either Quadric Error
                 Metric Decimation (by Garland and Heckbert) or vertex clustering.
-                Note that the intepretation of ``F`` depends on the method.
+                Note that the intepretation of `F` depends on the method.
     inplace :   bool
-                If True, will perform simplication on ``x``. If False, will
+                If True, will perform simplication on `x`. If False, will
                 simplify and return a copy.
     **kwargs
                 Keyword arguments are passed through to open3d's
-                ``simplify_quadric_decimation`` and ``simplify_vertex_clustering``,
+                `simplify_quadric_decimation` and `simplify_vertex_clustering`,
                 respectively.
 
     Returns
@@ -80,7 +80,7 @@ def smooth_mesh_open3d(x, iterations=5, L=0.5, inplace=False):
                     Diffusion speed constant lambda. Larger = more aggressive
                     smoothing.
     inplace :       bool
-                    If True, will perform simplication on ``x``. If False, will
+                    If True, will perform simplication on `x`. If False, will
                     simplify and return a copy.
 
     Returns

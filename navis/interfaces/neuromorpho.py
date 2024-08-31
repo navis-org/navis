@@ -43,7 +43,7 @@ def find_neurons(page_limit: Optional[int] = None,
     page_limit :    int | None, optional
                     Use this to limit the results if you are running a big query.
     **filters
-                    Search criteria as ``field=value``. See
+                    Search criteria as `field=value`. See
                     :func:`navis.interfaces.neuromorpho.get_neuron_fields` and
                     :func:`navis.interfaces.neuromorpho.get_available_field_values`
                     for available fields and values.

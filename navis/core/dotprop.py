@@ -69,19 +69,19 @@ class Dotprops(BaseNeuron):
                     (N, 3) array of x/y/z coordinates.
     k :             int, optional
                     Number of nearest neighbors for tangent vector calculation.
-                    This can be ``None`` or ``0`` but then vectors must be
+                    This can be `None` or `0` but then vectors must be
                     provided on initialization and can subsequently not be
-                    re-calculated. Typical values here are ``k=20`` for dense
-                    (e.g. from light level data) and ``k=5`` for sparse
+                    re-calculated. Typical values here are `k=20` for dense
+                    (e.g. from light level data) and `k=5` for sparse
                     (e.g. from skeletons) point clouds.
     vect :          numpy array, optional
                     (N, 3) array of vectors. If not provided will
-                    recalculate both ``vect`` and ``alpha`` using ``k``.
+                    recalculate both `vect` and `alpha` using `k`.
     alpha :         numpy array, optional
                     (N, ) array of alpha values. If not provided will
-                    recalculate both ``alpha`` and ``vect`` using ``k``.
+                    recalculate both `alpha` and `vect` using `k`.
     units :         str | pint.Units | pint.Quantity
-                    Units for coordinates. Defaults to ``None`` (dimensionless).
+                    Units for coordinates. Defaults to `None` (dimensionless).
                     Strings must be parsable by pint: e.g. "nm", "um",
                     "micrometer" or "8 nanometers".
     **metadata
@@ -282,7 +282,7 @@ class Dotprops(BaseNeuron):
     def soma(self) -> Optional[int]:
         """Index of soma point.
 
-        ``None`` if no soma. You can assign either a function that accepts a
+        `None` if no soma. You can assign either a function that accepts a
         Dotprops as input or a fix value. Default is None.
         """
         if callable(self._soma):
@@ -336,7 +336,7 @@ class Dotprops(BaseNeuron):
                     ]:
         """Query this Dotprops against another.
 
-        This function is mainly for ``navis.nblast``.
+        This function is mainly for `navis.nblast`.
 
         Parameters
         ----------
@@ -353,22 +353,22 @@ class Dotprops(BaseNeuron):
                                 `alpha_prod` will be set to 0.
         kwargs
                                 Keyword arguments are passed to the KDTree's
-                                ``query()`` method. Note that we are using
-                                ``pykdtree.kdtree.KDTree`` if available and fall
-                                back to ``scipy.spatial.cKDTree`` if pykdtree is
+                                `query()` method. Note that we are using
+                                `pykdtree.kdtree.KDTree` if available and fall
+                                back to `scipy.spatial.cKDTree` if pykdtree is
                                 not installed.
 
         Returns
         -------
         dist :          np.ndarray
-                        For each point in ``self``, the distance to the closest
-                        point in ``other``.
+                        For each point in `self`, the distance to the closest
+                        point in `other`.
         dotprods :      np.ndarray
                         Dotproduct of each pair of closest points between
-                        ``self`` and ``other``.
+                        `self` and `other`.
         alpha_prod :    np.ndarray
                         Dotproduct of each pair of closest points between
-                        ``self`` and ``other``. Only returned if ``alpha=True``.
+                        `self` and `other`. Only returned if `alpha=True`.
 
         """
         if not isinstance(other, Dotprops):
@@ -462,7 +462,7 @@ class Dotprops(BaseNeuron):
         return x
 
     def recalculate_tangents(self, k: int, inplace=False) -> None:
-        """Recalculate tangent vectors and alpha with a new ``k``.
+        """Recalculate tangent vectors and alpha with a new `k`.
 
         Parameters
         ----------
@@ -476,7 +476,7 @@ class Dotprops(BaseNeuron):
         Returns
         -------
         Dotprops
-                    Only if ``inplace=False``.
+                    Only if `inplace=False`.
 
         """
         if not inplace:

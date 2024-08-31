@@ -51,7 +51,7 @@ with warnings.catch_warnings():
 
 
 def requires_nodes(func):
-    """Return ``None`` if neuron has no nodes."""
+    """Return `None` if neuron has no nodes."""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         self = args[0]
@@ -71,19 +71,19 @@ class TreeNeuron(BaseNeuron):
     ----------
     x
                     Data to construct neuron from:
-                     - ``pandas.DataFrame`` is expected to be SWC table
-                     - ``pandas.Series`` is expected to have a DataFrame as
-                       ``.nodes`` - additional properties will be attached
+                     - `pandas.DataFrame` is expected to be SWC table
+                     - `pandas.Series` is expected to have a DataFrame as
+                       `.nodes` - additional properties will be attached
                        as meta data
-                     - ``str`` filepath is passed to :func:`navis.read_swc`
-                     - ``BufferedIOBase`` e.g. from ``open(filename)``
-                     - ``networkx.DiGraph`` parsed by `navis.nx2neuron`
-                     - ``None`` will initialize an empty neuron
-                     - ``skeletor.Skeleton``
-                     - ``TreeNeuron`` - in this case we will try to copy every
+                     - `str` filepath is passed to [`navis.read_swc`][]
+                     - `BufferedIOBase` e.g. from `open(filename)`
+                     - `networkx.DiGraph` parsed by `navis.nx2neuron`
+                     - `None` will initialize an empty neuron
+                     - `skeletor.Skeleton`
+                     - `TreeNeuron` - in this case we will try to copy every
                        attribute
     units :         str | pint.Units | pint.Quantity
-                    Units for coordinates. Defaults to ``None`` (dimensionless).
+                    Units for coordinates. Defaults to `None` (dimensionless).
                     Strings must be parsable by pint: e.g. "nm", "um",
                     "micrometer" or "8 nanometers".
     **metadata
@@ -108,10 +108,10 @@ class TreeNeuron(BaseNeuron):
     soma: Optional[Union[int, str]]
     soma_pos: Optional[Sequence]
 
-    #: Minimum radius for soma detection. Set to ``None`` if no tag needed.
+    #: Minimum radius for soma detection. Set to `None` if no tag needed.
     #: Default = 1 micron
     soma_detection_radius: Union[float, int, pint.Quantity] = 1 * config.ureg.um
-    #: Label for soma detection. Set to ``None`` if no tag needed. Default = 1.
+    #: Label for soma detection. Set to `None` if no tag needed. Default = 1.
     soma_detection_label: Union[float, int, str] = 1
     #: Soma radius (e.g. for plotting). If string, must be column in nodes
     #: table. Default = 'radius'.
@@ -436,7 +436,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def connectors(self) -> pd.DataFrame:
-        """Connector table. If none, will return ``None``."""
+        """Connector table. If none, will return `None`."""
         return self._get_connectors()
 
     def _get_connectors(self) -> pd.DataFrame:
@@ -497,7 +497,7 @@ class TreeNeuron(BaseNeuron):
     def soma(self) -> Optional[Union[str, int]]:
         """Search for soma and return node ID(s).
 
-        ``None`` if no soma. You can assign either a function that accepts a
+        `None` if no soma. You can assign either a function that accepts a
         TreeNeuron as input or a fix value. The default is
         :func:`navis.utils.find_soma`.
 
@@ -543,7 +543,7 @@ class TreeNeuron(BaseNeuron):
     def soma_pos(self) -> Optional[Sequence]:
         """Search for soma and return its position.
 
-        Returns ``None`` if no soma. You can also use this to assign a soma by
+        Returns `None` if no soma. You can also use this to assign a soma by
         position in which case it will snap to the closest node.
         """
         # Sanity check to make sure that the soma node actually exists
@@ -755,9 +755,9 @@ class TreeNeuron(BaseNeuron):
         Parameters
         ----------
         deepcopy :  bool, optional
-                    If False, ``.graph`` (NetworkX DiGraph) will be returned
+                    If False, `.graph` (NetworkX DiGraph) will be returned
                     as view - changes to nodes/edges can progagate back!
-                    ``.igraph`` (iGraph) - if available - will always be
+                    `.igraph` (iGraph) - if available - will always be
                     deepcopied.
 
         Returns
@@ -787,7 +787,7 @@ class TreeNeuron(BaseNeuron):
     def get_graph_nx(self) -> nx.DiGraph:
         """Calculate and return networkX representation of neuron.
 
-        Once calculated stored as ``.graph``. Call function again to update
+        Once calculated stored as `.graph`. Call function again to update
         graph.
 
         See Also
@@ -801,12 +801,12 @@ class TreeNeuron(BaseNeuron):
     def get_igraph(self) -> 'igraph.Graph':  # type: ignore
         """Calculate and return iGraph representation of neuron.
 
-        Once calculated stored as ``.igraph``. Call function again to update
+        Once calculated stored as `.igraph`. Call function again to update
         iGraph.
 
         Important
         ---------
-        Returns ``None`` if igraph is not installed!
+        Returns `None` if igraph is not installed!
 
         See Also
         --------
@@ -1025,12 +1025,12 @@ class TreeNeuron(BaseNeuron):
         to_prune :  int | list | range | slice
                     Strahler indices to prune. For example:
 
-                    1. ``to_prune=1`` removes all leaf branches
-                    2. ``to_prune=[1, 2]`` removes SI 1 and 2
-                    3. ``to_prune=range(1, 4)`` removes SI 1, 2 and 3
-                    4. ``to_prune=slice(1, -1)`` removes everything but the
+                    1. `to_prune=1` removes all leaf branches
+                    2. `to_prune=[1, 2]` removes SI 1 and 2
+                    3. `to_prune=range(1, 4)` removes SI 1, 2 and 3
+                    4. `to_prune=slice(1, -1)` removes everything but the
                        highest SI
-                    5. ``to_prune=slice(-1, None)`` removes only the highest
+                    5. `to_prune=slice(-1, None)` removes only the highest
                        SI
 
         inplace :   bool, optional
@@ -1074,7 +1074,7 @@ class TreeNeuron(BaseNeuron):
                         which is then returned.
         recursive :     int | bool | "inf", optional
                         If `int` will undergo that many rounds of recursive
-                        pruning. Use ``float("inf")`` to prune until no more
+                        pruning. Use `float("inf")` to prune until no more
                         twigs under the given size are left.
 
         See Also
@@ -1107,8 +1107,8 @@ class TreeNeuron(BaseNeuron):
         depth :         int | float
                         Distance from source at which to start pruning.
         source :        int, optional
-                        Source node for depth calculation. If ``None``, will use
-                        root. If ``x`` is a list of neurons then must provide a
+                        Source node for depth calculation. If `None`, will use
+                        root. If `x` is a list of neurons then must provide a
                         source for each neuron.
         inplace :       bool, optional
                         If False, pruning is performed on copy of original neuron
@@ -1228,7 +1228,7 @@ class TreeNeuron(BaseNeuron):
                             If 'IN', parts of the neuron inside the volume are
                             kept.
         prevent_fragments : bool, optional
-                            If True, will add nodes to ``subset`` required to
+                            If True, will add nodes to `subset` required to
                             keep neuron from fragmenting.
         inplace :           bool, optional
                             If True, operation will be performed on itself. If
@@ -1265,7 +1265,7 @@ class TreeNeuron(BaseNeuron):
         Parameters
         ----------
         filename :      str | None, optional
-                        If ``None``, will use "neuron_{id}.swc".
+                        If `None`, will use "neuron_{id}.swc".
         kwargs
                         Additional arguments passed to :func:`~navis.write_swc`.
 
@@ -1275,7 +1275,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.write_swc`
+        [`navis.write_swc`][]
                 See this function for further details.
 
         """
@@ -1284,12 +1284,12 @@ class TreeNeuron(BaseNeuron):
     def reload(self,
                inplace: bool = False,
                ) -> Optional['TreeNeuron']:
-        """Reload neuron. Must have filepath as ``.origin`` as attribute.
+        """Reload neuron. Must have filepath as `.origin` as attribute.
 
         Returns
         -------
         TreeNeuron
-                If ``inplace=False``.
+                If `inplace=False`.
 
         """
         if not hasattr(self, 'origin'):

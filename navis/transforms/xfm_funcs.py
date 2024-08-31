@@ -43,22 +43,22 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     For Neurons only: whether there is a change in units during transformation
     (e.g. nm -> um) is inferred by comparing distances between x/y/z coordinates
     before and after transform. This guesstimate is then used to convert
-    ``.units`` and node/soma radii. This works reasonably well with base 10
+    `.units` and node/soma radii. This works reasonably well with base 10
     increments (e.g. nm -> um) but is off with odd changes in units.
 
     Parameters
     ----------
     x :                 Neuron/List | Volume/Trimesh | numpy.ndarray | pandas.DataFrame
-                        Data to transform. Dataframe must contain ``['x', 'y', 'z']``
-                        columns. Numpy array must be shape ``(N, 3)``.
+                        Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                        columns. Numpy array must be shape `(N, 3)`.
     transform :         Transform/Sequence or list thereof
                         Either a single transform or a transform sequence.
     affine_fallback :   bool
                         In same cases the non-rigid transformation of points
                         can fail - for example if points are outside the
                         deformation field. If that happens, they will be
-                        returned as ``NaN``. Unless ``affine_fallback`` is
-                        ``True``, in which case we will apply only the rigid
+                        returned as `NaN`. Unless `affine_fallback` is
+                        `True`, in which case we will apply only the rigid
                         affine  part of the transformation to at least get close
                         to the correct coordinates.
     caching :           bool
@@ -66,14 +66,14 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                         possible. Depending on the data and the type of
                         transforms this can tremendously speed things up at the
                         cost of increased memory usage:
-                          - ``False`` = no upfront cost, lower memory footprint
-                          - ``True`` = higher upfront cost, most definitely faster
+                          - `False` = no upfront cost, lower memory footprint
+                          - `True` = higher upfront cost, most definitely faster
                         Only applies if input is NeuronList and if transforms
                         include H5 transform.
 
     Returns
     -------
-    same type as ``x``
+    same type as `x`
                         Copy of input with transformed coordinates.
 
     Examples

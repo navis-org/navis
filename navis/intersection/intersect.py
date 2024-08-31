@@ -145,14 +145,14 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                         - neuron(s)
                         - array-like is treated as list of x/y/z oordinates.
                           Has to be of shape `(N, 3)`, i.e.
-                          ``[[x1, y1, z1], [x2, y2, z2], ..]``
-                        - ``pandas.DataFrame`` needs to have ``x, y, z``
+                          `[[x1, y1, z1], [x2, y2, z2], ..]`
+                        - `pandas.DataFrame` needs to have `x, y, z`
                           columns
 
     volume :            Volume | mesh-like | dict or list thereof
                         Multiple volumes can be given as list
-                        (``[volume1, volume2, ...]``) or dict
-                        (``{'label1': volume1, ...}``).
+                        (`[volume1, volume2, ...]`) or dict
+                        (`{'label1': volume1, ...}`).
     mode :              'IN' | 'OUT', optional
                         If 'IN', parts of the neuron that are within the volume
                         are kept.
@@ -163,7 +163,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     n_rays :            int | None, optional
                         Number of rays used to determine if a point is inside
                         a volume. More rays give more reliable results but are
-                        slower (especially with pyoctree backend). If ``None``
+                        slower (especially with pyoctree backend). If `None`
                         will use default number of rays (3 for ncollpyde, 1 for
                         pyoctree).
     prevent_fragments : bool, optional
@@ -185,7 +185,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
                       within given volume.
     list of bools
                       If input is `(N, 3)` array of coordinates, returns a `(N, )`
-                      boolean array: ``True`` if in volume, ``False`` if not in
+                      boolean array: `True` if in volume, `False` if not in
                       order.
     dict
                       If multiple volumes are provided, results will be

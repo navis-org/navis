@@ -27,11 +27,11 @@ def simplify_mesh_fqmr(x, F, inplace=False, **kwargs):
     F :         int
                 Target face count (integer).
     inplace :   bool
-                If True, will perform simplication on ``x``. If False, will
+                If True, will perform simplication on `x`. If False, will
                 simplify and return a copy.
     **kwargs
                 Keyword arguments are passed through to pyfqmr's
-                ``pyfqmr.Simplify.simplify_mesh``.
+                `pyfqmr.Simplify.simplify_mesh`.
 
     Returns
     -------

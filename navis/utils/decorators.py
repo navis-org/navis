@@ -68,7 +68,7 @@ def map_neuronlist(desc: str = "",
                      `must_zip` arguments have to have one value for each of the
                      neurons.
 
-                     Single ``None`` values are always just passed through.
+                     Single `None` values are always just passed through.
 
                      Note that for this to consistently work the parameters in
                      question have to be keyword-only (*).
@@ -336,14 +336,14 @@ def map_neuronlist_update_docstring(func, allow_parallel):
                   {" " * (offset - 10)}If True and input is NeuronList, use parallel
                   {" " * (offset - 10)}processing. Requires `pathos`.
         n_cores : {" " * (offset - 10)}int, optional
-                  {" " * (offset - 10)}Numbers of cores to use if ``parallel=True``.
+                  {" " * (offset - 10)}Numbers of cores to use if `parallel=True`.
                   {" " * (offset - 10)}Defaults to half the available cores.
         """)
 
     msg += dedent(f"""\
     progress :{" " * (offset - 10)}bool
               {" " * (offset - 10)}Whether to show a progress bar. Overruled by
-              {" " * (offset - 10)}``navis.set_pbars``.
+              {" " * (offset - 10)}`navis.set_pbars`.
     omit_failures :{" " * (offset - 15)}bool
                    {" " * (offset - 15)}If True will omit failures instead of raising
                    {" " * (offset - 15)}an exception. Ignored if input is single neuron.

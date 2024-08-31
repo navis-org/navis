@@ -34,11 +34,11 @@ def align_pairwise(x, y=None, method='rigid', sample=None, progress=True, **kwar
     x :         navis.NeuronList
                 Neurons to align to other neurons.
     y :         navis.NeuronList, optional
-                The neurons to align to. If ``None``, will run pairwise
-                alignment of ``x`` vs ``x``.
+                The neurons to align to. If `None`, will run pairwise
+                alignment of `x` vs `x`.
     method :    "rigid" | "deform" | "pca" | "rigid+deform"
                 Which method to use for alignment. Maps to the respective
-                ``navis.align_{method}`` function. "rigid+deform" performs a
+                `navis.align_{method}` function. "rigid+deform" performs a
                 rigid followed by a warping alignment.
     sample :    float [0-1], optional
                 If provided, will calculate an initial registration on only
@@ -133,7 +133,7 @@ def align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, pr
                     The default is w=0 which can lead to failure to converge on a
                     solution (in particular when scale=False). In that case we
                     incrementally increase `w` by a factor of 10 until we find
-                    a solution. Set ``verbose=True`` to get detailed feedback
+                    a solution. Set `verbose=True` to get detailed feedback
                     on the solution.
     sample :        float [0-1], optional
                     If provided, will calculate an initial registration on only

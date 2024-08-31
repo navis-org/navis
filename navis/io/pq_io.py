@@ -120,7 +120,7 @@ def read_parquet(f: Union[str, Path],
                         switched off in case there are any issues.
     limit :             int, optional
                         If reading from a file containing multiple neurons you
-                        can use this parameter to read only the first ``limit``
+                        can use this parameter to read only the first `limit`
                         neurons. Useful if wanting to get a sample from a large
                         library of neurons.
     subset :            str | int | list thereof

@@ -101,12 +101,12 @@ def xform_cmtk(points: np.ndarray, transforms, inverse: bool = False,
     points :            (N, 3) array | pandas.DataFrame
                         Points to transform. DataFrame must have x/y/z columns.
     transforms :        filepath(s) | CMTKtransform(s)
-                        Either filepath to CMTK transform or ``CMTKtransform``.
+                        Either filepath to CMTK transform or `CMTKtransform`.
                         Multiple regs must be given as list and will be applied
                         sequentially in the order provided.
     inverse :           bool | list thereof
                         Whether to invert transforms. If single boolean will
-                        apply to all transforms. Can also provide ``inverse` as
+                        apply to all transforms. Can also provide `inverse` as
                         list of booleans.
     affine_fallback :   bool
                         If True, points that failed to transform during warping
@@ -159,7 +159,7 @@ class CMTKtransform(BaseTransform):
                     Path(s) to CMTK transformations(s).
     directions :    "forward" | "inverse" | list thereof
                     Direction of transformation. Must provide one direction per
-                    ``reg``.
+                    `reg`.
     threads :       int, optional
                     Number of threads to use.
 
@@ -341,7 +341,7 @@ class CMTKtransform(BaseTransform):
                         Stdout of CMTK call.
         fail_value
                         Value to use for points that failed to transform. By
-                        default we use ``np.nan``.
+                        default we use `np.nan`.
 
         Returns
         -------
@@ -393,7 +393,7 @@ class CMTKtransform(BaseTransform):
         -------
         pointsxf :      (N, 3) numpy array
                         Transformed points. Points that failed to transform will
-                        be ``np.nan``.
+                        be `np.nan`.
 
         """
         self.check_if_possible(on_error='raise')

@@ -40,7 +40,7 @@ def bipartite_match(scores: pd.DataFrame,
                         node IDs and must hence be unique.
     one_to_one :        bool
                         If True, we will enforce 1:1 matches. This will result
-                        in unmatched nodes if ``scores`` is not quadratic or
+                        in unmatched nodes if `scores` is not quadratic or
                         if constraints (below) disallow certain matches. If
                         False, we will iteratively go through rounds of matching
                         in which we duplicate nodes opposite the axis with
@@ -57,7 +57,7 @@ def bipartite_match(scores: pd.DataFrame,
                         rounds of this.
 
                         Note this is not guaranteed to work if other
-                        constraints (``threshold`` or ``restrict_labels``)
+                        constraints (`threshold` or `restrict_labels`)
                         simply don't allow to match up every node.
 
     Constraints
@@ -72,7 +72,7 @@ def bipartite_match(scores: pd.DataFrame,
 
                           {'A': ['uPN', 'adPN'], 'B': ['uPN']}
 
-                        In above example ``A`` can never match with ``B``.
+                        In above example `A` can never match with `B`.
 
     known_matches :     dict, optional
                         Known matches can be enforced by providing a dictionary
@@ -84,14 +84,14 @@ def bipartite_match(scores: pd.DataFrame,
                         A score penalty for duplicated nodes. Each
                         time a node is duplicated for matching, this penalty
                         will be substracted. For example with
-                        ``duplicate_penalty = .1``::
+                        `duplicate_penalty = .1`::
 
                                                scores
                             original           1
                             first_duplicate    1 - 0.1 = 0.9
                             second_duplicate   0.9 - 0.1 = 0.8
 
-                        Leave at ``0`` for no penalties.
+                        Leave at `0` for no penalties.
 
     Returns
     -------
@@ -102,7 +102,7 @@ def bipartite_match(scores: pd.DataFrame,
     Raises
     ------
     ValueError
-                        ``scipy.optimize.linear_sum_assignment`` raises an
+                        `scipy.optimize.linear_sum_assignment` raises an
                         "cost matrix is infeasible" exception when constraints
                         make a matching impossible. Try releasing some
                         constraints.

@@ -98,22 +98,22 @@ class TraversalModel(BaseNetworkModel):
 
     What this does:
 
-      1. Grab all already visited nodes (starting with ``seeds`` in step 1)
+      1. Grab all already visited nodes (starting with `seeds` in step 1)
       2. Find all downstream nodes of these
       3. Probabilistically traverse based on the weight of the connecting edges
       4. Add those newly visited nodes to the pool & repeat from beginning
-      5. Stop when every (connected) neuron was visited or we reached ``max_steps``
+      5. Stop when every (connected) neuron was visited or we reached `max_steps`
 
     Parameters
     ----------
     edges :             pandas.DataFrame
                         DataFrame representing an edge list. Must minimally have
-                        a ``source`` and ``target`` column.
+                        a `source` and `target` column.
     seeds :             iterable
                         Seed nodes for traversal. Nodes that aren't found in
-                        ``edges['source']`` will be (silently) removed.
+                        `edges['source']` will be (silently) removed.
     weights :           str, optional
-                        Name of a column in ``edges`` used as weights. If not
+                        Name of a column in `edges` used as weights. If not
                         provided, all edges will be given a weight of 1. If using
                         the default activation function the weights need to be
                         between 0 and 1.
@@ -247,7 +247,7 @@ class TraversalModel(BaseNetworkModel):
     def run(self, iterations: int = 100, return_iterations=False, **kwargs) -> pd.DataFrame:
         """Run model (single process).
 
-        Use ``.run_parallel`` to use parallel processes.
+        Use `.run_parallel` to use parallel processes.
 
         """
         # For some reason this is required for progress bars in Jupyter to show
@@ -346,20 +346,20 @@ class BayesianTraversalModel(TraversalModel):
     distribution of time of traversal for each node, rather than
     stochastically sampling.
 
-    Unlike ``TraversalModel``, this model should only be run once.
-    Note alse that ``traversal_func`` should be a function returing
+    Unlike `TraversalModel`, this model should only be run once.
+    Note alse that `traversal_func` should be a function returing
     probabilities of traversal, rather than a random boolean of traversal.
 
     Parameters
     ----------
     edges :             pandas.DataFrame
                         DataFrame representing an edge list. Must minimally have
-                        a ``source`` and ``target`` column.
+                        a `source` and `target` column.
     seeds :             iterable
                         Seed nodes for traversal. Nodes that aren't found in
-                        ``edges['source']`` will be (silently) removed.
+                        `edges['source']` will be (silently) removed.
     weights :           str, optional
-                        Name of a column in ``edges`` used as weights. If not
+                        Name of a column in `edges` used as weights. If not
                         provided, all edges will be given a weight of 1. If using
                         the default activation function the weights need to be
                         between 0 and 1.
@@ -546,9 +546,9 @@ def linear_activation_p(
     w :     np.ndarray
             (N, 1) array containing the edge weights.
     min_w : float
-            Value of ``w`` at which probability of activation is 0%.
+            Value of `w` at which probability of activation is 0%.
     max_w : float
-            Value of ``w`` at which probability of activation is 100%.
+            Value of `w` at which probability of activation is 100%.
 
     Returns
     -------
@@ -600,9 +600,9 @@ def random_linear_activation_function(w: np.ndarray,
     w :     np.ndarray
             (N, 1) array containing the edge weights.
     min_w : float
-            Value of ``w`` at which probability of activation is 0%.
+            Value of `w` at which probability of activation is 0%.
     max_w : float
-            Value of ``w`` at which probability of activation is 100%.
+            Value of `w` at which probability of activation is 100%.
 
     Returns
     -------

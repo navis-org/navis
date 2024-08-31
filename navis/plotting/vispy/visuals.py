@@ -130,7 +130,7 @@ def neuron2vispy(x, settings):
                       Color to use for plotting.
     colormap :        tuple | dict | array
                       Color to use for plotting. Dictionaries should be mapped
-                      by ID. Overrides ``color``.
+                      by ID. Overrides `color`.
     connectors :      bool, optional
                       If True, plot connectors.
     connectors_only : bool, optional

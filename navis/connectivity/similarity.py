@@ -90,7 +90,7 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
            where one edge is much stronger than another is punished. C2
            determines the point where the similarity switches from negative to
            positive. C1 and C2 default to 0.5 and 1, respectively, but can be
-           changed by passing them in a dictionary as ``**kwargs``.
+           changed by passing them in a dictionary as `**kwargs`.
        * - vertex_normalized
          - This is *vertex* similarity normalized by the lowest (hypothetical
            total dissimilarity) and highest (all edge weights the same)
@@ -116,7 +116,7 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
     -------
     DataFrame
                         Pandas DataFrame with similarity scores. Neurons without
-                        any connectivity will show up with ``np.nan`` for scores.
+                        any connectivity will show up with `np.nan` for scores.
 
     """
     FUNC_MAP = {'rank_index': _calc_rank_index,
@@ -346,10 +346,10 @@ def synapse_similarity(x: 'core.NeuronList',
     of :math:`f(i_{s},j_{k})` over all synapses s of i. Synapse k is the
     closest synapse of the same sign (pre/post) in neuron j to synapse s.
     :math:`d^{2}_{sk}` is the Euclidian distance between these distances.
-    Variable :math:`\sigma` (``sigma``) determines what distance between
+    Variable :math:`\sigma` (`sigma`) determines what distance between
     s and k is considered "close". :math:`n(i_{s})` and :math:`n(j_{k})` are
     defined as the number of synapses of neuron i/j that are within given
-    radius :math:`\omega` (``omega``) of synapse s and j, respectively (same
+    radius :math:`\omega` (`omega`) of synapse s and j, respectively (same
     sign only). This esnures that in cases of a strong disparity between
     :math:`n(i_{s})` and :math:`n(j_{k})`, the synapse similarity will be
     close to zero even if the distance between s and k is very small.
@@ -372,7 +372,7 @@ def synapse_similarity(x: 'core.NeuronList',
                         a `type`, `relation` or `label` column in the
                         connector tables.
                         If None, will use all connector types. Use either
-                        single integer or list. E.g. ``restrict_cn=[0, 1]``
+                        single integer or list. E.g. `restrict_cn=[0, 1]`
                         to use only pre- and postsynapses.
     n_cores :           int
                         Number of parallel processes to use. Defaults to half

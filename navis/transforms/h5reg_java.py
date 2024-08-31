@@ -43,7 +43,7 @@ class H5JavaTransform(BaseTransform):
     Since it requires the compiled java code in ./jars/ which is not packaged
     with the wheel, it will only work if you cloned navis' Github repository.
 
-    Requires ``jpype``:
+    Requires `jpype`:
 
         pip3 install JPype1
 

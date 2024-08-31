@@ -47,7 +47,7 @@ class NBlasterAlign(Blaster):
     """Implements a version of NBLAST were neurons are first aligned.
 
     Please note that some properties are computed on initialization and
-    changing parameters (e.g. ``use_alpha``) at a later stage will mess things
+    changing parameters (e.g. `use_alpha`) at a later stage will mess things
     up!
 
     Parameters
@@ -55,7 +55,7 @@ class NBlasterAlign(Blaster):
     use_alpha :     bool
                     Whether or not to use alpha values for the scoring.
                     If True, the dotproduct of nearest neighbor vectors will
-                    be scaled by ``sqrt(alpha1 * alpha2)``.
+                    be scaled by `sqrt(alpha1 * alpha2)`.
     normalized :    bool
                     If True, will normalize scores by the best possible score
                     (i.e. self-self) of the query neuron.
@@ -65,17 +65,17 @@ class NBlasterAlign(Blaster):
                      - if 'auto' (default), will use the "official" NBLAST scoring
                        matrices based on FCWB data. Same behaviour as in R's
                        nat.nblast implementation.
-                     - if ``smat='v1'`` it uses the analytic formulation of the
+                     - if `smat='v1'` it uses the analytic formulation of the
                        NBLAST scoring from Kohl et. al (2013). You can adjust parameter
-                       ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
-                     - DataFrames will be used to build a ``Lookup2d``
-                     - if ``Callable`` given, it passes distance and dot products as
+                       `sigma_scaling` (default to 10) using `smat_kwargs`.
+                     - DataFrames will be used to build a `Lookup2d`
+                     - if `Callable` given, it passes distance and dot products as
                        first and second argument respectively
-                     - if ``smat=None`` the scores will be generated as the
+                     - if `smat=None` the scores will be generated as the
                        product of the distances and the dotproduct of the vectors
                        of nearest-neighbor pairs
     smat_kwargs:    Dictionary with additional parameters passed to scoring
-                    functions. For example: ``smat_kwargs["sigma_scoring"] = 10``.
+                    functions. For example: `smat_kwargs["sigma_scoring"] = 10`.
     limit_dist :    float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
@@ -298,7 +298,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     queries against themselves.
     align_method :  "rigid" | "deform" | "pca" | "rigid+deform"
                     Which method to use for alignment. Maps to the respective
-                    ``navis.align_{method}`` function.
+                    `navis.align_{method}` function.
     two_way_align : bool
                     If True, will run the alignment + NBLAST in both,
                     query->target as well as query->target direction. This is
@@ -330,12 +330,12 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     Score matrix. If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
                     implementation.
-                    If ``smat='v1'`` it uses the analytic formulation of the
+                    If `smat='v1'` it uses the analytic formulation of the
                     NBLAST scoring from Kohl et. al (2013). You can adjust parameter
-                    ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
-                    If ``Callable`` given, it passes distance and dot products as
+                    `sigma_scaling` (default to 10) using `smat_kwargs`.
+                    If `Callable` given, it passes distance and dot products as
                     first and second argument respectively.
-                    If ``smat=None`` the scores will be
+                    If `smat=None` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
     limit_dist :    float | "auto" | None
@@ -347,7 +347,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     inaccuracies because we won't have a vector component for
                     points without a nearest neighbour within the distance
                     limits. The impact depends on the scoring function but with
-                    the default FCWB ``smat``, this is typically limited to the
+                    the default FCWB `smat`, this is typically limited to the
                     third decimal (0.0086 +/- 0.0027 for an all-by-all of 1k
                     neurons).
     approx_nn :     bool
@@ -356,7 +356,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     Impact depends on the use case - testing highly recommended!
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() // 2``. This should ideally be an even
+                    `os.cpu_count() // 2`. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes. Also note that due to multiple layers
                     of concurrency using all available cores might not be the
@@ -378,7 +378,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     function.
     dotprop_kwargs : dict, optional
                     Dictionary with additional parameters passed to
-                    ``navis.make_dotprops``. Only relevant if inputs aren't
+                    `navis.make_dotprops`. Only relevant if inputs aren't
                     already dotprops.
 
 
@@ -386,10 +386,10 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
     -------
     scores :        pandas.DataFrame
                     Matrix with NBLAST scores. Rows are query neurons, columns
-                    are targets. The order is the same as in ``query``/``target``
-                    and the labels are based on the neurons' ``.id`` property.
-                    Important to note that even when ``q == t`` and with
-                    ``scores=mean`` the matrix will not be symmetrical because
+                    are targets. The order is the same as in `query`/`target`
+                    and the labels are based on the neurons' `.id` property.
+                    Important to note that even when `q == t` and with
+                    `scores=mean` the matrix will not be symmetrical because
                     we run separate alignments for the forward and the reverse
                     comparisons.
 
@@ -418,7 +418,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
     :func:`navis.nblast`
                 The vanilla version of NBLAST.
     :func:`navis.nblast_allbyall`
-                A more efficient way than ``nblast(query=x, target=x)``.
+                A more efficient way than `nblast(query=x, target=x)`.
     :func:`navis.nblast_smart`
                 A smart(er) NBLAST suited for very large NBLAST.
     :func:`navis.synblast`

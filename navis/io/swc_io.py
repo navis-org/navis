@@ -187,7 +187,7 @@ class SwcReader(base.BaseReader):
         Returns
         -------
         Optional[pd.DataFrame]
-                    With columns ``["node_id", "x", "y", "z", "connector_id", "type"]``
+                    With columns `["node_id", "x", "y", "z", "connector_id", "type"]`
         """
         if not self.connector_labels:
             return None
@@ -275,29 +275,29 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     ----------
     f :                 str | pandas.DataFrame | iterable
                         Filename, folder, SWC string, URL or DataFrame.
-                        If folder, will import all ``.swc`` files. If a
-                        ``.zip``, ``.tar`` or ``.tar.gz`` file will read all
-                        SWC files in the file. See also ``limit`` parameter.
+                        If folder, will import all `.swc` files. If a
+                        `.zip`, `.tar` or `.tar.gz` file will read all
+                        SWC files in the file. See also `limit` parameter.
     connector_labels :  dict, optional
                         If provided will extract connectors from SWC.
                         Dictionary must map type to label:
-                        ``{'presynapse': 7, 'postsynapse': 8}``
+                        `{'presynapse': 7, 'postsynapse': 8}`
     include_subdirs :   bool, optional
-                        If True and ``f`` is a folder, will also search
-                        subdirectories for ``.swc`` files.
+                        If True and `f` is a folder, will also search
+                        subdirectories for `.swc` files.
     delimiter :         str
-                        Delimiter to use. Passed to ``pandas.read_csv``.
+                        Delimiter to use. Passed to `pandas.read_csv`.
     parallel :          "auto" | bool | int
-                        Defaults to ``auto`` which means only use parallel
+                        Defaults to `auto` which means only use parallel
                         processing if more than 200 SWC are imported. Spawning
                         and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
-                        ``os.cpu_count() // 2``).
+                        `os.cpu_count() // 2`).
     precision :         int [8, 16, 32, 64] | None
                         Precision for data. Defaults to 32 bit integers/floats.
-                        If ``None`` will let pandas infer data types - this
+                        If `None` will let pandas infer data types - this
                         typically leads to higher than necessary precision.
     fmt :               str
                         Formatter to specify how filenames are parsed into
@@ -324,26 +324,26 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         filename. Ignored for DataFrames.
     read_meta :         bool
                         If True and SWC header contains a line with JSON-encoded
-                        meta data e.g. (``# Meta: {'id': 123}``), these data
+                        meta data e.g. (`# Meta: {'id': 123}`), these data
                         will be read as neuron properties. `fmt` takes
                         precedence. Will try to assign meta data directly as
-                        neuron attribute (e.g. ``neuron.id``). Failing that
-                        (can happen for properties intrinsic to ``TreeNeurons``),
-                        will add a ``.meta`` dictionary to the neuron.
+                        neuron attribute (e.g. `neuron.id`). Failing that
+                        (can happen for properties intrinsic to `TreeNeurons`),
+                        will add a `.meta` dictionary to the neuron.
     limit :             int, optional
                         If reading from a folder you can use this parameter to
-                        read only the first ``limit`` SWC files. Useful if
+                        read only the first `limit` SWC files. Useful if
                         wanting to get a sample from a large library of
                         skeletons.
     **kwargs
                         Keyword arguments passed to the construction of
-                        ``navis.TreeNeuron``. You can use this to e.g. set
+                        `navis.TreeNeuron`. You can use this to e.g. set
                         meta data.
 
     Returns
     -------
     navis.TreeNeuron
-                        Contains SWC file header as ``.swc_header`` attribute.
+                        Contains SWC file header as `.swc_header` attribute.
     navis.NeuronList
                         If import of multiple SWCs will return NeuronList of
                         TreeNeurons.
@@ -427,13 +427,13 @@ def write_swc(x: 'core.NeuronObject',
     ----------
     x :                 TreeNeuron | NeuronList
                         If multiple neurons, will generate a single SWC file
-                        for each neuron (see also ``filepath``).
+                        for each neuron (see also `filepath`).
     filepath :          str | pathlib.Path | list thereof
                         Destination for the SWC files. See examples for options.
-                        If ``x`` is multiple neurons, ``filepath`` must either
+                        If `x` is multiple neurons, `filepath` must either
                         be a folder, a "formattable" filename, a filename ending
                         in `.zip` or a list of filenames (one for each neuron
-                        in ``x``). Existing files will be overwritten!
+                        in `x`). Existing files will be overwritten!
     header :            str | None, optional
                         Header for SWC file. If not provided, will use generic
                         header.
@@ -457,8 +457,8 @@ def write_swc(x: 'core.NeuronObject',
                         If True, will label nodes with pre- ("7") and
                         postsynapse ("8"). Because only one label can be given
                         this might drop synapses (i.e. in case of multiple
-                        pre- and/or postsynapses on a single node)! ``labels``
-                        must be ``True`` for this to have any effect.
+                        pre- and/or postsynapses on a single node)! `labels`
+                        must be `True` for this to have any effect.
     return_node_map :   bool
                         If True, will return a dictionary mapping the old node
                         ID to the new reindexed node IDs in the file.
@@ -466,7 +466,7 @@ def write_swc(x: 'core.NeuronObject',
     Returns
     -------
     node_map :          dict
-                        Only if ``return_node_map=True``.
+                        Only if `return_node_map=True`.
 
     See Also
     --------
@@ -626,8 +626,8 @@ def make_swc_table(x: Union['core.TreeNeuron', 'core.Dotprops'],
                         If True, will label nodes with pre- ("7") and
                         postsynapse ("8"). Because only one label can be given
                         this might drop synapses (i.e. in case of multiple
-                        pre- or postsynapses on a single node)! ``labels``
-                        must be ``True`` for this to have any effect.
+                        pre- or postsynapses on a single node)! `labels`
+                        must be `True` for this to have any effect.
     return_node_map :   bool
                         If True, will return a dictionary mapping the old node
                         ID to the new reindexed node IDs in the file.
@@ -636,7 +636,7 @@ def make_swc_table(x: Union['core.TreeNeuron', 'core.Dotprops'],
     -------
     SWC table :         pandas.DataFrame
     node map :          dict
-                        Only if ``return_node_map=True``.
+                        Only if `return_node_map=True`.
 
     """
     if isinstance(x, core.Dotprops):

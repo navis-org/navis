@@ -61,7 +61,7 @@ class VoxelNeuron(BaseNeuron):
                     Whether to cache different representations (i.e. grid
                     and voxels) of the data. Set to False to save some memory.
     units :         str | pint.Units | pint.Quantity
-                    Units (scales) for voxels. Defaults to ``1`` (dimensionless).
+                    Units (scales) for voxels. Defaults to `1` (dimensionless).
                     Strings must be parsable by pint: e.g. "nm", "um",
                     "micrometer" or "8 nanometers".
     **metadata

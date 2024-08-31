@@ -108,7 +108,7 @@ def get_somas(root_ids, table='nucleus_neuron_svm', datastack='cortex65'):
     ----------
     root_ids  :         int | list of ints | None
                         Root ID(s) for which to fetch soma infos. Use
-                        ``None`` to fetch complete list of annotated nuclei.
+                        `None` to fetch complete list of annotated nuclei.
     table :             str
                         Which table to use for nucleus annotations.
     datastack :         "cortex65" | "cortex35" | "layer 2/3"
@@ -157,11 +157,11 @@ def fetch_neurons(x, *, lod=2,
     x :             str | int | list-like
                     Segment ID(s). Multiple Ids can be provided as list-like.
     lod :           int
-                    Level of detail. Higher ``lod`` = coarser. This parameter
+                    Level of detail. Higher `lod` = coarser. This parameter
                     is ignored if the data source does not support multi-level
                     meshes.
     with_synapses : bool, optional
-                    If True will also attach synapses as ``.connectors``.
+                    If True will also attach synapses as `.connectors`.
     datastack :     "cortex65" | "cortex35" | "layer 2/3"
                     Which dataset to use. Internally these are mapped to the
                     corresponding sources (e.g. "minnie65_public_v117" for
@@ -172,7 +172,7 @@ def fetch_neurons(x, *, lod=2,
                     Max number of parallel threads to use.
     **kwargs
                     Keyword arguments are passed through to the initialization
-                    of the ``navis.MeshNeurons``.
+                    of the `navis.MeshNeurons`.
 
     Returns
     -------

@@ -92,8 +92,8 @@ class TemplateRegistry:
         ----------
         other :     transform, filepath, tuple
                     Either a transform (e.g. CMTKtransform), a filepath (e.g.
-                    to a .list file) or a tuple of ``(source, target, transform)``
-                    where ``transform`` can be a transform or a filepath.
+                    to a .list file) or a tuple of `(source, target, transform)`
+                    where `transform` can be a transform or a filepath.
 
         """
         if isinstance(other, (tuple, list)):
@@ -156,7 +156,7 @@ class TemplateRegistry:
         paths :         str | list thereof
                         Paths (or list thereof) to scans for transforms. This
                         is not permanent. For permanent additions set path(s)
-                        via the ``NAVIS_TRANSFORMS`` environment variable.
+                        via the `NAVIS_TRANSFORMS` environment variable.
         trigger_scan :  bool
                         If True, a re-scan of all paths will be triggered.
 
@@ -242,8 +242,8 @@ class TemplateRegistry:
     def register_transformfile(self, path: str, **kwargs):
         """Parse and register a transform file.
 
-        File/Directory name must follow the a ``{TARGET}_{SOURCE}.{ext}``
-        convention (e.g. ``JRC2013_FCWB.list``).
+        File/Directory name must follow the a `{TARGET}_{SOURCE}.{ext}`
+        convention (e.g. `JRC2013_FCWB.list`).
 
         Parameters
         ----------
@@ -385,7 +385,7 @@ class TemplateRegistry:
         Parameters
         ----------
         source :        str
-                        Source from which to transform to ``target``.
+                        Source from which to transform to `target`.
         target :        str
                         Target to which to transform to.
         via :           str | list thereof, optional
@@ -455,7 +455,7 @@ class TemplateRegistry:
                 found_any = True
                 # ... has all `via`s...
                 if via and all([v in path for v in via]):
-                    # ... and none of the `avoid``
+                    # ... and none of the `avoid`
                     if avoid:
                         if not any([v in path for v in avoid]):
                             found_good = True
@@ -463,7 +463,7 @@ class TemplateRegistry:
                     else:
                         found_good = True
                         break
-                # If we only have `avoid`` but no `via`
+                # If we only have `avoid` but no `via`
                 elif avoid and not any([v in path for v in avoid]):
                     found_good = True
                     break
@@ -517,7 +517,7 @@ class TemplateRegistry:
         Parameters
         ----------
         source :        str
-                        Source from which to transform to ``target``.
+                        Source from which to transform to `target`.
         target :        str
                         Target to which to transform to.
         via :           str | list thereof, optional
@@ -616,7 +616,7 @@ class TemplateRegistry:
         Parameters
         ----------
         source :            str
-                            Source from which to transform to ``target``.
+                            Source from which to transform to `target`.
         target :            str
                             Target to which to transform to.
         via :               str | list of str
@@ -671,7 +671,7 @@ class TemplateRegistry:
         non_found : "raise" | "ignore"
                     What to do if no mirror transformation is found. If "ignore"
                     and no mirror transformation found, will silently return
-                    ``None``.
+                    `None`.
 
         Returns
         -------
@@ -701,7 +701,7 @@ class TemplateRegistry:
         non_found : "raise" | "ignore"
                     What to do if there is no path to a mirror transformation.
                     If "ignore" and no path is found, will silently return
-                    ``None``.
+                    `None`.
 
         Returns
         -------
@@ -759,7 +759,7 @@ class TemplateRegistry:
         non_found : "raise" | "ignore"
                     What to do if no mirror transformation is found. If "ignore"
                     and no mirror transformation found, will silently return
-                    ``None``.
+                    `None`.
 
         Returns
         -------
@@ -782,7 +782,7 @@ class TemplateRegistry:
         Parameters
         ----------
         **kwargs
-                    Keyword arguments are passed to ``networkx.draw_networkx``.
+                    Keyword arguments are passed to `networkx.draw_networkx`.
 
         Returns
         -------
@@ -830,26 +830,26 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                                'np.ndarray']:
     """Transform 3D data between template brains.
 
-    This requires the appropriate transforms to be registered with ``navis``.
+    This requires the appropriate transforms to be registered with `navis`.
     See the docs/tutorials for details.
 
     Notes
     -----
     For Neurons only: transforms can introduce a change in the units (e.g. if
     the transform goes from micron to nanometer space). Some template brains have
-    their units hard-coded in their meta data (as ``_navis_units``). If that's
+    their units hard-coded in their meta data (as `_navis_units`). If that's
     not the case we fall-back to trying to infer any change in units by comparing
     distances between x/y/z coordinate before and after the transform. That
     approach works reasonably well with base 10 increments (e.g. nm -> um) but
     may be off with odd changes in units (e.g. physical -> voxel space).
     Regardless of whether hard-coded or inferred, any change in units is used to
-    update the ``.units`` property and node/soma radii for TreeNeurons.
+    update the `.units` property and node/soma radii for TreeNeurons.
 
     Parameters
     ----------
     x :                 Neuron/List | numpy.ndarray | pandas.DataFrame
-                        Data to transform. Dataframe must contain ``['x', 'y', 'z']``
-                        columns. Numpy array must be shape ``(N, 3)``.
+                        Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                        columns. Numpy array must be shape `(N, 3)`.
     source :            str
                         Source template brain that the data currently is in.
     target :            str
@@ -864,7 +864,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                         In some cases the non-rigid transformation of points
                         can fail - for example if points are outside the
                         deformation field. If that happens, they will be
-                        returned as ``NaN``. If ``affine_fallback=True``
+                        returned as `NaN`. If `affine_fallback=True`
                         we will apply only the rigid affine part of the
                         transformation to those points to get as close as
                         possible to the correct coordinates.
@@ -873,8 +873,8 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                         possible. Depending on the data and the type of
                         transforms this can speed things up significantly at the
                         cost of increased memory usage:
-                          - ``False`` = no upfront cost, lower memory footprint
-                          - ``True`` = higher upfront cost, most definitely faster
+                          - `False` = no upfront cost, lower memory footprint
+                          - `True` = higher upfront cost, most definitely faster
                         Only applies if input is NeuronList and if transforms
                         include H5 transform.
     verbose :           bool
@@ -882,7 +882,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     Returns
     -------
-    same type as ``x``
+    same type as `x`
                         Copy of input with transformed coordinates.
 
     Examples
@@ -897,7 +897,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     >>> import flybrains                                        # doctest: +SKIP
     >>> flybrains.download_jrc_transforms()                     # doctest: +SKIP
 
-    Once ``flybrains`` is installed and you have downloaded the registrations,
+    Once `flybrains` is installed and you have downloaded the registrations,
     you can run this:
 
     >>> import navis
@@ -1016,13 +1016,13 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
 
     This works reasonably well but may produce odd results around the midline.
     For high quality symmetrization you are better off generating dedicated
-    transform (see ``navis-flybrains`` for an example).
+    transform (see `navis-flybrains` for an example).
 
     Parameters
     ----------
     x :             Neuron/List | Volume/trimesh | numpy.ndarray | pandas.DataFrame
-                    Data to transform. Dataframe must contain ``['x', 'y', 'z']``
-                    columns. Numpy array must be shape ``(N, 3)``.
+                    Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                    columns. Numpy array must be shape `(N, 3)`.
     template :      str | TemplateBrain
                     Source template brain space that the data is in. If string
                     will be searched against registered template brains.
@@ -1043,7 +1043,7 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
     --------
     This example requires the
     `flybrains <https://github.com/navis-org/navis-flybrains>`_
-    library to be installed: ``pip3 install flybrains``
+    library to be installed: `pip3 install flybrains`
 
     >>> import navis
     >>> import flybrains
@@ -1190,8 +1190,8 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     Parameters
     ----------
     x :             Neuron/List | Volume/trimesh | numpy.ndarray | pandas.DataFrame
-                    Data to transform. Dataframe must contain ``['x', 'y', 'z']``
-                    columns. Numpy array must be shape ``(N, 3)``.
+                    Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                    columns. Numpy array must be shape `(N, 3)`.
     template :      str | TemplateBrain
                     Source template brain space that the data is in. If string
                     will be searched against registered template brains.
@@ -1201,7 +1201,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                     Axis to mirror. Defaults to `x`.
     warp :          bool | "auto" | Transform, optional
                     If 'auto', will check if a non-rigid mirror transformation
-                    exists for the given ``template`` and apply it after the
+                    exists for the given `template` and apply it after the
                     flipping. Alternatively, you can also pass a Transform or
                     TransformSequence directly.
     via :           str | None
@@ -1223,7 +1223,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     --------
     This example requires the
     `flybrains <https://github.com/navis-org/navis-flybrains>`_
-    library to be installed: ``pip3 install flybrains``
+    library to be installed: `pip3 install flybrains`
 
     Also, if you haven't already, you will need to have the optional Saalfeld
     lab (Janelia Research Campus) transforms installed (this is a one-off):
@@ -1231,7 +1231,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     >>> import flybrains                                        # doctest: +SKIP
     >>> flybrains.download_jrc_transforms()                     # doctest: +SKIP
 
-    Once ``flybrains`` is installed and you have downloaded the registrations,
+    Once `flybrains` is installed and you have downloaded the registrations,
     you can run this:
 
     >>> import navis

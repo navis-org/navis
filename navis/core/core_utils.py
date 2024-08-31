@@ -75,28 +75,28 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
                 Number of nearest neighbours to use for tangent vector
                 calculation:
 
-                  - ``k=0`` or ``k=None`` is possible but only for
-                    ``TreeNeurons`` where we then use the midpoints between
+                  - `k=0` or `k=None` is possible but only for
+                    `TreeNeurons` where we then use the midpoints between
                     child -> parent nodes and their vectors
-                  - ``k`` is only guaranteed if the input has at least ``k``
+                  - `k` is only guaranteed if the input has at least `k`
                     points
-                  - ``k`` includes self-hits and while ``k=1`` is not
+                  - `k` includes self-hits and while `k=1` is not
                     strictly forbidden, it makes little sense and will
                     likely produce nonsense dotprops
 
     resample :  float | int | str, optional
                 If provided will resample neurons to the given resolution:
 
-                  - for ``MeshNeurons``, ``VoxelNeurons`` and point clouds, we are using
-                    ``trimesh.points.remove_close`` to remove surface vertices
+                  - for `MeshNeurons`, `VoxelNeurons` and point clouds, we are using
+                    `trimesh.points.remove_close` to remove surface vertices
                     closer than the given resolution. Note that this is only
-                    approximate and also means that ``Mesh/VoxelNeurons``
+                    approximate and also means that `Mesh/VoxelNeurons`
                     can not be up-sampled!
-                  - if the neuron has ``.units`` set you can also provide this
+                  - if the neuron has `.units` set you can also provide this
                     as string, e.g. "1 micron".
 
     threshold : float, optional
-                Only for ``VoxelNeurons``: determines which voxels will be
+                Only for `VoxelNeurons`: determines which voxels will be
                 converted to dotprops points.
 
     Returns
@@ -233,7 +233,7 @@ def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
                 A single neuron.
     on_error :  "raise" | "ignore"
                 What to do if an error occurs (e.g. because `neuron` does not
-                have units specified). If "ignore" will simply return ``units``
+                have units specified). If "ignore" will simply return `units`
                 unchanged.
 
     Returns

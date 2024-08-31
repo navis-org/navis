@@ -87,10 +87,10 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
                 Integers (>1) are intepreted as target face count. For example,
                 an F of 5000 will attempt to reduce the number of faces to 5000.
     backend :   "auto" | "pyfqmr" | "open3d" | "blender" | "pymeshlab"
-                Which backend to use. Currenly we support ``pyfqmr``, ``open3d``,
-                Blender 3D and ``pymeshlab``.
+                Which backend to use. Currenly we support `pyfqmr`, `open3d`,
+                Blender 3D and `pymeshlab`.
     inplace :   bool
-                If True, will perform simplication on ``x``. If False, will
+                If True, will perform simplication on `x`. If False, will
                 simplify and return a copy.
     **kwargs
                 Keyword arguments are passed through to the respective backend's
@@ -233,10 +233,10 @@ def smooth_mesh(x, iterations=5, L=.5, backend='auto', inplace=False):
                     Diffusion speed constant lambda. Larger = more aggressive
                     smoothing.
     backend :       "auto" | "open3d" | "blender" | "trimesh"
-                    Which backend to use. Currenly we support ``open3d``,
-                    Blender 3D or ``trimesh``.
+                    Which backend to use. Currenly we support `open3d`,
+                    Blender 3D or `trimesh`.
     inplace :       bool
-                    If True, will perform simplication on ``x``. If False, will
+                    If True, will perform simplication on `x`. If False, will
                     simplify and return a copy.
 
     Returns

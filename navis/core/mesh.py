@@ -57,17 +57,17 @@ class MeshNeuron(BaseNeuron):
     ----------
     x :             mesh-like | tuple | dictionary | filepath | None
                     Data to construct neuron from:
-                     - any object that has ``.vertices`` and ``.faces``
+                     - any object that has `.vertices` and `.faces`
                        properties (e.g. a trimesh.Trimesh)
-                     - a tuple ``(vertices, faces)``
-                     - a dictionary ``{"vertices": (N, 3), "faces": (M, 3)}``
-                     - filepath to a file that can be read by ``trimesh.load``
-                     - ``None`` will initialize an empty MeshNeuron
-                     - ``skeletor.Skeleton`` will use the mesh and the skeleton
+                     - a tuple `(vertices, faces)`
+                     - a dictionary `{"vertices": (N, 3), "faces": (M, 3)}`
+                     - filepath to a file that can be read by `trimesh.load`
+                     - `None` will initialize an empty MeshNeuron
+                     - `skeletor.Skeleton` will use the mesh and the skeleton
                        (including the vertex to node map)
 
     units :         str | pint.Units | pint.Quantity
-                    Units for coordinates. Defaults to ``None`` (dimensionless).
+                    Units for coordinates. Defaults to `None` (dimensionless).
                     Strings must be parsable by pint: e.g. "nm", "um",
                     "micrometer" or "8 nanometers".
     process :       bool
@@ -75,7 +75,7 @@ class MeshNeuron(BaseNeuron):
                     and infinite values, and merge duplicate vertices.
     validate :      bool
                     If True, will try to fix some common problems with
-                    meshes. See ``navis.fix_mesh`` for details.
+                    meshes. See `navis.fix_mesh` for details.
     **metadata
                     Any additional data to attach to neuron.
 
@@ -414,7 +414,7 @@ class MeshNeuron(BaseNeuron):
                     Whether to heal a fragmented skeleton after skeletonization.
         inv_dist :  int | float
                     Only required for method "teasar": invalidation distance for
-                    the traversal. Smaller ``inv_dist`` captures smaller features
+                    the traversal. Smaller `inv_dist` captures smaller features
                     but is slower and vice versa. A good starting value is around
                     2-5 microns.
         **kwargs

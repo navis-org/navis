@@ -60,8 +60,8 @@ class NeuronList:
                         assigned to the NeuronList.
     make_using :        function | class, optional
                         Function or class used to construct neurons from
-                        elements in ``x`` if they aren't already neurons.
-                        By default, will use ``navis.Neuron`` to try to infer
+                        elements in `x` if they aren't already neurons.
+                        By default, will use `navis.Neuron` to try to infer
                         what kind of neuron can be constructed.
     parallel :          bool
                         If True, will use parallel threads when initialising the
@@ -72,7 +72,7 @@ class NeuronList:
                         Defaults to half the available cores.
     **kwargs
                         Will be passed to constructor of Tree/MeshNeuron (see
-                        ``make_using``).
+                        `make_using`).
 
     """
 
@@ -585,7 +585,7 @@ class NeuronList:
                         :class:`~navis.BaseNeuron` as first argument.
         parallel :      bool
                         If True (default) will use multiprocessing. Spawning the
-                        processes takes time (and memory). Using ``parallel=True``
+                        processes takes time (and memory). Using `parallel=True`
                         makes only sense if the NeuronList is large or the
                         function takes a long time to run.
         n_cores :       int
@@ -689,8 +689,8 @@ class NeuronList:
         Parameters
         ----------
         **kwargs
-                Keyword arguments will be passed to :func:`navis.plot3d`.
-                See ``help(navis.plot3d)`` for a list of keywords.
+                Keyword arguments will be passed to [`navis.plot3d`][].
+                See `help(navis.plot3d)` for a list of keywords.
 
         See Also
         --------
@@ -708,8 +708,8 @@ class NeuronList:
         Parameters
         ----------
         **kwargs
-                Keyword arguments will be passed to :func:`navis.plot2d`.
-                See ``help(navis.plot2d)`` for a list of accepted keywords.
+                Keyword arguments will be passed to [`navis.plot2d`][].
+                See `help(navis.plot2d)` for a list of accepted keywords.
 
         See Also
         --------
@@ -773,7 +773,7 @@ class NeuronList:
                             columns=props)
 
     def itertuples(self):
-        """Helper to mimic ``pandas.DataFrame.itertuples()``."""
+        """Helper to mimic `pandas.DataFrame.itertuples()`."""
         return self.neurons
 
     def add_metadata(self, meta, id_col='id', neuron_id='id', columns=None, register=False, missing='raise'):
@@ -850,8 +850,8 @@ class NeuronList:
                       - lists and arrays are expected to contain a value for
                         each neuron and hence have to match the length of the
                         NeuronList
-                      - dict is expected to map ``{neuron.id: value}``
-                      - a function is expected to take ``neuron.id`` as input
+                      - dict is expected to map `{neuron.id: value}`
+                      - a function is expected to take `neuron.id` as input
                         and return a value
         name :      str
                     Name of the property to set.
@@ -922,7 +922,7 @@ class NeuronList:
     def sort_values(self, key: str, ascending: bool = False):
         """Sort neurons by given key.
 
-        Needs to be an attribute of all neurons: for example ``name``.
+        Needs to be an attribute of all neurons: for example `name`.
         Also works with custom attributes.
         """
         self.neurons = sorted(self.neurons,
@@ -938,9 +938,9 @@ class NeuronList:
                     Keyword arguments passed to neuron's `.copy()` method::
 
                     deepcopy :  bool, for TreeNeurons only
-                                If False, ``.graph`` (NetworkX DiGraphs) will be
+                                If False, `.graph` (NetworkX DiGraphs) will be
                                 returned as views - changes to nodes/edges can
-                                progagate back! ``.igraph`` (iGraph) - if
+                                progagate back! `.igraph` (iGraph) - if
                                 available - will always be deepcopied.
 
         """
@@ -1005,7 +1005,7 @@ class NeuronList:
         Returns
         -------
         dict
-                Dictionary of ``{Neurontype: NeuronList}``
+                Dictionary of `{Neurontype: NeuronList}`
 
         """
         return {t: self.__class__([n for n in self.neurons if isinstance(n, t)])

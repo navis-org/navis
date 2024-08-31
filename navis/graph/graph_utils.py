@@ -62,10 +62,10 @@ def _generate_segments(
     x :         TreeNeuron | NeuronList
                 May contain multiple neurons.
     weight :    'weight' | None, optional
-                If ``"weight"`` use physical, geodesic length to determine
-                segment length. If ``None`` use number of nodes (faster).
+                If `"weight"` use physical, geodesic length to determine
+                segment length. If `None` use number of nodes (faster).
     return_lengths : bool
-                If True, also return lengths of segments according to ``weight``.
+                If True, also return lengths of segments according to `weight`.
 
     Returns
     -------
@@ -73,7 +73,7 @@ def _generate_segments(
                 Segments as list of lists containing node IDs. List is
                 sorted by segment lengths.
     lengths :   list
-                Length for each segment according to ``weight``. Only provided
+                Length for each segment according to `weight`. Only provided
                 if `return_lengths` is True.
 
     Examples
@@ -302,7 +302,7 @@ def dist_to_root(
     ----------
     x :                 TreeNeuron
     weight :            str, optional
-                        Use "weight" if you want geodesic distance and ``None``
+                        Use "weight" if you want geodesic distance and `None`
                         if you want node count.
     igraph_indices :    bool
                         Whether to return igraph node indices instead of node
@@ -388,14 +388,14 @@ def _classify_nodes_old(
 ) -> Optional["core.NeuronObject"]:
     """Classify neuron's nodes into end nodes, branches, slabs or root.
 
-    Adds ``'type'`` column to ``x.nodes``.
+    Adds `'type'` column to `x.nodes`.
 
     Parameters
     ----------
     x :         TreeNeuron | NeuronList
                 Neuron(s) whose nodes to classify nodes.
     inplace :   bool, optional
-                If ``False``, nodes will be classified on a copy which is then
+                If `False`, nodes will be classified on a copy which is then
                 returned leaving the original neuron unchanged.
 
     Returns
@@ -463,7 +463,7 @@ def _classify_nodes_old(
 def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = True):
     """Classify neuron's nodes into end nodes, branches, slabs or root.
 
-    Adds a ``'type'`` column to ``x.nodes`` table.
+    Adds a `'type'` column to `x.nodes` table.
 
     Parameters
     ----------
@@ -473,7 +473,7 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
                 If True (default), will use categorical data type which takes
                 up much less memory at a small run-time overhead.
     inplace :   bool, optional
-                If ``False``, nodes will be classified on a copy which is then
+                If `False`, nodes will be classified on a copy which is then
                 returned leaving the original neuron unchanged.
 
     Returns
@@ -570,10 +570,10 @@ def distal_to(
     Please note that if node A is not distal to node B, this does **not**
     automatically mean it is proximal instead: if nodes are on different
     branches, they are neither distal nor proximal to one another! To test
-    for this case run a->b and b->a - if both return ``False``, nodes are on
+    for this case run a->b and b->a - if both return `False`, nodes are on
     different branches.
 
-    Also: if a and b are the same node, this function will return ``True``!
+    Also: if a and b are the same node, this function will return `True`!
 
     Parameters
     ----------
@@ -586,11 +586,11 @@ def distal_to(
     Returns
     -------
     bool
-            If ``a`` and ``b`` are single node IDs respectively.
+            If `a` and `b` are single node IDs respectively.
     pd.DataFrame
-            If ``a`` and/or ``b`` are lists of node IDs. Columns and rows
-            (index) represent node IDs. Neurons ``a`` are rows, neurons
-            ``b`` are columns.
+            If `a` and/or `b` are lists of node IDs. Columns and rows
+            (index) represent node IDs. Neurons `a` are rows, neurons
+            `b` are columns.
 
     Examples
     --------
@@ -719,13 +719,13 @@ def geodesic_matrix(
                 all other nodes/vertices.
     directed :  bool, optional
                 If True, pairs without a child->parent path will be returned
-                with ``distance = "inf"``. Only relevant for ``TreeNeurons``.
+                with `distance = "inf"`. Only relevant for `TreeNeurons`.
     weight :    'weight' | None, optional
-                If ``weight`` distances are given as physical length.
-                If ``None`` distances is number of nodes.
+                If `weight` distances are given as physical length.
+                If `None` distances is number of nodes.
     limit :     int | float, optional
                 Use to limit distance calculations. Nodes that are not within
-                ``limit`` will have distance ``np.inf``. If neuron has its
+                `limit` will have distance `np.inf`. If neuron has its
                 `.units` set, you can also pass a string such as "10 microns".
 
     Returns
@@ -1232,9 +1232,9 @@ def longest_neurite(
                         Neuron(s) to prune.
     n :                 int | slice
                         Number of longest neurites to preserve. For example:
-                         - ``n=1`` keeps the longest neurites
-                         - ``n=2`` keeps the two longest neurites
-                         - ``n=slice(1, None)`` removes the longest neurite
+                         - `n=1` keeps the longest neurites
+                         - `n=2` keeps the two longest neurites
+                         - `n=slice(1, None)` removes the longest neurite
     reroot_soma :       bool
                         If True, neuron will be rerooted to soma.
     from_root :         bool
@@ -1546,7 +1546,7 @@ def cut_skeleton(
                Node ID(s) or tag(s) of the node(s) to cut. The edge that is
                cut is the one between this node and its parent. So cut node
                must not be a root node! Multiple cuts are performed in the
-               order of ``cut_node``. Fragments are ordered distal -> proximal.
+               order of `cut_node`. Fragments are ordered distal -> proximal.
     ret :      'proximal' | 'distal' | 'both', optional
                Define which parts of the neuron to return. Use this to speed
                up processing when you need only parts of the neuron.
@@ -1791,7 +1791,7 @@ def generate_list_of_childs(x: "core.NeuronObject") -> Dict[int, List[int]]:
     Returns
     -------
     dict
-        ``{parent_id: [child_id, child_id, ...]}``
+        `{parent_id: [child_id, child_id, ...]}`
 
     """
     assert isinstance(x, core.TreeNeuron)
@@ -1817,7 +1817,7 @@ def node_label_sorting(
     Returns
     -------
     list
-        ``[root, node_id, node_id, ...]``
+        `[root, node_id, node_id, ...]`
 
     """
     if isinstance(x, core.NeuronList) and len(x) == 1:
@@ -1907,7 +1907,7 @@ def _igraph_to_sparse(graph, weight_attr=None):
 def connected_subgraph(
     x: Union["core.TreeNeuron", nx.DiGraph], ss: Sequence[Union[str, int]]
 ) -> Tuple[np.ndarray, Union[int, str]]:
-    """Return set of nodes necessary to connect all nodes in subset ``ss``.
+    """Return set of nodes necessary to connect all nodes in subset `ss`.
 
     Parameters
     ----------
@@ -2027,16 +2027,16 @@ def insert_nodes(
                 between the nodes of each pair (see examples).
     coords :    None | list of (x, y, z) coordinates | list of fractions
                 Can be:
-                 - ``None``: new nodes will be inserted exactly between the two
+                 - `None`: new nodes will be inserted exactly between the two
                              nodes
                  - (N, 3) array of coordinates for the newly inserted nodes
                  - (N, ) array of fractional distances [0-1]: e.g. 0.25 means
                    that a new node will be inserted a quarter of the way between
                    the two nodes (from the child's perspective)
     validate :  bool
-                If True, will make sure that pairs in ``where`` are always
+                If True, will make sure that pairs in `where` are always
                 in (parent, child) order. If you know this to already be the
-                case, set ``validate=False`` to save some time.
+                case, set `validate=False` to save some time.
     inplace :   bool
                 If True, will rewire the neuron inplace. If False, will return
                 a rewired copy of the neuron.

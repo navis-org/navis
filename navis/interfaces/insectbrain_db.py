@@ -354,7 +354,7 @@ def list_experiment_files(id) -> pd.DataFrame:
     Parameters
     ----------
     id :    int
-            The experiment ID. See e.g. ``list_datasets``.
+            The experiment ID. See e.g. `list_datasets`.
 
     Returns
     -------
@@ -397,7 +397,7 @@ def get_skeletons_experiment(id) -> 'NeuronList':
     Parameters
     ----------
     id :    int
-            The experiment ID. See e.g. ``list_datasets``.
+            The experiment ID. See e.g. `list_datasets`.
 
     Returns
     -------
@@ -460,7 +460,7 @@ def get_meshes_experiment(id) -> 'NeuronList':
     Parameters
     ----------
     id :    int
-            The experiment ID. See e.g. ``list_datasets``.
+            The experiment ID. See e.g. `list_datasets`.
 
     Returns
     -------

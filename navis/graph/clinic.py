@@ -100,7 +100,7 @@ def merge_duplicate_nodes(x, round=False, inplace=False):
     Returns
     -------
     TreeNeuron
-                Fixed neuron. Only if ``inplace=False``.
+                Fixed neuron. Only if `inplace=False`.
 
     Examples
     --------
