@@ -552,7 +552,17 @@ class BaseNeuron:
     @property
     def type(self) -> str:
         """Neuron type."""
-        return 'navis.BaseNeuron'
+        return "navis.BaseNeuron"
+
+    @property
+    def soma(self):
+        """The soma of the neuron (if any)."""
+        raise NotImplementedError(f"`soma` property not implemented for {type(self)}.")
+
+    @property
+    def bbox(self) -> np.ndarray:
+        """Bounding box of neuron."""
+        raise NotImplementedError(f"Bounding box not implemented for {type(self)}.")
 
     def convert_units(self,
                       to: Union[pint.Unit, str],
