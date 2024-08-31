@@ -10,12 +10,10 @@
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-import png
-import warnings
 
 from ... import config
 
-__all__ = ['get_viewer', 'clear3d', 'close3d', 'screenshot', 'pop3d']
+__all__ = ['get_viewer', 'clear3d', 'close3d', 'pop3d']
 
 
 def get_viewer():
@@ -67,34 +65,3 @@ def pop3d():
     """Remove the last item added to the 3D canvas."""
     viewer = get_viewer()
     viewer.pop()
-
-
-def screenshot(file='screenshot.png', alpha=True):
-    """Save a screenshot of active vispy 3D canvas.
-
-    Parameters
-    ----------
-    file :      str, optional
-                Filename
-    alpha :     bool, optional
-                If True, alpha channel will be saved
-
-    See Also
-    --------
-    :func:`navis.Viewer.screenshot`
-                Take screenshot of specific canvas.
-
-    """
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        from vispy.gloo.util import _screenshot
-
-    if alpha:
-        mode = 'RGBA'
-    else:
-        mode = 'RGB'
-
-    im = png.from_array(_screenshot(alpha=alpha), mode=mode)
-    im.save(file)
-
-    return
