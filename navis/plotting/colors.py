@@ -606,12 +606,16 @@ def eval_color(x, color_range=255, force_alpha=False):
 
     if not isinstance(c, mcl.Colormap):
         # Check if we need to convert
-        if not any([v > 1 for v in c[:3]]) and color_range == 255:
-            c = np.array(c, dtype=float)
-            c[:3] = (c[:3] * 255).astype(int)
-        elif any([v > 1 for v in c[:3]]) and color_range == 1:
-            c = np.array(c, dtype=float)
-            c[:3] = c[:3] / 255
+        if all(v <= 1 for v in c[:3]) and color_range == 255:
+            if len(c) == 4:
+                c = tuple((int(c[0] * 255), int(c[1] * 255), int(c[2] * 255), c[3]))
+            else:
+                c = tuple((int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)))
+        elif any(v > 1 for v in c[:3]) and color_range == 1:
+            if len(c) == 4:
+                c = tuple((c[0] / 255, c[1] / 255, c[2] / 255, c[3]))
+            else:
+                c = tuple((c[0] / 255, c[1] / 255, c[2] / 255))
 
         c = tuple(c)
 
