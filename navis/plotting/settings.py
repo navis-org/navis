@@ -102,7 +102,7 @@ class BasePlottingSettings(Settings):
     color_by: Optional[Union[str, np.ndarray, List[np.ndarray]]] = None
     shade_by: Optional[Union[str, np.ndarray, List[np.ndarray]]] = None
     palette: Optional[Union[str, np.ndarray]] = None
-    alpha: float = 1
+    alpha: Optional[float] = None
     vmin: Optional[float] = None
     vmax: Optional[float] = None
     smin: Optional[float] = None
