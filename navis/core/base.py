@@ -82,7 +82,92 @@ def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
     raise utils.ConstructionError(f'Unable to construct neuron from "{type(x)}"')
 
 
-class BaseNeuron:
+class UnitObject:
+    """Base class for things that have units."""
+
+    @property
+    def units(self) -> Union[numbers.Number, np.ndarray]:
+        """Units for coordinate space."""
+        # Note that we are regenerating the pint.Quantity from the string
+        # That is to avoid problems with pickling e.g. when using multiprocessing
+        unit_str = getattr(self, "_unit_str", None)
+
+        if utils.is_iterable(unit_str):
+            values = [config.ureg(u) for u in unit_str]
+            conv = [v.to(values[0]).magnitude for v in values]
+            return config.ureg.Quantity(np.array(conv), values[0].units)
+        else:
+            return config.ureg(unit_str)
+
+    @property
+    def units_xyz(self) -> np.ndarray:
+        """Units for coordinate space. Always returns x/y/z array."""
+        units = self.units
+
+        if not utils.is_iterable(units):
+            units = config.ureg.Quantity([units.magnitude] * 3, units.units)
+
+        return units
+
+    @units.setter
+    def units(self, units: Union[pint.Unit, pint.Quantity, str, None]):
+        # Note that we are storing the string, not the actual pint.Quantity
+        # That is to avoid problems with pickling e.g. when using multiprocessing
+
+        # Do NOT remove the is_iterable condition - otherwise we might
+        # accidentally strip the units from a pint Quantity vector
+        if not utils.is_iterable(units):
+            units = utils.make_iterable(units)
+
+        if len(units) not in [1, 3]:
+            raise ValueError(
+                "Must provide either a single unit or one for "
+                "for x, y and z dimension."
+            )
+
+        # Make sure we actually have valid unit(s)
+        unit_str = []
+        for v in units:
+            if isinstance(v, str):
+                # This makes sure we have meters (i.e. nm, um, etc) because
+                # "microns", for example, produces odd behaviour like
+                # "millimicrons" on division
+                v = v.replace("microns", "um").replace("micron", "um")
+                unit_str.append(str(v))
+            elif isinstance(v, (pint.Unit, pint.Quantity)):
+                unit_str.append(str(v))
+            elif isinstance(v, type(None)):
+                unit_str.append(None)
+            elif isinstance(v, numbers.Number):
+                unit_str.append(str(config.ureg(f"{v} dimensionless")))
+            else:
+                raise TypeError(f'Expect str or pint Unit/Quantity, got "{type(v)}"')
+
+        # Some clean-up
+        if len(set(unit_str)) == 1:
+            unit_str = unit_str[0]
+        else:
+            # Check if all base units (e.g. "microns") are the same
+            unique_units = set([str(config.ureg(u).units) for u in unit_str])
+            if len(unique_units) != 1:
+                raise ValueError(
+                    'Non-isometric units must share the same base,'
+                    f' got: {", ".join(unique_units)}'
+                )
+            unit_str = tuple(unit_str)
+
+        self._unit_str = unit_str
+
+    @property
+    def is_isometric(self):
+        """Test if neuron is isometric."""
+        u = self.units
+        if utils.is_iterable(u) and len(set(u)) > 1:
+            return False
+        return True
+
+
+class BaseNeuron(UnitObject):
     """Base class for all neurons."""
 
     name: Optional[str]
@@ -456,82 +541,7 @@ class BaseNeuron:
 
         return self.connectors[self.connectors['type'] == post[0]]
 
-    @property
-    def units(self) -> Union[numbers.Number, np.ndarray]:
-        """Units for coordinate space."""
-        # Note that we are regenerating the pint.Quantity from the string
-        # That is to avoid problems with pickling e.g. when using multiprocessing
-        unit_str = getattr(self, '_unit_str', None)
 
-        if utils.is_iterable(unit_str):
-            values = [config.ureg(u) for u in unit_str]
-            conv = [v.to(values[0]).magnitude for v in values]
-            return config.ureg.Quantity(np.array(conv), values[0].units)
-        else:
-            return config.ureg(unit_str)
-
-    @property
-    def units_xyz(self) -> np.ndarray:
-        """Units for coordinate space. Always returns x/y/z array."""
-        units = self.units
-
-        if not utils.is_iterable(units):
-            units = config.ureg.Quantity([units.magnitude] * 3, units.units)
-
-        return units
-
-    @units.setter
-    def units(self, units: Union[pint.Unit, pint.Quantity, str, None]):
-        # Note that we are storing the string, not the actual pint.Quantity
-        # That is to avoid problems with pickling e.g. when using multiprocessing
-
-        # Do NOT remove the is_iterable condition - otherwise we might
-        # accidentally strip the units from a pint Quantity vector
-        if not utils.is_iterable(units):
-            units = utils.make_iterable(units)
-
-        if len(units) not in [1, 3]:
-            raise ValueError('Must provide either a single unit or one for '
-                             'for x, y and z dimension.')
-
-        # Make sure we actually have valid unit(s)
-        unit_str = []
-        for v in units:
-            if isinstance(v, str):
-                # This makes sure we have meters (i.e. nm, um, etc) because
-                # "microns", for example, produces odd behaviour like
-                # "millimicrons" on division
-                v = v.replace('microns', 'um').replace('micron', 'um')
-                unit_str.append(str(v))
-            elif isinstance(v, (pint.Unit, pint.Quantity)):
-                unit_str.append(str(v))
-            elif isinstance(v, type(None)):
-                unit_str.append(None)
-            elif isinstance(v, numbers.Number):
-                unit_str.append(str(config.ureg(f'{v} dimensionless')))
-            else:
-                raise TypeError(f'Expect str or pint Unit/Quantity, got "{type(v)}"')
-
-        # Some clean-up
-        if len(set(unit_str)) == 1:
-            unit_str = unit_str[0]
-        else:
-            # Check if all base units (e.g. "microns") are the same
-            unique_units = set([str(config.ureg(u).units) for u in unit_str])
-            if len(unique_units) != 1:
-                raise ValueError('Non-isometric units must share the same base,'
-                                 f' got: {", ".join(unique_units)}')
-            unit_str = tuple(unit_str)
-
-        self._unit_str = unit_str
-
-    @property
-    def is_isometric(self):
-        """Test if neuron is isometric."""
-        u = self.units
-        if utils.is_iterable(u) and len(set(u)) > 1:
-            return False
-        return True
 
     @property
     def is_stale(self) -> bool:

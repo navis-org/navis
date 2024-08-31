@@ -201,13 +201,16 @@ def example_volume(name: str) -> Volume:
     name = name.lower()
 
     # Make sure extension is correct
-    if not name.endswith('.obj'):
-        name += '.obj'
+    if not name.endswith(".obj"):
+        name += ".obj"
 
     if name not in vols:
-        raise ValueError(f'No volume named "{name}". Available volumes: {",".join(vols)}')
+        raise ValueError(
+            f'No volume named "{name}". Available volumes: {",".join(vols)}'
+        )
 
-    vol = Volume.from_file(os.path.join(vols_path, name),
-                           name=name.split('.')[0])
+    vol = Volume.from_file(
+        os.path.join(vols_path, name), name=name.split(".")[0], units="nm"
+    )
 
     return vol

@@ -27,12 +27,13 @@ from typing import Union, Optional, Sequence, List, Dict, Any
 from typing_extensions import Literal
 
 from .. import utils, config
+from .base import UnitObject
 
 # Set up logging
 logger = config.get_logger(__name__)
 
 
-class Volume(trimesh.Trimesh):
+class Volume(UnitObject, trimesh.Trimesh):
     """Mesh consisting of vertices and faces.
 
     Subclass of ``trimesh.Trimesh`` with a few additional methods.
@@ -61,15 +62,17 @@ class Volume(trimesh.Trimesh):
 
     """
 
-    def __init__(self,
-                 vertices: Union[list, np.ndarray],
-                 faces: Union[list, np.ndarray] = None,
-                 name: Optional[str] = None,
-                 color: Union[str,
-                              Sequence[Union[int, float]]] = (.85, .85, .85, .2),
-                 id: Optional[int] = None, **kwargs):
-
-        if hasattr(vertices, 'vertices') and hasattr(vertices, 'faces'):
+    def __init__(
+        self,
+        vertices: Union[list, np.ndarray],
+        faces: Union[list, np.ndarray] = None,
+        name: Optional[str] = None,
+        color: Union[str, Sequence[Union[int, float]]] = (0.85, 0.85, 0.85, 0.2),
+        id: Optional[int] = None,
+        units: Optional[str] = None,
+        **kwargs,
+    ):
+        if hasattr(vertices, "vertices") and hasattr(vertices, "faces"):
             vertices, faces = vertices.vertices, vertices.faces
 
         super().__init__(vertices=vertices, faces=faces, **kwargs)
@@ -77,6 +80,7 @@ class Volume(trimesh.Trimesh):
         self.name: Optional[str] = name
         self.color: Union[str, Sequence[Union[int, float]]] = color
         self.id: Optional[int] = id if id else uuid.uuid4()
+        self.units = units
 
         # This is very hackish but we want to make sure that parent methods of
         # Trimesh return a navis.Volume instead of a trimesh.Trimesh
