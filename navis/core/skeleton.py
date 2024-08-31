@@ -561,6 +561,10 @@ class TreeNeuron(BaseNeuron):
     @soma_pos.setter
     def soma_pos(self, value: Sequence) -> None:
         """Set soma by position."""
+        if value is None:
+            self.soma = None
+            return
+
         try:
             value = np.asarray(value).astype(np.float64).reshape(3)
         except BaseException:
