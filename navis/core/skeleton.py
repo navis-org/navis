@@ -321,6 +321,7 @@ class TreeNeuron(BaseNeuron):
         edges_co[:, 1, :] = locs.loc[edges[:, 1]].values
         return edges_co
 
+    @property
     @temp_property
     def igraph(self) -> 'igraph.Graph':
         """iGraph representation of this neuron."""
@@ -330,6 +331,7 @@ class TreeNeuron(BaseNeuron):
             return self.get_igraph()
         return self._igraph
 
+    @property
     @temp_property
     def graph(self) -> nx.DiGraph:
         """Networkx Graph representation of this neuron."""
@@ -339,6 +341,7 @@ class TreeNeuron(BaseNeuron):
             return self.get_graph_nx()
         return self._graph_nx
 
+    @property
     @temp_property
     def geodesic_matrix(self):
         """Matrix with geodesic (along-the-arbor) distance between nodes."""
@@ -603,6 +606,7 @@ class TreeNeuron(BaseNeuron):
         """Number of leaf nodes."""
         return self.nodes[self.nodes.type == 'end'].shape[0]
 
+    @property
     @temp_property
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
@@ -682,6 +686,7 @@ class TreeNeuron(BaseNeuron):
         """Average cable length between child -> parent nodes."""
         return self.cable_length / self.n_nodes
 
+    @property
     @temp_property
     def segments(self) -> List[list]:
         """Neuron broken down into linear segments (see also `.small_segments`)."""
@@ -691,6 +696,7 @@ class TreeNeuron(BaseNeuron):
             self._segments = self._get_segments(how='length')
         return self._segments
 
+    @property
     @temp_property
     def small_segments(self) -> List[list]:
         """Neuron broken down into small linear segments (see also `.segments`)."""

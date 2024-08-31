@@ -268,6 +268,7 @@ class MeshNeuron(BaseNeuron):
         self._faces = faces
         self._clear_temp_attr()
 
+    @property
     @temp_property
     def igraph(self) -> 'igraph.Graph':
         """iGraph representation of the vertex connectivity."""
@@ -277,6 +278,7 @@ class MeshNeuron(BaseNeuron):
             self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
         return self._igraph
 
+    @property
     @temp_property
     def graph(self) -> nx.DiGraph:
         """Networkx Graph representation of the vertex connectivity."""
@@ -301,6 +303,7 @@ class MeshNeuron(BaseNeuron):
         """
         return float(self.trimesh.volume)
 
+    @property
     @temp_property
     def skeleton(self) -> 'TreeNeuron':
         """Skeleton representation of this neuron.
@@ -326,6 +329,7 @@ class MeshNeuron(BaseNeuron):
         """Neuron type."""
         return 'navis.MeshNeuron'
 
+    @property
     @temp_property
     def trimesh(self):
         """Trimesh representation of the neuron."""

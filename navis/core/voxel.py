@@ -225,6 +225,7 @@ class VoxelNeuron(BaseNeuron):
         voxel_volume = voxel_volume.to_compact()
         return self.voxels.shape[0] * voxel_volume
 
+    @property
     @temp_property
     def voxels(self):
         """Voxels making up the neuron."""
@@ -250,6 +251,7 @@ class VoxelNeuron(BaseNeuron):
         self._data = voxels
         self._clear_temp_attr()
 
+    @property
     @temp_property
     def grid(self):
         """Voxel grid representation."""
@@ -277,6 +279,7 @@ class VoxelNeuron(BaseNeuron):
         self._data = grid
         self._clear_temp_attr()
 
+    @property
     @temp_property
     def values(self):
         """Values for each voxel (can be None)."""
@@ -325,6 +328,7 @@ class VoxelNeuron(BaseNeuron):
 
         self._clear_temp_attr()
 
+    @property
     @temp_property
     def shape(self):
         """Shape of voxel grid."""

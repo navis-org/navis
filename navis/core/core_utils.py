@@ -44,7 +44,6 @@ logger = config.get_logger(__name__)
 
 def temp_property(func):
     """Check if neuron is stale. Clear cached temporary attributes if it is."""
-    @property
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         self = args[0]
