@@ -543,6 +543,19 @@ class NeuronList:
         else:
             return NotImplemented
 
+    def __or__(self, other):
+        """Implement bitwise OR using the | operator."""
+        if isinstance(other, core.BaseNeuron):
+            neurons = self.neurons
+            if not any(n == other for n in neurons):
+                neurons.append(other)
+            return self.__class__(neurons, make_copy=self.copy_on_subset)
+        elif isinstance(other, NeuronList):
+            neurons = self.neurons + [n for n in other.neurons if n not in self]
+            return self.__class__(neurons, make_copy=self.copy_on_subset)
+        else:
+            return NotImplemented
+
     def append(self, v):
         """Add neuron(s) to this list.
 
