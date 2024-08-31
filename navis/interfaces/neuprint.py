@@ -25,6 +25,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     from neuprint import *
+    # remove neuprint's own fetch_skeleton function to avoid confusion
+    del fetch_skeleton  # noqa
     from neuprint.client import inject_client
 except ImportError:
     msg = dedent("""
