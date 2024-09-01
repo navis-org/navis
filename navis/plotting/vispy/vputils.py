@@ -21,7 +21,7 @@ def get_viewer():
 
     Returns
     -------
-    :class:`~navis.Viewer`
+    [`navis.Viewer`][]
 
     Examples
     --------
@@ -51,7 +51,7 @@ def clear3d():
 
 
 def close3d():
-    """Close existing vispy 3D canvas (wipes memory)."""
+    """Close existing 3D viewer (wipes memory)."""
     try:
         viewer = get_viewer()
         viewer.close()

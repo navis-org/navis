@@ -415,13 +415,13 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
 
     See Also
     --------
-    :func:`navis.nblast`
+    [`navis.nblast`][]
                 The vanilla version of NBLAST.
-    :func:`navis.nblast_allbyall`
+    [`navis.nblast_allbyall`][]
                 A more efficient way than `nblast(query=x, target=x)`.
-    :func:`navis.nblast_smart`
+    [`navis.nblast_smart`][]
                 A smart(er) NBLAST suited for very large NBLAST.
-    :func:`navis.synblast`
+    [`navis.synblast`][]
                 A synapse-based variant of NBLAST.
 
     """

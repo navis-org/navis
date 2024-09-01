@@ -53,17 +53,17 @@ def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
     Parameters
     ----------
     x
-                        Anything that can construct a :class:`~navis.TreeNeuron`
-                        or :class:`~navis.MeshNeuron`.
+                        Anything that can construct a [`navis.TreeNeuron`][]
+                        or [`navis.MeshNeuron`][].
     **metadata
                         Any additional data to attach to neuron.
 
     See Also
     --------
-    :func:`navis.read_swc`
+    [`navis.read_swc`][]
                         Gives you more control over how data is extracted from
                         SWC file.
-    :func:`navis.example_neurons`
+    [`navis.example_neurons`][]
                         Loads some example neurons provided.
 
     """
@@ -657,17 +657,17 @@ class BaseNeuron(UnitObject):
         return s
 
     def plot2d(self, **kwargs):
-        """Plot neuron using :func:`navis.plot2d`.
+        """Plot neuron using [`navis.plot2d`][].
 
         Parameters
         ----------
         **kwargs
-                Will be passed to :func:`navis.plot2d`.
-                See ``help(navis.plot2d)`` for a list of keywords.
+                Will be passed to [`navis.plot2d`][].
+                See `help(navis.plot2d)` for a list of keywords.
 
         See Also
         --------
-        :func:`navis.plot2d`
+        [`navis.plot2d`][]
                     Function called to generate 2d plot.
 
         """
@@ -676,17 +676,17 @@ class BaseNeuron(UnitObject):
         return plot2d(self, **kwargs)
 
     def plot3d(self, **kwargs):
-        """Plot neuron using :func:`navis.plot3d`.
+        """Plot neuron using [`navis.plot3d`][].
 
         Parameters
         ----------
         **kwargs
-                Keyword arguments. Will be passed to :func:`navis.plot3d`.
-                See ``help(navis.plot3d)`` for a list of keywords.
+                Keyword arguments. Will be passed to [`navis.plot3d`][].
+                See `help(navis.plot3d)` for a list of keywords.
 
         See Also
         --------
-        :func:`navis.plot3d`
+        [`navis.plot3d`][]
                     Function called to generate 3d plot.
 
         Examples
@@ -721,7 +721,7 @@ class BaseNeuron(UnitObject):
 
         See Also
         --------
-        :func:`navis.core.to_neuron_space`
+        [`navis.to_neuron_space`][]
                     The base function for this method.
 
         Examples

@@ -105,10 +105,10 @@ def cell_body_fiber(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.find_main_branchpoint`
+    [`navis.find_main_branchpoint`][]
                     Find the main branch point.
 
-    :func:`navis.betweeness_centrality`
+    [`navis.betweeness_centrality`][]
                     Calculate the per-node betweeness centrality. This is used
                     under the hood for `method='betweeness'`.
 
@@ -577,11 +577,11 @@ def split_axon_dendrite(x: NeuronObject,
                         Defines which flow metric we will try to maximize when
                         splitting the neuron(s). There are four flavors:
 
-                         - 'synapse_flow_centrality' via :func:`~navis.synapse_flow_centrality`
+                         - 'synapse_flow_centrality' via [`navis.synapse_flow_centrality`][]
                            (note that this metric was previously called just "flow_centrality")
-                         - 'bending_flow' via :func:`~navis.bending_flow`
-                         - 'segregation_index' via :func:`~navis.arbor_segregation_index`
-                         - 'flow_centrality' via :func:`~navis.flow_centrality`
+                         - 'bending_flow' via [`navis.bending_flow`][]
+                         - 'segregation_index' via [`navis.arbor_segregation_index`][]
+                         - 'flow_centrality' via [`navis.flow_centrality`][]
 
                         Will try using existing columns in the node table. If
                         not present, will invoke the respective functions with
@@ -659,7 +659,7 @@ def split_axon_dendrite(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.heal_skeleton`
+    [`navis.heal_skeleton`][]
             Axon/dendrite split works only on neurons consisting of a single
             tree. Use this function to heal fragmented neurons before trying
             the axon/dendrite split.
@@ -917,7 +917,7 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
 
     See Also
     --------
-    :func:`navis.stitch_skeletons`
+    [`navis.stitch_skeletons`][]
                         Stitches multiple skeletons together to create one
                         continuous neuron.
 
@@ -1040,7 +1040,7 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     See Also
     --------
-    :func:`navis.combine_neurons`
+    [`navis.combine_neurons`][]
                         Combines multiple neurons of the same type into one
                         without stitching. Works on TreeNeurons, MeshNeurons
                         and Dotprops.
@@ -1610,9 +1610,9 @@ def smooth_skeleton(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.smooth_mesh`
+    [`navis.smooth_mesh`][]
                     For smoothing MeshNeurons and other mesh-likes.
-    :func:`navis.smooth_voxels`
+    [`navis.smooth_voxels`][]
                     For smoothing VoxelNeurons.
 
     """
@@ -1688,9 +1688,9 @@ def smooth_voxels(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.smooth_mesh`
+    [`navis.smooth_mesh`][]
                     For smoothing MeshNeurons and other mesh-likes.
-    :func:`navis.smooth_skeleton`
+    [`navis.smooth_skeleton`][]
                     For smoothing TreeNeurons.
 
     """
@@ -1735,7 +1735,7 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
     See Also
     --------
-    :func:`navis.heal_skeleton`
+    [`navis.heal_skeleton`][]
                 Use to heal fragmentation instead of breaking it up.
 
 
@@ -1835,9 +1835,9 @@ def heal_skeleton(x: 'core.NeuronList',
 
     See Also
     --------
-    :func:`navis.stitch_skeletons`
+    [`navis.stitch_skeletons`][]
                 Use to stitch multiple skeletons together.
-    :func:`navis.break_fragments`
+    [`navis.break_fragments`][]
                 Use to produce individual neurons from disconnected fragments.
 
 

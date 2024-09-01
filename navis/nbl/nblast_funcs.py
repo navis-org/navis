@@ -239,7 +239,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
     """Smart(er) NBLAST query against target neurons.
 
-    In contrast to :func:`navis.nblast` this function will first run a
+    In contrast to [`navis.nblast`][] this function will first run a
     "pre-NBLAST" in which only 10% of the query dotprops' points are used.
     Using those initial scores, we select for each query the highest scoring
     targets and run the full NBLAST only on those query-target pairs (see
@@ -360,11 +360,11 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
 
     See Also
     --------
-    :func:`navis.nblast`
+    [`navis.nblast`][]
                 The conventional full NBLAST.
-    :func:`navis.nblast_allbyall`
-                A more efficient way than ``nblast(query=x, target=x)``.
-    :func:`navis.synblast`
+    [`navis.nblast_allbyall`][]
+                A more efficient way than `nblast(query=x, target=x)`.
+    [`navis.synblast`][]
                 A synapse-based variant of NBLAST.
 
     """
@@ -766,11 +766,11 @@ def nblast(query: Union[Dotprops, NeuronList],
 
     See Also
     --------
-    :func:`navis.nblast_allbyall`
+    [`navis.nblast_allbyall`][]
                 A more efficient way than `nblast(query=x, target=x)`.
-    :func:`navis.nblast_smart`
+    [`navis.nblast_smart`][]
                 A smart(er) NBLAST suited for very large NBLAST.
-    :func:`navis.synblast`
+    [`navis.synblast`][]
                 A synapse-based variant of NBLAST.
 
     """
@@ -1007,7 +1007,7 @@ def nblast_allbyall(x: NeuronList,
 
     See Also
     --------
-    :func:`navis.nblast`
+    [`navis.nblast`][]
                 For generic query -> target nblasts.
 
     """

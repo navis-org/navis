@@ -33,7 +33,7 @@ def extract_matches(scores, N=None, threshold=None, percentage=None,
     Parameters
     ----------
     scores :        pd.DataFrame
-                    Score matrix (e.g. from :func:`navis.nblast`).
+                    Score matrix (e.g. from [`navis.nblast`][]).
     N :             int
                     Number of matches to extract.
     threshold :     float

@@ -384,7 +384,7 @@ def synapse_similarity(x: 'core.NeuronList',
 
     See Also
     --------
-    :func:`navis.synblast`
+    [`navis.synblast`][]
                         NBLAST variant using synapses.
 
     Examples

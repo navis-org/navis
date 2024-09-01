@@ -53,7 +53,7 @@ def write_json(x: 'core.NeuronObject', filepath, **kwargs) -> str:
 
     See Also
     --------
-    :func:`~navis.read_json`
+    [`navis.read_json`][]
                 Read json back into navis neurons.
 
     """
@@ -101,11 +101,11 @@ def read_json(s: str, **kwargs) -> 'core.NeuronList':
 
     Returns
     -------
-    :class:`~navis.NeuronList`
+    [`navis.NeuronList`][]
 
     See Also
     --------
-    :func:`~navis.neuron2json`
+    [`navis.neuron2json`][]
                 Turn neuron into json.
 
     Examples

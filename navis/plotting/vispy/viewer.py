@@ -745,7 +745,7 @@ class Viewer:
                     no longer be individually manipulated.
         **kwargs
                     Keyword arguments passed when generating visuals. See
-                    :func:`~navis.plot3d` for options.
+                    [`navis.plot3d`][] for options.
 
         Returns
         -------

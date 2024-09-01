@@ -104,7 +104,7 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
     navis.Dotprops
 
                 If input is multiple neurons, will return a
-                :class:`~navis.NeuronList` of :class:`~navis.Dotprops`.
+                [`navis.NeuronList`][] of [`navis.Dotprops`][].
 
     Examples
     --------

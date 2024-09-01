@@ -308,7 +308,7 @@ class MeshNeuron(BaseNeuron):
     def skeleton(self) -> 'TreeNeuron':
         """Skeleton representation of this neuron.
 
-        Uses :func:`navis.mesh2skeleton`.
+        Uses [`navis.mesh2skeleton`][].
 
         """
         if not hasattr(self, '_skeleton'):
@@ -404,7 +404,7 @@ class MeshNeuron(BaseNeuron):
     def skeletonize(self, method='wavefront', heal=True, inv_dist=None, **kwargs) -> 'TreeNeuron':
         """Skeletonize mesh.
 
-        See :func:`navis.conversion.mesh2skeleton` for details.
+        See [`navis.conversion.mesh2skeleton`][] for details.
 
         Parameters
         ----------
@@ -419,7 +419,7 @@ class MeshNeuron(BaseNeuron):
                     2-5 microns.
         **kwargs
                     Additional keyword are passed through to
-                    :func:`navis.conversion.mesh2skeleton`.
+                    [`navis.conversion.mesh2skeleton`][].
 
         Returns
         -------
@@ -432,7 +432,7 @@ class MeshNeuron(BaseNeuron):
     def validate(self, inplace=False):
         """Use trimesh to try and fix some common mesh issues.
 
-        See :func:`navis.fix_mesh` for details.
+        See [`navis.fix_mesh`][] for details.
 
         """
         return meshes.fix_mesh(self, inplace=inplace)

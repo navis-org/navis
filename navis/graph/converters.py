@@ -464,7 +464,7 @@ def nx2neuron(g: nx.Graph,
                     up at risk of disconnecting parts of the graph.
     **kwargs
                     Keyword arguments are passed to the construction of
-                    :class:`~navis.TreeNeuron`.
+                    [`navis.TreeNeuron`][].
 
     Returns
     -------

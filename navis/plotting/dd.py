@@ -287,12 +287,12 @@ def plot2d(
 
     See Also
     --------
-    :func:`navis.plot3d`
+    [`navis.plot3d`][]
             Use this if you want interactive, perspectively correct renders
             and if you don't need vector graphics as outputs.
-    :func:`navis.plot1d`
+    [`navis.plot1d`][]
             A nifty way to visualise neurons in a single dimension.
-    :func:`navis.plot_flat`
+    [`navis.plot_flat`][]
             Plot neurons as flat structures (e.g. dendrograms).
 
     """

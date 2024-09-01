@@ -391,7 +391,7 @@ def intersection_matrix(x: 'core.NeuronObject',
                       'cable_length' for TreeNeurons). If None, will return
                       the neuron subset to the volumes.
     **kwargs
-                      Keyword arguments passed to :func:`navis.in_volume`.
+                      Keyword arguments passed to [`navis.in_volume`][].
 
     Returns
     -------

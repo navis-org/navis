@@ -90,7 +90,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     See Also
     --------
-    :func:`navis.xform_brain`
+    [`navis.xform_brain`][]
                     Higher level function that finds and applies a sequence of
                     transforms to go from one template brain to another.
 
@@ -450,7 +450,7 @@ def mirror(points: np.ndarray, mirror_axis_size: float,
 
     See Also
     --------
-    :func:`navis.mirror_brain`
+    [`navis.mirror_brain`][]
                     Higher level function that uses meta data from registered
                     template brains to transform data for you.
 

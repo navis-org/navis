@@ -45,14 +45,14 @@ def scan_parquet(file: Union[str, Path]):
 
     See Also
     --------
-    :func:`navis.write_parquet`
+    [`navis.write_parquet`][]
                         Export neurons as parquet files.
-    :func:`navis.read_parquet`
+    [`navis.read_parquet`][]
                         Read parquet file into neurons.
 
     Examples
     --------
-    See :func:`navis.write_parquet` for examples.
+    See [`navis.write_parquet`][] for examples.
 
     """
     try:
@@ -138,14 +138,14 @@ def read_parquet(f: Union[str, Path],
 
     See Also
     --------
-    :func:`navis.write_parquet`
+    [`navis.write_parquet`][]
                         Export neurons as parquet files.
-    :func:`navis.scan_parquet`
+    [`navis.scan_parquet`][]
                         Scan parquet file for its contents.
 
     Examples
     --------
-    See :func:`navis.write_parquet` for examples.
+    See [`navis.write_parquet`][] for examples.
 
     """
     f = Path(f).expanduser()
@@ -316,9 +316,9 @@ def write_parquet(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.read_parquet`
+    [`navis.read_parquet`][]
                         Import skeleton from parquet file.
-    :func:`navis.scan_parquet`
+    [`navis.scan_parquet`][]
                         Scan parquet file for its contents.
 
     Examples

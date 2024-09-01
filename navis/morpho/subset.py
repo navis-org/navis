@@ -105,9 +105,9 @@ def subset_neuron(
 
     See Also
     --------
-    :func:`navis.cut_skeleton`
+    [`navis.cut_skeleton`][]
             Cut neuron at specific points.
-    :func:`navis.in_volume`
+    [`navis.in_volume`][]
             To intersect a neuron with a volume (mesh).
 
     """

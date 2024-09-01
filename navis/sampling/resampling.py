@@ -113,12 +113,12 @@ def resample_skeleton(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.downsample_neuron`
+    [`navis.downsample_neuron`][]
                         This function reduces the number of nodes instead of
                         resample to certain resolution. Useful if you are
                         just after some simplification - e.g. for speeding up
                         your calculations or you want to preserve node IDs.
-    :func:`navis.resample_along_axis`
+    [`navis.resample_along_axis`][]
                         Resample neuron along a single axis such that nodes
                         align with given 1-dimensional grid.
 
@@ -345,10 +345,10 @@ def resample_along_axis(x: 'core.TreeNeuron',
 
     See Also
     --------
-    :func:`navis.resample_skeleton`
+    [`navis.resample_skeleton`][]
                         Resample neuron such that edges between nodes have a
                         given length.
-    :func:`navis.downsample_neuron`
+    [`navis.downsample_neuron`][]
                         This function reduces the number of nodes instead of
                         resample to certain resolution. Useful if you are
                         just after some simplification e.g. for speeding up

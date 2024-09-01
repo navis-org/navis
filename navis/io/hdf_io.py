@@ -788,14 +788,14 @@ def read_h5(filepath: str,
 
     Examples
     --------
-    See :func:`navis.write_h5` for examples.
+    See [`navis.write_h5`][] for examples.
 
 
     See Also
     --------
-    :func:`navis.write_h5`
+    [`navis.write_h5`][]
                         Write neurons to HDF5 file.
-    :func:`navis.io.inspect_h5`
+    [`navis.io.inspect_h5`][]
                         Extract meta data (format, number of neurons,
                         available annotations and representations) from
                         HDF5 file. This is useful if you don't know what's
@@ -983,7 +983,7 @@ def write_h5(n: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.read_h5`
+    [`navis.read_h5`][]
                         Read neurons from h5 file.
 
     """

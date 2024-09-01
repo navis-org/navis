@@ -46,8 +46,8 @@ def skeletonize(x: Union['core.MeshNeuron', 'core.Dotprops', np.ndarray],
     **kwargs
                 Keyword arguments are passed through to the respective
                 converters:
-                    - meshes: :func:`navis.conversion.mesh2skeleton`
-                    - dotprops and point clouds: :func:`navis.conversion.points2skeleton`
+                    - meshes: [`navis.conversion.mesh2skeleton`][]
+                    - dotprops and point clouds: [`navis.conversion.points2skeleton`][]
 
     Returns
     -------
@@ -57,7 +57,7 @@ def skeletonize(x: Union['core.MeshNeuron', 'core.Dotprops', np.ndarray],
 
     See Also
     --------
-    :func:`navis.drop_fluff`
+    [`navis.drop_fluff`][]
                 Use this if your mesh has lots of tiny free floating bits to
                 reduce noise and speed up skeletonization.
 
@@ -178,8 +178,8 @@ def mesh(x: Union['core.VoxelNeuron', np.ndarray, 'core.TreeNeuron'],
                     Object to mesh. See notes above.
     **kwargs
                     Keyword arguments are passed through to the respective
-                    converters: :func:`navis.conversion.voxels2mesh` and
-                    :func:`navis.conversion.tree2meshneuron`, respectively.
+                    converters: [`navis.conversion.voxels2mesh`][] and
+                    [`navis.conversion.tree2meshneuron`][], respectively.
 
     Returns
     -------

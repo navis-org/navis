@@ -153,7 +153,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     heal :      bool | "LEAFS" | "ALL"
                 Whether to heal the resulting skeleton if it is fragmented.
                 For more control over the stitching set `heal=False` and use
-                :func:`navis.heal_skeleton` directly. Note that this
+                [`navis.heal_skeleton`][] directly. Note that this
                 can be fairly costly if the mesh as many tiny fragments.
     connectors : bool
                 Whether to carry over existing connector tables. This will
@@ -178,7 +178,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
 
     See Also
     --------
-    :func:`navis.drop_fluff`
+    [`navis.drop_fluff`][]
                 Use this if your mesh has lots of tiny free floating bits to
                 reduce noise and speed up skeletonization.
 
@@ -305,7 +305,7 @@ def _make_voxels(x: 'core.BaseNeuron',
 
     See Also
     --------
-    :func:`navis.neuron2voxelgrid`
+    [`navis.neuron2voxelgrid`][]
                 Use this function to create a voxel neuron covering a specific
                 volume. Useful e.g. when wanting to directly compare two
                 neurons.

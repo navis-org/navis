@@ -909,10 +909,10 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     See Also
     --------
-    :func:`navis.xform`
+    [`navis.xform`][]
                     Lower level entry point that takes data and applies a given
                     transform or sequence thereof.
-    :func:`navis.mirror_brain`
+    [`navis.mirror_brain`][]
                     Uses non-rigid transforms to mirror neurons from the left
                     to the right side of given template brain and vice versa.
 
@@ -1195,7 +1195,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     template :      str | TemplateBrain
                     Source template brain space that the data is in. If string
                     will be searched against registered template brains.
-                    Alternatively check out :func:`navis.transforms.mirror`
+                    Alternatively check out [`navis.transforms.mirror`][]
                     for a lower level interface.
     mirror_axis :   'x' | 'y' | 'z', optional
                     Axis to mirror. Defaults to `x`.
@@ -1245,7 +1245,7 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
 
     See Also
     --------
-    :func:`navis.mirror`
+    [`navis.mirror`][]
                     Lower level function for mirroring. You can use this if
                     you want to mirror data without having a registered
                     template for it.

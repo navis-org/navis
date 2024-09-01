@@ -103,15 +103,15 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
 
     See Also
     --------
-    :func:`navis.downsample_neuron`
+    [`navis.downsample_neuron`][]
                 Downsample all kinds of neurons.
-    :func:`navis.meshes.simplify_mesh_fqmr`
+    [`navis.meshes.simplify_mesh_fqmr`][]
                 pyfqmr implementation for mesh simplification.
-    :func:`navis.meshes.simplify_mesh_open3d`
+    [`navis.meshes.simplify_mesh_open3d`][]
                 Open3D implementation for mesh simplification.
-    :func:`navis.meshes.simplify_mesh_pyml`
+    [`navis.meshes.simplify_mesh_pyml`][]
                 PyMeshLab implementation for mesh simplification.
-    :func:`navis.meshes.simplify_mesh_blender`
+    [`navis.meshes.simplify_mesh_blender`][]
                 Blender 3D implementation for mesh simplification.
 
     """

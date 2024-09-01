@@ -55,7 +55,7 @@ def align_pairwise(x, y=None, method='rigid', sample=None, progress=True, **kwar
 
     See Also
     --------
-    :func:`navis.nblast_align`
+    [`navis.nblast_align`][]
                 Runs an NBLAST where neurons are first aligned pairwise.
 
     Examples

@@ -323,7 +323,7 @@ def dist_to_root(
 
     See Also
     --------
-    :func:`navis.geodesic_matrix`
+    [`navis.geodesic_matrix`][]
                         For distances between all points.
 
     """
@@ -581,7 +581,7 @@ def distal_to(
     a,b :   single node ID | list of node IDs | None, optional
             If no node IDs are provided, will consider all node. Note that for
             large sets of nodes it might be more efficient to use
-            :func:`navis.geodesic_matrix` (see examples).
+            [`navis.geodesic_matrix`][] (see examples).
 
     Returns
     -------
@@ -623,7 +623,7 @@ def distal_to(
 
     See Also
     --------
-    :func:`navis.geodesic_matrix`
+    [`navis.geodesic_matrix`][]
             Depending on your neuron and how many nodes you're asking for,
             this function can be considerably faster! See examples.
 
@@ -735,11 +735,11 @@ def geodesic_matrix(
 
     See Also
     --------
-    :func:`navis.distal_to`
+    [`navis.distal_to`][]
         Check if a node A is distal to node B.
-    :func:`navis.dist_between`
+    [`navis.dist_between`][]
         Get point-to-point geodesic distances.
-    :func:`navis.dist_to_root`
+    [`navis.dist_to_root`][]
         Distances from all skeleton node to their root(s).
 
     Examples
@@ -870,7 +870,7 @@ def segment_length(x: "core.TreeNeuron", segment: List[int]) -> float:
 
     See Also
     --------
-    :func:`navis.dist_between`
+    [`navis.dist_between`][]
         If you only know start and end points of the segment.
 
     Examples
@@ -912,11 +912,11 @@ def dist_between(x: "core.NeuronObject", a: int, b: int) -> float:
 
     See Also
     --------
-    :func:`~navis.distal_to`
+    [`navis.distal_to`][]
         Check if a node A is distal to node B.
-    :func:`~navis.geodesic_matrix`
+    [`navis.geodesic_matrix`][]
         Get all-by-all geodesic distance matrix.
-    :func:`navis.segment_length`
+    [`navis.segment_length`][]
         Much faster if you have a linear segment and know all node IDs.
 
     Examples
@@ -1254,7 +1254,7 @@ def longest_neurite(
 
     See Also
     --------
-    :func:`~navis.split_into_fragments`
+    [`navis.split_into_fragments`][]
             Split neuron into fragments based on longest neurites.
 
     Examples
@@ -1338,7 +1338,7 @@ def reroot_skeleton(
 
     See Also
     --------
-    :func:`~navis.TreeNeuron.reroot`
+    [`navis.TreeNeuron.reroot`][]
                 Quick access to reroot directly from TreeNeuron/List
                 objects.
 
@@ -1581,10 +1581,10 @@ def cut_skeleton(
 
     See Also
     --------
-    :func:`navis.TreeNeuron.prune_distal_to`
-    :func:`navis.TreeNeuron.prune_proximal_to`
-            ``TreeNeuron/List`` shorthands to this function.
-    :func:`navis.subset_neuron`
+    [`navis.TreeNeuron.prune_distal_to`][]
+    [`navis.TreeNeuron.prune_proximal_to`][]
+            `TreeNeuron/List` shorthands to this function.
+    [`navis.subset_neuron`][]
             Returns a neuron consisting of a subset of its nodes.
 
     """

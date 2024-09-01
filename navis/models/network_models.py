@@ -124,7 +124,7 @@ class TraversalModel(BaseNetworkModel):
                         traversed or not in a given step. Must take numpy array
                         (N, 1) of edge weights and return an array with
                         True/False of equal size. Defaults to
-                        :func:`~navis.models.network_models.random_linear_activation_function`
+                        [`navis.models.network_models.random_linear_activation_function`][]
                         which will linearly scale probability of traversal
                         from 0 to 100% between edges weights 0 to 0.3.
 
@@ -341,7 +341,7 @@ class BayesianTraversalModel(TraversalModel):
     """Model for traversing a network starting with given seed nodes.
 
     This model is a Bayes net version of
-    :class:`~navis.models.network_models.TraversalModel` that propagates
+    [`navis.models.network_models.TraversalModel`][] that propagates
     traversal probabilities through the network and converges to a
     distribution of time of traversal for each node, rather than
     stochastically sampling.
@@ -370,7 +370,7 @@ class BayesianTraversalModel(TraversalModel):
                         traversed or not in a given step. Must take numpy array
                         (N, 1) of edge weights and return an array with
                         probabilities of equal size. Defaults to
-                        :func:`~navis.models.network_models.linear_activation_p`
+                        [`navis.models.network_models.linear_activation_p`][]
                         which will linearly scale probability of traversal
                         from 0 to 100% between edges weights 0 to 0.3.
 

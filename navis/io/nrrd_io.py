@@ -97,7 +97,7 @@ def write_nrrd(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.read_nrrd`
+    [`navis.read_nrrd`][]
                         Import VoxelNeuron from NRRD files.
 
     """

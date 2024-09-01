@@ -54,7 +54,7 @@ class Dotprops(BaseNeuron):
     Dotprops consist of points with x/y/z coordinates, a tangent vector and an
     alpha value describing the immediate neighbourhood (see also references).
 
-    Typically constructed using :func:`navis.make_dotprops`.
+    Typically constructed using [`navis.make_dotprops`][].
 
     References
     ----------
@@ -422,11 +422,11 @@ class Dotprops(BaseNeuron):
                                 copy which is then returned.
         **kwargs
                                 Additional arguments passed to
-                                :func:`~navis.downsample_neuron`.
+                                [`navis.downsample_neuron`][].
 
         See Also
         --------
-        :func:`~navis.downsample_neuron`
+        [`navis.downsample_neuron`][]
             Base function. See for details and examples.
 
         """

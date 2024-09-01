@@ -68,8 +68,8 @@ def read_mesh(f: Union[str, Iterable],
                         wanting to get a sample from a large library of
                         meshes.
     **kwargs
-                        Keyword arguments passed to :class:`navis.MeshNeuron`
-                        or :class:`navis.Volume`. You can use this to e.g.
+                        Keyword arguments passed to [`navis.MeshNeuron`][]
+                        or [`navis.Volume`][]. You can use this to e.g.
                         set the units on the neurons.
 
     Returns
@@ -90,7 +90,7 @@ def read_mesh(f: Union[str, Iterable],
     Examples
     --------
 
-    Read a single file into :class:`navis.MeshNeuron`:
+    Read a single file into [`navis.MeshNeuron`][]:
 
     >>> m = navis.read_mesh('mesh.obj')                         # doctest: +SKIP
 
@@ -102,7 +102,7 @@ def read_mesh(f: Union[str, Iterable],
 
     >>> nl = navis.read_mesh('/some/directory/*.obj', limit=50) # doctest: +SKIP
 
-    Read single file into :class:`navis.Volume`:
+    Read single file into [`navis.Volume`][]:
 
     >>> nl = navis.read_mesh('mesh.obj', output='volume')       # doctest: +SKIP
 
@@ -230,9 +230,9 @@ def write_mesh(x: Union['core.NeuronList', 'core.MeshNeuron', 'core.Volume', 'tm
 
     See Also
     --------
-    :func:`navis.read_mesh`
+    [`navis.read_mesh`][]
                         Import neurons.
-    :func:`navis.write_precomputed`
+    [`navis.write_precomputed`][]
                         Write meshes to Neuroglancer's precomputed format.
 
     Examples

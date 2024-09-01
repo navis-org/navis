@@ -57,7 +57,7 @@ class Volume(UnitObject, trimesh.Trimesh):
 
     See Also
     --------
-    :func:`~navis.example_volume`
+    [`navis.example_volume`][]
                 Loads example volume(s).
 
     """
@@ -307,7 +307,7 @@ class Volume(UnitObject, trimesh.Trimesh):
 
         Returns
         -------
-        :class:`~navis.Volume`
+        [`navis.Volume`][]
 
         """
         if isinstance(x, Volume):
@@ -447,7 +447,7 @@ class Volume(UnitObject, trimesh.Trimesh):
 
         Returns
         -------
-        :class:`navis.Volume`
+        [`navis.Volume`][]
                     Resized copy of original volume. Only if `inplace=False`.
         None
                     If `inplace=True`.
@@ -533,7 +533,7 @@ class Volume(UnitObject, trimesh.Trimesh):
         Parameters
         ----------
         **kwargs
-                    Keyword arguments passed to :func:`~navis.Volume.to_2d`.
+                    Keyword arguments passed to [`navis.Volume.to_2d`][].
 
         Returns
         -------

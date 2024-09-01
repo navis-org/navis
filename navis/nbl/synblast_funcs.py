@@ -306,7 +306,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
 
     See Also
     --------
-    :func:`navis.nblast`
+    [`navis.nblast`][]
                 The original morphology-based NBLAST.
 
     """

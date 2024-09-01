@@ -350,7 +350,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
 
     See Also
     --------
-    :func:`navis.write_swc`
+    [`navis.write_swc`][]
                         Export neurons as SWC files.
 
     Examples
@@ -470,7 +470,7 @@ def write_swc(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.read_swc`
+    [`navis.read_swc`][]
                         Import skeleton from SWC files.
 
     Examples

@@ -595,7 +595,7 @@ class NeuronList:
         ----------
         func :          callable
                         Function to be applied. Must accept
-                        :class:`~navis.BaseNeuron` as first argument.
+                        [`navis.BaseNeuron`][] as first argument.
         parallel :      bool
                         If True (default) will use multiprocessing. Spawning the
                         processes takes time (and memory). Using `parallel=True`
@@ -697,7 +697,7 @@ class NeuronList:
                               make_copy=self.copy_on_subset)
 
     def plot3d(self, **kwargs):
-        """Plot neuron in 3D using :func:`~navis.plot3d`.
+        """Plot neuron in 3D using [`navis.plot3d`][].
 
         Parameters
         ----------
@@ -707,7 +707,7 @@ class NeuronList:
 
         See Also
         --------
-        :func:`~navis.plot3d`
+        [`navis.plot3d`][]
                 Base function called to generate 3d plot.
 
         """
@@ -716,7 +716,7 @@ class NeuronList:
         return plot3d(self, **kwargs)
 
     def plot2d(self, **kwargs):
-        """Plot neuron in 2D using :func:`~navis.plot2d`.
+        """Plot neuron in 2D using [`navis.plot2d`][].
 
         Parameters
         ----------
@@ -726,7 +726,7 @@ class NeuronList:
 
         See Also
         --------
-        :func:`~navis.plot2d`
+        [`navis.plot2d`][]
                 Base function called to generate 2d plot.
 
         """

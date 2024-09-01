@@ -116,7 +116,7 @@ class TreeNeuron(BaseNeuron):
     #: Soma radius (e.g. for plotting). If string, must be column in nodes
     #: table. Default = 'radius'.
     soma_radius: Union[float, int, str] = 'radius'
-    # Set default function for soma finding. Default = :func:`navis.morpho.find_soma`
+    # Set default function for soma finding. Default = [`navis.morpho.find_soma`][]
     _soma: Union[Callable[['TreeNeuron'], Sequence[int]], int] = morpho.find_soma
 
     tags: Optional[Dict[str, List[int]]] = None
@@ -499,7 +499,7 @@ class TreeNeuron(BaseNeuron):
 
         `None` if no soma. You can assign either a function that accepts a
         TreeNeuron as input or a fix value. The default is
-        :func:`navis.utils.find_soma`.
+        [`navis.utils.find_soma`][].
 
         """
         if callable(self._soma):
@@ -792,7 +792,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`navis.neuron2nx`
+        [`navis.neuron2nx`][]
 
         """
         self._graph_nx = graph.neuron2nx(self)
@@ -810,7 +810,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`navis.neuron2igraph`
+        [`navis.neuron2igraph`][]
 
         """
         self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
@@ -836,7 +836,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.resample_skeleton`
+        [`navis.resample_skeleton`][]
             Base function. See for details and examples.
 
         """
@@ -880,11 +880,11 @@ class TreeNeuron(BaseNeuron):
                                 copy which is then returned.
         **kwargs
                                 Additional arguments passed to
-                                :func:`~navis.downsample_neuron`.
+                                [`navis.downsample_neuron`][].
 
         See Also
         --------
-        :func:`~navis.downsample_neuron`
+        [`navis.downsample_neuron`][]
             Base function. See for details and examples.
 
         """
@@ -917,7 +917,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.reroot_skeleton`
+        [`navis.reroot_skeleton`][]
             Base function. See for details and examples.
 
         """
@@ -950,7 +950,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cut_skeleton`
+        [`navis.cut_skeleton`][]
             Base function. See for details and examples.
 
         """
@@ -987,7 +987,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cut_skeleton`
+        [`navis.cut_skeleton`][]
             Base function. See for details and examples.
 
         """
@@ -1038,7 +1038,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.prune_by_strahler`
+        [`navis.prune_by_strahler`][]
             This is the base function. See for details and examples.
 
         """
@@ -1078,7 +1078,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.prune_twigs`
+        [`navis.prune_twigs`][]
             This is the base function. See for details and examples.
 
         """
@@ -1120,7 +1120,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.prune_at_depth`
+        [`navis.prune_at_depth`][]
             This is the base function. See for details and examples.
 
         """
@@ -1152,7 +1152,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cell_body_fiber`
+        [`navis.cell_body_fiber`][]
             This is the base function. See for details and examples.
 
         """
@@ -1190,7 +1190,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.longest_neurite`
+        [`navis.longest_neurite`][]
             This is the base function. See for details and examples.
 
         """
@@ -1236,7 +1236,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.in_volume`
+        [`navis.in_volume`][]
             Base function. See for details and examples.
 
         """
@@ -1266,7 +1266,7 @@ class TreeNeuron(BaseNeuron):
         filename :      str | None, optional
                         If `None`, will use "neuron_{id}.swc".
         kwargs
-                        Additional arguments passed to :func:`~navis.write_swc`.
+                        Additional arguments passed to [`navis.write_swc`][].
 
         Returns
         -------

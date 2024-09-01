@@ -277,7 +277,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
 
     See Also
     --------
-    :func:`navis.write_precomputed`
+    [`navis.write_precomputed`][]
                         Export neurons/volumes to precomputed format.
 
     """
@@ -429,9 +429,9 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
 
     See Also
     --------
-    :func:`navis.read_precomputed`
+    [`navis.read_precomputed`][]
                         Import neurons from neuroglancer's precomputed format.
-    :func:`navis.write_mesh`
+    [`navis.write_mesh`][]
                         Write meshes to generic mesh formats (obj, stl, etc).
 
     Examples

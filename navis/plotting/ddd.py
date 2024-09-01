@@ -267,7 +267,7 @@ def plot3d(
 
     If `backend='vispy'`
 
-        Opens a 3D window and returns :class:`navis.Viewer`.
+        Opens a 3D window and returns [`navis.Viewer`][].
 
     If `backend='plotly'`
 

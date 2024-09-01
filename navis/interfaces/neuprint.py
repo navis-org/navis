@@ -142,7 +142,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
     Returns
     -------
     navis.Neuronlist
-                    Containing :class:`navis.MeshNeuron`. Note that meshes are
+                    Containing [`navis.MeshNeuron`][]. Note that meshes are
                     resized to raw voxel size to match other spatial data from
                     neuprint (synapses, skeletons, etc).
 

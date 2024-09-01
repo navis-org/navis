@@ -75,10 +75,10 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.resample_skeleton`
+    [`navis.resample_skeleton`][]
                              This function resamples a neuron to given
                              resolution. This will change node IDs!
-    :func:`navis.simplify_mesh`
+    [`navis.simplify_mesh`][]
                              This is the function used for `MeshNeurons`. Use
                              directly for more control of the simplification.
 

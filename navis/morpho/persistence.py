@@ -164,7 +164,7 @@ def persistence_distances(q: 'core.NeuronObject',
                 Whether to augment the persistence vectors with other neuron
                 properties (number of branch points & leafs and cable length).
     **persistence_kwargs
-                Keyword arguments are passed to :func:`navis.persistence_points`.
+                Keyword arguments are passed to [`navis.persistence_points`][].
 
     Returns
     -------
@@ -172,9 +172,9 @@ def persistence_distances(q: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.persistence_points`
+    [`navis.persistence_points`][]
                 The function to calculate the persistence points.
-    :func:`navis.persistence_vectors`
+    [`navis.persistence_vectors`][]
                 Use this to get and inspect the actual vectors used here.
 
     """
@@ -258,7 +258,7 @@ def persistence_vectors(x,
     Parameters
     ----------
     x :         navis.NeuronList | pd.DataFrame | list thereof
-                The persistence points (see :func:`navis.persistence_points`).
+                The persistence points (see [`navis.persistence_points`][]).
                 For vectors for multiple neurons, provide either a list of
                 persistence points DataFrames or a single DataFrame with a
                 "neuron_id" column.
@@ -291,9 +291,9 @@ def persistence_vectors(x,
 
     See Also
     --------
-    :func:`navis.persistence_points`
+    [`navis.persistence_points`][]
                 The function to calculate the persistence points.
-    :func:`navis.persistence_distances`
+    [`navis.persistence_distances`][]
                 Get distances based on (augmented) persistence vectors.
 
     """
@@ -350,7 +350,7 @@ def persistence_diagram(pers, ax=None, **kwargs):
     Parameters
     ----------
     pers :      pd.DataFrame
-                Persistent points from :func:`navis.persistence_points`.
+                Persistent points from [`navis.persistence_points`][].
     ax :        matplotlib ax, optional
                 Ax to plot on.
     **kwargs

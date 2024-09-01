@@ -220,7 +220,7 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
 
     See Also
     --------
-    :func:`navis.read_nml`
+    [`navis.read_nml`][]
                         Read NML file(s).
 
     """
@@ -283,7 +283,7 @@ def read_nml(f: Union[str, pd.DataFrame, Iterable],
 
     See Also
     --------
-    :func:`navis.read_nmx`
+    [`navis.read_nmx`][]
                         Read NMX files (collections of NML files).
 
     """

@@ -141,7 +141,7 @@ def strahler_index(
 
     See Also
     --------
-    :func:`navis.segment_analysis`
+    [`navis.segment_analysis`][]
                 This function provides by-segment morphometrics, including
                 Strahler indices.
 
@@ -319,10 +319,10 @@ def segment_analysis(x: "core.NeuronObject") -> "core.NeuronObject":
 
     See Also
     --------
-    :func:`navis.strahler_index`
+    [`navis.strahler_index`][]
                         This function calculates the Strahler index for every
                         nodes/vertex in the neuron.
-    :func:`navis.tortuosity`
+    [`navis.tortuosity`][]
                         This function calculates a tortuosity for the entire
                         neuron.
 
@@ -559,14 +559,14 @@ def arbor_segregation_index(x: "core.NeuronObject") -> "core.NeuronObject":
 
     See Also
     --------
-    :func:`~navis.segregation_index`
+    [`navis.segregation_index`][]
             Calculate segregation score (polarity) between two fragments of
             a neuron.
-    :func:`~navis.synapse_flow_centrality`
+    [`navis.synapse_flow_centrality`][]
             Calculate synapse flow centrality after Schneider-Mizell et al.
-    :func:`~navis.bending_flow`
+    [`navis.bending_flow`][]
             Variation on the Schneider-Mizell et al. synapse flow.
-    :func:`~navis.split_axon_dendrite`
+    [`navis.split_axon_dendrite`][]
             Split the neuron into axon, dendrite and primary neurite.
 
     """
@@ -708,13 +708,13 @@ def bending_flow(x: "core.NeuronObject") -> "core.NeuronObject":
 
     See Also
     --------
-    :func:`~navis.synapse_flow_centrality`
+    [`navis.synapse_flow_centrality`][]
             Calculate synapse flow centrality after Schneider-Mizell et al.
-    :func:`~navis.segregation_index`
+    [`navis.segregation_index`][]
             Calculate segregation score (polarity).
-    :func:`~navis.arbor_segregation_index`
+    [`navis.arbor_segregation_index`][]
             Calculate the a by-arbor segregation index.
-    :func:`~navis.split_axon_dendrite`
+    [`navis.split_axon_dendrite`][]
             Split the neuron into axon, dendrite and primary neurite.
 
     """
@@ -978,15 +978,15 @@ def synapse_flow_centrality(
 
     See Also
     --------
-    :func:`~navis.bending_flow`
+    [`navis.bending_flow`][]
             Variation of synapse flow centrality: calculates bending flow.
-    :func:`~navis.arbor_segregation_index`
+    [`navis.arbor_segregation_index`][]
             By-arbor segregation index.
-    :func:`~navis.segregation_index`
+    [`navis.segregation_index`][]
             Calculates segregation score (polarity) of a neuron.
-    :func:`~navis.split_axon_dendrite`
+    [`navis.split_axon_dendrite`][]
             Tries splitting a neuron into axon and dendrite.
-    :func:`~navis.flow_centrality`
+    [`navis.flow_centrality`][]
             Leaf-based version of flow centrality.
 
     """
@@ -1183,7 +1183,7 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
 
     See Also
     --------
-    :func:`~navis.synapse_flow_centrality`
+    [`navis.synapse_flow_centrality`][]
             Synapse-based flow centrality.
 
     """
@@ -1315,7 +1315,7 @@ def tortuosity(
 
     See Also
     --------
-    :func:`navis.segment_analysis`
+    [`navis.segment_analysis`][]
                 This function provides by-segment morphometrics, including
                 tortuosity.
 
