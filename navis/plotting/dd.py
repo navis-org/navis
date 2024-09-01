@@ -465,7 +465,7 @@ def plot2d(
             neurons,
             desc="Plot neurons",
             leave=False,
-            disable=config.pbar_hide | len(neurons) < 2,
+            disable=config.pbar_hide | len(neurons) < 10,
         )
     ):
         if not settings.connectors_only:
