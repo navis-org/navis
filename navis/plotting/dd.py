@@ -85,27 +85,40 @@ def plot2d(
     Object parameters
     -----------------
     soma :              bool, default=True
+
                         Plot soma if one exists. Size of the soma is determined
                         by the neuron's `.soma_radius` property which defaults
                         to the "radius" column for `TreeNeurons`.
+
     radius :            bool, default=True
+
                         If True, will plot neurites of `TreeNeurons` with radius
                         (if present). The radius can be scaled by `linewidth`.
                         Note that this will increase rendering time.
+
     linewidth :         int | float, default=.5
+
                         Width of neurites. Also accepts alias `lw`.
+
     linestyle :         str, default='-'
+
                         Line style of neurites. Also accepts alias `ls`.
+
     color :             None | str | tuple | list | dict, default=None
+
                         Use single str (e.g. `'red'`) or `(r, g, b)` tuple
                         to give all neurons the same color. Use `list` of
                         colors to assign colors: `['red', (1, 0, 1), ...].
                         Use `dict` to map colors to neuron IDs:
                         `{id: (r, g, b), ...}`.
+
     palette :           str | array | list of arrays, default=None
+
                         Name of a matplotlib or seaborn palette. If `color` is
                         not specified will pick colors from this palette.
+
     color_by :          str | array | list of arrays, default = None
+
                         Color neurons by a property. Can be:
                           - a list/array of labels, one per each neuron
                           - a neuron property (str)
@@ -113,39 +126,59 @@ def plot2d(
                           - a list/array of values for each node
                         Numerical values will be normalized. You can control
                         the normalization by passing a `vmin` and/or `vmax` parameter.
+
     shade_by :          str | array | list of arrays, default=None
+
                         Similar to `color_by` but will affect only the alpha
                         channel of the color. If `shade_by='strahler'` will
                         compute Strahler order if not already part of the node
                         table (TreeNeurons only). Numerical values will be
                         normalized. You can control the normalization by passing
                         a `smin` and/or `smax` parameter.
+
     alpha :             float [0-1], default=1
+
                         Alpha value for neurons. Overriden if alpha is provided
                         as fourth value in `color` (rgb*a*). You can override
                         alpha value for connectors by using `cn_alpha`.
+
     mesh_shade :        bool, default=False
+
                         Only relevant for meshes (e.g. `MeshNeurons`) and
                         `TreeNeurons` with radius, and when method is 3d or
                         3d complex. Whether to shade the object which will give it
                         a 3D look.
+
     depth_coloring :    bool, default=False
+
                         If True, will use neuron color to encode depth (Z).
                         Overrides `color` argument. Does not work with
                         `method = '3d_complex'`.
+
     depth_scale :       bool, default=True
+
                         If True and `depth_coloring=True` will plot a scale.
+
     connectors :        bool, default=True
+
                         Plot connectors.
+
     connectors_only :   boolean, default=False
+
                         Plot only connectors, not the neuron.
+
     cn_size :           int | float, default = 1
+
                         Size of connectors.
+
     cn_layout :         dict, default={}
+
                         Defines default settings (color, style) for connectors.
                         See `navis.config.default_connector_colors` for the
                         default layout.
+
     cn_colors :         str | tuple | dict | "neuron"
+
                         Overrides the default connector (e.g. synpase) colors:
                             - single color as str (e.g. `'red'`) or rgb tuple
                             (e.g. `(1, 0, 0)`)
@@ -153,20 +186,29 @@ def plot2d(
                             a color (e.g. `{"pre": (1, 0, 0)}`)
                             - with "neuron", connectors will receive the same color
                             as their neuron
+
     cn_mesh_colors :    bool, default=False
+
                         If True, will use the neuron's color for its connectors.
+
     scatter_kws :       dict, default={}
+
                         Parameters to be used when plotting points. Accepted
                         keywords are: `size` and `color`.
+
     volume_outlines :   bool | "both", default=False
+
                         If True will plot volume outline with no fill. Only
                         works with `method="2d"`. Requires the `shapely` package.
+
     dps_scale_vec :     float
+
                         Scale vector for dotprops.
 
     Figure parameters
     -----------------
     method :            '2d' | '3d' (default) | '3d_complex'
+
                         Method used to generate plot. Comes in three flavours:
                          1. `2d` uses normal matplotlib. Neurons are plotted on
                             top of one another in the order their are passed to
@@ -180,40 +222,58 @@ def plot2d(
                             added individually. This allows for more complex
                             zorders to be rendered correctly. Slows down
                             rendering!
+
     view :              tuple, default = ("x", "y")
+
                         Sets view for `method='2d'`. Can be any combination of
                         "x", "y", "z" and their negations. For example, to plot
                         from the top, use `view=('x', '-y')`. For 3D `methods`,
                         this will set the initial view which can be changed by
                         adjusting `ax.azim`, `ax.elev` and `ax.roll` (see examples).
+
     non_view_axes3d :   "show" | "hide" (default) | "fade"
+
                         Only relevant for methods '3d' and '3d_complex': what to
                         do with the axis that are not in the view. If 'hide', will
                         hide them. If 'show', will show them. If 'fade', will
                         make them semi-transparent. This is relevant if you
                         intend if you intend to customize the view after plotting.
+
     autoscale :         bool, default=True
+
                         If True, will scale the axes to fit the data.
+
     scalebar :          int | float | str | pint.Quantity, default=False
+
                         Adds a scale bar. Provide integer, float or str to set
                         size of scalebar. Int|float are assumed to be in same
                         units as data. You can specify units in as string:
                         e.g. "1 um". For methods '3d' and '3d_complex', this
                         will create an axis object.
+
     ax :                matplotlib.Axes, default=None
+
                         Pass an axis object if you want to plot on an existing
                         canvas. Must match `method` - i.e. 2D or 3D axis.
+
     figsize :           tuple, default=None
+
                         Size of figure. Ignored if `ax` is provided.
+
     rasterize :         bool, default=False
+
                         Neurons produce rather complex vector graphics which can
                         lead to large files when saving to SVG, PDF or PS. Use
                         this parameter to rasterize neurons and meshes/volumes
                         (but not axes or labels) to reduce file size.
+
     orthogonal :        bool, default=True
+
                         Whether to use orthogonal or perspective view for
                         methods '3d' and '3d_complex'.
+
     group_neurons :     bool, default=False
+
                         If True, neurons will be grouped. Works with SVG export
                         but not PDF. Does NOT work with `method='3d_complex'`.
 
@@ -224,63 +284,51 @@ def plot2d(
 
     Examples
     --------
-    .. plot::
-       :context:close-figs
 
-       >>> import navis
-       >>> import matplotlib.pyplot as plt
+    >>> import navis
+    >>> import matplotlib.pyplot as plt
 
-       Plot list of neurons as simple 2d
+    Plot list of neurons as simple 2d:
 
-       >>> nl = navis.example_neurons()
-       >>> fig, ax = navis.plot2d(nl, method='2d', view=('x', '-z'))
-       >>> plt.show() # doctest: +SKIP
+    >>> nl = navis.example_neurons()
+    >>> fig, ax = navis.plot2d(nl, method='2d', view=('x', '-z'))
+    >>> plt.show() # doctest: +SKIP
 
-    Add a volume
+    Add a volume:
 
-    .. plot::
+    >>> vol = navis.example_volume('LH')
+    >>> fig, ax = navis.plot2d([nl, vol], method='2d', view=('x', '-z'))
+    >>> plt.show() # doctest: +SKIP
 
-       >>> vol = navis.example_volume('LH')
-       >>> fig, ax = navis.plot2d([nl, vol], method='2d', view=('x', '-z'))
-       >>> plt.show() # doctest: +SKIP
+    Change neuron colors:
 
-    Change neuron colors
+    >>> fig, ax = navis.plot2d(
+    ...              nl,
+    ...              method='2d',
+    ...              view=('x', '-z'),
+    ...              color=['r', 'g', 'b', 'm', 'c', 'y']
+    ...          )
+    >>> plt.show() # doctest: +SKIP
 
-    .. plot::
+    Plot in "fake" 3D:
 
-       >>> fig, ax = navis.plot2d(
-       ...              nl,
-       ...              method='2d',
-       ...              view=('x', '-z'),
-       ...              color=['r', 'g', 'b', 'm', 'c', 'y']
-       ...          )
-       >>> plt.show() # doctest: +SKIP
+    >>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
+    >>> plt.show() # doctest: +SKIP
+    >>> # In an interactive window you can dragging the plot to rotate
 
-    Plot in "fake" 3D
+    Plot in "fake" 3D and change perspective:
 
-    .. plot::
+    >>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
+    >>> # Change view
+    >>> ax.elev = -20
+    >>> ax.azim = 45
+    >>> ax.roll = 180
+    >>> plt.show() # doctest: +SKIP
 
-       >>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
-       >>> plt.show() # doctest: +SKIP
-       >>> # In an interactive window you can dragging the plot to rotate
+    Plot using depth-coloring:
 
-    Plot in "fake" 3D and change perspective
-
-    .. plot::
-
-       >>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
-       >>> # Change view
-       >>> ax.elev = -20
-       >>> ax.azim = 45
-       >>> ax.roll = 180
-       >>> plt.show() # doctest: +SKIP
-
-    Plot using depth-coloring
-
-    .. plot::
-
-       >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True, view=('x', '-z'))
-       >>> plt.show() # doctest: +SKIP
+    >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True, view=('x', '-z'))
+    >>> plt.show() # doctest: +SKIP
 
 
     See the :ref:`plotting tutorial <plot_intro>` for more examples.
