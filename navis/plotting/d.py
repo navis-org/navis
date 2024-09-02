@@ -77,20 +77,18 @@ def plot1d(x: 'core.NeuronObject',
     Examples
     --------
 
-    .. plot::
-       :context: close-figs
-
-        >>> import navis
-        >>> import matplotlib.pyplot as plt
-        >>> n = navis.example_neurons(2)
-        >>> ax = navis.plot1d(n)
-        >>> plt.show() # doctest: +SKIP
+    >>> import navis
+    >>> import matplotlib.pyplot as plt
+    >>> n = navis.example_neurons(2)
+    >>> ax = navis.plot1d(n)
+    >>> plt.show() # doctest: +SKIP
 
     Close figures (only relevant for doctests)
 
     >>> plt.close('all')
 
-    See the :ref:`plotting tutorial <plot_intro>` for more examples.
+    See the [`flat plotting tutorial`](generated/gallery/plotting/plot_02_plotting_1d/)
+    for more examples.
 
     """
     if isinstance(x, core.NeuronList):
@@ -132,9 +130,10 @@ def plot1d(x: 'core.NeuronObject',
         ax.patch.set_alpha(0)
 
     # Add some default parameters for the plotting to kwargs
-    kwargs.update({'lw': kwargs.get('lw', .1),
-                   'ec': kwargs.get('ec', (1, 1, 1)),
-                   })
+    DEFAULTS = {'lw': kwargs.pop('lw', kwargs.pop('linewidth', .2)),
+                'ec': kwargs.pop('ec', kwargs.pop('edgecolor', (1, 1, 1))),
+    }
+    kwargs.update(DEFAULTS)
 
     max_x = []
     for ix, n in enumerate(config.tqdm(x, desc='Processing',
@@ -164,7 +163,7 @@ def plot1d(x: 'core.NeuronObject',
 
         # Now get distances for each segment
         if 'nodes_geodesic_distance_matrix' in n.__dict__:
-            # If available, use geodesic distance matrix
+            # If available, use existing geodesic distance matrix
             dist_mat = n.nodes_geodesic_distance_matrix
         else:
             # If not, compute matrix for subset of nodes
@@ -177,7 +176,7 @@ def plot1d(x: 'core.NeuronObject',
         # Plot
         curr_dist = 0
         id2ix = dict(zip(n.nodes.node_id.values, range(n.n_nodes)))
-        for k, l in enumerate(lengths):
+        for k, le in enumerate(lengths):
             if isinstance(vertex_map, type(None)):
                 c = this_c
 
@@ -189,10 +188,9 @@ def plot1d(x: 'core.NeuronObject',
                 vc = vertex_map[ix][node_ix]
                 c = vc[-1]
 
-            p = mpatches.Rectangle((curr_dist, ix), l, 1, fc=c, **kwargs)
+            p = mpatches.Rectangle((curr_dist, ix), le, 1, fc=c, **kwargs)
             ax.add_patch(p)
-            curr_dist += l
-
+            curr_dist += le
     ax.set_xlim(0, max(max_x))
     ax.set_ylim(0, len(x))
 
