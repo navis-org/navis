@@ -545,10 +545,20 @@ def prepare_colormap(colors,
 
     # If alpha is given, we will override all values
     if not isinstance(alpha, type(None)):
-        neuron_cmap = [add_alpha(c, alpha) for c in neuron_cmap]
+        if isinstance(alpha, numbers.Number):
+            neuron_cmap = [add_alpha(c, alpha) for c in neuron_cmap]
+        elif isinstance(alpha, (list, tuple, np.ndarray)):
+            if len(alpha) != len(neurons):
+                raise ValueError(f'Need alpha for {len(neurons)} neurons, '
+                                 f'got {len(alpha)}')
+            neuron_cmap = [add_alpha(c, a) for c, a in zip(neuron_cmap, alpha)]
+        else:
+            raise TypeError(f'Unable to parse alpha of type "{type(alpha)}"')
 
         # Only apply to volumes if there aren't any neurons
         if not neuron_cmap:
+            if not isinstance(alpha, numbers.Number):
+                raise ValueError('Must provide single alpha value for volumes.')
             volumes_cmap = [add_alpha(c, alpha) for c in volumes_cmap]
 
     # Make sure colour range checks out
