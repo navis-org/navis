@@ -1832,9 +1832,9 @@ def node_label_sorting(
     # Get relevant terminal nodes
     term = x.nodes[x.nodes.type == "end"].node_id.values
 
-    # Get distance from terminals to all other nodes
+    # Get directed (!) distance from terminals to all other nodes
     geo = geodesic_matrix(
-        x, from_=term, directed=True, weight="weight" if weighted else None
+        x, from_=x.nodes[x.nodes.type.isin(("end", "root", "branch"))].node_id.values, directed=True, weight="weight" if weighted else None
     )
     # Set distance between unreachable points to None
     # Need to reinitialise SparseMatrix to replace float('inf') with NaN
@@ -1854,7 +1854,7 @@ def node_label_sorting(
     # of the skeleton)
     curr_points = sorted(
         list(x.simple.graph.predecessors(x.root[0])),
-        key=lambda n: dist_mat[n].max(),
+        key=lambda n: dist_mat[n].max() + dist_mat.loc[n, x.root[0]],
         reverse=True,
     )
 
@@ -1868,7 +1868,8 @@ def node_label_sorting(
         else:
             new_points = sorted(
                 list(x.simple.graph.predecessors(nodes_walked[-1])),
-                key=lambda n: dist_mat[n].max(),
+                # Use distance to the farthest terminal + distance to current node as sorting key
+                key=lambda n: dist_mat[n].max() + dist_mat.loc[n, nodes_walked[-1]],
                 reverse=True,
             )
             curr_points = new_points + curr_points
