@@ -160,6 +160,7 @@ class PlotlySettings(BasePlottingSettings):
     volume_legend: bool = False
     width: Optional[int] = None
     height: Optional[int] = 600
+    linewidth: float = 3  # for plotly, linewidth 1 is too thin
 
 
 @dataclass
