@@ -807,20 +807,10 @@ def _plot_connectors(neuron, color, ax, settings):
 
 def _plot_mesh(neuron, color, ax, settings):
     """Plot mesh (i.e. MeshNeuron)."""
-    # Add alpha
-    if settings.alpha is not None:
-        if isinstance(color, tuple) and len(color) in (3, 4):
-            color = (color[0], color[1], color[2], settings.alpha)
-        elif isinstance(color, np.ndarray):
-            if color.ndim == 2:
-                color[:, 3] = settings.alpha
-            else:
-                color = (color[0], color[1], color[2], settings.alpha)
-
     # Map vertex colors to faces (if need be)
     if isinstance(color, np.ndarray) and color.ndim == 2:
         if len(color) != len(neuron.faces) and len(color) == len(neuron.vertices):
-            color = np.array([color[f].mean(axis=0)[:3].tolist() for f in neuron.faces])
+            color = np.array([color[f].mean(axis=0)[:4].tolist() for f in neuron.faces])
 
     ts = None
     if settings.method == "2d":
@@ -839,7 +829,7 @@ def _plot_mesh(neuron, color, ax, settings):
         if settings.depth_coloring:
             pc.set_cmap(DEPTH_CMAP)
             pc.set_norm(settings.norm)
-            pc.set_alpha(settings.alpha)
+            pc.set_alpha(settings.alpha if isinstance(settings.alpha, float) else None)
 
             # Get face centers
             if hasattr(neuron, "trimesh"):
@@ -1000,7 +990,6 @@ def _plot_skeleton(neuron, color, ax, settings):
                 y,
                 lw=settings.linewidth,
                 ls=settings.linestyle,
-                alpha=settings.alpha,
                 color=color,
                 rasterized=settings.rasterize,
                 label=f'{getattr(neuron, "name", "NA")} - #{neuron.id}',
@@ -1023,7 +1012,6 @@ def _plot_skeleton(neuron, color, ax, settings):
             lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
 
             if settings.depth_coloring:
-                lc.set_alpha(settings.alpha)
                 lc.set_array(
                     neuron.nodes.loc[neuron.nodes.parent_id >= 0][
                         ["x", "y", "z"]
@@ -1066,7 +1054,6 @@ def _plot_skeleton(neuron, color, ax, settings):
                 c = mpatches.Circle(
                     (sx[0], sy[0]),
                     radius=r,
-                    alpha=settings.alpha,
                     fill=True,
                     fc=soma_color,
                     rasterized=settings.rasterize,
@@ -1097,7 +1084,6 @@ def _plot_skeleton(neuron, color, ax, settings):
                 coords,
                 color=line_color if not settings.depth_coloring else None,
                 label=neuron.id,
-                alpha=settings.alpha,
                 cmap=DEPTH_CMAP if settings.depth_coloring else None,
                 lw=settings.linewidth,
                 joinstyle="round",
@@ -1120,7 +1106,6 @@ def _plot_skeleton(neuron, color, ax, settings):
                     [c],
                     color=color,
                     lw=settings.linewidth,
-                    alpha=settings.alpha,
                     rasterized=settings.rasterize,
                     linestyle=settings.linestyle,
                 )
@@ -1167,7 +1152,6 @@ def _plot_skeleton(neuron, color, ax, settings):
                         color=soma_color,
                         shade=settings.mesh_shade,
                         rasterized=settings.rasterize,
-                        alpha=settings.alpha,
                     )
                     if settings.group_neurons:
                         surf.set_gid(neuron.id)
