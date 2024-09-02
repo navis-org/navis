@@ -135,7 +135,7 @@ class Viewer:
         # Update some defaults as necessary
         defaults = dict(keys=None,
                         show=True,
-                        title='navis Viewer',
+                        title='Vispy Viewer',
                         bgcolor='black')
         defaults.update(kwargs)
 
