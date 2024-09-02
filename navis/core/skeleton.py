@@ -489,8 +489,13 @@ class TreeNeuron(BaseNeuron):
     def simple(self) -> 'TreeNeuron':
         """Simplified representation consisting only of root, branch points and leafs."""
         if not hasattr(self, '_simple'):
-            self._simple = self.downsample(float('inf'),
-                                           inplace=False)
+            self._simple = self.copy()
+
+            # Make sure we don't have a soma, otherwise that node will be preserved
+            self._simple.soma = None
+
+            # Downsample
+            self._simple.downsample(float('inf'), inplace=True)
         return self._simple
 
     @property
