@@ -582,6 +582,7 @@ def plot2d(
     # these are currently ignored by matplotlib's built-in autoscaling.
     if settings.autoscale:
         ax.autoscale(tight=False)  # tight=False avoids clipping the neurons
+        ax.set_aspect('equal', adjustable='box')  # this is apparently still required
 
         if "3d" in settings.method:
             update_axes3d_bounds(ax)
