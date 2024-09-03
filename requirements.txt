@@ -73,3 +73,16 @@ pytest-env
 pytest-xvfb
 pytest-timeout
 gitpython
+
+#extra: docs
+
+mkdocs
+mkdocs-material
+mkdocs-gen-files
+mkdocstrings
+mkdocs-glightbox
+mkdocs-gallery
+markdown-exec
+mkdocs-section-index
+mkdocs-literate-nav
+mkdocs-minify-plugin
