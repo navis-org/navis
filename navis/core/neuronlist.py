@@ -853,6 +853,24 @@ class NeuronList:
                 register=register
                 )
 
+    def get_neuron_attributes(self, *args, **kwargs):
+        """Get attributes of neurons contained in the NeuronList.
+
+        Parameters
+        ----------
+        name :      str
+                    Name of the property to get.
+        default :   any, optional
+                    Default value to return if attribute is not found.
+
+        Returns
+        -------
+        np.ndarray
+                    Array of values for the requested attribute.
+
+        """
+        return np.array([getattr(n, *args, **kwargs) for n in self.neurons])
+
     def set_neuron_attributes(self, x, name, register=False, na='raise'):
         """Set attributes of neurons contained in the NeuronList.
 
