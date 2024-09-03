@@ -78,7 +78,7 @@ def plot_flat(
                             be installed. For the 'fdp' and 'neato' it is highly
                             recommended to downsample the neuron first.
     connectors :            bool
-                            If True and neuron has connectors, will plot
+                            If True (and neuron actually has connectors), will plot
                             connectors.
     highlight_connectors :  list of connector IDs, optional
                             Will highlight these connector IDs.

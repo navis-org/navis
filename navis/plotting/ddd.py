@@ -155,7 +155,7 @@ def plot3d(
                       property which defaults to the "radius" column for
                       `TreeNeurons`.
 
-    linewidth :       float, default=1
+    linewidth :       float, default=3 for plotly and 1 for all others
 
                       TreeNeurons only.
 
@@ -293,24 +293,24 @@ def plot3d(
     --------
     >>> import navis
 
-    In a Jupyter notebook using plotly as backend.
+    In a Jupyter notebook using plotly as backend:
 
-    >>> import plotly.offline
     >>> nl = navis.example_neurons()
     >>> # Backend is automatically chosen but we can set it explicitly
     >>> # Plot inline
     >>> nl.plot3d(backend='plotly')                             # doctest: +SKIP
     >>> # Plot as separate html in a new window
     >>> fig = nl.plot3d(backend='plotly', inline=False)
+    >>> import plotly.offline
     >>> _ = plotly.offline.plot(fig)                            # doctest: +SKIP
 
-    In a Jupyter notebook using k3d as backend.
+    In a Jupyter notebook using k3d as backend:
 
     >>> nl = navis.example_neurons()
     >>> # Plot inline
     >>> nl.plot3d(backend='k3d')                                # doctest: +SKIP
 
-    In a terminal using octarine as backend.
+    In a terminal using octarine as backend:
 
     >>> # Plot list of neurons
     >>> nl = navis.example_neurons()
