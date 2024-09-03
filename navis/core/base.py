@@ -327,6 +327,10 @@ class BaseNeuron(UnitObject):
 
     def _clear_temp_attr(self, exclude: list = []) -> None:
         """Clear temporary attributes."""
+        if self.is_locked:
+            logger.debug(f"Neuron {self.id} at {hex(id(self))} locked.")
+            return
+
         # Must set checksum before recalculating e.g. node types
         # -> otherwise we run into a recursive loop
         self._current_md5 = self.core_md5
