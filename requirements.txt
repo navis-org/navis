@@ -86,3 +86,5 @@ markdown-exec
 mkdocs-section-index
 mkdocs-literate-nav
 mkdocs-minify-plugin
+mkdocs-autorefs
+mkdocs-macros-plugin
