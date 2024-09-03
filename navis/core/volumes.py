@@ -495,17 +495,17 @@ class Volume(UnitObject, trimesh.Trimesh):
             return v
 
     def plot3d(self, **kwargs):
-        """Plot volume using :func:`navis.plot3d`.
+        """Plot volume using [`navis.plot3d`][].
 
         Parameters
         ----------
         **kwargs
-                Keyword arguments. Will be passed to :func:`navis.plot3d`.
+                Keyword arguments. Will be passed to [`navis.plot3d`][].
                 See `help(navis.plot3d)` for a list of keywords.
 
         See Also
         --------
-        :func:`navis.plot3d`
+        [`navis.plot3d`][]
                     Function called to generate 3d plot.
 
         Examples
