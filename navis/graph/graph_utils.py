@@ -47,6 +47,7 @@ __all__ = sorted(
         "insert_nodes",
         "remove_nodes",
         "dist_to_root",
+        "skeleton_adjacency_matrix",
     ]
 )
 
@@ -699,6 +700,63 @@ def distal_to(
         # Return boolean
         return df
 
+def skeleton_adjacency_matrix(
+    x: "core.NeuronObject",
+    sort: bool = True
+    ) -> pd.DataFrame:
+    """Generate adjacency matrix for a skeleton.
+
+    Parameters
+    ----------
+    x :         TreeNeuron
+                Neuron for which to generate adjacency matrix.
+    sort :      bool, optional
+                If True, will sort the adjacency matrix by topology.
+
+    Returns
+    -------
+    pd.DataFrame
+                Adjacency matrix where rows are nodes and columns are
+                their parents.
+
+    See Also
+    --------
+    [`navis.geodesic_matrix`][]
+        For distances between all points.
+    [`navis.distal_to`][]
+        Check if a node A is distal to node B.
+    [`navis.dist_between`][]
+        Get point-to-point geodesic ("along-the-arbor") distances.
+
+    """
+    if isinstance(x, core.NeuronList):
+        if len(x) == 1:
+            x = x[0]
+        else:
+            raise ValueError("Cannot process more than a single neuron.")
+    elif not isinstance(x, (core.TreeNeuron, )):
+        raise ValueError(f'Unable to process data of type "{type(x)}"')
+
+    # Generate the empty adjacency matrix
+    adj = pd.DataFrame(
+        np.zeros((len(x.nodes), len(x.nodes)), dtype=bool),
+        index=x.nodes.node_id.values,
+        columns=x.nodes.node_id.values,
+    )
+
+    # Fill in the parent-child relationships
+    not_root = x.nodes.parent_id.values >= 0
+    node_ix = np.arange(len(x.nodes))[not_root]
+    parent_ids = x.nodes.parent_id.values[not_root]
+    parent_ix = np.searchsorted(x.nodes.node_id.values, parent_ids)
+    adj.values[node_ix, parent_ix] = True
+
+    if sort:
+        sort = node_label_sorting(x)
+        adj = adj.loc[sort, sort]
+
+    return adj
+
 
 def geodesic_matrix(
     x: "core.NeuronObject",
@@ -741,6 +799,8 @@ def geodesic_matrix(
         Get point-to-point geodesic distances.
     [`navis.dist_to_root`][]
         Distances from all skeleton node to their root(s).
+    [`navis.graph.skeleton_adjacency_matrix`][]
+        Generate adjacency matrix for a skeleton.
 
     Examples
     --------

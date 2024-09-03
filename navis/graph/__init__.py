@@ -21,7 +21,7 @@ from .graph_utils import (classify_nodes, cut_skeleton, longest_neurite,
                           _generate_segments, segment_length,
                           _connected_components, rewire_skeleton,
                           connected_subgraph, insert_nodes, remove_nodes,
-                          dist_to_root)
+                          dist_to_root, skeleton_adjacency_matrix)
 from .clinic import (health_check)
 
 

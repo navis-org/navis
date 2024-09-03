@@ -128,7 +128,7 @@ class TreeNeuron(BaseNeuron):
     #: Temporary attributes that need to be regenerated when data changes.
     TEMP_ATTR = ['_igraph', '_graph_nx', '_segments', '_small_segments',
                  '_geodesic_matrix', 'centrality_method', '_simple',
-                 '_cable_length', '_memory_usage']
+                 '_cable_length', '_memory_usage', '_adjacency_matrix']
 
     #: Attributes used for neuron summary
     SUMMARY_PROPS = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
@@ -289,6 +289,14 @@ class TreeNeuron(BaseNeuron):
             _ = state.pop('_igraph')
 
         return state
+
+    @property
+    @temp_property
+    def adjacency_matrix(self):
+        """Adjacency matrix of the skeleton."""
+        if not hasattr(self, '_adjacency_matrix'):
+            self._adjacency_matrix = graph.skeleton_adjacency_matrix(self)
+        return self._adjacency_matrix
 
     @property
     @requires_nodes
