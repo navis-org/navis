@@ -5,7 +5,7 @@ hide:
   - toc
 ---
 
-![logo](_static/logo_new.png)
+![logo](_static/logo_new_banner.png)
 
 # <span style="color:rgb(255,190,40);font-weight:bold">N</span>euron <span style="color:rgb(255,190,40);font-weight:bold">A</span>nalysis and <span style="color:rgb(255,190,40);font-weight:bold">Vis</span>ualization
 
