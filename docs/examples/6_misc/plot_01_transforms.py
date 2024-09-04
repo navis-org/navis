@@ -66,7 +66,7 @@ navis.transforms.registry.summary()
 # !!! info
 #     Incidentally, the example neurons that {{ navis }} ships with are from the Janelia hemibrain project and are therefore in
 #     `JRCFIB2018raw` space (here "raw" means 8x8x8nm voxel coordinates). We will be using those but there is nothing stopping you
-#     from using the {{ navis }} interface with neuPrint (the tutorials on [interfaces](../../gallery#interface#)) to fetch your
+#     from using the {{ navis }} interface with neuPrint (the tutorials on [interfaces](../#interfaces)) to fetch your
 #     favourite hemibrain neurons and transform those.
 
 # Load the example hemibrain neurons (JRCFIB2018raw space)

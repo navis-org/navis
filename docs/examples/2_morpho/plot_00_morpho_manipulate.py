@@ -4,7 +4,7 @@ Manipulate Morphology
 
 This tutorial will give you an impression of how to process and manipulate your neurons' morphology.
 
-See the [API reference](../../api#) for a complete list of available functions.
+See the [API reference](../../api#neuron-morphology) for a complete list of available functions.
 
 As you might imagine some manipulations (e.g. smoothing or simplification) will work on all/most neuron
 types while others will only work on specific types. For example rerooting only makes sense on a [`navis.TreeNeuron`][].
@@ -42,7 +42,7 @@ navis.reroot_skeleton(n, n.soma, inplace=True)
 #
 # If you work with large lists of neurons you may want to downsample/simplifiy before e.g. trying to plot them. This is one of
 # the things that - in principle work - with all neuron types. The implementation, however, depends on the neuron type. Lookup
-# the respective function's help (e.g. via the [`API`](../../api.md)) for details.
+# the respective function's help (e.g. via the [`API`](../../../api.md)) for details.
 #
 # For [`TreeNeurons`][navis.TreeNeuron] downsampling means skipping N nodes (here 10):
 

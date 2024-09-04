@@ -29,6 +29,9 @@ theme:
     - content.code.annotate
     - navigation.indexes
     - navigation.instant
+    - navigation.instant.progress
+    - navigation.tabs
+    - navigation.tabs.sticky
     - content.code.copy
   #logo: images/icon.png
   # below option would prevents loading typefaces from Google Fonts

@@ -1,13 +1,15 @@
 ---
 icon: material/tools
+hide:
+  - navigation
 ---
 
 ## Installing NAVis
 
-{{ navis }} currently requires Python 3.9 or later. Below instructions assume that
-you have already installed Python and its package manager `pip`.
+{{ navis }} requires Python 3.9 or later. The instructions below assume that
+you have already installed Python and its package manager [`pip`](https://pypi.org/project/pip/).
 
-!!! tip "By the way"
+!!! info "By the way"
 
     You can use NAVis without having to install anything on your local machine!
     Follow this [link](https://colab.research.google.com/github/navis-org/navis/blob/master/examples/colab.ipynb)
@@ -67,11 +69,11 @@ Open up a terminal and install {{ navis }} with:
 
 ## Optional dependencies
 
+If you installed {{ navis }} using the batteries-included `[all]` option, you can ignore this section.
 
-If you installed {{ navis }} using `pip`, mandatory dependencies will have been
-installed automatically. Unless you used the "batteries included" `[all]`
-option, there are a few optional dependencies that e.g. provide
-speed-boosts in certain situations or are required only for certain functions.
+If you opted for the minimal install, you might want to consider adding some of these
+optional dependencies as they e.g. provide speed-boosts in certain situations or
+are for certain functions.
 
 These extras can be installed directly, or along with {{ navis }} with
 
@@ -83,7 +85,7 @@ pip install navis[extra1,extra2]
 The user-facing extras, the dependencies they install, and how to install those dependencies
 directly, are listed below:
 
-=== "Performance"
+??? tip "Performance"
 
     These dependencies aren't strictly necessary but will speed up certain operations:
 
@@ -142,7 +144,7 @@ directly, are listed below:
     pip install open3d pyfqmr
     ```
 
-=== "Visualization"
+??? example "Visualization"
 
     {{ navis }} supports various different backends for 2D and 3D visualization. For 2D visualizations we
     use `matplotlib` by default which is installed automatically. For 3D visualizations, you can use
@@ -218,7 +220,7 @@ directly, are listed below:
     pip install k3d
     ```
 
-=== "Miscellaneous"
+??? question "Miscellaneous"
 
     #### `r`: [Rpy2](https://rpy2.readthedocs.io/en/version_2.8.x/overview.html#installation)
 

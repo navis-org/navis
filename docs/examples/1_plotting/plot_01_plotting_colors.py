@@ -5,7 +5,7 @@ Coloring
 This tutorial demonstrates how to adjust colors in `navis` plots.
 
 By now, you should already have a basic understanding on how to plot neurons in {{ navis }} (2d vs 3d plots, the various
-backends and plotting methods, etc.) - if not, check out the [plotting tutorial](../plot_00_plotting_intro/).
+backends and plotting methods, etc.) - if not, check out the [plotting tutorial](../plot_00_plotting_intro).
 
 In this tutorial we will focus on how to finetune these plots by changing colors :rainbow:. We will demonstrate
 this using `matplotlib` ([`plot2d`][navis.plot2d]) and `plotly` ([`plot3d`][navis.plot3d]) but everything shown here
@@ -28,26 +28,26 @@ nl = navis.example_neurons(3, kind="mesh")
 # %%
 # A single color for all neurons:
 
-navis.plot2d(nl, color="r", view=("x", "-z"))
+navis.plot2d(nl, color="r", view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 # %%
 # A list of colors for each neuron:
 
-navis.plot2d(nl, color=["r", "g", "b"], view=("x", "-z"))
+navis.plot2d(nl, color=["r", "g", "b"], view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 # %%
 # A palette to choose colors from:
 
-navis.plot2d(nl, palette="Greens", view=("x", "-z"))
+navis.plot2d(nl, palette="Greens", view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 # %%
 # A mapping of neuron ID -> color:
 
 colors = dict(zip(nl.id, ["r", "g", "b"]))
-navis.plot2d(nl, color=colors, view=("x", "-z"))
+navis.plot2d(nl, color=colors, view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 # %%
@@ -57,17 +57,36 @@ plt.tight_layout()
 #  - hex codes (e.g. "#FF0000", "#00FF00", "#0000FF")
 #  - RGB or RGBA tuples (e.g. `(1, 0, 0)` for red)
 
-# %%
 # Provide a list of 3 colors - one for each neuron - in various formats:
-
-navis.plot2d(nl, color=["red", "#FF0000", (0, 0, 0)], view=("x", "-z"))
+navis.plot2d(nl, color=["red", "#FF0000", (0, 0, 0)], view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 # %%
-# ## Color by Labels
+# What if you want to color neurons by some categorical property - for example their type or brain region?
+# Easy peasy: just use the `color_by` parameter!
+
+# A list with labels, one for each neuron
+types = ["typeA", "typeB", "typeA"]
+
+navis.plot2d(nl, color_by=types, palette="tab10", view=("x", "-z"), method="2d")
+plt.tight_layout()
+
+# %%
+# {{ navis }} automatically assigns a color to each unique label using the provided palette.
+# You can also provide a dictionary to manually set the colors:
+
+palette = {"typeA": "red", "typeB": "blue"}
+
+navis.plot2d(nl, color_by=types, palette=palette, view=("x", "-z"), method="2d")
+plt.tight_layout()
+
+# %%
+# ## Coloring Neurites
 #
-# What if you want to color a neuron by some categorical property, for example make it's axon red and it's dendrites blue?
-# Easy peasy!
+# So far so good but what if you want to color the neurites of an individual neuron? For example make its axon red and its dendrites blue?
+# Also easy peasy: `color_by` can also be used to color nodes/vertices!
+#
+# ### By Labels
 
 n = navis.example_neurons(1, kind="skeleton")
 
@@ -79,21 +98,21 @@ n.nodes.head()
 # %%
 # Now we can color the neuron based on the "compartment" label:
 
-navis.plot2d(n, color_by="compartment", palette="tab10", view=("x", "-z"))
+navis.plot2d(n, color_by="compartment", palette="tab10", view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 # %%
 # We can also set the colors manually:
 
 colors = {"axon": "coral", "dendrite": "cyan", "linker": "limegreen"}
-navis.plot2d(n, color_by="compartment", palette=colors, view=("x", "-z"))
+navis.plot2d(n, color_by="compartment", palette=colors, view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 
 # %%
-# ## Color by Values
+# ### By Values
 #
-# You can also color neurons based on some numerical value. This is especially useful for things like Strahler index, branch order, etc.
+# You can also color neurites based on some numerical value. This is especially useful for things like Strahler index, branch order, etc.
 #
 # Coloring by e.g. Strahler index:
 
@@ -107,14 +126,16 @@ n.nodes.head()
 # %%
 # Plot with color based on Strahler index:
 
-navis.plot2d(n, color_by="strahler_index", palette="viridis", view=("x", "-z"))
+navis.plot2d(
+    n, color_by="strahler_index", palette="viridis", view=("x", "-z"), method="2d"
+)
 plt.tight_layout()
 
 # %%
 # !!! note
 #     You can use the `vmin` and `vmax` parameters to control the normalization of the color scale.
 #
-# This also works with [`MeshNeurons`][navis.MeshNeuron]. Here, we have to provide a label for each vertex in the mesh:
+# All of this also works with [`MeshNeurons`][navis.MeshNeuron]. Here, we have to provide a label for each vertex in the mesh:
 
 m = navis.example_neurons(1, kind="mesh")
 navis.strahler_index(m)
@@ -138,13 +159,13 @@ navis.plot3d(m, color_by="strahler_index", palette="viridis")
 # You can also control the opacity of the neurons. This is especially useful when plotting multiple neurons on top of each other:
 
 # A single opacity for all neurons
-navis.plot2d(nl, alpha=0.25, view=("x", "-z"))
+navis.plot2d(nl, alpha=0.25, view=("x", "-z"), method='2d')
 plt.tight_layout()
 
 # %%
 
 # A list of alpha values, one for each neuron
-navis.plot2d(nl, color="k", alpha=[1, 0.2, 0.2], view=("x", "-z"))
+navis.plot2d(nl, color="k", alpha=[1, 0.2, 0.2], view=("x", "-z"), method='2d')
 plt.tight_layout()
 
 # %%
@@ -161,13 +182,18 @@ n.nodes.head()
 # %%
 
 # Plot with shading based on distance from the soma:
-navis.plot2d(n, shade_by="root_dist", view=("x", "-z"))
+navis.plot2d(n, shade_by="root_dist", view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 # %%
-# We can combine `color_by` and `shade_by` to color and shade the neuron at the same time:
+# We can combine `color_by` and `shade_by` to color _and_ shade the neuron at the same time:
 
 navis.plot2d(
-    n, color_by="root_dist", palette="viridis", shade_by="root_dist", view=("x", "-z")
+    n,
+    color_by="root_dist",
+    palette="viridis",
+    shade_by="root_dist",
+    view=("x", "-z"),
+    method="2d",
 )
 plt.tight_layout()

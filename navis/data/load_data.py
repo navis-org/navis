@@ -74,7 +74,7 @@ def example_neurons(n: Optional[int] = None,
                 example neurons. Can never return more than the maximum number
                 of available example neurons.
     kind :      "skeleton" | "mesh" | "mix"
-                Example neurons What kind of neurons to return.
+                What kind of neurons to return.
     synapses :  bool,
                 If True, will also load synapses.
     source :    'swc' | 'gml', optional

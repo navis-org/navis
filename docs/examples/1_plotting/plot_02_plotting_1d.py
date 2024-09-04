@@ -35,7 +35,7 @@ plt.tight_layout()
 #
 # Here's a simple example to illustrate this:
 #
-# ![barcode](../../../../_static/barcode.png)
+# ![barcode](../../../_static/barcode.png)
 
 # %%
 #

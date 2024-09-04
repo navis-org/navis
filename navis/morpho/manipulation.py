@@ -689,10 +689,10 @@ def split_axon_dendrite(x: NeuronObject,
                      allowed_values=('soma', 'root', False))
 
     if metric == 'flow_centrality':
-        msg = ("As of navis version 1.4.0 `method='flow_centrality'` "
+        msg = ("As of navis version 1.4.0, `method='flow_centrality'` "
                "uses synapse-independent, morphology-only flow to generate splits."
                "Please use `method='synapse_flow_centrality' for "
-               "synapse-based axon-dendrite splits.  "
+               "synapse-based axon-dendrite splits. "
                "This warning will be removed in a future version of navis.")
         warnings.warn(msg, DeprecationWarning)
         logger.warning(msg)

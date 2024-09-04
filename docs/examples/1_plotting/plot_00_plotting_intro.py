@@ -30,7 +30,7 @@ If you ran a minimal install (`pip install navis`) you may need to install the b
 
 !!! note
 
-    The plots in this tutorial are optimized for light-mode. If you are using dark-mode, you may not see some details.
+    The plots in this tutorial are optimized for light-mode. If you are using dark-mode, you may have trouble seeing e.g. axis or labels.
 
 ## 2D plots
 
@@ -51,6 +51,7 @@ nl = navis.example_neurons(kind="skeleton")
 
 # Plot using default settings
 fig, ax = navis.plot2d(nl, view=("x", "-z"), method="2d")
+plt.tight_layout()
 
 # %%
 # !!! note
@@ -63,6 +64,7 @@ fig, ax = navis.plot2d(nl, view=("x", "-z"), method="2d")
 
 # Plot settings for more complex scenes - comes at a small performance cut though
 fig, ax = navis.plot2d(nl, method="3d_complex", view=("x", "-z"))
+plt.tight_layout()
 
 # %%
 # Looks better now, doesn't it? Now what if we wanted to adjust the perspective? For 3d axes, `matplotlib` lets
@@ -79,6 +81,8 @@ fig, ax = nl.plot2d(method="3d_complex", view=("x", "-z"), non_view_axes3d="show
 ax.elev = -20
 ax.azim = 45
 ax.roll = 180
+
+plt.tight_layout()
 
 # %%
 # !!! note
@@ -98,7 +102,7 @@ ax.roll = 180
 #    plt.savefig('frame_{0}.png'.format(i), dpi=200)
 # ```
 #
-# ![rotation](../../../../_static/rotation.gif)
+# ![rotation](../../../_static/rotation.gif)
 
 # %%
 # ## 3D plots
@@ -173,13 +177,13 @@ ax.roll = 180
 #     nl = navis.example_neurons()
 #     viewer = navis.plot3d(nl, backend='octarine')
 #     ```
-#     ![octarine](../../../../_static/octarine_viewer.png)
+#     ![octarine](../../../_static/octarine_viewer.png)
 # === "Vispy"
 #     ```python
 #     nl = navis.example_neurons()
 #     viewer = navis.plot3d(nl, backend='vispy')
 #     ```
-#     ![vispy](../../../../_static/vispy_viewer.png)
+#     ![vispy](../../../_static/vispy_viewer.png)
 #
 # !!! important
 #     If you are using Octarine/Vispy from Jupyter, we may have to explicitly call the `viewer.show()` method *in the last line of the cell*
@@ -237,7 +241,7 @@ ax.roll = 180
 p = navis.plot3d(nl, backend="k3d")
 
 # %%
-# ![k3d](../../../../_static/k3d_viewer.png)
+# ![k3d](../../../_static/k3d_viewer.png)
 #
 # ### Plotly
 #
@@ -274,14 +278,14 @@ navis.plot3d(nl, backend="plotly", connectors=False)
 #
 # !!! note "Camera rotation"
 #     If the camera rotation using plotly causes problems, try clicking on the "Orbital rotation" in the upper right tool bar.
-#     ![plotly orbital](../../../../_static/plotly_orbital.png)
+#     ![plotly orbital](../../../_static/plotly_orbital.png)
 #
 # %%
 # ## High-quality renderings
 #
 # Above we demo'ed making a little GIF using matplotlib. While that's certainly fun, it's not
 # very high production value. For high quality videos and renderings I recommend you check out
-# the tutorial on navis' [Blender interface](blender3d). Here's a little taster:
+# the tutorial on navis' [Blender interface](../3_interfaces/plot_01_interfaces.blender). Here's a little taster:
 #
 #  <iframe width="560" height="315" src="https://www.youtube.com/embed/wl3sFG7WQJc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 #

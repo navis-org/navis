@@ -108,7 +108,7 @@ T = TypeVar("T")
 
 
 class LookupNdBuilder:
-    f"""Class for building an N-dimensional score lookup (for e.g. NBLAST).
+    """Class for building an N-dimensional score lookup (for e.g. NBLAST).
 
     Once instantiated, the axes of the lookup table must be defined.
     Call `.with_digitizers()` to manually define them, or
@@ -594,7 +594,7 @@ def dist_dot_alpha(q: "core.Dotprops", t: "core.Dotprops"):
 
 
 class LookupDistDotBuilder(LookupNdBuilder):
-    f"""Class for building a 2-dimensional score lookup for NBLAST.
+    """Class for building a 2-dimensional score lookup for NBLAST.
 
     The scores are
 
@@ -1022,7 +1022,7 @@ class Lookup2d(LookupNd):
 
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame):
-        f"""Parse score matrix from a dataframe with string index and column labels.
+        """Parse score matrix from a dataframe with string index and column labels.
 
         Expects the index and column labels to specify an interval
         like `f"[{{lower}},{{upper}})"`.

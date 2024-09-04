@@ -1,5 +1,8 @@
 ---
 icon: material/home
+hide:
+  - navigation
+  - toc
 ---
 
 ![logo](_static/logo_new.png)
@@ -21,81 +24,83 @@ morphology. It stands on the shoulders of the excellent
 
 <div class="grid cards" markdown>
 
--   :material-progress-wrench:{ .lg .middle } __Polgyglot__
+-   :simple-databricks:{ .lg .middle } __Polgyglot__
 
     ---
 
-    We support all kinds of neuron data: skeletons, meshes, dotprops, (confocal) images.
+    Support for all kinds of [neuron types](generated/gallery/plot_01_neurons_intro): skeletons, meshes, dotprops and images.
 
--   :material-progress-wrench:{ .lg .middle } __Interactive__
+-   :material-eye:{ .lg .middle } __Exploration__
 
     ---
 
     Designed to let you explore your data interactively from Jupyter notebooks,
     terminal or via scripts.
 
--   :material-progress-wrench:{ .lg .middle } __Analysis__
+-   :fontawesome-solid-circle-notch:{ .lg .middle } __Analysis__
 
     ---
 
-    Calculate Strahler indices, cable length, volume, tortuosity and other morphometrics.
-    Run NBLASTs and other
+    Calculate Strahler indices, cable length, volume, tortuosity, NBLAST
+    and many other [morphometrics](generated/gallery/2_morpho/plot_01_morpho_analyze).
 
--   :material-progress-wrench:{ .lg .middle } __Visualization__
+-   :fontawesome-solid-brush:{ .lg .middle } __Visualization__
 
     ---
 
     Generate beautiful publication-ready 2D (matplotlib) and 3D (octarine,
-    vispy or plotly) figures.
+    vispy or plotly) [figures](generated/gallery/#plotting).
 
 -   :material-progress-wrench:{ .lg .middle } __Processing__
 
     ---
 
-    Smoothing, resampling, skeletonization, meshing and more!
+    Smoothing, resampling, skeletonization, meshing and [more](api.md#neuron-morphology)!
 
--   :material-progress-wrench:{ .lg .middle } __Fast__
-
-    ---
-
-    Scalable thanks to out-of-the-box support for multiprocessing.
-
--   :material-progress-wrench:{ .lg .middle } __Clustering__
+-   :fontawesome-solid-computer:{ .lg .middle } __Fast__
 
     ---
 
-    Cluster your neurons by e.g. morphology using NBLAST.
+    Uses compiled Rust code under-the-hood. Also scale thanks to
+    out-of-the-box support for [multiprocessing](generated/gallery/6_misc/plot_00_misc_multiprocess).
 
--   :material-progress-wrench:{ .lg .middle } __Transform__
+-   :material-lightbulb-group:{ .lg .middle } __Clustering__
 
     ---
 
-    Fully featured transform system to move neurons between brain spaces.
+    Cluster your neurons by e.g. morphology using [NBLAST](generated/gallery/5_nblast/plot_00_nblast_intro).
+
+-   :material-move-resize:{ .lg .middle } __Transforms__
+
+    ---
+
+    Fully featured [transform system](generated/gallery/5_transforms/plot_00_transforms) to move neurons between brain spaces.
     We support e.g. CMTK or Elastix.
 
--   :material-progress-wrench:{ .lg .middle } __Import/Export__
+-   :octicons-file-directory-symlink-24:{ .lg .middle } __Import/Export__
 
     ---
 
     Read and write from/to SWC, NRRD, Neuroglancer's precomputed format,
-    OBJ, STL and more!
+    OBJ, STL and [more](generated/gallery/#import-export)!
 
--   :material-progress-wrench:{ .lg .middle } __Online__
-
-    ---
-
-    Download neurons straight from Allen's
-    [MICrONS](https://www.microns-explorer.org/) datasets,
-    [neuromorpho](http://neuromorpho.org) or [neuPrint](neuprint_intro.md).
-
--   :material-progress-wrench:{ .lg .middle } __Interfaces__
+-   :octicons-globe-24:{ .lg .middle } __Connected__
 
     ---
 
-    Load neurons into Blender 3D, simulate neurons and networks using
-    NEURON, or use the R natverse library via `rpy2`.
+    Load neurons straight from Allen's
+    [MICrONS](generated/gallery/4_remote/plot_02_remote_microns) datasets,
+    [neuromorpho](http://neuromorpho.org), [neuPrint](generated/gallery/4_remote/plot_00_remote_neuprint)
+    or any NeuroGlancer source.
 
--   :material-progress-wrench:{ .lg .middle } __Extensible__
+-   :material-connection:{ .lg .middle } __Interfaces__
+
+    ---
+
+    Load neurons into [Blender 3D](generated/gallery/3_interfaces/plot_01_interfaces_blender), simulate neurons and networks using
+    [NEURON](generated/gallery/3_interfaces/plot_00_interfaces_neuron), or use the R natverse library via `rpy2`.
+
+-   :material-google-circles-extended:{ .lg .middle } __Extensible__
 
     ---
 

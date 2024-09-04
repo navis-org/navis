@@ -98,7 +98,7 @@ ax.roll = 180
 #    plt.savefig('frame_{0}.png'.format(i), dpi=200)
 # ```
 #
-# ![rotation](../../../../_static/rotation.gif)
+# ![rotation](../../../_static/rotation.gif)
 #
 # You may have noticed that our example neurons `nl` are skeletons but still they look pretty solid in the plots.
 # That's because by default `plot2d` uses their radius (if present) to turn the skeletons into cylinders.
@@ -313,7 +313,7 @@ fig, ax = navis.plot2d(
 # viewer.show()
 # ```
 #
-# ![octarine](../../../../_static/octarine_viewer.png)
+# ![octarine](../../../_static/octarine_viewer.png)
 #
 # A few important notes regarding Octarine:
 #
@@ -355,7 +355,7 @@ fig, ax = navis.plot2d(
 # # If the viewer doesn't appear, try `v.show()`
 # ```
 #
-# ![vispy](../../../../_static/vispy_viewer.png)
+# ![vispy](../../../_static/vispy_viewer.png)
 #
 # The [`navis.Viewer`][] (`viewer` here) has similar functionality to the Octarine viewer - e.g. [`navis.close3d`][]
 # [`navis.clear3d`][] will work too.
@@ -375,7 +375,7 @@ fig, ax = navis.plot2d(
 p = navis.plot3d(nl, backend="k3d")
 
 # %%
-# ![k3d](../../../../_static/k3d_viewer.png)
+# ![k3d](../../../_static/k3d_viewer.png)
 #
 # ## Using plotly
 #

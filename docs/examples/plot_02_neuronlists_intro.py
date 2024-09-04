@@ -31,7 +31,7 @@ nl
 
 import matplotlib.pyplot as plt
 
-navis.plot2d(nl, view=('x', '-z'))
+navis.plot2d(nl, view=('x', '-z'), method='2d')
 plt.tight_layout()
 
 # %%
@@ -206,7 +206,7 @@ nl.idx[1734350908]
 nl[:2] + nl[2:]
 
 # %%
-# This also works on with two single [`navis.TreeNeurons`][]! You can use that to combine them into a list:
+# This also works on with two single [`navis.TreeNeurons`][navis.TreeNeuron]! You can use that to combine them into a list:
 
 # %%
 nl[0] + nl[1]

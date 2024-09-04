@@ -119,7 +119,7 @@ Now initialise the interface with Blender and import the neurons.
 >>> h.add(nl)
 ```
 
-![b3d_screenshot](../../../../_static/b3d_screenshot.jpg)
+![b3d_screenshot](../../../_static/b3d_screenshot.jpg)
 
 
 The interface lets you manipulate neurons in Blender too.

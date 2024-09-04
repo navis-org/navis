@@ -3,7 +3,7 @@ neuPrint
 ========
 
 [NeuPrint](https://www.biorxiv.org/content/10.1101/2020.01.16.909465v1) is a service for presenting and analyzing connectomics data.
-It is used to host the Janelia EM reconstructions from a *Drosophila* hemibrain at <https://neuprint.janelia.org/>.
+It is used to host, for example, the Janelia EM reconstructions from a *Drosophila* hemibrain at <https://neuprint.janelia.org/>.
 
 [neuprint-python](https://github.com/connectome-neuprint/neuprint-python) is a Python library that lets you query data directly
 from a neuPrint server. You can install it from PyPI:
@@ -30,7 +30,7 @@ import navis.interfaces.neuprint as neu
 client = neu.Client(
     "https://neuprint.janelia.org/",
     # token="MYLONGTOKEN"  # use this to instead pass your token directly
-    dataset="hemibrain:v1.1",
+    dataset="hemibrain:v1.2.1",
 )
 
 # %%

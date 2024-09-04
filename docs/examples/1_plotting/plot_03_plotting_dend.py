@@ -1,11 +1,11 @@
 """
-Neurons Topology
-================
+Neuron Topology
+===============
 
 This example demonstrates how to plot neurons' topology using various different layouts.
 
 Skeletons in {{ navis }} are hierarchical trees (hence the name [`TreeNeuron`][navis.TreeNeuron]).
-As such they can be visualized as dendrograms and flat graph-like plots using [`navis.plot_flat`][].
+As such they can be visualized as dendrograms or flat, graph-like plots using [`navis.plot_flat`][].
 This is useful to unravel otherwise complicated, overlapping branching patterns - e.g. when
 you want to show compartments or synapse positions within the neuron. Let's demo some layouts!
 

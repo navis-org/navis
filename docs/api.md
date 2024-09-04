@@ -167,7 +167,7 @@ Methods specific to [`navis.MeshNeuron`][]:
 ### Voxel neurons
 
 [VoxelNeurons][navis.VoxelNeuron] (e.g. from confocal image stacks) are a relatively
-recet addition to navis and the interface might still change.
+recet addition to {{ navis }} and the interface might still change.
 
 These are methods and properties specific to [VoxelNeurons][navis.VoxelNeuron]:
 
@@ -194,7 +194,9 @@ These are methods and properties specific to [Dotprops][navis.Dotprops]:
 | [`Dotprops.to_skeleton()`][navis.Dotprops.to_skeleton] | {{ autosummary("navis.Dotprops.to_skeleton") }} |
 | [`Dotprops.snap()`][navis.Dotprops.snap] | {{ autosummary("navis.Dotprops.snap") }} |
 
-### Conversion
+### Converting between types
+
+These functions will let you convert between neuron types:
 
 | Function | Description |
 |----------|-------------|
@@ -238,7 +240,7 @@ Properties:
 | [`NeuronList.shape`][navis.NeuronList.shape] | {{ autosummary("navis.NeuronList.shape") }} |
 | [`NeuronList.types`][navis.NeuronList.types]| {{ autosummary("navis.NeuronList.types") }} |
 
-Please see the [tutorials](gallery.md) on ``NeuronLists`` for more
+Please see the [tutorial on ``NeuronList``](../generated/gallery/plot_02_neuronlists_intro/) for more
 information, including how to index them.
 
 ## Visualization
@@ -300,7 +302,23 @@ for details about the viewer.
 
 Collection of functions to analyze and manipulate neuronal morphology.
 
-### Manipulation
+### Analyse
+
+Functions to analyze morphology.
+
+| Function | Description |
+|----------|-------------|
+| [`navis.find_main_branchpoint()`][navis.find_main_branchpoint] | {{ autosummary("navis.find_main_branchpoint") }} |
+| [`navis.form_factor()`][navis.form_factor] | {{ autosummary("navis.form_factor") }} |
+| [`navis.persistence_points()`][navis.persistence_points] | {{ autosummary("navis.persistence_points") }} |
+| [`navis.persistence_vectors()`][navis.persistence_vectors] | {{ autosummary("navis.persistence_vectors") }} |
+| [`navis.strahler_index()`][navis.strahler_index] | {{ autosummary("navis.strahler_index") }} |
+| [`navis.segment_analysis()`][navis.segment_analysis] | {{ autosummary("navis.segment_analysis") }} |
+| [`navis.sholl_analysis()`][navis.sholl_analysis] | {{ autosummary("navis.sholl_analysis") }} |
+| [`navis.tortuosity()`][navis.tortuosity] | {{ autosummary("navis.tortuosity") }} |
+| [`navis.betweeness_centrality()`][navis.betweeness_centrality] | {{ autosummary("navis.betweeness_centrality") }} |
+
+### Manipulate
 
 Functions to edit morphology:
 
@@ -340,23 +358,10 @@ Functions to down- or resample neurons.
 | [`navis.downsample_neuron()`][navis.downsample_neuron] | {{ autosummary("navis.downsample_neuron") }} |
 | [`navis.simplify_mesh()`][navis.simplify_mesh] | {{ autosummary("navis.simplify_mesh") }} |
 
-### Morphometrics
 
-Functions to analyze morphology.
+### Comparing morphology
 
-| Function | Description |
-|----------|-------------|
-| [`navis.find_main_branchpoint()`][navis.find_main_branchpoint] | {{ autosummary("navis.find_main_branchpoint") }} |
-| [`navis.form_factor()`][navis.form_factor] | {{ autosummary("navis.form_factor") }} |
-| [`navis.persistence_points()`][navis.persistence_points] | {{ autosummary("navis.persistence_points") }} |
-| [`navis.persistence_vectors()`][navis.persistence_vectors] | {{ autosummary("navis.persistence_vectors") }} |
-| [`navis.strahler_index()`][navis.strahler_index] | {{ autosummary("navis.strahler_index") }} |
-| [`navis.segment_analysis()`][navis.segment_analysis] | {{ autosummary("navis.segment_analysis") }} |
-| [`navis.sholl_analysis()`][navis.sholl_analysis] | {{ autosummary("navis.sholl_analysis") }} |
-| [`navis.tortuosity()`][navis.tortuosity] | {{ autosummary("navis.tortuosity") }} |
-| [`navis.betweeness_centrality()`][navis.betweeness_centrality] | {{ autosummary("navis.betweeness_centrality") }} |
-
-#### Comparing morphology
+NBLAST and related functions:
 
 | Module | Description |
 |--------|-------------|
@@ -368,7 +373,7 @@ Functions to analyze morphology.
 | [`navis.synblast`][navis.synblast] | {{ autosummary("navis.synblast") }} |
 | [`navis.persistence_distances`][navis.persistence_distances] | {{ autosummary("navis.persistence_distances") }} |
 
-Utilities for creating your own score matrices for NBLAST can be found in
+#### Utilities for creating your own score matrices for NBLAST:
 
 | Function | Description |
 |----------|-------------|
@@ -385,7 +390,6 @@ Utilities for creating your own score matrices for NBLAST can be found in
 | [`navis.nbl.compress_scores()`][navis.nbl.compress_scores] | {{ autosummary("navis.nbl.compress_scores") }} |
 | [`navis.nbl.extract_matches()`][navis.nbl.extract_matches] | {{ autosummary("navis.nbl.extract_matches") }} |
 | [`navis.nbl.nblast_prime()`][navis.nbl.nblast_prime] | {{ autosummary("navis.nbl.nblast_prime") }} |
-
 
 ### Polarity metrics
 
@@ -424,7 +428,7 @@ like to know which part of a neuron is inside a certain brain region.
 ## Transforming and Mirroring
 
 Functions to transform spatial data, e.g. move neurons from one brain space to
-another. Check out the [tutorials](gallery.md) for examples on how to
+another. Check out the [tutorials](../generated/gallery/6_misc/plot_01_transforms/) for examples on how to
 use them.
 
 High-level functions:
@@ -527,28 +531,33 @@ Functions to analyse/cluster neurons based on connectivity.
 
 ## Import/Export
 
-Functions to import/export neurons.
+Functions to import neurons.
 
 | Function | Description |
 |----------|-------------|
 | [`navis.read_swc()`][navis.read_swc] | {{ autosummary("navis.read_swc") }} |
-| [`navis.write_swc()`][navis.write_swc] | {{ autosummary("navis.write_swc") }} |
 | [`navis.read_nrrd()`][navis.read_nrrd] | {{ autosummary("navis.read_nrrd") }} |
-| [`navis.write_nrrd()`][navis.write_nrrd] | {{ autosummary("navis.write_nrrd") }} |
 | [`navis.read_mesh()`][navis.read_mesh] | {{ autosummary("navis.read_mesh") }} |
-| [`navis.write_mesh()`][navis.write_mesh] | {{ autosummary("navis.write_mesh") }} |
 | [`navis.read_tiff()`][navis.read_tiff] | {{ autosummary("navis.read_tiff") }} |
 | [`navis.read_nmx()`][navis.read_nmx] | {{ autosummary("navis.read_nmx") }} |
 | [`navis.read_nml()`][navis.read_nml] | {{ autosummary("navis.read_nml") }} |
 | [`navis.read_rda()`][navis.read_rda] | {{ autosummary("navis.read_rda") }} |
 | [`navis.read_json()`][navis.read_json] | {{ autosummary("navis.read_json") }} |
-| [`navis.write_json()`][navis.write_json] | {{ autosummary("navis.write_json") }} |
-| [`navis.write_precomputed()`][navis.write_precomputed] | {{ autosummary("navis.write_precomputed") }} |
 | [`navis.read_precomputed()`][navis.read_precomputed] | {{ autosummary("navis.read_precomputed") }} |
 | [`navis.read_parquet()`][navis.read_parquet] | {{ autosummary("navis.read_parquet") }} |
-| [`navis.write_parquet()`][navis.write_parquet] | {{ autosummary("navis.write_parquet") }} |
 | [`navis.scan_parquet()`][navis.scan_parquet] | {{ autosummary("navis.scan_parquet") }} |
 
+
+Functions to export neurons.
+
+| Function | Description |
+|----------|-------------|
+| [`navis.write_swc()`][navis.write_swc] | {{ autosummary("navis.write_swc") }} |
+| [`navis.write_nrrd()`][navis.write_nrrd] | {{ autosummary("navis.write_nrrd") }} |
+| [`navis.write_mesh()`][navis.write_mesh] | {{ autosummary("navis.write_mesh") }} |
+| [`navis.write_json()`][navis.write_json] | {{ autosummary("navis.write_json") }} |
+| [`navis.write_precomputed()`][navis.write_precomputed] | {{ autosummary("navis.write_precomputed") }} |
+| [`navis.write_parquet()`][navis.write_parquet] | {{ autosummary("navis.write_parquet") }} |
 
 ## Utility
 
@@ -567,7 +576,7 @@ Various utility functions.
 
 ## Network Models
 
-Navis comes with a simple network traversal model (see [Schlegel, Bates et al., 2021](https://elifesciences.org/articles/66018)).
+{{ navis }} comes with a simple network traversal model (see [Schlegel, Bates et al., 2021](https://elifesciences.org/articles/66018)).
 
 Not imported at top level! Must be imported explicitly:
 
@@ -590,7 +599,7 @@ imported explicitly as they are not imported at top level.
 ### NEURON simulator
 
 Functions to facilitate creating models of neurons/networks. Please see
-the [tutorials](generated/gallery) for examples.
+the [tutorials](../generated/gallery/3_interfaces/plot_00_interfaces_neuron/) for examples.
 
 Not imported at top level! Must be imported explicitly:
 
@@ -610,7 +619,7 @@ A single-neuron compartment model is represented by
 
 The [`DrosophilaPN`][navis.interfaces.neuron.comp.DrosophilaPN]  class is a subclass
 of [`CompartmentModel`][navis.interfaces.neuron.comp.CompartmentModel] with
-properties used from Tobin et al.
+pre-defined properties from Tobin et al. (2017).
 
 | Method   | Description |
 |----------|-------------|
@@ -679,7 +688,7 @@ A network of point-processes is represented by [`PointNetwork`][navis.interfaces
 
 ### NeuroMorpho API
 
-Set of functions to grab data from [NeuroMorpho](http://neuromorpho.org) which hosts thousands of neurons (see [tutorials](generated/gallery)).
+Set of functions to grab data from [NeuroMorpho](http://neuromorpho.org) which hosts thousands of neurons (see [tutorials](../generated/gallery/)).
 
 Not imported at top level! Must be imported explicitly:
 
@@ -697,20 +706,20 @@ from navis.interfaces import neuromorpho
 
 ### neuPrint API
 
-NAVis wraps [`neuprint-python`](https://github.com/connectome-neuprint/neuprint-python)
+{{ navis }} wraps [`neuprint-python`](https://github.com/connectome-neuprint/neuprint-python)
 and adds a few navis-specific functions. You must have `neuprint-python` installed for this to work:
 
 ```shell
 pip install neuprint-python -U
 ```
 
-You can then import neuprint from navis like so:
+You can then import neuprint from {{ navis }} like so:
 
 ```python
 from navis.interfaces import neuprint
 ```
 
-These are the additional functions added by navis:
+These are the additional functions added by {{ navis }}:
 
 | Function | Description |
 |----------|-------------|
@@ -718,12 +727,12 @@ These are the additional functions added by navis:
 | [`neuprint.fetch_skeletons()`][navis.interfaces.neuprint.fetch_skeletons] | {{ autosummary("navis.interfaces.neuprint.fetch_skeletons") }} |
 | [`neuprint.fetch_mesh_neuron()`][navis.interfaces.neuprint.fetch_mesh_neuron] | {{ autosummary("navis.interfaces.neuprint.fetch_mesh_neuron") }} |
 
-Please also check out the [tutorials](generated/gallery) for examples of how to fetch and work with data from neuPrint.
+Please also check out the [tutorials](../generated/gallery/4_remote/plot_00_remote_neuprint/) for examples of how to fetch and work with data from neuPrint.
 
 ### InsectBrain DB API
 
 Set of functions to grab data from [InsectBrain](https://www.insectbraindb.org)
-which hosts some neurons and standard brains (see [tutorials](generated/gallery)).
+which hosts some neurons and standard brains (see [tutorials](../generated/gallery/4_remote/plot_03_remote_insect_db/)).
 
 Not imported at top level! Must be imported explicitly:
 
@@ -747,7 +756,7 @@ from navis.interfaces import insectbrain_db
 Functions to be run inside [Blender 3D](https://www.blender.org/) and import
 CATMAID data (see Examples). Please note that this requires Blender >2.8 as
 earlier versions are shipped with older Python versions not supported by {{ navis }}.
-See the [tutorials](generated/gallery) for an introduction of how to use {{ navis }} in
+See the [tutorials](../generated/gallery/3_interfaces/plot_01_interfaces_blender/) for an introduction of how to use {{ navis }} in
 Blender.
 
 Not imported at top level! Must be imported explicitly
@@ -804,7 +813,6 @@ then returns [`ObjectList`][navis.interfaces.blender.ObjectList] which can be us
 | [`blender.ObjectList.unhide()`][navis.interfaces.blender.ObjectList.unhide] | {{ autosummary("navis.interfaces.blender.ObjectList.unhide") }} |
 | [`blender.ObjectList.hide_others()`][navis.interfaces.blender.ObjectList.hide_others] | {{ autosummary("navis.interfaces.blender.ObjectList.hide_others") }} |
 | [`blender.ObjectList.delete()`][navis.interfaces.blender.ObjectList.delete] | {{ autosummary("navis.interfaces.blender.ObjectList.delete") }} |
-| [`blender.ObjectList.to_json()`][navis.interfaces.blender.ObjectList.to_json] | {{ autosummary("navis.interfaces.blender.ObjectList.to_json") }} |
 
 ### Cytoscape API
 
@@ -833,7 +841,7 @@ Requires `caveclient` and `cloud-volume` as additional dependencies:
 pip3 install caveclient cloud-volume -U
 ```
 
-Please see [caveclient's docs](https://caveclient.readthedocs.io) for details on how to retrieve and set credentials.
+Please see [caveclient's docs](https://caveconnectome.github.io/CAVEclient/) for details on how to retrieve and set credentials.
 
 Not imported at top level! Must be imported explicitly
 
@@ -846,7 +854,7 @@ from navis.interfaces import microns
 | [`microns.fetch_neurons()`][navis.interfaces.microns.fetch_neurons] | {{ autosummary("navis.interfaces.microns.fetch_neurons") }} |
 | [`microns.get_somas()`][navis.interfaces.microns.get_somas] | {{ autosummary("navis.interfaces.microns.get_somas") }} |
 
-Please also see the [MICrONS tutorial](microns_tut).
+Please also see the [MICrONS tutorial](../generated/gallery/4_remote/plot_02_remote_microns/).
 
 
 ### R interface
@@ -882,9 +890,9 @@ Conversely, some functionality like "smoothing" makes sense for multiple neuron 
 application is so vastly different between e.g. meshes and skeletons that
 there are specicialized functions for every neuron type.
 
-Below table has an overview for which functions work with which neuron types.
+Below table has an overview for which functions work with which neuron types:
 
-| Description                | TreeNeuron | MeshNeuron | VoxelNeuron | Dotprops |
+|                            | TreeNeuron | MeshNeuron | VoxelNeuron | Dotprops |
 |----------------------------|------------|------------|-------------|----------|
 | `navis.plot2d`             | yes        | yes        | limited     | yes      |
 | `navis.plot3d`             | yes        | yes        | see backend | yes      |
@@ -895,7 +903,7 @@ Below table has an overview for which functions work with which neuron types.
 | smoothing                  | `navis.smooth_skeleton` | `navis.smooth_mesh` | `navis.smooth_voxels` | no |
 | `navis.downsample_neuron`  | yes        | yes        | yes         | yes      |
 | resampling (e.g. `navis.resample_skeleton`) | yes | no |       no | no        |
-| `navis.make_dotprops`      | yes        | yes        | yes         | -        |
+| `navis.make_dotprops`      | yes        | yes        | yes         | yes      |
 | NBLAST (e.g. `navis.nblast`) | no       | no         | no          | yes      |
 | `navis.xform_brain`        | yes        | yes        | yes (slow!) | yes      |
 | `navis.mirror_brain`       | yes        | yes        | no          | yes      |

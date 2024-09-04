@@ -2,7 +2,7 @@
 Analyzing Neuron Morphology
 ===========================
 
-This tutorial will give you an overview of how to analyze neuron morphology. See the [API reference](../../api.md)
+This tutorial will give you an overview of how to analyze neuron morphology. See the [API reference](../../../api.md)
 for a complete list of available functions/methods.
 
 Disclaimer: As you might imagine some properties can be gathered for all/most neuron types while others will only work
@@ -122,7 +122,7 @@ ax.set_yscale("log")
 # %%
 # ## Sholl Analysis
 #
-# For an example of a Sholl analyses, check out the [MICrONS tutorial](../../generated/).
+# For an example of a Sholl analyses, check out the [MICrONS tutorial](../4_remote/plot_02_remote_microns).
 #
 # ## Geodesic Distances
 #

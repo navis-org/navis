@@ -1,8 +1,10 @@
 ---
 icon: simple/keepachangelog
+hide:
+  - navigation
 ---
 
-# Changelog
+# :simple-keepachangelog: Changelog
 
 This is a selection of features added, changes made and bugs fixed with each version.
 For a full list of changes please see the [commits history](https://github.com/navis-org/navis/commits/master) on

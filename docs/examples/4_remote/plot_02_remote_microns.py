@@ -25,7 +25,7 @@ pip install caveclient cloud-volume -U
 
 The first time you run below code, you might have to get and set a client secret. Simply follow the instructions
 in the terminal and when in doubt, check out the section about authentication in the
-[`caveclient` docs](https://caveclient.readthedocs.io/en/latest/guide/authentication.html).
+[`caveclient` docs](https://caveconnectome.github.io/CAVEclient/tutorials/authentication/).
 
 Let's get started:
 """

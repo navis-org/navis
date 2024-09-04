@@ -97,7 +97,7 @@ navis.write_swc(sample, '~/Downloads/mmc2/{neuron.name}.swc@skeletons.zip')
 #
 # ## From NMX files
 #
-# NMX is a xml-based format used e.g. by pyKNOSSOS to store skeletons (+ meta data).
+# NMX is a xml-based format used e.g. by [pyKNOSSOS](https://github.com/adwanner/PyKNOSSOS) to store skeletons plus meta data.
 # {{ navis }} supports reading (but not writing) this format. If you want to follow
 # along download [this dataset](https://doi.org/10.5281/zenodo.58985) by Wanner et al. (2016).
 # Just like the SWCs, I extracted the archive to my downloads folder:
@@ -158,11 +158,11 @@ s
 # %%
 # There are a few other ways to construct a [`navis.TreeNeuron`][] (e.g. using a graph) - see the docstring for details.
 #
-# Also note that all {{ navis }} neurons can be stored to disk using ``pickle`` - see the [pickling tutorial](../plot_03_io_pickle).
+# Also note that all {{ navis }} neurons can be stored to disk using `pickle` - see the [pickling tutorial](../plot_04_io_pickle).
 #
 # Hopefully the above has given you some entry points on how to load your data. See also the [I/O API reference](../../../api.md#importexport).
 #
 # Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`MeshNeurons`][navis.MeshNeuron]
-# (see also the API reference on [neuron conversion](../../../api.md#conversion)).
+# (see also the API reference on [neuron conversion](../../../api.md#converting-between-types)).
 
 

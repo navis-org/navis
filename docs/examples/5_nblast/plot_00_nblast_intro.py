@@ -13,27 +13,27 @@ given query and a given target neuron is determined by:
 
 1. Nearest-neighbor search:
 
-    For each point + tangent vector of the query neuron, find the closest point + tangent vector on the target neuron (a simple
-    nearest-neighbor search using Euclidean distance).
+    For each point + tangent vector $u_{i}$ of the query neuron, find the closest point + tangent vector $v_{i}$ on the target neuron
+    (this is a simple nearest-neighbor search using Euclidean distance).
 
-    ![NBLAST_neuron_comparison](../../../../_static/NBLAST_neuron_comparison.png)
+    ![NBLAST_neuron_comparison](../../../_static/NBLAST_neuron_comparison.png)
 
 2. Calculate a raw score:
 
     The raw score is a `weighted` product from the distance $d_{i}$ between the points in each pair and the absolute dot
     product of the two tangent vectors $| \\vec{u_i} \cdot \\vec{v_i} |$.
 
-    The absolute dot product is used because the orientation of the tangent vectors has no meaning in our data representation.
+    The absolute dot product is used because the orientation of the tangent vectors typically has no meaning in our data representation.
 
     A suitable scoring function $f$ was determined empirically (see the [NBLAST paper](http://flybrain.mrc-lmb.cam.ac.uk/si/nblast/www/paper/))
     and is shipped with {{ navis }} as scoring matrices:
 
-    ![NBLAST_score_mat](../../../../_static/NBLAST_score_mat_inv.png)
+    ![NBLAST_score_mat](../../../_static/NBLAST_score_mat_inv.png)
 
     Importantly, these matrices were created using _Drosophila_ neurons from the [FlyCircuit](http://flycircuit.tw/) light-level dataset which
     are in microns. Consequently, you should make sure your neurons are also in micrometer units for NBLAST! If you are working on non-insect
     neurons you might have to play around with the scaling to improve results. Alternatively, you can also produce your own scoring function
-    (see :ref:`this <smat_intro>` tutorial).
+    (see [this tutorial](../plot_03_nblast_smat)).
 
 3. Produce a per-pair score:
 
@@ -50,14 +50,14 @@ $$
 S(query,target)=\sum_{i=1}^{n}f(d_{i}, |\\vec{u_i} \cdot \\vec{v_i}|)
 $$
 
-!!! important
-    The direction of the comparison matters! Consider two very different neurons - one large, one small - that overlap in space. If the
-    small neuron is the query, you will always find a close-by nearest-neighbour among the many points of the large target neuron.
+!!! important "The direction of the comparison matters!"
+    Consider two very different neurons - one large, one small - that overlap in space. If the small neuron is the query, you will always find
+    a close-by nearest-neighbour among the many points of the large target neuron.
     Consequently, this small :octicons-arrow-right-24: large comparison will produce a decent NBLAST score. By contrast, the other way around
     (large :octicons-arrow-right-24: small) will likely produce a bad NBLAST score because many points in the large neuron are far away from the
-    closest point in the small neuron. In practice, we typically use the mean between those two scores. This is done either by running two NBLASTs
-    (query :octicons-arrow-right-24: target and target :octicons-arrow-right-24: query), or by using the `scores` parameter of the respective
-    NBLAST function.
+    closest point in the small neuron. In practice, we typically use the mean between those forward and the reverse scores. This is done either
+    by running two NBLASTs (query :octicons-arrow-right-24: target and target :octicons-arrow-right-24: query), or by passing e.g. `scores="mean"`
+    to the respective NBLAST function.
 
 ## Running NBLAST
 
@@ -205,7 +205,7 @@ plt.tight_layout()
 # Let's try something more elaborate and pull some hemibrain neurons from [neuPrint](https://neuprint.janelia.org/). For this you need to install the
 # `neuprint-python` package (`pip3 install neuprint-python`), make a neuPrint account and generate/set an authentication token. Sounds complicated
 # but is all pretty painless - see the [neuPrint documentation](https://connectome-neuprint.github.io/neuprint-python/docs/quickstart.html) for details.
-# There is also a separate {{ navis }} tutorial on neuprint [here](../../4_remote/plot_00_remote_neuprint).
+# There is also a separate {{ navis }} tutorial on neuprint [here](../4_remote/plot_00_remote_neuprint).
 #
 # Once that's done we can get started by importing the neuPrint interface from {{ navis }}:
 

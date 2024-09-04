@@ -1,17 +1,18 @@
 ---
 icon: material/rocket-launch
+hide:
+  - navigation
 ---
 
 # Quickstart
 
 This short introduction will show you the basics of how to use {{ navis }}. This is not
-supposed to be comprehensive but rather to give you a flavor of the basic concepts.
+supposed to be comprehensive but rather to give you an idea of the basic concepts.
 For inspiration, explore the [example gallery](../generated/gallery/) and for detailed
 explanations have a look at the [API documentation](api.md).
 
 ## Single Neurons
 
-{{ navis }} lets you import neurons from a variety of local and remote sources.
 For demonstration purposes {{ navis }} comes with a bunch of fruit fly neurons from
 the [Janelia hemibrain](https://neuprint.janelia.org) project:
 
@@ -23,19 +24,20 @@ n
 print(n)  # markdown-exec: hide
 ```
 
-??? example Loading your own neurons
-    Almost all tutorials we will use the example neurons {{ navis }} with (see
-    [`navis.example_neurons`][]). You will obviously want to load your own neuron
-    data. Check out the [I/O Tutorials](../generated/gallery#import-export)!
+!!! example "Loading your own neurons"
+    Almost all tutorials will use the example neurons shipped with {{ navis }} (see
+    [`navis.example_neurons`][] for details).
 
+    You will obviously want to load your own neuron data. {{ navis }} has dedicated
+    functions for that such as [`navis.read_swc`][]. Check out the
+    [I/O Tutorials](../generated/gallery#import-export)!
 
-In above code we loaded one of the example neurons. {{ navis }} represents neurons as
-[`navis.TreeNeuron`][], [`navis.MeshNeuron`][], [`navis.VoxelNeuron`][] or
-[`navis.Dotprops`][] - see the [Neuron Types](../generated/gallery/plot_01_neurons_intro/)
-tutorial for details.
+{{ navis }} represents neurons as [`navis.TreeNeuron`][], [`navis.MeshNeuron`][], [`navis.VoxelNeuron`][] or
+[`navis.Dotprops`][] - see the tutorial on [Neuron Types](../generated/gallery/plot_01_neurons_intro/)
+for details.
 
-In this example we asked for a skeleton, so the neuron returned is a
-[`TreeNeuron`][navis.TreeNeuron]. This class is essentially a wrapper around the actual
+In above code we asked for a skeleton, so the neuron returned is a [`TreeNeuron`][navis.TreeNeuron].
+Like all neuron types, this class is essentially a wrapper around the actual
 neuron data (the node table in case of skeletons) and has some convenient features.
 
 The skeleton's node data is stored as `pandas.DataFrame`:
@@ -47,45 +49,24 @@ print(n.nodes.head()) # markdown-exec: hide
 
 !!! note "Pandas"
     [pandas](https://pandas.pydata.org) is *the* data science library for Python and will help you
-    analyze and visualize your data. *We highly recommend familiarizing yourself with pandas!*
+    analyze and visualize your data. We highly recommend familiarizing yourself with pandas!
     There are plenty of good tutorials out there but pandas' own
     [10 Minutes to pandas](https://pandas.pydata.org/pandas-docs/stable/10min.html) is a good
     place to start.
 
-## Getting Help
+Once you have your neuron loaded in {{ navis }} things are as simple as passing it to
+the function that does what you need:
 
-Lost? Try typing in "`n.`" and hitting tab: most neuron attributes and {{ navis }} functions are accessible
-via autocompletion. If you don't know what a function does, check out the documentation using
-`help()` or via the [API documentation](api.md):
-
-```python exec="on" source="above" result="py" session="quickstart"
-help(navis.TreeNeuron.reroot)
-print(navis.TreeNeuron.reroot.__doc__)  # markdown-exec: hide
+```python exec="on" source="above" result="py" session="quickstart" html="1"
+fig, ax = navis.plot2d(n, view=('x', '-z'), color="coral", method='2d')
+from io import StringIO # markdown-exec: hide
+import matplotlib.pyplot as plt # markdown-exec: hide
+plt.tight_layout() # markdown-exec: hide
+buffer = StringIO() # markdown-exec: hide
+plt.savefig(buffer, format="svg") # markdown-exec: hide
+print(buffer.getvalue()) # markdown-exec: hide
+plt.close() # markdown-exec: hide
 ```
-
-The same obviously works with any `navis.{function}` function such as [`help(navis.plot2d)`][navis.plot2d]!
-
-## Methods vs Functions
-
-{{ navis }} neurons have class methods that serve as shortcuts to main functions.
-
-These code snippets are equivalent:
-
-=== "Full function"
-    ```python
-    import navis
-
-    s = navis.example_neuron(n=1, type='skeleton')
-    ds = navis.downsample_neuron(s, 5)
-    ```
-
-=== "Shortcut"
-    ```python
-    import navis
-
-    s = navis.example_neuron(n=1, type='skeleton')
-    ds = s.downsample(5)
-    ```
 
 ## Lists of Neurons
 
@@ -115,12 +96,49 @@ nl.cable_length
 print(nl.cable_length) # markdown-exec: hide
 ```
 
+Most functions that accept single neurons, also happily work with
+[`NeuronLists`][navis.NeuronList]:
+
+```python exec="on" source="above" result="py" session="quickstart" html="1"
+fig, ax = navis.plot2d(nl, view=('x', '-z'), method='2d')
+from io import StringIO # markdown-exec: hide
+import matplotlib.pyplot as plt # markdown-exec: hide
+plt.tight_layout() # markdown-exec: hide
+buffer = StringIO() # markdown-exec: hide
+plt.savefig(buffer, format="svg") # markdown-exec: hide
+print(buffer.getvalue()) # markdown-exec: hide
+plt.close() # markdown-exec: hide
+```
+
 See the [Lists of Neurons](../generated/gallery/plot_02_neuronlists_intro/)
-tutorial for details.
+tutorial for more information.
+
+## Methods vs Functions
+
+{{ navis }} neurons and neuron lists have methods that serve as shortcuts to main functions.
+
+These code snippets are equivalent:
+
+=== "Full function"
+    ```python
+    import navis
+
+    s = navis.example_neuron(n=1, type='skeleton')
+    ds = navis.downsample_neuron(s, 5)
+    ```
+
+=== "Shortcut"
+    ```python
+    import navis
+
+    s = navis.example_neuron(n=1, type='skeleton')
+    ds = s.downsample(5)
+    # Under the hood, `s.downsample()` calls `navis.downsample_neuron(s)`
+    ```
 
 ## The `inplace` Parameter
 
-You may notice that many {{ navis }} functions that run some operation on neurons have an
+You may notice that many {{ navis }} functions that modify neurons (resampling, pruning, etc.) have an
 `inplace` parameter. This is analogous to `pandas` where `inplace` defines whether we
 modify the original (`inplace=True`) or operate on a copy (`inplace=False`, default).
 
@@ -135,6 +153,28 @@ Downsample the original neuron:
 ```python
 navis.downsample_neuron(neuron, 10, inplace=True)
 ```
+
+Using `inplace=True` can be useful if you work with lots of neurons to avoid making
+unnecessary copies and keeping the memory footprint low!
+
+
+## Getting Help
+
+Feeling a bit lost? No worries! Check out the [Tutorials](../generated/gallery) or browse
+the [API documentation](api.md).
+
+{{ navis }} also supports autocompletion: typing `navis.` and pressing the TAB key should bring
+up a list of available functions. This also works with neuron properties and methods!
+
+If you don't know what a function does, try e.g. `help(navis.plot3d)` or find it in the
+[API documentation](api.md) to get a nicely rendered docstring:
+
+```python exec="on" source="above" result="py" session="quickstart"
+help(navis.prune_twigs)
+print(navis.prune_twigs.__doc__)  # markdown-exec: hide
+```
+
+Note that most functions have helpful `Examples`!
 
 ## What next?
 

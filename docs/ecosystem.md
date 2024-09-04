@@ -7,7 +7,7 @@ icon: material/heart
 {{ navis }} comes with batteries included but is also highly extensible. Here are
 some libraries that are built directly on top of {{ navis }}.
 
-![NAVis ecosystem](_static/navis_ecosystem_dark.png)
+![NAVis ecosystem](_static/navis_ecosystem.png)
 
 ## flybrains
 
