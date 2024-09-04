@@ -50,7 +50,7 @@ jupyter_rfb>=0.4.1
 #extra: octarine-default
 
 octarine3d[all]>=0.2.3
-octarine-navis-plugin>=0.1.0
+octarine-navis-plugin>=0.1.1
 
 #extra: meshes
 
