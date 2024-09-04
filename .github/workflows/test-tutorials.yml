@@ -38,5 +38,5 @@ jobs:
         INSECT_BRAIN_DB_PASSWORD: ${{ secrets.insect_brain_db_password }}
       with:
         run: |
-          NAVIS_PLOT3D_BACKEND="plotly"
+          NAVIS_PLOT3D_BACKEND=plotly
           python tests/test_tutorials.py
