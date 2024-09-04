@@ -61,6 +61,8 @@ pyfqmr
 
 jupyter
 neuprint-python
+caveclient
+cloud-volume
 Shapely>=1.6.0
 
 #extra: dev
