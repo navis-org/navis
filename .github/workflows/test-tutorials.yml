@@ -37,8 +37,10 @@ jobs:
         NEUPRINT_APPLICATION_CREDENTIALS: ${{ secrets.neuprint }}
         INSECT_BRAIN_DB_USER: ${{ secrets.insect_brain_db_user }}
         INSECT_BRAIN_DB_PASSWORD: ${{ secrets.insect_brain_db_password }}
+        CAVE_SECRET: ${{ secrets.cave_secret }}
         NAVIS_PLOT3D_BACKEND: plotly
         QT_QPA_PLATFORM: offscreen
       with:
         run: |
+          python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
           python tests/test_tutorials.py
