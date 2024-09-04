@@ -513,7 +513,7 @@ def plot2d(
             neurons,
             desc="Plot neurons",
             leave=False,
-            disable=config.pbar_hide | len(neurons) < 10,
+            disable=config.pbar_hide | len(neurons) <= 10,
         )
     ):
         if not settings.connectors_only:
@@ -651,7 +651,10 @@ def plot2d(
         set_depth()
 
     if settings.depth_coloring:
-        cmap = DEPTH_CMAP
+        if settings.palette:
+            cmap = plt.get_cmap(settings.palette)
+        else:
+            cmap = DEPTH_CMAP
         if settings.method == "2d" and settings.depth_scale:
             sm = ScalarMappable(norm=settings.norm, cmap=cmap)
             fig.colorbar(sm, ax=ax, fraction=0.075, shrink=0.5, label="Depth")
@@ -876,7 +879,12 @@ def _plot_mesh(neuron, color, ax, settings):
         )
 
         if settings.depth_coloring:
-            pc.set_cmap(DEPTH_CMAP)
+            if settings.palette:
+                cmap = plt.get_cmap(settings.palette)
+            else:
+                cmap = DEPTH_CMAP
+
+            pc.set_cmap(cmap)
             pc.set_norm(settings.norm)
             pc.set_alpha(settings.alpha if isinstance(settings.alpha, float) else None)
 
@@ -905,7 +913,11 @@ def _plot_mesh(neuron, color, ax, settings):
         )
 
         if settings.depth_coloring:
-            ts.set_cmap(DEPTH_CMAP)
+            if settings.palette:
+                cmap = plt.get_cmap(settings.palette)
+            else:
+                cmap = DEPTH_CMAP
+            ts.set_cmap(cmap)
             ts.set_alpha(settings.alpha)
         else:
             ts.set_facecolor(color)
@@ -1045,12 +1057,16 @@ def _plot_skeleton(neuron, color, ax, settings):
             )
             ax.add_line(this_line)
         else:
-            coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
+            if settings.palette:
+                cmap = plt.get_cmap(settings.palette)
+            else:
+                cmap = DEPTH_CMAP
 
+            coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
             xy = _parse_view2d(coords, settings.view)
             lc = LineCollection(
                 xy,
-                cmap=DEPTH_CMAP if settings.depth_coloring else None,
+                cmap=cmap if settings.depth_coloring else None,
                 norm=settings.norm if settings.depth_coloring else None,
                 rasterized=settings.rasterize,
                 joinstyle="round",
@@ -1129,11 +1145,16 @@ def _plot_skeleton(neuron, color, ax, settings):
                 coords = segments_to_coords(neuron, modifier=(1, 1, 1))
                 line_color = color
 
+            if settings.palette:
+                cmap = plt.get_cmap(settings.palette)
+            else:
+                cmap = DEPTH_CMAP
+
             lc = Line3DCollection(
                 coords,
                 color=line_color if not settings.depth_coloring else None,
                 label=neuron.id,
-                cmap=DEPTH_CMAP if settings.depth_coloring else None,
+                cmap=cmap if settings.depth_coloring else None,
                 lw=settings.linewidth,
                 joinstyle="round",
                 rasterized=settings.rasterize,
