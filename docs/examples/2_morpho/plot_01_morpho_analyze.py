@@ -241,7 +241,7 @@ Z = linkage(squareform(m, checks=False), method="ward")
 cm = sns.clustermap(m, cmap="Greys", col_linkage=Z, row_linkage=Z)
 
 cm.ax_heatmap.set_xticks([])
-cm.ax_heatmap.set_yticks([])()
+cm.ax_heatmap.set_yticks([])
 
 # %%
 # As you can see in the heatmap, the dendrites and the axon nicely separate.
