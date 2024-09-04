@@ -292,8 +292,19 @@ def connectors2vispy(neuron, neuron_color, object_id, settings):
     cn_lay = config.default_connector_colors.copy()
     cn_lay.update(settings.cn_layout)
 
+    if isinstance(settings.connectors, (list, np.ndarray, tuple)):
+        connectors = neuron.connectors[neuron.connectors.type.isin(settings.connectors)]
+    elif settings.connectors == 'pre':
+        connectors = neuron.presynapses
+    elif settings.connectors == 'post':
+        connectors = neuron.postsynapses
+    elif isinstance(settings.connectors, str):
+        connectors = neuron.connectors[neuron.connectors.type == settings.connectors]
+    else:
+        connectors = neuron.connectors
+
     visuals = []
-    for j in neuron.connectors.type.unique():
+    for j, this_cn in connectors.groupby('type'):
         if isinstance(settings.cn_colors, dict):
             color = settings.cn_colors.get(
                 j, cn_lay.get(j, {}).get("color", (0.1, 0.1, 0.1))
@@ -306,8 +317,6 @@ def connectors2vispy(neuron, neuron_color, object_id, settings):
             color = cn_lay.get(j, {}).get("color", (0.1, 0.1, 0.1))
 
         color = eval_color(color, color_range=1)
-
-        this_cn = neuron.connectors[neuron.connectors.type == j]
 
         pos = this_cn[["x", "y", "z"]].apply(pd.to_numeric).values
 

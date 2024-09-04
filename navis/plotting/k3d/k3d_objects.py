@@ -153,7 +153,18 @@ def neuron2k3d(x, colormap, settings):
 
         # Add connectors
         if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
-            for j in neuron.connectors.type.unique():
+            if isinstance(settings.connectors, (list, np.ndarray, tuple)):
+                connectors = neuron.connectors[neuron.connectors.type.isin(settings.connectors)]
+            elif settings.connectors == 'pre':
+                connectors = neuron.presynapses
+            elif settings.connectors == 'post':
+                connectors = neuron.postsynapses
+            elif isinstance(settings.connectors, str):
+                connectors = neuron.connectors[neuron.connectors.type == settings.connectors]
+            else:
+                connectors = neuron.connectors
+
+            for j, this_cn in connectors.groupby('type'):
                 if isinstance(settings.cn_colors, dict):
                     c = settings.cn_colors.get(
                         j, cn_lay.get(j, {"color": (10, 10, 10)})["color"]
@@ -167,7 +178,6 @@ def neuron2k3d(x, colormap, settings):
 
                 c = color_to_int(eval_color(c, color_range=255))
 
-                this_cn = neuron.connectors[neuron.connectors.type == j]
                 cn_label = f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}'
 
                 if cn_lay["display"] == "circles" or not isinstance(

@@ -94,10 +94,15 @@ def plot3d(
                       Alpha value for neurons. Overriden if alpha is provided
                       as color specified in `color` has an alpha channel.
 
-    connectors :      bool, default=False
+    connectors :      bool | "presynapses" | "postsynapses" | str | list, default=True
 
-                      Plot connectors (e.g. synapses) if available. Use these
-                      parameters to adjust the way connectors are plotted:
+                      Plot connectors. This can either be `True` (plot all
+                      connectors), `"presynapses"` (only presynaptic connectors)
+                      or `"postsynapses"` (only postsynaptic connectors). If
+                      a string or a list is provided, it will be used to filter the
+                      `type` column in the connectors table.
+
+                      Use these parameters to adjust the way connectors are plotted:
 
                         - `cn_colors` (str | tuple | dict | "neuron" ) overrides
                           the default connector (e.g. synpase) colors:
