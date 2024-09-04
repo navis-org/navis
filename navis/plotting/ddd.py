@@ -422,9 +422,12 @@ def plot3d_vispy(x, **kwargs):
     # Parse objects to plot
     (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
-    if settings.viewer is None:
+    if settings.viewer in (None, "new"):
         # If does not exists yet, initialise a canvas object and make global
-        if not isinstance(getattr(config, "primary_viewer", None), Viewer):
+        if (
+            not isinstance(getattr(config, "primary_viewer", None), Viewer)
+            or settings.viewer == "new"
+        ):
             viewer = config.primary_viewer = Viewer(size=settings.size)
         else:
             viewer = getattr(config, "primary_viewer", None)
@@ -479,14 +482,17 @@ def plot3d_octarine(x, **kwargs):
     (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
     if settings.viewer in (None, "new"):
-        # If does not exists yet, initialise a canvas object and make global
-        if not isinstance(getattr(config, "primary_viewer", None), oc.Viewer):
+        # If it does not exists yet, initialise a canvas object and make global
+        if (
+            not isinstance(getattr(config, "primary_viewer", None), oc.Viewer)
+            or settings.viewer == "new"
+        ):
             viewer = config.primary_viewer = oc.Viewer(
                 size=settings.size,
                 camera=settings.camera,
                 control=settings.control,
                 show=False,
-                offscreen=settings.offscreen or os.environ.get("NAVIS_HEADLESS", False)
+                offscreen=settings.offscreen or os.environ.get("NAVIS_HEADLESS", False),
             )
         else:
             viewer = getattr(config, "primary_viewer", None)
