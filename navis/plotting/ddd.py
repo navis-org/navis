@@ -481,6 +481,13 @@ def plot3d_octarine(x, **kwargs):
     # Parse objects to plot
     (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
+    # Check if any existing viewer has already been closed
+    if isinstance(getattr(config, "primary_viewer", None), oc.Viewer):
+        try:
+            _ = getattr(config, "primary_viewer").canvas
+        except RuntimeError:
+            config.primary_viewer = None
+
     if settings.viewer in (None, "new"):
         # If it does not exists yet, initialise a canvas object and make global
         if (
