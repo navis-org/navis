@@ -37,8 +37,8 @@ jobs:
         NEUPRINT_APPLICATION_CREDENTIALS: ${{ secrets.neuprint }}
         INSECT_BRAIN_DB_USER: ${{ secrets.insect_brain_db_user }}
         INSECT_BRAIN_DB_PASSWORD: ${{ secrets.insect_brain_db_password }}
+        NAVIS_PLOT3D_BACKEND: plotly
+        QT_QPA_PLATFORM: offscreen
       with:
         run: |
-          export QT_QPA_PLATFORM=offscreen
-          export NAVIS_PLOT3D_BACKEND=plotly
           python tests/test_tutorials.py
