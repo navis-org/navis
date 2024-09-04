@@ -7,19 +7,6 @@ This will not be run through pytest but is meant to be run in a separate CI job.
 import subprocess
 from pathlib import Path
 
-# If Jupyter is not installed, this will fail.
-# We will belay the import error in case the
-# user wants to run only the other parts of the
-# test suite.
-try:
-    import nbformat
-    from nbconvert.preprocessors import ExecutePreprocessor
-except ImportError:
-    nbformat = None
-    pass
-except BaseException:
-    raise
-
 SKIP = [
 
 ]
