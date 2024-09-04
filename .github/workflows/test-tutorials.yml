@@ -1,4 +1,4 @@
-name: Notebooks
+name: Tutorials
 
 on: [push]
 
@@ -30,7 +30,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install pathos pygraphviz neuron cloud-volume k3d scikit-image open3d
         python -m pip install -e .[test-notebook,all]
-    - name: Run notebooks
+    - name: Run tutorials
       uses: coactions/setup-xvfb@v1
       env:
         NEUPRINT_APPLICATION_CREDENTIALS: ${{ secrets.neuprint }}
@@ -38,5 +38,5 @@ jobs:
         INSECT_BRAIN_DB_PASSWORD: ${{ secrets.insect_brain_db_password }}
       with:
         run: |
-          export NAVIS_HEADLESS=TRUE
-          python tests/test_notebooks.py
+          NAVIS_PLOT3D_BACKEND="plotly"
+          python tests/test_tutorials.py
