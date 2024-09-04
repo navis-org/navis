@@ -48,12 +48,13 @@ n.nodes.head()
 #
 # Try typing in "`n.`" and hitting tab: most attributes and functions are accessible via autocompletion.
 # If you don't know what a function does, check out the documentation using `help()` or via the [API documentation](../../api):
-
-# %%
-help(navis.TreeNeuron.root)
-
-# %%
-help(navis.TreeNeuron.downsample)
+# ```python
+# help(navis.TreeNeuron.root)
+# ```
+#
+# ```python
+# help(navis.TreeNeuron.downsample)
+# ```
 
 # %%
 # You will notice that many {{ navis }} functions that accept neurons have an `inplace` parameter. This is analogous to pandas:
