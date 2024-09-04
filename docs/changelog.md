@@ -59,6 +59,8 @@ Date: 25/07/24
 - `navis.interfaces.neuprint.fetch_mesh_neuron` will now ignore the `lod` parameter if the data source does not support it instead of breaking
 - Fixed a number of deprecation warnings in the codebase
 
+**Full Changelog**: [v1.6.0...v1.7.0](https://github.com/navis-org/navis/compare/v1.6.0...v1.7.0)
+
 ## Version 1.6.0
 Date: 07/04/24
 
@@ -93,6 +95,8 @@ Date: 07/04/24
 - Fixed a bug in `navis.despike_skeleton` that caused the `reverse` argument to be ignored
 - Fixed two small bugs in `navis.interfaces.neuprint.fetch_mesh_neuron`
 
+**Full Changelog**: [v1.5.0...v1.6.0](https://github.com/navis-org/navis/compare/v1.5.0...v1.6.0)
+
 ## Version 1.5.0
 Date: 27/07/23
 
@@ -113,6 +117,8 @@ Date: 27/07/23
 
 ##### Fixes
 - Various other bugfixes
+
+**Full Changelog**: [v1.4.0...v1.5.0](https://github.com/navis-org/navis/compare/v1.4.0...v1.5.0)
 
 ## Version 1.4.0
 Date: 21/12/22
@@ -135,11 +141,15 @@ Date: 21/12/22
 ##### Fixes
 - Tons of bug fixes
 
+**Full Changelog**: [v1.3.1...v1.4.0](https://github.com/navis-org/navis/compare/v1.3.1...v1.4.0)
+
 ## Version 1.3.1
 Date: 10/06/22
 
 ##### Fixes
 - Various bugs fixed
+
+**Full Changelog**: [v1.3.0...v1.3.1](https://github.com/navis-org/navis/compare/v1.3.0...v1.3.1)
 
 ## Version 1.3.0
 Date: 10/05/22
@@ -161,11 +171,15 @@ Date: 10/05/22
 ##### Fixes
 - Lots of fixes and improvements in particular for I/O-related functions
 
+**Full Changelog**: [v1.2.1...v1.3.0](https://github.com/navis-org/navis/compare/v1.2.1...v1.3.0)
+
 ## Version 1.2.1
 Date: 25/02/22
 
 ##### Fixes
 - Hot fix for `navis.split_axon_dendrite`
+
+**Full Changelog**: [v1.2.0...v1.2.1](https://github.com/navis-org/navis/compare/v1.2.0...v1.2.1)
 
 ## Version 1.2.0
 Date: 24/02/22
@@ -187,6 +201,8 @@ Date: 24/02/22
 ##### Fixes
 - Myriads of small and big bugfixes
 
+**Full Changelog**: [v1.1.0...v1.2.0](https://github.com/navis-org/navis/compare/v1.1.0...v1.2.0)
+
 ## Version 1.1.0
 Date: 18/11/21
 
@@ -196,6 +212,8 @@ Date: 18/11/21
 
 ##### Fixes
 - Fixed a critical bug with plotting skeletons with plotly `5.4.0`
+
+**Full Changelog**: [v1.0.0...v1.1.0](https://github.com/navis-org/navis/compare/v1.0.0...v1.1.0)
 
 ## Version 1.0.0
 Date: 11/11/21
@@ -282,6 +300,8 @@ Date: 11/11/21
 ##### Fixes
 - Under-the-hood fixes and improvements
 
+**Full Changelog**: [v0.6.0...v1.0.0](https://github.com/navis-org/navis/compare/v0.6.0...v1.0.0)
+
 ## Version 0.6.0
 Date: 12/05/21
 
@@ -311,6 +331,8 @@ Date: 12/05/21
 - fixed NBLAST progress bars in notebook environments
 - fixed a couple bugs with `CMTK` transforms
 
+**Full Changelog**: [v0.5.3...v0.6.0](https://github.com/navis-org/navis/compare/v0.5.3...v0.6.0)
+
 ## Version 0.5.3
 Date: 10/04/21
 
@@ -330,6 +352,8 @@ Date: 10/04/21
 ##### Fixes
 - a great many small and big bug fixes
 
+**Full Changelog**: [v0.5.2...v0.5.3](https://github.com/navis-org/navis/compare/v0.5.2...v0.5.3)
+
 ## Version 0.5.2
 Date: 02/02/21
 
@@ -341,11 +365,15 @@ Date: 02/02/21
 - Neurons: connectors are now included in bounding box calculations
 - NeuronLists: added progress bar for division / multiplication
 
+**Full Changelog**: [v0.5.1...v0.5.2](https://github.com/navis-org/navis/compare/v0.5.1...v0.5.2)
+
 ## Version 0.5.1
 Date: 10/01/21
 
 ##### Fixes
 - Various under-the-hood improvements and bugfixes
+
+**Full Changelog**: [v0.5.0...v0.5.1](https://github.com/navis-org/navis/compare/v0.5.0...v0.5.1)
 
 ## Version 0.5.0
 Date: 05/01/21
@@ -360,11 +388,15 @@ Date: 05/01/21
 ##### Improvements
 - de-cluttered top level namespace: some more obscure functions are now only available through modules
 
+**Full Changelog**: [v0.4.3...v0.5.0](https://github.com/navis-org/navis/compare/v0.4.3...v0.5.0)
+
 ## Version 0.4.3
 Date: 22/12/20
 
 ##### Fixes
 - Small bugfixes
+
+**Full Changelog**: [v0.4.2...v0.4.3](https://github.com/navis-org/navis/compare/v0.4.2...v0.4.3)
 
 ## Version 0.4.2
 Date: 22/12/20
@@ -372,11 +404,15 @@ Date: 22/12/20
 ##### Fixes
 - Small bugfixes
 
+**Full Changelog**: [v0.4.1...v0.4.2](https://github.com/navis-org/navis/compare/v0.4.1...v0.4.2)
+
 ## Version 0.4.1
 Date: 06/12/20
 
 ##### Fixes
 - Critical bugfix in NBLAST
+
+**Full Changelog**: [v0.4.0...v0.4.1](https://github.com/navis-org/navis/compare/v0.4.0...v0.4.1)
 
 ## Version 0.4.0
 Date: 06/12/20
@@ -386,6 +422,8 @@ Date: 06/12/20
 - new parameter `navis.plot3d` (plotly backend) with `hover_id=True` will show node IDs on hover
 - `navis.Volume.resize` has now `inplace=False` as default
 
+**Full Changelog**: [v0.3.4...v0.4.0](https://github.com/navis-org/navis/compare/v0.3.4...v0.4.0)
+
 ## Version 0.3.4
 Date: 24/11/20
 
@@ -393,6 +431,8 @@ Date: 24/11/20
 - improved `navis.Dotprops`:
 - more control over generation in `navis.make_dotprops`
 - `navis.Dotprops` now play nicely with R interface
+
+**Full Changelog**: [v0.3.3...v0.3.4](https://github.com/navis-org/navis/compare/v0.3.3...v0.3.4)
 
 ## Version 0.3.3
 Date: 23/11/20
@@ -424,6 +464,8 @@ neuron by custom properties (e.g. by Strahler index or compartment)
 ##### Fixes
 - small bugfixes and improvements
 
+**Full Changelog**: [v0.3.2...v0.3.3](https://github.com/navis-org/navis/compare/v0.3.2...v0.3.3)
+
 ## Version 0.3.2
 Date: 18/10/20
 
@@ -433,6 +475,8 @@ Date: 18/10/20
 
 ##### Fixes
 - lots of small bugfixes and improvements
+
+**Full Changelog**: [v0.3.1...v0.3.2](https://github.com/navis-org/navis/compare/v0.3.1...v0.3.2)
 
 ## Version 0.3.1
 Date: 07/10/20
@@ -453,6 +497,8 @@ Date: 07/10/20
 ##### Fixes
 - lots of small bugfixes
 
+**Full Changelog**: [v0.3.0...v0.3.1](https://github.com/navis-org/navis/compare/v0.3.0...v0.3.1)
+
 ## Version 0.3.0
 Date: 06/10/20
 
@@ -462,6 +508,8 @@ Date: 06/10/20
 ##### Improvements
 - Improved interfaces with R NBLAST and `xform_brain`
 - Improved attribute caching for neurons
+
+**Full Changelog**: [v0.2.3...v0.3.0](https://github.com/navis-org/navis/compare/v0.2.3...v0.3.0)
 
 ## Version 0.2.3
 Date: 06/09/20
