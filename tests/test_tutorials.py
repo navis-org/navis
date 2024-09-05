@@ -17,13 +17,29 @@ A couple notes:
 """
 
 import os
-import subprocess
-from pathlib import Path
+import sys
+import navis
 
-SKIP = [
-    "zzz_no_plot_01_nblast_flycircuit.py",
-    "zzz_no_plot_02_nblast_hemibrain.py"
-]
+from pathlib import Path
+from contextlib import contextmanager
+
+SKIP = ["zzz_no_plot_01_nblast_flycircuit.py", "zzz_no_plot_02_nblast_hemibrain.py"]
+
+
+@contextmanager
+def suppress_stdout():
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+
+# Silence logging
+navis.config.logger.setLevel("ERROR")
+navis.set_pbars(hide=True)
+
 
 if __name__ == "__main__":
     # Recursively search for notebooks
@@ -31,26 +47,14 @@ if __name__ == "__main__":
 
     files = list(path.rglob("*.py"))
     for i, file in enumerate(files):
-
         if not file.is_file():
             continue
         if file.name in SKIP:
             continue
 
         print(f"Executing {file.name} [{i+1}/{len(files)}]... ", end="", flush=True)
-        os.chdir(file.parent)
-        exec(open(file.name).read())
+        with suppress_stdout():
+            exec(open(file).read())
         print("Done.", flush=True)
-
-        # print(f"Executing {file.name} [{i+1}/{len(files)}]... ", end="", flush=True)
-        # try:
-        #     # Set `capture_output=True` to see e.g. error messages.
-        #     p = subprocess.run(["python", str(file)], check=True, capture_output=True, timeout=600, cwd=file.parent)
-        # except subprocess.CalledProcessError as e:
-        #     print("Failed!")
-        #     print(e.stdout.decode())
-        #     print(e.stderr.decode())
-        #     raise
-        # print("Done.", flush=True)
 
     print("All done.")
