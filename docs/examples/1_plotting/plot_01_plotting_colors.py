@@ -144,7 +144,7 @@ m.strahler_index  # this is an array with one value per vertex
 # %%
 
 # Let's use plot3d this time
-navis.plot3d(m, color_by="strahler_index", palette="viridis")
+navis.plot3d(m, color_by="strahler_index", palette="viridis", legend=False)
 
 # %%
 # !!! note

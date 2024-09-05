@@ -19,6 +19,7 @@ the [Janelia hemibrain](https://neuprint.janelia.org) project:
 ```python exec="on" source="above" result="py" session="quickstart"
 import navis
 
+# Load a single example neuron
 n = navis.example_neurons(n=1, kind='skeleton')
 n
 print(n)  # markdown-exec: hide
@@ -28,9 +29,9 @@ print(n)  # markdown-exec: hide
     Almost all tutorials will use the example neurons shipped with {{ navis }} (see
     [`navis.example_neurons`][] for details).
 
-    You will obviously want to load your own neuron data. {{ navis }} has dedicated
-    functions for that such as [`navis.read_swc`][]. Check out the
-    [I/O Tutorials](../generated/gallery#import-export)!
+    You will most likely want to load your own neuron data. {{ navis }} has dedicated
+    functions such as [`navis.read_swc`][] for that . Check out the
+    [I/O Tutorials](../generated/gallery#import-export) to learn more!
 
 {{ navis }} represents neurons as [`navis.TreeNeuron`][], [`navis.MeshNeuron`][], [`navis.VoxelNeuron`][] or
 [`navis.Dotprops`][] - see the tutorial on [Neuron Types](../generated/gallery/plot_01_neurons_intro/)
@@ -70,9 +71,10 @@ plt.close() # markdown-exec: hide
 
 ## Lists of Neurons
 
-To work with multiple neurons, {{ navis }} uses [`navis.NeuronLists`][navis.NeuronList]:
+When working with multiple neurons, {{ navis }} uses [`navis.NeuronLists`][navis.NeuronList]:
 
 ```python exec="on" source="above" result="py" session="quickstart"
+# Ask for 3 example neurons
 nl = navis.example_neurons(n=3, kind='skeleton')
 nl
 print(nl) # markdown-exec: hide
@@ -100,6 +102,7 @@ Most functions that accept single neurons, also happily work with
 [`NeuronLists`][navis.NeuronList]:
 
 ```python exec="on" source="above" result="py" session="quickstart" html="1"
+# Generate a plot of our neurons
 fig, ax = navis.plot2d(nl, view=('x', '-z'), method='2d')
 from io import StringIO # markdown-exec: hide
 import matplotlib.pyplot as plt # markdown-exec: hide
@@ -150,12 +153,13 @@ n_ds = navis.downsample_neuron(neuron, 10, inplace=False)
 ```
 
 Downsample the original neuron:
+
 ```python
 navis.downsample_neuron(neuron, 10, inplace=True)
 ```
 
-Using `inplace=True` can be useful if you work with lots of neurons to avoid making
-unnecessary copies and keeping the memory footprint low!
+Using `inplace=True` can be useful if you work with lots of neurons and want avoid making
+unnecessary copies to keep the memory footprint low!
 
 
 ## Getting Help

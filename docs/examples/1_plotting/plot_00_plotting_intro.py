@@ -252,7 +252,12 @@ p = navis.plot3d(nl, backend="k3d")
 #
 # Using plotly as backend generates "inline" plots by default (i.e. they are rendered right away):
 
-navis.plot3d(nl, backend="plotly", connectors=False)
+navis.plot3d(
+    nl,
+    backend="plotly",
+    connectors=False,
+    legend_orientation="h",  # horizontal legend (more space for plot)
+    )
 
 # %%
 # Instead of inline plotting, you can also export your plotly figure as 3D html file that can be opened in any browser:

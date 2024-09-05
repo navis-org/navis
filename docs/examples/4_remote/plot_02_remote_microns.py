@@ -107,7 +107,12 @@ n_ds
 # %%
 # Plot the downsample neuron (again: the downsampling is mostly for the sake of this documentation)
 
-navis.plot3d(n_ds, radius=False, color="r")
+navis.plot3d(
+    n_ds,
+    radius=False,
+    color="r",
+    legend=False,  # hide the legend (more space for the plot)
+)
 
 # %%
 # Nice! Now let's run a bit of analysis.

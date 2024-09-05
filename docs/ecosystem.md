@@ -14,7 +14,7 @@ some libraries that are built directly on top of {{ navis }}.
 [flybrains](https://github.com/navis-org/navis-flybrains) is a package that
 bundles fly template brains and transforms that {{ navis }} can use to map spatial
 data (e.g. neurons) from one brain space to another. If you installed {{ navis }}
-via ``pip`` with the ``[flybrains]`` option.
+via ``pip`` with the ``[flybrains]`` option, you should already have this package.
 
 ## pymaid
 

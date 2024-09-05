@@ -74,17 +74,17 @@ Before we get our feet wet, two things to keep in mind:
 ??? example "Speeding up NBLAST"
     For a ~2x speed boost, install the [pykdtree](https://github.com/storpipfugl/pykdtree) library: `pip3 install pykdtree`.
 
-    This is not necessary if you installed {{ navis }} with the `pip install navis[all]` option.
-
-    If you are on Linux, make sure to have a look at [this](https://github.com/navis-org/navis/issues/49) Github issue first.
+    If you installed {{ navis }} with the `pip install navis[all]` option you should already have it.
 
 OK, let's get started!
 
 We will use the example neurons that come with {{ navis }}. These are all of the same type, so we don't expect to find very useful clusters - good enough to demo though!
 """
+
 # %%
 # Load example neurons
 import navis
+
 nl = navis.example_neurons()
 
 # %%
@@ -143,19 +143,19 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcl
 import seaborn as sns
 
-set_link_color_palette([mcl.to_hex(c) for c in sns.color_palette('muted', 10)])
+set_link_color_palette([mcl.to_hex(c) for c in sns.color_palette("muted", 10)])
 
 # To generate a linkage, we have to bring the matrix from square-form to vector-form
 aba_vec = squareform(aba_dist, checks=False)
 
 # Generate linkage
-Z = linkage(aba_vec, method='ward')
+Z = linkage(aba_vec, method="ward")
 
 # Plot a dendrogram
 dn = dendrogram(Z, labels=aba_mean.columns)
 
 ax = plt.gca()
-ax.set_xticklabels(ax.get_xticklabels(), rotation=30, ha='right')
+ax.set_xticklabels(ax.get_xticklabels(), rotation=30, ha="right")
 
 sns.despine(trim=True, bottom=True)
 plt.tight_layout()
@@ -168,14 +168,14 @@ plt.tight_layout()
 #
 # - [`navis.nblast`][]: classic query :octicons-arrow-right-24: target NBLAST
 # - [`navis.nblast_allbyall`][]: pairwise, all-by-all NBLAST
-# - [`navis.nblast_smart`][]: a smart version of NBLAST
+# - [`navis.nblast_smart`][]: a "smart" version of NBLAST
 #
 # ## Another flavour: syNBLAST
 #
 # SyNBLAST is synapse-based NBLAST: instead of turning neurons into dotprops, we use their synapses to perform NBLAST (minus the vector component).
 # This is generally faster because we can skip generating dotprops and calculating vector dotproducts. It also focusses the attention on the synapse-bearing
 # axons and dendrites, effectively ignoring the backbone.
-# This changes the question from "do neurons look the same" to "do neurons have in- and output in the same area". See [`navis.synblast`][] for details.
+# This changes the question from "_Do neurons look the same?_" to "_Do neurons have in- and output in the same area?_". See [`navis.synblast`][] for details.
 #
 # Let's try the above but with syNBLAST:
 
@@ -187,12 +187,12 @@ synbl
 # The same as above, we can run an all-by-all synNBLAST and generate a dendrogram:
 aba_vec = squareform(((synbl + synbl.T) / 2 - 1) * -1, checks=False)
 
-Z = linkage(aba_vec, method='ward')
+Z = linkage(aba_vec, method="ward")
 
 dn = dendrogram(Z, labels=synbl.columns)
 
 ax = plt.gca()
-ax.set_xticklabels(ax.get_xticklabels(), rotation=30, ha='right')
+ax.set_xticklabels(ax.get_xticklabels(), rotation=30, ha="right")
 
 sns.despine(trim=True, bottom=True)
 plt.tight_layout()
@@ -213,15 +213,17 @@ plt.tight_layout()
 import navis.interfaces.neuprint as neu
 
 # Set a client
-client = neu.Client('https://neuprint.janelia.org', dataset='hemibrain:v1.2.1')
+client = neu.Client("https://neuprint.janelia.org", dataset="hemibrain:v1.2.1")
 
 # %%
 # Next we will fetch all olfactory projection neurons of the lateral lineage using a regex pattern.
 
-pns = neu.fetch_skeletons(neu.NeuronCriteria(type='.*lPN.*', regex=True), with_synapses=True)
+pns = neu.fetch_skeletons(
+    neu.NeuronCriteria(type=".*lPN.*", regex=True), with_synapses=True, client=client
+)
 
 # Drop neurons on the left hand side
-pns = pns[[not n.name.endswith('_L') for n in pns]]
+pns = pns[[not n.name.endswith("_L") for n in pns]]
 
 pns.head()
 
@@ -243,8 +245,8 @@ nbl_vec = squareform(((pns_nbl + pns_nbl.T) / 2 - 1) * -1, checks=False)
 synbl_vec = squareform(((pns_synbl + pns_synbl.T) / 2 - 1) * -1, checks=False)
 
 # Generate linkages
-Z_nbl = linkage(nbl_vec, method='ward', optimal_ordering=True)
-Z_synbl = linkage(synbl_vec, method='ward', optimal_ordering=True)
+Z_nbl = linkage(nbl_vec, method="ward", optimal_ordering=True)
+Z_synbl = linkage(synbl_vec, method="ward", optimal_ordering=True)
 
 # Plot dendrograms
 fig, axes = plt.subplots(1, 2, figsize=(12, 5))
@@ -252,8 +254,8 @@ fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 dn1 = dendrogram(Z_nbl, no_labels=True, color_threshold=1, ax=axes[0])
 dn2 = dendrogram(Z_synbl, no_labels=True, color_threshold=1, ax=axes[1])
 
-axes[0].set_title('NBLAST')
-axes[1].set_title('synNBLAST')
+axes[0].set_title("NBLAST")
+axes[1].set_title("synNBLAST")
 
 sns.despine(trim=True, bottom=True)
 
@@ -266,7 +268,8 @@ sns.despine(trim=True, bottom=True)
 # %%
 # Generate clusters
 from scipy.cluster.hierarchy import fcluster
-cl = fcluster(Z_synbl, t=1, criterion='distance')
+
+cl = fcluster(Z_synbl, t=1, criterion="distance")
 cl
 
 # %%
@@ -277,24 +280,25 @@ import math
 n_clusters = max(cl)
 rows = 4
 cols = math.ceil(n_clusters / 4)
-fig, axes = plt.subplots(rows, cols,
-                         figsize=(20, 5 * cols))
+fig, axes = plt.subplots(rows, cols, figsize=(20, 5 * cols))
 # Flatten axes
 axes = [ax for l in axes for ax in l]
 
 # Generate colors
-pal = sns.color_palette('muted', n_clusters)
+pal = sns.color_palette("muted", n_clusters)
 
 for i in range(n_clusters):
     ax = axes[i]
-    ax.set_title(f'cluster {i + 1}')
+    ax.set_title(f"cluster {i + 1}")
     # Get the neurons in this cluster
     this = pns[cl == (i + 1)]
 
-    navis.plot2d(this, method='2d', ax=ax, color=pal[i], lw=1.5, view=('x', '-z'), alpha=.5)
+    navis.plot2d(
+        this, method="2d", ax=ax, color=pal[i], lw=1.5, view=("x", "-z"), alpha=0.5
+    )
 
 for ax in axes:
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
     ax.set_axis_off()
 
     # Set all axes to the same limits
@@ -307,4 +311,3 @@ plt.tight_layout()
 # %%
 # Note how clusters 3 and 8 look a bit odd? That's because these likely still contain more than one type of neuron. We should probably
 # have gone with a slightly finer clustering. But this little demo should be enough to get you started!
-

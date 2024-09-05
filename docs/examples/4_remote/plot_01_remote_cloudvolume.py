@@ -58,7 +58,10 @@ m = vol.mesh.get([4335355146, 2913913713, 2137190164, 2268989790], as_navis=True
 m
 
 # %%
-navis.plot3d(m)
+navis.plot3d(
+    m,
+    legend_orientation="h"  # few neurons, so we can afford a horizontal legend
+    )
 
 # %%
 

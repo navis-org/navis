@@ -58,7 +58,7 @@ query
 navis.plot3d(query)
 
 # %%
-# !!! note#
+# !!! note
 #     Depending on your image you will have to play around with the `threshold` parameter to get a decent dotprop representation.
 #
 # Next we need to load the hemibrain skeletons and convert them to dotprops:

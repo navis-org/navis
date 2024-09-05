@@ -1,3 +1,3 @@
 ### Interfaces
 
-These tutorials cover the various interfaces between {{ navis }} and external tools:
+These tutorials cover interfaces between {{ navis }} and external tools:

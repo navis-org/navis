@@ -47,27 +47,36 @@ mbons.head(3)
 #  - [`navis.interfaces.neuprint.fetch_roi`][]: returns a [`navis.Volume`][] from a ROI
 #  - [`navis.interfaces.neuprint.fetch_skeletons`][]: returns fully fledged [`navis.TreeNeurons`][navis.TreeNeuron] - nodes, synapses, soma and all
 #  - [`navis.interfaces.neuprint.fetch_mesh_neuron`][]: returns [`navis.MeshNeurons`][navis.MeshNeuron] - including synapses
-
+#
+# Let's start by fetching the mesh for the right mushroom body ROI:
 mb = neu.fetch_roi("MB(R)")
 mb
 
 # %%
+# Next, let's fetch the skeletons of all right MBONs:
 mbon_skeletons = neu.fetch_skeletons(
     neu.SegmentCriteria(instance=".*MBON.*_R", regex=True), with_synapses=True
 )
 mbon_skeletons.head()
 
 # %%
-
-# Generate a 3D plot
-navis.plot3d([mbon_skeletons[0], mb])
+# Co-visualize the MBONs and the MB volume:
+navis.plot3d(
+    [mbon_skeletons[0], mb],
+    legend=False,  # Hide the legend (more space for the plot)
+)
 
 # %%
-# Make a 2d plot
+# Last (but not least), let's make a 2d plot for the tutorial's thumbnail:
 import matplotlib.pyplot as plt
 
 fig, ax = navis.plot2d(
-    [mbon_skeletons[0], mb], c=(0, 0, 0, 0.5), method="3d", connectors=True, lw=0.5, view=('x', '-z')
+    [mbon_skeletons[0], mb],
+    c=(0, 0, 0, 1),  # Make the neuron black
+    method="3d",
+    connectors=True,
+    linewidth=0.5,  # Make neuron a bit thinner to emphasize the synapses
+    view=("x", "-z"),
 )
 
 plt.tight_layout()
@@ -75,5 +84,5 @@ plt.tight_layout()
 # %%
 # All {{ navis }} functions for analysis & visualization should work on these neurons. If not, please open an issue on Github.
 
-# %%
+# This sets the tutorial's thumbnail (you can ignore this)
 # mkdocs_gallery_thumbnail_path = '_static/neuprint_logo.png'

@@ -2,13 +2,13 @@
 icon: material/help-circle
 ---
 
-# Overview
+# API Overview
 
-{{ navis }} has grown a lot! Last I looked, there were ~110 functions exposed
-at top level (e.g. [`navis.plot3d`][]) and easily another 100 secondary functions
-available via submodules (e.g. [`navis.morpho.find_soma`][]). This can be a bit
+{{ navis }} has grown a lot! Last I looked, there were over 120 functions and classes
+exposed at top level (e.g. [`navis.plot3d`][]) and easily another 100 available via
+submodules (e.g. [`navis.transforms.AffineTransform`][]). This can be a bit
 daunting at first - especially if you don't exactly know what you are looking
-for.
+for!
 
 This document provides a curated, high-level summary. I recommend you either
 just have a browse, use the search field (upper right) or simply search in
@@ -58,8 +58,8 @@ classes. ``NeuronLists`` are containers thereof.
 ### General Neuron methods
 
 Despite being fundamentally different data types, all neurons share some common
-methods (i.e. functions) which they inherit from their (abstract) parent
-class ``BaseNeurons``.
+methods (i.e. functions) which they inherit from their abstract parent
+class [`BaseNeurons`][navis.BaseNeuron].
 
 | Method | Description |
 |--------|-------------|
@@ -188,9 +188,9 @@ These are methods and properties specific to [Dotprops][navis.Dotprops]:
 
 | Function | Description |
 |----------|-------------|
-| [`Dotprops.points()`][navis.Dotprops.points] | {{ autosummary("navis.Dotprops.points") }} |
-| [`Dotprops.vect()`][navis.Dotprops.vect] | {{ autosummary("navis.Dotprops.vect") }} |
-| [`Dotprops.alpha()`][navis.Dotprops.alpha] | {{ autosummary("navis.Dotprops.alpha") }} |
+| [`Dotprops.points`][navis.Dotprops.points] | {{ autosummary("navis.Dotprops.points") }} |
+| [`Dotprops.vect`][navis.Dotprops.vect] | {{ autosummary("navis.Dotprops.vect") }} |
+| [`Dotprops.alpha`][navis.Dotprops.alpha] | {{ autosummary("navis.Dotprops.alpha") }} |
 | [`Dotprops.to_skeleton()`][navis.Dotprops.to_skeleton] | {{ autosummary("navis.Dotprops.to_skeleton") }} |
 | [`Dotprops.snap()`][navis.Dotprops.snap] | {{ autosummary("navis.Dotprops.snap") }} |
 
@@ -458,14 +458,14 @@ High-level functions:
 | [`navis.transforms.AliasTransform`][] | {{ autosummary("navis.transforms.AliasTransform") }} |
 | [`navis.transforms.MovingLeastSquaresTransform`][] | {{ autosummary("navis.transforms.MovingLeastSquaresTransform") }} |
 
-The [`TemplateRegistry`][`navis.transforms.templates.TemplateRegistry`] keeps track of template brains, transforms and such:
+The [`TemplateRegistry`][navis.transforms.templates.TemplateRegistry] keeps track of template brains, transforms and such:
 
 | Class    | Description |
 |----------|-------------|
 | [`navis.transforms.templates.TemplateRegistry`][] | {{ autosummary("navis.transforms.templates.TemplateRegistry") }} |
 
 The relevant instance of this class is ``navis.transforms.registry``.
-So to register and use a new transform you would do something likethis:
+So to register and use a new transform you would look something like this:
 
 ``` python
 >>> transform = navis.transforms.AffineTransform(...)
@@ -576,9 +576,9 @@ Various utility functions.
 
 ## Network Models
 
-{{ navis }} comes with a simple network traversal model (see [Schlegel, Bates et al., 2021](https://elifesciences.org/articles/66018)).
+{{ navis }} comes with a simple network traversal model (used in [Schlegel, Bates et al., 2021](https://elifesciences.org/articles/66018)).
 
-Not imported at top level! Must be imported explicitly:
+_Not imported at top level! Must be imported explicitly:_
 
 ``` python
 from navis import models
@@ -601,7 +601,7 @@ imported explicitly as they are not imported at top level.
 Functions to facilitate creating models of neurons/networks. Please see
 the [tutorials](../generated/gallery/3_interfaces/plot_00_interfaces_neuron/) for examples.
 
-Not imported at top level! Must be imported explicitly:
+_Not imported at top level! Must be imported explicitly:_
 
 ``` python
 import navis.interfaces.neuron as nrn
@@ -690,7 +690,7 @@ A network of point-processes is represented by [`PointNetwork`][navis.interfaces
 
 Set of functions to grab data from [NeuroMorpho](http://neuromorpho.org) which hosts thousands of neurons (see [tutorials](../generated/gallery/)).
 
-Not imported at top level! Must be imported explicitly:
+_Not imported at top level! Must be imported explicitly:_
 
 ```python
 from navis.interfaces import neuromorpho
@@ -734,7 +734,7 @@ Please also check out the [tutorials](../generated/gallery/4_remote/plot_00_remo
 Set of functions to grab data from [InsectBrain](https://www.insectbraindb.org)
 which hosts some neurons and standard brains (see [tutorials](../generated/gallery/4_remote/plot_03_remote_insect_db/)).
 
-Not imported at top level! Must be imported explicitly:
+_Not imported at top level! Must be imported explicitly:_
 
 ```python
 from navis.interfaces import insectbrain_db
@@ -759,7 +759,7 @@ earlier versions are shipped with older Python versions not supported by {{ navi
 See the [tutorials](../generated/gallery/3_interfaces/plot_01_interfaces_blender/) for an introduction of how to use {{ navis }} in
 Blender.
 
-Not imported at top level! Must be imported explicitly
+_Not imported at top level! Must be imported explicitly:_
 
 ```python
 from navis.interfaces import blender
@@ -816,9 +816,12 @@ then returns [`ObjectList`][navis.interfaces.blender.ObjectList] which can be us
 
 ### Cytoscape API
 
+!!! warning Deprecated
+    The Cytoscape API is depcrecated and will be removed in a future version of {{ navis }}.
+
 Functions to use [Cytoscape](https://cytoscape.org) via the cyREST API.
 
-Not imported at top level! Must be imported explicitly:
+_Not imported at top level! Must be imported explicitly:_
 
 ```python
 from navis.interfaces import cytoscape
@@ -861,7 +864,7 @@ Please also see the [MICrONS tutorial](../generated/gallery/4_remote/plot_02_rem
 
 Bundle of functions to use R natverse libraries.
 
-Not imported at top level! Must be imported explicitly:
+_Not imported at top level! Must be imported explicitly:_
 
 ```python
 from navis.interfaces import r
@@ -894,21 +897,23 @@ Below table has an overview for which functions work with which neuron types:
 
 |                            | TreeNeuron | MeshNeuron | VoxelNeuron | Dotprops |
 |----------------------------|------------|------------|-------------|----------|
-| `navis.plot2d`             | yes        | yes        | limited     | yes      |
-| `navis.plot3d`             | yes        | yes        | see backend | yes      |
-| `navis.plot1d`             | yes        | no         | no          | no       |
-| `navis.plot_flat`          | yes        | no         | no          | no       |
-| `navis.subset_neuron`      | yes        | yes        | yes         | yes      |
-| `navis.in_volume`          | yes        | yes        | yes         | yes      |
-| smoothing                  | `navis.smooth_skeleton` | `navis.smooth_mesh` | `navis.smooth_voxels` | no |
-| `navis.downsample_neuron`  | yes        | yes        | yes         | yes      |
-| resampling (e.g. `navis.resample_skeleton`) | yes | no |       no | no        |
-| `navis.make_dotprops`      | yes        | yes        | yes         | yes      |
-| NBLAST (e.g. `navis.nblast`) | no       | no         | no          | yes      |
-| `navis.xform_brain`        | yes        | yes        | yes (slow!) | yes      |
-| `navis.mirror_brain`       | yes        | yes        | no          | yes      |
-| `navis.skeletonize`        | no         | yes        | no          | no       |
-| `navis.mesh`               | yes        | no         | yes         | no       |
-| `navis.voxelize`           | yes        | yes        | no          | yes      |
-| `navis.drop_fluff`         | yes        | yes        | no          | no       |
-| `navis.break_fragments`    | yes        | yes        | no          | no       |
+| [`navis.plot2d`][]             | yes        | yes        | limited     | yes      |
+| [`navis.plot3d`][]             | yes        | yes        | see backend | yes      |
+| [`navis.plot1d`][]             | yes        | no         | no          | no       |
+| [`navis.plot_flat`][]          | yes        | no         | no          | no       |
+| [`navis.subset_neuron`][]      | yes        | yes        | yes         | yes      |
+| [`navis.in_volume`][]          | yes        | yes        | yes         | yes      |
+| smoothing                  | [`navis.smooth_skeleton`][] | [`navis.smooth_mesh`][] | [`navis.smooth_voxels`][] | no |
+| [`navis.downsample_neuron`][]  | yes        | yes        | yes         | yes      |
+| resampling (e.g. [`navis.resample_skeleton`][]) | yes | no |       no | no        |
+| [`navis.make_dotprops`][]      | yes        | yes        | yes         | yes      |
+| NBLAST ([`navis.nblast`][], etc.) | no[^1]       | no[^1]         | no[^1]          | yes      |
+| [`navis.xform_brain`][]        | yes        | yes        | yes (slow!) | yes      |
+| [`navis.mirror_brain`][]       | yes        | yes        | no          | yes      |
+| [`navis.skeletonize`][]        | no         | yes        | no          | no       |
+| [`navis.mesh`][]               | yes        | no         | yes         | no       |
+| [`navis.voxelize`][]           | yes        | yes        | no          | yes      |
+| [`navis.drop_fluff`][]         | yes        | yes        | no          | no       |
+| [`navis.break_fragments`][]    | yes        | yes        | no          | no       |
+
+[^1]: Use [`navis.make_dotprops`][] to turn these neurons into [`navis.Dotprops`][].
