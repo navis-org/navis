@@ -189,7 +189,7 @@ class BaseNeuron(UnitObject):
     EQ_ATTRIBUTES = ['name']
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = []
+    TEMP_ATTR = ["_memory_usage"]
 
     #: Core data table(s) used to calculate hash
     CORE_DATA = []
