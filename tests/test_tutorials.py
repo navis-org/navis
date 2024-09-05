@@ -1,9 +1,11 @@
 """
-Code to execute code examples notebooks in /docs/examples.
+Code to execute code tutorial notebooks in /docs/examples/.
 
-This will not be run through pytest but is meant to be run in a separate CI job.
+This will not be run through pytest but is executed in a separate CI job.
 
 A couple notes:
+ - the tutorials require a number of extra dependencies and data files to be present
+   check out the test-tutorials.yml workflow to see how this is set up.
  - it's possible that any notebook that spawns another child process (e.g. the SWC I/O tutorial)
    will hang indefinitely. This is because of the ominous "An attempt has been made to start a new
    process before the current process has finished its bootstrapping phase." error which typically
@@ -17,7 +19,8 @@ import subprocess
 from pathlib import Path
 
 SKIP = [
-
+    "zzz_no_plot_01_nblast_flycircuit.py",
+    "zzz_no_plot_02_nblast_hemibrain.py"
 ]
 
 if __name__ == "__main__":
@@ -37,7 +40,7 @@ if __name__ == "__main__":
             # Set `capture_output=True` to see e.g. error messages.
             p = subprocess.run(["python", str(file)], check=True, capture_output=True, timeout=600, cwd=file.parent)
         except subprocess.CalledProcessError as e:
-            print("Failed.")
+            print("Failed!")
             print(e.stdout.decode())
             print(e.stderr.decode())
             raise
