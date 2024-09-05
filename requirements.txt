@@ -63,6 +63,7 @@ jupyter
 neuprint-python
 caveclient
 cloud-volume
+flybrains
 Shapely>=1.6.0
 
 #extra: dev

@@ -9,6 +9,8 @@ A couple notes:
    process before the current process has finished its bootstrapping phase." error which typically
    means that the script has to be run in a `if __name__ == "__main__":` block.
    Set `capture_output=True` to see the error message.
+ - the MICrONS tutorial occasionally fails because the CAVE backend throws an error
+   (e.g. during the materialization)
 """
 
 import subprocess
