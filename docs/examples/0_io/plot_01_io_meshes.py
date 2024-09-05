@@ -2,7 +2,7 @@
 Meshes
 ======
 
-This tutorial will teach you how to load and save meshes using `navis`.
+This tutorial will teach you how to load and save meshes.
 
 {{ navis }} knows two types of meshes:
 
@@ -28,7 +28,7 @@ import navis
 # %%
 # ```python
 # # Load an example file (here a FlyWire neuron I downloaded and saved locally)
-# mesh = navis.read_mesh('~/Downloads/test_neuron.stl')
+# mesh = navis.read_mesh('test_neuron.stl')
 # ```
 
 # %%
@@ -38,7 +38,7 @@ import navis
 # %%
 # ```python
 #  # When reading all files in folder you have to specificy the file extension (e.g. *.stl)
-#  meshes = navis.read_mesh('~/Downloads/neurons/*.stl')
+#  meshes = navis.read_mesh('neurons/*.stl')
 # ```
 
 # %%
@@ -48,7 +48,7 @@ import navis
 # %%
 # ```python
 # # Load a mesh file into a Volume
-# vol = navis.read_mesh('~/Downloads/test_mesh.stl', output='volume')
+# vol = navis.read_mesh('test_mesh.stl', output='volume')
 # ```
 
 # %%
@@ -80,6 +80,7 @@ m
 navis.plot3d(m)
 
 # %%
+# Turn into Volume
 vol = navis.Volume(vertices, faces, name='my_volume')
 vol
 

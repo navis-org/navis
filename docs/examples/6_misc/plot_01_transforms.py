@@ -2,7 +2,7 @@
 Transformations
 ===============
 
-This tutorial will show you how to transform and mirror neurons using `navis`.
+This tutorial will show you how to transform and mirror neurons.
 
 ## Introduction
 

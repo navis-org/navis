@@ -2,8 +2,7 @@
 Analyzing Neuron Morphology
 ===========================
 
-This tutorial will give you an overview of how to analyze neuron morphology. See the [API reference](../../../api.md)
-for a complete list of available functions/methods.
+This tutorial will give you an overview of how to analyze neuron morphology.
 
 Disclaimer: As you might imagine some properties can be gathered for all/most neuron types while others will only work
 on specific types. For example, topological properties such as cable length, branch points, etc. are easy to get for
@@ -246,5 +245,5 @@ cm.ax_heatmap.set_yticks([])
 # %%
 # As you can see in the heatmap, the dendrites and the axon nicely separate.
 #
-# That's it for now! Please see the :ref:`NBLAST tutorial <nblast_intro>` for morphological comparisons using NBLAST and
-# the :ref:`API<api_morph>` for a full list of morphology-related functions.
+# That's it for now! Please see the [NBLAST tutorial](../../5_nblast/plot_00_nblast_intro) for morphological comparisons using NBLAST and
+# the :[API reference](../../../api.md) for a full list of morphology-related functions.

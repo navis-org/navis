@@ -2,6 +2,8 @@
 NEURON simulator
 ================
 
+This tutorial will show you how to simulate neurons and networks thereof using the NEURON simulator.
+
 [NEURON](https://neuron.yale.edu/neuron/) is a simulation environment to model neurons and networks thereof.
 `NEURON` itself is rather complex (neurons are complex things after all) and fairly low-level which results
 in lots of boiler plate code. There are some libraries (e.g. [NetPyNE](http://netpyne.org)) that wrap `NEURON`

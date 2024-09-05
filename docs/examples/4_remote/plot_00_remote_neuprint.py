@@ -2,6 +2,8 @@
 neuPrint
 ========
 
+This tutorial shows how to fetch neurons from a neuPrint server.
+
 [NeuPrint](https://www.biorxiv.org/content/10.1101/2020.01.16.909465v1) is a service for presenting and analyzing connectomics data.
 It is used to host, for example, the Janelia EM reconstructions from a *Drosophila* hemibrain at <https://neuprint.janelia.org/>.
 

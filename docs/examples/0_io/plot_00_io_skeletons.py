@@ -2,7 +2,7 @@
 Skeletons
 =========
 
-This tutorial will show you how to load and save skeletons using navis.
+This tutorial will show you how to load and save skeletons.
 
 Skeletons are probably the most common representation of neurons and are stored as a series
 of connected nodes (the "skeleton"). In {{ navis }}, skeletons are represented by the
@@ -36,7 +36,7 @@ to adjust the filepaths in the examples according to where you saved it to.
 # %%
 import navis
 skeletons = navis.read_swc(
-    './mmc2/skeletons_swc.zip',
+    'mmc2/skeletons_swc.zip',
     include_subdirs=True
 )
 skeletons
@@ -111,6 +111,9 @@ s
 # Read all files in folder
 nl = navis.read_nmx('./WannerAA201605_SkeletonsGlomeruli/')
 nl
+
+# %%
+navis.plot2d(nl[:10], method='2d', radius=False)
 
 # %%
 # !!! note

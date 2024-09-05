@@ -2,7 +2,7 @@
 Coloring
 ========
 
-This tutorial demonstrates how to adjust colors in `navis` plots.
+This tutorial demonstrates how to adjust colors in NAVis plots.
 
 By now, you should already have a basic understanding on how to plot neurons in {{ navis }} (2d vs 3d plots, the various
 backends and plotting methods, etc.) - if not, check out the [plotting tutorial](../plot_00_plotting_intro).
