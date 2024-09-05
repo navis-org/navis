@@ -51,5 +51,6 @@ jobs:
         QT_QPA_PLATFORM: offscreen
       with:
         run: |
+          python /docs/examples/5_nblast/plot_00_nblast_intro.py
           python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
           python tests/test_tutorials.py
