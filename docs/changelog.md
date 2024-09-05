@@ -21,20 +21,37 @@ This version contains a major internal rework of both [`navis.plot2d`][] and [`n
 - Minimum version of `matplotlib` is now `3.9` (was `3.6`)
 - The `plotly` backend is not part of a minimal install anymore (still installed using `navis[all]`)
 - The Vispy backend is now deprecated and will be removed in a future release
+- Removed `navis.screenshot` - please use the Octarine/Vispy viewer's `.screenshot()` method instead
 
 ##### Additions
 - Added [Octarine](https://github.com/schlegelp/octarine) as the default backend for plotting from terminal
+- New function: [`navis.graph.skeleton_adjacency_matrix`][] computes the node adjacency for skeletons
+- New [`NeuronList`][navis.NeuronList] method: [`get_neuron_attributes`][navis.NeuronList.get_neuron_attributes] is analagous to `dict.get`
+- [`NeuronLists`][navis.NeuronList] now implemented the `|` (`__or__`) operator which can be used to get the union of two [`NeuronLists`][navis.NeuronList]
+- [`navis.Volume`][] now have an (optional) `.units` property similar to neurons
 
 ##### Improvements
-- [`navis.plot3d`][]:
-  - `legendgroup` parameter (plotly backend) now also sets the legend group's title
-  - default `radius` is now `True`
-- [`navis.plot2d`][]:
-  - The `view` parameter now also works with `methods` `3d` and `3d_complex`
-  - The `color_by` and `shade_by` parameters now also work when plotting skeletons with `radius=True`
-  - New defaults: `radius=True`, `alpha=1`, `figsize=None` (use matplotlib defaults)
-  - New parameters: `mesh_shade=False` and `non_view_axes3d`
+- Plotting:
+  - [`navis.plot3d`][]:
+    - `legendgroup` parameter (plotly backend) now also sets the legend group's title
+    - new parameters for the plotly backend:
+      - `legend` (default `True`): determines whether legends is shown
+      - `legend_orientation` (default `v`): determines whether legend is aranged vertically (`v`) or horizontally (`h`)
+      - `linestyle` (default `-`): determines line style for skeletons
+    - default for `radius` is now `True`
+  - [`navis.plot2d`][]:
+    - The `view` parameter now also works with `methods` `3d` and `3d_complex`
+    - The `color_by` and `shade_by` parameters now also work when plotting skeletons with `radius=True`
+    - New defaults: `radius=True`, `alpha=1`, `figsize=None` (use matplotlib defaults)
+    - New parameters: `mesh_shade=False` and `non_view_axes3d`
+  - the `connectors` parameter can now be used to show specific connector types (e.g. `connectors="pre"`)
 - General improvements to docs and tutorials
+
+##### Fixes
+- Memory usage of `Neuron/Lists` is now correctly re-calculated when the neuron is modified
+- Various fixes and improvements for the MICrONS interface (`navis.interfaces.microns`)
+- [`navis.graph.node_label_sorting`][] now correctly prioritizes total branch length
+- [`navis.TreeNeuron.simple][] now correctly drops soma nodes if they aren't root, branch or leaf points themselves
 
 ## Version 1.7.0
 Date: 25/07/24
