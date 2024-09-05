@@ -159,9 +159,13 @@ def plot2d(
 
                         If True and `depth_coloring=True` will plot a scale.
 
-    connectors :        bool, default=True
+    connectors :        bool | "presynapses" | "postsynapses" | str | list, default=True
 
-                        Plot connectors.
+                        Plot connectors. This can either be `True` (plot all
+                        connectors), `"presynapses"` (only presynaptic connectors)
+                        or `"postsynapses"` (only postsynaptic connectors). If
+                        a string or a list is provided, it will be used to filter the
+                        `type` column in the connectors table.
 
     connectors_only :   boolean, default=False
 
@@ -805,6 +809,20 @@ def _plot_connectors(neuron, color, ax, settings):
     """Plot connectors."""
     cn_layout = copy.deepcopy(config.default_connector_colors)
 
+    if settings.connectors == 'pre':
+        connectors = neuron.presynapses
+    elif settings.connectors == 'post':
+        connectors = neuron.postsynapses
+    elif isinstance(settings.connectors, str):
+        connectors = neuron.connectors[neuron.connectors.type == settings.connectors]
+    elif isinstance(settings.connectors, (list, np.ndarray, tuple)):
+        connectors = neuron.connectors[neuron.connectors.type.isin(settings.connectors)]
+    else:
+        connectors = neuron.connectors
+
+    if connectors.empty:
+        return
+
     # Update with user settings
     if settings.cn_layout:
         cn_layout.update(settings.cn_layout)
@@ -829,9 +847,7 @@ def _plot_connectors(neuron, color, ax, settings):
                 inner_dict["color"] = settings.cn_colors
 
     if settings.method == "2d":
-        for c in neuron.connectors.type.unique():
-            this_cn = neuron.connectors[neuron.connectors.type == c]
-
+        for c, this_cn in connectors.groupby('type'):
             x, y = _parse_view2d(this_cn[["x", "y", "z"]].values, settings.view)
 
             ax.scatter(
@@ -840,18 +856,19 @@ def _plot_connectors(neuron, color, ax, settings):
                 color=cn_layout[c]["color"],
                 edgecolor="none",
                 s=settings.cn_size if settings.cn_size else cn_layout["size"],
+                zorder=1000
             )
             ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
     elif settings.method in ["3d", "3d_complex"]:
-        all_cn = neuron.connectors
-        c = [cn_layout[i]["color"] for i in all_cn.type.values]
+        c = [cn_layout[i]["color"] for i in connectors.type.values]
         ax.scatter(
-            all_cn.x.values,
-            all_cn.y.values,
-            all_cn.z.values,
+            connectors.x.values,
+            connectors.y.values,
+            connectors.z.values,
             color=c,
             s=settings.cn_size if settings.cn_size else cn_layout["size"],
             depthshade=cn_layout.get("depthshade", False),
+            zorder=0,
             edgecolor="none",
         )
         ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
