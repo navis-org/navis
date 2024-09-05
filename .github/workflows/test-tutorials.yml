@@ -1,4 +1,4 @@
-name: Tutorials
+name: Test tutorials
 
 on: [push]
 
@@ -31,6 +31,10 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install pathos pygraphviz neuron cloud-volume k3d scikit-image open3d
         python -m pip install -e .[test-notebook,all]
+    - name: Download test data
+      run: |
+        chmod +x download_test_data.sh
+        ./download_test_data.sh
     - name: Run tutorials
       uses: coactions/setup-xvfb@v1
       env:

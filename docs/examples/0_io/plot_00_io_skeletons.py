@@ -36,7 +36,7 @@ to adjust the filepaths in the examples according to where you saved it to.
 # %%
 import navis
 skeletons = navis.read_swc(
-    '~/Downloads/mmc2/skeletons_swc.zip',
+    './mmc2/skeletons_swc.zip',
     include_subdirs=True
 )
 skeletons
@@ -47,7 +47,7 @@ skeletons
 # %%
 # Load only the first 10 skeletons
 sample = navis.read_swc(
-    '~/Downloads/mmc2/skeletons_swc.zip',
+    './mmc2/skeletons_swc.zip',
     include_subdirs=True,
     limit=10
 )
@@ -58,7 +58,7 @@ sample
 
 # %%
 # For this I extraced the skeletons_swc.zip archive
-s = navis.read_swc('~/Downloads/mmc2/swc/CENT/11519759.swc')
+s = navis.read_swc('./mmc2/swc/CENT/11519759.swc')
 s
 
 # %%
@@ -75,22 +75,22 @@ s = navis.read_swc('https://v2.virtualflybrain.org/data/VFB/i/jrch/jup2/VFB_0010
 # %%
 
 # Write a single neuron:
-navis.write_swc(s, '~/Downloads/mmc2/my_neuron.swc')
+navis.write_swc(s, './mmc2/my_neuron.swc')
 
 # %%
 
 # Write a whole list of skeletons to a folder and use the neurons' `name` property as filename:
-navis.write_swc(sample, '~/Downloads/mmc2/{neuron.name}.swc')
+navis.write_swc(sample, './mmc2/{neuron.name}.swc')
 
 # %%
 
 # Write directly to a zip file:
-navis.write_swc(sample, '~/Downloads/mmc2/skeletons.zip')
+navis.write_swc(sample, './mmc2/skeletons.zip')
 
 # %%
 
 # Write directly to a zip file and use the neuron name as filename:
-navis.write_swc(sample, '~/Downloads/mmc2/{neuron.name}.swc@skeletons.zip')
+navis.write_swc(sample, './mmc2/{neuron.name}.swc@skeletons.zip')
 
 # %%
 # See [`navis.write_swc`][] for further details!
@@ -104,12 +104,12 @@ navis.write_swc(sample, '~/Downloads/mmc2/{neuron.name}.swc@skeletons.zip')
 
 # %%
 # Read a single file
-s = navis.read_nmx('~/Downloads/WannerAA201605_SkeletonsGlomeruli/Neuron_id0001.nmx')
+s = navis.read_nmx('./WannerAA201605_SkeletonsGlomeruli/Neuron_id0001.nmx')
 s
 
 # %%
 # Read all files in folder
-nl = navis.read_nmx('~/Downloads/WannerAA201605_SkeletonsGlomeruli/')
+nl = navis.read_nmx('./WannerAA201605_SkeletonsGlomeruli/')
 nl
 
 # %%
