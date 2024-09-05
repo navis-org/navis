@@ -13,8 +13,10 @@ A couple notes:
    Set `capture_output=True` to see the error message.
  - the MICrONS tutorial occasionally fails because the CAVE backend throws an error
    (e.g. during the materialization)
+ - Github runners appear to have 4 CPUs - so should be good to go
 """
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -36,14 +38,19 @@ if __name__ == "__main__":
             continue
 
         print(f"Executing {file.name} [{i+1}/{len(files)}]... ", end="", flush=True)
-        try:
-            # Set `capture_output=True` to see e.g. error messages.
-            p = subprocess.run(["python", str(file)], check=True, capture_output=True, timeout=600, cwd=file.parent)
-        except subprocess.CalledProcessError as e:
-            print("Failed!")
-            print(e.stdout.decode())
-            print(e.stderr.decode())
-            raise
+        os.chdir(file.parent)
+        exec(open(file.name).read())
         print("Done.", flush=True)
+
+        # print(f"Executing {file.name} [{i+1}/{len(files)}]... ", end="", flush=True)
+        # try:
+        #     # Set `capture_output=True` to see e.g. error messages.
+        #     p = subprocess.run(["python", str(file)], check=True, capture_output=True, timeout=600, cwd=file.parent)
+        # except subprocess.CalledProcessError as e:
+        #     print("Failed!")
+        #     print(e.stdout.decode())
+        #     print(e.stderr.decode())
+        #     raise
+        # print("Done.", flush=True)
 
     print("All done.")
