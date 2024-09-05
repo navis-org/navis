@@ -440,7 +440,7 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
     nl = NeuronList(nl)
 
     # Make an effort to retain the original order
-    if not isinstance(x, NeuronCriteria):
+    if not isinstance(x, NeuronCriteria) and not nl.empty:
         nl = nl.idx[np.asarray(x)[np.isin(x, nl.id)]]
 
     return nl
