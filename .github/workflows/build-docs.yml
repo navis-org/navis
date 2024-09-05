@@ -38,6 +38,7 @@ jobs:
         run: |
           mkdir -p -- $HOME/flybrain-data
           curl -o $HOME/flybrain-data/JRC2018F_JRCFIB2018F.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_JRCFIB2018F.h5
+          curl -o $HOME/flybrain-data/JRC2018F_JRCFIB2018F.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_FAFB.h5
       - name: Build and deploy docs
         uses: coactions/setup-xvfb@v1
         env:
