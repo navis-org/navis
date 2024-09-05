@@ -439,18 +439,28 @@ def plot2d(
     if not settings.ax:
         if settings.method == "2d":
             fig, ax = plt.subplots(figsize=settings.figsize)
-            ax.set_aspect("equal")
-
-            _set_view2d(ax, settings)
-
         elif settings.method in ("3d", "3d_complex"):
             fig = plt.figure(
                 figsize=settings.figsize if settings.figsize else plt.figaspect(1) * 1.5
             )
             ax = fig.add_subplot(111, projection="3d")
+        # Hide axes
+        # ax.set_axis_off()
+    else:
+        # Check if correct axis were provided
+        if not isinstance(settings.ax, mpl.axes.Axes):
+            raise TypeError('Ax must be of type "mpl.axes.Axes", ' f'not "{type(ax)}"')
+        ax = settings.ax
+        fig = ax.get_figure()
+        if settings.method in ("3d", "3d_complex") and ax.name != "3d":
+            raise TypeError("Axis must be 3d.")
+        elif settings.method == "2d" and ax.name == "3d":
+            raise TypeError("Axis must be 2d.")
 
-            # This sets the view
-            _set_view3d(ax, settings)
+    # Set axis projection
+    if settings.method in ("3d", "3d_complex"):
+        # This sets the view
+        _set_view3d(ax, settings)
 
         # Some styling:
         # Make background transparent (nicer for dark themes)
@@ -468,25 +478,13 @@ def plot2d(
             ax.zaxis.pane.set_edgecolor((1, 1, 1, 0))
             ax.zaxis.pane.fill = False
 
-        # Hide axes
-        # ax.set_axis_off()
-    else:
-        # Check if correct axis were provided
-        if not isinstance(settings.ax, mpl.axes.Axes):
-            raise TypeError('Ax must be of type "mpl.axes.Axes", ' f'not "{type(ax)}"')
-        ax = settings.ax
-        fig = ax.get_figure()
-        if settings.method in ("3d", "3d_complex") and ax.name != "3d":
-            raise TypeError("Axis must be 3d.")
-        elif settings.method == "2d" and ax.name == "3d":
-            raise TypeError("Axis must be 2d.")
-
-    # Set axis projection
-    if settings.method in ("3d", "3d_complex"):
         if settings.orthogonal:
             ax.set_proj_type("ortho")
         else:
             ax.set_proj_type("persp", focal_length=1)  # smaller = more perspective
+    else:
+        ax.set_aspect("equal")
+        _set_view2d(ax, settings)
 
     # Prepare some stuff for depth coloring
     if settings.depth_coloring and not neurons.empty:
