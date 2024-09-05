@@ -29,7 +29,7 @@ in the terminal and when in doubt, check out the section about authentication in
 
 Let's get started:
 """
-
+# %%
 import navis
 import navis.interfaces.microns as mi
 

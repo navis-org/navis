@@ -273,8 +273,7 @@ cl = fcluster(Z_synbl, t=1, criterion="distance")
 cl
 
 # %%
-# Now plot each cluster
-# For simplicity we are plotting in 2D here
+# Now plot each cluster. For simplicity we are plotting in 2D here:
 import math
 
 n_clusters = max(cl)
