@@ -2,6 +2,13 @@
 Code to execute code examples notebooks in /docs/examples.
 
 This will not be run through pytest but is meant to be run in a separate CI job.
+
+A couple notes:
+ - it's possible that any notebook that spawns another child process (e.g. the SWC I/O tutorial)
+   will hang indefinitely. This is because of the ominous "An attempt has been made to start a new
+   process before the current process has finished its bootstrapping phase." error which typically
+   means that the script has to be run in a `if __name__ == "__main__":` block.
+   Set `capture_output=True` to see the error message.
 """
 
 import subprocess
@@ -17,6 +24,7 @@ if __name__ == "__main__":
 
     files = list(path.rglob("*.py"))
     for i, file in enumerate(files):
+
         if not file.is_file():
             continue
         if file.name in SKIP:
@@ -24,7 +32,8 @@ if __name__ == "__main__":
 
         print(f"Executing {file.name} [{i+1}/{len(files)}]... ", end="", flush=True)
         try:
-            p = subprocess.run(["python", str(file)], check=True, capture_output=True, timeout=600)
+            # Set `capture_output=True` to see e.g. error messages.
+            p = subprocess.run(["python", str(file)], check=True, capture_output=True, timeout=600, cwd=file.parent)
         except subprocess.CalledProcessError as e:
             print("Failed.")
             print(e.stdout.decode())
