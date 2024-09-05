@@ -98,18 +98,21 @@ def neuron2k3d(x, colormap, settings):
         else:
             legendgroup = neuron_id
 
-        if (
-            isinstance(neuron, core.TreeNeuron)
-            and settings.radius
-            and neuron.nodes.get("radius", pd.Series([]))
-            .notnull()
-            .any()  # make sure we have at least some radii
-        ):
-            # Convert and carry connectors with us
-            if isinstance(neuron, core.TreeNeuron):
-                _neuron = conversion.tree2meshneuron(neuron)
-                _neuron.connectors = neuron.connectors
-                neuron = _neuron
+        if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
+            # Number of nodes with radii
+            n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
+            # If less than 30% of nodes have a radius, we will fall back to lines
+            if n_radii / neuron.nodes.shape[0] < 0.3:
+                settings.radius = False
+
+        if isinstance(neuron, core.TreeNeuron) and settings.radius:
+            _neuron = conversion.tree2meshneuron(neuron)
+            _neuron.connectors = neuron.connectors
+            neuron = _neuron
+
+            # See if we need to map colors to vertices
+            if isinstance(color, np.ndarray) and color.ndim == 2:
+                color = color[neuron.vertex_map]
 
         if not settings.connectors_only:
             if isinstance(neuron, core.TreeNeuron):

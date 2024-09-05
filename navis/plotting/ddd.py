@@ -147,11 +147,13 @@ def plot3d(
                       a `smin` and/or `smax` parameter. Does not work with
                       `k3d` backend.
 
-    radius :          bool, default=True
+    radius :          "auto" (default) | bool
 
-                      TreeNeurons only: If True, will plot skeleotns as 3D tubes
-                      using the `radius` column in their node tables. Silently
-                      ignored if neuron has no/empty radius column.
+                      If "auto" will plot neurites of `TreeNeurons` with radius
+                      if they have radii. If True, will plot neurites of
+                      `TreeNeurons` with radius regardless. The radius can be
+                      scaled by `linewidth`. Note that this will increase rendering
+                      time.
 
     soma :            bool, default=True
 

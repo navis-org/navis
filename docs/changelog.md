@@ -38,11 +38,11 @@ This version contains a major internal rework of both [`navis.plot2d`][] and [`n
       - `legend` (default `True`): determines whether legends is shown
       - `legend_orientation` (default `v`): determines whether legend is aranged vertically (`v`) or horizontally (`h`)
       - `linestyle` (default `-`): determines line style for skeletons
-    - default for `radius` is now `True`
+    - default for `radius` is now `"auto"`
   - [`navis.plot2d`][]:
     - The `view` parameter now also works with `methods` `3d` and `3d_complex`
     - The `color_by` and `shade_by` parameters now also work when plotting skeletons with `radius=True`
-    - New defaults: `radius=True`, `alpha=1`, `figsize=None` (use matplotlib defaults)
+    - New defaults: `radius="auto"`, `alpha=1`, `figsize=None` (use matplotlib defaults)
     - New parameters: `mesh_shade=False` and `non_view_axes3d`
   - the `connectors` parameter can now be used to show specific connector types (e.g. `connectors="pre"`)
 - General improvements to docs and tutorials

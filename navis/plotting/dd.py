@@ -532,16 +532,15 @@ def plot2d(
                 logger.warning(f"Skipping Dotprops w/o points: {neuron.label}")
                 continue
 
-            if (
-                isinstance(neuron, core.TreeNeuron)
-                and settings.radius
-                and neuron.nodes.get("radius", pd.Series([])).notnull().any()  # make sure we have at least some radii
-            ):
-                _neuron = conversion.tree2meshneuron(
-                    neuron,
-                    radius_scale_factor=settings.linewidth,
-                    tube_points=4,
-                )
+            if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
+                # Number of nodes with radii
+                n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
+                # If less than 30% of nodes have a radius, we will fall back to lines
+                if n_radii / neuron.nodes.shape[0] < 0.3:
+                    settings.radius = False
+
+            if isinstance(neuron, core.TreeNeuron) and settings.radius:
+                _neuron = conversion.tree2meshneuron(neuron)
                 _neuron.connectors = neuron.connectors
                 neuron = _neuron
 

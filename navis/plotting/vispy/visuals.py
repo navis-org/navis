@@ -255,16 +255,21 @@ def neuron2vispy(x, settings):
         # Generate random ID -> we need this in case we have duplicate IDs
         object_id = uuid.uuid4()
 
-        if (
-            isinstance(neuron, core.TreeNeuron)
-            and settings.radius
-            and neuron.nodes.get("radius", pd.Series([]))
-            .notnull()
-            .any()  # make sure we have at least some radii
-        ):
+        if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
+            # Number of nodes with radii
+            n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
+            # If less than 30% of nodes have a radius, we will fall back to lines
+            if n_radii / neuron.nodes.shape[0] < 0.3:
+                settings.radius = False
+
+        if isinstance(neuron, core.TreeNeuron) and settings.radius:
             _neuron = conversion.tree2meshneuron(neuron)
             _neuron.connectors = neuron.connectors
             neuron = _neuron
+
+            # See if we need to map colors to vertices
+            if isinstance(colormap[i], np.ndarray) and colormap[i].ndim == 2:
+                colormap[i] = colormap[i][neuron.vertex_map]
 
         neuron_color = colormap[i]
         if not settings.connectors_only:
@@ -294,9 +299,9 @@ def connectors2vispy(neuron, neuron_color, object_id, settings):
 
     if isinstance(settings.connectors, (list, np.ndarray, tuple)):
         connectors = neuron.connectors[neuron.connectors.type.isin(settings.connectors)]
-    elif settings.connectors == 'pre':
+    elif settings.connectors == "pre":
         connectors = neuron.presynapses
-    elif settings.connectors == 'post':
+    elif settings.connectors == "post":
         connectors = neuron.postsynapses
     elif isinstance(settings.connectors, str):
         connectors = neuron.connectors[neuron.connectors.type == settings.connectors]
@@ -304,7 +309,7 @@ def connectors2vispy(neuron, neuron_color, object_id, settings):
         connectors = neuron.connectors
 
     visuals = []
-    for j, this_cn in connectors.groupby('type'):
+    for j, this_cn in connectors.groupby("type"):
         if isinstance(settings.cn_colors, dict):
             color = settings.cn_colors.get(
                 j, cn_lay.get(j, {}).get("color", (0.1, 0.1, 0.1))
