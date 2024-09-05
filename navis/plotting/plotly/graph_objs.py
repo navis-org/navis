@@ -473,13 +473,22 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
         hoverinfo = "none"
         hovertext = " "
 
+    # Options for linestyle: "solid", "dot", "dash", "longdash", "dashdot", or "longdashdot"
+    # Translate `linestyle` setting to plotly's `dash` setting
+    dash = {
+        "-": "solid",
+        "--": "dash",
+        "-.": "dashdot",
+        ":": "dot"
+    }.get(settings.linestyle, settings.linestyle)
+
     trace_data = [
         go.Scatter3d(
             x=coords[:, 0],
             y=coords[:, 1],
             z=coords[:, 2],
             mode="lines",
-            line=dict(color=c, width=settings.linewidth),
+            line=dict(color=c, width=settings.linewidth, dash=dash),
             name=label,
             legendgroup=legendgroup,
             legendgrouptitle_text=legendgroup,
@@ -670,6 +679,9 @@ def layout2plotly(**kwargs):
         height=kwargs.get("height", 600),  # these override autosize
         autosize=kwargs.get("fig_autosize", True),
         title=kwargs.get("pl_title", None),
+        showlegend=kwargs.get("legend", True),
+        legend_orientation=kwargs.get("legend_orientation", "v"),
+        legend_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         scene=dict(

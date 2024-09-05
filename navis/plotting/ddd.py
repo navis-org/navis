@@ -224,6 +224,15 @@ def plot3d(
 
                       If True, hovering over skeleton nodes will show their ID.
 
+    legend :          bool, default=True
+
+                      Whether or not to show the legend.
+
+    legend_orientation : "v" (default) | "h"
+
+                      Orientation of the legend. Can be 'h' (horizontal) or 'v'
+                      (vertical).
+
     legend_group :    dict, default=None
 
                       A dictionary mapping neuron IDs to labels (strings).

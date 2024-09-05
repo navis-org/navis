@@ -156,11 +156,14 @@ class PlotlySettings(BasePlottingSettings):
     fig_autosize: bool = True
     hover_name: Optional[str] = False
     hover_id: bool = False
+    legend: bool = True
+    legend_orientation: Literal["h", "v"] = "v"
     legend_group: Optional[str] = None
     volume_legend: bool = False
     width: Optional[int] = None
     height: Optional[int] = 600
     linewidth: float = 3  # for plotly, linewidth 1 is too thin
+    linestyle: str = "-"
 
 
 @dataclass
