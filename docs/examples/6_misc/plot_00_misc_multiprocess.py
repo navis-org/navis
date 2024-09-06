@@ -9,7 +9,7 @@ the hood might). Distributing expensive computations across multiple cores can s
 
 Many {{ navis }} functions natively support parallel processing. This notebook will illustrate various ways
 to use parallelism. Before we get start: {{ navis }} uses `pathos` for multiprocessing - if you installed
-{{ navis }} with `pip install navis[all]` you should be all set. IF not, you can install it separately:
+{{ navis }} with `pip install navis[all]` you should be all set. If not, you can install it separately:
 
 ```shell
 pip install pathos -U
@@ -33,7 +33,7 @@ def time_func(func, *args, **kwargs):
 nl = navis.example_neurons()
 
 # %%
-# Without parallel processing
+# Without parallel processing:
 time_func (
     navis.resample_skeleton,
     nl,
@@ -41,7 +41,7 @@ time_func (
 )
 
 # %%
-# With parallel processing (by default this will use half the available CPU cores)
+# With parallel processing (by default this will use half the available CPU cores):
 time_func (
     navis.resample_skeleton,
     nl,
@@ -50,13 +50,16 @@ time_func (
 )
 
 # %%
-# The same also works for neuron methods:
+# The same also works for neuron methods!
+#
+# Without parallel processing:
 
 time_func (
     nl.resample, 125
 )
 
 # %%
+# With parallel processing:
 
 time_func (
     nl.resample, 125, parallel=True
@@ -65,8 +68,8 @@ time_func (
 # %%
 # !!! important
 #     This documentation is built on Github Actions where the number of cores can be as low as 2. The speedup on
-#     your machine should be more pronounced than what you see here. That said: note that parallel processing
-#     also has some overhead. For small tasks, the overhead can be larger than the speedup.
+#     your machine should be more pronounced than what you see here. That said: parallel processing has some
+#     overhead and for small tasks, the overhead can be larger than the speedup.
 
 # %%
 # ## Parallelizing generic functions

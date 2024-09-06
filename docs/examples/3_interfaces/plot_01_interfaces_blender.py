@@ -16,40 +16,51 @@ There are several ways to install additional packages for Blender's built-in Pyt
 way is probably this:
 
 1. Find out where Blender's Python lives (this depends on your OS). In
-   `Blender's Python console` run this:
+   _Blender's Python console_ run this:
 
     ```python
     >>> import sys
     >>> sys.executable
-    '[..]/blender.app/Contents/Resources/3.0/python/bin/python3.9'
+    [..]/Blender 4.1.app/Contents/Resources/4.1/python/bin/python3.11
     ```
 
-2. Check if Blender's Python already came with the package manager `pip`:
+    ![Blender Python console](../../../_static/blender_console.png)
+
+2. Now that we know the Python path we open a normal terminal and check if Blender's Python
+   already came with the package manager `pip`.
 
     ```shell
-    [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -m pip --version
+    [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -m pip --version
     ```
 
-    If the above command throws an error along the lines of "No module named pip":
+    ![Blender PIP](../../../_static/blender_pip.png)
+
+    !!! warning
+        You may have to escape whitespaces in the path to Blender's Python executable
+        like we did above! On OSX this is done with a backslash `\`. On Windows you
+        have to wrap the path in quotes `"` if it contains spaces.
+
+    If the above command throws an error along the lines of `"No module named pip"`:
     get `pip` by downloading ``get-pip.py`` from
     [here](https://pip.pypa.io/en/stable/installing/) and install by executing
     with your Python distribution:
 
     ```shell
-    [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 get-pip.py
+    [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 get-pip.py
     ```
 
-    If `pip` is there but horrendously outdated, you can update it like so:
+    If `pip` is there but horrendously outdated (the current version is `24.4`),
+    you can update it like so:
 
     ```shell
-    [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -m pip install pip -U
+    [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -m pip install pip -U
     ```
 
 3. Use `pip` to install {{ navis }} (or any other package for that matter). Please note
    we have to - again - specify that we want to install for Blender's Python:
 
     ```shell
-    [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -m pip install navis
+    [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -m pip install navis
     ```
 
     !!! important
@@ -61,7 +72,7 @@ way is probably this:
         First, find out the *exact* Blender Python version:
 
         ```shell
-        [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -V
+        [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -V
         ```
 
         Next point your browser at https://www.python.org/downloads/source/ and
@@ -75,7 +86,7 @@ way is probably this:
         ```shell
         cd ~/Downloads/
         tar -xzf Python-3.X.X.tgz
-        cp Python-3.X.X/Include/* [..]/blender.app/Contents/Resources/3.0/python/bin/python3.9
+        cp Python-3.X.X/Include/* [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11
         ```
 
         If the above fails you have one more option: figure out which dependency fails
@@ -90,7 +101,7 @@ way is probably this:
         file (will appear as `.whl` file in a `/dist` subdirectory)
         d) Go back to Blender's Python and install the dependency from that wheel:
         ```shell
-        `[..]/blender.app/Contents/Resources/3.0/python/bin/python3.9 -m pip install <full file name of wheel file with .whl extension>`
+        [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -m pip install <full file name of wheel file with .whl extension>
         ```
 
 4. You should now be all set to use {{ navis }} in Blender. Check out Quickstart!
@@ -98,7 +109,7 @@ way is probably this:
 ## Quickstart
 
 `navis.interfaces.blender` provides a simple interface that lets you add,
-select and manipulate neurons from within `Blender's Python console`:
+select and manipulate neurons from within _Blender's Python console_:
 
 First, import and set up {{ navis }} like you are used to.
 
@@ -154,4 +165,5 @@ The [`navis.interfaces.blender.Handler`][] is providing the interface between {{
 """
 
 # %%
+
 # mkdocs_gallery_thumbnail_path = '_static/blender_logo.png'

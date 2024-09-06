@@ -86,5 +86,4 @@ plt.tight_layout()
 # %%
 # All {{ navis }} functions for analysis & visualization should work on these neurons. If not, please open an issue on Github.
 
-# This sets the tutorial's thumbnail (you can ignore this)
 # mkdocs_gallery_thumbnail_path = '_static/neuprint_logo.png'

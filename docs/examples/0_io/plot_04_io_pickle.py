@@ -45,4 +45,5 @@ See also the [I/O API reference](../../../api.md#importexport).
 """
 
 # %%
+
 # mkdocs_gallery_thumbnail_path = '_static/pickle.png'

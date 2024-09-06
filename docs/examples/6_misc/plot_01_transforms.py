@@ -7,8 +7,8 @@ This tutorial will show you how to transform and mirror neurons.
 ## Introduction
 
 As of version `0.5.0`, {{ navis }} includes functions that let you transform and mirror spatial data (e.g. neurons).
-This new functionality broadly splits into high and low level functions. In this tutorial, we will start by exploring
-the higher level functions that most users will use and then take a sneak peak at the low level functions.
+This new functionality splits into high- and low-level functions. In this tutorial, we will start by exploring
+the higher-level functions that most users will use and then take a sneak peak at the low-level functions.
 
 At the moment, navis supports the following transform types:
 
@@ -33,7 +33,7 @@ and download the bridging registrations before you continue.
 import flybrains
 
 # %%
-# Importing `flybrains` automatically registers the transforms with {{ navis }}. This in turn allows {{ navis }} to plot a\
+# Importing `flybrains` automatically registers the transforms with {{ navis }}. This in turn allows {{ navis }} to plot a
 # sequence of bridging transformations to map between any connected template spaces.
 #
 # ![Flybrain Bridging Graph](https://github.com/navis-org/navis-flybrains/blob/main/_static/bridging_graph.png?raw=true)
@@ -57,17 +57,21 @@ plt.tight_layout()
 
 navis.transforms.registry.summary()
 
+# !!! note
+#     The documentation is built in an environment with a minimal number of transforms registered. If you have installed
+#     and imported `flybrains`, you should see a lot more than what is shown above.
+
 # %%
-# ### Using ``xform_brain``
+# ## Using ``xform_brain``
 #
 # For high-level transforming, you will want to use [`navis.xform_brain`][]. This function takes a `source` and `target` argument
 # and tries to find a bridging sequence that gets you to where you want. Let's try it out:
 #
 # !!! info
 #     Incidentally, the example neurons that {{ navis }} ships with are from the Janelia hemibrain project and are therefore in
-#     `JRCFIB2018raw` space (here "raw" means 8x8x8nm voxel coordinates). We will be using those but there is nothing stopping you
-#     from using the {{ navis }} interface with neuPrint (the tutorials on [interfaces](../#interfaces)) to fetch your
-#     favourite hemibrain neurons and transform those.
+#     `JRCFIB2018raw` space ("raw" means uncalibrated voxel space which is 8x8x8nm for this dataset). We will be using those
+#     but there is nothing stopping you from using the {{ navis }} interface with neuPrint (the tutorials on
+#     [interfaces](../#interfaces)) to fetch your favourite hemibrain neurons and transform those.
 
 # Load the example hemibrain neurons (JRCFIB2018raw space)
 nl = navis.example_neurons()
@@ -81,7 +85,7 @@ plt.tight_layout()
 # Let's say we want these neurons in `JRC2018F` template space. Before we do the actual transform it's useful to quickly check above
 # bridging graph to see what we expect to happen:
 #
-# ??? info "JRC2018F"
+# ??? info "What is JRC2018F?"
 #     `JRC2018F` is a standard brain made from averaging over multiple fly brains. See
 #     [Bogovic et al., 2020](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0236495) for details.
 #
@@ -138,6 +142,8 @@ plt.tight_layout()
 #
 #
 # ## Low-level functions
+#
+# ### Adding your own transforms
 # Let's assume you want to add your own transforms. There are four different transform types:
 #
 # - [`navis.transforms.affine.AffineTransform`][]
@@ -146,8 +152,8 @@ plt.tight_layout()
 # - [`navis.transforms.thinplate.TPStransform`][]
 #
 # To show you how to use them, we will create a new thin plate spline transform using [`TPStransform`][navis.transforms.thinplate.TPStransform].
-# If you look at the bridging graph again, you might note the `"FAFB14"` template brain: it stands for `"Full Adult Fly Brain"` - the `14` is a
-# version number for the alignment. We will use landmarks to generate a mapping between this 14th and the previous 13th iteration.
+# If you look at the bridging graph again, you might note the `"FAFB14"` template brain: it stands for `"Full Adult Fly Brain"` (the `14` is a
+# version number for the alignment). We will use landmarks to generate a mapping between this 14th and the previous 13th iteration.
 #
 # First we will grab the landmarks from the Saalfeld's lab [elm](https://github.com/saalfeldlab/elm) repository:
 
@@ -229,7 +235,7 @@ fig, ax = navis.plot2d(xf_fafb14, c='k', view=("x", "-y"))
 _ = navis.plot2d(xf_fafb13, c='r', ax=ax)
 
 # %%
-# ## Registering Template Brains
+# ### Registering Template Brains
 #
 # For completeness, lets also have a quick look at registering additional template brains.
 #
