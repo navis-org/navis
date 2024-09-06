@@ -66,6 +66,6 @@ if __name__ == "__main__":
         print("Done.", flush=True)
 
         # Make sure to close any open figures
-        plt.close()
+        plt.close("all")
 
     print("All done.")
