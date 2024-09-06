@@ -99,7 +99,7 @@ class PointNetwork:
         -------
         list of tuples
 
-                ``[(source_ix, target_ix, weight, NetCon object), ...]``
+                `[(source_ix, target_ix, weight, NetCon object), ...]`
 
         """
         return self._edges
@@ -111,7 +111,7 @@ class PointNetwork:
         Returns
         -------
         list
-                List of ``PointNeurons``.
+                List of `PointNeurons`.
 
         """
         return self._neurons
@@ -148,7 +148,7 @@ class PointNetwork:
                         range with 1 effectively guaranteeing that a presynaptic
                         spike triggers a postsynaptic spike.
         **props
-                        Keyword arguments are passed through to ``add_neurons``.
+                        Keyword arguments are passed through to `add_neurons`.
                         Use to set e.g. labels, threshold or additional
                         model parameters.
 
@@ -183,14 +183,14 @@ class PointNetwork:
                         The model to use for the integrate-and-fire point processes.
         labels :        str | list | dict, optional
                         Labels for neurons. If str will apply the same label to
-                        all neurons. If list, must be same length as ``ids``.
+                        all neurons. If list, must be same length as `ids`.
                         Dictionary must be ID -> label map.
         skip_existing : bool
                         If True, will skip existing IDs.
         **props
                         Additional parameters used when initializing the point
                         processes. Depends on which model type you are using:
-                        e.g. ``refrac`` and ``tau`` for "IntFire1".
+                        e.g. `refrac` and `tau` for "IntFire1".
 
         """
         assert model in ["IntFire1", "IntFire2", "IntFire4"]

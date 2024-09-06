@@ -88,7 +88,7 @@ def map_colors(colors: Optional[Union[str,
     Parameters
     ----------
     colors :        None | str | tuple | list-like | dict | None
-                    Color(s) to map onto ``objects``. Can be::
+                    Color(s) to map onto `objects`. Can be::
 
                       str: e.g. "blue", "k" or "y"
                       tuple: (0, 0, 1), (0, 0, 0) or (0, 1, 1)
@@ -96,8 +96,8 @@ def map_colors(colors: Optional[Union[str,
                       dict mapping objects to colors: {object1: 'r',
                                                        object2: (1, 1, 1)}
 
-                    If list-like or dict do not cover all ``objects``, will
-                    fall back to ``navis.config.default_color``. If ``None``,
+                    If list-like or dict do not cover all `objects`, will
+                    fall back to `navis.config.default_color`. If `None`,
                     will generate evenly spread out colors.
 
     objects :       list-like
@@ -107,7 +107,7 @@ def map_colors(colors: Optional[Union[str,
     Returns
     -------
     list of tuples
-                    Will match length of ``objects``.
+                    Will match length of `objects`.
 
     """
     if not utils.is_iterable(objects):
@@ -144,7 +144,7 @@ def map_colors(colors: Optional[Union[str,
 
 def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
     """Look for "label" or "type" column in connector tables and generates
-    a color for every unique type. See ``navis.set_default_connector_colors``.
+    a color for every unique type. See `navis.set_default_connector_colors`.
 
     Returns
     -------
@@ -210,13 +210,13 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
     vmin|vmax : float, optional
                 Min/Max values for normalizing numerical data.
     na :        "raise" | color
-                Determine what to do if ``by`` is missing for a given neuron or
+                Determine what to do if `by` is missing for a given neuron or
                 a node:
                  - "raise" will raise ValueError
                  - color (str, rgb tuple) will be used to fill missing values
     norm_global : bool
                 If True and no vmin/vmax is provided, will normalize across
-                all ``neurons``. If False, will normalize neurons individually.
+                all `neurons`. If False, will normalize neurons individually.
 
     Returns
     -------
@@ -545,10 +545,20 @@ def prepare_colormap(colors,
 
     # If alpha is given, we will override all values
     if not isinstance(alpha, type(None)):
-        neuron_cmap = [add_alpha(c, alpha) for c in neuron_cmap]
+        if isinstance(alpha, numbers.Number):
+            neuron_cmap = [add_alpha(c, alpha) for c in neuron_cmap]
+        elif isinstance(alpha, (list, tuple, np.ndarray)):
+            if len(alpha) != len(neurons):
+                raise ValueError(f'Need alpha for {len(neurons)} neurons, '
+                                 f'got {len(alpha)}')
+            neuron_cmap = [add_alpha(c, a) for c, a in zip(neuron_cmap, alpha)]
+        else:
+            raise TypeError(f'Unable to parse alpha of type "{type(alpha)}"')
 
         # Only apply to volumes if there aren't any neurons
         if not neuron_cmap:
+            if not isinstance(alpha, numbers.Number):
+                raise ValueError('Must provide single alpha value for volumes.')
             volumes_cmap = [add_alpha(c, alpha) for c in volumes_cmap]
 
     # Make sure colour range checks out
@@ -606,12 +616,16 @@ def eval_color(x, color_range=255, force_alpha=False):
 
     if not isinstance(c, mcl.Colormap):
         # Check if we need to convert
-        if not any([v > 1 for v in c[:3]]) and color_range == 255:
-            c = np.array(c, dtype=float)
-            c[:3] = (c[:3] * 255).astype(int)
-        elif any([v > 1 for v in c[:3]]) and color_range == 1:
-            c = np.array(c, dtype=float)
-            c[:3] = c[:3] / 255
+        if all(v <= 1 for v in c[:3]) and color_range == 255:
+            if len(c) == 4:
+                c = tuple((int(c[0] * 255), int(c[1] * 255), int(c[2] * 255), c[3]))
+            else:
+                c = tuple((int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)))
+        elif any(v > 1 for v in c[:3]) and color_range == 1:
+            if len(c) == 4:
+                c = tuple((c[0] / 255, c[1] / 255, c[2] / 255, c[3]))
+            else:
+                c = tuple((c[0] / 255, c[1] / 255, c[2] / 255))
 
         c = tuple(c)
 

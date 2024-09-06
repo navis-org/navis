@@ -34,8 +34,8 @@ def downsample_neuron(x: 'core.NeuronObject',
     """Downsample neuron(s) by a given factor.
 
     For skeletons: preserves root, leafs, branchpoints by default. Preservation
-    of nodes with synapses can be toggled - see ``preserve_nodes`` parameter.
-    Use ``downsampling_factor=float('inf')`` to get a skeleton consisting only
+    of nodes with synapses can be toggled - see `preserve_nodes` parameter.
+    Use `downsampling_factor=float('inf')` to get a skeleton consisting only
     of root, branch and end points.
 
     Parameters
@@ -52,7 +52,7 @@ def downsample_neuron(x: 'core.NeuronObject',
                             Can be either list of node IDs to exclude from
                             downsampling or a string to a DataFrame attached
                             to the neuron (e.g. "connectors"). DataFrame must
-                            have `node_id`` column. Only relevant for
+                            have `node_id` column. Only relevant for
                             TreeNeurons.
     inplace :               bool, optional
                             If True, will modify original neuron. If False, we
@@ -75,11 +75,11 @@ def downsample_neuron(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.resample_skeleton`
+    [`navis.resample_skeleton`][]
                              This function resamples a neuron to given
                              resolution. This will change node IDs!
-    :func:`navis.simplify_mesh`
-                             This is the function used for ``MeshNeurons``. Use
+    [`navis.simplify_mesh`][]
+                             This is the function used for `MeshNeurons`. Use
                              directly for more control of the simplification.
 
     """

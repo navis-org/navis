@@ -57,15 +57,15 @@ def form_factor(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     start/stop/num : int
                 Start/stop/num describe the (log) space over which to calculate
                 the form factor. Effectively determining the resolution.
-                Assuming ``x`` is in microns the defaults mean we pay attention
+                Assuming `x` is in microns the defaults mean we pay attention
                 to densities between 1 nm (1e-3 microns) and 1 mm (1e+3 microns).
-                The x-value corresponding to the form factor(s) in ``Fq`` will
-                be ``np.logspace(start, stop, num)``.
+                The x-value corresponding to the form factor(s) in `Fq` will
+                be `np.logspace(start, stop, num)`.
     parallel :  bool
-                Whether to use multiple cores when ``x`` is a NeuronList.
+                Whether to use multiple cores when `x` is a NeuronList.
     n_cores :   bool
-                Number of cores to use when ``x`` is a NeuronList and
-                ``parallel=True``. Even on a single core this function makes
+                Number of cores to use when `x` is a NeuronList and
+                `parallel=True`. Even on a single core this function makes
                 heavy use of numpy which itself uses multiple threads - it is
                 therefore not advisable to use all your cores as this would
                 create a bottleneck.
@@ -75,8 +75,8 @@ def form_factor(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     Returns
     -------
     Fq :        np.ndarray
-                For single neurons: ``(num,)`` array
-                For Neuronlists: ``(len(x), num)`` array
+                For single neurons: `(num,)` array
+                For Neuronlists: `(len(x), num)` array
 
     References
     ----------

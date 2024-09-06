@@ -33,7 +33,7 @@ logger = config.get_logger(__name__)
 class H5transform(BaseTransform):
     """Hdf5 transform of 3D spatial data.
 
-    See `here <https://github.com/saalfeldlab/template-building/wiki/Hdf5-Deformation-fields>`_
+    See [here](https://github.com/saalfeldlab/template-building/wiki/Hdf5-Deformation-fields)
     for specifications of the format.
 
     Parameters
@@ -219,7 +219,7 @@ class H5transform(BaseTransform):
         Parameters
         ----------
         bbox :      list | array
-                    Must be ``[[x1, x2], [y1, y2], [z1, z2]]``.
+                    Must be `[[x1, x2], [y1, y2], [z1, z2]]`.
         padding :   bool
                     If True, will add the (required!) padding to the bounding
                     box.
@@ -296,8 +296,8 @@ class H5transform(BaseTransform):
         force_deform :      bools
                             If True, points outside the deformation field be
                             deformed using the closest point inside the
-                            deformation field. Ignored if ``affine_fallback`` is
-                            ``False``.
+                            deformation field. Ignored if `affine_fallback` is
+                            `False`.
 
         Returns
         -------

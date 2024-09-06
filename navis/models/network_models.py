@@ -98,22 +98,22 @@ class TraversalModel(BaseNetworkModel):
 
     What this does:
 
-      1. Grab all already visited nodes (starting with ``seeds`` in step 1)
+      1. Grab all already visited nodes (starting with `seeds` in step 1)
       2. Find all downstream nodes of these
       3. Probabilistically traverse based on the weight of the connecting edges
       4. Add those newly visited nodes to the pool & repeat from beginning
-      5. Stop when every (connected) neuron was visited or we reached ``max_steps``
+      5. Stop when every (connected) neuron was visited or we reached `max_steps`
 
     Parameters
     ----------
     edges :             pandas.DataFrame
                         DataFrame representing an edge list. Must minimally have
-                        a ``source`` and ``target`` column.
+                        a `source` and `target` column.
     seeds :             iterable
                         Seed nodes for traversal. Nodes that aren't found in
-                        ``edges['source']`` will be (silently) removed.
+                        `edges['source']` will be (silently) removed.
     weights :           str, optional
-                        Name of a column in ``edges`` used as weights. If not
+                        Name of a column in `edges` used as weights. If not
                         provided, all edges will be given a weight of 1. If using
                         the default activation function the weights need to be
                         between 0 and 1.
@@ -124,7 +124,7 @@ class TraversalModel(BaseNetworkModel):
                         traversed or not in a given step. Must take numpy array
                         (N, 1) of edge weights and return an array with
                         True/False of equal size. Defaults to
-                        :func:`~navis.models.network_models.random_linear_activation_function`
+                        [`navis.models.network_models.random_linear_activation_function`][]
                         which will linearly scale probability of traversal
                         from 0 to 100% between edges weights 0 to 0.3.
 
@@ -247,7 +247,7 @@ class TraversalModel(BaseNetworkModel):
     def run(self, iterations: int = 100, return_iterations=False, **kwargs) -> pd.DataFrame:
         """Run model (single process).
 
-        Use ``.run_parallel`` to use parallel processes.
+        Use `.run_parallel` to use parallel processes.
 
         """
         # For some reason this is required for progress bars in Jupyter to show
@@ -341,25 +341,25 @@ class BayesianTraversalModel(TraversalModel):
     """Model for traversing a network starting with given seed nodes.
 
     This model is a Bayes net version of
-    :class:`~navis.models.network_models.TraversalModel` that propagates
+    [`navis.models.network_models.TraversalModel`][] that propagates
     traversal probabilities through the network and converges to a
     distribution of time of traversal for each node, rather than
     stochastically sampling.
 
-    Unlike ``TraversalModel``, this model should only be run once.
-    Note alse that ``traversal_func`` should be a function returing
+    Unlike `TraversalModel`, this model should only be run once.
+    Note alse that `traversal_func` should be a function returing
     probabilities of traversal, rather than a random boolean of traversal.
 
     Parameters
     ----------
     edges :             pandas.DataFrame
                         DataFrame representing an edge list. Must minimally have
-                        a ``source`` and ``target`` column.
+                        a `source` and `target` column.
     seeds :             iterable
                         Seed nodes for traversal. Nodes that aren't found in
-                        ``edges['source']`` will be (silently) removed.
+                        `edges['source']` will be (silently) removed.
     weights :           str, optional
-                        Name of a column in ``edges`` used as weights. If not
+                        Name of a column in `edges` used as weights. If not
                         provided, all edges will be given a weight of 1. If using
                         the default activation function the weights need to be
                         between 0 and 1.
@@ -370,7 +370,7 @@ class BayesianTraversalModel(TraversalModel):
                         traversed or not in a given step. Must take numpy array
                         (N, 1) of edge weights and return an array with
                         probabilities of equal size. Defaults to
-                        :func:`~navis.models.network_models.linear_activation_p`
+                        [`navis.models.network_models.linear_activation_p`][]
                         which will linearly scale probability of traversal
                         from 0 to 100% between edges weights 0 to 0.3.
 
@@ -546,9 +546,9 @@ def linear_activation_p(
     w :     np.ndarray
             (N, 1) array containing the edge weights.
     min_w : float
-            Value of ``w`` at which probability of activation is 0%.
+            Value of `w` at which probability of activation is 0%.
     max_w : float
-            Value of ``w`` at which probability of activation is 100%.
+            Value of `w` at which probability of activation is 100%.
 
     Returns
     -------
@@ -600,9 +600,9 @@ def random_linear_activation_function(w: np.ndarray,
     w :     np.ndarray
             (N, 1) array containing the edge weights.
     min_w : float
-            Value of ``w`` at which probability of activation is 0%.
+            Value of `w` at which probability of activation is 0%.
     max_w : float
-            Value of ``w`` at which probability of activation is 100%.
+            Value of `w` at which probability of activation is 100%.
 
     Returns
     -------

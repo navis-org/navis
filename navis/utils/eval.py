@@ -47,7 +47,7 @@ def eval_param(value: Any,
     allowed_types  :    tuple
                         Iterable containing the allowed types.
     on_error :          "raise" | "warn"
-                        What to do if ``value`` is not in ``allowed_values``.
+                        What to do if `value` is not in `allowed_values`.
 
     Returns
     -------
@@ -161,7 +161,7 @@ def eval_id(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
     ----------
     x :                str | uuid.UUID | Tree/MeshNeuron | NeuronList | DataFrame
                        For Neuron/List or pandas.DataFrames/Series will
-                       look for ``id`` attribute/column.
+                       look for `id` attribute/column.
     warn_duplicates :  bool, optional
                        If True, will warn if duplicate IDs are found.
                        Only applies to NeuronLists.

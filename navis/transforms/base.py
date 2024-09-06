@@ -47,7 +47,7 @@ class BaseTransform(ABC):
 
         This is used to try to concatenate transforms of the same type into
         a single step to speed things up (e.g. for CMTK transforms). If that's
-        not possible or not useful, must raise a ``NotImplementedError``.
+        not possible or not useful, must raise a `NotImplementedError`.
         """
         raise NotImplementedError(f'Unable to append {type(other)} to {type(self)}')
 
@@ -277,7 +277,7 @@ class TransOptimizer:
                 The transform or sequence thereof to be optimized.
     mode :      None | "medium" | "aggressive"
                 Mode for optimization:
-                  - ``None``: no optimization
+                  - `None`: no optimization
                   - "medium": some optimization but keep upfront cost low
                   - "aggressive": high upfront cost but should be faster in the long run
 

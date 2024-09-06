@@ -107,7 +107,7 @@ def network2nx(x: Union[pd.DataFrame, Iterable],
     threshold :         float | int, optional
                         Connections weaker than this will be excluded.
     group_by :          None | dict, optional
-                        Provide a dictionary ``{group_name: [skid1, skid2, ...]}``
+                        Provide a dictionary `{group_name: [skid1, skid2, ...]}`
                         to collapse sets of nodes into groups.
 
     Returns
@@ -361,7 +361,7 @@ def neuron2igraph(x: 'core.NeuronObject',
                              - 26 = faces + edges + vertices
     raise_not_installed :   bool
                             If False and igraph is not installed will silently
-                            return ``None``.
+                            return `None`.
 
     Returns
     -------
@@ -448,23 +448,23 @@ def nx2neuron(g: nx.Graph,
     This function will try to generate a neuron-like tree structure from
     the Graph. Therefore the graph must not contain loops!
 
-    Node attributes (e.g. ``x``, ``y``, ``z``, ``radius``) need
+    Node attributes (e.g. `x`, `y`, `z`, `radius`) need
     to be properties of the graph's nodes. All node property will be added to
-    the neuron's ``.nodes`` table.
+    the neuron's `.nodes` table.
 
     Parameters
     ----------
     g :             networkx.Graph
     root :          str | int | list, optional
                     Node in graph to use as root for neuron. If not provided,
-                    will use first node in ``g.nodes``. Ignored if graph
+                    will use first node in `g.nodes`. Ignored if graph
                     consists of several disconnected components.
     break_cycles :  bool
                     The input graph must not contain cycles. We can break them
                     up at risk of disconnecting parts of the graph.
     **kwargs
                     Keyword arguments are passed to the construction of
-                    :class:`~navis.TreeNeuron`.
+                    [`navis.TreeNeuron`][].
 
     Returns
     -------
@@ -616,8 +616,8 @@ def neuron2KDTree(x: 'core.NeuronObject',
                 A single neuron to turn into a KDTree.
     tree_type : 'c' | 'normal'
                 Type of KDTree:
-                  1. ``'c'`` = ``scipy.spatial.cKDTree`` (faster)
-                  2. ``'normal'`` = ``scipy.spatial.KDTree`` (more functions)
+                  1. `'c'` = `scipy.spatial.cKDTree` (faster)
+                  2. `'normal'` = `scipy.spatial.KDTree` (more functions)
     data :      'auto' | str
                 Data used to generate tree. "auto" will pick the core data
                 depending on neuron type: `nodes`, `vertices`, `voxels` and
@@ -631,7 +631,7 @@ def neuron2KDTree(x: 'core.NeuronObject',
 
     Returns
     -------
-    ``scipy.spatial.cKDTree`` or ``scipy.spatial.KDTree``
+    `scipy.spatial.cKDTree` or `scipy.spatial.KDTree`
 
     """
     if tree_type not in ['c', 'normal']:

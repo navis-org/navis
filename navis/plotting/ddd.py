@@ -51,44 +51,64 @@ def plot3d(
 ):
     """Generate interactive 3D plot.
 
-    Uses either `octarine<https://schlegelp.github.io/octarine/>`_,
-    `vispy <http://vispy.org>`_, `k3d <https://k3d-jupyter.org/>`_
-    or `plotly <http://plot.ly>`_. By default, the choice is automatic
-    depending on what backend is installed and depends on context::
+    Uses either [octarine], [vispy], [k3d] or [plotly] as backend.
+    By default, the choice is automatic depending on what backends
+    are installed and the context:
 
-      terminal: octarine > vispy > plotly
-      Jupyter: plotly > octarine > k3d
+      - Terminal: octarine > vispy > plotly
+      - Jupyter: plotly > octarine > k3d
 
-    See ``backend`` parameter on how to change this behavior.
+    See the `backend` parameter on how to change this behavior.
+
+    [octarine]: https://schlegelp.github.io/octarine/
+    [vispy]: http://vispy.org
+    [k3d]: https://k3d-jupyter.org/
+    [plotly]: http://plot.ly
 
     Parameters
     ----------
-    x :               Neuron/List | Volume | numpy.array
-                        - ``numpy.array (N,3)`` is plotted as scatter plot
+    x :               Neuron/List | Volume | numpy.array | list thereof
+                      The object(s) to plot. Can be:
+                        - navis neurons, neuronlists or volumes
+                        - numpy.array (N,3) is plotted as scatter plot
                         - multiple objects can be passed as list (see examples)
+                      See parameters below for ways to customize the plot.
 
     Object parameters
     -----------------
     color :           None | str | tuple | list | dict, default=None
-                      Use single str (e.g. ``'red'``) or ``(r, g, b)`` tuple
-                      to give all neurons the same color. Use ``list`` of
-                      colors to assign colors: ``['red', (1, 0, 1), ...].
-                      Use ``dict`` to map colors to neurons:
-                      ``{neuron.id: (r, g, b), ...}``.
+
+                      Use single str (e.g. `'red'`) or `(r, g, b)` tuple
+                      to give all neurons the same color. Use `list` of
+                      colors to assign colors: `['red', (1, 0, 1), ...].
+                      Use `dict` to map colors to neurons:
+                      `{neuron.id: (r, g, b), ...}`.
+
     palette :         str | array | list of arrays, default=None
-                      Name of a matplotlib or seaborn palette. If ``color`` is
+
+                      Name of a matplotlib or seaborn palette. If `color` is
                       not specified will pick colors from this palette.
+
     alpha :           float [0-1], optional
+
                       Alpha value for neurons. Overriden if alpha is provided
-                      as color specified in ``color`` has an alpha channel.
-    connectors :      bool, default=False
-                      Plot connectors (e.g. synapses) if available. Use these
-                      parameters to adjust the way connectors are plotted:
+                      as color specified in `color` has an alpha channel.
+
+    connectors :      bool | "presynapses" | "postsynapses" | str | list, default=True
+
+                      Plot connectors. This can either be `True` (plot all
+                      connectors), `"presynapses"` (only presynaptic connectors)
+                      or `"postsynapses"` (only postsynaptic connectors). If
+                      a string or a list is provided, it will be used to filter the
+                      `type` column in the connectors table.
+
+                      Use these parameters to adjust the way connectors are plotted:
+
                         - `cn_colors` (str | tuple | dict | "neuron" ) overrides
                           the default connector (e.g. synpase) colors:
-                            - single color as str (e.g. ``'red'``) or rgb tuple
-                              (e.g. ``(1, 0, 0)``)
-                            - dict mapping the connectors tables ``type`` column to
+                            - single color as str (e.g. `'red'`) or rgb tuple
+                              (e.g. `(1, 0, 0)`)
+                            - dict mapping the connectors tables `type` column to
                               a color (e.g. `{"pre": (1, 0, 0)}`)
                             - with "neuron", connectors will receive the same color
                               as their neuron
@@ -98,158 +118,215 @@ def plot3d(
                         - `cn_alpha` (float): Transparency of the connectors.
                         - `cn_mesh_colors` (bool): Whether to color the connectors
                           by the neuron's color.
+
     connectors_only : bool, default=False
+
                       Plot only connectors (e.g. synapses) if available and
                       ignore the neurons.
+
     color_by :        str | array | list of arrays, default = None
+
                       Color neurons by a property. Can be:
+
                         - a list/array of labels, one per each neuron
                         - a neuron property (str)
-                        - a column name in the node table of ``TreeNeurons``
+                        - a column name in the node table of `TreeNeurons`
                         - a list/array of values for each node
+
                       Numerical values will be normalized. You can control
-                      the normalization by passing a ``vmin`` and/or ``vmax``
-                      parameter. Must specify a colormap via ``palette``.
+                      the normalization by passing a `vmin` and/or `vmax`
+                      parameter. Must specify a colormap via `palette`.
+
     shade_by :        str | array | list of arrays, default=None
-                      Similar to ``color_by`` but will affect only the alpha
-                      channel of the color. If ``shade_by='strahler'`` will
+
+                      Similar to `color_by` but will affect only the alpha
+                      channel of the color. If `shade_by='strahler'` will
                       compute Strahler order if not already part of the node
                       table (TreeNeurons only). Numerical values will be
                       normalized. You can control the normalization by passing
-                      a ``smin`` and/or ``smax`` parameter. Does not work with
+                      a `smin` and/or `smax` parameter. Does not work with
                       `k3d` backend.
-    radius :          bool, default=True
-                      TreeNeurons only: If True, will plot skeleotns as 3D tubes
-                      using the ``radius`` column in their node tables. Silently
-                      ignored if neuron has no/empty radius column.
+
+    radius :          "auto" (default) | bool
+
+                      If "auto" will plot neurites of `TreeNeurons` with radius
+                      if they have radii. If True, will plot neurites of
+                      `TreeNeurons` with radius regardless. The radius can be
+                      scaled by `linewidth`. Note that this will increase rendering
+                      time.
+
     soma :            bool, default=True
+
                       TreeNeurons only: Whether to plot soma if it exists. Size
-                      of the soma is determined by the neuron's ``.soma_radius``
+                      of the soma is determined by the neuron's `.soma_radius`
                       property which defaults to the "radius" column for
-                      ``TreeNeurons``.
-    linewidth :       float, default=1
+                      `TreeNeurons`.
+
+    linewidth :       float, default=3 for plotly and 1 for all others
+
                       TreeNeurons only.
+
     linestyle :       str, default='-'
+
                       TreeNeurons only. Follows the same rules as in matplotlib.
+
     scatter_kws :     dict, optional
+
                       Use to modify scatter plots. Accepted parameters are:
-                        - ``size`` to adjust size of dots
-                        - ``color`` to adjust color
+                        - `size` to adjust size of dots
+                        - `color` to adjust color
 
     Figure parameters
     -----------------
     backend :         'auto' (default) | 'octarine' | 'vispy' | 'plotly' | 'k3d'
+
                       Which backend to use for plotting. Note that there will
                       be minor differences in what feature/parameters are
                       supported depending on the backend:
-                        - ``auto`` selects backend based on availability and
+
+                        - `auto` selects backend based on availability and
                           context (see above). You can override this by setting an
                           environment variable e.g. `NAVIS_PLOT3D_BACKEND="vispy"`
                           or `NAVIS_PLOT3D_JUPYTER_BACKEND="k3d"`.
-                        - ``octarine`` uses WGPU to generate high performances
+                        - `octarine` uses WGPU to generate high performances
                           interactive 3D plots. Works both terminal and Jupyter.
-                        - ``vispy`` similar to octarine but uses OpenGL: slower
+                        - `vispy` similar to octarine but uses OpenGL: slower
                           but runs on older systems. Works only from terminals.
-                        - ``plotly`` generates 3D plots using WebGL. Works
+                        - `plotly` generates 3D plots using WebGL. Works
                           "inline" in Jupyter notebooks but can also produce a
                           HTML file that can be opened in any browers.
-                        - ``k3d`` generates 3D plots using k3d. Works only in
+                        - `k3d` generates 3D plots using k3d. Works only in
                           Jupyter notebooks!
 
-                      ``Below parameters are for plotly backend only:``
+    **Below parameters are for plotly backend only:**
+
     fig :             plotly.graph_objs.Figure
+
                       Pass to add graph objects to existing plotly figure. Will
                       not change layout.
+
     title :           str, default=None
+
                       For plotly only! Change plot title.
+
     width/height :    int, optional
+
                       Use to adjust figure size.
+
     fig_autosize :    bool, default=False
+
                       For plotly only! Autoscale figure size.
                       Attention: autoscale overrides width and height
+
     hover_name :      bool, default=False
+
                       If True, hovering over neurons will show their label.
+
     hover_id :        bool, default=False
+
                       If True, hovering over skeleton nodes will show their ID.
+
+    legend :          bool, default=True
+
+                      Whether or not to show the legend.
+
+    legend_orientation : "v" (default) | "h"
+
+                      Orientation of the legend. Can be 'h' (horizontal) or 'v'
+                      (vertical).
+
     legend_group :    dict, default=None
+
                       A dictionary mapping neuron IDs to labels (strings).
                       Use this to group neurons under a common label in the
                       legend.
+
     inline :          bool, default=True
+
                       If True and you are in an Jupyter environment, will
                       render plotly/k3d plots inline. If False, will generate
                       and return either a plotly Figure or a k3d Plot object
                       without immediately showing it.
 
-                      ``Below parameters are for the Octarine/vispy backends only:``
+    **Below parameters are for the Octarine/vispy backends only:**
+
     clear :           bool, default = False
+
                       If True, will clear the viewer before adding the new
                       objects.
+
     center :          bool, default = True
+
                       If True, will center camera on the newly added objects.
+
     combine :         bool, default = False
+
                       If True, will combine objects of the same type into a
                       single visual. This can greatly improve performance but
                       also means objects can't be selected individually
                       anymore. This is Vispy only.
+
     size :            (width, height) tuple, optional
+
                       Use to adjust figure/window size.
+
     show :            bool, default=True
+
                       Whether to immediately show the viewer.
 
     Returns
     -------
-    If ``backend='octarine'``
+    If `backend='octarine'`
 
         From terminal: opens a 3D window and returns :class:`octarine.Viewer`.
         From Jupyter: :class:`octarine.Viewer` displayed in an ipywidget.
 
-    If ``backend='vispy'``
+    If `backend='vispy'`
 
-        Opens a 3D window and returns :class:`navis.Viewer`.
+        Opens a 3D window and returns [`navis.Viewer`][].
 
-    If ``backend='plotly'``
+    If `backend='plotly'`
 
-        Returns either ``None`` if you are in a Jupyter notebook (see also
-        ``inline`` parameter) or a ``plotly.graph_objects.Figure``
+        Returns either `None` if you are in a Jupyter notebook (see also
+        `inline` parameter) or a `plotly.graph_objects.Figure`
         (see examples).
 
-    If ``backend='k3d'``
+    If `backend='k3d'`
 
-        Returns either ``None`` and immediately displays the plot or a
-        ``k3d.plot`` object that you can manipulate further (see ``inline``
+        Returns either `None` and immediately displays the plot or a
+        `k3d.plot` object that you can manipulate further (see `inline`
         parameter).
 
     See Also
     --------
-    :class:`octarine.Viewer`
+    [`octarine.Viewer`](https://schlegelp.github.io/octarine/)
         Interactive 3D viewer.
 
-    :class:`navis.Viewer`
+    [`navis.Viewer`][]
         Interactive vispy 3D viewer.
 
     Examples
     --------
     >>> import navis
 
-    In a Jupyter notebook using plotly as backend.
+    In a Jupyter notebook using plotly as backend:
 
-    >>> import plotly.offline
     >>> nl = navis.example_neurons()
     >>> # Backend is automatically chosen but we can set it explicitly
     >>> # Plot inline
     >>> nl.plot3d(backend='plotly')                             # doctest: +SKIP
     >>> # Plot as separate html in a new window
     >>> fig = nl.plot3d(backend='plotly', inline=False)
+    >>> import plotly.offline
     >>> _ = plotly.offline.plot(fig)                            # doctest: +SKIP
 
-    In a Jupyter notebook using k3d as backend.
+    In a Jupyter notebook using k3d as backend:
 
     >>> nl = navis.example_neurons()
     >>> # Plot inline
     >>> nl.plot3d(backend='k3d')                                # doctest: +SKIP
 
-    In a terminal using octarine as backend.
+    In a terminal using octarine as backend:
 
     >>> # Plot list of neurons
     >>> nl = navis.example_neurons()
@@ -356,9 +433,12 @@ def plot3d_vispy(x, **kwargs):
     # Parse objects to plot
     (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
-    if settings.viewer is None:
+    if settings.viewer in (None, "new"):
         # If does not exists yet, initialise a canvas object and make global
-        if not isinstance(getattr(config, "primary_viewer", None), Viewer):
+        if (
+            not isinstance(getattr(config, "primary_viewer", None), Viewer)
+            or settings.viewer == "new"
+        ):
             viewer = config.primary_viewer = Viewer(size=settings.size)
         else:
             viewer = getattr(config, "primary_viewer", None)
@@ -412,15 +492,25 @@ def plot3d_octarine(x, **kwargs):
     # Parse objects to plot
     (neurons, volumes, points, visuals) = utils.parse_objects(x)
 
+    # Check if any existing viewer has already been closed
+    if isinstance(getattr(config, "primary_viewer", None), oc.Viewer):
+        try:
+            _ = getattr(config, "primary_viewer").canvas
+        except RuntimeError:
+            config.primary_viewer = None
+
     if settings.viewer in (None, "new"):
-        # If does not exists yet, initialise a canvas object and make global
-        if not isinstance(getattr(config, "primary_viewer", None), oc.Viewer):
+        # If it does not exists yet, initialise a canvas object and make global
+        if (
+            not isinstance(getattr(config, "primary_viewer", None), oc.Viewer)
+            or settings.viewer == "new"
+        ):
             viewer = config.primary_viewer = oc.Viewer(
                 size=settings.size,
                 camera=settings.camera,
                 control=settings.control,
                 show=False,
-                offscreen=settings.offscreen or os.environ.get("NAVIS_HEADLESS", False)
+                offscreen=settings.offscreen or os.environ.get("NAVIS_HEADLESS", False),
             )
         else:
             viewer = getattr(config, "primary_viewer", None)

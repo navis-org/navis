@@ -51,7 +51,7 @@ with warnings.catch_warnings():
 
 
 def requires_nodes(func):
-    """Return ``None`` if neuron has no nodes."""
+    """Return `None` if neuron has no nodes."""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         self = args[0]
@@ -71,19 +71,19 @@ class TreeNeuron(BaseNeuron):
     ----------
     x
                     Data to construct neuron from:
-                     - ``pandas.DataFrame`` is expected to be SWC table
-                     - ``pandas.Series`` is expected to have a DataFrame as
-                       ``.nodes`` - additional properties will be attached
+                     - `pandas.DataFrame` is expected to be SWC table
+                     - `pandas.Series` is expected to have a DataFrame as
+                       `.nodes` - additional properties will be attached
                        as meta data
-                     - ``str`` filepath is passed to :func:`navis.read_swc`
-                     - ``BufferedIOBase`` e.g. from ``open(filename)``
-                     - ``networkx.DiGraph`` parsed by `navis.nx2neuron`
-                     - ``None`` will initialize an empty neuron
-                     - ``skeletor.Skeleton``
-                     - ``TreeNeuron`` - in this case we will try to copy every
+                     - `str` filepath is passed to [`navis.read_swc`][]
+                     - `BufferedIOBase` e.g. from `open(filename)`
+                     - `networkx.DiGraph` parsed by `navis.nx2neuron`
+                     - `None` will initialize an empty neuron
+                     - `skeletor.Skeleton`
+                     - `TreeNeuron` - in this case we will try to copy every
                        attribute
     units :         str | pint.Units | pint.Quantity
-                    Units for coordinates. Defaults to ``None`` (dimensionless).
+                    Units for coordinates. Defaults to `None` (dimensionless).
                     Strings must be parsable by pint: e.g. "nm", "um",
                     "micrometer" or "8 nanometers".
     **metadata
@@ -108,15 +108,15 @@ class TreeNeuron(BaseNeuron):
     soma: Optional[Union[int, str]]
     soma_pos: Optional[Sequence]
 
-    #: Minimum radius for soma detection. Set to ``None`` if no tag needed.
+    #: Minimum radius for soma detection. Set to `None` if no tag needed.
     #: Default = 1 micron
     soma_detection_radius: Union[float, int, pint.Quantity] = 1 * config.ureg.um
-    #: Label for soma detection. Set to ``None`` if no tag needed. Default = 1.
+    #: Label for soma detection. Set to `None` if no tag needed. Default = 1.
     soma_detection_label: Union[float, int, str] = 1
     #: Soma radius (e.g. for plotting). If string, must be column in nodes
     #: table. Default = 'radius'.
     soma_radius: Union[float, int, str] = 'radius'
-    # Set default function for soma finding. Default = :func:`navis.morpho.find_soma`
+    # Set default function for soma finding. Default = [`navis.morpho.find_soma`][]
     _soma: Union[Callable[['TreeNeuron'], Sequence[int]], int] = morpho.find_soma
 
     tags: Optional[Dict[str, List[int]]] = None
@@ -128,7 +128,7 @@ class TreeNeuron(BaseNeuron):
     #: Temporary attributes that need to be regenerated when data changes.
     TEMP_ATTR = ['_igraph', '_graph_nx', '_segments', '_small_segments',
                  '_geodesic_matrix', 'centrality_method', '_simple',
-                 '_cable_length', '_memory_usage']
+                 '_cable_length', '_memory_usage', '_adjacency_matrix']
 
     #: Attributes used for neuron summary
     SUMMARY_PROPS = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
@@ -291,6 +291,14 @@ class TreeNeuron(BaseNeuron):
         return state
 
     @property
+    @temp_property
+    def adjacency_matrix(self):
+        """Adjacency matrix of the skeleton."""
+        if not hasattr(self, '_adjacency_matrix'):
+            self._adjacency_matrix = graph.skeleton_adjacency_matrix(self)
+        return self._adjacency_matrix
+
+    @property
     @requires_nodes
     def edges(self) -> np.ndarray:
         """Edges between nodes.
@@ -321,6 +329,7 @@ class TreeNeuron(BaseNeuron):
         edges_co[:, 1, :] = locs.loc[edges[:, 1]].values
         return edges_co
 
+    @property
     @temp_property
     def igraph(self) -> 'igraph.Graph':
         """iGraph representation of this neuron."""
@@ -330,6 +339,7 @@ class TreeNeuron(BaseNeuron):
             return self.get_igraph()
         return self._igraph
 
+    @property
     @temp_property
     def graph(self) -> nx.DiGraph:
         """Networkx Graph representation of this neuron."""
@@ -339,6 +349,7 @@ class TreeNeuron(BaseNeuron):
             return self.get_graph_nx()
         return self._graph_nx
 
+    @property
     @temp_property
     def geodesic_matrix(self):
         """Matrix with geodesic (along-the-arbor) distance between nodes."""
@@ -433,7 +444,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     def connectors(self) -> pd.DataFrame:
-        """Connector table. If none, will return ``None``."""
+        """Connector table. If none, will return `None`."""
         return self._get_connectors()
 
     def _get_connectors(self) -> pd.DataFrame:
@@ -486,17 +497,22 @@ class TreeNeuron(BaseNeuron):
     def simple(self) -> 'TreeNeuron':
         """Simplified representation consisting only of root, branch points and leafs."""
         if not hasattr(self, '_simple'):
-            self._simple = self.downsample(float('inf'),
-                                           inplace=False)
+            self._simple = self.copy()
+
+            # Make sure we don't have a soma, otherwise that node will be preserved
+            self._simple.soma = None
+
+            # Downsample
+            self._simple.downsample(float('inf'), inplace=True)
         return self._simple
 
     @property
     def soma(self) -> Optional[Union[str, int]]:
         """Search for soma and return node ID(s).
 
-        ``None`` if no soma. You can assign either a function that accepts a
+        `None` if no soma. You can assign either a function that accepts a
         TreeNeuron as input or a fix value. The default is
-        :func:`navis.utils.find_soma`.
+        [`navis.utils.find_soma`][].
 
         """
         if callable(self._soma):
@@ -540,7 +556,7 @@ class TreeNeuron(BaseNeuron):
     def soma_pos(self) -> Optional[Sequence]:
         """Search for soma and return its position.
 
-        Returns ``None`` if no soma. You can also use this to assign a soma by
+        Returns `None` if no soma. You can also use this to assign a soma by
         position in which case it will snap to the closest node.
         """
         # Sanity check to make sure that the soma node actually exists
@@ -558,6 +574,10 @@ class TreeNeuron(BaseNeuron):
     @soma_pos.setter
     def soma_pos(self, value: Sequence) -> None:
         """Set soma by position."""
+        if value is None:
+            self.soma = None
+            return
+
         try:
             value = np.asarray(value).astype(np.float64).reshape(3)
         except BaseException:
@@ -603,6 +623,7 @@ class TreeNeuron(BaseNeuron):
         """Number of leaf nodes."""
         return self.nodes[self.nodes.type == 'end'].shape[0]
 
+    @property
     @temp_property
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
@@ -682,6 +703,7 @@ class TreeNeuron(BaseNeuron):
         """Average cable length between child -> parent nodes."""
         return self.cable_length / self.n_nodes
 
+    @property
     @temp_property
     def segments(self) -> List[list]:
         """Neuron broken down into linear segments (see also `.small_segments`)."""
@@ -691,6 +713,7 @@ class TreeNeuron(BaseNeuron):
             self._segments = self._get_segments(how='length')
         return self._segments
 
+    @property
     @temp_property
     def small_segments(self) -> List[list]:
         """Neuron broken down into small linear segments (see also `.segments`)."""
@@ -745,9 +768,9 @@ class TreeNeuron(BaseNeuron):
         Parameters
         ----------
         deepcopy :  bool, optional
-                    If False, ``.graph`` (NetworkX DiGraph) will be returned
+                    If False, `.graph` (NetworkX DiGraph) will be returned
                     as view - changes to nodes/edges can progagate back!
-                    ``.igraph`` (iGraph) - if available - will always be
+                    `.igraph` (iGraph) - if available - will always be
                     deepcopied.
 
         Returns
@@ -777,12 +800,12 @@ class TreeNeuron(BaseNeuron):
     def get_graph_nx(self) -> nx.DiGraph:
         """Calculate and return networkX representation of neuron.
 
-        Once calculated stored as ``.graph``. Call function again to update
+        Once calculated stored as `.graph`. Call function again to update
         graph.
 
         See Also
         --------
-        :func:`navis.neuron2nx`
+        [`navis.neuron2nx`][]
 
         """
         self._graph_nx = graph.neuron2nx(self)
@@ -791,16 +814,16 @@ class TreeNeuron(BaseNeuron):
     def get_igraph(self) -> 'igraph.Graph':  # type: ignore
         """Calculate and return iGraph representation of neuron.
 
-        Once calculated stored as ``.igraph``. Call function again to update
+        Once calculated stored as `.igraph`. Call function again to update
         iGraph.
 
         Important
         ---------
-        Returns ``None`` if igraph is not installed!
+        Returns `None` if igraph is not installed!
 
         See Also
         --------
-        :func:`navis.neuron2igraph`
+        [`navis.neuron2igraph`][]
 
         """
         self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
@@ -826,7 +849,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.resample_skeleton`
+        [`navis.resample_skeleton`][]
             Base function. See for details and examples.
 
         """
@@ -870,11 +893,11 @@ class TreeNeuron(BaseNeuron):
                                 copy which is then returned.
         **kwargs
                                 Additional arguments passed to
-                                :func:`~navis.downsample_neuron`.
+                                [`navis.downsample_neuron`][].
 
         See Also
         --------
-        :func:`~navis.downsample_neuron`
+        [`navis.downsample_neuron`][]
             Base function. See for details and examples.
 
         """
@@ -907,7 +930,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.reroot_skeleton`
+        [`navis.reroot_skeleton`][]
             Base function. See for details and examples.
 
         """
@@ -940,7 +963,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cut_skeleton`
+        [`navis.cut_skeleton`][]
             Base function. See for details and examples.
 
         """
@@ -977,7 +1000,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cut_skeleton`
+        [`navis.cut_skeleton`][]
             Base function. See for details and examples.
 
         """
@@ -1005,8 +1028,7 @@ class TreeNeuron(BaseNeuron):
     def prune_by_strahler(self,
                           to_prune: Union[int, List[int], slice],
                           inplace: bool = False) -> Optional['TreeNeuron']:
-        """Prune neuron based on `Strahler order
-        <https://en.wikipedia.org/wiki/Strahler_number>`_.
+        """Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 
         Will reroot neuron to soma if possible.
 
@@ -1015,12 +1037,12 @@ class TreeNeuron(BaseNeuron):
         to_prune :  int | list | range | slice
                     Strahler indices to prune. For example:
 
-                    1. ``to_prune=1`` removes all leaf branches
-                    2. ``to_prune=[1, 2]`` removes SI 1 and 2
-                    3. ``to_prune=range(1, 4)`` removes SI 1, 2 and 3
-                    4. ``to_prune=slice(1, -1)`` removes everything but the
+                    1. `to_prune=1` removes all leaf branches
+                    2. `to_prune=[1, 2]` removes SI 1 and 2
+                    3. `to_prune=range(1, 4)` removes SI 1, 2 and 3
+                    4. `to_prune=slice(1, -1)` removes everything but the
                        highest SI
-                    5. ``to_prune=slice(-1, None)`` removes only the highest
+                    5. `to_prune=slice(-1, None)` removes only the highest
                        SI
 
         inplace :   bool, optional
@@ -1029,7 +1051,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.prune_by_strahler`
+        [`navis.prune_by_strahler`][]
             This is the base function. See for details and examples.
 
         """
@@ -1064,12 +1086,12 @@ class TreeNeuron(BaseNeuron):
                         which is then returned.
         recursive :     int | bool | "inf", optional
                         If `int` will undergo that many rounds of recursive
-                        pruning. Use ``float("inf")`` to prune until no more
+                        pruning. Use `float("inf")` to prune until no more
                         twigs under the given size are left.
 
         See Also
         --------
-        :func:`~navis.prune_twigs`
+        [`navis.prune_twigs`][]
             This is the base function. See for details and examples.
 
         """
@@ -1097,8 +1119,8 @@ class TreeNeuron(BaseNeuron):
         depth :         int | float
                         Distance from source at which to start pruning.
         source :        int, optional
-                        Source node for depth calculation. If ``None``, will use
-                        root. If ``x`` is a list of neurons then must provide a
+                        Source node for depth calculation. If `None`, will use
+                        root. If `x` is a list of neurons then must provide a
                         source for each neuron.
         inplace :       bool, optional
                         If False, pruning is performed on copy of original neuron
@@ -1111,7 +1133,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.prune_at_depth`
+        [`navis.prune_at_depth`][]
             This is the base function. See for details and examples.
 
         """
@@ -1143,7 +1165,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.cell_body_fiber`
+        [`navis.cell_body_fiber`][]
             This is the base function. See for details and examples.
 
         """
@@ -1181,7 +1203,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.longest_neurite`
+        [`navis.longest_neurite`][]
             This is the base function. See for details and examples.
 
         """
@@ -1218,7 +1240,7 @@ class TreeNeuron(BaseNeuron):
                             If 'IN', parts of the neuron inside the volume are
                             kept.
         prevent_fragments : bool, optional
-                            If True, will add nodes to ``subset`` required to
+                            If True, will add nodes to `subset` required to
                             keep neuron from fragmenting.
         inplace :           bool, optional
                             If True, operation will be performed on itself. If
@@ -1227,7 +1249,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.in_volume`
+        [`navis.in_volume`][]
             Base function. See for details and examples.
 
         """
@@ -1255,9 +1277,9 @@ class TreeNeuron(BaseNeuron):
         Parameters
         ----------
         filename :      str | None, optional
-                        If ``None``, will use "neuron_{id}.swc".
+                        If `None`, will use "neuron_{id}.swc".
         kwargs
-                        Additional arguments passed to :func:`~navis.write_swc`.
+                        Additional arguments passed to [`navis.write_swc`][].
 
         Returns
         -------
@@ -1265,7 +1287,7 @@ class TreeNeuron(BaseNeuron):
 
         See Also
         --------
-        :func:`~navis.write_swc`
+        [`navis.write_swc`][]
                 See this function for further details.
 
         """
@@ -1274,12 +1296,12 @@ class TreeNeuron(BaseNeuron):
     def reload(self,
                inplace: bool = False,
                ) -> Optional['TreeNeuron']:
-        """Reload neuron. Must have filepath as ``.origin`` as attribute.
+        """Reload neuron. Must have filepath as `.origin` as attribute.
 
         Returns
         -------
         TreeNeuron
-                If ``inplace=False``.
+                If `inplace=False`.
 
         """
         if not hasattr(self, 'origin'):

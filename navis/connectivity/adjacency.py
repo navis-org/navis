@@ -21,7 +21,7 @@ class Edge(NamedTuple):
 class NeuronConnector:
     """Class which creates a connectivity graph from a set of neurons.
 
-    Connectivity is determined by shared IDs in the ``connectors`` table.
+    Connectivity is determined by shared IDs in the `connectors` table.
 
     Add neurons with the `add_neuron` and `add_neurons` methods.
     Alternatively, supply an iterable of neurons in the constructor.
@@ -110,7 +110,7 @@ class NeuronConnector:
         ----------
         include_other : bool, optional
             Include edges for which only one partner is known, by default True.
-            If included, the name of the unknown partner will be ``"__OTHER__"``,
+            If included, the name of the unknown partner will be `"__OTHER__"`,
             and the treenode ID will be None.
 
         Yields
@@ -133,7 +133,7 @@ class NeuronConnector:
         Parameters
         ----------
         include_other : bool, optional
-            Whether to include a node called ``"__OTHER__"``,
+            Whether to include a node called `"__OTHER__"`,
             which represents all unknown partners.
             By default True.
             This can be helpful when calculating a neuron's input fraction,
@@ -162,7 +162,7 @@ class NeuronConnector:
         Parameters
         ----------
         include_other : bool, optional
-            Whether to include a node called ``"__OTHER__"``,
+            Whether to include a node called `"__OTHER__"`,
             which represents all unknown partners.
             By default True.
             This can be helpful when calculating a neuron's input fraction,
@@ -171,9 +171,9 @@ class NeuronConnector:
         Returns
         -------
         nx.DiGraph
-            The graph has data ``{"connector_xyz": {connector_id: (x, y, z), ...}}``.
-            The nodes have data ``{"neuron": tree_neuron}``.
-            The edges have data ``{"connectors": data_frame, "weight": n_connectors}``,
+            The graph has data `{"connector_xyz": {connector_id: (x, y, z), ...}}`.
+            The nodes have data `{"neuron": tree_neuron}`.
+            The edges have data `{"connectors": data_frame, "weight": n_connectors}`,
             where the connectors data frame has columns
             "connector_id", "pre_node", "post_node".
         """
@@ -205,7 +205,7 @@ class NeuronConnector:
         Parameters
         ----------
         include_other : bool, optional
-            Whether to include a node called ``"__OTHER__"``,
+            Whether to include a node called `"__OTHER__"`,
             which represents all unknown partners.
             By default True.
             This can be helpful when calculating a neuron's input fraction,
@@ -214,9 +214,9 @@ class NeuronConnector:
         Returns
         -------
         nx.MultiDiGraph
-            The nodes have data ``{"neuron": tree_neuron}``.
+            The nodes have data `{"neuron": tree_neuron}`.
             The edges have data
-            ``{"pre_node": presyn_treenode_id, "post_node": postsyn_treenode_id, "xyz": connector_location, "connector_id": conn_id}``.
+            `{"pre_node": presyn_treenode_id, "post_node": postsyn_treenode_id, "xyz": connector_location, "connector_id": conn_id}`.
         """
         g = nx.MultiDiGraph()
         g.add_nodes_from((k, {"neuron": v}) for k, v in self.neurons.items())

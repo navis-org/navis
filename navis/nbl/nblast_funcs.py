@@ -59,7 +59,7 @@ class NBlaster(Blaster):
     """Implements version 2 of the NBLAST algorithm.
 
     Please note that some properties are computed on initialization and
-    changing parameters (e.g. ``use_alpha``) at a later stage will mess things
+    changing parameters (e.g. `use_alpha`) at a later stage will mess things
     up!
 
     Parameters
@@ -67,7 +67,7 @@ class NBlaster(Blaster):
     use_alpha :     bool
                     Whether or not to use alpha values for the scoring.
                     If True, the dotproduct of nearest neighbor vectors will
-                    be scaled by ``sqrt(alpha1 * alpha2)``.
+                    be scaled by `sqrt(alpha1 * alpha2)`.
     normalized :    bool
                     If True, will normalize scores by the best possible score
                     (i.e. self-self) of the query neuron.
@@ -77,17 +77,17 @@ class NBlaster(Blaster):
                      - if 'auto' (default), will use the "official" NBLAST scoring
                        matrices based on FCWB data. Same behaviour as in R's
                        nat.nblast implementation.
-                     - if ``smat='v1'`` it uses the analytic formulation of the
+                     - if `smat='v1'` it uses the analytic formulation of the
                        NBLAST scoring from Kohl et. al (2013). You can adjust parameter
-                       ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
-                     - DataFrames will be used to build a ``Lookup2d``
-                     - if ``Callable`` given, it passes distance and dot products as
+                       `sigma_scaling` (default to 10) using `smat_kwargs`.
+                     - DataFrames will be used to build a `Lookup2d`
+                     - if `Callable` given, it passes distance and dot products as
                        first and second argument respectively
-                     - if ``smat=None`` the scores will be generated as the
+                     - if `smat=None` the scores will be generated as the
                        product of the distances and the dotproduct of the vectors
                        of nearest-neighbor pairs
     smat_kwargs:    Dictionary with additional parameters passed to scoring
-                    functions. For example: ``smat_kwargs["sigma_scoring"] = 10``.
+                    functions. For example: `smat_kwargs["sigma_scoring"] = 10`.
     limit_dist :    float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
@@ -239,11 +239,11 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
     """Smart(er) NBLAST query against target neurons.
 
-    In contrast to :func:`navis.nblast` this function will first run a
+    In contrast to [`navis.nblast`][] this function will first run a
     "pre-NBLAST" in which only 10% of the query dotprops' points are used.
     Using those initial scores, we select for each query the highest scoring
     targets and run the full NBLAST only on those query-target pairs (see
-    ``t`` and ``criterion`` for fine-tuning).
+    `t` and `criterion` for fine-tuning).
 
     Parameters
     ----------
@@ -258,12 +258,12 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     queries against themselves.
     t :             int | float
                     Determines for which pairs we will run a full NBLAST. See
-                    ``criterion`` parameter for details.
+                    `criterion` parameter for details.
     criterion :     "percentile" | "score" | "N"
                     Criterion for selecting query-target pairs for full NBLAST:
-                      - "percentile" runs full NBLAST on the ``t``-th percentile
-                      - "score" runs full NBLAST on all scores above ``t``
-                      - "N" runs full NBLAST on top ``t`` targets
+                      - "percentile" runs full NBLAST on the `t`-th percentile
+                      - "score" runs full NBLAST on all scores above `t`
+                      - "N" runs full NBLAST on top `t` targets
     return_mask :   bool
                     If True, will also return a boolean mask that shows which
                     scores are based on a full NBLAST and which ones only on
@@ -286,13 +286,13 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     Score matrix. If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
                     implementation.
-                    If ``smat='v1'`` it uses the analytic formulation of the
+                    If `smat='v1'` it uses the analytic formulation of the
                     NBLAST scoring from Kohl et. al (2013). You can adjust parameter
-                    ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
-                    If ``smat=None`` the scores will be
+                    `sigma_scaling` (default to 10) using `smat_kwargs`.
+                    If `smat=None` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
-                    If ``Callable`` given, it passes distance and dot products as
+                    If `Callable` given, it passes distance and dot products as
                     first and second argument respectively.
     smat_kwargs:    Dictionary with additional parameters passed to scoring
                     functions.
@@ -305,7 +305,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     inaccuracies because we won't have a vector component for
                     points without a nearest neighbour within the distance
                     limits. The impact depends on the scoring function but with
-                    the default FCWB ``smat``, this is typically limited to the
+                    the default FCWB `smat`, this is typically limited to the
                     third decimal (0.0086 +/- 0.0027 for an all-by-all of 1k
                     neurons).
     approx_nn :     bool
@@ -320,7 +320,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     sufficient.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() // 2``. This should ideally be an even
+                    `os.cpu_count() // 2`. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
     progress :      bool
@@ -330,11 +330,11 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     -------
     scores :        pandas.DataFrame
                     Matrix with NBLAST scores. Rows are query neurons, columns
-                    are targets. The order is the same as in ``query``/``target``
-                    and the labels are based on the neurons' ``.id`` property.
+                    are targets. The order is the same as in `query`/`target`
+                    and the labels are based on the neurons' `.id` property.
     mask :          np.ndarray
-                    Only if ``return_mask=True``: a boolean mask with same shape
-                    as ``scores`` that shows which scores are based on a full
+                    Only if `return_mask=True`: a boolean mask with same shape
+                    as `scores` that shows which scores are based on a full
                     NBLAST and which ones only on the pre-NBLAST.
 
     References
@@ -360,11 +360,11 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
 
     See Also
     --------
-    :func:`navis.nblast`
+    [`navis.nblast`][]
                 The conventional full NBLAST.
-    :func:`navis.nblast_allbyall`
-                A more efficient way than ``nblast(query=x, target=x)``.
-    :func:`navis.synblast`
+    [`navis.nblast_allbyall`][]
+                A more efficient way than `nblast(query=x, target=x)`.
+    [`navis.synblast`][]
                 A synapse-based variant of NBLAST.
 
     """
@@ -660,7 +660,7 @@ def nblast(query: Union[Dotprops, NeuronList],
     """NBLAST query against target neurons.
 
     This implements the NBLAST algorithm from Costa et al. (2016) (see
-    references) and mirror the implementation in R's ``nat.nblast``
+    references) and mirror the implementation in R's `nat.nblast`
     (https://github.com/natverse/nat.nblast).
 
     Parameters
@@ -696,12 +696,12 @@ def nblast(query: Union[Dotprops, NeuronList],
                     Score matrix. If 'auto' (default), will use scoring matrices
                     from FCWB. Same behaviour as in R's nat.nblast
                     implementation.
-                    If ``smat='v1'`` it uses the analytic formulation of the
+                    If `smat='v1'` it uses the analytic formulation of the
                     NBLAST scoring from Kohl et. al (2013). You can adjust parameter
-                    ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
-                    If ``Callable`` given, it passes distance and dot products as
+                    `sigma_scaling` (default to 10) using `smat_kwargs`.
+                    If `Callable` given, it passes distance and dot products as
                     first and second argument respectively.
-                    If ``smat=None`` the scores will be
+                    If `smat=None` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
     limit_dist :    float | "auto" | None
@@ -713,7 +713,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                     inaccuracies because we won't have a vector component for
                     points without a nearest neighbour within the distance
                     limits. The impact depends on the scoring function but with
-                    the default FCWB ``smat``, this is typically limited to the
+                    the default FCWB `smat`, this is typically limited to the
                     third decimal (0.0086 +/- 0.0027 for an all-by-all of 1k
                     neurons).
     approx_nn :     bool
@@ -722,7 +722,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                     Impact depends on the use case - testing highly recommended!
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() // 2``. This should ideally be an even
+                    `os.cpu_count() // 2`. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
@@ -741,8 +741,8 @@ def nblast(query: Union[Dotprops, NeuronList],
     -------
     scores :        pandas.DataFrame
                     Matrix with NBLAST scores. Rows are query neurons, columns
-                    are targets. The order is the same as in ``query``/``target``
-                    and the labels are based on the neurons' ``.id`` property.
+                    are targets. The order is the same as in `query`/`target`
+                    and the labels are based on the neurons' `.id` property.
 
     References
     ----------
@@ -766,11 +766,11 @@ def nblast(query: Union[Dotprops, NeuronList],
 
     See Also
     --------
-    :func:`navis.nblast_allbyall`
-                A more efficient way than ``nblast(query=x, target=x)``.
-    :func:`navis.nblast_smart`
+    [`navis.nblast_allbyall`][]
+                A more efficient way than `nblast(query=x, target=x)`.
+    [`navis.nblast_smart`][]
                 A smart(er) NBLAST suited for very large NBLAST.
-    :func:`navis.synblast`
+    [`navis.synblast`][]
                 A synapse-based variant of NBLAST.
 
     """
@@ -919,7 +919,7 @@ def nblast_allbyall(x: NeuronList,
                     smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
     """All-by-all NBLAST of inputs neurons.
 
-    A more efficient way than running ``nblast(query=x, target=x)``.
+    A more efficient way than running `nblast(query=x, target=x)`.
 
     Parameters
     ----------
@@ -929,7 +929,7 @@ def nblast_allbyall(x: NeuronList,
                     similar sampling resolutions.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    ``os.cpu_count() // 2``. This should ideally be an even
+                    `os.cpu_count() // 2`. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes.
     use_alpha :     bool, optional
@@ -939,13 +939,13 @@ def nblast_allbyall(x: NeuronList,
                     Whether to return normalized NBLAST scores.
     smat :          str | pd.DataFrame | Callable, optional
                     Score matrix/function:
-                     - If ``smat='auto'`` (default), will use scoring matrices
+                     - If `smat='auto'` (default), will use scoring matrices
                        based on flycircuit data. Same behaviour as in R's
                        nat.nblast implementation.
-                     - For ``smat='v1'``, uses the analytic formulation of the
+                     - For `smat='v1'`, uses the analytic formulation of the
                        NBLAST scoring from Kohl et. al (2013). You can adjust
-                       parameter ``sigma_scaling`` (default to 10) using ``smat_kwargs``.
-                     - For ``smat=None`` the scores will be generated as the product
+                       parameter `sigma_scaling` (default to 10) using `smat_kwargs`.
+                     - For `smat=None` the scores will be generated as the product
                        of the distances and the dotproduct of the vectors of
                        nearest-neighbor pairs.
                      - If function, must consume distance and dot products as
@@ -959,7 +959,7 @@ def nblast_allbyall(x: NeuronList,
                     inaccuracies because we won't have a vector component for
                     points without a nearest neighbour within the distance
                     limits. The impact depends on the scoring function but with
-                    the default FCWB ``smat``, this is typically limited to the
+                    the default FCWB `smat`, this is typically limited to the
                     third decimal (0.0086 +/- 0.0027 for an all-by-all of 1k
                     neurons).
     approx_nn :     bool
@@ -982,8 +982,8 @@ def nblast_allbyall(x: NeuronList,
     -------
     scores :        pandas.DataFrame
                     Matrix with NBLAST scores. Rows are query neurons, columns
-                    are targets. The order is the same as in ``x``
-                    and the labels are based on the neurons' ``.id`` property.
+                    are targets. The order is the same as in `x`
+                    and the labels are based on the neurons' `.id` property.
 
     References
     ----------
@@ -1007,7 +1007,7 @@ def nblast_allbyall(x: NeuronList,
 
     See Also
     --------
-    :func:`navis.nblast`
+    [`navis.nblast`][]
                 For generic query -> target nblasts.
 
     """

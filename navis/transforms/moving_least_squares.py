@@ -29,10 +29,10 @@ class MovingLeastSquaresTransform(BaseTransform):
     ) -> None:
         """Moving Least Squares transforms of 3D spatial data.
 
-        Uses the `molesq <https://github.com/clbarnes/molesq>`_ library, which packages the
-        `implementation<https://github.com/ceesem/catalysis/blob/master/catalysis/transform.py>`_
+        Uses the [molesq](https://github.com/clbarnes/molesq) library, which packages the
+        [implementation](https://github.com/ceesem/catalysis/blob/master/catalysis/transform.py)
         by Casey Schneider-Mizell of the affine algorithm published in
-        `Schaefer et al. 2006 <https://dl.acm.org/doi/pdf/10.1145/1179352.1141920>`_.
+        [Schaefer et al. 2006](https://dl.acm.org/doi/pdf/10.1145/1179352.1141920).
 
         Parameters
         ----------

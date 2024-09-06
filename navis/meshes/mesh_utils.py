@@ -58,7 +58,7 @@ def fix_mesh(mesh: Union[tm.Trimesh, 'core.MeshNeuron'],
                         If a number is given, will iterate over the mesh's
                         connected components and remove those consisting of less
                         than the given number of vertices. For example,
-                        ``remove_fragments=5`` will drop parts of the mesh
+                        `remove_fragments=5` will drop parts of the mesh
                         that consist of five or less connected vertices.
     inplace :           bool
                         If True, will perform fixes on the input mesh. If False,
@@ -120,7 +120,7 @@ def smooth_mesh_trimesh(x, iterations=5, L=0.5, inplace=False):
                     Diffusion speed constant lambda. Larger = more aggressive
                     smoothing.
     inplace :       bool
-                    If True, will perform simplication on ``x``. If False, will
+                    If True, will perform simplication on `x`. If False, will
                     simplify and return a copy.
 
     Returns
@@ -161,8 +161,8 @@ def points_to_mesh(points, res, threshold=None, denoise=True):
     """Generate mesh from point cloud.
 
     Briefly, the workflow is this:
-      1. Partition the point cloud into voxels of size ``res``.
-      2. (Optional) Discard voxels with less than ``threshold`` points inside.
+      1. Partition the point cloud into voxels of size `res`.
+      2. (Optional) Discard voxels with less than `threshold` points inside.
       3. Turn voxels into a (M, N, K) matrix.
       4. (Optional) Denoise the matrix by a round of binary erosion + dilation
          and fill holes.
@@ -259,7 +259,7 @@ def pointlabels_to_meshes(points, labels, res, method='kde',
     Briefly, the default workflow is this:
 
       1. Create a Gaussian KDE for each unique label.
-      2. Tile the point's bounding box into voxels of size ``res``.
+      2. Tile the point's bounding box into voxels of size `res`.
       3. Calculate the KDE's point density function (PDF) to assign a label to
          each voxel.
       4. (Optional) Denoise the matrix by a round of binary erosion + dilation
@@ -301,8 +301,8 @@ def pointlabels_to_meshes(points, labels, res, method='kde',
     Returns
     -------
     meshes  :   list
-                List of ``navis.Volume``. Their names correspond to unique
-                ``labels``.
+                List of `navis.Volume`. Their names correspond to unique
+                `labels`.
 
     """
     if not skimage:

@@ -26,10 +26,10 @@ def simplify_mesh_blender(x, F, inplace=False):
     x :         MeshNeuron | Volume | Trimesh
                 Mesh object to simplify.
     F :         float [0-1]
-                Ratio to which to reduce the mesh. For example, ``F=0.5``
+                Ratio to which to reduce the mesh. For example, `F=0.5`
                 should reduce number of vertices to half that of the original.
     inplace :   bool
-                If True, will perform simplication on ``x``. If False, will
+                If True, will perform simplication on `x`. If False, will
                 simplify and return a copy.
 
     Returns
@@ -101,7 +101,7 @@ def smooth_mesh_blender(x, iterations=5, L=0.5, inplace=False):
                     Diffusion speed constant lambda. Larger = more aggressive
                     smoothing.
     inplace :       bool
-                    If True, will perform simplication on ``x``. If False, will
+                    If True, will perform simplication on `x`. If False, will
                     simplify and return a copy.
 
     Returns

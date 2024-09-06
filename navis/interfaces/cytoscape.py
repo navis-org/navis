@@ -93,7 +93,7 @@ def generate_network(x, layout='fruchterman-rheingold', apply_style=True,
                       2. Pandas DataFrame. Mandatory columns:
                          'source','target','interaction'
     layout :        str | None, optional
-                    Layout to apply. Set to ``None`` to not apply any.
+                    Layout to apply. Set to `None` to not apply any.
     apply_style :   bool, optional
                     If True will apply a "navis" style to the network.
     clear_session : bool, optional

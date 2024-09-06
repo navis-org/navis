@@ -34,7 +34,7 @@ try:
     from caveclient import CAVEclient
     import cloudvolume as cv
 except ImportError:
-    logger.error(err_msg)
+    config.logger.error(err_msg)
     CAVEclient = None
     cv = None
 except BaseException:
@@ -44,35 +44,96 @@ except BaseException:
 logger = config.get_logger(__name__)
 dataset = None
 
-CAVE_DATASTACKS = {
-    'cortex65': 'minnie65_public_v117',
-    'cortex35': 'minnie35_public_v0',
-    'layer 2/3': 'pinky100_public_flat_v185'
-}
 
-SEG_URLS = {
-    'cortex65': 'precomputed://gs://iarpa_microns/minnie/minnie65/seg',
-    'cortex35': 'precomputed://gs://iarpa_microns/minnie/minnie35/seg',
-    'layer 2/3': 'precomputed://gs://microns_public_datasets/pinky100_v185/seg'
-}
+@lru_cache(None)
+def _translate_datastack(datastack):
+    """Translate datastack to source."""
+    ds = get_datastacks(microns_only=False)
+
+    if datastack in ds:
+        return datastack
+    elif datastack in ("cortex65", "minnie65"):
+        # Find the latest cortex65 datastack
+        return sorted([d for d in ds if "minnie65_public" in d and "sandbox" not in d])[
+            -1
+        ]
+    elif datastack in ("cortex35", "minnie35"):
+        # Find the latest cortex35 datastack
+        return sorted([d for d in ds if "minnie35_public" in d and "sandbox" not in d])[
+            -1
+        ]
+    elif datastack == "layer 2/3":
+        # The "pinky_sandbox" seems to be the latest layer 2/3 datastack
+        return sorted([d for d in ds if "pinky" in d])[
+            -1
+        ]
+    raise ValueError(f"Datastack '{datastack}' not found.")
 
 
 @lru_cache(None)
-def get_cave_client(datastack='cortex65'):
+def get_datastacks(microns_only=True):
+    """Get available datastacks.
+
+    Parameters
+    ----------
+    microns_only : bool
+        If True, only return MICrONS datastacks.
+
+    Returns
+    -------
+    list
+        List of available datastacks.
+
+    """
+    if not CAVEclient:
+        raise ImportError(err_msg)
+
+    stacks = CAVEclient().info.get_datastacks()
+    if microns_only:
+        stacks = [s for s in stacks if "minnie" in s or "pinky" in s]
+    return stacks
+
+
+@lru_cache(None)
+def get_cave_client(datastack="cortex65"):
     """Get caveclient for given datastack.
 
     Parameters
     ----------
-    datastack :     "cortex65" | "cortex35" | "layer 2/3"
-                    Name of the dataset to use.
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+                    Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                    are internally mapped to the corresponding sources: for example,
+                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
+                    most recent version).
 
     """
     if not CAVEclient:
         raise ImportError(err_msg)
 
     # Try mapping, else pass-through
-    datastack = CAVE_DATASTACKS.get(datastack, datastack)
+    datastack = _translate_datastack(datastack)
     return CAVEclient(datastack)
+
+
+@lru_cache(None)
+def list_annotation_tables(datastack="cortex65"):
+    """Get available annotation tables for given datastack.
+
+    Parameters
+    ----------
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+                    Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                    are internally mapped to the corresponding sources: for example,
+                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
+                    most recent version).
+
+    Returns
+    -------
+    list
+        List of available annotation tables.
+
+    """
+    return get_cave_client(datastack).materialize.get_tables()
 
 
 @lru_cache(None)
@@ -87,11 +148,12 @@ def get_cloudvol(url, cache=True):
     if not cv:
         raise ImportError(err_msg)
 
-    return cv.CloudVolume(url, cache=cache, use_https=True,
-                          progress=False, fill_missing=True)
+    return cv.CloudVolume(
+        url, cache=cache, use_https=True, parallel=10, progress=False, fill_missing=True
+    )
 
 
-def get_somas(root_ids, table='nucleus_neuron_svm', datastack='cortex65'):
+def get_somas(root_ids, table="nucleus_detection_v0", datastack="cortex65"):
     """Fetch somas based on nuclei segmentation for given neuron(s).
 
     Since this is a nucleus detection you will find that some neurons do
@@ -102,32 +164,36 @@ def get_somas(root_ids, table='nucleus_neuron_svm', datastack='cortex65'):
     Important
     ---------
     This data currently only exists for the 'cortex65' datastack (i.e.
-    "minnie65_public_v117").
+    "minnie65_public_vXXX").
 
     Parameters
     ----------
-    root_ids  :         int | list of ints | None
-                        Root ID(s) for which to fetch soma infos. Use
-                        ``None`` to fetch complete list of annotated nuclei.
-    table :             str
-                        Which table to use for nucleus annotations.
-    datastack :         "cortex65" | "cortex35" | "layer 2/3"
-                        Which dataset to use. Internally these are mapped to the
-                        corresponding sources (e.g. "minnie65_public_v117" for
-                        "cortex65").
+    root_ids  :     int | list of ints | None
+                    Root ID(s) for which to fetch soma infos. Use
+                    `None` to fetch complete list of annotated nuclei.
+    table :         str
+                    Which table to use for nucleus annotations. Also
+                    see the `microns.list_annotation_tables()` function.
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+                    Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                    are internally mapped to the corresponding sources: for example,
+                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
+                    most recent version).
 
     Returns
     -------
     DataFrame
-                        Pandas DataFrame with nuclei (see Examples). Root IDs
-                        without a nucleus will simply not have an entry in the
-                        table.
+                    Pandas DataFrame with nuclei (see Examples). Root IDs
+                    without a nucleus will simply not have an entry in the
+                    table.
 
     """
-    if datastack != 'cortex65':
-        warnings.warn('To our knowledge there is no nucleus segmentation '
-                      f'for "{datastack}". If that has changed please '
-                      'get in touch on navis Github.')
+    if datastack != "cortex65":
+        warnings.warn(
+            "To our knowledge there is no nucleus segmentation "
+            f'for "{datastack}". If that has changed please '
+            "get in touch on navis' Github."
+        )
 
     # Get/Initialize the CAVE client
     client = get_cave_client(datastack)
@@ -135,17 +201,21 @@ def get_somas(root_ids, table='nucleus_neuron_svm', datastack='cortex65'):
     filter_in_dict = None
     if not isinstance(root_ids, type(None)):
         root_ids = utils.make_iterable(root_ids)
-        filter_in_dict = {'pt_root_id': root_ids}
+        filter_in_dict = {"pt_root_id": root_ids}
 
     return client.materialize.query_table(table, filter_in_dict=filter_in_dict)
 
 
-def fetch_neurons(x, *, lod=2,
-                  with_synapses=True,
-                  datastack='cortex65',
-                  parallel=True,
-                  max_threads=4,
-                  **kwargs):
+def fetch_neurons(
+    x,
+    *,
+    lod=2,
+    with_synapses=False,
+    datastack="cortex65",
+    parallel=True,
+    max_threads=4,
+    **kwargs,
+):
     """Fetch neuron meshes.
 
     Notes
@@ -157,46 +227,42 @@ def fetch_neurons(x, *, lod=2,
     x :             str | int | list-like
                     Segment ID(s). Multiple Ids can be provided as list-like.
     lod :           int
-                    Level of detail. Higher ``lod`` = coarser. This parameter
+                    Level of detail. Higher `lod` = coarser. This parameter
                     is ignored if the data source does not support multi-level
                     meshes.
     with_synapses : bool, optional
-                    If True will also attach synapses as ``.connectors``.
-    datastack :     "cortex65" | "cortex35" | "layer 2/3"
-                    Which dataset to use. Internally these are mapped to the
-                    corresponding sources (e.g. "minnie65_public_v117" for
-                    "cortex65").
+                    If True will also attach synapses as `.connectors`.
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+                    Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                    are internally mapped to the corresponding sources: for example,
+                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
+                    most recent version).
     parallel :      bool
                     If True, will use parallel threads to fetch data.
     max_threads :   int
                     Max number of parallel threads to use.
     **kwargs
                     Keyword arguments are passed through to the initialization
-                    of the ``navis.MeshNeurons``.
+                    of the `navis.MeshNeurons`.
 
     Returns
     -------
     navis.Neuronlist
-                    Containing :class:`navis.MeshNeuron`.
+                    Containing [`navis.MeshNeuron`][].
 
     """
     x = utils.make_iterable(x, force_type=int)
     client = get_cave_client(datastack)
 
-    if datastack in SEG_URLS:
-        url = SEG_URLS[datastack]
-    else:
-        url = client.info.get_datastack_info()['segmentation_source']
-    vol = get_cloudvol(url)
+    vol = get_cloudvol(client.info.segmentation_source())  # this is cached
 
-    if datastack == 'cortex65':
+    if datastack == "cortex65":
         try:
             somas = get_somas(x, datastack=datastack)
-            soma_pos = somas.set_index('pt_root_id').pt_position.to_dict()
+            soma_pos = somas.set_index("pt_root_id").pt_position.to_dict()
         except BaseException as e:
-            logger.warning('Failed to fetch somas via nucleus segmentation'
-                           f'(){e})')
-            soma_pos = {}        
+            logger.warning("Failed to fetch somas via nucleus segmentation" f"(){e})")
+            soma_pos = {}
     else:
         soma_pos = {}
 
@@ -204,28 +270,31 @@ def fetch_neurons(x, *, lod=2,
     with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
         futures = {}
         for id in x:
-            f = executor.submit(_fetch_single_neuron,
-                                id,
-                                vol=vol,
-                                lod=lod,
-                                client=client,
-                                with_synapses=with_synapses,
-                                source=datastack,
-                                **kwargs
-                                )
+            f = executor.submit(
+                _fetch_single_neuron,
+                id,
+                vol=vol,
+                lod=lod,
+                client=client,
+                with_synapses=with_synapses,
+                source=datastack,
+                **kwargs,
+            )
             futures[f] = id
 
-        with config.tqdm(desc='Fetching',
-                         total=len(x),
-                         leave=config.pbar_leave,
-                         disable=len(x) == 1 or config.pbar_hide) as pbar:
+        with config.tqdm(
+            desc="Fetching",
+            total=len(x),
+            leave=config.pbar_leave,
+            disable=len(x) == 1 or config.pbar_hide,
+        ) as pbar:
             for f in as_completed(futures):
                 id = futures[f]
                 pbar.update(1)
                 try:
                     nl.append(f.result())
                 except Exception as exc:
-                    print(f'{id} generated an exception:', exc)
+                    print(f"{id} generated an exception:", exc)
 
     nl = NeuronList(nl)
 
@@ -241,12 +310,12 @@ def fetch_neurons(x, *, lod=2,
 def _fetch_single_neuron(id, lod, vol, client, with_synapses=False, **kwargs):
     """Fetch a single neuron."""
     # Make sure we only use `lod` if that's actually supported by the source
-    if 'MultiLevel' in str(type(vol.mesh)):
-        mesh = vol.mesh.get(id, lod=lod, progress=False)[id]
+    if "MultiLevel" in str(type(vol.mesh)):
+        mesh = vol.mesh.get(id, lod=lod)[id]
     else:
-        mesh = vol.mesh.get(id, progress=False)[id]
+        mesh = vol.mesh.get(id, deduplicate_chunk_boundaries=False)[id]
 
-    n = MeshNeuron(mesh, id=id, units='nm', **kwargs)
+    n = MeshNeuron(mesh, id=id, units="nm", **kwargs)
 
     if with_synapses:
         pre = client.materialize.synapse_query(pre_ids=id)
@@ -254,22 +323,22 @@ def _fetch_single_neuron(id, lod, vol, client, with_synapses=False, **kwargs):
 
         syn_table = client.materialize.synapse_table
         syn_info = client.materialize.get_table_metadata(syn_table)
-        vxl_size = np.array(syn_info['voxel_resolution']).astype(int)
+        vxl_size = np.array(syn_info["voxel_resolution"]).astype(int)
 
         to_concat = []
         if not pre.empty:
-            pre['type'] = 'pre'
-            locs = np.vstack(pre['pre_pt_position'].values)
+            pre["type"] = "pre"
+            locs = np.vstack(pre["pre_pt_position"].values)
             locs = locs * vxl_size
-            pre['x'], pre['y'], pre['z'] = locs[:, 0], locs[:, 1], locs[:, 2]
-            pre = pre[['id', 'x', 'y', 'z', 'type', 'size']].copy()
+            pre["x"], pre["y"], pre["z"] = locs[:, 0], locs[:, 1], locs[:, 2]
+            pre = pre[["id", "x", "y", "z", "type", "size"]].copy()
             to_concat.append(pre)
         if not post.empty:
-            post['type'] = 'post'
-            locs = np.vstack(post['post_pt_position'].values)
+            post["type"] = "post"
+            locs = np.vstack(post["post_pt_position"].values)
             locs = locs * vxl_size
-            post['x'], post['y'], post['z'] = locs[:, 0], locs[:, 1], locs[:, 2]
-            post = post[['id', 'x', 'y', 'z', 'type', 'size']].copy()
+            post["x"], post["y"], post["z"] = locs[:, 0], locs[:, 1], locs[:, 2]
+            post = post[["id", "x", "y", "z", "type", "size"]].copy()
             to_concat.append(post)
 
         if len(to_concat) == 1:
@@ -280,8 +349,10 @@ def _fetch_single_neuron(id, lod, vol, client, with_synapses=False, **kwargs):
     return n
 
 
-def get_voxels(x, mip=0, bounds=None, datastack='cortex65'):
+def get_voxels(x, mip=0, bounds=None, datastack="cortex65"):
     """Fetch voxels making a up given root ID.
+
+    This is useful if you want to generate a high-resolution mesh for a neuron.
 
     Parameters
     ----------
@@ -293,10 +364,11 @@ def get_voxels(x, mip=0, bounds=None, datastack='cortex65'):
                     Bounding box [xmin, xmax, ymin, ymax, zmin, zmax] in voxel
                     space. For example, the voxel resolution for mip 0
                     segmentation is 8 x 8 x 40 nm.
-    datastack :     "cortex65" | "cortex35" | "layer 2/3"
-                    Which dataset to use. Internally these are mapped to the
-                    corresponding sources (e.g. "minnie65_public_v117" for
-                    "cortex65").
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+                    Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                    are internally mapped to the corresponding sources: for example,
+                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
+                    most recent version).
 
     Returns
     -------
@@ -306,19 +378,19 @@ def get_voxels(x, mip=0, bounds=None, datastack='cortex65'):
     """
     client = get_cave_client(datastack)
     # Need to get the graphene (not the precomputed) version of the data
-    vol_graphene = cv.CloudVolume(client.chunkedgraph.cloudvolume_path,
-                                  use_https=True, progress=False)
-    if datastack in SEG_URLS:
-        url = SEG_URLS[datastack]
-    else:
-        url = client.info.get_datastack_info()['segmentation_source']
-    vol_prec = get_cloudvol(url)
+    vol_graphene = cv.CloudVolume(
+        client.chunkedgraph.cloudvolume_path, use_https=True, progress=False
+    )
+    url = client.info.get_datastack_info()["segmentation_source"]
+    vol_prec = get_cloudvol(url)  # this is cached
 
     # Get L2 chunks making up this neuron
     l2_ids = client.chunkedgraph.get_leaves(x, stop_layer=2)
 
     # Turn l2_ids into chunk indices
-    l2_ix = [np.array(vol_graphene.mesh.meta.meta.decode_chunk_position(l)) for l in l2_ids]
+    l2_ix = [
+        np.array(vol_graphene.mesh.meta.meta.decode_chunk_position(l)) for l in l2_ids
+    ]
     l2_ix = np.unique(l2_ix, axis=0)
 
     # Convert to nm
@@ -331,21 +403,23 @@ def get_voxels(x, mip=0, bounds=None, datastack='cortex65'):
     ch_size = np.array(vol_graphene.mesh.meta.meta.graph_chunk_size)
     ch_size = ch_size // (vol_prec.mip_resolution(mip) / vol_prec.mip_resolution(0))
     ch_size = np.asarray(ch_size).astype(int)
-    old_mip = vol_prec.mip
 
     if not isinstance(bounds, type(None)):
         bounds = np.asarray(bounds)
         if not bounds.ndim == 1 or len(bounds) != 6:
-            raise ValueError('`bounds` must be [xmin, xmax, ymin, ymax, zmin, zmax]')
-        l2_vxl = l2_vxl[np.all(l2_vxl >= bounds[::2], axis=1)]
-        l2_vxl = l2_vxl[np.all(l2_vxl < bounds[1::2] + ch_size, axis=1)]
+            raise ValueError("`bounds` must be [xmin, xmax, ymin, ymax, zmin, zmax]")
+        l2_vxl = l2_vxl[np.all(l2_vxl >= (bounds[::2] - ch_size), axis=1)]
+        l2_vxl = l2_vxl[np.all(l2_vxl <= (bounds[1::2] + ch_size), axis=1)]
 
+    old_mip = vol_prec.mip
     try:
         vol_prec.mip = mip
-        for ch in config.tqdm(l2_vxl, desc='Loading'):
-            ct = vol_prec[ch[0]:ch[0] + ch_size[0],
-                          ch[1]:ch[1] + ch_size[1],
-                          ch[2]:ch[2] + ch_size[2]][:, :, :, 0]
+        for ch in config.tqdm(l2_vxl, desc="Loading"):
+            ct = vol_prec[
+                ch[0] : ch[0] + ch_size[0],
+                ch[1] : ch[1] + ch_size[1],
+                ch[2] : ch[2] + ch_size[2],
+            ][:, :, :, 0]
             this_vxl = np.dstack(np.where(ct == x))[0]
             this_vxl = this_vxl + ch
             voxels.append(this_vxl)

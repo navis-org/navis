@@ -45,7 +45,7 @@ bat, navis supports 6 types of transforms:
      [Elastix](https://github.com/SuperElastix/elastix/).
      Elastix needs to be installed separately.
 
-You can subclass ``navis.transforms.base.BaseTransform`` to implement other
+You can subclass `navis.transforms.base.BaseTransform` to implement other
 types of transforms for navis to use.
 
 ## Transform sequences
@@ -62,4 +62,4 @@ templates and plots paths to get from A to B.
 On import, the `registry` scans paths set in an `NAVIS_TRANSFORMS` environment
 variable for transform files/directories it understands (`.h5`, `.list`).
 Alternatively, you can add more paths via `registry.register_path()` or add
-already constructed transforms via ``registry.add_transforms()``.
+already constructed transforms via `registry.add_transforms()`.

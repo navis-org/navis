@@ -208,39 +208,39 @@ def read_precomputed(f: Union[str, io.BytesIO],
     """Read skeletons and meshes from neuroglancer's precomputed format.
 
     Follows the formats specified
-    `here <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed>`_.
+    [here](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed).
 
     Parameters
     ----------
     f :                 filepath | folder | zip file | bytes
                         Filename, folder or bytes. If folder, will import all
-                        files. If a ``.zip``, ``.tar`` or ``.tar.gz`` file will
-                        read all files in the archive. See also ``limit`` parameter.
+                        files. If a `.zip`, `.tar` or `.tar.gz` file will
+                        read all files in the archive. See also `limit` parameter.
     datatype :          "auto" | "skeleton" | "mesh"
                         Which data type we expect to read from the files. If
                         "auto", we require a "info" file in the same directory
-                        as ``f``.
+                        as `f`.
     include_subdirs :   bool, optional
-                        If True and ``f`` is a folder, will also search
+                        If True and `f` is a folder, will also search
                         subdirectories for binary files.
     fmt :               str
                         Formatter to specify what files to look for (when `f` is
                         directory) and how they are parsed into neuron
                         attributes. Some illustrative examples:
-                          - ``{name}`` (default) uses the filename
+                          - `{name}` (default) uses the filename
                             (minus the suffix) as the neuron's name property
-                          - ``{id}`` (default) uses the filename as the neuron's ID
+                          - `{id}` (default) uses the filename as the neuron's ID
                             property
-                          - ``{name,id}`` uses the filename as the neuron's
+                          - `{name,id}` uses the filename as the neuron's
                             name and ID properties
-                          - ``{name}.{id}`` splits the filename at a "."
+                          - `{name}.{id}` splits the filename at a "."
                             and uses the first part as name and the second as ID
-                          - ``{name,id:int}`` same as above but converts
+                          - `{name,id:int}` same as above but converts
                             into integer for the ID
-                          - ``{name}_{myproperty}`` splits the filename at
+                          - `{name}_{myproperty}` splits the filename at
                             "_" and uses the first part as name and as a
                             generic "myproperty" property
-                          - ``{name}_{}_{id}`` splits the filename at
+                          - `{name}_{}_{id}` splits the filename at
                             "_" and uses the first part as name and the last as
                             ID. The middle part is ignored.
 
@@ -248,27 +248,27 @@ def read_precomputed(f: Union[str, io.BytesIO],
                         filename. Ignored for DataFrames.
     info :              bool | str | dict
                         An info file describing the data:
-                          - ``True`` = will look for `info` file in base folder
-                          - ``False`` = do not use/look for `info` file
-                          - ``str`` = filepath to `info` file
-                          - ``dict`` = already parsed info file
+                          - `True` = will look for `info` file in base folder
+                          - `False` = do not use/look for `info` file
+                          - `str` = filepath to `info` file
+                          - `dict` = already parsed info file
     limit :             int, optional
                         If reading from a folder you can use this parameter to
-                        read only the first ``limit`` files. Useful if
+                        read only the first `limit` files. Useful if
                         wanting to get a sample from a large library of
                         skeletons/meshes.
     parallel :          "auto" | bool | int
-                        Defaults to ``auto`` which means only use parallel
+                        Defaults to `auto` which means only use parallel
                         processing if more than 200 files are imported. Spawning
                         and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
-                        ``os.cpu_count() // 2``).
+                        `os.cpu_count() // 2`).
     **kwargs
                         Keyword arguments passed to the construction of the
                         neurons. You can use this to e.g. set meta data such
-                        as ``units``.
+                        as `units`.
 
     Returns
     -------
@@ -277,7 +277,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
 
     See Also
     --------
-    :func:`navis.write_precomputed`
+    [`navis.write_precomputed`][]
                         Export neurons/volumes to precomputed format.
 
     """
@@ -391,31 +391,31 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     Note that you should not mix meshes and skeletons in the same folder!
 
     Follows the formats specified
-    `here <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed>`_.
+    [here](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed).
 
     Parameters
     ----------
     x :                 TreeNeuron | MeshNeuron | Volume | Trimesh | NeuronList
                         If multiple neurons, will generate a file for each
-                        neuron (see also ``filepath``). For use in neuroglancer
+                        neuron (see also `filepath`). For use in neuroglancer
                         coordinates should generally be in nanometers.
     filepath :          None | str | list, optional
-                        If ``None``, will return byte string or list of
+                        If `None`, will return byte string or list of
                         thereof. If filepath will save to this file. If path
-                        will save neuron(s) in that path using ``{x.id}``
+                        will save neuron(s) in that path using `{x.id}`
                         as filename(s). If list, input must be NeuronList and
                         a filepath must be provided for each neuron.
     write_info :        bool
-                        Whether to also write a JSON-formatted ``info`` file that
+                        Whether to also write a JSON-formatted `info` file that
                         can be parsed by e.g. neuroglancer. This only works if
                         inputs are either only skeletons or only meshes!
     write_manifest :    bool
                         For meshes only: whether to also write manifests. For
-                        each mesh we will create a JSON-encoded ``{id}:0`` file
+                        each mesh we will create a JSON-encoded `{id}:0` file
                         that contains a "fragments" entry that maps to the
                         actual filename. Note that this will not work on Windows
                         because colons aren't allowed in file names and on OSX
-                        the colon will show up as a ``/`` in the Finder.
+                        the colon will show up as a `/` in the Finder.
     radius :            bool
                         For TreeNeurons only: whether to write radius as
                         additional vertex property.
@@ -423,15 +423,15 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     Returns
     -------
     None
-                        If filepath is not ``None``.
+                        If filepath is not `None`.
     bytes
-                        If filepath is ``None``.
+                        If filepath is `None`.
 
     See Also
     --------
-    :func:`navis.read_precomputed`
+    [`navis.read_precomputed`][]
                         Import neurons from neuroglancer's precomputed format.
-    :func:`navis.write_mesh`
+    [`navis.write_mesh`][]
                         Write meshes to generic mesh formats (obj, stl, etc).
 
     Examples

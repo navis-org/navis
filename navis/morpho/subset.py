@@ -37,8 +37,8 @@ def subset_neuron(
 ) -> "core.NeuronObject":
     """Subset a neuron to a given set of nodes/vertices.
 
-    Note that for ``MeshNeurons`` it is not guaranteed that all vertices in
-    ``subset`` survive because we will also drop degenerate vertices that do
+    Note that for `MeshNeurons` it is not guaranteed that all vertices in
+    `subset` survive because we will also drop degenerate vertices that do
     not participate in any faces.
 
     Parameters
@@ -51,7 +51,7 @@ def subset_neuron(
                             For TreeNeurons:
                              - node IDs
                              - a boolean mask matching the number of nodes
-                             - DataFrame with ``node_id`` column
+                             - DataFrame with `node_id` column
                             For MeshNeurons:
                              - vertex indices
                              - a boolean mask matching either the number of
@@ -67,7 +67,7 @@ def subset_neuron(
                           If False, will remove disconnected connectors that
                           have "lost" their parent node/vertex.
     prevent_fragments :   bool, optional
-                          If True, will add nodes/vertices to ``subset``
+                          If True, will add nodes/vertices to `subset`
                           required to keep neuron from fragmenting. Ignored for
                           `Dotprops`.
     inplace :             bool, optional
@@ -105,9 +105,9 @@ def subset_neuron(
 
     See Also
     --------
-    :func:`navis.cut_skeleton`
+    [`navis.cut_skeleton`][]
             Cut neuron at specific points.
-    :func:`navis.in_volume`
+    [`navis.in_volume`][]
             To intersect a neuron with a volume (mesh).
 
     """

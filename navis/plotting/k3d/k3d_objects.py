@@ -98,18 +98,21 @@ def neuron2k3d(x, colormap, settings):
         else:
             legendgroup = neuron_id
 
-        if (
-            isinstance(neuron, core.TreeNeuron)
-            and settings.radius
-            and neuron.nodes.get("radius", pd.Series([]))
-            .notnull()
-            .any()  # make sure we have at least some radii
-        ):
-            # Convert and carry connectors with us
-            if isinstance(neuron, core.TreeNeuron):
-                _neuron = conversion.tree2meshneuron(neuron)
-                _neuron.connectors = neuron.connectors
-                neuron = _neuron
+        if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
+            # Number of nodes with radii
+            n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
+            # If less than 30% of nodes have a radius, we will fall back to lines
+            if n_radii / neuron.nodes.shape[0] < 0.3:
+                settings.radius = False
+
+        if isinstance(neuron, core.TreeNeuron) and settings.radius:
+            _neuron = conversion.tree2meshneuron(neuron)
+            _neuron.connectors = neuron.connectors
+            neuron = _neuron
+
+            # See if we need to map colors to vertices
+            if isinstance(color, np.ndarray) and color.ndim == 2:
+                color = color[neuron.vertex_map]
 
         if not settings.connectors_only:
             if isinstance(neuron, core.TreeNeuron):
@@ -153,7 +156,18 @@ def neuron2k3d(x, colormap, settings):
 
         # Add connectors
         if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
-            for j in neuron.connectors.type.unique():
+            if isinstance(settings.connectors, (list, np.ndarray, tuple)):
+                connectors = neuron.connectors[neuron.connectors.type.isin(settings.connectors)]
+            elif settings.connectors == 'pre':
+                connectors = neuron.presynapses
+            elif settings.connectors == 'post':
+                connectors = neuron.postsynapses
+            elif isinstance(settings.connectors, str):
+                connectors = neuron.connectors[neuron.connectors.type == settings.connectors]
+            else:
+                connectors = neuron.connectors
+
+            for j, this_cn in connectors.groupby('type'):
                 if isinstance(settings.cn_colors, dict):
                     c = settings.cn_colors.get(
                         j, cn_lay.get(j, {"color": (10, 10, 10)})["color"]
@@ -167,7 +181,6 @@ def neuron2k3d(x, colormap, settings):
 
                 c = color_to_int(eval_color(c, color_range=255))
 
-                this_cn = neuron.connectors[neuron.connectors.type == j]
                 cn_label = f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}'
 
                 if cn_lay["display"] == "circles" or not isinstance(

@@ -1,0 +1,157 @@
+site_name: navis
+site_description: Python library for analysis of neuroanatomical data.
+# strict: true
+
+repo_name: navis-org/navis
+repo_url: https://github.com/navis-org/navis
+edit_uri: edit/main/docs/
+
+# watch:
+#   - src
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quickstart: quickstart.md
+  - Tutorials: generated/gallery
+  - ecosystem.md
+  - Changelog: changelog.md
+  - API Documentation:
+    - api.md
+    - Code References: reference/
+    # - Overview: api/index.md
+    # - Neurons: api/neurons.md
+
+theme:
+  name: "material"
+  features:
+    - content.tabs.link
+    - content.code.annotate
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - content.code.copy
+  #logo: images/icon.png
+  # below option would prevents loading typefaces from Google Fonts
+  # but see also the privacy plugin below
+  #font: false
+  icon:
+    #logo: fontawesome/solid/eye
+    repo: fontawesome/brands/github
+  #favicon: images/icon.png
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      toggle:
+        icon: fontawesome/regular/lightbulb
+        name: "Switch to dark mode"
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: white
+      accent: pink
+      toggle:
+        icon: fontawesome/solid/lightbulb
+        name: "Switch to light mode"
+
+markdown_extensions:
+  - admonition
+  - abbr
+  - attr_list
+  - md_in_html
+  - pymdownx.snippets
+  - pymdownx.tasklist
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.extra
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: "#"
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.arithmatex:
+      generic: true
+
+plugins:
+  # the privacy plugin will bundle external assets (like Google Fonts)
+  # this should make the website GDPR compliant
+  - privacy
+  # the social plugin generates social cards for each page of the project
+  # which are used as previews when sharing links to the documentation
+  - social
+  - macros
+  # - mkdocs-jupyter:
+  #     include_requirejs: true
+  #     include_source: true
+  #     include: ["neurons_intro.ipynb"]
+
+  - search:
+      separator: '[\s\-\_,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - autorefs
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+      # css_files:
+      #   - stylesheets/extra.css
+  - gen-files:
+      scripts:
+      - scripts/gen_ref_pages2.py
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - section-index
+  - mkdocstrings:
+      handlers:
+        python:
+          import:
+            - https://docs.python.org/3/objects.inv
+            - https://numpy.org/doc/stable/objects.inv
+          options:
+            show_root_heading: true # default is false
+            docstring_style: "numpy"
+            line_length: 50 # default is 60
+            # show_if_no_docstring: true # default is false
+            show_signature: false  # default is true
+            show_signature_annotations: true # default is false
+            annotations_path: "source" # default is 'brief'
+            show_bases: false # default is true
+            docstring_section_style: "spacy" # default is "table" but the tables end up being too wide
+            show_source: true
+            filters:
+              - "!^_"
+              - "^__init__$"
+  - glightbox
+  - gallery:
+      examples_dirs: docs/examples          # path to your example scripts
+      gallery_dirs: docs/generated/gallery  # where to save generated gallery
+      conf_script: docs/gallery_conf.py      # configuration script
+      within_subsection_order: FileNameSortKey  # sort examples by filename
+      download_all_examples: false
+      remove_config_comments: true
+      # only_warn_on_example_error: true
+  - markdown-exec
+
+extra:
+  # Use {{ navis }} to insert a coloured "NAVis" in the text
+  navis: <span style="color:rgb(250,175,3)">NAVis</span>
+
+extra_css:
+ - stylesheets/extra.css
+ - https://unpkg.com/katex@0/dist/katex.min.css
+
+extra_javascript:
+  - javascripts/katex.js
+  - https://unpkg.com/katex@0/dist/katex.min.js
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js

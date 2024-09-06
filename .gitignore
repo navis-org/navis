@@ -132,3 +132,7 @@ ENV/
 MANIFEST
 
 tmp/
+
+# Test data
+mmc2
+WannerAA*

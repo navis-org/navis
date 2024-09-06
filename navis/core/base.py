@@ -48,22 +48,22 @@ with warnings.catch_warnings():
 def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
            **metadata):
     """Constructor for Neuron objects. Depending on the input, either a
-    ``TreeNeuron`` or a ``MeshNeuron`` is returned.
+    `TreeNeuron` or a `MeshNeuron` is returned.
 
     Parameters
     ----------
     x
-                        Anything that can construct a :class:`~navis.TreeNeuron`
-                        or :class:`~navis.MeshNeuron`.
+                        Anything that can construct a [`navis.TreeNeuron`][]
+                        or [`navis.MeshNeuron`][].
     **metadata
                         Any additional data to attach to neuron.
 
     See Also
     --------
-    :func:`navis.read_swc`
+    [`navis.read_swc`][]
                         Gives you more control over how data is extracted from
                         SWC file.
-    :func:`navis.example_neurons`
+    [`navis.example_neurons`][]
                         Loads some example neurons provided.
 
     """
@@ -82,7 +82,92 @@ def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
     raise utils.ConstructionError(f'Unable to construct neuron from "{type(x)}"')
 
 
-class BaseNeuron:
+class UnitObject:
+    """Base class for things that have units."""
+
+    @property
+    def units(self) -> Union[numbers.Number, np.ndarray]:
+        """Units for coordinate space."""
+        # Note that we are regenerating the pint.Quantity from the string
+        # That is to avoid problems with pickling e.g. when using multiprocessing
+        unit_str = getattr(self, "_unit_str", None)
+
+        if utils.is_iterable(unit_str):
+            values = [config.ureg(u) for u in unit_str]
+            conv = [v.to(values[0]).magnitude for v in values]
+            return config.ureg.Quantity(np.array(conv), values[0].units)
+        else:
+            return config.ureg(unit_str)
+
+    @property
+    def units_xyz(self) -> np.ndarray:
+        """Units for coordinate space. Always returns x/y/z array."""
+        units = self.units
+
+        if not utils.is_iterable(units):
+            units = config.ureg.Quantity([units.magnitude] * 3, units.units)
+
+        return units
+
+    @units.setter
+    def units(self, units: Union[pint.Unit, pint.Quantity, str, None]):
+        # Note that we are storing the string, not the actual pint.Quantity
+        # That is to avoid problems with pickling e.g. when using multiprocessing
+
+        # Do NOT remove the is_iterable condition - otherwise we might
+        # accidentally strip the units from a pint Quantity vector
+        if not utils.is_iterable(units):
+            units = utils.make_iterable(units)
+
+        if len(units) not in [1, 3]:
+            raise ValueError(
+                "Must provide either a single unit or one for "
+                "for x, y and z dimension."
+            )
+
+        # Make sure we actually have valid unit(s)
+        unit_str = []
+        for v in units:
+            if isinstance(v, str):
+                # This makes sure we have meters (i.e. nm, um, etc) because
+                # "microns", for example, produces odd behaviour like
+                # "millimicrons" on division
+                v = v.replace("microns", "um").replace("micron", "um")
+                unit_str.append(str(v))
+            elif isinstance(v, (pint.Unit, pint.Quantity)):
+                unit_str.append(str(v))
+            elif isinstance(v, type(None)):
+                unit_str.append(None)
+            elif isinstance(v, numbers.Number):
+                unit_str.append(str(config.ureg(f"{v} dimensionless")))
+            else:
+                raise TypeError(f'Expect str or pint Unit/Quantity, got "{type(v)}"')
+
+        # Some clean-up
+        if len(set(unit_str)) == 1:
+            unit_str = unit_str[0]
+        else:
+            # Check if all base units (e.g. "microns") are the same
+            unique_units = set([str(config.ureg(u).units) for u in unit_str])
+            if len(unique_units) != 1:
+                raise ValueError(
+                    'Non-isometric units must share the same base,'
+                    f' got: {", ".join(unique_units)}'
+                )
+            unit_str = tuple(unit_str)
+
+        self._unit_str = unit_str
+
+    @property
+    def is_isometric(self):
+        """Test if neuron is isometric."""
+        u = self.units
+        if utils.is_iterable(u) and len(set(u)) > 1:
+            return False
+        return True
+
+
+class BaseNeuron(UnitObject):
     """Base class for all neurons."""
 
     name: Optional[str]
@@ -104,7 +189,7 @@ class BaseNeuron:
     EQ_ATTRIBUTES = ['name']
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = []
+    TEMP_ATTR = ["_memory_usage"]
 
     #: Core data table(s) used to calculate hash
     CORE_DATA = []
@@ -242,6 +327,10 @@ class BaseNeuron:
 
     def _clear_temp_attr(self, exclude: list = []) -> None:
         """Clear temporary attributes."""
+        if self.is_locked:
+            logger.debug(f"Neuron {self.id} at {hex(id(self))} locked.")
+            return
+
         # Must set checksum before recalculating e.g. node types
         # -> otherwise we run into a recursive loop
         self._current_md5 = self.core_md5
@@ -289,12 +378,12 @@ class BaseNeuron:
     def core_md5(self) -> str:
         """MD5 checksum of core data.
 
-        Generated from ``.CORE_DATA`` properties.
+        Generated from `.CORE_DATA` properties.
 
         Returns
         -------
         md5 :   string
-                MD5 checksum of core data. ``None`` if no core data.
+                MD5 checksum of core data. `None` if no core data.
 
         """
         hash = ''
@@ -341,7 +430,7 @@ class BaseNeuron:
         """ID of the neuron.
 
         Must be hashable. If not set, will assign a random unique identifier.
-        Can be indexed by using the ``NeuronList.idx[]`` locator.
+        Can be indexed by using the `NeuronList.idx[]` locator.
         """
         return getattr(self, '_id', None)
 
@@ -401,8 +490,8 @@ class BaseNeuron:
 
     @property
     def connectors(self) -> pd.DataFrame:
-        """Connector table. If none, will return ``None``."""
-        return getattr(self, '_connectors', None)
+        """Connector table. If none, will return `None`."""
+        return getattr(self, "_connectors", None)
 
     @connectors.setter
     def connectors(self, v):
@@ -424,8 +513,8 @@ class BaseNeuron:
         if not isinstance(getattr(self, 'connectors', None), pd.DataFrame):
             raise ValueError('No connector table found.')
         # Make an educated guess what presynapses are
-        types = self.connectors['type'].unique()
-        pre = [t for t in types if 'pre' in str(t) or t in [0, "0"]]
+        types = self.connectors["type"].unique()
+        pre = [t for t in types if "pre" in str(t).lower() or t in [0, "0"]]
 
         if len(pre) == 0:
             logger.debug(f'Unable to find presynapses in types: {types}')
@@ -445,8 +534,8 @@ class BaseNeuron:
         if not isinstance(getattr(self, 'connectors', None), pd.DataFrame):
             raise ValueError('No connector table found.')
         # Make an educated guess what presynapses are
-        types = self.connectors['type'].unique()
-        post = [t for t in types if 'post' in str(t) or t in [1, "1"]]
+        types = self.connectors["type"].unique()
+        post = [t for t in types if "post" in str(t).lower() or t in [1, "1"]]
 
         if len(post) == 0:
             logger.debug(f'Unable to find postsynapses in types: {types}')
@@ -456,82 +545,7 @@ class BaseNeuron:
 
         return self.connectors[self.connectors['type'] == post[0]]
 
-    @property
-    def units(self) -> Union[numbers.Number, np.ndarray]:
-        """Units for coordinate space."""
-        # Note that we are regenerating the pint.Quantity from the string
-        # That is to avoid problems with pickling e.g. when using multiprocessing
-        unit_str = getattr(self, '_unit_str', None)
 
-        if utils.is_iterable(unit_str):
-            values = [config.ureg(u) for u in unit_str]
-            conv = [v.to(values[0]).magnitude for v in values]
-            return config.ureg.Quantity(np.array(conv), values[0].units)
-        else:
-            return config.ureg(unit_str)
-
-    @property
-    def units_xyz(self) -> np.ndarray:
-        """Units for coordinate space. Always returns x/y/z array."""
-        units = self.units
-
-        if not utils.is_iterable(units):
-            units = config.ureg.Quantity([units.magnitude] * 3, units.units)
-
-        return units
-
-    @units.setter
-    def units(self, units: Union[pint.Unit, pint.Quantity, str, None]):
-        # Note that we are storing the string, not the actual pint.Quantity
-        # That is to avoid problems with pickling e.g. when using multiprocessing
-
-        # Do NOT remove the is_iterable condition - otherwise we might
-        # accidentally strip the units from a pint Quantity vector
-        if not utils.is_iterable(units):
-            units = utils.make_iterable(units)
-
-        if len(units) not in [1, 3]:
-            raise ValueError('Must provide either a single unit or one for '
-                             'for x, y and z dimension.')
-
-        # Make sure we actually have valid unit(s)
-        unit_str = []
-        for v in units:
-            if isinstance(v, str):
-                # This makes sure we have meters (i.e. nm, um, etc) because
-                # "microns", for example, produces odd behaviour like
-                # "millimicrons" on division
-                v = v.replace('microns', 'um').replace('micron', 'um')
-                unit_str.append(str(v))
-            elif isinstance(v, (pint.Unit, pint.Quantity)):
-                unit_str.append(str(v))
-            elif isinstance(v, type(None)):
-                unit_str.append(None)
-            elif isinstance(v, numbers.Number):
-                unit_str.append(str(config.ureg(f'{v} dimensionless')))
-            else:
-                raise TypeError(f'Expect str or pint Unit/Quantity, got "{type(v)}"')
-
-        # Some clean-up
-        if len(set(unit_str)) == 1:
-            unit_str = unit_str[0]
-        else:
-            # Check if all base units (e.g. "microns") are the same
-            unique_units = set([str(config.ureg(u).units) for u in unit_str])
-            if len(unique_units) != 1:
-                raise ValueError('Non-isometric units must share the same base,'
-                                 f' got: {", ".join(unique_units)}')
-            unit_str = tuple(unit_str)
-
-        self._unit_str = unit_str
-
-    @property
-    def is_isometric(self):
-        """Test if neuron is isometric."""
-        u = self.units
-        if utils.is_iterable(u) and len(set(u)) > 1:
-            return False
-        return True
 
     @property
     def is_stale(self) -> bool:
@@ -552,14 +566,24 @@ class BaseNeuron:
     @property
     def type(self) -> str:
         """Neuron type."""
-        return 'navis.BaseNeuron'
+        return "navis.BaseNeuron"
+
+    @property
+    def soma(self):
+        """The soma of the neuron (if any)."""
+        raise NotImplementedError(f"`soma` property not implemented for {type(self)}.")
+
+    @property
+    def bbox(self) -> np.ndarray:
+        """Bounding box of neuron."""
+        raise NotImplementedError(f"Bounding box not implemented for {type(self)}.")
 
     def convert_units(self,
                       to: Union[pint.Unit, str],
                       inplace: bool = False) -> Optional['BaseNeuron']:
         """Convert coordinates to different unit.
 
-        Only works if neuron's ``.units`` is not dimensionless.
+        Only works if neuron's `.units` is not dimensionless.
 
         Parameters
         ----------
@@ -637,17 +661,17 @@ class BaseNeuron:
         return s
 
     def plot2d(self, **kwargs):
-        """Plot neuron using :func:`navis.plot2d`.
+        """Plot neuron using [`navis.plot2d`][].
 
         Parameters
         ----------
         **kwargs
-                Will be passed to :func:`navis.plot2d`.
-                See ``help(navis.plot2d)`` for a list of keywords.
+                Will be passed to [`navis.plot2d`][].
+                See `help(navis.plot2d)` for a list of keywords.
 
         See Also
         --------
-        :func:`navis.plot2d`
+        [`navis.plot2d`][]
                     Function called to generate 2d plot.
 
         """
@@ -656,17 +680,17 @@ class BaseNeuron:
         return plot2d(self, **kwargs)
 
     def plot3d(self, **kwargs):
-        """Plot neuron using :func:`navis.plot3d`.
+        """Plot neuron using [`navis.plot3d`][].
 
         Parameters
         ----------
         **kwargs
-                Keyword arguments. Will be passed to :func:`navis.plot3d`.
-                See ``help(navis.plot3d)`` for a list of keywords.
+                Keyword arguments. Will be passed to [`navis.plot3d`][].
+                See `help(navis.plot3d)` for a list of keywords.
 
         See Also
         --------
-        :func:`navis.plot3d`
+        [`navis.plot3d`][]
                     Function called to generate 3d plot.
 
         Examples
@@ -687,7 +711,7 @@ class BaseNeuron:
                                   Literal['ignore']] = 'raise') -> Union[int, float]:
         """Convert units to match neuron space.
 
-        Only works if neuron's ``.units`` is isometric and not dimensionless.
+        Only works if neuron's `.units` is isometric and not dimensionless.
 
         Parameters
         ----------
@@ -696,12 +720,12 @@ class BaseNeuron:
                     passed through.
         on_error :  "raise" | "ignore"
                     What to do if an error occurs (e.g. because `neuron` does not
-                    have units specified). If "ignore" will simply return ``units``
+                    have units specified). If "ignore" will simply return `units`
                     unchanged.
 
         See Also
         --------
-        :func:`navis.core.to_neuron_space`
+        [`navis.to_neuron_space`][]
                     The base function for this method.
 
         Examples

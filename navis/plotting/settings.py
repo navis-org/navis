@@ -76,7 +76,7 @@ class BasePlottingSettings(Settings):
 
     # For TreeNeurons
     soma: bool = True
-    radius: bool = True
+    radius: bool = "auto"
     linewidth: float = 1
     linestyle: str = "-"
 
@@ -102,7 +102,7 @@ class BasePlottingSettings(Settings):
     color_by: Optional[Union[str, np.ndarray, List[np.ndarray]]] = None
     shade_by: Optional[Union[str, np.ndarray, List[np.ndarray]]] = None
     palette: Optional[Union[str, np.ndarray]] = None
-    alpha: float = 1
+    alpha: Optional[float] = None
     vmin: Optional[float] = None
     vmax: Optional[float] = None
     smin: Optional[float] = None
@@ -156,10 +156,14 @@ class PlotlySettings(BasePlottingSettings):
     fig_autosize: bool = True
     hover_name: Optional[str] = False
     hover_id: bool = False
+    legend: bool = True
+    legend_orientation: Literal["h", "v"] = "v"
     legend_group: Optional[str] = None
     volume_legend: bool = False
     width: Optional[int] = None
     height: Optional[int] = 600
+    linewidth: float = 3  # for plotly, linewidth 1 is too thin
+    linestyle: str = "-"
 
 
 @dataclass

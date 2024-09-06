@@ -75,18 +75,18 @@ def matching_pipeline(scores: pd.DataFrame,
                     as query neurons, columns as potential matches.
     query_source :  str | function | NeuronList
                     Source for query neurons. Can be::
-                      - str: path to folder with ``.swc`` or ``.obj`` files
+                      - str: path to folder with `.swc` or `.obj` files
                       - function: must accept single ID and return TreeNeuron
                       - NeuronList
     match_source :  str | function | NeuronList
                     Source for potential matches.
     N :             int | float | slice
                     How many matches to show at a time. If >= 1, will show
-                    top ``N`` matches. If <= 1, will show all hits with better
-                    than ``N`` score.
+                    top `N` matches. If <= 1, will show all hits with better
+                    than `N` score.
     to_match :      iterable, optional
-                    If given, will match only these neurons. If ``None``, will
-                    match all neurons in ``scores.index``.
+                    If given, will match only these neurons. If `None`, will
+                    match all neurons in `scores.index`.
     color_by_score : bool
                     If True, will color matches by score.
     add_plot :      Volume, optional

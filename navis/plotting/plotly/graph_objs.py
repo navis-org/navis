@@ -127,13 +127,14 @@ def neuron2plotly(x, colormap, settings):
         else:
             legendgroup = neuron_id
 
-        if (
-            isinstance(neuron, core.TreeNeuron)
-            and settings.radius
-            and neuron.nodes.get("radius", pd.Series([]))
-            .notnull()
-            .any()  # make sure we have at least some radii
-        ):
+        if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
+            # Number of nodes with radii
+            n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
+            # If less than 30% of nodes have a radius, we will fall back to lines
+            if n_radii / neuron.nodes.shape[0] < 0.3:
+                settings.radius = False
+
+        if isinstance(neuron, core.TreeNeuron) and settings.radius:
             _neuron = conversion.tree2meshneuron(neuron)
             _neuron.connectors = neuron.connectors
             neuron = _neuron
@@ -184,7 +185,22 @@ def neuron2plotly(x, colormap, settings):
 
         # Add connectors
         if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
-            for j in neuron.connectors.type.unique():
+            if isinstance(settings.connectors, (list, np.ndarray, tuple)):
+                connectors = neuron.connectors[
+                    neuron.connectors.type.isin(settings.connectors)
+                ]
+            elif settings.connectors == "pre":
+                connectors = neuron.presynapses
+            elif settings.connectors == "post":
+                connectors = neuron.postsynapses
+            elif isinstance(settings.connectors, str):
+                connectors = neuron.connectors[
+                    neuron.connectors.type == settings.connectors
+                ]
+            else:
+                connectors = neuron.connectors
+
+            for j, this_cn in connectors.groupby("type"):
                 if isinstance(settings.cn_colors, dict):
                     c = settings.cn_colors.get(
                         j, cn_lay.get(j, {"color": (10, 10, 10)})["color"]
@@ -197,8 +213,6 @@ def neuron2plotly(x, colormap, settings):
                     c = cn_lay.get(j, {"color": (10, 10, 10)})["color"]
 
                 c = eval_color(c, color_range=255)
-
-                this_cn = neuron.connectors[neuron.connectors.type == j]
 
                 if cn_lay["display"] == "circles" or isinstance(
                     neuron, core.MeshNeuron
@@ -464,13 +478,19 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
         hoverinfo = "none"
         hovertext = " "
 
+    # Options for linestyle: "solid", "dot", "dash", "longdash", "dashdot", or "longdashdot"
+    # Translate `linestyle` setting to plotly's `dash` setting
+    dash = {"-": "solid", "--": "dash", "-.": "dashdot", ":": "dot"}.get(
+        settings.linestyle, settings.linestyle
+    )
+
     trace_data = [
         go.Scatter3d(
             x=coords[:, 0],
             y=coords[:, 1],
             z=coords[:, 2],
             mode="lines",
-            line=dict(color=c, width=settings.linewidth),
+            line=dict(color=c, width=settings.linewidth, dash=dash),
             name=label,
             legendgroup=legendgroup,
             legendgrouptitle_text=legendgroup,
@@ -661,6 +681,9 @@ def layout2plotly(**kwargs):
         height=kwargs.get("height", 600),  # these override autosize
         autosize=kwargs.get("fig_autosize", True),
         title=kwargs.get("pl_title", None),
+        showlegend=kwargs.get("legend", True),
+        legend_orientation=kwargs.get("legend_orientation", "v"),
+        legend_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         scene=dict(

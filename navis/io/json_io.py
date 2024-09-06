@@ -31,9 +31,9 @@ __all__ = ['write_json', 'read_json']
 def write_json(x: 'core.NeuronObject', filepath, **kwargs) -> str:
     """Save neuron(s) to json-formatted file.
 
-    Nodes and connectors are serialised using pandas' ``to_json()``. Most
+    Nodes and connectors are serialised using pandas' `to_json()`. Most
     other items in the neuron's __dict__ are serialised using
-    ``json.dumps()``. Properties not serialised: `.graph`, `.igraph`.
+    `json.dumps()`. Properties not serialised: `.graph`, `.igraph`.
 
     Parameters
     ----------
@@ -43,17 +43,17 @@ def write_json(x: 'core.NeuronObject', filepath, **kwargs) -> str:
                 File to save data to. If `None` will return a json-formatted
                 string.
     **kwargs
-                Parameters passed to ``json.dumps()`` and
-                ``pandas.DataFrame.to_json()``.
+                Parameters passed to `json.dumps()` and
+                `pandas.DataFrame.to_json()`.
 
     Returns
     -------
     str
-                Only if ``filepath=None``.
+                Only if `filepath=None`.
 
     See Also
     --------
-    :func:`~navis.read_json`
+    [`navis.read_json`][]
                 Read json back into navis neurons.
 
     """
@@ -96,16 +96,16 @@ def read_json(s: str, **kwargs) -> 'core.NeuronList':
     s :         str
                 Either filepath or JSON-formatted string.
     **kwargs
-                Parameters passed to ``json.loads()`` and
-                ``pandas.DataFrame.read_json()``.
+                Parameters passed to `json.loads()` and
+                `pandas.DataFrame.read_json()`.
 
     Returns
     -------
-    :class:`~navis.NeuronList`
+    [`navis.NeuronList`][]
 
     See Also
     --------
-    :func:`~navis.neuron2json`
+    [`navis.neuron2json`][]
                 Turn neuron into json.
 
     Examples

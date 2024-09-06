@@ -72,7 +72,7 @@ def plot2d(
     control over layering objects in 3D. Therefore neurites are not necessarily
     plotted in the right Z order. This becomes especially troublesome when
     plotting a complex scene with lots of neurons criss-crossing. See the
-    ``method`` parameter for details.
+    `method` parameter for details.
 
     Parameters
     ----------
@@ -85,92 +85,140 @@ def plot2d(
     Object parameters
     -----------------
     soma :              bool, default=True
+
                         Plot soma if one exists. Size of the soma is determined
-                        by the neuron's ``.soma_radius`` property which defaults
-                        to the "radius" column for ``TreeNeurons``.
-    radius :            bool, default=True
-                        If True, will plot neurites of ``TreeNeurons`` with radius
-                        (if present). The radius can be scaled by `linewidth`.
-                        Note that this will increase rendering time.
+                        by the neuron's `.soma_radius` property which defaults
+                        to the "radius" column for `TreeNeurons`.
+
+    radius :            "auto" (default) | bool
+
+                        If "auto" will plot neurites of `TreeNeurons` with radius
+                        if they have radii. If True, will plot neurites of
+                        `TreeNeurons` with radius regardless. The radius can be
+                        scaled by `linewidth`. Note that this will increase rendering
+                        time.
+
     linewidth :         int | float, default=.5
-                        Width of neurites. Also accepts alias ``lw``.
+
+                        Width of neurites. Also accepts alias `lw`.
+
     linestyle :         str, default='-'
-                        Line style of neurites. Also accepts alias ``ls``.
+
+                        Line style of neurites. Also accepts alias `ls`.
+
     color :             None | str | tuple | list | dict, default=None
-                        Use single str (e.g. ``'red'``) or ``(r, g, b)`` tuple
-                        to give all neurons the same color. Use ``list`` of
-                        colors to assign colors: ``['red', (1, 0, 1), ...].
-                        Use ``dict`` to map colors to neuron IDs:
-                        ``{id: (r, g, b), ...}``.
+
+                        Use single str (e.g. `'red'`) or `(r, g, b)` tuple
+                        to give all neurons the same color. Use `list` of
+                        colors to assign colors: `['red', (1, 0, 1), ...].
+                        Use `dict` to map colors to neuron IDs:
+                        `{id: (r, g, b), ...}`.
+
     palette :           str | array | list of arrays, default=None
-                        Name of a matplotlib or seaborn palette. If ``color`` is
+
+                        Name of a matplotlib or seaborn palette. If `color` is
                         not specified will pick colors from this palette.
+
     color_by :          str | array | list of arrays, default = None
+
                         Color neurons by a property. Can be:
                           - a list/array of labels, one per each neuron
                           - a neuron property (str)
-                          - a column name in the node table of ``TreeNeurons``
+                          - a column name in the node table of `TreeNeurons`
                           - a list/array of values for each node
                         Numerical values will be normalized. You can control
-                        the normalization by passing a ``vmin`` and/or ``vmax`` parameter.
+                        the normalization by passing a `vmin` and/or `vmax` parameter.
+
     shade_by :          str | array | list of arrays, default=None
-                        Similar to ``color_by`` but will affect only the alpha
-                        channel of the color. If ``shade_by='strahler'`` will
+
+                        Similar to `color_by` but will affect only the alpha
+                        channel of the color. If `shade_by='strahler'` will
                         compute Strahler order if not already part of the node
                         table (TreeNeurons only). Numerical values will be
                         normalized. You can control the normalization by passing
-                        a ``smin`` and/or ``smax`` parameter.
+                        a `smin` and/or `smax` parameter.
+
     alpha :             float [0-1], default=1
+
                         Alpha value for neurons. Overriden if alpha is provided
-                        as fourth value in ``color`` (rgb*a*). You can override
-                        alpha value for connectors by using ``cn_alpha``.
+                        as fourth value in `color` (rgb*a*). You can override
+                        alpha value for connectors by using `cn_alpha`.
+
     mesh_shade :        bool, default=False
-                        Only relevant for meshes (e.g. ``MeshNeurons``) and
-                        ``TreeNeurons`` with radius, and when method is 3d or
+
+                        Only relevant for meshes (e.g. `MeshNeurons`) and
+                        `TreeNeurons` with radius, and when method is 3d or
                         3d complex. Whether to shade the object which will give it
                         a 3D look.
+
     depth_coloring :    bool, default=False
+
                         If True, will use neuron color to encode depth (Z).
-                        Overrides ``color`` argument. Does not work with
-                        ``method = '3d_complex'``.
+                        Overrides `color` argument. Does not work with
+                        `method = '3d_complex'`.
+
     depth_scale :       bool, default=True
-                        If True and ``depth_coloring=True`` will plot a scale.
-    connectors :        bool, default=True
-                        Plot connectors.
+
+                        If True and `depth_coloring=True` will plot a scale.
+
+    connectors :        bool | "presynapses" | "postsynapses" | str | list, default=True
+
+                        Plot connectors. This can either be `True` (plot all
+                        connectors), `"presynapses"` (only presynaptic connectors)
+                        or `"postsynapses"` (only postsynaptic connectors). If
+                        a string or a list is provided, it will be used to filter the
+                        `type` column in the connectors table.
+
     connectors_only :   boolean, default=False
+
                         Plot only connectors, not the neuron.
+
     cn_size :           int | float, default = 1
+
                         Size of connectors.
+
     cn_layout :         dict, default={}
+
                         Defines default settings (color, style) for connectors.
-                        See ``navis.config.default_connector_colors`` for the
+                        See `navis.config.default_connector_colors` for the
                         default layout.
+
     cn_colors :         str | tuple | dict | "neuron"
+
                         Overrides the default connector (e.g. synpase) colors:
-                            - single color as str (e.g. ``'red'``) or rgb tuple
-                            (e.g. ``(1, 0, 0)``)
-                            - dict mapping the connectors tables ``type`` column to
+                            - single color as str (e.g. `'red'`) or rgb tuple
+                            (e.g. `(1, 0, 0)`)
+                            - dict mapping the connectors tables `type` column to
                             a color (e.g. `{"pre": (1, 0, 0)}`)
                             - with "neuron", connectors will receive the same color
                             as their neuron
+
     cn_mesh_colors :    bool, default=False
+
                         If True, will use the neuron's color for its connectors.
+
     scatter_kws :       dict, default={}
+
                         Parameters to be used when plotting points. Accepted
-                        keywords are: ``size`` and ``color``.
+                        keywords are: `size` and `color`.
+
     volume_outlines :   bool | "both", default=False
+
                         If True will plot volume outline with no fill. Only
                         works with `method="2d"`. Requires the `shapely` package.
+
     dps_scale_vec :     float
+
                         Scale vector for dotprops.
 
     Figure parameters
     -----------------
     method :            '2d' | '3d' (default) | '3d_complex'
+
                         Method used to generate plot. Comes in three flavours:
                          1. `2d` uses normal matplotlib. Neurons are plotted on
                             top of one another in the order their are passed to
-                            the function. Use the ``view`` parameter (below) to
+                            the function. Use the `view` parameter (below) to
                             set the view (default = xy).
                          2. `3d` uses matplotlib's 3D axis. Here, matplotlib
                             decide the depth order (zorder) of plotting. Can
@@ -180,42 +228,66 @@ def plot2d(
                             added individually. This allows for more complex
                             zorders to be rendered correctly. Slows down
                             rendering!
+
     view :              tuple, default = ("x", "y")
-                        Sets view for ``method='2d'``. Can be any combination of
+
+                        Sets view for `method='2d'`. Can be any combination of
                         "x", "y", "z" and their negations. For example, to plot
-                        from the top, use ``view=('x', '-y')``. For 3D ``methods``,
+                        from the top, use `view=('x', '-y')`. For 3D `methods`,
                         this will set the initial view which can be changed by
                         adjusting `ax.azim`, `ax.elev` and `ax.roll` (see examples).
+
     non_view_axes3d :   "show" | "hide" (default) | "fade"
+
                         Only relevant for methods '3d' and '3d_complex': what to
                         do with the axis that are not in the view. If 'hide', will
                         hide them. If 'show', will show them. If 'fade', will
                         make them semi-transparent. This is relevant if you
                         intend if you intend to customize the view after plotting.
+
     autoscale :         bool, default=True
+
                         If True, will scale the axes to fit the data.
-    scalebar :          int | float | str | pint.Quantity, default=False
+
+    scalebar :          int | float | str | pint.Quantity | dict, default=False
+
                         Adds a scale bar. Provide integer, float or str to set
                         size of scalebar. Int|float are assumed to be in same
                         units as data. You can specify units in as string:
                         e.g. "1 um". For methods '3d' and '3d_complex', this
                         will create an axis object.
+
+                        You can customize the scalebar by passing a dictionary.
+                        For example:
+
+                        `{size: "1 micron", color: 'k', lw: 3, alpha: 0.9}`
+
+
     ax :                matplotlib.Axes, default=None
+
                         Pass an axis object if you want to plot on an existing
-                        canvas. Must match ``method`` - i.e. 2D or 3D axis.
+                        canvas. Must match `method` - i.e. 2D or 3D axis.
+
     figsize :           tuple, default=None
-                        Size of figure. Ignored if ``ax`` is provided.
+
+                        Size of figure. Ignored if `ax` is provided.
+
     rasterize :         bool, default=False
+
                         Neurons produce rather complex vector graphics which can
                         lead to large files when saving to SVG, PDF or PS. Use
                         this parameter to rasterize neurons and meshes/volumes
                         (but not axes or labels) to reduce file size.
+
     orthogonal :        bool, default=True
+
                         Whether to use orthogonal or perspective view for
                         methods '3d' and '3d_complex'.
+
     group_neurons :     bool, default=False
+
                         If True, neurons will be grouped. Works with SVG export
-                        but not PDF. Does NOT work with ``method='3d_complex'``.
+                        but not PDF. Does NOT work with `method='3d_complex'`.
 
     Returns
     -------
@@ -224,75 +296,63 @@ def plot2d(
 
     Examples
     --------
-    .. plot::
-       :context:close-figs
 
-       >>> import navis
-       >>> import matplotlib.pyplot as plt
+    >>> import navis
+    >>> import matplotlib.pyplot as plt
 
-       Plot list of neurons as simple 2d
+    Plot list of neurons as simple 2d:
 
-       >>> nl = navis.example_neurons()
-       >>> fig, ax = navis.plot2d(nl, method='2d', view=('x', '-z'))
-       >>> plt.show() # doctest: +SKIP
+    >>> nl = navis.example_neurons()
+    >>> fig, ax = navis.plot2d(nl, method='2d', view=('x', '-z'))
+    >>> plt.show() # doctest: +SKIP
 
-    Add a volume
+    Add a volume:
 
-    .. plot::
+    >>> vol = navis.example_volume('LH')
+    >>> fig, ax = navis.plot2d([nl, vol], method='2d', view=('x', '-z'))
+    >>> plt.show() # doctest: +SKIP
 
-       >>> vol = navis.example_volume('LH')
-       >>> fig, ax = navis.plot2d([nl, vol], method='2d', view=('x', '-z'))
-       >>> plt.show() # doctest: +SKIP
+    Change neuron colors:
 
-    Change neuron colors
+    >>> fig, ax = navis.plot2d(
+    ...              nl,
+    ...              method='2d',
+    ...              view=('x', '-z'),
+    ...              color=['r', 'g', 'b', 'm', 'c', 'y']
+    ...          )
+    >>> plt.show() # doctest: +SKIP
 
-    .. plot::
+    Plot in "fake" 3D:
 
-       >>> fig, ax = navis.plot2d(
-       ...              nl,
-       ...              method='2d',
-       ...              view=('x', '-z'),
-       ...              color=['r', 'g', 'b', 'm', 'c', 'y']
-       ...          )
-       >>> plt.show() # doctest: +SKIP
+    >>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
+    >>> plt.show() # doctest: +SKIP
+    >>> # In an interactive window you can dragging the plot to rotate
 
-    Plot in "fake" 3D
+    Plot in "fake" 3D and change perspective:
 
-    .. plot::
+    >>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
+    >>> # Change view
+    >>> ax.elev = -20
+    >>> ax.azim = 45
+    >>> ax.roll = 180
+    >>> plt.show() # doctest: +SKIP
 
-       >>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
-       >>> plt.show() # doctest: +SKIP
-       >>> # In an interactive window you can dragging the plot to rotate
+    Plot using depth-coloring:
 
-    Plot in "fake" 3D and change perspective
-
-    .. plot::
-
-       >>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
-       >>> # Change view
-       >>> ax.elev = -20
-       >>> ax.azim = 45
-       >>> ax.roll = 180
-       >>> plt.show() # doctest: +SKIP
-
-    Plot using depth-coloring
-
-    .. plot::
-
-       >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True, view=('x', '-z'))
-       >>> plt.show() # doctest: +SKIP
+    >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True, view=('x', '-z'))
+    >>> plt.show() # doctest: +SKIP
 
 
     See the :ref:`plotting tutorial <plot_intro>` for more examples.
 
     See Also
     --------
-    :func:`navis.plot3d`
+    [`navis.plot3d`][]
             Use this if you want interactive, perspectively correct renders
             and if you don't need vector graphics as outputs.
-    :func:`navis.plot1d`
+    [`navis.plot1d`][]
             A nifty way to visualise neurons in a single dimension.
-    :func:`navis.plot_flat`
+    [`navis.plot_flat`][]
             Plot neurons as flat structures (e.g. dendrograms).
 
     """
@@ -387,18 +447,28 @@ def plot2d(
     if not settings.ax:
         if settings.method == "2d":
             fig, ax = plt.subplots(figsize=settings.figsize)
-            ax.set_aspect("equal")
-
-            _set_view2d(ax, settings)
-
         elif settings.method in ("3d", "3d_complex"):
             fig = plt.figure(
                 figsize=settings.figsize if settings.figsize else plt.figaspect(1) * 1.5
             )
             ax = fig.add_subplot(111, projection="3d")
+        # Hide axes
+        # ax.set_axis_off()
+    else:
+        # Check if correct axis were provided
+        if not isinstance(settings.ax, mpl.axes.Axes):
+            raise TypeError('Ax must be of type "mpl.axes.Axes", ' f'not "{type(ax)}"')
+        ax = settings.ax
+        fig = ax.get_figure()
+        if settings.method in ("3d", "3d_complex") and ax.name != "3d":
+            raise TypeError("Axis must be 3d.")
+        elif settings.method == "2d" and ax.name == "3d":
+            raise TypeError("Axis must be 2d.")
 
-            # This sets the view
-            _set_view3d(ax, settings)
+    # Set axis projection
+    if settings.method in ("3d", "3d_complex"):
+        # This sets the view
+        _set_view3d(ax, settings)
 
         # Some styling:
         # Make background transparent (nicer for dark themes)
@@ -416,25 +486,13 @@ def plot2d(
             ax.zaxis.pane.set_edgecolor((1, 1, 1, 0))
             ax.zaxis.pane.fill = False
 
-        # Hide axes
-        # ax.set_axis_off()
-    else:
-        # Check if correct axis were provided
-        if not isinstance(settings.ax, mpl.axes.Axes):
-            raise TypeError('Ax must be of type "mpl.axes.Axes", ' f'not "{type(ax)}"')
-        ax = settings.ax
-        fig = ax.get_figure()
-        if settings.method in ("3d", "3d_complex") and ax.name != "3d":
-            raise TypeError("Axis must be 3d.")
-        elif settings.method == "2d" and ax.name == "3d":
-            raise TypeError("Axis must be 2d.")
-
-    # Set axis projection
-    if settings.method in ("3d", "3d_complex"):
         if settings.orthogonal:
             ax.set_proj_type("ortho")
         else:
             ax.set_proj_type("persp", focal_length=1)  # smaller = more perspective
+    else:
+        ax.set_aspect("equal")
+        _set_view2d(ax, settings)
 
     # Prepare some stuff for depth coloring
     if settings.depth_coloring and not neurons.empty:
@@ -465,7 +523,7 @@ def plot2d(
             neurons,
             desc="Plot neurons",
             leave=False,
-            disable=config.pbar_hide | len(neurons) < 2,
+            disable=config.pbar_hide | len(neurons) <= 10,
         )
     ):
         if not settings.connectors_only:
@@ -482,16 +540,17 @@ def plot2d(
                 logger.warning(f"Skipping Dotprops w/o points: {neuron.label}")
                 continue
 
-            if (
-                isinstance(neuron, core.TreeNeuron)
-                and settings.radius
-                and neuron.nodes.get("radius", pd.Series([])).notnull().any()  # make sure we have at least some radii
-            ):
-                _neuron = conversion.tree2meshneuron(
-                    neuron,
-                    radius_scale_factor=settings.linewidth,
-                    tube_points=4,
-                )
+            if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
+                # Number of nodes with radii
+                n_radii = (
+                    neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0
+                ).sum()
+                # If less than 30% of nodes have a radius, we will fall back to lines
+                if n_radii / neuron.nodes.shape[0] < 0.3:
+                    settings.radius = False
+
+            if isinstance(neuron, core.TreeNeuron) and settings.radius:
+                _neuron = conversion.tree2meshneuron(neuron)
                 _neuron.connectors = neuron.connectors
                 neuron = _neuron
 
@@ -538,6 +597,10 @@ def plot2d(
         if "3d" in settings.method:
             update_axes3d_bounds(ax)
 
+        # This is apparently still required and has to happen AFTER updating axis bounds
+        ax.set_aspect("equal", adjustable="box")
+
+    # Add scalebar after the dust has settled
     if settings.scalebar not in (False, None):
         if not settings.orthogonal:
             raise ValueError("Scalebar only available if `orthogonal=True`.")
@@ -602,7 +665,10 @@ def plot2d(
         set_depth()
 
     if settings.depth_coloring:
-        cmap = DEPTH_CMAP
+        if settings.palette:
+            cmap = plt.get_cmap(settings.palette)
+        else:
+            cmap = DEPTH_CMAP
         if settings.method == "2d" and settings.depth_scale:
             sm = ScalarMappable(norm=settings.norm, cmap=cmap)
             fig.colorbar(sm, ax=ax, fraction=0.075, shrink=0.5, label="Depth")
@@ -624,6 +690,18 @@ def plot2d(
 
 def _add_scalebar(scalebar, neurons, ax, settings):
     """Add scalebar."""
+    defaults = {
+        "color": "black",
+        "lw": 3,
+        "alpha": 0.9,
+    }
+
+    if isinstance(scalebar, dict):
+        if "size" not in scalebar:
+            raise ValueError("`scalebar` dictionary must contain 'size' key.")
+        defaults.update(scalebar)
+        scalebar = defaults["size"]
+
     if isinstance(scalebar, bool):
         scalebar = "1 um"
 
@@ -638,21 +716,33 @@ def _add_scalebar(scalebar, neurons, ax, settings):
         else:
             scalebar = scalebar.magnitude
 
-    # Hard-coded offset from figure boundaries
+    # Hard-coded 5% offset from figure boundaries
     ax_offset = (ax.get_xlim()[1] - ax.get_xlim()[0]) / 100 * 5
 
     if settings.method == "2d":
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
 
-        coords = np.array(
-            [
-                [xlim[0] + ax_offset, ylim[0] + ax_offset],
-                [xlim[0] + ax_offset + scalebar, ylim[0] + ax_offset],
-            ]
-        )
+        coords = np.array([[xlim[0], ylim[0]], [xlim[0] + scalebar, ylim[0]]])
 
-        sbar = mlines.Line2D(coords[:, 0], coords[:, 1], lw=3, alpha=0.9, color="black")
+        if not ax.xaxis.get_inverted():
+            coords[:, 0] += ax_offset
+        else:
+            coords[:, 0] -= ax_offset
+
+        if not ax.yaxis.get_inverted():
+            coords[:, 1] += ax_offset
+        else:
+            coords[:, 1] -= ax_offset
+
+        sbar = mlines.Line2D(
+            coords[:, 0],
+            coords[:, 1],
+            lw=defaults["lw"],
+            alpha=defaults["alpha"],
+            color=defaults["color"],
+            zorder=1000,
+        )
         sbar.set_gid(f"{scalebar}_scalebar")
 
         ax.add_line(sbar)
@@ -674,7 +764,9 @@ def _add_scalebar(scalebar, neurons, ax, settings):
         sbar[1][1][1] += scalebar
         sbar[2][1][2] += scalebar
 
-        lc = Line3DCollection(sbar, color="black", lw=1)
+        lc = Line3DCollection(
+            sbar, color=defaults["color"], lw=defaults["lw"], alpha=defaults["alpha"]
+        )
         lc.set_gid(f"{scalebar}_scalebar")
 
         ax.add_collection3d(lc, autolim=False)
@@ -753,6 +845,20 @@ def _plot_connectors(neuron, color, ax, settings):
     """Plot connectors."""
     cn_layout = copy.deepcopy(config.default_connector_colors)
 
+    if settings.connectors == 'pre':
+        connectors = neuron.presynapses
+    elif settings.connectors == 'post':
+        connectors = neuron.postsynapses
+    elif isinstance(settings.connectors, str):
+        connectors = neuron.connectors[neuron.connectors.type == settings.connectors]
+    elif isinstance(settings.connectors, (list, np.ndarray, tuple)):
+        connectors = neuron.connectors[neuron.connectors.type.isin(settings.connectors)]
+    else:
+        connectors = neuron.connectors
+
+    if connectors.empty:
+        return
+
     # Update with user settings
     if settings.cn_layout:
         cn_layout.update(settings.cn_layout)
@@ -777,9 +883,7 @@ def _plot_connectors(neuron, color, ax, settings):
                 inner_dict["color"] = settings.cn_colors
 
     if settings.method == "2d":
-        for c in neuron.connectors.type.unique():
-            this_cn = neuron.connectors[neuron.connectors.type == c]
-
+        for c, this_cn in connectors.groupby('type'):
             x, y = _parse_view2d(this_cn[["x", "y", "z"]].values, settings.view)
 
             ax.scatter(
@@ -788,18 +892,19 @@ def _plot_connectors(neuron, color, ax, settings):
                 color=cn_layout[c]["color"],
                 edgecolor="none",
                 s=settings.cn_size if settings.cn_size else cn_layout["size"],
+                zorder=1000
             )
             ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
     elif settings.method in ["3d", "3d_complex"]:
-        all_cn = neuron.connectors
-        c = [cn_layout[i]["color"] for i in all_cn.type.values]
+        c = [cn_layout[i]["color"] for i in connectors.type.values]
         ax.scatter(
-            all_cn.x.values,
-            all_cn.y.values,
-            all_cn.z.values,
+            connectors.x.values,
+            connectors.y.values,
+            connectors.z.values,
             color=c,
             s=settings.cn_size if settings.cn_size else cn_layout["size"],
             depthshade=cn_layout.get("depthshade", False),
+            zorder=0,
             edgecolor="none",
         )
         ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
@@ -807,20 +912,10 @@ def _plot_connectors(neuron, color, ax, settings):
 
 def _plot_mesh(neuron, color, ax, settings):
     """Plot mesh (i.e. MeshNeuron)."""
-    # Add alpha
-    if settings.alpha is not None:
-        if isinstance(color, tuple) and len(color) in (3, 4):
-            color = (color[0], color[1], color[2], settings.alpha)
-        elif isinstance(color, np.ndarray):
-            if color.ndim == 2:
-                color[:, 3] = settings.alpha
-            else:
-                color = (color[0], color[1], color[2], settings.alpha)
-
     # Map vertex colors to faces (if need be)
     if isinstance(color, np.ndarray) and color.ndim == 2:
         if len(color) != len(neuron.faces) and len(color) == len(neuron.vertices):
-            color = np.array([color[f].mean(axis=0)[:3].tolist() for f in neuron.faces])
+            color = np.array([color[f].mean(axis=0)[:4].tolist() for f in neuron.faces])
 
     ts = None
     if settings.method == "2d":
@@ -837,9 +932,14 @@ def _plot_mesh(neuron, color, ax, settings):
         )
 
         if settings.depth_coloring:
-            pc.set_cmap(DEPTH_CMAP)
+            if settings.palette:
+                cmap = plt.get_cmap(settings.palette)
+            else:
+                cmap = DEPTH_CMAP
+
+            pc.set_cmap(cmap)
             pc.set_norm(settings.norm)
-            pc.set_alpha(settings.alpha)
+            pc.set_alpha(settings.alpha if isinstance(settings.alpha, float) else None)
 
             # Get face centers
             if hasattr(neuron, "trimesh"):
@@ -866,7 +966,11 @@ def _plot_mesh(neuron, color, ax, settings):
         )
 
         if settings.depth_coloring:
-            ts.set_cmap(DEPTH_CMAP)
+            if settings.palette:
+                cmap = plt.get_cmap(settings.palette)
+            else:
+                cmap = DEPTH_CMAP
+            ts.set_cmap(cmap)
             ts.set_alpha(settings.alpha)
         else:
             ts.set_facecolor(color)
@@ -1000,19 +1104,22 @@ def _plot_skeleton(neuron, color, ax, settings):
                 y,
                 lw=settings.linewidth,
                 ls=settings.linestyle,
-                alpha=settings.alpha,
                 color=color,
                 rasterized=settings.rasterize,
                 label=f'{getattr(neuron, "name", "NA")} - #{neuron.id}',
             )
             ax.add_line(this_line)
         else:
-            coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
+            if settings.palette:
+                cmap = plt.get_cmap(settings.palette)
+            else:
+                cmap = DEPTH_CMAP
 
+            coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
             xy = _parse_view2d(coords, settings.view)
             lc = LineCollection(
                 xy,
-                cmap=DEPTH_CMAP if settings.depth_coloring else None,
+                cmap=cmap if settings.depth_coloring else None,
                 norm=settings.norm if settings.depth_coloring else None,
                 rasterized=settings.rasterize,
                 joinstyle="round",
@@ -1023,7 +1130,6 @@ def _plot_skeleton(neuron, color, ax, settings):
             lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
 
             if settings.depth_coloring:
-                lc.set_alpha(settings.alpha)
                 lc.set_array(
                     neuron.nodes.loc[neuron.nodes.parent_id >= 0][
                         ["x", "y", "z"]
@@ -1066,7 +1172,6 @@ def _plot_skeleton(neuron, color, ax, settings):
                 c = mpatches.Circle(
                     (sx[0], sy[0]),
                     radius=r,
-                    alpha=settings.alpha,
                     fill=True,
                     fc=soma_color,
                     rasterized=settings.rasterize,
@@ -1093,12 +1198,16 @@ def _plot_skeleton(neuron, color, ax, settings):
                 coords = segments_to_coords(neuron, modifier=(1, 1, 1))
                 line_color = color
 
+            if settings.palette:
+                cmap = plt.get_cmap(settings.palette)
+            else:
+                cmap = DEPTH_CMAP
+
             lc = Line3DCollection(
                 coords,
                 color=line_color if not settings.depth_coloring else None,
                 label=neuron.id,
-                alpha=settings.alpha,
-                cmap=DEPTH_CMAP if settings.depth_coloring else None,
+                cmap=cmap if settings.depth_coloring else None,
                 lw=settings.linewidth,
                 joinstyle="round",
                 rasterized=settings.rasterize,
@@ -1120,7 +1229,6 @@ def _plot_skeleton(neuron, color, ax, settings):
                     [c],
                     color=color,
                     lw=settings.linewidth,
-                    alpha=settings.alpha,
                     rasterized=settings.rasterize,
                     linestyle=settings.linestyle,
                 )
@@ -1167,7 +1275,6 @@ def _plot_skeleton(neuron, color, ax, settings):
                         color=soma_color,
                         shade=settings.mesh_shade,
                         rasterized=settings.rasterize,
-                        alpha=settings.alpha,
                     )
                     if settings.group_neurons:
                         surf.set_gid(neuron.id)

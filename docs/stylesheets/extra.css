@@ -1,0 +1,32 @@
+:root {
+  --text-color-light: white;
+  --text-color-dark: black;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --text-color: var(--text-color-light);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-color: var(--text-color-dark);
+  }
+}
+
+table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f1f1f1;
+  color: var(--text-color);
+}
+
+table thead th {
+  color: var(--text-color);
+  font-size: 10pt;
+}

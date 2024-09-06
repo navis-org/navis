@@ -43,30 +43,30 @@ def read_tiff(f: Union[str, Iterable],
               **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from TIFF file.
 
-    Requires ``tifffile`` library which is not automatically installed!
+    Requires `tifffile` library which is not automatically installed!
 
     Parameters
     ----------
     f :                 str | iterable
                         Filename(s) or folder. If folder, will import all
-                        ``.tif`` files.
+                        `.tif` files.
     channel :           int
                         Which channel to import. Ignored if file has only one
                         channel. Can use e.g. -1 to get the last channel.
     threshold :         int | float | None
-                        For ``output='dotprops'`` only: a threshold to filter
-                        low intensity voxels. If ``None``, no threshold is
+                        For `output='dotprops'` only: a threshold to filter
+                        low intensity voxels. If `None`, no threshold is
                         applied and all values > 0 are converted to points.
     include_subdirs :   bool, optional
-                        If True and ``f`` is a folder, will also search
-                        subdirectories for ``.tif`` files.
+                        If True and `f` is a folder, will also search
+                        subdirectories for `.tif` files.
     parallel :          "auto" | bool | int,
-                        Defaults to ``auto`` which means only use parallel
+                        Defaults to `auto` which means only use parallel
                         processing if more than 10 TIFF files are imported.
                         Spawning and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the number of
-                        cores (otherwise defaults to ``os.cpu_count() - 2``).
+                        cores (otherwise defaults to `os.cpu_count() - 2`).
     output :            "voxels" | "dotprops" | "raw"
                         Determines function's output. See Returns for details.
     errors :            "raise" | "log" | "ignore"
@@ -74,25 +74,25 @@ def read_tiff(f: Union[str, Iterable],
                         instead empty neuron will be returned.
 
     **kwargs
-                        Keyword arguments passed to :func:`navis.make_dotprops`
-                        if ``output='dotprops'``. Use this to adjust e.g. the
+                        Keyword arguments passed to [`navis.make_dotprops`][]
+                        if `output='dotprops'`. Use this to adjust e.g. the
                         number of nearest neighbors used for calculating the
-                        tangent vector by passing e.g. ``k=5``.
+                        tangent vector by passing e.g. `k=5`.
 
     Returns
     -------
     navis.VoxelNeuron
-                        If ``output="voxels"`` (default): requires TIFF data to
+                        If `output="voxels"` (default): requires TIFF data to
                         be 3-dimensional voxels. VoxelNeuron will have TIFF file
-                        info as ``.tiff_header`` attribute.
+                        info as `.tiff_header` attribute.
     navis.Dotprops
-                        If ``output="dotprops"``. Dotprops will contain TIFF
-                        header as ``.tiff_header`` attribute.
+                        If `output="dotprops"`. Dotprops will contain TIFF
+                        header as `.tiff_header` attribute.
     navis.NeuronList
                         If import of multiple TIFF will return NeuronList of
                         Dotprops/VoxelNeurons.
     (image, header)     (np.ndarray, OrderedDict)
-                        If ``output='raw'`` return raw data contained in TIFF
+                        If `output='raw'` return raw data contained in TIFF
                         file.
 
     """
@@ -121,7 +121,7 @@ def read_tiff(f: Union[str, Iterable],
                 parallel = False
 
         if parallel:
-            # Do not swap this as ``isinstance(True, int)`` returns ``True``
+            # Do not swap this as `isinstance(True, int)` returns `True`
             if isinstance(parallel, (bool, str)):
                 n_cores = os.cpu_count() - 2
             else:

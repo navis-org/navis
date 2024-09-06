@@ -25,6 +25,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     from neuprint import *
+    # remove neuprint's own fetch_skeleton function to avoid confusion
+    del fetch_skeleton  # noqa
     from neuprint.client import inject_client
 except ImportError:
     msg = dedent("""
@@ -65,7 +67,7 @@ def fetch_roi(roi, *, client=None):
     roi :           str
                     Name of an ROI.
     client :        neuprint.Client, optional
-                    If ``None`` will try using global client.
+                    If `None` will try using global client.
 
     Returns
     -------
@@ -91,17 +93,21 @@ def fetch_roi(roi, *, client=None):
 def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                       parallel=True, max_threads=5, seg_source=None,
                       client=None, **kwargs):
-    """Fetch mesh neuron.
+    """Fetch neuron meshes as navis.MeshNeuron.
 
     Requires additional packages depending on the mesh source.
 
-    For DVID you need `dvid-tools <https://github.com/flyconnectome/dvid_tools>`_::
+    For DVID you need [`dvid-tools`](https://github.com/flyconnectome/dvid_tools):
 
+        ``` shell
         pip3 install dvidtools
+        ```
 
-    For everything else you need `cloudvolume <https://github.com/seung-lab/cloud-volume>`_::
+    For everything else you need [cloudvolume](https://github.com/seung-lab/cloud-volume):
 
+        ``` shell
         pip3 install cloud-volume
+        ```
 
 
     Parameters
@@ -110,10 +116,10 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                     Body ID(s). Multiple IDs can be provided as list-like or
                     DataFrame with "bodyId" or "bodyid" column.
     lod :           int
-                    Level of detail. Higher ``lod`` = coarser. Ignored if mesh
+                    Level of detail. Higher `lod` = coarser. Ignored if mesh
                     source does not support LODs (e.g. for DVID).
     with_synapses : bool, optional
-                    If True will download and attach synapses as ``.connectors``.
+                    If True will download and attach synapses as `.connectors`.
     missing_mesh :  'raise' | 'warn' | 'skip'
                     What to do if no mesh is found for a given body ID::
 
@@ -129,14 +135,14 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                     Use this to override the segmentation source specified by
                     neuPrint.
     client :        neuprint.Client, optional
-                    If ``None`` will try using global client.
+                    If `None` will try using global client.
     **kwargs
-                    Will be passed to ``cloudvolume.CloudVolume``.
+                    Will be passed to `cloudvolume.CloudVolume`.
 
     Returns
     -------
     navis.Neuronlist
-                    Containing :class:`navis.MeshNeuron`. Note that meshes are
+                    Containing [`navis.MeshNeuron`][]. Note that meshes are
                     resized to raw voxel size to match other spatial data from
                     neuprint (synapses, skeletons, etc).
 
@@ -155,7 +161,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
 
     if not seg_source:
         raise ValueError('Segmentation source could not be automatically '
-                         'determined. Please provide via ``seg_source``.')
+                         'determined. Please provide via `seg_source`.')
 
     if isinstance(seg_source, str) and seg_source.startswith('dvid'):
         try:
@@ -338,7 +344,7 @@ def __fetch_mesh(bodyId, *, vol, lod, missing_mesh='raise'):
 @inject_client
 def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
                     parallel=True, max_threads=5, client=None):
-    """Construct navis.TreeNeuron/List from neuprint neurons.
+    """Fetch neuron skeletons as navis.TreeNeurons.
 
     Notes
     -----
@@ -350,10 +356,10 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
                     Body ID(s). Multiple Ids can be provided as list-like or
                     DataFrame with "bodyId"  or "bodyid" column.
     with_synapses : bool, optional
-                    If True will also attach synapses as ``.connectors``.
+                    If True will also attach synapses as `.connectors`.
     heal :          bool | int | float, optional
                     If True, will automatically heal fragmented skeletons using
-                    neuprint-python's ``heal_skeleton`` function. Pass a float
+                    neuprint-python's `heal_skeleton` function. Pass a float
                     or an int to limit the max distance at which nodes are
                     allowed to be re-connected (requires neuprint-python >= 0.4.11).
     missing_swc :   'raise' | 'warn' | 'skip'
@@ -368,7 +374,7 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
     max_threads :   int
                     Max number of parallel threads to use.
     client :        neuprint.Client, optional
-                    If ``None`` will try using global client.
+                    If `None` will try using global client.
 
     Returns
     -------
@@ -434,7 +440,7 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
     nl = NeuronList(nl)
 
     # Make an effort to retain the original order
-    if not isinstance(x, NeuronCriteria):
+    if not isinstance(x, NeuronCriteria) and not nl.empty:
         nl = nl.idx[np.asarray(x)[np.isin(x, nl.id)]]
 
     return nl

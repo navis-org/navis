@@ -59,8 +59,8 @@ class Handler:
     -----
 
         (1) The handler adds neurons and keeps track of them in the scene.
-        (2) If you request a list of objects via its attributes (e.g. ``Handler.neurons``)
-            or via :func:`~navis.interfaces.blender.Handler.select`, a :class:`~navis.interfaces.blender.ObjectList`
+        (2) If you request a list of objects via its attributes (e.g. `Handler.neurons`)
+            or via [`navis.interfaces.blender.Handler.select`][], a [`navis.interfaces.blender.ObjectList`][]
             is returned. This class lets you change basic parameters of your selected
             neurons.
 
@@ -726,7 +726,7 @@ class Handler:
 
         Returns
         -------
-        :class:`navis.b3d.ObjectList` :  containing requested neurons
+        [`navis.interfaces.blender.ObjectList`][] :  containing requested neurons
 
         Examples
         --------
@@ -834,12 +834,12 @@ class ObjectList:
     Notes
     -----
     1.  ObjectLists should normally be constructed via the handler
-        (see :class:`navis.b3d.Handler`)!
+        (see [`navis.interfaces.blender.Handler`][])!
     2.  List works with object NAMES to prevent Blender from crashing when
         trying to access neurons that do not exist anymore. This also means
         that changing names manually will compromise a object list.
     3.  Accessing a neuron list's attributes (see below) return another
-        ``ObjectList`` class which you can use to manipulate the new
+        `ObjectList` class which you can use to manipulate the new
         subselection.
 
     Attributes

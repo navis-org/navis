@@ -429,7 +429,7 @@ class BaseH5Writer(ABC):
                             a	Read/write if exists, create otherwise
 
         **kwargs
-                        Passed to ``h5py.File``.
+                        Passed to `h5py.File`.
         """
         self.filepath = filepath
         self.mode = mode
@@ -702,7 +702,7 @@ def read_h5(filepath: str,
     """Read Neuron/List from Hdf5 file.
 
     This import is following the schema specified
-    `here <http://www.>`_
+    [here](https://github.com/flyconnectome/hnf)
 
     Parameters
     ----------
@@ -736,13 +736,13 @@ def read_h5(filepath: str,
                         If True and a neuron has is saved as both serialized and
                         raw data, will load the neuron from the raw data.
     parallel :          "auto" | bool | int
-                        Defaults to ``auto`` which means only use parallel
+                        Defaults to `auto` which means only use parallel
                         processing if more than 200 neurons are imported.
                         Spawning and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
-                        ``os.cpu_count() - 2``).
+                        `os.cpu_count() - 2`).
     on_error :          "stop" | "warn" | "ignore"
                         What to do if a neuron can not be parsed: "stop" and
                         raise an exception, "warn" and keep going or silently
@@ -757,9 +757,9 @@ def read_h5(filepath: str,
                         Whether to load annotations associated with the
                         neuron(s):
 
-                         - ``True`` reads all annotations
-                         - ``False`` reads no annotations
-                         - e.g. ``["connenctors"]`` reads only "connectors"
+                         - `True` reads all annotations
+                         - `False` reads no annotations
+                         - e.g. `["connenctors"]` reads only "connectors"
 
                         Non-existing annotations are silently ignored!
     strict :            bool
@@ -783,19 +783,19 @@ def read_h5(filepath: str,
     neurons :           navis.NeuronList
 
     errors :            dict
-                        If ``ret_errors=True`` return dictionary with errors:
-                        ``{id: "error"}``.
+                        If `ret_errors=True` return dictionary with errors:
+                        `{id: "error"}`.
 
     Examples
     --------
-    See :func:`navis.write_h5` for examples.
+    See [`navis.write_h5`][] for examples.
 
 
     See Also
     --------
-    :func:`navis.write_h5`
+    [`navis.write_h5`][]
                         Write neurons to HDF5 file.
-    :func:`navis.io.inspect_h5`
+    [`navis.io.inspect_h5`][]
                         Extract meta data (format, number of neurons,
                         available annotations and representations) from
                         HDF5 file. This is useful if you don't know what's
@@ -843,7 +843,7 @@ def read_h5(filepath: str,
                                         on_error=on_error,
                                         annotations=annotations)
     else:
-        # Do not swap this as ``isinstance(True, int)`` returns ``True``
+        # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
             n_cores = os.cpu_count() - 2
         else:
@@ -943,7 +943,7 @@ def write_h5(n: 'core.NeuronObject',
                         Whether to write the neurons' raw data to file. This
                         is required to re-generate neurons from tools other
                         than `navis` (e.g. R's `nat`). This follows the schema
-                        specified `here <https://github.com/flyconnectome/hnf>`_.
+                        specified [here](https://github.com/flyconnectome/hnf).
     append :            bool
                         If file already exists, whether to append data or to
                         overwrite the entire file.
@@ -951,7 +951,7 @@ def write_h5(n: 'core.NeuronObject',
                         If a given neuron already exists in the h5 file whether
                         to overwrite it or throw an exception.
 
-    Only relevant if ``raw=True``:
+    Only relevant if `raw=True`:
 
     annotations :       str | list thereof, optional
                         Whether to write annotations (e.g. "connectors")
@@ -983,7 +983,7 @@ def write_h5(n: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.read_h5`
+    [`navis.read_h5`][]
                         Read neurons from h5 file.
 
     """
@@ -1085,7 +1085,7 @@ def inspect_h5(filepath, inspect_neurons=True, inspect_annotations=True):
 def neuron_nm_units(neuron):
     """Return neuron's units in nanometers.
 
-    Returns ``None`` if units are dimensionless.
+    Returns `None` if units are dimensionless.
 
     """
     units = getattr(neuron, 'units')

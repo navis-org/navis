@@ -57,17 +57,17 @@ class MeshNeuron(BaseNeuron):
     ----------
     x :             mesh-like | tuple | dictionary | filepath | None
                     Data to construct neuron from:
-                     - any object that has ``.vertices`` and ``.faces``
+                     - any object that has `.vertices` and `.faces`
                        properties (e.g. a trimesh.Trimesh)
-                     - a tuple ``(vertices, faces)``
-                     - a dictionary ``{"vertices": (N, 3), "faces": (M, 3)}``
-                     - filepath to a file that can be read by ``trimesh.load``
-                     - ``None`` will initialize an empty MeshNeuron
-                     - ``skeletor.Skeleton`` will use the mesh and the skeleton
+                     - a tuple `(vertices, faces)`
+                     - a dictionary `{"vertices": (N, 3), "faces": (M, 3)}`
+                     - filepath to a file that can be read by `trimesh.load`
+                     - `None` will initialize an empty MeshNeuron
+                     - `skeletor.Skeleton` will use the mesh and the skeleton
                        (including the vertex to node map)
 
     units :         str | pint.Units | pint.Quantity
-                    Units for coordinates. Defaults to ``None`` (dimensionless).
+                    Units for coordinates. Defaults to `None` (dimensionless).
                     Strings must be parsable by pint: e.g. "nm", "um",
                     "micrometer" or "8 nanometers".
     process :       bool
@@ -75,7 +75,7 @@ class MeshNeuron(BaseNeuron):
                     and infinite values, and merge duplicate vertices.
     validate :      bool
                     If True, will try to fix some common problems with
-                    meshes. See ``navis.fix_mesh`` for details.
+                    meshes. See `navis.fix_mesh` for details.
     **metadata
                     Any additional data to attach to neuron.
 
@@ -268,6 +268,7 @@ class MeshNeuron(BaseNeuron):
         self._faces = faces
         self._clear_temp_attr()
 
+    @property
     @temp_property
     def igraph(self) -> 'igraph.Graph':
         """iGraph representation of the vertex connectivity."""
@@ -277,6 +278,7 @@ class MeshNeuron(BaseNeuron):
             self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
         return self._igraph
 
+    @property
     @temp_property
     def graph(self) -> nx.DiGraph:
         """Networkx Graph representation of the vertex connectivity."""
@@ -301,11 +303,12 @@ class MeshNeuron(BaseNeuron):
         """
         return float(self.trimesh.volume)
 
+    @property
     @temp_property
     def skeleton(self) -> 'TreeNeuron':
         """Skeleton representation of this neuron.
 
-        Uses :func:`navis.mesh2skeleton`.
+        Uses [`navis.mesh2skeleton`][].
 
         """
         if not hasattr(self, '_skeleton'):
@@ -322,10 +325,16 @@ class MeshNeuron(BaseNeuron):
         self._skeleton = s
 
     @property
+    def soma(self):
+        """Not implemented for MeshNeurons - use `.soma_pos`."""
+        raise AttributeError("MeshNeurons have a soma position (`.soma_pos`), not a soma.")
+
+    @property
     def type(self) -> str:
         """Neuron type."""
         return 'navis.MeshNeuron'
 
+    @property
     @temp_property
     def trimesh(self):
         """Trimesh representation of the neuron."""
@@ -395,7 +404,7 @@ class MeshNeuron(BaseNeuron):
     def skeletonize(self, method='wavefront', heal=True, inv_dist=None, **kwargs) -> 'TreeNeuron':
         """Skeletonize mesh.
 
-        See :func:`navis.conversion.mesh2skeleton` for details.
+        See [`navis.conversion.mesh2skeleton`][] for details.
 
         Parameters
         ----------
@@ -405,12 +414,12 @@ class MeshNeuron(BaseNeuron):
                     Whether to heal a fragmented skeleton after skeletonization.
         inv_dist :  int | float
                     Only required for method "teasar": invalidation distance for
-                    the traversal. Smaller ``inv_dist`` captures smaller features
+                    the traversal. Smaller `inv_dist` captures smaller features
                     but is slower and vice versa. A good starting value is around
                     2-5 microns.
         **kwargs
                     Additional keyword are passed through to
-                    :func:`navis.conversion.mesh2skeleton`.
+                    [`navis.conversion.mesh2skeleton`][].
 
         Returns
         -------
@@ -423,7 +432,7 @@ class MeshNeuron(BaseNeuron):
     def validate(self, inplace=False):
         """Use trimesh to try and fix some common mesh issues.
 
-        See :func:`navis.fix_mesh` for details.
+        See [`navis.fix_mesh`][] for details.
 
         """
         return meshes.fix_mesh(self, inplace=inplace)

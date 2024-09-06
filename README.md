@@ -5,7 +5,7 @@
 NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization.
 
 ## Documentation
-NAVis is on [ReadTheDocs](http://navis.readthedocs.io/ "NAVis ReadTheDocs").
+Visit our documentation [here](https://navis-org.github.io/navis/ "NAVis Documentation")!
 
 ## Features
 * **polyglot**: work and convert between neuron skeletons, meshes, dotprops and images

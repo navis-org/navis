@@ -74,7 +74,7 @@ def example_neurons(n: Optional[int] = None,
                 example neurons. Can never return more than the maximum number
                 of available example neurons.
     kind :      "skeleton" | "mesh" | "mix"
-                Example neurons What kind of neurons to return.
+                What kind of neurons to return.
     synapses :  bool,
                 If True, will also load synapses.
     source :    'swc' | 'gml', optional
@@ -84,11 +84,11 @@ def example_neurons(n: Optional[int] = None,
     Returns
     -------
     TreeNeuron
-                If ``n=1`` and ``kind='skeleton'``.
+                If `n=1` and `kind='skeleton'`.
     MeshNeuron
-                If ``n=1`` and ``kind='mesh'``.
+                If `n=1` and `kind='mesh'`.
     NeuronList
-                List of the above neuron types if ``n>1``.
+                List of the above neuron types if `n>1`.
 
     References
     ----------
@@ -201,13 +201,16 @@ def example_volume(name: str) -> Volume:
     name = name.lower()
 
     # Make sure extension is correct
-    if not name.endswith('.obj'):
-        name += '.obj'
+    if not name.endswith(".obj"):
+        name += ".obj"
 
     if name not in vols:
-        raise ValueError(f'No volume named "{name}". Available volumes: {",".join(vols)}')
+        raise ValueError(
+            f'No volume named "{name}". Available volumes: {",".join(vols)}'
+        )
 
-    vol = Volume.from_file(os.path.join(vols_path, name),
-                           name=name.split('.')[0])
+    vol = Volume.from_file(
+        os.path.join(vols_path, name), name=name.split(".")[0], units="nm"
+    )
 
     return vol

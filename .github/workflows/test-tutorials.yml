@@ -1,0 +1,55 @@
+name: Test tutorials
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # This cancels any such job that is still running
+    - name: Cancel Previous Runs
+      uses: styfle/cancel-workflow-action@0.9.1
+      with:
+        access_token: ${{ github.token }}
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    - name: Install graphviz
+      run: |
+        sudo apt-get update -y -qq
+        sudo apt-get install -y libdbus-1-3 libxkbcommon-x11-0 libxcb-icccm4 \
+          libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+          libxcb-xinerama0 libxcb-xinput0 graphviz graphviz-dev \
+          libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers \
+          libxcb-cursor0
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install pathos pygraphviz neuron cloud-volume k3d scikit-image open3d
+        python -m pip install -e .[test-notebook,all]
+    - name: Download test data
+      run: |
+        chmod +x download_test_data.sh
+        ./download_test_data.sh
+    - name: Download downsampled test transform
+      run: |
+        mkdir -p -- $HOME/flybrain-data
+        curl -o $HOME/flybrain-data/JRC2018F_JRCFIB2018F.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_JRCFIB2018F.h5
+        curl -o $HOME/flybrain-data/JRC2018F_FAFB.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_FAFB.h5
+    - name: Run tutorials
+      uses: coactions/setup-xvfb@v1
+      env:
+        NEUPRINT_APPLICATION_CREDENTIALS: ${{ secrets.neuprint }}
+        INSECT_BRAIN_DB_USER: ${{ secrets.insect_brain_db_user }}
+        INSECT_BRAIN_DB_PASSWORD: ${{ secrets.insect_brain_db_password }}
+        CAVE_SECRET: ${{ secrets.cave_secret }}
+        NAVIS_PLOT3D_BACKEND: plotly
+        QT_QPA_PLATFORM: offscreen
+      with:
+        run: |
+          python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
+          python tests/test_tutorials.py

@@ -40,12 +40,12 @@ def group_matrix(mat: Union[pd.DataFrame, np.ndarray],
     row_groups :        dict, optional
                         Row groups to be formed. Can be either:
 
-                          1. ``{group1: [neuron1, neuron2, ...], ...}``
-                          2. ``{neuron1: group1, neuron2:group2, ...}``
+                          1. `{group1: [neuron1, neuron2, ...], ...}`
+                          2. `{neuron1: group1, neuron2:group2, ...}`
 
                         If grouping numpy arrays, use indices!
     col_groups :        dict, optional
-                        Col groups. See ``row_groups`` for details.
+                        Col groups. See `row_groups` for details.
     drop_ungrouped :    bool, optional
                         If ungrouped, neurons that are not part of a
                         row/col_group are dropped from the matrix.

@@ -31,11 +31,11 @@ with warnings.catch_warnings():
 def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     """Try finding a neuron's soma.
 
-    Will use the ``.soma_detection_radius`` and ``.soma_detection_label``
+    Will use the `.soma_detection_radius` and `.soma_detection_label`
     attribute of a neuron to search for the soma in the node table.
 
-    If attributes don't exists, will fallback to defaults: ``None`` and
-    ``1``, respectively.
+    If attributes don't exists, will fallback to defaults: `None` and
+    `1`, respectively.
 
     Parameters
     ----------

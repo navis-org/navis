@@ -60,10 +60,10 @@ def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
                     low:
                       - "auto" will set chunk size automatically based on size
                         of input
-                      - use ``int`` to set chunk size - smaller chunk mean lower
+                      - use `int` to set chunk size - smaller chunk mean lower
                         memory consumption but longer run time - 200 (i.e.
                         chunks of 200x200x200 voxels) appears to be a good value
-                      - set to ``0`` to force processing in one go
+                      - set to `0` to force processing in one go
 
     For `chunk_size != 0`:
 

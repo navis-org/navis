@@ -57,7 +57,7 @@ def make_iterable(x,
 def make_non_iterable(x):
     """Turn input into non-iterable, if it isn't already.
 
-    Will raise error if ``len(x) > 1``.
+    Will raise error if `len(x) > 1`.
 
     Examples
     --------

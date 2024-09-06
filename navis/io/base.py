@@ -854,7 +854,7 @@ class BaseReader(ABC):
         Returns
         -------
         Optional[pd.DataFrame]
-                    With columns ``["node_id", "x", "y", "z", "connector_id", "type"]``
+                    With columns `["node_id", "x", "y", "z", "connector_id", "type"]`
         """
         return
 
@@ -900,7 +900,7 @@ def parallel_read(read_fn, objs, parallel="auto") -> List['core.NeuronList']:
         parallel = False
 
     if parallel:
-        # Do not swap this as ``isinstance(True, int)`` returns ``True``
+        # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
             n_cores = max(1, os.cpu_count() // 2)
         else:
@@ -1011,7 +1011,7 @@ def parallel_read_archive(read_fn, fpath, file_ext,
         parallel = False
 
     if parallel:
-        # Do not swap this as ``isinstance(True, int)`` returns ``True``
+        # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
             n_cores = max(1, os.cpu_count() // 2)
         else:

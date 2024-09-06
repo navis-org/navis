@@ -105,12 +105,12 @@ def cell_body_fiber(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.find_main_branchpoint`
+    [`navis.find_main_branchpoint`][]
                     Find the main branch point.
 
-    :func:`navis.betweeness_centrality`
+    [`navis.betweeness_centrality`][]
                     Calculate the per-node betweeness centrality. This is used
-                    under the hood for ``method='betweeness'``.
+                    under the hood for `method='betweeness'`.
 
     """
     utils.eval_param(method, 'method',
@@ -165,7 +165,7 @@ def prune_by_strahler(x: NeuronObject,
                       reroot_soma: bool = True,
                       force_strahler_update: bool = False,
                       relocate_connectors: bool = False) -> NeuronObject:
-    """Prune neuron based on `Strahler order <https://en.wikipedia.org/wiki/Strahler_number>`_.
+    """Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 
     Parameters
     ----------
@@ -173,12 +173,12 @@ def prune_by_strahler(x: NeuronObject,
                     Neuron(s) to prune.
     to_prune :      int | list | range | slice
                     Strahler indices (SI) to prune. For example:
-                      1. ``to_prune=1`` removes all leaf branches
-                      2. ``to_prune=[1, 2]`` removes SI 1 and 2
-                      3. ``to_prune=range(1, 4)`` removes SI 1, 2 and 3
-                      4. ``to_prune=slice(0, -1)`` removes everything but the
+                      1. `to_prune=1` removes all leaf branches
+                      2. `to_prune=[1, 2]` removes SI 1 and 2
+                      3. `to_prune=range(1, 4)` removes SI 1, 2 and 3
+                      4. `to_prune=slice(0, -1)` removes everything but the
                          highest SI
-                      5. ``to_prune=slice(-1, None)`` removes only the highest
+                      5. `to_prune=slice(-1, None)` removes only the highest
                          SI
     reroot_soma :   bool, optional
                     If True, neuron will be rerooted to its soma.
@@ -287,9 +287,9 @@ def prune_twigs(x: NeuronObject,
     """Prune terminal twigs under a given size.
 
     By default this function will simply drop all terminal twigs shorter than
-    ``size``. This is very fast but rather stupid: for example, if a twig is
-    just 1 nanometer longer than ``size`` it will not be touched at all. If you
-    require precision, set ``exact=True`` which will prune *exactly* ``size``
+    `size`. This is very fast but rather stupid: for example, if a twig is
+    just 1 nanometer longer than `size` it will not be touched at all. If you
+    require precision, set `exact=True` which will prune *exactly* `size`
     off the terminals but is about an order of magnitude slower.
 
     Parameters
@@ -308,7 +308,7 @@ def prune_twigs(x: NeuronObject,
                     If `int` will undergo that many rounds of recursive
                     pruning. If True will prune iteratively until no more
                     terminal twigs under the given size are left. Only
-                    relevant if ``exact=False``.
+                    relevant if `exact=False`.
 
     Returns
     -------
@@ -577,11 +577,11 @@ def split_axon_dendrite(x: NeuronObject,
                         Defines which flow metric we will try to maximize when
                         splitting the neuron(s). There are four flavors:
 
-                         - 'synapse_flow_centrality' via :func:`~navis.synapse_flow_centrality`
+                         - 'synapse_flow_centrality' via [`navis.synapse_flow_centrality`][]
                            (note that this metric was previously called just "flow_centrality")
-                         - 'bending_flow' via :func:`~navis.bending_flow`
-                         - 'segregation_index' via :func:`~navis.arbor_segregation_index`
-                         - 'flow_centrality' via :func:`~navis.flow_centrality`
+                         - 'bending_flow' via [`navis.bending_flow`][]
+                         - 'segregation_index' via [`navis.arbor_segregation_index`][]
+                         - 'flow_centrality' via [`navis.flow_centrality`][]
 
                         Will try using existing columns in the node table. If
                         not present, will invoke the respective functions with
@@ -590,7 +590,7 @@ def split_axon_dendrite(x: NeuronObject,
     flow_thresh :       float [0-1]
                         The "linker" between axon and dendrites will be the part
                         of the neuron with the highest flow (see metric). We
-                        define it by ``max(flow) * flow_thresh``. You might have
+                        define it by `max(flow) * flow_thresh`. You might have
                         to decrease this value for atypical or not well
                         segregated neurons.
     split :             'prepost' | 'distance'
@@ -628,7 +628,7 @@ def split_axon_dendrite(x: NeuronObject,
     NeuronList
                         Axon, dendrite, linker and CBF (the latter two aren't
                         guaranteed). Fragments will have a new property
-                        ``compartment`` (see example).
+                        `compartment` (see example).
 
     Examples
     --------
@@ -659,7 +659,7 @@ def split_axon_dendrite(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.heal_skeleton`
+    [`navis.heal_skeleton`][]
             Axon/dendrite split works only on neurons consisting of a single
             tree. Use this function to heal fragmented neurons before trying
             the axon/dendrite split.
@@ -689,10 +689,10 @@ def split_axon_dendrite(x: NeuronObject,
                      allowed_values=('soma', 'root', False))
 
     if metric == 'flow_centrality':
-        msg = ("As of navis version 1.4.0 `method='flow_centrality'` "
+        msg = ("As of navis version 1.4.0, `method='flow_centrality'` "
                "uses synapse-independent, morphology-only flow to generate splits."
                "Please use `method='synapse_flow_centrality' for "
-               "synapse-based axon-dendrite splits.  "
+               "synapse-based axon-dendrite splits. "
                "This warning will be removed in a future version of navis.")
         warnings.warn(msg, DeprecationWarning)
         logger.warning(msg)
@@ -908,7 +908,7 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
                         Neurons to combine. Must all be of the same type. Does
                         not yet work with VoxelNeurons. The combined neuron will
                         inherit its name, id, units, etc. from the first neuron
-                        in ``x``.
+                        in `x`.
 
     Returns
     -------
@@ -917,7 +917,7 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
 
     See Also
     --------
-    :func:`navis.stitch_skeletons`
+    [`navis.stitch_skeletons`][]
                         Stitches multiple skeletons together to create one
                         continuous neuron.
 
@@ -1040,7 +1040,7 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     See Also
     --------
-    :func:`navis.combine_neurons`
+    [`navis.combine_neurons`][]
                         Combines multiple neurons of the same type into one
                         without stitching. Works on TreeNeurons, MeshNeurons
                         and Dotprops.
@@ -1388,7 +1388,7 @@ def despike_skeleton(x: NeuronObject,
     Returns
     -------
     TreeNeuron/List
-                Despiked neuron(s). Only if ``inplace=False``.
+                Despiked neuron(s). Only if `inplace=False`.
 
     Examples
     --------
@@ -1465,7 +1465,7 @@ def guess_radius(x: NeuronObject,
     """Guess radii for skeleton nodes.
 
     Uses distance between connectors and nodes to guess radii. Interpolate for
-    nodes without connectors. Fills in ``radius`` column in node table.
+    nodes without connectors. Fills in `radius` column in node table.
 
     Parameters
     ----------
@@ -1473,13 +1473,13 @@ def guess_radius(x: NeuronObject,
                     Neuron(s) to be processed.
     method :        str, optional
                     Method to be used to interpolate unknown radii. See
-                    ``pandas.DataFrame.interpolate`` for details.
+                    `pandas.DataFrame.interpolate` for details.
     limit :         int, optional
                     Maximum number of consecutive missing radii to fill.
                     Must be greater than 0.
     smooth :        bool | int, optional
                     If True, will smooth radii after interpolation using a
-                    rolling window. If ``int``, will use to define size of
+                    rolling window. If `int`, will use to define size of
                     window.
     inplace :       bool, optional
                     If False, will use and return copy of original neuron(s).
@@ -1610,9 +1610,9 @@ def smooth_skeleton(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.smooth_mesh`
+    [`navis.smooth_mesh`][]
                     For smoothing MeshNeurons and other mesh-likes.
-    :func:`navis.smooth_voxels`
+    [`navis.smooth_voxels`][]
                     For smoothing VoxelNeurons.
 
     """
@@ -1688,9 +1688,9 @@ def smooth_voxels(x: NeuronObject,
 
     See Also
     --------
-    :func:`navis.smooth_mesh`
+    [`navis.smooth_mesh`][]
                     For smoothing MeshNeurons and other mesh-likes.
-    :func:`navis.smooth_skeleton`
+    [`navis.smooth_skeleton`][]
                     For smoothing TreeNeurons.
 
     """
@@ -1727,7 +1727,7 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
                     `.fragments` property.
     min_size :      int, optional
                     Fragments smaller than this (# of nodes/vertices) will be
-                    dropped. Ignored if ``labels_only=True``.
+                    dropped. Ignored if `labels_only=True`.
 
     Returns
     -------
@@ -1735,7 +1735,7 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
     See Also
     --------
-    :func:`navis.heal_skeleton`
+    [`navis.heal_skeleton`][]
                 Use to heal fragmentation instead of breaking it up.
 
 
@@ -1812,11 +1812,11 @@ def heal_skeleton(x: 'core.NeuronList',
                 such as e.g. "2 microns".
     min_size :  int, optional
                 Minimum size in nodes for fragments to be reattached. Fragments
-                smaller than ``min_size`` will be ignored during stitching and
+                smaller than `min_size` will be ignored during stitching and
                 hence remain disconnected.
     drop_disc : bool
                 If True and the neuron remains fragmented after healing (i.e.
-                ``max_dist`` or ``min_size`` prevented a full connect), we will
+                `max_dist` or `min_size` prevented a full connect), we will
                 keep only the largest (by number of nodes) connected component
                 and discard all other fragments.
     mask :      list-like, optional
@@ -1828,16 +1828,16 @@ def heal_skeleton(x: 'core.NeuronList',
     Returns
     -------
     None
-                If ``inplace=True``.
+                If `inplace=True`.
     CatmaidNeuron/List
-                If ``inplace=False``.
+                If `inplace=False`.
 
 
     See Also
     --------
-    :func:`navis.stitch_skeletons`
+    [`navis.stitch_skeletons`][]
                 Use to stitch multiple skeletons together.
-    :func:`navis.break_fragments`
+    [`navis.break_fragments`][]
                 Use to produce individual neurons from disconnected fragments.
 
 
@@ -1907,11 +1907,11 @@ def _stitch_mst(x: 'core.TreeNeuron',
                     nodes, just "LEAFS".
     max_dist :      int | float | str
                     If given, will only connect fragments if they are within
-                    ``max_distance``. Use this to prevent the creation of
+                    `max_distance`. Use this to prevent the creation of
                     unrealistic edges.
     min_size :      int, optional
                     Minimum size in nodes for fragments to be reattached.
-                    Fragments smaller than ``min_size`` will be ignored during
+                    Fragments smaller than `min_size` will be ignored during
                     stitching and hence remain disconnected.
     mask :          list-like, optional
                     Either a boolean mask or a list of node IDs. If provided
@@ -1922,7 +1922,7 @@ def _stitch_mst(x: 'core.TreeNeuron',
     Return
     ------
     TreeNeuron
-                    Only if ``inplace=True``.
+                    Only if `inplace=True`.
 
     """
     assert isinstance(x, core.TreeNeuron)
@@ -2048,8 +2048,8 @@ def prune_at_depth(x: NeuronObject,
                     has its `.units` set, you can also pass this as a string such
                     as "50 microns".
     source :        int, optional
-                    Source node for depth calculation. If ``None``, will use
-                    root (first root if multiple). If ``x`` is a
+                    Source node for depth calculation. If `None`, will use
+                    root (first root if multiple). If `x` is a
                     list of neurons then must provide a source for each neuron.
     inplace :       bool, optional
                     If False, pruning is performed on copy of original neuron

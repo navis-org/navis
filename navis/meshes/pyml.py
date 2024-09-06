@@ -40,7 +40,7 @@ def simplify_mesh_pyml(x, F, method='quadric', inplace=False, **kwargs):
                 Which method to use for simplification: quadratic mesh
                 decimation or vertex clustering.
     inplace :   bool
-                If True, will perform simplication on ``x``. If False, will
+                If True, will perform simplication on `x`. If False, will
                 simplify and return a copy.
     **kwargs
                 Passed to pymeshlab filter functions:

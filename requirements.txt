@@ -50,7 +50,7 @@ jupyter_rfb>=0.4.1
 #extra: octarine-default
 
 octarine3d[all]>=0.2.3
-octarine-navis-plugin>=0.1.0
+octarine-navis-plugin>=0.1.1
 
 #extra: meshes
 
@@ -61,6 +61,9 @@ pyfqmr
 
 jupyter
 neuprint-python
+caveclient
+cloud-volume
+flybrains
 Shapely>=1.6.0
 
 #extra: dev
@@ -73,3 +76,18 @@ pytest-env
 pytest-xvfb
 pytest-timeout
 gitpython
+
+#extra: docs
+
+mkdocs
+mkdocs-material
+mkdocs-gen-files
+mkdocstrings
+mkdocs-glightbox
+mkdocs-gallery
+markdown-exec
+mkdocs-section-index
+mkdocs-literate-nav
+mkdocs-minify-plugin
+mkdocs-autorefs
+mkdocs-macros-plugin

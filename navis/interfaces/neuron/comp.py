@@ -126,7 +126,7 @@ class CompartmentModel:
                 Approximate length [um] of segments. This guarantees that
                 no section has any segment that is longer than `res` but for
                 small branches (i.e. "sections") the segments might be smaller.
-                Lower ``res`` = more detailed simulation.
+                Lower `res` = more detailed simulation.
 
     """
 
@@ -470,7 +470,7 @@ class CompartmentModel:
                     Node ID(s) at which to record.
         label :     str, optional
                     If label is given, this recording will be added as
-                    ``self.records['v'][label]`` else  ``self.records['v'][node_id]``.
+                    `self.records['v'][label]` else  `self.records['v'][node_id]`.
 
         """
         self._add_record(where, what='v', label=label)
@@ -486,7 +486,7 @@ class CompartmentModel:
                     Node ID(s) at which to record.
         label :     str, optional
                     If label is given, this recording will be added as
-                    ``self.records['i'][label]`` else  ``self.records['i'][node_id]``.
+                    `self.records['i'][label]` else  `self.records['i'][node_id]`.
 
         """
         nodes = utils.make_iterable(where)
@@ -518,7 +518,7 @@ class CompartmentModel:
                     Threshold in mV for a spike to be counted.
         label :     str, optional
                     If label is given, this recording will be added as
-                    ``self.records[label]`` else  ``self.records[node_id]``.
+                    `self.records[label]` else  `self.records[node_id]`.
 
         """
         where = utils.make_iterable(where)
@@ -559,7 +559,7 @@ class CompartmentModel:
                     What to record. Can be e.g. `v` or `_ref_v` for Voltage.
         label :     str, optional
                     If label is given, this recording will be added as
-                    ``self.records[label]`` else  ``self.records[node_id]``.
+                    `self.records[label]` else  `self.records[node_id]`.
 
         """
         where = utils.make_iterable(where)
@@ -750,7 +750,7 @@ class CompartmentModel:
                     Mechanism to insert - e.g. "hh" for Hodgkin-Huxley kinetics.
         subset :    list of sections | list of int
                     Sections (or indices thereof) to set mechanism for.
-                    If ``None`` will add mechanism to all sections.
+                    If `None` will add mechanism to all sections.
         **kwargs
                     Use to set properties for mechanism.
 
@@ -784,7 +784,7 @@ class CompartmentModel:
                     Mechanism to remove - e.g. "hh" for Hodgkin-Huxley kinetics.
         subset :    list of sections | list of int
                     Sections (or indices thereof) to set mechanism for.
-                    If ``None`` will add mechanism to all sections.
+                    If `None` will add mechanism to all sections.
 
         """
         if isinstance(subset, type(None)):
@@ -874,12 +874,12 @@ class CompartmentModel:
 class DrosophilaPN(CompartmentModel):
     """Compartment model of an olfactory projection neuron in Drosophila.
 
-    This is a ``CompartmentModel`` that uses passive membrane properties
+    This is a `CompartmentModel` that uses passive membrane properties
     from Tobin et al. (2017) as presets:
 
-    - specific axial resistivity (``Ra``) of 266.1 Ohm / cm
-    - specific membrane capacitance (``cm``) of 0.8 mF / cm**2
-    - specific leakage conductance (``g``) of 1/Rm
+    - specific axial resistivity (`Ra`) of 266.1 Ohm / cm
+    - specific membrane capacitance (`cm`) of 0.8 mF / cm**2
+    - specific leakage conductance (`g`) of 1/Rm
     - Rm = specific membran resistance of 20800 Ohm cm**2
     - leakage reverse potential of -60 mV
 
@@ -891,7 +891,7 @@ class DrosophilaPN(CompartmentModel):
                 Approximate length [um] of segments. This guarantees that
                 no section has any segment that is longer than `res` but for
                 small branches (i.e. "sections") the segments might be smaller.
-                Lower ``res`` = more detailed simulation.
+                Lower `res` = more detailed simulation.
 
     """
 

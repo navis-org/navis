@@ -43,9 +43,9 @@ def find_neurons(page_limit: Optional[int] = None,
     page_limit :    int | None, optional
                     Use this to limit the results if you are running a big query.
     **filters
-                    Search criteria as ``field=value``. See
-                    :func:`navis.interfaces.neuromorpho.get_neuron_fields` and
-                    :func:`navis.interfaces.neuromorpho.get_available_field_values`
+                    Search criteria as `field=value`. See
+                    [`navis.interfaces.neuromorpho.get_neuron_fields`][] and
+                    [`navis.interfaces.neuromorpho.get_available_field_values`][]
                     for available fields and values.
 
     Returns
@@ -164,7 +164,7 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
     max_threads :   int
                     Max number of parallel threads to use.
     **kwargs
-                    Keyword arguments passed on to :func:`navis.read_swc`.
+                    Keyword arguments passed on to [`navis.read_swc`][].
 
     Returns
     -------

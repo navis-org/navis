@@ -45,14 +45,14 @@ def scan_parquet(file: Union[str, Path]):
 
     See Also
     --------
-    :func:`navis.write_parquet`
+    [`navis.write_parquet`][]
                         Export neurons as parquet files.
-    :func:`navis.read_parquet`
+    [`navis.read_parquet`][]
                         Read parquet file into neurons.
 
     Examples
     --------
-    See :func:`navis.write_parquet` for examples.
+    See [`navis.write_parquet`][] for examples.
 
     """
     try:
@@ -107,7 +107,7 @@ def read_parquet(f: Union[str, Path],
                  ) -> 'core.NeuronObject':
     """Read parquet file into Neuron/List.
 
-    See `here <https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md>`_
+    See [here](https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md)
     for format specifications.
 
     Parameters
@@ -120,7 +120,7 @@ def read_parquet(f: Union[str, Path],
                         switched off in case there are any issues.
     limit :             int, optional
                         If reading from a file containing multiple neurons you
-                        can use this parameter to read only the first ``limit``
+                        can use this parameter to read only the first `limit`
                         neurons. Useful if wanting to get a sample from a large
                         library of neurons.
     subset :            str | int | list thereof
@@ -138,14 +138,14 @@ def read_parquet(f: Union[str, Path],
 
     See Also
     --------
-    :func:`navis.write_parquet`
+    [`navis.write_parquet`][]
                         Export neurons as parquet files.
-    :func:`navis.scan_parquet`
+    [`navis.scan_parquet`][]
                         Scan parquet file for its contents.
 
     Examples
     --------
-    See :func:`navis.write_parquet` for examples.
+    See [`navis.write_parquet`][] for examples.
 
     """
     f = Path(f).expanduser()
@@ -298,7 +298,7 @@ def write_parquet(x: 'core.NeuronObject',
                   write_meta: bool = True) -> None:
     """Write TreeNeuron(s) or Dotprops to parquet file.
 
-    See `here <https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md>`_
+    See [here](https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md)
     for format specifications.
 
     Parameters
@@ -316,9 +316,9 @@ def write_parquet(x: 'core.NeuronObject',
 
     See Also
     --------
-    :func:`navis.read_parquet`
+    [`navis.read_parquet`][]
                         Import skeleton from parquet file.
-    :func:`navis.scan_parquet`
+    [`navis.scan_parquet`][]
                         Scan parquet file for its contents.
 
     Examples
