@@ -6,11 +6,6 @@ This will not be run through pytest but is executed in a separate CI job.
 A couple notes:
  - the tutorials require a number of extra dependencies and data files to be present
    check out the test-tutorials.yml workflow to see how this is set up.
- - it's possible that any notebook that spawns another child process (e.g. the SWC I/O tutorial)
-   will hang indefinitely. This is because of the ominous "An attempt has been made to start a new
-   process before the current process has finished its bootstrapping phase." error which typically
-   means that the script has to be run in a `if __name__ == "__main__":` block.
-   Set `capture_output=True` to see the error message.
  - the MICrONS tutorial occasionally fails because the CAVE backend throws an error
    (e.g. during the materialization)
  - Github runners appear to have 4 CPUs - so should be good to go
@@ -19,6 +14,9 @@ A couple notes:
 import os
 import sys
 import navis
+import warnings
+
+import matplotlib.pyplot as plt
 
 from pathlib import Path
 from contextlib import contextmanager
@@ -38,7 +36,12 @@ def suppress_stdout():
 
 # Silence logging
 navis.config.logger.setLevel("ERROR")
+
+# Hide pbars
 navis.set_pbars(hide=True)
+
+# Silence warnings
+warnings.filterwarnings("ignore")
 
 
 if __name__ == "__main__":
@@ -52,9 +55,17 @@ if __name__ == "__main__":
         if file.name in SKIP:
             continue
 
+        # Note: we're using `exec` here instead of e.g. `subprcoess.run` because we need to avoid
+        # the "An attempt has been made to start a new process before the current process has
+        # finished its bootstrapping phase" error that occurs when using multiprocessing with "spawn"
+        # from a process where it's not wrapped in an `if __name__ == "__main__":` block.
         print(f"Executing {file.name} [{i+1}/{len(files)}]... ", end="", flush=True)
         with suppress_stdout():
-            exec(open(file).read())
+            os.chdir(file.parent)
+            exec(open(file.name).read())
         print("Done.", flush=True)
+
+        # Make sure to close any open figures
+        plt.close()
 
     print("All done.")
