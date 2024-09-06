@@ -90,11 +90,13 @@ def plot2d(
                         by the neuron's `.soma_radius` property which defaults
                         to the "radius" column for `TreeNeurons`.
 
-    radius :            bool, default=True
+    radius :            "auto" (default) | bool
 
-                        If True, will plot neurites of `TreeNeurons` with radius
-                        (if present). The radius can be scaled by `linewidth`.
-                        Note that this will increase rendering time.
+                        If "auto" will plot neurites of `TreeNeurons` with radius
+                        if they have radii. If True, will plot neurites of
+                        `TreeNeurons` with radius regardless. The radius can be
+                        scaled by `linewidth`. Note that this will increase rendering
+                        time.
 
     linewidth :         int | float, default=.5
 
@@ -247,13 +249,19 @@ def plot2d(
 
                         If True, will scale the axes to fit the data.
 
-    scalebar :          int | float | str | pint.Quantity, default=False
+    scalebar :          int | float | str | pint.Quantity | dict, default=False
 
                         Adds a scale bar. Provide integer, float or str to set
                         size of scalebar. Int|float are assumed to be in same
                         units as data. You can specify units in as string:
                         e.g. "1 um". For methods '3d' and '3d_complex', this
                         will create an axis object.
+
+                        You can customize the scalebar by passing a dictionary.
+                        For example:
+
+                        `{size: "1 micron", color: 'k', lw: 3, alpha: 0.9}`
+
 
     ax :                matplotlib.Axes, default=None
 
@@ -534,7 +542,9 @@ def plot2d(
 
             if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
                 # Number of nodes with radii
-                n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
+                n_radii = (
+                    neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0
+                ).sum()
                 # If less than 30% of nodes have a radius, we will fall back to lines
                 if n_radii / neuron.nodes.shape[0] < 0.3:
                     settings.radius = False
@@ -583,11 +593,14 @@ def plot2d(
     # these are currently ignored by matplotlib's built-in autoscaling.
     if settings.autoscale:
         ax.autoscale(tight=False)  # tight=False avoids clipping the neurons
-        ax.set_aspect('equal', adjustable='box')  # this is apparently still required
 
         if "3d" in settings.method:
             update_axes3d_bounds(ax)
 
+        # This is apparently still required and has to happen AFTER updating axis bounds
+        ax.set_aspect("equal", adjustable="box")
+
+    # Add scalebar after the dust has settled
     if settings.scalebar not in (False, None):
         if not settings.orthogonal:
             raise ValueError("Scalebar only available if `orthogonal=True`.")
@@ -677,6 +690,18 @@ def plot2d(
 
 def _add_scalebar(scalebar, neurons, ax, settings):
     """Add scalebar."""
+    defaults = {
+        "color": "black",
+        "lw": 3,
+        "alpha": 0.9,
+    }
+
+    if isinstance(scalebar, dict):
+        if "size" not in scalebar:
+            raise ValueError("`scalebar` dictionary must contain 'size' key.")
+        defaults.update(scalebar)
+        scalebar = defaults["size"]
+
     if isinstance(scalebar, bool):
         scalebar = "1 um"
 
@@ -691,21 +716,33 @@ def _add_scalebar(scalebar, neurons, ax, settings):
         else:
             scalebar = scalebar.magnitude
 
-    # Hard-coded offset from figure boundaries
+    # Hard-coded 5% offset from figure boundaries
     ax_offset = (ax.get_xlim()[1] - ax.get_xlim()[0]) / 100 * 5
 
     if settings.method == "2d":
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
 
-        coords = np.array(
-            [
-                [xlim[0] + ax_offset, ylim[0] + ax_offset],
-                [xlim[0] + ax_offset + scalebar, ylim[0] + ax_offset],
-            ]
-        )
+        coords = np.array([[xlim[0], ylim[0]], [xlim[0] + scalebar, ylim[0]]])
 
-        sbar = mlines.Line2D(coords[:, 0], coords[:, 1], lw=3, alpha=0.9, color="black")
+        if not ax.xaxis.get_inverted():
+            coords[:, 0] += ax_offset
+        else:
+            coords[:, 0] -= ax_offset
+
+        if not ax.yaxis.get_inverted():
+            coords[:, 1] += ax_offset
+        else:
+            coords[:, 1] -= ax_offset
+
+        sbar = mlines.Line2D(
+            coords[:, 0],
+            coords[:, 1],
+            lw=defaults["lw"],
+            alpha=defaults["alpha"],
+            color=defaults["color"],
+            zorder=1000,
+        )
         sbar.set_gid(f"{scalebar}_scalebar")
 
         ax.add_line(sbar)
@@ -727,7 +764,9 @@ def _add_scalebar(scalebar, neurons, ax, settings):
         sbar[1][1][1] += scalebar
         sbar[2][1][2] += scalebar
 
-        lc = Line3DCollection(sbar, color="black", lw=1)
+        lc = Line3DCollection(
+            sbar, color=defaults["color"], lw=defaults["lw"], alpha=defaults["alpha"]
+        )
         lc.set_gid(f"{scalebar}_scalebar")
 
         ax.add_collection3d(lc, autolim=False)
