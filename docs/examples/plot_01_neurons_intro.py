@@ -4,11 +4,12 @@ Neuron Types
 
 This tutorial will show you the different neuron types and how to work with them.
 
-Depending your data/workflows you will use different ways to represent neurons.
-If, for example, you work with light-level data you might end up with point clouds
-or skeletons whereas modern connectomes typically provide meshes.
+Depending your data/workflows, you will use different representations of neurons.
+If, for example, you work with light-level data you might end up extracting point
+clouds or neuron skeletons from image stacks. If, on the other hand, you work with
+segmented EM data, you will typically work with meshes.
 
-To cater for these different data types neurons in {{ navis }} come in four flavours:
+To cater for these different representations, neurons in {{ navis }} come in four flavours:
 
 | Neuron type             | Description                                                           | Core data                           |
 |-------------------------|-----------------------------------------------------------------------|-------------------------------------|
@@ -17,13 +18,13 @@ To cater for these different data types neurons in {{ navis }} come in four flav
 | [`navis.VoxelNeuron`][] | An image represented by either a<br> 2d array of voxels or a 3d voxel grid. | - `.voxels`: `(N, 3)` array of voxels<br>- `.values`: `(N, )` array of values (i.e. intensity)<br>- `.grid`: `(N, M, K)` 3D voxelgrid |
 | [`navis.Dotprops`][]    | A cloud of points, each with an<br> associated local vector.          | - `.points`: `(N, 3)` array of point coordinates<br>- `.vect`: `(N, 3)` array of normalized vectors |
 
-Note that some functions in {{ navis }} will work on some but not all neuron types:
-checkout this [table](../../api.md#neuron-types-and-functions) in the [API](../../api.md)
-reference for details. If need be, {{ navis }} also offers ways to convert between the
+Note that functions in {{ navis }} may only work on a subset of neuron types:
+check out this [table](../../api.md#neuron-types-and-functions) in the [API](../../api.md)
+reference for details. If necessary, {{ navis }} can help you convert between the
 different neuron types (see further [below](#converting-neuron-types))!
 
 !!! important
-    In this guide we introduce the different neuron types using canned data bundled with {{ navis }}.
+    In this guide we introduce the different neuron types using data bundled with {{ navis }}.
     To learn how to load your own neurons into {{ navis }} please see the tutorials on
     [Import/Export](../../gallery#import-export).
 
@@ -34,8 +35,10 @@ acyclic graph, i.e. they consist of nodes and each node connects to at most one 
 This format is commonly used to describe a neuron's topology and often shared using
 [SWC](http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html) files.
 
-A [`navis.TreeNeuron`][] is typically constructed from an SWC file (see [`navis.read_swc`][])
-but you can also use a `pandas.DataFrame` or a `networkx.DiGraph`.
+![skeleton](../../../_static/skeleton.png)
+
+A [`navis.TreeNeuron`][] is typically loaded from an SWC file via [`navis.read_swc`][]
+but you can also constructed one yourself from e.g. `pandas.DataFrame` or a `networkx.DiGraph`.
 See the [skeleton I/O](../local_data_skels_tut.md) tutorial for details.
 
 {{ navis }} ships with a couple example *Drosophila* neurons from the Janelia hemibrain project published
@@ -63,6 +66,8 @@ sk.nodes.head()
 #
 # [`MeshNeurons`][navis.MeshNeuron] consist of vertices and faces, and are a typical output of e.g. image segmentation.
 #
+# ![mesh](../../../_static/mesh.png)
+#
 # A [`navis.MeshNeuron`][] can be constructed from any object that has `.vertices` and `.faces` properties, a
 # dictionary of `vertices` and `faces` or a file that can be parsed by `trimesh.load`.
 # See the [mesh I/O](../local_data_meshes_tut.md) tutorial for details.
@@ -84,8 +89,12 @@ m.vertices, m.faces
 #
 # [`Dotprops`][navis.Dotprops] represent neurons as point clouds where each point is associated with a vector
 # describing the local orientation. This simple representation often comes from e.g. light-level data
-# or as direvative of skeletons/meshes (see [`navis.make_dotprops`][]). Dotprops are used e.g. for
-# [NBLAST](../nblast_intro.md). See the [dotprops I/O](../local_data_dotprops_tut) tutorial for details.
+# or as direvative of skeletons/meshes (see [`navis.make_dotprops`][]).
+#
+# ![dotprops](../../../_static/dotprops.png)
+#
+# Dotprops are used e.g. for [NBLAST](../nblast_intro.md). See the [dotprops I/O](../local_data_dotprops_tut)
+# tutorial for details.
 #
 # [`navis.Dotprops`][] consist of `.points` and associated `.vect` (vectors). They are typically
 # created from other types of neurons using [`navis.make_dotprops`][]:

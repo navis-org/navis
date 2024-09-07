@@ -78,3 +78,8 @@ plt.tight_layout()
 
 sk = vol.skeleton.get([4335355146, 2913913713, 2137190164, 2268989790], as_navis=True)
 sk
+
+# %%
+# !!! experiment "Try it out!"
+#     If you are working a lot with NeuroGlancer and need to e.g. generated or parse URLs, you might want to check out the
+#     [`nglscenes`](https://github.com/schlegelp/nglscenes) package.
