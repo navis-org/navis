@@ -293,10 +293,35 @@ def neuron2nx(x: 'core.NeuronObject', simplify=False) -> nx.DiGraph:
 
 
 def simplify_graph(G, inplace=False):
-    """Simplify graph (networkX or igraph).
+    """Simplify skeleton graph (networkX or igraph).
 
-    This function will simplify the graph by keeping only roots, leaves and
-    branching points. Preserves branch lengths (i.e. weights).
+    This function will simplify the graph by keeping only roots, leafs and
+    branch points. Preserves branch lengths (i.e. weights).
+
+    Parameters
+    ----------
+    G :         networkx.DiGraph | igraph.Graph
+                The skeleton graph to simplify.
+    inplace :   bool
+                If True, will modify the graph in place.
+
+    Returns
+    -------
+    G :         networkx.DiGraph | networkx.DiGraph
+                Simplified graph.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1, kind='skeleton')
+    >>> # Simplify skeleton's NetworkX graph representation
+    >>> G_simp_nx = navis.graph.simplify_graph(n.graph)
+    >>> # Check that we have the expected number of nodes
+    >>> assert len(G_simp_nx.nodes) == (n.n_branches + n.n_root + n.n_leafs)
+    >>> # Simplify skeleton's iGraph graph representation
+    >>> G_simp_ig = navis.graph.simplify_graph(n.igraph)
+    >>> # Check that we have the expected number of nodes
+    >>> assert len(G_simp_ig.vs) == (n.n_branches + n.n_root + n.n_leafs)
 
     """
     if not inplace:
