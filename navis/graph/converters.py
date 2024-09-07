@@ -30,7 +30,7 @@ from .. import config, core
 logger = config.get_logger(__name__)
 
 __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
-                  'neuron2nx', 'neuron2KDTree', 'neuron2tangents'])
+                  'neuron2nx', 'neuron2KDTree', 'neuron2tangents', "simplify_graph"])
 
 
 def neuron2tangents(x: 'core.NeuronObject') -> 'core.Dotprops':
@@ -217,13 +217,17 @@ def network2igraph(x: Union[pd.DataFrame, Iterable],
     return g
 
 
-def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
+def neuron2nx(x: 'core.NeuronObject', simplify=False) -> nx.DiGraph:
     """Turn Tree-, Mesh- or VoxelNeuron into an NetworkX graph.
 
     Parameters
     ----------
     x :         TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList
                 Uses simple 6-connectedness for voxels.
+    simplify :  bool
+                For TreeNeurons only: simplify the graph by keeping only roots,
+                leaves and branching points. Preserves the original
+                branch lengths (i.e. weights).
 
     Returns
     -------
@@ -253,6 +257,9 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
         G.add_nodes_from(x.nodes.node_id.values)
         # Add edges
         G.add_weighted_edges_from(elist)
+
+        if simplify:
+            simplify_graph(G, inplace=True)
     elif isinstance(x, core.MeshNeuron):
         G = nx.Graph()
         G.add_nodes_from(np.arange(x.n_vertices))
@@ -281,6 +288,70 @@ def neuron2nx(x: 'core.NeuronObject') -> nx.DiGraph:
         G.add_edges_from(edges)
     else:
         raise ValueError(f'Unable to convert data of type "{type(x)}" to networkx graph.')
+
+    return G
+
+
+def simplify_graph(G, inplace=False):
+    """Simplify graph (networkX or igraph).
+
+    This function will simplify the graph by keeping only roots, leaves and
+    branching points. Preserves branch lengths (i.e. weights).
+
+    """
+    if not inplace:
+        G = G.copy()
+
+    if isinstance(G, nx.Graph):
+        # Find all leaf and branch points
+        leafs = {n for n in G.nodes if G.in_degree(n) == 0 and G.out_degree(n) != 0}
+        branches = {n for n in G.nodes if G.in_degree(n) > 1 and G.out_degree(n) != 0}
+        roots = {n for n in G.nodes if G.out_degree(n) == 0}
+
+        stop_nodes = roots | leafs | branches
+
+        # Walk from each leaf/branch point to the next leaf, branch or root
+        to_remove = []
+        for start_node in leafs | branches:
+            dist = 0
+            node = start_node
+            while True:
+                parent = next(G.successors(node))
+                dist += G.edges[node, parent]['weight']
+
+                if parent in stop_nodes:
+                    G.add_weighted_edges_from([(start_node, parent, dist)])
+                    break
+
+                to_remove.append(parent)
+                node = parent
+
+        G.remove_nodes_from(to_remove)
+    else:
+        # Find all leaf and branch points
+        leafs = G.vs.select(_indegree=0, _outdegree_ne=0)
+        branches = G.vs.select(_indegree_gt=1, _outdegree_ne=0)
+        roots = G.vs.select(_outdegree=0)
+
+        stop_nodes = np.concatenate((roots.indices, leafs.indices, branches.indices))
+
+        # Walk from each leaf/branch point to the next leaf, branch or root
+        to_remove = []
+        for start_node in np.concatenate((leafs.indices, branches.indices)):
+            dist = 0
+            node = start_node
+            while True:
+                parent = G.successors(node)[0]
+                dist += G.es[G.get_eid(node, parent)]['weight']
+
+                if parent in stop_nodes:
+                    G.add_edge(start_node, parent, weight=dist)
+                    break
+
+                to_remove.append(parent)
+                node = parent
+
+        G.delete_vertices(to_remove)
 
     return G
 
@@ -344,7 +415,8 @@ def _voxels2edges(x, connectivity=18):
 
 
 def neuron2igraph(x: 'core.NeuronObject',
-                  connectivity=18,
+                  simplify: bool = False,
+                  connectivity: int = 18,
                   raise_not_installed: bool = True) -> 'igraph.Graph':
     """Turn Tree-, Mesh- or VoxelNeuron(s) into an iGraph graph.
 
@@ -354,8 +426,12 @@ def neuron2igraph(x: 'core.NeuronObject',
     ----------
     x :                     TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList
                             Neuron(s) to convert.
+    simplify :              bool
+                            For TreeNeurons only: simplify the graph by keeping only roots,
+                            leaves and branching points. Preserves the original branch
+                            lengths (i.e. weights).
     connectivity :          6 | 18 | 26
-                            Connectedness for VoxelNeurons:
+                            For VoxelNeurons only. Defines the connectedness:
                              - 6 = faces
                              - 18 = faces + edges
                              - 26 = faces + edges + vertices
@@ -425,6 +501,9 @@ def neuron2igraph(x: 'core.NeuronObject',
 
         w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1))
         G.es['weight'] = w
+
+        if simplify:
+            simplify_graph(G, inplace=True)
     elif isinstance(x, core.MeshNeuron):
         elist = x.trimesh.edges_unique
         G = igraph.Graph(elist, n=x.n_vertices, directed=False)

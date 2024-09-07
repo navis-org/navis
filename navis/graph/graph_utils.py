@@ -1912,8 +1912,9 @@ def node_label_sorting(
     # Get starting points (i.e. branches off the root) and sort by longest
     # path to a terminal (note we're operating on the simplified version
     # of the skeleton)
+    G = graph.simplify_graph(x.graph)
     curr_points = sorted(
-        list(x.simple.graph.predecessors(x.root[0])),
+        list(G.predecessors(x.root[0])),
         key=lambda n: dist_mat[n].max() + dist_mat.loc[n, x.root[0]],
         reverse=True,
     )
@@ -1927,7 +1928,7 @@ def node_label_sorting(
             pass
         else:
             new_points = sorted(
-                list(x.simple.graph.predecessors(nodes_walked[-1])),
+                list(G.predecessors(nodes_walked[-1])),
                 # Use distance to the farthest terminal + distance to current node as sorting key
                 key=lambda n: dist_mat[n].max() + dist_mat.loc[n, nodes_walked[-1]],
                 reverse=True,

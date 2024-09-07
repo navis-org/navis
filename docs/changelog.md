@@ -26,6 +26,7 @@ This version contains a major internal rework of both [`navis.plot2d`][] and [`n
 ##### Additions
 - Added [Octarine](https://github.com/schlegelp/octarine) as the default backend for plotting from terminal
 - New function: [`navis.graph.skeleton_adjacency_matrix`][] computes the node adjacency for skeletons
+- New function: [`navis.graph.simplify_graph`][] simplifies skeleton graphs to only root, branch and leaf nodes while preserving branch length (i.e. weights)
 - New [`NeuronList`][navis.NeuronList] method: [`get_neuron_attributes`][navis.NeuronList.get_neuron_attributes] is analagous to `dict.get`
 - [`NeuronLists`][navis.NeuronList] now implemented the `|` (`__or__`) operator which can be used to get the union of two [`NeuronLists`][navis.NeuronList]
 - [`navis.Volume`][] now have an (optional) `.units` property similar to neurons
