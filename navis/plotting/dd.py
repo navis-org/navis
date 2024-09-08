@@ -1014,9 +1014,9 @@ def _parse_view2d(co, view):
 
 def _set_view2d(ax, settings):
     """Set the axes based on the view parameter."""
-    if settings.view[0].startswith("-"):
+    if settings.view[0].startswith("-") and not ax.xaxis.get_inverted():
         ax.invert_xaxis()
-    if settings.view[1].startswith("-"):
+    if settings.view[1].startswith("-") and not ax.yaxis.get_inverted():
         ax.invert_yaxis()
 
     ax.set_xlabel(settings.view[0].replace("-", ""))
