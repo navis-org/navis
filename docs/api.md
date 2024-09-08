@@ -403,7 +403,7 @@ NBLAST and related functions:
 
 ### Distances
 
-Functions to calculate Euclidian and geodesic ("along-the-arbor") distances.
+Functions to calculate Euclidean and geodesic ("along-the-arbor") distances.
 
 | Function | Description |
 |----------|-------------|

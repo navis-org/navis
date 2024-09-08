@@ -22,7 +22,7 @@ Open up a terminal and install {{ navis }} with:
 
 === "Full Install"
 
-    This the "batteries included" install that will install {{ navis }} plus a number of
+    This is the "batteries included" install that will install {{ navis }} plus a number of
     extra dependencies that are just nice to have.
 
     ``` sh

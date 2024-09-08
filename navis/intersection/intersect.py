@@ -141,13 +141,12 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     Parameters
     ----------
     x :                 (N, 3) array-like | pandas.DataFrame | Neuron/List
-
-                        - neuron(s)
-                        - array-like is treated as list of x/y/z oordinates.
-                          Has to be of shape `(N, 3)`, i.e.
-                          `[[x1, y1, z1], [x2, y2, z2], ..]`
-                        - `pandas.DataFrame` needs to have `x, y, z`
-                          columns
+                        Object(s) to intersect with the volume.
+                         - Neuron(s) will be subset to parts within the volume
+                         - Array-like is treated as list of x/y/z coordinates;
+                           has to be of shape `(N, 3)`
+                         - `pandas.DataFrame` needs to have `x, y, z`
+                           columns
 
     volume :            Volume | mesh-like | dict or list thereof
                         Multiple volumes can be given as list
@@ -215,6 +214,14 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     soma                        None
     units                8 nanometer
     dtype: object
+
+    Find out which points are inside a volume
+
+    >>> in_v = navis.in_volume(n.nodes[['x', 'y', 'z']].values, lh)
+    >>> in_v
+    array([False, False, False, ..., False, False, False])
+    >>> in_v.sum()
+    344
 
     """
     allowed_backends = ('ncollpyde', 'pyoctree', 'scipy')

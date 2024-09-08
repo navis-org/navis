@@ -178,10 +178,6 @@ _ = plt.colorbar(
 )
 
 # %%
-# !!! important
-#     Take these analyses with a fistful of salt since we only sample 20 neurons each and it looked like there was a
-#     bias towards inhibitory neuron being more likely truncated! However, based on the above analysis inhibitory neurons
-#     tend to be larger and branch less compared to excitatory cortical neurons.
 #
 # ## Render Videos
 #

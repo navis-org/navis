@@ -33,24 +33,23 @@ def connectivity_sparseness(x: Union[pd.DataFrame, np.ndarray],
     **Lifetime kurtosis (LTK)** quantifies the widths of tuning curves
     (according to Muench & Galizia, 2016):
 
-    .. math::
+    $$
+    S = \Bigg\{ \frac{1}{N} \sum^N_{i=1} \Big[ \frac{r_i - \overline{r}}{\sigma_r} \Big] ^4  \Bigg\} - 3
+    $$
 
-        S = \Bigg\{ \frac{1}{N} \sum^N_{i=1} \Big[ \frac{r_i - \overline{r}}{\sigma_r} \Big] ^4  \Bigg\} - 3
-
-    where :math:`N` is the number of observations, :math:`r_i` the value of
-    observation :math:`i`, and :math:`\overline{r}` and
-    :math:`\sigma_r` the mean and the standard deviation of the observations'
-    values, respectively. LTK is assuming a normal, or at least symmetric
-    distribution.
+    where $N$ is the number of observations, $r_i$ the value of
+    observation $i$, and $\overline{r}$ and $\sigma_r$ the mean and
+    the standard deviation of the observations' values, respectively.
+    LTK is assuming a normal, or at least symmetric distribution.
 
     **Lifetime sparseness (LTS)** quantifies selectivity
     (Bhandawat et al., 2007):
 
-    .. math::
+    $$
+    S = \frac{1}{1-1/N} \Bigg[1- \frac{\big(\sum^N_{j=1} r_j / N\big)^2}{\sum^N_{j=1} r_j^2 / N} \Bigg]
+    $$
 
-        S = \frac{1}{1-1/N} \Bigg[1- \frac{\big(\sum^N_{j=1} r_j / N\big)^2}{\sum^N_{j=1} r_j^2 / N} \Bigg]
-
-    where :math:`N` is the number of observations, and :math:`r_j` is the
+    where $N$ is the number of observations, and $r_j$ is the
     value of an observation.
 
     **Activity ratio** describes distributions with heavy tails (Rolls and

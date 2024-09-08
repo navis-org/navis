@@ -1277,7 +1277,7 @@ def tortuosity(
 
     See Stepanyants et al., Neuron (2004) for detailed explanation. Briefly,
     tortuosity index `T` is defined as the ratio of the branch segment length
-    `L` (`seg_length`) to the Euclidian distance `R` between its ends.
+    `L` (`seg_length`) to the Euclidean distance `R` between its ends.
 
     The way this is implemented in `navis`:
 
@@ -1285,7 +1285,7 @@ def tortuosity(
         leaf node) is divided into segments of exactly `seg_length`
         geodesic length. Any remainder is skipped.
      2. For each of these segments we divide its geodesic length `L`
-        (i.e. `seg_length`) by the Euclidian distance `R` between its start and
+        (i.e. `seg_length`) by the Euclidean distance `R` between its start and
         its end.
      3. The final tortuosity is the mean of `L / R` across all segments.
 
@@ -1403,7 +1403,7 @@ def tortuosity(
 
         # We know that each child -> parent pair was originally exactly
         # `seg_length` geodesic distance apart. Now we need to find out
-        # how far they are apart in Euclidian distance
+        # how far they are apart in Euclidean distance
         new_coords = np.array([xnew, ynew, znew]).T
 
         R = np.linalg.norm(new_coords[:-1] - new_coords[1:], axis=1)

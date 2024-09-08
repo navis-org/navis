@@ -49,53 +49,35 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
 
     This functions offers a selection of metrics to compare connectivity:
 
-    .. list-table::
-       :widths: 15 75
-       :header-rows: 1
+    - **cosine**: Cosine similarity (see [here](https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cosine.html))
+    - **rank_index**: Normalized difference in rank of synaptic partners.
+    - **matching_index**: Number of shared partners divided by total number of partners.
+    - **matching_index_synapses**: Number of shared synapses (i.e. number of connections from/onto the same partners)
+      divided by total number of synapses.
 
-       * - Metric
-         - Explanation
-       * - cosine
-         - Cosine similarity (see [here](https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cosine.html))
-       * - rank_index
-         - Normalized difference in rank of synaptic partners.
-       * - matching_index
-         - Number of shared partners divided by total number of partners.
-       * - matching_index_synapses
-         - Number of shared synapses (i.e. number of connections from/onto the
-           same partners) divided by total number of synapses. Attention: this
-           metric is tricky when there is a disparity of total number of
-           connections between neuron A and B. For example, consider 100/200
-           and 1/50 shared/total synapse: 101/250 results in a fairly high
-           matching index of 0.404.
-       * - matching_index_weighted_synapses
-         - Similar to *matching_index_synapses* but slightly less prone to
-           above mentioned error as it uses the percentage of shared synapses:
+        !!! info "Attention"
+            This metric is tricky when there is a disparity of total number of connections between neuron A and B.
+            For example, consider 100/200 and 1/50 shared/total synapse: 101/250 results in a fairly high matching
+            index of 0.404.
 
-           .. math::
+    - **matching_index_weighted_synapses**: Similar to *matching_index_synapses* but slightly less prone to above
+      mentioned error as it uses the percentage of shared synapses:
 
-               S = \frac{\text{NeuronA}_{\text{ shared synapses}}}{\text{NeuronA}_{\text{ total synapses}}} \times \frac{\text{NeuronB}_{\text{ shared synapses}}}{\text{NeuronB}_{\text{ total synapses}}}
+        $$
+        S = \frac{\mathrm{NeuronA}_{\mathrm{sharedSynapses}}}{\mathrm{NeuronA}_{\mathrm{totalSynapses}}} \times \frac{\mathrm{NeuronB}_{\mathrm{sharedSynapses}}}{\mathrm{NeuronB}_{\mathrm{totalSynapses}}}
+        $$
 
-       * - vertex
-         - Matching index that rewards shared and punishes non-shared partners.
-           Based on
-           [Jarrell et al., 2012](http://science.sciencemag.org/content/337/6093/437):
-
-           .. math::
-
-               f(x,y) = min(x,y) - C1 \times max(x,y) \times \exp(-C2 * min(x,y))
-
-           Final score is the sum of :math:`f(x,y)` over all edges x, y between
-           neurons A+B and their partners. C1 determines how negatively a case
-           where one edge is much stronger than another is punished. C2
-           determines the point where the similarity switches from negative to
-           positive. C1 and C2 default to 0.5 and 1, respectively, but can be
-           changed by passing them in a dictionary as `**kwargs`.
-       * - vertex_normalized
-         - This is *vertex* similarity normalized by the lowest (hypothetical
-           total dissimilarity) and highest (all edge weights the same)
-           achievable score.
-
+    - **vertex**: Matching index that rewards shared and punishes non-shared partners. Based on
+      [Jarrell et al., 2012](http://science.sciencemag.org/content/337/6093/437):
+       $$
+       f(x,y) = min(x,y) - C1 \times max(x,y) \times \exp(-C2 * min(x,y))
+       $$
+       The final score is the sum of $f(x,y)$ over all edges x, y between neurons A+B and their partners. C1 determines
+       how negatively a case where one edge is much stronger than another is punished. C2 determines the point where the
+       similarity switches from negative to positive. C1 and C2 default to 0.5 and 1, respectively, but can be changed
+       by passing them in a dictionary as `**kwargs`.
+    - **vertex_normalized**: This is *vertex* similarity normalized by the lowest (hypothetical total dissimilarity)
+      and highest (all edge weights the same) achievable score.
 
     Parameters
     ----------
@@ -111,6 +93,9 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
     n_cores :           int
                         Number of parallel processes to use. Defaults to half
                         the available cores.
+    **kwargs
+                        Additional keyword arguments to pass to the metric function.
+                        See notes above for details.
 
     Returns
     -------
@@ -332,26 +317,26 @@ def synapse_similarity(x: 'core.NeuronList',
     r"""Cluster neurons based on their synapse placement.
 
     Distances score is calculated by calculating for each synapse of
-    neuron A: (1) the (Euclidian) distance to the closest synapse in neuron B
+    neuron A: (1) the (Euclidean) distance to the closest synapse in neuron B
     and (2) comparing the synapse density around synapse A and B.
     This is type-sensitive: presynapses will only be matched with presynapses,
     post with post, etc. The formula is described in
     [Schlegel et al., eLife (2017)](https://elifesciences.org/articles/16799):
 
-    .. math::
-
-        f(i_{s},j_{k}) = \exp(\frac{-d^{2}_{sk}}{2\sigma^{2}}) \exp(\frac{|n(i_{s})-n(j_{k})|}{n(i_{s})+n(j_{k})})
+    $$
+    f(i_{s},j_{k}) = \exp(\frac{-d^{2}_{sk}}{2\sigma^{2}}) \exp(\frac{|n(i_{s})-n(j_{k})|}{n(i_{s})+n(j_{k})})
+    $$
 
     The synapse similarity score for neurons i and j being the average
-    of :math:`f(i_{s},j_{k})` over all synapses s of i. Synapse k is the
+    of $f(i_{s},j_{k})$ over all synapses s of i. Synapse k is the
     closest synapse of the same sign (pre/post) in neuron j to synapse s.
-    :math:`d^{2}_{sk}` is the Euclidian distance between these distances.
-    Variable :math:`\sigma` (`sigma`) determines what distance between
-    s and k is considered "close". :math:`n(i_{s})` and :math:`n(j_{k})` are
+    $d^{2}_{sk}$ is the Euclidean distance between these distances.
+    Variable $\sigma$ (`sigma`) determines what distance between
+    s and k is considered "close". $n(i_{s})$ and $n(j_{k})$ are
     defined as the number of synapses of neuron i/j that are within given
-    radius :math:`\omega` (`omega`) of synapse s and j, respectively (same
+    radius $\omega$ (`omega`) of synapse s and j, respectively (same
     sign only). This esnures that in cases of a strong disparity between
-    :math:`n(i_{s})` and :math:`n(j_{k})`, the synapse similarity will be
+    $n(i_{s})$ and $n(j_{k})$, the synapse similarity will be
     close to zero even if the distance between s and k is very small.
 
 
@@ -444,7 +429,7 @@ def _calc_synapse_similarity(cnA: pd.DataFrame,
     """Calculates synapse similarity score.
 
     Synapse similarity score is calculated by calculating for each synapse of
-    neuron A: (1) the distance to the closest (Euclidian) synapse in neuron B
+    neuron A: (1) the distance to the closest (Euclidean) synapse in neuron B
     and (2) comparing the synapse density around synapse A and B. This is type
     sensitive: presynapses will only be matched with presynapses, post with
     post, etc. The formula is described in Schlegel et al., eLife (2017).

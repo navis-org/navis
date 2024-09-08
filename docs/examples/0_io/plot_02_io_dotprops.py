@@ -76,4 +76,5 @@ dp = navis.Dotprops(points, k=None, vect=vect)
 dp
 
 # %%
-# There is no established format to store dotprops. But like all other neuron types in navis, you can pickle data for later (re)use - see the :ref:`pickling tutorial <local_data_pickle_tut>`. See also the :ref:`I/O API reference api_io>`.
+# There is no established format to store dotprops. But like all other neuron types in navis, you can pickle data for later (re)use
+# - see the [pickling tutorial](../plot_04_io_pickle). See also the [I/O API reference](../../../api.md#importexport).

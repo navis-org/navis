@@ -264,7 +264,7 @@ def set_default_connector_colors(x: Union[List[tuple], Dict[str, tuple]]
     Parameters
     ----------
     x :         dict
-                New default connector colors. Can be::
+                New default connector colors. Can be:
 
                    {'cn_label': (r, g, b), ..}
                    {'cn_label': {'color': (r, g, b)}, ..}
@@ -377,14 +377,14 @@ def make_url(baseurl, *args: str, **GET) -> str:
     Parameters
     ----------
     *args
-                Will be turned into the URL. For example::
+                Will be turned into the URL. For example:
 
                     >>> make_url('http://neuromorpho.org', 'neuron', 'fields')
                     'http://neuromorpho.org/neuron/fields'
 
     **GET
                 Keyword arguments are assumed to be GET request queries
-                and will be encoded in the url. For example::
+                and will be encoded in the url. For example:
 
                     >>> make_url('http://neuromorpho.org', 'neuron', 'fields',
                     ...          page=1)

@@ -1364,9 +1364,9 @@ def despike_skeleton(x: NeuronObject,
                      reverse: bool = False) -> Optional[NeuronObject]:
     r"""Remove spikes in skeleton (e.g. from jumps in image data).
 
-    For each node A, the euclidean distance to its next successor (parent)
+    For each node A, the Euclidean distance to its next successor (parent)
     B and that node's successor C (i.e A->B->C) is computed. If
-    :math:`\\frac{dist(A,B)}{dist(A,C)}>sigma`, node B is considered a spike
+    $\frac{dist(A,B)}{dist(A,C)}>sigma$, node B is considered a spike
     and realigned between A and C.
 
     Parameters
@@ -1432,7 +1432,7 @@ def despike_skeleton(x: NeuronObject,
             B = this_B[['x', 'y', 'z']].values
             C = this_C[['x', 'y', 'z']].values
 
-            # Calculate euclidian distances A->B and A->C
+            # Calculate euclidean distances A->B and A->C
             dist_AB = np.linalg.norm(A - B, axis=1)
             dist_AC = np.linalg.norm(A - C, axis=1)
 

@@ -48,7 +48,7 @@ def cable_overlap(a: NeuronObject,
                 can also provides this as a string such as "2 microns".
     method :    'min' | 'max' | 'mean' | 'forward' | 'reverse'
                 Method by which to calculate the overlapping cable between
-                two cables::
+                two cables:
 
                   Assuming that neurons A and B have 300 and 150 um of cable
                   within given distances, respectively:
@@ -63,13 +63,14 @@ def cable_overlap(a: NeuronObject,
     -------
     pandas.DataFrame
             Matrix in which neurons A are rows, neurons B are columns. Cable
-            within distance is given in the neuron's native units::
-
-                          neuronD  neuronE   neuronF  ...
-                neuronA         5        1         0
-                neuronB        10       20         5
-                neuronC         4        3        15
-                ...
+            within distance is given in the neuron's native units:
+            ```
+                        neuronD  neuronE   neuronF  ...
+            neuronA         5        1         0
+            neuronB        10       20         5
+            neuronC         4        3        15
+            ...
+            ```
 
     See Also
     --------

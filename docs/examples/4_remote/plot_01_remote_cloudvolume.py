@@ -67,7 +67,7 @@ navis.plot3d(
 
 # And one 2d plot for the tutorial thumbnail
 import matplotlib.pyplot as plt
-fig, ax = navis.plot2d(m[0], method='2d', view=("x", "-y"))
+fig, ax = navis.plot2d(m[1], method='2d', view=("x", "-y"))
 ax.set_axis_off()
 ax.grid(False)
 plt.tight_layout()

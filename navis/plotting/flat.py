@@ -105,32 +105,28 @@ def plot_flat(
     --------
     Plot neuron in "subway" layout:
 
-    .. plot::
-       :context: close-figs
-
-       >>> import navis
-       >>> n = navis.example_neurons(1).convert_units('nm')
-       >>> ax, pos = navis.plot_flat(n, layout='subway',
-       ...                           figsize=(12, 2),
-       ...                           connectors=True)
-       >>> _ = ax.set_xlabel('distance [nm]')
-       >>> plt.show() # doctest: +SKIP
+    >>> import navis
+    >>> n = navis.example_neurons(1).convert_units('nm')
+    >>> ax, pos = navis.plot_flat(n, layout='subway',
+    ...                           figsize=(12, 2),
+    ...                           connectors=True)
+    >>> _ = ax.set_xlabel('distance [nm]')
+    >>> plt.show() # doctest: +SKIP
 
     Plot neuron in "dot" layout (requires pygraphviz and graphviz):
 
-    .. plot::
-       :context: close-figs
-
-        >>> # First downsample to speed up processing
-        >>> ds = navis.downsample_neuron(n, 10, preserve_nodes='connectors')
-        >>> ax, pos = navis.plot_flat(ds, layout='dot', connectors=True) # doctest: +SKIP
-        >>> plt.show()                                                   # doctest: +SKIP
+    >>> # First downsample to speed up processing
+    >>> ds = navis.downsample_neuron(n, 10, preserve_nodes='connectors')
+    >>> ax, pos = navis.plot_flat(ds, layout='dot', connectors=True) # doctest: +SKIP
+    >>> plt.show()                                                   # doctest: +SKIP
 
     To close all figures (only for doctests)
 
     >>> plt.close('all')
 
-    See the :ref:`plotting tutorial <plot_intro>` for more examples.
+    See the [plotting intro](../../../generated/gallery/1_plotting/plot_00_plotting_intro)
+    and the [neuron topology tutorial](../../../generated/gallery/1_plotting/plot_03_plotting_dend)
+    for more examples.
 
     """
     if isinstance(x, core.NeuronList) and len(x) == 1:

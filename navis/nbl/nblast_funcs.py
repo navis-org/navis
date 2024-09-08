@@ -239,9 +239,9 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
     """Smart(er) NBLAST query against target neurons.
 
-    In contrast to [`navis.nblast`][] this function will first run a
+    In contrast to [`navis.nblast`][], this function will first run a
     "pre-NBLAST" in which only 10% of the query dotprops' points are used.
-    Using those initial scores, we select for each query the highest scoring
+    Using those initial scores we select, for each query, the highest scoring
     targets and run the full NBLAST only on those query-target pairs (see
     `t` and `criterion` for fine-tuning).
 

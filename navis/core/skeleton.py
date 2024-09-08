@@ -71,7 +71,7 @@ class TreeNeuron(BaseNeuron):
     ----------
     x
                     Data to construct neuron from:
-                     - `pandas.DataFrame` is expected to be SWC table
+                     - `pandas.DataFrame` is expected to be a SWC table
                      - `pandas.Series` is expected to have a DataFrame as
                        `.nodes` - additional properties will be attached
                        as meta data
@@ -511,8 +511,7 @@ class TreeNeuron(BaseNeuron):
         """Search for soma and return node ID(s).
 
         `None` if no soma. You can assign either a function that accepts a
-        TreeNeuron as input or a fix value. The default is
-        [`navis.utils.find_soma`][].
+        TreeNeuron as input or a fix value. The default is [`navis.find_soma`][].
 
         """
         if callable(self._soma):

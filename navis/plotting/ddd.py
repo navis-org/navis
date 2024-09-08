@@ -345,7 +345,8 @@ def plot3d(
     >>> # Clear viewer (works only with octarine and vispy)
     >>> v = navis.plot3d(nl, clear=True)
 
-    See the :ref:`plotting tutorial <plot_intro>` for even more examples.
+    See the [plotting intro](../../../generated/gallery/1_plotting/plot_00_plotting_intro)
+    for even more examples.
 
     """
     # Select backend

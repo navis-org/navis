@@ -141,7 +141,7 @@ parent_locs = (
     nl[0].nodes.set_index("node_id").loc[nodes.parent_id.values, ["x", "y", "z"]].values
 )
 
-# Calculate Euclidian distances
+# Calculate Euclidean distances
 distances = np.sqrt(np.sum((node_locs - parent_locs) ** 2, axis=1))
 
 # Use the neuron's units to convert into nm
@@ -187,7 +187,7 @@ fig, ax = navis.plot2d(n, c="blue", method="2d", view=("x", "-z"))
 # Add geodesic path
 ax.plot(path_co.x, path_co.z, c="r", ls="--")
 
-# Add Euclidian path
+# Add Euclidean path
 end_loc = n.nodes.set_index("node_id").loc[end, ["x", "y", "z"]]
 soma_loc = n.nodes.set_index("node_id").loc[n.soma, ["x", "y", "z"]]
 ax.plot([soma_loc.x, end_loc.x], [soma_loc.z, end_loc.z], c="g", ls="--")

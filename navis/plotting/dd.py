@@ -342,8 +342,8 @@ def plot2d(
     >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True, view=('x', '-z'))
     >>> plt.show() # doctest: +SKIP
 
-
-    See the :ref:`plotting tutorial <plot_intro>` for more examples.
+    See the [plotting intro](../../../generated/gallery/1_plotting/plot_00_plotting_intro)
+    for more examples.
 
     See Also
     --------
@@ -845,9 +845,9 @@ def _plot_connectors(neuron, color, ax, settings):
     """Plot connectors."""
     cn_layout = copy.deepcopy(config.default_connector_colors)
 
-    if settings.connectors == 'pre':
+    if settings.connectors == "pre":
         connectors = neuron.presynapses
-    elif settings.connectors == 'post':
+    elif settings.connectors == "post":
         connectors = neuron.postsynapses
     elif isinstance(settings.connectors, str):
         connectors = neuron.connectors[neuron.connectors.type == settings.connectors]

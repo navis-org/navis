@@ -330,7 +330,8 @@ plt.tight_layout()
 # Does this work with all neuron types? There is no simple answer unfortunately. In theory, anything that
 # works on skeletons should also work on meshes, and _vice versa_. However, [`navis.Dotprops`][] [`navis.VoxelNeuron`][] are
 # so fundamentally different that certain operations just don't make sense. For example we can't cut them but we
-# can subset them to a given volume. Check out the :ref:`API <api_func_matrix>` docs for an overview of what works with which neuron type.
+# can subset them to a given volume. Check out the [I/O API reference](../../../api.md#neuron-types-and-functions) docs for
+# an overview of what works with which neuron type.
 
 # Note that [`navis.in_volume`][] also works with arbitrary spatial data (i.e. `(N, 3)` arrays of x/y/z locations):
 
@@ -350,5 +351,5 @@ cn.groupby(["type", "in_lh"]).size()
 # About half the presynapses are in the LH (most of the rest will be in the MB calyx). The large majority of postsynapses are
 # outside the LH in the antennal lobe where this neuron has its dendrites.
 #
-# That's it for now! Please see the :ref:`NBLAST tutorial <nblast_intro>` for morphological comparisons using NBLAST and the
-# :ref:`API<api_morph>` for a full list of morphology-related functions.
+# That's it for now! Please see the [NBLAST tutorial](../../05_nblast/plot_00_nblast_intro.py) for morphological comparisons using NBLAST and the
+# [API reference](../../../api.md#neuron-morphology) for a full list of morphology-related functions.

@@ -121,7 +121,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
     with_synapses : bool, optional
                     If True will download and attach synapses as `.connectors`.
     missing_mesh :  'raise' | 'warn' | 'skip'
-                    What to do if no mesh is found for a given body ID::
+                    What to do if no mesh is found for a given body ID:
 
                         "raise" (default) will raise an exception
                         "warn" will throw a warning but continue
@@ -363,11 +363,11 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
                     or an int to limit the max distance at which nodes are
                     allowed to be re-connected (requires neuprint-python >= 0.4.11).
     missing_swc :   'raise' | 'warn' | 'skip'
-                    What to do if no skeleton is found for a given body ID::
+                    What to do if no skeleton is found for a given body ID:
 
-                        "raise" (default) will raise an exception
-                        "warn" will throw a warning but continue
-                        "skip" will skip without any message
+                      - "raise" (default) will raise an exception
+                      - "warn" will throw a warning but continue
+                      - "skip" will skip without any message
 
     parallel :      bool
                     If True, will use parallel threads to fetch data.
