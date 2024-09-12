@@ -368,12 +368,16 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
 
     >>> s = navis.read_swc('skeletons.zip')                     # doctest: +SKIP
 
-    Sample first 100 SWC files a zip archive:
+    Sample first 100 SWC files in  a zip archive:
 
     >>> s = navis.read_swc('skeletons.zip', limit=100)          # doctest: +SKIP
 
+    Read first all SWC files an ftp folder:
+
+    >>> s = navis.read_swc('ftp://server:port/path/to/swc/')    # doctest: +SKIP
+
     """
-    # SwcReader will try its best to read whatever you throw at it - with limit
+    # SwcReader will try its best to read whatever you throw at it - with limited
     # sanity checks. For example: if you misspell a filepath, it will assume
     # that it's a SWC string (because anything that's a string but doesn't
     # point to an existing file or a folder MUST be a SWC) which will lead to
