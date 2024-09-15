@@ -520,7 +520,8 @@ def neuron2voxels(x: 'core.BaseNeuron',
 def tree2meshneuron(x: 'core.TreeNeuron',
                     tube_points: int = 8,
                     radius_scale_factor: float = 1,
-                    use_normals: bool = True
+                    use_normals: bool = True,
+                    warn_missing_radii: bool = True
                     ) -> 'core.MeshNeuron':
     """Convert TreeNeuron to MeshNeuron.
 
@@ -538,6 +539,8 @@ def tree2meshneuron(x: 'core.TreeNeuron',
                     Factor to scale radii by.
     use_normals :   bool
                     If True will rotate tube along its curvature.
+    warn_missing_radii : bool
+                    Whether to warn if radii are missing or <= 0.
 
     Returns
     -------
@@ -566,9 +569,8 @@ def tree2meshneuron(x: 'core.TreeNeuron',
 
     # Note that we are treating missing radii as "0"
     radii_map = x.nodes.radius.fillna(0).values
-    if (radii_map <= 0).any():
-        logger.warning('At least some radii are missing or <= 0. Mesh will '
-                       'look funny.')
+    if warn_missing_radii and (radii_map <= 0).any():
+        logger.warning('At least some radii are missing or <= 0. Mesh may look funny.')
 
     # Map radii onto segments
     radii = [radii_map[seg] * radius_scale_factor for seg in segments]
