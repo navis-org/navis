@@ -550,7 +550,17 @@ def plot2d(
                     settings.radius = False
 
             if isinstance(neuron, core.TreeNeuron) and settings.radius:
-                _neuron = conversion.tree2meshneuron(neuron)
+                # Warn once if more than 5% of nodes have missing radii
+                if not getattr(fig, '_radius_warned', False):
+                    if ((neuron.nodes.radius.fillna(0).values <= 0).sum() / neuron.n_nodes) > 0.05:
+                        logger.warning(
+                            "Some skeleton nodes have radius <= 0. This may lead to "
+                            "rendering artifacts. Set `radius=False` to plot skeletons "
+                            "as single-width lines instead."
+                        )
+                        fig._radius_warned = True
+
+                _neuron = conversion.tree2meshneuron(neuron, warn_missing_radii=False)
                 _neuron.connectors = neuron.connectors
                 neuron = _neuron
 
@@ -883,7 +893,7 @@ def _plot_connectors(neuron, color, ax, settings):
                 inner_dict["color"] = settings.cn_colors
 
     if settings.method == "2d":
-        for c, this_cn in connectors.groupby('type'):
+        for c, this_cn in connectors.groupby("type"):
             x, y = _parse_view2d(this_cn[["x", "y", "z"]].values, settings.view)
 
             ax.scatter(
@@ -892,7 +902,7 @@ def _plot_connectors(neuron, color, ax, settings):
                 color=cn_layout[c]["color"],
                 edgecolor="none",
                 s=settings.cn_size if settings.cn_size else cn_layout["size"],
-                zorder=1000
+                zorder=1000,
             )
             ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
     elif settings.method in ["3d", "3d_complex"]:
