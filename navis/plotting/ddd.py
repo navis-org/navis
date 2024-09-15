@@ -496,12 +496,12 @@ def plot3d_octarine(x, **kwargs):
     # Check if any existing viewer has already been closed
     if isinstance(getattr(config, "primary_viewer", None), oc.Viewer):
         try:
-            _ = getattr(config, "primary_viewer").canvas
+            getattr(config, "primary_viewer").canvas.__repr__()
         except RuntimeError:
             config.primary_viewer = None
 
     if settings.viewer in (None, "new"):
-        # If it does not exists yet, initialise a canvas object and make global
+        # If it does not exists yet, initialize a canvas object and make global
         if (
             not isinstance(getattr(config, "primary_viewer", None), oc.Viewer)
             or settings.viewer == "new"
