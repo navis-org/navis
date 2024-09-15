@@ -544,7 +544,8 @@ def plot3d_octarine(x, **kwargs):
                 center=settings.center,
             )
     if points:
-        viewer.add_points(points, center=settings.center, **settings.scatter_kws)
+        for p in points:
+            viewer.add_points(p, center=settings.center, **settings.scatter_kws)
 
     return viewer
 
