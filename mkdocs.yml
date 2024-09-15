@@ -140,6 +140,7 @@ plugins:
       within_subsection_order: FileNameSortKey  # sort examples by filename
       download_all_examples: false
       remove_config_comments: true
+      matplotlib_animations: true
       # only_warn_on_example_error: true
   - markdown-exec
 
