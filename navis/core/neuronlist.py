@@ -1041,6 +1041,26 @@ class NeuronList:
         """
         return {t: self.__class__([n for n in self.neurons if isinstance(n, t)])
                 for t in self.types}
+                
+                
+    def unique_nodes(self) -> core.TreeNeuron:
+        """Return neuronlist with unique node IDs"""
+        st_node = 1
+        for sk in self:
+            keys = list(sk.nodes['node_id'])
+            values = list(range(st_node,st_node+len(keys)))
+            res = {keys[i]: values[i] for i in range(len(keys))}
+            sk.nodes.replace({"node_id": res}, inplace=True)
+            sk.nodes.replace({"parent_id": res}, inplace=True)
+            st_node += len(keys)
+        return self   
+    
+    def to_TreeNeuron(self) -> core.TreeNeuron:
+        """Return single treeneuron object."""
+        skels = self.unique_nodes()
+        skels = core.TreeNeuron(self.nodes)
+        skels.nodes.drop(columns=['neuron'], inplace=True)
+        return skels                                          
 
 
 class _IdIndexer():
