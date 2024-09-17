@@ -7,51 +7,15 @@ In this notebook, you can learn how to work with the [H01 dataset](https://www.s
 
 
 # %%
-## For Dev, clear cache and reload module
-# import navis
-# import importlib
-# import navis.interfaces.h01 as h01
-# importlib.reload(h01)
 import navis
 import navis.interfaces.h01 as h01
 
 # %%
 ## Examples in using Navis interface for H01 dataset
 
-
-# %%
-auth = h01.Authentication()
-
-# %%
-## Scenario 1: Completely new user of H01 dataset
-
-# %%
-auth.setup_token(make_new=True)
-
-# %%
-auth.save_token(token=, overwrite=True)
-
-# %%
 # %%
 client = h01.get_cave_client()
 
-# %%
-## Scenario 2: Existing user, new computer
-
-# %%
-auth.setup_token(make_new=False)
-
-# %%
-auth.save_token(token=, overwrite=True)
-
-# %%
-client = h01.get_cave_client()
-
-# %%
-## Get CAVE client after setting up your token in your computer
-
-# %%
-client = h01.get_cave_client()
 
 # %%
 ## Query Tables
