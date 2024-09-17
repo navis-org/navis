@@ -289,7 +289,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                 n.soma_radius = radii[n.id] / n.units.to('nm').magnitude
             else:
                 n.soma_radius = None
-            n.soma = n.somaLocation
+            n.soma_pos = n.somaLocation
 
     if with_synapses:
         # Fetch synapses
