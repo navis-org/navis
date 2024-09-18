@@ -45,6 +45,16 @@ def read_tiff(f: Union[str, Iterable],
 
     Requires `tifffile` library which is not automatically installed!
 
+    TIFF is a very flexible format: images can be grey-scale or color; files
+    can contain multiple channels and/or time points. This function primarily
+    targets 3D data greyscale data (see also the `channel` parameter). If you
+    have files that aren't read (correctly), please get in touch on Github.
+    Also note that we're currently only parsing ImageJ metadata - if your
+    TIFFs are from another source (e.g. OME) meta data such as voxel size may
+    not be read correctly. Again, please get in touch if you want NAVis to
+    support more TIFF formats.
+
+
     Parameters
     ----------
     f :                 str | iterable
@@ -168,7 +178,7 @@ def read_tiff(f: Union[str, Iterable],
 
     with tifffile.TiffFile(f) as tif:
         # The header contains some but not all the info
-        if hasattr(tif, 'imagej_metadata'):
+        if hasattr(tif, 'imagej_metadata') and tif.imagej_metadata is not None:
             header = tif.imagej_metadata
         else:
             header = {}
@@ -178,18 +188,34 @@ def read_tiff(f: Union[str, Iterable],
         # Resolution to spacing
         header['xy_spacing'] = (1 / res[0], 1 / res[1])
 
-        # Get the axes (this will be something like "ZCYX")
+        # Get the axes; this will be something like "ZCYX" where:
+        # Z = slices, C = channels, Y = rows, X = columns, S = color(?), Q = empty(?)
         axes = tif.series[0].axes
 
         # Generate volume
         data = tif.asarray()
 
-    # Extract channel from volume - from what I've seen ImageJ always has the
-    # "ZCYX" order
-    data = data[:, channel, :, :]
+    # Drop "Q" axes if they have dimenions of 1 (we're assuming these are empty)
+    while "Q" in axes and data.shape[axes.index("Q")] == 1:
+        data = np.squeeze(data, axis=axes.index("Q"))
+        axes = axes.replace("Q", "", 1)   # Only remove the first occurrence
 
-    # And sort into x, y, z order
-    data = np.transpose(data, axes=[2, 1, 0])
+    if "C" in axes:
+        # Extract the requested channel from the volume
+        data = data.take(channel, axis=axes.index("C"))
+
+        axes = axes.replace("C", "")
+
+    if data.ndim != 3:
+        raise ValueError(f'Expected 3D greyscale data, got {data.ndim} ("{axes}").')
+
+    # Swap axes to XYZ order
+    order = []
+    for a in ('Z', 'Y', 'X'):
+        if a not in axes:
+            raise ValueError(f'Expected axes to contain "Z", "Y", and "X", got "{axes}"')
+        order.append(axes.index(a))
+    data = np.transpose(data, order)
 
     if output == 'raw':
         return data, header
