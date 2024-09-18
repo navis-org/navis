@@ -461,7 +461,7 @@ def plot3d_vispy(x, **kwargs):
     if volumes:
         viewer.add(volumes, **settings.to_dict())
     if points:
-        viewer.add(points, scatter_kws=settings.catter_kws)
+        viewer.add(points, scatter_kws=settings.scatter_kws)
 
     return viewer
 
