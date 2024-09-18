@@ -36,7 +36,7 @@ more consistent and easier to use.
 - New function: [`navis.graph.skeleton_adjacency_matrix`][] computes the node adjacency for skeletons
 - New function: [`navis.graph.simplify_graph`][] simplifies skeleton graphs to only root, branch and leaf nodes while preserving branch length (i.e. weights)
 - New [`NeuronList`][navis.NeuronList] method: [`get_neuron_attributes`][navis.NeuronList.get_neuron_attributes] is analagous to `dict.get`
-- [`NeuronLists`][navis.NeuronList] now implemented the `|` (`__or__`) operator which can be used to get the union of two [`NeuronLists`][navis.NeuronList]
+- [`NeuronLists`][navis.NeuronList] now implement the `|` (`__or__`) operator which can be used to get the union of two [`NeuronLists`][navis.NeuronList]
 - [`navis.Volume`][] now have an (optional) `.units` property similar to neurons
 
 ##### Improvements
@@ -44,9 +44,9 @@ more consistent and easier to use.
   - [`navis.plot3d`][]:
     - `legendgroup` parameter (plotly backend) now also sets the legend group's title
     - new parameters for the plotly backend:
-      - `legend` (default `True`): determines whether legends is shown
-      - `legend_orientation` (default `v`): determines whether legend is aranged vertically (`v`) or horizontally (`h`)
-      - `linestyle` (default `-`): determines line style for skeletons
+       - `legend` (default `True`): determines whether legends is shown
+       - `legend_orientation` (default `v`): determines whether legend is aranged vertically (`v`) or horizontally (`h`)
+       - `linestyle` (default `-`): determines line style for skeletons
     - default for `radius` is now `"auto"`
   - [`navis.plot2d`][]:
     - the `view` parameter now also works with `methods` `3d` and `3d_complex`
@@ -55,13 +55,16 @@ more consistent and easier to use.
     - new parameters for methods `3d` and `3d_complex`: `mesh_shade=False` and `non_view_axes3d`
     - the `scalebar` parameter can now be a dictionary used to style (color, width, etc) the scalebar
   - the `connectors` parameter can now be used to show specific connector types (e.g. `connectors="pre"`)
+- I/O:
+  - `read_*` functions are now able to read from FTP servers (`ftp://...`)
+  - the `limit` parameter used in many `read_*` functions can now also be a regex pattern or a `slice`
 - General improvements to docs and tutorials
 
 ##### Fixes
 - Memory usage of `Neuron/Lists` is now correctly re-calculated when the neuron is modified
 - Various fixes and improvements for the MICrONS interface (`navis.interfaces.microns`)
 - [`navis.graph.node_label_sorting`][] now correctly prioritizes total branch length
-- [`navis.TreeNeuron.simple][] now correctly drops soma nodes if they aren't root, branch or leaf points themselves
+- [`navis.TreeNeuron.simple`][] now correctly drops soma nodes if they aren't root, branch or leaf points themselves
 
 ## Version `1.7.0` { data-toc-label="1.7.0" }
 _Date: 25/07/24_

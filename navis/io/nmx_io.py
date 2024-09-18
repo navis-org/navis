@@ -204,11 +204,18 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
                         Precision for data. Defaults to 32 bit integers/floats.
                         If `None` will let pandas infer data types - this
                         typically leads to higher than necessary precision.
-    limit :             int, optional
-                        If reading from a folder you can use this parameter to
-                        read only the first `limit` NMX files. Useful if
-                        wanting to get a sample from a large library of
-                        skeletons.
+    limit :             int | str | slice | list, optional
+                        When reading from a folder or archive you can use this parameter to
+                        restrict the which files read:
+                         - if an integer, will read only the first `limit` SWC files
+                          (useful to get a sample from a large library of skeletons)
+                         - if a string, will interpret it as filename (regex) pattern
+                           and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                           will only read files that contain `_R` in their filename
+                         - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                           that range
+                         - a list is expected to be a list of filenames to read from
+                           the folder/archive
     **kwargs
                         Keyword arguments passed to the construction of
                         `navis.TreeNeuron`. You can use this to e.g. set

@@ -62,11 +62,18 @@ def read_mesh(f: Union[str, Iterable],
                         Determines function's output. See Returns.
     errors :            "raise" | "log" | "ignore"
                         If "log" or "ignore", errors will not be raised.
-    limit :             int, optional
-                        If reading from a folder you can use this parameter to
-                        read only the first `limit` files. Useful when
-                        wanting to get a sample from a large library of
-                        meshes.
+    limit :             int | str | slice | list, optional
+                        When reading from a folder or archive you can use this parameter to
+                        restrict the which files read:
+                         - if an integer, will read only the first `limit` SWC files
+                          (useful to get a sample from a large library of meshes)
+                         - if a string, will interpret it as filename (regex) pattern
+                           and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                           will only read files that contain `_R` in their filename
+                         - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                           that range
+                         - a list is expected to be a list of filenames to read from
+                           the folder/archive
     **kwargs
                         Keyword arguments passed to [`navis.MeshNeuron`][]
                         or [`navis.Volume`][]. You can use this to e.g.

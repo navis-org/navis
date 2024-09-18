@@ -48,6 +48,9 @@ logger = config.get_logger(__name__)
 
 DEFAULT_INCLUDE_SUBDIRS = False
 
+# Regular expression to figure out if a string is a regex pattern
+rgx = re.compile(r'[\\\.\?\[\]\+\^\$\*]')
+
 
 def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:
     """Merge dicts and kwargs left to right.
@@ -541,7 +544,7 @@ class BaseReader(ABC):
     ) -> "core.NeuronList":
         """Read files from an FTP server.
 
-        This is a dispatcher for `.read_from_tar`.
+        This is a dispatcher for `.read_from_ftp`.
 
         Parameters
         ----------
@@ -613,6 +616,8 @@ class BaseReader(ABC):
         core.NeuronList
 
         """
+        # When reading in parallel, we expect there to be a global FTP connection
+        # that was initialized once for each worker process.
         if ftp == "GLOBAL":
             if "_FTP" not in globals():
                 raise ValueError("No global FTP connection found.")
@@ -668,8 +673,18 @@ class BaseReader(ABC):
         """
         files = list(self.files_in_dir(Path(path), include_subdirs))
 
-        if limit:
+        if isinstance(limit, int):
             files = files[:limit]
+        elif isinstance(limit, list):
+            files = [f for f in files if f in limit]
+        elif isinstance(limit, slice):
+            files = files[limit]
+        elif isinstance(limit, str):
+            # Check if limit is a regex
+            if rgx.search(limit):
+                files = [f for f in files if re.search(limit, str(f.name))]
+            else:
+                files = [f for f in files if limit in str(f)]
 
         read_fn = partial(self.read_file_path, attrs=attrs)
         neurons = parallel_read(read_fn, files, parallel)
@@ -1123,6 +1138,14 @@ def parallel_read_archive(
 
     if isinstance(limit, list):
         to_read = [f for f in to_read if f in limit]
+    elif isinstance(limit, slice):
+        to_read = to_read[limit]
+    elif isinstance(limit, str):
+        # Check if limit is a regex
+        if rgx.search(limit):
+            to_read = [f for f in to_read if re.search(limit, f)]
+        else:
+            to_read = [f for f in to_read if limit in f]
 
     prog = partial(
         config.tqdm,
@@ -1159,7 +1182,6 @@ def parallel_read_ftp(
     file_ext,
     limit=None,
     parallel="auto",
-    ignore_hidden=True,
 ) -> List["core.NeuronList"]:
     """Read neurons from an FTP server, potentially in parallel.
 
@@ -1185,13 +1207,6 @@ def parallel_read_ftp(
     parallel :      str | bool | int
                     "auto" or True for n_cores // 2, otherwise int for number of
                     jobs, or false for serial.
-    ignore_hidden : bool
-                    Archives zipped on OSX can end up containing a
-                    `__MACOSX` folder with files that mirror the name of other
-                    files. For example if there is a `123456.swc` in the archive
-                    you might also find a `__MACOSX/._123456.swc`. Reading the
-                    latter will result in an error. If ignore_hidden=True
-                    we will simply ignore all file that starts with "._".
 
     Returns
     -------
@@ -1245,11 +1260,21 @@ def parallel_read_ftp(
             elif file_ext and fname.endswith(file_ext):
                 to_read.append(file)
 
-            if isinstance(limit, int) and len(to_read) >= limit:
-                break
-
-    if isinstance(limit, list):
+    if isinstance(limit, int):
+        to_read = to_read[:limit]
+    elif isinstance(limit, list):
         to_read = [f for f in to_read if f in limit]
+    elif isinstance(limit, slice):
+        to_read = to_read[limit]
+    elif isinstance(limit, str):
+        # Check if limit is a regex
+        if rgx.search(limit):
+            to_read = [f for f in to_read if re.search(limit, f)]
+        else:
+            to_read = [f for f in to_read if limit in f]
+
+    if not to_read:
+        return []
 
     prog = partial(
         config.tqdm,
@@ -1269,6 +1294,8 @@ def parallel_read_ftp(
         else:
             n_cores = int(parallel)
 
+        # We can't send the FTP object to the process (because its socket is not pickleable)
+        # Instead, we need to initialize a new FTP connection in each process via a global variable
         with mp.Pool(
             processes=n_cores, initializer=_ftp_pool_init, initargs=(server, port, path)
         ) as pool:
