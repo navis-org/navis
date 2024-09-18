@@ -252,11 +252,18 @@ def read_precomputed(f: Union[str, io.BytesIO],
                           - `False` = do not use/look for `info` file
                           - `str` = filepath to `info` file
                           - `dict` = already parsed info file
-    limit :             int, optional
-                        If reading from a folder you can use this parameter to
-                        read only the first `limit` files. Useful if
-                        wanting to get a sample from a large library of
-                        skeletons/meshes.
+    limit :             int | str | slice | list, optional
+                        When reading from a folder or archive you can use this parameter to
+                        restrict the which files read:
+                         - if an integer, will read only the first `limit` SWC files
+                          (useful to get a sample from a large library of neurons)
+                         - if a string, will interpret it as filename (regex) pattern
+                           and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                           will only read files that contain `_R` in their filename
+                         - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                           that range
+                         - a list is expected to be a list of filenames to read from
+                           the folder/archive
     parallel :          "auto" | bool | int
                         Defaults to `auto` which means only use parallel
                         processing if more than 200 files are imported. Spawning
