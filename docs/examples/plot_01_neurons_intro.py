@@ -115,10 +115,12 @@ dp.points, dp.vect
 # [`VoxelNeurons`][navis.VoxelNeuron] represent neurons as either 3d image or x/y/z voxel coordinates
 # typically obtained from e.g. light-level microscopy.
 #
-# [`navis.VoxelNeuron`][] consist of either a 3d `(N, M, K)` array (a "grid") or an 2d `(N, 3)`
-# array of voxel coordinates. You will probably find yourself loading these data from image files
-# (e.g. `.nrrd` via [`navis.read_nrrd()`][navis.read_nrrd]). That said we can also "voxelize"
-# other neuron types to produce [`VoxelNeurons`][navis.VoxelNeuron]:
+# ![voxels](../../../_static/voxel.png)
+#
+# [`navis.VoxelNeuron`][] consist of either a dense3d `(N, M, K)` array (a "grid") or a sparse 2d `(N, 3)`
+# array of voxel coordinates (COO format). You will probably find yourself loading these
+# data from image files (e.g. `.nrrd` via [`navis.read_nrrd()`][navis.read_nrrd]). That said we can
+# also "voxelize" other neuron types to produce [`VoxelNeurons`][navis.VoxelNeuron]:
 
 # Load an example mesh
 m = navis.example_neurons(n=1, kind="mesh")
