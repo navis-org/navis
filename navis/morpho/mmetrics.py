@@ -1271,7 +1271,7 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
 
 def tortuosity(
     x: "core.NeuronObject",
-    seg_length: Union[int, float, str, Sequence[Union[int, float, str]]] = 10,
+    seg_length: Optional[Union[int, float, str, Sequence[Union[int, float, str]]]] = None,
 ) -> Union[float, Sequence[float], pd.DataFrame]:
     """Calculate tortuosity of a neuron.
 
@@ -1280,19 +1280,10 @@ def tortuosity(
     `L` (`seg_length`) to the Euclidean distance `R` between its ends.
 
     The way this is implemented in `navis`:
+    For each linear stretch (i.e. segments between branch points, leafs or roots)
+    we calculate its geodesic length `L` and the Euclidean distance `R` between
+    its ends. The final tortuosity is the mean of `L / R` across all segments.
 
-     1. Each linear stretch (i.e. between branch points or branch points to a
-        leaf node) is divided into segments of exactly `seg_length`
-        geodesic length. Any remainder is skipped.
-     2. For each of these segments we divide its geodesic length `L`
-        (i.e. `seg_length`) by the Euclidean distance `R` between its start and
-        its end.
-     3. The final tortuosity is the mean of `L / R` across all segments.
-
-    Note
-    ----
-    If you want to make sure that segments are as close to length `L` as
-    possible, consider resampling the neuron using [`navis.resample_skeleton`][].
 
     Parameters
     ----------
@@ -1300,18 +1291,27 @@ def tortuosity(
                         Neuron to analyze. If MeshNeuron, will generate and
                         use a skeleton representation.
     seg_length :        int | float | str | list thereof, optional
-                        Target segment length(s) `L`. If neuron(s) have their
-                        `.units` set, you can also pass a string such as
-                        "1 micron". `seg_length` must be larger than the
-                        current sampling resolution of the neuron.
+                        Target segment length(s) `L`. If `seg_length` is
+                        provided, each linear segment is further divided into
+                        segments of exactly `seg_length` (geodesic) length
+                        and the tortuosity is calculated for each of these
+                        sub-segments. If `seg_length` is not provided, the
+                        tortuosity is calculated for each linear segment as is.
+
+                        If neuron(s) have their  `.units` set, you can also
+                        pass a string such as "1 micron". `seg_length` must
+                        be larger than the current sampling resolution of the
+                        neuron. If you want to make sure that segments are as
+                        close to length `L` as possible, consider resampling the
+                        neuron using [`navis.resample_skeleton`][].
 
     Returns
     -------
     tortuosity :        float | np.array | pandas.DataFrame
                         If x is NeuronList, will return DataFrame.
                         If x is single TreeNeuron, will return either a
-                        single float (if single seg_length is queried) or a
-                        DataFrame (if multiple seg_lengths are queried).
+                        single float (if no or a single seg_length is queried)
+                        or a DataFrame (if multiple seg_lengths are queried).
 
     See Also
     --------
@@ -1323,7 +1323,11 @@ def tortuosity(
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> # Calculate tortuosity with 1 micron seg lengths
+    >>> # Calculate tortuosity as-is
+    >>> T = navis.tortuosity(n)
+    >>> round(T, 3)
+    1.074
+    >>> # Calculate tortuosity with 1 micron segment lengths
     >>> T = navis.tortuosity(n, seg_length='1 micron')
     >>> round(T, 3)
     1.054
@@ -1356,6 +1360,34 @@ def tortuosity(
     if isinstance(seg_length, (list, np.ndarray)):
         return [tortuosity(x, l) for l in seg_length]
 
+    if seg_length is None:
+        return _tortuosity_simple(x)
+    else:
+        return _tortuosity_segmented(x, seg_length)
+
+
+def _tortuosity_simple(x: "core.TreeNeuron") -> float:
+    """Calculate tortuosity for neuron as-is."""
+    # Iterate over segments
+    locs = x.nodes.set_index("node_id")[["x", "y", "z"]].astype(float)
+    T_all = []
+    for i, seg in enumerate(x.small_segments):
+        # Get coordinates
+        coords = locs.loc[seg].values
+
+        # Calculate geodesic distance for this segment
+        L = np.linalg.norm(np.diff(coords.T), axis=0).sum()
+
+        # Calculate Euclidean distance for this segment
+        R = np.linalg.norm(coords[0] - coords[-1])
+        T = L / R
+        T_all = np.append(T_all, T)
+
+    return T_all.mean()
+
+
+def _tortuosity_segmented(x: "core.TreeNeuron", seg_length: Union[int, float, str]) -> float:
+    """Calculate tortuosity for segmented neuron."""
     # From here on out seg length is single value
     seg_length: float = x.map_units(seg_length, on_error="raise")
 
