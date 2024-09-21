@@ -117,7 +117,7 @@ dp.points, dp.vect
 #
 # ![voxels](../../../_static/voxel.png)
 #
-# [`navis.VoxelNeuron`][] consist of either a dense3d `(N, M, K)` array (a "grid") or a sparse 2d `(N, 3)`
+# [`navis.VoxelNeuron`][] consist of either a dense 3d `(N, M, K)` array (a "grid") or a sparse 2d `(N, 3)`
 # array of voxel coordinates (COO format). You will probably find yourself loading these
 # data from image files (e.g. `.nrrd` via [`navis.read_nrrd()`][navis.read_nrrd]). That said we can
 # also "voxelize" other neuron types to produce [`VoxelNeurons`][navis.VoxelNeuron]:
