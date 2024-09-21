@@ -26,6 +26,7 @@ from .subset import subset_neuron
 from .persistence import (persistence_points, persistence_vectors,
                           persistence_distances)
 from .fq import form_factor
+from .ivscc import ivscc_features
 
 
 __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_centrality',
@@ -37,4 +38,4 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_ce
            'subset_neuron', 'smooth_voxels', 'sholl_analysis',
            'persistence_points', 'betweeness_centrality',
            'persistence_vectors', 'persistence_distances', 'combine_neurons',
-           'segment_analysis', 'form_factor']
+           'segment_analysis', 'form_factor', 'ivscc_features']
