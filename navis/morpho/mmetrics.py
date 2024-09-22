@@ -165,14 +165,14 @@ def strahler_index(
         raise ValueError(f'`method` must be "standard" or "greedy", got "{method}"')
 
     if utils.fastcore:
-        x.nodes['strahler_index'] = utils.fastcore.strahler_index(
+        x.nodes["strahler_index"] = utils.fastcore.strahler_index(
             x.nodes.node_id.values,
             x.nodes.parent_id.values,
             method=method,
             to_ignore=to_ignore,
             min_twig_size=min_twig_size,
         ).astype(np.int16)
-        x.nodes['strahler_index'] = x.nodes.strahler_index.fillna(1)
+        x.nodes["strahler_index"] = x.nodes.strahler_index.fillna(1)
         return x
 
     # Find branch, root and end nodes
@@ -1688,13 +1688,17 @@ def betweeness_centrality(
 
 @utils.map_neuronlist(desc="Cable length", allow_parallel=True)
 @utils.meshneuron_skeleton(method="pass_through")
-def cable_length(x) -> Union[int, float]:
+def cable_length(x, mask=None) -> Union[int, float]:
     """Calculate cable length.
 
     Parameters
     ----------
     x :             TreeNeuron | MeshNeuron | NeuronList
                     Neuron(s) for which to calculate cable length.
+    mask :          None | boolean array | callable
+                    If provided, will only consider nodes where
+                    `mask` is True. Callable must accept a DataFrame of nodes
+                    and return a boolean array of the same length.
 
     Returns
     -------
@@ -1704,25 +1708,49 @@ def cable_length(x) -> Union[int, float]:
     """
     utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
 
+    nodes = x.nodes
+    if mask is not None:
+        if callable(mask):
+            mask = mask(x.nodes)
+
+        if isinstance(mask, np.ndarray):
+            if len(mask) != len(x.nodes):
+                raise ValueError(
+                    f"Length of mask ({len(mask)}) must match number of nodes "
+                    f"({len(x.nodes)})."
+                )
+        else:
+            raise ValueError(
+                f"Mask must be callable or boolean array, got {type(mask)}"
+            )
+
+        nodes = x.nodes.loc[mask, ['node_id','parent_id', 'x', 'y', 'z']].copy()
+
+        # Set the parent IDs to -1 for nodes that are not in the mask
+        nodes.loc[~nodes.parent_id.isin(nodes.node_id), "parent_id"] = -1
+
+    if not len(nodes):
+        return 0
+
     # See if we can use fastcore
     if not utils.fastcore:
         # The by far fastest way to get the cable length is to work on the node table
         # Using the igraph representation is about the same speed... if it is already calculated!
         # However, one problem with the graph representation is that with large neuronlists
         # it adds a lot to the memory footprint.
-        not_root = (x.nodes.parent_id >= 0).values
-        xyz = x.nodes[["x", "y", "z"]].values[not_root]
+        not_root = (nodes.parent_id >= 0).values
+        xyz = nodes[["x", "y", "z"]].values[not_root]
         xyz_parent = (
             x.nodes.set_index("node_id")
-            .loc[x.nodes.parent_id.values[not_root], ["x", "y", "z"]]
+            .loc[nodes.parent_id.values[not_root], ["x", "y", "z"]]
             .values
         )
         cable_length = np.sum(np.linalg.norm(xyz - xyz_parent, axis=1))
     else:
         cable_length = utils.fastcore.dag.parent_dist(
-            x.nodes.node_id.values,
-            x.nodes.parent_id.values,
-            x.nodes[["x", "y", "z"]].values,
+            nodes.node_id.values,
+            nodes.parent_id.values,
+            nodes[["x", "y", "z"]].values,
             root_dist=0,
         ).sum()
 
