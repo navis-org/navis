@@ -19,7 +19,7 @@ import numpy as np
 import scipy.spatial
 import scipy.interpolate
 
-from typing import Union, Optional, List, overload
+from typing import Union, Optional, List
 from typing_extensions import Literal
 
 from .. import config, core, utils, graph
@@ -30,29 +30,12 @@ logger = config.get_logger(__name__)
 __all__ = ['resample_skeleton', 'resample_along_axis']
 
 
-@overload
-def resample_skeleton(x: 'core.TreeNeuron',
-                      resample_to: int,
-                      inplace: bool = False,
-                      method: str = 'linear',
-                      skip_errors: bool = True
-                      ) -> 'core.TreeNeuron': ...
-
-
-@overload
-def resample_skeleton(x: 'core.NeuronList',
-                      resample_to: int,
-                      inplace: bool = False,
-                      method: str = 'linear',
-                      skip_errors: bool = True
-                      ) -> 'core.NeuronList': ...
-
-
 @utils.map_neuronlist(desc='Resampling', allow_parallel=True)
 def resample_skeleton(x: 'core.NeuronObject',
                       resample_to: Union[int, str],
                       inplace: bool = False,
                       method: str = 'linear',
+                      map_columns: Optional[list] = None,
                       skip_errors: bool = True
                       ) -> Optional['core.NeuronObject']:
     """Resample skeleton(s) to given resolution.
@@ -85,6 +68,11 @@ def resample_skeleton(x: 'core.NeuronObject',
     method :            str, optional
                         See `scipy.interpolate.interp1d` for possible
                         options. By default, we're using linear interpolation.
+    map_columns :       list of str, optional
+                        Names of additional columns to carry over to the resampled
+                        neuron. Numerical columns will be interpolated according to
+                        `method`. Non-numerical columns will be interpolated
+                        using nearest neighbour interpolation.
     inplace :           bool, optional
                         If True, will modify original neuron. If False, a
                         resampled copy is returned.
@@ -127,14 +115,43 @@ def resample_skeleton(x: 'core.NeuronObject',
         raise TypeError(f'Unable to resample data of type "{type(x)}"')
 
     # Map units (non-str are just passed through)
-    resample_to = x.map_units(resample_to, on_error='raise')
+    resample_to = x.map_units(resample_to, on_error="raise")
 
     if not inplace:
         x = x.copy()
 
-    # Collect some information for later
-    locs = dict(zip(x.nodes.node_id.values, x.nodes[['x', 'y', 'z']].values))
-    radii = dict(zip(x.nodes.node_id.values, x.nodes.radius.values))
+    num_cols = ["x", "y", "z", "radius"]
+    non_num_cols = []
+
+    if map_columns:
+        if isinstance(map_columns, str):
+            map_columns = [map_columns]
+
+        for col in map_columns:
+            if col in num_cols or col in non_num_cols:
+                continue
+            if col not in x.nodes.columns:
+                raise ValueError(f'Column "{col}" not found in node table')
+            if pd.api.types.is_numeric_dtype(x.nodes[col].dtype):
+                num_cols.append(col)
+            else:
+                non_num_cols.append(col)
+
+    # Collect coordinates
+    locs = dict(zip(x.nodes.node_id.values, x.nodes[["x", "y", "z"]].values))
+
+    # Collect values for all columns
+    values = {
+        col: dict(zip(x.nodes.node_id.values, x.nodes[col].values))
+        for col in num_cols + non_num_cols
+    }
+
+    # For categorical columns, we need to translate them to numerical values
+    cat2num = {}
+    num2cat = {}
+    for col in non_num_cols:
+        cat2num[col] = {c: i for i, c in enumerate(x.nodes[col].unique())}
+        num2cat[col] = {i: c for c, i in cat2num[col].items()}
 
     new_nodes: List = []
     max_tn_id = x.nodes.node_id.max() + 1
@@ -146,7 +163,7 @@ def resample_skeleton(x: 'core.NeuronObject',
         # Get coordinates
         coords = np.vstack([locs[n] for n in seg])
         # Get radii
-        rad = [radii[tn] for tn in seg]
+        # rad = [radii[tn] for tn in seg]
 
         # Vecs between subsequently measured points
         vecs = np.diff(coords.T)
@@ -156,83 +173,99 @@ def resample_skeleton(x: 'core.NeuronObject',
         dist = np.insert(dist, 0, 0)
 
         # If path is too short, just keep the first and last node
-        if dist[-1] < resample_to or (method == 'cubic' and len(seg) <= 3):
-            new_nodes += [[seg[0], seg[-1],
-                           coords[0][0], coords[0][1], coords[0][2],
-                           radii[seg[0]]]]
+        if dist[-1] < resample_to or (method == "cubic" and len(seg) <= 3):
+            new_nodes += [
+                [seg[0], seg[-1]] + [values[c][seg[0]] for c in num_cols + non_num_cols]
+            ]
             continue
 
         # Distances (i.e. resolution) of interpolation
         n_nodes = np.round(dist[-1] / resample_to)
         new_dist = np.linspace(dist[0], dist[-1], int(n_nodes))
 
-        try:
-            sampleX = scipy.interpolate.interp1d(dist, coords[:, 0],
-                                                 kind=method)
-            sampleY = scipy.interpolate.interp1d(dist, coords[:, 1],
-                                                 kind=method)
-            sampleZ = scipy.interpolate.interp1d(dist, coords[:, 2],
-                                                 kind=method)
-            sampleR = scipy.interpolate.interp1d(dist, rad,
-                                                 kind=method)
-        except ValueError as e:
-            if skip_errors:
-                errors += 1
-                new_nodes += x.nodes.loc[x.nodes.node_id.isin(seg[:-1]),
-                                         ['node_id', 'parent_id',
-                                          'x', 'y', 'z',
-                                          'radius']].values.tolist()
-                continue
-            else:
-                raise e
+        samples = {}
+        # Interpolate numerical columns
+        for col in num_cols:
+            try:
+                samples[col] = scipy.interpolate.interp1d(
+                    dist, [values[col][n] for n in seg], kind=method
+                )
+            except ValueError as e:
+                if skip_errors:
+                    errors += 1
+                    new_nodes += x.nodes.loc[
+                        x.nodes.node_id.isin(seg[:-1]),
+                        ["node_id", "parent_id"] + num_cols + non_num_cols,
+                    ].values.tolist()
+                    continue
+                else:
+                    raise e
+        # Interpolate non-numerical columns
+        for col in non_num_cols:
+            try:
+                samples[col] = scipy.interpolate.interp1d(
+                    dist, [cat2num[col][values[col][n]] for n in seg], kind="nearest"
+                )
+            except ValueError as e:
+                if skip_errors:
+                    errors += 1
+                    new_nodes += x.nodes.loc[
+                        x.nodes.node_id.isin(seg[:-1]),
+                        ["node_id", "parent_id"] + num_cols + non_num_cols,
+                    ].values.tolist()
+                    continue
+                else:
+                    raise e
 
-        # Sample each dim
-        xnew = sampleX(new_dist)
-        ynew = sampleY(new_dist)
-        znew = sampleZ(new_dist)
-        rnew = sampleR(new_dist)
-
-        # Generate new coordinates
-        new_coords = np.array([xnew, ynew, znew]).T
+        # Sample each column
+        new_values = {}
+        for col in num_cols:
+            new_values[col] = samples[col](new_dist)
+        for col in non_num_cols:
+            new_values[col] = [num2cat[col][int(samples[col](d))] for d in new_dist]
 
         # Generate new ids (start and end node IDs of this segment are kept)
-        new_ids = np.concatenate((seg[:1], [max_tn_id + i for i in range(len(new_coords) - 2)], seg[-1:]))
+        new_ids = np.concatenate(
+            (seg[:1], [max_tn_id + i for i in range(len(new_dist) - 2)], seg[-1:])
+        )
 
         # Increase max index
         max_tn_id += len(new_ids)
 
         # Keep track of new nodes
-        new_nodes += [[tn, pn, co[0], co[1], co[2], r]
-                      for tn, pn, co, r in zip(new_ids[:-1],
-                                               new_ids[1:],
-                                               new_coords,
-                                               rnew)]
+        new_nodes += [
+            [tn, pn] + [new_values[c][i] for c in num_cols + non_num_cols]
+            for i, (tn, pn) in enumerate(zip(new_ids[:-1], new_ids[1:]))
+        ]
 
     if errors:
-        logger.warning(f'{errors} ({errors/i:.0%}) segments skipped due to '
-                       'errors')
+        logger.warning(f"{errors} ({errors/i:.0%}) segments skipped due to " "errors")
 
     # Add root node(s)
-    root = x.nodes.loc[x.nodes.node_id.isin(utils.make_iterable(x.root)),
-                       ['node_id', 'parent_id', 'x', 'y', 'z', 'radius']]
+    root = x.nodes.loc[
+        x.nodes.node_id.isin(utils.make_iterable(x.root)),
+        ["node_id", "parent_id"] + num_cols + non_num_cols,
+    ]
     new_nodes += [list(r) for r in root.values]
 
     # Generate new nodes dataframe
-    new_nodes = pd.DataFrame(data=new_nodes,
-                             columns=['node_id', 'parent_id',
-                                      'x', 'y', 'z', 'radius'])
+    new_nodes = pd.DataFrame(
+        data=new_nodes, columns=["node_id", "parent_id"] + num_cols + non_num_cols
+    )
 
     # Convert columns to appropriate dtypes
-    dtypes = {k: x.nodes[k].dtype for k in ['node_id', 'parent_id', 'x', 'y', 'z', 'radius']}
+    dtypes = {
+        k: x.nodes[k].dtype for k in ["node_id", "parent_id"] + num_cols + non_num_cols
+    }
 
     for cols in new_nodes.columns:
-        new_nodes = new_nodes.astype(dtypes, errors='ignore')
+        new_nodes = new_nodes.astype(dtypes, errors="ignore")
 
     # Remove duplicate nodes (branch points)
     new_nodes = new_nodes[~new_nodes.node_id.duplicated()]
 
     # Generate KDTree
-    tree = scipy.spatial.cKDTree(new_nodes[['x', 'y', 'z']].values)
+    tree = scipy.spatial.cKDTree(new_nodes[["x", "y", "z"]].values)
     # Map soma onto new nodes if required
     # Note that if `._soma` is a soma detection function we can't tell
     # how to deal with it. Ideally the new soma node will
@@ -241,10 +274,10 @@ def resample_skeleton(x: 'core.NeuronObject',
     # than one soma is detected now. Also a "label" column in the node
     # table would be lost at this point.
     # We will go for the easy option which is to pin the soma at this point.
-    nodes = x.nodes.set_index('node_id', inplace=False)
-    if np.any(getattr(x, 'soma')):
+    nodes = x.nodes.set_index("node_id", inplace=False)
+    if np.any(getattr(x, "soma")):
         soma_nodes = utils.make_iterable(x.soma)
-        old_pos = nodes.loc[soma_nodes, ['x', 'y', 'z']].values
+        old_pos = nodes.loc[soma_nodes, ["x", "y", "z"]].values
 
         # Get nearest neighbours
         dist, ix = tree.query(old_pos)
@@ -266,13 +299,13 @@ def resample_skeleton(x: 'core.NeuronObject',
     # Map connectors back if necessary
     if x.has_connectors:
         # Get position of old synapse-bearing nodes
-        old_tn_position = nodes.loc[x.connectors.node_id, ['x', 'y', 'z']].values
+        old_tn_position = nodes.loc[x.connectors.node_id, ["x", "y", "z"]].values
 
         # Get nearest neighbours
         dist, ix = tree.query(old_tn_position)
 
         # Map back onto neuron
-        x.connectors['node_id'] = new_nodes.node_id.values[ix]
+        x.connectors["node_id"] = new_nodes.node_id.values[ix]
 
     # Map tags back if necessary
     # Expects `tags` to be a dictionary {'tag': [node_id1, node_id2, ...]}
@@ -281,7 +314,7 @@ def resample_skeleton(x: 'core.NeuronObject',
         nodes_to_remap = list({n for l in x.tags.values() for n in l})
 
         # Get position of old tag-bearing nodes
-        old_tn_position = nodes.loc[nodes_to_remap, ['x', 'y', 'z']].values
+        old_tn_position = nodes.loc[nodes_to_remap, ["x", "y", "z"]].values
 
         # Get nearest neighbours
         dist, ix = tree.query(old_tn_position)
