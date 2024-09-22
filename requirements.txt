@@ -36,7 +36,7 @@ flybrains  #extra: flybrains
 
 cloud-volume>=5.2.0  #extra: cloudvolume
 
-navis-fastcore>=0.0.4  #extra: fastcore
+navis-fastcore>=0.0.7  #extra: fastcore
 
 plotly>=4.9  #extra: plotly
 
@@ -50,7 +50,7 @@ jupyter_rfb>=0.4.1
 #extra: octarine-default
 
 octarine3d[all]>=0.2.3
-octarine-navis-plugin>=0.1.1
+octarine-navis-plugin>=0.1.2
 
 #extra: meshes
 
