@@ -370,7 +370,7 @@ class MeshNeuron(BaseNeuron):
     def soma_pos(self, value):
         """Set soma by position."""
         if value is None:
-            self.soma = None
+            self._soma_pos = None
             return
 
         try:
