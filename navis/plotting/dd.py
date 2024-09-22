@@ -1124,7 +1124,7 @@ def _plot_skeleton(neuron, color, ax, settings):
             )
             ax.add_line(this_line)
         else:
-            if settings.palette:
+            if isinstance(settings.palette, str):
                 cmap = plt.get_cmap(settings.palette)
             else:
                 cmap = DEPTH_CMAP
