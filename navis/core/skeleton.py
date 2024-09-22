@@ -277,6 +277,57 @@ class TreeNeuron(BaseNeuron):
             return n
         return NotImplemented
 
+    def __add__(self, other, copy=True):
+        """Implement addition for coordinates (nodes, connectors)."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            if utils.is_iterable(other):
+                # If offset isotropic use only single value
+                if len(set(other)) == 1:
+                    other == other[0]
+                elif len(other) != 3:
+                    raise ValueError('Addition by list/array requires 3'
+                                     'multipliers for x/y/z coordinates '
+                                     f'got {len(other)}')
+
+            # If a number, consider this an offset for coordinates
+            n = self.copy() if copy else self
+            n.nodes[['x', 'y', 'z']] += other
+
+            # Do the connectors
+            if n.has_connectors:
+                n.connectors[['x', 'y', 'z']] += other
+
+            n._clear_temp_attr(exclude=['classify_nodes'])
+            return n
+        # If another neuron, return a list of neurons
+        elif isinstance(other, BaseNeuron):
+            return core.NeuronList([self, other])
+        return NotImplemented
+
+    def __sub__(self, other, copy=True):
+        """Implement subtraction for coordinates (nodes, connectors)."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            if utils.is_iterable(other):
+                # If offset is isotropic use only single value
+                if len(set(other)) == 1:
+                    other == other[0]
+                elif len(other) != 3:
+                    raise ValueError('Addition by list/array requires 3'
+                                     'multipliers for x/y/z coordinates '
+                                     f'got {len(other)}')
+
+            # If a number, consider this an offset for coordinates
+            n = self.copy() if copy else self
+            n.nodes[['x', 'y', 'z']] -= other
+
+            # Do the connectors
+            if n.has_connectors:
+                n.connectors[['x', 'y', 'z']] -= other
+
+            n._clear_temp_attr(exclude=['classify_nodes'])
+            return n
+        return NotImplemented
+
     def __getstate__(self):
         """Get state (used e.g. for pickling)."""
         state = {k: v for k, v in self.__dict__.items() if not callable(v)}

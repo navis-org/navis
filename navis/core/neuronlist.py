@@ -566,9 +566,11 @@ class NeuronList:
         >>> nl = navis.example_neurons()
         >>> len(nl)
         5
+        >>> # Add a single neuron to the list
         >>> nl.append(nl[0])
         >>> len(nl)
         6
+        >>> # Add a list of neurons to the list
         >>> nl.append(nl)
         >>> len(nl)
         12

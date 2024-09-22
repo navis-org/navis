@@ -24,11 +24,11 @@ import pandas as pd
 import skeletor as sk
 import trimesh as tm
 
-from io import BufferedIOBase
 from typing import Union, Optional
 
 from .. import utils, config, meshes, conversion, graph
 from .base import BaseNeuron
+from .neuronlist import NeuronList
 from .skeleton import TreeNeuron
 from .core_utils import temp_property
 
@@ -225,6 +225,35 @@ class MeshNeuron(BaseNeuron):
             return n
         return NotImplemented
 
+    def __add__(self, other, copy=True):
+        """Implement addition for coordinates (vertices, connectors)."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            n = self.copy() if copy else self
+            _ = np.add(n.vertices, other, out=n.vertices, casting='unsafe')
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] += other
+
+            self._clear_temp_attr()
+
+            return n
+        # If another neuron, return a list of neurons
+        elif isinstance(other, BaseNeuron):
+            return NeuronList([self, other])
+        return NotImplemented
+
+    def __sub__(self, other, copy=True):
+        """Implement subtraction for coordinates (vertices, connectors)."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            n = self.copy() if copy else self
+            _ = np.subtract(n.vertices, other, out=n.vertices, casting='unsafe')
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] -= other
+
+            self._clear_temp_attr()
+
+            return n
+        return NotImplemented
+
     @property
     def bbox(self) -> np.ndarray:
         """Bounding box (includes connectors)."""
@@ -308,7 +337,7 @@ class MeshNeuron(BaseNeuron):
     def skeleton(self) -> 'TreeNeuron':
         """Skeleton representation of this neuron.
 
-        Uses [`navis.mesh2skeleton`][].
+        Uses [`navis.conversion.mesh2skeleton`][].
 
         """
         if not hasattr(self, '_skeleton'):

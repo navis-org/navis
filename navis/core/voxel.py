@@ -143,7 +143,7 @@ class VoxelNeuron(BaseNeuron):
         self.__dict__.update(d)
 
     def __truediv__(self, other, copy=True):
-        """Implement division for coordinates (units, connectors)."""
+        """Implement division for coordinates (units, connectors, offset)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
@@ -165,7 +165,7 @@ class VoxelNeuron(BaseNeuron):
         return NotImplemented
 
     def __mul__(self, other, copy=True):
-        """Implement multiplication for coordinates (units, connectors)."""
+        """Implement multiplication for coordinates (units, connectors, offset)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
@@ -180,6 +180,36 @@ class VoxelNeuron(BaseNeuron):
             n.offset = n.offset * other
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other
+
+            self._clear_temp_attr()
+
+            return n
+        return NotImplemented
+
+    def __add__(self, other, copy=True):
+        """Implement addition for coordinates (offset, connectors)."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            # If a number, consider this an offset for coordinates
+            n = self.copy() if copy else self
+
+            n.offset = n.offset + other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] += other
+
+            self._clear_temp_attr()
+
+            return n
+        return NotImplemented
+
+    def __sub__(self, other, copy=True):
+        """Implement subtraction for coordinates (offset, connectors)."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            # If a number, consider this an offset for coordinates
+            n = self.copy() if copy else self
+
+            n.offset = n.offset - other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] -= other
 
             self._clear_temp_attr()
 
