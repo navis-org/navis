@@ -507,7 +507,7 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
             y=coords[:, 1],
             z=coords[:, 2],
             mode="lines",
-            line=dict(color=c, width=settings.linewidth, dash=dash),
+            line=dict(color=c, width=settings.get('linewidth', 3), dash=dash),
             name=label,
             legendgroup=legendgroup,
             legendgrouptitle_text=legendgroup,
