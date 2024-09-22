@@ -1143,9 +1143,9 @@ def parallel_read_archive(
     elif isinstance(limit, str):
         # Check if limit is a regex
         if rgx.search(limit):
-            to_read = [f for f in to_read if re.search(limit, f)]
+            to_read = [f for f in to_read if re.search(limit, f.filename)]
         else:
-            to_read = [f for f in to_read if limit in f]
+            to_read = [f for f in to_read if limit in f.filename]
 
     prog = partial(
         config.tqdm,
