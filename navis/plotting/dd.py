@@ -560,7 +560,11 @@ def plot2d(
                         )
                         fig._radius_warned = True
 
-                _neuron = conversion.tree2meshneuron(neuron, warn_missing_radii=False)
+                _neuron = conversion.tree2meshneuron(
+                    neuron,
+                    warn_missing_radii=False,
+                    radius_scale_factor=settings.get("linewidth", 1),
+                )
                 _neuron.connectors = neuron.connectors
                 neuron = _neuron
 
