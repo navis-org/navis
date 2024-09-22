@@ -20,24 +20,30 @@ pip uninstall navis -y
 pip install git+https://github.com/navis-org/navis@master
 ```
 
+## Version `1.8.0` { data-toc-label="1.8.0" }
+_Date: 22/09/24_
+
 This version contains a major internal rework of both [`navis.plot2d`][] and [`navis.plot3d`][] to make them
 more consistent and easier to use.
 
 ##### Breaking
 - Plotting: the `synapse_layout` parameter was renamed to `cn_layout` (matching e.g. other parameters such as `cn_colors`)
-- Negative views in [`navis.plot2d`][] (e.g. `view=("x", "-z")`) are now implemented by inverting axis rather than changing the underlying data
+- Negative views in [`navis.plot2d`][] (e.g. `view=("x", "-z")`) will now invert axes rather than changing the underlying data
 - Minimum version of `matplotlib` is now `3.9` (was `3.6`)
 - The `plotly` backend is not part of a minimal install anymore (still installed using `navis[all]`)
 - The Vispy backend is now deprecated and will be removed in a future release
 - Removed `navis.screenshot` - please use the Octarine/Vispy viewer's `.screenshot()` method instead
+- [`navis.tortuosity`][] now calculates tortuosity as-is (i.e. without resampling) by default
 
 ##### Additions
 - Added [Octarine](https://github.com/schlegelp/octarine) as the default backend for plotting from terminal
+- New Function: [`navis.ivscc_features`][] computes some basic ICSCC features
 - New function: [`navis.graph.skeleton_adjacency_matrix`][] computes the node adjacency for skeletons
 - New function: [`navis.graph.simplify_graph`][] simplifies skeleton graphs to only root, branch and leaf nodes while preserving branch length (i.e. weights)
 - New [`NeuronList`][navis.NeuronList] method: [`get_neuron_attributes`][navis.NeuronList.get_neuron_attributes] is analagous to `dict.get`
 - [`NeuronLists`][navis.NeuronList] now implement the `|` (`__or__`) operator which can be used to get the union of two [`NeuronLists`][navis.NeuronList]
 - [`navis.Volume`][] now have an (optional) `.units` property similar to neurons
+- `Tree/MeshNeurons` and `Dotprops` now support addition/subtraction (similar to the already existing multiplication and division) to allow offsetting neurons
 
 ##### Improvements
 - Plotting:
@@ -53,11 +59,13 @@ more consistent and easier to use.
     - the `color_by` and `shade_by` parameters now also work when plotting skeletons with `radius=True`
     - new defaults: `radius="auto"`, `alpha=1`, `figsize=None` (use matplotlib defaults)
     - new parameters for methods `3d` and `3d_complex`: `mesh_shade=False` and `non_view_axes3d`
-    - the `scalebar` parameter can now be a dictionary used to style (color, width, etc) the scalebar
+    - the `scalebar` and `soma` parameters can now also be dictionaries to style (color, width, etc) the scalebar/soma
   - the `connectors` parameter can now be used to show specific connector types (e.g. `connectors="pre"`)
 - I/O:
   - `read_*` functions are now able to read from FTP servers (`ftp://...`)
   - the `limit` parameter used in many `read_*` functions can now also be a regex pattern or a `slice`
+- New parameter in [`navis.resample_skeleton`][]: use `map_column` to include arbitrary columns in the resampling
+- [`navis.prune_twigs`][] and [`navis.cable_length`][] now accept a `mask` parameter
 - General improvements to docs and tutorials
 
 ##### Fixes
@@ -65,6 +73,8 @@ more consistent and easier to use.
 - Various fixes and improvements for the MICrONS interface (`navis.interfaces.microns`)
 - [`navis.graph.node_label_sorting`][] now correctly prioritizes total branch length
 - [`navis.TreeNeuron.simple`][] now correctly drops soma nodes if they aren't root, branch or leaf points themselves
+
+**Full Changelog**: [v1.7.0...v1.8.0](https://github.com/navis-org/navis/compare/v1.7.0...v1.8.0)
 
 ## Version `1.7.0` { data-toc-label="1.7.0" }
 _Date: 25/07/24_
