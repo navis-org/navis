@@ -182,6 +182,41 @@ class Dotprops(BaseNeuron):
             return n
         return NotImplemented
 
+    def __add__(self, other, copy=True):
+        """Implement addition for coordinates."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            # If a number, consider this an offset for coordinates
+            n = self.copy() if copy else self
+            _ = np.add(n.points, other, out=n.points, casting='unsafe')
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] += other
+
+            # Force recomputing of KDTree
+            if hasattr(n, '_tree'):
+                delattr(n, '_tree')
+
+            return n
+        # If another neuron, return a list of neurons
+        elif isinstance(other, BaseNeuron):
+            return core.NeuronList([self, other])
+        return NotImplemented
+
+    def __sub__(self, other, copy=True):
+        """Implement subtraction for coordinates."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            # If a number, consider this an offset for coordinates
+            n = self.copy() if copy else self
+            _ = np.subtract(n.points, other, out=n.points, casting='unsafe')
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] -= other
+
+            # Force recomputing of KDTree
+            if hasattr(n, '_tree'):
+                delattr(n, '_tree')
+
+            return n
+        return NotImplemented
+
     def __getstate__(self):
         """Get state (used e.g. for pickling)."""
         state = {k: v for k, v in self.__dict__.items() if not callable(v)}

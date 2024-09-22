@@ -315,8 +315,8 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
 
     # First check if data is numerical or categorical
     is_num = [utils.is_numeric(a, bool_numeric=False, try_convert=False) for a in values]
-    # If numerical
-    if all(is_num):
+    # If numerical and we weren't given a categorical palette
+    if all(is_num) and not isinstance(palette, dict):
         # Get min/max values
         if not vmin:
             vmin = [np.nanmin(v) for v in values]
@@ -365,8 +365,8 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
 
             colors.append(c)
     # We don't want to deal with mixed data
-    elif any(is_num):
-        raise ValueError('Data appears to be mixed numeric and non-numeric.')
+    # elif any(is_num):
+    #     raise ValueError('Data appears to be mixed numeric and non-numeric.')
     else:
         # Find unique values
         unique_v = np.unique([v for l in values for v in np.unique(l)])

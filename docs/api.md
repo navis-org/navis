@@ -314,6 +314,7 @@ Functions to analyze morphology.
 | [`navis.persistence_vectors()`][navis.persistence_vectors] | {{ autosummary("navis.persistence_vectors") }} |
 | [`navis.strahler_index()`][navis.strahler_index] | {{ autosummary("navis.strahler_index") }} |
 | [`navis.segment_analysis()`][navis.segment_analysis] | {{ autosummary("navis.segment_analysis") }} |
+| [`navis.ivscc_features()`][navis.ivscc_features] | {{ autosummary("navis.ivscc_features") }} |
 | [`navis.sholl_analysis()`][navis.sholl_analysis] | {{ autosummary("navis.sholl_analysis") }} |
 | [`navis.tortuosity()`][navis.tortuosity] | {{ autosummary("navis.tortuosity") }} |
 | [`navis.betweeness_centrality()`][navis.betweeness_centrality] | {{ autosummary("navis.betweeness_centrality") }} |
