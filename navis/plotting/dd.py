@@ -84,11 +84,13 @@ def plot2d(
 
     Object parameters
     -----------------
-    soma :              bool, default=True
+    soma :              bool | dict, default=True
 
                         Plot soma if one exists. Size of the soma is determined
                         by the neuron's `.soma_radius` property which defaults
-                        to the "radius" column for `TreeNeurons`.
+                        to the "radius" column for `TreeNeurons`. You can also
+                        pass `soma` as a dictionary to customize the appearance
+                        of the soma - for example `soma={"color": "red", "lw": 2, "ec": 1}`.
 
     radius :            "auto" (default) | bool
 
@@ -561,8 +563,11 @@ def plot2d(
 
             if isinstance(neuron, core.TreeNeuron) and settings.radius:
                 # Warn once if more than 5% of nodes have missing radii
-                if not getattr(fig, '_radius_warned', False):
-                    if ((neuron.nodes.radius.fillna(0).values <= 0).sum() / neuron.n_nodes) > 0.05:
+                if not getattr(fig, "_radius_warned", False):
+                    if (
+                        (neuron.nodes.radius.fillna(0).values <= 0).sum()
+                        / neuron.n_nodes
+                    ) > 0.05:
                         logger.warning(
                             "Some skeleton nodes have radius <= 0. This may lead to "
                             "rendering artifacts. Set `radius=False` to plot skeletons "
@@ -1192,9 +1197,7 @@ def _plot_skeleton(neuron, color, ax, settings):
                     d = [n.x, n.y, n.z][_get_depth_axis(settings.view)]
                     soma_color = DEPTH_CMAP(settings.norm(d))
 
-                sx, sy = _parse_view2d(np.array([[n.x, n.y, n.z]]), settings.view)
-                c = mpatches.Circle(
-                    (sx[0], sy[0]),
+                soma_defaults = dict(
                     radius=r,
                     fill=True,
                     fc=soma_color,
@@ -1202,6 +1205,11 @@ def _plot_skeleton(neuron, color, ax, settings):
                     zorder=4,
                     edgecolor="none",
                 )
+                if isinstance(settings.soma, dict):
+                    soma_defaults.update(settings.soma)
+
+                sx, sy = _parse_view2d(np.array([[n.x, n.y, n.z]]), settings.view)
+                c = mpatches.Circle((sx[0], sy[0]), **soma_defaults)
                 ax.add_patch(c)
         return None, None
 
@@ -1292,14 +1300,17 @@ def _plot_skeleton(neuron, color, ax, settings):
                     x = r * np.outer(np.cos(u), np.sin(v)) + n.x
                     y = r * np.outer(np.sin(u), np.sin(v)) + n.y
                     z = r * np.outer(np.ones(np.size(u)), np.cos(v)) + n.z
-                    surf = ax.plot_surface(
-                        x,
-                        y,
-                        z,
+
+                    soma_defaults = dict(
                         color=soma_color,
                         shade=settings.mesh_shade,
                         rasterized=settings.rasterize,
                     )
+                    if isinstance(settings.soma, dict):
+                        soma_defaults.update(settings.soma)
+
+                    surf = ax.plot_surface(x, y, z, **soma_defaults)
+
                     if settings.group_neurons:
                         surf.set_gid(neuron.id)
 
