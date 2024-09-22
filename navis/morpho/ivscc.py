@@ -249,7 +249,8 @@ class BasalDendriteFeatures(CompartmentFeatures):
             # Number of stems sprouting from the soma
             # (i.e. number of nodes with a parent that is the soma)
             self.record_feature(
-                "calculate_number_of_stems", (self.neuron.nodes.parent_id == self.soma).sum()
+                "calculate_number_of_stems",
+                (self.neuron.nodes.parent_id == self.soma).sum(),
             )
 
         return self.features
@@ -319,11 +320,15 @@ class OverlapFeatures(Features):
 
 
 def ivscc_features(
-    x: "core.TreeNeuron", features=None, missing_compartments="ignore", verbose=False
+    x: "core.TreeNeuron",
+    features=None,
+    missing_compartments="ignore",
+    verbose=False,
+    progress=True,
 ) -> Union[float, pd.DataFrame]:
     """Calculate IVSCC features for neuron(s).
 
-    Please see the `IVSCC` tutorial for more details.
+    Please see the `IVSCC` tutorial for details.
 
     Parameters
     ----------
@@ -354,7 +359,9 @@ def ivscc_features(
         features = DEFAULT_FEATURES
 
     data = {}
-    for n in x:
+    for n in config.tqdm(
+        x, desc="Calculating IVSCC features", disable=not progress or config.pbar_hide
+    ):
         data[n.id] = {}
         for feat in features:
             try:
@@ -363,6 +370,8 @@ def ivscc_features(
                 if missing_compartments == "ignore":
                     continue
                 elif missing_compartments == "skip":
+                    if verbose:
+                        print(f"Skipping neuron {n.id}: {e}")
                     data.pop(n.id)
                     break
                 else:
@@ -398,4 +407,9 @@ def _check_compartments(n, compartments):
     raise ValueError(f"Invalid `compartments`: {compartments}")
 
 
-DEFAULT_FEATURES = [AxonFeatures, BasalDendriteFeatures, ApicalDendriteFeatures, OverlapFeatures]
+DEFAULT_FEATURES = [
+    AxonFeatures,
+    BasalDendriteFeatures,
+    ApicalDendriteFeatures,
+    OverlapFeatures,
+]
