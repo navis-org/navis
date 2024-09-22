@@ -370,8 +370,9 @@ def plot2d(
     # Parse objects
     (neurons, volumes, points, _) = utils.parse_objects(x)
 
-    # Color_by can be a per-node/vertex color, or a per-neuron color
-    # such as property of the neuron
+    # Here we check whether `color_by` is a neuron property which we
+    # want to translate into a single color per neuron, or a
+    # per node/vertex property which we will parse late
     color_neurons_by = None
     if settings.color_by is not None and neurons:
         if not settings.palette:
@@ -380,9 +381,18 @@ def plot2d(
                 "when using `color_by` argument."
             )
 
-        # Check if this is a neuron property
+        # Check if this may be a neuron property
         if isinstance(settings.color_by, str):
-            if hasattr(neurons[0], settings.color_by):
+            # Check if this could be a neuron property
+            has_prop = hasattr(neurons[0], settings.color_by)
+
+            # For TreeNeurons, we also check if it is a node property
+            # If so, prioritize this.
+            if isinstance(neurons[0], core.TreeNeuron):
+                if settings.color_by in neurons[0].nodes.columns:
+                    has_prop = False
+
+            if has_prop:
                 # If it is, use it to color neurons
                 color_neurons_by = [
                     getattr(neuron, settings.color_by) for neuron in neurons
@@ -393,7 +403,7 @@ def plot2d(
                 color_neurons_by = settings.color_by
                 settings.color_by = None
 
-    # Generate the colormaps
+    # Generate the per-neuron colors
     (neuron_cmap, volumes_cmap) = prepare_colormap(
         settings.color,
         neurons=neurons,
