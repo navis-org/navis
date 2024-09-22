@@ -359,6 +359,29 @@ class MeshNeuron(BaseNeuron):
         raise AttributeError("MeshNeurons have a soma position (`.soma_pos`), not a soma.")
 
     @property
+    def soma_pos(self):
+        """X/Y/Z position of the soma.
+
+        Returns `None` if no soma.
+        """
+        return getattr(self, '_soma_pos', None)
+
+    @soma_pos.setter
+    def soma_pos(self, value):
+        """Set soma by position."""
+        if value is None:
+            self.soma = None
+            return
+
+        try:
+            value = np.asarray(value).astype(np.float64).reshape(3)
+        except BaseException:
+            raise ValueError(f'Unable to convert soma position "{value}" '
+                             f'to numeric (3, ) numpy array.')
+
+        self._soma_pos = value
+
+    @property
     def type(self) -> str:
         """Neuron type."""
         return 'navis.MeshNeuron'
