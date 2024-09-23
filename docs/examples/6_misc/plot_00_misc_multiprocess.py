@@ -4,12 +4,12 @@ Multiprocessing
 
 This notebook will show you how to use parallel processing with `navis`.
 
-By default, most {{ navis }} functions use only a single core (although some third-party functions used under
-the hood might). Distributing expensive computations across multiple cores can speed things up considerable.
+By default, most {{ navis }} functions use only a single thread/process (although some third-party functions
+used under the hood might). Distributing expensive computations across multiple cores can speed things up considerable.
 
 Many {{ navis }} functions natively support parallel processing. This notebook will illustrate various ways
 to use parallelism. Before we get start: {{ navis }} uses `pathos` for multiprocessing - if you installed
-{{ navis }} with `pip install navis[all]` you should be all set. If not, you can install it separately:
+{{ navis }} with `pip install navis[all]` you should be all set. If not, you can install `pathos` separately:
 
 ```shell
 pip install pathos -U
@@ -25,12 +25,19 @@ import time
 import navis
 
 def time_func(func, *args, **kwargs):
+    """A function to time the execution of a function."""
     start = time.time()
     func(*args, **kwargs)
     print(f"Execution time: {round(time.time() - start, 2)}s")
 
 # Load example neurons
 nl = navis.example_neurons()
+
+# %%
+# !!! important
+#     This documentation is built on Github Actions where the number of cores can be as low as 2. The speedup on
+#     your machine should be more pronounced than what you see below. That said: parallel processing has some
+#     overhead and for small tasks the overhead can be larger than the speed-up.
 
 # %%
 # Without parallel processing:
@@ -41,7 +48,7 @@ time_func (
 )
 
 # %%
-# With parallel processing (by default this will use half the available CPU cores):
+# With parallel processing:
 time_func (
     navis.resample_skeleton,
     nl,
@@ -66,10 +73,19 @@ time_func (
 )
 
 # %%
-# !!! important
-#     This documentation is built on Github Actions where the number of cores can be as low as 2. The speedup on
-#     your machine should be more pronounced than what you see here. That said: parallel processing has some
-#     overhead and for small tasks, the overhead can be larger than the speedup.
+# By default `parallel=True` will use half the available CPU cores.
+# You can adjust that behaviour using the `n_cores` parameter:
+
+time_func (
+    nl.resample, 125, parallel=True, n_cores=2
+)
+
+# %%
+# !!! note
+#     The name `n_cores` is actually a bit misleading as it determines the number of parallel processes
+#     that {{ navis }} will spawn. There is nothing stopping you from setting `n_cores` to a number higher than
+#     the number of available CPU cores. However, doing so will likely over-subscribe your CPU and end up
+#     slowing things down.
 
 # %%
 # ## Parallelizing generic functions

@@ -245,7 +245,7 @@ axes[1].set_ylabel("spikes [Hz]")
 #
 # ## Point Networks
 #
-# While you can link together multiple compartment models to simulate networks this quickly becomes prohibitively slow so
+# While you can link together multiple compartment models to simulate networks this quickly becomes prohibitively slow to
 # run. For larger networks it can be sufficient to model each neuron as a single "point process".
 # [`PointNetwork`][navis.interfaces.neuron.PointNetwork] lets you quickly create such a network from an edge list.
 #
