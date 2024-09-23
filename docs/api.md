@@ -20,7 +20,7 @@ This API reference is a more or less complete account of the primary functions:
 
 1. [Neuron- and NeuronList functions and methods](#neurons-neuronlists)
 2. [Functions for visualization](#visualization)
-3. [Manipulate or analyze neuron morphology](#morphometrics)
+3. [Manipulate or analyze neuron morphology](#neuron-morphology)
 4. [Transforming and mirroring data](#transforming-and-mirroring)
 5. [Analyze connectivity](#connectivity)
 6. [Import/Export](#importexport)
@@ -233,8 +233,8 @@ Properties:
 |----------|-------------|
 | [`NeuronList.bbox`][navis.NeuronList.bbox] | {{ autosummary("navis.NeuronList.bbox") }} |
 | [`NeuronList.empty`][navis.NeuronList.empty] | {{ autosummary("navis.NeuronList.empty") }} |
-| [`NeuronList.id`] | An array with the IDs of the neurons contained in the list. |
-| [`NeuronList.idx`] | An indexer similar to pandas' `iloc` that accepts neuron IDs. |
+| [`NeuronList.id`][navis.NeuronList.id] | An array with the IDs of the neurons contained in the list. |
+| [`NeuronList.idx`][navis.NeuronList.idx] | An indexer similar to pandas' `iloc` that accepts neuron IDs. |
 | [`NeuronList.is_degenerated`][navis.NeuronList.is_degenerated] | {{ autosummary("navis.NeuronList.is_degenerated") }} |
 | [`NeuronList.is_mixed`][navis.NeuronList.is_mixed] | {{ autosummary("navis.NeuronList.is_mixed") }} |
 | [`NeuronList.shape`][navis.NeuronList.shape] | {{ autosummary("navis.NeuronList.shape") }} |
@@ -370,7 +370,6 @@ NBLAST and related functions:
 | [`navis.nblast_smart`][navis.nblast_smart] | {{ autosummary("navis.nblast_smart") }} |
 | [`navis.nblast_allbyall`][navis.nblast_allbyall] | {{ autosummary("navis.nblast_allbyall") }} |
 | [`navis.nblast_align`][navis.nblast_align] | {{ autosummary("navis.nblast_align") }} |
-| [`navis.vxnblast`][navis.vxnblast] | {{ autosummary("navis.vxnblast") }} |
 | [`navis.synblast`][navis.synblast] | {{ autosummary("navis.synblast") }} |
 | [`navis.persistence_distances`][navis.persistence_distances] | {{ autosummary("navis.persistence_distances") }} |
 
@@ -474,6 +473,12 @@ So to register and use a new transform you would look something like this:
 ...                                              source='brainA',
 ...                                              target='brainB')
 >>> xf = navis.xform_brain(data, 'brainA', 'brainB')
+```
+
+You can check which transforms are registered like so:
+
+``` python
+>>> navis.transforms.registry.summary()  # this outputs a dataframe
 ```
 
 These are the methods and properties of ``registry``:
@@ -758,7 +763,7 @@ from navis.interfaces import insectbrain_db
 Functions to be run inside [Blender 3D](https://www.blender.org/) and import
 CATMAID data (see Examples). Please note that this requires Blender >2.8 as
 earlier versions are shipped with older Python versions not supported by {{ navis }}.
-See the [tutorials](../generated/gallery/3_interfaces/plot_01_interfaces_blender/) for an introduction of how to use {{ navis }} in
+See the [tutorials](../generated/gallery/3_interfaces/plot_02_interfaces_blender/) for an introduction of how to use {{ navis }} in
 Blender.
 
 _Not imported at top level! Must be imported explicitly:_

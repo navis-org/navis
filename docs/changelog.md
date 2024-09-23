@@ -62,8 +62,8 @@ more consistent and easier to use.
     - the `scalebar` and `soma` parameters can now also be dictionaries to style (color, width, etc) the scalebar/soma
   - the `connectors` parameter can now be used to show specific connector types (e.g. `connectors="pre"`)
 - I/O:
-  - `read_*` functions are now able to read from FTP servers (`ftp://...`)
-  - the `limit` parameter used in many `read_*` functions can now also be a regex pattern or a `slice`
+    - `read_*` functions are now able to read from FTP servers (`ftp://...`)
+    - the `limit` parameter used in many `read_*` functions can now also be a regex pattern or a `slice`
 - New parameter in [`navis.resample_skeleton`][]: use `map_column` to include arbitrary columns in the resampling
 - [`navis.prune_twigs`][] and [`navis.cable_length`][] now accept a `mask` parameter
 - General improvements to docs and tutorials

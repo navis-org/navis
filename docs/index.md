@@ -48,7 +48,7 @@ morphology. It stands on the shoulders of the excellent
 
     ---
 
-    Generate beautiful publication-ready 2D (matplotlib) and 3D (octarine,
+    Generate beautiful, publication-ready 2D (matplotlib) and 3D (octarine,
     vispy or plotly) [figures](generated/gallery/#plotting).
 
 -   :material-progress-wrench:{ .lg .middle } __Processing__
@@ -61,7 +61,7 @@ morphology. It stands on the shoulders of the excellent
 
     ---
 
-    Uses compiled Rust code under-the-hood. Also scale thanks to
+    Uses compiled Rust code under-the-hood and
     out-of-the-box support for [multiprocessing](generated/gallery/6_misc/plot_00_misc_multiprocess).
 
 -   :material-lightbulb-group:{ .lg .middle } __Clustering__
@@ -75,7 +75,7 @@ morphology. It stands on the shoulders of the excellent
     ---
 
     Fully featured [transform system](generated/gallery/5_transforms/plot_00_transforms) to move neurons between brain spaces.
-    We support e.g. CMTK or Elastix.
+    We support CMTK, Elastix, landmark-based transforms and more!
 
 -   :octicons-file-directory-symlink-24:{ .lg .middle } __Import/Export__
 
