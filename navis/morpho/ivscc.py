@@ -333,7 +333,7 @@ def ivscc_features(
     Parameters
     ----------
     x :                     TreeNeuron | NeuronList
-                            Neuron(s) to calculate IVCSS for.
+                            Neuron(s) to calculate IVSCC for.
     features :              Sequence[Features], optional
                             Provide specific features to calculate.
                             Must be subclasses of `BasicFeatures`.
@@ -347,8 +347,8 @@ def ivscc_features(
 
     Returns
     -------
-    ivcss :     pd.DataFrame
-                IVCSS features for the neuron(s).
+    ivscc :                 pd.DataFrame
+                            IVSCC features for the neuron(s).
 
     """
 

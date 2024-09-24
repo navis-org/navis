@@ -28,7 +28,7 @@ morphology. It stands on the shoulders of the excellent
 
     ---
 
-    Support for all kinds of [neuron types](generated/gallery/plot_01_neurons_intro): skeletons, meshes, dotprops and images.
+    Support for all kinds of [neuron types](generated/gallery/tutorial_basic_01_neurons): skeletons, meshes, dotprops and images.
 
 -   :material-eye:{ .lg .middle } __Exploration__
 
@@ -42,7 +42,7 @@ morphology. It stands on the shoulders of the excellent
     ---
 
     Calculate Strahler indices, cable length, volume, tortuosity, NBLAST
-    and many other [morphometrics](generated/gallery/2_morpho/plot_01_morpho_analyze).
+    and many other [morphometrics](generated/gallery/2_morpho/tutorial_morpho_01_analyze).
 
 -   :fontawesome-solid-brush:{ .lg .middle } __Visualization__
 
@@ -62,19 +62,19 @@ morphology. It stands on the shoulders of the excellent
     ---
 
     Uses compiled Rust code under-the-hood and
-    out-of-the-box support for [multiprocessing](generated/gallery/6_misc/plot_00_misc_multiprocess).
+    out-of-the-box support for [multiprocessing](generated/gallery/6_misc/tutorial_misc_00_multiprocess).
 
 -   :material-lightbulb-group:{ .lg .middle } __Clustering__
 
     ---
 
-    Cluster your neurons by e.g. morphology using [NBLAST](generated/gallery/5_nblast/plot_00_nblast_intro).
+    Cluster your neurons by e.g. morphology using [NBLAST](generated/gallery/5_nblast/tutorial_nblast_00_intro).
 
 -   :material-move-resize:{ .lg .middle } __Transforms__
 
     ---
 
-    Fully featured [transform system](generated/gallery/5_transforms/plot_00_transforms) to move neurons between brain spaces.
+    Fully featured [transform system](generated/gallery/6_misc/tutorial_misc_01_transforms) to move neurons between brain spaces.
     We support CMTK, Elastix, landmark-based transforms and more!
 
 -   :octicons-file-directory-symlink-24:{ .lg .middle } __Import/Export__
@@ -89,16 +89,16 @@ morphology. It stands on the shoulders of the excellent
     ---
 
     Load neurons straight from Allen's
-    [MICrONS](generated/gallery/4_remote/plot_02_remote_microns) datasets,
-    [neuromorpho](http://neuromorpho.org), [neuPrint](generated/gallery/4_remote/plot_00_remote_neuprint)
+    [MICrONS](generated/gallery/4_remote/tutorial_remote_02_microns) datasets,
+    [neuromorpho](http://neuromorpho.org), [neuPrint](generated/gallery/4_remote/tutorial_remote_00_neuprint)
     or any NeuroGlancer source.
 
 -   :material-connection:{ .lg .middle } __Interfaces__
 
     ---
 
-    Load neurons into [Blender 3D](generated/gallery/3_interfaces/plot_01_interfaces_blender), simulate neurons and networks using
-    [NEURON](generated/gallery/3_interfaces/plot_00_interfaces_neuron), or use the R natverse library via `rpy2`.
+    Load neurons into [Blender 3D](generated/gallery/3_interfaces/tutorial_interfaces_02_blender), simulate neurons and networks using
+    [NEURON](generated/gallery/3_interfaces/tutorial_interfaces_00_neuron), or use the R natverse library via `rpy2`.
 
 -   :material-google-circles-extended:{ .lg .middle } __Extensible__
 

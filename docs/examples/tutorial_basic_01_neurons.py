@@ -535,7 +535,7 @@ navis.plot3d([vx, mm], fig_autosize=True)
 #
 #     Check out the guide on lists of neurons.
 #
-#     [:octicons-arrow-right-24: NeuronLists tutorial](../plot_02_neuronlists_intro)
+#     [:octicons-arrow-right-24: NeuronLists tutorial](../tutorial_basic_02_neuronlists)
 #
 # -   :octicons-file-directory-symlink-16:{ .lg .middle } __Neuron I/O__
 #

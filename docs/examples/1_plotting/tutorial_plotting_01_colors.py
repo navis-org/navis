@@ -5,7 +5,7 @@ Coloring
 This tutorial demonstrates how to adjust colors in NAVis plots.
 
 By now, you should already have a basic understanding on how to plot neurons in {{ navis }} (2d vs 3d plots, the various
-backends and plotting methods, etc.) - if not, check out the [plotting tutorial](../plot_00_plotting_intro).
+backends and plotting methods, etc.) - if not, check out the [plotting tutorial](../tutorial_plotting_00_intro).
 
 In this tutorial we will focus on how to finetune these plots by changing colors :rainbow:. We will demonstrate
 this using `matplotlib` ([`plot2d`][navis.plot2d]) and `plotly` ([`plot3d`][navis.plot3d]) but everything shown here

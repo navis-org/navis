@@ -176,7 +176,7 @@ s
 # %%
 # There are a few other ways to construct a [`navis.TreeNeuron`][] (e.g. using a graph) - see the docstring for details.
 #
-# Also note that all {{ navis }} neurons can be stored to disk using `pickle` - see the [pickling tutorial](../plot_04_io_pickle).
+# Also note that all {{ navis }} neurons can be stored to disk using `pickle` - see the [pickling tutorial](../tutorial_io_04_pickle).
 #
 # Hopefully the above has given you some entry points on how to load your data. See also the [I/O API reference](../../../api.md#importexport).
 #

@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from contextlib import contextmanager
 
-SKIP = ["zzz_no_plot_01_nblast_flycircuit.py", "zzz_no_plot_02_nblast_hemibrain.py"]
+SKIP = ["zzz_tutorial_nblast_01_flycircuit.py", "zzz_tutorial_nblast_02_hemibrain.py"]
 
 
 @contextmanager

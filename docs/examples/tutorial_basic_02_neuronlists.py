@@ -5,7 +5,7 @@ Lists of Neurons
 This tutorial will show you how to use NeuronLists to efficiently work with many neurons at a time.
 
 !!! note
-    If you haven't please check out the [neuron types tutorial](../plot_01_neurons_intro) first.
+    If you haven't please check out the [neuron types tutorial](../tutorial_basic_01_neurons) first.
 
 {{ navis }} will typically collect multiple neurons into a [`navis.NeuronList`][] as container.
 This container behaves like a mix of lists, numpy arrays and pandas dataframes, and allows you

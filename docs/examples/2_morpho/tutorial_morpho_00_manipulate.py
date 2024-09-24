@@ -351,5 +351,5 @@ cn.groupby(["type", "in_lh"]).size()
 # About half the presynapses are in the LH (most of the rest will be in the MB calyx). The large majority of postsynapses are
 # outside the LH in the antennal lobe where this neuron has its dendrites.
 #
-# That's it for now! Please see the [NBLAST tutorial](../../05_nblast/plot_00_nblast_intro.py) for morphological comparisons using NBLAST and the
+# That's it for now! Please see the [NBLAST tutorial](../../05_nblast/tutorial_nblast_00_intro.py) for morphological comparisons using NBLAST and the
 # [API reference](../../../api.md#neuron-morphology) for a full list of morphology-related functions.

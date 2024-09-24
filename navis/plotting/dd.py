@@ -344,7 +344,7 @@ def plot2d(
     >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True, view=('x', '-z'))
     >>> plt.show() # doctest: +SKIP
 
-    See the [plotting intro](../../../generated/gallery/1_plotting/plot_00_plotting_intro)
+    See the [plotting intro](../../generated/gallery/1_plotting/tutorial_plotting_00_intro)
     for more examples.
 
     See Also

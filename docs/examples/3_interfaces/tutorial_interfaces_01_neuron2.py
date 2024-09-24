@@ -4,7 +4,7 @@ Visualize NEURON model
 
 In this tutorial you will learn to visualize a compartment neuron model.
 
-We will jump right in, so please make sure to have a look at the [introductory NEURON tutorial](../plot_00_interfaces_neuron)
+We will jump right in, so please make sure to have a look at the [introductory NEURON tutorial](../tutorial_interfaces_00_neuron)
 first.
 
 ## Setup the model

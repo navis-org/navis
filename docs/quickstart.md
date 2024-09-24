@@ -34,7 +34,7 @@ print(n)  # markdown-exec: hide
     [I/O Tutorials](../generated/gallery#import-export) to learn more!
 
 {{ navis }} represents neurons as [`navis.TreeNeuron`][], [`navis.MeshNeuron`][], [`navis.VoxelNeuron`][] or
-[`navis.Dotprops`][] - see the tutorial on [Neuron Types](../generated/gallery/plot_01_neurons_intro/)
+[`navis.Dotprops`][] - see the tutorial on [Neuron Types](../generated/gallery/tutorial_basic_01_neurons/)
 for details.
 
 In above code we asked for a skeleton, so the neuron returned is a [`TreeNeuron`][navis.TreeNeuron].
@@ -113,7 +113,7 @@ print(buffer.getvalue()) # markdown-exec: hide
 plt.close() # markdown-exec: hide
 ```
 
-See the [Lists of Neurons](../generated/gallery/plot_02_neuronlists_intro/)
+See the [Lists of Neurons](../generated/gallery/tutorial_basic_02_neuronlists/)
 tutorial for more information.
 
 ## Methods vs Functions
@@ -189,14 +189,14 @@ Note that most functions have helpful `Examples`!
 
     Find out more about the different neuron types in {{ navis }}.
 
-    [:octicons-arrow-right-24: Neuron types tutorial](../generated/gallery/plot_01_neurons_intro)
+    [:octicons-arrow-right-24: Neuron types tutorial](../generated/gallery/tutorial_basic_01_neurons)
 
 -   :material-cube:{ .lg .middle } __Lists of Neurons__
     ---
 
     Check out the guide on lists of neurons.
 
-    [:octicons-arrow-right-24: NeuronLists tutorial](../generated/gallery/plot_02_neuronlists_intro)
+    [:octicons-arrow-right-24: NeuronLists tutorial](../generated/gallery/tutorial_basic_02_neuronlists)
 
 -   :octicons-file-directory-symlink-16:{ .lg .middle } __Neuron I/O__
 

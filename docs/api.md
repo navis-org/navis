@@ -240,7 +240,7 @@ Properties:
 | [`NeuronList.shape`][navis.NeuronList.shape] | {{ autosummary("navis.NeuronList.shape") }} |
 | [`NeuronList.types`][navis.NeuronList.types]| {{ autosummary("navis.NeuronList.types") }} |
 
-Please see the [tutorial on ``NeuronList``](../generated/gallery/plot_02_neuronlists_intro/) for more
+Please see the [tutorial on ``NeuronList``](../generated/gallery/tutorial_basic_02_neuronlists_intro/) for more
 information, including how to index them.
 
 ## Visualization
@@ -428,7 +428,7 @@ like to know which part of a neuron is inside a certain brain region.
 ## Transforming and Mirroring
 
 Functions to transform spatial data, e.g. move neurons from one brain space to
-another. Check out the [tutorials](../generated/gallery/6_misc/plot_01_transforms/) for examples on how to
+another. Check out the [tutorials](../generated/gallery/6_misc/tutorial_misc_01_transforms/) for examples on how to
 use them.
 
 High-level functions:
@@ -606,7 +606,7 @@ imported explicitly as they are not imported at top level.
 ### NEURON simulator
 
 Functions to facilitate creating models of neurons/networks. Please see
-the [tutorials](../generated/gallery/3_interfaces/plot_00_interfaces_neuron/) for examples.
+the [tutorials](../generated/gallery/3_interfaces/tutorial_interfaces_00_neuron/) for examples.
 
 _Not imported at top level! Must be imported explicitly:_
 
@@ -734,12 +734,12 @@ These are the additional functions added by {{ navis }}:
 | [`neuprint.fetch_skeletons()`][navis.interfaces.neuprint.fetch_skeletons] | {{ autosummary("navis.interfaces.neuprint.fetch_skeletons") }} |
 | [`neuprint.fetch_mesh_neuron()`][navis.interfaces.neuprint.fetch_mesh_neuron] | {{ autosummary("navis.interfaces.neuprint.fetch_mesh_neuron") }} |
 
-Please also check out the [tutorials](../generated/gallery/4_remote/plot_00_remote_neuprint/) for examples of how to fetch and work with data from neuPrint.
+Please also check out the [tutorials](../generated/gallery/4_remote/tutorial_remote_00_neuprint/) for examples of how to fetch and work with data from neuPrint.
 
 ### InsectBrain DB API
 
 Set of functions to grab data from [InsectBrain](https://www.insectbraindb.org)
-which hosts some neurons and standard brains (see [tutorials](../generated/gallery/4_remote/plot_03_remote_insect_db/)).
+which hosts some neurons and standard brains (see [tutorials](../generated/gallery/4_remote/tutorial_remote_03_insect_db/)).
 
 _Not imported at top level! Must be imported explicitly:_
 
@@ -763,7 +763,7 @@ from navis.interfaces import insectbrain_db
 Functions to be run inside [Blender 3D](https://www.blender.org/) and import
 CATMAID data (see Examples). Please note that this requires Blender >2.8 as
 earlier versions are shipped with older Python versions not supported by {{ navis }}.
-See the [tutorials](../generated/gallery/3_interfaces/plot_02_interfaces_blender/) for an introduction of how to use {{ navis }} in
+See the [tutorials](../generated/gallery/3_interfaces/tutorial_interfaces_02_blender/) for an introduction of how to use {{ navis }} in
 Blender.
 
 _Not imported at top level! Must be imported explicitly:_
@@ -864,7 +864,7 @@ from navis.interfaces import microns
 | [`microns.fetch_neurons()`][navis.interfaces.microns.fetch_neurons] | {{ autosummary("navis.interfaces.microns.fetch_neurons") }} |
 | [`microns.get_somas()`][navis.interfaces.microns.get_somas] | {{ autosummary("navis.interfaces.microns.get_somas") }} |
 
-Please also see the [MICrONS tutorial](../generated/gallery/4_remote/plot_02_remote_microns/).
+Please also see the [MICrONS tutorial](../generated/gallery/4_remote/tutorial_remote_02_microns/).
 
 
 ### R interface

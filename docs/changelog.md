@@ -37,7 +37,7 @@ more consistent and easier to use.
 
 ##### Additions
 - Added [Octarine](https://github.com/schlegelp/octarine) as the default backend for plotting from terminal
-- New Function: [`navis.ivscc_features`][] computes some basic ICSCC features
+- New Function: [`navis.ivscc_features`][] computes some basic IVSCC features
 - New function: [`navis.graph.skeleton_adjacency_matrix`][] computes the node adjacency for skeletons
 - New function: [`navis.graph.simplify_graph`][] simplifies skeleton graphs to only root, branch and leaf nodes while preserving branch length (i.e. weights)
 - New [`NeuronList`][navis.NeuronList] method: [`get_neuron_attributes`][navis.NeuronList.get_neuron_attributes] is analagous to `dict.get`
