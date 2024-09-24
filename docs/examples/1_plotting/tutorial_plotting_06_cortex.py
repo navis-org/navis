@@ -26,8 +26,8 @@ soma_depths = [0.36101451, 0.62182935, 0.16423996, 0.48303029, 0.2956563]
 # %%
 # ## Part I: Loading and Aligning Neurons
 #
-# First we need to load the neurons. Here, we will take them straight from their FTP server but you can of course download them first
-# and load then from disk!
+# First we need to load the neurons. Here, we will take them straight from their FTP server
+# but you can of course download them first and then load from disk!
 
 import navis
 
@@ -190,7 +190,8 @@ def plot_neurons(to_plot, color="purple", axon_color="magenta", offset=500):
 fig, ax = plot_neurons(nl)
 
 # %% [markdown]
-# Next, let's calculate the distribution of cable lengths:
+# That looks close enough. The last bit is to add the little KDE plots for the depth-distribution of
+# cable length:
 #
 # We're going to be cheap here and simply generate a histogram over the node positions.
 # To make this representative, we should make sure that the number of nodes per unit of cable
@@ -216,12 +217,12 @@ nodes = resampled.nodes
 nodes.head()
 
 # %%
-# Now we can plot the distribution of cable lengths for the neurons of the type we're interested in:
+# Now we can plot the distribution of cable lengths for our neurons:
 
 import seaborn as sns
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# Plot the neurons using the function we defined earlier
+# Plot the neurons again, re-using the function we defined above
 fig, ax = plot_neurons(nl)
 
 # Add a new axis to the right of the main plot
