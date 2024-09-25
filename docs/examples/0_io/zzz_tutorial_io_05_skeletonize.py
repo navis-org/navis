@@ -35,9 +35,9 @@ Please make sure you have the following packages installed:
 
 ## The Data
 
-The pipeline we're showing here was written for pre-segmented data, i.e. there is little in the way
+The pipeline we're using here was written for pre-segmented data, i.e. there is little in the way
 of dealing with noisy data. There is of course nothing stopping you from doing some additional
-pre-processing to clean up you data.
+pre-processing to clean up you data _before_ running this pipeline.
 
 ### Download Image Stack
 
@@ -98,7 +98,7 @@ mask = (im >= 20).astype(np.uint8)
 # plt.imshow(mask.max(axis=2))
 # ```
 #
-# With the `octarine` backend, you can also visualize the volume in 3d:
+# With the `octarine` backend, you can also visualize the volume in 3D:
 # ```python
 # # spacing can be found in the `header` dictionary
 # import octarine as oc
@@ -110,7 +110,7 @@ mask = (im >= 20).astype(np.uint8)
 #
 # A couple notes on the thresholding:
 #
-# - feel free to test the right threshold in e.g. ImageJ/Fiji
+# - feel free to test the thresholding in e.g. ImageJ/Fiji
 # - remove as much background as possible without disconnecting neurites
 # - perfection is the enemy of progress: we can denoise/reconnect during postprocessing
 #
@@ -187,7 +187,7 @@ skels = kimimaro.skeletonize(
 nl = navis.NeuronList([navis.read_swc(s.to_swc(), id=i) for i, s in skels.items()])
 
 # %%
-# Based on the voxel sizes in the `stats`, we can make an educated guess that label `6423` is one of our neurons.
+# Based on the voxel sizes in `stats`, we can make an educated guess that label `6423` is one of our neurons.
 # Let's visualize it in 3D:
 #
 # ```python
@@ -199,12 +199,8 @@ nl = navis.NeuronList([navis.read_swc(s.to_swc(), id=i) for i, s in skels.items(
 #
 # ![stack animation](../../../_static/lm_tut/stack.gif)
 #
-# !!! important
-#     The above image is supposed to be a GIF animation toggling the neuron on and off.
-#     If you see just a static image, try reload the page.
-#
-# This looks pretty good off the bat! Now obviously we will have the other larger neuron (label `6091`)
-# plus bunch of smaller skeletons in our NeuronList:
+# This looks pretty good off the bat! Now obviously we will have the other large neuron (label `6091`)
+# plus bunch of smaller skeletons in our NeuronList. Let's have a look at those as well:
 #
 # ![all skeletons](../../../_static/lm_tut/all_skeletons.png)
 #
@@ -223,7 +219,7 @@ nl = navis.NeuronList([navis.read_swc(s.to_swc(), id=i) for i, s in skels.items(
 #
 # ## Alternatives
 #
-# If the method described in this tutorial does not work for you, there are a number of alternatives:
+# If the pipeline described in this tutorial does not work for you, there are a number of alternatives:
 #
 # 1. [Simple Neurite Tracer](https://imagej.net/plugins/snt/index) is a popular ImageJ plugin for semi-automated tracing
 # 2. Folks at the Allen Institute for Brain Science have published a [protocol for reconstructing neurons](https://portal.brain-map.org/explore/toolkit/morpho-reconstruction/vaa3d-mozak)
