@@ -657,8 +657,12 @@ class BaseNeuron(UnitObject):
         # Do not remove the list -> otherwise we might change the original!
         props = list(self.SUMMARY_PROPS)
 
+        # Make sure ID is always in second place
+        if "id" in props and props.index("id") != 2:
+            props.remove("id")
+            props.insert(2, "id")
         # Add .id to summary if not a generic UUID
-        if not isinstance(self.id, uuid.UUID):
+        elif not isinstance(self.id, uuid.UUID) and "id" not in props:
             props.insert(2, "id")
 
         if add_props:
