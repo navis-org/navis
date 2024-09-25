@@ -63,7 +63,7 @@ print(f"Normalized soma depth: {n.cell_soma_normalized_depth}")
 # %%
 # The physical soma depth is simply the normalized depth multiplied by the total depth of the cortex.
 # Note that we're positioning from the bottom - i.e. 922.586 will be at the surface and 0 at the bottom!
-# This is to make our lifes easier when it comes to plotting: the origin in `matplotlib`
+# This is to make our lifes easier when it comes to plotting since the origin in `matplotlib`
 # figures is in the bottom left corner.
 
 phys_y = (1 - n.cell_soma_normalized_depth) * 922.5861720311
@@ -191,7 +191,7 @@ fig, ax = plot_neurons(nl)
 
 # %% [markdown]
 # That looks close enough. The last bit is to add the little KDE plots for the depth-distribution of
-# cable length:
+# cable length!
 #
 # We're going to be cheap here and simply generate a histogram over the node positions.
 # To make this representative, we should make sure that the number of nodes per unit of cable
@@ -232,11 +232,11 @@ ax_hist = divider.append_axes("right", size=0.75, pad=0.05)
 # Add histograms
 # For axon:
 sns.kdeplot(
-    data=nodes[nodes.label == 2], y="y", ax=ax_hist, color="purple", linewidth=1.5
+    data=nodes[nodes.label == 2], y="y", ax=ax_hist, color="magenta", linewidth=1.5
 )
 # For the rest:
 sns.kdeplot(
-    data=nodes[nodes.label != 2], y="y", ax=ax_hist, color="magenta", linewidth=1.5
+    data=nodes[nodes.label != 2], y="y", ax=ax_hist, color="purple", linewidth=1.5
 )
 
 # Add soma positions

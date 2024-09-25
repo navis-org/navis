@@ -182,5 +182,8 @@ s
 #
 # Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`MeshNeurons`][navis.MeshNeuron]
 # (see also the API reference on [neuron conversion](../../../api.md#converting-between-types)).
+#
+# If you have light-level microscopy data, you might also be interested in the
+# [tutorial on skeletons from light-level data](../zzz_tutorial_io_05_skeletonize).
 
 
