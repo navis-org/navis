@@ -63,7 +63,7 @@ a format we can work with in Python:
 5. Go to "Image" -> "Type" -> "8-bit" to convert the image to 8-bit (optional but recommended)
 6. Save via "File" -> "Save As" -> "NRRD" and save the file as `neuron.nrrd`
 
-![Z stack](../../../_static/lm_tut/image_stack.png)
+![Z stack](../../../_static/lm_tut/C1.gif)
 
 ## Extracting the Skeleton
 
@@ -85,6 +85,7 @@ im, header = nrrd.read(
     "neuron.nrrd"
 )
 
+# %%
 # Next, we need to find some sensible threshold to binarize the image. This is not strictly
 # necessary (see the further note down) but at least for starters this more intuitive.
 
@@ -137,27 +138,38 @@ labels, N = cc3d.connected_components(mask, return_N=True)
 # Collect some statistics
 stats = cc3d.statistics(labels)
 
-print("Labeled", N, "connected components")
-print("Per-label voxel counts:", stats["voxel_counts"])
+print("Total no. of labeled componenents:", N)
+print("Per-label voxel counts:", np.sort(stats["voxel_counts"])[::-1])
+print("Label IDs:", np.argsort(stats["voxel_counts"])[::-1])
 
 # %%
-# Note how the first label has suspiciously many voxels? That's because this is the background label.
+# ```
+# Total no. of labeled componenents: 37836
+# Per-label voxel counts: [491996140    527374    207632 ...         1         1         1]
+# Label IDs: [    0  6423  6091 ... 22350 22351 18918]
+# ```
+#
+# Note how label `0` has suspiciously many voxels? That's because this is the background label.
 # We need to make sure to exlude it from the skeletonization process:
 to_skeletonize = np.arange(1, N)
 
 
 # %%
-# Now we can run the actual skeletonization. There are a number of parameters that are worth tweaking:
+# Now we can run the actual skeletonization!
 #
-# - `scale` & `const` control how detailed your skeleton will be: lower = more detailed but more noise
-# - `anisotropy` controls the voxel size - see the `header` dictionary for the voxel size of our image
-# - `dust_threshold` controls how small connected components are skipped
-# - `object_ids` is a list of labels to process (remember that we skipped the background label)
-# - `max_path` if this is set, the algorithm will only process N paths in each skeleton - you can use
-#    this to finish early (e.g. for testing)
+# !!! note "Skeletonization paramters"
+#     There are a number of parameters that are worth explaining
+#     first because you might want to tweak them for your data:
 #
-# See the [`kimimaro` repository](https://github.com/seung-lab/kimimaro) for a detailed explanation
-# of the parameters!
+#     - `scale` & `const`: control how detailed your skeleton will be: lower = more detailed but more noise
+#     - `anisotropy`: controls the voxel size - see the `header` dictionary for the voxel size of our image
+#     - `dust_threshold`: controls how small connected components are skipped
+#     - `object_ids`:  a list of labels to process (remember that we skipped the background label)
+#     - `max_path`: if this is set, the algorithm will only process N paths in each skeleton - you can use
+#       this to finish early (e.g. for testing)
+#
+#     See the [`kimimaro` repository](https://github.com/seung-lab/kimimaro) for a detailed explanation
+#     of the parameters!
 
 skels = kimimaro.skeletonize(
     labels,
@@ -206,7 +218,7 @@ nl = navis.NeuronList([navis.read_swc(s.to_swc(), id=i) for i, s in skels.items(
 #
 # Zooming in on `6091` you will see that it wasn't fully skeletonized: some of the branches are missing
 # and others are disconnected. That's either because our threshold for the mask was too high (this neuron
-# was fainter than the other) and/or we dropped too many fragments during the skeletonization process
+# had a weaker signal than the other) and/or we dropped too many fragments during the skeletonization process
 # (see the `dust_threshold` parameter).
 #
 # ![zoom in](../../../_static/lm_tut/zoom_in.png)
