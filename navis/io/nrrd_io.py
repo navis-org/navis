@@ -143,20 +143,18 @@ def _write_nrrd(x: Union['core.VoxelNeuron', 'core.Dotprops'],
     nrrd.write(str(filepath),
                data=data,
                header=header,
-               compression_level=compression_level)
 
 
-def read_nrrd(f: Union[str, Iterable],
-              threshold: Optional[Union[int, float]] = None,
-              include_subdirs: bool = False,
-              parallel: Union[bool, int] = 'auto',
-              output: Union[Literal['voxels'],
-                            Literal['dotprops'],
-                            Literal['raw']] = 'voxels',
-              errors: Union[Literal['raise'],
-                            Literal['log'],
-                            Literal['ignore']] = 'log',
-              **kwargs) -> 'core.NeuronObject':
+def read_nrrd(
+    f: Union[str, Iterable],
+    threshold: Optional[Union[int, float]] = None,
+    thin: bool = False,
+    include_subdirs: bool = False,
+    parallel: Union[bool, int] = "auto",
+    output: Union[Literal["voxels"], Literal["dotprops"], Literal["raw"]] = "voxels",
+    errors: Union[Literal["raise"], Literal["log"], Literal["ignore"]] = "log",
+    **kwargs,
+) -> "core.NeuronObject":
     """Create Neuron/List from NRRD file.
 
     See [here](http://teem.sourceforge.net/nrrd/format.html) for specs of
@@ -171,6 +169,10 @@ def read_nrrd(f: Union[str, Iterable],
                         For `output='dotprops'` only: a threshold to filter
                         low intensity voxels. If `None`, no threshold is
                         applied and all values > 0 are converted to points.
+    thin :              bool
+                        For `output='dotprops'` only: if True, will thin the
+                        point cloud using `skimage.morphology.skeletonize`
+                        after thresholding. Requires `scikit-image`.
     include_subdirs :   bool, optional
                         If True and `f` is a folder, will also search
                         subdirectories for `.nrrd` files.
@@ -219,8 +221,18 @@ def read_nrrd(f: Union[str, Iterable],
                         file.
 
     """
-    utils.eval_param(output, name='output',
-                     allowed_values=('raw', 'dotprops', 'voxels'))
+    if thin:
+        try:
+            from skimage.morphology import skeletonize
+        except ImportError:
+            raise ImportError(
+                "The 'thin' option requires 'scikit-image' to be installed:\n"
+                "    pip install scikit-image -U"
+            )
+
+    utils.eval_param(
+        output, name="output", allowed_values=("raw", "dotprops", "voxels")
+    )
 
     # If is directory, compile list of filenames
     if isinstance(f, (str, Path)) and Path(f).expanduser().is_dir():
@@ -320,12 +332,20 @@ def read_nrrd(f: Union[str, Iterable],
                 if threshold:
                     data = data >= threshold
 
+                if thin:
+                    data = skeletonize(data)
+
                 # Convert data to x/y/z coordinates
                 # Note we need to multiply units before creating the Dotprops
                 # - otherwise the KNN will be wrong
                 x, y, z = np.where(data)
                 points = np.vstack((x, y, z)).T
                 points = points * voxdim
+
+                if not len(points):
+                    raise ValueError(
+                        "No points extracted from NRRD file. Try lowering the threshold?"
+                    )
 
                 x = core.make_dotprops(points, **kwargs)
             elif data.ndim == 2:
