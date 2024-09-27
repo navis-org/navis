@@ -13,10 +13,12 @@
 
 import nrrd
 import os
+import requests
 
 import multiprocessing as mp
 import numpy as np
 
+from io import BytesIO
 from glob import glob
 from pathlib import Path
 from typing import Union, Iterable, Optional, Dict, Any
@@ -224,14 +226,17 @@ def read_nrrd(f: Union[str, Iterable],
     if isinstance(f, (str, Path)) and Path(f).expanduser().is_dir():
         f = Path(f).expanduser()
         if not include_subdirs:
-            f = [os.path.join(f, x) for x in os.listdir(f) if
-                 os.path.isfile(os.path.join(f, x)) and x.endswith('.nrrd')]
+            f = [
+                os.path.join(f, x)
+                for x in os.listdir(f)
+                if os.path.isfile(os.path.join(f, x)) and x.endswith(".nrrd")
+            ]
         else:
-            f = [y for x in os.walk(f) for y in glob(os.path.join(x[0], '*.nrrd'))]
+            f = [y for x in os.walk(f) for y in glob(os.path.join(x[0], "*.nrrd"))]
 
     if utils.is_iterable(f):
         # Do not use if there is only a small batch to import
-        if isinstance(parallel, str) and parallel.lower() == 'auto':
+        if isinstance(parallel, str) and parallel.lower() == "auto":
             if len(f) < 10:
                 parallel = False
 
@@ -275,12 +280,21 @@ def read_nrrd(f: Union[str, Iterable],
 
         return core.NeuronList([r for r in res if r])
 
-    # Open the file
-    f = str(Path(f).expanduser())
-    fname = os.path.basename(f).split('.')[0]
-    data, header = nrrd.read(f)
+    if isinstance(f, str) and f.startswith("http"):
+        r = requests.get(f)
+        r.raise_for_status()
 
-    if output == 'raw':
+        fh = BytesIO(r.content)
+        header = nrrd.read_header(fh)
+        data = nrrd.read_data(header, fh)
+        fname = f.split("/")[-1]
+    else:
+        # Open the file
+        f = str(Path(f).expanduser())
+        fname = os.path.basename(f).split(".")[0]
+        data, header = nrrd.read(f)
+
+    if output == "raw":
         return data, header
 
     # Try parsing units - this is modelled after the nrrd files you get from
