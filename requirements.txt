@@ -64,6 +64,7 @@ neuprint-python
 caveclient
 cloud-volume
 flybrains
+scikit-image
 Shapely>=1.6.0
 
 #extra: dev
