@@ -2244,26 +2244,36 @@ def prune_at_depth(
     return x
 
 
-@utils.map_neuronlist(desc="Pruning", allow_parallel=True)
+@utils.map_neuronlist(desc="Removing fluff", allow_parallel=True)
 def drop_fluff(
     x: Union["core.TreeNeuron", "core.MeshNeuron", "core.NeuronList"],
     keep_size: Optional[float] = None,
+    n_largest: Optional[int] = None,
+    dp_dist: Optional[float] = None,
     inplace: bool = False,
 ):
     """Remove small disconnected pieces of "fluff".
 
     By default, this function will remove all but the largest connected
-    component from the neuron (see also `keep_size`) parameter. Connectors will
+    component from the neuron. You can change that behavior using the
+    `keep_size` and `n_largest` parameters. Connectors (if present) will
     be remapped to the closest surviving vertex/node.
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                The neuron to remove fluff from.
+    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+                The neuron(s) to remove fluff from.
     keep_size : float, optional
                 Use this to set a size (in number of nodes/vertices) for small
                 bits to keep. If `keep_size` < 1 it will be intepreted as
-                fraction of total nodes/vertices.
+                fraction of total nodes/vertices/points.
+    n_largest : int, optional
+                If set, will keep the `n_largest` connected components. Note:
+                if provided, `keep_size` will be applied first!
+    dp_dist :   float, optional
+                For Dotprops: distance at which to consider two points to be
+                connected. If `None`, will use the default value of 5 times
+                the average node distance (`x.sampling_resolution`).
     inplace :   bool, optional
                 If False, pruning is performed on copy of original neuron
                 which is then returned.
@@ -2277,37 +2287,65 @@ def drop_fluff(
     --------
     >>> import navis
     >>> m = navis.example_neurons(1, kind='mesh')
-    >>> clean = navis.drop_fluff(m, keep_size=30)
-    >>> m.n_vertices, clean.n_vertices
-    (6309, 6037)
+    >>> m.n_vertices
+    6309
+    >>> # Remove all but the largest connected component
+    >>> top = navis.drop_fluff(m)
+    >>> top.n_vertices
+    5951
+    >>> # Keep the two largest connected components
+    >>> two = navis.drop_fluff(m, n_largest=2)
+    >>> two.n_vertices
+    6037
+    >>> # Keep all fragments with at least 100 vertices
+    >>> clean = navis.drop_fluff(m, keep_size=100)
+    >>> clean.n_vertices
+    6037
+    >>> # Keep the two largest fragments with at least 100 vertices
+    >>> # (for this neuron the result is just the largest fragment)
+    >>> clean2 = navis.drop_fluff(m, keep_size=100, n_largest=2)
+    >>> clean2.n_vertices
+    5951
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron, core.MeshNeuron))
+    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron, core.MeshNeuron, core.Dotprops))
 
-    G = x.graph
-    # Skeleton graphs are directed
-    if G.is_directed():
-        G = G.to_undirected()
+    if isinstance(x, (core.MeshNeuron, core.TreeNeuron)):
+        G = x.graph
+        # Skeleton graphs are directed
+        if G.is_directed():
+            G = G.to_undirected()
+    elif isinstance(x, core.Dotprops):
+        G = graph.neuron2nx(x, dist=dp_dist)
 
     cc = sorted(nx.connected_components(G), key=lambda x: len(x), reverse=True)
 
-    if keep_size:
-        if keep_size < 1:
-            keep_size = len(G.nodes) * keep_size
+    # Translate keep_size to number of nodes
+    if keep_size and keep_size < 1:
+        keep_size = len(G.nodes) * keep_size
 
-        keep = [n for c in cc for n in c if len(c) >= keep_size]
+    if keep_size:
+        cc = [c for c in cc if len(c) >= keep_size]
+        if not n_largest:
+            keep = [i for c in cc for i in c]
+        else:
+            keep = [i for c in cc[:n_largest] for i in c]
+    elif n_largest:
+        keep = [i for c in cc[:n_largest] for i in c]
     else:
         keep = cc[0]
 
     # Subset neuron
     x = subset.subset_neuron(x, subset=keep, inplace=inplace, keep_disc_cn=True)
 
-    # See if we need to re-attach any connectors
-    id_col = "node_id" if isinstance(x, core.TreeNeuron) else "vertex_id"
-    if x.has_connectors and id_col in x.connectors:
-        disc = ~x.connectors[id_col].isin(x.graph.nodes).values
-        if any(disc):
-            xyz = x.connectors.loc[disc, ["x", "y", "z"]].values
-            x.connectors.loc[disc, id_col] = x.snap(xyz)[0]
+    # See if we need to/can re-attach any connectors
+    if x.has_connectors:
+        id_col = [c for c in ('node_id', 'vertex_id', 'point_id') if c in x.connectors.columns]
+        if id_col:
+            id_col = id_col[0]
+            disc = ~x.connectors[id_col].isin(x.graph.nodes).values
+            if any(disc):
+                xyz = x.connectors.loc[disc, ["x", "y", "z"]].values
+                x.connectors.loc[disc, id_col] = x.snap(xyz)[0]
 
     return x
