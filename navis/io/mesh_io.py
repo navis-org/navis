@@ -65,8 +65,8 @@ def read_mesh(f: Union[str, Iterable],
     limit :             int | str | slice | list, optional
                         When reading from a folder or archive you can use this parameter to
                         restrict the which files read:
-                         - if an integer, will read only the first `limit` SWC files
-                          (useful to get a sample from a large library of meshes)
+                         - if an integer, will read only the first `limit` mesh files
+                           (useful to get a sample from a large library of meshes)
                          - if a string, will interpret it as filename (regex) pattern
                            and only read files that match the pattern; e.g. `limit='.*_R.*'`
                            will only read files that contain `_R` in their filename

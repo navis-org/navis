@@ -224,8 +224,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
                         If True and `f` is a folder, will also search
                         subdirectories for binary files.
     fmt :               str
-                        Formatter to specify what files to look for (when `f` is
-                        directory) and how they are parsed into neuron
+                        Formatter to specify how filenames are parsed into neuron
                         attributes. Some illustrative examples:
                           - `{name}` (default) uses the filename
                             (minus the suffix) as the neuron's name property
@@ -245,7 +244,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
                             ID. The middle part is ignored.
 
                         Throws a ValueError if pattern can't be found in
-                        filename. Ignored for DataFrames.
+                        filename.
     info :              bool | str | dict
                         An info file describing the data:
                           - `True` = will look for `info` file in base folder
@@ -255,8 +254,8 @@ def read_precomputed(f: Union[str, io.BytesIO],
     limit :             int | str | slice | list, optional
                         When reading from a folder or archive you can use this parameter to
                         restrict the which files read:
-                         - if an integer, will read only the first `limit` SWC files
-                          (useful to get a sample from a large library of neurons)
+                         - if an integer, will read only the first `limit` files
+                           (useful to get a sample from a large library of neurons)
                          - if a string, will interpret it as filename (regex) pattern
                            and only read files that match the pattern; e.g. `limit='.*_R.*'`
                            will only read files that contain `_R` in their filename
