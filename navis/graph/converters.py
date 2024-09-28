@@ -34,7 +34,7 @@ __all__ = sorted(['network2nx', 'network2igraph', 'neuron2igraph', 'nx2neuron',
 
 
 def neuron2tangents(x: 'core.NeuronObject') -> 'core.Dotprops':
-    """Turn TreeNeuron into an tangent vectors.
+    """Turn skeleton(s) into points + tangent vectors.
 
     This will drop zero-length vectors (i.e when node and parent occupy the
     exact same position).
@@ -217,7 +217,7 @@ def network2igraph(x: Union[pd.DataFrame, Iterable],
     return g
 
 
-def neuron2nx(x: 'core.NeuronObject', simplify=False) -> nx.DiGraph:
+def neuron2nx(x: 'core.NeuronObject', simplify=False, dist=None) -> nx.DiGraph:
     """Turn Tree-, Mesh- or VoxelNeuron into an NetworkX graph.
 
     Parameters
@@ -228,6 +228,10 @@ def neuron2nx(x: 'core.NeuronObject', simplify=False) -> nx.DiGraph:
                 For TreeNeurons only: simplify the graph by keeping only roots,
                 leaves and branching points. Preserves the original
                 branch lengths (i.e. weights).
+    dist :      float, optional
+                For Dotprops only: maximum distance between two points to
+                connect them. If `None`, will use 5x the average distance
+                between points (i.e. `5 * x.sampling_resolution`).
 
     Returns
     -------
@@ -266,6 +270,17 @@ def neuron2nx(x: 'core.NeuronObject', simplify=False) -> nx.DiGraph:
         edges = [(e[0], e[1], l) for e, l in zip(x.trimesh.edges_unique,
                                                  x.trimesh.edges_unique_length)]
         G.add_weighted_edges_from(edges)
+    elif isinstance(x, core.Dotprops):
+        if dist is None:
+            dist = 5 * x.sampling_resolution
+
+        # Generate KDTree
+        tree = neuron2KDTree(x)
+
+        # Generate graph and assign custom properties
+        G = nx.Graph()
+        G.add_nodes_from(np.arange(x.n_points))
+        G.add_edges_from(tree.query_pairs(dist))
     elif isinstance(x, core.VoxelNeuron):
         # First we need to determine the 6-connecivity between voxels
         edges = []
