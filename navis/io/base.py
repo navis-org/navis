@@ -49,7 +49,7 @@ logger = config.get_logger(__name__)
 DEFAULT_INCLUDE_SUBDIRS = False
 
 # Regular expression to figure out if a string is a regex pattern
-rgx = re.compile(r'[\\\.\?\[\]\+\^\$\*]')
+rgx = re.compile(r"[\\\.\?\[\]\+\^\$\*]")
 
 
 def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:
@@ -224,8 +224,8 @@ class BaseReader(ABC):
     fmt :           str
                     A string describing how to parse filenames into neuron
                     properties. For example '{id}.swc'.
-    file_ext :      str
-                    The file extension to look for when searching folders.
+    file_ext :      str | tuple
+                    The file extension(s) to look for when searching folders.
                     For example '.swc'. Alternatively, you can re-implement
                     the `is_valid_file` method for more complex filters. That
                     method needs to be able to deal with: Path objects, ZipInfo
@@ -255,8 +255,31 @@ class BaseReader(ABC):
         self.read_binary = read_binary
         self.ignore_hidden = ignore_hidden
 
-        if self.file_ext.startswith("*"):
+    @property
+    def file_ext(self):
+        return self._file_ext
+
+    @file_ext.setter
+    def file_ext(self, value):
+        """Makes sure file_ext is always a tuple."""
+        if isinstance(value, str):
+            value = (value,)
+
+        if any((ext.startswith("*") for ext in value)):
             raise ValueError('File extension must be ".ext", not "*.ext"')
+
+        self._file_ext = value
+
+    def format_output(self, x):
+        """Format output into NeuronList.
+
+        Replace this method if output is not (always) a NeuronList.
+        See for example NrrdReader in nrrd_io.py.
+        """
+        if not x:
+            return core.NeuronList([])
+        else:
+            return core.NeuronList(x)
 
     def files_in_dir(
         self, dpath: Path, include_subdirs: bool = DEFAULT_INCLUDE_SUBDIRS
@@ -283,8 +306,9 @@ class BaseReader(ABC):
         if self.ignore_hidden and str(file).startswith("._"):
             return False
 
-        if str(file).endswith(self.file_ext):
-            return True
+        for ext in self.file_ext:
+            if str(file).endswith(ext):
+                return True
         return False
 
     def _make_attributes(
@@ -311,26 +335,6 @@ class BaseReader(ABC):
             **kwargs,
         )
 
-    def read_buffer(
-        self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.BaseNeuron":
-        """Read buffer into a single neuron.
-
-        Parameters
-        ----------
-        f :         IO
-                    Readable buffer.
-        attrs :     dict | None
-                    Arbitrary attributes to include in the neuron.
-
-        Returns
-        -------
-        core.NeuronObject
-        """
-        raise NotImplementedError(
-            "Reading from buffer not implemented for " f"{type(self)}"
-        )
-
     def read_file_path(
         self, fpath: os.PathLike, attrs: Optional[Dict[str, Any]] = None
     ) -> "core.BaseNeuron":
@@ -354,7 +358,7 @@ class BaseReader(ABC):
                 props["origin"] = str(p)
                 return self.read_buffer(f, merge_dicts(props, attrs))
             except BaseException as e:
-                raise ValueError(f"Error reading file {p}") from e
+                raise ReadError(f"Error reading file {p}") from e
 
     def read_from_zip(
         self,
@@ -401,7 +405,7 @@ class BaseReader(ABC):
                     else:
                         raise
 
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_zip(
         self,
@@ -442,7 +446,7 @@ class BaseReader(ABC):
             limit=limit,
             parallel=parallel,
         )
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_from_tar(
         self,
@@ -491,7 +495,7 @@ class BaseReader(ABC):
                     else:
                         raise
 
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_tar(
         self,
@@ -532,7 +536,7 @@ class BaseReader(ABC):
             limit=limit,
             parallel=parallel,
         )
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_ftp(
         self,
@@ -585,7 +589,7 @@ class BaseReader(ABC):
             limit=limit,
             parallel=parallel,
         )
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_from_ftp(
         self,
@@ -642,7 +646,7 @@ class BaseReader(ABC):
                     else:
                         raise
 
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_directory(
         self,
@@ -688,7 +692,7 @@ class BaseReader(ABC):
 
         read_fn = partial(self.read_file_path, attrs=attrs)
         neurons = parallel_read(read_fn, files, parallel)
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_url(
         self, url: str, attrs: Optional[Dict[str, Any]] = None
@@ -782,6 +786,26 @@ class BaseReader(ABC):
             "Reading DataFrames not implemented for " f"{type(self)}"
         )
 
+    def read_buffer(
+        self, f: IO, attrs: Optional[Dict[str, Any]] = None
+    ) -> "core.BaseNeuron":
+        """Read buffer into a single neuron.
+
+        Parameters
+        ----------
+        f :         IO
+                    Readable buffer.
+        attrs :     dict | None
+                    Arbitrary attributes to include in the neuron.
+
+        Returns
+        -------
+        core.NeuronObject
+        """
+        raise NotImplementedError(
+            "Reading from buffer not implemented for " f"{type(self)}"
+        )
+
     def read_any_single(
         self, obj, attrs: Optional[Dict[str, Any]] = None
     ) -> "core.BaseNeuron":
@@ -815,6 +839,8 @@ class BaseReader(ABC):
                 p = Path(obj).expanduser()
                 if p.suffix == ".zip":
                     return self.read_zip(p, attrs=attrs)
+                elif p.suffix in (".tar", "tar.gz", "tar.bz"):
+                    return self.read_tar(p, attrs=attrs)
                 return self.read_file_path(p, attrs)
             if obj.startswith("http://") or obj.startswith("https://"):
                 return self.read_url(obj, attrs)
@@ -860,7 +886,7 @@ class BaseReader(ABC):
 
         if not objs:
             logger.warning("No files found, returning empty NeuronList")
-            return core.NeuronList([])
+            return self.format_output(objs)
 
         new_objs = []
         for obj in objs:
@@ -872,16 +898,23 @@ class BaseReader(ABC):
                 pass
             new_objs.append(obj)
 
+        # `parallel` can be ("auto", threshold) in which case `threshold`
+        # determines at what length we use parallel processing
+        if isinstance(parallel, tuple):
+            parallel, threshold = parallel
+        else:
+            threshold = 200
+
         if (
             isinstance(parallel, str)
             and parallel.lower() == "auto"
-            and len(new_objs) < 200
+            and len(new_objs) < threshold
         ):
             parallel = False
 
         read_fn = partial(self.read_any_single, attrs=attrs)
         neurons = parallel_read(read_fn, new_objs, parallel)
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_any(
         self,
@@ -1036,11 +1069,18 @@ def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
         leave=config.pbar_leave,
     )
 
+    # `parallel` can be ("auto", threshold) in which case `threshold`
+    # determines at what length we use parallel processing
+    if isinstance(parallel, tuple):
+        parallel, threshold = parallel
+    else:
+        threshold = 200
+
     if (
         isinstance(parallel, str)
         and parallel.lower() == "auto"
         and not isinstance(length, type(None))
-        and length < 200
+        and length < threshold
     ):
         parallel = False
 
@@ -1155,7 +1195,18 @@ def parallel_read_archive(
         leave=config.pbar_leave,
     )
 
-    if isinstance(parallel, str) and parallel.lower() == "auto" and len(to_read) < 200:
+    # `parallel` can be ("auto", threshold) in which case `threshold`
+    # determines at what length we use parallel processing
+    if isinstance(parallel, tuple):
+        parallel, threshold = parallel
+    else:
+        threshold = 200
+
+    if (
+        isinstance(parallel, str)
+        and parallel.lower() == "auto"
+        and len(to_read) < threshold
+    ):
         parallel = False
 
     if parallel:
@@ -1284,7 +1335,18 @@ def parallel_read_ftp(
         leave=config.pbar_leave,
     )
 
-    if isinstance(parallel, str) and parallel.lower() == "auto" and len(to_read) < 200:
+    # `parallel` can be ("auto", threshold) in which case `threshold`
+    # determines at what length we use parallel processing
+    if isinstance(parallel, tuple):
+        parallel, threshold = parallel
+    else:
+        threshold = 200
+
+    if (
+        isinstance(parallel, str)
+        and parallel.lower() == "auto"
+        and len(to_read) < threshold
+    ):
         parallel = False
 
     if parallel:
@@ -1347,3 +1409,7 @@ def parse_precision(precision: Optional[int]):
         raise ValueError(
             f"Unknown precision {precision}. Expected on of the following: 16, 32 (default), 64 or None"
         )
+
+
+class ReadError(Exception):
+    """Error raised when reading a file fails."""
