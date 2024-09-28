@@ -26,13 +26,6 @@ from urllib3 import HTTPResponse
 from .. import config, utils, core
 from . import base
 
-try:
-    import zlib
-    import zipfile
-    compression = zipfile.ZIP_DEFLATED
-except ImportError:
-    compression = zipfile.ZIP_STORED
-
 __all__ = ["SwcReader", "read_swc", "write_swc"]
 
 # Set up logging

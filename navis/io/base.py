@@ -1037,6 +1037,127 @@ class BaseReader(ABC):
         return
 
 
+class ImageReader(BaseReader):
+    """Reader for image data.
+
+
+    """
+
+    def __init__(self, output, thin, threshold, dotprop_kwargs, **kwargs):
+        super().__init__(**kwargs)
+        self.output = output
+        self.thin = thin
+        self.threshold = threshold
+        self.dotprop_kwargs = dotprop_kwargs
+
+    def convert_image(self, data, attrs, header, voxdim, units, space_units):
+        """Convert image data to desired output.
+
+        Parameters
+        ----------
+        data :          np.ndarray
+                        Image/Voxel data.
+        attrs :         dict
+                        Additional attributes to associate with the neuron.
+        header :        dict
+                        Header information.
+        voxdim :        list of numbers
+                        Voxel dimensions.
+        units :         str | list, optional
+                        Units for the neuron (e.g. "1um" or ["4um", "4um", "40um"]).
+        space_units :   str, optional
+                        Space units (e.g. "um").
+
+        """
+        if self.output == "dotprops":
+            # If we're trying to get voxels from an image
+            if data.ndim == 3:
+                if self.threshold:
+                    if self.threshold >= 1:
+                        data = data >= self.threshold
+                    elif self.threshold < 1 and self.threshold > 0:
+                        data = data >= (self.threshold * data.max())
+                    else:
+                        raise ValueError(
+                            "Threshold must be either >=1 or 0-1, got "
+                            f"{self.threshold}"
+                        )
+
+                if self.thin:
+                    from skimage.morphology import skeletonize
+
+                    data = skeletonize(data)
+
+                # Convert data to x/y/z coordinates
+                # Note we need to multiply units before creating the Dotprops
+                # - otherwise the KNN will be wrong
+                x, y, z = np.where(data)
+                points = np.vstack((x, y, z)).T
+                points = points * voxdim
+
+                if not len(points):
+                    raise ValueError(
+                        f"No points extracted from {self.name_fallback} file. Try lowering the threshold?"
+                    )
+
+                x = core.make_dotprops(points, **self.dotprop_kwargs)
+            elif data.ndim == 2:
+                if data.shape[1] == 3:
+                    points, vect, alpha = data, None, None
+                elif data.shape[1] == 6:
+                    points, vect, alpha = data[:, :3], data[:, 3:6], None
+                elif data.shape[1] == 7:
+                    points, vect, alpha = data[:, :3], data[:, 3:6], data[:, 6]
+                else:
+                    raise ValueError(
+                        "Expected data to be either (N, 3), (N, 6) "
+                        f"or (N, 7) but {self.name_fallback} file contains {data.shape}"
+                    )
+                # Get `k` either from provided kwargs or the file's header
+                k = self.dotprop_kwargs.pop("k", header.get("k", 20))
+
+                x = core.Dotprops(
+                    points, k=k, vect=vect, alpha=alpha, **self.dotprop_kwargs
+                )
+            else:
+                raise ValueError(
+                    "Data must be 2- or 3-dimensional to extract "
+                    f"Dotprops, got {data.ndim}"
+                )
+
+            # Set units from space_units (points are already in physical space)
+            if space_units:
+                if isinstance(space_units, str):
+                    x.units = f"1 {space_units}"
+                elif len(space_units) == 3:
+                    x.units = [f"1 {s}" for s in space_units]
+        else:
+            if data.ndim == 2:
+                logger.warning(
+                    f"Data in {self.name_fallback} file is of shape {data.shape} - "
+                    "i.e. 2D. Could this be a point cloud or dotprops "
+                    "instead of voxels?"
+                )
+            x = core.VoxelNeuron(data, units=units)
+
+        # Header is special - we do not want to register it
+        setattr(x, f"{self.name_fallback.lower()}_header", header)
+
+        # Try adding properties one-by-one. If one fails, we'll keep track of it
+        # in the `.meta` attribute
+        meta = {}
+        for k, v in attrs.items():
+            try:
+                x._register_attr(k, v)
+            except (AttributeError, ValueError, TypeError):
+                meta[k] = v
+
+        if meta:
+            x.meta = meta
+
+        return x
+
+
 def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
     """Read neurons from some objects with the given reader function,
     potentially in parallel.
