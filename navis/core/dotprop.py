@@ -230,6 +230,9 @@ class Dotprops(BaseNeuron):
 
         return state
 
+    def __len__(self):
+        return len(self.points)
+
     @property
     def alpha(self):
         """Alpha value for tangent vectors (optional)."""
@@ -660,5 +663,3 @@ class Dotprops(BaseNeuron):
 
         return tn
 
-    def __len__(self):
-        return len(self.points)
