@@ -2293,19 +2293,19 @@ def drop_fluff(
     >>> top = navis.drop_fluff(m)
     >>> top.n_vertices
     5951
-    >>> # Keep the two largest connected components
-    >>> two = navis.drop_fluff(m, n_largest=2)
+    >>> # Keep the ten largest connected components
+    >>> two = navis.drop_fluff(m, n_largest=10)
     >>> two.n_vertices
-    6037
+    6069
     >>> # Keep all fragments with at least 100 vertices
     >>> clean = navis.drop_fluff(m, keep_size=100)
     >>> clean.n_vertices
-    6037
-    >>> # Keep the two largest fragments with at least 100 vertices
-    >>> # (for this neuron the result is just the largest fragment)
-    >>> clean2 = navis.drop_fluff(m, keep_size=100, n_largest=2)
-    >>> clean2.n_vertices
     5951
+    >>> # Keep the two largest fragments with at least 50 vertices each
+    >>> # (for this neuron the result is just the largest fragment)
+    >>> clean2 = navis.drop_fluff(m, keep_size=50, n_largest=2)
+    >>> clean2.n_vertices
+    6037
 
     """
     utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron, core.MeshNeuron, core.Dotprops))
