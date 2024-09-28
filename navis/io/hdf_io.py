@@ -733,7 +733,7 @@ def read_h5(filepath: str,
                         note that due to HDF5 restrictions numeric IDs will be
                         converted to strings.
     prefer_raw :        bool
-                        If True and a neuron has is saved as both serialized and
+                        If True and a neuron is saved as both serialized and
                         raw data, will load the neuron from the raw data.
     parallel :          "auto" | bool | int
                         Defaults to `auto` which means only use parallel
@@ -770,13 +770,13 @@ def read_h5(filepath: str,
                         are causing troubles. If False (default), will read
                         every attribute and dataframe column and attach it to
                         the neuron.
-    reader :            "auto" | subclass of BaseH5Reader
+    reader :            "auto" | str | subclass of BaseH5Reader
                         Which reader to use to parse the given format. By
                         default ("auto") will try to pick the correct parser
                         for you depending on the `format_spec` attribute in
-                        the HDF5 file. You can also directly provide a subclass
-                        of BaseH5Reader that is capable of reading neurons from
-                        the file.
+                        the HDF5 file. Alternatively, you can also provided either
+                        a format version (e.g. "v1") or a subclass of BaseH5Reader
+                        that is capable of reading neurons from the file.
 
     Returns
     -------
@@ -820,9 +820,20 @@ def read_h5(filepath: str,
 
     # Get a reader for these specs
     if reader == 'auto':
-        if info['format_spec'] not in READERS:
+        if info['format_spec'] is None:
+            config.logger.warning(
+                'No format specifier found in file, suggesting this file may not have '
+                'been created using NAVis. We will try to read using the latest '
+                'version of the schema. If this fails you may have to specify a reader '
+                'or version manually (see the `reader` parameter).')
+            reader = READERS['latest']
+        elif info['format_spec'] not in READERS:
             raise TypeError(f'No reader for HDF5 format {info["format_spec"]}')
         reader = READERS[info['format_spec']]
+    elif isinstance(reader, str):
+        if reader not in READERS:
+            raise TypeError(f'No reader for HDF5 format "{reader}"')
+        reader = READERS[reader]
     elif not isinstance(reader, BaseH5Reader):
         raise TypeError('If provided, the reader must be a subclass of '
                         f'BaseH5Reader - got "{type(reader)}"')
@@ -1108,4 +1119,5 @@ def neuron_nm_units(neuron):
 WRITERS = {'v1': H5WriterV1,
            'latest': H5WriterV1}
 
-READERS = {'hnf_v1': H5ReaderV1}
+READERS = {'hnf_v1': H5ReaderV1,
+           'latest': H5ReaderV1}
