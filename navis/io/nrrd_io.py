@@ -39,6 +39,7 @@ class NrrdReader(base.ImageReader):
         dotprop_kwargs: Dict[str, Any] = {},
         fmt: str = DEFAULT_FMT,
         attrs: Optional[Dict[str, Any]] = None,
+        errors: str = "raise",
     ):
         if not fmt.endswith(".nrrd"):
             raise ValueError('`fmt` must end with ".nrrd"')
@@ -53,18 +54,20 @@ class NrrdReader(base.ImageReader):
             threshold=threshold,
             thin=thin,
             dotprop_kwargs=dotprop_kwargs,
+            errors=errors,
         )
 
     def format_output(self, x):
         # This function replaces the BaseReader.format_output()
         # This is to avoid trying to convert multiple (image, header) to NeuronList
         if self.output == "raw":
-            return x
+            return [n for n in x if n]
         elif x:
-            return core.NeuronList(x)
+            return core.NeuronList([n for n in x if n])
         else:
             return core.NeuronList([])
 
+    @base.handle_errors
     def read_buffer(
         self, f, attrs: Optional[Dict[str, Any]] = None
     ) -> Union[np.ndarray, "core.Dotprops", "core.VoxelNeuron"]:
@@ -75,7 +78,7 @@ class NrrdReader(base.ImageReader):
         f :         IO
                     Readable buffer (must be bytes).
         attrs :     dict | None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the neuron.
 
         Returns
         -------
@@ -238,6 +241,7 @@ def read_nrrd(
     parallel: Union[bool, int] = "auto",
     fmt: str = "{name}.nrrd",
     limit: Optional[int] = None,
+    errors: str = "raise",
     **dotprops_kwargs,
 ) -> "core.NeuronObject":
     """Create Neuron/List from NRRD file.
@@ -313,6 +317,9 @@ def read_nrrd(
                            that range
                          - a list is expected to be a list of filenames to read from
                            the folder/archive
+    errors :            "raise" | "log" | "ignore"
+                        If "log" or "ignore", errors will not be raised and the
+                        mesh will be skipped. Can result in empty output.
     **dotprops_kwargs
                         Keyword arguments passed to [`navis.make_dotprops`][]
                         if `output='dotprops'`. Use this to adjust e.g. the
@@ -363,6 +370,6 @@ def read_nrrd(
         parallel = ("auto", 10)
 
     reader = NrrdReader(
-        output=output, threshold=threshold, thin=thin, fmt=fmt, dotprop_kwargs=dotprops_kwargs
+        output=output, threshold=threshold, thin=thin, fmt=fmt, errors=errors, dotprop_kwargs=dotprops_kwargs
     )
     return reader.read_any(f, include_subdirs, parallel, limit=limit)

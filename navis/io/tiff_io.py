@@ -11,14 +11,10 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import os
 import io
 
-import multiprocessing as mp
 import numpy as np
 
-from glob import glob
-from pathlib import Path
 from typing import Union, Iterable, Optional, Dict, Any
 from typing_extensions import Literal
 from urllib3 import HTTPResponse
@@ -41,6 +37,7 @@ class TiffReader(base.ImageReader):
         thin: bool = False,
         dotprop_kwargs: Dict[str, Any] = {},
         fmt: str = DEFAULT_FMT,
+        errors: str = "raise",
         attrs: Optional[Dict[str, Any]] = None,
     ):
         if not fmt.endswith(".tif") and not fmt.endswith(".tiff"):
@@ -56,6 +53,7 @@ class TiffReader(base.ImageReader):
             threshold=threshold,
             thin=thin,
             dotprop_kwargs=dotprop_kwargs,
+            errors=errors,
         )
         self.channel = channel
 
@@ -65,10 +63,11 @@ class TiffReader(base.ImageReader):
         if self.output == "raw":
             return x
         elif x:
-            return core.NeuronList(x)
+            return core.NeuronList([n for n in x if n])
         else:
             return core.NeuronList([])
 
+    @base.handle_errors
     def read_buffer(
         self, f, attrs: Optional[Dict[str, Any]] = None
     ) -> Union[np.ndarray, "core.Dotprops", "core.VoxelNeuron"]:
@@ -79,7 +78,7 @@ class TiffReader(base.ImageReader):
         f :         IO
                     Readable buffer (must be bytes).
         attrs :     dict | None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the neuron.
 
         Returns
         -------
@@ -170,6 +169,7 @@ def read_tiff(
     parallel: Union[bool, int] = "auto",
     fmt: str = "{name}.tif",
     limit: Optional[int] = None,
+    errors: str = "raise",
     **dotprops_kwargs,
 ) -> "core.NeuronObject":
     """Create Neuron/List from TIFF file.
@@ -239,6 +239,9 @@ def read_tiff(
                            that range
                          - a list is expected to be a list of filenames to read from
                            the folder/archive
+    errors :            "raise" | "log" | "ignore"
+                        If "log" or "ignore", errors will not be raised and the
+                        mesh will be skipped. Can result in empty output.
 
     **dotprops_kwargs
                         Keyword arguments passed to [`navis.make_dotprops`][]
@@ -286,5 +289,6 @@ def read_tiff(
         thin=thin,
         fmt=fmt,
         dotprop_kwargs=dotprops_kwargs,
+        errors=errors,
     )
     return reader.read_any(f, include_subdirs, parallel, limit=limit)
