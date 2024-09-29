@@ -287,8 +287,14 @@ class BaseReader(ABC):
         """List files to read in directory."""
         if not isinstance(dpath, Path):
             dpath = Path(dpath)
+
+        if "*" in str(dpath):
+            pattern = str(dpath.name)
+            dpath = dpath.parent
+        else:
+            pattern = "*"
+
         dpath = dpath.expanduser()
-        pattern = "*"
         if include_subdirs:
             pattern = os.path.join("**", pattern)
 
@@ -891,7 +897,7 @@ class BaseReader(ABC):
         new_objs = []
         for obj in objs:
             try:
-                if os.path.isdir(os.path.expanduser(obj)):
+                if is_dir(obj):
                     new_objs.extend(self.files_in_dir(obj, include_subdirs))
                     continue
             except TypeError:
@@ -940,7 +946,7 @@ class BaseReader(ABC):
             return self.read_any_multi(obj, parallel, include_subdirs, attrs)
         else:
             try:
-                if os.path.isdir(os.path.expanduser(obj)):
+                if is_dir(obj):
                     return self.read_directory(
                         obj, include_subdirs, parallel, limit, attrs
                     )
@@ -1534,3 +1540,29 @@ def parse_precision(precision: Optional[int]):
 
 class ReadError(Exception):
     """Error raised when reading a file fails."""
+
+
+def is_dir(path: os.PathLike) -> bool:
+    """Check if path is a directory.
+
+    The main purpose of this function is to catch
+    *.file_ext at the end of the path.
+
+    Parameters
+    ----------
+    path : os.PathLike
+        Path to check.
+
+    Returns
+    -------
+    bool
+        True if path is a directory.
+
+    """
+    # Expand user
+    path = os.path.expanduser(path)
+
+    # Remove any trailing *.file_ext
+    path = path.split("*")[0]
+
+    return os.path.isdir(path)
