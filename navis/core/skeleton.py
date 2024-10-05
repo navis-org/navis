@@ -358,6 +358,12 @@ class TreeNeuron(BaseNeuron):
 
     @property
     @requires_nodes
+    def vertices(self) -> np.ndarray:
+        """Vertices of the skeleton."""
+        return self.nodes[['x', 'y', 'z']].values
+
+    @property
+    @requires_nodes
     def edges(self) -> np.ndarray:
         """Edges between nodes.
 
@@ -371,6 +377,7 @@ class TreeNeuron(BaseNeuron):
         return not_root[['node_id', 'parent_id']].values
 
     @property
+    @requires_nodes
     def edge_coords(self) -> np.ndarray:
         """Coordinates of edges between nodes.
 
