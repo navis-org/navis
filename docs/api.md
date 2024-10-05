@@ -124,9 +124,12 @@ In addition, a [`navis.TreeNeuron`][] has a range of different properties:
 
 | Method | Description |
 |--------|-------------|
+| [`TreeNeuron.adjacency_matrix`][navis.TreeNeuron.adjacency_matrix] | {{ autosummary("navis.TreeNeuron.adjacency_matrix") }} |
 | [`TreeNeuron.cable_length`][navis.TreeNeuron.cable_length] | {{ autosummary("navis.TreeNeuron.cable_length") }} |
 | [`TreeNeuron.cycles`][navis.TreeNeuron.cycles] | {{ autosummary("navis.TreeNeuron.cycles") }} |
 | [`TreeNeuron.downsample`][navis.TreeNeuron.downsample] | {{ autosummary("navis.TreeNeuron.downsample") }} |
+| [`TreeNeuron.edges`][navis.TreeNeuron.edges] | {{ autosummary("navis.TreeNeuron.edges") }} |
+| [`TreeNeuron.edge_coords`][navis.TreeNeuron.edge_coords] | {{ autosummary("navis.TreeNeuron.edge_coords") }} |
 | [`TreeNeuron.igraph`][navis.TreeNeuron.igraph] | {{ autosummary("navis.TreeNeuron.igraph") }} |
 | [`TreeNeuron.is_tree`][navis.TreeNeuron.is_tree] | {{ autosummary("navis.TreeNeuron.is_tree") }} |
 | [`TreeNeuron.n_branches`][navis.TreeNeuron.n_branches] | {{ autosummary("navis.TreeNeuron.n_branches") }} |
@@ -140,7 +143,20 @@ In addition, a [`navis.TreeNeuron`][] has a range of different properties:
 | [`TreeNeuron.simple`][navis.TreeNeuron.simple] | {{ autosummary("navis.TreeNeuron.simple") }} |
 | [`TreeNeuron.soma_pos`][navis.TreeNeuron.soma_pos] | {{ autosummary("navis.TreeNeuron.soma_pos") }} |
 | [`TreeNeuron.subtrees`][navis.TreeNeuron.subtrees] | {{ autosummary("navis.TreeNeuron.subtrees") }} |
+| [`TreeNeuron.vertices`][navis.TreeNeuron.vertices] | {{ autosummary("navis.TreeNeuron.vertices") }} |
 | [`TreeNeuron.volume`][navis.TreeNeuron.volume] | {{ autosummary("navis.TreeNeuron.volume") }} |
+
+
+#### Skeleton utility functions
+
+| Function | Description |
+|----------|-------------|
+| [`navis.rewire_skeleton()`][navis.rewire_skeleton] | {{ autosummary("navis.rewire_skeleton") }} |
+| [`navis.insert_nodes()`][navis.insert_nodes] | {{ autosummary("navis.insert_nodes") }} |
+| [`navis.remove_nodes()`][navis.remove_nodes] | {{ autosummary("navis.remove_nodes") }} |
+| [`navis.graph.simplify_graph()`][navis.graph.simplify_graph] | {{ autosummary("navis.graph.simplify_graph") }} |
+| [`navis.graph.skeleton_adjacency_matrix()`][navis.graph.skeleton_adjacency_matrix] | {{ autosummary("navis.graph.skeleton_adjacency_matrix") }} |
+
 
 
 ### Mesh neurons
@@ -173,10 +189,16 @@ These are methods and properties specific to [VoxelNeurons][navis.VoxelNeuron]:
 
 | Property | Description |
 |------|------|
+| [`VoxelNeuron.density`][navis.VoxelNeuron.density] | {{ autosummary("navis.VoxelNeuron.density") }} |
 | [`VoxelNeuron.grid`][navis.VoxelNeuron.grid] | {{ autosummary("navis.VoxelNeuron.grid") }} |
-| [`VoxelNeuron.voxels`][navis.VoxelNeuron.voxels] | {{ autosummary("navis.VoxelNeuron.voxels") }} |
+| [`VoxelNeuron.max`][navis.VoxelNeuron.max] | {{ autosummary("navis.VoxelNeuron.max") }} |
+| [`VoxelNeuron.min`][navis.VoxelNeuron.min] | {{ autosummary("navis.VoxelNeuron.min") }} |
+| [`VoxelNeuron.nnz`][navis.VoxelNeuron.nnz] | {{ autosummary("navis.VoxelNeuron.nnz") }} |
+| [`VoxelNeuron.offset`][navis.VoxelNeuron.offset] | {{ autosummary("navis.VoxelNeuron.offset") }} |
 | [`VoxelNeuron.shape`][navis.VoxelNeuron.shape] | {{ autosummary("navis.VoxelNeuron.shape") }} |
 | [`VoxelNeuron.strip()`][navis.VoxelNeuron.strip] | {{ autosummary("navis.VoxelNeuron.strip") }} |
+| [`VoxelNeuron.threshold()`][navis.VoxelNeuron.threshold] | {{ autosummary("navis.VoxelNeuron.threshold") }} |
+| [`VoxelNeuron.voxels`][navis.VoxelNeuron.voxels] | {{ autosummary("navis.VoxelNeuron.voxels") }} |
 
 
 ### Dotprops
@@ -206,6 +228,8 @@ These functions will let you convert between neuron types:
 | [`navis.voxelize()`][navis.voxelize] | {{ autosummary("navis.voxelize") }} |
 | [`navis.conversion.voxels2mesh()`][navis.conversion.voxels2mesh] | {{ autosummary("navis.conversion.voxels2mesh") }} |
 | [`navis.conversion.tree2meshneuron()`][navis.conversion.tree2meshneuron] | {{ autosummary("navis.conversion.tree2meshneuron") }} |
+
+See also [Utility](#utility) for functions to convert to/from basic data types.
 
 ### NeuronList methods
 
@@ -346,6 +370,7 @@ Functions to edit morphology:
 | [`navis.smooth_skeleton()`][navis.smooth_skeleton] | {{ autosummary("navis.smooth_skeleton") }} |
 | [`navis.smooth_mesh()`][navis.smooth_mesh] | {{ autosummary("navis.smooth_mesh") }} |
 | [`navis.smooth_voxels()`][navis.smooth_voxels] | {{ autosummary("navis.smooth_voxels") }} |
+| [`navis.thin_voxels()`][navis.thin_voxels] | {{ autosummary("navis.thin_voxels") }} |
 
 
 ### Resampling
@@ -508,22 +533,6 @@ Collection of functions to work with graphs and adjacency matrices.
 |----------|-------------|
 | [`navis.NeuronConnector`][] | {{ autosummary("navis.NeuronConnector") }} |
 
-### Graphs
-
-Functions to convert between neurons graph representation (networkx or iGraph).
-
-| Function | Description |
-|----------|-------------|
-| [`navis.neuron2nx()`][navis.neuron2nx] | {{ autosummary("navis.neuron2nx") }} |
-| [`navis.neuron2igraph()`][navis.neuron2igraph] | {{ autosummary("navis.neuron2igraph") }} |
-| [`navis.neuron2KDTree()`][navis.neuron2KDTree] | {{ autosummary("navis.neuron2KDTree") }} |
-| [`navis.network2nx()`][navis.network2nx] | {{ autosummary("navis.network2nx") }} |
-| [`navis.network2igraph()`][navis.network2igraph] | {{ autosummary("navis.network2igraph") }} |
-| [`navis.rewire_skeleton()`][navis.rewire_skeleton] | {{ autosummary("navis.rewire_skeleton") }} |
-| [`navis.insert_nodes()`][navis.insert_nodes] | {{ autosummary("navis.insert_nodes") }} |
-| [`navis.remove_nodes()`][navis.remove_nodes] | {{ autosummary("navis.remove_nodes") }} |
-| [`navis.graph.simplify_graph()`][navis.graph.simplify_graph] | {{ autosummary("navis.graph.simplify_graph") }} |
-
 ### Connectivity metrics
 
 Functions to analyse/cluster neurons based on connectivity.
@@ -580,6 +589,21 @@ Various utility functions.
 | [`navis.patch_cloudvolume()`][navis.patch_cloudvolume] | {{ autosummary("navis.patch_cloudvolume") }} |
 | [`navis.example_neurons()`][navis.example_neurons] | {{ autosummary("navis.example_neurons") }} |
 | [`navis.example_volume()`][navis.example_volume] | {{ autosummary("navis.example_volume") }} |
+
+### Conversion
+
+Functions to convert between data types.
+
+| Function | Description |
+|----------|-------------|
+| [`navis.neuron2nx()`][navis.neuron2nx] | {{ autosummary("navis.neuron2nx") }} |
+| [`navis.neuron2igraph()`][navis.neuron2igraph] | {{ autosummary("navis.neuron2igraph") }} |
+| [`navis.neuron2KDTree()`][navis.neuron2KDTree] | {{ autosummary("navis.neuron2KDTree") }} |
+| [`navis.neuron2tangents()`][navis.neuron2tangents] | {{ autosummary("navis.neuron2tangents") }} |
+| [`navis.network2nx()`][navis.network2nx] | {{ autosummary("navis.network2nx") }} |
+| [`navis.network2igraph()`][navis.network2igraph] | {{ autosummary("navis.network2igraph") }} |
+| [`navis.nx2neuron()`][navis.nx2neuron] | {{ autosummary("navis.nx2neuron") }} |
+| [`navis.ve2neuron()`][navis.ve2neuron] | {{ autosummary("navis.ve2neuron") }} |
 
 ## Network Models
 
