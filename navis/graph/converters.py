@@ -210,14 +210,14 @@ def network2igraph(x: Union[pd.DataFrame, Iterable],
     g.add_vertices(len(names))
     g.add_edges(edges_by_index)
 
-    g.vs['node_id'] = names
+    g.vs["node_id"] = names
     # g.vs['neuron_name'] = g.vs['label'] = neuron_names
-    g.es['weight'] = edges[:, 2]
+    g.es["weight"] = edges[:, 2]
 
     return g
 
 
-def neuron2nx(x: 'core.NeuronObject', simplify=False, dist=None) -> nx.DiGraph:
+def neuron2nx(x: "core.NeuronObject", simplify=False, epsilon=None) -> nx.DiGraph:
     """Turn Tree-, Mesh- or VoxelNeuron into an NetworkX graph.
 
     Parameters
@@ -228,7 +228,7 @@ def neuron2nx(x: 'core.NeuronObject', simplify=False, dist=None) -> nx.DiGraph:
                 For TreeNeurons only: simplify the graph by keeping only roots,
                 leaves and branching points. Preserves the original
                 branch lengths (i.e. weights).
-    dist :      float, optional
+    epsilon :   float, optional
                 For Dotprops only: maximum distance between two points to
                 connect them. If `None`, will use 5x the average distance
                 between points (i.e. `5 * x.sampling_resolution`).
@@ -247,12 +247,20 @@ def neuron2nx(x: 'core.NeuronObject', simplify=False, dist=None) -> nx.DiGraph:
 
     if isinstance(x, core.TreeNeuron):
         # Collect nodes
-        nodes = x.nodes.set_index('node_id', inplace=False)
+        nodes = x.nodes.set_index("node_id", inplace=False)
         # Collect edges
-        edges = x.nodes[x.nodes.parent_id >= 0][['node_id', 'parent_id']].values
+        edges = x.nodes[x.nodes.parent_id >= 0][["node_id", "parent_id"]].values
         # Collect weight
-        weights = np.sqrt(np.sum((nodes.loc[edges[:, 0], ['x', 'y', 'z']].values.astype(float)
-                                  - nodes.loc[edges[:, 1], ['x', 'y', 'z']].values.astype(float)) ** 2, axis=1))
+        weights = np.sqrt(
+            np.sum(
+                (
+                    nodes.loc[edges[:, 0], ["x", "y", "z"]].values.astype(float)
+                    - nodes.loc[edges[:, 1], ["x", "y", "z"]].values.astype(float)
+                )
+                ** 2,
+                axis=1,
+            )
+        )
         # It's fastest to generate a list of (source, target, weight) tuples to pass to networkX
         elist = [(e[0], e[1], l) for e, l in zip(edges, weights)]
         # Create empty directed Graph
@@ -267,12 +275,14 @@ def neuron2nx(x: 'core.NeuronObject', simplify=False, dist=None) -> nx.DiGraph:
     elif isinstance(x, core.MeshNeuron):
         G = nx.Graph()
         G.add_nodes_from(np.arange(x.n_vertices))
-        edges = [(e[0], e[1], l) for e, l in zip(x.trimesh.edges_unique,
-                                                 x.trimesh.edges_unique_length)]
+        edges = [
+            (e[0], e[1], l)
+            for e, l in zip(x.trimesh.edges_unique, x.trimesh.edges_unique_length)
+        ]
         G.add_weighted_edges_from(edges)
     elif isinstance(x, core.Dotprops):
-        if dist is None:
-            dist = 5 * x.sampling_resolution
+        if epsilon is None:
+            epsilon = 5 * x.sampling_resolution
 
         # Generate KDTree
         tree = neuron2KDTree(x)
@@ -280,7 +290,7 @@ def neuron2nx(x: 'core.NeuronObject', simplify=False, dist=None) -> nx.DiGraph:
         # Generate graph and assign custom properties
         G = nx.Graph()
         G.add_nodes_from(np.arange(x.n_points))
-        G.add_edges_from(tree.query_pairs(dist))
+        G.add_edges_from(tree.query_pairs(epsilon))
     elif isinstance(x, core.VoxelNeuron):
         # First we need to determine the 6-connecivity between voxels
         edges = []
@@ -292,8 +302,9 @@ def neuron2nx(x: 'core.NeuronObject', simplify=False, dist=None) -> nx.DiGraph:
             # Combine real and offset voxels
             vox_off = x.voxels + offset
             # Find out which voxels overlap (i.e. count == 2 after offset)
-            unique, cnt = np.unique(np.append(x.voxels, vox_off, axis=0),
-                                    axis=0, return_counts=True)
+            unique, cnt = np.unique(
+                np.append(x.voxels, vox_off, axis=0), axis=0, return_counts=True
+            )
 
             connected = unique[cnt > 1]
             for vox in connected:
@@ -302,7 +313,9 @@ def neuron2nx(x: 'core.NeuronObject', simplify=False, dist=None) -> nx.DiGraph:
         G.add_nodes_from([tuple(v) for v in x.voxels])
         G.add_edges_from(edges)
     else:
-        raise ValueError(f'Unable to convert data of type "{type(x)}" to networkx graph.')
+        raise ValueError(
+            f'Unable to convert data of type "{type(x)}" to networkx graph.'
+        )
 
     return G
 
@@ -357,7 +370,7 @@ def simplify_graph(G, inplace=False):
             node = start_node
             while True:
                 parent = next(G.successors(node))
-                dist += G.edges[node, parent]['weight']
+                dist += G.edges[node, parent]["weight"]
 
                 if parent in stop_nodes:
                     G.add_weighted_edges_from([(start_node, parent, dist)])
@@ -382,7 +395,7 @@ def simplify_graph(G, inplace=False):
             node = start_node
             while True:
                 parent = G.successors(node)[0]
-                dist += G.es[G.get_eid(node, parent)]['weight']
+                dist += G.es[G.get_eid(node, parent)]["weight"]
 
                 if parent in stop_nodes:
                     G.add_edge(start_node, parent, weight=dist)

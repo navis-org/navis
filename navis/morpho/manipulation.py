@@ -2249,7 +2249,7 @@ def drop_fluff(
     x: Union["core.TreeNeuron", "core.MeshNeuron", "core.NeuronList"],
     keep_size: Optional[float] = None,
     n_largest: Optional[int] = None,
-    dp_dist: Optional[float] = None,
+    epsilon: Optional[float] = None,
     inplace: bool = False,
 ):
     """Remove small disconnected pieces of "fluff".
@@ -2270,7 +2270,7 @@ def drop_fluff(
     n_largest : int, optional
                 If set, will keep the `n_largest` connected components. Note:
                 if provided, `keep_size` will be applied first!
-    dp_dist :   float, optional
+    epsilon :   float, optional
                 For Dotprops: distance at which to consider two points to be
                 connected. If `None`, will use the default value of 5 times
                 the average node distance (`x.sampling_resolution`).
@@ -2316,7 +2316,7 @@ def drop_fluff(
         if G.is_directed():
             G = G.to_undirected()
     elif isinstance(x, core.Dotprops):
-        G = graph.neuron2nx(x, dist=dp_dist)
+        G = graph.neuron2nx(x, epsilon=epsilon)
 
     cc = sorted(nx.connected_components(G), key=lambda x: len(x), reverse=True)
 
