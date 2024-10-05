@@ -23,7 +23,6 @@ import trimesh as tm
 
 from collections import namedtuple
 from itertools import combinations
-from scipy.ndimage import gaussian_filter
 from typing import Union, Optional, Sequence, List, Set, Callable
 from typing_extensions import Literal
 
@@ -47,7 +46,6 @@ __all__ = sorted(
         "despike_skeleton",
         "guess_radius",
         "smooth_skeleton",
-        "smooth_voxels",
         "heal_skeleton",
         "cell_body_fiber",
         "break_fragments",
@@ -1786,58 +1784,6 @@ def smooth_skeleton(
     # Reassign nodes
     x.nodes = nodes.reset_index(drop=False, inplace=False)
 
-    x._clear_temp_attr()
-
-    return x
-
-
-@utils.map_neuronlist(desc="Smoothing", allow_parallel=True)
-def smooth_voxels(
-    x: NeuronObject, sigma: int = 1, inplace: bool = False
-) -> NeuronObject:
-    """Smooth voxel(s) using a Gaussian filter.
-
-    Parameters
-    ----------
-    x :             TreeNeuron | NeuronList
-                    Neuron(s) to be processed.
-    sigma :         int | (3, ) ints, optional
-                    Standard deviation for Gaussian kernel. The standard
-                    deviations of the Gaussian filter are given for each axis
-                    as a sequence, or as a single number, in which case it is
-                    equal for all axes.
-    inplace :       bool, optional
-                    If False, will use and return copy of original neuron(s).
-
-    Returns
-    -------
-    VoxelNeuron/List
-                    Smoothed neuron(s).
-
-    Examples
-    --------
-    >>> import navis
-    >>> n = navis.example_neurons(1, kind='mesh')
-    >>> vx = navis.voxelize(n, pitch='1 micron')
-    >>> smoothed = navis.smooth_voxels(vx, sigma=2)
-
-    See Also
-    --------
-    [`navis.smooth_mesh`][]
-                    For smoothing MeshNeurons and other mesh-likes.
-    [`navis.smooth_skeleton`][]
-                    For smoothing TreeNeurons.
-
-    """
-    # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.VoxelNeuron):
-        raise TypeError(f"Can only process VoxelNeurons, not {type(x)}")
-
-    if not inplace:
-        x = x.copy()
-
-    # Apply gaussian
-    x._data = gaussian_filter(x.grid.astype(np.float32), sigma=sigma)
     x._clear_temp_attr()
 
     return x
