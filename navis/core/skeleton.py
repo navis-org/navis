@@ -75,13 +75,15 @@ class TreeNeuron(BaseNeuron):
                      - `pandas.Series` is expected to have a DataFrame as
                        `.nodes` - additional properties will be attached
                        as meta data
-                     - `str` filepath is passed to [`navis.read_swc`][]
+                     - `tuple` of `(vertices, edges)` arrays is passed to
+                       [`navis.ve2neuron`][]
+                     - `str` is passed to [`navis.read_swc`][]
                      - `BufferedIOBase` e.g. from `open(filename)`
-                     - `networkx.DiGraph` parsed by `navis.nx2neuron`
-                     - `None` will initialize an empty neuron
+                     - `networkx.DiGraph` parsed by [`navis.nx2neuron`][]
                      - `skeletor.Skeleton`
                      - `TreeNeuron` - in this case we will try to copy every
                        attribute
+                     - `None` will initialize an empty neuron
     units :         str | pint.Units | pint.Quantity
                     Units for coordinates. Defaults to `None` (dimensionless).
                     Strings must be parsable by pint: e.g. "nm", "um",
@@ -177,6 +179,11 @@ class TreeNeuron(BaseNeuron):
                     setattr(self, at, copy.copy(getattr(self, at)))
                 except BaseException:
                     logger.warning(f'Unable to deep-copy attribute "{at}"')
+        elif isinstance(x, tuple):
+            # Tuple of vertices and edges
+            if len(x) != 2:
+                raise ValueError('Tuple must have 2 elements: vertices and edges.')
+            self.nodes = graph.ve2neuron(x[0], x[1]).nodes
         elif isinstance(x, type(None)):
             # This is a essentially an empty neuron
             pass
