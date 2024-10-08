@@ -533,7 +533,7 @@ def plot3d_octarine(x, **kwargs):
         neuron_settings = settings.to_dict()
         for key in settings._viewer_settings:
             neuron_settings.pop(key, None)
-        viewer.add_neurons(neurons, **neuron_settings)
+        viewer.add_neurons(neurons, center=settings.get("center", True), **neuron_settings)
     if volumes:
         for v in volumes:
             viewer.add_mesh(

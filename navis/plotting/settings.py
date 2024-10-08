@@ -202,6 +202,7 @@ class OctarineSettings(BasePlottingSettings):
     show: bool = True
     size: Optional[Tuple[int, int]] = None
     offscreen: bool = False
+    spacing: Optional[Tuple[float, float, float]] = None
 
     # These are viewer-specific settings that we must not pass to the plotting
     # function
@@ -215,6 +216,7 @@ class OctarineSettings(BasePlottingSettings):
         "size",
         "offscreen",
         "scatter_kws",
+        "spacing"
     )
 
 
