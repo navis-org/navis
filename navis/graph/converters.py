@@ -35,7 +35,7 @@ __all__ = sorted(
         "network2igraph",
         "neuron2igraph",
         "nx2neuron",
-        "ve2neuron",
+        "edges2neuron",
         "neuron2nx",
         "neuron2KDTree",
         "neuron2tangents",
@@ -344,7 +344,7 @@ def simplify_graph(G, inplace=False):
     """Simplify skeleton graph (networkX or igraph).
 
     This function will simplify the graph by keeping only roots, leafs and
-    branch points. Preserves branch lengths (i.e. weights).
+    branch points. Preserves branch lengths (i.e. weights)!
 
     Parameters
     ----------
@@ -607,18 +607,18 @@ def nx2neuron(
     break_cycles: bool = False,
     **kwargs,
 ) -> pd.DataFrame:
-    """Generate node table from NetworkX Graph.
+    """Create TreeNeuron from NetworkX Graph.
 
     This function will try to generate a neuron-like tree structure from
     the Graph. Therefore the graph must not contain loops!
 
-    Node attributes (e.g. `x`, `y`, `z`, `radius`) need
-    to be properties of the graph's nodes. All node property will be added to
+    All node attributes (e.g. `x`, `y`, `z`, `radius`) will be added to
     the neuron's `.nodes` table.
 
     Parameters
     ----------
     G :             networkx.Graph
+                    Graph to convert to neuron.
     root :          str | int | list, optional
                     Node in graph to use as root for neuron. If not provided,
                     will use first node in `g.nodes`. Ignored if graph
@@ -633,6 +633,14 @@ def nx2neuron(
     Returns
     -------
     TreeNeuron
+
+    Examples
+    --------
+    >>> import navis
+    >>> import networkx as nx
+    >>> G = nx.balanced_tree(2, 3)
+    >>> tn = navis.nx2neuron(G)
+    >>> tn
 
     """
     # First some sanity checks
@@ -729,22 +737,22 @@ def nx2neuron(
     return core.TreeNeuron(tn_table.reset_index(drop=False, inplace=False), **kwargs)
 
 
-def ve2neuron(vertices, edges, validate=True, **kwargs):
-    """Generate TreeNeuron from vertices and edges.
+def edges2neuron(edges, vertices=None, validate=True, **kwargs):
+    """Create TreeNeuron from edges and (optional) vertex coordinates.
 
     Parameters
     ----------
-    vertices :      (N, 3) array
-                    Vertex positions
     edges :         (N, 2) array
-                    Edges between vertices
+                    Edges between vertices.
+    vertices :      (N, 3) array, optional
+                    Vertex positions. If not provided, will position
+                    all vertices at (0, 0, 0).
     validate :      bool
-                    If True (default) will look for and fix
-                    issues with cycles and edges orientation.
-                    Only skip this off if you are absolutely
-                    sure your data are good.
+                    If True (default) will fix issues with cycles
+                    and edges orientation. Only skip this if
+                    you are absolutely sure your data are good.
     **kwargs
-                    Keyword arguments are passed to
+                    Additional keyword arguments are passed to
                     initialization of the TreeNeuron.
 
     Returns
@@ -758,12 +766,16 @@ def ve2neuron(vertices, edges, validate=True, **kwargs):
     >>> import numpy as np
     >>> verts = np.random.rand(5, 3)
     >>> edges = np.array([(0, 1), (1, 2), (2, 3), (2, 4)])
-    >>> sk = navis.ve2neuron(verts, edges)
+    >>> sk = navis.edges2neuron(edges, vertices=verts)
 
     """
     # Make sure we're dealing with arrays
-    vertices = np.asarray(vertices)
     edges = np.asarray(edges)
+
+    if vertices is not None:
+        vertices = np.asarray(vertices)
+    else:
+        vertices = np.zeros((edges.max() + 1, 3))
 
     if vertices.ndim != 2 or vertices.shape[1] != 3:
         raise ValueError(

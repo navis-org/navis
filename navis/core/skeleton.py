@@ -76,7 +76,7 @@ class TreeNeuron(BaseNeuron):
                        `.nodes` - additional properties will be attached
                        as meta data
                      - `tuple` of `(vertices, edges)` arrays is passed to
-                       [`navis.ve2neuron`][]
+                       [`navis.edges2neuron`][]
                      - `str` is passed to [`navis.read_swc`][]
                      - `BufferedIOBase` e.g. from `open(filename)`
                      - `networkx.DiGraph` parsed by [`navis.nx2neuron`][]
@@ -183,7 +183,7 @@ class TreeNeuron(BaseNeuron):
             # Tuple of vertices and edges
             if len(x) != 2:
                 raise ValueError('Tuple must have 2 elements: vertices and edges.')
-            self.nodes = graph.ve2neuron(x[0], x[1]).nodes
+            self.nodes = graph.edges2neuron(edges=x[1], vertices=x[0]).nodes
         elif isinstance(x, type(None)):
             # This is a essentially an empty neuron
             pass
