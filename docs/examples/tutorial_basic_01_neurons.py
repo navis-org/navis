@@ -231,8 +231,7 @@ m.soma_pos = None
 
 # %%
 m = navis.example_neurons(1, kind="mesh")
-
-m.units
+print(m.units)
 
 # %%
 # To set the neuron's units simply use a descriptive string:
@@ -262,13 +261,13 @@ rs = navis.resample_skeleton(n, resample_to="1 um")
 # interpretable. By default, properties like cable length or volume are returned in the
 # neuron's units, i.e. in 8x8x8nm voxel space in our case:
 
-n.cable_length
+print(n.cable_length)
 
 # %%
 # You can tell {{ navis}} to use the neuron's `.units` to make these properties more readable:
 
 navis.config.add_units = True
-n.cable_length
+print(n.cable_length)
 
 # %%
 # !!! note
@@ -394,7 +393,7 @@ print(f"{n.n_nodes} nodes before and {n_lh.n_nodes} nodes after pruning")
 # %%
 # ## All neurons are equal...
 #
-# ... but some are more equal than others. :wink:
+# ... but some are more equal than others.
 #
 # In Python the `==` operator compares two objects:
 
