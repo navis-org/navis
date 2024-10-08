@@ -268,6 +268,7 @@ print(n.cable_length)
 
 navis.config.add_units = True
 print(n.cable_length)
+navis.config.add_units = False  # reset to default
 
 # %%
 # !!! note
