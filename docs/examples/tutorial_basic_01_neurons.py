@@ -152,7 +152,7 @@ vx.voxels.shape, vx.values.shape
 #     explicitly, it will default to some rather cryptic random UUID - you have been warned!
 #     :wink:
 #
-# ## Neuron Meta Data
+# ## Neuron meta data
 #
 # ### Connectors
 #
@@ -272,12 +272,26 @@ rs = navis.resample_skeleton(n, resample_to="1 um")
 #     # Convert to micrometers
 #     n_um = n.convert_units("micrometers")
 #     ```
-
-
-# %%
-# ## Operating on Neurons
 #
-# Above we've already seen examples of passing neurons to functions - for example [`navis.plot2d(n)`](navis.plot2d).
+# !!! experiment "Addition & Subtraction"
+#     Multiplication and division will scale the neuro as you've seen above.
+#     Similarly, adding or subtracting to/from neurons will offset the neuron's coordinates:
+#     ```python
+#     n = navis.example_neurons(1)
+#
+#     # Convert to microns
+#     n_um = n.convert_units("micrometers")
+#
+#     # Add 100 micrometers along all axes to the neuron
+#     n_offset = n + 100
+#
+#     # Subtract 100 micrometers along just one axis
+#     n_offset = n - [0, 0, 100]#
+#     ```
+#
+# ## Operating on neurons
+#
+# Above we've already seen examples of passing neurons to functions - for example [`navis.plot2d(n)`][navis.plot2d].
 #
 # For some {{ navis }} functions, neurons offer have shortcut "methods":
 
@@ -295,7 +309,7 @@ rs = navis.resample_skeleton(n, resample_to="1 um")
 #     sk.plot3d(color='red')  # plot the neuron in 3d
 #     ```
 #
-# === "Using navis functions"
+# === "Using NAVis functions"
 #     ```python
 #     import navis
 #     sk = navis.example_neurons(1, kind='skeleton')
@@ -312,7 +326,7 @@ rs = navis.resample_skeleton(n, resample_to="1 um")
 #
 #     In some cases the shorthand methods might offer only a subset of the full function's functionality.
 #
-# #### The `inplace` parameter
+# ### The `inplace` parameter
 #
 #  The `inplace` parameter is part of many {{ navis }} functions and works like e.g. in the `pandas` library:
 #
@@ -334,7 +348,7 @@ n_lh = n.prune_by_volume(lh, inplace=False)
 print(f"{n.n_nodes} nodes before and {n_lh.n_nodes} nodes after pruning")
 
 # %%
-# ## All Neurons are Equal...
+# ## All neurons are equal...
 #
 # ... but some are more equal than others. :wink:
 #
@@ -407,9 +421,9 @@ print(f"Nodes in graph after: {len(n.graph.nodes)}")
 
 # %%
 # Here, the changes to the node table automatically triggered a regeneration of the graph. This works
-# because {{ navis }} generates and checks hash values for neurons to detect changes and because here
-# the node table is the master. It would not work the other way around (i.e. changing the graph to
-# change the node table).
+# because {{ navis }} checks hash values of neurons and in this instance it detected that the node
+# node table - which represents the core data for [`TreeNeurons`][navis.TreeNeuron] - had changed.
+# It would not work the other way around: changing the graph does not trigger changes in the node table.
 #
 # Again: as long as you are using built-in functions, you don't have to worry about this. If you do
 # run some custom manipulation of neurons be aware that you might want to make sure that the data
