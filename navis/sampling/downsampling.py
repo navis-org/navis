@@ -18,19 +18,21 @@ from scipy import ndimage
 from typing import Optional, Union, List
 
 from .. import config, graph, core, utils, meshes
+from .utils import sample_points_uniform
 
 # Set up logging
 logger = config.get_logger(__name__)
 
-__all__ = ['downsample_neuron']
+__all__ = ["downsample_neuron"]
 
 
-@utils.map_neuronlist(desc='Downsampling', allow_parallel=True)
-def downsample_neuron(x: 'core.NeuronObject',
-                      downsampling_factor: Union[int, float],
-                      inplace: bool = False,
-                      preserve_nodes: Optional[List[int]] = None
-                      ) -> Optional['core.NeuronObject']:
+@utils.map_neuronlist(desc="Downsampling", allow_parallel=True)
+def downsample_neuron(
+    x: "core.NeuronObject",
+    downsampling_factor: Union[int, float],
+    inplace: bool = False,
+    preserve_nodes: Optional[List[int]] = None,
+) -> Optional["core.NeuronObject"]:
     """Downsample neuron(s) by a given factor.
 
     For skeletons: preserves root, leafs, branchpoints by default. Preservation
@@ -122,7 +124,7 @@ def _downsample_voxels(x, downsampling_factor, order=1):
     x.units *= downsampling_factor
 
 
-def _downsample_dotprops(x, downsampling_factor):
+def _downsample_dotprops(x, downsampling_factor, method="simple"):
     """Downsample Dotprops."""
     assert isinstance(x, core.Dotprops)
 
@@ -135,7 +137,14 @@ def _downsample_dotprops(x, downsampling_factor):
         return
 
     # Generate a mask
-    mask = np.arange(0, x._points.shape[0], int(downsampling_factor))
+    if method == "simple":
+        mask = np.arange(0, x._points.shape[0], int(downsampling_factor))
+    elif method == "uniform":
+        mask = sample_points_uniform(
+            x._points, x._points.shape[0] // downsampling_factor, output="mask"
+        )
+    else:
+        raise ValueError(f"Unknown (down-)sampling method: {method}")
 
     # Mask vectors
     # This will also trigger re-calculation which is necessary for two reasons:
