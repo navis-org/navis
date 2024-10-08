@@ -28,7 +28,9 @@ Shapely>=1.6.0  #extra: shapely
 
 rpy2  #extra: r
 
-pykdtree  #extra: kdtree
+# extra: kdtree
+pykdtree<=1.3.12; platform_system == "Darwin"
+pykdtree; platform_system != "Darwin"
 
 xxhash  #extra: hash
 
