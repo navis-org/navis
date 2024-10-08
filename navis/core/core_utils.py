@@ -55,14 +55,33 @@ def temp_property(func):
     return wrapper
 
 
+def add_units(compact=True, power=1):
+    """Add neuron units (if present) to output of function."""
+    def outer(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            self = args[0]
+            res = func(*args, **kwargs)
+
+            if config.add_units and self.has_units and not self.units.dimensionless:
+                res = res * np.power(self.units, power)
+                if compact:
+                    res = res.to_compact()
+
+            return res
+        return wrapper
+    return outer
+
+
 @utils.map_neuronlist(desc='Dotprops', allow_parallel=True)
 def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
                            'core.TreeNeuron', 'core.MeshNeuron',
                            'core.VoxelNeuron', 'core.NeuronList'],
                   k: int = 20,
                   resample: Union[float, int, bool, str] = False,
-                  threshold: float = None) -> Union['core.Dotprops', 'core.NeuronList']:
-    """Produce dotprops from neurons or x/y/z points.
+                  threshold: float = None,
+                  make_using: Optional = None) -> Union['core.Dotprops', 'core.NeuronList']:
+    """Produce dotprops from neurons or point clouds.
 
     This is following the implementation in R's `nat` library.
 

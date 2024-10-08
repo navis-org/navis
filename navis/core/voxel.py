@@ -23,7 +23,7 @@ from typing import Union, Optional
 
 from .. import utils, config
 from .base import BaseNeuron
-from .core_utils import temp_property
+from .core_utils import temp_property, add_units
 
 try:
     import xxhash
@@ -248,6 +248,7 @@ class VoxelNeuron(BaseNeuron):
         return np.vstack((mn, mx)).T
 
     @property
+    @add_units(compact=True, power=3)
     def volume(self) -> float:
         """Volume of neuron."""
         # Get volume of a single voxel

@@ -32,7 +32,7 @@ from .. import graph, morpho, utils, config, core, sampling, intersection
 from .. import io  # type: ignore # double import
 
 from .base import BaseNeuron
-from .core_utils import temp_property
+from .core_utils import temp_property, add_units
 
 try:
     import xxhash
@@ -689,6 +689,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     @temp_property
+    @add_units(compact=True)
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
         if not hasattr(self, '_cable_length'):
@@ -696,6 +697,7 @@ class TreeNeuron(BaseNeuron):
         return self._cable_length
 
     @property
+    @add_units(compact=True, power=2)
     def surface_area(self) -> float:
         """Radius-based lateral surface area."""
         if 'radius' not in self.nodes.columns:
@@ -722,6 +724,7 @@ class TreeNeuron(BaseNeuron):
         return (np.pi * (r1 + r2) * np.sqrt( (r1-r2)**2 + h**2)).sum()
 
     @property
+    @add_units(compact=True, power=3)
     def volume(self) -> float:
         """Radius-based volume."""
         if 'radius' not in self.nodes.columns:
@@ -765,7 +768,12 @@ class TreeNeuron(BaseNeuron):
     @property
     def sampling_resolution(self) -> float:
         """Average cable length between child -> parent nodes."""
-        return self.cable_length / self.n_nodes
+        res = self.cable_length / self.n_nodes
+
+        if isinstance(res, pint.Quantity):
+            res = res.to_compact()
+
+        return res
 
     @property
     @temp_property

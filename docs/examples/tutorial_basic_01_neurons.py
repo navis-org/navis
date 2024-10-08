@@ -225,34 +225,70 @@ m.soma_pos = None
 # %%
 # ### Units
 #
-# {{ navis }} supports assigning units to neurons. The neurons shipping with navis, for example, are in 8x8x8nm voxel space:
+# {{ navis }} supports assigning units to neurons. The neurons shipping with {{ navis }}, for example, are in 8x8x8nm voxel space[^1]:
+#
+# [^1]: The example neurons are from the [Janelia hemibrain connectome](https://www.janelia.org/project-team/flyem/hemibrain) project which as imaged at 8x8x8nm resolution.
 
 # %%
 m = navis.example_neurons(1, kind="mesh")
+
 m.units
 
 # %%
-# To assign or change the units simply use a descriptive string:
+# To set the neuron's units simply use a descriptive string:
 
 # %%
 m.units = "10 micrometers"
-m.units
+print(m.units)
 
 # %%
-# Tracking units is good practive but can also be very useful: some {{ navis }} functions let you pass quantities as unit strings:
+# !!! note
+#     Setting the units as we did above does not actually change the neuron's coordinates. It
+#     merely sets a property that can be used by other functions to interpret the neuron's
+#     coordinate space. See below on how to convert the units of a neuron.
+#
+# Tracking units is good practice in general but is also very useful in a variety of scenarios:
+#
+# First, certain {{ navis }} functions let you pass quantities as unit strings:
 
-# Load example neuron in 8x8x8nm
+# Load example neuron which is in 8x8x8nm space
 n = navis.example_neurons(1, kind="skeleton")
 
 # Resample to 1 micrometer
 rs = navis.resample_skeleton(n, resample_to="1 um")
 
 # %%
-# To change the units on a neuron, you have two options:
+# Second, {{ navis }} optionally uses the neuron's units to make certain properties more
+# interpretable. By default, properties like cable length or volume are returned in the
+# neuron's units, i.e. in 8x8x8nm voxel space in our case:
+
+n.cable_length
+
+# %%
+# You can tell {{ navis}} to use the neuron's `.units` to make these properties more readable:
+
+navis.config.add_units = True
+n.cable_length
+
+# %%
+# !!! note
+#     Note that `n.cable_length` is now a `pint.Quantity` object. This may make certain operations
+#     a bit more cumbersome which is why this feature is optional. You can to a float by calling
+#     `.magnitude`:
+#
+#     ```python
+#     n.cable_length.magnitude
+#     ```
+
+# %%
+# Check out Pint's [documentation](https://pint.readthedocs.io/en/stable/) to learn more.
+#
+# To actually convert the neuron's coordinate space, you have two options:
 #
 # === "Multiply/Divide"
 #
-#      You can multiply or divide any neuron (or ``NeuronList``) by a number to change the units:
+#     You can multiply or divide any neuron or [`NeuronList`][navis.NeuronList] by a number
+#     to change the units:
 #
 #     ```python
 #     # Example neuron are in 8x8x8nm voxel space
@@ -262,6 +298,14 @@ rs = navis.resample_skeleton(n, resample_to="1 um")
 #     # Divide by 1000 to get micrometers
 #     n_um = n_nm / 1000
 #     ```
+#
+#     For non-isometric conversions you can pass a vector of scaling factors:
+#     ```python
+#     neuron * [4, 4, 40]
+#     ```
+#     Note that for `TreeNeurons`, this is expected to be scaling factors for
+#     `(x, y, z, radius)`.
+#
 #
 # === "Convert units"
 #

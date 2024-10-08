@@ -79,6 +79,9 @@ default_color = (.95, .65, .04)
 # Unit registry
 ureg = pint.UnitRegistry()
 
+# Whether to add units to certain spatial neuron properties
+add_units = False
+
 # Set to true to prevent Viewer from ever showing
 headless = os.environ.get('NAVIS_HEADLESS', 'False').lower() == 'true'
 if headless:
@@ -108,7 +111,7 @@ default_connector_colors['gap_junctions'] = default_connector_colors['Gap_juncti
 def _type_of_script():
     """Returns context in which navis is run. """
     try:
-        ipy_str = str(type(get_ipython()))
+        ipy_str = str(type(get_ipython()))  #noqa
         if 'zmqshell' in ipy_str:
             return 'jupyter'
         if 'terminal' in ipy_str:
