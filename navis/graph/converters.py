@@ -732,7 +732,7 @@ def nx2neuron(
     # Now map the attributes onto node table
     for at in all_attr:
         vals = nx.get_node_attributes(G, at)
-        tn_table[at] = tn_table.index.map(lambda a: vals).fillna(defaults.get(at, None))
+        tn_table[at] = tn_table.index.map(vals).fillna(defaults.get(at, None))
 
     return core.TreeNeuron(tn_table.reset_index(drop=False, inplace=False), **kwargs)
 
