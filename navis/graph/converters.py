@@ -641,6 +641,16 @@ def nx2neuron(
     >>> G = nx.balanced_tree(2, 3)
     >>> tn = navis.nx2neuron(G)
     >>> tn
+    type            navis.TreeNeuron
+    name                        None
+    n_nodes                       15
+    n_connectors                None
+    n_branches                     6
+    n_leafs                        8
+    cable_length                 0.0
+    soma                        None
+    units            1 dimensionless
+    dtype: object
 
     """
     # First some sanity checks
