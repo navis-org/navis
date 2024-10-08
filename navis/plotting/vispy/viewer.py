@@ -33,7 +33,7 @@ from .vputils import *
 try:
     from vispy import scene
     from vispy.util.quaternion import Quaternion
-except ImportError:
+except ModuleNotFoundError:
     scene = None
 
 
@@ -130,8 +130,10 @@ class Viewer:
 
     def __init__(self, picking=False, **kwargs):
         if not scene:
-            raise ImportError('`navis.Viewer` requires the `vispy` package to '
-                              'be installed:\n  pip3 install vispy')
+            raise ModuleNotFoundError(
+                '`navis.Viewer` requires the `vispy` package to '
+                'be installed:\n  pip3 install vispy'
+                )
         # Update some defaults as necessary
         defaults = dict(keys=None,
                         show=True,

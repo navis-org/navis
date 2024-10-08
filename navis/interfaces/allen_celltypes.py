@@ -18,14 +18,14 @@ from textwrap import dedent
 try:
     import allensdk
     from allensdk.core.cell_types_cache import CellTypesCache
-except ImportError:
+except ModuleNotFoundError as e:
     msg = dedent("""
           allensdk library not found. Please install using pip:
 
                 pip install allensdk --no-deps
 
           """)
-    raise ImportError(msg)
+    raise ModuleNotFoundError(msg) from e
 except BaseException:
     raise
 

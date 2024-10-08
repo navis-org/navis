@@ -29,13 +29,13 @@ logger = config.get_logger(__name__)
 
 try:
     from pyoctree import pyoctree
-except ImportError:
+except ModuleNotFoundError:
     pyoctree = None
     logger.debug("Package pyoctree not found.")
 
 try:
     import ncollpyde
-except ImportError:
+except ModuleNotFoundError:
     ncollpyde = None
     logger.debug("Package ncollpyde not found.")
 

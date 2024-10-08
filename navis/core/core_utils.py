@@ -33,7 +33,7 @@ try:
     # (see https://stackoverflow.com/questions/55611806/how-to-set-chunk-size-when-using-pathos-processingpools-map)
     import pathos
     ProcessingPool = pathos.pools._ProcessPool
-except ImportError:
+except ModuleNotFoundError:
     ProcessingPool = None
 
 __all__ = ['make_dotprops', 'to_neuron_space']
@@ -407,9 +407,11 @@ class NeuronProcessor:
         # Apply function
         if parallel:
             if not ProcessingPool:
-                raise ImportError('navis relies on pathos for multiprocessing!'
-                                  'Please install pathos and try again:\n'
-                                  '  pip3 install pathos -U')
+                raise ModuleNotFoundError(
+                    'navis relies on pathos for multiprocessing!'
+                    'Please install pathos and try again:\n'
+                    '  pip3 install pathos -U'
+                    )
 
             if self.warn_inplace and kwargs.get('inplace', False):
                 logger.warning('`inplace=True` does not work with '

@@ -38,7 +38,7 @@ try:
     import zipfile
 
     compression = zipfile.ZIP_DEFLATED
-except ImportError:
+except ModuleNotFoundError:
     compression = zipfile.ZIP_STORED
 
 __all__ = ["BaseReader"]

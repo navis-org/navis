@@ -39,7 +39,7 @@ def simplify_mesh_blender(x, F, inplace=False):
 
     """
     if not tm.interfaces.blender.exists:
-        raise ImportError('No Blender 3D unavailable (executable not found).')
+        raise ModuleNotFoundError('No Blender 3D unavailable (executable not found).')
     _blender_executable = tm.interfaces.blender._blender_executable
 
     if F > 1 or F < 0:
@@ -111,7 +111,7 @@ def smooth_mesh_blender(x, iterations=5, L=0.5, inplace=False):
 
     """
     if not tm.interfaces.blender.exists:
-        raise ImportError('No Blender 3D unavailable (executable not found).')
+        raise ModuleNotFoundError('No Blender 3D unavailable (executable not found).')
     _blender_executable = tm.interfaces.blender._blender_executable
 
     if L > 1 or L < 0:

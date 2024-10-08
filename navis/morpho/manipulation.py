@@ -28,7 +28,7 @@ from typing_extensions import Literal
 
 try:
     from pykdtree.kdtree import KDTree
-except ImportError:
+except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
 from .. import graph, utils, config, core

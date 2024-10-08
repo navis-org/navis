@@ -21,7 +21,7 @@ from typing import Union, Optional, List, Iterable
 
 try:
     import igraph
-except ImportError:
+except ModuleNotFoundError:
     igraph = None
 
 from .. import config, core
@@ -196,7 +196,7 @@ def network2igraph(
 
     """
     if igraph is None:
-        raise ImportError("igraph must be installed to use this function.")
+        raise ModuleNotFoundError("igraph must be installed to use this function.")
 
     if isinstance(x, pd.DataFrame):
         present = [c in x.columns for c in ["source", "target", "weight"]]
@@ -454,8 +454,8 @@ def _voxels2edges(x, connectivity=18):
 
     try:
         from sklearn.neighbors import KDTree
-    except ImportError:
-        raise ImportError("This function requires scikit-learn to be installed.")
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError("This function requires scikit-learn to be installed.")
 
     assert connectivity in (
         6,
@@ -529,7 +529,7 @@ def neuron2igraph(
         if not raise_not_installed:
             return None
         else:
-            raise ImportError(
+            raise ModuleNotFoundError(
                 "iGraph appears to not be installed (properly). "
                 'Make sure "import igraph" works.'
             )

@@ -105,7 +105,7 @@ def thin_voxels(x, inplace=False):
     try:
         from skimage.morphology import skeletonize
     except ModuleNotFoundError:
-        raise ImportError(
+        raise ModuleNotFoundError(
             "`thin_image` requires the scikit-image packge:\n"
             "  pip install scikit-image"
         )

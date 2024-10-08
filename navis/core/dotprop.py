@@ -29,12 +29,12 @@ from .base import BaseNeuron
 
 try:
     import xxhash
-except ImportError:
+except ModuleNotFoundError:
     xxhash = None
 
 try:
     from pykdtree.kdtree import KDTree
-except ImportError:
+except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
 __all__ = ['Dotprops']

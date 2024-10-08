@@ -1490,7 +1490,7 @@ def check_pykdtree_flag():
     # See if pykdtree is present
     try:
         import pykdtree
-    except ImportError:
+    except ModuleNotFoundError:
         # If not present, just return
         return
 

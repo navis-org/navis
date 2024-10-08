@@ -14,7 +14,10 @@
 import numpy as np
 import networkx as nx
 
-from pykdtree.kdtree import KDTree
+try:
+    from pykdtree.kdtree import KDTree
+except ModuleNotFoundError:
+    from scipy.spatial import cKDTree as KDTree
 
 
 def sample_points_uniform(points, size, output="points"):

@@ -35,7 +35,7 @@ from .core_utils import temp_property, add_units
 
 try:
     import xxhash
-except ImportError:
+except ModuleNotFoundError:
     xxhash = None
 
 
