@@ -23,18 +23,18 @@ import pandas as pd
 from typing import Union, Callable, List, Optional, Tuple
 from typing_extensions import Literal
 
-from .. import utils, config, core, sampling, graph
+from .. import utils, config, core, sampling, graph, morpho
 
 from .base import BaseNeuron
 
 try:
     import xxhash
-except ImportError:
+except ModuleNotFoundError:
     xxhash = None
 
 try:
     from pykdtree.kdtree import KDTree
-except ImportError:
+except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
 __all__ = ['Dotprops']
@@ -229,6 +229,9 @@ class Dotprops(BaseNeuron):
                 _ = state.pop('_tree')
 
         return state
+
+    def __len__(self):
+        return len(self.points)
 
     @property
     def alpha(self):
@@ -496,7 +499,47 @@ class Dotprops(BaseNeuron):
 
         return x
 
-    def recalculate_tangents(self, k: int, inplace=False) -> None:
+    def drop_fluff(self, epsilon, keep_size: int = None, n_largest: int = None, inplace=False):
+        """Remove fluff from neuron.
+
+        By default, this function will remove all but the largest connected
+        component from the neuron. You can change that behavior using the
+        `keep_size` and `n_largest` parameters.
+
+        Parameters
+        ----------
+        epsilon :   float
+                    Distance at which to consider two points to be connected.
+                    If `None`, will use the default value of 5 times the average
+                    node distance (`self.sampling_resolution`).
+        keep_size : float, optional
+                    Use this to set a size (in number of points) for small
+                    bits to keep. If `keep_size` < 1 it will be intepreted as
+                    fraction of total nodes/vertices/points.
+        n_largest : int, optional
+                    If set, will keep the `n_largest` connected components. Note:
+                    if provided, `keep_size` will be applied first!
+        inplace :   bool, optional
+                    If False, will return a copy and leave the original data
+                    unmodified.
+
+        Returns
+        -------
+        Dotprops
+                    Only if `inplace=False`.
+
+        See Also
+        --------
+        [`navis.drop_fluff`][]
+            Base function. See for details and examples.
+
+        """
+        x = morpho.drop_fluff(self, epsilon=epsilon, keep_size=keep_size, n_largest=n_largest, inplace=inplace)
+
+        if not inplace:
+            return x
+
+    def recalculate_tangents(self, k: int, inplace=False):
         """Recalculate tangent vectors and alpha with a new `k`.
 
         Parameters
@@ -604,10 +647,14 @@ class Dotprops(BaseNeuron):
     def to_skeleton(self,
                     scale_vec: Union[float, Literal['auto']] = 'auto'
                     ) -> core.TreeNeuron:
-        """Turn dotprops into a skeleton.
+        """Turn Dotprop into a TreeNeuron.
 
-        This is mainly for things like plotting as it does not produce
-        meaningful edges. Also note that only minimal meta data is carried over.
+        This does *not* skeletonize the neuron but rather generates a line
+        segment for each point based on the tangent vector. This is mainly
+        used under the hood for plotting. Also note that only minimal meta
+        data is carried over.
+
+        For proper skeletonization see [`navis.skeletonize`][].
 
         Parameters
         ----------
@@ -660,5 +707,3 @@ class Dotprops(BaseNeuron):
 
         return tn
 
-    def __len__(self):
-        return len(self.points)

@@ -21,12 +21,12 @@ from ..core import Volume
 
 try:
     from pyoctree import pyoctree
-except ImportError:
+except ModuleNotFoundError:
     pyoctree = None
 
 try:
     import ncollpyde
-except ImportError:
+except ModuleNotFoundError:
     ncollpyde = None
 
 

@@ -158,9 +158,11 @@ def align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, pr
     """
     try:
         from pycpd import RigidRegistration as Registration
-    except ImportError:
-        raise ImportError('`align_rigid()` requires the `pycpd` library:\n'
-                          '  pip3 install git+https://github.com/siavashk/pycpd@master -U')
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            '`align_rigid()` requires the `pycpd` library:\n'
+            '  pip3 install git+https://github.com/siavashk/pycpd@master -U'
+            )
 
     if isinstance(x, core.BaseNeuron):
         x = core.NeuronList(x)
@@ -262,9 +264,11 @@ def align_deform(x, target=None, sample=None, progress=True, **kwargs):
     """
     try:
         from pycpd import DeformableRegistration as Registration
-    except ImportError:
-        raise ImportError('`align_deform()` requires the `pycpd` library:\n'
-                          '  pip3 install git+https://github.com/siavashk/pycpd@master -U')
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            '`align_deform()` requires the `pycpd` library:\n'
+            '  pip3 install git+https://github.com/siavashk/pycpd@master -U'
+            )
 
     if isinstance(x, core.BaseNeuron):
         x = core.NeuronList(x)
@@ -332,9 +336,11 @@ def align_pca(x, individually=True):
     """
     try:
         from sklearn.decomposition import PCA
-    except ImportError:
-        raise ImportError('`align_pca()` requires the `scikit-learn` library:\n'
-                          '  pip3 install scikit-learn -U')
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            '`align_pca()` requires the `scikit-learn` library:\n'
+            '  pip3 install scikit-learn -U'
+            )
 
     if isinstance(x, core.BaseNeuron):
         x = core.NeuronList(x)

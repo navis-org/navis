@@ -16,6 +16,9 @@ functions to them from one of the various file formats:
     (e.g. the MICrONS, neuromorpho, Virtual Fly Brain or Janelia hemibrain datasets).
     These are covered in separate [tutorials](../../gallery).
 
+    If you have light-level microscopy data, you might also be interested in the
+    tutorial on [skeletons from light-level data](../zzz_tutorial_io_05_skeletonize).
+
 ## From SWC files
 
 SWC is a common format for storing neuron skeletons. Thus {{ navis }} provides functions to both
@@ -182,8 +185,4 @@ s
 #
 # Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`MeshNeurons`][navis.MeshNeuron]
 # (see also the API reference on [neuron conversion](../../../api.md#converting-between-types)).
-#
-# If you have light-level microscopy data, you might also be interested in the
-# [tutorial on skeletons from light-level data](../zzz_tutorial_io_05_skeletonize).
-
 

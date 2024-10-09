@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from abc import ABC
-from functools import partial
+from functools import partial, wraps
 from pathlib import Path
 from typing import List, Union, Iterable, Dict, Optional, Any, IO
 from typing_extensions import Literal
@@ -38,7 +38,7 @@ try:
     import zipfile
 
     compression = zipfile.ZIP_DEFLATED
-except ImportError:
+except ModuleNotFoundError:
     compression = zipfile.ZIP_STORED
 
 __all__ = ["BaseReader"]
@@ -49,7 +49,7 @@ logger = config.get_logger(__name__)
 DEFAULT_INCLUDE_SUBDIRS = False
 
 # Regular expression to figure out if a string is a regex pattern
-rgx = re.compile(r'[\\\.\?\[\]\+\^\$\*]')
+rgx = re.compile(r"[\\\.\?\[\]\+\^\$\*]")
 
 
 def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:
@@ -64,6 +64,49 @@ def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:
             out.update(d)
     out.update(kwargs)
     return out
+
+
+def handle_errors(func):
+    """Decorator for read_buffer and read_dataframe methods to handle errors.
+
+    Catches exceptions, logs/raises and potentially return `None`.
+
+    Note: various other BaseReader methods have their own error handling.
+
+    Parameters
+    ----------
+    func : callable
+        Function to wrap.
+
+    Returns
+    -------
+    callable
+        Wrapped function.
+
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        self = args[0]
+        attrs = kwargs.get("attrs", {})  # we rely on this being a keyword argument!
+        try:
+            return func(*args, **kwargs)
+        except BaseException as e:
+            # Check if we can provide any hint as to which file failed
+            id = self.name_fallback
+            for a in ("file", "origin", "name"):
+                if a in attrs:
+                    id = attrs[a]
+                    break
+
+            if self.errors == "raise":
+                raise ReadError(f"Error reading {id}. See above traceback for details.") from e
+            elif self.errors == "log":
+                logger.exception(f"Failed to read {id}", exc_info=True)
+
+            return None
+
+    return wrapper
 
 
 class Writer:
@@ -217,15 +260,16 @@ class BaseReader(ABC):
     """Abstract reader to parse various inputs into neurons.
 
     Any subclass should implement at least one of `read_buffer` or
-    `read_dataframe`.
+    `read_dataframe`. Entry methods such as `read_any` will pass
+    and parse an input through to the appropriate method.
 
     Parameters
     ----------
     fmt :           str
                     A string describing how to parse filenames into neuron
                     properties. For example '{id}.swc'.
-    file_ext :      str
-                    The file extension to look for when searching folders.
+    file_ext :      str | tuple
+                    The file extension(s) to look for when searching folders.
                     For example '.swc'. Alternatively, you can re-implement
                     the `is_valid_file` method for more complex filters. That
                     method needs to be able to deal with: Path objects, ZipInfo
@@ -237,6 +281,14 @@ class BaseReader(ABC):
                     Will be overwritten by later additions (e.g. from `fmt`).
     ignore_hidden : bool
                     Whether to ignore files that start with "._".
+    errors :        "raise" | "log" | "ignore"
+                    What to do when an error is encountered:
+                     - "raise" (default) will raise an error
+                     - "log" will log a warning and return `None`
+                     - "ignore" will return `None`
+                    Applies only to errors in parsing file contents into neurons
+                    not to errors in reading files, archives, URLs, etc.
+
     """
 
     def __init__(
@@ -247,6 +299,7 @@ class BaseReader(ABC):
         read_binary: bool = False,
         attrs: Optional[Dict[str, Any]] = None,
         ignore_hidden=True,
+        errors="raise"
     ):
         self.attrs = attrs
         self.fmt = fmt
@@ -254,9 +307,35 @@ class BaseReader(ABC):
         self.name_fallback = name_fallback
         self.read_binary = read_binary
         self.ignore_hidden = ignore_hidden
+        self.errors = errors
 
-        if self.file_ext.startswith("*"):
+        assert errors in ("raise", "log", "ignore")
+
+    @property
+    def file_ext(self):
+        return self._file_ext
+
+    @file_ext.setter
+    def file_ext(self, value):
+        """Makes sure file_ext is always a tuple."""
+        if isinstance(value, str):
+            value = (value,)
+
+        if any((ext.startswith("*") for ext in value)):
             raise ValueError('File extension must be ".ext", not "*.ext"')
+
+        self._file_ext = value
+
+    def format_output(self, x):
+        """Format output into NeuronList.
+
+        Replace this method if output is not (always) a NeuronList.
+        See for example NrrdReader in nrrd_io.py.
+        """
+        if not x:
+            return core.NeuronList([])
+        else:
+            return core.NeuronList([n for n in x if n])
 
     def files_in_dir(
         self, dpath: Path, include_subdirs: bool = DEFAULT_INCLUDE_SUBDIRS
@@ -264,8 +343,14 @@ class BaseReader(ABC):
         """List files to read in directory."""
         if not isinstance(dpath, Path):
             dpath = Path(dpath)
+
+        if "*" in str(dpath):
+            pattern = str(dpath.name)
+            dpath = dpath.parent
+        else:
+            pattern = "*"
+
         dpath = dpath.expanduser()
-        pattern = "*"
         if include_subdirs:
             pattern = os.path.join("**", pattern)
 
@@ -283,8 +368,9 @@ class BaseReader(ABC):
         if self.ignore_hidden and str(file).startswith("._"):
             return False
 
-        if str(file).endswith(self.file_ext):
-            return True
+        for ext in self.file_ext:
+            if str(file).endswith(ext):
+                return True
         return False
 
     def _make_attributes(
@@ -311,26 +397,6 @@ class BaseReader(ABC):
             **kwargs,
         )
 
-    def read_buffer(
-        self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.BaseNeuron":
-        """Read buffer into a single neuron.
-
-        Parameters
-        ----------
-        f :         IO
-                    Readable buffer.
-        attrs :     dict | None
-                    Arbitrary attributes to include in the neuron.
-
-        Returns
-        -------
-        core.NeuronObject
-        """
-        raise NotImplementedError(
-            "Reading from buffer not implemented for " f"{type(self)}"
-        )
-
     def read_file_path(
         self, fpath: os.PathLike, attrs: Optional[Dict[str, Any]] = None
     ) -> "core.BaseNeuron":
@@ -349,12 +415,9 @@ class BaseReader(ABC):
         """
         p = Path(fpath)
         with open(p, "rb" if self.read_binary else "r") as f:
-            try:
-                props = self.parse_filename(f.name)
-                props["origin"] = str(p)
-                return self.read_buffer(f, merge_dicts(props, attrs))
-            except BaseException as e:
-                raise ValueError(f"Error reading file {p}") from e
+            props = self.parse_filename(f.name)
+            props["origin"] = str(p)
+            return self.read_buffer(f, attrs=merge_dicts(props, attrs))
 
     def read_from_zip(
         self,
@@ -393,7 +456,7 @@ class BaseReader(ABC):
                 props = self.parse_filename(file.orig_filename)
                 props["origin"] = str(p)
                 try:
-                    n = self.read_bytes(zip.read(file), merge_dicts(props, attrs))
+                    n = self.read_bytes(zip.read(file), attrs=merge_dicts(props, attrs))
                     neurons.append(n)
                 except BaseException:
                     if on_error == "ignore":
@@ -401,7 +464,7 @@ class BaseReader(ABC):
                     else:
                         raise
 
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_zip(
         self,
@@ -442,7 +505,7 @@ class BaseReader(ABC):
             limit=limit,
             parallel=parallel,
         )
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_from_tar(
         self,
@@ -482,7 +545,7 @@ class BaseReader(ABC):
                 props["origin"] = str(p)
                 try:
                     n = self.read_bytes(
-                        tf.extractfile(file).read(), merge_dicts(props, attrs)
+                        tf.extractfile(file).read(), attrs=merge_dicts(props, attrs)
                     )
                     neurons.append(n)
                 except BaseException:
@@ -491,7 +554,7 @@ class BaseReader(ABC):
                     else:
                         raise
 
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_tar(
         self,
@@ -532,7 +595,7 @@ class BaseReader(ABC):
             limit=limit,
             parallel=parallel,
         )
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_ftp(
         self,
@@ -585,7 +648,7 @@ class BaseReader(ABC):
             limit=limit,
             parallel=parallel,
         )
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_from_ftp(
         self,
@@ -634,7 +697,7 @@ class BaseReader(ABC):
                 props = self.parse_filename(file)
                 props["origin"] = f"{ftp.host}:{ftp.port}{ftp.pwd()}/{file}"
                 try:
-                    n = self.read_buffer(f, merge_dicts(props, attrs))
+                    n = self.read_buffer(f, attrs=merge_dicts(props, attrs))
                     neurons.append(n)
                 except BaseException:
                     if on_error == "ignore":
@@ -642,7 +705,7 @@ class BaseReader(ABC):
                     else:
                         raise
 
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_directory(
         self,
@@ -670,6 +733,7 @@ class BaseReader(ABC):
         Returns
         -------
         core.NeuronList
+
         """
         files = list(self.files_in_dir(Path(path), include_subdirs))
 
@@ -688,7 +752,7 @@ class BaseReader(ABC):
 
         read_fn = partial(self.read_file_path, attrs=attrs)
         neurons = parallel_read(read_fn, files, parallel)
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_url(
         self, url: str, attrs: Optional[Dict[str, Any]] = None
@@ -719,7 +783,7 @@ class BaseReader(ABC):
             r.raise_for_status()
             props = self.parse_filename(url.split("/")[-1])
             props["origin"] = url
-            return self.read_buffer(io.BytesIO(r.content), merge_dicts(props, attrs))
+            return self.read_buffer(io.BytesIO(r.content), attrs=merge_dicts(props, attrs))
 
     def read_string(
         self, s: str, attrs: Optional[Dict[str, Any]] = None
@@ -739,7 +803,7 @@ class BaseReader(ABC):
         """
         sio = io.StringIO(s)
         return self.read_buffer(
-            sio, merge_dicts({"name": self.name_fallback, "origin": "string"}, attrs)
+            sio, attrs=merge_dicts({"name": self.name_fallback, "origin": "string"}, attrs)
         )
 
     def read_bytes(
@@ -760,9 +824,10 @@ class BaseReader(ABC):
         """
         sio = io.BytesIO(s)
         return self.read_buffer(
-            sio, merge_dicts({"name": self.name_fallback, "origin": "string"}, attrs)
+            sio, attrs=merge_dicts({"name": self.name_fallback, "origin": "string"}, attrs)
         )
 
+    @handle_errors
     def read_dataframe(
         self, nodes: pd.DataFrame, attrs: Optional[Dict[str, Any]] = None
     ) -> "core.BaseNeuron":
@@ -780,6 +845,29 @@ class BaseReader(ABC):
         """
         raise NotImplementedError(
             "Reading DataFrames not implemented for " f"{type(self)}"
+        )
+
+    @handle_errors
+    def read_buffer(
+        self, f: IO, attrs: Optional[Dict[str, Any]] = None
+    ) -> "core.BaseNeuron":
+        """Read buffer into a single neuron.
+
+
+
+        Parameters
+        ----------
+        f :         IO
+                    Readable buffer.
+        attrs :     dict | None
+                    Arbitrary attributes to include in the neuron.
+
+        Returns
+        -------
+        core.NeuronObject
+        """
+        raise NotImplementedError(
+            "Reading from buffer not implemented for " f"{type(self)}"
         )
 
     def read_any_single(
@@ -800,29 +888,31 @@ class BaseReader(ABC):
         core.BaseNeuron
         """
         if hasattr(obj, "read"):
-            return self.read_buffer(obj, attrs)
+            return self.read_buffer(obj, attrs=attrs)
         if isinstance(obj, pd.DataFrame):
-            return self.read_dataframe(obj, attrs)
+            return self.read_dataframe(obj, attrs=attrs)
         if isinstance(obj, os.PathLike):
             if str(obj).endswith(".zip"):
                 return self.read_zip(obj, attrs=attrs)
             elif ".tar" in str(obj):
                 return self.read_tar(obj, attrs=attrs)
-            return self.read_file_path(obj, attrs)
+            return self.read_file_path(obj, attrs=attrs)
         if isinstance(obj, str):
             # See if this might be a file (make sure to expand user)
             if os.path.isfile(os.path.expanduser(obj)):
                 p = Path(obj).expanduser()
                 if p.suffix == ".zip":
                     return self.read_zip(p, attrs=attrs)
-                return self.read_file_path(p, attrs)
+                elif p.suffix in (".tar", "tar.gz", "tar.bz"):
+                    return self.read_tar(p, attrs=attrs)
+                return self.read_file_path(p, attrs=attrs)
             if obj.startswith("http://") or obj.startswith("https://"):
-                return self.read_url(obj, attrs)
+                return self.read_url(obj, attrs=attrs)
             if obj.startswith("ftp://"):
                 return self.read_ftp(obj, attrs=attrs)
-            return self.read_string(obj, attrs)
+            return self.read_string(obj, attrs=attrs)
         if isinstance(obj, bytes):
-            return self.read_bytes(obj, attrs)
+            return self.read_bytes(obj, attrs=attrs)
         raise ValueError(f"Could not read neuron from object of type '{type(obj)}'")
 
     def read_any_multi(
@@ -860,28 +950,35 @@ class BaseReader(ABC):
 
         if not objs:
             logger.warning("No files found, returning empty NeuronList")
-            return core.NeuronList([])
+            return self.format_output(objs)
 
         new_objs = []
         for obj in objs:
             try:
-                if os.path.isdir(os.path.expanduser(obj)):
+                if is_dir(obj):
                     new_objs.extend(self.files_in_dir(obj, include_subdirs))
                     continue
             except TypeError:
                 pass
             new_objs.append(obj)
 
+        # `parallel` can be ("auto", threshold) in which case `threshold`
+        # determines at what length we use parallel processing
+        if isinstance(parallel, tuple):
+            parallel, threshold = parallel
+        else:
+            threshold = 200
+
         if (
             isinstance(parallel, str)
             and parallel.lower() == "auto"
-            and len(new_objs) < 200
+            and len(new_objs) < threshold
         ):
             parallel = False
 
         read_fn = partial(self.read_any_single, attrs=attrs)
         neurons = parallel_read(read_fn, new_objs, parallel)
-        return core.NeuronList(neurons)
+        return self.format_output(neurons)
 
     def read_any(
         self,
@@ -904,12 +1001,12 @@ class BaseReader(ABC):
         core.NeuronObject
         """
         if utils.is_iterable(obj) and not hasattr(obj, "read"):
-            return self.read_any_multi(obj, parallel, include_subdirs, attrs)
+            return self.read_any_multi(obj, parallel, include_subdirs, attrs=attrs)
         else:
             try:
-                if os.path.isdir(os.path.expanduser(obj)):
+                if is_dir(obj):
                     return self.read_directory(
-                        obj, include_subdirs, parallel, limit, attrs
+                        obj, include_subdirs, parallel, limit, attrs=attrs
                     )
             except TypeError:
                 pass
@@ -917,14 +1014,14 @@ class BaseReader(ABC):
                 if os.path.isfile(os.path.expanduser(obj)) and str(obj).endswith(
                     ".zip"
                 ):
-                    return self.read_zip(obj, parallel, limit, attrs)
+                    return self.read_zip(obj, parallel, limit, attrs=attrs)
                 if os.path.isfile(os.path.expanduser(obj)) and ".tar" in str(obj):
-                    return self.read_tar(obj, parallel, limit, attrs)
+                    return self.read_tar(obj, parallel, limit, attrs=attrs)
                 if isinstance(obj, str) and obj.startswith("ftp://"):
-                    return self.read_ftp(obj, parallel, limit, attrs)
+                    return self.read_ftp(obj, parallel, limit, attrs=attrs)
             except TypeError:
                 pass
-            return self.read_any_single(obj, attrs)
+            return self.read_any_single(obj, attrs=attrs)
 
     def parse_filename(self, filename: str) -> dict:
         """Extract properties from filename according to specified formatter.
@@ -1004,6 +1101,127 @@ class BaseReader(ABC):
         return
 
 
+class ImageReader(BaseReader):
+    """Reader for image data.
+
+
+    """
+
+    def __init__(self, output, thin, threshold, dotprop_kwargs, **kwargs):
+        super().__init__(**kwargs)
+        self.output = output
+        self.thin = thin
+        self.threshold = threshold
+        self.dotprop_kwargs = dotprop_kwargs
+
+    def convert_image(self, data, attrs, header, voxdim, units, space_units):
+        """Convert image data to desired output.
+
+        Parameters
+        ----------
+        data :          np.ndarray
+                        Image/Voxel data.
+        attrs :         dict
+                        Additional attributes to associate with the neuron.
+        header :        dict
+                        Header information.
+        voxdim :        list of numbers
+                        Voxel dimensions.
+        units :         str | list, optional
+                        Units for the neuron (e.g. "1um" or ["4um", "4um", "40um"]).
+        space_units :   str, optional
+                        Space units (e.g. "um").
+
+        """
+        if self.output == "dotprops":
+            # If we're trying to get voxels from an image
+            if data.ndim == 3:
+                if self.threshold:
+                    if self.threshold >= 1:
+                        data = data >= self.threshold
+                    elif self.threshold < 1 and self.threshold > 0:
+                        data = data >= (self.threshold * data.max())
+                    else:
+                        raise ValueError(
+                            "Threshold must be either >=1 or 0-1, got "
+                            f"{self.threshold}"
+                        )
+
+                if self.thin:
+                    from skimage.morphology import skeletonize
+
+                    data = skeletonize(data)
+
+                # Convert data to x/y/z coordinates
+                # Note we need to multiply units before creating the Dotprops
+                # - otherwise the KNN will be wrong
+                x, y, z = np.where(data)
+                points = np.vstack((x, y, z)).T
+                points = points * voxdim
+
+                if not len(points):
+                    raise ValueError(
+                        f"No points extracted from {self.name_fallback} file. Try lowering the threshold?"
+                    )
+
+                x = core.make_dotprops(points, **self.dotprop_kwargs)
+            elif data.ndim == 2:
+                if data.shape[1] == 3:
+                    points, vect, alpha = data, None, None
+                elif data.shape[1] == 6:
+                    points, vect, alpha = data[:, :3], data[:, 3:6], None
+                elif data.shape[1] == 7:
+                    points, vect, alpha = data[:, :3], data[:, 3:6], data[:, 6]
+                else:
+                    raise ValueError(
+                        "Expected data to be either (N, 3), (N, 6) "
+                        f"or (N, 7) but {self.name_fallback} file contains {data.shape}"
+                    )
+                # Get `k` either from provided kwargs or the file's header
+                k = self.dotprop_kwargs.pop("k", header.get("k", 20))
+
+                x = core.Dotprops(
+                    points, k=k, vect=vect, alpha=alpha, **self.dotprop_kwargs
+                )
+            else:
+                raise ValueError(
+                    "Data must be 2- or 3-dimensional to extract "
+                    f"Dotprops, got {data.ndim}"
+                )
+
+            # Set units from space_units (points are already in physical space)
+            if space_units:
+                if isinstance(space_units, str):
+                    x.units = f"1 {space_units}"
+                elif len(space_units) == 3:
+                    x.units = [f"1 {s}" for s in space_units]
+        else:
+            if data.ndim == 2:
+                logger.warning(
+                    f"Data in {self.name_fallback} file is of shape {data.shape} - "
+                    "i.e. 2D. Could this be a point cloud or dotprops "
+                    "instead of voxels?"
+                )
+            x = core.VoxelNeuron(data, units=units)
+
+        # Header is special - we do not want to register it
+        setattr(x, f"{self.name_fallback.lower()}_header", header)
+
+        # Try adding properties one-by-one. If one fails, we'll keep track of it
+        # in the `.meta` attribute
+        meta = {}
+        for k, v in attrs.items():
+            try:
+                x._register_attr(k, v)
+            except (AttributeError, ValueError, TypeError):
+                meta[k] = v
+
+        if meta:
+            x.meta = meta
+
+        return x
+
+
 def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
     """Read neurons from some objects with the given reader function,
     potentially in parallel.
@@ -1036,11 +1254,18 @@ def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
         leave=config.pbar_leave,
     )
 
+    # `parallel` can be ("auto", threshold) in which case `threshold`
+    # determines at what length we use parallel processing
+    if isinstance(parallel, tuple):
+        parallel, threshold = parallel
+    else:
+        threshold = 200
+
     if (
         isinstance(parallel, str)
         and parallel.lower() == "auto"
         and not isinstance(length, type(None))
-        and length < 200
+        and length < threshold
     ):
         parallel = False
 
@@ -1155,7 +1380,18 @@ def parallel_read_archive(
         leave=config.pbar_leave,
     )
 
-    if isinstance(parallel, str) and parallel.lower() == "auto" and len(to_read) < 200:
+    # `parallel` can be ("auto", threshold) in which case `threshold`
+    # determines at what length we use parallel processing
+    if isinstance(parallel, tuple):
+        parallel, threshold = parallel
+    else:
+        threshold = 200
+
+    if (
+        isinstance(parallel, str)
+        and parallel.lower() == "auto"
+        and len(to_read) < threshold
+    ):
         parallel = False
 
     if parallel:
@@ -1284,7 +1520,18 @@ def parallel_read_ftp(
         leave=config.pbar_leave,
     )
 
-    if isinstance(parallel, str) and parallel.lower() == "auto" and len(to_read) < 200:
+    # `parallel` can be ("auto", threshold) in which case `threshold`
+    # determines at what length we use parallel processing
+    if isinstance(parallel, tuple):
+        parallel, threshold = parallel
+    else:
+        threshold = 200
+
+    if (
+        isinstance(parallel, str)
+        and parallel.lower() == "auto"
+        and len(to_read) < threshold
+    ):
         parallel = False
 
     if parallel:
@@ -1347,3 +1594,33 @@ def parse_precision(precision: Optional[int]):
         raise ValueError(
             f"Unknown precision {precision}. Expected on of the following: 16, 32 (default), 64 or None"
         )
+
+
+class ReadError(Exception):
+    """Error raised when reading a file fails."""
+
+
+def is_dir(path: os.PathLike) -> bool:
+    """Check if path is a directory.
+
+    The main purpose of this function is to catch
+    *.file_ext at the end of the path.
+
+    Parameters
+    ----------
+    path : os.PathLike
+        Path to check.
+
+    Returns
+    -------
+    bool
+        True if path is a directory.
+
+    """
+    # Expand user
+    path = os.path.expanduser(path)
+
+    # Remove any trailing *.file_ext
+    path = path.split("*")[0]
+
+    return os.path.isdir(path)

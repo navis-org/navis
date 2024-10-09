@@ -30,12 +30,12 @@ from .. import utils, config, meshes, conversion, graph
 from .base import BaseNeuron
 from .neuronlist import NeuronList
 from .skeleton import TreeNeuron
-from .core_utils import temp_property
+from .core_utils import temp_property, add_units
 
 
 try:
     import xxhash
-except ImportError:
+except ModuleNotFoundError:
     xxhash = None
 
 
@@ -323,6 +323,7 @@ class MeshNeuron(BaseNeuron):
         return float(self.trimesh.edges_unique_length.mean())
 
     @property
+    @add_units(compact=True, power=3)
     def volume(self) -> float:
         """Volume of the neuron.
 

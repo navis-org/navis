@@ -32,11 +32,11 @@ from .. import graph, morpho, utils, config, core, sampling, intersection
 from .. import io  # type: ignore # double import
 
 from .base import BaseNeuron
-from .core_utils import temp_property
+from .core_utils import temp_property, add_units
 
 try:
     import xxhash
-except ImportError:
+except ModuleNotFoundError:
     xxhash = None
 
 __all__ = ['TreeNeuron']
@@ -75,13 +75,15 @@ class TreeNeuron(BaseNeuron):
                      - `pandas.Series` is expected to have a DataFrame as
                        `.nodes` - additional properties will be attached
                        as meta data
-                     - `str` filepath is passed to [`navis.read_swc`][]
+                     - `tuple` of `(vertices, edges)` arrays is passed to
+                       [`navis.edges2neuron`][]
+                     - `str` is passed to [`navis.read_swc`][]
                      - `BufferedIOBase` e.g. from `open(filename)`
-                     - `networkx.DiGraph` parsed by `navis.nx2neuron`
-                     - `None` will initialize an empty neuron
+                     - `networkx.DiGraph` parsed by [`navis.nx2neuron`][]
                      - `skeletor.Skeleton`
                      - `TreeNeuron` - in this case we will try to copy every
                        attribute
+                     - `None` will initialize an empty neuron
     units :         str | pint.Units | pint.Quantity
                     Units for coordinates. Defaults to `None` (dimensionless).
                     Strings must be parsable by pint: e.g. "nm", "um",
@@ -177,6 +179,11 @@ class TreeNeuron(BaseNeuron):
                     setattr(self, at, copy.copy(getattr(self, at)))
                 except BaseException:
                     logger.warning(f'Unable to deep-copy attribute "{at}"')
+        elif isinstance(x, tuple):
+            # Tuple of vertices and edges
+            if len(x) != 2:
+                raise ValueError('Tuple must have 2 elements: vertices and edges.')
+            self.nodes = graph.edges2neuron(edges=x[1], vertices=x[0]).nodes
         elif isinstance(x, type(None)):
             # This is a essentially an empty neuron
             pass
@@ -351,6 +358,12 @@ class TreeNeuron(BaseNeuron):
 
     @property
     @requires_nodes
+    def vertices(self) -> np.ndarray:
+        """Vertices of the skeleton."""
+        return self.nodes[['x', 'y', 'z']].values
+
+    @property
+    @requires_nodes
     def edges(self) -> np.ndarray:
         """Edges between nodes.
 
@@ -364,6 +377,7 @@ class TreeNeuron(BaseNeuron):
         return not_root[['node_id', 'parent_id']].values
 
     @property
+    @requires_nodes
     def edge_coords(self) -> np.ndarray:
         """Coordinates of edges between nodes.
 
@@ -675,6 +689,7 @@ class TreeNeuron(BaseNeuron):
 
     @property
     @temp_property
+    @add_units(compact=True)
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
         if not hasattr(self, '_cable_length'):
@@ -682,6 +697,7 @@ class TreeNeuron(BaseNeuron):
         return self._cable_length
 
     @property
+    @add_units(compact=True, power=2)
     def surface_area(self) -> float:
         """Radius-based lateral surface area."""
         if 'radius' not in self.nodes.columns:
@@ -708,6 +724,7 @@ class TreeNeuron(BaseNeuron):
         return (np.pi * (r1 + r2) * np.sqrt( (r1-r2)**2 + h**2)).sum()
 
     @property
+    @add_units(compact=True, power=3)
     def volume(self) -> float:
         """Radius-based volume."""
         if 'radius' not in self.nodes.columns:
@@ -751,7 +768,12 @@ class TreeNeuron(BaseNeuron):
     @property
     def sampling_resolution(self) -> float:
         """Average cable length between child -> parent nodes."""
-        return self.cable_length / self.n_nodes
+        res = self.cable_length / self.n_nodes
+
+        if isinstance(res, pint.Quantity):
+            res = res.to_compact()
+
+        return res
 
     @property
     @temp_property

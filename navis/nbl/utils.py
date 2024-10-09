@@ -400,9 +400,11 @@ def nblast_prime(scores, n_dim=.2, metric='euclidean'):
     """
     try:
         from sklearn.decomposition import PCA
-    except ImportError:
-        raise ImportError('Please install scikit-learn to use `nblast_prime`:\n'
-                          '  pip3 install scikit-learn -U')
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            'Please install scikit-learn to use `nblast_prime`:\n'
+            '  pip3 install scikit-learn -U'
+            )
 
     if not isinstance(scores, pd.DataFrame):
         raise TypeError(f'`scores` must be pandas DataFrame, got "{type(scores)}"')

@@ -57,8 +57,8 @@ def simplify_mesh_pyml(x, F, method='quadric', inplace=False, **kwargs):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import pymeshlab
-    except ImportError:
-        raise ImportError('Please install pymeshlab: pip3 install pymeshlab')
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError('Please install pymeshlab: pip3 install pymeshlab')
     except BaseException:
         raise
 

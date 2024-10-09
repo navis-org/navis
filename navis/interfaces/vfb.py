@@ -18,14 +18,14 @@ from textwrap import dedent
 try:
     from vfb_connect.cross_server_tools import VfbConnect
     vc = VfbConnect(neo_endpoint='http://pdb.v4.virtualflybrain.org', neo_credentials=('neo4j', 'vfb'))
-except ImportError:
+except ModuleNotFoundError:
     msg = dedent("""
           vfb_connect library not found. Please install using pip:
 
                 pip install vfb_connect
 
           """)
-    raise ImportError(msg)
+    raise ModuleNotFoundError(msg)
 except BaseException:
     raise
 

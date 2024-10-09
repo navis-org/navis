@@ -113,8 +113,8 @@ def make_o3d_mesh(x):
     """Turn mesh-like object into an open3d mesh."""
     try:
         import open3d
-    except ImportError:
-        raise ImportError('Please install open3d: pip3 install open3d')
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError('Please install open3d: pip3 install open3d')
     except BaseException:
         raise
 

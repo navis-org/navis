@@ -265,8 +265,8 @@ class Volume(UnitObject, trimesh.Trimesh):
 
         try:
             import trimesh
-        except ImportError:
-            raise ImportError(
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
                 "Unable to import: trimesh missing - please "
                 'install: "pip install trimesh"'
             )
@@ -620,8 +620,8 @@ class Volume(UnitObject, trimesh.Trimesh):
         try:
             from shapely.ops import unary_union, polygonize  # type: ignore
             import shapely.geometry as geometry  # type: ignore
-        except ImportError:
-            raise ImportError("This function needs the shapely>=1.8.0")
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError("This function needs the shapely>=1.8.0")
 
         coords: np.ndarray
 

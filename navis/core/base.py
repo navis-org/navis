@@ -31,7 +31,7 @@ from .. import utils, config, core
 
 try:
     import xxhash
-except ImportError:
+except ModuleNotFoundError:
     xxhash = None
 
 __all__ = ["Neuron"]

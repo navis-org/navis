@@ -29,10 +29,11 @@ from ... import config, utils
 # We will belay any import error
 try:
     import neuron
-except ImportError:
-    raise ImportError('This interface requires the `neuron` libary to be '
-                      'installed:\n pip3 install neuron\n'
-                      'See also https://neuron.yale.edu/neuron/')
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        'This interface requires the `neuron` libary to be '
+        'installed:\n pip3 install neuron\n'
+        'See also https://neuron.yale.edu/neuron/')
 
 from neuron.units import ms, mV
 neuron.h.load_file('stdrun.hoc')

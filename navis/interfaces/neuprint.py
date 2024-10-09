@@ -28,14 +28,14 @@ try:
     # remove neuprint's own fetch_skeleton function to avoid confusion
     del fetch_skeleton  # noqa
     from neuprint.client import inject_client
-except ImportError:
+except ModuleNotFoundError:
     msg = dedent("""
           neuprint library not found. Please install using pip:
 
                 pip install neuprint-python
 
           """)
-    raise ImportError(msg)
+    raise ModuleNotFoundError(msg)
 except BaseException:
     raise
 

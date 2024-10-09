@@ -22,13 +22,13 @@ from .. import core, config, utils
 
 try:
     from fastremap import unique
-except ImportError:
+except ModuleNotFoundError:
     from numpy import unique
 
 try:
     import skimage
     from skimage import measure
-except ImportError:
+except ModuleNotFoundError:
     skimage = None
 
 logger = config.get_logger(__name__)
@@ -86,8 +86,10 @@ def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
 
     """
     if not skimage:
-        raise ImportError('Meshing requires `skimage`:\n '
-                          'pip3 install scikit-image')
+        raise ModuleNotFoundError(
+            'Meshing requires `skimage`:\n '
+            'pip3 install scikit-image'
+            )
 
     utils.eval_param(vox, 'vox', allowed_types=(core.VoxelNeuron, np.ndarray))
 

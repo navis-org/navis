@@ -26,13 +26,6 @@ from urllib3 import HTTPResponse
 from .. import config, utils, core
 from . import base
 
-try:
-    import zlib
-    import zipfile
-    compression = zipfile.ZIP_DEFLATED
-except ImportError:
-    compression = zipfile.ZIP_STORED
-
 __all__ = ["SwcReader", "read_swc", "write_swc"]
 
 # Set up logging
@@ -55,6 +48,7 @@ class SwcReader(base.BaseReader):
         precision: int = DEFAULT_PRECISION,
         read_meta: bool = False,
         fmt: str = DEFAULT_FMT,
+        errors: str = 'raise',
         attrs: Optional[Dict[str, Any]] = None
     ):
         if not fmt.endswith('.swc'):
@@ -63,6 +57,7 @@ class SwcReader(base.BaseReader):
         super().__init__(fmt=fmt,
                          attrs=attrs,
                          file_ext='.swc',
+                         errors=errors,
                          name_fallback='SWC')
         self.connector_labels = connector_labels or dict()
         self.soma_label = soma_label
@@ -80,6 +75,7 @@ class SwcReader(base.BaseReader):
             'radius': float_,
         }
 
+    @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
     ) -> 'core.TreeNeuron':
@@ -130,6 +126,7 @@ class SwcReader(base.BaseReader):
 
         return self.read_dataframe(nodes, base.merge_dicts({'swc_header': '\n'.join(header_rows)}, attrs))
 
+    @base.handle_errors
     def read_dataframe(
         self, nodes: pd.DataFrame, attrs: Optional[Dict[str, Any]] = None
     ) -> 'core.TreeNeuron':
@@ -265,6 +262,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
              fmt: str = "{name}.swc",
              read_meta: bool = True,
              limit: Optional[int] = None,
+             errors: str = 'raise',
              **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from SWC file.
 
@@ -348,6 +346,9 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                            that range
                          - a list is expected to be a list of filenames to read from
                            the folder/archive
+    errors :            "raise" | "log" | "ignore"
+                        If "log" or "ignore", errors will not be raised and the
+                        mesh will be skipped. Can result in empty output.
     **kwargs
                         Keyword arguments passed to the construction of
                         `navis.TreeNeuron`. You can use this to e.g. set
@@ -409,6 +410,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                        precision=precision,
                        read_meta=read_meta,
                        fmt=fmt,
+                       errors=errors,
                        attrs=kwargs)
     res = reader.read_any(f, include_subdirs, parallel, limit=limit)
 
