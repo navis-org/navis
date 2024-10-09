@@ -20,22 +20,50 @@ import requests
 
 import pandas as pd
 import numpy as np
+import pycurl
+import urllib.parse
+
 
 from typing import List, Dict, Union, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from io import BytesIO
 
 from ..core import TreeNeuron, NeuronList
 from ..io import read_swc
 from .. import utils, config
 
 
-baseurl = 'http://neuromorpho.org'
+baseurl = 'http://cng.gmu.edu:8080/'
+baseurl_swc = 'https://neuromorpho.org/'
+
+
+def get_neuromorpho_swc(
+    url: str,
+    encode: bool = False,
+) -> str:
+
+    if encode:
+        url = urllib.parse.quote(url, safe="/:")
+    try:
+        buffer = BytesIO()
+        c = pycurl.Curl()
+        c.setopt(c.URL, url)
+        c.setopt(c.WRITEDATA, buffer)
+        c.setopt(c.SSL_VERIFYPEER, 0)  # This disables SSL peer verification
+        c.setopt(c.SSL_VERIFYHOST, 0)  # This disables SSL host verification
+        c.perform()
+        c.close()
+
+        return buffer.getvalue().decode("utf-8")
+    except pycurl.error as e:
+        print(f"Error fetching data: {e}")
+        return None
 
 
 def find_neurons(page_limit: Optional[int] = None,
-                 parallel: bool = True,
-                 max_threads: int = 4,
-                 **filters) -> pd.DataFrame:
+    parallel: bool = True,
+    max_threads: int = 4,
+    **filters) -> pd.DataFrame:
     """Find neurons matching by given criteria.
 
     Parameters
@@ -225,9 +253,10 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
     archive: str = info['archive']
     name: str = info['neuron_name']
 
-    url = utils.make_url(baseurl, 'dableFiles', archive.lower(), 'CNG version', name + '.CNG.swc')
+    url = utils.make_url(baseurl_swc, 'dableFiles', archive.lower(), 'CNG version', name + '.CNG.swc')
+    swc = get_neuromorpho_swc(url, encode=True)
 
-    n = read_swc(url, **kwargs)
+    n = read_swc(swc, **kwargs)
 
     n.id = info.get('neuron_id', n.id)
     n.name = info.get('neuron_name', getattr(n, 'name'))
