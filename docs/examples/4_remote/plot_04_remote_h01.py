@@ -2,7 +2,10 @@
 H01 Dataset
 ============
 
-In this notebook, you can learn how to work with the [H01 dataset](https://www.science.org/doi/10.1126/science.adk4858) using Navis. The H01 dataset contains 57,000 cells and 150 million synapses from a cubic millimeter of the human temporal cortex, which is [proofreading](https://h01-release.storage.googleapis.com/proofreading.html) in the CAVE. With this interface, you can access both a snapshot of the proofread dataset and the latest dataset using CAVEclient.
+In this notebook, you can learn how to work with the H01 dataset using Navis.
+
+The [H01 dataset](https://www.science.org/doi/10.1126/science.adk4858) contains 57,000 cells and 150 million synapses from a cubic millimeter of the human temporal cortex, which is [proofreading](https://h01-release.storage.googleapis.com/proofreading.html) in the CAVE. 
+With this interface, you can access both a snapshot of the proofread dataset and the latest dataset using CAVEclient.
 """
 
 
@@ -16,18 +19,17 @@ import navis.interfaces.h01 as h01
 # %%
 client = h01.get_cave_client()
 
-
 # %%
 ## Query Tables
 
 # %%
 client.materialize.get_versions()
-print("Mat version: ", client.materialize.version)
+
+# %%
 client.materialize.get_tables()
 
 # %%
 ### Query Materialized Synapse Table
-
 
 # %%
 client.materialize.synapse_query(limit=10)
@@ -38,11 +40,12 @@ syn = client.materialize.synapse_query(
     # pre_ids=[ADD YOUR ROOT ID],
 )
 syn.head()
+
+# %%
 print(len(syn))
 
 # %%
 ### Live Synapse Queries
-
 
 # %%
 import datetime
@@ -92,7 +95,7 @@ interneurons = h01.fetch_neurons(interneuron_ids, lod=2, with_synapses=False)
 interneurons_ds = navis.simplify_mesh(interneurons, F=1/3)
 
 # %%
-interneuron_ds
+interneurons_ds
 
 # %%
 import seaborn as sns

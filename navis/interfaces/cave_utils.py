@@ -35,7 +35,7 @@ def get_cave_client(datastack="cortex65", server_address=None):
 
     Parameters
     ----------
-    datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | "h01_c3_flat" | str
                     Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
                     are internally mapped to the corresponding sources: for example,
                     "minnie65_public_vXXX" for "cortex65" where XXX is always the
@@ -84,7 +84,7 @@ def _get_somas(root_ids, table="nucleus_detection_v0", datastack="cortex65"):
     table :         str
                     Which table to use for nucleus annotations. Also
                     see the `microns.list_annotation_tables()` function.
-    datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | "h01_c3_flat" | str
                     Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
                     are internally mapped to the corresponding sources: for example,
                     "minnie65_public_vXXX" for "cortex65" where XXX is always the
@@ -137,10 +137,11 @@ def fetch_neurons(x, lod,
                     meshes.
     with_synapses : bool, optional
                     If True will also attach synapses as ``.connectors``.
-    datastack :     "cortex65" | "cortex35" | "layer 2/3"
-                    Which dataset to use. Internally these are mapped to the
-                    corresponding sources (e.g. "minnie65_public_v117" for
-                    "cortex65").
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | "h01_c3_flat" | str
+                    Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                    are internally mapped to the corresponding sources: for example,
+                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
+                    most recent version).
     parallel :      bool
                     If True, will use parallel threads to fetch data.
     max_threads :   int
@@ -262,10 +263,11 @@ def get_voxels(x, mip, bounds, datastack):
                     Bounding box [xmin, xmax, ymin, ymax, zmin, zmax] in voxel
                     space. For example, the voxel resolution for mip 0
                     segmentation is 8 x 8 x 40 nm.
-    datastack :     "h01_c3_flat"
-                    Which dataset to use. Internally these are mapped to the
-                    corresponding sources (e.g. "h01_c3_flat" for
-                    "h01_c3_flat").
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | "h01_c3_flat" | str
+                    Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                    are internally mapped to the corresponding sources: for example,
+                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
+                    most recent version).
 
     Returns
     -------

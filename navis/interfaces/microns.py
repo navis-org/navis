@@ -85,7 +85,6 @@ def get_datastacks(microns_only=True):
     return stacks
 
 
-@lru_cache(None)
 def get_cave_client(datastack="cortex65"):
     """Get caveclient for given datastack.
 
@@ -134,6 +133,39 @@ def fetch_neurons(x, *, lod=2,
                   max_threads=4,
                   **kwargs):
     """Fetch neuron meshes.
+
+    Notes
+    -----
+    Synapses will be attached to the closest vertex on the mesh.
+
+    Parameters
+    ----------
+    x :             str | int | list-like
+                    Segment ID(s). Multiple Ids can be provided as list-like.
+    lod :           int
+                    Level of detail. Higher ``lod`` = coarser. This parameter
+                    is ignored if the data source does not support multi-level
+                    meshes.
+    with_synapses : bool, optional
+                    If True will also attach synapses as ``.connectors``.
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+                    Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                    are internally mapped to the corresponding sources: for example,
+                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
+                    most recent version).
+    parallel :      bool
+                    If True, will use parallel threads to fetch data.
+    max_threads :   int
+                    Max number of parallel threads to use.
+    **kwargs
+                    Keyword arguments are passed through to the initialization
+                    of the ``navis.MeshNeurons``.
+
+    Returns
+    -------
+    navis.Neuronlist
+                    Containing :class:`navis.MeshNeuron`.
+
     """
 
     return cave_utils.fetch_neurons(
@@ -148,6 +180,29 @@ def fetch_neurons(x, *, lod=2,
 
 def get_voxels(x, mip=0, bounds=None, datastack='h01_c3_flat'):
     """Fetch voxels making a up given root ID.
+
+
+    Parameters
+    ----------
+    x :             int
+                    A single root ID.
+    mip :           int
+                    Scale at which to fetch voxels.
+    bounds :        list, optional
+                    Bounding box [xmin, xmax, ymin, ymax, zmin, zmax] in voxel
+                    space. For example, the voxel resolution for mip 0
+                    segmentation is 8 x 8 x 40 nm.
+    datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+                    Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                    are internally mapped to the corresponding sources: for example,
+                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
+                    most recent version).
+
+    Returns
+    -------
+    voxels :        (N, 3) np.ndarray
+                    In voxel space according to `mip`.
+
     """
     return cave_utils.get_voxels(
         x,
