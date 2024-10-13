@@ -313,7 +313,7 @@ class PointNetwork:
 
         if not independent:
             ns = neuron.h.NetStim()
-            ns.interval = frequency[0]
+            ns.interval = 1000 / frequency[0]
             ns.noise = randomness
             ns.number = int(duration / 1000 * frequency[0])
             ns.start = start
@@ -341,7 +341,7 @@ class PointNetwork:
 
     def clear_stimuli(self):
         """Clear stimuli."""
-        self._stimuli = {}
+        self._stimuli = []
 
     def connect(self, source, target, weight, delay=5):
         """Connect two neurons.
