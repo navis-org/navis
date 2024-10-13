@@ -345,7 +345,7 @@ def plot3d(
     >>> # Clear viewer (works only with octarine and vispy)
     >>> v = navis.plot3d(nl, clear=True)
 
-    See the [plotting intro](../../../generated/gallery/1_plotting/plot_00_plotting_intro)
+    See the [plotting intro](../../generated/gallery/1_plotting/tutorial_plotting_00_intro)
     for even more examples.
 
     """
@@ -461,7 +461,7 @@ def plot3d_vispy(x, **kwargs):
     if volumes:
         viewer.add(volumes, **settings.to_dict())
     if points:
-        viewer.add(points, scatter_kws=settings.catter_kws)
+        viewer.add(points, scatter_kws=settings.scatter_kws)
 
     return viewer
 
@@ -496,12 +496,12 @@ def plot3d_octarine(x, **kwargs):
     # Check if any existing viewer has already been closed
     if isinstance(getattr(config, "primary_viewer", None), oc.Viewer):
         try:
-            _ = getattr(config, "primary_viewer").canvas
+            getattr(config, "primary_viewer").canvas.__repr__()
         except RuntimeError:
             config.primary_viewer = None
 
     if settings.viewer in (None, "new"):
-        # If it does not exists yet, initialise a canvas object and make global
+        # If it does not exists yet, initialize a canvas object and make global
         if (
             not isinstance(getattr(config, "primary_viewer", None), oc.Viewer)
             or settings.viewer == "new"
@@ -533,7 +533,7 @@ def plot3d_octarine(x, **kwargs):
         neuron_settings = settings.to_dict()
         for key in settings._viewer_settings:
             neuron_settings.pop(key, None)
-        viewer.add_neurons(neurons, **neuron_settings)
+        viewer.add_neurons(neurons, center=settings.get("center", True), **neuron_settings)
     if volumes:
         for v in volumes:
             viewer.add_mesh(
@@ -544,7 +544,8 @@ def plot3d_octarine(x, **kwargs):
                 center=settings.center,
             )
     if points:
-        viewer.add_points(points, center=settings.center, **settings.scatter_kws)
+        for p in points:
+            viewer.add_points(p, center=settings.center, **settings.scatter_kws)
 
     return viewer
 

@@ -12,8 +12,8 @@
 #    GNU General Public License for more details.
 
 
-""" This module contains functions to analyse and manipulate neuron morphology.
-"""
+"""This module contains functions to analyse and manipulate neuron morphology."""
+
 import warnings
 
 import pandas as pd
@@ -23,13 +23,12 @@ import trimesh as tm
 
 from collections import namedtuple
 from itertools import combinations
-from scipy.ndimage import gaussian_filter
-from typing import Union, Optional, Sequence, List, Set
+from typing import Union, Optional, Sequence, List, Set, Callable
 from typing_extensions import Literal
 
 try:
     from pykdtree.kdtree import KDTree
-except ImportError:
+except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
 from .. import graph, utils, config, core
@@ -38,26 +37,39 @@ from . import mmetrics, subset
 # Set up logging
 logger = config.get_logger(__name__)
 
-__all__ = sorted(['prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite',
-                  'average_skeletons', 'despike_skeleton', 'guess_radius',
-                  'smooth_skeleton', 'smooth_voxels',
-                  'heal_skeleton', 'cell_body_fiber',
-                  'break_fragments', 'prune_twigs', 'prune_at_depth',
-                  'drop_fluff', 'combine_neurons'])
+__all__ = sorted(
+    [
+        "prune_by_strahler",
+        "stitch_skeletons",
+        "split_axon_dendrite",
+        "average_skeletons",
+        "despike_skeleton",
+        "guess_radius",
+        "smooth_skeleton",
+        "heal_skeleton",
+        "cell_body_fiber",
+        "break_fragments",
+        "prune_twigs",
+        "prune_at_depth",
+        "drop_fluff",
+        "combine_neurons",
+    ]
+)
 
-NeuronObject = Union['core.NeuronList', 'core.TreeNeuron']
+NeuronObject = Union["core.NeuronList", "core.TreeNeuron"]
 
 
-@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
-@utils.meshneuron_skeleton(method='subset')
-def cell_body_fiber(x: NeuronObject,
-                    method: Union[Literal['longest_neurite'],
-                                  Literal['betweenness']] = 'betweenness',
-                    reroot_soma: bool = True,
-                    heal: bool = True,
-                    threshold: float = 0.95,
-                    inverse: bool = False,
-                    inplace: bool = False):
+@utils.map_neuronlist(desc="Pruning", allow_parallel=True)
+@utils.meshneuron_skeleton(method="subset")
+def cell_body_fiber(
+    x: NeuronObject,
+    method: Union[Literal["longest_neurite"], Literal["betweenness"]] = "betweenness",
+    reroot_soma: bool = True,
+    heal: bool = True,
+    threshold: float = 0.95,
+    inverse: bool = False,
+    inplace: bool = False,
+):
     """Prune neuron to its cell body fiber.
 
     Here, "cell body fiber" (CBF) refers to the tract connecting the soma to the
@@ -113,29 +125,31 @@ def cell_body_fiber(x: NeuronObject,
                     under the hood for `method='betweeness'`.
 
     """
-    utils.eval_param(method, 'method',
-                     allowed_values=('longest_neurite', 'betweenness'))
+    utils.eval_param(
+        method, "method", allowed_values=("longest_neurite", "betweenness")
+    )
 
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
+        raise TypeError(f"Expected TreeNeuron(s), got {type(x)}")
 
     if not inplace:
         x = x.copy()
 
     if x.n_trees > 1 and heal:
-        _ = heal_skeleton(x, method='LEAFS', inplace=True)
+        _ = heal_skeleton(x, method="LEAFS", inplace=True)
 
     # If no branches, just return the neuron
-    if 'branch' not in x.nodes.type.values:
+    if "branch" not in x.nodes.type.values:
         return x
 
     if reroot_soma and not isinstance(x.soma, type(None)):
         x.reroot(x.soma, inplace=True)
 
     # Find main branch point
-    cut = graph.find_main_branchpoint(x, method=method, threshold=threshold,
-                                      reroot_soma=False)
+    cut = graph.find_main_branchpoint(
+        x, method=method, threshold=threshold, reroot_soma=False
+    )
 
     # Find the path to root (and account for multiple roots)
     for r in x.root:
@@ -157,14 +171,16 @@ def cell_body_fiber(x: NeuronObject,
     return x
 
 
-@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
-@utils.meshneuron_skeleton(method='subset')
-def prune_by_strahler(x: NeuronObject,
-                      to_prune: Union[int, List[int], range, slice],
-                      inplace: bool = False,
-                      reroot_soma: bool = True,
-                      force_strahler_update: bool = False,
-                      relocate_connectors: bool = False) -> NeuronObject:
+@utils.map_neuronlist(desc="Pruning", allow_parallel=True)
+@utils.meshneuron_skeleton(method="subset")
+def prune_by_strahler(
+    x: NeuronObject,
+    to_prune: Union[int, List[int], range, slice],
+    inplace: bool = False,
+    reroot_soma: bool = True,
+    force_strahler_update: bool = False,
+    relocate_connectors: bool = False,
+) -> NeuronObject:
     """Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 
     Parameters
@@ -209,7 +225,7 @@ def prune_by_strahler(x: NeuronObject,
     """
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
+        raise TypeError(f"Expected TreeNeuron(s), got {type(x)}")
 
     # Make a copy if necessary before making any changes
     neuron = x
@@ -219,7 +235,7 @@ def prune_by_strahler(x: NeuronObject,
     if reroot_soma and not isinstance(neuron.soma, type(None)):
         neuron.reroot(neuron.soma, inplace=True)
 
-    if 'strahler_index' not in neuron.nodes or force_strahler_update:
+    if "strahler_index" not in neuron.nodes or force_strahler_update:
         mmetrics.strahler_index(neuron)
 
     # Prepare indices
@@ -228,8 +244,10 @@ def prune_by_strahler(x: NeuronObject,
 
     if isinstance(to_prune, int):
         if to_prune < 1:
-            raise ValueError('SI to prune must be positive. Please see docs'
-                             'for additional options.')
+            raise ValueError(
+                "SI to prune must be positive. Please see docs"
+                "for additional options."
+            )
         to_prune = [to_prune]
     elif isinstance(to_prune, range):
         to_prune = list(to_prune)
@@ -239,26 +257,31 @@ def prune_by_strahler(x: NeuronObject,
 
     # Prepare parent dict if needed later
     if relocate_connectors:
-        parent_dict = {
-            tn.node_id: tn.parent_id for tn in neuron.nodes.itertuples()}
+        parent_dict = {tn.node_id: tn.parent_id for tn in neuron.nodes.itertuples()}
 
     # Avoid setting the nodes as this potentiall triggers a regeneration
     # of the graph which in turn will raise an error because some nodes might
     # still have parents that don't exist anymore
-    neuron._nodes = neuron._nodes[~neuron._nodes.strahler_index.isin(to_prune)].reset_index(drop=True, inplace=False)
+    neuron._nodes = neuron._nodes[
+        ~neuron._nodes.strahler_index.isin(to_prune)
+    ].reset_index(drop=True, inplace=False)
 
     if neuron.has_connectors:
         if not relocate_connectors:
-            neuron._connectors = neuron._connectors[neuron._connectors.node_id.isin(neuron._nodes.node_id.values)].reset_index(drop=True, inplace=False)
+            neuron._connectors = neuron._connectors[
+                neuron._connectors.node_id.isin(neuron._nodes.node_id.values)
+            ].reset_index(drop=True, inplace=False)
         else:
             remaining_tns = set(neuron._nodes.node_id.values)
-            for cn in neuron._connectors[~neuron.connectors.node_id.isin(neuron._nodes.node_id.values)].itertuples():
+            for cn in neuron._connectors[
+                ~neuron.connectors.node_id.isin(neuron._nodes.node_id.values)
+            ].itertuples():
                 this_tn = parent_dict[cn.node_id]
                 while True:
                     if this_tn in remaining_tns:
                         break
                     this_tn = parent_dict[this_tn]
-                neuron._connectors.loc[cn.Index, 'node_id'] = this_tn
+                neuron._connectors.loc[cn.Index, "node_id"] = this_tn
 
     # Reset indices of node and connector tables (important for igraph!)
     neuron._nodes.reset_index(inplace=True, drop=True)
@@ -268,7 +291,9 @@ def prune_by_strahler(x: NeuronObject,
 
     # Theoretically we can end up with disconnected pieces, i.e. with more
     # than 1 root node -> we have to fix the nodes that lost their parents
-    neuron._nodes.loc[~neuron._nodes.parent_id.isin(neuron._nodes.node_id.values), 'parent_id'] = -1
+    neuron._nodes.loc[
+        ~neuron._nodes.parent_id.isin(neuron._nodes.node_id.values), "parent_id"
+    ] = -1
 
     # Remove temporary attributes
     neuron._clear_temp_attr()
@@ -276,14 +301,16 @@ def prune_by_strahler(x: NeuronObject,
     return neuron
 
 
-@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
-@utils.meshneuron_skeleton(method='subset')
-def prune_twigs(x: NeuronObject,
-                size: Union[float, str],
-                exact: bool = False,
-                inplace: bool = False,
-                recursive: Union[int, bool, float] = False
-                ) -> NeuronObject:
+@utils.map_neuronlist(desc="Pruning", allow_parallel=True)
+@utils.meshneuron_skeleton(method="subset")
+def prune_twigs(
+    x: NeuronObject,
+    size: Union[float, str],
+    exact: bool = False,
+    mask: Optional[Union[Sequence[int], Callable]] = None,
+    inplace: bool = False,
+    recursive: Union[int, bool, float] = False,
+) -> NeuronObject:
     """Prune terminal twigs under a given size.
 
     By default this function will simply drop all terminal twigs shorter than
@@ -301,6 +328,10 @@ def prune_twigs(x: NeuronObject,
                     units, e.g. '5 microns'.
     exact:          bool
                     See notes above.
+    mask :          iterable | callable, optional
+                    Either a boolean mask, a list of node IDs or a callable taking
+                    a neuron as input and returning one of the former. If provided,
+                    only nodes that are in the mask will be considered for pruning.
     inplace :       bool, optional
                     If False, pruning is performed on copy of original neuron
                     which is then returned.
@@ -359,38 +390,56 @@ def prune_twigs(x: NeuronObject,
     """
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron(s), got {type(x)}')
+        raise TypeError(f"Expected TreeNeuron(s), got {type(x)}")
 
     # Convert to neuron units - numbers will be passed through
-    size = x.map_units(size, on_error='raise')
+    size = x.map_units(size, on_error="raise")
 
     if not exact:
-        return _prune_twigs_simple(x,
-                                   size=size,
-                                   inplace=inplace,
-                                   recursive=recursive)
+        return _prune_twigs_simple(
+            x, size=size, inplace=inplace, recursive=recursive, mask=mask
+        )
     else:
-        return _prune_twigs_precise(x,
-                                    size=size,
-                                    inplace=inplace)
+        return _prune_twigs_precise(x, size=size, mask=mask, inplace=inplace)
 
 
-def _prune_twigs_simple(neuron: 'core.TreeNeuron',
-                        size: float,
-                        inplace: bool = False,
-                        recursive: Union[int, bool, float] = False
-                        ) -> Optional[NeuronObject]:
+def _prune_twigs_simple(
+    neuron: "core.TreeNeuron",
+    size: float,
+    inplace: bool = False,
+    mask: Optional[Union[Sequence[int], Callable]] = None,
+    recursive: Union[int, bool, float] = False,
+) -> Optional[NeuronObject]:
     """Prune twigs using simple method."""
     if not isinstance(neuron, core.TreeNeuron):
-        raise TypeError(f'Expected Neuron/List, got {type(neuron)}')
+        raise TypeError(f"Expected Neuron/List, got {type(neuron)}")
 
     # If people set recursive=True, assume that they mean float("inf")
     if isinstance(recursive, bool) and recursive:
-        recursive = float('inf')
+        recursive = float("inf")
 
     # Make a copy if necessary before making any changes
     if not inplace:
         neuron = neuron.copy()
+
+    if callable(mask):
+        mask = mask(neuron)
+
+    if mask is not None:
+        mask = np.asarray(mask)
+
+        if mask.dtype == bool:
+            if len(mask) != neuron.n_nodes:
+                raise ValueError("Mask length must match number of nodes")
+            mask_nodes = neuron.nodes.node_id.values[mask]
+        elif mask.dtype in (int, np.int32, np.int64):
+            mask_nodes = mask
+        else:
+            raise TypeError(
+                f"Mask must be boolean or list of node IDs, got {mask.dtype}"
+            )
+    else:
+        mask_nodes = None
 
     if utils.fastcore:
         nodes_to_keep = utils.fastcore.prune_twigs(
@@ -400,21 +449,30 @@ def _prune_twigs_simple(neuron: 'core.TreeNeuron',
             weights=utils.fastcore.dag.parent_dist(
                 neuron.nodes.node_id.values,
                 neuron.nodes.parent_id.values,
-                neuron.nodes[['x', 'y', 'z']].values,
-            )
+                neuron.nodes[["x", "y", "z"]].values,
+            ),
         )
 
+        # If mask is given, check if we have to re-add any nodes
+        # This is a bit cumbersome at the moment - we should add a
+        # mask feature to the fastcore function
+        if mask_nodes is not None:
+            for seg in graph._break_segments(neuron):
+                # If this segment would be dropped and the first node is not in the mask
+                # we have to keep the whole segment
+                if seg[0] not in nodes_to_keep and seg[0] not in mask_nodes:
+                    nodes_to_keep = np.append(nodes_to_keep, seg[1:])
+
         if len(nodes_to_keep) < neuron.n_nodes:
-            subset.subset_neuron(neuron,
-                                 nodes_to_keep,
-                                 inplace=True)
+            subset.subset_neuron(neuron, nodes_to_keep, inplace=True)
 
             if recursive:
-                recursive -= 1
-                prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
+                prune_twigs(
+                    neuron, size=size, inplace=True, recursive=recursive - 1, mask=mask_nodes
+                )
     else:
         # Find terminal nodes
-        leafs = neuron.nodes[neuron.nodes.type == 'end'].node_id.values
+        leafs = neuron.nodes[neuron.nodes.type == "end"].node_id.values
 
         # Find terminal segments
         segs = graph._break_segments(neuron)
@@ -425,35 +483,43 @@ def _prune_twigs_simple(neuron: 'core.TreeNeuron',
 
         # Find out which to delete
         segs_to_delete = segs[seg_lengths <= size]
+
+        # If mask is given, only consider nodes in mask
+        if mask_nodes is not None:
+            segs_to_delete = [s for s in segs_to_delete if s[0] in mask_nodes]
+
         if len(segs_to_delete):
             # Unravel the into list of node IDs -> skip the last parent
             nodes_to_delete = [n for s in segs_to_delete for n in s[:-1]]
 
             # Subset neuron
-            nodes_to_keep = neuron.nodes[~neuron.nodes.node_id.isin(nodes_to_delete)].node_id.values
-            subset.subset_neuron(neuron,
-                                nodes_to_keep,
-                                inplace=True)
+            nodes_to_keep = neuron.nodes[
+                ~neuron.nodes.node_id.isin(nodes_to_delete)
+            ].node_id.values
+            subset.subset_neuron(neuron, nodes_to_keep, inplace=True)
 
             # Go recursive
             if recursive:
-                recursive -= 1
-                prune_twigs(neuron, size=size, inplace=True, recursive=recursive)
+                prune_twigs(
+                    neuron, size=size, inplace=True, recursive=recursive - 1, mask=mask_nodes
+                )
 
     return neuron
 
 
-def _prune_twigs_precise(neuron: 'core.TreeNeuron',
-                         size: float,
-                         inplace: bool = False,
-                         recursive: Union[int, bool, float] = False
-                         ) -> Optional[NeuronObject]:
+def _prune_twigs_precise(
+    neuron: "core.TreeNeuron",
+    size: float,
+    inplace: bool = False,
+    mask: Optional[Union[Sequence[int], Callable]] = None,
+    recursive: Union[int, bool, float] = False,
+) -> Optional[NeuronObject]:
     """Prune twigs using precise method."""
     if not isinstance(neuron, core.TreeNeuron):
-        raise TypeError(f'Expected Neuron/List, got {type(neuron)}')
+        raise TypeError(f"Expected Neuron/List, got {type(neuron)}")
 
     if size <= 0:
-        raise ValueError('`length` must be > 0')
+        raise ValueError("`length` must be > 0")
 
     # Make a copy if necessary before making any changes
     if not inplace:
@@ -464,26 +530,49 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
 
     # Find all nodes that could possibly be within distance to a leaf
     tree = graph.neuron2KDTree(neuron)
-    res = tree.query_ball_point(neuron.leafs[['x', 'y', 'z']].values,
-                                r=size)
+    res = tree.query_ball_point(neuron.leafs[["x", "y", "z"]].values, r=size)
     candidates = neuron.nodes.node_id.values[np.unique(np.concatenate(res))]
+
+    if callable(mask):
+        mask = mask(neuron)
+
+    if mask is not None:
+        if mask.dtype == bool:
+            if len(mask) != neuron.n_nodes:
+                raise ValueError("Mask length must match number of nodes")
+            mask_nodes = neuron.nodes.node_id.values[mask]
+        elif mask.dtype in (int, np.int32, np.int64):
+            mask_nodes = mask
+        else:
+            raise TypeError(
+                f"Mask must be boolean or list of node IDs, got {mask.dtype}"
+            )
+
+        candidates = np.intersect1d(candidates, mask_nodes)
+
+    if not len(candidates):
+        return neuron
 
     # For each node in neuron find out which leafs are directly distal to it
     # `distal` is a matrix with all nodes in columns and leafs in rows
     distal = graph.distal_to(neuron, a=leafs, b=candidates)
-    # Turn matrix into dictionary {'node': [leafs, distal, to, it]}
-    melted = distal.reset_index(drop=False).melt(id_vars='index')
-    melted = melted[melted.value]
-    melted.groupby('variable')['index'].apply(list)
-    # `distal` is now a dictionary for {'node_id': [leaf1, leaf2, ..], ..}
-    distal = melted.groupby('variable')['index'].apply(list).to_dict()
 
-    # For each node find the distance to any leaf - note we are using `length`
+    # Turn matrix into dictionary {'node': [leafs, distal, to, it]}
+    melted = distal.reset_index(drop=False).melt(id_vars="index")
+    melted = melted[melted.value]
+
+    # `distal` is now a dictionary for {'node_id': [leaf1, leaf2, ..], ..}
+    distal = melted.groupby("variable")["index"].apply(list).to_dict()
+
+    # For each node find the distance to any leaf - note we are using `size`
     # as cutoff here
     # `path_len` is a dict mapping {nodeA: {nodeB: length, ...}, ...}
     # if nodeB is not in dictionary, it's not within reach
-    path_len = dict(nx.all_pairs_dijkstra_path_length(neuron.graph.reverse(),
-                                                      cutoff=size, weight='weight'))
+    path_len = dict(
+        nx.all_pairs_dijkstra_path_length(
+            neuron.graph.reverse(), cutoff=size, weight="weight"
+        )
+    )
 
     # For each leaf in `distal` check if it's within length
     not_in_length = {k: set(v) - set(path_len[k]) for k, v in distal.items()}
@@ -491,18 +580,23 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
     # For a node to be deleted its PARENT has to be within
     # `length` to ALL edges that are distal do it
     in_range = {k for k, v in not_in_length.items() if not any(v)}
-    nodes_to_keep = neuron.nodes.loc[~neuron.nodes.parent_id.isin(in_range),
-                                     'node_id'].values
+    nodes_to_keep = neuron.nodes.loc[
+        ~neuron.nodes.parent_id.isin(in_range), "node_id"
+    ].values
 
     if len(nodes_to_keep) < neuron.n_nodes:
         # Subset neuron
-        subset.subset_neuron(neuron,
-                             nodes_to_keep,
-                             inplace=True)
+        subset.subset_neuron(neuron, nodes_to_keep, inplace=True)
 
     # For each of the new leafs check their shortest distance to the
     # original leafs to get the remainder
-    is_new_leaf = (neuron.nodes.type == 'end').values
+    is_new_leaf = (neuron.nodes.type == "end").values
+
+    # If there is a mask, we have to exclude old leafs which would not have
+    # been in the mask
+    if mask is not None:
+        is_new_leaf = is_new_leaf & np.isin(neuron.nodes.node_id, mask_nodes)
+
     new_leafs = neuron.nodes[is_new_leaf].node_id.values
     max_len = [max([path_len[l1][l2] for l2 in distal[l1]]) for l1 in new_leafs]
 
@@ -511,10 +605,10 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
     len_to_prune = size - np.array(max_len)
 
     # Get vectors from leafs to their parents
-    nodes = neuron.nodes.set_index('node_id')
-    parents = nodes.loc[new_leafs, 'parent_id'].values
-    loc1 = neuron.leafs[['x', 'y', 'z']].values
-    loc2 = nodes.loc[parents, ['x', 'y', 'z']].values
+    nodes = neuron.nodes.set_index("node_id")
+    parents = nodes.loc[new_leafs, "parent_id"].values
+    loc1 = nodes.loc[new_leafs, ["x", "y", "z"]].values
+    loc2 = nodes.loc[parents, ["x", "y", "z"]].values
     vec = loc1 - loc2
     vec_len = np.linalg.norm(vec, axis=1)
     vec_norm = vec / vec_len.reshape(-1, 1)
@@ -527,42 +621,43 @@ def _prune_twigs_precise(neuron: 'core.TreeNeuron',
     # will be deleted anyway
     if not all(to_remove):
         new_loc = loc1 - vec_norm * len_to_prune.reshape(-1, 1)
-        neuron.nodes.loc[is_new_leaf, ['x', 'y', 'z']] = new_loc.astype(
+        neuron.nodes.loc[is_new_leaf, ["x", "y", "z"]] = new_loc.astype(
             neuron.nodes.x.dtype, copy=False
         )
 
     if any(to_remove):
         leafs_to_remove = new_leafs[to_remove]
-        nodes_to_keep = neuron.nodes.loc[~neuron.nodes.node_id.isin(leafs_to_remove),
-                                         'node_id'].values
+        nodes_to_keep = neuron.nodes.loc[
+            ~neuron.nodes.node_id.isin(leafs_to_remove), "node_id"
+        ].values
         # Subset neuron
-        subset.subset_neuron(neuron,
-                             nodes_to_keep,
-                             inplace=True)
+        subset.subset_neuron(neuron, nodes_to_keep, inplace=True)
 
     return neuron
 
 
-@utils.map_neuronlist(desc='Splitting', allow_parallel=True)
-@utils.meshneuron_skeleton(method='split',
-                           include_connectors=True,
-                           copy_properties=['color', 'compartment'],
-                           disallowed_kwargs={'label_only': True},
-                           heal=True)
-def split_axon_dendrite(x: NeuronObject,
-                        metric: Union[Literal['synapse_flow_centrality'],
-                                      Literal['flow_centrality'],
-                                      Literal['bending_flow'],
-                                      Literal['segregation_index']] = 'synapse_flow_centrality',
-                        flow_thresh: float = .9,
-                        split: Union[Literal['prepost'],
-                                     Literal['distance']] = 'prepost',
-                        cellbodyfiber: Union[Literal['soma'],
-                                             Literal['root'],
-                                             bool] = False,
-                        reroot_soma: bool = True,
-                        label_only: bool = False
-                        ) -> 'core.NeuronList':
+@utils.map_neuronlist(desc="Splitting", allow_parallel=True)
+@utils.meshneuron_skeleton(
+    method="split",
+    include_connectors=True,
+    copy_properties=["color", "compartment"],
+    disallowed_kwargs={"label_only": True},
+    heal=True,
+)
+def split_axon_dendrite(
+    x: NeuronObject,
+    metric: Union[
+        Literal["synapse_flow_centrality"],
+        Literal["flow_centrality"],
+        Literal["bending_flow"],
+        Literal["segregation_index"],
+    ] = "synapse_flow_centrality",
+    flow_thresh: float = 0.9,
+    split: Union[Literal["prepost"], Literal["distance"]] = "prepost",
+    cellbodyfiber: Union[Literal["soma"], Literal["root"], bool] = False,
+    reroot_soma: bool = True,
+    label_only: bool = False,
+) -> "core.NeuronList":
     """Split a neuron into axon and dendrite.
 
     The result is highly dependent on the method and on your neuron's
@@ -665,42 +760,55 @@ def split_axon_dendrite(x: NeuronObject,
             the axon/dendrite split.
 
     """
-    COLORS = {'axon': (178,  34,  34),
-              'dendrite': (0, 0, 255),
-              'cellbodyfiber': (50, 50, 50),
-              'linker': (150, 150, 150)}
+    COLORS = {
+        "axon": (178, 34, 34),
+        "dendrite": (0, 0, 255),
+        "cellbodyfiber": (50, 50, 50),
+        "linker": (150, 150, 150),
+    }
 
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Can only process TreeNeurons, got "{type(x)}"')
 
     if not x.has_connectors:
-        if metric != 'flow_centrality':
-            raise ValueError('Neuron must have connectors.')
-        elif split == 'prepost':
-            raise ValueError('Set `split="distance"` when trying to split neurons '
-                             'without connectors.')
+        if metric != "flow_centrality":
+            raise ValueError("Neuron must have connectors.")
+        elif split == "prepost":
+            raise ValueError(
+                'Set `split="distance"` when trying to split neurons '
+                "without connectors."
+            )
 
-    _METRIC = ('synapse_flow_centrality', 'bending_flow', 'segregation_index',
-               'flow_centrality')
-    utils.eval_param(metric, 'metric', allowed_values=_METRIC)
-    utils.eval_param(split, 'split', allowed_values=('prepost', 'distance'))
-    utils.eval_param(cellbodyfiber, 'cellbodyfiber',
-                     allowed_values=('soma', 'root', False))
+    _METRIC = (
+        "synapse_flow_centrality",
+        "bending_flow",
+        "segregation_index",
+        "flow_centrality",
+    )
+    utils.eval_param(metric, "metric", allowed_values=_METRIC)
+    utils.eval_param(split, "split", allowed_values=("prepost", "distance"))
+    utils.eval_param(
+        cellbodyfiber, "cellbodyfiber", allowed_values=("soma", "root", False)
+    )
 
-    if metric == 'flow_centrality':
-        msg = ("As of navis version 1.4.0, `method='flow_centrality'` "
-               "uses synapse-independent, morphology-only flow to generate splits."
-               "Please use `method='synapse_flow_centrality' for "
-               "synapse-based axon-dendrite splits. "
-               "This warning will be removed in a future version of navis.")
+    if metric == "flow_centrality":
+        msg = (
+            "As of navis version 1.4.0, `method='flow_centrality'` "
+            "uses synapse-independent, morphology-only flow to generate splits."
+            "Please use `method='synapse_flow_centrality' for "
+            "synapse-based axon-dendrite splits. "
+            "This warning will be removed in a future version of navis."
+        )
         warnings.warn(msg, DeprecationWarning)
         logger.warning(msg)
 
     if len(x.root) > 1:
-        raise ValueError(f'Unable to split neuron {x.id}: multiple roots. '
-                         'Try `navis.heal_skeleton(x)` to merged '
-                         'disconnected fragments.')
+        raise ValueError(
+            f"Unable to split neuron {x.id}: multiple roots. "
+            "Try `navis.heal_skeleton(x)` to merged "
+            "disconnected fragments."
+        )
 
     # Make copy, so that we don't screw things up
     original = x
@@ -710,11 +818,11 @@ def split_axon_dendrite(x: NeuronObject,
         x.reroot(x.soma, inplace=True)
 
     FUNCS = {
-             'bending_flow': mmetrics.bending_flow,
-             'synapse_flow_centrality':  mmetrics.synapse_flow_centrality,
-             'flow_centrality':  mmetrics.flow_centrality,
-             'segregation_index':  mmetrics.arbor_segregation_index
-             }
+        "bending_flow": mmetrics.bending_flow,
+        "synapse_flow_centrality": mmetrics.synapse_flow_centrality,
+        "flow_centrality": mmetrics.flow_centrality,
+        "segregation_index": mmetrics.arbor_segregation_index,
+    }
 
     if metric not in FUNCS:
         raise ValueError(f'Unknown `metric`: "{metric}"')
@@ -733,7 +841,7 @@ def split_axon_dendrite(x: NeuronObject,
     # The first step is to remove the linker -> that's the bit that connects
     # the axon and dendrite
     is_linker = x.nodes[metric] >= x.nodes[metric].max() * flow_thresh
-    linker = set(x.nodes.loc[is_linker, 'node_id'].values)
+    linker = set(x.nodes.loc[is_linker, "node_id"].values)
 
     # We try to perform processing on the graph to avoid overhead from
     # (re-)generating neurons
@@ -747,17 +855,17 @@ def split_axon_dendrite(x: NeuronObject,
 
     # Figure out which one is which
     axon = set()
-    if split == 'prepost':
+    if split == "prepost":
         # Collect # of pre- and postsynapses on each of the connected components
         sm = pd.DataFrame()
-        sm['n_nodes'] = [len(c) for c in cc]
+        sm["n_nodes"] = [len(c) for c in cc]
         pre = x.presynapses
         post = x.postsynapses
-        sm['n_pre'] = [pre[pre.node_id.isin(c)].shape[0] for c in cc]
-        sm['n_post'] = [post[post.node_id.isin(c)].shape[0] for c in cc]
-        sm['prepost_ratio'] = (sm.n_pre / sm.n_post)
-        sm['frac_post'] = sm.n_post / sm.n_post.sum()
-        sm['frac_pre'] = sm.n_pre / sm.n_pre.sum()
+        sm["n_pre"] = [pre[pre.node_id.isin(c)].shape[0] for c in cc]
+        sm["n_post"] = [post[post.node_id.isin(c)].shape[0] for c in cc]
+        sm["prepost_ratio"] = sm.n_pre / sm.n_post
+        sm["frac_post"] = sm.n_post / sm.n_post.sum()
+        sm["frac_pre"] = sm.n_pre / sm.n_pre.sum()
 
         # In theory, we can encounter neurons with either no pre- or no
         # postsynapses (e.g. sensory neurons).
@@ -765,19 +873,21 @@ def split_axon_dendrite(x: NeuronObject,
         # causes frac_pre/post to be NaN. By filling, we make sure that the
         # split doesn't fail further down but they might end up missing either
         # an axon or a dendrite (which may actually be OK?).
-        sm['frac_post'] = sm['frac_post'].fillna(0)
-        sm['frac_pre'] = sm['frac_pre'].fillna(0)
+        sm["frac_post"] = sm["frac_post"].fillna(0)
+        sm["frac_pre"] = sm["frac_pre"].fillna(0)
 
         # Produce the ratio of pre- to postsynapses
-        sm['frac_prepost'] = (sm.frac_pre / sm.frac_post)
+        sm["frac_prepost"] = sm.frac_pre / sm.frac_post
 
         # Some small side branches might have either no pre- or no postsynapses.
         # Even if they have synapses: if the total count is low they might be
         # incorrectly assigned to a compartment. Here, we will make sure that
         # they are disregarded for now to avoid introducing noise. Instead we
         # will connect them onto their parent compartment later.
-        sm.loc[sm[['frac_pre', 'frac_post']].max(axis=1) < 0.01,
-               ['prepost_ratio', 'frac_prepost']] = np.nan
+        sm.loc[
+            sm[["frac_pre", "frac_post"]].max(axis=1) < 0.01,
+            ["prepost_ratio", "frac_prepost"],
+        ] = np.nan
         logger.debug(sm)
 
         # Each fragment is considered separately as either giver or recipient
@@ -818,7 +928,7 @@ def split_axon_dendrite(x: NeuronObject,
     # The CBF is defined as the part of the neuron between the soma (or root)
     # and the first branch point with sizeable synapse flow
     cbf = set()
-    if cellbodyfiber and (np.any(x.soma) or cellbodyfiber == 'root'):
+    if cellbodyfiber and (np.any(x.soma) or cellbodyfiber == "root"):
         # To excise the CBF, we subset the neuron to those parts with
         # no/hardly any flow and find the part that contains the soma
         no_flow = x.nodes[x.nodes[metric] <= x.nodes[metric].max() * 0.05]
@@ -846,60 +956,63 @@ def split_axon_dendrite(x: NeuronObject,
     # If we have, assign these nodes to the closest node with a compartment
     if any(miss):
         # Find the closest nodes with a compartment
-        m = graph.geodesic_matrix(original,
-                                  directed=False,
-                                  weight=None,
-                                  from_=miss)
+        m = graph.geodesic_matrix(original, directed=False, weight=None, from_=miss)
 
         # Subset geodesic matrix to nodes that have a compartment
-        nodes_w_comp = original.nodes.node_id.values[~np.isin(original.nodes.node_id.values, miss)]
+        nodes_w_comp = original.nodes.node_id.values[
+            ~np.isin(original.nodes.node_id.values, miss)
+        ]
         closest = np.argmin(m.loc[:, nodes_w_comp].values, axis=1)
         closest_id = nodes_w_comp[closest]
 
         linker += m.index.values[np.isin(closest_id, linker)].tolist()
-        axon +=  m.index.values[np.isin(closest_id, axon)].tolist()
-        dendrite +=  m.index.values[np.isin(closest_id, dendrite)].tolist()
-        cbf +=  m.index.values[np.isin(closest_id, cbf)].tolist()
+        axon += m.index.values[np.isin(closest_id, axon)].tolist()
+        dendrite += m.index.values[np.isin(closest_id, dendrite)].tolist()
+        cbf += m.index.values[np.isin(closest_id, cbf)].tolist()
 
     # Add labels
     if label_only:
         nodes = original.nodes
-        nodes['compartment'] = None
+        nodes["compartment"] = None
         is_linker = nodes.node_id.isin(linker)
         is_axon = nodes.node_id.isin(axon)
         is_dend = nodes.node_id.isin(dendrite)
         is_cbf = nodes.node_id.isin(cbf)
-        nodes.loc[is_linker, 'compartment'] = 'linker'
-        nodes.loc[is_dend, 'compartment'] = 'dendrite'
-        nodes.loc[is_axon, 'compartment'] = 'axon'
-        nodes.loc[is_cbf, 'compartment'] = 'cellbodyfiber'
+        nodes.loc[is_linker, "compartment"] = "linker"
+        nodes.loc[is_dend, "compartment"] = "dendrite"
+        nodes.loc[is_axon, "compartment"] = "axon"
+        nodes.loc[is_cbf, "compartment"] = "cellbodyfiber"
 
         # Set connector compartments
-        cmp_map = original.nodes.set_index('node_id').compartment.to_dict()
-        original.connectors['compartment'] = original.connectors.node_id.map(cmp_map)
+        cmp_map = original.nodes.set_index("node_id").compartment.to_dict()
+        original.connectors["compartment"] = original.connectors.node_id.map(cmp_map)
 
         # Turn into categorical data
-        original.nodes['compartment'] = original.nodes.compartment.astype('category')
-        original.connectors['compartment'] = original.connectors.compartment.astype('category')
+        original.nodes["compartment"] = original.nodes.compartment.astype("category")
+        original.connectors["compartment"] = original.connectors.compartment.astype(
+            "category"
+        )
 
         return original
 
     # Generate the actual splits
     nl = []
-    for label, nodes in zip(['cellbodyfiber', 'dendrite', 'linker', 'axon'],
-                            [cbf, dendrite, linker, axon]):
+    for label, nodes in zip(
+        ["cellbodyfiber", "dendrite", "linker", "axon"], [cbf, dendrite, linker, axon]
+    ):
         if not len(nodes):
             continue
         n = subset.subset_neuron(original, nodes)
         n.color = COLORS.get(label, (100, 100, 100))
-        n._register_attr('compartment', label)
+        n._register_attr("compartment", label)
         nl.append(n)
 
     return core.NeuronList(nl)
 
 
-def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
-                     ) -> 'core.NeuronObject':
+def combine_neurons(
+    *x: Union[Sequence[NeuronObject], "core.NeuronList"],
+) -> "core.NeuronObject":
     """Combine multiple neurons into one.
 
     Parameters
@@ -949,10 +1062,10 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
 
     # Check that neurons are all of the same type
     if len(nl.types) > 1:
-        raise TypeError('Unable to combine neurons of different types')
+        raise TypeError("Unable to combine neurons of different types")
 
     if isinstance(nl[0], core.TreeNeuron):
-        x = stitch_skeletons(*nl, method='NONE', master='FIRST')
+        x = stitch_skeletons(*nl, method="NONE", master="FIRST")
     elif isinstance(nl[0], core.MeshNeuron):
         x = nl[0].copy()
         comb = tm.util.concatenate([n.trimesh for n in nl])
@@ -960,8 +1073,10 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
         x._faces = comb.faces
 
         if any(nl.has_connectors):
-            x._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
-                                      ignore_index=True)
+            x._connectors = pd.concat(
+                [n.connectors for n in nl],  # type: ignore  # no stubs for concat
+                ignore_index=True,
+            )
     elif isinstance(nl[0], core.Dotprops):
         x = nl[0].copy()
         x._points = np.vstack(nl._points)
@@ -972,26 +1087,26 @@ def combine_neurons(*x: Union[Sequence[NeuronObject], 'core.NeuronList']
             x._alpha = np.hstack(nl.alpha)
 
         if any(nl.has_connectors):
-            x._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
-                                      ignore_index=True)
+            x._connectors = pd.concat(
+                [n.connectors for n in nl],  # type: ignore  # no stubs for concat
+                ignore_index=True,
+            )
     elif isinstance(nl[0], core.VoxelNeuron):
-        raise TypeError('Combining VoxelNeuron not (yet) supported')
+        raise TypeError("Combining VoxelNeuron not (yet) supported")
     else:
-        raise TypeError(f'Unable to combine {type(nl[0])}')
+        raise TypeError(f"Unable to combine {type(nl[0])}")
 
     return x
 
 
-def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
-                     method: Union[Literal['LEAFS'],
-                                   Literal['ALL'],
-                                   Literal['NONE'],
-                                   Sequence[int]] = 'ALL',
-                     master: Union[Literal['SOMA'],
-                                   Literal['LARGEST'],
-                                   Literal['FIRST']] = 'SOMA',
-                     max_dist: Optional[float] = None,
-                     ) -> 'core.TreeNeuron':
+def stitch_skeletons(
+    *x: Union[Sequence[NeuronObject], "core.NeuronList"],
+    method: Union[
+        Literal["LEAFS"], Literal["ALL"], Literal["NONE"], Sequence[int]
+    ] = "ALL",
+    master: Union[Literal["SOMA"], Literal["LARGEST"], Literal["FIRST"]] = "SOMA",
+    max_dist: Optional[float] = None,
+) -> "core.TreeNeuron":
     """Stitch multiple skeletons together.
 
     Uses minimum spanning tree to determine a way to connect all fragments
@@ -1061,8 +1176,8 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
 
     """
     master = str(master).upper()
-    ALLOWED_MASTER = ('SOMA', 'LARGEST', 'FIRST')
-    utils.eval_param(master, 'master', allowed_values=ALLOWED_MASTER)
+    ALLOWED_MASTER = ("SOMA", "LARGEST", "FIRST")
+    utils.eval_param(master, "master", allowed_values=ALLOWED_MASTER)
 
     # Compile list of individual neurons
     neurons = utils.unpack_neurons(x)
@@ -1071,29 +1186,29 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
     nl = core.NeuronList(neurons).copy()
 
     if len(nl) < 2:
-        logger.warning(f'Need at least 2 neurons to stitch, found {len(nl)}')
+        logger.warning(f"Need at least 2 neurons to stitch, found {len(nl)}")
         return nl[0]
 
     # If no soma, switch to largest
-    if master == 'SOMA' and not any(nl.has_soma):
-        master = 'LARGEST'
+    if master == "SOMA" and not any(nl.has_soma):
+        master = "LARGEST"
 
     # First find master
-    if master == 'SOMA':
+    if master == "SOMA":
         # Pick the first neuron with a soma
         m_ix = [i for i, n in enumerate(nl) if n.has_soma][0]
-    elif master == 'LARGEST':
+    elif master == "LARGEST":
         # Pick the largest neuron
-        m_ix = sorted(list(range(len(nl))),
-                      key=lambda x: nl[x].n_nodes,
-                      reverse=True)[0]
+        m_ix = sorted(list(range(len(nl))), key=lambda x: nl[x].n_nodes, reverse=True)[
+            0
+        ]
     else:
         # Pick the first neuron
         m_ix = 0
     m = nl[m_ix]
 
     # Check if we need to make any node IDs unique
-    if nl.nodes.duplicated(subset='node_id').sum() > 0:
+    if nl.nodes.duplicated(subset="node_id").sum() > 0:
         # Master neuron will not be changed
         seen_tn: Set[int] = set(m.nodes.node_id)
         for i, n in enumerate(nl):
@@ -1120,17 +1235,21 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                 new_map = dict(zip(non_unique, new_tn))
 
                 # Remap node IDs - if no new value, keep the old
-                n.nodes['node_id'] = n.nodes.node_id.map(lambda x: new_map.get(x, x))
+                n.nodes["node_id"] = n.nodes.node_id.map(lambda x: new_map.get(x, x))
 
                 if n.has_connectors:
-                    n.connectors['node_id'] = n.connectors.node_id.map(lambda x: new_map.get(x, x))
+                    n.connectors["node_id"] = n.connectors.node_id.map(
+                        lambda x: new_map.get(x, x)
+                    )
 
-                if getattr(n, 'tags', None) is not None:
+                if getattr(n, "tags", None) is not None:
                     n.tags = {new_map.get(k, k): v for k, v in n.tags.items()}  # type: ignore
 
                 # Remap parent IDs
                 new_map[None] = -1  # type: ignore
-                n.nodes['parent_id'] = n.nodes.parent_id.map(lambda x: new_map.get(x, x)).astype(int)
+                n.nodes["parent_id"] = n.nodes.parent_id.map(
+                    lambda x: new_map.get(x, x)
+                ).astype(int)
 
                 # Add new nodes to seen
                 seen_tn = seen_tn | set(new_tn)
@@ -1139,96 +1258,100 @@ def stitch_skeletons(*x: Union[Sequence[NeuronObject], 'core.NeuronList'],
                 n._clear_temp_attr()
 
     # We will start by simply merging all neurons into one
-    m._nodes = pd.concat([n.nodes for n in nl],  # type: ignore  # no stubs for concat
-                         ignore_index=True)
+    m._nodes = pd.concat(
+        [n.nodes for n in nl],  # type: ignore  # no stubs for concat
+        ignore_index=True,
+    )
 
     if any(nl.has_connectors):
-        m._connectors = pd.concat([n.connectors for n in nl],  # type: ignore  # no stubs for concat
-                                  ignore_index=True)
+        m._connectors = pd.concat(
+            [n.connectors for n in nl],  # type: ignore  # no stubs for concat
+            ignore_index=True,
+        )
 
     if not m.has_tags or not isinstance(m.tags, dict):
         m.tags = {}  # type: ignore  # TreeNeuron has no tags
 
     for n in nl:
-        for k, v in (getattr(n, 'tags', None) or {}).items():
+        for k, v in (getattr(n, "tags", None) or {}).items():
             m.tags[k] = m.tags.get(k, []) + list(utils.make_iterable(v))
 
     # Reset temporary attributes of our final neuron
     m._clear_temp_attr()
 
     # If this is all we meant to do, return this neuron
-    if not utils.is_iterable(method) and (method == 'NONE' or method is None):
+    if not utils.is_iterable(method) and (method == "NONE" or method is None):
         return m
 
     return _stitch_mst(m, nodes=method, inplace=False, max_dist=max_dist)
 
 
-def _mst_igraph(nl: 'core.NeuronList',
-                new_edges: pd.DataFrame) -> List[List[int]]:
+def _mst_igraph(nl: "core.NeuronList", new_edges: pd.DataFrame) -> List[List[int]]:
     """Compute edges necessary to connect a fragmented neuron using igraph."""
     # Generate a union of all graphs
     g = nl[0].igraph.disjoint_union(nl[1:].igraph)
 
     # We have to manually set the node IDs again
-    nids = np.concatenate([n.igraph.vs['node_id'] for n in nl])
-    g.vs['node_id'] = nids
+    nids = np.concatenate([n.igraph.vs["node_id"] for n in nl])
+    g.vs["node_id"] = nids
 
     # Set existing edges to zero weight to make sure they have priority when
     # calculating the minimum spanning tree
-    g.es['weight'] = 0
+    g.es["weight"] = 0
 
     # If two nodes occupy the same position (e.g. after if fragments are the
     # result of cutting), they will have a distance of 0. Hence, we won't be
     # able to simply filter by distance
-    g.es['new'] = False
+    g.es["new"] = False
 
     # Convert node IDs in new_edges to vertex IDs and add to graph
-    name2ix = dict(zip(g.vs['node_id'], range(len(g.vs))))
-    new_edges['source_ix'] = new_edges.source.map(name2ix)
-    new_edges['target_ix'] = new_edges.target.map(name2ix)
+    name2ix = dict(zip(g.vs["node_id"], range(len(g.vs))))
+    new_edges["source_ix"] = new_edges.source.map(name2ix)
+    new_edges["target_ix"] = new_edges.target.map(name2ix)
 
     # Add new edges
-    g.add_edges(new_edges[['source_ix', 'target_ix']].values.tolist())
+    g.add_edges(new_edges[["source_ix", "target_ix"]].values.tolist())
 
     # Add edge weight to new edges
-    g.es[-new_edges.shape[0]:]['weight'] = new_edges.weight.values
+    g.es[-new_edges.shape[0] :]["weight"] = new_edges.weight.values
 
     # Keep track of new edges
-    g.es[-new_edges.shape[0]:]['new'] = True
+    g.es[-new_edges.shape[0] :]["new"] = True
 
     # Compute the minimum spanning tree
-    mst = g.spanning_tree(weights='weight')
+    mst = g.spanning_tree(weights="weight")
 
     # Extract the new edges
     to_add = mst.es.select(new=True)
 
     # Convert to node IDs
-    to_add = [(g.vs[e.source]['node_id'],
-               g.vs[e.target]['node_id'],
-               {'weight': e['weight']})
-              for e in to_add]
+    to_add = [
+        (g.vs[e.source]["node_id"], g.vs[e.target]["node_id"], {"weight": e["weight"]})
+        for e in to_add
+    ]
 
     return to_add
 
 
-def _mst_nx(nl: 'core.NeuronList',
-            new_edges: pd.DataFrame) -> List[List[int]]:
+def _mst_nx(nl: "core.NeuronList", new_edges: pd.DataFrame) -> List[List[int]]:
     """Compute edges necessary to connect a fragmented neuron using networkX."""
     # Generate a union of all graphs
     g = nx.union_all([n.graph for n in nl]).to_undirected()
 
     # Set existing edges to zero weight to make sure they have priority when
     # calculating the minimum spanning tree
-    nx.set_edge_attributes(g, 0, 'weight')
+    nx.set_edge_attributes(g, 0, "weight")
 
     # If two nodes occupy the same position (e.g. after if fragments are the
     # result of cutting), they will have a distance of 0. Hence, we won't be
     # able to simply filter by distance
-    nx.set_edge_attributes(g, False, 'new')
+    nx.set_edge_attributes(g, False, "new")
 
     # Convert new edges in the right format
-    edges_nx = [(r.source, r.target, {'weight': r.weight, 'new': True})
-                for r in new_edges.itertuples()]
+    edges_nx = [
+        (r.source, r.target, {"weight": r.weight, "new": True})
+        for r in new_edges.itertuples()
+    ]
 
     # Add edges to union graph
     g.add_edges_from(edges_nx)
@@ -1237,15 +1360,16 @@ def _mst_nx(nl: 'core.NeuronList',
     edges = nx.minimum_spanning_edges(g)
 
     # Edges that need adding are those that were newly added
-    to_add = [e for e in edges if e[2]['new']]
+    to_add = [e for e in edges if e[2]["new"]]
 
     return to_add
 
 
-def average_skeletons(x: 'core.NeuronList',
-                      limit: Union[int, str] = 10,
-                      base_neuron: Optional[Union[int, 'core.TreeNeuron']] = None
-                      ) -> 'core.TreeNeuron':
+def average_skeletons(
+    x: "core.NeuronList",
+    limit: Union[int, str] = 10,
+    base_neuron: Optional[Union[int, "core.TreeNeuron"]] = None,
+) -> "core.TreeNeuron":
     """Compute an average from a list of skeletons.
 
     This is a very simple implementation which may give odd results if used
@@ -1288,14 +1412,14 @@ def average_skeletons(x: 'core.NeuronList',
         raise TypeError(f'Need NeuronList, got "{type(x)}"')
 
     if len(x) < 2:
-        raise ValueError('Need at least 2 neurons to average!')
+        raise ValueError("Need at least 2 neurons to average!")
 
     # Map limit into unit space, if applicable
-    limit = x[0].map_units(limit, on_error='raise')
+    limit = x[0].map_units(limit, on_error="raise")
 
     # Generate KDTrees for each neuron
     for n in x:
-        n.tree = graph.neuron2KDTree(n, tree_type='c', data='nodes')  # type: ignore  # TreeNeuron has no tree
+        n.tree = graph.neuron2KDTree(n, tree_type="c", data="nodes")  # type: ignore  # TreeNeuron has no tree
 
     # Set base for average: we will use this neurons nodes to query
     # the KDTrees
@@ -1306,9 +1430,11 @@ def average_skeletons(x: 'core.NeuronList',
     elif isinstance(base_neuron, type(None)):
         bn = x[0].copy()
     else:
-        raise ValueError(f'Unable to interpret base_neuron of type "{type(base_neuron)}"')
+        raise ValueError(
+            f'Unable to interpret base_neuron of type "{type(base_neuron)}"'
+        )
 
-    base_nodes = bn.nodes[['x', 'y', 'z']].values
+    base_nodes = bn.nodes[["x", "y", "z"]].values
     other_neurons = x[[n != bn for n in x]]
 
     # Make sure these stay 2-dimensional arrays -> will add a colum for each
@@ -1319,18 +1445,17 @@ def average_skeletons(x: 'core.NeuronList',
 
     # For each "other" neuron, collect nearest neighbour coordinates
     for n in other_neurons:
-        nn_dist, nn_ix = n.tree.query(base_nodes,
-                                      k=1,
-                                      distance_upper_bound=limit)
+        nn_dist, nn_ix = n.tree.query(base_nodes, k=1, distance_upper_bound=limit)
 
         # Translate indices into coordinates
         # First, make empty array
         this_coords = np.zeros((len(nn_dist), 3))
         # Set coords without a nearest neighbour within distances to "None"
-        this_coords[nn_dist == float('inf')] = None
+        this_coords[nn_dist == float("inf")] = None
         # Fill in coords of nearest neighbours
-        this_coords[nn_dist != float(
-            'inf')] = n.tree.data[nn_ix[nn_dist != float('inf')]]
+        this_coords[nn_dist != float("inf")] = n.tree.data[
+            nn_ix[nn_dist != float("inf")]
+        ]
         # Add coords to base coords
         base_x = np.append(base_x, this_coords[:, 0:1], axis=1)
         base_y = np.append(base_y, this_coords[:, 1:2], axis=1)
@@ -1349,19 +1474,21 @@ def average_skeletons(x: 'core.NeuronList',
     mean_z[np.isnan(mean_z)] = base_nodes[np.isnan(mean_z), 2]
 
     # Change coordinates accordingly
-    bn.nodes['x'] = mean_x
-    bn.nodes['y'] = mean_y
-    bn.nodes['z'] = mean_z
+    bn.nodes["x"] = mean_x
+    bn.nodes["y"] = mean_y
+    bn.nodes["z"] = mean_z
 
     return bn
 
 
-@utils.map_neuronlist(desc='Despiking', allow_parallel=True)
-def despike_skeleton(x: NeuronObject,
-                     sigma: int = 5,
-                     max_spike_length: int = 1,
-                     inplace: bool = False,
-                     reverse: bool = False) -> Optional[NeuronObject]:
+@utils.map_neuronlist(desc="Despiking", allow_parallel=True)
+def despike_skeleton(
+    x: NeuronObject,
+    sigma: int = 5,
+    max_spike_length: int = 1,
+    inplace: bool = False,
+    reverse: bool = False,
+) -> Optional[NeuronObject]:
     r"""Remove spikes in skeleton (e.g. from jumps in image data).
 
     For each node A, the Euclidean distance to its next successor (parent)
@@ -1404,13 +1531,13 @@ def despike_skeleton(x: NeuronObject,
 
     # The decorator makes sure that we have single neurons at this point
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Can only process TreeNeurons, not {type(x)}')
+        raise TypeError(f"Can only process TreeNeurons, not {type(x)}")
 
     if not inplace:
         x = x.copy()
 
     # Index nodes table by node ID
-    this_nodes = x.nodes.set_index('node_id', inplace=False)
+    this_nodes = x.nodes.set_index("node_id", inplace=False)
 
     segs_to_walk = x.segments
 
@@ -1423,45 +1550,48 @@ def despike_skeleton(x: NeuronObject,
         # Go over all segments
         for seg in segs_to_walk:
             # Get nodes A, B and C of this segment
-            this_A = this_nodes.loc[seg[:-l - 1]]
+            this_A = this_nodes.loc[seg[: -l - 1]]
             this_B = this_nodes.loc[seg[l:-1]]
-            this_C = this_nodes.loc[seg[l + 1:]]
+            this_C = this_nodes.loc[seg[l + 1 :]]
 
             # Get coordinates
-            A = this_A[['x', 'y', 'z']].values
-            B = this_B[['x', 'y', 'z']].values
-            C = this_C[['x', 'y', 'z']].values
+            A = this_A[["x", "y", "z"]].values
+            B = this_B[["x", "y", "z"]].values
+            C = this_C[["x", "y", "z"]].values
 
             # Calculate euclidean distances A->B and A->C
             dist_AB = np.linalg.norm(A - B, axis=1)
             dist_AC = np.linalg.norm(A - C, axis=1)
 
             # Get the spikes
-            spikes_ix = np.where(np.divide(dist_AB, dist_AC, where=dist_AC != 0) > sigma)[0]
+            spikes_ix = np.where(
+                np.divide(dist_AB, dist_AC, where=dist_AC != 0) > sigma
+            )[0]
             spikes = this_B.iloc[spikes_ix]
 
             if not spikes.empty:
                 # Interpolate new position(s) between A and C
                 new_positions = A[spikes_ix] + (C[spikes_ix] - A[spikes_ix]) / 2
 
-                this_nodes.loc[spikes.index, ['x', 'y', 'z']] = new_positions
+                this_nodes.loc[spikes.index, ["x", "y", "z"]] = new_positions
 
     # Reassign node table
     x.nodes = this_nodes.reset_index(drop=False, inplace=False)
 
     # The weights in the graph have changed, we need to update that
-    x._clear_temp_attr(exclude=['segments', 'small_segments',
-                                'classify_nodes'])
+    x._clear_temp_attr(exclude=["segments", "small_segments", "classify_nodes"])
 
     return x
 
 
-@utils.map_neuronlist(desc='Guessing', allow_parallel=True)
-def guess_radius(x: NeuronObject,
-                 method: str = 'linear',
-                 limit: Optional[int] = None,
-                 smooth: bool = True,
-                 inplace: bool = False) -> Optional[NeuronObject]:
+@utils.map_neuronlist(desc="Guessing", allow_parallel=True)
+def guess_radius(
+    x: NeuronObject,
+    method: str = "linear",
+    limit: Optional[int] = None,
+    smooth: bool = True,
+    inplace: bool = False,
+) -> Optional[NeuronObject]:
     """Guess radii for skeleton nodes.
 
     Uses distance between connectors and nodes to guess radii. Interpolate for
@@ -1497,10 +1627,10 @@ def guess_radius(x: NeuronObject,
     """
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Can only process TreeNeurons, not {type(x)}')
+        raise TypeError(f"Can only process TreeNeurons, not {type(x)}")
 
-    if not hasattr(x, 'connectors') or x.connectors.empty:
-        raise ValueError('Neuron must have connectors!')
+    if not hasattr(x, "connectors") or x.connectors.empty:
+        raise ValueError("Neuron must have connectors!")
 
     if not inplace:
         x = x.copy()
@@ -1511,59 +1641,58 @@ def guess_radius(x: NeuronObject,
 
     # We will be using the index as distance to interpolate. For this we have
     # to change method 'linear' to 'index'
-    method = 'index' if method == 'linear' else method
+    method = "index" if method == "linear" else method
 
     # Collect connectors and calc distances
     cn = x.connectors.copy()
 
     # Prepare nodes (add parent_dist for later, set index)
-    x.nodes['parent_dist'] = mmetrics.parent_dist(x, root_dist=0)
-    nodes = x.nodes.set_index('node_id', inplace=False)
+    x.nodes["parent_dist"] = mmetrics.parent_dist(x, root_dist=0)
+    nodes = x.nodes.set_index("node_id", inplace=False)
 
     # For each connector (pre and post), get the X/Y distance to its node
-    cn_locs = cn[['x', 'y']].values
-    tn_locs = nodes.loc[cn.node_id.values,
-                        ['x', 'y']].values
+    cn_locs = cn[["x", "y"]].values
+    tn_locs = nodes.loc[cn.node_id.values, ["x", "y"]].values
     dist = np.sqrt(np.sum((tn_locs - cn_locs) ** 2, axis=1).astype(int))
-    cn['dist'] = dist
+    cn["dist"] = dist
 
     # Get max distance per node (in case of multiple connectors per
     # node)
-    cn_grouped = cn.groupby('node_id').dist.max()
+    cn_grouped = cn.groupby("node_id").dist.max()
 
     # Set undefined radii to None so that they are ignored for interpolation
-    nodes.loc[nodes.radius <= 0, 'radius'] = None
+    nodes.loc[nodes.radius <= 0, "radius"] = None
 
     # Assign radii to nodes
-    nodes.loc[cn_grouped.index, 'radius'] = cn_grouped.values.astype(
+    nodes.loc[cn_grouped.index, "radius"] = cn_grouped.values.astype(
         nodes.radius.dtype, copy=False
     )
 
     # Go over each segment and interpolate radii
-    for s in config.tqdm(x.segments, desc='Interp.', disable=config.pbar_hide,
-                         leave=config.pbar_leave):
-
+    for s in config.tqdm(
+        x.segments, desc="Interp.", disable=config.pbar_hide, leave=config.pbar_leave
+    ):
         # Get this segments radii and parent dist
-        this_radii = nodes.loc[s, ['radius', 'parent_dist']]
-        this_radii['parent_dist_cum'] = this_radii.parent_dist.cumsum()
+        this_radii = nodes.loc[s, ["radius", "parent_dist"]]
+        this_radii["parent_dist_cum"] = this_radii.parent_dist.cumsum()
 
         # Set cumulative distance as index and drop parent_dist
-        this_radii = this_radii.set_index('parent_dist_cum',
-                                          drop=True).drop('parent_dist',
-                                                          axis=1)
+        this_radii = this_radii.set_index("parent_dist_cum", drop=True).drop(
+            "parent_dist", axis=1
+        )
 
         # Interpolate missing radii
-        interp = this_radii.interpolate(method=method, limit_direction='both',
-                                        limit=limit)
+        interp = this_radii.interpolate(
+            method=method, limit_direction="both", limit=limit
+        )
 
         if smooth:
-            interp = interp.rolling(smooth,
-                                    min_periods=1).max()
+            interp = interp.rolling(smooth, min_periods=1).max()
 
-        nodes.loc[s, 'radius'] = interp.values
+        nodes.loc[s, "radius"] = interp.values
 
     # Set non-interpolated radii back to -1
-    nodes.loc[nodes.radius.isnull(), 'radius'] = -1
+    nodes.loc[nodes.radius.isnull(), "radius"] = -1
 
     # Reassign nodes
     x.nodes = nodes.reset_index(drop=False, inplace=False)
@@ -1571,11 +1700,13 @@ def guess_radius(x: NeuronObject,
     return x
 
 
-@utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
-def smooth_skeleton(x: NeuronObject,
-                    window: int = 5,
-                    to_smooth: list = ['x', 'y', 'z'],
-                    inplace: bool = False) -> NeuronObject:
+@utils.map_neuronlist(desc="Smoothing", allow_parallel=True)
+def smooth_skeleton(
+    x: NeuronObject,
+    window: int = 5,
+    to_smooth: list = ["x", "y", "z"],
+    inplace: bool = False,
+) -> NeuronObject:
     """Smooth skeleton(s) using rolling windows.
 
     Parameters
@@ -1618,26 +1749,28 @@ def smooth_skeleton(x: NeuronObject,
     """
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Can only process TreeNeurons, not {type(x)}')
+        raise TypeError(f"Can only process TreeNeurons, not {type(x)}")
 
     if not inplace:
         x = x.copy()
 
     # Prepare nodes (add parent_dist for later, set index)
     # mmetrics.parent_dist(x, root_dist=0)
-    nodes = x.nodes.set_index('node_id', inplace=False).copy()
+    nodes = x.nodes.set_index("node_id", inplace=False).copy()
 
     to_smooth = utils.make_iterable(to_smooth)
 
     miss = to_smooth[~np.isin(to_smooth, nodes.columns)]
     if len(miss):
-        raise ValueError(f'Column(s) not found in node table: {miss}')
+        raise ValueError(f"Column(s) not found in node table: {miss}")
 
     # Go over each segment and smooth
-    for s in config.tqdm(x.segments[::-1], desc='Smoothing',
-                         disable=config.pbar_hide,
-                         leave=config.pbar_leave):
-
+    for s in config.tqdm(
+        x.segments[::-1],
+        desc="Smoothing",
+        disable=config.pbar_hide,
+        leave=config.pbar_leave,
+    ):
         # Get this segment's parent distances and get cumsum
         this_co = nodes.loc[s, to_smooth]
 
@@ -1656,61 +1789,11 @@ def smooth_skeleton(x: NeuronObject,
     return x
 
 
-@utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
-def smooth_voxels(x: NeuronObject,
-                  sigma: int = 1,
-                  inplace: bool = False) -> NeuronObject:
-    """Smooth voxel(s) using a Gaussian filter.
-
-    Parameters
-    ----------
-    x :             TreeNeuron | NeuronList
-                    Neuron(s) to be processed.
-    sigma :         int | (3, ) ints, optional
-                    Standard deviation for Gaussian kernel. The standard
-                    deviations of the Gaussian filter are given for each axis
-                    as a sequence, or as a single number, in which case it is
-                    equal for all axes.
-    inplace :       bool, optional
-                    If False, will use and return copy of original neuron(s).
-
-    Returns
-    -------
-    VoxelNeuron/List
-                    Smoothed neuron(s).
-
-    Examples
-    --------
-    >>> import navis
-    >>> n = navis.example_neurons(1, kind='mesh')
-    >>> vx = navis.voxelize(n, pitch='1 micron')
-    >>> smoothed = navis.smooth_voxels(vx, sigma=2)
-
-    See Also
-    --------
-    [`navis.smooth_mesh`][]
-                    For smoothing MeshNeurons and other mesh-likes.
-    [`navis.smooth_skeleton`][]
-                    For smoothing TreeNeurons.
-
-    """
-    # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.VoxelNeuron):
-        raise TypeError(f'Can only process VoxelNeurons, not {type(x)}')
-
-    if not inplace:
-        x = x.copy()
-
-    # Apply gaussian
-    x._data = gaussian_filter(x.grid.astype(np.float32), sigma=sigma)
-    x._clear_temp_attr()
-
-    return x
-
-
-def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
-                    labels_only: bool = False,
-                    min_size: Optional[int] = None) -> 'core.NeuronList':
+def break_fragments(
+    x: Union["core.TreeNeuron", "core.MeshNeuron"],
+    labels_only: bool = False,
+    min_size: Optional[int] = None,
+) -> "core.NeuronList":
     """Break neuron into its connected components.
 
     Neurons can consists of several disconnected fragments. This function
@@ -1765,7 +1848,7 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     if labels_only:
         cc_id = {n: i for i, cc in enumerate(comp) for n in cc}
         if isinstance(x, core.TreeNeuron):
-            x.nodes['fragment'] = x.nodes.node_id.map(cc_id).astype(str)
+            x.nodes["fragment"] = x.nodes.node_id.map(cc_id).astype(str)
         elif isinstance(x, core.MeshNeuron):
             x.fragments = np.array([cc_id[i] for i in range(x.n_vertices)]).astype(str)
         return x
@@ -1773,23 +1856,26 @@ def break_fragments(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
     if min_size:
         comp = [cc for cc in comp if len(cc) >= min_size]
 
-    return core.NeuronList([subset.subset_neuron(x,
-                                                 list(ss),
-                                                 inplace=False) for ss in config.tqdm(comp,
-                                                                                      desc='Breaking',
-                                                                                      disable=config.pbar_hide,
-                                                                                      leave=config.pbar_leave)])
+    return core.NeuronList(
+        [
+            subset.subset_neuron(x, list(ss), inplace=False)
+            for ss in config.tqdm(
+                comp, desc="Breaking", disable=config.pbar_hide, leave=config.pbar_leave
+            )
+        ]
+    )
 
 
-@utils.map_neuronlist(desc='Healing', allow_parallel=True)
-def heal_skeleton(x: 'core.NeuronList',
-                  method: Union[Literal['LEAFS'],
-                                Literal['ALL']] = 'ALL',
-                  max_dist: Optional[float] = None,
-                  min_size: Optional[float] = None,
-                  drop_disc: float = False,
-                  mask: Optional[Sequence] = None,
-                  inplace: bool = False) -> Optional[NeuronObject]:
+@utils.map_neuronlist(desc="Healing", allow_parallel=True)
+def heal_skeleton(
+    x: "core.NeuronList",
+    method: Union[Literal["LEAFS"], Literal["ALL"]] = "ALL",
+    max_dist: Optional[float] = None,
+    min_size: Optional[float] = None,
+    drop_disc: float = False,
+    mask: Optional[Sequence] = None,
+    inplace: bool = False,
+) -> Optional[NeuronObject]:
     """Heal fragmented skeleton(s).
 
     Tries to heal a fragmented skeleton (i.e. a neuron with multiple roots)
@@ -1857,7 +1943,7 @@ def heal_skeleton(x: 'core.NeuronList',
     """
     method = str(method).upper()
 
-    if method not in ('LEAFS', 'ALL'):
+    if method not in ("LEAFS", "ALL"):
         raise ValueError(f'Unknown method "{method}"')
 
     # The decorator makes sure that at this point we have single neurons
@@ -1865,17 +1951,14 @@ def heal_skeleton(x: 'core.NeuronList',
         raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
 
     if not isinstance(max_dist, type(None)):
-        max_dist = x.map_units(max_dist, on_error='raise')
+        max_dist = x.map_units(max_dist, on_error="raise")
 
     if not inplace:
         x = x.copy()
 
-    _ = _stitch_mst(x,
-                    nodes=method,
-                    max_dist=max_dist,
-                    min_size=min_size,
-                    mask=mask,
-                    inplace=True)
+    _ = _stitch_mst(
+        x, nodes=method, max_dist=max_dist, min_size=min_size, mask=mask, inplace=True
+    )
 
     # See if we need to drop remaining disconnected fragments
     if drop_disc:
@@ -1888,14 +1971,14 @@ def heal_skeleton(x: 'core.NeuronList',
     return x
 
 
-def _stitch_mst(x: 'core.TreeNeuron',
-                nodes:  Union[Literal['LEAFS'],
-                              Literal['ALL'],
-                              list] = 'ALL',
-                max_dist: Optional[float] = np.inf,
-                min_size: Optional[float] = None,
-                mask: Optional[Sequence] = None,
-                inplace: bool = False) -> Optional['core.TreeNeuron']:
+def _stitch_mst(
+    x: "core.TreeNeuron",
+    nodes: Union[Literal["LEAFS"], Literal["ALL"], list] = "ALL",
+    max_dist: Optional[float] = np.inf,
+    min_size: Optional[float] = None,
+    mask: Optional[Sequence] = None,
+    inplace: bool = False,
+) -> Optional["core.TreeNeuron"]:
     """Stitch disconnected neuron using a minimum spanning tree.
 
     Parameters
@@ -1935,8 +2018,9 @@ def _stitch_mst(x: 'core.TreeNeuron',
         mask = np.asarray(mask)
         if mask.dtype == bool:
             if len(mask) != len(x.nodes):
-                raise ValueError("Length of boolean mask must match number of "
-                                 "nodes in the neuron")
+                raise ValueError(
+                    "Length of boolean mask must match number of " "nodes in the neuron"
+                )
             mask = x.nodes.node_id.values[mask]
 
     # Get connected components
@@ -1960,8 +2044,8 @@ def _stitch_mst(x: 'core.TreeNeuron',
         cc = cc[cc.isin(above)]
 
     # Filter to leaf nodes if applicable
-    if nodes == 'LEAFS':
-        keep = to_use['type'].isin(['end', 'root'])
+    if nodes == "LEAFS":
+        keep = to_use["type"].isin(["end", "root"])
         to_use = to_use[keep]
         cc = cc[keep]
 
@@ -1972,10 +2056,10 @@ def _stitch_mst(x: 'core.TreeNeuron',
         cc = cc[keep]
 
     # Collect fragments
-    Fragment = namedtuple('Fragment', ['frag_id', 'node_ids', 'kd'])
+    Fragment = namedtuple("Fragment", ["frag_id", "node_ids", "kd"])
     fragments = []
     for frag_id, df in to_use.groupby(cc):
-        kd = KDTree(df[[*'xyz']].values)
+        kd = KDTree(df[[*"xyz"]].values)
         fragments.append(Fragment(frag_id, df.node_id.values, kd))
 
     # Sort from big-to-small, so the calculations below use a
@@ -2014,30 +2098,36 @@ def _stitch_mst(x: 'core.TreeNeuron',
         # Add edge from one fragment to another,
         # but keep track of which fine-grained skeleton
         # nodes were used to calculate distance.
-        frag_graph.add_edge(frag_a.frag_id, frag_b.frag_id,
-                            node_a=node_a, node_b=node_b,
-                            distance=dist_ab)
+        frag_graph.add_edge(
+            frag_a.frag_id,
+            frag_b.frag_id,
+            node_a=node_a,
+            node_b=node_b,
+            distance=dist_ab,
+        )
 
     # Compute inter-fragment MST edges
-    frag_edges = nx.minimum_spanning_edges(frag_graph, weight='distance', data=True)
+    frag_edges = nx.minimum_spanning_edges(frag_graph, weight="distance", data=True)
 
     # For each inter-fragment edge, add the corresponding
     # fine-grained edge between skeleton nodes in the original graph.
     g = x.graph.to_undirected()
-    to_add = [[e[2]['node_a'], e[2]['node_b']] for e in frag_edges]
+    to_add = [[e[2]["node_a"], e[2]["node_b"]] for e in frag_edges]
     g.add_edges_from(to_add)
 
     # Rewire based on graph
     return graph.rewire_skeleton(x, g, inplace=inplace)
 
 
-@utils.map_neuronlist(desc='Pruning', must_zip=['source'], allow_parallel=True)
-@utils.meshneuron_skeleton(method='subset')
-def prune_at_depth(x: NeuronObject,
-                   depth: Union[float, int], *,
-                   source: Optional[int] = None,
-                   inplace: bool = False
-                   ) -> Optional[NeuronObject]:
+@utils.map_neuronlist(desc="Pruning", must_zip=["source"], allow_parallel=True)
+@utils.meshneuron_skeleton(method="subset")
+def prune_at_depth(
+    x: NeuronObject,
+    depth: Union[float, int],
+    *,
+    source: Optional[int] = None,
+    inplace: bool = False,
+) -> Optional[NeuronObject]:
     """Prune all neurites past a given distance from a source.
 
     Parameters
@@ -2077,9 +2167,9 @@ def prune_at_depth(x: NeuronObject,
     """
     # The decorator makes sure that at this point we only have single neurons
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron, got {type(x)}')
+        raise TypeError(f"Expected TreeNeuron, got {type(x)}")
 
-    depth = x.map_units(depth, on_error='raise')
+    depth = x.map_units(depth, on_error="raise")
     if depth < 0:
         raise ValueError(f'`depth` must be > 0, got "{depth}"')
 
@@ -2100,26 +2190,36 @@ def prune_at_depth(x: NeuronObject,
     return x
 
 
-@utils.map_neuronlist(desc='Pruning', allow_parallel=True)
-def drop_fluff(x: Union['core.TreeNeuron',
-                        'core.MeshNeuron',
-                        'core.NeuronList'],
-               keep_size: Optional[float] = None,
-               inplace: bool = False):
+@utils.map_neuronlist(desc="Removing fluff", allow_parallel=True)
+def drop_fluff(
+    x: Union["core.TreeNeuron", "core.MeshNeuron", "core.NeuronList"],
+    keep_size: Optional[float] = None,
+    n_largest: Optional[int] = None,
+    epsilon: Optional[float] = None,
+    inplace: bool = False,
+):
     """Remove small disconnected pieces of "fluff".
 
     By default, this function will remove all but the largest connected
-    component from the neuron (see also `keep_size`) parameter. Connectors will
+    component from the neuron. You can change that behavior using the
+    `keep_size` and `n_largest` parameters. Connectors (if present) will
     be remapped to the closest surviving vertex/node.
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                The neuron to remove fluff from.
+    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+                The neuron(s) to remove fluff from.
     keep_size : float, optional
                 Use this to set a size (in number of nodes/vertices) for small
                 bits to keep. If `keep_size` < 1 it will be intepreted as
-                fraction of total nodes/vertices.
+                fraction of total nodes/vertices/points.
+    n_largest : int, optional
+                If set, will keep the `n_largest` connected components. Note:
+                if provided, `keep_size` will be applied first!
+    epsilon :   float, optional
+                For Dotprops: distance at which to consider two points to be
+                connected. If `None`, will use the default value of 5 times
+                the average node distance (`x.sampling_resolution`).
     inplace :   bool, optional
                 If False, pruning is performed on copy of original neuron
                 which is then returned.
@@ -2133,37 +2233,65 @@ def drop_fluff(x: Union['core.TreeNeuron',
     --------
     >>> import navis
     >>> m = navis.example_neurons(1, kind='mesh')
-    >>> clean = navis.drop_fluff(m, keep_size=30)
-    >>> m.n_vertices, clean.n_vertices
-    (6309, 6037)
+    >>> m.n_vertices
+    6309
+    >>> # Remove all but the largest connected component
+    >>> top = navis.drop_fluff(m)
+    >>> top.n_vertices
+    5951
+    >>> # Keep the ten largest connected components
+    >>> two = navis.drop_fluff(m, n_largest=10)
+    >>> two.n_vertices
+    6069
+    >>> # Keep all fragments with at least 100 vertices
+    >>> clean = navis.drop_fluff(m, keep_size=100)
+    >>> clean.n_vertices
+    5951
+    >>> # Keep the two largest fragments with at least 50 vertices each
+    >>> # (for this neuron the result is just the largest fragment)
+    >>> clean2 = navis.drop_fluff(m, keep_size=50, n_largest=2)
+    >>> clean2.n_vertices
+    6037
 
     """
-    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, core.MeshNeuron))
+    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron, core.MeshNeuron, core.Dotprops))
 
-    G = x.graph
-    # Skeleton graphs are directed
-    if G.is_directed():
-        G = G.to_undirected()
+    if isinstance(x, (core.MeshNeuron, core.TreeNeuron)):
+        G = x.graph
+        # Skeleton graphs are directed
+        if G.is_directed():
+            G = G.to_undirected()
+    elif isinstance(x, core.Dotprops):
+        G = graph.neuron2nx(x, epsilon=epsilon)
 
     cc = sorted(nx.connected_components(G), key=lambda x: len(x), reverse=True)
 
-    if keep_size:
-        if keep_size < 1:
-            keep_size = len(G.nodes) * keep_size
+    # Translate keep_size to number of nodes
+    if keep_size and keep_size < 1:
+        keep_size = len(G.nodes) * keep_size
 
-        keep = [n for c in cc for n in c if len(c) >= keep_size]
+    if keep_size:
+        cc = [c for c in cc if len(c) >= keep_size]
+        if not n_largest:
+            keep = [i for c in cc for i in c]
+        else:
+            keep = [i for c in cc[:n_largest] for i in c]
+    elif n_largest:
+        keep = [i for c in cc[:n_largest] for i in c]
     else:
         keep = cc[0]
 
     # Subset neuron
     x = subset.subset_neuron(x, subset=keep, inplace=inplace, keep_disc_cn=True)
 
-    # See if we need to re-attach any connectors
-    id_col = 'node_id' if isinstance(x, core.TreeNeuron) else 'vertex_id'
-    if x.has_connectors and id_col in x.connectors:
-        disc = ~x.connectors[id_col].isin(x.graph.nodes).values
-        if any(disc):
-            xyz = x.connectors.loc[disc, ['x', 'y', 'z']].values
-            x.connectors.loc[disc, id_col] = x.snap(xyz)[0]
+    # See if we need to/can re-attach any connectors
+    if x.has_connectors:
+        id_col = [c for c in ('node_id', 'vertex_id', 'point_id') if c in x.connectors.columns]
+        if id_col:
+            id_col = id_col[0]
+            disc = ~x.connectors[id_col].isin(x.graph.nodes).values
+            if any(disc):
+                xyz = x.connectors.loc[disc, ["x", "y", "z"]].values
+                x.connectors.loc[disc, id_col] = x.snap(xyz)[0]
 
     return x

@@ -2,7 +2,7 @@ import warnings
 
 try:
     import igraph
-except ImportError:
+except ModuleNotFoundError:
     igraph = None
     warnings.warn('iGraph library not found. Will test only with NetworkX.')
 

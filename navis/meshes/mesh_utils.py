@@ -26,7 +26,7 @@ from tqdm.auto import tqdm
 try:
     import skimage
     from skimage import measure
-except ImportError:
+except ModuleNotFoundError:
     skimage = None
 
 from .. import core, config, intersection, graph, morpho
@@ -187,8 +187,10 @@ def points_to_mesh(points, res, threshold=None, denoise=True):
 
     """
     if not skimage:
-        raise ImportError('Meshing requires `skimage`:\n '
-                          'pip3 install scikit-image')
+        raise ModuleNotFoundError(
+            'Meshing requires `skimage`:\n'
+            '  pip3 install scikit-image'
+            )
 
     points = np.asarray(points)
 
@@ -306,8 +308,10 @@ def pointlabels_to_meshes(points, labels, res, method='kde',
 
     """
     if not skimage:
-        raise ImportError('Meshing requires `skimage`:\n '
-                          'pip3 install scikit-image')
+        raise ModuleNotFoundError(
+            'Meshing requires `skimage`:\n'
+            '   pip3 install scikit-image'
+            )
 
     if len(points) != len(labels):
         raise ValueError(f'Number of labels ({len(labels)}) must match number '

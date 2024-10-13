@@ -115,10 +115,12 @@ dp.points, dp.vect
 # [`VoxelNeurons`][navis.VoxelNeuron] represent neurons as either 3d image or x/y/z voxel coordinates
 # typically obtained from e.g. light-level microscopy.
 #
-# [`navis.VoxelNeuron`][] consist of either a 3d `(N, M, K)` array (a "grid") or an 2d `(N, 3)`
-# array of voxel coordinates. You will probably find yourself loading these data from image files
-# (e.g. `.nrrd` via [`navis.read_nrrd()`][navis.read_nrrd]). That said we can also "voxelize"
-# other neuron types to produce [`VoxelNeurons`][navis.VoxelNeuron]:
+# ![voxels](../../../_static/voxel.png)
+#
+# [`navis.VoxelNeuron`][] consist of either a dense 3d `(N, M, K)` array (a "grid") or a sparse 2d `(N, 3)`
+# array of voxel coordinates (COO format). You will probably find yourself loading these
+# data from image files (e.g. `.nrrd` via [`navis.read_nrrd()`][navis.read_nrrd]). That said we can
+# also "voxelize" other neuron types to produce [`VoxelNeurons`][navis.VoxelNeuron]:
 
 # Load an example mesh
 m = navis.example_neurons(n=1, kind="mesh")
@@ -150,7 +152,7 @@ vx.voxels.shape, vx.values.shape
 #     explicitly, it will default to some rather cryptic random UUID - you have been warned!
 #     :wink:
 #
-# ## Neuron Meta Data
+# ## Neuron meta data
 #
 # ### Connectors
 #
@@ -223,34 +225,70 @@ m.soma_pos = None
 # %%
 # ### Units
 #
-# {{ navis }} supports assigning units to neurons. The neurons shipping with navis, for example, are in 8x8x8nm voxel space:
+# {{ navis }} supports assigning units to neurons. The neurons shipping with {{ navis }}, for example, are in 8x8x8nm voxel space[^1]:
+#
+# [^1]: The example neurons are from the [Janelia hemibrain connectome](https://www.janelia.org/project-team/flyem/hemibrain) project which as imaged at 8x8x8nm resolution.
 
 # %%
 m = navis.example_neurons(1, kind="mesh")
-m.units
+print(m.units)
 
 # %%
-# To assign or change the units simply use a descriptive string:
+# To set the neuron's units simply use a descriptive string:
 
 # %%
 m.units = "10 micrometers"
-m.units
+print(m.units)
 
 # %%
-# Tracking units is good practive but can also be very useful: some {{ navis }} functions let you pass quantities as unit strings:
+# !!! note
+#     Setting the units as we did above does not actually change the neuron's coordinates. It
+#     merely sets a property that can be used by other functions to interpret the neuron's
+#     coordinate space. See below on how to convert the units of a neuron.
+#
+# Tracking units is good practice in general but is also very useful in a variety of scenarios:
+#
+# First, certain {{ navis }} functions let you pass quantities as unit strings:
 
-# Load example neuron in 8x8x8nm
+# Load example neuron which is in 8x8x8nm space
 n = navis.example_neurons(1, kind="skeleton")
 
 # Resample to 1 micrometer
 rs = navis.resample_skeleton(n, resample_to="1 um")
 
 # %%
-# To change the units on a neuron, you have two options:
+# Second, {{ navis }} optionally uses the neuron's units to make certain properties more
+# interpretable. By default, properties like cable length or volume are returned in the
+# neuron's units, i.e. in 8x8x8nm voxel space in our case:
+
+print(n.cable_length)
+
+# %%
+# You can tell {{ navis}} to use the neuron's `.units` to make these properties more readable:
+
+navis.config.add_units = True
+print(n.cable_length)
+navis.config.add_units = False  # reset to default
+
+# %%
+# !!! note
+#     Note that `n.cable_length` is now a `pint.Quantity` object. This may make certain operations
+#     a bit more cumbersome which is why this feature is optional. You can to a float by calling
+#     `.magnitude`:
+#
+#     ```python
+#     n.cable_length.magnitude
+#     ```
+
+# %%
+# Check out Pint's [documentation](https://pint.readthedocs.io/en/stable/) to learn more.
+#
+# To actually convert the neuron's coordinate space, you have two options:
 #
 # === "Multiply/Divide"
 #
-#      You can multiply or divide any neuron (or ``NeuronList``) by a number to change the units:
+#     You can multiply or divide any neuron or [`NeuronList`][navis.NeuronList] by a number
+#     to change the units:
 #
 #     ```python
 #     # Example neuron are in 8x8x8nm voxel space
@@ -261,6 +299,14 @@ rs = navis.resample_skeleton(n, resample_to="1 um")
 #     n_um = n_nm / 1000
 #     ```
 #
+#     For non-isometric conversions you can pass a vector of scaling factors:
+#     ```python
+#     neuron * [4, 4, 40]
+#     ```
+#     Note that for `TreeNeurons`, this is expected to be scaling factors for
+#     `(x, y, z, radius)`.
+#
+#
 # === "Convert units"
 #
 #     If your neuron has known units, you can let {{ navis }} do the conversion for you:
@@ -270,12 +316,26 @@ rs = navis.resample_skeleton(n, resample_to="1 um")
 #     # Convert to micrometers
 #     n_um = n.convert_units("micrometers")
 #     ```
-
-
-# %%
-# ## Operating on Neurons
 #
-# Above we've already seen examples of passing neurons to functions - for example [`navis.plot2d(n)`](navis.plot2d).
+# !!! experiment "Addition & Subtraction"
+#     Multiplication and division will scale the neuro as you've seen above.
+#     Similarly, adding or subtracting to/from neurons will offset the neuron's coordinates:
+#     ```python
+#     n = navis.example_neurons(1)
+#
+#     # Convert to microns
+#     n_um = n.convert_units("micrometers")
+#
+#     # Add 100 micrometers along all axes to the neuron
+#     n_offset = n + 100
+#
+#     # Subtract 100 micrometers along just one axis
+#     n_offset = n - [0, 0, 100]#
+#     ```
+#
+# ## Operating on neurons
+#
+# Above we've already seen examples of passing neurons to functions - for example [`navis.plot2d(n)`][navis.plot2d].
 #
 # For some {{ navis }} functions, neurons offer have shortcut "methods":
 
@@ -293,7 +353,7 @@ rs = navis.resample_skeleton(n, resample_to="1 um")
 #     sk.plot3d(color='red')  # plot the neuron in 3d
 #     ```
 #
-# === "Using navis functions"
+# === "Using NAVis functions"
 #     ```python
 #     import navis
 #     sk = navis.example_neurons(1, kind='skeleton')
@@ -310,7 +370,7 @@ rs = navis.resample_skeleton(n, resample_to="1 um")
 #
 #     In some cases the shorthand methods might offer only a subset of the full function's functionality.
 #
-# #### The `inplace` parameter
+# ### The `inplace` parameter
 #
 #  The `inplace` parameter is part of many {{ navis }} functions and works like e.g. in the `pandas` library:
 #
@@ -332,9 +392,9 @@ n_lh = n.prune_by_volume(lh, inplace=False)
 print(f"{n.n_nodes} nodes before and {n_lh.n_nodes} nodes after pruning")
 
 # %%
-# ## All Neurons are Equal...
+# ## All neurons are equal...
 #
-# ... but some are more equal than others. :wink:
+# ... but some are more equal than others.
 #
 # In Python the `==` operator compares two objects:
 
@@ -405,9 +465,9 @@ print(f"Nodes in graph after: {len(n.graph.nodes)}")
 
 # %%
 # Here, the changes to the node table automatically triggered a regeneration of the graph. This works
-# because {{ navis }} generates and checks hash values for neurons to detect changes and because here
-# the node table is the master. It would not work the other way around (i.e. changing the graph to
-# change the node table).
+# because {{ navis }} checks hash values of neurons and in this instance it detected that the node
+# node table - which represents the core data for [`TreeNeurons`][navis.TreeNeuron] - had changed.
+# It would not work the other way around: changing the graph does not trigger changes in the node table.
 #
 # Again: as long as you are using built-in functions, you don't have to worry about this. If you do
 # run some custom manipulation of neurons be aware that you might want to make sure that the data
@@ -533,7 +593,7 @@ navis.plot3d([vx, mm], fig_autosize=True)
 #
 #     Check out the guide on lists of neurons.
 #
-#     [:octicons-arrow-right-24: NeuronLists tutorial](../plot_02_neuronlists_intro)
+#     [:octicons-arrow-right-24: NeuronLists tutorial](../tutorial_basic_02_neuronlists)
 #
 # -   :octicons-file-directory-symlink-16:{ .lg .middle } __Neuron I/O__
 #

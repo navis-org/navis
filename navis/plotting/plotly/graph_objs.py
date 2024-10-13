@@ -98,6 +98,7 @@ def neuron2plotly(x, colormap, settings):
     cn_lay.update(settings.cn_layout)
 
     trace_data = []
+    _radius_warned = False
     for i, neuron in enumerate(x):
         name = str(getattr(neuron, "name", neuron.id))
         color = colormap[i]
@@ -135,7 +136,23 @@ def neuron2plotly(x, colormap, settings):
                 settings.radius = False
 
         if isinstance(neuron, core.TreeNeuron) and settings.radius:
-            _neuron = conversion.tree2meshneuron(neuron)
+            # Warn once if more than 5% of nodes have missing radii
+            if not _radius_warned:
+                if (
+                    (neuron.nodes.radius.fillna(0).values <= 0).sum() / neuron.n_nodes
+                ) > 0.05:
+                    logger.warning(
+                        "Some skeleton nodes have radius <= 0. This may lead to "
+                        "rendering artifacts. Set `radius=False` to plot skeletons "
+                        "as single-width lines instead."
+                    )
+                    _radius_warned = True
+
+            _neuron = conversion.tree2meshneuron(
+                neuron,
+                warn_missing_radii=False,
+                radius_scale_factor=settings.get("linewidth", 1),
+            )
             _neuron.connectors = neuron.connectors
             neuron = _neuron
 
@@ -490,7 +507,7 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
             y=coords[:, 1],
             z=coords[:, 2],
             mode="lines",
-            line=dict(color=c, width=settings.linewidth, dash=dash),
+            line=dict(color=c, width=settings.get('linewidth', 3), dash=dash),
             name=label,
             legendgroup=legendgroup,
             legendgrouptitle_text=legendgroup,

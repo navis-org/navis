@@ -29,7 +29,7 @@ __all__ = ["read_nmx", "read_nml"]
 # Set up logging
 logger = config.get_logger(__name__)
 
-NODE_COLUMNS = ('node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id')
+NODE_COLUMNS = ("node_id", "label", "x", "y", "z", "radius", "parent_id")
 DEFAULT_PRECISION = 32
 DEFAULT_FMT = "{name}.nmx"
 
@@ -38,28 +38,33 @@ class NMLReader(base.BaseReader):
     def __init__(
         self,
         precision: int = DEFAULT_PRECISION,
-        attrs: Optional[Dict[str, Any]] = None
+        attrs: Optional[Dict[str, Any]] = None,
+        errors: str = "raise",
     ):
-        super().__init__(fmt='',
-                         attrs=attrs,
-                         file_ext='.nml',
-                         read_binary=False,
-                         name_fallback='NML')
+        super().__init__(
+            fmt="",
+            attrs=attrs,
+            file_ext=".nml",
+            read_binary=False,
+            errors=errors,
+            name_fallback="NML",
+        )
 
         int_, float_ = base.parse_precision(precision)
         self._dtypes = {
-            'node_id': int_,
-            'parent_id': int_,
-            'label': 'category',
-            'x': float_,
-            'y': float_,
-            'z': float_,
-            'radius': float_,
+            "node_id": int_,
+            "parent_id": int_,
+            "label": "category",
+            "x": float_,
+            "y": float_,
+            "z": float_,
+            "radius": float_,
         }
 
+    @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.TreeNeuron':
+    ) -> "core.TreeNeuron":
         """Read .nml buffer into a TreeNeuron.
 
         NML files are XML-encoded files containing data for a single neuron.
@@ -79,7 +84,7 @@ class NMLReader(base.BaseReader):
 
     def read_nml(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.TreeNeuron':
+    ) -> "core.TreeNeuron":
         """Read .nml buffer into a TreeNeuron.
 
         NML files are XML files containing a single neuron.
@@ -103,46 +108,51 @@ class NMLReader(base.BaseReader):
 
         # Copy the attributes dict
         for element in root:
-            if element.tag == 'thing':
+            if element.tag == "thing":
                 nodes = pd.DataFrame.from_records([n.attrib for n in element[0]])
                 edges = pd.DataFrame.from_records([n.attrib for n in element[1]])
-                edges = edges.astype(self._dtypes['node_id'])
+                edges = edges.astype(self._dtypes["node_id"])
 
-                nodes.rename({'id': 'node_id'}, axis=1, inplace=True)
-                nodes = nodes.astype({k: v for k, v in self._dtypes.items() if k in nodes.columns})
+                nodes.rename({"id": "node_id"}, axis=1, inplace=True)
+                nodes = nodes.astype(
+                    {k: v for k, v in self._dtypes.items() if k in nodes.columns}
+                )
 
         G = nx.Graph()
         G.add_edges_from(edges.values)
         tree = nx.bfs_tree(G, list(G.nodes)[0])
-        edges = pd.DataFrame(list(tree.edges), columns=['source', 'target'])
-        nodes['parent_id'] = edges.set_index('target').reindex(nodes.node_id.values).source.values
-        nodes['parent_id'] = nodes.parent_id.fillna(-1).astype(self._dtypes['node_id'])
-        nodes.sort_values('node_id', inplace=True)
+        edges = pd.DataFrame(list(tree.edges), columns=["source", "target"])
+        nodes["parent_id"] = (
+            edges.set_index("target").reindex(nodes.node_id.values).source.values
+        )
+        nodes["parent_id"] = nodes.parent_id.fillna(-1).astype(self._dtypes["node_id"])
+        nodes.sort_values("node_id", inplace=True)
 
         return core.TreeNeuron(
-            nodes,
-            **(self._make_attributes({'name': 'NML', 'origin': 'nml'}, attrs))
+            nodes, **(self._make_attributes({"name": "NML", "origin": "nml"}, attrs))
         )
 
 
 class NMXReader(NMLReader):
     """This is a version of the NML file reader that reads from zipped archives."""
+
     def __init__(
         self,
         precision: int = DEFAULT_PRECISION,
-        attrs: Optional[Dict[str, Any]] = None
+        attrs: Optional[Dict[str, Any]] = None,
+        errors: str = "raise",
     ):
-        super().__init__(precision=precision,
-                         attrs=attrs)
+        super().__init__(precision=precision, errors=errors, attrs=attrs)
 
         # Overwrite some of the settings
         self.read_binary = True
-        self.file_ext = '.nmx'
-        self.name_fallback = 'NMX'
+        self.file_ext = ".nmx"
+        self.name_fallback = "NMX"
 
+    @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.TreeNeuron':
+    ) -> "core.TreeNeuron":
         """Read .nmx buffer into a TreeNeuron.
 
         NMX files are zip files containing XML-encoded .nml files containing
@@ -164,20 +174,24 @@ class NMXReader(NMLReader):
 
         zip = ZipFile(f)
         for f in zip.filelist:
-            if f.filename.endswith('.nml') and 'skeleton' in f.filename:
-                attrs['file'] = f.filename
-                attrs['id'] = f.filename.split('/')[0]
+            if f.filename.endswith(".nml") and "skeleton" in f.filename:
+                attrs["file"] = f.filename
+                attrs["id"] = f.filename.split("/")[0]
                 return self.read_nml(zip.read(f), attrs=attrs)
-        logger.warning(f'Skipped "{f.filename.split("/")[0]}.nmx": failed to '
-                       'import skeleton.')
+        logger.warning(
+            f'Skipped "{f.filename.split("/")[0]}.nmx": failed to ' 'import skeleton.'
+        )
 
 
-def read_nmx(f: Union[str, pd.DataFrame, Iterable],
-             include_subdirs: bool = False,
-             parallel: Union[bool, int] = 'auto',
-             precision: int = 32,
-             limit: Optional[int] = None,
-             **kwargs) -> 'core.NeuronObject':
+def read_nmx(
+    f: Union[str, pd.DataFrame, Iterable],
+    include_subdirs: bool = False,
+    parallel: Union[bool, int] = "auto",
+    precision: int = 32,
+    limit: Optional[int] = None,
+    errors: str = "raise",
+    **kwargs,
+) -> "core.NeuronObject":
     """Read NMX files into Neuron/Lists.
 
     NMX is an xml-based format used by pyKNOSSOS.
@@ -204,11 +218,21 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
                         Precision for data. Defaults to 32 bit integers/floats.
                         If `None` will let pandas infer data types - this
                         typically leads to higher than necessary precision.
-    limit :             int, optional
-                        If reading from a folder you can use this parameter to
-                        read only the first `limit` NMX files. Useful if
-                        wanting to get a sample from a large library of
-                        skeletons.
+    limit :             int | str | slice | list, optional
+                        When reading from a folder or archive you can use this parameter to
+                        restrict the which files read:
+                         - if an integer, will read only the first `limit` NMX files
+                           (useful to get a sample from a large library of skeletons)
+                         - if a string, will interpret it as filename (regex) pattern
+                           and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                           will only read files that contain `_R` in their filename
+                         - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                           that range
+                         - a list is expected to be a list of filenames to read from
+                           the folder/archive
+    errors :            "raise" | "log" | "ignore"
+                        If "log" or "ignore", errors will not be raised and the
+                        mesh will be skipped. Can result in empty output.
     **kwargs
                         Keyword arguments passed to the construction of
                         `navis.TreeNeuron`. You can use this to e.g. set
@@ -224,13 +248,11 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
                         Read NML file(s).
 
     """
-    reader = NMXReader(precision=precision,
-                       attrs=kwargs)
+    reader = NMXReader(precision=precision, errors=errors, attrs=kwargs)
     # Read neurons
-    neurons = reader.read_any(f,
-                              parallel=parallel,
-                              limit=limit,
-                              include_subdirs=include_subdirs)
+    neurons = reader.read_any(
+        f, parallel=parallel, limit=limit, include_subdirs=include_subdirs
+    )
 
     # Failed reads will produce empty neurons which we need to remove
     if isinstance(neurons, core.NeuronList):
@@ -239,12 +261,14 @@ def read_nmx(f: Union[str, pd.DataFrame, Iterable],
     return neurons
 
 
-def read_nml(f: Union[str, pd.DataFrame, Iterable],
-             include_subdirs: bool = False,
-             parallel: Union[bool, int] = 'auto',
-             precision: int = 32,
-             limit: Optional[int] = None,
-             **kwargs) -> 'core.NeuronObject':
+def read_nml(
+    f: Union[str, pd.DataFrame, Iterable],
+    include_subdirs: bool = False,
+    parallel: Union[bool, int] = "auto",
+    precision: int = 32,
+    limit: Optional[int] = None,
+    **kwargs,
+) -> "core.NeuronObject":
     """Read xml-based NML files into Neuron/Lists.
 
     Parameters
@@ -267,11 +291,18 @@ def read_nml(f: Union[str, pd.DataFrame, Iterable],
                         Precision for data. Defaults to 32 bit integers/floats.
                         If `None` will let pandas infer data types - this
                         typically leads to higher than necessary precision.
-    limit :             int, optional
-                        If reading from a folder you can use this parameter to
-                        read only the first `limit` NML files. Useful if
-                        wanting to get a sample from a large library of
-                        skeletons.
+    limit :             int | str | slice | list, optional
+                        When reading from a folder or archive you can use this
+                        parameter to restrict the which files read:
+                         - if an integer, will read only the first `limit` NML files
+                           (useful to get a sample from a large library of skeletons)
+                         - if a string, will interpret it as filename (regex) pattern
+                           and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                           will only read files that contain `_R` in their filename
+                         - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                           that range
+                         - a list is expected to be a list of filenames to read from
+                           the folder/archive
     **kwargs
                         Keyword arguments passed to the construction of
                         `navis.TreeNeuron`. You can use this to e.g. set
@@ -287,12 +318,10 @@ def read_nml(f: Union[str, pd.DataFrame, Iterable],
                         Read NMX files (collections of NML files).
 
     """
-    reader = NMLReader(precision=precision,
-                       attrs=kwargs)
+    reader = NMLReader(precision=precision, attrs=kwargs)
     # Read neurons
-    neurons = reader.read_any(f,
-                              parallel=parallel,
-                              limit=limit,
-                              include_subdirs=include_subdirs)
+    neurons = reader.read_any(
+        f, parallel=parallel, limit=limit, include_subdirs=include_subdirs
+    )
 
     return neurons

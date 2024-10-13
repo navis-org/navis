@@ -28,8 +28,6 @@ try:
     import navis_fastcore as fastcore
 except ModuleNotFoundError:
     fastcore = None
-except ImportError:
-    raise
 
 __all__ = ['set_loggers', 'set_pbars', 'set_default_connector_colors',
            'patch_cloudvolume']

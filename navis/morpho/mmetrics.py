@@ -165,14 +165,14 @@ def strahler_index(
         raise ValueError(f'`method` must be "standard" or "greedy", got "{method}"')
 
     if utils.fastcore:
-        x.nodes['strahler_index'] = utils.fastcore.strahler_index(
+        x.nodes["strahler_index"] = utils.fastcore.strahler_index(
             x.nodes.node_id.values,
             x.nodes.parent_id.values,
             method=method,
             to_ignore=to_ignore,
             min_twig_size=min_twig_size,
         ).astype(np.int16)
-        x.nodes['strahler_index'] = x.nodes.strahler_index.fillna(1)
+        x.nodes["strahler_index"] = x.nodes.strahler_index.fillna(1)
         return x
 
     # Find branch, root and end nodes
@@ -1271,7 +1271,7 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
 
 def tortuosity(
     x: "core.NeuronObject",
-    seg_length: Union[int, float, str, Sequence[Union[int, float, str]]] = 10,
+    seg_length: Optional[Union[int, float, str, Sequence[Union[int, float, str]]]] = None,
 ) -> Union[float, Sequence[float], pd.DataFrame]:
     """Calculate tortuosity of a neuron.
 
@@ -1280,19 +1280,10 @@ def tortuosity(
     `L` (`seg_length`) to the Euclidean distance `R` between its ends.
 
     The way this is implemented in `navis`:
+    For each linear stretch (i.e. segments between branch points, leafs or roots)
+    we calculate its geodesic length `L` and the Euclidean distance `R` between
+    its ends. The final tortuosity is the mean of `L / R` across all segments.
 
-     1. Each linear stretch (i.e. between branch points or branch points to a
-        leaf node) is divided into segments of exactly `seg_length`
-        geodesic length. Any remainder is skipped.
-     2. For each of these segments we divide its geodesic length `L`
-        (i.e. `seg_length`) by the Euclidean distance `R` between its start and
-        its end.
-     3. The final tortuosity is the mean of `L / R` across all segments.
-
-    Note
-    ----
-    If you want to make sure that segments are as close to length `L` as
-    possible, consider resampling the neuron using [`navis.resample_skeleton`][].
 
     Parameters
     ----------
@@ -1300,18 +1291,27 @@ def tortuosity(
                         Neuron to analyze. If MeshNeuron, will generate and
                         use a skeleton representation.
     seg_length :        int | float | str | list thereof, optional
-                        Target segment length(s) `L`. If neuron(s) have their
-                        `.units` set, you can also pass a string such as
-                        "1 micron". `seg_length` must be larger than the
-                        current sampling resolution of the neuron.
+                        Target segment length(s) `L`. If `seg_length` is
+                        provided, each linear segment is further divided into
+                        segments of exactly `seg_length` (geodesic) length
+                        and the tortuosity is calculated for each of these
+                        sub-segments. If `seg_length` is not provided, the
+                        tortuosity is calculated for each linear segment as is.
+
+                        If neuron(s) have their  `.units` set, you can also
+                        pass a string such as "1 micron". `seg_length` must
+                        be larger than the current sampling resolution of the
+                        neuron. If you want to make sure that segments are as
+                        close to length `L` as possible, consider resampling the
+                        neuron using [`navis.resample_skeleton`][].
 
     Returns
     -------
     tortuosity :        float | np.array | pandas.DataFrame
                         If x is NeuronList, will return DataFrame.
                         If x is single TreeNeuron, will return either a
-                        single float (if single seg_length is queried) or a
-                        DataFrame (if multiple seg_lengths are queried).
+                        single float (if no or a single seg_length is queried)
+                        or a DataFrame (if multiple seg_lengths are queried).
 
     See Also
     --------
@@ -1323,7 +1323,11 @@ def tortuosity(
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> # Calculate tortuosity with 1 micron seg lengths
+    >>> # Calculate tortuosity as-is
+    >>> T = navis.tortuosity(n)
+    >>> round(T, 3)
+    1.074
+    >>> # Calculate tortuosity with 1 micron segment lengths
     >>> T = navis.tortuosity(n, seg_length='1 micron')
     >>> round(T, 3)
     1.054
@@ -1356,6 +1360,34 @@ def tortuosity(
     if isinstance(seg_length, (list, np.ndarray)):
         return [tortuosity(x, l) for l in seg_length]
 
+    if seg_length is None:
+        return _tortuosity_simple(x)
+    else:
+        return _tortuosity_segmented(x, seg_length)
+
+
+def _tortuosity_simple(x: "core.TreeNeuron") -> float:
+    """Calculate tortuosity for neuron as-is."""
+    # Iterate over segments
+    locs = x.nodes.set_index("node_id")[["x", "y", "z"]].astype(float)
+    T_all = []
+    for i, seg in enumerate(x.small_segments):
+        # Get coordinates
+        coords = locs.loc[seg].values
+
+        # Calculate geodesic distance for this segment
+        L = np.linalg.norm(np.diff(coords.T), axis=0).sum()
+
+        # Calculate Euclidean distance for this segment
+        R = np.linalg.norm(coords[0] - coords[-1])
+        T = L / R
+        T_all = np.append(T_all, T)
+
+    return T_all.mean()
+
+
+def _tortuosity_segmented(x: "core.TreeNeuron", seg_length: Union[int, float, str]) -> float:
+    """Calculate tortuosity for segmented neuron."""
     # From here on out seg length is single value
     seg_length: float = x.map_units(seg_length, on_error="raise")
 
@@ -1656,13 +1688,17 @@ def betweeness_centrality(
 
 @utils.map_neuronlist(desc="Cable length", allow_parallel=True)
 @utils.meshneuron_skeleton(method="pass_through")
-def cable_length(x) -> Union[int, float]:
+def cable_length(x, mask=None) -> Union[int, float]:
     """Calculate cable length.
 
     Parameters
     ----------
     x :             TreeNeuron | MeshNeuron | NeuronList
                     Neuron(s) for which to calculate cable length.
+    mask :          None | boolean array | callable
+                    If provided, will only consider nodes where
+                    `mask` is True. Callable must accept a DataFrame of nodes
+                    and return a boolean array of the same length.
 
     Returns
     -------
@@ -1672,25 +1708,49 @@ def cable_length(x) -> Union[int, float]:
     """
     utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
 
+    nodes = x.nodes
+    if mask is not None:
+        if callable(mask):
+            mask = mask(x.nodes)
+
+        if isinstance(mask, np.ndarray):
+            if len(mask) != len(x.nodes):
+                raise ValueError(
+                    f"Length of mask ({len(mask)}) must match number of nodes "
+                    f"({len(x.nodes)})."
+                )
+        else:
+            raise ValueError(
+                f"Mask must be callable or boolean array, got {type(mask)}"
+            )
+
+        nodes = x.nodes.loc[mask, ['node_id','parent_id', 'x', 'y', 'z']].copy()
+
+        # Set the parent IDs to -1 for nodes that are not in the mask
+        nodes.loc[~nodes.parent_id.isin(nodes.node_id), "parent_id"] = -1
+
+    if not len(nodes):
+        return 0
+
     # See if we can use fastcore
     if not utils.fastcore:
         # The by far fastest way to get the cable length is to work on the node table
         # Using the igraph representation is about the same speed... if it is already calculated!
         # However, one problem with the graph representation is that with large neuronlists
         # it adds a lot to the memory footprint.
-        not_root = (x.nodes.parent_id >= 0).values
-        xyz = x.nodes[["x", "y", "z"]].values[not_root]
+        not_root = (nodes.parent_id >= 0).values
+        xyz = nodes[["x", "y", "z"]].values[not_root]
         xyz_parent = (
             x.nodes.set_index("node_id")
-            .loc[x.nodes.parent_id.values[not_root], ["x", "y", "z"]]
+            .loc[nodes.parent_id.values[not_root], ["x", "y", "z"]]
             .values
         )
         cable_length = np.sum(np.linalg.norm(xyz - xyz_parent, axis=1))
     else:
         cable_length = utils.fastcore.dag.parent_dist(
-            x.nodes.node_id.values,
-            x.nodes.parent_id.values,
-            x.nodes[["x", "y", "z"]].values,
+            nodes.node_id.values,
+            nodes.parent_id.values,
+            nodes[["x", "y", "z"]].values,
             root_dist=0,
         ).sum()
 

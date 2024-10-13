@@ -25,11 +25,10 @@ from .. import config
 # jpype is a soft dependency - defer import errors until we first try to use it
 try:
     import jpype
-except ImportError as e:
+except ModuleNotFoundError as e:
     jpype = None
     jpype_import_error = e
-except BaseException:
-    raise
+
 
 # Path for the compiled transform-helpers jar which contains the required classes
 fp = os.path.dirname(__file__)

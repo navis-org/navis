@@ -20,7 +20,7 @@ This API reference is a more or less complete account of the primary functions:
 
 1. [Neuron- and NeuronList functions and methods](#neurons-neuronlists)
 2. [Functions for visualization](#visualization)
-3. [Manipulate or analyze neuron morphology](#morphometrics)
+3. [Manipulate or analyze neuron morphology](#neuron-morphology)
 4. [Transforming and mirroring data](#transforming-and-mirroring)
 5. [Analyze connectivity](#connectivity)
 6. [Import/Export](#importexport)
@@ -124,9 +124,12 @@ In addition, a [`navis.TreeNeuron`][] has a range of different properties:
 
 | Method | Description |
 |--------|-------------|
+| [`TreeNeuron.adjacency_matrix`][navis.TreeNeuron.adjacency_matrix] | {{ autosummary("navis.TreeNeuron.adjacency_matrix") }} |
 | [`TreeNeuron.cable_length`][navis.TreeNeuron.cable_length] | {{ autosummary("navis.TreeNeuron.cable_length") }} |
 | [`TreeNeuron.cycles`][navis.TreeNeuron.cycles] | {{ autosummary("navis.TreeNeuron.cycles") }} |
 | [`TreeNeuron.downsample`][navis.TreeNeuron.downsample] | {{ autosummary("navis.TreeNeuron.downsample") }} |
+| [`TreeNeuron.edges`][navis.TreeNeuron.edges] | {{ autosummary("navis.TreeNeuron.edges") }} |
+| [`TreeNeuron.edge_coords`][navis.TreeNeuron.edge_coords] | {{ autosummary("navis.TreeNeuron.edge_coords") }} |
 | [`TreeNeuron.igraph`][navis.TreeNeuron.igraph] | {{ autosummary("navis.TreeNeuron.igraph") }} |
 | [`TreeNeuron.is_tree`][navis.TreeNeuron.is_tree] | {{ autosummary("navis.TreeNeuron.is_tree") }} |
 | [`TreeNeuron.n_branches`][navis.TreeNeuron.n_branches] | {{ autosummary("navis.TreeNeuron.n_branches") }} |
@@ -140,7 +143,20 @@ In addition, a [`navis.TreeNeuron`][] has a range of different properties:
 | [`TreeNeuron.simple`][navis.TreeNeuron.simple] | {{ autosummary("navis.TreeNeuron.simple") }} |
 | [`TreeNeuron.soma_pos`][navis.TreeNeuron.soma_pos] | {{ autosummary("navis.TreeNeuron.soma_pos") }} |
 | [`TreeNeuron.subtrees`][navis.TreeNeuron.subtrees] | {{ autosummary("navis.TreeNeuron.subtrees") }} |
+| [`TreeNeuron.vertices`][navis.TreeNeuron.vertices] | {{ autosummary("navis.TreeNeuron.vertices") }} |
 | [`TreeNeuron.volume`][navis.TreeNeuron.volume] | {{ autosummary("navis.TreeNeuron.volume") }} |
+
+
+#### Skeleton utility functions
+
+| Function | Description |
+|----------|-------------|
+| [`navis.rewire_skeleton()`][navis.rewire_skeleton] | {{ autosummary("navis.rewire_skeleton") }} |
+| [`navis.insert_nodes()`][navis.insert_nodes] | {{ autosummary("navis.insert_nodes") }} |
+| [`navis.remove_nodes()`][navis.remove_nodes] | {{ autosummary("navis.remove_nodes") }} |
+| [`navis.graph.simplify_graph()`][navis.graph.simplify_graph] | {{ autosummary("navis.graph.simplify_graph") }} |
+| [`navis.graph.skeleton_adjacency_matrix()`][navis.graph.skeleton_adjacency_matrix] | {{ autosummary("navis.graph.skeleton_adjacency_matrix") }} |
+
 
 
 ### Mesh neurons
@@ -173,10 +189,16 @@ These are methods and properties specific to [VoxelNeurons][navis.VoxelNeuron]:
 
 | Property | Description |
 |------|------|
+| [`VoxelNeuron.density`][navis.VoxelNeuron.density] | {{ autosummary("navis.VoxelNeuron.density") }} |
 | [`VoxelNeuron.grid`][navis.VoxelNeuron.grid] | {{ autosummary("navis.VoxelNeuron.grid") }} |
-| [`VoxelNeuron.voxels`][navis.VoxelNeuron.voxels] | {{ autosummary("navis.VoxelNeuron.voxels") }} |
+| [`VoxelNeuron.max`][navis.VoxelNeuron.max] | {{ autosummary("navis.VoxelNeuron.max") }} |
+| [`VoxelNeuron.min`][navis.VoxelNeuron.min] | {{ autosummary("navis.VoxelNeuron.min") }} |
+| [`VoxelNeuron.nnz`][navis.VoxelNeuron.nnz] | {{ autosummary("navis.VoxelNeuron.nnz") }} |
+| [`VoxelNeuron.offset`][navis.VoxelNeuron.offset] | {{ autosummary("navis.VoxelNeuron.offset") }} |
 | [`VoxelNeuron.shape`][navis.VoxelNeuron.shape] | {{ autosummary("navis.VoxelNeuron.shape") }} |
 | [`VoxelNeuron.strip()`][navis.VoxelNeuron.strip] | {{ autosummary("navis.VoxelNeuron.strip") }} |
+| [`VoxelNeuron.threshold()`][navis.VoxelNeuron.threshold] | {{ autosummary("navis.VoxelNeuron.threshold") }} |
+| [`VoxelNeuron.voxels`][navis.VoxelNeuron.voxels] | {{ autosummary("navis.VoxelNeuron.voxels") }} |
 
 
 ### Dotprops
@@ -207,6 +229,8 @@ These functions will let you convert between neuron types:
 | [`navis.conversion.voxels2mesh()`][navis.conversion.voxels2mesh] | {{ autosummary("navis.conversion.voxels2mesh") }} |
 | [`navis.conversion.tree2meshneuron()`][navis.conversion.tree2meshneuron] | {{ autosummary("navis.conversion.tree2meshneuron") }} |
 
+See also [Utility](#utility) for functions to convert to/from basic data types.
+
 ### NeuronList methods
 
 [`NeuronLists`][navis.NeuronList] let you access all the properties and methods of the neurons
@@ -233,14 +257,14 @@ Properties:
 |----------|-------------|
 | [`NeuronList.bbox`][navis.NeuronList.bbox] | {{ autosummary("navis.NeuronList.bbox") }} |
 | [`NeuronList.empty`][navis.NeuronList.empty] | {{ autosummary("navis.NeuronList.empty") }} |
-| [`NeuronList.id`] | An array with the IDs of the neurons contained in the list. |
-| [`NeuronList.idx`] | An indexer similar to pandas' `iloc` that accepts neuron IDs. |
+| [`NeuronList.id`][navis.NeuronList.id] | An array with the IDs of the neurons contained in the list. |
+| [`NeuronList.idx`][navis.NeuronList.idx] | An indexer similar to pandas' `iloc` that accepts neuron IDs. |
 | [`NeuronList.is_degenerated`][navis.NeuronList.is_degenerated] | {{ autosummary("navis.NeuronList.is_degenerated") }} |
 | [`NeuronList.is_mixed`][navis.NeuronList.is_mixed] | {{ autosummary("navis.NeuronList.is_mixed") }} |
 | [`NeuronList.shape`][navis.NeuronList.shape] | {{ autosummary("navis.NeuronList.shape") }} |
 | [`NeuronList.types`][navis.NeuronList.types]| {{ autosummary("navis.NeuronList.types") }} |
 
-Please see the [tutorial on ``NeuronList``](../generated/gallery/plot_02_neuronlists_intro/) for more
+Please see the [tutorial on ``NeuronList``](../generated/gallery/tutorial_basic_02_neuronlists_intro/) for more
 information, including how to index them.
 
 ## Visualization
@@ -314,6 +338,7 @@ Functions to analyze morphology.
 | [`navis.persistence_vectors()`][navis.persistence_vectors] | {{ autosummary("navis.persistence_vectors") }} |
 | [`navis.strahler_index()`][navis.strahler_index] | {{ autosummary("navis.strahler_index") }} |
 | [`navis.segment_analysis()`][navis.segment_analysis] | {{ autosummary("navis.segment_analysis") }} |
+| [`navis.ivscc_features()`][navis.ivscc_features] | {{ autosummary("navis.ivscc_features") }} |
 | [`navis.sholl_analysis()`][navis.sholl_analysis] | {{ autosummary("navis.sholl_analysis") }} |
 | [`navis.tortuosity()`][navis.tortuosity] | {{ autosummary("navis.tortuosity") }} |
 | [`navis.betweeness_centrality()`][navis.betweeness_centrality] | {{ autosummary("navis.betweeness_centrality") }} |
@@ -345,6 +370,7 @@ Functions to edit morphology:
 | [`navis.smooth_skeleton()`][navis.smooth_skeleton] | {{ autosummary("navis.smooth_skeleton") }} |
 | [`navis.smooth_mesh()`][navis.smooth_mesh] | {{ autosummary("navis.smooth_mesh") }} |
 | [`navis.smooth_voxels()`][navis.smooth_voxels] | {{ autosummary("navis.smooth_voxels") }} |
+| [`navis.thin_voxels()`][navis.thin_voxels] | {{ autosummary("navis.thin_voxels") }} |
 
 
 ### Resampling
@@ -369,7 +395,6 @@ NBLAST and related functions:
 | [`navis.nblast_smart`][navis.nblast_smart] | {{ autosummary("navis.nblast_smart") }} |
 | [`navis.nblast_allbyall`][navis.nblast_allbyall] | {{ autosummary("navis.nblast_allbyall") }} |
 | [`navis.nblast_align`][navis.nblast_align] | {{ autosummary("navis.nblast_align") }} |
-| [`navis.vxnblast`][navis.vxnblast] | {{ autosummary("navis.vxnblast") }} |
 | [`navis.synblast`][navis.synblast] | {{ autosummary("navis.synblast") }} |
 | [`navis.persistence_distances`][navis.persistence_distances] | {{ autosummary("navis.persistence_distances") }} |
 
@@ -428,7 +453,7 @@ like to know which part of a neuron is inside a certain brain region.
 ## Transforming and Mirroring
 
 Functions to transform spatial data, e.g. move neurons from one brain space to
-another. Check out the [tutorials](../generated/gallery/6_misc/plot_01_transforms/) for examples on how to
+another. Check out the [tutorials](../generated/gallery/6_misc/tutorial_misc_01_transforms/) for examples on how to
 use them.
 
 High-level functions:
@@ -475,6 +500,12 @@ So to register and use a new transform you would look something like this:
 >>> xf = navis.xform_brain(data, 'brainA', 'brainB')
 ```
 
+You can check which transforms are registered like so:
+
+``` python
+>>> navis.transforms.registry.summary()  # this outputs a dataframe
+```
+
 These are the methods and properties of ``registry``:
 
 | Method   | Description |
@@ -501,22 +532,6 @@ Collection of functions to work with graphs and adjacency matrices.
 | Function | Description |
 |----------|-------------|
 | [`navis.NeuronConnector`][] | {{ autosummary("navis.NeuronConnector") }} |
-
-### Graphs
-
-Functions to convert between neurons graph representation (networkx or iGraph).
-
-| Function | Description |
-|----------|-------------|
-| [`navis.neuron2nx()`][navis.neuron2nx] | {{ autosummary("navis.neuron2nx") }} |
-| [`navis.neuron2igraph()`][navis.neuron2igraph] | {{ autosummary("navis.neuron2igraph") }} |
-| [`navis.neuron2KDTree()`][navis.neuron2KDTree] | {{ autosummary("navis.neuron2KDTree") }} |
-| [`navis.network2nx()`][navis.network2nx] | {{ autosummary("navis.network2nx") }} |
-| [`navis.network2igraph()`][navis.network2igraph] | {{ autosummary("navis.network2igraph") }} |
-| [`navis.rewire_skeleton()`][navis.rewire_skeleton] | {{ autosummary("navis.rewire_skeleton") }} |
-| [`navis.insert_nodes()`][navis.insert_nodes] | {{ autosummary("navis.insert_nodes") }} |
-| [`navis.remove_nodes()`][navis.remove_nodes] | {{ autosummary("navis.remove_nodes") }} |
-| [`navis.graph.simplify_graph()`][navis.graph.simplify_graph] | {{ autosummary("navis.graph.simplify_graph") }} |
 
 ### Connectivity metrics
 
@@ -575,6 +590,21 @@ Various utility functions.
 | [`navis.example_neurons()`][navis.example_neurons] | {{ autosummary("navis.example_neurons") }} |
 | [`navis.example_volume()`][navis.example_volume] | {{ autosummary("navis.example_volume") }} |
 
+### Conversion
+
+Functions to convert between data types.
+
+| Function | Description |
+|----------|-------------|
+| [`navis.neuron2nx()`][navis.neuron2nx] | {{ autosummary("navis.neuron2nx") }} |
+| [`navis.neuron2igraph()`][navis.neuron2igraph] | {{ autosummary("navis.neuron2igraph") }} |
+| [`navis.neuron2KDTree()`][navis.neuron2KDTree] | {{ autosummary("navis.neuron2KDTree") }} |
+| [`navis.neuron2tangents()`][navis.neuron2tangents] | {{ autosummary("navis.neuron2tangents") }} |
+| [`navis.network2nx()`][navis.network2nx] | {{ autosummary("navis.network2nx") }} |
+| [`navis.network2igraph()`][navis.network2igraph] | {{ autosummary("navis.network2igraph") }} |
+| [`navis.nx2neuron()`][navis.nx2neuron] | {{ autosummary("navis.nx2neuron") }} |
+| [`navis.edges2neuron()`][navis.edges2neuron] | {{ autosummary("navis.edges2neuron") }} |
+
 ## Network Models
 
 {{ navis }} comes with a simple network traversal model (used in [Schlegel, Bates et al., 2021](https://elifesciences.org/articles/66018)).
@@ -600,7 +630,7 @@ imported explicitly as they are not imported at top level.
 ### NEURON simulator
 
 Functions to facilitate creating models of neurons/networks. Please see
-the [tutorials](../generated/gallery/3_interfaces/plot_00_interfaces_neuron/) for examples.
+the [tutorials](../generated/gallery/3_interfaces/tutorial_interfaces_00_neuron/) for examples.
 
 _Not imported at top level! Must be imported explicitly:_
 
@@ -728,12 +758,12 @@ These are the additional functions added by {{ navis }}:
 | [`neuprint.fetch_skeletons()`][navis.interfaces.neuprint.fetch_skeletons] | {{ autosummary("navis.interfaces.neuprint.fetch_skeletons") }} |
 | [`neuprint.fetch_mesh_neuron()`][navis.interfaces.neuprint.fetch_mesh_neuron] | {{ autosummary("navis.interfaces.neuprint.fetch_mesh_neuron") }} |
 
-Please also check out the [tutorials](../generated/gallery/4_remote/plot_00_remote_neuprint/) for examples of how to fetch and work with data from neuPrint.
+Please also check out the [tutorials](../generated/gallery/4_remote/tutorial_remote_00_neuprint/) for examples of how to fetch and work with data from neuPrint.
 
 ### InsectBrain DB API
 
 Set of functions to grab data from [InsectBrain](https://www.insectbraindb.org)
-which hosts some neurons and standard brains (see [tutorials](../generated/gallery/4_remote/plot_03_remote_insect_db/)).
+which hosts some neurons and standard brains (see [tutorials](../generated/gallery/4_remote/tutorial_remote_03_insect_db/)).
 
 _Not imported at top level! Must be imported explicitly:_
 
@@ -757,7 +787,7 @@ from navis.interfaces import insectbrain_db
 Functions to be run inside [Blender 3D](https://www.blender.org/) and import
 CATMAID data (see Examples). Please note that this requires Blender >2.8 as
 earlier versions are shipped with older Python versions not supported by {{ navis }}.
-See the [tutorials](../generated/gallery/3_interfaces/plot_01_interfaces_blender/) for an introduction of how to use {{ navis }} in
+See the [tutorials](../generated/gallery/3_interfaces/tutorial_interfaces_02_blender/) for an introduction of how to use {{ navis }} in
 Blender.
 
 _Not imported at top level! Must be imported explicitly:_
@@ -858,7 +888,7 @@ from navis.interfaces import microns
 | [`microns.fetch_neurons()`][navis.interfaces.microns.fetch_neurons] | {{ autosummary("navis.interfaces.microns.fetch_neurons") }} |
 | [`microns.get_somas()`][navis.interfaces.microns.get_somas] | {{ autosummary("navis.interfaces.microns.get_somas") }} |
 
-Please also see the [MICrONS tutorial](../generated/gallery/4_remote/plot_02_remote_microns/).
+Please also see the [MICrONS tutorial](../generated/gallery/4_remote/tutorial_remote_02_microns/).
 
 
 ### R interface

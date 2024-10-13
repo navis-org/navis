@@ -8,13 +8,13 @@ NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization.
 Visit our documentation [here](https://navis-org.github.io/navis/ "NAVis Documentation")!
 
 ## Features
-* **polyglot**: work and convert between neuron skeletons, meshes, dotprops and images
-* **visualize**: 2D (matplotlib) and 3D (vispy, plotly or k3d)
+* **polyglot**: work with and convert between neuron skeletons, meshes, dotprops and images
+* **visualize**: 2D (matplotlib) and 3D (octarine, vispy, plotly or k3d) plots
 * **process**: skeletonization, meshing, smoothing, repair, downsampling, etc.
 * **morphometrics**: Strahler analysis, cable length, volume, tortuosity and more
 * **similarity**: compare & cluster by morphology (e.g. NBLAST, persistence or form factor) or connectivity metrics
 * **transform**: move data between template brains (built-in support for HDF5, CMTK, Elastix and landmark-based transforms)
-* **interface**: load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and other data sources
+* **interface**: load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and other remote data repositories
 * **model** neurons and networks using the *NEURON* simulator
 * **render**: use Blender 3D for high quality [visualizations](https://youtu.be/wl3sFG7WQJc)
 * **R** neuron libraries: interfaces with [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr) and more
@@ -27,7 +27,7 @@ Visit our documentation [here](https://navis-org.github.io/navis/ "NAVis Documen
 See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for detailed installation instructions, tutorials and examples. For the impatient:
 
 ```sh
-pip3 install 'navis[all]'
+pip3 install "navis[all]"
 ```
 
 which includes all optional extras providing features and/or performance improvements.

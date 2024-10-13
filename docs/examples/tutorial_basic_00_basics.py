@@ -121,14 +121,14 @@ nl.plot3d(backend='plotly')
 #
 #     Find out more about the different neuron types in {{ navis }}.
 #
-#     [:octicons-arrow-right-24: Neuron types tutorial](../plot_01_neurons_intro)
+#     [:octicons-arrow-right-24: Neuron types tutorial](../tutorial_basic_01_neurons)
 #
 # -   :fontawesome-solid-list-ul:{ .lg .middle } __Lists of Neurons__
 #     ---
 #
 #     Check out the guide on lists of neurons.
 #
-#     [:octicons-arrow-right-24: NeuronLists tutorial](../plot_02_neuronlists_intro)
+#     [:octicons-arrow-right-24: NeuronLists tutorial](../tutorial_basic_02_neuronlists)
 #
 # -   :octicons-file-directory-symlink-16:{ .lg .middle } __Neuron I/O__
 #     ---

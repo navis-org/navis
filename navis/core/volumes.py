@@ -86,7 +86,7 @@ class Volume(UnitObject, trimesh.Trimesh):
         # Trimesh return a navis.Volume instead of a trimesh.Trimesh
         for f in dir(trimesh.Trimesh):
             # Don't mess with magic/private methods
-            if f.startswith('_'):
+            if f.startswith("_"):
                 continue
             # Skip properties
             if not callable(getattr(trimesh.Trimesh, f)):
@@ -96,38 +96,40 @@ class Volume(UnitObject, trimesh.Trimesh):
     @property
     def name(self):
         """Name of this volume."""
-        return self.metadata.get('name')
+        return self.metadata.get("name")
 
     @name.setter
     def name(self, value):
-        self.metadata['name'] = value
+        self.metadata["name"] = value
 
     @property
     def color(self):
         """Color used for plotting."""
-        return self.metadata.get('color')
+        return self.metadata.get("color")
 
     @color.setter
     def color(self, value):
-        self.metadata['color'] = value
+        self.metadata["color"] = value
 
     @property
     def id(self):
         """ID of this volume."""
-        return self.metadata.get('id')
+        return self.metadata.get("id")
 
     @id.setter
     def id(self, value):
-        self.metadata['id'] = value
+        self.metadata["id"] = value
 
     @classmethod
-    def from_csv(cls,
-                 vertices: str,
-                 faces: str,
-                 name: Optional[str] = None,
-                 color: Union[str,
-                              Sequence[Union[int, float]]] = (.85, .85, .85, .2),
-                 volume_id: Optional[int] = None, **kwargs) -> 'Volume':
+    def from_csv(
+        cls,
+        vertices: str,
+        faces: str,
+        name: Optional[str] = None,
+        color: Union[str, Sequence[Union[int, float]]] = (0.85, 0.85, 0.85, 0.2),
+        volume_id: Optional[int] = None,
+        **kwargs,
+    ) -> "Volume":
         """Load volume from csv files containing vertices and faces.
 
         Parameters
@@ -145,18 +147,19 @@ class Volume(UnitObject, trimesh.Trimesh):
 
         """
         if not os.path.isfile(vertices) or not os.path.isfile(faces):
-            raise ValueError('File(s) not found.')
+            raise ValueError("File(s) not found.")
 
-        with open(vertices, 'r') as f:
+        with open(vertices, "r") as f:
             reader = csv.reader(f, **kwargs)
             vertices = np.array([r for r in reader]).astype(float)
 
-        with open(faces, 'r') as f:
+        with open(faces, "r") as f:
             reader = csv.reader(f, **kwargs)
             faces = np.array([r for r in reader]).astype(int)
 
-        return cls(faces=faces, vertices=vertices, name=name, color=color,
-                   volume_id=volume_id)
+        return cls(
+            faces=faces, vertices=vertices, name=name, color=color, volume_id=volume_id
+        )
 
     def to_csv(self, filename: str, **kwargs) -> None:
         """Save volume as two separated csv files containing vertices and faces.
@@ -170,17 +173,17 @@ class Volume(UnitObject, trimesh.Trimesh):
                         Keyword arguments passed to `csv.reader`.
 
         """
-        for data, suffix in zip([self.faces, self.vertices],
-                                ['_faces.csv', '_vertices.csv']):
-            with open(filename + suffix, 'w') as csvfile:
+        for data, suffix in zip(
+            [self.faces, self.vertices], ["_faces.csv", "_vertices.csv"]
+        ):
+            with open(filename + suffix, "w") as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerows(data)
 
     @classmethod
-    def from_json(cls,
-                  filename: str,
-                  import_kwargs: Dict = {},
-                  **init_kwargs) -> 'Volume':
+    def from_json(
+        cls, filename: str, import_kwargs: Dict = {}, **init_kwargs
+    ) -> "Volume":
         """Load volume from json file containing vertices and faces.
 
         Parameters
@@ -198,13 +201,12 @@ class Volume(UnitObject, trimesh.Trimesh):
 
         """
         if not os.path.isfile(filename):
-            raise ValueError('File not found.')
+            raise ValueError("File not found.")
 
-        with open(filename, 'r') as f:
+        with open(filename, "r") as f:
             data = json.load(f, **import_kwargs)
 
-        return cls(faces=data['faces'],
-                   vertices=data['vertices'], **init_kwargs)
+        return cls(faces=data["faces"], vertices=data["vertices"], **init_kwargs)
 
     @classmethod
     def from_object(cls, obj: Any, **init_kwargs) -> "Volume":
@@ -223,16 +225,15 @@ class Volume(UnitObject, trimesh.Trimesh):
         navis.Volume
 
         """
-        if not hasattr(obj, 'vertices') or not hasattr(obj, 'faces'):
-            raise ValueError('Object must have faces and vertices attributes.')
+        if not hasattr(obj, "vertices") or not hasattr(obj, "faces"):
+            raise ValueError("Object must have faces and vertices attributes.")
 
         return cls(faces=obj.faces, vertices=obj.vertices, **init_kwargs)
 
     @classmethod
-    def from_file(cls,
-                  filename: str,
-                  import_kwargs: Dict = {},
-                  **init_kwargs) -> 'Volume':
+    def from_file(
+        cls, filename: str, import_kwargs: Dict = {}, **init_kwargs
+    ) -> "Volume":
         """Load volume from file.
 
         Parameters
@@ -253,20 +254,22 @@ class Volume(UnitObject, trimesh.Trimesh):
 
         """
         if not os.path.isfile(filename):
-            raise ValueError('File not found.')
+            raise ValueError("File not found.")
 
         f, ext = os.path.splitext(filename)
 
-        if ext == '.json':
-            return cls.from_json(filename=filename,
-                                 import_kwargs=import_kwargs,
-                                 **init_kwargs)
+        if ext == ".json":
+            return cls.from_json(
+                filename=filename, import_kwargs=import_kwargs, **init_kwargs
+            )
 
         try:
             import trimesh
-        except ImportError:
-            raise ImportError('Unable to import: trimesh missing - please '
-                              'install: "pip install trimesh"')
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "Unable to import: trimesh missing - please "
+                'install: "pip install trimesh"'
+            )
         except BaseException:
             raise
 
@@ -283,18 +286,18 @@ class Volume(UnitObject, trimesh.Trimesh):
                         Filename to use.
 
         """
-        with open(filename, 'w') as f:
-            json.dump({'vertices': self.vertices.tolist(),
-                       'faces': self.faces.tolist()},
-                      f)
+        with open(filename, "w") as f:
+            json.dump(
+                {"vertices": self.vertices.tolist(), "faces": self.faces.tolist()}, f
+            )
 
     @classmethod
-    def combine(cls,
-                x: Sequence['Volume'],
-                name: str = 'comb_vol',
-                color: Union[str,
-                             Sequence[Union[int, float]]] = (.85, .85, .85, .2)
-                ) -> 'Volume':
+    def combine(
+        cls,
+        x: Sequence["Volume"],
+        name: str = "comb_vol",
+        color: Union[str, Sequence[Union[int, float]]] = (0.85, 0.85, 0.85, 0.2),
+    ) -> "Volume":
         """Merge multiple volumes into a single object.
 
         Parameters
@@ -320,7 +323,7 @@ class Volume(UnitObject, trimesh.Trimesh):
             x = [x]  # type: ignore
 
         if False in [isinstance(v, Volume) for v in x]:
-            raise TypeError('Input must be list of volumes')
+            raise TypeError("Input must be list of volumes")
 
         vertices: np.ndarray = np.empty((0, 3))
         faces: List[List[int]] = []
@@ -329,8 +332,7 @@ class Volume(UnitObject, trimesh.Trimesh):
         for vol in x:
             offs = len(vertices)
             vertices = np.append(vertices, vol.vertices, axis=0)
-            faces += [[f[0] + offs, f[1] + offs, f[2] + offs]
-                      for f in vol.faces]
+            faces += [[f[0] + offs, f[1] + offs, f[2] + offs] for f in vol.faces]
 
         return cls(vertices=vertices, faces=faces, name=name, color=color)
 
@@ -371,28 +373,29 @@ class Volume(UnitObject, trimesh.Trimesh):
 
         """
         elements = []
-        if hasattr(self, 'name'):
+        if hasattr(self, "name"):
             # for Trimesh
-            elements.append(f'name={self.name}')
-        if hasattr(self, 'id') and not isinstance(self.id, uuid.UUID):
+            elements.append(f"name={self.name}")
+        if hasattr(self, "id") and not isinstance(self.id, uuid.UUID):
             # for Trimesh
-            elements.append(f'id={self.id}')
-        if hasattr(self, 'color'):
+            elements.append(f"id={self.id}")
+        elements.append(f"units={self.units}")
+        if hasattr(self, "color"):
             # for Trimesh
-            elements.append(f'color={self.color}')
-        if hasattr(self, 'vertices'):
+            elements.append(f"color={self.color}")
+        if hasattr(self, "vertices"):
             # for Trimesh and PointCloud
-            elements.append(f'vertices.shape={self.vertices.shape}')
-        if hasattr(self, 'faces'):
+            elements.append(f"vertices.shape={self.vertices.shape}")
+        if hasattr(self, "faces"):
             # for Trimesh
-            elements.append(f'faces.shape={self.faces.shape}')
+            elements.append(f"faces.shape={self.faces.shape}")
         return f'<navis.Volume({", ".join(elements)})>'
 
     def __truediv__(self, other):
         """Implement division for vertices."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             n = self.copy()
-            _ = np.divide(n.vertices, other, out=n.vertices, casting='unsafe')
+            _ = np.divide(n.vertices, other, out=n.vertices, casting="unsafe")
             return n
         return NotImplemented
 
@@ -400,17 +403,37 @@ class Volume(UnitObject, trimesh.Trimesh):
         """Implement multiplication for vertices."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             n = self.copy()
-            _ = np.multiply(n.vertices, other, out=n.vertices, casting='unsafe')
+            _ = np.multiply(n.vertices, other, out=n.vertices, casting="unsafe")
             return n
         return NotImplemented
 
-    def resize(self,
-               x: Union[float, int],
-               method: Union[Literal['center'],
-                             Literal['centroid'],
-                             Literal['normals'],
-                             Literal['origin']] = 'center',
-               inplace: bool = False) -> Optional['Volume']:
+    def __add__(self, other):
+        """Implement addition for vertices."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            n = self.copy()
+            _ = np.add(n.vertices, other, out=n.vertices, casting="unsafe")
+            return n
+        return NotImplemented
+
+    def __sub__(self, other):
+        """Implement subtraction for vertices."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            n = self.copy()
+            _ = np.subtract(n.vertices, other, out=n.vertices, casting="unsafe")
+            return n
+        return NotImplemented
+
+    def resize(
+        self,
+        x: Union[float, int],
+        method: Union[
+            Literal["center"],
+            Literal["centroid"],
+            Literal["normals"],
+            Literal["origin"],
+        ] = "center",
+        inplace: bool = False,
+    ) -> Optional["Volume"]:
         """Resize volume.
 
         Parameters
@@ -457,25 +480,27 @@ class Volume(UnitObject, trimesh.Trimesh):
 
         method = method.lower()
 
-        perm_methods = ['center', 'origin', 'normals', 'centroid']
+        perm_methods = ["center", "origin", "normals", "centroid"]
         if method not in perm_methods:
-            raise ValueError(f'Unknown method "{method}". Allowed '
-                             f'methods: {", ".join(perm_methods)}')
+            raise ValueError(
+                f'Unknown method "{method}". Allowed '
+                f'methods: {", ".join(perm_methods)}'
+            )
 
         if not inplace:
             v = self.copy()
         else:
             v = self
 
-        if method == 'normals':
+        if method == "normals":
             v.vertices = v.vertices + (v.vertex_normals * x)
         else:
             # Get the center
-            if method == 'center':
+            if method == "center":
                 cn = np.mean(v.vertices, axis=0)
-            elif method == 'centroid':
+            elif method == "centroid":
                 cn = v.centroid
-            elif method == 'origin':
+            elif method == "origin":
                 cn = np.array([0, 0, 0])
 
             # Get vector from center to each vertex
@@ -488,8 +513,8 @@ class Volume(UnitObject, trimesh.Trimesh):
             v.vertices = vec + cn
 
         # Make sure to reset any pyoctree data on this volume
-        if hasattr(v, 'pyoctree'):
-            delattr(v, 'pyoctree')
+        if hasattr(v, "pyoctree"):
+            delattr(v, "pyoctree")
 
         if not inplace:
             return v
@@ -517,8 +542,8 @@ class Volume(UnitObject, trimesh.Trimesh):
         """
         from .. import plotting
 
-        if 'color' in kwargs:
-            self.color = kwargs['color']
+        if "color" in kwargs:
+            self.color = kwargs["color"]
 
         return plotting.plot3d(self, **kwargs)
 
@@ -545,19 +570,18 @@ class Volume(UnitObject, trimesh.Trimesh):
         """
         co2d = np.array(self.to_2d(view=view, **kwargs))
 
-        if view in ['xy', 'yx']:
+        if view in ["xy", "yx"]:
             third = np.repeat(self.center[2], co2d.shape[0])
-        elif view in ['xz', 'zx']:
+        elif view in ["xz", "zx"]:
             third = np.repeat(self.center[1], co2d.shape[0])
-        elif view in ['yz', 'zy']:
+        elif view in ["yz", "zy"]:
             third = np.repeat(self.center[0], co2d.shape[0])
 
         return np.append(co2d, third.reshape(co2d.shape[0], 1), axis=1)
 
-    def to_2d(self,
-              alpha: float = 0.00017,
-              view: tuple = ('x', 'y'),
-              invert_y: bool = False) -> Sequence[Union[float, int]]:
+    def to_2d(
+        self, alpha: float = 0.00017, view: tuple = ("x", "y"), invert_y: bool = False
+    ) -> Sequence[Union[float, int]]:
         """Compute the 2d alpha shape (concave hull) this volume.
 
         Uses Scipy Delaunay and shapely.
@@ -587,7 +611,7 @@ class Volume(UnitObject, trimesh.Trimesh):
             edges.add((i, j))
             edge_points.append(coords[[i, j]])
 
-        accepted_views = ['x', 'z', 'y', '-x', '-z', '-y']
+        accepted_views = ["x", "z", "y", "-x", "-z", "-y"]
 
         for ax in view:
             if ax not in accepted_views:
@@ -596,15 +620,15 @@ class Volume(UnitObject, trimesh.Trimesh):
         try:
             from shapely.ops import unary_union, polygonize  # type: ignore
             import shapely.geometry as geometry  # type: ignore
-        except ImportError:
-            raise ImportError('This function needs the shapely>=1.8.0')
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError("This function needs the shapely>=1.8.0")
 
         coords: np.ndarray
 
-        map = {'x': 0, 'y': 1, 'z': 2}
+        map = {"x": 0, "y": 1, "z": 2}
 
-        x_ix = map[view[0].replace('-', '').replace('+', '')]
-        y_ix = map[view[1].replace('-', '').replace('+', '')]
+        x_ix = map[view[0].replace("-", "").replace("+", "")]
+        y_ix = map[view[1].replace("-", "").replace("+", "")]
 
         coords = self.vertices[:, [x_ix, y_ix]]
 
@@ -614,14 +638,14 @@ class Volume(UnitObject, trimesh.Trimesh):
         # loop over triangles:
         # ia, ib, ic = indices of corner points of the triangle
         # Note that "vertices" property was renamed to "simplices"
-        for ia, ib, ic in getattr(tri, 'simplices', getattr(tri, 'vertices', [])):
+        for ia, ib, ic in getattr(tri, "simplices", getattr(tri, "vertices", [])):
             pa: np.ndarray = coords[ia]  # type: ignore
             pb: np.ndarray = coords[ib]  # type: ignore
             pc: np.ndarray = coords[ic]  # type: ignore
             # Lengths of sides of triangle
-            a = math.sqrt((pa[0] - pb[0])**2 + (pa[1] - pb[1])**2)  # type: ignore
-            b = math.sqrt((pb[0] - pc[0])**2 + (pb[1] - pc[1])**2)  # type: ignore
-            c = math.sqrt((pc[0] - pa[0])**2 + (pc[1] - pa[1])**2)  # type: ignore
+            a = math.sqrt((pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2)  # type: ignore
+            b = math.sqrt((pb[0] - pc[0]) ** 2 + (pb[1] - pc[1]) ** 2)  # type: ignore
+            c = math.sqrt((pc[0] - pa[0]) ** 2 + (pc[1] - pa[1]) ** 2)  # type: ignore
             # Semiperimeter of triangle
             s = (a + b + c) / 2.0
             # Area of triangle by Heron's formula
@@ -653,9 +677,11 @@ class Volume(UnitObject, trimesh.Trimesh):
             self.fill_holes()
             self.fix_normals()
             if not self.is_volume:
-                raise utils.VolumeError("Mesh is not a volume "
-                                        "(e.g. not watertight, incorrect "
-                                        "winding) and could not be fixed.")
+                raise utils.VolumeError(
+                    "Mesh is not a volume "
+                    "(e.g. not watertight, incorrect "
+                    "winding) and could not be fixed."
+                )
 
 
 def _force_volume(f):

@@ -119,7 +119,7 @@ vol
 #     [`navis.Volume`][] for details.
 #
 # This tutorial has hopefully given you some entry points on how to load your data. See also the [I/O API reference](../../../api.md#importexport).
-# Also note that all {{ navis }} neurons can be stored to disk using ``pickle`` - see the [pickling tutorial](../plot_04_io_pickle).
+# Also note that all {{ navis }} neurons can be stored to disk using ``pickle`` - see the [pickling tutorial](../tutorial_io_04_pickle).
 #
 # Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`MeshNeurons`][navis.MeshNeuron]
 # (see also the API reference on [neuron conversion](../../../api.md#converting-between-types)).

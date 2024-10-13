@@ -84,11 +84,13 @@ def plot2d(
 
     Object parameters
     -----------------
-    soma :              bool, default=True
+    soma :              bool | dict, default=True
 
                         Plot soma if one exists. Size of the soma is determined
                         by the neuron's `.soma_radius` property which defaults
-                        to the "radius" column for `TreeNeurons`.
+                        to the "radius" column for `TreeNeurons`. You can also
+                        pass `soma` as a dictionary to customize the appearance
+                        of the soma - for example `soma={"color": "red", "lw": 2, "ec": 1}`.
 
     radius :            "auto" (default) | bool
 
@@ -342,7 +344,7 @@ def plot2d(
     >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True, view=('x', '-z'))
     >>> plt.show() # doctest: +SKIP
 
-    See the [plotting intro](../../../generated/gallery/1_plotting/plot_00_plotting_intro)
+    See the [plotting intro](../../generated/gallery/1_plotting/tutorial_plotting_00_intro)
     for more examples.
 
     See Also
@@ -370,8 +372,9 @@ def plot2d(
     # Parse objects
     (neurons, volumes, points, _) = utils.parse_objects(x)
 
-    # Color_by can be a per-node/vertex color, or a per-neuron color
-    # such as property of the neuron
+    # Here we check whether `color_by` is a neuron property which we
+    # want to translate into a single color per neuron, or a
+    # per node/vertex property which we will parse late
     color_neurons_by = None
     if settings.color_by is not None and neurons:
         if not settings.palette:
@@ -380,9 +383,18 @@ def plot2d(
                 "when using `color_by` argument."
             )
 
-        # Check if this is a neuron property
+        # Check if this may be a neuron property
         if isinstance(settings.color_by, str):
-            if hasattr(neurons[0], settings.color_by):
+            # Check if this could be a neuron property
+            has_prop = hasattr(neurons[0], settings.color_by)
+
+            # For TreeNeurons, we also check if it is a node property
+            # If so, prioritize this.
+            if isinstance(neurons[0], core.TreeNeuron):
+                if settings.color_by in neurons[0].nodes.columns:
+                    has_prop = False
+
+            if has_prop:
                 # If it is, use it to color neurons
                 color_neurons_by = [
                     getattr(neuron, settings.color_by) for neuron in neurons
@@ -393,7 +405,7 @@ def plot2d(
                 color_neurons_by = settings.color_by
                 settings.color_by = None
 
-    # Generate the colormaps
+    # Generate the per-neuron colors
     (neuron_cmap, volumes_cmap) = prepare_colormap(
         settings.color,
         neurons=neurons,
@@ -550,7 +562,24 @@ def plot2d(
                     settings.radius = False
 
             if isinstance(neuron, core.TreeNeuron) and settings.radius:
-                _neuron = conversion.tree2meshneuron(neuron)
+                # Warn once if more than 5% of nodes have missing radii
+                if not getattr(fig, "_radius_warned", False):
+                    if (
+                        (neuron.nodes.radius.fillna(0).values <= 0).sum()
+                        / neuron.n_nodes
+                    ) > 0.05:
+                        logger.warning(
+                            "Some skeleton nodes have radius <= 0. This may lead to "
+                            "rendering artifacts. Set `radius=False` to plot skeletons "
+                            "as single-width lines instead."
+                        )
+                        fig._radius_warned = True
+
+                _neuron = conversion.tree2meshneuron(
+                    neuron,
+                    warn_missing_radii=False,
+                    radius_scale_factor=settings.get("linewidth", 1),
+                )
                 _neuron.connectors = neuron.connectors
                 neuron = _neuron
 
@@ -883,7 +912,7 @@ def _plot_connectors(neuron, color, ax, settings):
                 inner_dict["color"] = settings.cn_colors
 
     if settings.method == "2d":
-        for c, this_cn in connectors.groupby('type'):
+        for c, this_cn in connectors.groupby("type"):
             x, y = _parse_view2d(this_cn[["x", "y", "z"]].values, settings.view)
 
             ax.scatter(
@@ -892,7 +921,7 @@ def _plot_connectors(neuron, color, ax, settings):
                 color=cn_layout[c]["color"],
                 edgecolor="none",
                 s=settings.cn_size if settings.cn_size else cn_layout["size"],
-                zorder=1000
+                zorder=1000,
             )
             ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
     elif settings.method in ["3d", "3d_complex"]:
@@ -1110,7 +1139,7 @@ def _plot_skeleton(neuron, color, ax, settings):
             )
             ax.add_line(this_line)
         else:
-            if settings.palette:
+            if isinstance(settings.palette, str):
                 cmap = plt.get_cmap(settings.palette)
             else:
                 cmap = DEPTH_CMAP
@@ -1168,9 +1197,7 @@ def _plot_skeleton(neuron, color, ax, settings):
                     d = [n.x, n.y, n.z][_get_depth_axis(settings.view)]
                     soma_color = DEPTH_CMAP(settings.norm(d))
 
-                sx, sy = _parse_view2d(np.array([[n.x, n.y, n.z]]), settings.view)
-                c = mpatches.Circle(
-                    (sx[0], sy[0]),
+                soma_defaults = dict(
                     radius=r,
                     fill=True,
                     fc=soma_color,
@@ -1178,6 +1205,11 @@ def _plot_skeleton(neuron, color, ax, settings):
                     zorder=4,
                     edgecolor="none",
                 )
+                if isinstance(settings.soma, dict):
+                    soma_defaults.update(settings.soma)
+
+                sx, sy = _parse_view2d(np.array([[n.x, n.y, n.z]]), settings.view)
+                c = mpatches.Circle((sx[0], sy[0]), **soma_defaults)
                 ax.add_patch(c)
         return None, None
 
@@ -1268,14 +1300,17 @@ def _plot_skeleton(neuron, color, ax, settings):
                     x = r * np.outer(np.cos(u), np.sin(v)) + n.x
                     y = r * np.outer(np.sin(u), np.sin(v)) + n.y
                     z = r * np.outer(np.ones(np.size(u)), np.cos(v)) + n.z
-                    surf = ax.plot_surface(
-                        x,
-                        y,
-                        z,
+
+                    soma_defaults = dict(
                         color=soma_color,
                         shade=settings.mesh_shade,
                         rasterized=settings.rasterize,
                     )
+                    if isinstance(settings.soma, dict):
+                        soma_defaults.update(settings.soma)
+
+                    surf = ax.plot_surface(x, y, z, **soma_defaults)
+
                     if settings.group_neurons:
                         surf.set_gid(neuron.id)
 

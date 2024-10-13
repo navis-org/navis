@@ -26,13 +26,6 @@ from urllib3 import HTTPResponse
 from .. import config, utils, core
 from . import base
 
-try:
-    import zlib
-    import zipfile
-    compression = zipfile.ZIP_DEFLATED
-except ImportError:
-    compression = zipfile.ZIP_STORED
-
 __all__ = ["SwcReader", "read_swc", "write_swc"]
 
 # Set up logging
@@ -55,6 +48,7 @@ class SwcReader(base.BaseReader):
         precision: int = DEFAULT_PRECISION,
         read_meta: bool = False,
         fmt: str = DEFAULT_FMT,
+        errors: str = 'raise',
         attrs: Optional[Dict[str, Any]] = None
     ):
         if not fmt.endswith('.swc'):
@@ -63,6 +57,7 @@ class SwcReader(base.BaseReader):
         super().__init__(fmt=fmt,
                          attrs=attrs,
                          file_ext='.swc',
+                         errors=errors,
                          name_fallback='SWC')
         self.connector_labels = connector_labels or dict()
         self.soma_label = soma_label
@@ -80,6 +75,7 @@ class SwcReader(base.BaseReader):
             'radius': float_,
         }
 
+    @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
     ) -> 'core.TreeNeuron':
@@ -130,6 +126,7 @@ class SwcReader(base.BaseReader):
 
         return self.read_dataframe(nodes, base.merge_dicts({'swc_header': '\n'.join(header_rows)}, attrs))
 
+    @base.handle_errors
     def read_dataframe(
         self, nodes: pd.DataFrame, attrs: Optional[Dict[str, Any]] = None
     ) -> 'core.TreeNeuron':
@@ -265,6 +262,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
              fmt: str = "{name}.swc",
              read_meta: bool = True,
              limit: Optional[int] = None,
+             errors: str = 'raise',
              **kwargs) -> 'core.NeuronObject':
     """Create Neuron/List from SWC file.
 
@@ -273,14 +271,20 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
 
     Parameters
     ----------
-    f :                 str | pandas.DataFrame | iterable
-                        Filename, folder, SWC string, URL or DataFrame.
-                        If folder, will import all `.swc` files. If a
-                        `.zip`, `.tar` or `.tar.gz` file will read all
-                        SWC files in the file. See also `limit` parameter.
+    f :                 str | pandas.DataFrame | list thereof
+                        Filename, folder, SWC string, URL or DataFrame:
+                         - if folder, will import all `.swc` files
+                         - if a `.zip`, `.tar` or `.tar.gz` archive will read all
+                           SWC files from the file
+                         - if a URL (http:// or https://), will download the
+                           file and import it
+                         - FTP address (ftp://) can point to a folder or a single
+                           file
+                         - DataFrames are interpreted as a SWC tables
+                        See also `limit` parameter to read only a subset of files.
     connector_labels :  dict, optional
                         If provided will extract connectors from SWC.
-                        Dictionary must map type to label:
+                        Dictionary must map types to labels:
                         `{'presynapse': 7, 'postsynapse': 8}`
     include_subdirs :   bool, optional
                         If True and `f` is a folder, will also search
@@ -293,7 +297,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                         and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
-                        number of cores (otherwise defaults to
+                        number of processes to use (defaults to
                         `os.cpu_count() // 2`).
     precision :         int [8, 16, 32, 64] | None
                         Precision for data. Defaults to 32 bit integers/floats.
@@ -325,16 +329,26 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     read_meta :         bool
                         If True and SWC header contains a line with JSON-encoded
                         meta data e.g. (`# Meta: {'id': 123}`), these data
-                        will be read as neuron properties. `fmt` takes
+                        will be read as neuron properties. `fmt` still takes
                         precedence. Will try to assign meta data directly as
                         neuron attribute (e.g. `neuron.id`). Failing that
                         (can happen for properties intrinsic to `TreeNeurons`),
                         will add a `.meta` dictionary to the neuron.
-    limit :             int, optional
-                        If reading from a folder you can use this parameter to
-                        read only the first `limit` SWC files. Useful if
-                        wanting to get a sample from a large library of
-                        skeletons.
+    limit :             int | str | slice | list, optional
+                        When reading from a folder or archive you can use this parameter to
+                        restrict the which files read:
+                         - if an integer, will read only the first `limit` SWC files
+                          (useful to get a sample from a large library of skeletons)
+                         - if a string, will interpret it as filename (regex) pattern
+                           and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                           will only read files that contain `_R` in their filename
+                         - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                           that range
+                         - a list is expected to be a list of filenames to read from
+                           the folder/archive
+    errors :            "raise" | "log" | "ignore"
+                        If "log" or "ignore", errors will not be raised and the
+                        mesh will be skipped. Can result in empty output.
     **kwargs
                         Keyword arguments passed to the construction of
                         `navis.TreeNeuron`. You can use this to e.g. set
@@ -368,12 +382,16 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
 
     >>> s = navis.read_swc('skeletons.zip')                     # doctest: +SKIP
 
-    Sample first 100 SWC files a zip archive:
+    Sample the first 100 SWC files in a zip archive:
 
     >>> s = navis.read_swc('skeletons.zip', limit=100)          # doctest: +SKIP
 
+    Read first all SWC files an ftp folder:
+
+    >>> s = navis.read_swc('ftp://server:port/path/to/swc/')    # doctest: +SKIP
+
     """
-    # SwcReader will try its best to read whatever you throw at it - with limit
+    # SwcReader will try its best to read whatever you throw at it - with limited
     # sanity checks. For example: if you misspell a filepath, it will assume
     # that it's a SWC string (because anything that's a string but doesn't
     # point to an existing file or a folder MUST be a SWC) which will lead to
@@ -392,6 +410,7 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
                        precision=precision,
                        read_meta=read_meta,
                        fmt=fmt,
+                       errors=errors,
                        attrs=kwargs)
     res = reader.read_any(f, include_subdirs, parallel, limit=limit)
 

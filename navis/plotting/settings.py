@@ -62,7 +62,10 @@ class Settings:
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
     def get(self, key, default=None):
-        return self.__dict__.get(key, default)
+        value = self.__dict__.get(key, default)
+        if value is None:
+            value = default
+        return value
 
     def pop(self, key, default=None):
         return self.__dict__.pop(key, default)
@@ -127,7 +130,7 @@ class Matplotlib2dSettings(BasePlottingSettings):
 
     _name = "matplotlib backend"
 
-    method: Literal["2d", "3d", "3d_complex"] = "3d"
+    method: Literal["2d", "3d", "3d_complex"] = "2d"
     group_neurons: bool = False
     autoscale: bool = True
     orthogonal: bool = True
@@ -162,7 +165,7 @@ class PlotlySettings(BasePlottingSettings):
     volume_legend: bool = False
     width: Optional[int] = None
     height: Optional[int] = 600
-    linewidth: float = 3  # for plotly, linewidth 1 is too thin
+    linewidth: Optional[float] = None  # for plotly, linewidth 1 is too thin, we default to 3 in graph_objs.py
     linestyle: str = "-"
 
 
@@ -199,6 +202,7 @@ class OctarineSettings(BasePlottingSettings):
     show: bool = True
     size: Optional[Tuple[int, int]] = None
     offscreen: bool = False
+    spacing: Optional[Tuple[float, float, float]] = None
 
     # These are viewer-specific settings that we must not pass to the plotting
     # function
@@ -212,6 +216,7 @@ class OctarineSettings(BasePlottingSettings):
         "size",
         "offscreen",
         "scatter_kws",
+        "spacing"
     )
 
 

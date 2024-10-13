@@ -121,7 +121,7 @@ ax.set_yscale("log")
 # %%
 # ## Sholl Analysis
 #
-# For an example of a Sholl analyses, check out the [MICrONS tutorial](../4_remote/plot_02_remote_microns).
+# For an example of a Sholl analyses, check out the [MICrONS tutorial](../4_remote/tutorial_remote_02_microns).
 #
 # ## Geodesic Distances
 #
@@ -245,5 +245,5 @@ cm.ax_heatmap.set_yticks([])
 # %%
 # As you can see in the heatmap, the dendrites and the axon nicely separate.
 #
-# That's it for now! Please see the [NBLAST tutorial](../../5_nblast/plot_00_nblast_intro) for morphological comparisons using NBLAST and
-# the :[API reference](../../../api.md) for a full list of morphology-related functions.
+# That's it for now! Please see the [NBLAST tutorial](../../5_nblast/tutorial_nblast_00_intro) for morphological comparisons using NBLAST and
+# the [API reference](../../../api.md) for a full list of morphology-related functions.

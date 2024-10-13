@@ -31,10 +31,10 @@ from .. import utils, config, core
 
 try:
     import xxhash
-except ImportError:
+except ModuleNotFoundError:
     xxhash = None
 
-__all__ = ['Neuron']
+__all__ = ["Neuron"]
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -45,8 +45,9 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
-def Neuron(x: Union[nx.DiGraph, str, pd.DataFrame, 'TreeNeuron', 'MeshNeuron'],
-           **metadata):
+def Neuron(
+    x: Union[nx.DiGraph, str, pd.DataFrame, "TreeNeuron", "MeshNeuron"], **metadata
+):
     """Constructor for Neuron objects. Depending on the input, either a
     `TreeNeuron` or a `MeshNeuron` is returned.
 
@@ -183,10 +184,10 @@ class BaseNeuron(UnitObject):
     connectors: Optional[pd.DataFrame]
 
     #: Attributes used for neuron summary
-    SUMMARY_PROPS = ['type', 'name', 'units']
+    SUMMARY_PROPS = ["type", "name", "units"]
 
     #: Attributes to be used when comparing two neurons.
-    EQ_ATTRIBUTES = ['name']
+    EQ_ATTRIBUTES = ["name"]
 
     #: Temporary attributes that need clearing when neuron data changes
     TEMP_ATTR = ["_memory_usage"]
@@ -212,8 +213,8 @@ class BaseNeuron(UnitObject):
 
     def __getattr__(self, key):
         """Get attribute."""
-        if key.startswith('has_'):
-            key = key[key.index('_') + 1:]
+        if key.startswith("has_"):
+            key = key[key.index("_") + 1 :]
             if hasattr(self, key):
                 data = getattr(self, key)
                 if isinstance(data, pd.DataFrame):
@@ -223,7 +224,7 @@ class BaseNeuron(UnitObject):
                         return False
                 # This is necessary because np.any does not like strings
                 elif isinstance(data, str):
-                    if data == 'NA' or not data:
+                    if data == "NA" or not data:
                         return False
                     return True
                 elif utils.is_iterable(data) and len(data) > 0:
@@ -231,16 +232,16 @@ class BaseNeuron(UnitObject):
                 elif data:
                     return True
             return False
-        elif key.startswith('n_'):
-            key = key[key.index('_') + 1:]
+        elif key.startswith("n_"):
+            key = key[key.index("_") + 1 :]
             if hasattr(self, key):
                 data = getattr(self, key, None)
                 if isinstance(data, pd.DataFrame):
                     return data.shape[0]
                 elif utils.is_iterable(data):
                     return len(data)
-                elif isinstance(data, str) and data == 'NA':
-                    return 'NA'
+                elif isinstance(data, str) and data == "NA":
+                    return "NA"
             return None
 
         raise AttributeError(f'Attribute "{key}" not found')
@@ -284,8 +285,7 @@ class BaseNeuron(UnitObject):
         """Implement addition."""
         if isinstance(other, BaseNeuron):
             return core.NeuronList([self, other])
-        else:
-            return NotImplemented
+        return NotImplemented
 
     def __imul__(self, other):
         """Multiplication with assignment (*=)."""
@@ -295,28 +295,37 @@ class BaseNeuron(UnitObject):
         """Division with assignment (/=)."""
         return self.__truediv__(other, copy=False)
 
+    def __iadd__(self, other):
+        """Addition with assignment (+=)."""
+        return self.__add__(other, copy=False)
+
+    def __isub__(self, other):
+        """Subtraction with assignment (-=)."""
+        return self.__sub__(other, copy=False)
+
     def _repr_html_(self):
         frame = self.summary().to_frame()
-        frame.columns = ['']
+        frame.columns = [""]
         # return self._gen_svg_thumbnail() + frame._repr_html_()
         return frame._repr_html_()
 
     def _gen_svg_thumbnail(self):
         """Generate 2D plot for thumbnail."""
         import matplotlib.pyplot as plt
+
         # Store some previous states
         prev_level = logger.getEffectiveLevel()
         prev_pbar = config.pbar_hide
         prev_int = plt.isinteractive()
 
         plt.ioff()  # turn off interactive mode
-        logger.setLevel('WARNING')
+        logger.setLevel("WARNING")
         config.pbar_hide = True
         fig = plt.figure(figsize=(2, 2))
         ax = fig.add_subplot(111)
         fig, ax = self.plot2d(connectors=False, ax=ax)
         output = StringIO()
-        fig.savefig(output, format='svg')
+        fig.savefig(output, format="svg")
 
         if prev_int:
             plt.ion()  # turn on interactive mode
@@ -339,9 +348,11 @@ class BaseNeuron(UnitObject):
         for a in [at for at in self.TEMP_ATTR if at not in exclude]:
             try:
                 delattr(self, a)
-                logger.debug(f'Neuron {self.id} {hex(id(self))}: attribute {a} cleared')
+                logger.debug(f"Neuron {self.id} {hex(id(self))}: attribute {a} cleared")
             except AttributeError:
-                logger.debug(f'Neuron {self.id} at {hex(id(self))}: Unable to clear temporary attribute "{a}"')
+                logger.debug(
+                    f'Neuron {self.id} at {hex(id(self))}: Unable to clear temporary attribute "{a}"'
+                )
             except BaseException:
                 raise
 
@@ -358,8 +369,10 @@ class BaseNeuron(UnitObject):
             if isinstance(value, (numbers.Number, str, bool, np.bool_, type(None))):
                 self.SUMMARY_PROPS.append(name)
             else:
-                logger.error(f'Attribute "{name}" of type "{type(value)}" '
-                             'can not be added to summary')
+                logger.error(
+                    f'Attribute "{name}" of type "{type(value)}" '
+                    "can not be added to summary"
+                )
 
         if temporary:
             self.TEMP_ATTR.append(name)
@@ -386,14 +399,14 @@ class BaseNeuron(UnitObject):
                 MD5 checksum of core data. `None` if no core data.
 
         """
-        hash = ''
+        hash = ""
         for prop in self.CORE_DATA:
             cols = None
             # See if we need to parse props into property and columns
             # e.g. "nodes:node_id,parent_id,x,y,z"
-            if ':' in prop:
-                prop, cols = prop.split(':')
-                cols = cols.split(',')
+            if ":" in prop:
+                prop, cols = prop.split(":")
+                cols = cols.split(",")
 
             if hasattr(self, prop):
                 data = getattr(self, prop)
@@ -419,9 +432,11 @@ class BaseNeuron(UnitObject):
     @property
     def extents(self) -> np.ndarray:
         """Extents of neuron in x/y/z direction (includes connectors)."""
-        if not hasattr(self, 'bbox'):
-            raise ValueError('Neuron must implement `.bbox` (bounding box) '
-                             'property to calculate extents.')
+        if not hasattr(self, "bbox"):
+            raise ValueError(
+                "Neuron must implement `.bbox` (bounding box) "
+                "property to calculate extents."
+            )
         bbox = self.bbox
         return bbox[:, 1] - bbox[:, 0]
 
@@ -432,26 +447,26 @@ class BaseNeuron(UnitObject):
         Must be hashable. If not set, will assign a random unique identifier.
         Can be indexed by using the `NeuronList.idx[]` locator.
         """
-        return getattr(self, '_id', None)
+        return getattr(self, "_id", None)
 
     @id.setter
     def id(self, value):
         try:
             hash(value)
         except BaseException:
-            raise ValueError('id must be hashable')
+            raise ValueError("id must be hashable")
         self._id = value
 
     @property
     def label(self) -> str:
         """Label (e.g. for legends)."""
         # If explicitly set return that label
-        if getattr(self, '_label', None):
+        if getattr(self, "_label", None):
             return self._label
 
         # If no label set, produce one from name + id (optional)
-        name = getattr(self, 'name', None)
-        id = getattr(self, 'id', None)
+        name = getattr(self, "name", None)
+        id = getattr(self, "id", None)
 
         # If no name, use type
         if not name:
@@ -465,11 +480,11 @@ class BaseNeuron(UnitObject):
             try:
                 id = str(id)
             except BaseException:
-                id = ''
+                id = ""
 
             # Only use ID if it is not the same as name
             if id and name != id:
-                label += f' ({id})'
+                label += f" ({id})"
 
         return label
 
@@ -482,7 +497,7 @@ class BaseNeuron(UnitObject):
     @property
     def name(self) -> str:
         """Neuron name."""
-        return getattr(self, '_name', None)
+        return getattr(self, "_name", None)
 
     @name.setter
     def name(self, value: str):
@@ -498,10 +513,9 @@ class BaseNeuron(UnitObject):
         if isinstance(v, type(None)):
             self._connectors = None
         else:
-            self._connectors = utils.validate_table(v,
-                                                    required=['x', 'y', 'z'],
-                                                    rename=True,
-                                                    restrict=False)
+            self._connectors = utils.validate_table(
+                v, required=["x", "y", "z"], rename=True, restrict=False
+            )
 
     @property
     def presynapses(self):
@@ -510,19 +524,19 @@ class BaseNeuron(UnitObject):
         Requires a "type" column in connector table. Will look for type labels
         that include "pre" or that equal 0 or "0".
         """
-        if not isinstance(getattr(self, 'connectors', None), pd.DataFrame):
-            raise ValueError('No connector table found.')
+        if not isinstance(getattr(self, "connectors", None), pd.DataFrame):
+            raise ValueError("No connector table found.")
         # Make an educated guess what presynapses are
         types = self.connectors["type"].unique()
         pre = [t for t in types if "pre" in str(t).lower() or t in [0, "0"]]
 
         if len(pre) == 0:
-            logger.debug(f'Unable to find presynapses in types: {types}')
+            logger.debug(f"Unable to find presynapses in types: {types}")
             return self.connectors.iloc[0:0]  # return empty DataFrame
         elif len(pre) > 1:
-            raise ValueError(f'Found ambigous presynapse labels: {pre}')
+            raise ValueError(f"Found ambigous presynapse labels: {pre}")
 
-        return self.connectors[self.connectors['type'] == pre[0]]
+        return self.connectors[self.connectors["type"] == pre[0]]
 
     @property
     def postsynapses(self):
@@ -531,27 +545,25 @@ class BaseNeuron(UnitObject):
         Requires a "type" column in connector table. Will look for type labels
         that include "post" or that equal 1 or "1".
         """
-        if not isinstance(getattr(self, 'connectors', None), pd.DataFrame):
-            raise ValueError('No connector table found.')
+        if not isinstance(getattr(self, "connectors", None), pd.DataFrame):
+            raise ValueError("No connector table found.")
         # Make an educated guess what presynapses are
         types = self.connectors["type"].unique()
         post = [t for t in types if "post" in str(t).lower() or t in [1, "1"]]
 
         if len(post) == 0:
-            logger.debug(f'Unable to find postsynapses in types: {types}')
+            logger.debug(f"Unable to find postsynapses in types: {types}")
             return self.connectors.iloc[0:0]  # return empty DataFrame
         elif len(post) > 1:
-            raise ValueError(f'Found ambigous postsynapse labels: {post}')
+            raise ValueError(f"Found ambigous postsynapse labels: {post}")
 
-        return self.connectors[self.connectors['type'] == post[0]]
-
-
+        return self.connectors[self.connectors["type"] == post[0]]
 
     @property
     def is_stale(self) -> bool:
         """Test if temporary attributes might be outdated."""
         # If we know we are stale, just return True
-        if getattr(self, '_stale', False):
+        if getattr(self, "_stale", False):
             return True
         else:
             # Only check if we believe we are not stale
@@ -561,7 +573,7 @@ class BaseNeuron(UnitObject):
     @property
     def is_locked(self):
         """Test if neuron is locked."""
-        return getattr(self, '_lock', 0) > 0
+        return getattr(self, "_lock", 0) > 0
 
     @property
     def type(self) -> str:
@@ -578,9 +590,9 @@ class BaseNeuron(UnitObject):
         """Bounding box of neuron."""
         raise NotImplementedError(f"Bounding box not implemented for {type(self)}.")
 
-    def convert_units(self,
-                      to: Union[pint.Unit, str],
-                      inplace: bool = False) -> Optional['BaseNeuron']:
+    def convert_units(
+        self, to: Union[pint.Unit, str], inplace: bool = False
+    ) -> Optional["BaseNeuron"]:
         """Convert coordinates to different unit.
 
         Only works if neuron's `.units` is not dimensionless.
@@ -622,19 +634,21 @@ class BaseNeuron(UnitObject):
             # Multiply by conversion factor
             n *= conv
 
-        n._clear_temp_attr(exclude=['classify_nodes'])
+        n._clear_temp_attr(exclude=["classify_nodes"])
 
         return n
 
-    def copy(self, deepcopy=False) -> 'BaseNeuron':
+    def copy(self, deepcopy=False) -> "BaseNeuron":
         """Return a copy of the neuron."""
         copy_fn = copy.deepcopy if deepcopy else copy.copy
         # Attributes not to copy
-        no_copy = ['_lock']
+        no_copy = ["_lock"]
         # Generate new empty neuron
         x = self.__class__()
         # Override with this neuron's data
-        x.__dict__.update({k: copy_fn(v) for k, v in self.__dict__.items() if k not in no_copy})
+        x.__dict__.update(
+            {k: copy_fn(v) for k, v in self.__dict__.items() if k not in no_copy}
+        )
 
         return x
 
@@ -643,20 +657,22 @@ class BaseNeuron(UnitObject):
         # Do not remove the list -> otherwise we might change the original!
         props = list(self.SUMMARY_PROPS)
 
+        # Make sure ID is always in second place
+        if "id" in props and props.index("id") != 2:
+            props.remove("id")
+            props.insert(2, "id")
         # Add .id to summary if not a generic UUID
-        if not isinstance(self.id, uuid.UUID):
-            props.insert(2, 'id')
+        elif not isinstance(self.id, uuid.UUID) and "id" not in props:
+            props.insert(2, "id")
 
         if add_props:
-            props, ix = np.unique(np.append(props, add_props),
-                                  return_inverse=True)
+            props, ix = np.unique(np.append(props, add_props), return_inverse=True)
             props = props[ix]
 
         # This is to catch an annoying "UnitStrippedWarning" with pint
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            s = pd.Series([getattr(self, at, 'NA') for at in props],
-                          index=props)
+            s = pd.Series([getattr(self, at, "NA") for at in props], index=props)
 
         return s
 
@@ -705,10 +721,11 @@ class BaseNeuron(UnitObject):
 
         return plot3d(core.NeuronList(self, make_copy=False), **kwargs)
 
-    def map_units(self,
-                  units: Union[pint.Unit, str],
-                  on_error: Union[Literal['raise'],
-                                  Literal['ignore']] = 'raise') -> Union[int, float]:
+    def map_units(
+        self,
+        units: Union[pint.Unit, str],
+        on_error: Union[Literal["raise"], Literal["ignore"]] = "raise",
+    ) -> Union[int, float]:
         """Convert units to match neuron space.
 
         Only works if neuron's `.units` is isometric and not dimensionless.
@@ -725,7 +742,7 @@ class BaseNeuron(UnitObject):
 
         See Also
         --------
-        [`navis.to_neuron_space`][]
+        [`navis.core.to_neuron_space`][]
                     The base function for this method.
 
         Examples
@@ -744,8 +761,7 @@ class BaseNeuron(UnitObject):
         [0.125, 0.125, 0.125]
 
         """
-        return core.core_utils.to_neuron_space(units, neuron=self,
-                                               on_error=on_error)
+        return core.core_utils.to_neuron_space(units, neuron=self, on_error=on_error)
 
     def memory_usage(self, deep=False, estimate=False):
         """Return estimated memory usage of this neuron.
@@ -775,8 +791,8 @@ class BaseNeuron(UnitObject):
         # as possible
         if hasattr(self, "_memory_usage"):
             mu = self._memory_usage
-            if mu['deep'] == deep and mu['estimate'] == estimate:
-                return mu['size']
+            if mu["deep"] == deep and mu["estimate"] == estimate:
+                return mu["size"]
 
         size = 0
         if not estimate:
@@ -803,8 +819,6 @@ class BaseNeuron(UnitObject):
                     else:
                         size += v.dtype.itemsize * v.shape[0]
 
-        self._memory_usage = {'deep': deep,
-                              'estimate': estimate,
-                              'size': size}
+        self._memory_usage = {"deep": deep, "estimate": estimate, "size": size}
 
         return size

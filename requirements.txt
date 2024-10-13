@@ -28,7 +28,9 @@ Shapely>=1.6.0  #extra: shapely
 
 rpy2  #extra: r
 
-pykdtree  #extra: kdtree
+# extra: kdtree
+pykdtree<=1.3.12; platform_system == "Darwin"
+pykdtree; platform_system != "Darwin"
 
 xxhash  #extra: hash
 
@@ -36,7 +38,7 @@ flybrains  #extra: flybrains
 
 cloud-volume>=5.2.0  #extra: cloudvolume
 
-navis-fastcore>=0.0.4  #extra: fastcore
+navis-fastcore>=0.0.7  #extra: fastcore
 
 plotly>=4.9  #extra: plotly
 
@@ -50,7 +52,7 @@ jupyter_rfb>=0.4.1
 #extra: octarine-default
 
 octarine3d[all]>=0.2.3
-octarine-navis-plugin>=0.1.1
+octarine-navis-plugin>=0.1.2
 
 #extra: meshes
 
@@ -64,6 +66,7 @@ neuprint-python
 caveclient
 cloud-volume
 flybrains
+scikit-image
 Shapely>=1.6.0
 
 #extra: dev
@@ -76,6 +79,7 @@ pytest-env
 pytest-xvfb
 pytest-timeout
 gitpython
+scikit-image
 
 #extra: docs
 

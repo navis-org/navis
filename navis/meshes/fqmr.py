@@ -44,10 +44,8 @@ def simplify_mesh_fqmr(x, F, inplace=False, **kwargs):
 
     try:
         import pyfqmr
-    except ImportError:
-        raise ImportError('Please install pyfqmr: pip3 install pyfqmr')
-    except BaseException:
-        raise
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError('Please install pyfqmr: pip3 install pyfqmr')
 
     defaults = dict(aggressiveness=7, preserve_border=True, verbose=False)
     defaults.update(kwargs)

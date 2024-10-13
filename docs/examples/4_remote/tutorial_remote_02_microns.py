@@ -182,7 +182,7 @@ _ = plt.colorbar(
 # ## Render Videos
 #
 # Beautiful data like the MICrONS datasets lend themselves to visualizations. For making high quality videos (and renderings)
-# I recommend you check out the tutorial on navis' [Blender interface](../../gallery/3_interfaces/plot_01_interfaces_blender).
+# I recommend you check out the tutorial on navis' [Blender interface](../../../gallery/3_interfaces/tutorial_interfaces_02_blender).
 # Here's a little taster:
 #
 #  <iframe width="560" height="315" src="https://www.youtube.com/embed/wl3sFG7WQJc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>

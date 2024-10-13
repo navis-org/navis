@@ -124,8 +124,8 @@ def plot_flat(
 
     >>> plt.close('all')
 
-    See the [plotting intro](../../../generated/gallery/1_plotting/plot_00_plotting_intro)
-    and the [neuron topology tutorial](../../../generated/gallery/1_plotting/plot_03_plotting_dend)
+    See the [plotting intro](../../generated/gallery/1_plotting/tutorial_plotting_00_intro)
+    and the [neuron topology tutorial](../../generated/gallery/1_plotting/tutorial_plotting_03_dend)
     for more examples.
 
     """

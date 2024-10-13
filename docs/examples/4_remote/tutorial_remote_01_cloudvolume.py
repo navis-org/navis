@@ -15,7 +15,7 @@ that data using `CloudVolume`. For example:
    will to register and apply for access. Check out [FAFBseg](https://fafbseg-py.readthedocs.io) for a fairly mature interface built on
    top of {{ navis }}.
 2. [Google's flood-filling segmentation](http://fafb-ffn1.storage.googleapis.com/landing.html) of an entire *Drosophila* brain.
-3. The Allen Institute's [MICrONs datasets](https://www.microns-explorer.org/). We have a separate [tutorial](../plot_02_remote_microns) on this!
+3. The Allen Institute's [MICrONs datasets](https://www.microns-explorer.org/). We have a separate [tutorial](../tutorial_remote_02_microns) on this!
 4. The Janelia [hemibrain connectome](https://neuprint.janelia.org).
 
 `CloudVolume` supports the backends/data formats of these and many up-and-coming datasets. You can use it to query the segmentation directly,

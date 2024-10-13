@@ -16,6 +16,9 @@ functions to them from one of the various file formats:
     (e.g. the MICrONS, neuromorpho, Virtual Fly Brain or Janelia hemibrain datasets).
     These are covered in separate [tutorials](../../gallery).
 
+    If you have light-level microscopy data, you might also be interested in the
+    tutorial on [skeletons from light-level data](../zzz_tutorial_io_05_skeletonize).
+
 ## From SWC files
 
 SWC is a common format for storing neuron skeletons. Thus {{ navis }} provides functions to both
@@ -62,10 +65,25 @@ s = navis.read_swc('./mmc2/swc/CENT/11519759.swc')
 s
 
 # %%
-# You can even use URLs directly:
+# You can even use URLs or FTP servers directly:
 
 # %%
+
+# From URL:
 s = navis.read_swc('https://v2.virtualflybrain.org/data/VFB/i/jrch/jup2/VFB_00101567/volume.swc')
+
+# %%
+
+# From an FTP folder:
+nl = navis.read_swc('ftp://download.brainlib.org:8811/biccn/zeng/pseq/morph/200526/', limit=3)
+
+
+# !!! tip
+#     [`read_swc`][navis.read_swc] is super flexible and can handle a variety of inputs (file names, folders, archives, URLs, etc.).
+#     Importantly, it also let you customize which/how neurons are loaded. For example:
+#      - the `limit` parameter can also be used to load only files matching a given pattern
+#      - the `fmt` parameter lets you specify how to parse filenames into neuron names and ids
+#     Many of the other `navis.read_*` functions share these features!
 
 # %%
 # ## To SWC files
@@ -125,7 +143,7 @@ navis.plot2d(nl[:10], method='2d', radius=False)
 #
 # Among other formats, neuroglancer supports a "precomputed" format for skeletons
 # (see specs [here](https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/skeletons.md).
-# This binary format is more compact than uncompressed SWC files but probably is not used outside of neuroglancer afaik.
+# This binary format is more compact than uncompressed SWC files but is not used outside of neuroglancer as far as I know.
 # That said: {{ navis }} lets you read and write skeletons from/to precomputed format using [`navis.read_precomputed`][] and
 # [`navis.write_precomputed`][]. Note that these functions work on both precomputed skeletons and meshes.
 #
@@ -161,11 +179,10 @@ s
 # %%
 # There are a few other ways to construct a [`navis.TreeNeuron`][] (e.g. using a graph) - see the docstring for details.
 #
-# Also note that all {{ navis }} neurons can be stored to disk using `pickle` - see the [pickling tutorial](../plot_04_io_pickle).
+# Also note that all {{ navis }} neurons can be stored to disk using `pickle` - see the [pickling tutorial](../tutorial_io_04_pickle).
 #
 # Hopefully the above has given you some entry points on how to load your data. See also the [I/O API reference](../../../api.md#importexport).
 #
 # Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`MeshNeurons`][navis.MeshNeuron]
 # (see also the API reference on [neuron conversion](../../../api.md#converting-between-types)).
-
 

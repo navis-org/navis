@@ -96,6 +96,8 @@ def is_url(x: str) -> bool:
     False
     >>> is_url('http://www.google.com')
     True
+    >>> is_url("ftp://download.ft-server.org:8000")
+    True
 
     """
     parsed = urllib.parse.urlparse(x)

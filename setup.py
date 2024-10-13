@@ -12,7 +12,7 @@ install_requires, extras_require = parse_requirement_files(
     HERE / "requirements.txt",
 )
 
-dev_only = ["test-notebook", "dev"]
+dev_only = ["test-notebook", "dev", "docs"]
 specialized = ["r", "flybrains", "cloud-volume"]
 all_dev_deps = []
 all_deps = []

@@ -28,14 +28,14 @@ try:
     # remove neuprint's own fetch_skeleton function to avoid confusion
     del fetch_skeleton  # noqa
     from neuprint.client import inject_client
-except ImportError:
+except ModuleNotFoundError:
     msg = dedent("""
           neuprint library not found. Please install using pip:
 
                 pip install neuprint-python
 
           """)
-    raise ImportError(msg)
+    raise ModuleNotFoundError(msg)
 except BaseException:
     raise
 
@@ -289,7 +289,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
                 n.soma_radius = radii[n.id] / n.units.to('nm').magnitude
             else:
                 n.soma_radius = None
-            n.soma = n.somaLocation
+            n.soma_pos = n.somaLocation
 
     if with_synapses:
         # Fetch synapses

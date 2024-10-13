@@ -23,18 +23,19 @@ import pandas as pd
 
 from pathlib import Path
 from functools import lru_cache
-from typing import Union, Dict, Optional, Any, IO, List
+from typing import Union, Dict, Optional, Any, IO
 from typing_extensions import Literal
-from zipfile import ZipFile, ZipInfo
+from zipfile import ZipFile
 
-from .. import config, utils, core
+from .. import utils, core
 from . import base
 
 try:
     import zlib
     import zipfile
+
     compression = zipfile.ZIP_DEFLATED
-except ImportError:
+except ModuleNotFoundError:
     compression = zipfile.ZIP_STORED
 
 
@@ -54,13 +55,13 @@ class PrecomputedReader(base.BaseReader):
             file = str(file)
 
         # Drop anything with a file extension or hidden files (e.g. ".DS_store")
-        if '.' in file:
+        if "." in file:
             return False
         # Ignore the info file
-        if file == 'info':
+        if file == "info":
             return False
         # Ignore manifests
-        if file.endswith(':0'):
+        if file.endswith(":0"):
             return False
         return True
 
@@ -69,17 +70,22 @@ class PrecomputedMeshReader(PrecomputedReader):
     def __init__(
         self,
         fmt: str = DEFAULT_FMT,
-        attrs: Optional[Dict[str, Any]] = None
+        attrs: Optional[Dict[str, Any]] = None,
+        errors: str = "raise",
     ):
-        super().__init__(fmt=fmt,
-                         attrs=attrs,
-                         file_ext='',
-                         name_fallback='mesh',
-                         read_binary=True)
+        super().__init__(
+            fmt=fmt,
+            attrs=attrs,
+            file_ext="",
+            name_fallback="mesh",
+            read_binary=True,
+            errors=errors,
+        )
 
+    @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.MeshNeuron':
+    ) -> "core.MeshNeuron":
         """Read buffer into a MeshNeuron.
 
         Parameters
@@ -94,17 +100,22 @@ class PrecomputedMeshReader(PrecomputedReader):
         core.MeshNeuron
         """
         if not isinstance(f.read(0), bytes):
-            raise ValueError(f'Expected bytes, got {type(f.read(0))}')
+            raise ValueError(f"Expected bytes, got {type(f.read(0))}")
 
         num_vertices = np.frombuffer(f.read(4), np.uint32)[0]
-        vertices = np.frombuffer(f.read(int(3 * 4 * num_vertices)),
-                                 np.float32).reshape(-1, 3)
-        faces = np.frombuffer(f.read(),
-                              np.uint32).reshape(-1, 3)
+        vertices = np.frombuffer(f.read(int(3 * 4 * num_vertices)), np.float32).reshape(
+            -1, 3
+        )
+        faces = np.frombuffer(f.read(), np.uint32).reshape(-1, 3)
 
-        return core.MeshNeuron({'vertices': vertices, 'faces': faces},
-                               **(self._make_attributes({'name': self.name_fallback,
-                                                         'origin': 'DataFrame'}, attrs)))
+        return core.MeshNeuron(
+            {"vertices": vertices, "faces": faces},
+            **(
+                self._make_attributes(
+                    {"name": self.name_fallback, "origin": "DataFrame"}, attrs
+                )
+            ),
+        )
 
 
 class PrecomputedSkeletonReader(PrecomputedReader):
@@ -112,19 +123,23 @@ class PrecomputedSkeletonReader(PrecomputedReader):
         self,
         fmt: str = DEFAULT_FMT,
         attrs: Optional[Dict[str, Any]] = None,
-        info: Dict[str, Any] = {}
+        info: Dict[str, Any] = {},
+        errors: str = "raise",
     ):
-        super().__init__(fmt=fmt,
-                         attrs=attrs,
-                         file_ext='',
-                         name_fallback='skeleton',
-                         read_binary=True)
+        super().__init__(
+            fmt=fmt,
+            attrs=attrs,
+            file_ext="",
+            name_fallback="skeleton",
+            read_binary=True,
+            errors=errors,
+        )
         self.info = info
 
+    @base.handle_errors
     def read_buffer(
-        self,
-        f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> 'core.TreeNeuron':
+        self, f: IO, attrs: Optional[Dict[str, Any]] = None
+    ) -> "core.TreeNeuron":
         """Read buffer into a TreeNeuron.
 
         Parameters
@@ -140,40 +155,42 @@ class PrecomputedSkeletonReader(PrecomputedReader):
 
         """
         if not isinstance(f.read(0), bytes):
-            raise ValueError(f'Expected bytes, got {type(f.read(0))}')
+            raise ValueError(f"Expected bytes, got {type(f.read(0))}")
 
         num_nodes = np.frombuffer(f.read(4), np.uint32)[0]
         num_edges = np.frombuffer(f.read(4), np.uint32)[0]
-        nodes = np.frombuffer(f.read(int(3 * 4 * num_nodes)),
-                              np.float32).reshape(-1, 3)
-        edges = np.frombuffer(f.read(int(2 * 4 * num_edges)),
-                              np.uint32).reshape(-1, 2)
+        nodes = np.frombuffer(f.read(int(3 * 4 * num_nodes)), np.float32).reshape(-1, 3)
+        edges = np.frombuffer(f.read(int(2 * 4 * num_edges)), np.uint32).reshape(-1, 2)
 
         swc = self.make_swc(nodes, edges)
 
         # Check for malformed vertex attributes (should be list of dicts)
-        if isinstance(self.info.get('vertex_attributes', None), dict):
-            self.info['vertex_attributes'] = [self.info['vertex_attributes']]
+        if isinstance(self.info.get("vertex_attributes", None), dict):
+            self.info["vertex_attributes"] = [self.info["vertex_attributes"]]
 
         # Parse additional vertex attributes if specified as per the info file
-        for attr in self.info.get('vertex_attributes', []):
-            dtype = np.dtype(attr['data_type'])
-            n_comp = attr['num_components']
-            values = np.frombuffer(f.read(int(n_comp * dtype.itemsize * num_nodes)),
-                                   dtype).reshape(-1, n_comp)
+        for attr in self.info.get("vertex_attributes", []):
+            dtype = np.dtype(attr["data_type"])
+            n_comp = attr["num_components"]
+            values = np.frombuffer(
+                f.read(int(n_comp * dtype.itemsize * num_nodes)), dtype
+            ).reshape(-1, n_comp)
             if n_comp == 1:
-                swc[attr['id']] = values.flatten()
+                swc[attr["id"]] = values.flatten()
             else:
                 for i in range(n_comp):
                     swc[f"{attr['id']}_{i}"] = values[:, i]
 
-        return core.TreeNeuron(swc,
-                               **(self._make_attributes({'name': self.name_fallback,
-                                                         'origin': 'DataFrame'}, attrs)))
+        return core.TreeNeuron(
+            swc,
+            **(
+                self._make_attributes(
+                    {"name": self.name_fallback, "origin": "DataFrame"}, attrs
+                )
+            ),
+        )
 
-    def make_swc(
-        self, nodes: np.ndarray, edges: np.ndarray
-    ) -> pd.DataFrame:
+    def make_swc(self, nodes: np.ndarray, edges: np.ndarray) -> pd.DataFrame:
         """Make SWC table from nodes and edges.
 
         Parameters
@@ -186,25 +203,28 @@ class PrecomputedSkeletonReader(PrecomputedReader):
         pandas.DataFrame
         """
         swc = pd.DataFrame()
-        swc['node_id'] = np.arange(len(nodes))
-        swc['x'], swc['y'], swc['z'] = nodes[:, 0], nodes[:, 1], nodes[:, 2]
+        swc["node_id"] = np.arange(len(nodes))
+        swc["x"], swc["y"], swc["z"] = nodes[:, 0], nodes[:, 1], nodes[:, 2]
 
         edge_dict = dict(zip(edges[:, 1], edges[:, 0]))
-        swc['parent_id'] = swc.node_id.map(lambda x: edge_dict.get(x, -1)).astype(np.int32)
+        swc["parent_id"] = swc.node_id.map(lambda x: edge_dict.get(x, -1)).astype(
+            np.int32
+        )
 
         return swc
 
 
-def read_precomputed(f: Union[str, io.BytesIO],
-                     datatype: Union[Literal['auto'],
-                                     Literal['mesh'],
-                                     Literal['skeleton']] = 'auto',
-                     include_subdirs: bool = False,
-                     fmt: str = '{id}',
-                     info: Union[bool, str, dict] = True,
-                     limit: Optional[int] = None,
-                     parallel: Union[bool, int] = 'auto',
-                     **kwargs) -> 'core.NeuronObject':
+def read_precomputed(
+    f: Union[str, io.BytesIO],
+    datatype: Union[Literal["auto"], Literal["mesh"], Literal["skeleton"]] = "auto",
+    include_subdirs: bool = False,
+    fmt: str = "{id}",
+    info: Union[bool, str, dict] = True,
+    limit: Optional[int] = None,
+    parallel: Union[bool, int] = "auto",
+    errors: Literal["raise", "log", "ignore"] = "raise",
+    **kwargs,
+) -> "core.NeuronObject":
     """Read skeletons and meshes from neuroglancer's precomputed format.
 
     Follows the formats specified
@@ -224,8 +244,7 @@ def read_precomputed(f: Union[str, io.BytesIO],
                         If True and `f` is a folder, will also search
                         subdirectories for binary files.
     fmt :               str
-                        Formatter to specify what files to look for (when `f` is
-                        directory) and how they are parsed into neuron
+                        Formatter to specify how filenames are parsed into neuron
                         attributes. Some illustrative examples:
                           - `{name}` (default) uses the filename
                             (minus the suffix) as the neuron's name property
@@ -245,18 +264,25 @@ def read_precomputed(f: Union[str, io.BytesIO],
                             ID. The middle part is ignored.
 
                         Throws a ValueError if pattern can't be found in
-                        filename. Ignored for DataFrames.
+                        filename.
     info :              bool | str | dict
                         An info file describing the data:
                           - `True` = will look for `info` file in base folder
                           - `False` = do not use/look for `info` file
                           - `str` = filepath to `info` file
                           - `dict` = already parsed info file
-    limit :             int, optional
-                        If reading from a folder you can use this parameter to
-                        read only the first `limit` files. Useful if
-                        wanting to get a sample from a large library of
-                        skeletons/meshes.
+    limit :             int | str | slice | list, optional
+                        When reading from a folder or archive you can use this parameter to
+                        restrict the which files read:
+                         - if an integer, will read only the first `limit` files
+                           (useful to get a sample from a large library of neurons)
+                         - if a string, will interpret it as filename (regex) pattern
+                           and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                           will only read files that contain `_R` in their filename
+                         - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                           that range
+                         - a list is expected to be a list of filenames to read from
+                           the folder/archive
     parallel :          "auto" | bool | int
                         Defaults to `auto` which means only use parallel
                         processing if more than 200 files are imported. Spawning
@@ -265,6 +291,9 @@ def read_precomputed(f: Union[str, io.BytesIO],
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
                         `os.cpu_count() // 2`).
+    errors :            "raise" | "log" | "ignore"
+                        If "log" or "ignore", errors will not be raised and the
+                        mesh will be skipped. Can result in empty output.
     **kwargs
                         Keyword arguments passed to the construction of the
                         neurons. You can use this to e.g. set meta data such
@@ -279,26 +308,30 @@ def read_precomputed(f: Union[str, io.BytesIO],
     --------
     [`navis.write_precomputed`][]
                         Export neurons/volumes to precomputed format.
+    [`navis.read_mesh`][]
+                        Read common mesh formats (obj, stl, etc).
 
     """
-    utils.eval_param(datatype, name='datatype', allowed_values=('skeleton',
-                                                                'mesh',
-                                                                'auto'))
+    utils.eval_param(
+        datatype, name="datatype", allowed_values=("skeleton", "mesh", "auto")
+    )
 
     # See if we can get the info file from somewhere
     if info is True and not isinstance(f, bytes):
         # Find info in zip archive
-        if str(f).endswith('.zip'):
-            with ZipFile(Path(f).expanduser(), 'r') as zip:
-                if 'info' in [f.filename for f in zip.filelist]:
-                    info = json.loads(zip.read('info').decode())
-                elif datatype == 'auto':
-                    raise ValueError('No `info` file found in zip file. Please '
-                                     'specify data type using the `datatype` '
-                                     'parameter.')
+        if str(f).endswith(".zip"):
+            with ZipFile(Path(f).expanduser(), "r") as zip:
+                if "info" in [f.filename for f in zip.filelist]:
+                    info = json.loads(zip.read("info").decode())
+                elif datatype == "auto":
+                    raise ValueError(
+                        "No `info` file found in zip file. Please "
+                        "specify data type using the `datatype` "
+                        "parameter."
+                    )
         # Try loading info from URL
         elif utils.is_url(str(f)):
-            base_url = '/'.join(str(f).split('/')[:-1])
+            base_url = "/".join(str(f).split("/")[:-1])
             info = _fetch_info_file(base_url, raise_missing=False)
         # Try loading info from parent path
         else:
@@ -306,9 +339,9 @@ def read_precomputed(f: Union[str, io.BytesIO],
             # Find first existing root
             while not fp.is_dir():
                 fp = fp.parent
-            fp = fp / 'info'
+            fp = fp / "info"
             if fp.is_file():
-                with open(fp, 'r') as info_file:
+                with open(fp, "r") as info_file:
                     info = json.load(info_file)
 
     # At this point we should have a dictionary - even if it's empty
@@ -316,30 +349,36 @@ def read_precomputed(f: Union[str, io.BytesIO],
         info = {}
 
     # Parse data type from info file (if required)
-    if datatype == 'auto':
-        if '@type' not in info:
-            raise ValueError('Either no `info` file found or it does not specify '
-                             'a data type. Please provide data type using the '
-                             '`datatype` parameter.')
+    if datatype == "auto":
+        if "@type" not in info:
+            raise ValueError(
+                "Either no `info` file found or it does not specify "
+                "a data type. Please provide data type using the "
+                "`datatype` parameter."
+            )
 
-        if info.get('@type', None) == 'neuroglancer_legacy_mesh':
-            datatype = 'mesh'
-        elif info.get('@type', None) == 'neuroglancer_skeletons':
-            datatype = 'skeleton'
+        if info.get("@type", None) == "neuroglancer_legacy_mesh":
+            datatype = "mesh"
+        elif info.get("@type", None) == "neuroglancer_skeletons":
+            datatype = "skeleton"
         else:
-            raise ValueError('Data type specified in `info` file unknown: '
-                             f'{info.get("@type", None)}. Please provide data '
-                             'type using the `datatype` parameter.')
+            raise ValueError(
+                'Data type specified in `info` file unknown: '
+                f'{info.get("@type", None)}. Please provide data '
+                'type using the `datatype` parameter.'
+            )
 
     if isinstance(f, bytes):
         f = io.BytesIO(f)
 
-    if datatype == 'skeleton':
+    if datatype == "skeleton":
         if not isinstance(info, dict):
             info = {}
-        reader = PrecomputedSkeletonReader(fmt=fmt, attrs=kwargs, info=info)
+        reader = PrecomputedSkeletonReader(
+            fmt=fmt, errors=errors, attrs=kwargs, info=info
+        )
     else:
-        reader = PrecomputedMeshReader(fmt=fmt, attrs=kwargs)
+        reader = PrecomputedMeshReader(fmt=fmt, errors=errors, attrs=kwargs)
 
     return reader.read_any(f, include_subdirs, parallel, limit=limit)
 
@@ -350,28 +389,28 @@ class PrecomputedWriter(base.Writer):
     def write_any(self, x, filepath, write_info=True, **kwargs):
         """Write any to file. Default entry point."""
         # First write the actual neurons
-        kwargs['write_info'] = False
+        kwargs["write_info"] = False
         super().write_any(x, filepath=filepath, **kwargs)
 
         # Write info file to the correct directory/zipfile
         if write_info:
             add_props = {}
-            if kwargs.get('radius', False):
-                add_props['vertex_attributes'] = [{'id': 'radius',
-                                                  'data_type': 'float32',
-                                                  'num_components': 1}]
+            if kwargs.get("radius", False):
+                add_props["vertex_attributes"] = [
+                    {"id": "radius", "data_type": "float32", "num_components": 1}
+                ]
 
-            if str(self.path).endswith('.zip'):
-                with ZipFile(self.path, mode='a') as zf:
+            if str(self.path).endswith(".zip"):
+                with ZipFile(self.path, mode="a") as zf:
                     # Context-manager will remove temporary directory and its contents
                     with tempfile.TemporaryDirectory() as tempdir:
                         # Write info to zip
                         if write_info:
                             # Generate temporary filename
-                            f = os.path.join(tempdir, 'info')
+                            f = os.path.join(tempdir, "info")
                             write_info_file(x, f, add_props=add_props)
                             # Add file to zip
-                            zf.write(f, arcname='info', compress_type=compression)
+                            zf.write(f, arcname="info", compress_type=compression)
             else:
                 fp = self.path
                 # Find the first existing root directory
@@ -381,11 +420,13 @@ class PrecomputedWriter(base.Writer):
                 write_info_file(x, fp, add_props=add_props)
 
 
-def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshNeuron', 'core.Volume'],
-                      filepath: Optional[str] = None,
-                      write_info: bool = True,
-                      write_manifest: bool = False,
-                      radius: bool = False) -> None:
+def write_precomputed(
+    x: Union["core.NeuronList", "core.TreeNeuron", "core.MeshNeuron", "core.Volume"],
+    filepath: Optional[str] = None,
+    write_info: bool = True,
+    write_manifest: bool = False,
+    radius: bool = False,
+) -> None:
     """Export skeletons or meshes to neuroglancer's (legacy) precomputed format.
 
     Note that you should not mix meshes and skeletons in the same folder!
@@ -458,35 +499,39 @@ def write_precomputed(x: Union['core.NeuronList', 'core.TreeNeuron', 'core.MeshN
     """
     writer = PrecomputedWriter(_write_precomputed, ext=None)
 
-    return writer.write_any(x,
-                            filepath=filepath,
-                            write_info=write_info,
-                            write_manifest=write_manifest,
-                            radius=radius)
+    return writer.write_any(
+        x,
+        filepath=filepath,
+        write_info=write_info,
+        write_manifest=write_manifest,
+        radius=radius,
+    )
 
 
-def _write_precomputed(x: Union['core.TreeNeuron', 'core.MeshNeuron', 'core.Volume'],
-                       filepath: Optional[str] = None,
-                       write_info: bool = True,
-                       write_manifest: bool = False,
-                       radius: bool = False) -> None:
+def _write_precomputed(
+    x: Union["core.TreeNeuron", "core.MeshNeuron", "core.Volume"],
+    filepath: Optional[str] = None,
+    write_info: bool = True,
+    write_manifest: bool = False,
+    radius: bool = False,
+) -> None:
     """Write single neuron to neuroglancer's precomputed format."""
     if filepath and os.path.isdir(filepath):
         if isinstance(x, core.BaseNeuron):
             if not x.id:
-                raise ValueError('Neuron(s) must have an ID when destination '
-                                 'is a folder')
-            filepath = os.path.join(filepath, f'{x.id}')
+                raise ValueError(
+                    "Neuron(s) must have an ID when destination " "is a folder"
+                )
+            filepath = os.path.join(filepath, f"{x.id}")
         elif isinstance(x, core.Volume):
-            filepath = os.path.join(filepath, f'{x.name}')
+            filepath = os.path.join(filepath, f"{x.name}")
         else:
-            raise ValueError(f'Unable to generate filename for {type(x)}')
+            raise ValueError(f"Unable to generate filename for {type(x)}")
 
     if isinstance(x, core.TreeNeuron):
         return _write_skeleton(x, filepath, radius=radius)
     elif utils.is_mesh(x):
-        return _write_mesh(x.vertices, x.faces, filepath,
-                           write_manifest=write_manifest)
+        return _write_mesh(x.vertices, x.faces, filepath, write_manifest=write_manifest)
     else:
         raise TypeError(f'Unable to write data of type "{type(x)}"')
 
@@ -507,53 +552,54 @@ def write_info_file(data, filepath, add_props={}):
     if utils.is_iterable(data):
         types = list(set([type(d) for d in data]))
         if len(types) > 1:
-            raise ValueError('Unable to write info file for mixed data: '
-                             f'{data.types}')
+            raise ValueError(
+                "Unable to write info file for mixed data: " f"{data.types}"
+            )
         data = data[0]
 
     if utils.is_mesh(data):
-        info['@type'] = 'neuroglancer_legacy_mesh'
+        info["@type"] = "neuroglancer_legacy_mesh"
     elif isinstance(data, core.TreeNeuron):
-        info['@type'] = 'neuroglancer_skeletons'
+        info["@type"] = "neuroglancer_skeletons"
 
         # If we know the units add transform from "stored model"
         # to "model space" which is supposed to be nm
         if not data.units.dimensionless:
-            u = data.units.to('1 nm').magnitude
+            u = data.units.to("1 nm").magnitude
         else:
             u = 1
         tr = np.zeros((4, 3), dtype=int)
         tr[:3, :3] = np.diag([u, u, u])
-        info['transform'] = tr.T.flatten().tolist()
+        info["transform"] = tr.T.flatten().tolist()
 
     else:
         raise TypeError(f'Unable to write info file for data of type "{type(data)}"')
 
     info.update(add_props)
-    if not str(filepath).endswith('/info'):
-        filepath = os.path.join(filepath, 'info')
-    with open(filepath, 'w') as f:
+    if not str(filepath).endswith("/info"):
+        filepath = os.path.join(filepath, "info")
+    with open(filepath, "w") as f:
         json.dump(info, f)
 
 
 def _write_mesh(vertices, faces, filename, write_manifest=False):
     """Write mesh to precomputed binary format."""
     # Make sure we are working with the correct data types
-    vertices = np.asarray(vertices, dtype='float32')
-    faces = np.asarray(faces, dtype='uint32')
+    vertices = np.asarray(vertices, dtype="float32")
+    faces = np.asarray(faces, dtype="uint32")
     n_vertices = np.uint32(vertices.shape[0])
     vertex_index_format = [n_vertices, vertices, faces]
 
-    results = b''.join([array.tobytes('C') for array in vertex_index_format])
+    results = b"".join([array.tobytes("C") for array in vertex_index_format])
 
     if filename:
         filename = Path(filename)
-        with open(filename, 'wb') as f:
+        with open(filename, "wb") as f:
             f.write(results)
 
         if write_manifest:
-            with open(filename.parent / f'{filename.name}:0', 'w') as f:
-                json.dump({'fragments': [filename.name]}, f)
+            with open(filename.parent / f"{filename.name}:0", "w") as f:
+                json.dump({"fragments": [filename.name]}, f)
     else:
         return results
 
@@ -563,25 +609,25 @@ def _write_skeleton(x, filename, radius=False):
     # Below code modified from:
     # https://github.com/google/neuroglancer/blob/master/python/neuroglancer/skeleton.py#L34
     result = io.BytesIO()
-    vertex_positions = x.nodes[['x', 'y', 'z']].values.astype('float32', order='C')
+    vertex_positions = x.nodes[["x", "y", "z"]].values.astype("float32", order="C")
     # Map edges node IDs to node indices
     node_ix = pd.Series(x.nodes.reset_index(drop=True).index, index=x.nodes.node_id)
-    edges = x.edges.copy().astype('uint32', order='C')
+    edges = x.edges.copy().astype("uint32", order="C")
     edges[:, 0] = node_ix.loc[edges[:, 0]].values
     edges[:, 1] = node_ix.loc[edges[:, 1]].values
     edges = edges[:, [1, 0]]  # For some reason we have to switch direction
 
-    result.write(struct.pack('<II', vertex_positions.shape[0], edges.shape[0]))
+    result.write(struct.pack("<II", vertex_positions.shape[0], edges.shape[0]))
     result.write(vertex_positions.tobytes())
     result.write(edges.tobytes())
 
-    if radius and 'radius' in x.nodes.columns:
-        if any(pd.isnull(x.nodes['radius'])):
-            raise ValueError('Unable to write radii with missing values.')
-        result.write(x.nodes.radius.values.astype('float32').tobytes())
+    if radius and "radius" in x.nodes.columns:
+        if any(pd.isnull(x.nodes["radius"])):
+            raise ValueError("Unable to write radii with missing values.")
+        result.write(x.nodes.radius.values.astype("float32").tobytes())
 
     if filename:
-        with open(filename, 'wb') as f:
+        with open(filename, "wb") as f:
             f.write(result.getvalue())
     else:
         return result.getvalue()
@@ -590,9 +636,9 @@ def _write_skeleton(x, filename, radius=False):
 @lru_cache
 def _fetch_info_file(base_url, raise_missing=True):
     """Try and fetch `info` file for given base url."""
-    if not base_url.endswith('/'):
-        base_url += '/'
-    r = requests.get(f'{base_url}info')
+    if not base_url.endswith("/"):
+        base_url += "/"
+    r = requests.get(f"{base_url}info")
 
     try:
         r.raise_for_status()

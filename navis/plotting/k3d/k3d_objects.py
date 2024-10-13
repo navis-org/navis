@@ -69,6 +69,7 @@ def neuron2k3d(x, colormap, settings):
     cn_lay.update(settings.cn_layout)
 
     trace_data = []
+    _radius_warned = False
     for i, neuron in enumerate(x):
         name = str(getattr(neuron, "name", neuron.id))
         color = colormap[i]
@@ -106,7 +107,23 @@ def neuron2k3d(x, colormap, settings):
                 settings.radius = False
 
         if isinstance(neuron, core.TreeNeuron) and settings.radius:
-            _neuron = conversion.tree2meshneuron(neuron)
+            # Warn once if more than 5% of nodes have missing radii
+            if not _radius_warned:
+                if (
+                    (neuron.nodes.radius.fillna(0).values <= 0).sum() / neuron.n_nodes
+                ) > 0.05:
+                    logger.warning(
+                        "Some skeleton nodes have radius <= 0. This may lead to "
+                        "rendering artifacts. Set `radius=False` to plot skeletons "
+                        "as single-width lines instead."
+                    )
+                    _radius_warned = True
+
+            _neuron = conversion.tree2meshneuron(
+                neuron,
+                warn_missing_radii=False,
+                radius_scale_factor=settings.get("linewidth", 1),
+            )
             _neuron.connectors = neuron.connectors
             neuron = _neuron
 
@@ -157,17 +174,21 @@ def neuron2k3d(x, colormap, settings):
         # Add connectors
         if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
             if isinstance(settings.connectors, (list, np.ndarray, tuple)):
-                connectors = neuron.connectors[neuron.connectors.type.isin(settings.connectors)]
-            elif settings.connectors == 'pre':
+                connectors = neuron.connectors[
+                    neuron.connectors.type.isin(settings.connectors)
+                ]
+            elif settings.connectors == "pre":
                 connectors = neuron.presynapses
-            elif settings.connectors == 'post':
+            elif settings.connectors == "post":
                 connectors = neuron.postsynapses
             elif isinstance(settings.connectors, str):
-                connectors = neuron.connectors[neuron.connectors.type == settings.connectors]
+                connectors = neuron.connectors[
+                    neuron.connectors.type == settings.connectors
+                ]
             else:
                 connectors = neuron.connectors
 
-            for j, this_cn in connectors.groupby('type'):
+            for j, this_cn in connectors.groupby("type"):
                 if isinstance(settings.cn_colors, dict):
                     c = settings.cn_colors.get(
                         j, cn_lay.get(j, {"color": (10, 10, 10)})["color"]
@@ -193,7 +214,9 @@ def neuron2k3d(x, colormap, settings):
                                 positions=this_cn[["x", "y", "z"]].values,
                                 name=cn_label,
                                 shader="flat",
-                                point_size=settings.cn_size if settings.cn_size else cn_lay['size'] * 50,
+                                point_size=settings.cn_size
+                                if settings.cn_size
+                                else cn_lay["size"] * 50,
                                 color=c,
                             )
                         )

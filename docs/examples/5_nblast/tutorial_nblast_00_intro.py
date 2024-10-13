@@ -33,7 +33,7 @@ given query and a given target neuron is determined by:
     Importantly, these matrices were created using _Drosophila_ neurons from the [FlyCircuit](http://flycircuit.tw/) light-level dataset which
     are in microns. Consequently, you should make sure your neurons are also in micrometer units for NBLAST! If you are working on non-insect
     neurons you might have to play around with the scaling to improve results. Alternatively, you can also produce your own scoring function
-    (see [this tutorial](../plot_03_nblast_smat)).
+    (see [this tutorial](../tutorial_nblast_03_smat)).
 
 3. Produce a per-pair score:
 
@@ -205,7 +205,7 @@ plt.tight_layout()
 # Let's try something more elaborate and pull some hemibrain neurons from [neuPrint](https://neuprint.janelia.org/). For this you need to install the
 # `neuprint-python` package (`pip3 install neuprint-python`), make a neuPrint account and generate/set an authentication token. Sounds complicated
 # but is all pretty painless - see the [neuPrint documentation](https://connectome-neuprint.github.io/neuprint-python/docs/quickstart.html) for details.
-# There is also a separate {{ navis }} tutorial on neuprint [here](../4_remote/plot_00_remote_neuprint).
+# There is also a separate {{ navis }} tutorial on neuprint [here](../4_remote/tutorial_remote_00_neuprint).
 #
 # Once that's done we can get started by importing the neuPrint interface from {{ navis }}:
 

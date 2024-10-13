@@ -37,7 +37,7 @@ from .nblast_funcs import (check_microns, find_optimal_partition,
 
 try:
     from pykdtree.kdtree import KDTree
-except ImportError:
+except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
 __all__ = ['synblast']

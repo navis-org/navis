@@ -5,7 +5,7 @@ Fine-tuning Skeletons
 In this example we will demonstrate various ways to fine-tune plots with skeletons.
 
 By now, you should already have a basic understanding on how to plot neurons in {{ navis }} (2d vs 3d plots, the various
-backends and plotting methods, etc.) - if not, check out the [plotting tutorial](../plot_00_plotting_intro).
+backends and plotting methods, etc.) - if not, check out the [plotting tutorial](../tutorial_plotting_00_intro).
 
 We will focus on how to finetune [`plot2d`][navis.plot2d] plots because `matplotlib` is much more flexible than the
 [`plot3d`][navis.plot3d] backends when it comes to rendering lines. That said: some of the things we show here will also

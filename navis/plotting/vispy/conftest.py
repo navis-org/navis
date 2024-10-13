@@ -5,6 +5,5 @@ without development dependencies.
 """
 try:
     import vispy
-
-except ImportError:
+except ModuleNotFoundError:
     collect_ignore_glob = ["*.py"]

@@ -81,6 +81,7 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.arithmatex:
       generic: true
+  - footnotes
 
 plugins:
   # the privacy plugin will bundle external assets (like Google Fonts)
@@ -134,12 +135,14 @@ plugins:
               - "^__init__$"
   - glightbox
   - gallery:
+      filename_pattern: "/tutorial_"
       examples_dirs: docs/examples          # path to your example scripts
       gallery_dirs: docs/generated/gallery  # where to save generated gallery
       conf_script: docs/gallery_conf.py      # configuration script
       within_subsection_order: FileNameSortKey  # sort examples by filename
       download_all_examples: false
       remove_config_comments: true
+      matplotlib_animations: true
       # only_warn_on_example_error: true
   - markdown-exec
 

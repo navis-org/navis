@@ -57,9 +57,10 @@ def scan_parquet(file: Union[str, Path]):
     """
     try:
         import pyarrow.parquet as pq
-    except ImportError:
-        raise ImportError('Reading parquet files requires the pyarrow library:\n'
-                          ' pip3 install pyarrow')
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            'Reading parquet files requires the pyarrow library:\n'
+            ' pip3 install pyarrow')
 
     f = Path(file).expanduser()
     if not f.is_file():
@@ -154,9 +155,10 @@ def read_parquet(f: Union[str, Path],
 
     try:
         import pyarrow.parquet as pq
-    except ImportError:
-        raise ImportError('Reading parquet files requires the pyarrow library:\n'
-                          ' pip3 install pyarrow')
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            'Reading parquet files requires the pyarrow library:\n'
+            ' pip3 install pyarrow')
 
     if limit is not None:
         if subset not in (None, False):
@@ -381,12 +383,11 @@ def _write_parquet_skeletons(x: 'core.TreeNeuron',
     try:
         import pyarrow as pa
         import pyarrow.parquet as pq
-    except ImportError:
-        raise ImportError('Writing parquet files requires the pyarrow library:\n'
-                         ' pip3 install pyarrow')
-
-    # Make sure we're working with a list, not a single neuron
-    x = core.NeuronList(x)
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            'Writing parquet files requires the pyarrow library:\n'
+            ' pip3 install pyarrow'
+            )
 
     # Generate node table
     nodes = x.nodes[x.nodes.columns[np.isin(x.nodes.columns, SKELETON_COLUMNS)]]
@@ -426,9 +427,11 @@ def _write_parquet_dotprops(x: 'core.Dotprops',
     try:
         import pyarrow as pa
         import pyarrow.parquet as pq
-    except ImportError:
-        raise ImportError('Writing parquet files requires the pyarrow library:\n'
-                         ' pip3 install pyarrow')
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            'Writing parquet files requires the pyarrow library:\n'
+            ' pip3 install pyarrow'
+            )
 
     # Make sure we're working with a list, not a single neuron
     x = core.NeuronList(x)

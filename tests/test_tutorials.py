@@ -21,8 +21,6 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from contextlib import contextmanager
 
-SKIP = ["zzz_no_plot_01_nblast_flycircuit.py", "zzz_no_plot_02_nblast_hemibrain.py"]
-
 
 @contextmanager
 def suppress_stdout():
@@ -52,7 +50,7 @@ if __name__ == "__main__":
     for i, file in enumerate(files):
         if not file.is_file():
             continue
-        if file.name in SKIP:
+        if file.name.startswith('zzz'):
             continue
 
         # Note: we're using `exec` here instead of e.g. `subprcoess.run` because we need to avoid

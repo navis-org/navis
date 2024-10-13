@@ -51,7 +51,7 @@ def patch_cloudvolume():
     global cv
     try:
         import cloudvolume as cv
-    except ImportError:
+    except ModuleNotFoundError:
         cv = None
 
     # If CV not installed do nothing

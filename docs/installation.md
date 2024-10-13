@@ -54,6 +54,13 @@ Open up a terminal and install {{ navis }} with:
     pip install git+https://github.com/navis-org/navis@master
     ```
 
+    To install the latest dev with extras:
+
+    ``` sh
+    pip install "navis[all] @ git+https://github.com/navis-org/navis@master"
+    ```
+
+
 !!! note
 
     MacOS (both Intel and the new ARM chips) and Linux should work off the bat without any problems.

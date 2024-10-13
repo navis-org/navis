@@ -23,11 +23,11 @@ from typing import Union, Optional
 
 from .. import utils, config
 from .base import BaseNeuron
-from .core_utils import temp_property
+from .core_utils import temp_property, add_units
 
 try:
     import xxhash
-except ImportError:
+except ModuleNotFoundError:
     xxhash = None
 
 
@@ -143,7 +143,7 @@ class VoxelNeuron(BaseNeuron):
         self.__dict__.update(d)
 
     def __truediv__(self, other, copy=True):
-        """Implement division for coordinates (units, connectors)."""
+        """Implement division for coordinates (units, connectors, offset)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
@@ -165,7 +165,7 @@ class VoxelNeuron(BaseNeuron):
         return NotImplemented
 
     def __mul__(self, other, copy=True):
-        """Implement multiplication for coordinates (units, connectors)."""
+        """Implement multiplication for coordinates (units, connectors, offset)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
@@ -180,6 +180,36 @@ class VoxelNeuron(BaseNeuron):
             n.offset = n.offset * other
             if n.has_connectors:
                 n.connectors.loc[:, ['x', 'y', 'z']] *= other
+
+            self._clear_temp_attr()
+
+            return n
+        return NotImplemented
+
+    def __add__(self, other, copy=True):
+        """Implement addition for coordinates (offset, connectors)."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            # If a number, consider this an offset for coordinates
+            n = self.copy() if copy else self
+
+            n.offset = n.offset + other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] += other
+
+            self._clear_temp_attr()
+
+            return n
+        return NotImplemented
+
+    def __sub__(self, other, copy=True):
+        """Implement subtraction for coordinates (offset, connectors)."""
+        if isinstance(other, numbers.Number) or utils.is_iterable(other):
+            # If a number, consider this an offset for coordinates
+            n = self.copy() if copy else self
+
+            n.offset = n.offset - other
+            if n.has_connectors:
+                n.connectors.loc[:, ['x', 'y', 'z']] -= other
 
             self._clear_temp_attr()
 
@@ -218,12 +248,12 @@ class VoxelNeuron(BaseNeuron):
         return np.vstack((mn, mx)).T
 
     @property
+    @add_units(compact=True, power=3)
     def volume(self) -> float:
         """Volume of neuron."""
         # Get volume of a single voxel
         voxel_volume = self.units_xyz[0] * self.units_xyz[2] * self.units_xyz[2]
-        voxel_volume = voxel_volume.to_compact()
-        return self.voxels.shape[0] * voxel_volume
+        return (self.nnz * voxel_volume).to_compact()
 
     @property
     @temp_property
@@ -343,6 +373,25 @@ class VoxelNeuron(BaseNeuron):
     def type(self) -> str:
         """Neuron type."""
         return 'navis.VoxelNeuron'
+
+    @property
+    def density(self) -> float:
+        """Fraction of filled voxels."""
+        return self.nnz / np.product(self.shape)
+
+    @property
+    def nnz(self) -> int:
+        """Number of non-zero voxels."""
+        return self.count_nonzero()
+
+    def count_nonzero(self) -> int:
+        """Count non-zero voxels."""
+        if self._base_data_type == "grid":
+            return np.count_nonzero(self.grid)
+        elif self._base_data_type == "voxels":
+            return np.count_nonzero(self.values)
+
+        raise TypeError(f"Unexpected data type: {self._base_data_type}")
 
     def copy(self) -> 'VoxelNeuron':
         """Return a copy of the neuron."""

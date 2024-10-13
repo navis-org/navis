@@ -28,7 +28,7 @@ err_msg = dedent("""
 try:
     from caveclient import CAVEclient
     import cloudvolume as cv
-except ImportError:
+except ModuleNotFoundError:
     config.logger.error(err_msg)
     CAVEclient = None
     cv = None
@@ -76,7 +76,7 @@ def get_datastacks(microns_only=True):
 
     """
     if not CAVEclient:
-        raise ImportError(err_msg)
+        raise ModuleNotFoundError(err_msg)
 
     stacks = CAVEclient().info.get_datastacks()
 
@@ -98,7 +98,7 @@ def get_cave_client(datastack="cortex65"):
 
     """
     if not CAVEclient:
-        raise ImportError(err_msg)
+        raise ModuleNotFoundError(err_msg)
 
     # Try mapping, else pass-through
     datastack = _translate_datastack(datastack)

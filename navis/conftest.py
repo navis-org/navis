@@ -10,10 +10,8 @@ from pathlib import Path
 
 try:
     import pytest
-
     decorator = pytest.fixture(autouse=True)
-
-except ImportError:
+except ModuleNotFoundError:
     def decorator(fn):
         return fn
 

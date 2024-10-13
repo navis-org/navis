@@ -20,12 +20,14 @@ from .manipulation import (prune_by_strahler, stitch_skeletons,
                            despike_skeleton, guess_radius, smooth_skeleton,
                            heal_skeleton, break_fragments,
                            prune_twigs, prune_at_depth, cell_body_fiber,
-                           drop_fluff, smooth_voxels, combine_neurons)
+                           drop_fluff, combine_neurons)
 from .analyze import find_soma
 from .subset import subset_neuron
 from .persistence import (persistence_points, persistence_vectors,
                           persistence_distances)
 from .fq import form_factor
+from .ivscc import ivscc_features
+from .images import smooth_voxels, thin_voxels
 
 
 __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_centrality',
@@ -37,4 +39,4 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_ce
            'subset_neuron', 'smooth_voxels', 'sholl_analysis',
            'persistence_points', 'betweeness_centrality',
            'persistence_vectors', 'persistence_distances', 'combine_neurons',
-           'segment_analysis', 'form_factor']
+           'segment_analysis', 'form_factor', 'ivscc_features', "thin_voxels"]

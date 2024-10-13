@@ -18,7 +18,7 @@ import trimesh as tm
 
 try:
     from pykdtree.kdtree import KDTree
-except ImportError:
+except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
 from .. import core, config, utils
@@ -37,7 +37,7 @@ def available_backends(only_first=False):
     try:
         import pyfqmr
         backends.append('pyfqmr')
-    except ImportError:
+    except ModuleNotFoundError:
         pass
     except BaseException:
         raise
@@ -48,7 +48,7 @@ def available_backends(only_first=False):
     try:
         import open3d
         backends.append('open3d')
-    except ImportError:
+    except ModuleNotFoundError:
         pass
     except BaseException:
         raise
@@ -61,7 +61,7 @@ def available_backends(only_first=False):
             warnings.simplefilter("ignore")
             import pymeshlab
         backends.append('pymeshlab')
-    except ImportError:
+    except ModuleNotFoundError:
         pass
     except BaseException:
         raise
