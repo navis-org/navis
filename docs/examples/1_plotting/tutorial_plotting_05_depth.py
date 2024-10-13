@@ -5,7 +5,8 @@ Depth-coloring
 This example shows how to color neurons by depth.
 
 The obvious issue with 2d plots is that they are... well, 2d. This means that you can't easily convey depth information.
-What we can do, however, is color the neuron by depth. This is a simple way to give a sense of the neuron's 3d structure.
+What we can do, however, is color the neuron by depth - that is by the distance to the camera.
+This is a simple way to give a sense of the neuron's 3d structure.
 
 Note that this currently works only for [`navis.plot2d`][], i.e. `matplotlib`:
 

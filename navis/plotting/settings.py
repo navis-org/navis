@@ -79,7 +79,7 @@ class BasePlottingSettings(Settings):
 
     # For TreeNeurons
     soma: bool = True
-    radius: bool = "auto"
+    radius: bool = False  # True | False | "auto"
     linewidth: float = 1
     linestyle: str = "-"
 

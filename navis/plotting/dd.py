@@ -92,10 +92,10 @@ def plot2d(
                         pass `soma` as a dictionary to customize the appearance
                         of the soma - for example `soma={"color": "red", "lw": 2, "ec": 1}`.
 
-    radius :            "auto" (default) | bool
+    radius :            bool | "auto", default=False
 
                         If "auto" will plot neurites of `TreeNeurons` with radius
-                        if they have radii. If True, will plot neurites of
+                        if they have radii. If True, will try plotting neurites of
                         `TreeNeurons` with radius regardless. The radius can be
                         scaled by `linewidth`. Note that this will increase rendering
                         time.

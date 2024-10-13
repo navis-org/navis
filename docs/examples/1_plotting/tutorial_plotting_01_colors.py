@@ -182,7 +182,7 @@ n.nodes.head()
 # %%
 
 # Plot with shading based on distance from the soma:
-navis.plot2d(n, shade_by="root_dist", view=("x", "-z"), method="2d")
+navis.plot2d(n, shade_by="root_dist", view=("x", "-z"), radius=True, method="2d")
 plt.tight_layout()
 
 # %%
@@ -191,9 +191,10 @@ plt.tight_layout()
 navis.plot2d(
     n,
     color_by="root_dist",
-    palette="viridis",
     shade_by="root_dist",
+    palette="viridis",
     view=("x", "-z"),
     method="2d",
+    radius=True
 )
 plt.tight_layout()

@@ -147,10 +147,10 @@ def plot3d(
                       a `smin` and/or `smax` parameter. Does not work with
                       `k3d` backend.
 
-    radius :          "auto" (default) | bool
+    radius :          bool | "auto", default=False
 
                       If "auto" will plot neurites of `TreeNeurons` with radius
-                      if they have radii. If True, will plot neurites of
+                      if they have radii. If True, will try plotting neurites of
                       `TreeNeurons` with radius regardless. The radius can be
                       scaled by `linewidth`. Note that this will increase rendering
                       time.

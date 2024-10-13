@@ -143,6 +143,7 @@ plugins:
       download_all_examples: false
       remove_config_comments: true
       matplotlib_animations: true
+      image_srcset: ['2x']
       # only_warn_on_example_error: true
   - markdown-exec
 
