@@ -33,18 +33,27 @@ Please make sure you have the following packages installed:
   pip install kimimaro -U
   ```
 
-## The Data
+## Preparing the data
 
-The pipeline we're using here was written for pre-segmented data, i.e. there is little in the way
-of dealing with noisy data. There is of course nothing stopping you from doing some additional
-pre-processing to clean up you data _before_ running this pipeline.
+The pipeline we're using here was designed for pre-segmented data, so there is little in the way
+of dealing with noisy data. Fortunately, the image stack we will use is exceptionally clean which
+makes the skeletonization process very straightforward.
+
+In practice, you may have to do some pre-processing to clean up your data before running the skeletonization.
+If your run-of-the-mill thresholding, denoising, etc. doesn't cut it, you can also try more advanced
+segmentation techniques.
+
+There are various fairly easy-to-use tools available for this, e.g. [Ilastik](https://www.ilastik.org) (see the
+[pixel classification](https://www.ilastik.org/documentation/pixelclassification/pixelclassification) and
+[voxel segmentation](https://www.ilastik.org/documentation/voxelsegmentation/voxelsegmentation) tutorials) or
+[DeepImageJ](https://deepimagej.github.io/).
 
 ### Download Image Stack
 
 As example data, we will use a confocal stack from the [Janelia Split-Gal4 collection](https://splitgal4.janelia.org/cgi-bin/splitgal4.cgi).
 We picked the [SS00731](https://flweb.janelia.org/cgi-bin/view_splitgal4_imagery.cgi?line=SS00731)
-line because it's already fairly clean as is but we're lucky in that there are high-resolution stacks
-with stochastic multi-color labeling of individual neurons available.
+line because it's already fairly clean as is and there are high-resolution stacks
+with stochastic multi-color labeling of individual neurons available for download.
 
 Scroll all the way to the bottom of the page and in the dropdown for the left-most image,
 select "Download H5J stack: Unaligned".
@@ -223,12 +232,6 @@ nl = navis.NeuronList([navis.read_swc(s.to_swc(), id=i) for i, s in skels.items(
 #
 # ![zoom in](../../../_static/lm_tut/zoom_in.png)
 #
-# ## Acknowledgements
-#
-# The packages we used here were written by the excellent Will Silversmith from the Seung lab in Princeton.
-# The image stack we processed is from the Janelia Split-Gal4 collection and was published as part of the
-# [Cheong, Eichler, Stuerner, _et al._ (2024)](https://elifesciences.org/reviewed-preprints/96084v1) paper.
-#
 # ## Alternatives
 #
 # If the pipeline described in this tutorial does not work for you, there are a number of alternatives:
@@ -236,6 +239,12 @@ nl = navis.NeuronList([navis.read_swc(s.to_swc(), id=i) for i, s in skels.items(
 # 1. [Simple Neurite Tracer](https://imagej.net/plugins/snt/index) is a popular ImageJ plugin for semi-automated tracing
 # 2. Folks at the Allen Institute for Brain Science have published a [protocol for reconstructing neurons](https://portal.brain-map.org/explore/toolkit/morpho-reconstruction/vaa3d-mozak)
 # 3. [NeuTube](https://neutracing.com/tutorial/) is an open-source software for reconstructing neurongs from fluorescence microscopy images
+#
+# ## Acknowledgements
+#
+# The packages we used here were written by the excellent Will Silversmith from the Seung lab in Princeton.
+# The image stack we processed is from the Janelia Split-Gal4 collection and was published as part of the
+# [Cheong, Eichler, Stuerner, _et al._ (2024)](https://elifesciences.org/reviewed-preprints/96084v1) paper.
 
 # %%
 
