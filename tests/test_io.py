@@ -75,6 +75,33 @@ def test_precomputed_mesh_io(filename):
         assert len(n) == len(n2)
 
 
+@pytest.mark.parametrize("filename", ['neurons.zip',
+                                      '*.ply'])
+def test_mesh_io(filename):
+    with tempfile.TemporaryDirectory() as tempdir:
+        tempdir = Path(tempdir)
+
+        # Load example neurons
+        n = navis.example_neurons(2, kind='mesh')
+
+        # Save to neurons folder
+        if str(filename).endswith('.zip'):
+            # Into a zip file
+            navis.write_mesh(n, tempdir / 'neurons.zip', filetype='ply')
+        else:
+            # As individual files
+            navis.write_mesh(n, tempdir, filetype='ply')
+
+        # Load again
+        if str(filename).endswith('.zip'):
+            n2 = navis.read_mesh(tempdir / 'neurons.zip')
+        else:
+            n2 = navis.read_mesh(tempdir / filename)
+
+        # Assert that we loaded the same number of neurons
+        assert len(n) == len(n2)
+
+
 def test_read_nrrd(voxel_nrrd_path):
     navis.read_nrrd(voxel_nrrd_path, output="voxels", errors="raise")
 

@@ -40,6 +40,7 @@ class MeshReader(base.BaseReader):
         output: str,
         fmt: str = DEFAULT_FMT,
         attrs: Optional[Dict[str, Any]] = None,
+        errors: str = "raise",
     ):
         super().__init__(
             fmt=fmt,
@@ -47,6 +48,7 @@ class MeshReader(base.BaseReader):
             file_ext=MESH_LOAD_EXT,
             name_fallback="MESH",
             read_binary=True,
+            errors=errors,
         )
         self.output = output
 
