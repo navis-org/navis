@@ -877,7 +877,7 @@ pip3 install caveclient cloud-volume -U
 
 Please see [caveclient's docs](https://caveconnectome.github.io/CAVEclient/) for details on how to retrieve and set credentials.
 
-Not imported at top level! Must be imported explicitly
+_Not imported at top level! Must be imported explicitly:_
 
 ```python
 from navis.interfaces import microns
@@ -892,10 +892,10 @@ from navis.interfaces import microns
 Please also see the [MICrONS tutorial](../generated/gallery/4_remote/tutorial_remote_02_microns/).
 
 
-### H1 dataset
+### H01 dataset
 
 Functions to fetch neurons (including synapses) from the
-[H1](https://h01-release.storage.googleapis.com/landing.html) connectome dataset.
+[H01](https://h01-release.storage.googleapis.com/landing.html) connectome dataset.
 
 Requires `caveclient` and `cloud-volume` as additional dependencies:
 
@@ -903,7 +903,7 @@ Requires `caveclient` and `cloud-volume` as additional dependencies:
 pip3 install caveclient cloud-volume -U
 ```
 
-Not imported at top level! Must be imported explicitly
+_Not imported at top level! Must be imported explicitly:_
 
 ```python
 from navis.interfaces import h01
@@ -911,11 +911,11 @@ from navis.interfaces import h01
 
 | Function | Description |
 |----------|-------------|
-| [`h1.get_cave_client()`][navis.interfaces.h1.get_cave_client] | {{ autosummary("navis.interfaces.h1.get_cave_client") }} |
-| [`h1.fetch_neurons()`][navis.interfaces.h1.fetch_neurons] | {{ autosummary("navis.interfaces.h1.fetch_neurons") }} |
-| [`h1.get_somas()`][navis.interfaces.h1.get_somas] | {{ autosummary("navis.interfaces.h1.get_somas") }} |
+| [`h01.get_cave_client()`][navis.interfaces.h01.get_cave_client] | {{ autosummary("navis.interfaces.h01.get_cave_client") }} |
+| [`h01.fetch_neurons()`][navis.interfaces.h01.fetch_neurons] | {{ autosummary("navis.interfaces.h01.fetch_neurons") }} |
+| [`h01.get_somas()`][navis.interfaces.h01.get_somas] | {{ autosummary("navis.interfaces.h01.get_somas") }} |
 
-Please also see the [H1 tutorial](../generated/gallery/4_remote/tutorial_remote_04_h1/).
+Please also see the [H01 tutorial](../generated/gallery/4_remote/tutorial_remote_04_h01/).
 
 
 ### R interface
