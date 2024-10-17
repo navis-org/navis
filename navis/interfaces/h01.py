@@ -1,7 +1,7 @@
 from . import cave_utils
 
 DATASTACK = "h01_c3_flat"
-SERVER_ADDRESS = "https://global.brain-wire-test.org/"
+SERVER_ADDRESS = "https://global.brain-wire-test.org"
 
 def get_cave_client():
     """Get caveclient for H01 dataset.
@@ -46,7 +46,7 @@ def fetch_neurons(x, *, lod=2,
                     Containing :class:`navis.MeshNeuron`.
     """
     return cave_utils.fetch_neurons(
-        x, 
+        x,
         lod=lod,
         with_synapses=with_synapses,
         datastack=datastack,
