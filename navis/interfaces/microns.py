@@ -123,12 +123,12 @@ def list_annotation_tables(datastack="cortex65"):
         List of available annotation tables.
 
     """
-    return cave_utils.get_cave_client(datastack).materialize.get_tables()
+    return get_cave_client(datastack).materialize.get_tables()
 
 
 def fetch_neurons(x, *, lod=2,
                   with_synapses=True,
-                  datastack='h01_c3_flat',
+                  datastack='cortex65',
                   parallel=True,
                   max_threads=4,
                   **kwargs):
@@ -169,10 +169,10 @@ def fetch_neurons(x, *, lod=2,
     """
 
     return cave_utils.fetch_neurons(
-        x, 
+        x,
         lod=lod,
         with_synapses=with_synapses,
-        datastack=datastack,
+        datastack=_translate_datastack(datastack),
         parallel=parallel,
         max_threads=max_threads,
         **kwargs
@@ -208,5 +208,5 @@ def get_voxels(x, mip=0, bounds=None, datastack='h01_c3_flat'):
         x,
         mip=mip,
         bounds=bounds,
-        datastack=datastack
+        datastack=_translate_datastack(datastack)
     )
