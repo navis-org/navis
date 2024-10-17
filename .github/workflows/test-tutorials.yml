@@ -53,5 +53,5 @@ jobs:
       with:
         run: |
           python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
-          python -c "import os;from caveclient import CAVEclient;client=CAVEclient(server_address='https://global.brain-wire-test.org',datastack_name='h01_c3_flat',auth_token=os.getenv('BRAIN_WIRE_SECRET'));client.auth.save_token(os.getenv('BRAIN_WIRE_SECRET',overwrite=True))"
+          python -c "import os;from caveclient import CAVEclient;client=CAVEclient(server_address='https://global.brain-wire-test.org',datastack_name='h01_c3_flat',auth_token=os.getenv('BRAIN_WIRE_SECRET'));client.auth.save_token(os.getenv('BRAIN_WIRE_SECRET'),overwrite=True)"
           python tests/test_tutorials.py
