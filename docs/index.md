@@ -90,7 +90,8 @@ morphology. It stands on the shoulders of the excellent
 
     Load neurons straight from Allen's
     [MICrONS](generated/gallery/4_remote/tutorial_remote_02_microns) datasets,
-    [neuromorpho](http://neuromorpho.org), [neuPrint](generated/gallery/4_remote/tutorial_remote_00_neuprint)
+    [neuromorpho](http://neuromorpho.org), [neuPrint](generated/gallery/4_remote/tutorial_remote_00_neuprint),
+    the [H01 dataset](generated/gallery/4_remote/tutorial_remote_04_h01)
     or any NeuroGlancer source.
 
 -   :material-connection:{ .lg .middle } __Interfaces__
