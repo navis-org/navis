@@ -885,10 +885,37 @@ from navis.interfaces import microns
 
 | Function | Description |
 |----------|-------------|
+| [`microns.get_cave_client()`][navis.interfaces.microns.get_cave_client] | {{ autosummary("navis.interfaces.microns.get_cave_client") }} |
 | [`microns.fetch_neurons()`][navis.interfaces.microns.fetch_neurons] | {{ autosummary("navis.interfaces.microns.fetch_neurons") }} |
 | [`microns.get_somas()`][navis.interfaces.microns.get_somas] | {{ autosummary("navis.interfaces.microns.get_somas") }} |
 
 Please also see the [MICrONS tutorial](../generated/gallery/4_remote/tutorial_remote_02_microns/).
+
+
+### H1 dataset
+
+Functions to fetch neurons (including synapses) from the
+[H1](https://h01-release.storage.googleapis.com/landing.html) connectome dataset.
+
+Requires `caveclient` and `cloud-volume` as additional dependencies:
+
+```shell
+pip3 install caveclient cloud-volume -U
+```
+
+Not imported at top level! Must be imported explicitly
+
+```python
+from navis.interfaces import h01
+```
+
+| Function | Description |
+|----------|-------------|
+| [`h1.get_cave_client()`][navis.interfaces.h1.get_cave_client] | {{ autosummary("navis.interfaces.h1.get_cave_client") }} |
+| [`h1.fetch_neurons()`][navis.interfaces.h1.fetch_neurons] | {{ autosummary("navis.interfaces.h1.fetch_neurons") }} |
+| [`h1.get_somas()`][navis.interfaces.h1.get_somas] | {{ autosummary("navis.interfaces.h1.get_somas") }} |
+
+Please also see the [H1 tutorial](../generated/gallery/4_remote/tutorial_remote_04_h1/).
 
 
 ### R interface
