@@ -98,13 +98,6 @@ def _get_somas(root_ids, table="nucleus_detection_v0", datastack="cortex65"):
                     table.
 
     """
-    if datastack != "cortex65":
-        warnings.warn(
-            "To our knowledge there is no nucleus segmentation "
-            f'for "{datastack}". If that has changed please '
-            "get in touch on navis' Github."
-        )
-
     # Get/Initialize the CAVE client
     client = get_cave_client(datastack)
 
@@ -161,14 +154,11 @@ def fetch_neurons(x, lod,
 
     vol = _get_cloudvol(client.info.segmentation_source())  # this is cached
 
-    if datastack == "cortex65":
-        try:
-            somas = _get_somas(x, datastack=datastack)
-            soma_pos = somas.set_index("pt_root_id").pt_position.to_dict()
-        except BaseException as e:
-            logger.warning("Failed to fetch somas via nucleus segmentation" f"(){e})")
-            soma_pos = {}
-    else:
+    try:
+        somas = _get_somas(x, datastack=datastack)
+        soma_pos = somas.set_index("pt_root_id").pt_position.to_dict()
+    except BaseException as e:
+        logger.warning("Failed to fetch somas via nucleus segmentation" f"(){e})")
         soma_pos = {}
 
     nl = []
@@ -202,7 +192,9 @@ def fetch_neurons(x, lod,
 
     for n in nl:
         if n.id in soma_pos:
-            n.soma_pos = np.array(soma_pos[n.id]) * [8, 8, 33]
+            # For VoxelResolution see client.materialize.get_table_metadata('nucleus_detection_v0')
+            # (attached to df as 'table_voxel_resolution')
+            n.soma_pos = np.array(soma_pos[n.id]) * somas.attrs['table_voxel_resolution']
         else:
             n.soma_pos = None
 
