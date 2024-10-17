@@ -1110,9 +1110,11 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
         if any([c not in x.columns for c in ['x', 'y', 'z']]):
             raise ValueError('DataFrame must have x, y and z columns.')
         x = x.copy()
-        x.loc[:, ['x', 'y', 'z']] = symmetrize_brain(x[['x', 'y', 'z']].values.astype(float),
-                                                     template=template,
-                                                     via=via)
+        x[['x', 'y', 'z']] = symmetrize_brain(
+            x[['x', 'y', 'z']].values.astype(float),
+            template=template,
+            via=via
+        )
         return x
     else:
         try:
@@ -1348,10 +1350,12 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         if any([c not in x.columns for c in ['x', 'y', 'z']]):
             raise ValueError('DataFrame must have x, y and z columns.')
         x = x.copy()
-        x.loc[:, ['x', 'y', 'z']] = mirror_brain(x[['x', 'y', 'z']].values.astype(x.dtypes['x']),
-                                                 template=template,
-                                                 mirror_axis=mirror_axis,
-                                                 warp=warp)
+        x[["x", "y", "z"]] = mirror_brain(
+            x[["x", "y", "z"]].values,
+            template=template,
+            mirror_axis=mirror_axis,
+            warp=warp,
+        )
         return x
     else:
         try:
