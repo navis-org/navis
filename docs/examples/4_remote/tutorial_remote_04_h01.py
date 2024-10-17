@@ -2,19 +2,27 @@
 H01 Dataset
 ============
 
-In this notebook, you can learn how to work with the H01 dataset using Navis.
+In this notebook, you can learn how to work with the H01 dataset using NAVis.
 
-The [H01 dataset](https://www.science.org/doi/10.1126/science.adk4858) contains 57,000 cells and 150 million synapses from a cubic millimeter of the human temporal cortex, which is [proofreading](https://h01-release.storage.googleapis.com/proofreading.html) in the CAVE. 
-With this interface, you can access both a snapshot of the proofread dataset and the latest dataset using CAVEclient.
+The [H01 dataset](https://www.science.org/doi/10.1126/science.adk4858) contains 57,000 cells and 150 million synapses
+from a cubic millimeter of the human temporal cortex, which is [proofread](https://h01-release.storage.googleapis.com/proofreading.html)
+using the CAVE ecoystem.
+
+With this interface, you can access both a snapshot of the proofread dataset and the latest dataset using `CAVEclient`:
+
+```shell
+pip install caveclient cloud-volume -U
+```
+
 """
 
 
 # %%
 import navis
-import navis.interfaces.h01 as h01
+from navis.interfaces import h01
 
 # %%
-## Examples in using Navis interface for H01 dataset
+## Examples in using {{ navis }} interface for H01 dataset
 
 # %%
 client = h01.get_cave_client()
@@ -54,7 +62,7 @@ root_id = 864691131861340864
 now = datetime.datetime.now(datetime.timezone.utc)
 is_latest = client.chunkedgraph.is_latest_roots([root_id], timestamp=now)
 latest_id = client.chunkedgraph.get_latest_roots(root_id, timestamp=now)
-print(is_latest) 
+print(is_latest)
 print(latest_id)
 
 # %%
