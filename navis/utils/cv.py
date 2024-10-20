@@ -92,7 +92,7 @@ def return_navis(func, only_on_kwarg=False):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         ret_navis = kwargs.pop("as_navis", False)
-        process = kwargs.pop("process", True)
+        process = kwargs.pop("process", False)
         res = func(*args, **kwargs)
 
         if not only_on_kwarg or ret_navis:
