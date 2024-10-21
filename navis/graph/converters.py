@@ -300,6 +300,15 @@ def neuron2nx(x: "core.NeuronObject", simplify=False, epsilon=None) -> nx.DiGrap
             for e, l in zip(x.trimesh.edges_unique, x.trimesh.edges_unique_length)
         ]
         G.add_weighted_edges_from(edges)
+        extra_edge_lengths = np.linalg.norm(
+            x.vertices[x.edges[:, 0], :] - x.vertices[x.edges[:, 1], :], axis=1
+        )
+        extra_edges = [
+            (x.edges[i, 0], x.edges[i, 1], extra_edge_lengths[i])
+            for i in range(x.edges.shape[0])
+        ]
+        G.add_weighted_edges_from(extra_edges)
+
     elif isinstance(x, core.Dotprops):
         if epsilon is None:
             epsilon = 5 * x.sampling_resolution
@@ -841,12 +850,11 @@ def edges2neuron(edges, vertices=None, validate=True, **kwargs):
             # (note that we assign -1 as root's parent)
             parents.update({k: v[0] if v else -1 for k, v in this.items()})
 
-    nodes = pd.DataFrame(vertices, columns=['x', 'y', 'z'])
-    nodes.insert(0, 'node_id', nodes.index)
-    nodes.insert(1, 'parent_id', nodes.index.map(parents))
+    nodes = pd.DataFrame(vertices, columns=["x", "y", "z"])
+    nodes.insert(0, "node_id", nodes.index)
+    nodes.insert(1, "parent_id", nodes.index.map(parents))
 
     return core.TreeNeuron(nodes, **kwargs)
-
 
 
 def _find_all_paths(
