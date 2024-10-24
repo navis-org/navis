@@ -308,13 +308,9 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
         axis=1,
     )
 
-    # Make sure any new roots or leafs are properly typed
-    # We won't produce new slabs but roots and leaves might change
-    x.nodes.loc[x.nodes.parent_id < 0, "type"] = "root"
-    x.nodes.loc[
-        (~x.nodes.node_id.isin(x.nodes.parent_id.values) & (x.nodes.parent_id >= 0)),
-        "type",
-    ] = "end"
+    # Make sure nodes are correctly classified (need to do this because we're not actually clearing
+    # the temporary attributes)
+    graph.classify_nodes(x, inplace=True)
 
     # Filter connectors
     if not keep_disc_cn and x.has_connectors:
