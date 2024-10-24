@@ -1009,9 +1009,16 @@ class TreeNeuron(BaseNeuron):
         self._masked_data["_nodes"] = self.nodes
 
         # N.B. we're directly setting `._nodes`` to avoid overhead from checks
-        self._nodes = self._nodes.loc[mask]
+        self._nodes = self._nodes.loc[mask].drop("type", axis=1, errors="ignore")
         if copy:
             self._nodes = self._nodes.copy()
+
+        # See if any parent IDs have ceased to exist
+        missing_parents = ~self._nodes.parent_id.isin(self._nodes.node_id) & (
+            self._nodes.parent_id >= 0
+        )
+        if any(missing_parents):
+            self.nodes.loc[missing_parents, "parent_id"] = -1
 
         if hasattr(self, "_connectors"):
             self._masked_data["_connectors"] = self.connectors
@@ -1092,7 +1099,7 @@ class TreeNeuron(BaseNeuron):
             if r not in pre_parents:
                 continue
             # Skip if this was also a root in the pre-masked data
-            if pre_parents[r] >= 0:
+            if pre_parents[r] < 0:
                 continue
             # Skip if the old parent does not exist anymore
             if pre_parents[r] not in self.nodes.node_id.values:
@@ -1109,6 +1116,9 @@ class TreeNeuron(BaseNeuron):
         )
         if any(missing_parents):
             self.nodes.loc[missing_parents, "parent_id"] = -1
+
+        # Force nodes to be re-classified
+        self.nodes.drop("type", axis=1, errors="ignore", inplace=True)
 
         # TODO: Make sure that edges have a consistent orientation
         # (not sure this is much of a problem)

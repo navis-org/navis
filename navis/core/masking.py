@@ -63,7 +63,7 @@ class NeuronMask:
     >>> # Grab a few skeletons
     >>> nl = navis.example_neurons(3)
     >>> # Label axon and dendrites
-    >>> navis.split_axon_dendrite(nl, label_only=True)
+    >>> _ = navis.split_axon_dendrite(nl, label_only=True)
     >>> # Mask by axon
     >>> with navis.NeuronMask(nl, lambda x: x.nodes.compartment == 'axon'):
     ...    print("Axon cable length:", nl.cable_length * nl[0].units)
