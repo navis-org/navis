@@ -47,13 +47,13 @@ learn more!
 ``TreeNeurons``, ``MeshNeurons``, ``VoxelNeurons`` and ``Dotprops`` are neuron
 classes. ``NeuronLists`` are containers thereof.
 
-| Class | Description |
-|------|------|
-| [`navis.TreeNeuron`][] | Skeleton representation of a neuron. |
-| [`navis.MeshNeuron`][] | Meshes with vertices and faces. |
-| [`navis.VoxelNeuron`][] | 3D images (e.g. from confocal stacks). |
-| [`navis.Dotprops`][] | Point cloud + vector representations, used for NBLAST. |
-| [`navis.NeuronList`][] | Containers for neurons. |
+| Class                   | Description                                             |
+|-------------------------|---------------------------------------------------------|
+| [`navis.TreeNeuron`][]  | Skeleton representation of a neuron.                    |
+| [`navis.MeshNeuron`][]  | Meshes with vertices and faces.                         |
+| [`navis.VoxelNeuron`][] | 3D images (e.g. from confocal stacks).                  |
+| [`navis.Dotprops`][]    | Point cloud + vector representations, used for NBLAST.  |
+| [`navis.NeuronList`][]  | Containers for neurons.                                 |
 
 ### General Neuron methods
 
@@ -89,6 +89,7 @@ to all neurons:
 | `Neuron.type` | {{ autosummary("navis.BaseNeuron.type") }} |
 | `Neuron.soma` | {{ autosummary("navis.BaseNeuron.soma") }} |
 | `Neuron.bbox` | {{ autosummary("navis.BaseNeuron.bbox") }} |
+| `Neuron.is_masked` | {{ autosummary("navis.BaseNeuron.is_masked") }} |
 
 !!! note
 
@@ -119,6 +120,8 @@ this neuron type. Note that most of them are simply short-hands for the other
 | [`TreeNeuron.reroot()`][navis.TreeNeuron.reroot] | {{ autosummary("navis.TreeNeuron.reroot") }} |
 | [`TreeNeuron.resample()`][navis.TreeNeuron.resample] | {{ autosummary("navis.TreeNeuron.resample") }} |
 | [`TreeNeuron.snap()`][navis.TreeNeuron.snap] | {{ autosummary("navis.TreeNeuron.snap") }} |
+| [`TreeNeuron.mask()`][navis.TreeNeuron.mask] | {{ autosummary("navis.TreeNeuron.mask") }} |
+| [`TreeNeuron.unmask()`][navis.TreeNeuron.unmask] | {{ autosummary("navis.TreeNeuron.unmask") }} |
 
 In addition, a [`navis.TreeNeuron`][] has a range of different properties:
 
@@ -146,7 +149,6 @@ In addition, a [`navis.TreeNeuron`][] has a range of different properties:
 | [`TreeNeuron.vertices`][navis.TreeNeuron.vertices] | {{ autosummary("navis.TreeNeuron.vertices") }} |
 | [`TreeNeuron.volume`][navis.TreeNeuron.volume] | {{ autosummary("navis.TreeNeuron.volume") }} |
 
-
 #### Skeleton utility functions
 
 | Function | Description |
@@ -156,7 +158,6 @@ In addition, a [`navis.TreeNeuron`][] has a range of different properties:
 | [`navis.remove_nodes()`][navis.remove_nodes] | {{ autosummary("navis.remove_nodes") }} |
 | [`navis.graph.simplify_graph()`][navis.graph.simplify_graph] | {{ autosummary("navis.graph.simplify_graph") }} |
 | [`navis.graph.skeleton_adjacency_matrix()`][navis.graph.skeleton_adjacency_matrix] | {{ autosummary("navis.graph.skeleton_adjacency_matrix") }} |
-
 
 
 ### Mesh neurons
@@ -178,6 +179,8 @@ Methods specific to [`navis.MeshNeuron`][]:
 | [`MeshNeuron.skeletonize()`][navis.MeshNeuron.skeletonize] | {{ autosummary("navis.MeshNeuron.skeletonize") }} |
 | [`MeshNeuron.snap()`][navis.MeshNeuron.snap] | {{ autosummary("navis.MeshNeuron.snap") }} |
 | [`MeshNeuron.validate()`][navis.MeshNeuron.validate] | {{ autosummary("navis.MeshNeuron.validate") }} |
+| [`MeshNeuron.mask()`][navis.MeshNeuron.mask] | {{ autosummary("navis.MeshNeuron.mask") }} |
+| [`MeshNeuron.unmask()`][navis.MeshNeuron.unmask] | {{ autosummary("navis.MeshNeuron.unmask") }} |
 
 
 ### Voxel neurons
@@ -215,6 +218,8 @@ These are methods and properties specific to [Dotprops][navis.Dotprops]:
 | [`Dotprops.alpha`][navis.Dotprops.alpha] | {{ autosummary("navis.Dotprops.alpha") }} |
 | [`Dotprops.to_skeleton()`][navis.Dotprops.to_skeleton] | {{ autosummary("navis.Dotprops.to_skeleton") }} |
 | [`Dotprops.snap()`][navis.Dotprops.snap] | {{ autosummary("navis.Dotprops.snap") }} |
+| [`Dotprops.mask()`][navis.Dotprops.mask] | {{ autosummary("navis.Dotprops.mask") }} |
+| [`Dotprops.unmask()`][navis.Dotprops.unmask] | {{ autosummary("navis.Dotprops.unmask") }} |
 
 ### Converting between types
 

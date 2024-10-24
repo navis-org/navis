@@ -46,7 +46,8 @@ with warnings.catch_warnings():
 
 
 def Neuron(
-    x: Union[nx.DiGraph, str, pd.DataFrame, "TreeNeuron", "MeshNeuron"], **metadata
+    x: Union[nx.DiGraph, str, pd.DataFrame, "TreeNeuron", "MeshNeuron"],
+    **metadata,  # noqa: F821
 ):
     """Constructor for Neuron objects. Depending on the input, either a
     `TreeNeuron` or a `MeshNeuron` is returned.
@@ -195,6 +196,9 @@ class BaseNeuron(UnitObject):
     #: Core data table(s) used to calculate hash
     CORE_DATA = []
 
+    #: Property used to calculate length of neuron
+    _LENGTH_DATA = None
+
     def __init__(self, **kwargs):
         # Set a random ID -> may be replaced later
         self.id = uuid.uuid4()
@@ -302,6 +306,14 @@ class BaseNeuron(UnitObject):
     def __isub__(self, other):
         """Subtraction with assignment (-=)."""
         return self.__sub__(other, copy=False)
+
+    def __len__(self):
+        if self._LENGTH_DATA is None:
+            return None
+        # Deal with potential empty neurons
+        if not hasattr(self, self._LENGTH_DATA):
+            return 0
+        return len(getattr(self, self._LENGTH_DATA))
 
     def _repr_html_(self):
         frame = self.summary().to_frame()
@@ -654,6 +666,7 @@ class BaseNeuron(UnitObject):
 
     def summary(self, add_props=None) -> pd.Series:
         """Get a summary of this neuron."""
+
         # Do not remove the list -> otherwise we might change the original!
         props = list(self.SUMMARY_PROPS)
 
@@ -720,6 +733,87 @@ class BaseNeuron(UnitObject):
         from ..plotting import plot3d
 
         return plot3d(core.NeuronList(self, make_copy=False), **kwargs)
+
+    @property
+    def is_masked(self):
+        """Test if neuron is masked.
+
+        See Also
+        --------
+        [`navis.BaseNeuron.mask`][]
+                    Mask neuron.
+        [`navis.BaseNeuron.unmask`][]
+                    Remove mask from neuron.
+        [`navis.NeuronMask`][]
+                    Context manager for masking neurons.
+        """
+        return hasattr(self, "_masked_data")
+
+    def mask(self, mask):
+        """Mask neuron."""
+        raise NotImplementedError(
+            f"Masking not implemented for neuron of type {type(self)}."
+        )
+
+    def unmask(self):
+        """Unmask neuron.
+
+        Returns the neuron to its original state before masking.
+
+        Returns
+        -------
+        self
+
+        See Also
+        --------
+        [`Neuron.is_masked`][navis.BaseNeuron.is_masked]
+                    Check if neuron. is masked.
+        [`Neuron.mask`][navis.BaseNeuron.unmask]
+                    Mask neuron.
+        [`navis.NeuronMask`][]
+                    Context manager for masking neurons.
+
+        """
+        if not self.is_masked:
+            raise ValueError("Neuron is not masked.")
+
+        for k, v in self._masked_data.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+
+        delattr(self, "_mask")
+        delattr(self, "_masked_data")
+        self._clear_temp_attr()
+
+        return self
+
+    def apply_mask(self, inplace=False):
+        """Apply mask to neuron.
+
+        This will effectively make the mask permanent.
+
+        Parameters
+        ----------
+        inplace :   bool
+                    If True will apply mask in-place. If False
+                    will return a copy and the original neuron
+                    will remain masked.
+
+        Returns
+        -------
+        Neuron
+                    Neuron with mask applied.
+
+        """
+        if not self.is_masked:
+            raise ValueError("Neuron is not masked.")
+
+        n = self if inplace else self.copy()
+
+        delattr(n, "_mask")
+        delattr(n, "_masked_data")
+
+        return n
 
     def map_units(
         self,

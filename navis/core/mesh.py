@@ -26,7 +26,7 @@ import trimesh as tm
 
 from typing import Union, Optional
 
-from .. import utils, config, meshes, conversion, graph
+from .. import utils, config, meshes, conversion, graph, morpho
 from .base import BaseNeuron
 from .neuronlist import NeuronList
 from .skeleton import TreeNeuron
@@ -39,7 +39,7 @@ except ModuleNotFoundError:
     xxhash = None
 
 
-__all__ = ['MeshNeuron']
+__all__ = ["MeshNeuron"]
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -89,24 +89,28 @@ class MeshNeuron(BaseNeuron):
     soma: Optional[Union[list, np.ndarray]]
 
     #: Attributes used for neuron summary
-    SUMMARY_PROPS = ['type', 'name', 'units', 'n_vertices', 'n_faces']
+    SUMMARY_PROPS = ["type", "name", "units", "n_vertices", "n_faces"]
 
     #: Attributes to be used when comparing two neurons.
-    EQ_ATTRIBUTES = ['name', 'n_vertices', 'n_faces']
+    EQ_ATTRIBUTES = ["name", "n_vertices", "n_faces"]
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = ['_memory_usage', '_trimesh', '_skeleton', '_igraph', '_graph_nx']
+    TEMP_ATTR = ["_memory_usage", "_trimesh", "_skeleton", "_igraph", "_graph_nx"]
 
     #: Core data table(s) used to calculate hash
-    CORE_DATA = ['vertices', 'faces']
+    CORE_DATA = ["vertices", "faces"]
 
-    def __init__(self,
-                 x,
-                 units: Union[pint.Unit, str] = None,
-                 process: bool = True,
-                 validate: bool = False,
-                 **metadata
-                 ):
+    #: Property used to calculate length of neuron
+    _LENGTH_DATA = "vertices"
+
+    def __init__(
+        self,
+        x,
+        units: Union[pint.Unit, str] = None,
+        process: bool = True,
+        validate: bool = False,
+        **metadata,
+    ):
         """Initialize Mesh Neuron."""
         super().__init__()
 
@@ -117,12 +121,12 @@ class MeshNeuron(BaseNeuron):
         if isinstance(x, MeshNeuron):
             self.__dict__.update(x.copy().__dict__)
             self.vertices, self.faces = x.vertices, x.faces
-        elif hasattr(x, 'faces') and hasattr(x, 'vertices'):
+        elif hasattr(x, "faces") and hasattr(x, "vertices"):
             self.vertices, self.faces = x.vertices, x.faces
         elif isinstance(x, dict):
-            if 'faces' not in x or 'vertices' not in x:
+            if "faces" not in x or "vertices" not in x:
                 raise ValueError('Dictionary must contain "vertices" and "faces"')
-            self.vertices, self.faces = x['vertices'], x['faces']
+            self.vertices, self.faces = x["vertices"], x["faces"]
         elif isinstance(x, str) and os.path.isfile(x):
             m = tm.load(x)
             self.vertices, self.faces = m.vertices, m.faces
@@ -134,10 +138,12 @@ class MeshNeuron(BaseNeuron):
             self._skeleton = TreeNeuron(x)
         elif isinstance(x, tuple):
             if len(x) != 2 or any([not isinstance(v, np.ndarray) for v in x]):
-                raise TypeError('Expect tuple to be two arrays: (vertices, faces)')
+                raise TypeError("Expect tuple to be two arrays: (vertices, faces)")
             self.vertices, self.faces = x[0], x[1]
         else:
-            raise utils.ConstructionError(f'Unable to construct MeshNeuron from "{type(x)}"')
+            raise utils.ConstructionError(
+                f'Unable to construct MeshNeuron from "{type(x)}"'
+            )
 
         for k, v in metadata.items():
             try:
@@ -147,9 +153,9 @@ class MeshNeuron(BaseNeuron):
 
         if process and self.vertices.shape[0]:
             # For some reason we can't do self._trimesh at this stage
-            _trimesh = tm.Trimesh(self.vertices, self.faces,
-                                  process=process,
-                                  validate=validate)
+            _trimesh = tm.Trimesh(
+                self.vertices, self.faces, process=process, validate=validate
+            )
             self.vertices = _trimesh.vertices
             self.faces = _trimesh.faces
 
@@ -174,8 +180,8 @@ class MeshNeuron(BaseNeuron):
         state = {k: v for k, v in self.__dict__.items() if not callable(v)}
 
         # We don't need the trimesh object
-        if '_trimesh' in state:
-            _ = state.pop('_trimesh')
+        if "_trimesh" in state:
+            _ = state.pop("_trimesh")
 
         return state
 
@@ -188,9 +194,9 @@ class MeshNeuron(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            _ = np.divide(n.vertices, other, out=n.vertices, casting='unsafe')
+            _ = np.divide(n.vertices, other, out=n.vertices, casting="unsafe")
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+                n.connectors.loc[:, ["x", "y", "z"]] /= other
 
             # Convert units
             # Note: .to_compact() throws a RuntimeWarning and returns unchanged
@@ -209,9 +215,9 @@ class MeshNeuron(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            _ = np.multiply(n.vertices, other, out=n.vertices, casting='unsafe')
+            _ = np.multiply(n.vertices, other, out=n.vertices, casting="unsafe")
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+                n.connectors.loc[:, ["x", "y", "z"]] *= other
 
             # Convert units
             # Note: .to_compact() throws a RuntimeWarning and returns unchanged
@@ -229,9 +235,9 @@ class MeshNeuron(BaseNeuron):
         """Implement addition for coordinates (vertices, connectors)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             n = self.copy() if copy else self
-            _ = np.add(n.vertices, other, out=n.vertices, casting='unsafe')
+            _ = np.add(n.vertices, other, out=n.vertices, casting="unsafe")
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] += other
+                n.connectors.loc[:, ["x", "y", "z"]] += other
 
             self._clear_temp_attr()
 
@@ -245,9 +251,9 @@ class MeshNeuron(BaseNeuron):
         """Implement subtraction for coordinates (vertices, connectors)."""
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             n = self.copy() if copy else self
-            _ = np.subtract(n.vertices, other, out=n.vertices, casting='unsafe')
+            _ = np.subtract(n.vertices, other, out=n.vertices, casting="unsafe")
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] -= other
+                n.connectors.loc[:, ["x", "y", "z"]] -= other
 
             self._clear_temp_attr()
 
@@ -261,8 +267,8 @@ class MeshNeuron(BaseNeuron):
         mx = np.max(self.vertices, axis=0)
 
         if self.has_connectors:
-            cn_mn = np.min(self.connectors[['x', 'y', 'z']].values, axis=0)
-            cn_mx = np.max(self.connectors[['x', 'y', 'z']].values, axis=0)
+            cn_mn = np.min(self.connectors[["x", "y", "z"]].values, axis=0)
+            cn_mx = np.max(self.connectors[["x", "y", "z"]].values, axis=0)
 
             mn = np.min(np.vstack((mn, cn_mn)), axis=0)
             mx = np.max(np.vstack((mx, cn_mx)), axis=0)
@@ -279,7 +285,7 @@ class MeshNeuron(BaseNeuron):
         if not isinstance(verts, np.ndarray):
             raise TypeError(f'Vertices must be numpy array, got "{type(verts)}"')
         if verts.ndim != 2:
-            raise ValueError('Vertices must be 2-dimensional array')
+            raise ValueError("Vertices must be 2-dimensional array")
         self._vertices = verts
         self._clear_temp_attr()
 
@@ -293,16 +299,16 @@ class MeshNeuron(BaseNeuron):
         if not isinstance(faces, np.ndarray):
             raise TypeError(f'Faces must be numpy array, got "{type(faces)}"')
         if faces.ndim != 2:
-            raise ValueError('Faces must be 2-dimensional array')
+            raise ValueError("Faces must be 2-dimensional array")
         self._faces = faces
         self._clear_temp_attr()
 
     @property
     @temp_property
-    def igraph(self) -> 'igraph.Graph':
+    def igraph(self) -> "igraph.Graph":
         """iGraph representation of the vertex connectivity."""
         # If igraph does not exist, create and return
-        if not hasattr(self, '_igraph'):
+        if not hasattr(self, "_igraph"):
             # This also sets the attribute
             self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
         return self._igraph
@@ -312,7 +318,7 @@ class MeshNeuron(BaseNeuron):
     def graph(self) -> nx.DiGraph:
         """Networkx Graph representation of the vertex connectivity."""
         # If graph does not exist, create and return
-        if not hasattr(self, '_graph_nx'):
+        if not hasattr(self, "_graph_nx"):
             # This also sets the attribute
             self._graph_nx = graph.neuron2nx(self)
         return self._graph_nx
@@ -335,13 +341,13 @@ class MeshNeuron(BaseNeuron):
 
     @property
     @temp_property
-    def skeleton(self) -> 'TreeNeuron':
+    def skeleton(self) -> "TreeNeuron":
         """Skeleton representation of this neuron.
 
         Uses [`navis.conversion.mesh2skeleton`][].
 
         """
-        if not hasattr(self, '_skeleton'):
+        if not hasattr(self, "_skeleton"):
             self._skeleton = self.skeletonize()
         return self._skeleton
 
@@ -357,7 +363,9 @@ class MeshNeuron(BaseNeuron):
     @property
     def soma(self):
         """Not implemented for MeshNeurons - use `.soma_pos`."""
-        raise AttributeError("MeshNeurons have a soma position (`.soma_pos`), not a soma.")
+        raise AttributeError(
+            "MeshNeurons have a soma position (`.soma_pos`), not a soma."
+        )
 
     @property
     def soma_pos(self):
@@ -365,7 +373,7 @@ class MeshNeuron(BaseNeuron):
 
         Returns `None` if no soma.
         """
-        return getattr(self, '_soma_pos', None)
+        return getattr(self, "_soma_pos", None)
 
     @soma_pos.setter
     def soma_pos(self, value):
@@ -377,38 +385,295 @@ class MeshNeuron(BaseNeuron):
         try:
             value = np.asarray(value).astype(np.float64).reshape(3)
         except BaseException:
-            raise ValueError(f'Unable to convert soma position "{value}" '
-                             f'to numeric (3, ) numpy array.')
+            raise ValueError(
+                f'Unable to convert soma position "{value}" '
+                f"to numeric (3, ) numpy array."
+            )
 
         self._soma_pos = value
 
     @property
     def type(self) -> str:
         """Neuron type."""
-        return 'navis.MeshNeuron'
+        return "navis.MeshNeuron"
 
     @property
     @temp_property
     def trimesh(self):
         """Trimesh representation of the neuron."""
-        if not getattr(self, '_trimesh', None):
-            self._trimesh = tm.Trimesh(vertices=self._vertices,
-                                       faces=self._faces,
-                                       process=False)
+        if not getattr(self, "_trimesh", None):
+            if hasattr(self, "extra_edges"):
+                # Only use TrimeshPlus if we actually need it
+                # to avoid unnecessarily breaking stuff elsewhere
+                self._trimesh = tm.Trimesh(
+                    vertices=self._vertices, faces=self._faces, process=False
+                )
+                self._trimesh.extra_edges = self.extra_edges
+            else:
+                self._trimesh = tm.Trimesh(
+                    vertices=self._vertices, faces=self._faces, process=False
+                )
         return self._trimesh
 
-    def copy(self) -> 'MeshNeuron':
+    def copy(self) -> "MeshNeuron":
         """Return a copy of the neuron."""
-        no_copy = ['_lock']
+        no_copy = ["_lock"]
 
         # Generate new neuron
         x = self.__class__(None)
         # Override with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
+        x.__dict__.update(
+            {k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy}
+        )
 
         return x
 
-    def snap(self, locs, to='vertices'):
+    def mask(self, mask, copy=True):
+        """Mask neuron with given mask.
+
+        This is always done in-place!
+
+        Parameters
+        ----------
+        mask :      np.ndarray
+                    Mask to apply. Can be:
+                     - 1D array with boolean values
+                     - string with property name
+                     - callable that accepts a neuron and returns a valid mask
+                    The mask can be either for vertices or faces but will ultimately be
+                    used to mask out faces. Vertices not participating in any face
+                    will be removed regardless of the mask.
+        copy :      bool
+                    Whether to copy mask a copy of the data. Only applies for connectors.
+
+        Returns
+        -------
+        self
+
+        See Also
+        --------
+        [`MeshNeuron.is_masked`][navis.MeshNeuron.is_masked]
+                    Returns True if neuron is masked.
+        [`MeshNeuron.unmask`][navis.MeshNeuron.unmask]
+                    Remove mask from neuron.
+        [`navis.NeuronMask`][]
+                    Context manager for masking neurons.
+
+        """
+        if self.is_masked:
+            raise ValueError(
+                "Neuron already masked! Layering multiple masks is currently not supported. "
+                "Please either apply the existing mask or unmask first."
+            )
+
+        if callable(mask):
+            mask = mask(self)
+        elif isinstance(mask, str):
+            mask = getattr(self, mask)
+
+        mask = np.asarray(mask)
+
+        # Some checks
+        if mask.dtype != bool:
+            raise ValueError("Mask must be boolean array.")
+        elif len(mask) not in (self.vertices.shape[0], self.faces.shape[0]):
+            raise ValueError("Mask length does not match number of vertices or faces.")
+
+        # Transate vertex mask to face mask
+        if mask.shape[0] == self.vertices.shape[0]:
+            vert_mask = mask
+            face_mask = np.all(mask[self.faces], axis=1)
+        else:
+            face_mask = mask
+            vert_mask = np.zeros(self.vertices.shape[0], dtype=bool)
+            vert_mask[np.unique(self.faces[face_mask])] = True
+
+        # Apply mask
+        verts_new, faces_new, vert_map, face_map = morpho.subset.submesh(
+            self, vertex_index=np.where(vert_mask)[0], return_map=True
+        )
+
+        # The above will have likely dropped some vertices - we need to update the vertex mask
+        vert_mask = np.zeros(self.vertices.shape[0], dtype=bool)
+        vert_mask[np.where(vert_map != -1)[0]] = True
+
+        # Track mask, vertices and faces before masking
+        self._mask = face_mask  # mask is always the face mask
+        self._masked_data = {}
+        self._masked_data["_vertices"] = self._vertices
+        self._masked_data["_faces"] = self._faces
+
+        # Update vertices and faces
+        self._vertices = verts_new
+        self._faces = faces_new
+
+        # See if we can mask the mesh's skeleton as well
+        if hasattr(self, "_skeleton"):
+            # If the skeleton has a vertex map, we can use it to mask the skeleton
+            if hasattr(self._skeleton, "vertex_map"):
+                # Generate a mask for the skeleton
+                # (keep in mind vertex_map are node IDs, not indices)
+                sk_mask = self._skeleton.nodes.node_id.isin(
+                    self._skeleton.vertex_map[vert_mask]
+                )
+
+                # Apply mask
+                self._skeleton.mask(sk_mask)
+
+                # Last but not least: we need to update the vertex map
+                # Track the old map. N.B. we're not adding this to
+                # skeleton._masked_data since the remapping is done by
+                # the MeshNeuron itself!
+                self._skeleton._vertex_map_unmasked = self._skeleton.vertex_map
+
+                # Subset the vertex map to the surviving mesh vertices
+                # N.B. that the node IDs don't change when masking skeletons!
+                self._skeleton.vertex_map = self._skeleton.vertex_map[vert_mask]
+            # If the skeleton has no vertex map, we have to ditch it and
+            # let it be regenerated when needed
+            else:
+                self._masked_data["_skeleton"] = self._skeleton
+                self._skeleton = None  # Clear the skeleton
+
+        # See if we need to mask any connectors as well
+        if hasattr(self, "_connectors"):
+            # Only mask if there is an actual "vertex_ind" or "face_ind" column
+            cn_mask = None
+            if "vertex_ind" in self._connectors.columns:
+                cn_mask = self._connectors.vertex_id.isin(np.where(vert_mask)[0])
+            elif "face_ind" in self._connectors.columns:
+                cn_mask = self._connectors.face_id.isin(np.where(face_mask)[0])
+
+            if cn_mask is not None:
+                self._masked_data["_connectors"] = self._connectors
+                self._connectors = self._connectors.loc[mask]
+                if copy:
+                    self._connectors = self._connectors.copy()
+
+        # Check if we need to drop the soma position
+        if hasattr(self, "soma_pos"):
+            vid = self.snap(self.soma_pos, to="vertices")[0]
+            if not vert_mask[vid]:
+                self._masked_data["_soma_pos"] = self.soma_pos
+                self.soma_pos = None
+
+        # Clear temporary attributes but keep the skeleton since we already fixed that
+        self._clear_temp_attr(exclude=["_skeleton"])
+
+        return self
+
+    def unmask(self, reset=True):
+        """Unmask neuron.
+
+        Returns the neuron to its original state before masking.
+
+        Parameters
+        ----------
+        reset :     bool
+                    Whether to reset the neuron to its original state before masking.
+                    If False, edits made to the neuron after masking will be kept.
+
+        Returns
+        -------
+        self
+
+        See Also
+        --------
+        [`MeshNeuron.is_masked`][navis.MeshNeuron.is_masked]
+                    Returns True if neuron is masked.
+        [`MeshNeuron.mask`][navis.MeshNeuron.mask]
+                    Mask neuron.
+        [`navis.NeuronMask`][]
+                    Context manager for masking neurons.
+
+        """
+        if not self.is_masked:
+            raise ValueError("Neuron is not masked.")
+
+        # First fix the skeleton (if it exists)
+        skeleton = getattr(self, "_skeleton", None)
+        if skeleton is not None:
+            # If the skeleton is not masked, it was created after the masking
+            # - in which case we have to throw it away because we can't recover
+            # the full neuron state.
+            if not skeleton.is_masked:
+                skeleton = None
+            else:
+                # Unmask the skeleton as well
+                skeleton.unmask(reset=reset)
+
+                # Manually restore the vertex map
+                # N.B. that any destructive action (e.g. twig pruning) may have
+                # removed nodes from the skeleton. If that's the case, we can't
+                # restore the vertex map and have to ditch it.
+                if hasattr(skeleton, "_vertex_map_unmasked"):
+                    skeleton.vertex_map = skeleton._vertex_map_unmasked
+
+                # Important note: currently the skeleton gets ditched whenever the MeshNeuron
+                # is stale. That's mainly because (a) functions modify the mesh but not
+                # the vertex map and (b) re-generating the skeleton is usually cheap.
+                # In the long run, we need to make sure the skeleton is always in sync
+                # and not cleared unless that's explicitly requested.
+                # I'm thinking something like a MeshNeuron.sync_skeleton() method that
+                # can either sync the skeleton with the mesh or vice versa.
+
+        if reset:
+            # Unmask and reset (this will clear temporary attributes including the skeleton)
+            super().unmask()
+            if skeleton is not None:
+                self.skeleton = skeleton
+            return self
+
+        # Regenerate the vertex mask from the stored face mask
+        face_mask = self._mask
+        vert_mask = np.zeros(len(self._masked_data["_vertices"]), dtype=bool)
+        vert_mask[np.unique(self._masked_data["_faces"][face_mask])] = True
+
+        # Generate a mesh for the masked-out data:
+        # The mesh prior to masking
+        pre_mesh = tm.Trimesh(self._masked_data["_vertices"], self._masked_data["_faces"])
+        # The vertices and faces that were masked out
+        pre_vertices, pre_faces, vert_map, face_map = morpho.subset.submesh(
+            pre_mesh, faces_index=np.where(~face_mask)[0], return_map=True
+        )
+
+        # Combine the two
+        comb = tm.util.concatenate(
+            [tm.Trimesh(self.vertices, self.faces), tm.Trimesh(pre_vertices, pre_faces)]
+        )
+
+        # Drop duplicate faces
+        comb.update_faces(comb.unique_faces())
+
+        # Merge vertices that are exactly the same
+        comb.merge_vertices(digis=6)
+
+        # Update the neuron
+        self._vertices, self._faces = np.asarray(comb.vertices), np.asarray(comb.faces)
+
+        del self._mask
+        del self._masked_data
+
+        self._clear_temp_attr()
+
+        # Check if we can re-use the skeleton
+        if skeleton is not None:
+            # Check if the vertex map is still valid
+            # Note to self: we could do some elaborate checks here to map old to
+            # most likely new vertex / nodes but that's a bit overkill for now.
+            if hasattr(skeleton, 'vertex_map'):
+                if skeleton.vertex_map.shape[0] != self._vertices.shape[0]:
+                    skeleton = None
+                elif skeleton.vertex_map.max() >= self._faces.shape[0]:
+                    skeleton = None
+
+        # If we still have a skeleton at this point, we can re-use it
+        if skeleton is not None:
+            self._skeleton = skeleton
+
+        return self
+
+    def snap(self, locs, to="vertices"):
         """Snap xyz location(s) to closest vertex or synapse.
 
         Parameters
@@ -436,15 +701,16 @@ class MeshNeuron(BaseNeuron):
         """
         locs = np.asarray(locs).astype(self.vertices.dtype)
 
-        is_single = (locs.ndim == 1 and len(locs) == 3)
-        is_multi = (locs.ndim == 2 and locs.shape[1] == 3)
+        is_single = locs.ndim == 1 and len(locs) == 3
+        is_multi = locs.ndim == 2 and locs.shape[1] == 3
         if not is_single and not is_multi:
-            raise ValueError('Expected a single (x, y, z) location or a '
-                             '(N, 3) array of multiple locations')
+            raise ValueError(
+                "Expected a single (x, y, z) location or a "
+                "(N, 3) array of multiple locations"
+            )
 
-        if to not in ('vertices', 'vertex', 'connectors', 'connectors'):
-            raise ValueError('`to` must be "vertices" or "connectors", '
-                             f'got {to}')
+        if to not in ("vertices", "vertex", "connectors", "connectors"):
+            raise ValueError('`to` must be "vertices" or "connectors", ' f"got {to}")
 
         # Generate tree
         tree = scipy.spatial.cKDTree(data=self.vertices)
@@ -454,7 +720,9 @@ class MeshNeuron(BaseNeuron):
 
         return ix, dist
 
-    def skeletonize(self, method='wavefront', heal=True, inv_dist=None, **kwargs) -> 'TreeNeuron':
+    def skeletonize(
+        self, method="wavefront", heal=True, inv_dist=None, **kwargs
+    ) -> "TreeNeuron":
         """Skeletonize mesh.
 
         See [`navis.conversion.mesh2skeleton`][] for details.
@@ -477,10 +745,13 @@ class MeshNeuron(BaseNeuron):
         Returns
         -------
         skeleton :  navis.TreeNeuron
+                    Has a `.vertex_map` attribute that maps each vertex in the
+                    input mesh to a skeleton node ID.
 
         """
-        return conversion.mesh2skeleton(self, method=method, heal=heal,
-                                        inv_dist=inv_dist, **kwargs)
+        return conversion.mesh2skeleton(
+            self, method=method, heal=heal, inv_dist=inv_dist, **kwargs
+        )
 
     def validate(self, inplace=False):
         """Use trimesh to try and fix some common mesh issues.

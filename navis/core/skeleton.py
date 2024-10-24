@@ -25,7 +25,7 @@ import skeletor as sk
 
 from io import BufferedIOBase
 
-from typing import Union, Callable, List, Sequence, Optional, Dict, overload
+from typing import Union, Callable, List, Sequence, Optional, Dict
 from typing_extensions import Literal
 
 from .. import graph, morpho, utils, config, core, sampling, intersection
@@ -39,7 +39,7 @@ try:
 except ModuleNotFoundError:
     xxhash = None
 
-__all__ = ['TreeNeuron']
+__all__ = ["TreeNeuron"]
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -52,15 +52,17 @@ with warnings.catch_warnings():
 
 def requires_nodes(func):
     """Return `None` if neuron has no nodes."""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         self = args[0]
         # Return 0
-        if isinstance(self.nodes, str) and self.nodes == 'NA':
-            return 'NA'
+        if isinstance(self.nodes, str) and self.nodes == "NA":
+            return "NA"
         if not isinstance(self.nodes, pd.DataFrame):
             return None
         return func(*args, **kwargs)
+
     return wrapper
 
 
@@ -95,8 +97,8 @@ class TreeNeuron(BaseNeuron):
 
     nodes: pd.DataFrame
 
-    graph: 'nx.DiGraph'
-    igraph: 'igraph.Graph'  # type: ignore  # doesn't know iGraph
+    graph: "nx.DiGraph"
+    igraph: "igraph.Graph"  # type: ignore  # doesn't know iGraph
 
     n_branches: int
     n_leafs: int
@@ -117,37 +119,63 @@ class TreeNeuron(BaseNeuron):
     soma_detection_label: Union[float, int, str] = 1
     #: Soma radius (e.g. for plotting). If string, must be column in nodes
     #: table. Default = 'radius'.
-    soma_radius: Union[float, int, str] = 'radius'
+    soma_radius: Union[float, int, str] = "radius"
     # Set default function for soma finding. Default = [`navis.morpho.find_soma`][]
-    _soma: Union[Callable[['TreeNeuron'], Sequence[int]], int] = morpho.find_soma
+    _soma: Union[Callable[["TreeNeuron"], Sequence[int]], int] = morpho.find_soma
 
     tags: Optional[Dict[str, List[int]]] = None
 
     #: Attributes to be used when comparing two neurons.
-    EQ_ATTRIBUTES = ['n_nodes', 'n_connectors', 'soma', 'root',
-                     'n_branches', 'n_leafs', 'cable_length', 'name']
+    EQ_ATTRIBUTES = [
+        "n_nodes",
+        "n_connectors",
+        "soma",
+        "root",
+        "n_branches",
+        "n_leafs",
+        "cable_length",
+        "name",
+    ]
 
     #: Temporary attributes that need to be regenerated when data changes.
-    TEMP_ATTR = ['_igraph', '_graph_nx', '_segments', '_small_segments',
-                 '_geodesic_matrix', 'centrality_method', '_simple',
-                 '_cable_length', '_memory_usage', '_adjacency_matrix']
+    TEMP_ATTR = [
+        "_igraph",
+        "_graph_nx",
+        "_segments",
+        "_small_segments",
+        "_geodesic_matrix",
+        "centrality_method",
+        "_simple",
+        "_cable_length",
+        "_memory_usage",
+        "_adjacency_matrix",
+    ]
 
     #: Attributes used for neuron summary
-    SUMMARY_PROPS = ['type', 'name', 'n_nodes', 'n_connectors', 'n_branches',
-                     'n_leafs', 'cable_length', 'soma', 'units']
+    SUMMARY_PROPS = [
+        "type",
+        "name",
+        "n_nodes",
+        "n_connectors",
+        "n_branches",
+        "n_leafs",
+        "cable_length",
+        "soma",
+        "units",
+    ]
 
     #: Core data table(s) used to calculate hash
-    CORE_DATA = ['nodes:node_id,parent_id,x,y,z']
+    CORE_DATA = ["nodes:node_id,parent_id,x,y,z"]
 
-    def __init__(self,
-                 x: Union[pd.DataFrame,
-                          BufferedIOBase,
-                          str,
-                          'TreeNeuron',
-                          nx.DiGraph],
-                 units: Union[pint.Unit, str] = None,
-                 **metadata
-                 ):
+    #: Property used to calculate length of neuron
+    _LENGTH_DATA = "nodes"
+
+    def __init__(
+        self,
+        x: Union[pd.DataFrame, BufferedIOBase, str, "TreeNeuron", nx.DiGraph],
+        units: Union[pint.Unit, str] = None,
+        **metadata,
+    ):
         """Initialize Skeleton Neuron."""
         super().__init__()
 
@@ -157,10 +185,12 @@ class TreeNeuron(BaseNeuron):
         if isinstance(x, pd.DataFrame):
             self.nodes = x
         elif isinstance(x, pd.Series):
-            if not hasattr(x, 'nodes'):
-                raise ValueError('pandas.Series must have `nodes` entry.')
+            if not hasattr(x, "nodes"):
+                raise ValueError("pandas.Series must have `nodes` entry.")
             elif not isinstance(x.nodes, pd.DataFrame):
-                raise TypeError(f'Nodes must be pandas DataFrame, got "{type(x.nodes)}"')
+                raise TypeError(
+                    f'Nodes must be pandas DataFrame, got "{type(x.nodes)}"'
+                )
             self.nodes = x.nodes
             metadata.update(x.to_dict())
         elif isinstance(x, nx.Graph):
@@ -182,13 +212,15 @@ class TreeNeuron(BaseNeuron):
         elif isinstance(x, tuple):
             # Tuple of vertices and edges
             if len(x) != 2:
-                raise ValueError('Tuple must have 2 elements: vertices and edges.')
+                raise ValueError("Tuple must have 2 elements: vertices and edges.")
             self.nodes = graph.edges2neuron(edges=x[1], vertices=x[0]).nodes
         elif isinstance(x, type(None)):
             # This is a essentially an empty neuron
             pass
         else:
-            raise utils.ConstructionError(f'Unable to construct TreeNeuron from "{type(x)}"')
+            raise utils.ConstructionError(
+                f'Unable to construct TreeNeuron from "{type(x)}"'
+            )
 
         for k, v in metadata.items():
             try:
@@ -218,21 +250,23 @@ class TreeNeuron(BaseNeuron):
                 if len(set(other)) == 1:
                     other == other[0]
                 elif len(other) != 4:
-                    raise ValueError('Division by list/array requires 4 '
-                                     'divisors for x/y/z and radius - '
-                                     f'got {len(other)}')
+                    raise ValueError(
+                        "Division by list/array requires 4 "
+                        "divisors for x/y/z and radius - "
+                        f"got {len(other)}"
+                    )
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes[['x', 'y', 'z', 'radius']] /= other
+            n.nodes[["x", "y", "z", "radius"]] /= other
 
             # At this point we can ditch any 4th unit
             if utils.is_iterable(other):
                 other = other[:3]
             if n.has_connectors:
-                n.connectors[['x', 'y', 'z']] /= other
+                n.connectors[["x", "y", "z"]] /= other
 
-            if hasattr(n, 'soma_radius'):
+            if hasattr(n, "soma_radius"):
                 if isinstance(n.soma_radius, numbers.Number):
                     n.soma_radius /= other
 
@@ -243,7 +277,7 @@ class TreeNeuron(BaseNeuron):
                 warnings.simplefilter("ignore")
                 n.units = (n.units * other).to_compact()
 
-            n._clear_temp_attr(exclude=['classify_nodes'])
+            n._clear_temp_attr(exclude=["classify_nodes"])
             return n
         return NotImplemented
 
@@ -255,21 +289,23 @@ class TreeNeuron(BaseNeuron):
                 if len(set(other)) == 1:
                     other == other[0]
                 elif len(other) != 4:
-                    raise ValueError('Multiplication by list/array requires 4'
-                                     'multipliers for x/y/z and radius - '
-                                     f'got {len(other)}')
+                    raise ValueError(
+                        "Multiplication by list/array requires 4"
+                        "multipliers for x/y/z and radius - "
+                        f"got {len(other)}"
+                    )
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes[['x', 'y', 'z', 'radius']] *= other
+            n.nodes[["x", "y", "z", "radius"]] *= other
 
             # At this point we can ditch any 4th unit
             if utils.is_iterable(other):
                 other = other[:3]
             if n.has_connectors:
-                n.connectors[['x', 'y', 'z']] *= other
+                n.connectors[["x", "y", "z"]] *= other
 
-            if hasattr(n, 'soma_radius'):
+            if hasattr(n, "soma_radius"):
                 if isinstance(n.soma_radius, numbers.Number):
                     n.soma_radius *= other
 
@@ -280,7 +316,7 @@ class TreeNeuron(BaseNeuron):
                 warnings.simplefilter("ignore")
                 n.units = (n.units / other).to_compact()
 
-            n._clear_temp_attr(exclude=['classify_nodes'])
+            n._clear_temp_attr(exclude=["classify_nodes"])
             return n
         return NotImplemented
 
@@ -292,19 +328,21 @@ class TreeNeuron(BaseNeuron):
                 if len(set(other)) == 1:
                     other == other[0]
                 elif len(other) != 3:
-                    raise ValueError('Addition by list/array requires 3'
-                                     'multipliers for x/y/z coordinates '
-                                     f'got {len(other)}')
+                    raise ValueError(
+                        "Addition by list/array requires 3"
+                        "multipliers for x/y/z coordinates "
+                        f"got {len(other)}"
+                    )
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes[['x', 'y', 'z']] += other
+            n.nodes[["x", "y", "z"]] += other
 
             # Do the connectors
             if n.has_connectors:
-                n.connectors[['x', 'y', 'z']] += other
+                n.connectors[["x", "y", "z"]] += other
 
-            n._clear_temp_attr(exclude=['classify_nodes'])
+            n._clear_temp_attr(exclude=["classify_nodes"])
             return n
         # If another neuron, return a list of neurons
         elif isinstance(other, BaseNeuron):
@@ -319,19 +357,21 @@ class TreeNeuron(BaseNeuron):
                 if len(set(other)) == 1:
                     other == other[0]
                 elif len(other) != 3:
-                    raise ValueError('Addition by list/array requires 3'
-                                     'multipliers for x/y/z coordinates '
-                                     f'got {len(other)}')
+                    raise ValueError(
+                        "Addition by list/array requires 3"
+                        "multipliers for x/y/z coordinates "
+                        f"got {len(other)}"
+                    )
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes[['x', 'y', 'z']] -= other
+            n.nodes[["x", "y", "z"]] -= other
 
             # Do the connectors
             if n.has_connectors:
-                n.connectors[['x', 'y', 'z']] -= other
+                n.connectors[["x", "y", "z"]] -= other
 
-            n._clear_temp_attr(exclude=['classify_nodes'])
+            n._clear_temp_attr(exclude=["classify_nodes"])
             return n
         return NotImplemented
 
@@ -341,10 +381,10 @@ class TreeNeuron(BaseNeuron):
 
         # Pickling the graphs actually takes longer than regenerating them
         # from scratch
-        if '_graph_nx' in state:
-            _ = state.pop('_graph_nx')
-        if '_igraph' in state:
-            _ = state.pop('_igraph')
+        if "_graph_nx" in state:
+            _ = state.pop("_graph_nx")
+        if "_igraph" in state:
+            _ = state.pop("_igraph")
 
         return state
 
@@ -352,7 +392,7 @@ class TreeNeuron(BaseNeuron):
     @temp_property
     def adjacency_matrix(self):
         """Adjacency matrix of the skeleton."""
-        if not hasattr(self, '_adjacency_matrix'):
+        if not hasattr(self, "_adjacency_matrix"):
             self._adjacency_matrix = graph.skeleton_adjacency_matrix(self)
         return self._adjacency_matrix
 
@@ -360,7 +400,7 @@ class TreeNeuron(BaseNeuron):
     @requires_nodes
     def vertices(self) -> np.ndarray:
         """Vertices of the skeleton."""
-        return self.nodes[['x', 'y', 'z']].values
+        return self.nodes[["x", "y", "z"]].values
 
     @property
     @requires_nodes
@@ -374,7 +414,7 @@ class TreeNeuron(BaseNeuron):
 
         """
         not_root = self.nodes[self.nodes.parent_id >= 0]
-        return not_root[['node_id', 'parent_id']].values
+        return not_root[["node_id", "parent_id"]].values
 
     @property
     @requires_nodes
@@ -387,7 +427,7 @@ class TreeNeuron(BaseNeuron):
                 Same but with node IDs instead of x/y/z coordinates.
 
         """
-        locs = self.nodes.set_index('node_id')[['x', 'y', 'z']]
+        locs = self.nodes.set_index("node_id")[["x", "y", "z"]]
         edges = self.edges
         edges_co = np.zeros((edges.shape[0], 2, 3))
         edges_co[:, 0, :] = locs.loc[edges[:, 0]].values
@@ -396,10 +436,10 @@ class TreeNeuron(BaseNeuron):
 
     @property
     @temp_property
-    def igraph(self) -> 'igraph.Graph':
+    def igraph(self) -> "igraph.Graph":
         """iGraph representation of this neuron."""
         # If igraph does not exist, create and return
-        if not hasattr(self, '_igraph'):
+        if not hasattr(self, "_igraph"):
             # This also sets the attribute
             return self.get_igraph()
         return self._igraph
@@ -409,7 +449,7 @@ class TreeNeuron(BaseNeuron):
     def graph(self) -> nx.DiGraph:
         """Networkx Graph representation of this neuron."""
         # If graph does not exist, create and return
-        if not hasattr(self, '_graph_nx'):
+        if not hasattr(self, "_graph_nx"):
             # This also sets the attribute
             return self.get_graph_nx()
         return self._graph_nx
@@ -419,7 +459,7 @@ class TreeNeuron(BaseNeuron):
     def geodesic_matrix(self):
         """Matrix with geodesic (along-the-arbor) distance between nodes."""
         # If matrix has not yet been generated or needs update
-        if not hasattr(self, '_geodesic_matrix'):
+        if not hasattr(self, "_geodesic_matrix"):
             # (Re-)generate matrix
             self._geodesic_matrix = graph.geodesic_matrix(self)
 
@@ -429,7 +469,7 @@ class TreeNeuron(BaseNeuron):
     @requires_nodes
     def leafs(self) -> pd.DataFrame:
         """Leaf node table."""
-        return self.nodes[self.nodes['type'] == 'end']
+        return self.nodes[self.nodes["type"] == "end"]
 
     @property
     @requires_nodes
@@ -441,7 +481,7 @@ class TreeNeuron(BaseNeuron):
     @requires_nodes
     def branch_points(self):
         """Branch node table."""
-        return self.nodes[self.nodes['type'] == 'branch']
+        return self.nodes[self.nodes["type"] == "branch"]
 
     @property
     def nodes(self) -> pd.DataFrame:
@@ -461,20 +501,24 @@ class TreeNeuron(BaseNeuron):
 
     def _set_nodes(self, v):
         # Redefine this function in subclass to change validation
-        self._nodes = utils.validate_table(v,
-                                           required=[('node_id', 'rowId', 'node', 'treenode_id', 'PointNo'),
-                                                     ('parent_id', 'link', 'parent', 'Parent'),
-                                                     ('x', 'X'),
-                                                     ('y', 'Y'),
-                                                     ('z', 'Z')],
-                                           rename=True,
-                                           optional={('radius', 'W'): 0},
-                                           restrict=False)
+        self._nodes = utils.validate_table(
+            v,
+            required=[
+                ("node_id", "rowId", "node", "treenode_id", "PointNo"),
+                ("parent_id", "link", "parent", "Parent"),
+                ("x", "X"),
+                ("y", "Y"),
+                ("z", "Z"),
+            ],
+            rename=True,
+            optional={("radius", "W"): 0},
+            restrict=False,
+        )
 
         # Make sure we don't end up with object dtype anywhere as this can
         # cause problems
-        for c in ('node_id', 'parent_id'):
-            if self._nodes[c].dtype == 'O':
+        for c in ("node_id", "parent_id"):
+            if self._nodes[c].dtype == "O":
                 self._nodes[c] = self._nodes[c].astype(int)
 
         graph.classify_nodes(self)
@@ -504,8 +548,7 @@ class TreeNeuron(BaseNeuron):
     @property
     def subtrees(self) -> List[List[int]]:
         """List of subtrees. Sorted by size as sets of node IDs."""
-        return sorted(graph._connected_components(self),
-                      key=lambda x: -len(x))
+        return sorted(graph._connected_components(self), key=lambda x: -len(x))
 
     @property
     def connectors(self) -> pd.DataFrame:
@@ -514,7 +557,7 @@ class TreeNeuron(BaseNeuron):
 
     def _get_connectors(self) -> pd.DataFrame:
         # Redefine this function in subclass to change how nodes are retrieved
-        return getattr(self, '_connectors', None)
+        return getattr(self, "_connectors", None)
 
     @connectors.setter
     def connectors(self, v):
@@ -528,15 +571,19 @@ class TreeNeuron(BaseNeuron):
         if isinstance(v, type(None)):
             self._connectors = None
         else:
-            self._connectors = utils.validate_table(v,
-                                                    required=[('connector_id', 'id'),
-                                                              ('node_id', 'rowId', 'node', 'treenode_id'),
-                                                              ('x', 'X'),
-                                                              ('y', 'Y'),
-                                                              ('z', 'Z'),
-                                                              ('type', 'relation', 'label', 'prepost')],
-                                                    rename=True,
-                                                    restrict=False)
+            self._connectors = utils.validate_table(
+                v,
+                required=[
+                    ("connector_id", "id"),
+                    ("node_id", "rowId", "node", "treenode_id"),
+                    ("x", "X"),
+                    ("y", "Y"),
+                    ("z", "Z"),
+                    ("type", "relation", "label", "prepost"),
+                ],
+                rename=True,
+                restrict=False,
+            )
 
     @property
     @requires_nodes
@@ -550,8 +597,9 @@ class TreeNeuron(BaseNeuron):
 
         """
         try:
-            c = nx.find_cycle(self.graph,
-                              source=self.nodes[self.nodes.type == 'end'].node_id.values)
+            c = nx.find_cycle(
+                self.graph, source=self.nodes[self.nodes.type == "end"].node_id.values
+            )
             return c
         except nx.exception.NetworkXNoCycle:
             return None
@@ -559,16 +607,16 @@ class TreeNeuron(BaseNeuron):
             raise
 
     @property
-    def simple(self) -> 'TreeNeuron':
+    def simple(self) -> "TreeNeuron":
         """Simplified representation consisting only of root, branch points and leafs."""
-        if not hasattr(self, '_simple'):
+        if not hasattr(self, "_simple"):
             self._simple = self.copy()
 
             # Make sure we don't have a soma, otherwise that node will be preserved
             self._simple.soma = None
 
             # Downsample
-            self._simple.downsample(float('inf'), inplace=True)
+            self._simple.downsample(float("inf"), inplace=True)
         return self._simple
 
     @property
@@ -592,11 +640,11 @@ class TreeNeuron(BaseNeuron):
             if all(pd.isnull(soma)):
                 soma = None
             elif not any(self.nodes.node_id.isin(soma)):
-                logger.warning(f'Soma(s) {soma} not found in node table.')
+                logger.warning(f"Soma(s) {soma} not found in node table.")
                 soma = None
         else:
             if soma not in self.nodes.node_id.values:
-                logger.warning(f'Soma {soma} not found in node table.')
+                logger.warning(f"Soma {soma} not found in node table.")
                 soma = None
 
         return soma
@@ -604,7 +652,7 @@ class TreeNeuron(BaseNeuron):
     @soma.setter
     def soma(self, value: Union[Callable, int, None]) -> None:
         """Set soma."""
-        if hasattr(value, '__call__'):
+        if hasattr(value, "__call__"):
             self._soma = types.MethodType(value, self)
         elif isinstance(value, type(None)):
             self._soma = None
@@ -614,7 +662,7 @@ class TreeNeuron(BaseNeuron):
             if value in self.nodes.node_id.values:
                 self._soma = value
             else:
-                raise ValueError('Soma must be function, None or a valid node ID.')
+                raise ValueError("Soma must be function, None or a valid node ID.")
 
     @property
     def soma_pos(self) -> Optional[Sequence]:
@@ -633,7 +681,7 @@ class TreeNeuron(BaseNeuron):
         else:
             soma = utils.make_iterable(soma)
 
-        return self.nodes.loc[self.nodes.node_id.isin(soma), ['x', 'y', 'z']].values
+        return self.nodes.loc[self.nodes.node_id.isin(soma), ["x", "y", "z"]].values
 
     @soma_pos.setter
     def soma_pos(self, value: Sequence) -> None:
@@ -645,16 +693,20 @@ class TreeNeuron(BaseNeuron):
         try:
             value = np.asarray(value).astype(np.float64).reshape(3)
         except BaseException:
-            raise ValueError(f'Unable to convert soma position "{value}" '
-                             f'to numeric (3, ) numpy array.')
+            raise ValueError(
+                f'Unable to convert soma position "{value}" '
+                f"to numeric (3, ) numpy array."
+            )
 
         # Generate tree
-        id, dist = self.snap(value, to='nodes')
+        id, dist = self.snap(value, to="nodes")
 
         # A sanity check
         if dist > (self.sampling_resolution * 10):
-            logger.warning(f'New soma position for {self.id} is suspiciously '
-                           f'far away from the closest node: {dist}')
+            logger.warning(
+                f"New soma position for {self.id} is suspiciously "
+                f"far away from the closest node: {dist}"
+            )
 
         self.soma = id
 
@@ -673,26 +725,26 @@ class TreeNeuron(BaseNeuron):
     @property
     def type(self) -> str:
         """Neuron type."""
-        return 'navis.TreeNeuron'
+        return "navis.TreeNeuron"
 
     @property
     @requires_nodes
     def n_branches(self) -> Optional[int]:
         """Number of branch points."""
-        return self.nodes[self.nodes.type == 'branch'].shape[0]
+        return self.nodes[self.nodes.type == "branch"].shape[0]
 
     @property
     @requires_nodes
     def n_leafs(self) -> Optional[int]:
         """Number of leaf nodes."""
-        return self.nodes[self.nodes.type == 'end'].shape[0]
+        return self.nodes[self.nodes.type == "end"].shape[0]
 
     @property
     @temp_property
     @add_units(compact=True)
     def cable_length(self) -> Union[int, float]:
         """Cable length."""
-        if not hasattr(self, '_cable_length'):
+        if not hasattr(self, "_cable_length"):
             self._cable_length = morpho.cable_length(self)
         return self._cable_length
 
@@ -700,17 +752,21 @@ class TreeNeuron(BaseNeuron):
     @add_units(compact=True, power=2)
     def surface_area(self) -> float:
         """Radius-based lateral surface area."""
-        if 'radius' not in self.nodes.columns:
-            raise ValueError(f'Neuron {self.id} does not have radius information')
+        if "radius" not in self.nodes.columns:
+            raise ValueError(f"Neuron {self.id} does not have radius information")
 
         if any(self.nodes.radius < 0):
-            logger.warning(f'Neuron {self.id} has negative radii - area will not be correct.')
+            logger.warning(
+                f"Neuron {self.id} has negative radii - area will not be correct."
+            )
 
         if any(self.nodes.radius.isnull()):
-            logger.warning(f'Neuron {self.id} has NaN radii - area will not be correct.')
+            logger.warning(
+                f"Neuron {self.id} has NaN radii - area will not be correct."
+            )
 
         # Generate radius dict
-        radii = self.nodes.set_index('node_id').radius.to_dict()
+        radii = self.nodes.set_index("node_id").radius.to_dict()
         # Drop root node(s)
         not_root = self.nodes.parent_id >= 0
         # For each cylinder get the height
@@ -721,23 +777,27 @@ class TreeNeuron(BaseNeuron):
         r1 = nodes.node_id.map(radii).values
         r2 = nodes.parent_id.map(radii).values
 
-        return (np.pi * (r1 + r2) * np.sqrt( (r1-r2)**2 + h**2)).sum()
+        return (np.pi * (r1 + r2) * np.sqrt((r1 - r2) ** 2 + h**2)).sum()
 
     @property
     @add_units(compact=True, power=3)
     def volume(self) -> float:
         """Radius-based volume."""
-        if 'radius' not in self.nodes.columns:
-            raise ValueError(f'Neuron {self.id} does not have radius information')
+        if "radius" not in self.nodes.columns:
+            raise ValueError(f"Neuron {self.id} does not have radius information")
 
         if any(self.nodes.radius < 0):
-            logger.warning(f'Neuron {self.id} has negative radii - volume will not be correct.')
+            logger.warning(
+                f"Neuron {self.id} has negative radii - volume will not be correct."
+            )
 
         if any(self.nodes.radius.isnull()):
-            logger.warning(f'Neuron {self.id} has NaN radii - volume will not be correct.')
+            logger.warning(
+                f"Neuron {self.id} has NaN radii - volume will not be correct."
+            )
 
         # Generate radius dict
-        radii = self.nodes.set_index('node_id').radius.to_dict()
+        radii = self.nodes.set_index("node_id").radius.to_dict()
         # Drop root node(s)
         not_root = self.nodes.parent_id >= 0
         # For each cylinder get the height
@@ -748,17 +808,17 @@ class TreeNeuron(BaseNeuron):
         r1 = nodes.node_id.map(radii).values
         r2 = nodes.parent_id.map(radii).values
 
-        return (1/3 * np.pi * (r1**2 + r1 * r2 + r2**2) * h).sum()
+        return (1 / 3 * np.pi * (r1**2 + r1 * r2 + r2**2) * h).sum()
 
     @property
     def bbox(self) -> np.ndarray:
         """Bounding box (includes connectors)."""
-        mn = np.min(self.nodes[['x', 'y', 'z']].values, axis=0)
-        mx = np.max(self.nodes[['x', 'y', 'z']].values, axis=0)
+        mn = np.min(self.nodes[["x", "y", "z"]].values, axis=0)
+        mx = np.max(self.nodes[["x", "y", "z"]].values, axis=0)
 
         if self.has_connectors:
-            cn_mn = np.min(self.connectors[['x', 'y', 'z']].values, axis=0)
-            cn_mx = np.max(self.connectors[['x', 'y', 'z']].values, axis=0)
+            cn_mn = np.min(self.connectors[["x", "y", "z"]].values, axis=0)
+            cn_mx = np.max(self.connectors[["x", "y", "z"]].values, axis=0)
 
             mn = np.min(np.vstack((mn, cn_mn)), axis=0)
             mx = np.max(np.vstack((mx, cn_mx)), axis=0)
@@ -780,9 +840,9 @@ class TreeNeuron(BaseNeuron):
     def segments(self) -> List[list]:
         """Neuron broken down into linear segments (see also `.small_segments`)."""
         # Calculate if required
-        if not hasattr(self, '_segments'):
+        if not hasattr(self, "_segments"):
             # This also sets the attribute
-            self._segments = self._get_segments(how='length')
+            self._segments = self._get_segments(how="length")
         return self._segments
 
     @property
@@ -790,19 +850,18 @@ class TreeNeuron(BaseNeuron):
     def small_segments(self) -> List[list]:
         """Neuron broken down into small linear segments (see also `.segments`)."""
         # Calculate if required
-        if not hasattr(self, '_small_segments'):
+        if not hasattr(self, "_small_segments"):
             # This also sets the attribute
-            self._small_segments = self._get_segments(how='break')
+            self._small_segments = self._get_segments(how="break")
         return self._small_segments
 
-    def _get_segments(self,
-                      how: Union[Literal['length'],
-                                 Literal['break']] = 'length'
-                      ) -> List[list]:
+    def _get_segments(
+        self, how: Union[Literal["length"], Literal["break"]] = "length"
+    ) -> List[list]:
         """Generate segments for neuron."""
-        if how == 'length':
+        if how == "length":
             return graph._generate_segments(self)
-        elif how == 'break':
+        elif how == "break":
             return graph._break_segments(self)
         else:
             raise ValueError(f'Unknown method: "{how}"')
@@ -830,11 +889,11 @@ class TreeNeuron(BaseNeuron):
             elif self._soma not in self.nodes.node_id.values:
                 self.soma = None
 
-        if 'classify_nodes' not in exclude:
+        if "classify_nodes" not in exclude:
             # Reclassify nodes
             graph.classify_nodes(self, inplace=True)
 
-    def copy(self, deepcopy: bool = False) -> 'TreeNeuron':
+    def copy(self, deepcopy: bool = False) -> "TreeNeuron":
         """Return a copy of the neuron.
 
         Parameters
@@ -850,17 +909,19 @@ class TreeNeuron(BaseNeuron):
         TreeNeuron
 
         """
-        no_copy = ['_lock']
+        no_copy = ["_lock"]
         # Generate new empty neuron
         x = self.__class__(None)
         # Populate with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
+        x.__dict__.update(
+            {k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy}
+        )
 
         # Copy graphs only if neuron is not stale
         if not self.is_stale:
-            if '_graph_nx' in self.__dict__:
+            if "_graph_nx" in self.__dict__:
                 x._graph_nx = self._graph_nx.copy(as_view=deepcopy is not True)
-            if '_igraph' in self.__dict__:
+            if "_igraph" in self.__dict__:
                 if self._igraph is not None:
                     # This is pretty cheap, so we will always make a deep copy
                     x._igraph = self._igraph.copy()
@@ -883,7 +944,7 @@ class TreeNeuron(BaseNeuron):
         self._graph_nx = graph.neuron2nx(self)
         return self._graph_nx
 
-    def get_igraph(self) -> 'igraph.Graph':  # type: ignore
+    def get_igraph(self) -> "igraph.Graph":  # type: ignore
         """Calculate and return iGraph representation of neuron.
 
         Once calculated stored as `.igraph`. Call function again to update
@@ -901,11 +962,173 @@ class TreeNeuron(BaseNeuron):
         self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
         return self._igraph
 
-    @overload
-    def resample(self, resample_to: int, inplace: Literal[False]) -> 'TreeNeuron': ...
+    def mask(self, mask, copy=True):
+        """Mask neuron with given mask.
 
-    @overload
-    def resample(self, resample_to: int, inplace: Literal[True]) -> None: ...
+        This is always done in-place!
+
+        Parameters
+        ----------
+        mask :      np.ndarray
+                    Mask to apply. Can be:
+                    - 1D array with boolean values
+                    - callable that accepts a neuron and returns a mask
+                    - string with column name in nodes table
+
+        Returns
+        -------
+        self
+
+        See Also
+        --------
+        [`navis.MeshNeuron.unmask`][]
+                    Remove mask from neuron.
+        [`navis.NeuronMask`][]
+                    Context manager for masking neurons.
+
+        """
+        if self.is_masked:
+            raise ValueError(
+                "Neuron already masked. Layering multiple masks is currently not supported, please unmask first."
+            )
+
+        if callable(mask):
+            mask = mask(self)
+        elif isinstance(mask, str):
+            mask = self.nodes[mask].values
+
+        mask = np.asarray(mask)
+
+        if mask.dtype != bool:
+            raise ValueError("Mask must be boolean array.")
+        elif mask.shape[0] != self.nodes.shape[0]:
+            raise ValueError("Mask must have same length as nodes table.")
+
+        self._mask = mask
+        self._masked_data = {}
+        self._masked_data["_nodes"] = self.nodes
+
+        # N.B. we're directly setting `._nodes`` to avoid overhead from checks
+        self._nodes = self._nodes.loc[mask]
+        if copy:
+            self._nodes = self._nodes.copy()
+
+        if hasattr(self, "_connectors"):
+            self._masked_data["_connectors"] = self.connectors
+            self._connectors = self._connectors.loc[
+                self._connectors.node_id.isin(self.nodes.node_id)
+            ]
+            if copy:
+                self._connectors = self._connectors.copy()
+
+        self._clear_temp_attr()
+
+        return self
+
+    def unmask(self, reset=True):
+        """Unmask neuron.
+
+        Returns the neuron to its original state before masking.
+
+        Parameters
+        ----------
+        reset :     bool
+                    Whether to reset the neuron to its original state before masking.
+                    If False, edits made to the neuron after masking will be kept.
+
+        Returns
+        -------
+        self
+
+        See Also
+        --------
+        [`TreeNeuron.is_masked`][navis.TreeNeuron.is_masked]
+                    Check if neuron is masked.
+        [`TreeNeuron.mask`][navis.TreeNeuron.mask]
+                    Mask neuron.
+        [`navis.NeuronMask`][]
+                    Context manager for masking neurons.
+
+        """
+        if not self.is_masked:
+            raise ValueError("Neuron is not masked.")
+
+        if reset:
+            # Unmask and reset to original state
+            super().unmask()
+            return self
+
+        mask = self._mask
+
+        # Combine post-mask data with original data
+        post_nodes = self.nodes
+        pre_nodes = self._masked_data["_nodes"].iloc[~mask]
+
+        # We need to take care of a few things:
+        # 1. Make sure don't have any duplicate node IDs
+        duplicates = post_nodes.node_id.values[
+            post_nodes.node_id.isin(pre_nodes.node_id)
+        ]
+        if any(duplicates):
+            # Start with a new max index
+            max_id = max(post_nodes.node_id.max(), pre_nodes.node_id.max()) + 1
+            # New indices
+            new_ix = dict(zip(duplicates, range(max_id, max_id + len(duplicates))))
+            # Update node IDs and parent IDs
+            post_nodes["node_id"] = post_nodes.node_id.replace(new_ix)
+            post_nodes["parent_id"] = post_nodes.parent_id.replace(new_ix)
+
+        # Concatenate
+        self._nodes = pd.concat([pre_nodes, post_nodes], ignore_index=True)
+
+        # 2. Re-connect the root nodes of the masked data
+        post_roots = post_nodes[post_nodes.parent_id < 0].node_id.values
+        pre_parents = (
+            self._masked_data["_nodes"].set_index("node_id").parent_id.to_dict()
+        )
+        to_fix = {}
+        for r in post_roots:
+            # Skip if this root is not in pre_parents
+            if r not in pre_parents:
+                continue
+            # Skip if this was also a root in the pre-masked data
+            if pre_parents[r] >= 0:
+                continue
+            # Skip if the old parent does not exist anymore
+            if pre_parents[r] not in self.nodes.node_id.values:
+                continue
+            # If we made it here, there is a new root that we can connect to the old parent
+            to_fix[r] = pre_parents[r]
+        if to_fix:
+            # Fix parent IDs
+            self._nodes["parent_id"] = self._nodes["parent_id"].replace(to_fix)
+
+        # 3. See if any parent IDs have ceased to exist
+        missing_parents = ~self._nodes.parent_id.isin(self._nodes.node_id) & (
+            self._nodes.parent_id >= 0
+        )
+        if any(missing_parents):
+            self.nodes.loc[missing_parents, "parent_id"] = -1
+
+        # TODO: Make sure that edges have a consistent orientation
+        # (not sure this is much of a problem)
+
+        # Connectors
+        # TODO: check `node_id` of connectors too
+        if "_connectors" in self._masked_data:
+            if not hasattr(self, "_connectors"):
+                self._connectors = self._masked_data["_connectors"]
+            else:
+                cn = self._masked_data["_connectors"]
+                cn = cn.loc[cn.node_id.isin(pre_nodes.node_id.values)]
+                self._connectors = pd.concat([self._connectors, cn], ignore_index=True)
+
+        del self._mask
+        del self._masked_data
+
+        self._clear_temp_attr()
+
+        return self
 
     def resample(self, resample_to, inplace=False):
         """Resample neuron to given resolution.
@@ -938,18 +1161,6 @@ class TreeNeuron(BaseNeuron):
         if not inplace:
             return x
         return None
-
-    @overload
-    def downsample(self,
-                   factor: float,
-                   inplace: Literal[False],
-                   **kwargs) -> 'TreeNeuron': ...
-
-    @overload
-    def downsample(self,
-                   factor: float,
-                   inplace: Literal[True],
-                   **kwargs) -> None: ...
 
     def downsample(self, factor=5, inplace=False, **kwargs):
         """Downsample the neuron by given factor.
@@ -987,9 +1198,9 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def reroot(self,
-               new_root: Union[int, str],
-               inplace: bool = False) -> Optional['TreeNeuron']:
+    def reroot(
+        self, new_root: Union[int, str], inplace: bool = False
+    ) -> Optional["TreeNeuron"]:
         """Reroot neuron to given node ID or node tag.
 
         Parameters
@@ -1020,9 +1231,9 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def prune_distal_to(self,
-                        node: Union[str, int],
-                        inplace: bool = False) -> Optional['TreeNeuron']:
+    def prune_distal_to(
+        self, node: Union[str, int], inplace: bool = False
+    ) -> Optional["TreeNeuron"]:
         """Cut off nodes distal to given nodes.
 
         Parameters
@@ -1047,7 +1258,7 @@ class TreeNeuron(BaseNeuron):
         node = utils.make_iterable(node, force_type=None)
 
         for n in node:
-            prox = graph.cut_skeleton(x, n, ret='proximal')[0]
+            prox = graph.cut_skeleton(x, n, ret="proximal")[0]
             # Reinitialise with proximal data
             x.__init__(prox)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
@@ -1057,9 +1268,9 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def prune_proximal_to(self,
-                          node: Union[str, int],
-                          inplace: bool = False) -> Optional['TreeNeuron']:
+    def prune_proximal_to(
+        self, node: Union[str, int], inplace: bool = False
+    ) -> Optional["TreeNeuron"]:
         """Remove nodes proximal to given node. Reroots neuron to cut node.
 
         Parameters
@@ -1084,7 +1295,7 @@ class TreeNeuron(BaseNeuron):
         node = utils.make_iterable(node, force_type=None)
 
         for n in node:
-            dist = graph.cut_skeleton(x, n, ret='distal')[0]
+            dist = graph.cut_skeleton(x, n, ret="distal")[0]
             # Reinitialise with distal data
             x.__init__(dist)  # type: ignore  # Cannot access "__init__" directly
             # Remove potential "left over" attributes (happens if we use a copy)
@@ -1097,9 +1308,9 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def prune_by_strahler(self,
-                          to_prune: Union[int, List[int], slice],
-                          inplace: bool = False) -> Optional['TreeNeuron']:
+    def prune_by_strahler(
+        self, to_prune: Union[int, List[int], slice], inplace: bool = False
+    ) -> Optional["TreeNeuron"]:
         """Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 
         Will reroot neuron to soma if possible.
@@ -1132,8 +1343,7 @@ class TreeNeuron(BaseNeuron):
         else:
             x = self.copy()
 
-        morpho.prune_by_strahler(
-            x, to_prune=to_prune, reroot_soma=True, inplace=True)
+        morpho.prune_by_strahler(x, to_prune=to_prune, reroot_soma=True, inplace=True)
 
         # No need to call this as morpho.prune_by_strahler does this already
         # self._clear_temp_attr()
@@ -1142,17 +1352,23 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def prune_twigs(self,
-                    size: float,
-                    inplace: bool = False,
-                    recursive: Union[int, bool, float] = False
-                    ) -> Optional['TreeNeuron']:
+    def prune_twigs(
+        self,
+        size: float,
+        mask: Optional[np.ndarray] = None,
+        inplace: bool = False,
+        recursive: Union[int, bool, float] = False,
+    ) -> Optional["TreeNeuron"]:
         """Prune terminal twigs under a given size.
 
         Parameters
         ----------
         size :          int | float
                         Twigs shorter than this will be pruned.
+        mask :          iterable | callable, optional
+                        Either a boolean mask, a list of node IDs or a callable taking
+                        a neuron as input and returning one of the former. If provided,
+                        only nodes that are in the mask will be considered for pruning.
         inplace :       bool, optional
                         If False, pruning is performed on copy of original neuron
                         which is then returned.
@@ -1172,17 +1388,18 @@ class TreeNeuron(BaseNeuron):
         else:
             x = self.copy()
 
-        morpho.prune_twigs(x, size=size, inplace=True)
+        morpho.prune_twigs(x, size=size, mask=mask, inplace=True)
 
         if not inplace:
             return x
         return None
 
-    def prune_at_depth(self,
-                       depth: Union[float, int],
-                       source: Optional[int] = None,
-                       inplace: bool = False
-                       ) -> Optional['TreeNeuron']:
+    def prune_at_depth(
+        self,
+        depth: Union[float, int],
+        source: Optional[int] = None,
+        inplace: bool = False,
+    ) -> Optional["TreeNeuron"]:
         """Prune all neurites past a given distance from a source.
 
         Parameters
@@ -1220,10 +1437,11 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def cell_body_fiber(self,
-                        reroot_soma: bool = True,
-                        inplace: bool = False,
-                        ) -> Optional['TreeNeuron']:
+    def cell_body_fiber(
+        self,
+        reroot_soma: bool = True,
+        inplace: bool = False,
+    ) -> Optional["TreeNeuron"]:
         """Prune neuron to its cell body fiber.
 
         Parameters
@@ -1255,11 +1473,12 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def prune_by_longest_neurite(self,
-                                 n: int = 1,
-                                 reroot_soma: bool = False,
-                                 inplace: bool = False,
-                                 ) -> Optional['TreeNeuron']:
+    def prune_by_longest_neurite(
+        self,
+        n: int = 1,
+        reroot_soma: bool = False,
+        inplace: bool = False,
+    ) -> Optional["TreeNeuron"]:
         """Prune neuron down to the longest neurite.
 
         Parameters
@@ -1284,8 +1503,7 @@ class TreeNeuron(BaseNeuron):
         else:
             x = self.copy()
 
-        graph.longest_neurite(
-            x, n, inplace=True, reroot_soma=reroot_soma)
+        graph.longest_neurite(x, n, inplace=True, reroot_soma=reroot_soma)
 
         # Clear temporary attributes
         x._clear_temp_attr()
@@ -1294,14 +1512,13 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def prune_by_volume(self,
-                        v: Union[core.Volume,
-                                 List[core.Volume],
-                                 Dict[str, core.Volume]],
-                        mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
-                        prevent_fragments: bool = False,
-                        inplace: bool = False
-                        ) -> Optional['TreeNeuron']:
+    def prune_by_volume(
+        self,
+        v: Union[core.Volume, List[core.Volume], Dict[str, core.Volume]],
+        mode: Union[Literal["IN"], Literal["OUT"]] = "IN",
+        prevent_fragments: bool = False,
+        inplace: bool = False,
+    ) -> Optional["TreeNeuron"]:
         """Prune neuron by intersection with given volume(s).
 
         Parameters
@@ -1330,9 +1547,9 @@ class TreeNeuron(BaseNeuron):
         else:
             x = self.copy()
 
-        intersection.in_volume(x, v, inplace=True,
-                               prevent_fragments=prevent_fragments,
-                               mode=mode)
+        intersection.in_volume(
+            x, v, inplace=True, prevent_fragments=prevent_fragments, mode=mode
+        )
 
         # Clear temporary attributes
         # x._clear_temp_attr()
@@ -1341,9 +1558,7 @@ class TreeNeuron(BaseNeuron):
             return x
         return None
 
-    def to_swc(self,
-               filename: Optional[str] = None,
-               **kwargs) -> None:
+    def to_swc(self, filename: Optional[str] = None, **kwargs) -> None:
         """Generate SWC file from this neuron.
 
         Parameters
@@ -1365,9 +1580,10 @@ class TreeNeuron(BaseNeuron):
         """
         return io.write_swc(self, filename, **kwargs)  # type: ignore  # double import of "io"
 
-    def reload(self,
-               inplace: bool = False,
-               ) -> Optional['TreeNeuron']:
+    def reload(
+        self,
+        inplace: bool = False,
+    ) -> Optional["TreeNeuron"]:
         """Reload neuron. Must have filepath as `.origin` as attribute.
 
         Returns
@@ -1376,19 +1592,22 @@ class TreeNeuron(BaseNeuron):
                 If `inplace=False`.
 
         """
-        if not hasattr(self, 'origin'):
-            raise AttributeError('To reload TreeNeuron must have `.origin` '
-                                 'attribute')
+        if not hasattr(self, "origin"):
+            raise AttributeError(
+                "To reload TreeNeuron must have `.origin` " "attribute"
+            )
 
-        if self.origin in ('DataFrame', 'string'):
-            raise ValueError('Unable to reload TreeNeuron: it appears to have '
-                             'been created from string or DataFrame.')
+        if self.origin in ("DataFrame", "string"):
+            raise ValueError(
+                "Unable to reload TreeNeuron: it appears to have "
+                "been created from string or DataFrame."
+            )
 
         kwargs = {}
-        if hasattr(self, 'soma_label'):
-            kwargs['soma_label'] = self.soma_label
-        if hasattr(self, 'connector_labels'):
-            kwargs['connector_labels'] = self.connector_labels
+        if hasattr(self, "soma_label"):
+            kwargs["soma_label"] = self.soma_label
+        if hasattr(self, "connector_labels"):
+            kwargs["connector_labels"] = self.connector_labels
 
         x = io.read_swc(self.origin, **kwargs)
 
@@ -1403,7 +1622,7 @@ class TreeNeuron(BaseNeuron):
             x2._clear_temp_attr()
             return x
 
-    def snap(self, locs, to='nodes'):
+    def snap(self, locs, to="nodes"):
         """Snap xyz location(s) to closest node or synapse.
 
         Parameters
@@ -1431,15 +1650,16 @@ class TreeNeuron(BaseNeuron):
         """
         locs = np.asarray(locs).astype(np.float64)
 
-        is_single = (locs.ndim == 1 and len(locs) == 3)
-        is_multi = (locs.ndim == 2 and locs.shape[1] == 3)
+        is_single = locs.ndim == 1 and len(locs) == 3
+        is_multi = locs.ndim == 2 and locs.shape[1] == 3
         if not is_single and not is_multi:
-            raise ValueError('Expected a single (x, y, z) location or a '
-                             '(N, 3) array of multiple locations')
+            raise ValueError(
+                "Expected a single (x, y, z) location or a "
+                "(N, 3) array of multiple locations"
+            )
 
-        if to not in ['nodes', 'connectors']:
-            raise ValueError('`to` must be "nodes" or "connectors", '
-                             f'got {to}')
+        if to not in ["nodes", "connectors"]:
+            raise ValueError('`to` must be "nodes" or "connectors", ' f"got {to}")
 
         # Generate tree
         tree = graph.neuron2KDTree(self, data=to)
@@ -1447,7 +1667,7 @@ class TreeNeuron(BaseNeuron):
         # Find the closest node
         dist, ix = tree.query(locs)
 
-        if to == 'nodes':
+        if to == "nodes":
             id = self.nodes.node_id.values[ix]
         else:
             id = self.connectors.connector_id.values[ix]

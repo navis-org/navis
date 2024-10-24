@@ -94,6 +94,9 @@ class VoxelNeuron(BaseNeuron):
     #: Core data table(s) used to calculate hash
     CORE_DATA = ['_data']
 
+    #: Property used to calculate length of neuron
+    _LENGTH_DATA = 'voxels'
+
     def __init__(self,
                  x: Union[np.ndarray],
                  offset: Optional[np.ndarray] = None,
@@ -215,6 +218,12 @@ class VoxelNeuron(BaseNeuron):
 
             return n
         return NotImplemented
+
+    def __len__(self):
+        """Return number of voxels."""
+        # This is the only neuron for which we implement __len__ separately
+        # to avoid the potential overhead of generating the voxel representation
+        return np.product(self.shape)
 
     @property
     def _base_data_type(self) -> str:

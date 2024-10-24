@@ -105,10 +105,13 @@ class Dotprops(BaseNeuron):
     EQ_ATTRIBUTES = ['name', 'n_points', 'k']
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = ['_memory_usage']
+    TEMP_ATTR = ['_memory_usage', "_tree"]
 
     #: Core data table(s) used to calculate hash
     _CORE_DATA = ['points', 'vect']
+
+    #: Property used to calculate length of neuron
+    _LENGTH_DATA = 'points'
 
     def __init__(self,
                  points: np.ndarray,
@@ -229,9 +232,6 @@ class Dotprops(BaseNeuron):
                 _ = state.pop('_tree')
 
         return state
-
-    def __len__(self):
-        return len(self.points)
 
     @property
     def alpha(self):
@@ -538,6 +538,137 @@ class Dotprops(BaseNeuron):
 
         if not inplace:
             return x
+
+    def mask(self, mask, copy=True):
+        """Mask neuron with given mask.
+
+        This is always done in-place!
+
+        Parameters
+        ----------
+        mask :      np.ndarray
+                    Mask to apply. Can be:
+                    - 1D array with boolean values
+                    - callable that accepts a neuron and returns a mask
+                    - string with property name
+
+        Returns
+        -------
+        self
+                    The masked neuron.
+
+        See Also
+        --------
+        [`Dotprops.unmask`][navis.Dotprops.unmask]
+                    Remove mask from neuron.
+        [`Dotprops.is_masked`][navis.Dotprops.is_masked]
+                    Check if neuron is masked.
+        [`navis.NeuronMask`][]
+                    Context manager for masking neurons.
+
+        """
+        if self.is_masked:
+            raise ValueError(
+                "Neuron already masked. Layering multiple masks is currently not supported, please unmask first."
+            )
+
+        if callable(mask):
+            mask = mask(self)
+        elif isinstance(mask, str):
+            mask = getattr(self, mask)
+
+        mask = np.asarray(mask)
+
+        if mask.dtype != bool:
+            raise ValueError("Mask must be boolean array.")
+        elif mask.shape[0] != len(self):
+            raise ValueError("Mask must have same length as points.")
+
+        self._mask = mask
+        self._masked_data = {}
+        self._masked_data['_points'] = self.points
+
+        # Drop soma if masked out
+        if self.soma is not None:
+            if isinstance(self.soma, (list, np.ndarray)):
+                soma_left = self.soma[mask[self.soma]]
+                self._masked_data['_soma'] = self.soma
+
+                if any(soma_left):
+                    self.soma = soma_left
+                else:
+                    self.soma = None
+            elif not mask[self.soma]:
+                self._masked_data['_soma'] = self.soma
+                self.soma = None
+
+        # N.B. we're directly setting `._nodes`` to avoid overhead from checks
+        for att in ("_points", "_vect", "_alpha"):
+            if hasattr(self, att):
+                self._masked_data[att] = getattr(self, att)
+                setattr(self, att, getattr(self, att)[mask])
+
+                if copy:
+                    setattr(self, att, getattr(self, att).copy())
+
+        if hasattr(self, "_connectors") and "point_ix" in self._connectors.columns:
+            self._masked_data['connectors'] = self.connectors
+            self._connectors = self._connectors.loc[
+                    self.connectors.point_ix.isin(np.arange(len(mask))[mask])
+                ]
+            if copy:
+                self._connectors = self._connectors.copy()
+
+        self._clear_temp_attr()
+
+        return self
+
+    def unmask(self, reset=True):
+        """Unmask neuron.
+
+        Returns the neuron to its original state before masking.
+
+        Parameters
+        ----------
+        reset :     bool
+                    Whether to reset the neuron to its original state before masking.
+                    If False, edits made to the neuron after masking will be kept.
+
+        Returns
+        -------
+        self
+
+        See Also
+        --------
+        [`Dotprops.is_masked`][navis.Dotprops.is_masked]
+                    Check if neuron is masked.
+        [`Dotprops.mask`][navis.Dotprops.mask]
+                    Mask neuron.
+        [`navis.NeuronMask`][]
+                    Context manager for masking neurons.
+
+        """
+        if not self.is_masked:
+            raise ValueError("Neuron is not masked.")
+
+        if reset:
+            # Unmask and reset to original state
+            super().unmask()
+            return self
+
+        mask = self._mask
+        for k, v in self._masked_data.items():
+            # Combine with current data
+            if hasattr(self, k):
+                v = np.concatenate((v[~mask], getattr(self, k)), axis=0)
+            setattr(self, k, v)
+
+        del self._mask
+        del self._masked_data
+
+        self._clear_temp_attr()
+
+        return self
 
     def recalculate_tangents(self, k: int, inplace=False):
         """Recalculate tangent vectors and alpha with a new `k`.
