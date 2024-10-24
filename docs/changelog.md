@@ -23,23 +23,14 @@ pip install git+https://github.com/navis-org/navis@master
 ## Version `1.9.1` { data-toc-label="1.9.1" }
 _Date: 24/10/24_
 
-
-##### Additions
-- New interface to the [H01](https://h01-release.storage.googleapis.com/landing.html) dataset by Jinhan Choi and Jakob Troidl; see the new tutorial for details
-
 ##### Improvements
-- I/O:
-    - [`read_nrrd`][navis.read_nrrd], [`read_tiff`][navis.read_tiff] and [`read_mesh`][navis.read_mesh] now use the same backend as e.g. [`read_swc`][navis.read_swc] which enables some niceties such as reading directly from URLs and archives, parallel processing, etc
-    - all `read_*` functions now have an `error` parameter that can be used to skip errors
-- Image data:
-    - new function: [`navis.thin_voxels`][] can be used to thin images and `VoxelNeurons` to single-pixel width (see also below)
-    - new `thin` parameter for [`read_nrrd`][navis.read_nrrd], [`read_tiff`][navis.read_tiff]
-- [`TreeNeurons`][navis.TreeNeuron]:
-    - skeletons can now be initialized from a `(vertices, edges)` tuple - see also [`navis.edges2neuron`][]
-    - new property: `TreeNeuron.vertices` gives read-only to node (vertex) coordinates
-- [`VoxelNeurons`][navis.VoxelNeuron]:
-    - ew properties: `VoxelNeuron.nnz` and `VoxelNeuron.density`
-- [`navis.drop_fluff`][] and [`navis.neuron2nx`][] now also works with [`Dotprops`][navis.Dotprops]
+- MICrONS & H01 interfaces:
+    - `fetch_neurons` now accepts a `materialization` parameter that determines which materialization version is used for synapse and nucleus queries; defaults to "auto" which means `navis` will try to find a materialization version matching the queried root IDs
+    - `fetch_neurons` will now also assign soma positions for H01 neurons (see the `.soma_pos` neuron property)
+- `CloudVolume.mesh.get_navis` (see [`navis.patch_cloudvolume`][]) now accepts a `process` (default is `False`) parameter that determines whether the NeuroGlancer mesh is processed (deduplication of vertices, etc.); contribute by Forrest Collman
+
+##### Fixes
+- fixed a bug in [`navis.subset_neuron`][] that caused branch points to not be re-calculated
 
 **Full Changelog**: [v1.9.0...v1.9.1](https://github.com/navis-org/navis/compare/v1.9.0...v1.9.1)
 
@@ -50,11 +41,10 @@ This version brings a shiny new interface to the [H01 human cortex](https://h01-
 and various other quality of life improvements.
 
 ##### Breaking
-- The default for `radius` ([`navis.plot2d`][] and [`navis.plot3d`][]) was changed to `False` (from `"auto"`) to avoid running into issues
-  when visualizing large numbers of skeletons while using the defaults
+- The default for `radius` ([`navis.plot2d`][] and [`navis.plot3d`][]) was changed to `False` (from `"auto"`); this is to make sure that the defaults allow visualizing large numbers of skeletons, i.e. prioritizing performance over beauty
 
 ##### Additions
-- New interface to the [H01](https://h01-release.storage.googleapis.com/landing.html) dataset by Jinhan Choi and Jakob Troidl; see the new tutorial for details
+- New interface to the [H01](https://h01-release.storage.googleapis.com/landing.html) dataset (by Jinhan Choi and Jakob Troidl; see the new tutorial for details)
 
 ##### Improvements
 - I/O:
@@ -67,13 +57,13 @@ and various other quality of life improvements.
     - skeletons can now be initialized from a `(vertices, edges)` tuple - see also [`navis.edges2neuron`][]
     - new property: `TreeNeuron.vertices` gives read-only to node (vertex) coordinates
 - [`VoxelNeurons`][navis.VoxelNeuron]:
-    - ew properties: `VoxelNeuron.nnz` and `VoxelNeuron.density`
+    - new properties: `VoxelNeuron.nnz` and `VoxelNeuron.density`
 - [`navis.drop_fluff`][] and [`navis.neuron2nx`][] now also works with [`Dotprops`][navis.Dotprops]
 
-**Full Changelog**: [v1.8.0...v1.9.0](https://github.com/navis-org/navis/compare/v1.8.0...v1.9.0)
-
 ##### Experimental
-- setting `navis.config.add_units=True` (default is `False`) will add units to certain neuron properties such as `.cable_length` to make them human-readable
+- setting `navis.config.add_units=True` (default is `False` for the time being) will add units to certain neuron properties such as `.cable_length` to make them human-readable
+
+**Full Changelog**: [v1.8.0...v1.9.0](https://github.com/navis-org/navis/compare/v1.8.0...v1.9.0)
 
 ## Version `1.8.0` { data-toc-label="1.8.0" }
 _Date: 22/09/24_
