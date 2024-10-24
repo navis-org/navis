@@ -8,7 +8,7 @@
 #
 #    This program is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #    GNU General Public License for more details.
 
 """Interface with MICrONS datasets: https://www.microns-explorer.org/."""
@@ -35,6 +35,9 @@ except ModuleNotFoundError:
 except BaseException:
     raise
 
+NUCLEUS_TABLE = "nucleus_detection_v0"
+
+
 @lru_cache(None)
 def _translate_datastack(datastack):
     """Translate datastack to source."""
@@ -44,6 +47,10 @@ def _translate_datastack(datastack):
         return datastack
     elif datastack in ("cortex65", "minnie65"):
         # Find the latest cortex65 datastack
+        # "minnie65_public" is apparently the prefered datastack
+        if "minnie65_public" in ds:
+            return "minnie65_public"
+        # If for some reason that stack is not available, just take the latest
         return sorted([d for d in ds if "minnie65_public" in d and "sandbox" not in d])[
             -1
         ]
@@ -54,9 +61,7 @@ def _translate_datastack(datastack):
         ]
     elif datastack == "layer 2/3":
         # The "pinky_sandbox" seems to be the latest layer 2/3 datastack
-        return sorted([d for d in ds if "pinky" in d])[
-            -1
-        ]
+        return sorted([d for d in ds if "pinky" in d])[-1]
     raise ValueError(f"Datastack '{datastack}' not found.")
 
 
@@ -93,8 +98,7 @@ def get_cave_client(datastack="cortex65"):
     datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
                     Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
                     are internally mapped to the corresponding sources: for example,
-                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
-                    most recent version).
+                    "minnie65_public" for "cortex65"
 
     """
     if not CAVEclient:
@@ -102,7 +106,9 @@ def get_cave_client(datastack="cortex65"):
 
     # Try mapping, else pass-through
     datastack = _translate_datastack(datastack)
-    return cave_utils.get_cave_client(datastack)
+    client = cave_utils.get_cave_client(datastack)
+    client.materialize.nucleus_table = NUCLEUS_TABLE
+    return client
 
 
 @lru_cache(None)
@@ -114,8 +120,7 @@ def list_annotation_tables(datastack="cortex65"):
     datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
                     Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
                     are internally mapped to the corresponding sources: for example,
-                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
-                    most recent version).
+                    "minnie65_public" for "cortex65"
 
     Returns
     -------
@@ -126,12 +131,17 @@ def list_annotation_tables(datastack="cortex65"):
     return get_cave_client(datastack).materialize.get_tables()
 
 
-def fetch_neurons(x, *, lod=2,
-                  with_synapses=True,
-                  datastack='cortex65',
-                  parallel=True,
-                  max_threads=4,
-                  **kwargs):
+def fetch_neurons(
+    x,
+    *,
+    lod=2,
+    with_synapses=True,
+    datastack="cortex65",
+    materialization="auto",
+    parallel=True,
+    max_threads=4,
+    **kwargs,
+):
     """Fetch neuron meshes.
 
     Notes
@@ -151,8 +161,12 @@ def fetch_neurons(x, *, lod=2,
     datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
                     Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
                     are internally mapped to the corresponding sources: for example,
-                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
-                    most recent version).
+                    "minnie65_public" for "cortex65"
+    materialization : "auto" | int
+                    Which materialization version to use to look up somas and synapses
+                    (if applicable). If "auto" (default) will try to find the most
+                    recent version that contains the given root IDs. If an
+                    integer is provided will use that version.
     parallel :      bool
                     If True, will use parallel threads to fetch data.
     max_threads :   int
@@ -167,27 +181,28 @@ def fetch_neurons(x, *, lod=2,
                     Containing :class:`navis.MeshNeuron`.
 
     """
-
+    client = get_cave_client(_translate_datastack(datastack))
     return cave_utils.fetch_neurons(
         x,
         lod=lod,
         with_synapses=with_synapses,
-        datastack=_translate_datastack(datastack),
+        client=client,
         parallel=parallel,
         max_threads=max_threads,
-        **kwargs
+        materialization=materialization,
+        **kwargs,
     )
 
-def get_voxels(x, mip=0, bounds=None, datastack='h01_c3_flat'):
-    """Fetch voxels making a up given root ID.
 
+def get_voxels(x, mip=0, bounds=None, datastack="cortex65"):
+    """Fetch voxels making a up given root ID.
 
     Parameters
     ----------
     x :             int
                     A single root ID.
     mip :           int
-                    Scale at which to fetch voxels.
+                    Scale at which to fetch voxels. Lower = higher resolution.
     bounds :        list, optional
                     Bounding box [xmin, xmax, ymin, ymax, zmin, zmax] in voxel
                     space. For example, the voxel resolution for mip 0
@@ -195,8 +210,7 @@ def get_voxels(x, mip=0, bounds=None, datastack='h01_c3_flat'):
     datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
                     Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
                     are internally mapped to the corresponding sources: for example,
-                    "minnie65_public_vXXX" for "cortex65" where XXX is always the
-                    most recent version).
+                    "minnie65_public" for "cortex65"
 
     Returns
     -------
@@ -205,8 +219,5 @@ def get_voxels(x, mip=0, bounds=None, datastack='h01_c3_flat'):
 
     """
     return cave_utils.get_voxels(
-        x,
-        mip=mip,
-        bounds=bounds,
-        datastack=_translate_datastack(datastack)
+        x, mip=mip, bounds=bounds, client=get_cave_client(datastack)
     )
