@@ -359,7 +359,7 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
     return x
 
 
-def submesh(mesh, *, faces_index=None, vertex_index=None):
+def submesh(mesh, *, faces_index=None, vertex_index=None, return_map=False):
     """Re-imlementation of trimesh.submesh that is faster for our use case.
 
     Notably we:
@@ -382,6 +382,9 @@ def submesh(mesh, *, faces_index=None, vertex_index=None):
                     Indices of faces to keep.
     vertex_index :  array-like
                     Indices of vertices to keep.
+    return_map :    bool, optional
+                    If True, will return a mapping of old to new vertex and
+                    face indices.
 
     Returns
     -------
@@ -389,6 +392,14 @@ def submesh(mesh, *, faces_index=None, vertex_index=None):
                 Vertices of submesh.
     faces :     np.ndarray
                 Faces of submesh.
+    vert_map :  np.ndarray
+                Only returned if `return_map` is True. Mapping of old vertex indices
+                to new vertex indices. Vertices that are not in the submesh have a
+                value of -1.
+    face_map :  np.ndarray
+                Only returned if `return_map` is True. Mapping of old face indices
+                to new face indices. Faces that are not in the submesh have a value
+                of -1.
 
     """
     if faces_index is None and vertex_index is None:
@@ -439,4 +450,14 @@ def submesh(mesh, *, faces_index=None, vertex_index=None):
     # (making a copy to allow `mask` to be garbage collected)
     faces = mask[faces].copy()
 
-    return vertices, faces
+    if not return_map:
+        return vertices, faces
+    else:
+        face_map = np.full(len(original_faces), -1, dtype=np.int32)
+        face_map[faces_index] = np.arange(len(faces_index))
+        vert_map = np.full(len(original_vertices), -1, dtype=np.int32)
+        vert_map[unique] = np.arange(len(unique))
+        return vertices, faces, vert_map, face_map
+
+
+
