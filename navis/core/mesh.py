@@ -428,10 +428,24 @@ class MeshNeuron(BaseNeuron):
 
         return x
 
-    def mask(self, mask, copy=True):
-        """Mask neuron with given mask.
+    def view(self) -> "MeshNeuron":
+        """Create a view of the neuron without copying data.
 
-        This is always done in-place!
+        Be aware that changes to the view may affect the original neuron!
+
+        """
+        no_copy = ["_lock"]
+
+        # Generate new empty neuron
+        x = self.__class__(None)
+
+        # Override with this neuron's data
+        x.__dict__.update({k: v for k, v in self.__dict__.items() if k not in no_copy})
+
+        return x
+
+    def mask(self, mask, inplace=False, copy=False):
+        """Mask neuron with given mask.
 
         Parameters
         ----------
@@ -443,8 +457,12 @@ class MeshNeuron(BaseNeuron):
                     The mask can be either for vertices or faces but will ultimately be
                     used to mask out faces. Vertices not participating in any face
                     will be removed regardless of the mask.
-        copy :      bool
-                    Whether to copy mask a copy of the data. Only applies for connectors.
+        inplace :   bool, optional
+                    Whether to mask the neuron inplace.
+        copy :      bool, optional
+                    Whether to copy data (faces, vertices, etc.) after masking. This
+                    is useful if you want to avoid accidentally modifying
+                    the original nodes table.
 
         Returns
         -------
@@ -466,101 +484,111 @@ class MeshNeuron(BaseNeuron):
                 "Please either apply the existing mask or unmask first."
             )
 
+        n = self
+        if not inplace:
+            n = self.view()
+
         if callable(mask):
-            mask = mask(self)
+            mask = mask(n)
         elif isinstance(mask, str):
-            mask = getattr(self, mask)
+            mask = getattr(n, mask)
 
         mask = np.asarray(mask)
 
         # Some checks
         if mask.dtype != bool:
             raise ValueError("Mask must be boolean array.")
-        elif len(mask) not in (self.vertices.shape[0], self.faces.shape[0]):
+        elif len(mask) not in (n.vertices.shape[0], n.faces.shape[0]):
             raise ValueError("Mask length does not match number of vertices or faces.")
 
         # Transate vertex mask to face mask
-        if mask.shape[0] == self.vertices.shape[0]:
+        if mask.shape[0] == n.vertices.shape[0]:
             vert_mask = mask
-            face_mask = np.all(mask[self.faces], axis=1)
+            face_mask = np.all(mask[n.faces], axis=1)
+
+            # Apply mask
+            verts_new, faces_new, vert_map, face_map = morpho.subset.submesh(
+                n, vertex_index=np.where(vert_mask)[0], return_map=True
+            )
         else:
             face_mask = mask
-            vert_mask = np.zeros(self.vertices.shape[0], dtype=bool)
-            vert_mask[np.unique(self.faces[face_mask])] = True
+            vert_mask = np.zeros(n.vertices.shape[0], dtype=bool)
+            vert_mask[np.unique(n.faces[face_mask])] = True
 
-        # Apply mask
-        verts_new, faces_new, vert_map, face_map = morpho.subset.submesh(
-            self, vertex_index=np.where(vert_mask)[0], return_map=True
-        )
+            # Apply mask
+            verts_new, faces_new, vert_map, face_map = morpho.subset.submesh(
+                n, faces_index=np.where(face_mask)[0], return_map=True
+            )
 
         # The above will have likely dropped some vertices - we need to update the vertex mask
-        vert_mask = np.zeros(self.vertices.shape[0], dtype=bool)
+        vert_mask = np.zeros(n.vertices.shape[0], dtype=bool)
         vert_mask[np.where(vert_map != -1)[0]] = True
 
         # Track mask, vertices and faces before masking
-        self._mask = face_mask  # mask is always the face mask
-        self._masked_data = {}
-        self._masked_data["_vertices"] = self._vertices
-        self._masked_data["_faces"] = self._faces
+        n._mask = face_mask  # mask is always the face mask
+        n._masked_data = {}
+        n._masked_data["_vertices"] = n._vertices
+        n._masked_data["_faces"] = n._faces
 
         # Update vertices and faces
-        self._vertices = verts_new
-        self._faces = faces_new
+        n._vertices = verts_new
+        n._faces = faces_new
 
         # See if we can mask the mesh's skeleton as well
-        if hasattr(self, "_skeleton"):
+        if hasattr(n, "_skeleton"):
             # If the skeleton has a vertex map, we can use it to mask the skeleton
-            if hasattr(self._skeleton, "vertex_map"):
+            if hasattr(n._skeleton, "vertex_map"):
                 # Generate a mask for the skeleton
                 # (keep in mind vertex_map are node IDs, not indices)
-                sk_mask = self._skeleton.nodes.node_id.isin(
-                    self._skeleton.vertex_map[vert_mask]
+                sk_mask = n._skeleton.nodes.node_id.isin(
+                    n._skeleton.vertex_map[vert_mask]
                 )
 
                 # Apply mask
-                self._skeleton.mask(sk_mask)
+                n._skeleton.mask(sk_mask)
 
                 # Last but not least: we need to update the vertex map
                 # Track the old map. N.B. we're not adding this to
                 # skeleton._masked_data since the remapping is done by
                 # the MeshNeuron itself!
-                self._skeleton._vertex_map_unmasked = self._skeleton.vertex_map
+                n._skeleton._vertex_map_unmasked = n._skeleton.vertex_map
 
                 # Subset the vertex map to the surviving mesh vertices
                 # N.B. that the node IDs don't change when masking skeletons!
-                self._skeleton.vertex_map = self._skeleton.vertex_map[vert_mask]
+                n._skeleton.vertex_map = n._skeleton.vertex_map[vert_mask]
             # If the skeleton has no vertex map, we have to ditch it and
             # let it be regenerated when needed
             else:
-                self._masked_data["_skeleton"] = self._skeleton
-                self._skeleton = None  # Clear the skeleton
+                n._masked_data["_skeleton"] = n._skeleton
+                n._skeleton = None  # Clear the skeleton
 
         # See if we need to mask any connectors as well
-        if hasattr(self, "_connectors"):
+        if hasattr(n, "_connectors"):
             # Only mask if there is an actual "vertex_ind" or "face_ind" column
-            cn_mask = None
-            if "vertex_ind" in self._connectors.columns:
-                cn_mask = self._connectors.vertex_id.isin(np.where(vert_mask)[0])
-            elif "face_ind" in self._connectors.columns:
-                cn_mask = self._connectors.face_id.isin(np.where(face_mask)[0])
+            if "vertex_ind" in n._connectors.columns:
+                cn_mask = n._connectors.vertex_id.isin(np.where(vert_mask)[0])
+            elif "face_ind" in n._connectors.columns:
+                cn_mask = n._connectors.face_id.isin(np.where(face_mask)[0])
+            else:
+                cn_mask = None
 
             if cn_mask is not None:
-                self._masked_data["_connectors"] = self._connectors
-                self._connectors = self._connectors.loc[mask]
+                n._masked_data["_connectors"] = n._connectors
+                n._connectors = n._connectors.loc[mask]
                 if copy:
-                    self._connectors = self._connectors.copy()
+                    n._connectors = n._connectors.copy()
 
         # Check if we need to drop the soma position
-        if hasattr(self, "soma_pos"):
-            vid = self.snap(self.soma_pos, to="vertices")[0]
+        if hasattr(n, "soma_pos"):
+            vid = n.snap(self.soma_pos, to="vertices")[0]
             if not vert_mask[vid]:
-                self._masked_data["_soma_pos"] = self.soma_pos
-                self.soma_pos = None
+                n._masked_data["_soma_pos"] = n.soma_pos
+                n.soma_pos = None
 
-        # Clear temporary attributes but keep the skeleton since we already fixed that
-        self._clear_temp_attr(exclude=["_skeleton"])
+        # Clear temporary attributes but keep the skeleton since we already fixed that manually
+        n._clear_temp_attr(exclude=["_skeleton"])
 
-        return self
+        return n
 
     def unmask(self, reset=True):
         """Unmask neuron.
@@ -631,7 +659,9 @@ class MeshNeuron(BaseNeuron):
 
         # Generate a mesh for the masked-out data:
         # The mesh prior to masking
-        pre_mesh = tm.Trimesh(self._masked_data["_vertices"], self._masked_data["_faces"])
+        pre_mesh = tm.Trimesh(
+            self._masked_data["_vertices"], self._masked_data["_faces"]
+        )
         # The vertices and faces that were masked out
         pre_vertices, pre_faces, vert_map, face_map = morpho.subset.submesh(
             pre_mesh, faces_index=np.where(~face_mask)[0], return_map=True
@@ -661,7 +691,7 @@ class MeshNeuron(BaseNeuron):
             # Check if the vertex map is still valid
             # Note to self: we could do some elaborate checks here to map old to
             # most likely new vertex / nodes but that's a bit overkill for now.
-            if hasattr(skeleton, 'vertex_map'):
+            if hasattr(skeleton, "vertex_map"):
                 if skeleton.vertex_map.shape[0] != self._vertices.shape[0]:
                     skeleton = None
                 elif skeleton.vertex_map.max() >= self._faces.shape[0]:

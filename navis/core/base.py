@@ -46,7 +46,7 @@ with warnings.catch_warnings():
 
 
 def Neuron(
-    x: Union[nx.DiGraph, str, pd.DataFrame, "TreeNeuron", "MeshNeuron"],
+    x: Union[nx.DiGraph, str, pd.DataFrame, "TreeNeuron", "MeshNeuron"],  # noqa: F821
     **metadata,  # noqa: F821
 ):
     """Constructor for Neuron objects. Depending on the input, either a
@@ -664,6 +664,10 @@ class BaseNeuron(UnitObject):
 
         return x
 
+    def view(self) -> "BaseNeuron":
+        """Create a view of the neuron without copying data."""
+        raise NotImplementedError(f"View not implemented for neuron of type {type(self)}.")
+
     def summary(self, add_props=None) -> pd.Series:
         """Get a summary of this neuron."""
 
@@ -686,6 +690,11 @@ class BaseNeuron(UnitObject):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             s = pd.Series([getattr(self, at, "NA") for at in props], index=props)
+
+        # Show mask status
+        if self.is_masked:
+            if "masked" not in s.index:
+                s["masked"] = True
 
         return s
 
@@ -750,7 +759,20 @@ class BaseNeuron(UnitObject):
         return hasattr(self, "_masked_data")
 
     def mask(self, mask):
-        """Mask neuron."""
+        """Mask neuron.
+
+        Implementation details depend on the neuron type (see below).
+
+        See Also
+        --------
+        [`navis.TreeNeuron.mask`][]
+                Mask skeleton.
+        [`navis.MeshNeuron.mask`][]
+                Mask mesh.
+        [`navis.Dotprops.mask`][]
+                Mask dotprops.
+
+        """
         raise NotImplementedError(
             f"Masking not implemented for neuron of type {type(self)}."
         )

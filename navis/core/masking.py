@@ -20,7 +20,6 @@ from .dotprop import Dotprops
 from .voxel import VoxelNeuron
 from .mesh import MeshNeuron
 
-from .. import utils
 
 __all__ = ["NeuronMask"]
 
@@ -30,7 +29,7 @@ class NeuronMask:
 
     Parameters
     ----------
-        x :     Neuron/List
+    x :         Neuron/List
                 Neuron(s) to mask.
     mask :      str | array | callable | list | dict
                 The mask to apply:
@@ -43,10 +42,8 @@ class NeuronMask:
                 above
     copy_data : bool
                 Whether to copy the neuron data (e.g. node table for skeletons)
-                when masking. Setting this to False will may some time and
-                memory but may lead to e.g. pandas setting-on-copy warnings
-                if the data is modified. Only set to `True` if you know your
-                code won't modify the data.
+                when masking. Set this to `True` if you know your code will modify
+                the masked data and you want to prevent changes to the original.
     reset_neurons : bool
                 If True, reset the neurons to their original state after the
                 context manager exits. If False, will try to incorporate any
@@ -84,7 +81,7 @@ class NeuronMask:
 
     """
 
-    def __init__(self, x, mask, reset_neurons=True, copy_data=True, validate_mask=True):
+    def __init__(self, x, mask, reset_neurons=True, copy_data=False, validate_mask=True):
         self.neurons = x
 
         if validate_mask:
@@ -159,7 +156,7 @@ class NeuronMask:
             else:
                 mask = self.mask[i]
 
-            n.mask(mask, copy=self.copy)
+            n.mask(mask, copy=self.copy, inplace=True)
 
         return self
 

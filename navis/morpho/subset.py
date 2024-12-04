@@ -401,7 +401,7 @@ def submesh(mesh, *, faces_index=None, vertex_index=None, return_map=False):
     if faces_index is None and vertex_index is None:
         raise ValueError("Either `faces_index` or `vertex_index` must be provided.")
     elif faces_index is not None and vertex_index is not None:
-        raise ValueError("Only one of `faces_index` or `vertex_index` can be provided.")
+        raise ValueError("Must provide either `faces_index` or `vertex_index`, not both.")
 
     # First check if we can return either an empty mesh or the original mesh right away
     if faces_index is not None:

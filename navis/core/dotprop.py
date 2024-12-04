@@ -37,7 +37,7 @@ try:
 except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
-__all__ = ['Dotprops']
+__all__ = ["Dotprops"]
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -93,34 +93,35 @@ class Dotprops(BaseNeuron):
 
     points: np.ndarray
     alpha: np.ndarray
-    vect:  np.ndarray
+    vect: np.ndarray
     k: Optional[int]
 
     soma: Optional[Union[list, np.ndarray]]
 
     #: Attributes used for neuron summary
-    SUMMARY_PROPS = ['type', 'name', 'k', 'units', 'n_points']
+    SUMMARY_PROPS = ["type", "name", "k", "units", "n_points"]
 
     #: Attributes to be used when comparing two neurons.
-    EQ_ATTRIBUTES = ['name', 'n_points', 'k']
+    EQ_ATTRIBUTES = ["name", "n_points", "k"]
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = ['_memory_usage', "_tree"]
+    TEMP_ATTR = ["_memory_usage", "_tree"]
 
     #: Core data table(s) used to calculate hash
-    _CORE_DATA = ['points', 'vect']
+    _CORE_DATA = ["points", "vect"]
 
     #: Property used to calculate length of neuron
-    _LENGTH_DATA = 'points'
+    _LENGTH_DATA = "points"
 
-    def __init__(self,
-                 points: np.ndarray,
-                 k: int,
-                 vect: Optional[np.ndarray] = None,
-                 alpha: Optional[np.ndarray] = None,
-                 units: Union[pint.Unit, str] = None,
-                 **metadata
-                 ):
+    def __init__(
+        self,
+        points: np.ndarray,
+        k: int,
+        vect: Optional[np.ndarray] = None,
+        alpha: Optional[np.ndarray] = None,
+        units: Union[pint.Unit, str] = None,
+        **metadata,
+    ):
         """Initialize Dotprops Neuron."""
         super().__init__()
 
@@ -144,13 +145,13 @@ class Dotprops(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            _ = np.divide(n.points, other, out=n.points, casting='unsafe')
+            _ = np.divide(n.points, other, out=n.points, casting="unsafe")
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+                n.connectors.loc[:, ["x", "y", "z"]] /= other
 
             # Force recomputing of KDTree
-            if hasattr(n, '_tree'):
-                delattr(n, '_tree')
+            if hasattr(n, "_tree"):
+                delattr(n, "_tree")
 
             # Convert units
             # Note: .to_compact() throws a RuntimeWarning and returns unchanged
@@ -167,13 +168,13 @@ class Dotprops(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            _ = np.multiply(n.points, other, out=n.points, casting='unsafe')
+            _ = np.multiply(n.points, other, out=n.points, casting="unsafe")
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+                n.connectors.loc[:, ["x", "y", "z"]] *= other
 
             # Force recomputing of KDTree
-            if hasattr(n, '_tree'):
-                delattr(n, '_tree')
+            if hasattr(n, "_tree"):
+                delattr(n, "_tree")
 
             # Convert units
             # Note: .to_compact() throws a RuntimeWarning and returns unchanged
@@ -190,13 +191,13 @@ class Dotprops(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            _ = np.add(n.points, other, out=n.points, casting='unsafe')
+            _ = np.add(n.points, other, out=n.points, casting="unsafe")
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] += other
+                n.connectors.loc[:, ["x", "y", "z"]] += other
 
             # Force recomputing of KDTree
-            if hasattr(n, '_tree'):
-                delattr(n, '_tree')
+            if hasattr(n, "_tree"):
+                delattr(n, "_tree")
 
             return n
         # If another neuron, return a list of neurons
@@ -209,13 +210,13 @@ class Dotprops(BaseNeuron):
         if isinstance(other, numbers.Number) or utils.is_iterable(other):
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            _ = np.subtract(n.points, other, out=n.points, casting='unsafe')
+            _ = np.subtract(n.points, other, out=n.points, casting="unsafe")
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] -= other
+                n.connectors.loc[:, ["x", "y", "z"]] -= other
 
             # Force recomputing of KDTree
-            if hasattr(n, '_tree'):
-                delattr(n, '_tree')
+            if hasattr(n, "_tree"):
+                delattr(n, "_tree")
 
             return n
         return NotImplemented
@@ -227,9 +228,9 @@ class Dotprops(BaseNeuron):
         # The KDTree from pykdtree does not like being pickled
         # We will have to remove it which will force it to be regenerated
         # after unpickling
-        if '_tree' in state:
-            if 'pykdtree' in str(type(state['_tree'])):
-                _ = state.pop('_tree')
+        if "_tree" in state:
+            if "pykdtree" in str(type(state["_tree"])):
+                _ = state.pop("_tree")
 
         return state
 
@@ -238,8 +239,10 @@ class Dotprops(BaseNeuron):
         """Alpha value for tangent vectors (optional)."""
         if isinstance(self._alpha, type(None)):
             if isinstance(self.k, type(None)) or (self.k <= 0):
-                raise ValueError('Unable to calculate `alpha` for Dotprops not '
-                                 'generated using k-nearest-neighbors.')
+                raise ValueError(
+                    "Unable to calculate `alpha` for Dotprops not "
+                    "generated using k-nearest-neighbors."
+                )
 
             self.recalculate_tangents(self.k, inplace=True)
         return self._alpha
@@ -249,7 +252,7 @@ class Dotprops(BaseNeuron):
         if not isinstance(value, type(None)):
             value = np.asarray(value)
             if value.ndim != 1:
-                raise ValueError(f'alpha must be (N, ) array, got {value.shape}')
+                raise ValueError(f"alpha must be (N, ) array, got {value.shape}")
         self._alpha = value
 
     @property
@@ -259,8 +262,8 @@ class Dotprops(BaseNeuron):
         mx = np.max(self.points, axis=0)
 
         if self.has_connectors:
-            cn_mn = np.min(self.connectors[['x', 'y', 'z']].values, axis=0)
-            cn_mx = np.max(self.connectors[['x', 'y', 'z']].values, axis=0)
+            cn_mn = np.min(self.connectors[["x", "y", "z"]].values, axis=0)
+            cn_mx = np.max(self.connectors[["x", "y", "z"]].values, axis=0)
 
             mn = np.min(np.vstack((mn, cn_mn)), axis=0)
             mx = np.max(np.vstack((mx, cn_mx)), axis=0)
@@ -270,12 +273,16 @@ class Dotprops(BaseNeuron):
     @property
     def datatables(self) -> List[str]:
         """Names of all DataFrames attached to this neuron."""
-        return [k for k, v in self.__dict__.items() if isinstance(v, pd.DataFrame, np.ndarray)]
+        return [
+            k
+            for k, v in self.__dict__.items()
+            if isinstance(v, pd.DataFrame, np.ndarray)
+        ]
 
     @property
     def kdtree(self):
         """KDTree for points."""
-        if not getattr(self, '_tree', None):
+        if not getattr(self, "_tree", None):
             self._tree = KDTree(self.points)
         return self._tree
 
@@ -290,7 +297,7 @@ class Dotprops(BaseNeuron):
             value = np.zeros((0, 3))
         value = np.asarray(value)
         if value.ndim != 2 or value.shape[1] != 3:
-            raise ValueError(f'points must be (N, 3) array, got {value.shape}')
+            raise ValueError(f"points must be (N, 3) array, got {value.shape}")
         self._points = value
         # Also reset KDtree
         self._tree = None
@@ -307,7 +314,7 @@ class Dotprops(BaseNeuron):
         if not isinstance(value, type(None)):
             value = np.asarray(value)
             if value.ndim != 2 or value.shape[1] != 3:
-                raise ValueError(f'vectors must be (N, 3) array, got {value.shape}')
+                raise ValueError(f"vectors must be (N, 3) array, got {value.shape}")
         self._vect = value
 
     @property
@@ -336,11 +343,11 @@ class Dotprops(BaseNeuron):
             if not any(soma):
                 soma = None
             elif any(np.array(soma) < 0) or any(np.array(soma) > self.points.shape[0]):
-                logger.warning(f'Soma(s) {soma} not found in points.')
+                logger.warning(f"Soma(s) {soma} not found in points.")
                 soma = None
         else:
             if 0 < soma < self.points.shape[0]:
-                logger.warning(f'Soma {soma} not found in node table.')
+                logger.warning(f"Soma {soma} not found in node table.")
                 soma = None
 
         return soma
@@ -348,7 +355,7 @@ class Dotprops(BaseNeuron):
     @soma.setter
     def soma(self, value: Union[Callable, int, None]) -> None:
         """Set soma."""
-        if hasattr(value, '__call__'):
+        if hasattr(value, "__call__"):
             self._soma = types.MethodType(value, self)
         elif isinstance(value, type(None)):
             self._soma = None
@@ -358,20 +365,22 @@ class Dotprops(BaseNeuron):
             if 0 < value < self.points.shape[0]:
                 self._soma = value
             else:
-                raise ValueError('Soma must be function, None or a valid node index.')
+                raise ValueError("Soma must be function, None or a valid node index.")
 
     @property
     def type(self) -> str:
         """Neuron type."""
-        return 'navis.Dotprops'
+        return "navis.Dotprops"
 
-    def dist_dots(self,
-                  other: 'Dotprops',
-                  alpha: bool = False,
-                  distance_upper_bound: Optional[float] = None,
-                  **kwargs) -> Union[
-                      Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]
-                    ]:
+    def dist_dots(
+        self,
+        other: "Dotprops",
+        alpha: bool = False,
+        distance_upper_bound: Optional[float] = None,
+        **kwargs,
+    ) -> Union[
+        Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]
+    ]:
         """Query this Dotprops against another.
 
         This function is mainly for `navis.nblast`.
@@ -419,9 +428,9 @@ class Dotprops(BaseNeuron):
 
         # Scipy's KDTree does not like the distance to be None
         diub = distance_upper_bound if distance_upper_bound else np.inf
-        fast_dists, fast_idxs = other.kdtree.query(points,
-                                                   distance_upper_bound=diub,
-                                                   **kwargs)
+        fast_dists, fast_idxs = other.kdtree.query(
+            points, distance_upper_bound=diub, **kwargs
+        )
 
         # If upper distance we have to worry about infinite distances
         if distance_upper_bound:
@@ -479,7 +488,7 @@ class Dotprops(BaseNeuron):
             return x
         return None
 
-    def copy(self) -> 'Dotprops':
+    def copy(self) -> "Dotprops":
         """Return a copy of the dotprops.
 
         Returns
@@ -489,17 +498,40 @@ class Dotprops(BaseNeuron):
         """
         # Don't copy the KDtree - when using pykdtree, copy.copy throws an
         # error and the construction is super fast anyway
-        no_copy = ['_lock', '_tree']
+        no_copy = ["_lock", "_tree"]
         # Generate new empty neuron - note we pass vect and alpha to
         # prevent calculation on initialization
-        x = self.__class__(points=np.zeros((0, 3)), k=1,
-                           vect=np.zeros((0, 3)), alpha=np.zeros(0))
+        x = self.__class__(
+            points=np.zeros((0, 3)), k=1, vect=np.zeros((0, 3)), alpha=np.zeros(0)
+        )
         # Populate with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
+        x.__dict__.update(
+            {k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy}
+        )
 
         return x
 
-    def drop_fluff(self, epsilon, keep_size: int = None, n_largest: int = None, inplace=False):
+    def view(self) -> "Dotprops":
+        """Create a view of the neuron without copying data.
+
+        Be aware that changes to the view may affect the original neuron!
+
+        """
+        no_copy = ["_lock"]
+
+        # Generate new empty neuron
+        x = self.__class__(
+            points=np.zeros((0, 3)), k=1, vect=np.zeros((0, 3)), alpha=np.zeros(0)
+        )
+
+        # Override with this neuron's data
+        x.__dict__.update({k: v for k, v in self.__dict__.items() if k not in no_copy})
+
+        return x
+
+    def drop_fluff(
+        self, epsilon, keep_size: int = None, n_largest: int = None, inplace=False
+    ):
         """Remove fluff from neuron.
 
         By default, this function will remove all but the largest connected
@@ -534,15 +566,19 @@ class Dotprops(BaseNeuron):
             Base function. See for details and examples.
 
         """
-        x = morpho.drop_fluff(self, epsilon=epsilon, keep_size=keep_size, n_largest=n_largest, inplace=inplace)
+        x = morpho.drop_fluff(
+            self,
+            epsilon=epsilon,
+            keep_size=keep_size,
+            n_largest=n_largest,
+            inplace=inplace,
+        )
 
         if not inplace:
             return x
 
-    def mask(self, mask, copy=True):
+    def mask(self, mask, inplace=False, copy=False) -> "Dotprops":
         """Mask neuron with given mask.
-
-        This is always done in-place!
 
         Parameters
         ----------
@@ -551,10 +587,16 @@ class Dotprops(BaseNeuron):
                     - 1D array with boolean values
                     - callable that accepts a neuron and returns a mask
                     - string with property name
+        inplace :   bool, optional
+                    Whether to mask the neuron inplace.
+        copy :      bool, optional
+                    Whether to copy data (points, vectors, alpha, etc.) after masking.
+                    This is useful if you want to avoid accidentally modifying
+                    the original nodes table.
 
         Returns
         -------
-        self
+        n :         Dotprops
                     The masked neuron.
 
         See Also
@@ -572,56 +614,60 @@ class Dotprops(BaseNeuron):
                 "Neuron already masked. Layering multiple masks is currently not supported, please unmask first."
             )
 
+        n = self
+        if not inplace:
+            n = self.view()
+
         if callable(mask):
-            mask = mask(self)
+            mask = mask(n)
         elif isinstance(mask, str):
-            mask = getattr(self, mask)
+            mask = getattr(n, mask)
 
         mask = np.asarray(mask)
 
         if mask.dtype != bool:
             raise ValueError("Mask must be boolean array.")
-        elif mask.shape[0] != len(self):
+        elif mask.shape[0] != len(n):
             raise ValueError("Mask must have same length as points.")
 
-        self._mask = mask
-        self._masked_data = {}
-        self._masked_data['_points'] = self.points
+        n._mask = mask
+        n._masked_data = {}
+        n._masked_data["_points"] = n.points
 
         # Drop soma if masked out
-        if self.soma is not None:
-            if isinstance(self.soma, (list, np.ndarray)):
-                soma_left = self.soma[mask[self.soma]]
-                self._masked_data['_soma'] = self.soma
+        if n.soma is not None:
+            if isinstance(n.soma, (list, np.ndarray)):
+                soma_left = n.soma[mask[n.soma]]
+                n._masked_data["_soma"] = n.soma
 
                 if any(soma_left):
-                    self.soma = soma_left
+                    n.soma = soma_left
                 else:
-                    self.soma = None
-            elif not mask[self.soma]:
-                self._masked_data['_soma'] = self.soma
-                self.soma = None
+                    n.soma = None
+            elif not mask[n.soma]:
+                n._masked_data["_soma"] = n.soma
+                n.soma = None
 
-        # N.B. we're directly setting `._nodes`` to avoid overhead from checks
+        # Apply the mask and make copy if requested
         for att in ("_points", "_vect", "_alpha"):
-            if hasattr(self, att):
-                self._masked_data[att] = getattr(self, att)
-                setattr(self, att, getattr(self, att)[mask])
+            if hasattr(n, att):
+                n._masked_data[att] = getattr(n, att)  # save original data
+                setattr(n, att, getattr(n, att)[mask])  # apply mask
 
                 if copy:
-                    setattr(self, att, getattr(self, att).copy())
+                    setattr(n, att, getattr(n, att).copy())  # copy masked data if requested
 
-        if hasattr(self, "_connectors") and "point_ix" in self._connectors.columns:
-            self._masked_data['connectors'] = self.connectors
-            self._connectors = self._connectors.loc[
-                    self.connectors.point_ix.isin(np.arange(len(mask))[mask])
-                ]
+        if hasattr(n, "_connectors") and "point_ix" in n._connectors.columns:
+            n._masked_data["connectors"] = n.connectors
+            n._connectors = n._connectors.loc[
+                n.connectors.point_ix.isin(np.arange(len(mask))[mask])
+            ]
             if copy:
-                self._connectors = self._connectors.copy()
+                n._connectors = n._connectors.copy()
 
-        self._clear_temp_attr()
+        n._clear_temp_attr()
 
-        return self
+        return n
 
     def unmask(self, reset=True):
         """Unmask neuron.
@@ -699,8 +745,9 @@ class Dotprops(BaseNeuron):
         # Checks and balances
         n_points = x.points.shape[0]
         if n_points < k:
-            raise ValueError(f"Too few points ({n_points}) to calculate {k} "
-                             "nearest-neighbors")
+            raise ValueError(
+                f"Too few points ({n_points}) to calculate {k} " "nearest-neighbors"
+            )
 
         # Create the KDTree and get the k-nearest neighbors for each point
         dist, ix = self.kdtree.query(x.points, k=k)
@@ -728,7 +775,7 @@ class Dotprops(BaseNeuron):
         if not inplace:
             return x
 
-    def snap(self, locs, to='points'):
+    def snap(self, locs, to="points"):
         """Snap xyz location(s) to closest point or synapse.
 
         Parameters
@@ -757,15 +804,16 @@ class Dotprops(BaseNeuron):
         """
         locs = np.asarray(locs).astype(np.float64)
 
-        is_single = (locs.ndim == 1 and len(locs) == 3)
-        is_multi = (locs.ndim == 2 and locs.shape[1] == 3)
+        is_single = locs.ndim == 1 and len(locs) == 3
+        is_multi = locs.ndim == 2 and locs.shape[1] == 3
         if not is_single and not is_multi:
-            raise ValueError('Expected a single (x, y, z) location or a '
-                             '(N, 3) array of multiple locations')
+            raise ValueError(
+                "Expected a single (x, y, z) location or a "
+                "(N, 3) array of multiple locations"
+            )
 
-        if to not in ['points', 'connectors']:
-            raise ValueError('`to` must be "points" or "connectors", '
-                             f'got {to}')
+        if to not in ["points", "connectors"]:
+            raise ValueError('`to` must be "points" or "connectors", ' f"got {to}")
 
         # Generate tree
         tree = graph.neuron2KDTree(self, data=to)
@@ -775,9 +823,9 @@ class Dotprops(BaseNeuron):
 
         return ix, dist
 
-    def to_skeleton(self,
-                    scale_vec: Union[float, Literal['auto']] = 'auto'
-                    ) -> core.TreeNeuron:
+    def to_skeleton(
+        self, scale_vec: Union[float, Literal["auto"]] = "auto"
+    ) -> core.TreeNeuron:
         """Turn Dotprop into a TreeNeuron.
 
         This does *not* skeletonize the neuron but rather generates a line
@@ -801,12 +849,13 @@ class Dotprops(BaseNeuron):
         TreeNeuron
 
         """
-        if not isinstance(scale_vec, numbers.Number) and scale_vec != 'auto':
-            raise ValueError('`scale_vect` must be "auto" or a number, '
-                             f'got {scale_vec}')
+        if not isinstance(scale_vec, numbers.Number) and scale_vec != "auto":
+            raise ValueError(
+                '`scale_vect` must be "auto" or a number, ' f"got {scale_vec}"
+            )
 
-        if scale_vec == 'auto':
-            scale_vec = self.sampling_resolution * .8
+        if scale_vec == "auto":
+            scale_vec = self.sampling_resolution * 0.8
 
         # Prepare segments - this is based on nat:::plot3d.dotprops
         halfvect = self.vect / 2 * scale_vec
@@ -819,16 +868,16 @@ class Dotprops(BaseNeuron):
         segs[1::2] = ends
 
         # Generate node table
-        nodes = pd.DataFrame(segs, columns=['x', 'y', 'z'])
-        nodes['node_id'] = nodes.index
-        nodes['parent_id'] = -1
-        nodes.loc[1::2, 'parent_id'] = nodes.index.values[::2]
+        nodes = pd.DataFrame(segs, columns=["x", "y", "z"])
+        nodes["node_id"] = nodes.index
+        nodes["parent_id"] = -1
+        nodes.loc[1::2, "parent_id"] = nodes.index.values[::2]
 
         # Produce a minimal TreeNeuron
         tn = core.TreeNeuron(nodes, units=self.units, id=self.id)
 
         # Carry over the label
-        if getattr(self, '_label', None):
+        if getattr(self, "_label", None):
             tn._label = self._label
 
         # Add some other relevant attributes directly
@@ -837,4 +886,3 @@ class Dotprops(BaseNeuron):
         tn._soma = self._soma
 
         return tn
-

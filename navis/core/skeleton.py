@@ -930,6 +930,22 @@ class TreeNeuron(BaseNeuron):
 
         return x
 
+    def view(self) -> "TreeNeuron":
+        """Create a view of the neuron without copying data.
+
+        Be aware that changes to the view may affect the original neuron!
+
+        """
+        no_copy = ["_lock"]
+
+        # Generate new empty neuron
+        x = self.__class__(None)
+
+        # Override with this neuron's data
+        x.__dict__.update({k: v for k, v in self.__dict__.items() if k not in no_copy})
+
+        return x
+
     def get_graph_nx(self) -> nx.DiGraph:
         """Calculate and return networkX representation of neuron.
 
@@ -962,10 +978,8 @@ class TreeNeuron(BaseNeuron):
         self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
         return self._igraph
 
-    def mask(self, mask, copy=True):
+    def mask(self, mask, inplace=False, copy=False) -> "TreeNeuron":
         """Mask neuron with given mask.
-
-        This is always done in-place!
 
         Parameters
         ----------
@@ -974,10 +988,17 @@ class TreeNeuron(BaseNeuron):
                     - 1D array with boolean values
                     - callable that accepts a neuron and returns a mask
                     - string with column name in nodes table
+        inplace :   bool, optional
+                    Whether to mask the neuron inplace.
+        copy :      bool, optional
+                    Whether to copy data such as the node table after masking. This
+                    is useful if you want to avoid accidentally modifying
+                    the original nodes table.
 
         Returns
         -------
-        self
+        n :         TreeNeuron
+                    The masked neuron.
 
         See Also
         --------
@@ -992,45 +1013,49 @@ class TreeNeuron(BaseNeuron):
                 "Neuron already masked. Layering multiple masks is currently not supported, please unmask first."
             )
 
+        n = self
+        if not inplace:
+            n = self.view()
+
         if callable(mask):
-            mask = mask(self)
+            mask = mask(n)
         elif isinstance(mask, str):
-            mask = self.nodes[mask].values
+            mask = n.nodes[mask].values
 
         mask = np.asarray(mask)
 
         if mask.dtype != bool:
             raise ValueError("Mask must be boolean array.")
-        elif mask.shape[0] != self.nodes.shape[0]:
+        elif mask.shape[0] != n.nodes.shape[0]:
             raise ValueError("Mask must have same length as nodes table.")
 
-        self._mask = mask
-        self._masked_data = {}
-        self._masked_data["_nodes"] = self.nodes
+        n._mask = mask
+        n._masked_data = {}
+        n._masked_data["_nodes"] = n.nodes
 
         # N.B. we're directly setting `._nodes`` to avoid overhead from checks
-        self._nodes = self._nodes.loc[mask].drop("type", axis=1, errors="ignore")
+        n._nodes = n._nodes.loc[mask].drop("type", axis=1, errors="ignore")
         if copy:
-            self._nodes = self._nodes.copy()
+            n._nodes = n._nodes.copy()
 
         # See if any parent IDs have ceased to exist
-        missing_parents = ~self._nodes.parent_id.isin(self._nodes.node_id) & (
-            self._nodes.parent_id >= 0
+        missing_parents = ~n._nodes.parent_id.isin(n._nodes.node_id) & (
+            n._nodes.parent_id >= 0
         )
         if any(missing_parents):
-            self.nodes.loc[missing_parents, "parent_id"] = -1
+            n.nodes.loc[missing_parents, "parent_id"] = -1
 
-        if hasattr(self, "_connectors"):
-            self._masked_data["_connectors"] = self.connectors
-            self._connectors = self._connectors.loc[
-                self._connectors.node_id.isin(self.nodes.node_id)
+        if hasattr(n, "_connectors"):
+            n._masked_data["_connectors"] = n.connectors
+            n._connectors = n._connectors.loc[
+                n._connectors.node_id.isin(n.nodes.node_id)
             ]
             if copy:
-                self._connectors = self._connectors.copy()
+                n._connectors = n._connectors.copy()
 
-        self._clear_temp_attr()
+        n._clear_temp_attr()
 
-        return self
+        return n
 
     def unmask(self, reset=True):
         """Unmask neuron.
