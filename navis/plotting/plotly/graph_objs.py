@@ -462,6 +462,12 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
 
     coords = segments_to_coords(neuron)
 
+    # For some reason, plotly seems to ignore the alpha channel when given an RGBA color
+    # (the color still changes somewhat but the line doesn't turn transparent)
+    # Instead, we have to set the `opacity` property of the whole scatter object
+    # - we will adjust opacity further down if according to the color
+    opacity = 1
+
     # We have to add (None, None, None) to the end of each segment to
     # make that line discontinuous
     coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
@@ -483,6 +489,9 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
         ]
 
     else:
+        if len(color) == 4:
+            opacity = color[3]
+
         c = f"rgb({color[0]},{color[1]},{color[2]})"
 
     if settings.hover_id:
@@ -506,6 +515,7 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
             x=coords[:, 0],
             y=coords[:, 1],
             z=coords[:, 2],
+            opacity=opacity,
             mode="lines",
             line=dict(color=c, width=settings.get('linewidth', 3), dash=dash),
             name=label,
