@@ -580,6 +580,14 @@ Functions to export neurons.
 | [`navis.write_precomputed()`][navis.write_precomputed] | {{ autosummary("navis.write_precomputed") }} |
 | [`navis.write_parquet()`][navis.write_parquet] | {{ autosummary("navis.write_parquet") }} |
 
+## Masking
+
+Functions and classes for masking:
+
+| Function/Class | Description |
+|----------------|-------------|
+| [`navis.NeuronMask`][navis.NeuronMask] | {{ autosummary("navis.NeuronMask") }} |
+
 ## Utility
 
 Various utility functions.
