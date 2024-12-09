@@ -98,7 +98,7 @@ class MeshNeuron(BaseNeuron):
     TEMP_ATTR = ['_memory_usage', '_trimesh', '_skeleton', '_igraph', '_graph_nx']
 
     #: Core data table(s) used to calculate hash
-    CORE_DATA = ['vertices', 'faces']
+    CORE_DATA = ['vertices', 'faces', 'edges']
 
     def __init__(self,
                  x,
@@ -114,18 +114,29 @@ class MeshNeuron(BaseNeuron):
         self._lock = 1
         self._trimesh = None  # this is required to avoid recursion during init
 
+
         if isinstance(x, MeshNeuron):
             self.__dict__.update(x.copy().__dict__)
+            self.vertices, self.faces, self.edges = x.vertices, x.faces, x.edges
+        elif hasattr(x, "faces") and hasattr(x, "vertices"):
             self.vertices, self.faces = x.vertices, x.faces
-        elif hasattr(x, 'faces') and hasattr(x, 'vertices'):
-            self.vertices, self.faces = x.vertices, x.faces
+            if hasattr(x, "edges"):
+                self.edges = x.edges
+            else:
+                self.edges = np.array([[]])
         elif isinstance(x, dict):
-            if 'faces' not in x or 'vertices' not in x:
+            if "faces" not in x or "vertices" not in x:
                 raise ValueError('Dictionary must contain "vertices" and "faces"')
-            self.vertices, self.faces = x['vertices'], x['faces']
+            self.vertices, self.faces = x["vertices"], x["faces"]
+            if "edges" in x:
+                self.edges = x["edges"]
+            else:
+                self.edges = np.array([[]], int)
+
         elif isinstance(x, str) and os.path.isfile(x):
             m = tm.load(x)
             self.vertices, self.faces = m.vertices, m.faces
+            self.edges = np.array([[]], int)
         elif isinstance(x, type(None)):
             # Empty neuron
             self.vertices, self.faces = np.zeros((0, 3)), np.zeros((0, 3))
@@ -281,6 +292,20 @@ class MeshNeuron(BaseNeuron):
         if verts.ndim != 2:
             raise ValueError('Vertices must be 2-dimensional array')
         self._vertices = verts
+        self._clear_temp_attr()
+    
+    @property
+    def edges(self):
+        """Edges making up the neuron."""
+        return self._edges
+
+    @edges.setter
+    def edges(self, edges):
+        if not isinstance(edges, np.ndarray):
+            raise TypeError(f'Edges must be numpy array, got "{type(edges)}"')
+        if edges.ndim != 2:
+            raise ValueError("Edges must be 2-dimensional array")
+        self._edges = edges
         self._clear_temp_attr()
 
     @property
