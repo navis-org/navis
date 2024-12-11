@@ -24,6 +24,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Set up Blender
+        run: |
+          pwd
+          wget -qO- https://mirrors.iu13.net/blender/release/Blender4.2/blender-4.2.4-linux-x64.tar.xz | tar xJ
+          mv blender-4.2.4-linux-x64 ../
+          echo "PATH=../blender-4.2.4-linux-x64/:$PATH" >> $GITHUB_ENV
       - name: Install Linux libraries
         run: |
           sudo apt-get update -y -qq
@@ -39,21 +45,14 @@ jobs:
           pip install flybrains --no-deps
           pip install git+https://github.com/siavashk/pycpd@master
           pip install pyarrow
-      - name: Set up Blender
-        run: |
-          pwd
-          wget -qO- https://mirrors.iu13.net/blender/release/Blender4.2/blender-4.2.4-linux-x64.tar.xz | tar xJ
-          mv blender-4.2.4-linux-x64 ../
-          export PATH=../blender-4.2.4-linux-x64/:$PATH
-          sudo ln -s ../blender-4.2.4-linux-x64/blender /usr/bin/blender
-          which blender
-          blender --version
       - name: Install navis
         run: pip install -e .[dev,all]
       # - run: pip install python-igraph
       #   if: ${{ matrix.igraph == 'igraph' }}
       - name: Report dependency versions
-        run: pip freeze -r requirements.txt
+        run: |
+          which blender
+          pip freeze -r requirements.txt
       - name: Test
         uses: coactions/setup-xvfb@v1
         with:
