@@ -15,39 +15,47 @@ jobs:
         # igraph: ["igraph", "no-igraph"]
     steps:
       # This cancels any such job that is still runnning
-    - name: Cancel Previous Runs
-      uses: styfle/cancel-workflow-action@0.9.1
-      with:
-        access_token: ${{ github.token }}
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install Linux libraries
-      run: |
-        sudo apt-get update -y -qq
-        sudo apt-get install -y libdbus-1-3 libxkbcommon-x11-0 libxcb-icccm4 \
-          libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
-          libxcb-xinerama0 libxcb-xinput0 libxcb-xfixes0 graphviz graphviz-dev \
-          mesa-vulkan-drivers
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install zstandard==0.16.0
-        pip install numpy
-        pip install flybrains --no-deps
-        pip install git+https://github.com/siavashk/pycpd@master
-        pip install pyarrow
-    - name: Install navis
-      run: pip install -e .[dev,all]
-    # - run: pip install python-igraph
-    #   if: ${{ matrix.igraph == 'igraph' }}
-    - name: Report dependency versions
-      run: pip freeze -r requirements.txt
-    - name: Test
-      uses: coactions/setup-xvfb@v1
-      with:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Set up Blender
         run: |
-          export NAVIS_HEADLESS=TRUE
-          pytest --verbose
+          pwd
+          wget -qO- https://mirrors.iu13.net/blender/release/Blender4.2/blender-4.2.4-linux-x64.tar.xz | tar xJ
+          mv blender-4.2.4-linux-x64 ../
+          echo "PATH=../blender-4.2.4-linux-x64/:$PATH" >> $GITHUB_ENV
+      - name: Install Linux libraries
+        run: |
+          sudo apt-get update -y -qq
+          sudo apt-get install -y libdbus-1-3 libxkbcommon-x11-0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-xinerama0 libxcb-xinput0 libxcb-xfixes0 graphviz graphviz-dev \
+            mesa-vulkan-drivers
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install zstandard==0.16.0
+          pip install numpy
+          pip install flybrains --no-deps
+          pip install git+https://github.com/siavashk/pycpd@master
+          pip install pyarrow
+      - name: Install navis
+        run: pip install -e .[dev,all]
+      # - run: pip install python-igraph
+      #   if: ${{ matrix.igraph == 'igraph' }}
+      - name: Report dependency versions
+        run: |
+          which blender
+          pip freeze -r requirements.txt
+      - name: Test
+        uses: coactions/setup-xvfb@v1
+        with:
+          run: |
+            export NAVIS_HEADLESS=TRUE
+            pytest --verbose
