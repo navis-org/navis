@@ -39,13 +39,6 @@ jobs:
           pip install flybrains --no-deps
           pip install git+https://github.com/siavashk/pycpd@master
           pip install pyarrow
-      - name: Set up Blender
-        run: |
-          pwd
-          wget -qO- https://mirrors.iu13.net/blender/release/Blender4.2/blender-4.2.4-linux-x64.tar.xz | tar xJ
-          export PATH=blender-4.2.4-linux-x64/:$PATH
-          which blender
-          blender --version
       - name: Install navis
         run: pip install -e .[dev,all]
       # - run: pip install python-igraph
