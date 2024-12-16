@@ -58,4 +58,5 @@ jobs:
         with:
           run: |
             export NAVIS_HEADLESS=TRUE
+            export NAVIS_TEST_ENV=TRUE
             pytest --verbose
