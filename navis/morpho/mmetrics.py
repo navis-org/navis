@@ -30,12 +30,6 @@ from .. import config, graph, sampling, core, utils
 # Set up logging
 logger = config.get_logger(__name__)
 
-# Set up numpy number representation, see NEP51
-# Once numpy<=2 is dropped from requirements, the doctest comparissons
-# should become `np.float64(1.074)` instead of `1.074`
-if int(np.version.version.split('.')[0])>=2:
-    np.set_printoptions(legacy="1.25")
-
 __all__ = sorted(
     [
         "strahler_index",
@@ -1327,7 +1321,12 @@ def tortuosity(
 
     Examples
     --------
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `np.float64(1.074)` instead of `1.074`)
     >>> import navis
+    >>> if int(np.version.version.split('.')[0])>=2:
+        np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(1)
     >>> # Calculate tortuosity as-is
     >>> T = navis.tortuosity(n)
