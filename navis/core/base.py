@@ -608,7 +608,12 @@ class BaseNeuron(UnitObject):
 
         Examples
         --------
+        (Set up numpy number representation within the test, see NEP51.
+        Once numpy<=2 is dropped from requirements, the doctest comparissons
+        should become `np.float32(266476.88)` instead of `266476.8`)
         >>> import navis
+        >>> if int(np.version.version.split('.')[0])>=2:
+                np.set_printoptions(legacy="1.25")
         >>> n = navis.example_neurons(1)
         >>> n.units
         <Quantity(8, 'nanometer')>

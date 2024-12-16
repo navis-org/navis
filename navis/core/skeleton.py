@@ -1422,7 +1422,12 @@ class TreeNeuron(BaseNeuron):
 
         Examples
         --------
+        (Set up numpy number representation within the test, see NEP51.
+        Once numpy<=2 is dropped from requirements, the doctest comparissons
+        should become `np.int32(1124)` instead of `1124`)
         >>> import navis
+        >>> if int(np.version.version.split('.')[0])>=2:
+                np.set_printoptions(legacy="1.25")
         >>> n = navis.example_neurons(1)
         >>> id, dist = n.snap([0, 0, 0])
         >>> id

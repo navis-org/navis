@@ -1078,7 +1078,12 @@ def find_main_branchpoint(
 
     Examples
     --------
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `np.int32(110)` instead of `110`)
     >>> import navis
+    >>> if int(np.version.version.split('.')[0])>=2:
+            np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(1)
     >>> navis.find_main_branchpoint(n, reroot_soma=True)
     110

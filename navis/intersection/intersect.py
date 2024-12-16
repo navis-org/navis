@@ -198,7 +198,14 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     --------
     Prune neuron to volume
 
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `array([False, False, False, ..., False, False, False], shape=(4465,))` 
+    instead of `array([False, False, False, ..., False, False, False])`)
+
     >>> import navis
+    >>> if int(np.version.version.split('.')[0])>=2:
+            np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(1)
     >>> lh = navis.example_volume('LH')
     >>> n_lh = navis.in_volume(n, lh, inplace=False)

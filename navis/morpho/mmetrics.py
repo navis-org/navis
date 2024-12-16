@@ -147,7 +147,13 @@ def strahler_index(
 
     Examples
     --------
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `np.int16(6)` instead of `91234`)
+
     >>> import navis
+    >>> if int(np.version.version.split('.')[0])>=2:
+            np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(2, kind='skeleton')
     >>> n.reroot(n.soma, inplace=True)
     >>> _ = navis.strahler_index(n)
@@ -550,7 +556,13 @@ def arbor_segregation_index(x: "core.NeuronObject") -> "core.NeuronObject":
 
     Examples
     --------
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `np.float64(0.277)` instead of `0.277`)
+
     >>> import navis
+    >>> if int(np.version.version.split('.')[0])>=2:
+            np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(1)
     >>> n.reroot(n.soma, inplace=True)
     >>> _ = navis.arbor_segregation_index(n)
@@ -699,7 +711,13 @@ def bending_flow(x: "core.NeuronObject") -> "core.NeuronObject":
 
     Examples
     --------
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `np.int64(785645)` instead of `785645`)
+
     >>> import navis
+    >>> if int(np.version.version.split('.')[0])>=2:
+            np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(1)
     >>> n.reroot(n.soma, inplace=True)
     >>> _ = navis.bending_flow(n)
@@ -969,7 +987,13 @@ def synapse_flow_centrality(
 
     Examples
     --------
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `np.int64(786969)` instead of `786969`)
+
     >>> import navis
+    >>> if int(np.version.version.split('.')[0])>=2:
+            np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(2)
     >>> n.reroot(n.soma, inplace=True)
     >>> _ = navis.synapse_flow_centrality(n)
@@ -1174,7 +1198,13 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
 
     Examples
     --------
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `np.int64(91234)` instead of `91234`)
+
     >>> import navis
+    >>> if int(np.version.version.split('.')[0])>=2:
+            np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(2)
     >>> n.reroot(n.soma, inplace=True)
     >>> _ = navis.flow_centrality(n)
@@ -1326,7 +1356,7 @@ def tortuosity(
     should become `np.float64(1.074)` instead of `1.074`)
     >>> import navis
     >>> if int(np.version.version.split('.')[0])>=2:
-        np.set_printoptions(legacy="1.25")
+            np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(1)
     >>> # Calculate tortuosity as-is
     >>> T = navis.tortuosity(n)
@@ -1635,7 +1665,13 @@ def betweeness_centrality(
 
     Examples
     --------
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `np.int64(436866)` instead of `436866`)
+
     >>> import navis
+    >>> if int(np.version.version.split('.')[0])>=2:
+            np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(2, kind='skeleton')
     >>> n.reroot(n.soma, inplace=True)
     >>> _ = navis.betweeness_centrality(n)
