@@ -613,7 +613,7 @@ class BaseNeuron(UnitObject):
         should become `np.float32(266476.88)` instead of `266476.8`)
         >>> import navis
         >>> if int(np.version.version.split('.')[0])>=2:
-                np.set_printoptions(legacy="1.25")
+        ...     np.set_printoptions(legacy="1.25")
         >>> n = navis.example_neurons(1)
         >>> n.units
         <Quantity(8, 'nanometer')>

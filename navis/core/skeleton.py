@@ -1427,7 +1427,7 @@ class TreeNeuron(BaseNeuron):
         should become `np.int32(1124)` instead of `1124`)
         >>> import navis
         >>> if int(np.version.version.split('.')[0])>=2:
-                np.set_printoptions(legacy="1.25")
+        ...     np.set_printoptions(legacy="1.25")
         >>> n = navis.example_neurons(1)
         >>> id, dist = n.snap([0, 0, 0])
         >>> id

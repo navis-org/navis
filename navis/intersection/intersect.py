@@ -205,7 +205,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
 
     >>> import navis
     >>> if int(np.version.version.split('.')[0])>=2:
-            np.set_printoptions(legacy="1.25")
+    ...     np.set_printoptions(legacy="1.25")
     >>> n = navis.example_neurons(1)
     >>> lh = navis.example_volume('LH')
     >>> n_lh = navis.in_volume(n, lh, inplace=False)
