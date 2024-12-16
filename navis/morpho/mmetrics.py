@@ -15,7 +15,6 @@
 """This module contains functions to analyse and manipulate neuron morphology."""
 
 import math
-import os
 import itertools
 import scipy
 import warnings
@@ -31,11 +30,6 @@ from .. import config, graph, sampling, core, utils
 # Set up logging
 logger = config.get_logger(__name__)
 
-# Set up numpy number representation, see NEP51
-# Once numpy<=2 is dropped from requirements, the doctest comparissons
-# should become `np.float64(1.074)` instead of `1.074`
-if os.environ.get('NAVIS_TEST_ENV', '').lower() == 'true':
-    np.set_printoptions(legacy="1.25")
 
 __all__ = sorted(
     [
