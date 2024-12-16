@@ -37,6 +37,16 @@ def simplify_mesh_blender(x, F, inplace=False):
     simp
                 Simplified mesh object.
 
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1, kind="mesh")
+    >>> n_sm = simplify_mesh_blender(n,
+    ...         F=0.2,
+    ...         inplace=False)
+    >>> n.n_vertices > n_sm.n_vertices
+    True
+
     """
     if not tm.interfaces.blender.exists:
         raise ModuleNotFoundError('No Blender 3D unavailable (executable not found).')
