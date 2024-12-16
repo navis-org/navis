@@ -199,8 +199,13 @@ def update_scores(queries, targets, scores_ex, nblast_func, **kwargs):
 
     Mostly for testing but also illustrates the principle:
 
+    (Set up numpy number representation within the test, see NEP51.
+    Once numpy<=2 is dropped from requirements, the doctest comparissons
+    should become `np.True_` instead of `True`)
     >>> import navis
     >>> import numpy as np
+    >>> if int(np.version.version.split('.')[0])>=2:
+    ...     np.set_printoptions(legacy="1.25")
     >>> nl = navis.example_neurons(n=5)
     >>> dp = navis.make_dotprops(nl, k=5) / 125
     >>> # Full NBLAST

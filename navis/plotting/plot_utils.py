@@ -190,7 +190,7 @@ def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
     faces :         np.ndarray
 
     """
-    vertices = np.empty((0, 3), dtype=np.float_)
+    vertices = np.empty((0, 3), dtype=np.float64)
     indices = np.empty((0, 3), dtype=np.uint32)
 
     if not isinstance(radii, Iterable):
@@ -219,7 +219,7 @@ def make_tube(segments, radii=1.0, tube_points=8, use_normals=True):
         # Vertices for each point on the circle
         verts = np.repeat(points, tube_points, axis=0)
 
-        v = np.arange(tube_points, dtype=np.float_) / tube_points * 2 * np.pi
+        v = np.arange(tube_points, dtype=np.float64) / tube_points * 2 * np.pi
 
         all_cx = (
             radius
