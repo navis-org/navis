@@ -30,6 +30,7 @@ from .. import config, graph, sampling, core, utils
 # Set up logging
 logger = config.get_logger(__name__)
 
+
 __all__ = sorted(
     [
         "strahler_index",

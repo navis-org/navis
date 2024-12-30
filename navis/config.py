@@ -59,6 +59,12 @@ def get_logger(name: str):
         return logging.getLogger(name)
     return logger
 
+# Set up numpy number representation, see NEP51
+# Once numpy<=2 is dropped from requirements, the doctest comparissons
+# should become `np.float64(1.074)` instead of `1.074`
+if os.environ.get('NAVIS_TEST_ENV', '').lower() == 'true':
+    import numpy as np
+    np.set_printoptions(legacy="1.25")
 
 # Default settings for progress bars
 pbar_hide = False
