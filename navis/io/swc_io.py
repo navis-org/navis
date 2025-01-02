@@ -252,18 +252,20 @@ def read_header_rows(f: TextIO):
     return out
 
 
-def read_swc(f: Union[str, pd.DataFrame, Iterable],
-             connector_labels: Optional[Dict[str, Union[str, int]]] = {},
-             soma_label: Union[str, int] = 1,
-             include_subdirs: bool = False,
-             delimiter: str = ' ',
-             parallel: Union[bool, int] = 'auto',
-             precision: int = 32,
-             fmt: str = "{name}.swc",
-             read_meta: bool = True,
-             limit: Optional[int] = None,
-             errors: str = 'raise',
-             **kwargs) -> 'core.NeuronObject':
+def read_swc(
+    f: Union[str, pd.DataFrame, Iterable],
+    connector_labels: Optional[Dict[str, Union[str, int]]] = {},
+    soma_label: Union[str, int] = 1,
+    include_subdirs: bool = False,
+    delimiter: str = " ",
+    parallel: Union[bool, int] = "auto",
+    precision: int = 32,
+    fmt: str = "{name}.swc",
+    read_meta: bool = True,
+    limit: Optional[int] = None,
+    errors: str = "raise",
+    **kwargs,
+) -> "core.NeuronObject":
     """Create Neuron/List from SWC file.
 
     This import is following format specified
@@ -292,13 +294,15 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     delimiter :         str
                         Delimiter to use. Passed to `pandas.read_csv`.
     parallel :          "auto" | bool | int
-                        Defaults to `auto` which means only use parallel
-                        processing if more than 200 SWC are imported. Spawning
-                        and joining processes causes overhead and is
-                        considerably slower for imports of small numbers of
-                        neurons. Integer will be interpreted as the
-                        number of processes to use (defaults to
-                        `os.cpu_count() // 2`).
+                        Whether to use parallel processes for reading:
+                         - "auto" (default): will use parallel processing if
+                            more than 200 SWCs are imported.
+                          - Integers will be interpreted as the number of
+                            processes to use. Defaults to `os.cpu_count() // 2`.
+                          - False will use a single process.
+                        Ignored for tar archives. Please note that spawning
+                        processes incurs an overhead and might not be faster
+                        for small numbers of files.
     precision :         int [8, 16, 32, 64] | None
                         Precision for data. Defaults to 32 bit integers/floats.
                         If `None` will let pandas infer data types - this
@@ -397,21 +401,25 @@ def read_swc(f: Union[str, pd.DataFrame, Iterable],
     # point to an existing file or a folder MUST be a SWC) which will lead to
     # strange error messages.
     # The easiest fix is to implement a small sanity check here:
-    if isinstance(f, str) and '\n' not in f and not utils.is_url(f):
+    if isinstance(f, str) and "\n" not in f and not utils.is_url(f):
         # If this looks like a path
         p = Path(f).expanduser()
         if not p.is_dir() and not p.is_file():
-            raise FileNotFoundError(f'"{f}" looks like a directory or filepath '
-                                    'but does not appear to exist.')
+            raise FileNotFoundError(
+                f'"{f}" looks like a directory or filepath '
+                "but does not appear to exist."
+            )
 
-    reader = SwcReader(connector_labels=connector_labels,
-                       soma_label=soma_label,
-                       delimiter=delimiter,
-                       precision=precision,
-                       read_meta=read_meta,
-                       fmt=fmt,
-                       errors=errors,
-                       attrs=kwargs)
+    reader = SwcReader(
+        connector_labels=connector_labels,
+        soma_label=soma_label,
+        delimiter=delimiter,
+        precision=precision,
+        read_meta=read_meta,
+        fmt=fmt,
+        errors=errors,
+        attrs=kwargs,
+    )
     res = reader.read_any(f, include_subdirs, parallel, limit=limit)
 
     failed = []
