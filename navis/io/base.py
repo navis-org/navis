@@ -520,8 +520,6 @@ class BaseReader(ABC):
                     Limit the number of files read from this directory.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
 
         Returns
         -------
@@ -618,8 +616,7 @@ class BaseReader(ABC):
         url,
         parallel="auto",
         limit: Optional[int] = None,
-        attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal["ignore", Literal["raise"]]] = "ignore",
+        attrs: Optional[Dict[str, Any]] = None
     ) -> "core.NeuronList":
         """Read files from an FTP server.
 
@@ -633,8 +630,6 @@ class BaseReader(ABC):
                     Limit the number of files read from this directory.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
 
         Returns
         -------
@@ -654,7 +649,7 @@ class BaseReader(ABC):
         else:
             port = 21  # default port
 
-        read_fn = partial(self.read_from_ftp, attrs=attrs, on_error=on_error)
+        read_fn = partial(self.read_from_ftp, attrs=attrs)
         neurons = parallel_read_ftp(
             read_fn=read_fn,
             server=server,
@@ -670,8 +665,7 @@ class BaseReader(ABC):
         self,
         files: Union[str, List[str]],
         ftp: FTP,
-        attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal["ignore", Literal["raise"]]] = "ignore",
+        attrs: Optional[Dict[str, Any]] = None
     ) -> "core.NeuronList":
         """Read given files from an FTP server into a NeuronList.
 
@@ -687,8 +681,6 @@ class BaseReader(ABC):
                     `_FTP` global variable.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
 
         Returns
         -------
@@ -716,7 +708,7 @@ class BaseReader(ABC):
                     n = self.read_buffer(f, attrs=merge_dicts(props, attrs))
                     neurons.append(n)
                 except BaseException:
-                    if on_error == "ignore":
+                    if self.errors == "ignore":
                         logger.warning(f'Failed to read "{file}" from FTP.')
                     else:
                         raise
