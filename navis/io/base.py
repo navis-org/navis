@@ -1032,7 +1032,7 @@ class BaseReader(ABC):
                     return self.read_directory(
                         obj,
                         include_subdirs,
-                        parallle=parallel,
+                        parallel=parallel,
                         limit=limit,
                         attrs=attrs,
                     )
