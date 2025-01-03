@@ -32,7 +32,7 @@ soma_depths = [0.36101451, 0.62182935, 0.16423996, 0.48303029, 0.2956563]
 import navis
 
 nl = navis.read_swc(
-    "ftp://download.brainlib.org:8811/biccn/zeng/pseq/morph/200526/",
+    "ftp://download.brainimagelibrary.org/biccn/zeng/pseq/morph/200526/",
     limit=[f"{i}_transformed.swc" for i in ids],  #  Load only the files we need
     fmt="{name,id:int}_transformed.swc",  # Parse the name and id from the file name
 )

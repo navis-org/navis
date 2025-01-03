@@ -100,7 +100,9 @@ def handle_errors(func):
                     break
 
             if self.errors == "raise":
-                raise ReadError(f"Error reading {id}. See above traceback for details.") from e
+                raise ReadError(
+                    f"Error reading {id}. See above traceback for details."
+                ) from e
             elif self.errors == "log":
                 logger.exception(f"Failed to read {id}", exc_info=True)
 
@@ -299,7 +301,7 @@ class BaseReader(ABC):
         read_binary: bool = False,
         attrs: Optional[Dict[str, Any]] = None,
         ignore_hidden=True,
-        errors="raise"
+        errors="raise",
     ):
         self.attrs = attrs
         self.fmt = fmt
@@ -424,7 +426,6 @@ class BaseReader(ABC):
         files: Union[str, List[str]],
         zippath: os.PathLike,
         attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal["ignore", Literal["raise"]]] = "ignore",
     ) -> "core.NeuronList":
         """Read given files from a zip into a NeuronList.
 
@@ -438,8 +439,6 @@ class BaseReader(ABC):
                     Path to zip file.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
 
         Returns
         -------
@@ -459,7 +458,7 @@ class BaseReader(ABC):
                     n = self.read_bytes(zip.read(file), attrs=merge_dicts(props, attrs))
                     neurons.append(n)
                 except BaseException:
-                    if on_error == "ignore":
+                    if self.errors == "ignore":
                         logger.warning(f'Failed to read "{file.filename}" from zip.')
                     else:
                         raise
@@ -472,7 +471,6 @@ class BaseReader(ABC):
         parallel="auto",
         limit: Optional[int] = None,
         attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal["ignore", Literal["raise"]]] = "ignore",
     ) -> "core.NeuronList":
         """Read files from a zip into a NeuronList.
 
@@ -486,8 +484,6 @@ class BaseReader(ABC):
                     Limit the number of files read from this directory.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
 
         Returns
         -------
@@ -496,7 +492,7 @@ class BaseReader(ABC):
         """
         fpath = Path(fpath).expanduser()
         read_fn = partial(
-            self.read_from_zip, zippath=fpath, attrs=attrs, on_error=on_error
+            self.read_from_zip, zippath=fpath, attrs=attrs
         )
         neurons = parallel_read_archive(
             read_fn=read_fn,
@@ -507,66 +503,14 @@ class BaseReader(ABC):
         )
         return self.format_output(neurons)
 
-    def read_from_tar(
-        self,
-        files: Union[str, List[str]],
-        tarpath: os.PathLike,
-        attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal["ignore", Literal["raise"]]] = "ignore",
-    ) -> "core.NeuronList":
-        """Read given files from a tar into a NeuronList.
-
-        Typically not used directly but via `read_tar()` dispatcher.
-
-        Parameters
-        ----------
-        files :     tarfile.TarInfo | list thereof
-                    Files inside the tar file to read.
-        tarpath :   str | os.PathLike
-                    Path to tar file.
-        attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
-
-        Returns
-        -------
-        core.NeuronList
-
-        """
-        p = Path(tarpath)
-        files = utils.make_iterable(files)
-
-        neurons = []
-        with tarfile.open(p, "r") as tf:
-            for file in files:
-                # Note the `file` is of type tarfile.TarInfo here
-                props = self.parse_filename(file.name.split("/")[-1])
-                props["origin"] = str(p)
-                try:
-                    n = self.read_bytes(
-                        tf.extractfile(file).read(), attrs=merge_dicts(props, attrs)
-                    )
-                    neurons.append(n)
-                except BaseException:
-                    if on_error == "ignore":
-                        logger.warning(f'Failed to read "{file.filename}" from tar.')
-                    else:
-                        raise
-
-        return self.format_output(neurons)
-
     def read_tar(
         self,
         fpath: os.PathLike,
-        parallel="auto",
         limit: Optional[int] = None,
         attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal["ignore", Literal["raise"]]] = "ignore",
+        ignore_hidden: bool = True
     ) -> "core.NeuronList":
         """Read files from a tar archive into a NeuronList.
-
-        This is a dispatcher for `.read_from_tar`.
 
         Parameters
         ----------
@@ -576,25 +520,95 @@ class BaseReader(ABC):
                     Limit the number of files read from this directory.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
 
         Returns
         -------
         core.NeuronList
 
         """
-        fpath = Path(fpath).expanduser()
-        read_fn = partial(
-            self.read_from_tar, tarpath=fpath, attrs=attrs, on_error=on_error
+        p = Path(fpath).expanduser()
+        file_ext = self.is_valid_file
+
+        # Check the content of the tar file
+        # N.B. the TarInfo objects are hashable but the hash changes
+        # when the archive is re-opened. Therefore, we track the
+        # filenames and not the TarInfo objects.
+        to_read = []
+        with tarfile.open(p, "r") as tf:
+            for i, file in enumerate(tf):
+                fpath = file.name  # full path inside the tar
+                fname = fpath.split("/")[-1]  # just the filename
+                if ignore_hidden and fname.startswith("._"):
+                    continue
+                if callable(file_ext):
+                    if self.is_valid_file(file):
+                        to_read.append(fpath)
+                elif file_ext == "*":
+                    to_read.append(fpath)
+                elif file_ext and fname.endswith(file_ext):
+                    to_read.append(fpath)
+                elif "." not in file.filename:
+                    to_read.append(fpath)
+
+                if isinstance(limit, int) and i >= limit:
+                    break
+
+        if isinstance(limit, list):
+            to_read = [f for f in to_read if f in limit]
+        elif isinstance(limit, slice):
+            to_read = to_read[limit]
+        elif isinstance(limit, str):
+            # Check if limit is a regex
+            if rgx.search(limit):
+                to_read = [f for f in to_read if re.search(limit, f.split("/")[-1])]
+            else:
+                to_read = [f for f in to_read if limit in f.split("/")[-1]]
+
+        # Wrapper for progess bar
+        prog = partial(
+            config.tqdm,
+            desc="Importing",
+            total=len(to_read),
+            disable=config.pbar_hide,
+            leave=config.pbar_leave,
         )
-        neurons = parallel_read_archive(
-            read_fn=read_fn,
-            fpath=fpath,
-            file_ext=self.is_valid_file,
-            limit=limit,
-            parallel=parallel,
-        )
+
+        # N.B. tar.gz is a bunch of files concatenated and then compressed!
+        # In consequence, random access is very slow because we may have to seek
+        # through the whole archive to find the start of the requested file.
+        # The workaround is to open the archive in streaming (e.g. "r|gz") mode,
+        # iterate through the files in sequence and exract if the file is requested.
+        # This is also why we are not using parallel processing here.
+        # See also https://tinyurl.com/5n8wz54m (links to StackOverflow)
+        neurons = []
+        to_read = set(to_read)  # faster lookup
+        with prog() as pbar:
+            # Open the tar file in streaming mode with transparent compression
+            with tarfile.open(p, "r|*") as tf:
+                for t in tf:
+                    # Skip files we don't want to read
+                    if t.name not in to_read:
+                        continue
+                    try:
+                        props = self.parse_filename(t.name.split("/")[-1])
+                        props["origin"] = str(p)
+                        n = self.read_bytes(
+                            tf.extractfile(t).read(),
+                            attrs=merge_dicts(props, attrs),
+                        )
+                        neurons.append(n)
+                        to_read.remove(t.name)
+                        pbar.update()
+                    except BaseException as e:
+                        if self.errors == "ignore":
+                            logger.warning(f'Failed to read "{t.name}" from tar.')
+                        else:
+                            raise
+
+                    # If we have read all (requested) files we can stop
+                    if not len(to_read):
+                        break
+
         return self.format_output(neurons)
 
     def read_ftp(
@@ -602,8 +616,7 @@ class BaseReader(ABC):
         url,
         parallel="auto",
         limit: Optional[int] = None,
-        attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal["ignore", Literal["raise"]]] = "ignore",
+        attrs: Optional[Dict[str, Any]] = None
     ) -> "core.NeuronList":
         """Read files from an FTP server.
 
@@ -617,8 +630,6 @@ class BaseReader(ABC):
                     Limit the number of files read from this directory.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
 
         Returns
         -------
@@ -638,7 +649,7 @@ class BaseReader(ABC):
         else:
             port = 21  # default port
 
-        read_fn = partial(self.read_from_ftp, attrs=attrs, on_error=on_error)
+        read_fn = partial(self.read_from_ftp, attrs=attrs)
         neurons = parallel_read_ftp(
             read_fn=read_fn,
             server=server,
@@ -654,8 +665,7 @@ class BaseReader(ABC):
         self,
         files: Union[str, List[str]],
         ftp: FTP,
-        attrs: Optional[Dict[str, Any]] = None,
-        on_error: Union[Literal["ignore", Literal["raise"]]] = "ignore",
+        attrs: Optional[Dict[str, Any]] = None
     ) -> "core.NeuronList":
         """Read given files from an FTP server into a NeuronList.
 
@@ -671,8 +681,6 @@ class BaseReader(ABC):
                     `_FTP` global variable.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
-        on_error :  'ignore' | 'raise'
-                    What do do when error is encountered.
 
         Returns
         -------
@@ -700,7 +708,7 @@ class BaseReader(ABC):
                     n = self.read_buffer(f, attrs=merge_dicts(props, attrs))
                     neurons.append(n)
                 except BaseException:
-                    if on_error == "ignore":
+                    if self.errors == "ignore":
                         logger.warning(f'Failed to read "{file}" from FTP.')
                     else:
                         raise
@@ -783,7 +791,9 @@ class BaseReader(ABC):
             r.raise_for_status()
             props = self.parse_filename(url.split("/")[-1])
             props["origin"] = url
-            return self.read_buffer(io.BytesIO(r.content), attrs=merge_dicts(props, attrs))
+            return self.read_buffer(
+                io.BytesIO(r.content), attrs=merge_dicts(props, attrs)
+            )
 
     def read_string(
         self, s: str, attrs: Optional[Dict[str, Any]] = None
@@ -803,7 +813,8 @@ class BaseReader(ABC):
         """
         sio = io.StringIO(s)
         return self.read_buffer(
-            sio, attrs=merge_dicts({"name": self.name_fallback, "origin": "string"}, attrs)
+            sio,
+            attrs=merge_dicts({"name": self.name_fallback, "origin": "string"}, attrs),
         )
 
     def read_bytes(
@@ -824,7 +835,8 @@ class BaseReader(ABC):
         """
         sio = io.BytesIO(s)
         return self.read_buffer(
-            sio, attrs=merge_dicts({"name": self.name_fallback, "origin": "string"}, attrs)
+            sio,
+            attrs=merge_dicts({"name": self.name_fallback, "origin": "string"}, attrs),
         )
 
     @handle_errors
@@ -903,7 +915,9 @@ class BaseReader(ABC):
                 p = Path(obj).expanduser()
                 if p.suffix == ".zip":
                     return self.read_zip(p, attrs=attrs)
-                elif p.suffix in (".tar", "tar.gz", "tar.bz"):
+                elif any(
+                    str(p).endswith(f) for f in (".tar", "tar.gz", "tar.bz", "tar.bz2")
+                ):
                     return self.read_tar(p, attrs=attrs)
                 return self.read_file_path(p, attrs=attrs)
             if obj.startswith("http://") or obj.startswith("https://"):
@@ -1001,12 +1015,18 @@ class BaseReader(ABC):
         core.NeuronObject
         """
         if utils.is_iterable(obj) and not hasattr(obj, "read"):
-            return self.read_any_multi(obj, parallel, include_subdirs, attrs=attrs)
+            return self.read_any_multi(
+                obj, parallel=parallel, include_subdirs=include_subdirs, attrs=attrs
+            )
         else:
             try:
                 if is_dir(obj):
                     return self.read_directory(
-                        obj, include_subdirs, parallel, limit, attrs=attrs
+                        obj,
+                        include_subdirs,
+                        parallel=parallel,
+                        limit=limit,
+                        attrs=attrs,
                     )
             except TypeError:
                 pass
@@ -1014,11 +1034,15 @@ class BaseReader(ABC):
                 if os.path.isfile(os.path.expanduser(obj)) and str(obj).endswith(
                     ".zip"
                 ):
-                    return self.read_zip(obj, parallel, limit, attrs=attrs)
+                    return self.read_zip(
+                        obj, parallel=parallel, limit=limit, attrs=attrs
+                    )
                 if os.path.isfile(os.path.expanduser(obj)) and ".tar" in str(obj):
-                    return self.read_tar(obj, parallel, limit, attrs=attrs)
+                    return self.read_tar(obj, limit=limit, attrs=attrs)
                 if isinstance(obj, str) and obj.startswith("ftp://"):
-                    return self.read_ftp(obj, parallel, limit, attrs=attrs)
+                    return self.read_ftp(
+                        obj, parallel=parallel, limit=limit, attrs=attrs
+                    )
             except TypeError:
                 pass
             return self.read_any_single(obj, attrs=attrs)
@@ -1102,10 +1126,7 @@ class BaseReader(ABC):
 
 
 class ImageReader(BaseReader):
-    """Reader for image data.
-
-
-    """
+    """Reader for image data."""
 
     def __init__(self, output, thin, threshold, dotprop_kwargs, **kwargs):
         super().__init__(**kwargs)
@@ -1286,9 +1307,15 @@ def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
 
 
 def parallel_read_archive(
-    read_fn, fpath, file_ext, limit=None, parallel="auto", ignore_hidden=True
+    read_fn,
+    fpath,
+    file_ext,
+    reader=None,
+    limit=None,
+    parallel="auto",
+    ignore_hidden=True,
 ) -> List["core.NeuronList"]:
-    """Read neurons from a archive (zip or tar), potentially in parallel.
+    """Read neurons from a ZIP archive, potentially in parallel.
 
     Reader function must be picklable.
 
@@ -1323,43 +1350,23 @@ def parallel_read_archive(
     # Check zip content
     p = Path(fpath)
     to_read = []
+    with ZipFile(p, "r") as zip:
+        for i, file in enumerate(zip.filelist):
+            fname = file.filename.split("/")[-1]
+            if ignore_hidden and fname.startswith("._"):
+                continue
+            if callable(file_ext):
+                if file_ext(file):
+                    to_read.append(file)
+            elif file_ext == "*":
+                to_read.append(file)
+            elif file_ext and fname.endswith(file_ext):
+                to_read.append(file)
+            elif "." not in file.filename:
+                to_read.append(file)
 
-    if p.name.endswith(".zip"):
-        with ZipFile(p, "r") as zip:
-            for i, file in enumerate(zip.filelist):
-                fname = file.filename.split("/")[-1]
-                if ignore_hidden and fname.startswith("._"):
-                    continue
-                if callable(file_ext):
-                    if file_ext(file):
-                        to_read.append(file)
-                elif file_ext == "*":
-                    to_read.append(file)
-                elif file_ext and fname.endswith(file_ext):
-                    to_read.append(file)
-                elif "." not in file.filename:
-                    to_read.append(file)
-
-                if isinstance(limit, int) and i >= limit:
-                    break
-    elif ".tar" in p.name:  # can be ".tar", "tar.gz" or "tar.bz"
-        with tarfile.open(p, "r") as tf:
-            for i, file in enumerate(tf):
-                fname = file.name.split("/")[-1]
-                if ignore_hidden and fname.startswith("._"):
-                    continue
-                if callable(file_ext):
-                    if file_ext(file):
-                        to_read.append(file)
-                elif file_ext == "*":
-                    to_read.append(file)
-                elif file_ext and fname.endswith(file_ext):
-                    to_read.append(file)
-                elif "." not in file.filename:
-                    to_read.append(file)
-
-                if isinstance(limit, int) and i >= limit:
-                    break
+            if isinstance(limit, int) and i >= limit:
+                break
 
     if isinstance(limit, list):
         to_read = [f for f in to_read if f in limit]
