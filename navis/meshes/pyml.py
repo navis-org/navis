@@ -87,12 +87,22 @@ def simplify_mesh_pyml(x, F, method='quadric', inplace=False, **kwargs):
     if method == 'quadric':
         defaults = {'targetperc': F}
         defaults.update(kwargs)
-        ms.simplification_quadric_edge_collapse_decimation(**defaults)
+        if hasattr(ms, 'meshing_decimation_quadric_edge_collapse'):
+            # Post 2022.2
+            ms.meshing_decimation_quadric_edge_collapse(**defaults)
+        else:
+            # Pre 2022.2
+            ms.simplification_quadric_edge_collapse_decimation(**defaults)
     else:
         # Threshold is for some reason in percent, not fraction
         defaults = {'thresholds': F * 100}
         defaults.update(kwargs)
-        ms.simplification_clustering_decimation(**defaults)
+        if hasattr(ms, 'meshing_decimation_clustering'):
+            # Post 2022.2
+            ms.meshing_decimation_clustering(**defaults)
+        else:
+            # Pre 2022.2
+            ms.simplification_clustering_decimation(**defaults)
 
     # Get update mesh
     m2 = ms.current_mesh()
