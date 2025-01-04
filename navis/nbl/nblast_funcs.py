@@ -111,14 +111,14 @@ class NBlaster(Blaster):
 
         if smat is None:
             self.score_fn = operator.mul
-        elif smat == 'auto':
+        elif isinstance(smat, pd.DataFrame):
+            self.score_fn = Lookup2d.from_dataframe(smat)
+        elif isinstance(smat, str) and smat == 'auto':
             self.score_fn = smat_fcwb(self.use_alpha)
-        elif smat == 'v1':
+        elif isinstance(smat, str) and smat == 'v1':
             self.score_fn = partial(
                 _nblast_v1_scoring, sigma_scoring = smat_kwargs.get('sigma_scoring', 10)
             )
-        elif isinstance(smat, pd.DataFrame):
-            self.score_fn = Lookup2d.from_dataframe(smat)
         else:
             self.score_fn = smat
 
