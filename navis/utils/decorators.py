@@ -35,10 +35,12 @@ from typing_extensions import Literal
 from .iterables import is_iterable, make_iterable
 
 
-def map_neuronlist(desc: str = "",
-                   can_zip: List[Union[str, int]] = [],
-                   must_zip: List[Union[str, int]] = [],
-                   allow_parallel: bool = False):
+def map_neuronlist(
+    desc: str = "",
+    can_zip: List[Union[str, int]] = [],
+    must_zip: List[Union[str, int]] = [],
+    allow_parallel: bool = False,
+):
     """Decorate function to run on all neurons in the NeuronList.
 
     This also updates the docstring.
@@ -78,6 +80,7 @@ def map_neuronlist(desc: str = "",
                      of cores a can be set using `n_cores` keyword argument.
 
     """
+
     # TODO:
     # - make can_zip/must_zip work with positional-only argumens to, i.e. let
     #   it work with integers instead of strings
@@ -85,6 +88,7 @@ def map_neuronlist(desc: str = "",
         @wraps(function)
         def wrapper(*args, **kwargs):
             from .. import core
+
             # Get the function's signature
             sig = inspect.signature(function)
 
@@ -93,17 +97,18 @@ def map_neuronlist(desc: str = "",
             except BaseException:
                 fnname = str(function)
 
-            parallel = kwargs.pop('parallel', False)
+            parallel = kwargs.pop("parallel", False)
             if parallel and not allow_parallel:
-                raise ValueError(f'Function {fnname} does not support parallel '
-                                 'processing.')
+                raise ValueError(
+                    f"Function {fnname} does not support parallel " "processing."
+                )
 
             # First, we need to extract the neuronlist
             if args:
                 # If there are positional arguments, the first one is
                 # the input neuron(s)
                 nl = args[0]
-                nl_key = '__args'
+                nl_key = "__args"
             else:
                 # If not, we need to look for the name of the first argument
                 # in the signature
@@ -112,14 +117,16 @@ def map_neuronlist(desc: str = "",
 
             # Complain if we did not get what we expected
             if isinstance(nl, type(None)):
-                raise ValueError('Unable to identify the neurons for call'
-                                 f'{fnname}:\n {args}\n {kwargs}')
+                raise ValueError(
+                    "Unable to identify the neurons for call"
+                    f"{fnname}:\n {args}\n {kwargs}"
+                )
 
             # If we have a neuronlist
             if isinstance(nl, core.NeuronList):
                 # Pop the neurons from kwargs or args so we don't pass the
                 # neurons twice
-                if nl_key == '__args':
+                if nl_key == "__args":
                     args = args[1:]
                 else:
                     _ = kwargs.pop(nl_key)
@@ -134,8 +141,9 @@ def map_neuronlist(desc: str = "",
                         # If iterable but length does not match: complain
                         le = len(kwargs[p])
                         if le != len(nl):
-                            raise ValueError(f'Got {le} values of `{p}` for '
-                                             f'{len(nl)} neurons.')
+                            raise ValueError(
+                                f"Got {le} values of `{p}` for " f"{len(nl)} neurons."
+                            )
 
                 # Parse "must zip" arguments
                 for p in must_zip:
@@ -145,38 +153,43 @@ def map_neuronlist(desc: str = "",
 
                     values = make_iterable(kwargs[p])
                     if len(values) != len(nl):
-                        raise ValueError(f'Got {len(values)} values of `{p}` for '
-                                         f'{len(nl)} neurons.')
+                        raise ValueError(
+                            f"Got {len(values)} values of `{p}` for "
+                            f"{len(nl)} neurons."
+                        )
 
                 # If we use parallel processing it makes sense to modify neurons
                 # "inplace" since they will be copied into the child processes
                 # anyway and that way we can avoid making an additional copy
-                if 'inplace' in kwargs:
+                if "inplace" in kwargs:
                     # First check keyword arguments
-                    inplace = kwargs['inplace']
-                elif 'inplace' in sig.parameters:
+                    inplace = kwargs["inplace"]
+                elif "inplace" in sig.parameters:
                     # Next check signatures default
-                    inplace = sig.parameters['inplace'].default
+                    inplace = sig.parameters["inplace"].default
                 else:
                     # All things failing assume it's not inplace
                     inplace = False
 
-                if parallel and 'inplace' in sig.parameters:
-                    kwargs['inplace'] = True
+                if parallel and "inplace" in sig.parameters:
+                    kwargs["inplace"] = True
 
                 # Prepare processor
-                n_cores = kwargs.pop('n_cores', os.cpu_count() // 2)
-                chunksize = kwargs.pop('chunksize', 1)
+                n_cores = kwargs.pop("n_cores", os.cpu_count() // 2)
+                chunksize = kwargs.pop("chunksize", 1)
                 excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
-                proc = core.NeuronProcessor(nl, function,
-                                            parallel=parallel,
-                                            desc=desc,
-                                            warn_inplace=False,
-                                            progress=kwargs.pop('progress', True),
-                                            omit_failures=kwargs.pop('omit_failures', False),
-                                            chunksize=chunksize,
-                                            exclude_zip=excl,
-                                            n_cores=n_cores)
+                proc = core.NeuronProcessor(
+                    nl,
+                    function,
+                    parallel=parallel,
+                    desc=desc,
+                    warn_inplace=False,
+                    progress=kwargs.pop("progress", True),
+                    omit_failures=kwargs.pop("omit_failures", False),
+                    chunksize=chunksize,
+                    exclude_zip=excl,
+                    n_cores=n_cores,
+                )
                 # Apply function
                 res = proc(nl, *args, **kwargs)
 
@@ -201,10 +214,12 @@ def map_neuronlist(desc: str = "",
     return decorator
 
 
-def map_neuronlist_df(desc: str = "",
-                      id_col: str = "neuron",
-                      reset_index: bool = True,
-                      allow_parallel: bool = False):
+def map_neuronlist_df(
+    desc: str = "",
+    id_col: str = "neuron",
+    reset_index: bool = True,
+    allow_parallel: bool = False,
+):
     """Decorate function to run on all neurons in the NeuronList.
 
     This version of the decorator is meant for functions that return a
@@ -227,6 +242,7 @@ def map_neuronlist_df(desc: str = "",
                      of cores a can be set using `n_cores` keyword argument.
 
     """
+
     # TODO:
     # - make can_zip/must_zip work with positional-only argumens to, i.e. let
     #   it work with integers instead of strings
@@ -235,6 +251,7 @@ def map_neuronlist_df(desc: str = "",
         def wrapper(*args, **kwargs):
             # Lazy import to avoid issues with circular imports and pickling
             from .. import core
+
             # Get the function's signature
             sig = inspect.signature(function)
 
@@ -243,17 +260,18 @@ def map_neuronlist_df(desc: str = "",
             except BaseException:
                 fnname = str(function)
 
-            parallel = kwargs.pop('parallel', False)
+            parallel = kwargs.pop("parallel", False)
             if parallel and not allow_parallel:
-                raise ValueError(f'Function {fnname} does not allow parallel '
-                                 'processing.')
+                raise ValueError(
+                    f"Function {fnname} does not allow parallel " "processing."
+                )
 
             # First, we need to extract the neuronlist
             if args:
                 # If there are positional arguments, the first one is
                 # the input neuron(s)
                 nl = args[0]
-                nl_key = '__args'
+                nl_key = "__args"
             else:
                 # If not, we need to look for the name of the first argument
                 # in the signature
@@ -262,31 +280,36 @@ def map_neuronlist_df(desc: str = "",
 
             # Complain if we did not get what we expected
             if isinstance(nl, type(None)):
-                raise ValueError('Unable to identify the neurons for call'
-                                 f'{fnname}:\n {args}\n {kwargs}')
+                raise ValueError(
+                    "Unable to identify the neurons for call"
+                    f"{fnname}:\n {args}\n {kwargs}"
+                )
 
             # If we have a neuronlist
             if isinstance(nl, core.NeuronList):
                 # Pop the neurons from kwargs or args so we don't pass the
                 # neurons twice
-                if nl_key == '__args':
+                if nl_key == "__args":
                     args = args[1:]
                 else:
                     _ = kwargs.pop(nl_key)
 
                 # Prepare processor
-                n_cores = kwargs.pop('n_cores', os.cpu_count() // 2)
-                chunksize = kwargs.pop('chunksize', 1)
+                n_cores = kwargs.pop("n_cores", os.cpu_count() // 2)
+                chunksize = kwargs.pop("chunksize", 1)
                 excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
-                proc = core.NeuronProcessor(nl, function,
-                                            parallel=parallel,
-                                            desc=desc,
-                                            warn_inplace=False,
-                                            progress=kwargs.pop('progress', True),
-                                            omit_failures=kwargs.pop('omit_failures', False),
-                                            chunksize=chunksize,
-                                            exclude_zip=excl,
-                                            n_cores=n_cores)
+                proc = core.NeuronProcessor(
+                    nl,
+                    function,
+                    parallel=parallel,
+                    desc=desc,
+                    warn_inplace=False,
+                    progress=kwargs.pop("progress", True),
+                    omit_failures=kwargs.pop("omit_failures", False),
+                    chunksize=chunksize,
+                    exclude_zip=excl,
+                    n_cores=n_cores,
+                )
                 # Apply function
                 res = proc(nl, *args, **kwargs)
 
@@ -316,20 +339,20 @@ def map_neuronlist_df(desc: str = "",
 def map_neuronlist_update_docstring(func, allow_parallel):
     """Add additional parameters to docstring of function."""
     # Parse docstring
-    lines = func.__doc__.split('\n')
+    lines = func.__doc__.split("\n")
 
     # Find a line with a parameter
-    pline = [l for l in lines if ' : ' in l][0]
+    pline = [l for l in lines if " : " in l][0]
     # Get the leading whitespaces
-    wspaces = ' ' * re.search('( *)', pline).end(1)
+    wspaces = " " * re.search("( *)", pline).end(1)
     # Get the offset for type and description
-    offset = re.search('( *: *)', pline).end(1) - len(wspaces)
+    offset = re.search("( *: *)", pline).end(1) - len(wspaces)
 
     # Find index of the last parameters (assuming there is a single empty
     # line between Returns and the last parameter)
-    lastp = [i for i, l in enumerate(lines) if ' Returns' in l][0] - 1
+    lastp = [i for i, l in enumerate(lines) if " Returns" in l][0] - 1
 
-    msg = ''
+    msg = ""
     if allow_parallel:
         msg += dedent(f"""\
         parallel :{" " * (offset - 10)}bool
@@ -353,7 +376,7 @@ def map_neuronlist_update_docstring(func, allow_parallel):
     lines.insert(lastp, indent(msg, wspaces))
 
     # Update docstring
-    func.__doc__ = '\n'.join(lines)
+    func.__doc__ = "\n".join(lines)
 
     return func
 
@@ -365,6 +388,7 @@ def lock_neuron(function):
     are being made.
 
     """
+
     @wraps(function)
     def wrapper(*args, **kwargs):
         # Lazy import to avoid issues with circular imports and pickling
@@ -372,7 +396,7 @@ def lock_neuron(function):
 
         # Lock if first argument is a neuron
         if isinstance(args[0], core.BaseNeuron):
-            args[0]._lock = getattr(args[0], '_lock', 0) + 1
+            args[0]._lock = getattr(args[0], "_lock", 0) + 1
         try:
             # Execute function
             res = function(*args, **kwargs)
