@@ -384,20 +384,25 @@ def lock_neuron(function):
                 args[0]._lock -= 1
         # Return result
         return res
+
     return wrapper
 
 
-def meshneuron_skeleton(method: Union[Literal['subset'],
-                                      Literal['split'],
-                                      Literal['node_properties'],
-                                      Literal['node_to_vertex'],
-                                      Literal['pass_through']],
-                        include_connectors: bool = False,
-                        copy_properties: list = [],
-                        disallowed_kwargs: dict = {},
-                        node_props: list = [],
-                        reroot_soma: bool = False,
-                        heal: bool = False):
+def meshneuron_skeleton(
+    method: Union[
+        Literal["subset"],
+        Literal["split"],
+        Literal["node_properties"],
+        Literal["node_to_vertex"],
+        Literal["pass_through"],
+    ],
+    include_connectors: bool = False,
+    copy_properties: list = [],
+    disallowed_kwargs: dict = {},
+    node_props: list = [],
+    reroot_soma: bool = False,
+    heal: bool = False,
+):
     """Decorate function such that MeshNeurons are automatically skeletonized,
     the function is run on the skeleton and changes are propagated
     back to the meshe.
@@ -435,12 +440,17 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
     assert isinstance(disallowed_kwargs, dict)
     assert isinstance(node_props, list)
 
-    allowed_methods = ('subset', 'node_to_vertex', 'split', 'node_properties',
-                       'pass_through')
+    allowed_methods = (
+        "subset",
+        "node_to_vertex",
+        "split",
+        "node_properties",
+        "pass_through",
+    )
     if method not in allowed_methods:
         raise ValueError(f'Unknown method "{method}"')
 
-    if method == 'node_properties' and not node_props:
+    if method == "node_properties" and not node_props:
         raise ValueError('Must provide `node_props` for method "node_properties"')
 
     def decorator(function):
@@ -460,7 +470,7 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
                 # be the input neuron
                 x = args[0]
                 args = args[1:]
-                x_key = '__args'
+                x_key = "__args"
             else:
                 # If not, we need to look for the name of the first argument
                 # in the signature
@@ -469,55 +479,67 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
 
             # Complain if we did not get what we expected
             if isinstance(x, type(None)):
-                raise ValueError('Unable to identify the neurons for call'
-                                 f'{fnname}:\n {args}\n {kwargs}')
+                raise ValueError(
+                    "Unable to identify the neurons for call"
+                    f"{fnname}:\n {args}\n {kwargs}"
+                )
 
             # If input not a MeshNeuron, just pass through
             # Note delayed import to avoid circular imports and IMPORTANTLY
             # funky interactions with pickle/dill
             from .. import core
+
             if not isinstance(x, core.MeshNeuron):
                 return function(x, *args, **kwargs)
 
             # Check for disallowed kwargs
             for k, v in disallowed_kwargs.items():
                 if k in kwargs and kwargs[k] == v:
-                    raise ValueError(f'{k}={v} is not allowed when input is '
-                                     'MeshNeuron(s).')
+                    raise ValueError(
+                        f"{k}={v} is not allowed when input is " "MeshNeuron(s)."
+                    )
 
             # See if this is meant to be done inplace
-            if 'inplace' in kwargs:
+            if "inplace" in kwargs:
                 # First check keyword arguments
-                inplace = kwargs['inplace']
-            elif 'inplace' in sig.parameters:
+                inplace = kwargs["inplace"]
+            elif "inplace" in sig.parameters:
                 # Next check signatures default
-                inplace = sig.parameters['inplace'].default
+                inplace = sig.parameters["inplace"].default
             else:
                 # All things failing assume it's not inplace
                 inplace = False
 
-            # Now skeletonize
+            # Now skeletonize (if the skeleton is not already present)
             sk = x.skeleton
+
+            if method != "pass_through" and not hasattr(sk, "vertex_map"):
+                raise ValueError(
+                    "MeshNeuron must have a skeleton with a vertex->node mapping "
+                    "as `.vertex_map` property to apply this function."
+                )
 
             # Delayed import to avoid circular imports
             # Note that this HAS to be in the inner function otherwise
             # we get a weird error when pickling for parallel processing
             from .. import morpho
 
-            if heal:
-                sk = morpho.heal_skeleton(sk, method='LEAFS')
+            if heal and len(sk.roots) > 1:
+                sk = morpho.heal_skeleton(sk, method="LEAFS")
 
             if reroot_soma and sk.has_soma:
                 sk = sk.reroot(sk.soma)
 
             if include_connectors and x.has_connectors and not sk.has_connectors:
                 sk._connectors = x.connectors.copy()
-                sk._connectors['node_id'] = sk.snap(sk.connectors[['x', 'y', 'z']].values)[0]
+                sk._connectors["node_id"] = sk.snap(
+                    sk.connectors[["x", "y", "z"]].values
+                )[0]
 
             # Apply function
             res = function(sk, *args, **kwargs)
 
-            if method == 'subset':
+            if method == "subset":
                 # See which vertices we need to keep
                 keep = np.isin(sk.vertex_map, res.nodes.node_id.values)
 
@@ -525,7 +547,7 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
 
                 for p in copy_properties:
                     setattr(x, p, getattr(sk, p, None))
-            elif method == 'split':
+            elif method == "split":
                 meshes = []
                 for n in res:
                     # See which vertices we need to keep
@@ -536,14 +558,14 @@ def meshneuron_skeleton(method: Union[Literal['subset'],
                     for p in copy_properties:
                         setattr(meshes[-1], p, getattr(n, p, None))
                 x = core.NeuronList(meshes)
-            elif method == 'node_to_vertex':
+            elif method == "node_to_vertex":
                 x = np.where(sk.vertex_map == res)[0]
-            elif method == 'node_properties':
+            elif method == "node_properties":
                 for p in node_props:
-                    node_map = sk.nodes.set_index('node_id')[p].to_dict()
+                    node_map = sk.nodes.set_index("node_id")[p].to_dict()
                     vertex_props = np.array([node_map[n] for n in sk.vertex_map])
                     setattr(x, p, vertex_props)
-            elif method == 'pass_through':
+            elif method == "pass_through":
                 return res
 
             return x
