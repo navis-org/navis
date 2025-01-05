@@ -150,14 +150,17 @@ def _generate_segments(
     lengths = [d[s[0]] - d[s[-1]] for s in sequences]
     sequences = [x for _, x in sorted(zip(lengths, sequences), reverse=True)]
 
+    # Turn into list of arrays
+    sequences = [np.array(s) for s in sequences]
+
     # Isolated nodes would not be included in the sequences(because they are treated
     # as roots, not leafs. Let's add them manually here.
     for node in nx.isolates(x.graph):
-        sequences.append([node])
+        sequences.append(np.array([node]))
         lengths.append(0)
 
     if return_lengths:
-        return sequences, sorted(lengths, reverse=True)
+        return sequences, np.array(sorted(lengths, reverse=True))
     else:
         return sequences
 
