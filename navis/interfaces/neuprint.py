@@ -209,7 +209,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
         query = x
         wanted_ids = None
     else:
-        query = NeuronCriteria(bodyId=x)
+        query = NeuronCriteria(bodyId=x, client=client)
         wanted_ids = utils.make_iterable(x)
 
     # Fetch names, etc
@@ -294,7 +294,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
     if with_synapses:
         # Fetch synapses
         syn = fetch_synapses(meta.bodyId.values,
-                             synapse_criteria=SynapseCriteria(primary_only=True),
+                             synapse_criteria=SynapseCriteria(primary_only=True, client=client),
                              client=client)
 
         for n in nl:
@@ -393,7 +393,7 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
         query = x
         wanted_ids = None
     else:
-        query = NeuronCriteria(bodyId=x)
+        query = NeuronCriteria(bodyId=x, client=client)
         wanted_ids = utils.make_iterable(x)
 
     # Fetch names, etc
@@ -497,7 +497,7 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
     if with_synapses:
         # Fetch synapses
         syn = fetch_synapses(r.bodyId,
-                             synapse_criteria=SynapseCriteria(primary_only=True),
+                             synapse_criteria=SynapseCriteria(primary_only=True, client=client),
                              client=client)
 
         if not syn.empty:
