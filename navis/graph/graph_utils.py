@@ -58,6 +58,8 @@ def _generate_segments(
 ) -> Union[list, Tuple[list, list]]:
     """Generate segments maximizing segment lengths.
 
+    Isolated nodes will be included as segments of length 0.
+
     Parameters
     ----------
     x :         TreeNeuron | NeuronList
@@ -108,6 +110,7 @@ def _generate_segments(
             x.nodes.node_id.values, x.nodes.parent_id.values, weights=weight
         )
 
+    # Find leaf nodes and sort by distance to root
     d = dist_to_root(x, igraph_indices=False, weight=weight)
     endNodeIDs = x.nodes[x.nodes.type == "end"].node_id.values
     endNodeIDs = sorted(endNodeIDs, key=lambda x: d.get(x, 0), reverse=True)
@@ -147,8 +150,17 @@ def _generate_segments(
     lengths = [d[s[0]] - d[s[-1]] for s in sequences]
     sequences = [x for _, x in sorted(zip(lengths, sequences), reverse=True)]
 
+    # Turn into list of arrays
+    sequences = [np.array(s) for s in sequences]
+
+    # Isolated nodes would not be included in the sequences(because they are treated
+    # as roots, not leafs. Let's add them manually here.
+    for node in nx.isolates(x.graph):
+        sequences.append(np.array([node]))
+        lengths.append(0)
+
     if return_lengths:
-        return sequences, sorted(lengths, reverse=True)
+        return sequences, np.array(sorted(lengths, reverse=True))
     else:
         return sequences
 
