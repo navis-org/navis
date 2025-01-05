@@ -30,22 +30,9 @@ See the [documentation](http://navis.readthedocs.io/ "NAVis ReadTheDocs") for de
 pip3 install "navis[all]"
 ```
 
-which includes all optional extras providing features and/or performance improvements.
-Currently, this is
-`igraph`,
-`navis-fastcore`,
-`pathos`,
-`shapely`,
-`kdtree`,
-`hash`,
-`flybrains`,
-`cloudvolume`,
-`meshes`,
-and `vispy-default`.
-
-3D plotting from a python REPL is provided by `vispy`, which has a choice of backends.
-Different backends work best on different combinations of hardware, OS, python distribution, and REPL, so there may be some trial and error involved.
-`vispy`'s backends are [listed here](https://vispy.org/installation.html#backend-requirements), and each can be installed as a navis extra, e.g. `pip3 install 'navis[vispy-pyqt6]'`.
+which includes all optional extras providing features and/or performance improvements. If you encounter issues, you may want
+to try a minimal installation and install optional dependencies as needed. Please see the
+[Install Instructions](https://navis-org.github.io/navis/installation/) for a detailed explanation.
 
 ![movie](https://user-images.githubusercontent.com/7161148/114312307-28a72700-9aea-11eb-89a6-ee1d72bfa730.mov)
 
