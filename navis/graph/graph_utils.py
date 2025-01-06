@@ -1355,13 +1355,16 @@ def longest_neurite(
         x = x.copy()
 
     if not from_root:
-        # Find the two most distal points
-        leafs = x.leafs.node_id.values
+        # Find the two most distal points (N.B. roots can also be "ends")
+        leafs = x.nodes.loc[x.nodes.type.isin(("root", "end")), 'node_id'].values
         dists = geodesic_matrix(x, from_=leafs)[leafs]
+
+        # If the neuron is fragmented, we will have infinite distances
+        dists[dists == np.inf] = -1
 
         # This might be multiple values
         mx = np.where(dists == np.max(dists.values))
-        start = dists.columns[mx[0][0]]
+        start = dists.columns[mx[0][0]]  # translate to node ID
 
         # Reroot to one of the nodes that gives the longest distance
         x.reroot(start, inplace=True)
@@ -1375,7 +1378,7 @@ def longest_neurite(
     elif isinstance(n, slice):
         tn_to_preserve = [tn for s in segments[n] for tn in s]
     else:
-        raise TypeError(f'Unable to use N of type "{type(n)}"')
+        raise TypeError(f'Unable to use `n` of type "{type(n)}"')
 
     if not inverse:
         _ = morpho.subset_neuron(x, tn_to_preserve, inplace=True)
