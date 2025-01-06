@@ -20,6 +20,17 @@ pip uninstall navis -y
 pip install git+https://github.com/navis-org/navis@master
 ```
 
+##### Improvements
+- made reading neurons from `.tar` archives much faster
+- [`read_swc`](navis.read_swc) now works if additional columns are present
+
+##### Fixes
+- `opacity` parameter [`plot3d`](navis.plot3d) now works correctly when using the plotly backend
+- fixed an issue with Elastix transforms on Windows machines
+- fixed issues with neuPrint interface when using multiple clients
+- fixed an issue with mesh simplification and the pymeshlab backend
+- fixed two (potential) issues in [navis.longest_neurite][] when `from_root=False`
+
 ## Version `1.9.1` { data-toc-label="1.9.1" }
 _Date: 24/10/24_
 
