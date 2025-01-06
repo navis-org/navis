@@ -712,10 +712,10 @@ def distal_to(
         # Return boolean
         return df
 
+
 def skeleton_adjacency_matrix(
-    x: "core.NeuronObject",
-    sort: bool = True
-    ) -> pd.DataFrame:
+    x: "core.NeuronObject", sort: bool = True
+) -> pd.DataFrame:
     """Generate adjacency matrix for a skeleton.
 
     Parameters
@@ -746,7 +746,7 @@ def skeleton_adjacency_matrix(
             x = x[0]
         else:
             raise ValueError("Cannot process more than a single neuron.")
-    elif not isinstance(x, (core.TreeNeuron, )):
+    elif not isinstance(x, (core.TreeNeuron,)):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     # Generate the empty adjacency matrix
@@ -788,11 +788,11 @@ def geodesic_matrix(
                 If provided, will compute distances only FROM this subset to
                 all other nodes/vertices.
     directed :  bool, optional
-                If True, pairs without a child->parent path will be returned
-                with `distance = "inf"`. Only relevant for `TreeNeurons`.
+                For TreeNeurons only: if True, pairs without a child->parent
+                path will be returned with `distance = "inf"`.
     weight :    'weight' | None, optional
-                If `weight` distances are given as physical length.
-                If `None` distances is number of nodes.
+                If "weight" distances are given as physical length.
+                If `None` distance is the number of nodes.
     limit :     int | float, optional
                 Use to limit distance calculations. Nodes that are not within
                 `limit` will have distance `np.inf`. If neuron has its
@@ -801,7 +801,8 @@ def geodesic_matrix(
     Returns
     -------
     pd.DataFrame
-                Geodesic distance matrix. Distances in nanometres.
+                Geodesic distance matrix. If the neuron is fragmented or
+                `directed=True`, unreachable node pairs will have distance `np.inf`.
 
     See Also
     --------
@@ -831,11 +832,11 @@ def geodesic_matrix(
 
     """
     if isinstance(x, core.NeuronList):
-        if len(x) == 1:
-            x = x[0]
-        else:
-            raise ValueError("Cannot process more than a single neuron.")
-    elif not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
+        if len(x) != 1:
+            raise ValueError("Input must be a single neuron.")
+        x = x[0]
+
+    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     limit = x.map_units(limit, on_error="raise")
@@ -872,7 +873,7 @@ def geodesic_matrix(
             sources=from_,
         )
 
-        # Fastcore returns -1 for non-connected nodes
+        # Fastcore returns -1 for unreachable node pairs
         dmat[dmat < 0] = np.inf
 
         if limit is not None and limit is not np.inf:
@@ -913,7 +914,7 @@ def geodesic_matrix(
         indices = None
         ix = nodeList
 
-    # For some reason csgrpah.dijkstra expects indices/indptr as int32
+    # For some reason csgraph.dijkstra expects indices/indptr as int32
     # igraph seems to do that by default but networkx uses int64 for indices
     m.indptr = m.indptr.astype("int32", copy=False)
     m.indices = m.indices.astype("int32", copy=False)
