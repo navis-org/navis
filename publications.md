@@ -7,6 +7,36 @@ Want to see your work listed here? Open an [Issue](https://github.com/navis-org/
 ## 2024
 
 <ol>
+    <li value = "42">
+    <i>A neural circuit for context-dependent multimodal signaling in Drosophila.</i> Steinfath, E. et al. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.12.04.625245</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "41">
+    <i>Invariant synaptic density across species.</i> Castro, A.E., Cardona A. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.07.18.604056</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "40">
+    <i>An applicable and efficient retrograde monosynaptic circuit mapping tool for larval zebrafish.</i> Chen, T-L. et al. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.06.27.601104</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "39">
+    <i>Synaptic connectome of a neurosecretory network in the Drosophila brain.</i> McKim, T.H. et al. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.08.28.609616</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "38">
+    <i>Comparative connectomics of the descending and ascending neurons of the Drosophila nervous system: stereotypy and sexual dimorphism.</i>  View ORCID Stürner, T. et al. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.06.04.596633</a>
+    </li>
+</ol>
+
+<ol>
     <li value = "37">
     <i>Whole-brain annotation and multi-connectome cell typing of Drosophila.</i> Schlegel, P., Yin, Y., Bates, A.S. et al. Nature 634, 139–152 (2024). <a href="url">https://doi.org/10.1038/s41586-024-07686-5</a>
     </li>
