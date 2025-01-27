@@ -780,12 +780,23 @@ class NeuronList:
         if not isinstance(N, slice):
             N = slice(N)
 
-        return pd.DataFrame(data=[[getattr(n, a, 'NA') for a in props]
-                                  for n in config.tqdm(self.neurons[N],
-                                                       desc='Summarizing',
-                                                       leave=False,
-                                                       disable=not progress)],
-                            columns=props)
+        summary = pd.DataFrame(
+            data=[
+                [getattr(n, a, "NA") for a in props]
+                for n in config.tqdm(
+                    self.neurons[N],
+                    desc="Summarizing",
+                    leave=False,
+                    disable=not progress,
+                )
+            ],
+            columns=props,
+        )
+
+        if any((n.is_masked for n in self.neurons[N])):
+            summary['masked'] = [n.is_masked for n in self.neurons[N]]
+
+        return summary
 
     def itertuples(self):
         """Helper to mimic `pandas.DataFrame.itertuples()`."""
