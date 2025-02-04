@@ -327,9 +327,17 @@ def map_neuronlist_update_docstring(func, allow_parallel):
 
     # Find index of the last parameters (assuming there is a single empty
     # line between Returns and the last parameter)
-    lastp = [i for i, l in enumerate(lines) if ' Returns' in l][0] - 1
+    try:
+        lastp = [
+            i
+            for i, line in enumerate(lines[:-1])
+            if "Returns" in line and "----" in lines[i + 1]
+        ][0] - 1
+    except IndexError:
+        logger.warning(f'Could not find "Returns" in docstring for function {func}')
+        return func
 
-    msg = ''
+    msg = ""
     if allow_parallel:
         msg += dedent(f"""\
         parallel :{" " * (offset - 10)}bool
