@@ -109,10 +109,16 @@ def _generate_segments(
                 root_dist=0,
             )
 
-        # `lengths` will be # of nodes if `weights=None`
-        segs, lengths = utils.fastcore.generate_segments(
+        # Depending on fastcore version it will return either just `segs` or (`segs`, `lengths`)
+        res = utils.fastcore.generate_segments(
             x.nodes.node_id.values, x.nodes.parent_id.values, weights=weight
         )
+        if isinstance(res, tuple):
+            segs, lengths = res
+        else:
+            segs = res
+            lengths = None
+
         if return_lengths:
             return segs, lengths
         else:
