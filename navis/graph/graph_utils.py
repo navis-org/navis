@@ -2388,3 +2388,34 @@ def rewire_skeleton(
     x._clear_temp_attr()
 
     return x
+
+
+def match_mesh_skeleton(mesh, skeleton):
+    """Match vertices of MeshNeuron to nodes of TreeNeuron.
+
+    Parameters
+    ----------
+    mesh :      MeshNeuron
+                MeshNeuron to match.
+    skeleton :  TreeNeuron
+                Skeleton to match.
+
+    Returns
+    -------
+    np.ndarray
+                Array of skeleton node IDs for each vertex in the mesh.
+
+    """
+    if not isinstance(mesh, core.MeshNeuron):
+        raise TypeError(f"Expected MeshNeuron, got {type(mesh)}")
+
+    if not isinstance(skeleton, core.TreeNeuron):
+        raise TypeError(f"Expected TreeNeuron, got {type(skeleton)}")
+
+    # Generate a KDTree for the skeleton
+    tree = graph.neuron2KDTree(skeleton)
+
+    # Find closest node for each vertex
+    dist, ix = tree.query(mesh.vertices, k=1)
+
+    return skeleton.nodes.node_id.values[ix]
