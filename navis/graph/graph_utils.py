@@ -97,7 +97,10 @@ def _generate_segments(
 
     assert weight in ("weight", None), f'Unable to use weight "{weight}"'
 
-    if utils.fastcore and not return_lengths:
+    if utils.fastcore and (
+        # fastcore supports returning lengths since version 0.0.9
+        not return_lengths or utils.fastcore.__version_vector__ >= (0, 0, 9)
+    ):
         if weight == "weight":
             weight = utils.fastcore.dag.parent_dist(
                 x.nodes.node_id.values,
@@ -106,9 +109,14 @@ def _generate_segments(
                 root_dist=0,
             )
 
-        return utils.fastcore.generate_segments(
+        # `lengths` will be # of nodes if `weights=None`
+        segs, lengths = utils.fastcore.generate_segments(
             x.nodes.node_id.values, x.nodes.parent_id.values, weights=weight
         )
+        if return_lengths:
+            return segs, lengths
+        else:
+            return segs
 
     # Find leaf nodes and sort by distance to root
     d = dist_to_root(x, igraph_indices=False, weight=weight)
@@ -859,7 +867,7 @@ def geodesic_matrix(
             miss = from_[~np.isin(from_, x.nodes.node_id.values)]
             if len(miss):
                 raise ValueError(
-                    f'Node/vertex IDs not present: {", ".join(miss.astype(str))}'
+                    f"Node/vertex IDs not present: {', '.join(miss.astype(str))}"
                 )
             ix = from_
         else:
