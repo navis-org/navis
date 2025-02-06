@@ -44,7 +44,7 @@ class NeuronMask:
                 Whether to copy the neuron data (e.g. node table for skeletons)
                 when masking. Set this to `True` if you know your code will modify
                 the masked data and you want to prevent changes to the original.
-    reset_neurons : bool
+    reset :     bool
                 If True, reset the neurons to their original state after the
                 context manager exits. If False, will try to incorporate any
                 changes made to the masked neurons. Note that this may not
@@ -81,7 +81,7 @@ class NeuronMask:
 
     """
 
-    def __init__(self, x, mask, reset_neurons=True, copy_data=False, validate_mask=True):
+    def __init__(self, x, mask, reset=True, copy_data=False, validate_mask=True):
         self.neurons = x
 
         if validate_mask:
@@ -89,7 +89,7 @@ class NeuronMask:
         else:
             self._mask = mask
 
-        self.reset = reset_neurons
+        self.reset = reset
         self.copy = copy_data
 
     @property
