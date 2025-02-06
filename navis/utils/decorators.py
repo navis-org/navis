@@ -19,9 +19,10 @@ functions (e.g. for multiprocessing).
 
 """
 
-import inspect
 import re
 import os
+import inspect
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -33,9 +34,6 @@ from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
 from typing_extensions import Literal
 
 from .iterables import is_iterable, make_iterable
-from .. import config
-
-logger = config.logger
 
 
 def map_neuronlist(
@@ -359,7 +357,7 @@ def map_neuronlist_update_docstring(func, allow_parallel):
             if "Returns" in line and "----" in lines[i + 1]
         ][0] - 1
     except IndexError:
-        logger.warning(f'Could not find "Returns" in docstring for function {func}')
+        warnings.warn(f'Could not find "Returns" in docstring for function {func}')
         return func
 
     msg = ""
