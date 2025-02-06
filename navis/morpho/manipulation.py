@@ -451,23 +451,14 @@ def _prune_twigs_simple(
                 neuron.nodes.parent_id.values,
                 neuron.nodes[["x", "y", "z"]].values,
             ),
+            mask=neuron.nodes.node_id.isin(mask_nodes).values if mask_nodes is not None else None,
         )
-
-        # If mask is given, check if we have to re-add any nodes
-        # This is a bit cumbersome at the moment - we should add a
-        # mask feature to the fastcore function
-        if mask_nodes is not None:
-            for seg in graph._break_segments(neuron):
-                # If this segment would be dropped and the first node is not in the mask
-                # we have to keep the whole segment
-                if seg[0] not in nodes_to_keep and seg[0] not in mask_nodes:
-                    nodes_to_keep = np.append(nodes_to_keep, seg[1:])
 
         if len(nodes_to_keep) < neuron.n_nodes:
             subset.subset_neuron(neuron, nodes_to_keep, inplace=True)
 
             if recursive:
-                prune_twigs(
+                _prune_twigs_simple(
                     neuron, size=size, inplace=True, recursive=recursive - 1, mask=mask_nodes
                 )
     else:
