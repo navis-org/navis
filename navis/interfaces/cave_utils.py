@@ -79,6 +79,19 @@ def _get_cloudvol(url, cache=True):
         url, cache=cache, use_https=True, parallel=10, progress=False, fill_missing=True
     )
 
+@lru_cache(None)
+def _cloudvol_from_cv(client, **kwargs):
+    """Get and cache CloudVolume from CAVEclient.
+
+    Parameters
+    ----------
+    client :     CAVEclient
+    **kwargs
+                Additional arguments passed to `cloudvolume.CloudVolume`.
+
+    """
+    return client.info.segmentation_cloudvolume(**kwargs)
+
 
 def _get_somas(root_ids, client, materialization="auto"):
     """Fetch somas based on nuclei segmentation for given neuron(s).
@@ -184,13 +197,14 @@ def fetch_neurons(
     """
     x = utils.make_iterable(x, force_type=int)
 
-    vol = _get_cloudvol(client.info.segmentation_source())  # this is cached
+    # Let CAVEclient handle the cloudvolume (this should take care of any secrets)
+    vol = _cloudvol_from_cv(client)
 
     try:
         somas = _get_somas(x, client=client, materialization=materialization)
         soma_pos = somas.set_index("pt_root_id").pt_position.to_dict()
     except BaseException as e:
-        logger.warning("Failed to fetch somas via nucleus segmentation" f"(){e})")
+        logger.warning(f"Failed to fetch somas via nucleus segmentation(){e})")
         soma_pos = {}
 
     nl = []
