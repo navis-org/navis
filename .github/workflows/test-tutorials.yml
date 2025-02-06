@@ -50,6 +50,7 @@ jobs:
         BRAIN_WIRE_SECRET: ${{ secrets.brain_wire_secret }}
         NAVIS_PLOT3D_BACKEND: plotly
         QT_QPA_PLATFORM: offscreen
+        MPLBACKEND: agg
       with:
         run: |
           python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
