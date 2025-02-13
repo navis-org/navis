@@ -2066,11 +2066,9 @@ def _stitch_mst(
     # KD tree for the larger point set in every fragment pair.
     fragments = sorted(fragments, key=lambda frag: -len(frag.node_ids))
 
-    # We could use the full graph and connect all
-    # fragment pairs at their nearest neighbors,
-    # but it's faster to treat each fragment as a
-    # single node and run MST on that quotient graph,
-    # which is tiny.
+    # We could use the full graph and connect all fragment pairs at their
+    # nearest neighbors, but it's faster to treat each fragment as a single
+    # node and run MST on that quotient graph, which is tiny.
     # Note to self:
     # This approach works well if we have a small number of fragments to connect
     # But with a large number of fragments, the number of comparisons grows
@@ -2085,7 +2083,7 @@ def _stitch_mst(
         distances, indexes = frag_a.kd.query(coords_b, distance_upper_bound=max_dist)
 
         # Ignore fragments that are too far apart
-        if np.all(np.isinf(distances)):
+        if (max_dist < np.inf) and np.all(np.isinf(distances)):
             continue
 
         index_b = np.argmin(distances)
