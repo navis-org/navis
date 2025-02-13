@@ -683,9 +683,14 @@ def split_axon_dendrite(
                         Method for determining which compartment is axon and
                         which is the dendrites:
 
-                            - 'prepost' uses number of in- vs. outputs
+                            - 'prepost' uses number of in- vs. outputs. By default,
+                              a ratio of >1 (more out- than inputs) is considered
+                              axon and vice versa. You can provide a custom threshold
+                              by setting `split='prepost:0.5'` for example. Values
+                              above 1.0 will bias towards dendrites and below 1.0
+                              towards axon.
                             - 'distance' assumes the compartment proximal to the
-                              soma is the dendrites
+                              soma is the dendrites.
 
     cellbodyfiber :     "soma" | "root" | False
                         Determines whether we will try to find a cell body
@@ -770,6 +775,11 @@ def split_axon_dendrite(
                 'Set `split="distance"` when trying to split neurons '
                 "without connectors."
             )
+
+    split_val = 1
+    if isinstance(split, str) and ":" in split:
+        split, split_val = split.split(":")
+        split_val = float(split_val)
 
     _METRIC = (
         "synapse_flow_centrality",
@@ -879,16 +889,15 @@ def split_axon_dendrite(
             sm[["frac_pre", "frac_post"]].max(axis=1) < 0.01,
             ["prepost_ratio", "frac_prepost"],
         ] = np.nan
-        logger.debug(sm)
 
         # Each fragment is considered separately as either giver or recipient
         # of flow:
         # - prepost < 1 = dendritic
         # - prepost > 1 = axonic
-        dendrite = [cc[i] for i in sm[sm.frac_prepost < 1].index.values]
+        dendrite = [cc[i] for i in sm[sm.frac_prepost < split_val].index.values]
         if len(dendrite):
             dendrite = set.union(*dendrite)
-        axon = [cc[i] for i in sm[sm.frac_prepost >= 1].index.values]
+        axon = [cc[i] for i in sm[sm.frac_prepost >= split_val].index.values]
         if len(axon):
             axon = set.union(*axon)
     else:
