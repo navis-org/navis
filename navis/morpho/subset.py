@@ -247,15 +247,15 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
     # our `subset` is always a list of vertex indices)
     if not keep_disc_cn and x.has_connectors:
         if "vertex_id" not in x.connectors.columns:
-            x.connectors["vertex"] = x.snap(x.connectors[["x", "y", "z"]].values)[0]
+            x.connectors["vertex_id"] = x.snap(x.connectors[["x", "y", "z"]].values)[0]
 
-        x._connectors = x.connectors[x.connectors.vertex.isin(subset)].copy()
+        x._connectors = x.connectors[x.connectors.vertex_id.isin(subset)].copy()
         x._connectors.reset_index(inplace=True, drop=True)
 
         # Make old -> new indices map
         new_ix = dict(zip(subset, np.arange(0, len(subset))))
 
-        x.connectors["vertex"] = x.connectors.vertex.map(new_ix)
+        x.connectors["vertex_id"] = x.connectors.vertex_id.map(new_ix)
 
     if len(subset):
         x.vertices, x.faces = submesh(x, vertex_index=subset)
