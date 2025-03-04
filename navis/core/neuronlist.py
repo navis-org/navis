@@ -422,6 +422,10 @@ class NeuronList:
 
     def __getitem__(self, key):
         if utils.is_iterable(key):
+            # This avoids issues when the Series' index is not [0, 1, 2, etc]
+            if isinstance(key, pd.Series):
+                key = key.values
+
             if all([isinstance(k, (bool, np.bool_)) for k in key]):
                 if len(key) != len(self.neurons):
                     raise IndexError('boolean index did not match indexed '
