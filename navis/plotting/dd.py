@@ -1193,6 +1193,15 @@ def _plot_skeleton(neuron, color, ax, settings):
                     else neuron.soma_radius
                 )
 
+                # It's possible that the radius column is either missing or just
+                # contains NaNs. In that case we will skip this soma.
+                if pd.isnull(r):
+                    logger.warning(
+                        f"Skipping soma {s} of neuron {neuron.id} "
+                        "because it appears to have no radius."
+                    )
+                    continue
+
                 if settings.depth_coloring:
                     d = [n.x, n.y, n.z][_get_depth_axis(settings.view)]
                     soma_color = DEPTH_CMAP(settings.norm(d))
@@ -1293,6 +1302,15 @@ def _plot_skeleton(neuron, color, ax, settings):
                         if isinstance(neuron.soma_radius, str)
                         else neuron.soma_radius
                     )
+
+                    # It's possible that the radius column is either missing or just
+                    # contains NaNs. In that case we will skip this soma.
+                    if pd.isnull(r):
+                        logger.warning(
+                            f"Skipping soma {s} of neuron {neuron.id} "
+                            "because it appears to have no radius."
+                        )
+                        continue
 
                     resolution = 20
                     u = np.linspace(0, 2 * np.pi, resolution)

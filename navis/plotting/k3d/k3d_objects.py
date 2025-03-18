@@ -376,7 +376,7 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, settings):
     soma = utils.make_iterable(neuron.soma)
     if settings.soma:
         # If soma detection is messed up we might end up producing
-        # hundrets of soma which will freeze the session
+        # hundreds of soma which will freeze the session
         if len(soma) >= 10:
             logger.warning(
                 f"Neuron {neuron.id} appears to have {len(soma)} "
@@ -404,6 +404,15 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, settings):
                     if isinstance(neuron.soma_radius, str)
                     else neuron.soma_radius
                 )
+
+                # It's possible that the radius column is either missing or just
+                # contains NaNs. In that case we will skip this soma.
+                if pd.isnull(r):
+                    logger.warning(
+                        f"Skipping soma {s} of neuron {neuron.id} "
+                        "because it appears to have no radius."
+                    )
+                    continue
 
                 sp = tm.primitives.Sphere(radius=r, subdivisions=2)
 
