@@ -254,7 +254,7 @@ def resample_skeleton(x: 'core.NeuronObject',
         data=new_nodes, columns=["node_id", "parent_id"] + num_cols + non_num_cols
     )
 
-    # At this point node and parent IDs will be 64 bit integers and x/y/z columns will
+    # At this point, new node and parent IDs will be 64 bit integers and x/y/z columns will
     # be float 64. We will convert them back to the original dtypes but we have to
     # be careful with node & parent IDs to avoid overflows if the original datatype
     # can't accommodate the new IDs.
@@ -266,6 +266,10 @@ def resample_skeleton(x: 'core.NeuronObject',
 
     # Check for overflow
     for col in ("node_id", "parent_id"):
+        # No need for checks if we're not changing the dtype
+        if new_nodes[col].dtype == dtypes[col]:
+            continue
+
         # If there is an overflow downcast to smallest possible dtype
         # N.B. we could also check for underflow but that's less likely
         if new_nodes[col].max() >= np.iinfo(np.int32).max:
