@@ -50,7 +50,8 @@ def resample_skeleton(x: 'core.NeuronObject',
         within a neuron, but you may encounter duplicates across neurons.
       - Any non-standard node table columns (e.g. "labels") will be lost.
       - Soma(s) will be pinned to the closest node in the resampled neuron.
-
+      - We may end up upcasting the data type for node and parent IDs to
+        accommodate the new node IDs.
 
     Also: be aware that high-resolution neurons will use A LOT of memory.
 
@@ -253,13 +254,26 @@ def resample_skeleton(x: 'core.NeuronObject',
         data=new_nodes, columns=["node_id", "parent_id"] + num_cols + non_num_cols
     )
 
-    # Convert columns to appropriate dtypes
+    # At this point node and parent IDs will be 64 bit integers and x/y/z columns will
+    # be float 64. We will convert them back to the original dtypes but we have to
+    # be careful with node & parent IDs to avoid overflows if the original datatype
+    # can't accommodate the new IDs.
+
+    # Gather the original dtypes
     dtypes = {
         k: x.nodes[k].dtype for k in ["node_id", "parent_id"] + num_cols + non_num_cols
     }
 
-    for cols in new_nodes.columns:
-        new_nodes = new_nodes.astype(dtypes, errors="ignore")
+    # Check for overflow
+    for col in ("node_id", "parent_id"):
+        # If there is an overflow downcast to smallest possible dtype
+        # N.B. we could also check for underflow but that's less likely
+        if new_nodes[col].max() >= np.iinfo(np.int32).max:
+            new_nodes[col] = pd.to_nunmeric(new_nodes[col], downcast="integer")
+            dtypes[col] = new_nodes[col].dtype  # Update dtype
+
+    # Now cast the rest
+    new_nodes = new_nodes.astype(dtypes, errors="ignore")
 
     # Remove duplicate nodes (branch points)
     new_nodes = new_nodes[~new_nodes.node_id.duplicated()]
