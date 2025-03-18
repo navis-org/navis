@@ -50,8 +50,7 @@ def neuron2plotly(x, colormap, settings):
     if not isinstance(settings.color_by, type(None)):
         if not settings.palette:
             raise ValueError(
-                'Must provide `palette` (e.g. "viridis") argument '
-                "if using `color_by`"
+                'Must provide `palette` (e.g. "viridis") argument if using `color_by`'
             )
 
         colormap = vertex_colors(
@@ -246,7 +245,7 @@ def neuron2plotly(x, colormap, settings):
                                 if settings.cn_size
                                 else cn_lay["size"],
                             ),
-                            name=f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}',
+                            name=f"{cn_lay.get(j, {'name': 'connector'})['name']} of {name}",
                             showlegend=False,
                             legendgroup=legendgroup,
                             hoverinfo="none",
@@ -284,7 +283,7 @@ def neuron2plotly(x, colormap, settings):
                             z=z_coords,
                             mode="lines",
                             line=dict(color="rgb%s" % str(c), width=5),
-                            name=f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}',
+                            name=f"{cn_lay.get(j, {'name': 'connector'})['name']} of {name}",
                             showlegend=False,
                             legendgroup=legendgroup,
                             hoverinfo="none",
@@ -517,7 +516,7 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
             z=coords[:, 2],
             opacity=opacity,
             mode="lines",
-            line=dict(color=c, width=settings.get('linewidth', 3), dash=dash),
+            line=dict(color=c, width=settings.get("linewidth", 3), dash=dash),
             name=label,
             legendgroup=legendgroup,
             legendgrouptitle_text=legendgroup,
@@ -531,7 +530,7 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
     soma = utils.make_iterable(neuron.soma)
     if settings.soma:
         # If soma detection is messed up we might end up producing
-        # hundrets of soma which will freeze the session
+        # hundreds of soma which will freeze the session
         if len(soma) >= 10:
             logger.warning(
                 f"Neuron {neuron.id} appears to have {len(soma)} "
@@ -559,6 +558,15 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
                     if isinstance(neuron.soma_radius, str)
                     else neuron.soma_radius
                 )
+
+                # It's possible that the radius column is either missing or just
+                # contains NaNs. In that case we will skip this soma.
+                if pd.isnull(r):
+                    logger.warning(
+                        f"Skipping soma {s} of neuron {neuron.id} "
+                        "because it appears to have no radius."
+                    )
+                    continue
 
                 trace_data += [
                     go.Mesh3d(
