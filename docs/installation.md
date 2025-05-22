@@ -29,12 +29,12 @@ Open up a terminal and install {{ navis }} with:
     pip install navis[all] -U
     ```
 
-    If you run into issues, try the [minimal install](navis_setup.md#__tabbed_1_2) instead.
+    If you run into issues, try the [minimal install](#__tabbed_1_2) instead.
 
 
 === "Minimal"
 
-    If you're running into issues with the [full install](navis_setup.md#__tabbed_1_1),
+    If you're running into issues with the [full install](#__tabbed_1_1),
     you can try this minimal install instead:
 
     ``` sh

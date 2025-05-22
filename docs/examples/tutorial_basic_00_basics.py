@@ -5,7 +5,7 @@ The Basics
 This tutorial will introduce some of the basics concepts in NAVis.
 
 This is not supposed to be comprehensive but rather to give you a flavor of how things work. For inspiriation,
-explore the [example gallery](../index.md) and for detailed explanations have a look at the [API documentation](../../api/).
+explore the [example gallery](../index) and for detailed explanations have a look at the [API documentation](../../../api/).
 
 ## Single Neurons
 
@@ -47,7 +47,7 @@ n.nodes.head()
 #     [10 Minutes to pandas](https://pandas.pydata.org/pandas-docs/stable/10min.html) is a good place to start.
 #
 # Try typing in "`n.`" and hitting tab: most attributes and functions are accessible via autocompletion.
-# If you don't know what a function does, check out the documentation using `help()` or via the [API documentation](../../api):
+# If you don't know what a function does, check out the documentation using `help()` or via the [API documentation](../../../api):
 # ```python
 # help(navis.TreeNeuron.root)
 # ```
