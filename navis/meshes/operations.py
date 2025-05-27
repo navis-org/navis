@@ -159,7 +159,7 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
     return x
 
 
-def combine_meshes(meshes, max_dist='auto'):
+def combine_meshes(meshes, max_dist='auto', progress=True):
     """Try combining (partially overlapping) meshes.
 
     This function effectively works on the vertex graph and will not produce
@@ -175,7 +175,7 @@ def combine_meshes(meshes, max_dist='auto'):
         max_dist = comb.edges_unique_length.mean()
 
     for m in config.tqdm(meshes[1:], desc='Combining',
-                         disable=config.pbar_hide,
+                         disable=config.pbar_hide or not progress,
                          leave=config.pbar_leave):
         # Generate a new up-to-date tree
         tree = KDTree(comb.vertices)
