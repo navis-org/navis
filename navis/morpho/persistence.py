@@ -258,15 +258,16 @@ def persistence_vectors(x,
     Parameters
     ----------
     x :         navis.NeuronList | pd.DataFrame | list thereof
-                The persistence points (see [`navis.persistence_points`][]).
+                The persistence points (see [navis.persistence_points][]).
                 For vectors for multiple neurons, provide either a list of
                 persistence points DataFrames or a single DataFrame with a
                 "neuron_id" column.
     threshold : float, optional
                 If provided, segments shorter (death - birth) than this will not
                 be used to create the Gaussian.
-    samples :   int
-                Number of points sampled across the Gaussian.
+    samples :   int | iterable
+                Either the number of points sampled across the Gaussian or an
+                iterable of points to sample.
     bw :        float
                 Bandwidth for Gaussian kernel: larger = smoother, smaller =
                 more detailed.
@@ -312,9 +313,14 @@ def persistence_vectors(x,
         raise TypeError('Unable to work extract persistence vectors from data '
                         f'of type "{x}"')
 
-    # Get the max distance
-    max_pdist = max([p.birth.max() for p in pers])
-    samples = np.linspace(0, max_pdist * 1.05, samples)
+    if isinstance(samples, (int, np.integer)):
+        # Get the max distance
+        max_pdist = max([p.birth.max() for p in pers])
+        samples = np.linspace(0, max_pdist * 1.05, samples)
+    elif not isinstance(samples, (np.ndarray, list, tuple)):
+        raise ValueError(
+            f'Expected `samples` to be an integer or iterable, got "{type(samples)}"'
+            )
 
     # Now get a persistence vector
     vectors = []
