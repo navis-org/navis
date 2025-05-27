@@ -66,6 +66,14 @@ class AffineTransform(BaseTransform):
 
         return x
 
+    def __add__(self, other: 'AffineTransform') -> 'AffineTransform':
+        """Add two affine transforms."""
+        if isinstance(other, AffineTransform):
+            x = self.copy()
+            x.matrix = np.dot(self.matrix, other.matrix)
+            return x
+        raise ValueError('Can only add `AffineTransform` objects.')
+
     def copy(self) -> 'AffineTransform':
         """Return copy of transform."""
         # Attributes not to copy
