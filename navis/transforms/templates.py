@@ -43,25 +43,25 @@ from .xfm_funcs import mirror, xform
 
 # Catch some stupid warning about installing python-Levenshtein
 with warnings.catch_warnings():
-    warnings.simplefilter('ignore')
+    warnings.simplefilter("ignore")
     import fuzzywuzzy as fw
     import fuzzywuzzy.process
 
-__all__ = ['xform_brain', 'mirror_brain', 'symmetrize_brain']
+__all__ = ["xform_brain", "mirror_brain", "symmetrize_brain"]
 
 logger = config.get_logger(__name__)
 
 # Defines entry the registry needs to register a transform
-transform_reg = namedtuple('Transform',
-                           ['source', 'target', 'transform', 'type',
-                            'invertible', 'weight'])
+transform_reg = namedtuple(
+    "Transform", ["source", "target", "transform", "type", "invertible", "weight"]
+)
 
 # Check for environment variable pointing to registries
-_OS_TRANSPATHS = os.environ.get('NAVIS_TRANSFORMS', '')
+_OS_TRANSPATHS = os.environ.get("NAVIS_TRANSFORMS", "")
 try:
-    _OS_TRANSPATHS = [i for i in _OS_TRANSPATHS.split(';') if len(i) > 0]
+    _OS_TRANSPATHS = [i for i in _OS_TRANSPATHS.split(";") if len(i) > 0]
 except BaseException:
-    logger.error('Error parsing the `NAVIS_TRANSFORMS` environment variable')
+    logger.error("Error parsing the `NAVIS_TRANSFORMS` environment variable")
     _OS_TRANSPATHS = []
 
 
@@ -74,6 +74,7 @@ class TemplateRegistry:
                     If True will scan paths on initialization.
 
     """
+
     def __init__(self, scan_paths: bool = True):
         # Paths to scan for transforms
         self._transpaths = _OS_TRANSPATHS.copy()
@@ -108,7 +109,7 @@ class TemplateRegistry:
         return self.__str__()
 
     def __str__(self):
-        return f'TemplateRegistry with {len(self)} transforms'
+        return f"TemplateRegistry with {len(self)} transforms"
 
     @property
     def transpaths(self) -> list:
@@ -132,12 +133,12 @@ class TemplateRegistry:
     @property
     def bridges(self) -> list:
         """Registered bridging transforms."""
-        return [t for t in self.transforms if t.type == 'bridging']
+        return [t for t in self.transforms if t.type == "bridging"]
 
     @property
-    def mirrors(self) ->list:
+    def mirrors(self) -> list:
         """Registered mirror transforms."""
-        return [t for t in self.transforms if t.type == 'mirror']
+        return [t for t in self.transforms if t.type == "mirror"]
 
     def clear_caches(self):
         """Clear caches of all cached functions."""
@@ -171,8 +172,7 @@ class TemplateRegistry:
         if trigger_scan:
             self.scan_paths()
 
-    def register_templatebrain(self, template: 'TemplateBrain',
-                               skip_existing=True):
+    def register_templatebrain(self, template: "TemplateBrain", skip_existing=True):
         """Register a template brain.
 
         This is used, for example, by navis.mirror_brain.
@@ -185,17 +185,20 @@ class TemplateRegistry:
                         If True, will skip existing template brains.
 
         """
-        utils.eval_param(template,
-                         name='template',
-                         allowed_types=(TemplateBrain, ))
+        utils.eval_param(template, name="template", allowed_types=(TemplateBrain,))
 
         if template not in self._templates or not skip_existing:
             self._templates.append(template)
 
-    def register_transform(self, transform: BaseTransform, source: str,
-                           target: str, transform_type: str,
-                           skip_existing: bool = True,
-                           weight: int = 1):
+    def register_transform(
+        self,
+        transform: BaseTransform,
+        source: str,
+        target: str,
+        transform_type: str,
+        skip_existing: bool = True,
+        weight: int = 1,
+    ):
         """Register a transform.
 
         Parameters
@@ -223,14 +226,18 @@ class TemplateRegistry:
                             already constructed transform.
 
         """
-        assert transform_type in ('bridging', 'mirror')
+        assert transform_type in ("bridging", "mirror")
         assert isinstance(transform, (BaseTransform, TransformSequence))
 
         # Translate into edge
-        edge = transform_reg(source=source, target=target, transform=transform,
-                             type=transform_type,
-                             invertible=hasattr(transform, '__neg__'),
-                             weight=weight)
+        edge = transform_reg(
+            source=source,
+            target=target,
+            transform=transform,
+            type=transform_type,
+            invertible=hasattr(transform, "__neg__"),
+            weight=weight,
+        )
 
         # Don't add if already exists
         if not skip_existing or edge not in self:
@@ -270,24 +277,26 @@ class TemplateRegistry:
 
         # Parse properties
         try:
-            if 'mirror' in path.name or 'imgflip' in path.name:
-                transform_type = 'mirror'
-                source = path.name.split('_')[0]
+            if "mirror" in path.name or "imgflip" in path.name:
+                transform_type = "mirror"
+                source = path.name.split("_")[0]
                 target = None
             else:
-                transform_type = 'bridging'
-                target = path.name.split('_')[0]
-                source = path.name.split('_')[1].split('.')[0]
+                transform_type = "bridging"
+                target = path.name.split("_")[0]
+                source = path.name.split("_")[1].split(".")[0]
 
             # Initialize the transform
             transform = factory.factory_methods[path.suffix](path, **kwargs)
 
-            self.register_transform(transform=transform,
-                                    source=source,
-                                    target=target,
-                                    transform_type=transform_type)
+            self.register_transform(
+                transform=transform,
+                source=source,
+                target=target,
+                transform_type=transform_type,
+            )
         except BaseException as e:
-            logger.error(f'Error registering {path} as transform: {str(e)}')
+            logger.error(f"Error registering {path} as transform: {str(e)}")
 
     def scan_paths(self, extra_paths: List[str] = None):
         """Scan registered paths for transforms and add to registry.
@@ -303,7 +312,7 @@ class TemplateRegistry:
         search_paths = self.transpaths
 
         if isinstance(extra_paths, str):
-            extra_paths = [i for i in extra_paths.split(';') if len(i) > 0]
+            extra_paths = [i for i in extra_paths.split(";") if len(i) > 0]
             search_paths = np.append(search_paths, extra_paths)
 
         for path in search_paths:
@@ -316,7 +325,7 @@ class TemplateRegistry:
             # These file extensions are registered in the
             # `navis.transforms.factory` module
             for ext in factory.factory_methods:
-                for hit in path.rglob(f'*{ext}'):
+                for hit in path.rglob(f"*{ext}"):
                     if hit.is_dir() or hit.is_file():
                         # Register this file
                         self.register_transformfile(hit)
@@ -325,8 +334,9 @@ class TemplateRegistry:
         self.clear_caches()
 
     @functools.lru_cache()
-    def bridging_graph(self,
-                       reciprocal: Union[Literal[False], int, float] = True) -> nx.DiGraph:
+    def bridging_graph(
+        self, reciprocal: Union[Literal[False], int, float] = True
+    ) -> nx.DiGraph:
         """Generate networkx Graph describing the bridging paths.
 
         Parameters
@@ -342,7 +352,7 @@ class TemplateRegistry:
 
         """
         # Drop mirror transforms
-        bridge = [t for t in self.transforms if t.type == 'bridging']
+        bridge = [t for t in self.transforms if t.type == "bridging"]
         bridge_inv = [t for t in bridge if t.invertible]
 
         # Generate graph
@@ -353,33 +363,60 @@ class TemplateRegistry:
         # will be two edges connecting JFRC2013DS and JFRC2013 in
         # both directions
         G = nx.MultiDiGraph()
-        edges = [(t.source, t.target,
-                  {'transform': t.transform,
-                   'type': type(t.transform).__name__,
-                   'weight': t.weight}) for t in bridge]
+        edges = [
+            (
+                t.source,
+                t.target,
+                {
+                    "transform": t.transform,
+                    "type": type(t.transform).__name__,
+                    "weight": t.weight,
+                },
+            )
+            for t in bridge
+        ]
 
         if reciprocal:
             if isinstance(reciprocal, numbers.Number):
-                rv_edges = [(t.target, t.source,
-                             {'transform': -t.transform,  # note inverse transform!
-                              'type': str(type(t.transform)).split('.')[-1],
-                              'weight': t.weight * reciprocal}) for t in bridge_inv]
+                rv_edges = [
+                    (
+                        t.target,
+                        t.source,
+                        {
+                            "transform": -t.transform,  # note inverse transform!
+                            "type": str(type(t.transform)).split(".")[-1],
+                            "weight": t.weight * reciprocal,
+                        },
+                    )
+                    for t in bridge_inv
+                ]
             else:
-                rv_edges = [(t.target, t.source,
-                             {'transform': -t.transform,  # note inverse transform!
-                              'type': str(type(t.transform)).split('.')[-1],
-                              'weight': t.weight}) for t in bridge_inv]
+                rv_edges = [
+                    (
+                        t.target,
+                        t.source,
+                        {
+                            "transform": -t.transform,  # note inverse transform!
+                            "type": str(type(t.transform)).split(".")[-1],
+                            "weight": t.weight,
+                        },
+                    )
+                    for t in bridge_inv
+                ]
             edges += rv_edges
 
         G.add_edges_from(edges)
 
         return G
 
-    def find_bridging_path(self, source: str,
-                           target: str,
-                           via: Optional[str] = None,
-                           avoid: Optional[str] = None,
-                           reciprocal=True) -> tuple:
+    def find_bridging_path(
+        self,
+        source: str,
+        target: str,
+        via: Optional[str] = None,
+        avoid: Optional[str] = None,
+        reciprocal=True,
+    ) -> tuple:
         """Find bridging path from source to target.
 
         Parameters
@@ -409,33 +446,42 @@ class TemplateRegistry:
         G = self.bridging_graph(reciprocal=reciprocal)
 
         if len(G) == 0:
-            raise ValueError('No bridging registrations available')
+            raise ValueError("No bridging registrations available")
 
         # Do not remove the conversion to list - fuzzy matching does act up
         # otherwise
         nodes = list(G.nodes)
         if source not in nodes:
-            best_match = fw.process.extractOne(source, nodes,
-                                               scorer=fw.fuzz.token_sort_ratio)
-            raise ValueError(f'Source "{source}" has no known bridging '
-                             f'registrations. Did you mean "{best_match[0]}" '
-                             'instead?')
+            best_match = fw.process.extractOne(
+                source, nodes, scorer=fw.fuzz.token_sort_ratio
+            )
+            raise ValueError(
+                f'Source "{source}" has no known bridging '
+                f'registrations. Did you mean "{best_match[0]}" '
+                "instead?"
+            )
         if target not in G.nodes:
-            best_match = fw.process.extractOne(target, nodes,
-                                               scorer=fw.fuzz.token_sort_ratio)
-            raise ValueError(f'Target "{target}" has no known bridging '
-                             f'registrations. Did you mean "{best_match[0]}" '
-                             'instead?')
+            best_match = fw.process.extractOne(
+                target, nodes, scorer=fw.fuzz.token_sort_ratio
+            )
+            raise ValueError(
+                f'Target "{target}" has no known bridging '
+                f'registrations. Did you mean "{best_match[0]}" '
+                "instead?"
+            )
 
         if via:
             via = list(utils.make_iterable(via))  # do not remove the list() here
             for v in via:
                 if v not in G.nodes:
-                    best_match = fw.process.extractOne(v, nodes,
-                                                       scorer=fw.fuzz.token_sort_ratio)
-                    raise ValueError(f'Via "{v}" has no known bridging '
-                                    f'registrations. Did you mean "{best_match[0]}" '
-                                    'instead?')
+                    best_match = fw.process.extractOne(
+                        v, nodes, scorer=fw.fuzz.token_sort_ratio
+                    )
+                    raise ValueError(
+                        f'Via "{v}" has no known bridging '
+                        f'registrations. Did you mean "{best_match[0]}" '
+                        "instead?"
+                    )
 
         if avoid:
             avoid = list(utils.make_iterable(avoid))
@@ -443,10 +489,11 @@ class TemplateRegistry:
         # This will raise a error message if no path is found
         if not via and not avoid:
             try:
-                path = nx.shortest_path(G, source, target, weight='weight')
+                path = nx.shortest_path(G, source, target, weight="weight")
             except nx.NetworkXNoPath:
-                raise nx.NetworkXNoPath(f'No bridging path connecting {source} '
-                                        f'and {target} found.')
+                raise nx.NetworkXNoPath(
+                    f"No bridging path connecting {source} and {target} found."
+                )
         else:
             # Go through all possible paths and find one that...
             found_any = False  # track if we found any path
@@ -469,19 +516,26 @@ class TemplateRegistry:
                     break
 
             if not found_any:
-                raise nx.NetworkXNoPath(f'No bridging path connecting {source} '
-                                        f'and {target} found.')
+                raise nx.NetworkXNoPath(
+                    f"No bridging path connecting {source} and {target} found."
+                )
             elif not found_good:
                 if via and avoid:
-                    raise nx.NetworkXNoPath(f'No bridging path connecting {source}'
-                                            f'and {target} via "{via}" and '
-                                            f'avoiding "{avoid}" found')
+                    raise nx.NetworkXNoPath(
+                        f"No bridging path connecting {source}"
+                        f'and {target} via "{via}" and '
+                        f'avoiding "{avoid}" found'
+                    )
                 elif via:
-                    raise nx.NetworkXNoPath(f'No bridging path connecting {source}'
-                                            f'and {target} via "{via}" found.')
+                    raise nx.NetworkXNoPath(
+                        f"No bridging path connecting {source}"
+                        f'and {target} via "{via}" found.'
+                    )
                 else:
-                    raise nx.NetworkXNoPath(f'No bridging path connecting {source}'
-                                            f'and {target} avoiding "{avoid}" found.')
+                    raise nx.NetworkXNoPath(
+                        f"No bridging path connecting {source}"
+                        f'and {target} avoiding "{avoid}" found.'
+                    )
 
         # `path` holds the sequence of nodes we are traversing but not which
         # transforms (i.e. edges) to use
@@ -496,7 +550,7 @@ class TemplateRegistry:
                     e = G.edges[(n1, n2, i)]
                 except KeyError:
                     break
-                this_edges.append([e['transform'], e['weight']])
+                this_edges.append([e["transform"], e["weight"]])
                 i += 1
 
             # Now find the edge with the highest weight
@@ -506,12 +560,15 @@ class TemplateRegistry:
 
         return path, transforms
 
-    def find_all_bridging_paths(self, source: str,
-                                target: str,
-                                via: Optional[str] = None,
-                                avoid: Optional[str] = None,
-                                reciprocal: bool = True,
-                                cutoff: int = None) -> tuple:
+    def find_all_bridging_paths(
+        self,
+        source: str,
+        target: str,
+        via: Optional[str] = None,
+        avoid: Optional[str] = None,
+        reciprocal: bool = True,
+        cutoff: int = None,
+    ) -> tuple:
         """Find all bridging paths from source to target.
 
         Parameters
@@ -545,43 +602,56 @@ class TemplateRegistry:
         G = self.bridging_graph(reciprocal=reciprocal)
 
         if len(G) == 0:
-            raise ValueError('No bridging registrations available')
+            raise ValueError("No bridging registrations available")
 
         # Do not remove the conversion to list - fuzzy matching does act up
         # otherwise
         nodes = list(G.nodes)
         if source not in nodes:
-            best_match = fw.process.extractOne(source, nodes,
-                                               scorer=fw.fuzz.token_sort_ratio)
-            raise ValueError(f'Source "{source}" has no known bridging '
-                             f'registrations. Did you mean "{best_match[0]}" '
-                             'instead?')
+            best_match = fw.process.extractOne(
+                source, nodes, scorer=fw.fuzz.token_sort_ratio
+            )
+            raise ValueError(
+                f'Source "{source}" has no known bridging '
+                f'registrations. Did you mean "{best_match[0]}" '
+                "instead?"
+            )
         if target not in G.nodes:
-            best_match = fw.process.extractOne(target, nodes,
-                                               scorer=fw.fuzz.token_sort_ratio)
-            raise ValueError(f'Target "{target}" has no known bridging '
-                             f'registrations. Did you mean "{best_match[0]}" '
-                             'instead?')
+            best_match = fw.process.extractOne(
+                target, nodes, scorer=fw.fuzz.token_sort_ratio
+            )
+            raise ValueError(
+                f'Target "{target}" has no known bridging '
+                f'registrations. Did you mean "{best_match[0]}" '
+                "instead?"
+            )
 
         if via and via not in G.nodes:
-            best_match = fw.process.extractOne(via, nodes,
-                                               scorer=fw.fuzz.token_sort_ratio)
-            raise ValueError(f'Via "{via}" has no known bridging '
-                             f'registrations. Did you mean "{best_match[0]}" '
-                             'instead?')
+            best_match = fw.process.extractOne(
+                via, nodes, scorer=fw.fuzz.token_sort_ratio
+            )
+            raise ValueError(
+                f'Via "{via}" has no known bridging '
+                f'registrations. Did you mean "{best_match[0]}" '
+                "instead?"
+            )
 
         # This will raise a error message if no path is found
         for path in nx.all_simple_paths(G, source, target, cutoff=cutoff):
             # Skip paths that don't contain `via`
             if isinstance(via, str) and (via not in path):
                 continue
-            elif isinstance(via, (list, tuple, np.ndarray)) and not all([v in path for v in via]):
+            elif isinstance(via, (list, tuple, np.ndarray)) and not all(
+                [v in path for v in via]
+            ):
                 continue
 
             # Skip paths that contain `avoid`
             if isinstance(avoid, str) and (avoid in path):
                 continue
-            elif isinstance(avoid, (list, tuple, np.ndarray)) and any([v in path for v in avoid]):
+            elif isinstance(avoid, (list, tuple, np.ndarray)) and any(
+                [v in path for v in avoid]
+            ):
                 continue
 
             # `path` holds the sequence of nodes we are traversing but not which
@@ -597,7 +667,7 @@ class TemplateRegistry:
                         e = G.edges[(n1, n2, i)]
                     except KeyError:
                         break
-                    this_edges.append([e['transform'], e['weight']])
+                    this_edges.append([e["transform"], e["weight"]])
                     i += 1
 
                 # Now find the edge with the highest weight
@@ -608,9 +678,13 @@ class TemplateRegistry:
             yield path, transforms
 
     @functools.lru_cache()
-    def shortest_bridging_seq(self, source: str, target: str,
-                              via: Optional[str] = None,
-                              inverse_weight: float = .5) -> tuple:
+    def shortest_bridging_seq(
+        self,
+        source: str,
+        target: str,
+        via: Optional[str] = None,
+        inverse_weight: float = 0.5,
+    ) -> tuple:
         """Find shortest bridging sequence to get from source to target.
 
         Parameters
@@ -650,15 +724,14 @@ class TemplateRegistry:
             transforms = np.append(transforms, tr)
 
         if any(np.unique(seq, return_counts=True)[1] > 1):
-            logger.warning('Bridging sequence contains loop: '
-                           f'{"->".join(seq)}')
+            logger.warning(f"Bridging sequence contains loop: {'->'.join(seq)}")
 
         # Generate the transform sequence
         transform_seq = TransformSequence(*transforms)
 
         return seq, transform_seq
 
-    def find_mirror_reg(self, template: str, non_found: str = 'raise') -> tuple:
+    def find_mirror_reg(self, template: str, non_found: str = "raise") -> tuple:
         """Search for a mirror transformation for given template.
 
         Typically a mirror transformation specifies a non-rigid transformation
@@ -684,11 +757,11 @@ class TemplateRegistry:
             if tr.source == template:
                 return tr
 
-        if non_found == 'raise':
-            raise ValueError(f'No mirror transformation found for {template}')
+        if non_found == "raise":
+            raise ValueError(f"No mirror transformation found for {template}")
         return None
 
-    def find_closest_mirror_reg(self, template: str, non_found: str = 'raise') -> str:
+    def find_closest_mirror_reg(self, template: str, non_found: str = "raise") -> str:
         """Search for the closest mirror transformation for given template.
 
         Typically a mirror transformation specifies a non-rigid transformation
@@ -713,10 +786,12 @@ class TemplateRegistry:
         temps_w_mirrors = [t.source for t in self.mirrors]
 
         # Add symmetrical template brains
-        temps_w_mirrors += [t.label for t in self.templates if getattr(t, 'symmetrical', False) == True]
+        temps_w_mirrors += [
+            t.label for t in self.templates if getattr(t, "symmetrical", False) == True
+        ]
 
         if not temps_w_mirrors:
-            raise ValueError('No mirror transformations registered')
+            raise ValueError("No mirror transformations registered")
 
         # If this template has a mirror registration:
         if template in temps_w_mirrors:
@@ -726,8 +801,9 @@ class TemplateRegistry:
         G = self.bridging_graph()
 
         if template not in G.nodes:
-            raise ValueError(f'"{template}" does not appear to be a registered '
-                             'template')
+            raise ValueError(
+                f'"{template}" does not appear to be a registered template'
+            )
 
         # Get path lengths from template to all other nodes
         pl = nx.single_source_dijkstra_path_length(G, template)
@@ -742,12 +818,14 @@ class TemplateRegistry:
         if cl:
             return cl[0]
 
-        if non_found == 'raise':
-            raise ValueError(f'No path to a mirror transformation found for "{template}"')
+        if non_found == "raise":
+            raise ValueError(
+                f'No path to a mirror transformation found for "{template}"'
+            )
 
         return None
 
-    def find_template(self, name: str, non_found: str = 'raise') -> 'TemplateBrain':
+    def find_template(self, name: str, non_found: str = "raise") -> "TemplateBrain":
         """Search for a given template (brain).
 
         Parameters
@@ -767,12 +845,12 @@ class TemplateRegistry:
 
         """
         for tmp in self.templates:
-            if getattr(tmp, 'label', None) == name:
+            if getattr(tmp, "label", None) == name:
                 return tmp
-            if getattr(tmp, 'name', None) == name:
+            if getattr(tmp, "name", None) == name:
                 return tmp
 
-        if non_found == 'raise':
+        if non_found == "raise":
             raise ValueError(f'No template brain registered that matches "{name}"')
         return None
 
@@ -797,37 +875,39 @@ class TemplateRegistry:
         pos = nx.kamada_kawai_layout(G)
 
         # Draw all nodes
-        nx.draw_networkx_nodes(G, pos=pos, node_color='lightgrey',
-                               node_shape='o', node_size=300)
-        nx.draw_networkx_labels(G, pos=pos, labels=node_labels,
-                                font_color='k', font_size=10)
+        nx.draw_networkx_nodes(
+            G, pos=pos, node_color="lightgrey", node_shape="o", node_size=300
+        )
+        nx.draw_networkx_labels(
+            G, pos=pos, labels=node_labels, font_color="k", font_size=10
+        )
 
         # Draw edges by type of transform
-        edge_types = set([e[2]['type'] for e in G.edges(data=True)])
+        edge_types = set([e[2]["type"] for e in G.edges(data=True)])
 
         lines = []
         labels = []
-        for t, c in zip(edge_types,
-                        sns.color_palette('muted', len(edge_types))):
-            subset = [e for e in G.edges(data=True) if e[2]['type'] == t]
-            nx.draw_networkx_edges(G, pos=pos, edgelist=subset,
-                                   edge_color=mcl.to_hex(c), width=1.5)
-            lines.append(Line2D([0], [0], color=c, linewidth=2, linestyle='-'))
+        for t, c in zip(edge_types, sns.color_palette("muted", len(edge_types))):
+            subset = [e for e in G.edges(data=True) if e[2]["type"] == t]
+            nx.draw_networkx_edges(
+                G, pos=pos, edgelist=subset, edge_color=mcl.to_hex(c), width=1.5
+            )
+            lines.append(Line2D([0], [0], color=c, linewidth=2, linestyle="-"))
             labels.append(t)
 
         plt.legend(lines, labels)
 
 
-def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
-                source: str,
-                target: str,
-                via: Optional[str] = None,
-                avoid: Optional[str] = None,
-                affine_fallback: bool = True,
-                caching: bool = True,
-                verbose: bool = True) -> Union['core.NeuronObject',
-                                               'pd.DataFrame',
-                                               'np.ndarray']:
+def xform_brain(
+    x: Union["core.NeuronObject", "pd.DataFrame", "np.ndarray"],
+    source: str,
+    target: str,
+    via: Optional[str] = None,
+    avoid: Optional[str] = None,
+    affine_fallback: bool = True,
+    caching: bool = True,
+    verbose: bool = True,
+) -> Union["core.NeuronObject", "pd.DataFrame", "np.ndarray"]:
     """Transform 3D data between template brains.
 
     This requires the appropriate transforms to be registered with `navis`.
@@ -930,19 +1010,18 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         path_str = path[0]
         for p, tr in zip(path[1:], transforms):
             if isinstance(tr, AliasTransform):
-                link = '='
+                link = "="
             else:
-                link = '->'
-            path_str += f' {link} {p}'
+                link = "->"
+            path_str += f" {link} {p}"
 
-        print('Transform path:', path_str)
+        print("Transform path:", path_str)
 
     # Combine into transform sequence
     trans_seq = TransformSequence(*transforms)
 
     # Apply transform and returned xformed points
-    xf = xform(x, transform=trans_seq, caching=caching,
-               affine_fallback=affine_fallback)
+    xf = xform(x, transform=trans_seq, caching=caching, affine_fallback=affine_fallback)
 
     # We might be able to set the correct units based on the target template's
     # meta data (the "guessed" new units can be off if the transform is
@@ -959,7 +1038,7 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 except BaseException:
                     raise
                 # If this template brain has a property for navis units
-                if hasattr(last_temp, '_navis_units'):
+                if hasattr(last_temp, "_navis_units"):
                     for n in core.NeuronList(xf):
                         n.units = last_temp._navis_units
                 break
@@ -967,14 +1046,14 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     return xf
 
 
-def _guess_change(xyz_before: np.ndarray,
-                  xyz_after: np.ndarray,
-                  sample: float = .1) -> tuple:
+def _guess_change(
+    xyz_before: np.ndarray, xyz_after: np.ndarray, sample: float = 0.1
+) -> tuple:
     """Guess change in units during xforming."""
     if isinstance(xyz_before, pd.DataFrame):
-        xyz_before = xyz_before[['x', 'y', 'z']].values
+        xyz_before = xyz_before[["x", "y", "z"]].values
     if isinstance(xyz_after, pd.DataFrame):
-        xyz_after = xyz_after[['x', 'y', 'z']].values
+        xyz_after = xyz_after[["x", "y", "z"]].values
 
     # Select the same random sample of points in both spaces
     if sample <= 1:
@@ -989,7 +1068,7 @@ def _guess_change(xyz_before: np.ndarray,
 
     # Calculate how the distance between nodes changed and get the average
     # Note we are ignoring nans - happens e.g. when points did not transform.
-    with np.errstate(divide='ignore', invalid='ignore'):
+    with np.errstate(divide="ignore", invalid="ignore"):
         change = dist_post / dist_pre
     # Drop infinite values in rare cases where nodes end up on top of another
     mean_change = np.nanmean(change[change < np.inf])
@@ -1084,41 +1163,29 @@ def symmetrize_brain(
     if isinstance(x, core.BaseNeuron):
         x = x.copy()
         if isinstance(x, core.TreeNeuron):
-            x.nodes = symmetrize_brain(x.nodes,
-                                       template=template,
-                                       via=via)
+            x.nodes = symmetrize_brain(x.nodes, template=template, via=via)
         elif isinstance(x, core.Dotprops):
-            x.points = symmetrize_brain(x.points,
-                                        template=template,
-                                        via=via)
+            x.points = symmetrize_brain(x.points, template=template, via=via)
             # Set tangent vectors and alpha to None so they will be regenerated
             x._vect = x._alpha = None
         elif isinstance(x, core.MeshNeuron):
-            x.vertices = symmetrize_brain(x.vertices,
-                                          template=template,
-                                          via=via)
+            x.vertices = symmetrize_brain(x.vertices, template=template, via=via)
         else:
             raise TypeError(f"Don't know how to transform neuron of type '{type(x)}'")
 
         if x.has_connectors:
-            x.connectors = symmetrize_brain(x.connectors,
-                                            template=template,
-                                            via=via)
+            x.connectors = symmetrize_brain(x.connectors, template=template, via=via)
         return x
     elif isinstance(x, tm.Trimesh):
         x = x.copy()
-        x.vertices = symmetrize_brain(x.vertices,
-                                      template=template,
-                                      via=via)
+        x.vertices = symmetrize_brain(x.vertices, template=template, via=via)
         return x
     elif isinstance(x, pd.DataFrame):
-        if any([c not in x.columns for c in ['x', 'y', 'z']]):
-            raise ValueError('DataFrame must have x, y and z columns.')
+        if any([c not in x.columns for c in ["x", "y", "z"]]):
+            raise ValueError("DataFrame must have x, y and z columns.")
         x = x.copy()
-        x[['x', 'y', 'z']] = symmetrize_brain(
-            x[['x', 'y', 'z']].values.astype(float),
-            template=template,
-            via=via
+        x[["x", "y", "z"]] = symmetrize_brain(
+            x[["x", "y", "z"]].values.astype(float), template=template, via=via
         )
         return x
     else:
@@ -1129,21 +1196,23 @@ def symmetrize_brain(
             raise TypeError(f'Unable to transform data of type "{type(x)}"')
 
         if not x.ndim == 2 or x.shape[1] != 3:
-            raise ValueError('Array must be of shape (N, 3).')
+            raise ValueError("Array must be of shape (N, 3).")
 
     # Now find the meta info for this template brain
     if isinstance(template, TemplateBrain):
         tb = template
     else:
-        tb = registry.find_template(template, non_found='raise')
+        tb = registry.find_template(template, non_found="raise")
 
     # Get the bounding box
-    if not hasattr(tb, 'boundingbox'):
+    if not hasattr(tb, "boundingbox"):
         raise ValueError(f'Template "{tb.label}" has no bounding box info.')
 
     if not isinstance(tb.boundingbox, (list, tuple, np.ndarray)):
-        raise TypeError("Expected the template brain's bounding box to be a "
-                        f"list, tuple or array - got '{type(tb.boundingbox)}'")
+        raise TypeError(
+            "Expected the template brain's bounding box to be a "
+            f"list, tuple or array - got '{type(tb.boundingbox)}'"
+        )
 
     # Get bounding box of template brain
     bbox = np.asarray(tb.boundingbox)
@@ -1382,7 +1451,7 @@ def mirror_brain(
             raise TypeError(f'Unable to transform data of type "{type(x)}"')
 
         if not x.ndim == 2 or x.shape[1] != 3:
-            raise ValueError('Array must be of shape (N, 3).')
+            raise ValueError("Array must be of shape (N, 3).")
 
     if not isinstance(template, str):
         TypeError(f'Expected template of type str, got "{type(template)}"')
@@ -1391,13 +1460,13 @@ def mirror_brain(
         mirror_trans = warp
     elif warp:
         # See if there is a mirror registration
-        mirror_trans = registry.find_mirror_reg(template, non_found='ignore')
+        mirror_trans = registry.find_mirror_reg(template, non_found="ignore")
 
         # Get actual transform from tuple
         if mirror_trans:
             mirror_trans = mirror_trans.transform
         # If warp was not "auto" and we didn't find a registration, raise
-        elif warp != 'auto' and not mirror_trans:
+        elif warp != "auto" and not mirror_trans:
             raise ValueError(f'No mirror transform found for "{template}"')
     else:
         mirror_trans = None
@@ -1406,15 +1475,17 @@ def mirror_brain(
     if isinstance(template, TemplateBrain):
         tb = template
     else:
-        tb = registry.find_template(template, non_found='raise')
+        tb = registry.find_template(template, non_found="raise")
 
     # Get the bounding box
-    if not hasattr(tb, 'boundingbox'):
+    if not hasattr(tb, "boundingbox"):
         raise ValueError(f'Template "{tb.label}" has no bounding box info.')
 
     if not isinstance(tb.boundingbox, (list, tuple, np.ndarray)):
-        raise TypeError("Expected the template brain's bounding box to be a "
-                        f"list, tuple or array - got '{type(tb.boundingbox)}'")
+        raise TypeError(
+            "Expected the template brain's bounding box to be a "
+            f"list, tuple or array - got '{type(tb.boundingbox)}'"
+        )
 
     # Get bounding box of template brain
     bbox = np.asarray(tb.boundingbox)
@@ -1424,7 +1495,7 @@ def mirror_brain(
         bbox = bbox.reshape(3, 2)
 
     # Index of mirror axis
-    ix = {'x': 0, 'y': 1, 'z': 2}[mirror_axis]
+    ix = {"x": 0, "y": 1, "z": 2}[mirror_axis]
 
     if bbox.shape == (3, 2):
         # In nat.templatebrains this is using the sum (min+max) but have a
@@ -1433,11 +1504,13 @@ def mirror_brain(
     elif bbox.shape == (2, 3):
         mirror_axis_size = bbox[:, ix].sum()
     else:
-        raise ValueError('Expected bounding box to be of shape (3, 2) or (2, 3)'
-                         f' got {bbox.shape}')
+        raise ValueError(
+            f"Expected bounding box to be of shape (3, 2) or (2, 3) got {bbox.shape}"
+        )
 
-    return mirror(x, mirror_axis=mirror_axis, mirror_axis_size=mirror_axis_size,
-                  warp=mirror_trans)
+    return mirror(
+        x, mirror_axis=mirror_axis, mirror_axis_size=mirror_axis_size, warp=mirror_trans
+    )
 
 
 class TemplateBrain:
@@ -1450,6 +1523,7 @@ class TemplateBrain:
     an example of how to use template brains.
 
     """
+
     def __init__(self, **properties):
         """Initialize class."""
         for k, v in properties.items():
@@ -1458,9 +1532,9 @@ class TemplateBrain:
     @property
     def mesh(self):
         """Mesh represenation of this brain."""
-        if not hasattr(self, '_mesh'):
-            name = getattr(self, 'regName', getattr(self, 'name', None))
-            raise ValueError(f'{name} does not appear to have a mesh')
+        if not hasattr(self, "_mesh"):
+            name = getattr(self, "regName", getattr(self, "name", None))
+            raise ValueError(f"{name} does not appear to have a mesh")
         return self._mesh
 
 
