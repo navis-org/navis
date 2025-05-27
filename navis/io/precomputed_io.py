@@ -76,7 +76,7 @@ class PrecomputedMeshReader(PrecomputedReader):
         super().__init__(
             fmt=fmt,
             attrs=attrs,
-            file_ext="",
+            file_ext=("", ".ngmesh"),
             name_fallback="mesh",
             read_binary=True,
             errors=errors,
