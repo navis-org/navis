@@ -13,6 +13,17 @@ For a full list of changes please see the [commits history](https://github.com/n
 ## dev
 _Date: ongoing_
 
+##### Improvements
+- reading neurons from URLs should now generally be much faster
+- [`split_axon_dendrite`][navis.split_axon_dendrite] now allows setting the in-/output ratio for the split (see `split` parameter)
+- small speed ups for [`heal_skeleton`][navis.heal_skeleton] and [`resample_skeleton`][navis.resample_skeleton]
+- add `progress` parameter to [`mirror_brain`][navis.mirror_brain] and [`symmetrize_brain`][navis.symmetrize_brain]
+- [`persistence_vectors`][navis.persistence_vectors] now accepts list of distances to be sampled as `samples`
+
+##### Fixes
+- fix issue when plotting skeleton where the soma has no radius
+- [`read_precomputed`][navis.read_precomputed] will now also look for `.ngmesh` files when given a folder to search
+
 To install the current `dev` version of {{ navis }}:
 
 ```shell
