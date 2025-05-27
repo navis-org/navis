@@ -110,6 +110,19 @@ class TPStransform(BaseTransform):
             self._calc_tps_coefs()
         return self._A
 
+    @property
+    def matrix_rigid(self):
+        """Return the rigid transformation matrix."""
+        # The first row in self.A is the translation vector
+        # The next 3x3 block is the rotation matrix
+        # Let's combine these into a typical 4x4 transformation matrix
+        # where the last row is [0, 0, 0, 1]
+        m = np.zeros((4, 4))
+        m[0:3, 0:3] = self.A[1:4, :].T
+        m[0:3, 3] = self.A[0, :]
+        m[3] = [0, 0, 0, 1]
+        return m
+
     def copy(self):
         """Make copy."""
         x = TPStransform(self.source, self.target)
