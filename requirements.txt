@@ -9,6 +9,7 @@ pint>=0.10
 pynrrd>=0.4.2
 pypng>=0.0.18
 requests>=2.20
+requests-futures>=1.0.2
 seaborn>=0.10
 setuptools>=65.5.1
 scipy>=1.5

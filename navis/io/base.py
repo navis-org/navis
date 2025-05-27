@@ -11,25 +11,25 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import datetime
 import io
 import os
 import re
+import tarfile
+import datetime
 import requests
 import tempfile
-import tarfile
 
-import multiprocessing as mp
 import numpy as np
 import pandas as pd
+import multiprocessing as mp
 
 from abc import ABC
-from functools import partial, wraps
-from pathlib import Path
-from typing import List, Union, Iterable, Dict, Optional, Any, IO
-from typing_extensions import Literal
-from zipfile import ZipFile, ZipInfo
 from ftplib import FTP
+from pathlib import Path
+from zipfile import ZipFile, ZipInfo
+from functools import partial, wraps
+from requests_futures.sessions import FuturesSession
+from typing import List, Union, Iterable, Dict, Optional, Any, IO
 
 from .. import config, utils, core
 
@@ -185,9 +185,7 @@ class Writer:
                 )
 
         if len(filepath) != len(x):
-            raise ValueError(
-                f"Got {len(filepath)} file names for " f"{len(x)} neurons."
-            )
+            raise ValueError(f"Got {len(filepath)} file names for {len(x)} neurons.")
 
         # At this point filepath is iterable
         filepath: Iterable[str]
@@ -491,9 +489,7 @@ class BaseReader(ABC):
 
         """
         fpath = Path(fpath).expanduser()
-        read_fn = partial(
-            self.read_from_zip, zippath=fpath, attrs=attrs
-        )
+        read_fn = partial(self.read_from_zip, zippath=fpath, attrs=attrs)
         neurons = parallel_read_archive(
             read_fn=read_fn,
             fpath=fpath,
@@ -508,7 +504,7 @@ class BaseReader(ABC):
         fpath: os.PathLike,
         limit: Optional[int] = None,
         attrs: Optional[Dict[str, Any]] = None,
-        ignore_hidden: bool = True
+        ignore_hidden: bool = True,
     ) -> "core.NeuronList":
         """Read files from a tar archive into a NeuronList.
 
@@ -616,7 +612,7 @@ class BaseReader(ABC):
         url,
         parallel="auto",
         limit: Optional[int] = None,
-        attrs: Optional[Dict[str, Any]] = None
+        attrs: Optional[Dict[str, Any]] = None,
     ) -> "core.NeuronList":
         """Read files from an FTP server.
 
@@ -665,7 +661,7 @@ class BaseReader(ABC):
         self,
         files: Union[str, List[str]],
         ftp: FTP,
-        attrs: Optional[Dict[str, Any]] = None
+        attrs: Optional[Dict[str, Any]] = None,
     ) -> "core.NeuronList":
         """Read given files from an FTP server into a NeuronList.
 
@@ -856,7 +852,7 @@ class BaseReader(ABC):
         core.BaseNeuron
         """
         raise NotImplementedError(
-            "Reading DataFrames not implemented for " f"{type(self)}"
+            f"Reading DataFrames not implemented for {type(self)}"
         )
 
     @handle_errors
@@ -879,7 +875,7 @@ class BaseReader(ABC):
         core.NeuronObject
         """
         raise NotImplementedError(
-            "Reading from buffer not implemented for " f"{type(self)}"
+            f"Reading from buffer not implemented for {type(self)}"
         )
 
     def read_any_single(
@@ -1104,7 +1100,7 @@ class BaseReader(ABC):
                         props[p] = str(props[p])
                     else:
                         raise ValueError(
-                            f'Unable to interpret datatype "{dt}" ' f"for property {p}"
+                            f'Unable to interpret datatype "{dt}" for property {p}'
                         )
                 else:
                     props[p] = match.group(i + 1)
@@ -1164,8 +1160,7 @@ class ImageReader(BaseReader):
                         data = data >= (self.threshold * data.max())
                     else:
                         raise ValueError(
-                            "Threshold must be either >=1 or 0-1, got "
-                            f"{self.threshold}"
+                            f"Threshold must be either >=1 or 0-1, got {self.threshold}"
                         )
 
                 if self.thin:
@@ -1297,9 +1292,23 @@ def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
         else:
             n_cores = int(parallel)
 
-        with mp.Pool(processes=n_cores) as pool:
-            results = pool.imap(read_fn, objs)
-            neurons = list(prog(results))
+        # If all objects are URLs, we will use threads instead of processes
+        if all(
+            isinstance(obj, str)
+            and (obj.startswith("http://") or obj.startswith("https://"))
+            for obj in objs
+        ):
+            session = FuturesSession(max_workers=n_cores)
+            futures = {session.get(url): url for url in objs}
+            neurons = []
+            for fut, url in prog(futures.items()):
+                r = fut.result()
+                r.raise_for_status()
+                neurons.append(read_fn(r.content))
+        else:
+            with mp.Pool(processes=n_cores) as pool:
+                results = pool.imap(read_fn, objs)
+                neurons = list(prog(results))
     else:
         neurons = [read_fn(obj) for obj in prog(objs)]
 
