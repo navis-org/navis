@@ -1000,12 +1000,13 @@ def _guess_change(xyz_before: np.ndarray,
     return mean_change, magnitude
 
 
-def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
-                     template: Union[str, 'TemplateBrain'],
-                     via: Optional[str] = 'auto',
-                     verbose: bool = False) -> Union['core.NeuronObject',
-                                                     'pd.DataFrame',
-                                                     'np.ndarray']:
+def symmetrize_brain(
+    x: Union["core.NeuronObject", "pd.DataFrame", "np.ndarray"],
+    template: Union[str, "TemplateBrain"],
+    via: Optional[str] = "auto",
+    progress: bool = True,
+    verbose: bool = False,
+) -> Union["core.NeuronObject", "pd.DataFrame", "np.ndarray"]:
     """Symmetrize 3D object (neuron, coordinates).
 
     The way this works is by:
@@ -1030,6 +1031,9 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
                     By default ("auto") it will find and apply the closest
                     mirror transform. You can also specify a template that
                     should be used. That template must have a mirror transform!
+    progress :      bool
+                    Whether to show a progress bar when symmetrizing multiple
+                    neurons.
     verbose :       bool
                     If True, will print some useful info on the transform(s).
 
@@ -1059,7 +1063,7 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
     if not isinstance(template, str):
         TypeError(f'Expected template of type str, got "{type(template)}"')
 
-    if via == 'auto':
+    if via == "auto":
         # Find closest mirror transform
         via = registry.find_closest_mirror_reg(template)
 
@@ -1068,12 +1072,13 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
             x = x[0]
         else:
             xf = []
-            for n in config.tqdm(x, desc='Mirroring',
-                                 disable=config.pbar_hide,
-                                 leave=config.pbar_leave):
-                xf.append(symmetrize_brain(n,
-                                           template=template,
-                                           via=via))
+            for n in config.tqdm(
+                x,
+                desc="Mirroring",
+                disable=config.pbar_hide or not progress,
+                leave=config.pbar_leave,
+            ):
+                xf.append(symmetrize_brain(n, template=template, via=via))
             return core.NeuronList(xf)
 
     if isinstance(x, core.BaseNeuron):
@@ -1159,11 +1164,12 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
         return x
 
     # Mirror with compensation for deformations
-    xm = mirror_brain(x[is_left], template=template, via=via,
-                      mirror_axis='x', verbose=verbose)
+    xm = mirror_brain(
+        x[is_left], template=template, via=via, mirror_axis="x", verbose=verbose
+    )
 
     # And now flip them back without compensation for deformations
-    xmf = mirror_brain(xm, template=template, warp=False, mirror_axis='x')
+    xmf = mirror_brain(xm, template=template, warp=False, mirror_axis="x")
 
     # Replace values
     x[is_left] = xmf
@@ -1171,16 +1177,15 @@ def symmetrize_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray']
     return x
 
 
-def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
-                 template: Union[str, 'TemplateBrain'],
-                 mirror_axis: Union[Literal['x'],
-                                    Literal['y'],
-                                    Literal['z']] = 'x',
-                 warp: Union[Literal['auto'], bool] = 'auto',
-                 via: Optional[str] = None,
-                 verbose: bool = False) -> Union['core.NeuronObject',
-                                                 'pd.DataFrame',
-                                                 'np.ndarray']:
+def mirror_brain(
+    x: Union["core.NeuronObject", "pd.DataFrame", "np.ndarray"],
+    template: Union[str, "TemplateBrain"],
+    mirror_axis: Union[Literal["x"], Literal["y"], Literal["z"]] = "x",
+    warp: Union[Literal["auto"], bool] = "auto",
+    via: Optional[str] = None,
+    verbose: bool = False,
+    progress: bool = True,
+) -> Union["core.NeuronObject", "pd.DataFrame", "np.ndarray"]:
     """Mirror 3D object (neuron, coordinates) about given axis.
 
     The way this works is:
@@ -1214,6 +1219,9 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                     flipping is sufficient.
     verbose :       bool
                     If True, will print some useful info on the transform(s).
+    progress :      bool
+                    Whether to show a progress bar when mirroring multiple
+                    neurons.
 
     Returns
     -------
@@ -1253,22 +1261,30 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                     template for it.
 
     """
-    utils.eval_param(mirror_axis, name='mirror_axis',
-                     allowed_values=('x', 'y', 'z'), on_error='raise')
+    utils.eval_param(
+        mirror_axis,
+        name="mirror_axis",
+        allowed_values=("x", "y", "z"),
+        on_error="raise",
+    )
     if not isinstance(warp, (BaseTransform, TransformSequence)):
-        utils.eval_param(warp, name='warp',
-                         allowed_values=('auto', True, False), on_error='raise')
+        utils.eval_param(
+            warp, name="warp", allowed_values=("auto", True, False), on_error="raise"
+        )
 
     # If we go via another brain space
     if via and via != template:
         # Xform to "via" space
         xf = xform_brain(x, source=template, target=via, verbose=verbose)
         # Mirror
-        xfm = mirror_brain(xf,
-                           template=via,
-                           mirror_axis=mirror_axis,
-                           warp=warp,
-                           via=None)
+        xfm = mirror_brain(
+            xf,
+            template=via,
+            mirror_axis=mirror_axis,
+            warp=warp,
+            progress=progress,
+            via=None,
+        )
         # Xform back to original template space
         xfm_inv = xform_brain(xfm, source=via, target=template, verbose=verbose)
         return xfm_inv
@@ -1278,22 +1294,25 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             x = x[0]
         else:
             xf = []
-            for n in config.tqdm(x, desc='Mirroring',
-                                 disable=config.pbar_hide,
-                                 leave=config.pbar_leave):
-                xf.append(mirror_brain(n,
-                                       template=template,
-                                       mirror_axis=mirror_axis,
-                                       warp=warp))
+            for n in config.tqdm(
+                x,
+                desc="Mirroring",
+                disable=config.pbar_hide or not progress,
+                leave=config.pbar_leave,
+            ):
+                xf.append(
+                    mirror_brain(
+                        n, template=template, mirror_axis=mirror_axis, warp=warp
+                    )
+                )
             return core.NeuronList(xf)
 
     if isinstance(x, core.BaseNeuron):
         x = x.copy()
         if isinstance(x, core.TreeNeuron):
-            x.nodes = mirror_brain(x.nodes,
-                                   template=template,
-                                   mirror_axis=mirror_axis,
-                                   warp=warp)
+            x.nodes = mirror_brain(
+                x.nodes, template=template, mirror_axis=mirror_axis, warp=warp
+            )
         elif isinstance(x, core.Dotprops):
             if isinstance(x.k, type(None)) or x.k <= 0:
                 # If no k, we need to mirror vectors too. Note that this is less
@@ -1301,15 +1320,16 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 # dotprop's sampling resolution (i.e. ideally a representative
                 # distance between the points) because if the vectors are too
                 # small any warping transform will make them go haywire
-                hp = mirror_brain(x.points + x.vect * x.sampling_resolution * 2,
-                                  template=template,
-                                  mirror_axis=mirror_axis,
-                                  warp=warp)
+                hp = mirror_brain(
+                    x.points + x.vect * x.sampling_resolution * 2,
+                    template=template,
+                    mirror_axis=mirror_axis,
+                    warp=warp,
+                )
 
-            x.points = mirror_brain(x.points,
-                                    template=template,
-                                    mirror_axis=mirror_axis,
-                                    warp=warp)
+            x.points = mirror_brain(
+                x.points, template=template, mirror_axis=mirror_axis, warp=warp
+            )
 
             if isinstance(x.k, type(None)) or x.k <= 0:
                 # Re-generate vectors
@@ -1321,34 +1341,31 @@ def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 # regenerated on demand
                 x._vect = x._alpha = None
         elif isinstance(x, core.MeshNeuron):
-            x.vertices = mirror_brain(x.vertices,
-                                      template=template,
-                                      mirror_axis=mirror_axis,
-                                      warp=warp)
+            x.vertices = mirror_brain(
+                x.vertices, template=template, mirror_axis=mirror_axis, warp=warp
+            )
             # We also need to flip the normals
             x.faces = x.faces[:, ::-1]
         else:
             raise TypeError(f"Don't know how to transform neuron of type '{type(x)}'")
 
         if x.has_connectors:
-            x.connectors = mirror_brain(x.connectors,
-                                        template=template,
-                                        mirror_axis=mirror_axis,
-                                        warp=warp)
+            x.connectors = mirror_brain(
+                x.connectors, template=template, mirror_axis=mirror_axis, warp=warp
+            )
         return x
     elif isinstance(x, tm.Trimesh):
         x = x.copy()
-        x.vertices = mirror_brain(x.vertices,
-                                  template=template,
-                                  mirror_axis=mirror_axis,
-                                  warp=warp)
+        x.vertices = mirror_brain(
+            x.vertices, template=template, mirror_axis=mirror_axis, warp=warp
+        )
 
         # We also need to flip the normals
         x.faces = x.faces[:, ::-1]
         return x
     elif isinstance(x, pd.DataFrame):
-        if any([c not in x.columns for c in ['x', 'y', 'z']]):
-            raise ValueError('DataFrame must have x, y and z columns.')
+        if any([c not in x.columns for c in ["x", "y", "z"]]):
+            raise ValueError("DataFrame must have x, y and z columns.")
         x = x.copy()
         x[["x", "y", "z"]] = mirror_brain(
             x[["x", "y", "z"]].values,
