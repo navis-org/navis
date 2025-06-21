@@ -39,11 +39,11 @@ This format is commonly used to describe a neuron's topology and often shared us
 
 A [`navis.TreeNeuron`][] is typically loaded from an SWC file via [`navis.read_swc`][]
 but you can also constructed one yourself from e.g. `pandas.DataFrame` or a `networkx.DiGraph`.
-See the [skeleton I/O](../local_data_skels_tut.md) tutorial for details.
+See the [skeleton I/O](../0_io/tutorial_io_00_skeletons) tutorial for details.
 
 {{ navis }} ships with a couple example *Drosophila* neurons from the Janelia hemibrain project published
 in [Scheffer et al. (2020)](https://elifesciences.org/articles/57443) and available at <https://neuprint.janelia.org>
-(see also the [neuPrint tutorial](../neuprint_tut.md)):
+(see also the [neuPrint tutorial](../4_remote/tutorial_remote_00_neuprint)):
 """
 
 # %%
@@ -70,7 +70,7 @@ sk.nodes.head()
 #
 # A [`navis.MeshNeuron`][] can be constructed from any object that has `.vertices` and `.faces` properties, a
 # dictionary of `vertices` and `faces` or a file that can be parsed by `trimesh.load`.
-# See the [mesh I/O](../local_data_meshes_tut.md) tutorial for details.
+# See the [mesh I/O](../0_io/tutorial_io_01_meshes) tutorial for details.
 #
 # Each of the example neurons in {{ navis }} also comes as mesh representation:
 
@@ -93,7 +93,7 @@ m.vertices, m.faces
 #
 # ![dotprops](../../../_static/dotprops.png)
 #
-# Dotprops are used e.g. for [NBLAST](../nblast_intro.md). See the [dotprops I/O](../local_data_dotprops_tut)
+# Dotprops are used e.g. for [NBLAST](../5_nblast/tutorial_nblast_00_intro). See the [dotprops I/O](../0_io/tutorial_io_02_dotprops)
 # tutorial for details.
 #
 # [`navis.Dotprops`][] consist of `.points` and associated `.vect` (vectors). They are typically

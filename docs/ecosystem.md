@@ -75,4 +75,4 @@ s navis.skeletonize(n)
 The [natverse](http://natverse.org/) is {{ navis }}'s equivalent in R. While we
 are aiming for feature parity, it can be useful to access ``natverse`` functions
 from Python. For this, {{ navis }} offers some convenience functions using the
-R-Python interface ``rpy2``. Check out the [tutorial](generated/gallery/).
+R-Python interface ``rpy2``. Check out the [tutorial](../generated/gallery/).
