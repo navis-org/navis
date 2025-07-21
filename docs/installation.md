@@ -76,10 +76,10 @@ Open up a terminal and install {{ navis }} with:
 
 ## Optional dependencies
 
-If you installed {{ navis }} using the batteries-included `[all]` option, you can ignore this section.
+If you installed {{ navis }} using the "batteries-included" `[all]` option, you can ignore this section.
 
 If you opted for the minimal install, you might want to consider adding some of these
-optional dependencies as they e.g. provide speed-boosts in certain situations or
+optional dependencies as they provide e.g. speed-boosts in certain situations or
 are for certain functions.
 
 These extras can be installed directly, or along with {{ navis }} with
@@ -101,7 +101,7 @@ directly, are listed below:
     #### `fastcore`: [navis-fastcore](https://github.com/schlegelp/fastcore-rs)
 
     `navis-fastcore` re-implements a bunch of low-level functions in Rust
-    and wraps them in Python. {{ navis }} will use `fastcore` under-the-hood
+    and wraps them in Python. {{ navis }} will use `fastcore` under the hood
     if it is available. This is a highly recommended extra as it can
     speed up operations such as geodesic distances, Strahler Index, pruning
     and other downstream functions by several orders of magnitude.
@@ -163,11 +163,10 @@ directly, are listed below:
 
     For 3D visualisation in terminal and Jupyter notebooks.
 
-    Octarine3d is a modern, high-performance, WGPU-based viewer for 3D visualisation of neurons.
-    It is the default 3D viewer for {{ navis }}. It is recommended to install it as it is the fastest, most
-    feature-rich viewer available. By default, `navis[all]` will install `octarine3d` with
+    Octarine3d is a modern, high-performance, WGPU-based viewer for interactive 3D visualisation of neurons
+    and is the default 3D viewer for {{ navis }}. By default, `navis[all]` will install `octarine3d` with
     standard windows manager `pyside6` and Jupyter notebook manager `jupyter_rfb`. It will also
-    install the `navis-octarine-plugin` which is required to use octarine3d as a viewer for {{ navis }}.
+    install the `navis-octarine-plugin` which is required to use `octarine3d` as a viewer for {{ navis }}.
     This is equivalent to the following command:
 
     ``` shell
@@ -179,8 +178,9 @@ directly, are listed below:
 
     !!! note
 
-        Older systems (pre ~2018) might not support WGPU, in which case you might want to fall back
-        to the ``vispy`` backend.
+        Older systems (pre ~2018) might not support WGPU. If you are running into issues try updating your
+        operating system and/or your graphics drivers. Failing that, you can fall back to the `vispy`
+        backend.
 
     ---
 
