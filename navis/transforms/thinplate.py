@@ -22,7 +22,7 @@ from scipy.spatial.distance import cdist
 from .base import BaseTransform
 
 
-def distance_matrix(X,Y):
+def distance_matrix(X, Y):
     """For (p1,k)-shaped X and (p2,k)-shaped Y, returns the (p1,p2) matrix
     where the element at [i,j] is the distance between X[i,:] and Y[j,:].
 
@@ -31,6 +31,7 @@ def distance_matrix(X,Y):
     """
     return cdist(X, Y)
 
+
 # Replace morphops's original slow distance_matrix function
 mops.lmk_util.distance_matrix = distance_matrix
 
@@ -38,12 +39,27 @@ mops.lmk_util.distance_matrix = distance_matrix
 class TPStransform(BaseTransform):
     """Thin Plate Spline transforms of 3D spatial data.
 
+    Notes
+    -----
+    At least in my hands, `TPStransforms` are significantly faster than
+    `MovingLeastSquaresTransforms`. The results are similar but not identical,
+    so make sure to use the one that works best for your use case.
+
     Parameters
     ----------
     landmarks_source :  (M, 3) numpy array
                         Source landmarks as x/y/z coordinates.
     landmarks_target :  (M, 3) numpy array
                         Target landmarks as x/y/z coordinates.
+    batch_size :        int, optional
+                        Batch size for transforming points. The
+                        thin-plate spline generating a (N, M) distance
+                        matrix, where N is the number of points and M
+                        is the number of source landmarks. Because
+                        this can get prohibitively expensive, we're
+                        batching the transformation by default.
+                        Please note that the the overhead from batching
+                        seems negligible.
 
     Examples
     --------
@@ -60,21 +76,27 @@ class TPStransform(BaseTransform):
 
     """
 
-    def __init__(self, landmarks_source: np.ndarray,
-                 landmarks_target: np.ndarray):
+    def __init__(
+        self,
+        landmarks_source: np.ndarray,
+        landmarks_target: np.ndarray,
+        batch_size: int = 100_000,
+    ):
         """Initialize class."""
-        # Some checks
+        self.batch_size = batch_size
         self.source = np.asarray(landmarks_source)
         self.target = np.asarray(landmarks_target)
 
+        # Some checks
         if self.source.shape[1] != 3:
-            raise ValueError(f'Expected (N, 3) array, got {self.source.shape}')
+            raise ValueError(f"Expected (N, 3) array, got {self.source.shape}")
         if self.target.shape[1] != 3:
-            raise ValueError(f'Expected (N, 3) array, got {self.target.shape}')
+            raise ValueError(f"Expected (N, 3) array, got {self.target.shape}")
 
         if self.source.shape[0] != self.target.shape[0]:
-            raise ValueError('Number of source landmarks must match number of '
-                             'target landmarks.')
+            raise ValueError(
+                "Number of source landmarks must match number of target landmarks."
+            )
 
         self._W, self._A = None, None
 
@@ -87,7 +109,7 @@ class TPStransform(BaseTransform):
                         return True
         return False
 
-    def __neg__(self) -> 'TPStransform':
+    def __neg__(self) -> "TPStransform":
         """Invert direction."""
         # Switch source and target
         return TPStransform(self.target, self.source)
@@ -146,11 +168,23 @@ class TPStransform(BaseTransform):
 
         """
         if isinstance(points, pd.DataFrame):
-            if any([c not in points for c in ['x', 'y', 'z']]):
-                raise ValueError('DataFrame must have x/y/z columns.')
-            points = points[['x', 'y', 'z']].values
+            if any(c not in points for c in ["x", "y", "z"]):
+                raise ValueError("DataFrame must have x/y/z columns.")
+            points = points[["x", "y", "z"]].values
 
-        U = mops.K_matrix(points, self.source)
-        P = mops.P_matrix(points)
-        # The warped pts are the affine part + the non-uniform part
-        return np.matmul(P, self.A) + np.matmul(U, self.W)
+        batch_size = self.batch_size if self.batch_size else points.shape[0]
+        points_xf = []
+        for i in range(0, points.shape[0], batch_size):
+            # Get the current batch of points
+            batch = points[i : i + batch_size]
+
+            # N.B. U is of shape (N, M) where N is the number of points and M is the
+            # number of source landmarks. This can get fairly expensive
+            # (which is precisely why we batch the transformation)!
+            U = mops.K_matrix(batch, self.source)
+            P = mops.P_matrix(batch)
+            # The warped pts are the affine part + the non-uniform part
+            points_xf.append(np.matmul(P, self.A) + np.matmul(U, self.W))
+
+        # Concatenate all batches
+        return np.concatenate(points_xf, axis=0)

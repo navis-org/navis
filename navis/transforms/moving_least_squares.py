@@ -25,7 +25,8 @@ class MovingLeastSquaresTransform(BaseTransform):
         self,
         landmarks_source: np.ndarray,
         landmarks_target: np.ndarray,
-        direction: str = 'forward',
+        direction: str = "forward",
+        batch_size: int = 100_000,
     ) -> None:
         """Moving Least Squares transforms of 3D spatial data.
 
@@ -33,6 +34,12 @@ class MovingLeastSquaresTransform(BaseTransform):
         [implementation](https://github.com/ceesem/catalysis/blob/master/catalysis/transform.py)
         by Casey Schneider-Mizell of the affine algorithm published in
         [Schaefer et al. 2006](https://dl.acm.org/doi/pdf/10.1145/1179352.1141920).
+
+        Notes
+        -----
+        At least in my hands, `TPStransforms` are significantly faster than
+        `MovingLeastSquaresTransforms`. The results are similar but not identical,
+        so make sure to use the one that works best for your use case.
 
         Parameters
         ----------
@@ -42,6 +49,12 @@ class MovingLeastSquaresTransform(BaseTransform):
             Target landmarks as x/y/z coordinates.
         direction : str
             'forward' (default) or 'inverse' (treat the target as the source and vice versa)
+        batch_size : int, optional
+            Batch size for transforming points. At one point during the transformation,
+            molesq generates a (N, M) distance matrix, where N is the number of landmarks
+            and M is the number of locations, which can get prohibitively expensive.
+            We avoid the issue by batching the transformation by default. Note that the
+            overhead from batching seems negligible.
 
         Examples
         --------
@@ -57,9 +70,10 @@ class MovingLeastSquaresTransform(BaseTransform):
                [ 81.56361725, 155.32071504, 187.3147564 ]])
 
         """
-        assert direction in ('forward', 'inverse')
+        assert direction in ("forward", "inverse")
         self.transformer = Transformer(landmarks_source, landmarks_target)
-        self.reverse = direction == 'inverse'
+        self.reverse = direction == "inverse"
+        self.batch_size = int(batch_size)
 
     def xform(self, points: np.ndarray) -> np.ndarray:
         """Transform points.
@@ -76,13 +90,19 @@ class MovingLeastSquaresTransform(BaseTransform):
 
         """
         if isinstance(points, pd.DataFrame):
-            if any([c not in points for c in ['x', 'y', 'z']]):
-                raise ValueError('DataFrame must have x/y/z columns.')
-            points = points[['x', 'y', 'z']].values
+            if any([c not in points for c in ["x", "y", "z"]]):
+                raise ValueError("DataFrame must have x/y/z columns.")
+            points = points[["x", "y", "z"]].values
 
-        return self.transformer.transform(points, reverse=self.reverse)
+        batch_size = self.batch_size if self.batch_size else len(points)
+        points_xf = []
+        for i in range(0, len(points), batch_size):
+            batch = points[i : i + batch_size]
+            points_xf.append(self.transformer.transform(batch, reverse=self.reverse))
 
-    def __neg__(self) -> 'MovingLeastSquaresTransform':
+        return np.concatenate(points_xf, axis=0)
+
+    def __neg__(self) -> "MovingLeastSquaresTransform":
         """Invert direction"""
         out = self.copy()
         out.reverse = not self.reverse
@@ -91,9 +111,7 @@ class MovingLeastSquaresTransform(BaseTransform):
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, MovingLeastSquaresTransform):
             return False
-        for cp_this, cp_that in zip(
-            self._control_points(), o._control_points()
-        ):
+        for cp_this, cp_that in zip(self._control_points(), o._control_points()):
             if not np.array_equal(cp_this, cp_that):
                 return False
         return True
