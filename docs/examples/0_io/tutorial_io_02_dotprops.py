@@ -92,7 +92,7 @@ navis.plot2d(dp, ax=ax, view=("x", "-y"), method="2d", color="r", linewidth=1.5)
 # !!! note
 #     To extract the connected components, [`navis.drop_fluff`][] treats all pairs of points within a certain distance
 #     as connected. The distance is determined by the `dp_dist` parameter which defaults to 5 x the average distance
-#     between points. This is a good value ehre but you may need adjust it for your data.
+#     between points. That is a good value for this example but you may need adjust it for your data.
 #
 #
 # ## From other neurons

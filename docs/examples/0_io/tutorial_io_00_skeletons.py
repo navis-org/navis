@@ -139,13 +139,16 @@ navis.plot2d(nl[:10], method='2d', radius=False)
 #     If {{ navis }} comes across one that can't be turned into a [`navis.TreeNeuron`][],
 #     it will skip the file and produce a warning.
 #
-# ## From Neuroglancer
+# ## From Neuroglancer Precomputed
 #
 # Among other formats, neuroglancer supports a "precomputed" format for skeletons
 # (see specs [here](https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/skeletons.md).
 # This binary format is more compact than uncompressed SWC files but is not used outside of neuroglancer as far as I know.
 # That said: {{ navis }} lets you read and write skeletons from/to precomputed format using [`navis.read_precomputed`][] and
 # [`navis.write_precomputed`][]. Note that these functions work on both precomputed skeletons and meshes.
+#
+# Also check out the [tutorial](../../gallery/4_remote/tutorial_remote_01_cloudvolume) on reading skeletons straight from
+# a neuroglancer source using `cloud-volume`.
 #
 # ## Manual construction
 #

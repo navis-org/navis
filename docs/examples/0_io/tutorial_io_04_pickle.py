@@ -11,7 +11,7 @@ bytes stream. This is incredibly fast and works very well for short-term storage
 but has a few downsides:
 
 1. Pickle files can only be re-opened in Python
-2. The pickled object is (sort of) specific to your current Python enviroment. If
+2. The pickled object is (sort of) specific to your current Python environment. If
    you e.g. update Python, {{ navis }} or even just `numpy` or `pandas` you may not
    be able to open the file again.
 3. Pickle files can contain arbitrary Python code. Never open a pickle file from

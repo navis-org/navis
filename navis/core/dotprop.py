@@ -235,7 +235,12 @@ class Dotprops(BaseNeuron):
 
     @property
     def alpha(self):
-        """Alpha value for tangent vectors (optional)."""
+        """Alpha values for tangent vectors.
+
+        High alpha indicates that the local neighborhood is pointing in the same direction.
+        Low alpha indicates that the tangent vectors are pointing in different directions.
+
+        """
         if isinstance(self._alpha, type(None)):
             if isinstance(self.k, type(None)) or (self.k <= 0):
                 raise ValueError('Unable to calculate `alpha` for Dotprops not '
@@ -381,7 +386,7 @@ class Dotprops(BaseNeuron):
         other :                 Dotprops
         alpha :                 bool
                                 If True, will also return the product of the
-                                product of the alpha values of matched points.
+                                `alpha` values of matched points.
         distance_upper_bound :  non-negative float, optional
                                 If provided, we will stop the nearest neighbor
                                 search at this distance which can vastly speed

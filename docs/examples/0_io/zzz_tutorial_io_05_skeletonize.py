@@ -8,7 +8,7 @@ This tutorial will show you how to extract skeletons from confocal microscopy st
     In contrast to almost all other tutorials, this one is not executed when the documentation is built.
     Consequently, it also does not display any actual code output or plots - images shown are statically
     embedded. The main reason for this is that the example requires downloading a large-ish file which
-    is a pain in the neck to get to work in the CI enviroment.
+    is a pain in the neck to get to work in the CI environment.
 
 Extracting neuron skeletons from microscopy data is a common but non-trivial task. There are about
 as many ways to do this as there are people doing it - from fully manual to fully automated tracing.
