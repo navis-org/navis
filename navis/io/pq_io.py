@@ -23,9 +23,9 @@ __all__ = ["read_parquet", "write_parquet", "scan_parquet"]
 # Set up logging
 logger = config.get_logger(__name__)
 
-SKELETON_COLUMNS = ('node_id', 'x', 'y', 'z', 'radius', 'parent_id', 'neuron')
-NA_VALUES = (None, 'None')
-META_DATA = ('name', 'units', 'soma')  # meta data to write for each neuron
+SKELETON_COLUMNS = ("node_id", "x", "y", "z", "radius", "parent_id", "neuron")
+NA_VALUES = (None, "None")
+META_DATA = ("name", "units", "soma")  # meta data to write for each neuron
 
 INT_TYPES = (int, np.int8, np.int16, np.int32, np.int64)
 
@@ -59,8 +59,8 @@ def scan_parquet(file: Union[str, Path]):
         import pyarrow.parquet as pq
     except ModuleNotFoundError:
         raise ModuleNotFoundError(
-            'Reading parquet files requires the pyarrow library:\n'
-            ' pip3 install pyarrow')
+            "Reading parquet files requires the pyarrow library:\n pip3 install pyarrow"
+        )
 
     f = Path(file).expanduser()
     if not f.is_file():
@@ -71,18 +71,22 @@ def scan_parquet(file: Union[str, Path]):
     try:
         meta = {k.decode(): v.decode() for k, v in metadata.metadata.items()}
     except BaseException:
-        logger.warning(f'Unable to decode meta data for parquet file {f}')
+        logger.warning(f"Unable to decode meta data for parquet file {f}")
+        meta = {}
 
     # Parse meta data
-    ids = [v for k, v in meta.items() if k.endswith(':id') and not k.startswith('_')]
+    # The metadata is encoded as {"{ID}_{PROPERTY}": "VALUE"}
+    ids = [v for k, v in meta.items() if k.endswith(":id") and not k.startswith("_")]
     records = {i: {} for i in ids}
     for k, v in meta.items():
-        if k.startswith('_'):
+        # Skip private properties
+        if k.startswith("_"):
             continue
-        if ':' not in k:
+        # Skip properties without a key
+        if ":" not in k:
             continue
 
-        id, prop = k.split(':')
+        id, prop = k.split(":")
 
         if id not in records:  # there might be an "ARROW:schema" entry
             continue
@@ -90,22 +94,29 @@ def scan_parquet(file: Union[str, Path]):
         records[id][prop] = v
 
     # Turn into DataFrame
-    df =  pd.DataFrame.from_records(list(records.values()))
+    df = pd.DataFrame.from_records(list(records.values()))
 
     # Move ID column to front
-    ids = df['id']
-    df.drop(labels=['id'], axis=1, inplace=True)
-    df.insert(0, 'id', ids)
+    ids = df["id"]
+    df.drop(labels=["id"], axis=1, inplace=True)
+    df.insert(0, "id", ids)
+
+    # The IDs are always stored as strings but the column might be integers
+    if "neuron" in metadata.schema.names:
+        schema = metadata.schema.column(metadata.schema.names.index("neuron"))
+        if schema.physical_type.lower() in ("int", "int64", "int32", "int16", "int8"):
+            df["id"] = df["id"].astype(int)
 
     return df
 
 
-def read_parquet(f: Union[str, Path],
-                 read_meta: bool = True,
-                 limit: Optional[int] = None,
-                 subset: Optional[List[Union[str, int]]] = None,
-                 progress=True
-                 ) -> 'core.NeuronObject':
+def read_parquet(
+    f: Union[str, Path],
+    read_meta: bool = True,
+    limit: Optional[int] = None,
+    subset: Optional[List[Union[str, int]]] = None,
+    progress=True,
+) -> "core.NeuronObject":
     """Read parquet file into Neuron/List.
 
     See [here](https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md)
@@ -157,14 +168,19 @@ def read_parquet(f: Union[str, Path],
         import pyarrow.parquet as pq
     except ModuleNotFoundError:
         raise ModuleNotFoundError(
-            'Reading parquet files requires the pyarrow library:\n'
-            ' pip3 install pyarrow')
+            "Reading parquet files requires the pyarrow library:\n pip3 install pyarrow"
+        )
 
     if limit is not None:
         if subset not in (None, False):
-            raise ValueError('You can provide either a `subset` or a `limit` but '
-                             'not both.')
+            raise ValueError(
+                "You can provide either a `subset` or a `limit` but not both."
+            )
         scan = scan_parquet(f)
+        if scan.empty:
+            raise ValueError(
+                f"Parquet file {f} either does not contain any neurons or meta data could not be read."
+            )
         subset = scan.id.values[:limit]
 
     if isinstance(subset, (pd.Series)):
