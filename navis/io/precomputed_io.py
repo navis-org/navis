@@ -318,10 +318,14 @@ def read_precomputed(
 
     # See if we can get the info file from somewhere
     if info is True and not isinstance(f, bytes):
+        # If iterable, assume list of files or URLs
+        if utils.is_iterable(f):
+            f_ = f[0]
+
         # Find info in zip archive
-        if str(f).endswith(".zip"):
-            with ZipFile(Path(f).expanduser(), "r") as zip:
-                if "info" in [f.filename for f in zip.filelist]:
+        if str(f_).endswith(".zip"):
+            with ZipFile(Path(f_).expanduser(), "r") as zip:
+                if "info" in [f_.filename for f_ in zip.filelist]:
                     info = json.loads(zip.read("info").decode())
                 elif datatype == "auto":
                     raise ValueError(
@@ -330,12 +334,12 @@ def read_precomputed(
                         "parameter."
                     )
         # Try loading info from URL
-        elif utils.is_url(str(f)):
-            base_url = "/".join(str(f).split("/")[:-1])
+        elif utils.is_url(str(f_)):
+            base_url = "/".join(str(f_).split("/")[:-1])
             info = _fetch_info_file(base_url, raise_missing=False)
         # Try loading info from parent path
         else:
-            fp = Path(str(f))
+            fp = Path(str(f_))
             # Find first existing root
             while not fp.is_dir():
                 fp = fp.parent
