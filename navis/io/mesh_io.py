@@ -309,7 +309,7 @@ def _write_mesh(
     """Write single mesh to disk."""
     if filepath and os.path.isdir(filepath):
         if isinstance(x, core.MeshNeuron):
-            if not x.id:
+            if  x.id is None:
                 raise ValueError(
                     "Neuron(s) must have an ID when destination " "is a folder"
                 )

@@ -522,7 +522,7 @@ def _write_precomputed(
     """Write single neuron to neuroglancer's precomputed format."""
     if filepath and os.path.isdir(filepath):
         if isinstance(x, core.BaseNeuron):
-            if not x.id:
+            if x.id is None:
                 raise ValueError(
                     "Neuron(s) must have an ID when destination " "is a folder"
                 )
