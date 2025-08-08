@@ -318,9 +318,10 @@ def read_precomputed(
 
     # See if we can get the info file from somewhere
     if info is True and not isinstance(f, bytes):
+        f_ = f
         # If iterable, assume list of files or URLs
-        if utils.is_iterable(f):
-            f_ = f[0]
+        if utils.is_iterable(f_):
+            f_ = f_[0]
 
         # Find info in zip archive
         if str(f_).endswith(".zip"):
