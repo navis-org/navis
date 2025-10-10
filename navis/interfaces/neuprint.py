@@ -231,6 +231,15 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
         meta['somaLocation'] = None
     if 'somaRadius' not in meta.columns:
         meta['somaRadius'] = None
+    # Backfill from tosomaLocation if available
+    if "tosomaLocation" in meta.columns:
+        meta['somaLocation'] = meta.somaLocation.fillna(meta.tosomaLocation)
+
+    # Prevent an issue when somaLocation is returned as string:
+    # "Point{SpatialRefId=9157, X=48556.000000, Y=43018.000000, Z=37620.000000}"
+    if isinstance(meta.somaLocation.values[0], str):
+        if meta.somaLocation.values[0].startswith('Point'):
+            meta['somaLocation'] = meta.somaLocation.str.extract(r'X=(\d+.\d+), Y=(\d+.\d+), Z=(\d+.\d+)').values.astype(float).tolist()
 
     if isinstance(seg_source, str) and seg_source.startswith('dvid'):
         # Fetch the meshes
@@ -415,6 +424,15 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
         meta['somaLocation'] = None
     if 'somaRadius' not in meta.columns:
         meta['somaRadius'] = None
+    # Backfill from tosomaLocation if available
+    if "tosomaLocation" in meta.columns:
+        meta['somaLocation'] = meta.somaLocation.fillna(meta.tosomaLocation)
+
+    # Prevent an issue when somaLocation is returned as string:
+    # "Point{SpatialRefId=9157, X=48556.000000, Y=43018.000000, Z=37620.000000}"
+    if isinstance(meta.somaLocation.values[0], str):
+        if meta.somaLocation.values[0].startswith('Point'):
+            meta['somaLocation'] = meta.somaLocation.str.extract(r'X=(\d+.\d+), Y=(\d+.\d+), Z=(\d+.\d+)').values.astype(float).tolist()
 
     nl = []
     with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
