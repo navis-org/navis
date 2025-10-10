@@ -253,9 +253,18 @@ def points_to_mesh(points, res, threshold=None, denoise=True):
     return mesh
 
 
-def pointlabels_to_meshes(points, labels, res, method='kde',
-                          threshold=0.05, drop_fluff=True, volume=None,
-                          n_cores=os.cpu_count() // 2, progress=True):
+def pointlabels_to_meshes(
+    points,
+    labels,
+    res,
+    method="kde",
+    threshold=0.05,
+    drop_fluff=True,
+    volume=None,
+    output="meshes",
+    n_cores=os.cpu_count() // 2,
+    progress=True,
+):
     """Generate non-overlapping meshes from a labelled point cloud.
 
     Briefly, the default workflow is this:
@@ -309,21 +318,23 @@ def pointlabels_to_meshes(points, labels, res, method='kde',
     """
     if not skimage:
         raise ModuleNotFoundError(
-            'Meshing requires `skimage`:\n'
-            '   pip3 install scikit-image'
-            )
+            "Meshing requires `skimage`:\n   pip3 install scikit-image"
+        )
 
     if len(points) != len(labels):
-        raise ValueError(f'Number of labels ({len(labels)}) must match number '
-                         f'of points ({len(points)})')
+        raise ValueError(
+            f"Number of labels ({len(labels)}) must match number "
+            f"of points ({len(points)})"
+        )
 
-    assert method in ('kde', 'majority')
+    assert method in ("kde", "majority")
+    assert output in ("meshes", "voxels")
 
     points = np.asarray(points)
     labels = np.asarray(labels)
     labels_unique = np.unique(labels)
 
-    if method == 'kde':
+    if method == "kde":
         # Now create voxel coordinates for the volume we want to fill:
         # First the bounding box
         bbox = np.vstack((points.min(axis=0), points.max(axis=0)))
@@ -343,38 +354,40 @@ def pointlabels_to_meshes(points, labels, res, method='kde',
         xx, yy, zz = np.meshgrid(xco, yco, zco)
 
         voxels = np.vstack((xx.flatten(), yy.flatten(), zz.flatten())).T
-        voxels = pd.DataFrame(voxels, columns=['x', 'y', 'z'])
+        voxels = pd.DataFrame(voxels, columns=["x", "y", "z"])
 
-        voxels['i'] = ii.flatten()
-        voxels['j'] = jj.flatten()
-        voxels['k'] = kk.flatten()
+        voxels["i"] = ii.flatten()
+        voxels["j"] = jj.flatten()
+        voxels["k"] = kk.flatten()
 
         if not isinstance(volume, type(None)):
-            in_vol = intersection.in_volume(voxels[['x', 'y', 'z']].values,
-                                            volume)
-            print(f'Dropping {(~in_vol).sum()}/{len(voxels)} voxels outside of provided volume.')
+            in_vol = intersection.in_volume(voxels[["x", "y", "z"]].values, volume)
+            print(
+                f"Dropping {(~in_vol).sum()}/{len(voxels)} voxels outside of provided volume."
+            )
             voxels = voxels.loc[in_vol].copy()
 
         # For each label create a KDE
         kde = {}
-        for l in tqdm(labels_unique,
-                    desc='Generating KDEs',
-                    disable=not progress,
-                    leave=False):
+        for l in tqdm(
+            labels_unique, desc="Generating KDEs", disable=not progress, leave=False
+        ):
             this_p = points[labels == l]
 
             kde[l] = stats.gaussian_kde(this_p.T)
 
         # For each point get the point density function for each KDE
-        combinations = [(kde[l], [voxels[['x', 'y', 'z']].values.T], {}) for l in kde]
+        combinations = [(kde[l], [voxels[["x", "y", "z"]].values.T], {}) for l in kde]
         with mp.Pool(n_cores) as pool:
-            results = list(tqdm(pool.imap(_worker_wrapper,
-                                        combinations,
-                                        chunksize=1),
-                                leave=False,
-                                disable=not progress,
-                                total=len(combinations),
-                                desc=f'Assigning {len(voxels):,} voxels'))
+            results = list(
+                tqdm(
+                    pool.imap(_worker_wrapper, combinations, chunksize=1),
+                    leave=False,
+                    disable=not progress,
+                    total=len(combinations),
+                    desc=f"Assigning {len(voxels):,} voxels",
+                )
+            )
 
         # Fill results
         for l, r in zip(kde, results):
@@ -384,11 +397,13 @@ def pointlabels_to_meshes(points, labels, res, method='kde',
         if threshold:
             pdf = voxels[labels_unique].max(axis=1)
             keep = pdf >= np.quantile(pdf, threshold)
-            print(f'Dropping {(~keep).sum()}/{len(voxels)} voxels with too low density.')
+            print(
+                f"Dropping {(~keep).sum()}/{len(voxels)} voxels with too low density."
+            )
             voxels = voxels.loc[keep].copy()
 
         # Assign label to each voxel based on the max probability
-        voxels['label'] = labels_unique[np.argmax(voxels[labels_unique].values, axis=1)]
+        voxels["label"] = labels_unique[np.argmax(voxels[labels_unique].values, axis=1)]
     else:
         # Turn points into voxels of given size
         points_vxl = points // res
@@ -419,49 +434,51 @@ def pointlabels_to_meshes(points, labels, res, method='kde',
 
         # Now generate the DataFrame we will use to create meshes
         voxels = pd.DataFrame()
-        voxels['i'] = unique_voxel[:, 0]
-        voxels['j'] = unique_voxel[:, 1]
-        voxels['k'] = unique_voxel[:, 2]
+        voxels["i"] = unique_voxel[:, 0]
+        voxels["j"] = unique_voxel[:, 1]
+        voxels["k"] = unique_voxel[:, 2]
 
         # Also re-generate x/y/z coordinates
-        voxels['x'] = voxels['i'] * res
-        voxels['y'] = voxels['j'] * res
-        voxels['z'] = voxels['k'] * res
+        voxels["x"] = voxels["i"] * res
+        voxels["y"] = voxels["j"] * res
+        voxels["z"] = voxels["k"] * res
 
         # Make sure i/j/k start at zero (otherwise matrix further down might
         # end up really huge)
-        voxels['i'] -= unique_voxel[:, 0].min()
-        voxels['j'] -= unique_voxel[:, 1].min()
-        voxels['k'] -= unique_voxel[:, 2].min()
+        voxels["i"] -= unique_voxel[:, 0].min()
+        voxels["j"] -= unique_voxel[:, 1].min()
+        voxels["k"] -= unique_voxel[:, 2].min()
 
         # For each voxel get the top label...
-        voxels['label'] = labels_unique[np.nanargmax(adj, axis=1)]
+        voxels["label"] = labels_unique[np.nanargmax(adj, axis=1)]
 
         # Drop voxels that have less than given points inside
         if threshold:
             top_count = np.nanmax(adj, axis=1)
             keep = top_count >= np.quantile(top_count, threshold)
-            print(f'Dropping {(~keep).sum()}/{len(voxels)} voxels with too low density.')
+            print(
+                f"Dropping {(~keep).sum()}/{len(voxels)} voxels with too low density."
+            )
             voxels = voxels.loc[keep].copy()
 
         # Some settings for the meshing
         padding = 0
 
+    if output == 'voxels':
+        return voxels
+
     meshes = []
-    for l in tqdm(labels_unique,
-                  desc='Creating meshes',
-                  disable=not progress,
-                  leave=False):
+    for l in tqdm(
+        labels_unique, desc="Creating meshes", disable=not progress, leave=False
+    ):
         # Generate empty matrix
-        mat = np.zeros((voxels.i.max() + 2,
-                        voxels.j.max() + 2,
-                        voxels.k.max() + 2))
+        mat = np.zeros((voxels.i.max() + 2, voxels.j.max() + 2, voxels.k.max() + 2))
 
         # Get voxels belonging to this label
         this = voxels[voxels.label == l]
 
         if this.empty:
-            logger.warning(f'Label {l} did not produce a mesh.')
+            logger.warning(f"Label {l} did not produce a mesh.")
             continue
 
         # Fill matrix
