@@ -69,18 +69,28 @@ def add_units(compact=True, power=1):
                     res = res.to_compact()
 
             return res
+
         return wrapper
+
     return outer
 
 
-@utils.map_neuronlist(desc='Dotprops', allow_parallel=True)
-def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
-                           'core.TreeNeuron', 'core.MeshNeuron',
-                           'core.VoxelNeuron', 'core.NeuronList'],
-                  k: int = 20,
-                  resample: Union[float, int, bool, str] = False,
-                  threshold: float = None,
-                  make_using: Optional = None) -> Union['core.Dotprops', 'core.NeuronList']:
+@utils.map_neuronlist(desc="Dotprops", allow_parallel=True)
+def make_dotprops(
+    x: Union[
+        pd.DataFrame,
+        np.ndarray,
+        "core.TreeNeuron",
+        "core.MeshNeuron",
+        "core.VoxelNeuron",
+        "core.NeuronList",
+    ],
+    k: int = 20,
+    resample: Union[float, int, bool, str] = False,
+    threshold: float = None,
+    on_issue: Union[Literal["warn", "raise", "fix"]] = "warn",
+    make_using: Optional = None,
+) -> Union["core.Dotprops", "core.NeuronList"]:
     """Produce dotprops from neurons or point clouds.
 
     This is following the implementation in R's `nat` library.
@@ -117,6 +127,16 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
     threshold : float, optional
                 Only for `VoxelNeurons`: determines which voxels will be
                 converted to dotprops points.
+    on_issue :  "warn" (default) | "raise" | "fix"
+                What to do if issues are found during processing:
+                  - "warn": log a warning, fix the issue and continue
+                  - "raise": raise an error and stop
+                  - "fix": silently fix the issue and continue
+    make_using :    function | class, optional
+                    Function or class used to construct dotprops. Must take
+                    `points`, `alpha` and `vect` as inputs. By default, will use
+                    `navis.Dotprops` but you can use this to e.g. produce
+                    custom subclasses.
 
     Returns
     -------
@@ -141,42 +161,55 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
 
     """
     if k and k == 1:
-        logger.warning('`k=1` is likely to produce nonsense dotprops')
+        logger.warning("`k=1` is likely to produce nonsense dotprops")
 
-    utils.eval_param(resample, name='resample',
-                     allowed_types=(numbers.Number, type(None), str))
+    utils.eval_param(
+        resample, name="resample", allowed_types=(numbers.Number, type(None), str)
+    )
+    utils.eval_param(on_issue, name="on_issue", allowed_values=("warn", "raise", "fix"))
+
+    if make_using is None:
+        make_using = core.Dotprops
+    elif not isinstance(make_using, type) and not callable(make_using):
+        make_using = make_using.__class__
 
     properties = {}
     if isinstance(x, pd.DataFrame):
-        if not all(np.isin(['x', 'y', 'z'], x.columns)):
+        if not all(np.isin(["x", "y", "z"], x.columns)):
             raise ValueError('DataFrame must contain "x", "y" and "z" columns.')
-        x = x[['x', 'y', 'z']].values
+        x = x[["x", "y", "z"]].values
     elif isinstance(x, core.TreeNeuron):
         if resample:
             x = x.resample(resample_to=resample, inplace=False)
-        properties.update({'units': x.units, 'name': x.name, 'id': x.id})
+        properties.update({"units": x.units, "name": x.name, "id": x.id})
 
         if isinstance(k, type(None)) or k <= 0:
             points, vect, length = graph.neuron2tangents(x)
-            return core.Dotprops(points=points, vect=vect, length=length, alpha=None,
-                                 k=None, **properties)
+            return make_using(
+                points=points,
+                vect=vect,
+                length=length,
+                alpha=None,
+                k=None,
+                **properties,
+            )
 
-        x = x.nodes[['x', 'y', 'z']].values
+        x = x.nodes[["x", "y", "z"]].values
     elif isinstance(x, core.MeshNeuron):
-        properties.update({'units': x.units, 'name': x.name, 'id': x.id})
+        properties.update({"units": x.units, "name": x.name, "id": x.id})
         x = x.vertices
         if resample:
             x, _ = tm.points.remove_close(x, resample)
     elif isinstance(x, core.Dotprops):
-        properties.update({'units': x.units, 'name': x.name, 'id': x.id})
+        properties.update({"units": x.units, "name": x.name, "id": x.id})
         x = x.points
         if resample:
             x, _ = tm.points.remove_close(x, resample)
     elif isinstance(x, core.VoxelNeuron):
-        properties.update({'name': x.name, 'id': x.id})
+        properties.update({"name": x.name, "id": x.id})
         if not x.units.dimensionless:
             # We are scaling the units - hence all are set to 1
-            properties['units'] = [f'1 {u.units}' for u in x.units_xyz]
+            properties["units"] = [f"1 {u.units}" for u in x.units_xyz]
 
         if threshold:
             x = x.voxels[x.values >= threshold] * x.units.magnitude
@@ -192,26 +225,75 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
         raise TypeError(f'Unable to generate dotprops from data of type "{type(x)}"')
 
     if x.ndim != 2 or x.shape[1] != 3:
-        raise ValueError(f'Expected input of shape (N, 3), got {x.shape}')
+        raise ValueError(f"Expected input of shape (N, 3), got {x.shape}")
 
     if isinstance(k, type(None)) or k <= 0:
-        raise ValueError('`k` must be > 0 when converting non-TreeNeurons to '
-                         'Dotprops.')
+        raise ValueError("`k` must be > 0 when converting non-TreeNeurons to Dotprops.")
 
     # Drop rows with NAs
-    x = x[~np.any(np.isnan(x), axis=1)]
+    contains_nan = np.any(np.isnan(x), axis=1)
+    if contains_nan.any():
+        if on_issue == "raise":
+            raise ValueError(
+                "Input coordinates contains NaNs. Please remove them before "
+                "calculating dotprops, or set `on_issue` to 'fix' or 'warn'."
+            )
+        elif on_issue == "warn":
+            logger.warning(
+                f"Dropping {np.sum(contains_nan)} coordinates containing NaNs. "
+                "You can silence warnings in `make_dotprops` by setting `on_issue='fix'`."
+            )
+        x = x[~contains_nan]
 
     # Checks and balances
     n_points = x.shape[0]
 
     # Make sure we don't ask for more nearest neighbors than we have points
-    k = min(n_points, k)
+    if k > n_points:
+        if on_issue == "raise":
+            raise ValueError(
+                f"Requested {k} nearest-neighbors but only {n_points} points "
+                "are available. Please reduce `k` (or provide more points)."
+            )
+        elif on_issue == "warn":
+            logger.warning(
+                f"Requested {k} nearest-neighbors but only {n_points} points "
+                "are available. Reducing `k` to match number of points. "
+                "You can silence warnings in `make_dotprops` by setting `on_issue='fix'`."
+            )
+        k = min(n_points, k)
 
-    properties['k'] = k
+    properties["k"] = k
 
     # Create the KDTree and get the k-nearest neighbors for each point
     tree = cKDTree(x)
     dist, ix = tree.query(x, k=k)
+
+    # If we have duplicated x/y/z coordinates, we may end up with garbage
+    # vectors (1, 0, 0) and alpha values (NaN). This doesn't have to cause
+    # issues further down the line but it is better to warn the user.
+    max_zero = dist.max(axis=1) == 0
+    if max_zero.any():
+        n_zero = np.sum(max_zero)
+        if on_issue == "raise":
+            raise ValueError(
+                f"Found {n_zero} points with zero distance to all k-nearest-neighbors. "
+                "This means that the input data contains duplicate coordinates and will "
+                "result in nonsense dotprops vectors and alpha values for these points. "
+                "While this does not have to cause issues further down the line, you "
+                "may still want to consider removing duplicate coordinates from your "
+                "input data."
+            )
+        elif on_issue == "warn":
+            logger.warning(
+                f"Dropping {n_zero} points with zero distance to all k-nearest-neighbors. "
+                "This is likely the result of duplicate coordinates in the input data. "
+                "You can silence warnings in `make_dotprops` by setting `on_issue='fix'`."
+            )
+
+        x = x[~max_zero]
+        ix = ix[~max_zero] - max_zero.sum()  # Adjust indices
+
     # This makes sure we have (N, k) shaped array even if k = 1
     ix = ix.reshape(x.shape[0], k)
 
@@ -232,7 +314,7 @@ def make_dotprops(x: Union[pd.DataFrame, np.ndarray,
     vect = vh[:, 0, :]
     alpha = (s[:, 0] - s[:, 1]) / np.sum(s, axis=1)
 
-    return core.Dotprops(points=x, alpha=alpha, vect=vect, **properties)
+    return make_using(points=x, alpha=alpha, vect=vect, **properties)
 
 
 def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
