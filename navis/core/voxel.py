@@ -393,18 +393,77 @@ class VoxelNeuron(BaseNeuron):
 
         raise TypeError(f"Unexpected data type: {self._base_data_type}")
 
-    def copy(self) -> 'VoxelNeuron':
+    def copy(self) -> "VoxelNeuron":
         """Return a copy of the neuron."""
-        no_copy = ['_lock']
+        no_copy = ["_lock"]
 
         # Generate new neuron
         x = self.__class__(None)
         # Override with this neuron's data
-        x.__dict__.update({k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy})
+        x.__dict__.update(
+            {k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy}
+        )
 
         return x
 
-    def strip(self, inplace=False) -> 'VoxelNeuron':
+    def flip(self, axis: str, inplace: bool = False) -> Optional["VoxelNeuron"]:
+        """Flip the volume along the specified axis.
+
+        Parameters
+        ----------
+        axis :       "x" | "y" | "z"
+                    Axis to flip along.
+        inplace :   bool, optional
+                    If False, will return flipped copy.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                    Flipped copy of original neuron. Only if `inplace=False`.
+
+        """
+        assert axis in ("x", "y", "z"), (
+            f'Unknown axis "{axis}". Allowed axes: "x", "y", "z"'
+        )
+
+        x = self
+        if not inplace:
+            x = x.copy()
+
+        # Flip voxels
+        if self._base_data_type == "voxels":
+            if axis == "x":
+                x._data[:, 0] = x.shape[0] - 1 - x._data[:, 0]
+            elif axis == "y":
+                x._data[:, 1] = x.shape[1] - 1 - x._data[:, 1]
+            elif axis == "z":
+                x._data[:, 2] = x.shape[2] - 1 - x._data[:, 2]
+        else:
+            x._data = np.flip(x._data, axis="xyz".index(axis))
+
+        # Flip offset
+        if axis == "x":
+            x.offset[0] = x.shape[0] - 1 - x.offset[0]
+        elif axis == "y":
+            x.offset[1] = x.shape[1] - 1 - x.offset[1]
+        elif axis == "z":
+            x.offset[2] = x.shape[2] - 1 - x.offset[2]
+
+        # Flip connectors
+        if x.has_connectors:
+            if axis == "x":
+                x.connectors.loc[:, "x"] = x.shape[0] - 1 - x.connectors["x"]
+            elif axis == "y":
+                x.connectors.loc[:, "y"] = x.shape[1] - 1 - x.connectors["y"]
+            elif axis == "z":
+                x.connectors.loc[:, "z"] = x.shape[2] - 1 - x.connectors["z"]
+
+        x._clear_temp_attr()
+
+        if not inplace:
+            return x
+
+    def strip(self, inplace=False) -> "VoxelNeuron":
         """Strip empty voxels (leading/trailing planes of zeros)."""
         x = self
         if not inplace:
