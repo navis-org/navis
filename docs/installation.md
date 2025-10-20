@@ -6,7 +6,7 @@ hide:
 
 ## Installing NAVis
 
-{{ navis }} requires Python 3.9 or later. The instructions below assume that
+{{ navis }} requires Python 3.10 or later. The instructions below assume that
 you have already installed Python and its package manager [`pip`](https://pypi.org/project/pip/).
 
 !!! info "By the way"
