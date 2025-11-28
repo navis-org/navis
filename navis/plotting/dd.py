@@ -922,7 +922,7 @@ def _plot_connectors(neuron, color, ax, settings):
                 color=cn_layout[c]["color"],
                 edgecolor="none",
                 s=settings.cn_size if settings.cn_size else cn_layout["size"],
-                zorder=1000,
+                alpha=settings.get('cn_alpha', None),
                 zorder=settings.cn_zorder if settings.cn_zorder is not None else 1000,
             )
             ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
@@ -935,7 +935,7 @@ def _plot_connectors(neuron, color, ax, settings):
             color=c,
             s=settings.cn_size if settings.cn_size else cn_layout["size"],
             depthshade=cn_layout.get("depthshade", False),
-            zorder=0,
+            alpha=settings.get('cn_alpha', None),
             zorder=settings.cn_zorder if settings.cn_zorder is not None else 0,  # not sure this does anything in 3d
             edgecolor="none",
         )
