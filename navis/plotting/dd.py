@@ -901,8 +901,7 @@ def _plot_connectors(neuron, color, ax, settings):
             if not isinstance(inner_dict, dict):
                 continue
             inner_dict["color"] = color
-
-    if settings.cn_colors:
+    elif settings.cn_colors:
         if isinstance(settings.cn_colors, dict):
             cn_layout.update(settings.cn_colors)
         else:
