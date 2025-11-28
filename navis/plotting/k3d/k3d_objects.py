@@ -218,6 +218,7 @@ def neuron2k3d(x, colormap, settings):
                                 if settings.cn_size
                                 else cn_lay["size"] * 50,
                                 color=c,
+                                opacity=settings.get('cn_alpha', 1),
                             )
                         )
                 elif cn_lay["display"] == "lines":
