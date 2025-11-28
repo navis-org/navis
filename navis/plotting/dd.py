@@ -922,6 +922,7 @@ def _plot_connectors(neuron, color, ax, settings):
                 edgecolor="none",
                 s=settings.cn_size if settings.cn_size else cn_layout["size"],
                 zorder=1000,
+                zorder=settings.cn_zorder if settings.cn_zorder is not None else 1000,
             )
             ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
     elif settings.method in ["3d", "3d_complex"]:
@@ -934,6 +935,7 @@ def _plot_connectors(neuron, color, ax, settings):
             s=settings.cn_size if settings.cn_size else cn_layout["size"],
             depthshade=cn_layout.get("depthshade", False),
             zorder=0,
+            zorder=settings.cn_zorder if settings.cn_zorder is not None else 0,  # not sure this does anything in 3d
             edgecolor="none",
         )
         ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
@@ -1369,7 +1371,7 @@ def _plot_volume(volume, color, ax, settings):
             ax.add_collection(pc)
 
         if settings.volume_outlines in (True, "both"):
-            verts = volume.to_2d(view=settings.view, alpha=0.001)
+            verts = volume.to_2d(view=settings.view, alpha=settings.get("volume_outlines_alpha", 0.001))
             vpatch = mpatches.Polygon(
                 verts,
                 closed=True,

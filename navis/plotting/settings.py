@@ -136,12 +136,14 @@ class Matplotlib2dSettings(BasePlottingSettings):
     orthogonal: bool = True
     scalebar: Union[int, float, str, pint.Quantity] = False
     volume_outlines: bool = False
+    volume_outlines_alpha: float = 0.001
     rasterize: bool = False
     view: Tuple[str, str] = ("x", "y")
     figsize: Optional[Tuple[float, float]] = None
     ax: Optional[mpl.axes.Axes] = None
     mesh_shade: bool = False
     non_view_axes3d: Literal["hide", "show", "fade"] = "hide"
+    cn_zorder: Optional[int] = None
 
     depth_coloring: bool = False
     depth_scale: bool = True
