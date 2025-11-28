@@ -25,7 +25,7 @@ import numpy as np
 import matplotlib.colors as mcl
 
 from ... import core, config, utils, conversion
-from ..colors import prepare_colormap, vertex_colors, eval_color
+from ..colors import prepare_colormap, vertex_colors, eval_color, set_alpha
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -347,6 +347,7 @@ def connectors2vispy(neuron, neuron_color, object_id, settings):
             con = scene.visuals.Markers(
                 spherical=cn_lay.get("spherical", True),
                 scaling=cn_lay.get("scale", False),
+                alpha=settings.get("cn_alpha", 1),
             )
 
             con.set_data(
@@ -365,6 +366,10 @@ def connectors2vispy(neuron, neuron_color, object_id, settings):
             )
 
             segments = [item for sublist in zip(pos, tn_coords) for item in sublist]
+
+            # If we have an connector alpha value, we need to set color accordingly
+            if settings.get("cn_alpha", None) is not None:
+                color = set_alpha(color, settings.cn_alpha)
 
             con = scene.visuals.Line(
                 pos=np.array(segments),

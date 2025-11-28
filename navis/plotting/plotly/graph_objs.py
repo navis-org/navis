@@ -22,7 +22,7 @@ import plotly.graph_objs as go
 
 from scipy import ndimage
 
-from ..colors import vertex_colors, eval_color
+from ..colors import vertex_colors, eval_color, set_alpha
 from ..plot_utils import segments_to_coords
 from ... import core, utils, config, conversion
 
@@ -217,18 +217,23 @@ def neuron2plotly(x, colormap, settings):
                 connectors = neuron.connectors
 
             for j, this_cn in connectors.groupby("type"):
-                if isinstance(settings.cn_colors, dict):
+                if settings.cn_colors == "neuron" or settings.get(
+                    "cn_mesh_colors", False
+                ):
+                    c = color
+                elif isinstance(settings.cn_colors, dict):
                     c = settings.cn_colors.get(
                         j, cn_lay.get(j, {"color": (10, 10, 10)})["color"]
                     )
-                elif settings.cn_colors == "neuron":
-                    c = color
                 elif settings.cn_colors is not None:
                     c = settings.cn_colors
                 else:
                     c = cn_lay.get(j, {"color": (10, 10, 10)})["color"]
 
                 c = eval_color(c, color_range=255)
+
+                if settings.get("cn_alpha", None) is not None:
+                    c = set_alpha(c, settings.cn_alpha)
 
                 if cn_lay["display"] == "circles" or isinstance(
                     neuron, core.MeshNeuron
@@ -241,9 +246,12 @@ def neuron2plotly(x, colormap, settings):
                             mode="markers",
                             marker=dict(
                                 color=f"rgb{c}",
-                                size=settings.cn_size
-                                if settings.cn_size
-                                else cn_lay["size"],
+                                opacity=settings.get("cn_alpha", 1),
+                                size=(
+                                    settings.cn_size
+                                    if settings.cn_size
+                                    else cn_lay["size"]
+                                ),
                             ),
                             name=f"{cn_lay.get(j, {'name': 'connector'})['name']} of {name}",
                             showlegend=False,
@@ -282,7 +290,11 @@ def neuron2plotly(x, colormap, settings):
                             y=y_coords,
                             z=z_coords,
                             mode="lines",
-                            line=dict(color="rgb%s" % str(c), width=5),
+                            line=dict(
+                                color="rgb%s" % str(c),
+                                width=5,
+                                opacity=settings.get("cn_alpha", 1),
+                            ),
                             name=f"{cn_lay.get(j, {'name': 'connector'})['name']} of {name}",
                             showlegend=False,
                             legendgroup=legendgroup,

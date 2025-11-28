@@ -30,7 +30,7 @@ from .. import core, config, utils, morpho
 
 __all__ = ['generate_colors', 'prepare_connector_cmap', 'prepare_colormap',
            'eval_color', 'hex_to_rgb', 'vary_colors', 'vertex_colors',
-           'color_to_int']
+           'color_to_int', 'set_alpha']
 
 logger = config.get_logger(__name__)
 
@@ -698,3 +698,58 @@ def vary_colors(color: AnyColor,
     color[:, :3] = color[:, :3] + variance[:, :3]
 
     return np.clip(color, 0, 1)
+
+
+def set_alpha(color: Union[np.ndarray, list, tuple], alpha: float):
+    """Set alpha channel for given color.
+
+    Will add alpha channel if not present.
+
+    Parameters
+    ----------
+    color : array-like, shape (..., 3) or (..., 4)
+            Single RGB or RGBA color or array of colors.
+    alpha : float
+            Alpha value to set, in range [0, 1].
+
+    """
+    if isinstance(color, np.ndarray):
+        color = color.copy()
+        if color.ndim == 2:
+            if color.shape[1] == 3:
+                alpha_channel = np.full((color.shape[0], 1), alpha)
+                color = np.hstack((color, alpha_channel))
+            elif color.shape[1] == 4:
+                color[:, 3] = alpha
+            else:
+                raise ValueError("Color array must have shape (..., 3) or (..., 4).")
+        elif color.ndim == 1:
+            if color.shape[0] == 3:
+                color = np.append(color, alpha)
+            elif color.shape[0] == 4:
+                color[3] = alpha
+            else:
+                raise ValueError("Color array must have shape (..., 3) or (..., 4).")
+        else:
+            raise ValueError("Color array must have shape (..., 3) or (..., 4).")
+    elif isinstance(color, list):
+        color = color.copy()
+        if len(color) == 3:
+            color.append(alpha)
+        elif len(color) == 4:
+            color[3] = alpha
+        else:
+            raise ValueError("Color list must have length 3 or 4.")
+    elif isinstance(color, tuple):
+        if len(color) == 3:
+            color = list(color) + [alpha]
+        elif len(color) == 4:
+            color = list(color)
+            color[3] = alpha
+        else:
+            raise ValueError("Color tuple must have length 3 or 4.")
+        color = tuple(color)
+    else:
+        raise TypeError("Color must be a numpy array, list, or tuple.")
+
+    return color

@@ -171,33 +171,34 @@ def plot2d(
                         a string or a list is provided, it will be used to filter the
                         `type` column in the connectors table.
 
+    connectors :        bool | "presynapses" | "postsynapses" | str | list, default=True
+
+                        Plot connectors. This can either be `True` (plot all
+                        connectors), `"presynapses"` (only presynaptic connectors)
+                        or `"postsynapses"` (only postsynaptic connectors). If
+                        a string or a list is provided, it will be used to filter the
+                        `type` column in the connectors table.
+
+                        Use these parameters to adjust the way connectors are plotted:
+
+                          - `cn_colors` (str | tuple | dict | "neuron" ) overrides
+                            the default connector (e.g. synpase) colors:
+                              - single color as str (e.g. `'red'`) or rgb tuple
+                                (e.g. `(1, 0, 0)`)
+                              - dict mapping the connectors tables `type` column to
+                                a color (e.g. `{"pre": (1, 0, 0)}`)
+                              - with "neuron", connectors will receive the same color
+                                as their neuron
+                          - `cn_layout` (dict): Layout of the connectors. See
+                            `navis.config.default_connector_colors` for options.
+                          - `cn_size` (float): Size of the connectors.
+                          - `cn_alpha` (float): Transparency of the connectors.
+                          - `cn_mesh_colors` (bool): Whether to color the connectors
+                            by the neuron's color.
+
     connectors_only :   boolean, default=False
 
                         Plot only connectors, not the neuron.
-
-    cn_size :           int | float, default = 1
-
-                        Size of connectors.
-
-    cn_layout :         dict, default={}
-
-                        Defines default settings (color, style) for connectors.
-                        See `navis.config.default_connector_colors` for the
-                        default layout.
-
-    cn_colors :         str | tuple | dict | "neuron"
-
-                        Overrides the default connector (e.g. synpase) colors:
-                            - single color as str (e.g. `'red'`) or rgb tuple
-                            (e.g. `(1, 0, 0)`)
-                            - dict mapping the connectors tables `type` column to
-                            a color (e.g. `{"pre": (1, 0, 0)}`)
-                            - with "neuron", connectors will receive the same color
-                            as their neuron
-
-    cn_mesh_colors :    bool, default=False
-
-                        If True, will use the neuron's color for its connectors.
 
     scatter_kws :       dict, default={}
 
@@ -900,8 +901,7 @@ def _plot_connectors(neuron, color, ax, settings):
             if not isinstance(inner_dict, dict):
                 continue
             inner_dict["color"] = color
-
-    if settings.cn_colors:
+    elif settings.cn_colors:
         if isinstance(settings.cn_colors, dict):
             cn_layout.update(settings.cn_colors)
         else:
@@ -921,7 +921,8 @@ def _plot_connectors(neuron, color, ax, settings):
                 color=cn_layout[c]["color"],
                 edgecolor="none",
                 s=settings.cn_size if settings.cn_size else cn_layout["size"],
-                zorder=1000,
+                alpha=settings.get('cn_alpha', None),
+                zorder=settings.cn_zorder if settings.cn_zorder is not None else 1000,
             )
             ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
     elif settings.method in ["3d", "3d_complex"]:
@@ -933,7 +934,8 @@ def _plot_connectors(neuron, color, ax, settings):
             color=c,
             s=settings.cn_size if settings.cn_size else cn_layout["size"],
             depthshade=cn_layout.get("depthshade", False),
-            zorder=0,
+            alpha=settings.get('cn_alpha', None),
+            zorder=settings.cn_zorder if settings.cn_zorder is not None else 0,  # not sure this does anything in 3d
             edgecolor="none",
         )
         ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
@@ -1369,7 +1371,7 @@ def _plot_volume(volume, color, ax, settings):
             ax.add_collection(pc)
 
         if settings.volume_outlines in (True, "both"):
-            verts = volume.to_2d(view=settings.view, alpha=0.001)
+            verts = volume.to_2d(view=settings.view, alpha=settings.get("volume_outlines_alpha", 0.001))
             vpatch = mpatches.Polygon(
                 verts,
                 closed=True,
