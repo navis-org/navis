@@ -11,10 +11,11 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import functools
-import numbers
 import os
 import pint
+import numbers
+import warnings
+import functools
 
 import pandas as pd
 import numpy as np
@@ -26,17 +27,32 @@ from typing_extensions import Literal
 
 from .. import config, graph, utils, core
 
+try:
+    from joblib import Parallel, delayed
+except ModuleNotFoundError:
+    Parallel = None
+
+if Parallel is not None:
+    try:
+        from tqdm_joblib import tqdm_joblib
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "navis relies on `tqdm-joblib` for joblib progress bars! "
+            "Please make sure tqdm-joblib is installed:\n"
+            "  pip3 install tqdm-joblib -U"
+        )
 
 try:
-    #from pathos.multiprocessing import ProcessingPool
+    # from pathos.multiprocessing import ProcessingPool
     # pathos' ProcessingPool apparently ignores chunksize
     # (see https://stackoverflow.com/questions/55611806/how-to-set-chunk-size-when-using-pathos-processingpools-map)
     import pathos
+
     ProcessingPool = pathos.pools._ProcessPool
 except ModuleNotFoundError:
     ProcessingPool = None
 
-__all__ = ['make_dotprops', 'to_neuron_space']
+__all__ = ["make_dotprops", "to_neuron_space"]
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -44,6 +60,7 @@ logger = config.get_logger(__name__)
 
 def temp_property(func):
     """Check if neuron is stale. Clear cached temporary attributes if it is."""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         self = args[0]
@@ -52,11 +69,13 @@ def temp_property(func):
             if self.is_stale:
                 self._clear_temp_attr()
         return func(*args, **kwargs)
+
     return wrapper
 
 
 def add_units(compact=True, power=1):
     """Add neuron units (if present) to output of function."""
+
     def outer(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -317,10 +336,11 @@ def make_dotprops(
     return make_using(points=x, alpha=alpha, vect=vect, **properties)
 
 
-def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
-                    neuron: core.BaseNeuron,
-                    on_error: Union[Literal['ignore'],
-                                    Literal['raise']] = 'raise'):
+def to_neuron_space(
+    units: Union[int, float, pint.Quantity, pint.Unit],
+    neuron: core.BaseNeuron,
+    on_error: Union[Literal["ignore"], Literal["raise"]] = "raise",
+):
     """Convert units to match neuron space.
 
     Note that trying to convert units for non-isometric neurons will fail.
@@ -365,9 +385,8 @@ def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
     [0.125, 0.125, 0.125]
 
     """
-    utils.eval_param(on_error, name='on_error',
-                     allowed_values=('ignore', 'raise'))
-    utils.eval_param(neuron, name='neuron', allowed_types=(core.BaseNeuron, ))
+    utils.eval_param(on_error, name="on_error", allowed_values=("ignore", "raise"))
+    utils.eval_param(neuron, name="neuron", allowed_types=(core.BaseNeuron,))
 
     # If string, convert to units
     if isinstance(units, str):
@@ -377,16 +396,20 @@ def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
         return units
 
     if neuron.units.dimensionless:
-        if on_error == 'raise':
-            raise ValueError(f'Unable to convert "{str(units)}": Neuron units '
-                             'unknown or dimensionless.')
+        if on_error == "raise":
+            raise ValueError(
+                f'Unable to convert "{str(units)}": Neuron units '
+                "unknown or dimensionless."
+            )
         else:
             return units
 
     if not neuron.is_isometric:
-        if on_error == 'raise':
-            raise ValueError(f'Unable to convert "{str(units)}": neuron is not '
-                             'isometric ({neuron.units}).')
+        if on_error == "raise":
+            raise ValueError(
+                f'Unable to convert "{str(units)}": neuron is not '
+                "isometric ({neuron.units})."
+            )
         else:
             return units
 
@@ -414,28 +437,52 @@ class NeuronProcessor:
     neuron.
     """
 
-    def __init__(self,
-                 nl: 'core.NeuronList',
-                 function: Callable,
-                 parallel: bool = False,
-                 n_cores: int = os.cpu_count() // 2,
-                 chunksize: int = 1,
-                 progress: bool = True,
-                 warn_inplace: bool = True,
-                 omit_failures: bool = False,
-                 exclude_zip: list = [],
-                 desc: Optional[str] = None):
+    def __init__(
+        self,
+        nl: "core.NeuronList",
+        function: Callable,
+        parallel: bool = False,
+        n_cores: int = os.cpu_count() // 2,
+        chunksize: Union[int, Literal["auto"]] = "auto",
+        progress: bool = True,
+        warn_inplace: bool = True,
+        omit_failures: bool = False,
+        exclude_zip: list = [],
+        desc: Optional[str] = None,
+        backend: Literal["joblib", "pathos", "auto"] = "auto",
+    ):
         if utils.is_iterable(function):
             if len(function) != len(nl):
-                raise ValueError('Number of functions must match neurons.')
+                raise ValueError("Number of functions must match neurons.")
             self.funcs = function
             self.function = function[0]
         elif callable(function):
             self.funcs = [function] * len(nl)
             self.function = function
         else:
-            raise TypeError('Expected `function` to be callable or list '
-                            f'thereof,  got "{type(function)}"')
+            raise TypeError(
+                "Expected `function` to be callable or list "
+                f'thereof,  got "{type(function)}"'
+            )
+
+        utils.eval_param(
+            value=backend.split(":")[0],
+            name="backend",
+            allowed_values=("joblib", "pathos", "auto"),
+        )
+
+        if backend == "auto":
+            if Parallel is not None:
+                backend = "joblib"
+            elif ProcessingPool is not None:
+                backend = "pathos"
+            else:
+                raise ModuleNotFoundError(
+                    "navis relies on `joblib` or `pathos` for multiprocessing!"
+                    "Please install either and try again:\n"
+                    "  pip3 install joblib -U\n"
+                    "  pip3 install pathos -U"
+                )
 
         self.nl = nl
         self.desc = desc
@@ -446,14 +493,15 @@ class NeuronProcessor:
         self.warn_inplace = warn_inplace
         self.exclude_zip = exclude_zip
         self.omit_failures = omit_failures
+        self.backend = backend
 
         # This makes sure that help and name match the functions being called
         functools.update_wrapper(self, self.function)
 
     def __call__(self, *args, **kwargs):
         # Explicitly providing these parameters overwrites defaults
-        parallel = kwargs.pop('parallel', self.parallel)
-        n_cores = kwargs.pop('n_cores', self.n_cores)
+        parallel = kwargs.pop("parallel", self.parallel)
+        n_cores = kwargs.pop("n_cores", self.n_cores)
 
         # We will check, for each argument, if it matches the number of
         # functions to run. If they it does, we will zip the values
@@ -484,54 +532,111 @@ class NeuronProcessor:
         level = logger.getEffectiveLevel()
 
         if level < 30:
-            logger.setLevel('WARNING')
+            logger.setLevel("WARNING")
 
         # Apply function
         if parallel:
-            if not ProcessingPool:
-                raise ModuleNotFoundError(
-                    'navis relies on pathos for multiprocessing!'
-                    'Please install pathos and try again:\n'
-                    '  pip3 install pathos -U'
+            if self.warn_inplace and kwargs.get("inplace", False):
+                logger.warning("`inplace=True` does not work with multiprocessing ")
+
+            if self.backend.startswith("joblib"):
+                if Parallel is None:
+                    raise ModuleNotFoundError(
+                        "`joblib` backend for multiprocessing not found!"
+                        "Please install `joblib` and try again:\n"
+                        "  pip3 install joblib -U"
                     )
-
-            if self.warn_inplace and kwargs.get('inplace', False):
-                logger.warning('`inplace=True` does not work with '
-                               'multiprocessing ')
-
-            with ProcessingPool(n_cores) as pool:
-                combinations = list(zip(self.funcs,
-                                        parsed_args,
-                                        parsed_kwargs))
-                chunksize = kwargs.pop('chunksize', self.chunksize)  # max(int(len(combinations) / 100), 1)
 
                 if not self.omit_failures:
                     wrapper = _call
                 else:
                     wrapper = _try_call
 
-                res = list(config.tqdm(pool.imap(wrapper,
-                                                 combinations,
-                                                 chunksize=chunksize),
-                                       total=len(combinations),
-                                       desc=self.desc,
-                                       disable=config.pbar_hide or not self.progress,
-                                       leave=config.pbar_leave))
+                if ":" in self.backend:
+                    backend = self.backend.split(":")[1]
+                else:
+                    backend = "loky"
+
+                combinations = zip(self.funcs, parsed_args, parsed_kwargs)
+                total = min(len(self.funcs), len(parsed_args), len(parsed_kwargs))
+
+                with tqdm_joblib(
+                    desc=self.desc,
+                    total=total,
+                    disable=config.pbar_hide or not self.progress,
+                    leave=config.pbar_leave,
+                ) as _:
+                    # Suppress the Loky warnings about workers stopping to work
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore",
+                            message=".*worker stopped while some jobs.*",
+                            category=UserWarning,
+                        )
+                        res = Parallel(
+                            n_jobs=n_cores,
+                            backend=backend,
+                            batch_size=self.chunksize,
+                        )(delayed(wrapper)(x) for x in combinations)
+            elif self.backend.startswith("pathos"):
+                if ProcessingPool is None:
+                    raise ModuleNotFoundError(
+                        "`pathos` backend for multiprocessing not found!"
+                        "Please install `pathos` and try again:\n"
+                        "  pip3 install pathos -U"
+                    )
+
+                with ProcessingPool(n_cores) as pool:
+                    combinations = zip(self.funcs, parsed_args, parsed_kwargs)
+                    total = min(len(self.funcs), len(parsed_args), len(parsed_kwargs))
+
+                    if self.chunksize == "auto":
+                        chunksize = max(int(total / (n_cores * 10)), 1)
+                    else:
+                        chunksize = self.chunksize
+
+                    if not self.omit_failures:
+                        wrapper = _call
+                    else:
+                        wrapper = _try_call
+
+                    res = list(
+                        config.tqdm(
+                            pool.imap(wrapper, combinations, chunksize=chunksize),
+                            total=total,
+                            desc=self.desc,
+                            disable=config.pbar_hide or not self.progress,
+                            leave=config.pbar_leave,
+                        )
+                    )
+            else:
+                raise ValueError(
+                    f'Unknown backend "{self.backend}" for multiprocessing.'
+                )
         else:
             res = []
-            for i, n in enumerate(config.tqdm(self.nl, desc=self.desc,
-                                              disable=(config.pbar_hide
-                                                       or not self.progress
-                                                       or len(self.nl) <= 1),
-                                              leave=config.pbar_leave)):
+            for i, n in enumerate(
+                config.tqdm(
+                    self.nl,
+                    desc=self.desc,
+                    disable=(
+                        config.pbar_hide or not self.progress or len(self.nl) <= 1
+                    ),
+                    leave=config.pbar_leave,
+                )
+            ):
                 try:
                     res.append(self.funcs[i](*parsed_args[i], **parsed_kwargs[i]))
                 except BaseException as e:
                     if self.omit_failures:
-                        res.append(FailedRun(func=self.funcs[i],
-                                             args=parsed_args[i],
-                                             kwargs=parsed_kwargs[i],
-                                             exception=e))
+                        res.append(
+                            FailedRun(
+                                func=self.funcs[i],
+                                args=parsed_args[i],
+                                kwargs=parsed_kwargs[i],
+                                exception=e,
+                            )
+                        )
                     else:
                         raise
 
@@ -541,11 +646,15 @@ class NeuronProcessor:
         failed = np.array([isinstance(r, FailedRun) for r in res])
         res = [r for r in res if not isinstance(r, FailedRun)]
         if any(failed):
-            logger.warn(f'{sum(failed)} of {len(self.funcs)} runs failed. '
-                        'Set logging to debug (`navis.set_loggers("DEBUG")`) '
-                        'or repeat with `omit_failures=False` for details.')
+            logger.warn(
+                f"{sum(failed)} of {len(self.funcs)} runs failed. "
+                'Set logging to debug (`navis.set_loggers("DEBUG")`) '
+                "or repeat with `omit_failures=False` for details."
+            )
             failed_ids = self.nl.id[np.where(failed)].astype(str)
-            logger.debug(f'The following IDs failed to complete: {", ".join(failed_ids)}')
+            logger.debug(
+                f"The following IDs failed to complete: {', '.join(failed_ids)}"
+            )
 
         # If result is a list of neurons, combine them back into a single list
         is_neuron = [isinstance(r, (core.NeuronList, core.BaseNeuron)) for r in res]
@@ -575,7 +684,8 @@ def _try_call(x: Sequence):
 
 class FailedRun:
     """Class representing a failed run."""
-    def __init__(self, func, args, kwargs, exception='NA'):
+
+    def __init__(self, func, args, kwargs, exception="NA"):
         self.args = args
         self.func = func
         self.kwargs = kwargs
@@ -585,5 +695,7 @@ class FailedRun:
         return self.__str__()
 
     def __str__(self):
-        return (f'Failed run(function={self.func}, args={self.args}, '
-                f'kwargs={self.kwargs}, exception={self.exception})')
+        return (
+            f"Failed run(function={self.func}, args={self.args}, "
+            f"kwargs={self.kwargs}, exception={self.exception})"
+        )

@@ -23,6 +23,11 @@ rdata>=0.5
 igraph!=0.10.0,!=0.10.1
 skeletor>=1.0.0
 
+# extra: joblib
+
+joblib~=1.5.2
+tqdm-joblib~=0.0.5
+
 pathos>=0.2.7 #extra: pathos
 
 Shapely>=1.6.0  #extra: shapely
@@ -75,7 +80,7 @@ Shapely>=1.6.0
 flake8
 wheel
 mypy
-pytest
+pytest!=9.0.0
 pytest-env
 pytest-xvfb
 pytest-timeout

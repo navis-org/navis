@@ -123,10 +123,22 @@ directly, are listed below:
 
     ---
 
+    #### `joblib`: [joblib](https://joblib.readthedocs.io)
+
+    Joblib is a multiprocessing library. {{ navis }} uses it to parallelize functions
+    across lists of neurons. Please note that you will also need to install `tqdm-joblib`
+    for progress bars to work with joblib.
+
+    ``` shell
+    pip install joblib tqdm-joblib
+    ```
+
+    ---
+
     #### `pathos`: [pathos](https://github.com/uqfoundation/pathos)
 
-    Pathos is a multiprocessing library. {{ navis }} uses it to parallelize functions
-    across lists of neurons.
+    Pathos is a multiprocessing library. {{ navis }} uses it as an alternative backend
+    to parallelize functions across lists of neurons.
 
     ``` shell
     pip install pathos
