@@ -41,6 +41,10 @@ navis.set_pbars(hide=True)
 # Silence warnings
 warnings.filterwarnings("ignore")
 
+TO_SKIP = [
+    "tutorial_remote_04_h01.py",  # currently fails due to incompatability with most recent CAVEclient
+]
+
 
 if __name__ == "__main__":
     # Recursively search for notebooks
@@ -52,8 +56,11 @@ if __name__ == "__main__":
             continue
         if file.name.startswith('zzz'):
             continue
+        if file.name in TO_SKIP:
+            print(f"Skipping {file.name}...")
+            continue
 
-        # Note: we're using `exec` here instead of e.g. `subprcoess.run` because we need to avoid
+        # Note: we're using `exec` here instead of e.g. `subprocess.run` because we need to avoid
         # the "An attempt has been made to start a new process before the current process has
         # finished its bootstrapping phase" error that occurs when using multiprocessing with "spawn"
         # from a process where it's not wrapped in an `if __name__ == "__main__":` block.
