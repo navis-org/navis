@@ -1,9 +1,12 @@
-def pytest_ignore_collect(path, config):
+from pathlib import Path
+
+
+def pytest_ignore_collect(collection_path: Path, config):
     """Return True to prevent considering this path for collection.
     This hook is consulted for all files and directories prior to calling
     more specific hooks.
     """
-    path = str(path)
+    path = str(collection_path)
     for pattern in (
         "interfaces",
         "/docs",
