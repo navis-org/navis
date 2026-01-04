@@ -14,7 +14,7 @@ Visit our documentation [here](https://navis-org.github.io/navis/ "NAVis Documen
 * **morphometrics**: Strahler analysis, cable length, volume, tortuosity and more
 * **similarity**: compare & cluster by morphology (e.g. NBLAST, persistence or form factor) or connectivity metrics
 * **transform**: move data between template brains (built-in support for HDF5, CMTK, Elastix and landmark-based transforms)
-* **interface**: load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and other remote data repositories
+* **remote data**: load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and other online repositories
 * **model** neurons and networks using the *NEURON* simulator
 * **render**: use Blender 3D for high quality [visualizations](https://youtu.be/wl3sFG7WQJc)
 * **R** neuron libraries: interfaces with [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr) and more
