@@ -98,7 +98,7 @@ class ImageXformer:
             range(self.target_dims[2]),
             indexing="ij",
         )
-        # Generate a (3, M, N, K) grid
+        # Generate a (M, N, K) grid
         ix_grid = np.array([XX, YY, ZZ])
 
         # Convert grid into (N * N * K, 3) voxel array (this is slow)
@@ -148,6 +148,7 @@ class ImageXformer:
 
             # Use target->source index mapping to interpolate the image
             # order=1 means linear interpolation (much faster)
+            # (zero would be nearest neighbor)
             img_xf[
                 ix_array_target[i : i + self.stepsize, 0],
                 ix_array_target[i : i + self.stepsize, 1],
@@ -181,7 +182,8 @@ def xform_image(img, source, target, progress=True):
         img = img.grid
     elif not isinstance(img, np.ndarray):
         raise TypeError(f'Expected VoxelNeuron or numpy array, got "{type(img)}"')
-    elif img.ndim != 3:
+
+    if img.ndim != 3:
         raise ValueError('Image must be 3D.')
 
     # Get the transform from target to source
@@ -202,4 +204,4 @@ def xform_image(img, source, target, progress=True):
         progress=progress
     )
 
-    return xformer.xform(img)
+    return xformer.render(img)
