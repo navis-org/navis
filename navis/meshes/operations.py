@@ -16,6 +16,8 @@ import warnings
 import numpy as np
 import trimesh as tm
 
+from importlib.util import find_spec
+
 try:
     from pykdtree.kdtree import KDTree
 except ModuleNotFoundError:
@@ -35,8 +37,8 @@ def available_backends(only_first=False):
     backends = []
 
     try:
-        import pyfqmr
-        backends.append('pyfqmr')
+        if find_spec('pyfqmr') is not None:
+            backends.append('pyfqmr')
     except ModuleNotFoundError:
         pass
     except BaseException:
@@ -46,8 +48,8 @@ def available_backends(only_first=False):
         return backends
 
     try:
-        import open3d
-        backends.append('open3d')
+        if find_spec('open3d') is not None:
+            backends.append('open3d')
     except ModuleNotFoundError:
         pass
     except BaseException:
@@ -57,10 +59,8 @@ def available_backends(only_first=False):
         return backends
 
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            import pymeshlab
-        backends.append('pymeshlab')
+        if find_spec('pymeshlab') is not None:
+            backends.append('pymeshlab')
     except ModuleNotFoundError:
         pass
     except BaseException:
