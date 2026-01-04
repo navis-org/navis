@@ -290,6 +290,8 @@ def read_swc(
                            file and import it
                          - FTP address (ftp://) can point to a folder or a single
                            file
+                         - Google Storage URLs (gs://) can point to a folder (in which
+                           case all SWC files are read) or a single SWC file
                          - DataFrames are interpreted as a SWC tables
                         See also `limit` parameter to read only a subset of files.
     connector_labels :  dict, optional

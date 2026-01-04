@@ -28,6 +28,7 @@ from ftplib import FTP
 from pathlib import Path
 from zipfile import ZipFile, ZipInfo
 from functools import partial, wraps
+from concurrent.futures import ThreadPoolExecutor
 from requests_futures.sessions import FuturesSession
 from typing import List, Union, Iterable, Dict, Optional, Any, IO
 
@@ -47,6 +48,7 @@ __all__ = ["BaseReader"]
 logger = config.get_logger(__name__)
 
 DEFAULT_INCLUDE_SUBDIRS = False
+GCSFS_GLOBAL = None  # Global gcsfs filesystem for parallel reading
 
 # Regular expression to figure out if a string is a regex pattern
 rgx = re.compile(r"[\\\.\?\[\]\+\^\$\*]")
@@ -711,6 +713,94 @@ class BaseReader(ABC):
 
         return self.format_output(neurons)
 
+    def read_gs(
+        self,
+        path,
+        parallel="auto",
+        limit: Optional[int] = None,
+        attrs: Optional[Dict[str, Any]] = None,
+    ) -> "core.NeuronList":
+        """Read files from an Google bucket.
+
+        This is a dispatcher for `.read_from_gs`.
+
+        Parameters
+        ----------
+        path :      str | list thereof
+                    Can be the path to a directory, a single file or
+                    a list of files inside the bucket.
+        limit :     int, optional
+                    Limit the number of files read from this directory.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
+
+        Returns
+        -------
+        core.NeuronList
+
+        """
+        # This will initialize the global gcsfs filesystem if necessary
+        gcsfs = get_gs_filesystem()
+
+        read_fn = partial(self.read_from_gs, gcsfs=gcsfs, attrs=attrs)
+        neurons = parallel_read_gs(
+            read_fn=read_fn,
+            gcsfs=gcsfs,
+            path=path,
+            file_ext=self.is_valid_file,
+            limit=limit,
+            parallel=parallel,
+        )
+        return self.format_output(neurons)
+
+    def read_from_gs(
+        self,
+        files: Union[str, List[str]],
+        gcsfs,
+        attrs: Optional[Dict[str, Any]] = None,
+    ) -> "core.NeuronList":
+        """Read given file(s) from an Google Storage bucket.
+
+        Typically not used directly but via `read_gs()` dispatcher.
+
+        Parameters
+        ----------
+        files :     str | list thereof
+                    Filepaths(s) to read.
+        gcsfs :
+                    The Google Cloud Storage filesystem client.
+        attrs :     dict or None
+                    Arbitrary attributes to include in the TreeNeuron.
+
+        Returns
+        -------
+        core.NeuronList
+
+        """
+        files = utils.make_iterable(files)
+
+        neurons = []
+        for file in files:
+            # Remove leading gs://
+            if file.startswith("gs://"):
+                file = file[5:]
+
+            # Read the file into a bytes
+            props = self.parse_filename(file)
+            props["origin"] = f"gs://{file}"
+            try:
+                with gcsfs.open(file, "rb") as f:
+                    n = self.read_buffer(f, attrs=merge_dicts(props, attrs))
+                    neurons.append(n)
+            except BaseException:
+                if self.errors == "ignore":
+                    path, f = file.rsplit("/", 1)
+                    logger.warning(f'Failed to read "{f}" from GS bucket {path}.')
+                else:
+                    raise
+
+        return self.format_output(neurons)
+
     def read_directory(
         self,
         path: os.PathLike,
@@ -920,6 +1010,8 @@ class BaseReader(ABC):
                 return self.read_url(obj, attrs=attrs)
             if obj.startswith("ftp://"):
                 return self.read_ftp(obj, attrs=attrs)
+            if obj.startswith("gs://"):
+                return self.read_gs(obj, attrs=attrs)
             return self.read_string(obj, attrs=attrs)
         if isinstance(obj, bytes):
             return self.read_bytes(obj, attrs=attrs)
@@ -963,6 +1055,7 @@ class BaseReader(ABC):
             return self.format_output(objs)
 
         new_objs = []
+        new_objs_gs = []
         for obj in objs:
             try:
                 if is_dir(obj):
@@ -970,24 +1063,20 @@ class BaseReader(ABC):
                     continue
             except TypeError:
                 pass
-            new_objs.append(obj)
 
-        # `parallel` can be ("auto", threshold) in which case `threshold`
-        # determines at what length we use parallel processing
-        if isinstance(parallel, tuple):
-            parallel, threshold = parallel
-        else:
-            threshold = 200
+            if isinstance(obj, str) and obj.startswith("gs://"):
+                new_objs_gs.append(obj)
+            else:
+                new_objs.append(obj)
 
-        if (
-            isinstance(parallel, str)
-            and parallel.lower() == "auto"
-            and len(new_objs) < threshold
-        ):
-            parallel = False
+        neurons = []
+        if new_objs_gs:
+            neurons += self.read_gs(new_objs_gs, parallel=parallel, attrs=attrs)
 
-        read_fn = partial(self.read_any_single, attrs=attrs)
-        neurons = parallel_read(read_fn, new_objs, parallel)
+        if new_objs:
+            read_fn = partial(self.read_any_single, attrs=attrs)
+            neurons += parallel_read(read_fn, new_objs, parallel)
+
         return self.format_output(neurons)
 
     def read_any(
@@ -1037,6 +1126,10 @@ class BaseReader(ABC):
                     return self.read_tar(obj, limit=limit, attrs=attrs)
                 if isinstance(obj, str) and obj.startswith("ftp://"):
                     return self.read_ftp(
+                        obj, parallel=parallel, limit=limit, attrs=attrs
+                    )
+                elif isinstance(obj, str) and obj.startswith("gs://"):
+                    return self.read_gs(
                         obj, parallel=parallel, limit=limit, attrs=attrs
                     )
             except TypeError:
@@ -1640,3 +1733,170 @@ def is_dir(path: os.PathLike) -> bool:
     path = path.split("*")[0]
 
     return os.path.isdir(path)
+
+
+def get_gs_filesystem():
+    """Get global gcsfs filesystem, initializing if necessary."""
+    try:
+        import gcsfs
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "The `gcsfs` package is required to read from Google "
+            "storage buckets. Please install it via `pip install gcsfs`."
+        )
+
+    # Initialise only once
+    global GCSFS_GLOBAL
+    if GCSFS_GLOBAL is None:
+        GCSFS_GLOBAL = gcsfs.GCSFileSystem(asynchronous=False)
+
+    return GCSFS_GLOBAL
+
+
+def parallel_read_gs(
+    read_fn,
+    gcsfs,
+    path,
+    file_ext,
+    limit=None,
+    parallel="auto",
+) -> List["core.NeuronList"]:
+    """Read neurons from an Google bucket, potentially in parallel.
+
+    Reader function must be picklable.
+
+    Parameters
+    ----------
+    read_fn :       Callable
+    gcsfs :         gcsfs.GCSFileSystem
+    path :          str | list thereof
+                    Path to directory, single file, or list of files inside
+                    the bucket.
+    file_ext :      str | callable
+                    File extension to search for - e.g. ".swc". `None` or `''`
+                    are interpreted as looking for filenames without extension.
+                    To include all files use `'*'`. Can also be callable that
+                    accepts a filename and returns True or False depending on
+                    if it should be included.
+    limit :         int | list | slice | str | None, optional
+                    Limit the number of files read from this directory.
+    parallel :      str | bool | int
+                    Number of threads:
+                     - "auto" or True for 20
+                     - int for number of threads
+                     - False for serial
+
+    Returns
+    -------
+    neurons :       list
+                    List of neurons read from the bucket.
+
+    """
+    if isinstance(path, str):
+        path = [path]
+
+    # Check if this is a single file
+    is_single_file = False
+    if isinstance(path, str) and "*" not in path:
+        if isinstance(file_ext, str) and path.endswith(file_ext):
+            is_single_file = True
+        elif callable(file_ext) and file_ext(path.rsplit("/", 1)[1]):
+            is_single_file = True
+
+    # Parse all paths
+    to_read = []
+    for p in path:
+        if not isinstance(p, str):
+            raise ValueError("All paths must be strings")
+
+        # If this is a file, add and continue
+        if "*" not in p:
+            if isinstance(file_ext, str) and p.endswith(file_ext):
+                to_read.append(p)
+                continue
+            elif callable(file_ext) and file_ext(p.rsplit("/", 1)[1]):
+                to_read.append(p)
+                continue
+
+        # Check if path contains a "*." pattern - e.g. something like "*_raw.swc"
+        pattern = None
+        if "*" in p:
+            p, pattern = p.rsplit("/", 1)
+
+        if not gcsfs.isdir(p):
+            raise ValueError(f"Path '{p}' is not a directory in the bucket")
+
+        content = gcsfs.ls(p.replace('gs://', ''), detail=False)
+
+        # Parse content into filenames
+        to_read = []
+        for line in content:
+            if not line:
+                continue
+            file = line.rsplit("/", 1)[-1].strip()
+            fp = f"{p}/{file}"
+
+            # If no pattern, just check extension
+            if not pattern:
+                if callable(file_ext):
+                    if file_ext(file):
+                        to_read.append(fp)
+                elif file_ext == "*":
+                    to_read.append(fp)
+                elif file_ext and file.endswith(file_ext):
+                    to_read.append(fp)
+            elif re.match(file, pattern):
+                to_read.append(fp)
+
+    if isinstance(limit, int):
+        to_read = to_read[:limit]
+    elif isinstance(limit, list):
+        to_read = [f for f in to_read if f in limit]
+    elif isinstance(limit, slice):
+        to_read = to_read[limit]
+    elif isinstance(limit, str):
+        # Check if limit is a regex
+        if rgx.search(limit):
+            to_read = [f for f in to_read if re.search(limit, f)]
+        else:
+            to_read = [f for f in to_read if limit in f]
+
+    if not to_read:
+        return []
+
+    prog = partial(
+        config.tqdm,
+        desc="Reading",
+        total=len(to_read),
+        disable=config.pbar_hide,
+        leave=config.pbar_leave,
+    )
+
+    # `parallel` can be ("auto", threshold) in which case `threshold`
+    # determines at what length we use parallel processing
+    if isinstance(parallel, tuple):
+        parallel, threshold = parallel
+    else:
+        threshold = 5 # GS reading is fast, so lower threshold
+
+    if (
+        isinstance(parallel, str)
+        and parallel.lower() == "auto"
+        and len(to_read) < threshold
+    ):
+        parallel = False
+
+    if parallel:
+        # Do not swap this as `isinstance(True, int)` returns `True`
+        if isinstance(parallel, (bool, str)):
+            n_threads = 20
+        else:
+            n_threads = int(parallel)
+
+        with ThreadPoolExecutor(max_workers=n_threads) as executor:
+            results = executor.map(partial(read_fn, gcsfs=gcsfs), to_read)
+            neurons = list(prog(results))
+    else:
+        neurons = [read_fn(file, gcsfs=gcsfs) for file in prog(to_read)]
+
+    return neurons
