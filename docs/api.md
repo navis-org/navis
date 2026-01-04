@@ -479,6 +479,7 @@ High-level functions:
 | [`navis.transforms.ElastixTransform`][] | {{ autosummary("navis.transforms.ElastixTransform") }} |
 | [`navis.transforms.CMTKtransform`][] | {{ autosummary("navis.transforms.CMTKtransform") }} |
 | [`navis.transforms.H5transform`][] | {{ autosummary("navis.transforms.H5transform") }} |
+| [`navis.transforms.GridTransform`][] | {{ autosummary("navis.transforms.GridTransform") }} |
 | [`navis.transforms.TPStransform`][] | {{ autosummary("navis.transforms.TPStransform") }} |
 | [`navis.transforms.AliasTransform`][] | {{ autosummary("navis.transforms.AliasTransform") }} |
 | [`navis.transforms.MovingLeastSquaresTransform`][] | {{ autosummary("navis.transforms.MovingLeastSquaresTransform") }} |
