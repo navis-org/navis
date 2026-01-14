@@ -470,25 +470,37 @@ class CMTKtransform(BaseTransform):
         -------
         np.ndarray | None
                     If out is None, returns the transformed image as np.ndarray. Otherwise, None.
-        
+
         """
-        assert interpolation in ("linear", "nn", "cubic", "pv", "sinc-cosine", "sinc-hamming")
+        assert interpolation in (
+            "linear",
+            "nn",
+            "cubic",
+            "pv",
+            "sinc-cosine",
+            "sinc-hamming",
+        )
 
         # `reformatx` expects this format:
-        # ./reformatx --floating {INPUT_FILE} -o {OUTPUT_FILE} {REFERENCE_SPECS} {TRANSFORMS} 
+        # ./reformatx --floating {INPUT_FILE} -o {OUTPUT_FILE} {REFERENCE_SPECS} {TRANSFORMS}
         # where:
         # - {INPUT_FILE} is the image to transform
         # - {OUTPUT_FILE} is where the output will be saved
-        # - {REFERENCE_SPECS} defines the target space; this needs to be eitheran NRRD
-        #   file from which CMTK can extract the target grid or the actual specs: 
+        # - {REFERENCE_SPECS} defines the target space; this needs to be either a NRRD
+        #   file from which CMTK can extract the target grid or the actual specs:
         #   "--target-grid Nx,Ny,Nz:dX,dY,dZ:[Ox,Oy,Oz]" where N is the number of
         #   voxels in each dimension and d is the voxel size. The optional O is the
         #   origin of the image. If not provided, it is assumed to be (0, 0, 0).
         # - {TRANSFORMS} are the CMTK transform(s) to apply; prefix with "--inverse" to invert
         # Below command works to convert JFRC2 to FCWB:
-        # /opt/local/lib/cmtk/bin/reformatx --verbose --floating JFRC2.nrrd -o JFRC2_xf.nrrd FCWB.nrrd --inverse /Users/philipps/flybrain-data/BridgingRegistrations/JFRC2_FCWB.list
-        # This took XX minutes - should check if that is actually faster than the look-up approach we 
-        # use in `images.py`
+        # /opt/local/lib/cmtk/bin/reformatx --verbose --floating JFRC2.nrrd -o JFRC2_xf.nrrd FCWB.nrrd ~/flybrain-data/BridgingRegistrations/FCWB_JFRC2.list
+        # This took 2min 28s - should check if that is actually faster than the look-up approach we use in `images.py`
+        # Note that inversion of transforms always comes with an overhead! When using the inverse transform instead, the above command took 2h 40min!
+
+        if verbose and any((d == "inverse " for d in self.directions)):
+            config.logger.warning(
+                "Using inverse CMTK transforms with reformatx can be very slow! If possible, consider using only forward transforms."
+            )
 
         target_specs = parse_target_specs(target)
 
@@ -500,30 +512,30 @@ class CMTKtransform(BaseTransform):
         elif isinstance(im, np.ndarray):
             assert im.ndim == 3
             # Save to temporary file
-            with tempfile.NamedTemporaryFile(suffix=".nrrd", delete=False, delete_on_close=False) as tf:
+            with tempfile.NamedTemporaryFile(suffix=".nrrd", delete=False) as tf:
                 nrrd.write(tf.name, im)
                 floating = tf.name
                 to_remove.append(tf.name)
         else:
             raise ValueError(f"Invalid image type: {type(im)}")
-        
+
         if out is None:
-            outfile = tempfile.NamedTemporaryFile(suffix=".nrrd", delete=False, delete_on_close=False).name
+            outfile = tempfile.NamedTemporaryFile(suffix=".nrrd", delete=False).name
             to_remove.append(outfile)
         elif isinstance(out, (str, pathlib.Path)):
             outfile = pathlib.Path(out).resolve()
         else:
             raise ValueError(f"Invalid output type: {type(out)}")
-        
-        # Compile the command 
-        args = [str(_cmtkbin / 'reformatx')]
-        args += [f'-o {outfile}']
-        args += [f'--floating {floating}']
-        args += [f'--{interpolation}']
+
+        # Compile the command
+        args = [str(_cmtkbin / "reformatx")]
+        args += [f"-o {outfile}"]
+        args += [f"--floating {floating}"]
+        args += [f"--{interpolation}"]
         args += [target_specs]
 
         # Add the regargs
-        args += self.regargs      
+        args += self.regargs
 
         try:
             # run the binary
@@ -546,7 +558,7 @@ class CMTKtransform(BaseTransform):
                     stdout=stdout,
                     stderr=subprocess.STDOUT,
                     startupinfo=startupinfo,
-                )  
+                )
 
             if out is None:
                 # Return transformed image
@@ -554,40 +566,46 @@ class CMTKtransform(BaseTransform):
             elif verbose:
                 config.logger.info(f"Transformed image saved to {outfile}")
         except BaseException:
-            raise 
+            raise
         finally:
             # Clean up temporary files
             for f in to_remove:
-                os.remove(f) 
-        
+                os.remove(f)
+
 
 def parse_target_specs(target):
     """Parse target specs into argument that can be passed to CMTK."""
     # Note to self: this function should also deal with VoxelNeurons and NRRD filepaths
     # For NRRD filepaths: we need to add an empty "--" before the filepath (I think)
 
-    from .templates import TemplateBrain
+    from .templates import TemplateBrain  # avoid circular import
 
     assert isinstance(target, (str, TemplateBrain, np.ndarray, list, tuple))
 
     if isinstance(target, str):
-        from . import registry 
+        from . import registry
+
         target = registry.find_template(target)
-    
+
     if isinstance(target, TemplateBrain):
         specs = list(target.dims) + list(target.voxdims)
-        # Note to self: need to check TemplateBrain (and flybrains) consistent definition of 
+        # Note to self: need to check TemplateBrain (and flybrains) consistent definition of
         # dims, voxdims and origin (maybe even add origin)
 
-    # At this point we expect specs to be an iterable      
+    # At this point we expect specs to be an iterable
     specs = np.asarray(target)
-    assert len(specs) in (6, 9), f"Target specs must be of length 6 or 9, got {len(specs)}"    
+    assert len(specs) in (
+        6,
+        9,
+    ), f"Target specs must be of length 6 or 9, got {len(specs)}"
     target = "--target-grid "
-    target += ",".join(map(str, specs[:3].astype(int)))  # Number of voxels (must be integer)
+    target += ",".join(
+        map(str, specs[:3].astype(int))
+    )  # Number of voxels (must be integer)
     target += ":"
-    target += ",".join(map(str, specs[3:].astype(float))) # Voxel size (can be float)
+    target += ",".join(map(str, specs[3:].astype(float)))  # Voxel size (can be float)
     if len(specs) == 9:
         target += ":"
-        target += ",".join(map(str, specs[6:].astype(float))) # Origin (can be float)
+        target += ",".join(map(str, specs[6:].astype(float)))  # Origin (can be float)
 
     return target
