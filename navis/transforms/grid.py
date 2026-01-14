@@ -22,6 +22,7 @@ from pathlib import Path
 from scipy.interpolate import RegularGridInterpolator
 
 from .base import BaseTransform
+from .affine import AffineTransform
 
 from .. import config
 
@@ -51,13 +52,21 @@ class GridTransform(BaseTransform):
         assert (
             field.ndim == 4 and field.shape[-1] == 3
         ), "Field must be a 4D numpy array with the last dimension of size 3."
-        assert type in ("coordinates", "offsets"), (
-            "type must be 'coordinates' or 'offsets'."
-        )
+        assert type in (
+            "coordinates",
+            "offsets",
+        ), "type must be 'coordinates' or 'offsets'."
         self.field = field
         self.type = type
         self.shape = field.shape
         self.dtype = field.dtype
+
+        # Calculate the affine part as the mean displacement across the field
+        self.affine = AffineTransform(np.eye(4))
+        mean_disp = np.mean(
+            self.field.reshape(-1, 3), axis=0
+        )  # mean displacement in x/y/z
+        self.affine.matrix[0:3, 3] = mean_disp
 
     def __eq__(self, other) -> bool:
         """Compare with other Transform."""
@@ -71,16 +80,14 @@ class GridTransform(BaseTransform):
         # Note to future self: we could implement this by computing the inverse
         # deformation field using fixed-point iteration, but that's
         # non-trivial and not needed right now.
-        raise NotImplementedError(
-            "Inversion of GridTransform is not implemented."
-        )
+        raise NotImplementedError("Inversion of GridTransform is not implemented.")
 
     def copy(self, copy_data: bool = False) -> "GridTransform":
         """Return copy."""
         if copy_data:
-            return GridTransform(self.field.copy())
+            return GridTransform(self.field.copy(), type=self.type)
         else:
-            return GridTransform(self.field)
+            return GridTransform(self.field, type=self.type)
 
     @classmethod
     def from_file(cls, filepath: str) -> "GridTransform":
@@ -130,7 +137,7 @@ class GridTransform(BaseTransform):
     def xform(
         self,
         points: np.ndarray,
-        out_of_bounds: str = "nan",
+        affine_fallback: bool = False,
     ) -> np.ndarray:
         """Xform data.
 
@@ -140,15 +147,17 @@ class GridTransform(BaseTransform):
                             Points to xform. DataFrame must have x/y/z columns.
                             Coordinates are expected to be in voxel space matching
                             the resolution of the deformation field.
-        out_of_bounds :     "nan" | "raise"
-                            How to handle points outside the deformation field.
-                            "nan": points outside the field will be set to np.nan
-                            "raise": raise an error if any point is outside the field
+        affine_fallback :   bool
+                            If True, points that are outside the deformation field
+                            will be transformed using an affine transform defined
+                            by the mean displacement of the field. If False, points
+                            outside the field will be set to np.nan.
 
         Returns
         -------
-        pointsxf :      (N, 3) numpy array
-                        Transformed points.
+        pointsxf :          (N, 3) numpy.ndarray
+                            Transformed points. Will contain `np.nan` for points
+                            that did not transform.
 
         """
         if isinstance(points, pd.DataFrame):
@@ -178,7 +187,7 @@ class GridTransform(BaseTransform):
         yy = np.arange(0, self.shape[1])
         zz = np.arange(0, self.shape[2])
 
-        # The RegularGridInterpolator is the fastest one but the results are
+        # The RegularGridInterpolator is the fastest but the results are
         # are ever so slightly (4th decimal) different from the Java implementation
         xinterp = RegularGridInterpolator(
             (xx, yy, zz), xgrid, bounds_error=False, fill_value=0
@@ -190,45 +199,33 @@ class GridTransform(BaseTransform):
             (xx, yy, zz), zgrid, bounds_error=False, fill_value=0
         )
 
-        # Before we interpolate check how many points are outside the
-        # deformation field -> these will only receive the affine part of the
-        # transform
-        is_out = (points.min(axis=1) < 0) | np.any(
-            points >= self.shape[:-1], axis=1
-        )
-
-        if is_out.any():
-            frac_out = is_out.sum() / points.shape[0]
-            if out_of_bounds == "raise":
-                raise ValueError(
-                    f"{is_out.sum()} points ({frac_out:.1%}) are outside "
-                    "the deformation field."
-                )
-            else:
-                logger.warning(
-                    f"{is_out.sum()} points ({frac_out:.1%}) are outside "
-                    "the deformation field and will be set to np.nan."
-                )
-
-        if is_out.all():
-            return np.full(points.shape, np.nan)
+        # Before we interpolate check how many points are outside the deformation field
+        is_out = (points.min(axis=1) < 0) | np.any(points >= self.shape[:-1], axis=1)
 
         # Prepare output array
-        if self.type == 'coordinates':
+        if self.type == "coordinates":
             points_xf = np.zeros(points.shape, dtype=self.dtype)
-            points_xf[is_out, :] = np.nan
         else:  # offsets
-            points_xf = points.astype(self.dtype)
-            points_xf[is_out, :] = np.nan
+            points_xf = points.astype(self.dtype, copy=True)
+
+        if is_out.any():
+            if not affine_fallback:
+                points_xf[is_out, :] = np.nan
+            else:
+                # Apply affine part to out-of-bounds points
+                points_xf[is_out, :] = self.affine.xform(
+                    points[is_out, :],
+                )
 
         # Interpolate coordinates, re-combine to an x/y/z array and
         # add to the input points (if coordinates, the points are zeroed out above)
-        points_xf[~is_out, :] += np.vstack(
-            (
-                xinterp(points[~is_out, :], method="linear"),
-                yinterp(points[~is_out, :], method="linear"),
-                zinterp(points[~is_out, :], method="linear"),
-            )
-        ).T
+        if not is_out.all():
+            points_xf[~is_out, :] += np.vstack(
+                (
+                    xinterp(points[~is_out, :], method="linear"),
+                    yinterp(points[~is_out, :], method="linear"),
+                    zinterp(points[~is_out, :], method="linear"),
+                )
+            ).T
 
         return points_xf
