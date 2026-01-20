@@ -592,6 +592,8 @@ class NeuronList:
               func: Callable,
               *,
               parallel: bool = False,
+              backend: str = "auto",
+              chunksize: Union[int, str] = "auto",
               n_cores: int = os.cpu_count() // 2,
               omit_failures: bool = False,
               **kwargs):
@@ -636,6 +638,8 @@ class NeuronList:
         proc = NeuronProcessor(self,
                                func,
                                parallel=parallel,
+                               backend=backend,
+                               chunksize=chunksize,
                                n_cores=n_cores,
                                omit_failures=omit_failures,
                                desc=f'Apply {func.__name__}')

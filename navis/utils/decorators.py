@@ -175,8 +175,6 @@ def map_neuronlist(
                     kwargs["inplace"] = True
 
                 # Prepare processor
-                n_cores = kwargs.pop("n_cores", os.cpu_count() // 2)
-                chunksize = kwargs.pop("chunksize", 1)
                 excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
                 proc = core.NeuronProcessor(
                     nl,
@@ -185,10 +183,11 @@ def map_neuronlist(
                     desc=desc,
                     warn_inplace=False,
                     progress=kwargs.pop("progress", True),
+                    backend=kwargs.pop("backend", "auto"),
                     omit_failures=kwargs.pop("omit_failures", False),
-                    chunksize=chunksize,
+                    chunksize=kwargs.pop("chunksize", "auto"),
                     exclude_zip=excl,
-                    n_cores=n_cores,
+                    n_cores=kwargs.pop("n_cores", os.cpu_count() // 2),
                 )
                 # Apply function
                 res = proc(nl, *args, **kwargs)
@@ -222,8 +221,8 @@ def map_neuronlist_df(
 ):
     """Decorate function to run on all neurons in the NeuronList.
 
-    This version of the decorator is meant for functions that return a
-    DataFrame. This decorator will add a `neuron` column with the respective
+    This version of the parallelization decorator is meant for functions that return
+    a DataFrame. This decorator will add a `neuron` column with the respective
     neuron's ID and will then concatenate the dataframes.
 
     Parameters
@@ -295,8 +294,6 @@ def map_neuronlist_df(
                     _ = kwargs.pop(nl_key)
 
                 # Prepare processor
-                n_cores = kwargs.pop("n_cores", os.cpu_count() // 2)
-                chunksize = kwargs.pop("chunksize", 1)
                 excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
                 proc = core.NeuronProcessor(
                     nl,
@@ -306,9 +303,10 @@ def map_neuronlist_df(
                     warn_inplace=False,
                     progress=kwargs.pop("progress", True),
                     omit_failures=kwargs.pop("omit_failures", False),
-                    chunksize=chunksize,
+                    chunksize=kwargs.pop("chunksize", "auto"),
                     exclude_zip=excl,
-                    n_cores=n_cores,
+                    backend=kwargs.pop("backend", "auto"),
+                    n_cores=kwargs.pop("n_cores", os.cpu_count() // 2),
                 )
                 # Apply function
                 res = proc(nl, *args, **kwargs)
@@ -362,23 +360,27 @@ def map_neuronlist_update_docstring(func, allow_parallel):
 
     msg = ""
     if allow_parallel:
-        msg += dedent(f"""\
+        msg += dedent(
+            f"""\
         parallel :{" " * (offset - 10)}bool
                   {" " * (offset - 10)}If True and input is NeuronList, use parallel
                   {" " * (offset - 10)}processing. Requires `pathos`.
         n_cores : {" " * (offset - 10)}int, optional
                   {" " * (offset - 10)}Numbers of cores to use if `parallel=True`.
                   {" " * (offset - 10)}Defaults to half the available cores.
-        """)
+        """
+        )
 
-    msg += dedent(f"""\
+    msg += dedent(
+        f"""\
     progress :{" " * (offset - 10)}bool
               {" " * (offset - 10)}Whether to show a progress bar. Overruled by
               {" " * (offset - 10)}`navis.set_pbars`.
     omit_failures :{" " * (offset - 15)}bool
                    {" " * (offset - 15)}If True will omit failures instead of raising
                    {" " * (offset - 15)}an exception. Ignored if input is single neuron.
-    """)
+    """
+    )
 
     # Insert new docstring
     lines.insert(lastp, indent(msg, wspaces))

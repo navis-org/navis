@@ -5,15 +5,23 @@ Multiprocessing
 This notebook will show you how to use parallel processing with `navis`.
 
 By default, most {{ navis }} functions use only a single thread/process (although some third-party functions
-used under the hood might). Distributing expensive computations across multiple cores can speed things up considerable.
+used under the hood might use more). Distributing expensive computations across multiple cores can speed things
+up considerable.
 
 Many {{ navis }} functions natively support parallel processing. This notebook will illustrate various ways
-to use parallelism. Before we get start: {{ navis }} uses `pathos` for multiprocessing - if you installed
-{{ navis }} with `pip install navis[all]` you should be all set. If not, you can install `pathos` separately:
+to use parallelism. Before we get started: by default, {{ navis }} uses `joblib` as backend for multiprocessing.
+However, you can also use `pathos` as an alternative. If you installed {{ navis }} with `pip install navis[all]`
+you should be all set to use either. If not, you can install the packages separately:
 
 ```shell
+pip install joblib tqdm-joblib -U
 pip install pathos -U
 ```
+
+!!! tip
+    Parallel processing incurs overhead: we have to spawn additional processes and move data between the main
+    & the worker processes. If you have fast single-core performance and/or small tasks, that overhead might outweigh
+    the benefits of parallelism. See also additional notes at the bottom of this tutorial.
 
 ## Running {{ navis }} functions in parallel
 
@@ -36,7 +44,7 @@ nl = navis.example_neurons()
 # %%
 # !!! important
 #     This documentation is built on Github Actions where the number of cores can be as low as 2. The speedup on
-#     your machine should be more pronounced than what you see below. That said: parallel processing has some
+#     your machine should be more pronounced than the times you see below. That said: parallel processing has some
 #     overhead and for small tasks the overhead can be larger than the speed-up.
 
 # %%
@@ -88,6 +96,17 @@ time_func (
 #     slowing things down.
 
 # %%
+# Additional parameters for controlling parallelism:
+# - `backend`: either "auto" (default), "joblib", or "pathos". This determines which parallel processing
+#   backend to use. "auto" will pick "joblib" if available, otherwise "pathos". Note: `joblib` is compatible
+#   with Dask to run on clusters. See the joblib documentation for details on how to set that up and then
+#   use `backend="joblib:dask"` in {{ navis }}.
+# - `chunksize`: either "auto" (default) or an integer. This determines the number of neurons
+#   that will be processed per worker in each batch. "auto" will pick a chunksize that tries to balance
+#   load across workers while minimizing overhead. You can also set a fixed chunksize
+#   (e.g. `chunksize=10`).
+
+# %%
 # ## Parallelizing generic functions
 #
 # For non-{{ navis }} function you can use [`NeuronList.apply`][navis.NeuronList.apply] to parallelize them.
@@ -114,5 +133,10 @@ time_func (
     nl.apply, my_func, parallel=True
 )
 
+"""
+## A note on free-threading
 
-
+With version 3.13, Python introduced a free-threading build where the Global Interpreter Lock (GIL) is removed.
+In theory, this would allow true multi-threading in Python and make parallel processing with threads much more efficient.
+However, as of late 2025, many of the libraries used by {{ navis }} (e.g. `igraph`) do not yet support free-threading.
+"""
