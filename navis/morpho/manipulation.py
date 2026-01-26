@@ -1971,7 +1971,7 @@ def heal_skeleton(
     return x
 
 
-def _stitch_mst(
+def _stitch_mst_old(
     x: "core.TreeNeuron",
     nodes: Union[Literal["LEAFS"], Literal["ALL"], list] = "ALL",
     max_dist: Optional[float] = np.inf,
@@ -1979,35 +1979,7 @@ def _stitch_mst(
     mask: Optional[Sequence] = None,
     inplace: bool = False,
 ) -> Optional["core.TreeNeuron"]:
-    """Stitch disconnected neuron using a minimum spanning tree.
-
-    Parameters
-    ----------
-    x :             TreeNeuron
-                    Neuron to stitch.
-    nodes :         "ALL" | "LEAFS" | list of IDs
-                    Nodes that can be used to stitch the neuron. Can be "ALL"
-                    nodes, just "LEAFS".
-    max_dist :      int | float | str
-                    If given, will only connect fragments if they are within
-                    `max_distance`. Use this to prevent the creation of
-                    unrealistic edges.
-    min_size :      int, optional
-                    Minimum size in nodes for fragments to be reattached.
-                    Fragments smaller than `min_size` will be ignored during
-                    stitching and hence remain disconnected.
-    mask :          list-like, optional
-                    Either a boolean mask or a list of node IDs. If provided
-                    will only heal breaks between these nodes.
-    inplace :       bool
-                    If True, will stitch the original neuron in place.
-
-    Return
-    ------
-    TreeNeuron
-                    Only if `inplace=True`.
-
-    """
+    """THIS FUNCTION IS DEPCRECATED. USE `_stitch_mst` INSTEAD."""
     assert isinstance(x, core.TreeNeuron)
     # Code modified from neuprint-python:
     # https://github.com/connectome-neuprint/neuprint-python
@@ -2019,7 +1991,7 @@ def _stitch_mst(
         if mask.dtype == bool:
             if len(mask) != len(x.nodes):
                 raise ValueError(
-                    "Length of boolean mask must match number of " "nodes in the neuron"
+                    "Length of boolean mask must match number of nodes in the neuron"
                 )
             mask = x.nodes.node_id.values[mask]
 
@@ -2115,6 +2087,188 @@ def _stitch_mst(
 
     # Rewire based on graph
     return graph.rewire_skeleton(x, g, inplace=inplace)
+
+
+def _stitch_mst(
+    x: "core.TreeNeuron",
+    nodes: Union[Literal["LEAFS"], Literal["ALL"], list] = "ALL",
+    max_dist: Optional[float] = np.inf,
+    min_size: Optional[float] = None,
+    use_radius: Union[bool, float] = False,
+    mask: Optional[Sequence] = None,
+    inplace: bool = False,
+) -> Optional["core.TreeNeuron"]:
+    """Stitch disconnected neuron using a minimum spanning tree.
+
+    Parameters
+    ----------
+    x :             TreeNeuron
+                    Neuron to stitch.
+    nodes :         "ALL" | "LEAFS" | list of IDs
+                    Nodes that can be used to stitch the neuron. Can be "ALL"
+                    nodes, just "LEAFS".
+    max_dist :      int | float | str
+                    If given, will only connect fragments if they are within
+                    `max_distance`. Use this to prevent the creation of
+                    unrealistic edges.
+    min_size :      int, optional
+                    Minimum size in nodes for fragments to be reattached.
+                    Fragments smaller than `min_size` will be ignored during
+                    stitching and hence remain disconnected.
+    use_radius :    bool | float
+                    Whether to use the radius of nodes when calculating distances.
+                    That way, nodes with similar radii will be preferred for stitching.
+                    If float, will be used as a scaling factor for the radius:
+                    higher values increase the influence of radius on distance calculation.
+                    To make this more robust, we use the average radius of the segment each
+                    node belongs to.
+    mask :          list-like, optional
+                    Either a boolean mask or a list of node IDs. If provided
+                    will only heal breaks between these nodes.
+    inplace :       bool
+                    If True, will stitch the original neuron in place.
+
+    Return
+    ------
+    TreeNeuron
+                    Only if `inplace=True`.
+
+    """
+    assert isinstance(x, core.TreeNeuron)
+    assert nodes in ("ALL", "LEAFS")
+    if max_dist is True or not max_dist:
+        max_dist = np.inf
+
+    if not isinstance(mask, type(None)):
+        mask = np.asarray(mask)
+        if mask.dtype == bool:
+            if len(mask) != len(x.nodes):
+                raise ValueError(
+                    "Length of boolean mask must match number of nodes in the neuron"
+                )
+            mask = x.nodes.node_id.values[mask]
+
+    # Get connected components
+    cc = graph._connected_components(x)
+    if len(cc) == 1:
+        # There's only one component -- no healing necessary
+        return x
+
+    # Turn into a dictionary node -> component
+    cc = {n: i for i, c in enumerate(cc) for n in c}
+
+    # Turn into a Series
+    cc = x.nodes.node_id.map(cc)
+
+    to_use = x.nodes
+    # Drop fragments smaller than threshold
+    if not isinstance(min_size, type(None)):
+        sizes = cc.value_counts()
+        above = sizes[sizes >= min_size].index
+        to_use = to_use[cc.isin(above)]
+        cc = cc[cc.isin(above)]
+
+    # Filter to leaf nodes if applicable
+    if nodes == "LEAFS":
+        keep = to_use["type"].isin(["end", "root"]).values
+        to_use = to_use.iloc[keep]
+        cc = cc.iloc[keep]
+
+    # If mask, drop everything that is not in the mask
+    if not isinstance(mask, type(None)):
+        keep = to_use.node_id.isin(mask)
+        to_use = to_use.iloc[keep]
+        cc = cc.iloc[keep]
+
+    # Prepare the data
+    cols_to_use = ["x", "y", "z"]
+    if use_radius:
+        if "radius" not in x.nodes.columns:
+            raise ValueError(
+                "Neuron must have a `radius` column for the `use_radius` option"
+            )
+        # Dictionary mapping node to average radius of its segment
+        rad = dict(zip(x.nodes.node_id.values, x.nodes.radius.values))
+        seg_rad = {}
+        for seg in x.small_segments:
+            rad_mean = np.mean([rad[node] for node in seg]) * float(use_radius)
+            seg_rad.update({node: rad_mean for node in seg})
+
+        # Add segment radius column
+        # Note: isolated nodes will not have a segment radius - we will fall back
+        # to their own radius, and if that is also missing, to 0
+        to_use["radius_seg"] = to_use.node_id.map(seg_rad).fillna(
+            rad
+        ).fillna(0)
+        cols_to_use.append("radius_seg")
+
+    # Collect fragments
+    Fragment = namedtuple("Fragment", ["frag_id", "node_ids", "kd"])
+    fragments = []
+    for frag_id, df in to_use.groupby(cc):
+        kd = KDTree(df[cols_to_use].values)
+        fragments.append(Fragment(frag_id, df.node_id.values, kd))
+
+    # Sort nodes by connected component for faster masking later
+    to_use_srt = np.argsort(cc.values)
+
+    # Sort nodes to match connected component order
+    to_use = to_use.iloc[to_use_srt]
+    to_use_co = to_use[cols_to_use].values
+    to_use_ids = to_use.node_id.values
+
+    # Determine cc boundaries
+    cc = cc.iloc[to_use_srt]
+    cc_bounds = np.unique(cc.values, return_index=True)[1]
+
+    # Precompute splits for node IDs in each fragment
+    to_use_ids_split = np.split(to_use_ids, cc_bounds[1:])
+
+    # Now generate the graph
+    frag_graph = nx.Graph()
+    for i, frag_nodes, tree in fragments:
+        # Find the closest point in this fragment to any other leaf node
+        # dist: distances to closest point
+        # idsx: index of closest point in this fragment for each leaf node
+        dist, idsx = tree.query(to_use_co, distance_upper_bound=max_dist)
+
+        # Split into one array per connected components
+        dist_split = np.split(dist, cc_bounds[1:])
+        idsx_split = np.split(idsx, cc_bounds[1:])
+
+        for j, (dy, idsy) in enumerate(zip(dist_split, idsx_split)):
+            # Skip same fragment
+            if i == j:
+                continue
+
+            # Find index of minimum distance
+            d_min_idx = np.argmin(dy)
+            d_min = dy[d_min_idx]
+            if d_min == np.inf:  # no connection found
+                continue
+
+            # Add edge from one fragment to another,
+            # but keep track of which fine-grained skeleton
+            # nodes were used to calculate distance.
+            frag_graph.add_edge(
+                i,
+                j,
+                node_a=frag_nodes[idsy[d_min_idx]],
+                node_b=to_use_ids_split[j][d_min_idx],
+                distance=d_min,
+            )
+
+    # Calculate the minimum spanning tree of the fragment graph
+    frag_edges = nx.minimum_spanning_edges(frag_graph, weight="distance", data=True)
+
+    # For each inter-fragment edge, add the corresponding
+    # fine-grained edge between skeleton nodes in the original graph.
+    G = x.graph.to_undirected()
+    to_add = [[e[2]["node_a"], e[2]["node_b"]] for e in frag_edges]
+    G.add_edges_from(to_add)
+
+    # Rewire based on graph
+    return graph.rewire_skeleton(x, G, inplace=inplace)
 
 
 @utils.map_neuronlist(desc="Pruning", must_zip=["source"], allow_parallel=True)
