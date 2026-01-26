@@ -216,7 +216,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
         wanted_ids = utils.make_iterable(x)
 
     # Fetch names, etc
-    meta, roi_info = fetch_neurons(query, client=client)
+    meta = fetch_neurons(query, client=client, omit_rois=True)
 
     if meta.empty:
         raise ValueError('No neurons matching the given criteria found!')
@@ -226,20 +226,8 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
             logger.warning(f'Skipping {len(miss)} body IDs that were not found: '
                            f'{", ".join(miss.astype(str))}')
 
-    # Make sure there is a somaLocation and somaRadius column
-    if 'somaLocation' not in meta.columns:
-        meta['somaLocation'] = None
-    if 'somaRadius' not in meta.columns:
-        meta['somaRadius'] = None
-    # Backfill from tosomaLocation if available
-    if "tosomaLocation" in meta.columns:
-        meta['somaLocation'] = meta.somaLocation.fillna(meta.tosomaLocation)
-
-    # Prevent an issue when somaLocation is returned as string:
-    # "Point{SpatialRefId=9157, X=48556.000000, Y=43018.000000, Z=37620.000000}"
-    if isinstance(meta.somaLocation.values[0], str):
-        if meta.somaLocation.values[0].startswith('Point'):
-            meta['somaLocation'] = meta.somaLocation.str.extract(r'X=(\d+.\d+), Y=(\d+.\d+), Z=(\d+.\d+)').values.astype(float).tolist()
+    # Apply a small number of potential fixes to the meta data
+    meta = _fix_meta(meta)
 
     if isinstance(seg_source, str) and seg_source.startswith('dvid'):
         # Fetch the meshes
@@ -409,7 +397,7 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
         wanted_ids = utils.make_iterable(x)
 
     # Fetch names, etc
-    meta, roi_info = fetch_neurons(query, client=client)
+    meta = fetch_neurons(query, client=client, omit_rois=True)
 
     if meta.empty:
         raise ValueError('No neurons matching the given criteria found!')
@@ -419,20 +407,8 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
             logger.warning(f'Skipping {len(miss)} body IDs that were not found: '
                            f'{", ".join(miss.astype(str))}')
 
-    # Make sure there is a somaLocation and somaRadius column
-    if 'somaLocation' not in meta.columns:
-        meta['somaLocation'] = None
-    if 'somaRadius' not in meta.columns:
-        meta['somaRadius'] = None
-    # Backfill from tosomaLocation if available
-    if "tosomaLocation" in meta.columns:
-        meta['somaLocation'] = meta.somaLocation.fillna(meta.tosomaLocation)
-
-    # Prevent an issue when somaLocation is returned as string:
-    # "Point{SpatialRefId=9157, X=48556.000000, Y=43018.000000, Z=37620.000000}"
-    if isinstance(meta.somaLocation.values[0], str):
-        if meta.somaLocation.values[0].startswith('Point'):
-            meta['somaLocation'] = meta.somaLocation.str.extract(r'X=(\d+.\d+), Y=(\d+.\d+), Z=(\d+.\d+)').values.astype(float).tolist()
+    # Apply a small number of potential fixes to the meta data
+    meta = _fix_meta(meta)
 
     nl = []
     with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
@@ -647,3 +623,33 @@ def get_seg_source(*, client=None):
                        f'first entry: "{seg_source}"')
 
     return seg_source
+
+
+def _fix_meta(meta):
+    """Fix a number of potential issues with neuprint metadata."""
+    # Make sure there is a somaLocation and somaRadius column
+    if 'somaLocation' not in meta.columns:
+        meta['somaLocation'] = None
+    if 'somaRadius' not in meta.columns:
+        meta['somaRadius'] = None
+    # Backfill from tosomaLocation if available
+    if "tosomaLocation" in meta.columns:
+        meta['somaLocation'] = meta.somaLocation.fillna(meta.tosomaLocation)
+
+    # Fix coordinate columns
+    for col in ("somaLocation", "tosomaLocation"):
+        if col not in meta.columns:
+            continue
+
+        # Prevent an issue when coordinates are returned as string:
+        # "Point{SpatialRefId=9157, X=48556.000000, Y=43018.000000, Z=37620.000000}"
+        if isinstance(meta[col].values[0], str):
+            if meta[col].values[0].startswith('Point'):
+                meta[col] = meta[col].str.extract(r'X=(\d+.\d+), Y=(\d+.\d+), Z=(\d+.\d+)').values.astype(float).tolist()
+
+        # Prevent an issue when coordinates are returned as dict
+        if isinstance(meta[col].values[0], dict):
+            if "coordinates" in meta[col].values[0]:
+                meta[col] = meta[col].apply(lambda x: x['coordinates'])
+
+    return meta
