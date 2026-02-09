@@ -485,26 +485,222 @@ class CMTKtransform(BaseTransform):
                 xf[not_xf] = self.xform(points.loc[not_xf], affine_only=True)
 
         return xf
-    
-    def xform_image(self,
-                    im,
-                    target,
-                    out=None,
-                    interpolation="linear",                    
-                    verbose=False,
-                    ):
+
+    def to_grid_transform(self, template, absolute: bool = True, verbose: bool = False):
+        """Convert to GridTransform via dense deformation field.
+
+        Parameters
+        ----------
+        template :  str | TemplateBrain | (Nx, Ny, Nz, dx, dy, dz) tuple
+                    This defines the bounds and voxel size of the deformation
+                    field. Typically, this would correspond to the source space
+                    (i.e. the moving image). We can work with:
+                      - str: a filepath to a NRRD file
+                      - TemplateBrain: a navis TemplateBrain object
+                      - a tuple/list/array with (Nx, Ny, Nz, dx, dy, dz)
+                        where N is the number of voxels in each dimension
+                        and d is the voxel size.
+        absolute :  bool
+                    Whether to return absolute coordinates or offsets.
+        verbose :   bool
+                    Whether to print CMTK output.
+
+        Returns
+        -------
+        transform:  GridTransform
+                    A few notes on using the resulting GridTransform:
+                      1. The transform will expect input coordinates in voxel space.
+                         See the returned `voxel_size` array!
+                      2. The transformed coordinates, on the other hand, will already
+                         be in physical space (e.g. microns).
+        voxel_size :   (3,) numpy array
+                    The voxel size of the input space. This is important because
+                    the GridTransform will expect input coordinates in voxel
+                    space.
+        """
+        from .grid import GridTransform
+
+        dfield, header = self.to_dfield(
+            template, out=None, absolute=absolute, verbose=verbose
+        )
+
+        # Generate the transform
+        transform = GridTransform(
+            np.transpose(dfield, (1, 2, 3, 0)),
+            type="coordinates" if absolute else "offsets",
+        )
+        # Get voxel size from header - note that the first row is for the 4th dimension
+        # (i.e. the vector dimension of the offsets/coordinates) which we don't care about
+        space_dir = np.diagonal(header["space directions"][1:])
+
+        return transform, space_dir
+
+    def to_dfield(
+        self, template, out=None, absolute: bool = True, verbose: bool = False
+    ) -> np.ndarray:
+        """Convert transform to dense deformation field.
+
+        Parameters
+        ----------
+        template :  str | TemplateBrain | (Nx, Ny, Nz, dx, dy, dz) tuple
+                    This defines the bounds and voxel size of the deformation
+                    field. Typically, this would correspond to the source space
+                    (i.e. the moving image). We can work with:
+                      - str: a filepath to a NRRD file
+                      - TemplateBrain: a navis TemplateBrain object
+                      - a tuple/list/array with (Nx, Ny, Nz, dx, dy, dz)
+                        where N is the number of voxels in each dimension
+                        and d is the voxel size.
+        out :       str, optional
+                    NRRD filepath to save the deformation field. If None (default),
+                    the deformation field will be returned as numpy array.
+        absolute :  bool
+                    Whether to return absolute coordinates or offsets.
+        verbose :   bool
+                    Whether to print CMTK output.
+
+        Returns
+        -------
+        dfield :    np.ndarray
+                    The dense deformation field as (3, Nx, Ny, Nz) numpy array
+                    with either absolute coordinates or offsets where the
+                    first dimension contains the x/y/z coordinates. Note that
+                    the coordinates stored in the field are in physical space
+                    (e.g. microns), not voxel space.
+        header :    dict
+                    The NRRD header associated with the deformation field.
+
+
+        See Also
+        --------
+        CMTKtransform.to_grid_transform
+                    Method to directly convert to GridTransform. Please see
+                    that method's notes for details on how to handle the
+                    deformation field.
+
+        """
+        from .templates import TemplateBrain  # avoid circular import
+
+        # Translate template info into shape and voxel size
+        if isinstance(template, TemplateBrain):
+            if not hasattr(template, "dims") or not hasattr(template, "voxdims"):
+                raise ValueError(
+                    "TemplateBrain must have `dims` and `voxdims` attributes"
+                )
+            if len(template.dims) != 3 or len(template.voxdims) != 3:
+                raise ValueError(
+                    "TemplateBrain `dims` and `voxdims` must be of length 3"
+                )
+            template = list(template.dims) + list(template.voxdims)
+
+        to_remove = []  # track temporary files to clean up later
+
+        try:
+            if isinstance(template, str):
+                # Assume NRRD filepath
+                if not os.path.isfile(template):
+                    raise ValueError(f"Template file not found: {template}")
+                ref_image = template
+            elif isinstance(template, (tuple, list, np.ndarray)):
+                if len(template) != 6:
+                    raise ValueError(
+                        "`template` tuple/list/array must be of length 6: "
+                        "(Nx, Ny, Nz, dx, dy, dz)"
+                    )
+
+                # Create a temporary NRRD file to use as reference
+                # (we're using zeros because that's highly compressible)
+                im = np.zeros(np.array(template[:3]).astype(int), dtype=np.uint8)
+                header = {
+                    "space directions": np.diag(template[3:6]),
+                    "kinds": ["domain", "domain", "domain"],
+                    "space units": ["microns", "microns", "microns"],
+                    "space origin": [0.0, 0.0, 0.0],
+                    "labels": ["x", "y", "z"],
+                    "space dimension": 3,
+                }
+                with tempfile.NamedTemporaryFile(suffix=".nrrd", delete=False) as tf:
+                    nrrd.write(tf.name, im, header=header)
+                    to_remove.append(tf.name)
+                    ref_image = tf.name
+            else:
+                raise TypeError(
+                    f"`template` must be str, TemplateBrain or tuple, not {type(template)}"
+                )
+
+            if out is None:
+                outfile = tempfile.NamedTemporaryFile(suffix=".nrrd", delete=False).name
+                to_remove.append(outfile)
+            elif isinstance(out, (str, pathlib.Path)):
+                outfile = pathlib.Path(out).resolve()
+            else:
+                raise ValueError(f"Invalid output type: {type(out)}")
+
+            # Compile the command
+            args = [str(_cmtkbin / "xform2dfield")]
+
+            if absolute:
+                args += ["--output-absolute"]
+
+            args += [f"{outfile}"]
+            args += [f"{ref_image}"]
+            args += self.regargs
+
+            # run the binary
+            # avoid resourcewarnings with null
+            with open(os.devnull, "w") as devnull:
+                startupinfo = None
+                if platform.system() == "Windows":
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                if verbose:
+                    # in debug mode print the output
+                    stdout = None
+                else:
+                    stdout = devnull
+
+                if verbose:
+                    config.logger.info("executing: {}".format(" ".join(args)))
+                check_call(
+                    args,
+                    stdout=stdout,
+                    stderr=subprocess.STDOUT,
+                    startupinfo=startupinfo,
+                )
+
+            if out is None:
+                # Return transformed image
+                return nrrd.read(outfile)
+            elif verbose:
+                config.logger.info(f"Transformed image saved to {outfile}")
+
+        except BaseException:
+            raise
+        finally:
+            # Clean up temporary files
+            for f in to_remove:
+                os.remove(f)
+
+    def xform_image(
+        self,
+        im,
+        target,
+        out=None,
+        interpolation="linear",
+        verbose=False,
+    ):
         """Transform an image using CMTK's reformatx.
-        
-        Parameters 
+
+        Parameters
         ----------
         im :        3D numpy array | filepath
                     The floating image to transform.
         target :    str | TemplateBrain | (Nx, Ny, Nz, dx, dy, dz) | (Nx, Ny, Nz, dx, dy, dz, Ox, Oy, Oz)
-                    Defines the target image: dimensions in voxels (N), the voxel size (d) and optionally 
+                    Defines the target image: dimensions in voxels (N), the voxel size (d) and optionally
                     an origin (0) for the target image. Can be provided as a string (name of a template),
                     a TemplateBrain object, a tuple/list/array with the target specs.
         out :       str, optional
-                    The filepath to save the transformed image. If None (default), will return the 
+                    The filepath to save the transformed image. If None (default), will return the
                     transformed image as np.ndarray.
         interpolation : "linear" | "nn" | "cubic" | "pv" | "sinc-cosine" | "sinc-hamming"
                     The interpolation method to use.
