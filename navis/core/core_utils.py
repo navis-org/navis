@@ -541,7 +541,7 @@ class NeuronProcessor:
         failed = np.array([isinstance(r, FailedRun) for r in res])
         res = [r for r in res if not isinstance(r, FailedRun)]
         if any(failed):
-            logger.warn(f'{sum(failed)} of {len(self.funcs)} runs failed. '
+            logger.warning(f'{sum(failed)} of {len(self.funcs)} runs failed. '
                         'Set logging to debug (`navis.set_loggers("DEBUG")`) '
                         'or repeat with `omit_failures=False` for details.')
             failed_ids = self.nl.id[np.where(failed)].astype(str)
