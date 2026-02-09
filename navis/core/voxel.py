@@ -502,6 +502,29 @@ class VoxelNeuron(BaseNeuron):
         if not inplace:
             return x
 
+    def normalize(self, inplace=False) -> "VoxelNeuron":
+        """Normalize voxel values.
+
+        For float data, this scales values to the [0-1] range.
+        For integer data, this scales values to the [0-max]
+        range depending on the datatype.
+        """
+        mx = np.iinfo(self.dtype).max if np.issubdtype(self.dtype, np.integer) else 1.0
+
+        x = self
+        if not inplace:
+            x = x.copy()
+
+        if x._base_data_type == "grid":
+            x._data = (x._data / x._data.max()) * mx
+        else:
+            x._data = (x._data / x.values.max()) * mx
+
+        x._clear_temp_attr()
+
+        if not inplace:
+            return x
+
     def min(self) -> Union[int, float]:
         """Minimum value (excludes zeros)."""
         return self.values.min()
