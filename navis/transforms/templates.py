@@ -53,7 +53,9 @@ logger = config.get_logger(__name__)
 
 # Defines entry the registry needs to register a transform
 transform_reg = namedtuple(
-    "Transform", ["source", "target", "transform", "type", "invertible", "weight"]
+    "Transform",
+    ["source", "target", "transform", "type", "invertible", "weight", "weight_inv"],
+    defaults=[None],  # for weight_inv
 )
 
 # Check for environment variable pointing to registries
@@ -198,6 +200,7 @@ class TemplateRegistry:
         transform_type: str,
         skip_existing: bool = True,
         weight: int = 1,
+        weight_inv: Optional[int] = None,
     ):
         """Register a transform.
 
@@ -218,6 +221,10 @@ class TemplateRegistry:
         weight :            int
                             Giving a transform a lower weight will make it
                             preferable when plotting bridging sequences.
+        weight_inv :        int, optional
+                            Weight for inverse transform. If not given, will be
+                            set to same as `weight`.
+
 
         See Also
         --------
@@ -237,6 +244,7 @@ class TemplateRegistry:
             type=transform_type,
             invertible=hasattr(transform, "__neg__"),
             weight=weight,
+            weight_inv=weight_inv if weight_inv is not None else weight,
         )
 
         # Don't add if already exists
@@ -344,7 +352,8 @@ class TemplateRegistry:
         reciprocal :    bool | float
                         If True or float, will add forward and inverse edges for
                         transforms that are invertible. If float, the inverse
-                        edges' weights will be scaled by that factor.
+                        edges' weights will be scaled by that factor. Can
+                        be used to generally prefer forward transforms over inverse ones.
 
         Returns
         -------
@@ -385,7 +394,7 @@ class TemplateRegistry:
                         {
                             "transform": -t.transform,  # note inverse transform!
                             "type": str(type(t.transform)).split(".")[-1],
-                            "weight": t.weight * reciprocal,
+                            "weight": t.weight_inv * reciprocal,
                         },
                     )
                     for t in bridge_inv
@@ -398,7 +407,7 @@ class TemplateRegistry:
                         {
                             "transform": -t.transform,  # note inverse transform!
                             "type": str(type(t.transform)).split(".")[-1],
-                            "weight": t.weight,
+                            "weight": t.weight_inv,
                         },
                     )
                     for t in bridge_inv
