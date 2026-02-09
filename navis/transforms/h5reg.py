@@ -19,8 +19,9 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from scipy.interpolate import RegularGridInterpolator
 from typing import Union, Optional
+from scipy.ndimage import map_coordinates
+from scipy.interpolate import RegularGridInterpolator
 
 from .base import BaseTransform
 from .affine import AffineTransform
@@ -28,6 +29,10 @@ from .affine import AffineTransform
 from .. import config
 
 logger = config.get_logger(__name__)
+
+# Track if we already issued a warning about numba not being available
+# - we don't want to spam the user with this warning
+NUMBA_WARNING = False
 
 
 class H5transform(BaseTransform):
@@ -59,23 +64,27 @@ class H5transform(BaseTransform):
 
     """
 
-    def __init__(self, f: str,
-                 direction: str = 'forward',
-                 level: Optional[int] = -1,
-                 cache: bool = False,
-                 full_ingest: bool = False):
+    def __init__(
+        self,
+        f: str,
+        direction: str = "forward",
+        level: Optional[int] = -1,
+        cache: bool = False,
+        full_ingest: bool = False,
+    ):
         """Init class."""
-        assert direction in ('forward', 'inverse'), ('`direction` must be "forward"'
-                                                     f'or "inverse", not "{direction}"')
+        assert direction in ("forward", "inverse"), (
+            '`direction` must be "forward"' f'or "inverse", not "{direction}"'
+        )
 
         self.file = f
         self.direction = direction
-        self.field = {'forward': 'dfield', 'inverse': 'invdfield'}[direction]
+        self.field = {"forward": "dfield", "inverse": "invdfield"}[direction]
 
         # Trying to avoid the file repeatedly so we are making these initial
         # adjustments all in one go even though it would be more Pythonic to
         # delegate to property getter/setter methods
-        with h5py.File(self.file, 'r') as h5:
+        with h5py.File(self.file, "r") as h5:
             # Get the available levels
             available_levels = []
             for k in h5.keys():
@@ -97,7 +106,7 @@ class H5transform(BaseTransform):
                 self._level = str(level)
 
                 # Shape of deformation field
-                self.shape = h5[self.level][self.field].shape
+                self._shape = h5[self.level][self.field].shape
 
                 # Data type of deformation field
                 self.dtype = h5[self.level][self.field].dtype
@@ -106,13 +115,14 @@ class H5transform(BaseTransform):
                 self._level = None
 
                 # Shape of deformation field
-                self.shape = h5[self.field].shape
+                self._shape = h5[self.field].shape
 
                 # Data type of deformation field
                 self.dtype = h5[self.field].dtype
             else:
-                raise ValueError('Unable to parse deformation fields from '
-                                 f' {self.file}.')
+                raise ValueError(
+                    "Unable to parse deformation fields from " f" {self.file}."
+                )
 
         # Prepare cache if applicable
         if full_ingest:
@@ -130,17 +140,18 @@ class H5transform(BaseTransform):
                         return True
         return False
 
-    def __neg__(self) -> 'H5transform':
+    def __neg__(self) -> "H5transform":
         """Invert direction."""
         # Swap direction
-        new_direction = {'forward': 'inverse',
-                         'inverse': 'forward'}[self.direction]
+        new_direction = {"forward": "inverse", "inverse": "forward"}[self.direction]
         # We will re-iniatialize
-        x = H5transform(self.file,
-                        direction=new_direction,
-                        level=int(self.level) if self.level else None,
-                        cache=self.use_cache,
-                        full_ingest=False)
+        x = H5transform(
+            self.file,
+            direction=new_direction,
+            level=int(self.level) if self.level else None,
+            cache=self.use_cache,
+            full_ingest=False,
+        )
 
         return x
 
@@ -150,12 +161,51 @@ class H5transform(BaseTransform):
 
     @level.setter
     def level(self, value):
-        raise ValueError('`level` cannot be changed after initialization.')
+        raise ValueError("`level` cannot be changed after initialization.")
+
+    @property
+    def shape(self):
+        """Shape of the deformation field.
+
+        Note that the deformation field is likely to be (z, y, x, 3) where
+        the last dimension contains the x/y/z offsets.
+        """
+        return self._shape
+
+    @shape.setter
+    def shape(self, value):
+        raise ValueError("`shape` cannot be changed after initialization.")
+
+    @property
+    def spacing(self):
+        """Voxel spacing of the deformation field (z, y, x)."""
+        if not hasattr(self, "_spacing"):
+            with h5py.File(self.file, "r") as h5:
+                if self.level:
+                    self._spacing = h5[self.level][self.field].attrs["spacing"]
+                else:
+                    self._spacing = h5[self.field].attrs["spacing"]
+        return self._spacing
+
+    @property
+    def quantization_multiplier(self):
+        """Quantization multiplier of the deformation field."""
+        if not hasattr(self, "_quantization_multiplier"):
+            with h5py.File(self.file, "r") as h5:
+                if self.level:
+                    self._quantization_multiplier = h5[self.level][
+                        self.field
+                    ].attrs.get("quantization_multiplier", 1)
+                else:
+                    self._quantization_multiplier = h5[self.field].attrs.get(
+                        "quantization_multiplier", 1
+                    )
+        return self._quantization_multiplier
 
     @property
     def use_cache(self):
         """Whether to cache the deformation field."""
-        if not hasattr(self, '_use_cache'):
+        if not hasattr(self, "_use_cache"):
             self._use_cache = False
         return self._use_cache
 
@@ -165,21 +215,19 @@ class H5transform(BaseTransform):
         assert isinstance(value, bool)
 
         # If was False and now set to True, build the cache
-        if not getattr(self, '_use_cache', False) and value:
+        if not getattr(self, "_use_cache", False) and value:
             # This is the actual cache
-            self.cache = np.zeros(self.shape,
-                                  dtype=self.dtype)
+            self.cache = np.zeros(self.shape, dtype=self.dtype)
             # This is a mask that tells us which values have already been cached
-            self.cached = np.zeros(self.shape[:-1],
-                                   dtype=bool)
+            self.cached = np.zeros(self.shape[:-1], dtype=bool)
             self._use_cache = True
         # If was True and now is set to False, deconstruct cache
-        elif getattr(self, '_use_cache', False) and not value:
+        elif getattr(self, "_use_cache", False) and not value:
             del self.cache
             del self.cached
             self._use_cache = False
 
-            if hasattr(self, '_fully_ingested'):
+            if hasattr(self, "_fully_ingested"):
                 del self._fully_ingested
 
         # Note: should explore whether we can use sparse N-dimensional
@@ -188,19 +236,21 @@ class H5transform(BaseTransform):
 
     def copy(self):
         """Return copy."""
-        return H5transform(self.file,
-                           direction=self.direction,
-                           level=int(self.level) if self.level else None,
-                           cache=self.use_cache,
-                           full_ingest=False)
+        return H5transform(
+            self.file,
+            direction=self.direction,
+            level=int(self.level) if self.level else None,
+            cache=self.use_cache,
+            full_ingest=False,
+        )
 
     def full_ingest(self):
         """Fully ingest the deformation field."""
         # Skip if already ingested
-        if getattr(self, '_fully_ingested', False):
+        if getattr(self, "_fully_ingested", False):
             return
 
-        with h5py.File(self.file, 'r') as h5:
+        with h5py.File(self.file, "r") as h5:
             # Read in the entire field
             if self.level:
                 self.cache = h5[self.level][self.field][:, :, :]
@@ -228,16 +278,16 @@ class H5transform(BaseTransform):
         bbox = np.asarray(bbox)
 
         if bbox.ndim != 2 or bbox.shape != (3, 2):
-            raise ValueError(f'Expected (3, 2) bounding box, got {bbox.shape}')
+            raise ValueError(f"Expected (3, 2) bounding box, got {bbox.shape}")
 
         # Set use_cache=True -> this also prepares the cache array(s)
         self.use_cache = True
 
-        with h5py.File(self.file, 'r') as h5:
+        with h5py.File(self.file, "r") as h5:
             if self.level:
-                spacing = h5[self.level][self.field].attrs['spacing']
+                spacing = h5[self.level][self.field].attrs["spacing"]
             else:
-                spacing = h5[self.field].attrs['spacing']
+                spacing = h5[self.field].attrs["spacing"]
 
             # Note that we invert because spacing is given in (z, y, x)
             bbox_vxl = (bbox.T / spacing[::-1]).T
@@ -256,13 +306,15 @@ class H5transform(BaseTransform):
 
             # Cache values in this bounding box
             if self.level:
-                self.cache[z1:z2, y1:y2, x1:x2] = h5[self.level][self.field][z1:z2, y1:y2, x1:x2]
+                read_from = h5[self.level][self.field]
             else:
-                self.cache[z1:z2, y1:y2, x1:x2] = h5[self.field][z1:z2, y1:y2, x1:x2]
+                read_from = h5[self.field]
+
+            self.cache[z1:z2, y1:y2, x1:x2] = read_from[z1:z2, y1:y2, x1:x2]
             self.cached[z1:z2, y1:y2, x1:x2] = True
 
     @staticmethod
-    def from_file(filepath: str, **kwargs) -> 'H5transform':
+    def from_file(filepath: str, **kwargs) -> "H5transform":
         """Generate H5transform from file.
 
         Parameters
@@ -279,10 +331,12 @@ class H5transform(BaseTransform):
         """
         return H5transform(str(filepath), **kwargs)
 
-    def xform(self,
-              points: np.ndarray,
-              affine_fallback: bool = True,
-              force_deform: bool = True) -> np.ndarray:
+    def xform(
+        self,
+        points: np.ndarray,
+        affine_fallback: bool = True,
+        force_deform: bool = True,
+    ) -> np.ndarray:
         """Xform data.
 
         Parameters
@@ -308,16 +362,22 @@ class H5transform(BaseTransform):
         """
         if isinstance(points, pd.DataFrame):
             # Make sure x/y/z columns are present
-            if np.any([c not in points for c in ['x', 'y', 'z']]):
-                raise ValueError('points DataFrame must have x/y/z columns.')
-            points = points[['x', 'y', 'z']].values
+            if np.any([c not in points for c in ["x", "y", "z"]]):
+                raise ValueError("points DataFrame must have x/y/z columns.")
+            points = points[["x", "y", "z"]].values
 
-        if not isinstance(points, np.ndarray) or points.ndim != 2 or points.shape[1] != 3:
-            raise TypeError('`points` must be numpy array of shape (N, 3) or '
-                            'pandas DataFrame with x/y/z columns')
+        if (
+            not isinstance(points, np.ndarray)
+            or points.ndim != 2
+            or points.shape[1] != 3
+        ):
+            raise TypeError(
+                "`points` must be numpy array of shape (N, 3) or "
+                "pandas DataFrame with x/y/z columns"
+            )
 
         # Read the file
-        with h5py.File(self.file, 'r') as h5:
+        with h5py.File(self.file, "r") as h5:
             if self.level:
                 field = h5[self.level][self.field]
             else:
@@ -327,29 +387,31 @@ class H5transform(BaseTransform):
             # three values - for example: (293, 470, 1010, 3)
             # If that's not the case, something is fishy!
             if field.shape[-1] != 3:
-                logger.warning('Expected the deformation field to be of shape '
-                               f'(z, y, x, 3), got {field.shape}.')
+                logger.warning(
+                    "Expected the deformation field to be of shape "
+                    f"(z, y, x, 3), got {field.shape}."
+                )
 
-            if 'affine' in field.attrs:
+            if "affine" in field.attrs:
                 # The affine part of the transform is a 4 x 4 matrix where the upper
                 # 3 x 4 part (row x columns) is an attribute of the h5 dataset
                 M = np.ones((4, 4))
-                M[:3, :4] = field.attrs['affine'].reshape(3, 4)
+                M[:3, :4] = field.attrs["affine"].reshape(3, 4)
                 affine = AffineTransform(M)
             else:
                 affine = False
 
             # Get quantization multiplier for later use
-            quantization_multiplier = field.attrs.get('quantization_multiplier', 1)
+            quantization_multiplier = field.attrs.get("quantization_multiplier", 1)
 
-            # For forward direction, the affine part is applied first
-            if self.direction == 'inverse' and affine:
+            # For inverse direction, the affine part is applied first
+            if self.direction == "inverse" and affine:
                 xf = affine.xform(points)
             else:
                 xf = points
 
             # Translate points into voxel space
-            spacing = field.attrs['spacing']
+            spacing = field.attrs["spacing"]
             # Note that we invert because spacing is given in (z, y, x)
             xf_voxel = xf / spacing[::-1]
             # Digitize points into voxels
@@ -368,20 +430,20 @@ class H5transform(BaseTransform):
             mx = np.clip(mx, 0, np.array(self.shape[:-1][::-1]) - 2) + 2
 
             # Check if we can use cached values
-            if self.use_cache and (hasattr(self, '_fully_ingested')
-                                   or np.all(self.cached[mn[2]: mx[2],
-                                                         mn[1]: mx[1],
-                                                         mn[0]: mx[0]])):
-                offsets = self.cache[mn[2]: mx[2], mn[1]: mx[1], mn[0]: mx[0]]
+            if self.use_cache and (
+                hasattr(self, "_fully_ingested")
+                or np.all(self.cached[mn[2] : mx[2], mn[1] : mx[1], mn[0] : mx[0]])
+            ):
+                offsets = self.cache[mn[2] : mx[2], mn[1] : mx[1], mn[0] : mx[0]]
             else:
                 # Load the deformation values for this bounding box
                 # This is faster than grabbing individual voxels and
-                offsets = field[mn[2]: mx[2], mn[1]: mx[1], mn[0]: mx[0]]
+                offsets = field[mn[2] : mx[2], mn[1] : mx[1], mn[0] : mx[0]]
 
                 if self.use_cache:
                     # Write these offsets to cache
-                    self.cache[mn[2]: mx[2], mn[1]: mx[1], mn[0]: mx[0]] = offsets
-                    self.cached[mn[2]: mx[2], mn[1]: mx[1], mn[0]: mx[0]] = True
+                    self.cache[mn[2] : mx[2], mn[1] : mx[1], mn[0] : mx[0]] = offsets
+                    self.cached[mn[2] : mx[2], mn[1] : mx[1], mn[0] : mx[0]] = True
 
         # For interpolation, we need to split the offsets into their x, y
         # and z component
@@ -394,44 +456,54 @@ class H5transform(BaseTransform):
         zz = np.arange(mn[2], mx[2])
 
         # The RegularGridInterpolator is the fastest one but the results are
-        # are ever so slightly (4th decimal) different from the Java impl
-        xinterp = RegularGridInterpolator((zz, yy, xx), xgrid,
-                                          bounds_error=False, fill_value=0)
-        yinterp = RegularGridInterpolator((zz, yy, xx), ygrid,
-                                          bounds_error=False, fill_value=0)
-        zinterp = RegularGridInterpolator((zz, yy, xx), zgrid,
-                                          bounds_error=False, fill_value=0)
+        # are ever so slightly (4th decimal) different from the Java implementation
+        xinterp = RegularGridInterpolator(
+            (zz, yy, xx), xgrid, bounds_error=False, fill_value=0
+        )
+        yinterp = RegularGridInterpolator(
+            (zz, yy, xx), ygrid, bounds_error=False, fill_value=0
+        )
+        zinterp = RegularGridInterpolator(
+            (zz, yy, xx), zgrid, bounds_error=False, fill_value=0
+        )
 
         # Before we interpolate check how many points are outside the
         # deformation field -> these will only receive the affine part of the
         # transform
-        is_out = (xf_voxel.min(axis=1) < 0) | np.any(xf_voxel >= self.shape[:-1][::-1], axis=1)
+        is_out = (xf_voxel.min(axis=1) < 0) | np.any(
+            xf_voxel >= self.shape[:-1][::-1], axis=1
+        )
 
         # If more than 20% (arbitrary number) of voxels are out, there is
         # something suspicious going on
         frac_out = is_out.sum() / xf_voxel.shape[0]
-        if frac_out > 0.2:
-            logger.warning(f'A suspiciously large fraction ({frac_out:.1%}) '
-                           f'of {xf_voxel.shape[0]} points appear to be outside '
-                           'the H5 deformation field. Please make doubly sure '
-                           'that the input coordinates are in the correct '
-                           'space/units')
-
+        if frac_out > 0.2 and not getattr(self, "_silenced_large_out_warning", False):
+            logger.warning(
+                f"A suspiciously large fraction ({frac_out:.1%}) "
+                f"of {xf_voxel.shape[0]} points appear to be outside "
+                "the H5 deformation field. Please make doubly sure "
+                "that the input coordinates are in the correct "
+                "space/units"
+            )
         # If all points are outside the volume, the interpolation complains
         if frac_out < 1 or (force_deform and affine_fallback):
             if force_deform:
                 # For the purpose of finding offsets, we will snap points
                 # outside the deformation field to the closest inside voxel
-                q_voxel = np.clip(xf_voxel,
-                                  a_min=0,
-                                  a_max=np.array(self.shape[:-1][::-1]) - 1)
+                q_voxel = np.clip(
+                    xf_voxel, a_min=0, a_max=np.array(self.shape[:-1][::-1]) - 1
+                )
             else:
                 q_voxel = xf_voxel
 
             # Interpolate coordinates and re-combine to an x/y/z array
-            offset_vxl = np.vstack((xinterp(q_voxel[:, ::-1], method='linear'),
-                                    yinterp(q_voxel[:, ::-1], method='linear'),
-                                    zinterp(q_voxel[:, ::-1], method='linear'))).T
+            offset_vxl = np.vstack(
+                (
+                    xinterp(q_voxel[:, ::-1], method="linear"),
+                    yinterp(q_voxel[:, ::-1], method="linear"),
+                    zinterp(q_voxel[:, ::-1], method="linear"),
+                )
+            ).T
 
             # Turn offsets into real-world coordinates
             offset_real = offset_vxl * quantization_multiplier
@@ -444,8 +516,8 @@ class H5transform(BaseTransform):
             # is potentially upcast from e.g. int64 to float64
             xf = xf + offset_real
 
-        # For inverse direction, the affine part is applied second
-        if self.direction == 'forward' and affine:
+        # For forward direction, the affine part is applied last
+        if self.direction == "forward" and affine:
             xf = affine.xform(xf)
 
         # If no affine_fallback, set outside points to np.nan
@@ -453,6 +525,213 @@ class H5transform(BaseTransform):
             xf[is_out, :] = np.nan
 
         return xf
+
+    def xform_image(
+        self,
+        image: np.ndarray,
+        image_res: Union[tuple, list],
+        out_res: Optional[Union[tuple, list]] = None,
+        out_shape: Optional[Union[tuple, list]] = None,
+        order: int = 1,
+        mode: str = "constant",
+        cval: float = 0,
+        cache: bool = True,
+        progress: bool = True,
+    ) -> np.ndarray:
+        """Transform a 3D image using backward mapping.
+
+        If available, this method will use `numba` to accelerate the
+        transformation. This is highly recommended as it can speed up
+        the transformation by several orders of magnitude:
+
+          pip install numba
+
+        Note though that the numba-accelerated path only supports linear
+        interpolation and constant-mode boundary handling (default).
+
+        Parameters
+        ----------
+        image :         (N, M, K) numpy array
+                        Image to be transformed.
+        image_res :     (3, ) tuple | list
+                        Voxel resolution of the input image.
+        out_res :       (3, ) tuple | list, optional
+                        Voxel resolution of the output image. If None, assumed
+                        to be the same as `image_res`.
+        out_shape :     (3, ) tuple | list, optional
+                        Shape of the output image in voxels. If None, uses the
+                        shape of the deformation field. This works as long as
+                        the deformation field fully samples the target space.
+        order :         int
+                        The order of the spline interpolation, default is 1
+                        (linear). The order has to be in the range 0-5.
+        mode :          str
+                        How to handle values outside the image bounds.
+                        Default is 'constant' (pad with cval).
+        cval :          float
+                        Value used for points outside the boundaries when
+                        mode='constant'.
+        chunk_size :    int
+                        Size of chunks to process along each dimension.
+                        Larger chunks are faster but use more memory.
+                        Only relevant for Python (not numba) path.
+        cache :         bool
+                        If True, we will cache the deformation field for
+                        subsequent future transforms. This is generally
+                        recommended unless memory is very tight or the
+                        deformation field is huge.
+        progress :      bool
+                        Whether to show a progress bar during processing.
+                        Not available (and probably not necessary) if
+                        numba-accelerated path is used.
+
+        Returns
+        -------
+        transformed :   (N, M, K) numpy array
+                        Transformed image in target space. The shape is
+                        determined by `out_shape` and `out_res`.
+
+        Notes
+        -----
+        This method uses backward mapping: for each output chunk, we compute
+        where the voxels came from in the source image using the transformation,
+        then interpolate the source image at those locations. So if your
+        transform goes from A -> B, this method actually uses the inverse transform
+        under the hood to figure out where in A the voxels in B come from.
+
+        """
+        if not isinstance(image, np.ndarray) or image.ndim != 3:
+            raise TypeError("`image` must be a 3D numpy array")
+
+        # Because we are using backward mapping, we need to invert the transform,
+        # i.e. we're taking points in the target space, mapping them back to the
+        # source space and sampling the source image at those locations)
+        if hasattr(self, "_inverted_copy"):
+            # We're tracking the copy so that we can use the cache for subsequent
+            # transformations instead of having to re-read the file and re-ingest
+            # the deformation field
+            reg_inv = self._inverted_copy
+        else:
+            reg_inv = -self
+            # If cache, track the inverted copy (and the deformation field)
+            if cache:
+                reg_inv.use_cache = True
+                self._inverted_copy = reg_inv
+
+        if out_res is None:
+            out_res = image_res
+
+        if out_shape is None:
+            # Bounds in physical space
+            bounds = np.array(list(reg_inv.shape)[:-1][::-1]) * reg_inv.spacing
+            # Back to voxel space in output resolution
+            out_shape = np.ceil(bounds / out_res).astype(int)
+
+        # Generate the empty output array
+        out = np.zeros(out_shape, dtype=image.dtype)
+
+        try:
+            from .h5reg_numba import h5reg_warp_image_linear_constant
+
+            nb_available = True
+        except ModuleNotFoundError:
+            nb_available = False
+
+        # Numba path: linear interpolation + constant mode only but much faster
+        if order == 1 and mode == "constant":
+            if not nb_available:
+                global NUMBA_WARNING
+                if not NUMBA_WARNING:
+                    logger.warning(
+                        "For faster transforming of images, please install numba:\n"
+                        "  pip install numba"
+                    )
+                    NUMBA_WARNING = True
+            else:
+                reg_inv.full_ingest()
+                field = reg_inv.cache
+
+                with h5py.File(reg_inv.file, "r") as h5:
+                    if reg_inv.level:
+                        ds = h5[reg_inv.level][reg_inv.field]
+                    else:
+                        ds = h5[reg_inv.field]
+
+                    spacing = np.asarray(ds.attrs["spacing"], dtype=np.float64)
+                    qmult = float(ds.attrs.get("quantization_multiplier", 1))
+
+                    if "affine" in ds.attrs:
+                        affine = np.ones((4, 4), dtype=np.float64)
+                        affine[:3, :4] = ds.attrs["affine"].reshape(3, 4)
+                        apply_affine = 1 if reg_inv.direction == "inverse" else 2
+                    else:
+                        affine = np.eye(4, dtype=np.float64)
+                        apply_affine = 0
+
+                return h5reg_warp_image_linear_constant(
+                    image,
+                    field,
+                    spacing,
+                    qmult,
+                    affine,
+                    apply_affine,
+                    out,
+                    out_res,
+                    image_res,
+                    float(cval),
+                )
+
+        # Pre-compute prefilter if needed for higher order interpolation
+        if order > 1:
+            from scipy.ndimage import spline_filter
+
+            image = spline_filter(image, order=order)
+
+        for z in config.trange(
+            out_shape[2],
+            disable=not progress or config.pbar_hide,
+            desc="Warping image",
+        ):
+            # Generate a grid of points in target voxel space for this z-slice
+            chunk_coords = np.mgrid[
+                0 : out_shape[0] : 1, 0 : out_shape[1] : 1, z : z + 1
+            ]
+            points = np.stack(
+                [
+                    chunk_coords[0].flatten(),
+                    chunk_coords[1].flatten(),
+                    chunk_coords[2].flatten(),
+                ],
+                axis=-1,
+            )
+
+            # Convert to physical space
+            points = points.astype(np.float32) * out_res
+
+            # Transform points to source space using the inverse transform
+            try:
+                reg_inv._silenced_large_out_warning = True
+                points_xf = reg_inv.xform(points)
+            except Exception as e:
+                reg_inv._silenced_large_out_warning = False
+                raise e
+
+            # Convert back to voxel space in source image
+            points_xf_vox = points_xf / image_res
+
+            # Sample the source image at these transformed coordinates
+            sampled_values = map_coordinates(
+                image,
+                [points_xf_vox[:, 0], points_xf_vox[:, 1], points_xf_vox[:, 2]],
+                order=1,
+                mode="constant",
+                cval=0,
+            )
+
+            # Reshape back to 2D and assign to this slice of the output image
+            out[:, :, z] = sampled_values.reshape(out_shape[0], out_shape[1])
+
+        return out
 
 
 def read_points_threaded(voxels, filepath, level, dir, threads=5):
@@ -468,7 +747,7 @@ def read_points_threaded(voxels, filepath, level, dir, threads=5):
 
 def _read_points(params):
     voxels, filepath, level, dir = params
-    f = h5py.File(filepath, 'r', libver='latest', swmr=True)
+    f = h5py.File(filepath, "r", libver="latest", swmr=True)
     # Get all these voxels
     data = []
     for vx in config.tqdm(voxels):
