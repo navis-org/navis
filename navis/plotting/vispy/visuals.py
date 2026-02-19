@@ -316,9 +316,9 @@ def connectors2vispy(neuron, neuron_color, object_id, settings):
 
     if isinstance(settings.connectors, (list, np.ndarray, tuple)):
         connectors = neuron.connectors[neuron.connectors.type.isin(settings.connectors)]
-    elif settings.connectors == "pre":
+    elif settings.connectors in ("pre", "presynapses"):
         connectors = neuron.presynapses
-    elif settings.connectors == "post":
+    elif settings.connectors in ("post", "postsynapses"):
         connectors = neuron.postsynapses
     elif isinstance(settings.connectors, str):
         connectors = neuron.connectors[neuron.connectors.type == settings.connectors]

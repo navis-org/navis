@@ -875,9 +875,9 @@ def _plot_connectors(neuron, color, ax, settings):
     """Plot connectors."""
     cn_layout = copy.deepcopy(config.default_connector_colors)
 
-    if settings.connectors == "pre":
+    if settings.connectors in ("pre", "presynapses"):
         connectors = neuron.presynapses
-    elif settings.connectors == "post":
+    elif settings.connectors in ("post", "postsynapses"):
         connectors = neuron.postsynapses
     elif isinstance(settings.connectors, str):
         connectors = neuron.connectors[neuron.connectors.type == settings.connectors]
