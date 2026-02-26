@@ -16,6 +16,7 @@ def pytest_ignore_collect(collection_path: Path, config):
         "/binder",
         "/site",
         "/scripts",
+        "h5reg_numba",  # this module requires numba but doesn't contain any tests
     ):
         if pattern in path:
             return True
