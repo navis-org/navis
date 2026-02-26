@@ -13,23 +13,60 @@ For a full list of changes please see the [commits history](https://github.com/n
 ## dev
 _Date: ongoing_
 
-##### Improvements
-- reading neurons from URLs should now generally be much faster
-- [`split_axon_dendrite`][navis.split_axon_dendrite] now allows setting the in-/output ratio for the split (see `split` parameter)
-- small speed ups for [`heal_skeleton`][navis.heal_skeleton] and [`resample_skeleton`][navis.resample_skeleton]
-- add `progress` parameter to [`mirror_brain`][navis.mirror_brain] and [`symmetrize_brain`][navis.symmetrize_brain]
-- [`persistence_vectors`][navis.persistence_vectors] now accepts list of distances to be sampled as `samples`
-
-##### Fixes
-- fix issue when plotting skeleton where the soma has no radius
-- [`read_precomputed`][navis.read_precomputed] will now also look for `.ngmesh` files when given a folder to search
-
 To install the current `dev` version of {{ navis }}:
 
 ```shell
 pip uninstall navis -y
 pip install git+https://github.com/navis-org/navis@master
 ```
+
+## Version `1.11.0` { data-toc-label="1.11.0" }
+_Date: 26/02/26_
+
+#### Breaking
+- dropped support for Python 3.9
+
+##### Improvements
+- [`split_axon_dendrite`][navis.split_axon_dendrite] now allows setting the in-/output ratio for the split (see `split` parameter)
+- major speed-up for [`heal_skeleton`][navis.heal_skeleton]
+- minor speed-up for [`resample_skeleton`][navis.resample_skeleton]
+- add `progress` parameter to [`mirror_brain`][navis.mirror_brain], [`symmetrize_brain`][navis.symmetrize_brain] and [`combine_meshes`][navis.combine_meshes]
+- [`persistence_vectors`][navis.persistence_vectors] now accepts list of distances to be sampled as `samples`
+- [`read_precomputed`][navis.read_precomputed] now also reads files with `.ngmesh` extension (before it only accept no extension)
+- [`make_dotprops`][navis.make_dotprops] has a new `on_issue` parameter that determines what to do when issues with the inputs are encountered (e.g. NaNs)
+- two new [`VoxelNeuron`][navis.VoxelNeuron] methods:
+    - [`flip()`][navis.VoxelNeuron.flip] flips the neuron along specified axes
+    - [`normalize()`][navis.VoxelNeuron.normalize] scales values to a 0-1 range
+- `neuprint` interface:
+    - [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] and [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] will now also look for `tosomaLocation` to set the root/soma if there is no `somaLocation`
+    - avoid fetching unused ROI info in [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] and [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] (minor speed-up)
+- [`pointlabels2meshes`][navis.meshes.mesh_utils.pointlabels2meshes] can now also output voxels instead of meshes
+- transforms:
+    - new transform type: [`GridTransform`][navis.transforms.GridTransform] is a class for generic deformation-field transforms
+    - [`TPStransform`][navis.transforms.TPStransform] now has a `.matrix_rigid` property that extracts the rigid part of the TPS affine as a 4x4 matrix
+    - [`TPStransforms`][navis.transforms.TPStransform] and [`MovingLeastSquaresTransforms`][navis.transforms.MovingLeastSquaresTransform] transforms now transform in batches to avoid memory issues when transforming large numbers of points
+    - new methods for [`CMTKtransform`][navis.transforms.CMTKtransform]: [`to_dfield`][navis.transforms.CMTKtransform.to_dfield] and [`to_grid_transform`][navis.transforms.CMTKtransform.to_grid_transform] can be used to sample the CMTK transform into a deformation field (this is experimental)
+    - new [`H5transform`][navis.transforms.H5transform] method: [`xform_image`][navis.transforms.H5transform.xform_image] can be used to apply the transform to images (this is experimental)
+    - various under-the-hood improvements to [`CMTKtransform.xform_image`][navis.transforms.CMTKtransform.xform_image]
+    - [`TransformRegistry.register_transform`][navis.transforms.templates.TemplateRegistry] now accepts an optional `weight_inv` parameter; can be used to penalize expensive inverse transforms (e.g. CMTK)
+- input/output:
+    - `read_xxx` functions will now use threads instead of processes for parallelization when reading from URLs (much faster)
+    - [`read_precomputed`][navis.read_precomputed] will now also look for `.ngmesh` files when given a folder to search
+    - `read_xxx` function can now load data straight from Google buckets (`gs://...`, requires the optional `gcsfs`)
+
+##### Fixes
+- using `connectors="pre/postsynapses"` now actually works in `plot2d` and `plot3d`
+- fixed an issue in [`resample_skeleton`][navis.resample_skeleton] where adding new nodes could cause an overflow error for node IDs
+- subsetting neuron meshes with connectors will now correctly carry over vertex IDs
+- plotting skeleton where the soma has no radius will not break anymore
+- `write_xxx` functions do not break anymore when a neuron has id `0`
+- plotting of connectors:
+   - parameters `cn_alpha`, `cn_colors` and `cn_mesh_colors` now work across all 3d backends
+   - `plot2d` now respects `cn_alpha`
+- fixed an issue where checking for available mesh backends (pyfqmr, pymeshlab, etc) could cause a crash
+- Blender interface: fixed an issue adding skeletons caused by pandas >= 3.0
+
+**Full Changelog**: [v1.10.0...v1.11.0](https://github.com/navis-org/navis/compare/v1.10.0...v1.11.0)
 
 ## Version `1.10.0` { data-toc-label="1.10.0" }
 _Date: 06/02/25_
