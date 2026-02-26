@@ -561,36 +561,50 @@ class Handler:
             col = bpy.data.collections.new(collection)
             bpy.context.scene.collection.children.link(col)
 
-        for s in utils.make_iterable(x.soma):
-            s = x.nodes[x.nodes.node_id == s]
-            loc = s[['x', 'y', 'z']].values
-            loc = loc[:, self.axes_order]
-            loc *= self.scaling
-            loc *= self.ax_translate
+        for nid in utils.make_iterable(x.soma):
+            s = x.nodes[x.nodes.node_id == nid]
+
+            # In theory, we should expect there to only be one row per soma, but just in case
+            if s.shape[0] > 1:
+                logger.warning(
+                    f"Expected only one node for soma, but got {s.shape[0]} - using first one only."
+                )
+            elif s.empty:
+                logger.warning(f"No node found for soma with id {nid} - skipping.")
+                continue
+
+            s = s.iloc[0]
+
+            loc = s[["x", "y", "z"]].values.astype(
+                float
+            )  # do not remove the `astype` here, otherwise the dtype will be object!
+            loc = loc[self.axes_order] * self.scaling * self.ax_translate
 
             rad = s.radius * self.scaling
 
-            mesh = bpy.data.meshes.new(f'Soma of #{x.id} - mesh')
-            soma_ob = bpy.data.objects.new(f'Soma of #{x.id}', mesh)
+            mesh = bpy.data.meshes.new(f"Soma of #{x.id} - mesh")
+            soma_ob = bpy.data.objects.new(f"Soma of #{x.id}", mesh)
 
-            soma_ob.location = loc[0]
+            soma_ob.location = loc
 
             # Construct the bmesh cube and assign it to the blender mesh.
             bm = bmesh.new()
-            # Blender 3.0 uses `radius` instead of `diameter`
+            # Newer versions of Blender use `radius` instead of `diameter`
             try:
-                bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=rad * 2)
-            except:
-                bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, diameter=rad)
+                bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=rad)
+            except BaseException:
+                bmesh.ops.create_uvsphere(
+                    bm, u_segments=16, v_segments=8, diameter=rad * 2
+                )
             bm.to_mesh(mesh)
             bm.free()
 
-            mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
+            mesh.polygons.foreach_set("use_smooth", [True] * len(mesh.polygons))
 
-            soma_ob.name = f'Soma of #{x.id}'
-            soma_ob['type'] = 'SOMA'
-            soma_ob['navis_object'] = True
-            soma_ob['id'] = str(x.id)
+            soma_ob.name = f"Soma of #{x.id}"
+            soma_ob["type"] = "SOMA"
+            soma_ob["navis_object"] = True
+            soma_ob["id"] = str(x.id)
 
             soma_ob.active_material = mat
 
