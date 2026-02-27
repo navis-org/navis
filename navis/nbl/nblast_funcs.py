@@ -550,7 +550,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                             columns=scr.columns, index=scr.index)
         _ = np.arange(mask.shape[0])
         for N in range(t):
-            mask.values[_, srt[:, N]] = True
+            mask.iloc[_, srt[:, N]] = True
 
     # Calculate self-hits for full neurons
     query_self_hits = np.array([nb.calc_self_hit(n) for n in query_dps])

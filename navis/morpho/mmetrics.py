@@ -292,8 +292,8 @@ def segment_analysis(x: "core.NeuronObject") -> "core.NeuronObject":
     """Calculate morphometric properties a neuron's segments.
 
     This currently includes Strahler index, length, distance to root and
-    tortuosity. If neuron has a radius will also calculate radius-based metrics
-    such as volume.
+    tortuosity. If the neuron has a radius will also calculate radius-based
+    metrics such as volume.
 
     Parameters
     ----------
@@ -422,8 +422,9 @@ def segment_analysis(x: "core.NeuronObject") -> "core.NeuronObject":
 
         # Get radii for each cylinder
         r1 = nodes.index.map(radii).values
-        r2 = nodes.parent_id.map(radii).values
-        r2[np.isnan(r2)] = 0
+        r2 = nodes.parent_id.map(radii)  # Note we keep the Series here to avoid "read-only" errors when trying to replace NaNs
+        r2.iloc[np.isnan(r2)] = 0
+        r2 = r2.values
 
         # Get the height for each node -> parent cylinder
         h = parent_dist(x, root_dist=0)
