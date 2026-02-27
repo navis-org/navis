@@ -32,7 +32,6 @@ _Date: 26/02/26_
 - minor speed-up for [`resample_skeleton`][navis.resample_skeleton]
 - add `progress` parameter to [`mirror_brain`][navis.mirror_brain], [`symmetrize_brain`][navis.symmetrize_brain] and [`combine_meshes`][navis.combine_meshes]
 - [`persistence_vectors`][navis.persistence_vectors] now accepts list of distances to be sampled as `samples`
-- [`read_precomputed`][navis.read_precomputed] now also reads files with `.ngmesh` extension (before it only accept no extension)
 - [`make_dotprops`][navis.make_dotprops] has a new `on_issue` parameter that determines what to do when issues with the inputs are encountered (e.g. NaNs)
 - two new [`VoxelNeuron`][navis.VoxelNeuron] methods:
     - [`flip()`][navis.VoxelNeuron.flip] flips the neuron along specified axes
