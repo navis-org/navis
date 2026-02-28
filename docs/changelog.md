@@ -21,7 +21,7 @@ pip install git+https://github.com/navis-org/navis@master
 ```
 
 ## Version `1.11.0` { data-toc-label="1.11.0" }
-_Date: 26/02/26_
+_Date: 27/02/26_
 
 #### Breaking
 - dropped support for Python 3.9
@@ -39,14 +39,13 @@ _Date: 26/02/26_
 - `neuprint` interface:
     - [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] and [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] will now also look for `tosomaLocation` to set the root/soma if there is no `somaLocation`
     - avoid fetching unused ROI info in [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] and [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] (minor speed-up)
-- [`pointlabels2meshes`][navis.meshes.mesh_utils.pointlabels2meshes] can now also output voxels instead of meshes
+- [`pointlabels_to_meshes`][navis.meshes.mesh_utils.pointlabels_to_meshes] can now also output voxels instead of meshes
 - transforms:
     - new transform type: [`GridTransform`][navis.transforms.GridTransform] is a class for generic deformation-field transforms
     - [`TPStransform`][navis.transforms.TPStransform] now has a `.matrix_rigid` property that extracts the rigid part of the TPS affine as a 4x4 matrix
     - [`TPStransforms`][navis.transforms.TPStransform] and [`MovingLeastSquaresTransforms`][navis.transforms.MovingLeastSquaresTransform] transforms now transform in batches to avoid memory issues when transforming large numbers of points
     - new methods for [`CMTKtransform`][navis.transforms.CMTKtransform]: [`to_dfield`][navis.transforms.CMTKtransform.to_dfield] and [`to_grid_transform`][navis.transforms.CMTKtransform.to_grid_transform] can be used to sample the CMTK transform into a deformation field (this is experimental)
     - new [`H5transform`][navis.transforms.H5transform] method: [`xform_image`][navis.transforms.H5transform.xform_image] can be used to apply the transform to images (this is experimental)
-    - various under-the-hood improvements to [`CMTKtransform.xform_image`][navis.transforms.CMTKtransform.xform_image]
     - [`TransformRegistry.register_transform`][navis.transforms.templates.TemplateRegistry] now accepts an optional `weight_inv` parameter; can be used to penalize expensive inverse transforms (e.g. CMTK)
 - input/output:
     - `read_xxx` functions will now use threads instead of processes for parallelization when reading from URLs (much faster)
