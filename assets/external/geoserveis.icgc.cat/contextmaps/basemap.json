@@ -1,0 +1,267 @@
+{
+    "tiles": [
+        "https://geoserveis.icgc.cat/servei/catalunya/contextmaps/vt/{z}/{x}/{y}.pbf"
+    ],
+    "name": "Contextmaps",
+    "format": "pbf",
+    "basename": "contextmaps.mbtiles",
+    "id": "contextmaps",
+    "attribution": "<b>ContextMaps</b>:<a href=\"https://www.icgc.cat/Aplicacions/Visors/ContextMaps\">Institut Cartogràfic i Geològic de Catalunya</a>|<b>Mapa resta del món</b>:© OpenMapTiles © OpenStreetMap contributors",
+    "center": [
+        1.537786,
+        41.837539,
+        4
+    ],
+    "description": "Contextmaps ICGC",
+    "maxzoom": 16,
+    "minzoom": 0,
+    "pixel_scale": "256",
+    "vector_layers": [
+        {
+            "id": "water",
+            "description": "water",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "class": "String",
+                "intermittent": "Number",
+                "brunnel": "String",
+                "icgc_id": "Number",
+                "jsel": "String",
+                "rank": "Number",
+                "contextmaps": "String"
+            }
+        },
+        {
+            "id": "waterway",
+            "description": "waterway",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "name": "String",
+                "name:latin": "String",
+                "class": "String",
+                "icgc_id": "Number",
+                "entorn": "String",
+                "jsel": "String",
+                "rank": "Number",
+                "contextmaps": "String"
+            }
+        },
+        {
+            "id": "landcover",
+            "description": "landcover",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "class": "String",
+                "subclass": "String",
+                "icgc_id": "Number"
+            }
+        },
+        {
+            "id": "boundary",
+            "description": "boundary",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "admin_level": "Number",
+                "adm0_l": "String",
+                "adm0_r": "String",
+                "disputed": "Number",
+                "disputed_name": "String",
+                "claimed_by": "String",
+                "maritime": "Number",
+                "icgc_id": "Number",
+                "minzoom": "Number",
+                "maxzoom": "Number"
+            }
+        },
+        {
+            "id": "aeroway",
+            "description": "aeroway",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "ref": "String",
+                "class": "String",
+                "tipus": "Number"
+            }
+        },
+        {
+            "id": "transportation",
+            "description": "transportation",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "class": "String",
+                "subclass": "String",
+                "ramp": "Number",
+                "oneway": "Number",
+                "network": "String",
+                "brunnel": "String",
+                "service": "String",
+                "access": "String",
+                "toll": "Number",
+                "expressway": "Number",
+                "layer": "Number",
+                "level": "Number",
+                "indoor": "Number",
+                "codi_via": "String",
+                "surface": "String",
+                "highspeed": "String",
+                "conveying": "String",
+                "gauge": "Number",
+                "observacio": "String"
+            }
+        },
+        {
+            "id": "building",
+            "description": "building",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "render_height": "Number",
+                "render_min_height": "Number",
+                "building": "String"
+            }
+        },
+        {
+            "id": "water_name",
+            "description": "water_name",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "name": "String",
+                "name:latin": "String",
+                "class": "String",
+                "codigeo": "Number",
+                "mtc1m": "String",
+                "mtc2m": "String",
+                "layer": "String"
+            }
+        },
+        {
+            "id": "transportation_name",
+            "description": "transportation_name",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "name": "String",
+                "name:latin": "String",
+                "ref": "String",
+                "ref_length": "Number",
+                "network": "String",
+                "codi_via": "String",
+                "class": "String",
+                "subclass": "String",
+                "brunnel": "String",
+                "layer": "Number",
+                "level": "Number",
+                "indoor": "Number",
+                "caixes": "String"
+            }
+        },
+        {
+            "id": "place",
+            "description": "place",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "name": "String",
+                "name:latin": "String",
+                "class": "String",
+                "rank": "Number",
+                "codigeo": "Number",
+                "icgc_id_match": "Number",
+                "mtc1m": "String",
+                "mtc2m": "String",
+                "layer": "String"
+            }
+        },
+        {
+            "id": "poi",
+            "description": "poi",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "name": "String",
+                "name:latin": "String",
+                "class": "String",
+                "subclass": "String",
+                "layer": "String",
+                "rank": "Number",
+                "categoria": "String",
+                "icgc_zoom": "Number",
+                "classicgc": "String",
+                "icgc_id_match": "Number"
+            }
+        },
+        {
+            "id": "aerodrome_label",
+            "description": "aerodrome_label",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "name": "String",
+                "name:latin": "String",
+                "name_en": "String",
+                "name_de": "String",
+                "name:ca": "String",
+                "name:es": "String",
+                "name_int": "String",
+                "name:nonlatin": "String",
+                "class": "String",
+                "iata": "String",
+                "icao": "String",
+                "ele": "Number",
+                "ele_ft": "Number"
+            }
+        },
+        {
+            "id": "contour",
+            "description": "contour",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "class": "String"
+            }
+        },
+        {
+            "id": "mountain_peak",
+            "description": "mountain_peak",
+            "minzoom": 6,
+            "maxzoom": 16,
+            "fields": {
+                "icgc_id": "Number",
+                "name": "String",
+                "name:latin": "String",
+                "class": "String",
+                "codigeo": "Number",
+                "rank": "Number",
+                "mtc1m": "String",
+                "mtc2m": "String",
+                "layer": "String"
+            }
+        }
+    ],
+    "version": "3.6.1",
+    "maskLevel": "8",
+    "bounds": [
+        -180,
+        -85.0511,
+        180,
+        85.0511
+    ],
+    "planettime": "1499040000000",
+    "tilejson": "2.0.0"
+}
