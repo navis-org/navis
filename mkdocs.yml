@@ -15,6 +15,7 @@ nav:
   - Quickstart: quickstart.md
   - Tutorials: generated/gallery
   - ecosystem.md
+  - Publications: publications.md
   - Changelog: changelog.md
   - API Documentation:
     - api.md

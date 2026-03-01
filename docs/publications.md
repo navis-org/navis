@@ -1,8 +1,153 @@
-## Publications
+---
+icon: material/book
+hide:
+  - navigation
+---
 
-NAVis has been used in a range of high-profile publications. See below for a (probably incomplete) list. Note that some of these papers will have used NAVis indirectly - e.g. through [pymaid](https://github.com/navis-org/pymaid) or [fafbseg](https://github.com/navis-org/fafbseg-py).
+# Publications using {{ navis}}
 
-Want to see your work listed here? Open an [Issue](https://github.com/navis-org/navis/issues), start a [Discussion](https://github.com/navis-org/navis/discussions) or open a PR to tell us about it!
+{{ navis }} has been used in a range of high-profile publications[^1]. Below we have collected a partial list[^2].
+
+!!! Example "Not seeing your work listed here?"
+
+    Open an [Issue](https://github.com/navis-org/navis/issues), start a [Discussion](https://github.com/navis-org/navis/discussions) or open a PR to tell us about it!
+
+## 2026
+
+<ol>
+    <li value = "64">
+    <i>Inhibitory circuits control leg movements during Drosophila grooming.</i> Syed et al. eLife (2026). <a href="url">https://doi.org/10.7554/eLife.106446.4</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "63">
+    <i>Neuronal calcium spikes enable vector inversion in the Drosophila brain.</i> Ishida et al. Cell (2026). <a href="url">http://dx.doi.org/10.1016/j.cell.2025.11.040</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "62">
+    <i>A dedicated brain circuit controls forward walking in Drosophila.</i> Dallmann et al. Cell (2026). <a href="url">https://doi.org/10.64898/2026.01.04.697356</a>
+    </li>
+</ol>
+
+## 2025
+
+<ol>
+    <li value = "61">
+    <i>Sexual dimorphism in the complete connectome of the Drosophila male central nervous system.</i> Berg et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.10.09.680999</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "60">
+    <i>MoMo - Combining Neuron Morphology and Connectivity for Interactive Motif Analysis in Connectomes.</i> Shewarega et al. EEE Transactions on Visualization and Computer Graphics (2025). <a href="url">http://dx.doi.org/10.1109/TVCG.2025.3634808</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "59">
+    <i>SynAnno: Interactive Guided Proofreading of Synaptic Annotations.</i> Lauenburg et al. EEE Transactions on Visualization and Computer Graphics (2025). <a href="url">http://dx.doi.org/10.1109/TVCG.2025.3634824</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "58">
+    <i>Population Morphology Implies a Common Developmental Blueprint for Drosophila Motion Detectors.</i> Drummond et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.11.15.688637</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "57">
+    <i>Connectivity biases generate a learning hierarchy in the Drosophila mushroom body.</i> MacKenzie et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.10.29.684686</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "56">
+    <i>The Connectome Interpreter Toolkit.</i> Yin et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.09.29.679410 </a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "55">
+    <i>Distributed control circuits across a brain-and-cord connectome.</i> Bates et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.07.31.667571</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "54">
+    <i>A Developmental Atlas of the Drosophila Nerve Cord Uncovers a Global Temporal Code for Neuronal Identity.</i> Cachero et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.07.16.664682</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "53">
+    <i>The Drosophila connectome reveals Axo-Axonic Synapses on Descending Neurons.</i> Ceballos et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.09.04.674108</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "52">
+    <i>Fishexplorer: A multimodal cellular atlas platform for neuronal circuit dissection in larval zebrafish.</i> Vohra et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.07.14.664689</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "51">
+    <i>Synaptic density and relative connectivity conservation maintain circuit stability across development.</i> Fritz et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.07.26.666968</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "50">
+    <i>An applicable and efficient retrograde monosynaptic circuit mapping tool for larval zebrafish.</i> Chen et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2024.06.27.601104</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "49">
+    <i>Recurrent connectivity supports carbon dioxide sensitivity in Aedes aegypti mosquitoes.</i> Bao et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.07.29.667487</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "48">
+    <i>A comprehensive mechanosensory connectome reveals a somatotopically organized neural circuit architecture controlling stimulus-aimed grooming of the Drosophila head.</i> Calle-Schuler et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.05.19.654894 </a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "47">
+    <i>Sexually-dimorphic neurons in the Drosophila whole-brain connectome.</i> Deutsch et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.06.10.658788</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "46">
+    <i>Hierarchical diversification of neurons regulating motivated behaviors.</i> Elkahlah et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.06.03.657692 </a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "45">
+    <i>Neural connectivity of a computational map for fly flight control.</i> Dhawan et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.05.29.656834</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "44">
+    <i>Correlative light and electron microscopy reveals the fine circuit structure underlying evidence accumulation in larval zebrafish.</i> Boulanger-Weill et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.03.14.643363</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "43">
+    <i>Odour representations supporting ethology-relevant categorisation and discrimination in the Drosophila mushroom body.</i> Chan et al. bioRxiv (2025). <a href="url">https://doi.org/10.1101/2025.01.25.634657</a>
+    </li>
+</ol>
+
 
 ## 2024
 
@@ -14,19 +159,19 @@ Want to see your work listed here? Open an [Issue](https://github.com/navis-org/
 
 <ol>
     <li value = "41">
-    <i>Invariant synaptic density across species.</i> Castro, A.E., Cardona A. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.07.18.604056</a>
+    <i>Synaptic connectome of a neurosecretory network in the Drosophila brain.</i> McKim, T.H. et al. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.08.28.609616</a>
     </li>
 </ol>
 
 <ol>
     <li value = "40">
-    <i>An applicable and efficient retrograde monosynaptic circuit mapping tool for larval zebrafish.</i> Chen, T-L. et al. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.06.27.601104</a>
+    <i>Invariant synaptic density across species.</i> Castro, A.E., Cardona A. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.07.18.604056</a>
     </li>
 </ol>
 
 <ol>
     <li value = "39">
-    <i>Synaptic connectome of a neurosecretory network in the Drosophila brain.</i> McKim, T.H. et al. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.08.28.609616</a>
+    <i>An applicable and efficient retrograde monosynaptic circuit mapping tool for larval zebrafish.</i> Chen, T-L. et al. bioRxiv (2024). <a href="url">https://doi.org/10.1101/2024.06.27.601104</a>
     </li>
 </ol>
 
@@ -268,3 +413,7 @@ Want to see your work listed here? Open an [Issue](https://github.com/navis-org/
     <i>Connectomics Analysis Reveals First-, Second-, and Third-Order Thermosensory and Hygrosensory Neurons in the Adult Drosophila Brain.</i> Marin EC, Büld L, Theiss M, Sarkissian T, Roberts RJV, Turnbull R, Tamimi IFM, Pleijzier MW, Laursen WJ, Drummond N, Schlegel P, Bates AS, Li F, Landgraf M, Costa M, Bock DD, Garrity PA, Jefferis GSXE, Curr Biol. (2020); doi: <a href="url">https://doi.org/10.1016/j.cub.2020.06.028</a>
     </li>
 </ol>
+
+[^1]: Some of these papers will have used {{ navis }} indirectly - e.g. through [pymaid](https://github.com/navis-org/pymaid) or [fafbseg](https://github.com/navis-org/fafbseg-py).
+
+[^2]: Searching for occurrences of "navis" in the literature is surprisingly difficult. The only search that returns reasonable results is that of bioRxiv, which is why the list is dominated by preprints.

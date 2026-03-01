@@ -57,7 +57,7 @@ libraries built on top of NAVis:
 * [fafbseg](https://fafbseg-py.readthedocs.io/en/latest/index.html) contains tools to work with auto-segmented data for the FAFB EM dataset including FlyWire
 
 ## Who uses NAVis?
-NAVis has been used in a range of neurobiological publications. See [here](publications.md) for a list.
+NAVis has been used in a range of neurobiological publications. See [here](https://navis-org.github.io/navis/publications/) for a partial list.
 
 We have implemented various published algorithms and methods:
 
