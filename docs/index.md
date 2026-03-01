@@ -214,11 +214,17 @@ morphology. It stands on the shoulders of the excellent
 
     if (!data.images || !data.images.length) return;
 
+    // Shuffle images array (Fisher-Yates algorithm)
+    for (let i = data.images.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [data.images[i], data.images[j]] = [data.images[j], data.images[i]];
+    }
+
     // Create image elements dynamically
     data.images.forEach((item, index) => {
       const file = typeof item === 'string' ? item : item.file;
       const caption = typeof item === 'string' ? '' : (item.caption || '');
-      
+
       const imgEl = document.createElement('img');
       imgEl.src = '_static/image_carousel/' + file;
       imgEl.alt = caption || file.replace(/\.[^.]+$/, '');
