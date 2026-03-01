@@ -10,30 +10,30 @@ hide:
 
 !!! Example "Not seeing your work listed here?"
 
-    Open an [Issue](https://github.com/navis-org/navis/issues), start a [Discussion](https://github.com/navis-org/navis/discussions) or open a PR to tell us about it!
+    We'd love to know if you found {{ navis }} useful for your research! You can help us spread the word by citing the DOI provided by [Zenodo](https://doi.org/10.5281/zenodo.4699382): `10.5281/zenodo.4699382`
 
 ## 2026
 
 <ol>
-    <li value = "73">
+    <li value = "74">
     <strong>Drosophila DNp03 descending neurons serve as a hub within a flight saccade network.</strong> Croke et al., Current Biology (2026). <a href="https://doi.org/10.1016/j.cub.2025.11.035">10.1016/j.cub.2025.11.035</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "72">
+    <li value = "73">
     <strong>Inhibitory circuits control leg movements during Drosophila grooming.</strong> Syed et al., eLife (2026). <a href="https://doi.org/10.7554/eLife.106446.4">10.7554/eLife.106446.4</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "71">
+    <li value = "72">
     <strong>Neuronal calcium spikes enable vector inversion in the Drosophila brain.</strong> Ishida et al., Cell (2026). <a href="http://dx.doi.org/10.1016/j.cell.2025.11.040">10.1016/j.cell.2025.11.040</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "70">
+    <li value = "71">
     <strong>A dedicated brain circuit controls forward walking in Drosophila.</strong> Dallmann et al., Cell (2026). <a href="https://doi.org/10.64898/2026.01.04.697356">10.64898/2026.01.04.697356</a>
     </li>
 </ol>
@@ -41,116 +41,122 @@ hide:
 ## 2025
 
 <ol>
-    <li value = "69">
+    <li value = "70">
     <strong>Sexual dimorphism in the complete connectome of the Drosophila male central nervous system.</strong> Berg et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.10.09.680999">10.1101/2025.10.09.680999</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "68">
+    <li value = "69">
     <strong>The Drosophila escape motor circuit shows differential vulnerability to aging linked to functional decay.</strong> Gaitanidis et al., PLOS Biology (2025). <a href="https://doi.org/10.1371/journal.pbio.3003553">10.1371/journal.pbio.3003553</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "67">
+    <li value = "68">
     <strong>MoMo - Combining Neuron Morphology and Connectivity for Interactive Motif Analysis in Connectomes.</strong> Shewarega et al., EEE Transactions on Visualization and Computer Graphics (2025). <a href="http://dx.doi.org/10.1109/TVCG.2025.3634808">10.1109/TVCG.2025.3634808</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "66">
+    <li value = "67">
     <strong>Spatial and morphological organization of mitochondria in neurons across a connectome.</strong> Sager et al., Science (2025). <a href="https://doi.org/10.1126/science.ads6674">10.1126/science.ads6674</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "65">
+    <li value = "66">
     <strong>Visual Function Profiles via Multi-Path Aggregation Reveal Neuron-Level Responses in the Drosophila Brain.</strong> Xie et al., arXiv (2025). <a href="https://doi.org/10.48550/arXiv.2512.06934">10.48550/arXiv.2512.06934</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "64">
+    <li value = "65">
     <strong>Distinct circuit motifs evaluate opposing innate values of odors.</strong> Someya et al., Cell (2025). <a href="https://doi.org/10.1016/j.cell.2025.08.032">10.1016/j.cell.2025.08.032</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "63">
+    <li value = "64">
     <strong>SynAnno: Interactive Guided Proofreading of Synaptic Annotations.</strong> Lauenburg et al., EEE Transactions on Visualization and Computer Graphics (2025). <a href="https://doi.org/10.1109/TVCG.2025.3634824">10.1109/TVCG.2025.3634824</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "62">
+    <li value = "63">
     <strong>Population Morphology Implies a Common Developmental Blueprint for Drosophila Motion Detectors.</strong> Drummond et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.11.15.688637">10.1101/2025.11.15.688637</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "61">
+    <li value = "62">
     <strong>Connectivity biases generate a learning hierarchy in the Drosophila mushroom body.</strong> MacKenzie et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.10.29.684686">10.1101/2025.10.29.684686</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "60">
+    <li value = "61">
     <strong>The Connectome Interpreter Toolkit.</strong> Yin et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.09.29.679410">10.1101/2025.09.29.679410</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "59">
+    <li value = "60">
     <strong>Network synchrony creates neural filters promoting quiescence in Drosophila.</strong> Raccuglia et al., Nature (2025). <a href="https://doi.org/10.1038/s41586-025-09376-2">10.1038/s41586-025-09376-2</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "58">
+    <li value = "59">
     <strong>Distributed control circuits across a brain-and-cord connectome.</strong> Bates et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.07.31.667571">10.1101/2025.07.31.667571</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "57">
+    <li value = "58">
     <strong>The exponential distance rule-based network model predicts topology and reveals functionally relevant properties of the Drosophila projectome.</strong> Péntek and Ercsey-Ravasz, Network Neuroscience (2025). <a href="https://doi.org/10.1162/netn_a_00455">10.1162/netn_a_00455</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "56">
+    <li value = "57">
     <strong>A cell type in the visual system that receives feedback about limb movement.</strong> Hartman et al., Current Biology (2025). <a href="https://doi.org/10.1016/j.cub.2025.06.055">10.1016/j.cub.2025.06.055</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "55">
+    <li value = "56">
     <strong>A Developmental Atlas of the Drosophila Nerve Cord Uncovers a Global Temporal Code for Neuronal Identity.</strong> Cachero et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.07.16.664682">10.1101/2025.07.16.664682</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "54">
+    <li value = "55">
     <strong>The Drosophila connectome reveals Axo-Axonic Synapses on Descending Neurons.</strong> Ceballos et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.09.04.674108">10.1101/2025.09.04.674108</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "53">
+    <li value = "54">
     <strong>Fishexplorer: A multimodal cellular atlas platform for neuronal circuit dissection in larval zebrafish.</strong> Vohra et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.07.14.664689">10.1101/2025.07.14.664689</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "52">
+    <li value = "53">
     <strong>Synaptic density and relative connectivity conservation maintain circuit stability across development.</strong> Fritz et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.07.26.666968">10.1101/2025.07.26.666968</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "51">
+    <li value = "52">
     <strong>An applicable and efficient retrograde monosynaptic circuit mapping tool for larval zebrafish.</strong> Chen et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2024.06.27.601104">10.1101/2024.06.27.601104</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "51">
+    <strong>Selective life-long suppression of an odor processing channel in response to critical period experience.</strong> Leier et al., bioRxiv (2025). <a href="https://doi.org/10.1101/2025.07.18.665601 ">10.1101/2025.07.18.665601 </a>
     </li>
 </ol>
 
