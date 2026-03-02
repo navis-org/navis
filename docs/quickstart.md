@@ -39,7 +39,7 @@ for details.
 
 In above code we asked for a skeleton, so the neuron returned is a [`TreeNeuron`][navis.TreeNeuron].
 Like all neuron types, this class is essentially a wrapper around the actual
-neuron data (the node table in case of skeletons) and has some convenient features.
+neuron data (in case of skeletons, a node table) and has some convenient features.
 
 The skeleton's node data is stored as `pandas.DataFrame`:
 
@@ -143,7 +143,7 @@ These code snippets are equivalent:
 
 You may notice that many {{ navis }} functions that modify neurons (resampling, pruning, etc.) have an
 `inplace` parameter. This is analogous to `pandas` where `inplace` defines whether we
-modify the original (`inplace=True`) or operate on a copy (`inplace=False`, default).
+modify the original (`inplace=True`) or operate on and return a copy (`inplace=False`, default).
 
 Downsample a copy of our skeleton and leaving the original unchanged
 (this is the default for almost all functions):

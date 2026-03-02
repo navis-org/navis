@@ -188,7 +188,7 @@ fig, ax = navis.plot2d(
 #
 # Unless a neuron is truncated, it should have a soma somewhere. Knowing where the soma is can
 # be very useful, e.g. as point of reference for distance calculations or for plotting.
-# Therefore, {{ soma }} neurons have a `.soma` property:
+# Therefore, {{ navis }} neurons have a `.soma` property:
 
 # %%
 n = navis.example_neurons(1)

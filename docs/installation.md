@@ -9,14 +9,6 @@ hide:
 {{ navis }} requires Python 3.10 or later. The instructions below assume that
 you have already installed Python and its package manager [`pip`](https://pypi.org/project/pip/).
 
-!!! info "By the way"
-
-    You can use NAVis without having to install anything on your local machine!
-    Follow this [link](https://colab.research.google.com/github/navis-org/navis/blob/master/examples/colab.ipynb)
-    to open an example notebook in Google's Colaboratory.
-
-
-{{ navis }} is published as a [Python package] and can be installed with `pip`, ideally by using a [virtual environment].
 Open up a terminal and install {{ navis }} with:
 
 
@@ -68,26 +60,26 @@ Open up a terminal and install {{ navis }} with:
     out the [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install) (WSL).
 
 
-  [Python package]: https://pypi.org/project/navis/
+  [PyPI]: https://pypi.org/project/navis/
   [virtual environment]: https://realpython.com/what-is-pip/#using-pip-in-a-python-virtual-environment
   [Markdown]: https://python-markdown.github.io/
   [Using Python's pip to Manage Your Projects' Dependencies]: https://realpython.com/what-is-pip/
+
+
+!!! info "By the way"
+
+    You can use NAVis without having to install anything on your local machine!
+    Follow this [link](https://colab.research.google.com/github/navis-org/navis/blob/master/examples/colab.ipynb)
+    to open an example notebook in Google's Colaboratory.
 
 
 ## Optional dependencies
 
 If you installed {{ navis }} using the "batteries-included" `[all]` option, you can ignore this section.
 
-If you opted for the minimal install, you might want to consider adding some of these
-optional dependencies as they provide e.g. speed-boosts in certain situations or
-are for certain functions.
-
-These extras can be installed directly, or along with {{ navis }} with
-
-``` shell
-pip install navis[extra1,extra2]
-```
-
+If you opted for the minimal install, you might want to consider manually adding some of these
+optional dependencies as they provide speed-boosts in certain situations or
+are required for certain functions.
 
 The user-facing extras, the dependencies they install, and how to install those dependencies
 directly, are listed below:
@@ -270,6 +262,13 @@ directly, are listed below:
     ``` shell
     pip install cloud-volume
     ```
+
+These extras can be installed directly (see instructions above), or alongside {{ navis }} with
+
+``` shell
+pip install navis[extra1,extra2]
+```
+
 
 
 ## What next?
