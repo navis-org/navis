@@ -301,7 +301,7 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
             this_syn = syn[syn.bodyId == n.id]
             if not this_syn.empty:
                 # Keep only relevant columns
-                n.connectors = syn[['type', 'x', 'y', 'z', 'roi', 'confidence']]
+                n.connectors = this_syn[['type', 'x', 'y', 'z', 'roi', 'confidence']].copy()
 
     # Make an effort to retain the original order
     if not isinstance(x, NeuronCriteria) and not nl.empty:
