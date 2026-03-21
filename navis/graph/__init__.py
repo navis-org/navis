@@ -44,6 +44,7 @@ from .graph_utils import (
     remove_nodes,
     dist_to_root,
     skeleton_adjacency_matrix,
+    propagate_labels,
 )
 from .clinic import health_check
 
@@ -72,4 +73,5 @@ __all__ = [
     "neuron2KDTree",
     "neuron2tangents",
     "dist_to_root",
+    "propagate_labels",
 ]

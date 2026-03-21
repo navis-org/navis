@@ -14,15 +14,16 @@
 import numbers
 import warnings
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import networkx as nx
 
-from typing import Union, Optional, List, Tuple, Sequence, Dict, Set, overload, Iterable
 from typing_extensions import Literal
+from typing import Union, Optional, List, Tuple, Sequence, Dict, Set, overload, Iterable
 
+from scipy.special import softmax
 from pandas.api.types import CategoricalDtype
-from scipy.sparse import csgraph, csr_matrix
+from scipy.sparse import csgraph, csr_matrix, diags
 
 from .. import graph, utils, config, core, morpho
 
@@ -48,6 +49,7 @@ __all__ = sorted(
         "remove_nodes",
         "dist_to_root",
         "skeleton_adjacency_matrix",
+        "propagate_labels",
     ]
 )
 
@@ -2419,3 +2421,309 @@ def match_mesh_skeleton(mesh, skeleton):
     dist, ix = tree.query(mesh.vertices, k=1)
 
     return skeleton.nodes.node_id.values[ix]
+
+
+@utils.map_neuronlist(desc="Propagating labels", allow_parallel=True)
+def propagate_labels(
+    x,
+    labels,
+    clamping=True,
+    weights=None,
+    directed=False,
+    max_iter=10000,
+    tol=1e-6,
+    return_probs: Union[bool, Literal["softmax", "raw"]] = False,
+    verbose=False,
+):
+    """Propagate labels from a subset of nodes/vertices to the rest of the neuron.
+
+    This is useful for example if you have a subset of nodes that are tagged
+    with some label and want to propagate that label to the rest of the neuron
+    (e.g. to get a full classification of all nodes/vertices based on a subset).
+
+
+    Parameters
+    ----------
+    x :         TreeNeuron | MeshNeuron
+                Neuron(s) to propagate labels in.
+    labels :    array | dict | str
+                Labels to propagate. Can be:
+                    - array-like: a label for each node/vertex
+                    - dict: mapping node IDs/vertex indices to labels
+                    - str: name of a neuron property
+                Note that None/NaN will be treated as unlabeled and will not
+                be propagated.
+    clamping :  bool | "soft"
+                Whether to clamp labeled nodes during propagation:
+                  - If `True` (default), labeled nodes can not change their label.
+                  - If `False`, labeled nodes can change their label just like any other node.
+                  - If "soft", they can change but will be biased towards their original label.
+                    You can provide a bias strength by using "soft:alpha" where alpha is a float
+                    between 0 and 1 (e.g. "soft:0.5"). The lower the alpha, the stronger the
+                    bias towards the original label.
+    weights :   dict, optional
+                Optional importance weights for each label. The keys should be the
+                same values as in `labels` (e.g. "pre", "post") and the values should be
+                floats (higher = more influence on propagation). If `None` (default), all
+                labels are treated equally.
+    directed :  bool
+                Whether to treat the graph as directed during propagation. Only
+                applicable for TreeNeurons. If `True`, labels will only propagate
+                from parent to child nodes. If `False` (default), labels can propagate in both
+                directions.
+    max_iter :  int
+                Maximum number of iterations for label propagation.
+    tol :       float
+                Tolerance for convergence.
+    return_probs : bool | "softmax" | "raw"
+                Whether to also return the propagated probabilities. If not `False`,
+                will return a tuple of `(prop, probs, labels)` (see Returns).
+                The format of `probs` depends on the value of `return_probs`:
+                  - `False` (default) returns only `pred` (hard labels)
+                  - `True` means `probs` are row-normalized scores (sum to 1 per node)
+                  - `softmax` means `probs` are softmaxed scores
+                  - `raw` means `probs` are the raw propagated scores without any normalization
+
+    Returns
+    -------
+    prop :      array
+                Array of propagated labels for each node/vertex in the neuron. Nodes/vertices
+                that weren't visited (e.g. disconnected from any labeled nodes) will have NaN.
+    (prop, probs, labels) : tuple, optional
+                If `return_probs!=False`, returns a tuple containing:
+                  - `prop`: array of propagated labels
+                  - `probs`: (n_nodes, n_labels) float array of normalized scores
+                  - `labels`: list of label names corresponding to `probs` columns
+
+    Examples
+    --------
+    >>> import navis
+    >>> import numpy as np
+    >>> n = navis.example_neurons(1)
+
+    >>> # Prepare labels to propagate:
+    >>> # Here we will label nodes based on whether they are pre- and postsynaptic sites
+    >>> pre_nodes = n.snap(n.presynapses[['x', 'y', 'z']].values)[0]
+    >>> post_nodes = n.snap(n.postsynapses[['x', 'y', 'z']].values)[0]
+    >>> labels = np.full(n.n_nodes, np.nan, dtype=object)
+    >>> labels[post_nodes] = "post"
+    >>> labels[pre_nodes] = "pre"
+    >>> labels[:5]  # most labels will be NaN since only a subset of nodes are labeled
+    array([nan, nan, nan, nan, nan], dtype=object)
+
+    >>> # Propagate labels
+    >>> # We're not clamping here which will allow the initial labels to be overridden if the
+    >>> # neighborhood suggests a different label.
+    >>> prop_labels = navis.graph.graph_utils.propagate_labels(n, labels, clamping=False)
+    >>> prop_labels[:5]
+    ['post', 'post', 'post', 'post', 'post']
+
+    >>> # To visualize
+    >>> # navis.plot3d(n, color_by=prop_labels, palette={"pre": "red", "post": "blue"})
+
+    """
+    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
+        raise TypeError(f"Expected TreeNeuron or MeshNeuron, got {type(x)}")
+
+    assert return_probs in (
+        False,
+        True,
+        "softmax",
+        "raw",
+    ), f"Invalid value for return_probs: {return_probs}"
+    assert max_iter > 0, "max_iter must be a positive integer"
+    assert tol > 0, "tol must be a positive float"
+
+    if isinstance(labels, str):
+        if isinstance(x, core.TreeNeuron):
+            if labels not in x.nodes.columns:
+                raise ValueError(f'No node property "{labels}" found in neuron.')
+            elif getattr(x, labels).shape[0] != len(x.nodes):
+                raise ValueError(
+                    f'Length of node property "{labels}" does not match number of nodes ({len(x.nodes)})'
+                )
+            labels = dict(zip(x.nodes.node_id.values, x.nodes[labels].values))
+        elif isinstance(x, core.MeshNeuron):
+            if not hasattr(x, labels):
+                raise ValueError(f'No vertex property "{labels}" found in neuron.')
+            elif getattr(x, labels).shape[0] != len(x.vertices):
+                raise ValueError(
+                    f'Length of vertex property "{labels}" does not match number of vertices ({len(x.vertices)})'
+                )
+            labels = dict(zip(range(len(x.vertices)), getattr(x, labels)))
+    elif not isinstance(labels, dict):
+        if isinstance(x, core.TreeNeuron):
+            if len(labels) != len(x.nodes):
+                raise ValueError(
+                    f"Length of labels ({len(labels)}) does not match number of nodes ({len(x.nodes)})"
+                )
+            labels = dict(zip(x.nodes.node_id.values, labels))
+        elif isinstance(x, core.MeshNeuron):
+            if len(labels) != len(x.vertices):
+                raise ValueError(
+                    f"Length of labels ({len(labels)}) does not match number of vertices ({len(x.vertices)})"
+                )
+            labels = dict(zip(range(len(x.vertices)), labels))
+
+    # Drop missing labels from the dict
+    labels = {k: v for k, v in labels.items() if not pd.isnull(v)}
+
+    # Convert neuron to graph
+    G = x.graph
+
+    if not directed and G.is_directed():
+        G = G.to_undirected()
+
+    nodes = list(G.nodes())
+    n = len(nodes)
+    node_index = {node: i for i, node in enumerate(nodes)}
+
+    label_set = sorted(set(labels.values()))
+    label_index = {l: i for i, l in enumerate(label_set)}
+    k = len(label_set)
+
+    # Optional importance weights per label or per labeled node
+    label_weights = np.ones(k, dtype=np.float32)
+    per_node_weights = None
+
+    if weights is not None:
+        if isinstance(weights, dict):
+            for l, w in weights.items():
+                if l not in label_index:
+                    raise ValueError(
+                        f"Unknown label '{l}' in weights (expected one of: {label_set})"
+                    )
+                label_weights[label_index[l]] = float(w)
+        elif isinstance(weights, str):
+            if isinstance(x, core.TreeNeuron):
+                if weights not in x.nodes.columns:
+                    raise ValueError(f'No node property "{weights}" found in neuron.')
+                elif getattr(x, weights).shape[0] != len(x.nodes):
+                    raise ValueError(
+                        f'Length of node property "{weights}" does not match number of nodes ({len(x.nodes)})'
+                    )
+                per_node_weights = getattr(x, weights).values.astype(np.float32)
+            elif isinstance(x, core.MeshNeuron):
+                if not hasattr(x, weights):
+                    raise ValueError(f'No vertex property "{weights}" found in neuron.')
+                elif getattr(x, weights).shape[0] != len(x.vertices):
+                    raise ValueError(
+                        f'Length of vertex property "{weights}" does not match number of vertices ({len(x.vertices)})'
+                    )
+                per_node_weights = getattr(x, weights).astype(np.float32)
+        else:
+            weights_arr = np.asarray(weights, dtype=np.float32)
+            if weights_arr.ndim != 1:
+                raise ValueError(
+                    f"Expected 1D array-like weights, got shape {weights_arr.shape}"
+                )
+            if weights_arr.shape[0] == n:
+                per_node_weights = weights_arr
+            elif weights_arr.shape[0] == len(labels):
+                # Align per-label weights with the order of the provided labels dict
+                # (insertion order is preserved in Python 3.7+)
+                per_node_weights = np.zeros(n, dtype=np.float32)
+                for w, node in zip(weights_arr, labels.keys()):
+                    per_node_weights[node_index[node]] = w
+            else:
+                raise ValueError(
+                    "Weights array must have length equal to the number of nodes "
+                    f"({n}) or the number of labeled nodes ({len(labels)})."
+                )
+
+    # Adjacency matrix (sparse, float32)
+    A = nx.to_scipy_sparse_array(G, nodelist=nodes, format="csr", dtype=np.float32)
+
+    # Row-normalize adjacency (sparse)
+    row_sums = np.asarray(A.sum(axis=1)).flatten().astype(np.float32)
+    row_sums[row_sums == 0] = 1
+    D_inv = diags(1.0 / row_sums, dtype=np.float32)
+    S = D_inv.dot(A)
+
+    # Label matrix (float32)
+    Y = np.zeros((n, k), dtype=np.float32)
+    labeled_mask = np.zeros(n, dtype=bool)
+
+    for node, label in labels.items():
+        i = node_index[node]
+        w = label_weights[label_index[label]]
+        if per_node_weights is not None:
+            w *= per_node_weights[i]
+        Y[i, label_index[label]] = w
+        labeled_mask[i] = True
+
+    F = Y.copy()
+
+    # Parse clamping parameter
+    alpha = 0.5
+    if isinstance(clamping, str):
+        if "soft:" in clamping:
+            try:
+                alpha = float(clamping.split(":")[1])
+                if not (0 <= alpha <= 1):
+                    raise ValueError
+            except (IndexError, ValueError):
+                raise ValueError(
+                    f'Invalid clamping parameter "{clamping}". Expected format "soft:alpha" where alpha is a float between 0 and 1.'
+                )
+            clamping = "soft"
+
+    for _ in range(max_iter):
+        F_new = S @ F
+
+        # Clamp labeled nodes
+        if clamping == "soft":
+            F_new[labeled_mask] = (
+                alpha * F_new[labeled_mask] + (1 - alpha) * Y[labeled_mask]
+            )
+        elif clamping:
+            F_new[labeled_mask] = Y[labeled_mask]
+
+        change = np.linalg.norm(F_new - F)
+        if change < tol:
+            break
+
+        F = F_new
+
+    if verbose:
+        if _ == max_iter - 1:
+            if change == 0:
+                change_str = "0"
+            else:
+                change_str = f"{change:.0e}"
+            print(
+                f"Finished {max_iter:,} iterations without convergence (last change: {change_str})."
+            )
+        else:
+            print(f"Converged after {_:,} iterations.")
+
+    # Convert to predicted labels
+    prop = {}
+    for node in nodes:
+        i = node_index[node]
+        # Nodes that never receive any signal during propagation will have all-zero
+        # scores. In that case, return `None` rather than defaulting to the first
+        # label.
+        if np.all(F[i] == 0):
+            prop[node] = None
+        else:
+            prop[node] = label_set[np.argmax(F[i])]
+
+    if isinstance(x, core.TreeNeuron):
+        prop_array = x.nodes.node_id.map(prop).values
+    else:
+        prop_array = np.array([prop[i] for i in range(len(x.vertices))])
+
+    if return_probs:
+        if return_probs == "raw":
+            probs = F.copy()
+        elif return_probs == "softmax":
+            probs = softmax(F, axis=1)
+        else:  # return_probs is True
+            probs = F.copy()
+            row_sums = probs.sum(axis=1, keepdims=True)
+            row_sums[row_sums == 0] = 1
+            probs = probs / row_sums
+        return prop_array, probs, label_set
+
+    return prop_array

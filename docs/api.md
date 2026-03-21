@@ -342,6 +342,7 @@ Functions to analyze morphology.
 | [`navis.sholl_analysis()`][navis.sholl_analysis] | {{ autosummary("navis.sholl_analysis") }} |
 | [`navis.tortuosity()`][navis.tortuosity] | {{ autosummary("navis.tortuosity") }} |
 | [`navis.betweeness_centrality()`][navis.betweeness_centrality] | {{ autosummary("navis.betweeness_centrality") }} |
+| [`navis.propagate_labels()`][navis.propagate_labels] | {{ autosummary("navis.propagate_labels") }} |
 
 ### Manipulate
 
