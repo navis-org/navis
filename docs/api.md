@@ -365,6 +365,7 @@ Functions to edit morphology:
 | [`navis.prune_at_depth()`][navis.prune_at_depth] | {{ autosummary("navis.prune_at_depth") }} |
 | [`navis.reroot_skeleton()`][navis.reroot_skeleton] | {{ autosummary("navis.reroot_skeleton") }} |
 | [`navis.split_axon_dendrite()`][navis.split_axon_dendrite] | {{ autosummary("navis.split_axon_dendrite") }} |
+| [`navis.split_axon_dendrite_prop()`][navis.split_axon_dendrite_prop] | {{ autosummary("navis.split_axon_dendrite_prop") }} |
 | [`navis.split_into_fragments()`][navis.split_into_fragments] | {{ autosummary("navis.split_into_fragments") }} |
 | [`navis.stitch_skeletons()`][navis.stitch_skeletons] | {{ autosummary("navis.stitch_skeletons") }} |
 | [`navis.subset_neuron()`][navis.subset_neuron] | {{ autosummary("navis.subset_neuron") }} |

@@ -16,7 +16,7 @@ from .mmetrics import (strahler_index, bending_flow,
                        segregation_index, arbor_segregation_index, tortuosity,
                        betweeness_centrality, segment_analysis, cable_length)
 from .manipulation import (prune_by_strahler, stitch_skeletons,
-                           split_axon_dendrite, average_skeletons,
+                           split_axon_dendrite, split_axon_dendrite_prop, average_skeletons,
                            despike_skeleton, guess_radius, smooth_skeleton,
                            heal_skeleton, break_fragments,
                            prune_twigs, prune_at_depth, cell_body_fiber,
@@ -32,7 +32,7 @@ from .images import smooth_voxels, thin_voxels
 
 __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_centrality',
            'segregation_index', 'arbor_segregation_index', 'tortuosity',
-           'prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite',
+           'prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite', 'split_axon_dendrite_prop',
            'average_skeletons', 'despike_skeleton', 'guess_radius', 'smooth_skeleton',
            'heal_skeleton', 'break_fragments', 'prune_twigs',
            'find_soma', 'prune_at_depth', 'cell_body_fiber', 'drop_fluff',

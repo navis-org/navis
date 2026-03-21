@@ -31,8 +31,8 @@ try:
 except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
-from .. import graph, utils, config, core
 from . import mmetrics, subset
+from .. import graph, utils, config, core
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -42,6 +42,7 @@ __all__ = sorted(
         "prune_by_strahler",
         "stitch_skeletons",
         "split_axon_dendrite",
+        "split_axon_dendrite_prop",
         "average_skeletons",
         "despike_skeleton",
         "guess_radius",
@@ -57,6 +58,15 @@ __all__ = sorted(
 )
 
 NeuronObject = Union["core.NeuronList", "core.TreeNeuron"]
+
+
+# Default colors for compartments (used in split_axon_dendrite)
+_COMP_COLORS = {
+    "axon": (178, 34, 34),
+    "dendrite": (0, 0, 255),
+    "cellbodyfiber": (50, 50, 50),
+    "linker": (150, 150, 150),
+}
 
 
 @utils.map_neuronlist(desc="Pruning", allow_parallel=True)
@@ -649,17 +659,18 @@ def split_axon_dendrite(
     reroot_soma: bool = True,
     label_only: bool = False,
 ) -> "core.NeuronList":
-    """Split a neuron into axon and dendrite.
+    """Split a neuron into axon and dendrite using flow metrics.
 
-    The result is highly dependent on the method and on your neuron's
-    morphology and works best for "typical" neurons.
+    The result is highly dependent on the method and on your neuron's morphology and works best for "typical" neurons.
+    See [`navis.split_axon_dendrite_prop`][] for a slightly different approach.
 
     Parameters
     ----------
     x :                 TreeNeuron | MeshNeuron | NeuronList
-                        Neuron(s) to split into axon, dendrite (and cell body
-                        fiber if possible).
-    metric :            'synapse_flow_centrality' | 'bending_flow' | 'segregation_index' | "flow_centrality", optional
+                        Neuron(s) to split into axon, dendrite (and cell body fiber if possible).
+                        Always operates on the skeleton. For MeshNeurons, we will use the
+                        `.skeleton` attribute if it exists or generate the skeleton on the fly.
+    metric :            'synapse_flow_centrality' | 'bending_flow' | 'segregation_index' | "flow_centrality"
                         Defines which flow metric we will try to maximize when
                         splitting the neuron(s). There are four flavors:
 
@@ -750,19 +761,15 @@ def split_axon_dendrite(
 
     See Also
     --------
+    [`navis.split_axon_dendrite_prop`][]
+            Same function but instead of flow metrics, uses label propagation to determine
+            the split. Will also give you probabilities.
     [`navis.heal_skeleton`][]
             Axon/dendrite split works only on neurons consisting of a single
             tree. Use this function to heal fragmented neurons before trying
             the axon/dendrite split.
 
     """
-    COLORS = {
-        "axon": (178, 34, 34),
-        "dendrite": (0, 0, 255),
-        "cellbodyfiber": (50, 50, 50),
-        "linker": (150, 150, 150),
-    }
-
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Can only process TreeNeurons, got "{type(x)}"')
@@ -1003,11 +1010,216 @@ def split_axon_dendrite(
         if not len(nodes):
             continue
         n = subset.subset_neuron(original, nodes)
-        n.color = COLORS.get(label, (100, 100, 100))
+        n.color = _COMP_COLORS.get(label, (100, 100, 100))
         n._register_attr("compartment", label)
         nl.append(n)
 
     return core.NeuronList(nl)
+
+
+@utils.map_neuronlist(desc="Labeling", allow_parallel=True)
+def split_axon_dendrite_prop(
+    x: NeuronObject,
+    use_weights: Union[bool, str] = "balance",
+    alpha: float = 1,
+    max_iter: int = 10_000,
+    tol: float = 1e-5,
+    label_only: bool = False,
+    verbose: bool = False,
+) -> "core.NeuronList":
+    """Split a neuron into axon and dendrite using label propagation.
+
+    In contrast to [`navis.split_axon_dendrite`][] this function will
+    only label the predicted compartments. It also only distringuishes
+    between axon and dendrite (i.e. no linker or CBF). On the plus
+    side, you get probabilities for each node/vertex and the method is
+    not dependent on flow metrics which can be noisy for some neurons.
+
+    Parameters
+    ----------
+    x :                 TreeNeuron | MeshNeuron | NeuronList
+                        Neuron(s) to split into axon and dendrite.
+    use_weights :       bool or "balance"
+                        Whether to use weights for the label propagation:
+                         - If `True`, we will use the number of pre- vs.
+                           postsynapses as weights, i.e. if a given
+                           node/vertex has only marginally more pre- than
+                           postsynapses, it's weight will be lowered.
+                         - If "balance" (default), we will balance the
+                           weights to avoid that the split is dominated by
+                           the compartment with more synapses.
+    alpha :             float [0-1]
+                        Clamping factor for label propagation:
+                         - 0 means that the initial labels (i.e. pre or
+                           post) will be fully clamped and not changed
+                           during propagation.
+                         - 1 means that the original labels will not be
+                           clamped at all and can be fully overridden during
+                           propagation (default).
+                         - values between 0 and 1 will softly clamp the
+                           original labels.
+    max_iter/tol :      int / float
+                        Stop conditions for the label propagation:
+                         - `max_iter` is the maximum number of iterations
+                         - `tol` is the tolerance for convergence.
+                        We stop when either of those two is reached.
+    label_only :        bool,
+                        If True, will not split the neuron but rather compartments
+                        and probabilities to the neuron. See Returns for details!
+
+    Returns
+    -------
+    Neuron/List
+                        If `label_only=False` (default), will return a `NeuronList`
+                        with the neuron(s) split axon and dendrite. These fragments
+                        will have a `.compartment` property telling you whether
+                        they are the axon or the dendrite.
+
+                        If `label_only=True`, will return the original neuron(s)
+                        but with compartments (axon/dendrite) annotated.
+                        For TreeNeurons, there will be two new columns in their node
+                        table: `compartment` and `compartment_prob`.
+                        For MeshNeurons, there will be a new `compartment` and
+                        `compartment_prob` property.
+                        Important: any existing compartment annotations will be
+                        quietly overwritten!
+
+    Examples
+    --------
+    >>> import navis
+    >>> x = navis.example_neurons(1)
+    >>> x = navis.split_axon_dendrite_prop(x)
+
+    See Also
+    --------
+    [`navis.split_axon_dendrite_prop`][]
+            Similar function but instead of label propagation it uses flow metrics to determine
+            a split. Can distringuish between axon, dendrite, linker and CBF.
+    [`navis.heal_skeleton`][]
+            Axon/dendrite split really only works correctly on neurons consisting of a single
+            tree. Use this function to heal fragmented neurons before trying
+            the axon/dendrite split.
+
+    """
+    assert use_weights in (
+        True,
+        False,
+        "balance",
+    ), f'`use_weights` must be True, False or "balance", got {use_weights}'
+
+    def _calc_pre_post(x, balance_weights):
+        if len(post_co := x.postsynapses[["x", "y", "z"]].values):
+            post_nodes = x.snap(post_co)[0]
+        else:
+            post_nodes = np.array([], dtype=int)
+
+        if len(pre_co := x.presynapses[["x", "y", "z"]].values):
+            pre_nodes = x.snap(pre_co)[0]
+        else:
+            pre_nodes = np.array([], dtype=int)
+
+        pre_nodes_unique, pre_count = np.unique(pre_nodes, return_counts=True)
+        post_nodes_unique, post_count = np.unique(post_nodes, return_counts=True)
+
+        n = len(x.nodes) if isinstance(x, core.TreeNeuron) else len(x.vertices)
+        pre_weights = np.zeros(n, dtype=np.float32)
+        post_weights = np.zeros(n, dtype=np.float32)
+
+        pre_weights[pre_nodes_unique] = pre_count
+        post_weights[post_nodes_unique] = post_count
+
+        # Create label array
+        prepost = np.full(n, np.nan, dtype=object)
+        prepost[pre_weights < post_weights] = "post"
+        prepost[pre_weights > post_weights] = "pre"
+
+        # Simple weights based on pre vs. post counts
+        prepost_weight = np.abs(post_weights - pre_weights)
+
+        if not balance_weights:
+            return prepost, prepost_weight
+
+        # Normalised weight - in case we have very different numbers of pre- vs. postsynapses
+        # we don't want the split to be dominated by the compartment with more synapses
+        ratio = 1  # doesn't matter if we have no pre- or no postsynapses
+        if len(pre_nodes) and len(post_nodes):
+            ratio = post_nodes.shape[0] / pre_nodes.shape[0]
+
+        prepost_weight_balanced = prepost_weight.copy()
+        prepost_weight_balanced[prepost == "pre"] *= ratio
+
+        return prepost, prepost_weight_balanced
+
+    # The decorator makes sure that at this point we have single neurons
+    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
+        raise TypeError(f'Can only process Tree- and MeshNeurons, got "{type(x)}"')
+
+    if not x.has_connectors:
+        raise ValueError("Neuron must have connectors.")
+
+    prepost, prepost_weight = _calc_pre_post(
+        x, balance_weights=use_weights == "balance"
+    )
+
+    if alpha == 0:
+        clamping = True
+    elif alpha == 1:
+        clamping = False
+    else:
+        clamping = f"soft:{alpha}"
+
+    pred, probs, _ = graph.graph_utils.propagate_labels(
+        x,
+        labels=prepost,
+        weights=prepost_weight if use_weights else None,
+        clamping=clamping,  # original labels can be overridden
+        max_iter=max_iter,
+        tol=tol,
+        return_probs="raw",
+        verbose=verbose,
+    )
+    # Make sure probs are sorted as expected (post vs. pre)
+    if _[1] == "post":
+        probs = probs[:, ::-1]
+
+    probs_norm = probs.copy()
+    probs_norm[probs_norm.max(axis=1) == 0] = np.nan  #  unvisited nodes/vertices have prob 0 in both columns
+    is_nan = np.isnan(probs_norm).any(axis=1)
+    probs_norm[~is_nan] /= probs[~is_nan].sum(axis=1).reshape(-1, 1)
+
+    diff = probs_norm[:, 1] - probs_norm[:, 0]
+    diff[is_nan] = np.nan
+
+    comp = np.full(len(diff), np.nan, dtype=object)
+    comp[diff > 0] = "axon"
+    comp[diff < 0] = "dendrite"
+
+    if label_only:
+        if isinstance(x, core.TreeNeuron):
+            x.nodes["compartment"] = comp
+            x.nodes["compartment_prob"] = probs_norm.max(axis=1)
+        else:
+            x.compartment = comp
+            x.compartment_prob = probs_norm.max(axis=1)
+
+        return x
+
+    if pd.isnull(comp).any():
+        logger.warning(
+            f"Parts of neuron {x.id} did not receive a label (disconnected or not reached). "
+            "These parts will not be parts of the split."
+        )
+
+    axon = subset.subset_neuron(x, comp == "axon")
+    dendrite = subset.subset_neuron(x, comp == "dendrite")
+
+    axon.color = _COMP_COLORS.get("axon", (100, 100, 100))
+    axon._register_attr("compartment", "axon")
+
+    dendrite.color = _COMP_COLORS.get("dendrite", (100, 100, 100))
+    dendrite._register_attr("compartment", "dendrite")
+
+    return core.NeuronList([dendrite, axon])
 
 
 def combine_neurons(
