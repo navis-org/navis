@@ -20,6 +20,13 @@ pip uninstall navis -y
 pip install git+https://github.com/navis-org/navis@master
 ```
 
+##### Additions
+- new function: [`propagate_labels`][navis.propagate_labels] propagates sparse labels across a neuron (see new tutorial for details)
+- new function: [`split_axon_dendrite_prop`][navis.split_axon_dendrite_prop] uses label propagation to split a neuron into axon and dendrite (see new tutorial for details)
+
+##### Fixes
+- fixed a bug in `neuprint.fetch_mesh_neuron` if fetching multiple neurons and if `with_synapses=True` that caused synapses to not be assigned to the correct neuron
+
 ## Version `1.11.0` { data-toc-label="1.11.0" }
 _Date: 27/02/26_
 
@@ -30,7 +37,7 @@ _Date: 27/02/26_
 - [`split_axon_dendrite`][navis.split_axon_dendrite] now allows setting the in-/output ratio for the split (see `split` parameter)
 - major speed-up for [`heal_skeleton`][navis.heal_skeleton]
 - minor speed-up for [`resample_skeleton`][navis.resample_skeleton]
-- add `progress` parameter to [`mirror_brain`][navis.mirror_brain], [`symmetrize_brain`][navis.symmetrize_brain] and [`combine_meshes`][navis.combine_meshes]
+- add `progress` parameter to [`mirror_brain`][navis.mirror_brain], [`symmetrize_brain`][navis.symmetrize_brain] and [`combine_meshes`][navis.meshes.operations.combine_meshes]
 - [`persistence_vectors`][navis.persistence_vectors] now accepts list of distances to be sampled as `samples`
 - [`make_dotprops`][navis.make_dotprops] has a new `on_issue` parameter that determines what to do when issues with the inputs are encountered (e.g. NaNs)
 - two new [`VoxelNeuron`][navis.VoxelNeuron] methods:
@@ -43,7 +50,7 @@ _Date: 27/02/26_
 - transforms:
     - new transform type: [`GridTransform`][navis.transforms.GridTransform] is a class for generic deformation-field transforms
     - [`TPStransform`][navis.transforms.TPStransform] now has a `.matrix_rigid` property that extracts the rigid part of the TPS affine as a 4x4 matrix
-    - [`TPStransforms`][navis.transforms.TPStransform] and [`MovingLeastSquaresTransforms`][navis.transforms.MovingLeastSquaresTransform] transforms now transform in batches to avoid memory issues when transforming large numbers of points
+    - [`TPStransforms`][navis.transforms.TPStransform] and `MovingLeastSquaresTransforms` transforms now transform in batches to avoid memory issues when transforming large numbers of points
     - new methods for [`CMTKtransform`][navis.transforms.CMTKtransform]: [`to_dfield`][navis.transforms.CMTKtransform.to_dfield] and [`to_grid_transform`][navis.transforms.CMTKtransform.to_grid_transform] can be used to sample the CMTK transform into a deformation field (this is experimental)
     - new [`H5transform`][navis.transforms.H5transform] method: [`xform_image`][navis.transforms.H5transform.xform_image] can be used to apply the transform to images (this is experimental)
     - [`TransformRegistry.register_transform`][navis.transforms.templates.TemplateRegistry] now accepts an optional `weight_inv` parameter; can be used to penalize expensive inverse transforms (e.g. CMTK)
