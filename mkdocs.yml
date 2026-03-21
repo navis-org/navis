@@ -93,6 +93,8 @@ plugins:
         # an issue where the sha of the bundled version did not match the one expected from the
         # generated `integrity` tag, which caused the library to fail to load.
         - cdn.plot.ly/*
+        # There seems to also be an issue with the Zenodo batch for some reason
+        - zenodo.org/*
   # the social plugin generates social cards for each page of the project
   # which are used as previews when sharing links to the documentation
   - social
