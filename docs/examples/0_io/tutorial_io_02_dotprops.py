@@ -142,3 +142,6 @@ dp
 # %%
 # There is no established format to store dotprops. But like all other neuron types in navis, you can pickle data for later (re)use
 # - see the [pickling tutorial](../tutorial_io_04_pickle). See also the [I/O API reference](../../../api.md#importexport).
+
+
+# mkdocs_gallery_thumbnail_path = '_static/dotprops_thumbnail.png'

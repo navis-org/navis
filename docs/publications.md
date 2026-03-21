@@ -6,11 +6,11 @@ hide:
 
 # Publications using {{ navis}}
 
-{{ navis }} has been used in a range of high-profile publications[^1]. Below we have collected a partial[^2] list.
+{{ navis }} has been used in a growing number of high-profile publications[^1]. Below we have collected a partial[^2] list.
 
-!!! Example "Not seeing your work listed here?"
+!!! Example "Help us spread the word!"
 
-    We'd love to know if you found {{ navis }} useful for your research! You can help us spread the word by citing the DOI provided by [Zenodo](https://doi.org/10.5281/zenodo.4699382): `10.5281/zenodo.4699382`
+    We'd love to know if you found {{ navis }} useful for your research! You can help us by citing the DOI provided by [Zenodo](https://doi.org/10.5281/zenodo.4699382): `10.5281/zenodo.4699382`
 
 ## 2026
 

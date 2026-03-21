@@ -310,3 +310,7 @@ plt.tight_layout()
 # %%
 # Note how clusters 3 and 8 look a bit odd? That's because these likely still contain more than one type of neuron. We should probably
 # have gone with a slightly finer clustering. But this little demo should be enough to get you started!
+
+# %%
+
+# mkdocs_gallery_thumbnail_path = '_static/NBLAST_neuron_comparison.png'

@@ -123,3 +123,5 @@ vol
 #
 # Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`MeshNeurons`][navis.MeshNeuron]
 # (see also the API reference on [neuron conversion](../../../api.md#converting-between-types)).
+
+# mkdocs_gallery_thumbnail_path = '_static/mesh_thumbnail.png'

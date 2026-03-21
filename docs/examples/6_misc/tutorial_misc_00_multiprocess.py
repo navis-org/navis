@@ -116,3 +116,6 @@ time_func (
 
 
 
+# %%
+
+# mkdocs_gallery_thumbnail_path = '_static/multiprocess.png'

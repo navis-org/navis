@@ -118,7 +118,7 @@ tutorial for more information.
 
 ## Methods vs Functions
 
-{{ navis }} neurons and neuron lists have methods that serve as shortcuts to main functions.
+{{ navis }} neurons and neuron lists have methods that serve as shortcuts to some frequently used functions.
 
 These code snippets are equivalent:
 
