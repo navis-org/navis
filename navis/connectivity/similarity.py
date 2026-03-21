@@ -321,7 +321,7 @@ def synapse_similarity(x: 'core.NeuronList',
     and (2) comparing the synapse density around synapse A and B.
     This is type-sensitive: presynapses will only be matched with presynapses,
     post with post, etc. The formula is described in
-    [Schlegel et al., eLife (2017)](https://elifesciences.org/articles/16799):
+    [Schlegel et al., eLife (2016)](https://elifesciences.org/articles/16799):
 
     $$
     f(i_{s},j_{k}) = \exp(\frac{-d^{2}_{sk}}{2\sigma^{2}}) \exp(\frac{|n(i_{s})-n(j_{k})|}{n(i_{s})+n(j_{k})})

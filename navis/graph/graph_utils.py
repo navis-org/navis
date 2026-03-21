@@ -2437,11 +2437,6 @@ def propagate_labels(
 ):
     """Propagate labels from a subset of nodes/vertices to the rest of the neuron.
 
-    This is useful for example if you have a subset of nodes that are tagged
-    with some label and want to propagate that label to the rest of the neuron
-    (e.g. to get a full classification of all nodes/vertices based on a subset).
-
-
     Parameters
     ----------
     x :         TreeNeuron | MeshNeuron
