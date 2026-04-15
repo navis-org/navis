@@ -352,16 +352,11 @@ class CMTKtransform(BaseTransform):
 
     def copy(self) -> "CMTKtransform":
         """Return copy."""
-        # Attributes not to copy
-        no_copy = []
-        # Generate new empty transform
-        x = self.__class__(None)
-        # Override with this neuron's data
-        x.__dict__.update(
-            {k: copy.copy(v) for k, v in self.__dict__.items() if k not in no_copy}
+        return self.__class__(
+            regs=copy.copy(self.regs),
+            directions=copy.copy(self.directions),
+            threads=self.threads,
         )
-
-        return x
 
     def parse_cmtk_output(self, output: str, fail_value=np.nan) -> np.ndarray:
         r"""Parse CMTK output.

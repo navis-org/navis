@@ -13,13 +13,11 @@
 
 """Functions for using deformation fields."""
 
-import concurrent.futures
-
 import numpy as np
 import pandas as pd
 
 from pathlib import Path
-from scipy.interpolate import RegularGridInterpolator
+from scipy.ndimage import map_coordinates
 
 from .base import BaseTransform
 from .affine import AffineTransform
@@ -165,10 +163,12 @@ class GridTransform(BaseTransform):
 
     def copy(self, copy_data: bool = False) -> "GridTransform":
         """Return copy."""
-        if copy_data:
-            return GridTransform(self.field.copy(), type=self.type)
-        else:
-            return GridTransform(self.field, type=self.type)
+        return GridTransform(
+            self.field.copy() if copy_data else self.field,
+            type=self.type,
+            spacing=self.spacing,
+            offset=self.offset
+        )
 
     @classmethod
     def from_file(cls, filepath: str) -> "GridTransform":
@@ -236,11 +236,9 @@ class GridTransform(BaseTransform):
                 # mov_shape = wm["moving_shape"][:]
                 # ref_shape = wm["ref_shape"][:]
         else:
-            field = warpfield.warp_field
-            block_size = warpfield.block_size
-            block_stride = warpfield.block_stride
-            # mov_shape = warpfield.mov_shape
-            # ref_shape = warpfield.ref_shape
+            field = np.asarray(warpfield.warp_field)
+            block_size = np.asarray(warpfield.block_size)
+            block_stride = np.asarray(warpfield.block_stride)
 
         # Reshape the field from (3, X, Y, Z) to (X, Y, Z, 3)
         field = np.moveaxis(field, 0, -1)
@@ -263,10 +261,11 @@ class GridTransform(BaseTransform):
         points :            (N, 3) numpy array | pandas.DataFrame
                             Points to xform. DataFrame must have x/y/z columns.
         affine_fallback :   bool
-                            If True, points that are outside the deformation field
-                            will be transformed using an affine transform defined by
-                            the affine part of the deformation field.
-                            If False, points outside the field will be set to np.nan.
+                            If False, sample outside the deformation field is treated
+                            as constant `np.nan`. If True, sample outside the deformation
+                            field uses nearest-neighbor extrapolation, i.e. we're not
+                            exactly applying a global affine but we're keeping the
+                            parameter name for compatibility with other transforms.
 
         Returns
         -------
@@ -299,31 +298,11 @@ class GridTransform(BaseTransform):
         if self.offset is not None:
             points_vxl = points_vxl + self.offset[np.newaxis, :]
 
-        # For interpolation, we need to split the offsets into their x, y
-        # and z component
-        xgrid = self.field[:, :, :, 0]
-        ygrid = self.field[:, :, :, 1]
-        zgrid = self.field[:, :, :, 2]
+        # map_coordinates expects coordinates as (ndim, n_points)
+        coords = points_vxl.T
 
-        # Prepare points for interpolation
-        xx = np.arange(0, self.shape[0])
-        yy = np.arange(0, self.shape[1])
-        zz = np.arange(0, self.shape[2])
-
-        # The RegularGridInterpolator is the fastest but the results are
-        # are ever so slightly (4th decimal) different from the Java implementation
-        xinterp = RegularGridInterpolator(
-            (xx, yy, zz), xgrid, bounds_error=False, fill_value=0
-        )
-        yinterp = RegularGridInterpolator(
-            (xx, yy, zz), ygrid, bounds_error=False, fill_value=0
-        )
-        zinterp = RegularGridInterpolator(
-            (xx, yy, zz), zgrid, bounds_error=False, fill_value=0
-        )
-
-        # Before we interpolate check how many points are outside the deformation field
-        is_out = (points_vxl.min(axis=1) < 0) | np.any(points_vxl >= self.shape[:-1], axis=1)
+        mode = "nearest" if affine_fallback else "constant"
+        cval = 0 if affine_fallback else np.nan
 
         # Prepare output array
         if self.type == "coordinates":
@@ -331,24 +310,15 @@ class GridTransform(BaseTransform):
         else:  # offsets
             points_xf = points.astype(self.dtype, copy=True)
 
-        if is_out.any():
-            if not affine_fallback:
-                points_xf[is_out, :] = np.nan
-            else:
-                # Apply affine part to out-of-bounds points
-                points_xf[is_out, :] = self.affine.xform(
-                    points[is_out, :],
-                )
-
         # Interpolate coordinates, re-combine to an x/y/z array and
         # add to the input points (if coordinates, the points are zeroed out above)
-        if not is_out.all():
-            points_xf[~is_out, :] += np.vstack(
-                (
-                    xinterp(points_vxl[~is_out, :], method="linear"),
-                    yinterp(points_vxl[~is_out, :], method="linear"),
-                    zinterp(points_vxl[~is_out, :], method="linear"),
-                )
-            ).T.astype(self.dtype)
+        shifts = np.vstack(
+            (
+                map_coordinates(self.field[:, :, :, 0], coords, order=1, mode=mode, cval=cval),
+                map_coordinates(self.field[:, :, :, 1], coords, order=1, mode=mode, cval=cval),
+                map_coordinates(self.field[:, :, :, 2], coords, order=1, mode=mode, cval=cval),
+            )
+        ).T.astype(self.dtype)
+        points_xf += shifts
 
         return points_xf

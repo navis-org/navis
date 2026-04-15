@@ -21,7 +21,6 @@ import pandas as pd
 
 from typing import Union, Optional
 from scipy.ndimage import map_coordinates
-from scipy.interpolate import RegularGridInterpolator
 
 from .base import BaseTransform
 from .affine import AffineTransform
@@ -234,15 +233,28 @@ class H5transform(BaseTransform):
         # arrays for caching to save memory
         # See https://github.com/pydata/sparse/
 
-    def copy(self):
-        """Return copy."""
-        return H5transform(
+    def copy(self, drop_cache=False):
+        """Return copy.
+
+        Please note that by default we're carrying over the cache *WITHOUT* copying it!
+        Currently, `xform_brain` turns transforms into a `TransformSequence` which
+        makes copies of each transform. If we didn't carry over the cache, we would never
+        actually use it.
+        """
+        transform = H5transform(
             self.file,
             direction=self.direction,
             level=int(self.level) if self.level else None,
             cache=self.use_cache,
             full_ingest=False,
         )
+        if not drop_cache and self.use_cache:
+            transform.cache = self.cache
+            transform.cached = self.cached
+            if hasattr(self, "_fully_ingested"):
+                transform._fully_ingested = self._fully_ingested
+
+        return transform
 
     def full_ingest(self):
         """Fully ingest the deformation field."""
@@ -345,19 +357,22 @@ class H5transform(BaseTransform):
                             Points to xform. DataFrame must have x/y/z columns.
         affine_fallback :   bool
                             If False, points outside the deformation field will
-                            be returned as `np.nan`. If True, these points will
-                            only receive the affine part of the transformation.
-        force_deform :      bools
-                            If True, points outside the deformation field be
-                            deformed using the closest point inside the
-                            deformation field. Ignored if `affine_fallback` is
-                            `False`.
+                            be returned as `np.nan`. If True, points outside the
+                            deformation field fall back to the baked-in affine
+                            transform unless `force_deform=True`.
+        force_deform :      bool
+                            If True and `affine_fallback=True`, points outside
+                            the deformation field are deformed using the closest
+                            point inside the field, equivalent to nearest-neighbor
+                            extrapolation of the deformation component. If False,
+                            out-of-bounds points receive only the affine part.
+                            Ignored if `affine_fallback=False`.
 
         Returns
         -------
         pointsxf :      (N, 3) numpy array
-                        Transformed points. Points outside the deformation field
-                        will have only the affine part of the transform applied.
+                        Transformed points. Out-of-bounds handling depends on
+                        `affine_fallback` and `force_deform`.
 
         """
         if isinstance(points, pd.DataFrame):
@@ -410,6 +425,8 @@ class H5transform(BaseTransform):
             else:
                 xf = points
 
+            affine_xf = xf.copy()
+
             # Translate points into voxel space
             spacing = field.attrs["spacing"]
             # Note that we invert because spacing is given in (z, y, x)
@@ -445,28 +462,6 @@ class H5transform(BaseTransform):
                     self.cache[mn[2] : mx[2], mn[1] : mx[1], mn[0] : mx[0]] = offsets
                     self.cached[mn[2] : mx[2], mn[1] : mx[1], mn[0] : mx[0]] = True
 
-        # For interpolation, we need to split the offsets into their x, y
-        # and z component
-        xgrid = offsets[:, :, :, 0]
-        ygrid = offsets[:, :, :, 1]
-        zgrid = offsets[:, :, :, 2]
-
-        xx = np.arange(mn[0], mx[0])
-        yy = np.arange(mn[1], mx[1])
-        zz = np.arange(mn[2], mx[2])
-
-        # The RegularGridInterpolator is the fastest one but the results are
-        # are ever so slightly (4th decimal) different from the Java implementation
-        xinterp = RegularGridInterpolator(
-            (zz, yy, xx), xgrid, bounds_error=False, fill_value=0
-        )
-        yinterp = RegularGridInterpolator(
-            (zz, yy, xx), ygrid, bounds_error=False, fill_value=0
-        )
-        zinterp = RegularGridInterpolator(
-            (zz, yy, xx), zgrid, bounds_error=False, fill_value=0
-        )
-
         # Before we interpolate check how many points are outside the
         # deformation field -> these will only receive the affine part of the
         # transform
@@ -485,40 +480,34 @@ class H5transform(BaseTransform):
                 "that the input coordinates are in the correct "
                 "space/units"
             )
-        # If all points are outside the volume, the interpolation complains
-        if frac_out < 1 or (force_deform and affine_fallback):
-            if force_deform:
-                # For the purpose of finding offsets, we will snap points
-                # outside the deformation field to the closest inside voxel
-                q_voxel = np.clip(
-                    xf_voxel, a_min=0, a_max=np.array(self.shape[:-1][::-1]) - 1
-                )
-            else:
-                q_voxel = xf_voxel
 
-            # Interpolate coordinates and re-combine to an x/y/z array
-            offset_vxl = np.vstack(
-                (
-                    xinterp(q_voxel[:, ::-1], method="linear"),
-                    yinterp(q_voxel[:, ::-1], method="linear"),
-                    zinterp(q_voxel[:, ::-1], method="linear"),
-                )
-            ).T
+        # map_coordinates expects coordinates in (z, y, x) order and relative
+        # to the extracted offsets block.
+        coords = xf_voxel[:, ::-1].T - mn[::-1].reshape(3, 1)
+        mode = "nearest" if affine_fallback and force_deform else "constant"
+        cval = 0 if mode == "nearest" else np.nan
 
-            # Turn offsets into real-world coordinates
-            offset_real = offset_vxl * quantization_multiplier
+        offset_vxl = np.vstack(
+            (
+                map_coordinates(offsets[:, :, :, 0], coords, order=1, mode=mode, cval=cval),
+                map_coordinates(offsets[:, :, :, 1], coords, order=1, mode=mode, cval=cval),
+                map_coordinates(offsets[:, :, :, 2], coords, order=1, mode=mode, cval=cval),
+            )
+        ).T
 
-            # Apply offsets
-            # Please note that we must not use += here
-            # That's to avoid running into data type errors where numpy
-            # will refuse to add e.g. float64 to int64.
-            # By using "+" instead of "+=" we are creating a new array that
-            # is potentially upcast from e.g. int64 to float64
-            xf = xf + offset_real
+        # Turn offsets into real-world coordinates
+        offset_real = offset_vxl * quantization_multiplier
+
+        # Please note that we must not use += here to allow upcasting as needed.
+        xf = xf + offset_real
 
         # For forward direction, the affine part is applied last
         if self.direction == "forward" and affine:
             xf = affine.xform(xf)
+            affine_xf = affine.xform(affine_xf)
+
+        if affine_fallback and not force_deform and is_out.any():
+            xf[is_out, :] = affine_xf[is_out, :]
 
         # If no affine_fallback, set outside points to np.nan
         if not affine_fallback:
