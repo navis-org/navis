@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-""" Interface with neuprint. This module is wrapping neuprint-python
+"""Interface with neuprint. This module is wrapping neuprint-python
 (https://github.com/connectome-neuprint/neuprint-python) and adding some
 navis-specific functions.
 """
@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     from neuprint import *
+
     # remove neuprint's own fetch_skeleton function to avoid confusion
     try:
         del fetch_skeleton  # noqa
@@ -87,15 +88,24 @@ def fetch_roi(roi, *, client=None):
     f = io.StringIO(data.decode())
 
     # Parse with trimesh
-    ob = trimesh.load_mesh(f, file_type='obj')
+    ob = trimesh.load_mesh(f, file_type="obj")
 
     return Volume.from_object(ob, name=roi)
 
 
 @inject_client
-def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
-                      parallel=True, max_threads=5, seg_source=None,
-                      client=None, **kwargs):
+def fetch_mesh_neuron(
+    x,
+    *,
+    lod=1,
+    with_synapses=False,
+    missing_mesh="raise",
+    parallel=True,
+    max_threads=5,
+    seg_source=None,
+    client=None,
+    **kwargs,
+):
     """Fetch neuron meshes as navis.MeshNeuron.
 
     Requires additional packages depending on the mesh source.
@@ -151,10 +161,10 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
 
     """
     if isinstance(x, pd.DataFrame):
-        if 'bodyId' in x.columns:
-            x = x['bodyId'].values
-        elif 'bodyid' in x.columns:
-            x = x['bodyid'].values
+        if "bodyId" in x.columns:
+            x = x["bodyId"].values
+        elif "bodyid" in x.columns:
+            x = x["bodyid"].values
         else:
             raise ValueError('DataFrame must have "bodyId" column.')
 
@@ -163,27 +173,31 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
         seg_source = get_seg_source(client=client)
 
     if not seg_source:
-        raise ValueError('Segmentation source could not be automatically '
-                         'determined. Please provide via `seg_source`.')
+        raise ValueError(
+            "Segmentation source could not be automatically "
+            "determined. Please provide via `seg_source`."
+        )
 
-    if isinstance(seg_source, str) and seg_source.startswith('dvid'):
+    if isinstance(seg_source, str) and seg_source.startswith("dvid"):
         try:
             import dvid as dv
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
-                'This looks like a DVID mesh source. For this we '
-                'need the `dvid-tools` library:\n'
-                '  pip3 install dvidtools -U')
-        o = urlparse(seg_source.replace('dvid://', ''))
-        server = f'{o.scheme}://{o.netloc}'
-        node = o.path.split('/')[1]
+                "This looks like a DVID mesh source. For this we "
+                "need the `dvid-tools` library:\n"
+                "  pip3 install dvidtools -U"
+            )
+        o = urlparse(seg_source.replace("dvid://", ""))
+        server = f"{o.scheme}://{o.netloc}"
+        node = o.path.split("/")[1]
 
         if lod is not None:
-                logger.warning(
-                    'This dataset does not support LODs. '
-                    'Will ignore the `lod` argument. '
-                    'You can silence this warning by setting `lod=None`.')
-                lod = None
+            logger.warning(
+                "This dataset does not support LODs. "
+                "Will ignore the `lod` argument. "
+                "You can silence this warning by setting `lod=None`."
+            )
+            lod = None
     else:
         try:
             from cloudvolume import CloudVolume
@@ -191,7 +205,8 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
             raise ModuleNotFoundError(
                 "You need to install the `cloudvolume` library"
                 "to fetch meshes from this mesh source:\n"
-                "  pip3 install cloud-volume -U")
+                "  pip3 install cloud-volume -U"
+            )
         # Initialize volume
         if isinstance(seg_source, CloudVolume):
             vol = seg_source
@@ -201,11 +216,12 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
             vol = CloudVolume(seg_source, **defaults)
 
             # Check if vol.mesh.get has a lod argument
-            if lod is not None and 'lod' not in vol.mesh.get.__code__.co_varnames:
+            if lod is not None and "lod" not in vol.mesh.get.__code__.co_varnames:
                 logger.warning(
-                    'This dataset does not have multi-resolution meshes and '
-                    'the `lod` parameter will be ignored. '
-                    'You can silence this warning by setting `lod=None`.')
+                    "This dataset does not have multi-resolution meshes and "
+                    "the `lod` parameter will be ignored. "
+                    "You can silence this warning by setting `lod=None`."
+                )
                 lod = None
 
     if isinstance(x, NeuronCriteria):
@@ -219,58 +235,64 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
     meta = fetch_neurons(query, client=client, omit_rois=True)
 
     if meta.empty:
-        raise ValueError('No neurons matching the given criteria found!')
+        raise ValueError("No neurons matching the given criteria found!")
     elif not isinstance(wanted_ids, type(None)):
         miss = wanted_ids[~np.isin(wanted_ids, meta.bodyId.values)]
         if len(miss):
-            logger.warning(f'Skipping {len(miss)} body IDs that were not found: '
-                           f'{", ".join(miss.astype(str))}')
+            logger.warning(
+                f"Skipping {len(miss)} body IDs that were not found: "
+                f'{", ".join(miss.astype(str))}'
+            )
 
     # Apply a small number of potential fixes to the meta data
     meta = _fix_meta(meta)
 
-    if isinstance(seg_source, str) and seg_source.startswith('dvid'):
+    if isinstance(seg_source, str) and seg_source.startswith("dvid"):
         # Fetch the meshes
-        nl = dv.get_meshes(meta.bodyId.values,
-                           on_error=missing_mesh,
-                           output='navis',
-                           progress=meta.shape[0] > 1 and not config.pbar_hide,
-                           max_threads=1 if not parallel else max_threads,
-                           server=server,
-                           node=node)
+        nl = dv.get_meshes(
+            meta.bodyId.values,
+            on_error=missing_mesh,
+            output="navis",
+            progress=meta.shape[0] > 1 and not config.pbar_hide,
+            max_threads=1 if not parallel else max_threads,
+            server=server,
+            node=node,
+        )
     else:
         nl = []
-        with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
+        with ThreadPoolExecutor(
+            max_workers=1 if not parallel else max_threads
+        ) as executor:
             futures = {}
             for r in meta.itertuples():
-                f = executor.submit(__fetch_mesh,
-                                    r.bodyId,
-                                    vol=vol,
-                                    lod=lod,
-                                    missing_mesh=missing_mesh)
+                f = executor.submit(
+                    __fetch_mesh, r.bodyId, vol=vol, lod=lod, missing_mesh=missing_mesh
+                )
                 futures[f] = r.bodyId
 
-            with config.tqdm(desc='Fetching',
-                             total=len(futures),
-                             leave=config.pbar_leave,
-                             disable=meta.shape[0] == 1 or config.pbar_hide) as pbar:
+            with config.tqdm(
+                desc="Fetching",
+                total=len(futures),
+                leave=config.pbar_leave,
+                disable=meta.shape[0] == 1 or config.pbar_hide,
+            ) as pbar:
                 for f in as_completed(futures):
                     bodyId = futures[f]
                     pbar.update(1)
                     try:
                         nl.append(f.result())
                     except Exception as exc:
-                        print(f'{bodyId} generated an exception:', exc)
+                        print(f"{bodyId} generated an exception:", exc)
 
     nl = NeuronList(nl)
 
     # Add meta data
-    instances = meta.set_index('bodyId').instance.to_dict()
-    sizes = meta.set_index('bodyId')['size'].to_dict()
-    status = meta.set_index('bodyId').status.to_dict()
-    statuslabel = meta.set_index('bodyId').statusLabel.to_dict()
-    somalocs = meta.set_index('bodyId').somaLocation.to_dict()
-    radii = meta.set_index('bodyId').somaRadius.to_dict()
+    instances = meta.set_index("bodyId").instance.to_dict()
+    sizes = meta.set_index("bodyId")["size"].to_dict()
+    status = meta.set_index("bodyId").status.to_dict()
+    statuslabel = meta.set_index("bodyId").statusLabel.to_dict()
+    somalocs = meta.set_index("bodyId").somaLocation.to_dict()
+    radii = meta.set_index("bodyId").somaRadius.to_dict()
 
     for n in nl:
         n.name = instances[n.id]
@@ -281,27 +303,31 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
 
         # Meshes come out in units (e.g. nanometers) but most other data (synapses,
         # skeletons, etc) come out in voxels, we will therefore scale meshes to voxels
-        n.vertices /= np.array(client.meta['voxelSize']).reshape(1, 3)
-        n.units=f'{client.meta["voxelSize"][0]} {client.meta["voxelUnits"]}'
+        n.vertices /= np.array(client.meta["voxelSize"]).reshape(1, 3)
+        n.units = _voxel_size_to_units(client)
 
         if n.somaLocation:
             if radii[n.id]:
-                n.soma_radius = radii[n.id] / n.units.to('nm').magnitude
+                n.soma_radius = radii[n.id] / n.units.to("nm").magnitude
             else:
                 n.soma_radius = None
             n.soma_pos = n.somaLocation
 
     if with_synapses:
         # Fetch synapses
-        syn = fetch_synapses(meta.bodyId.values,
-                             synapse_criteria=SynapseCriteria(primary_only=True, client=client),
-                             client=client)
+        syn = fetch_synapses(
+            meta.bodyId.values,
+            synapse_criteria=SynapseCriteria(primary_only=True, client=client),
+            client=client,
+        )
 
         for n in nl:
             this_syn = syn[syn.bodyId == n.id]
             if not this_syn.empty:
                 # Keep only relevant columns
-                n.connectors = this_syn[['type', 'x', 'y', 'z', 'roi', 'confidence']].copy()
+                n.connectors = this_syn[
+                    ["type", "x", "y", "z", "roi", "confidence"]
+                ].copy()
 
     # Make an effort to retain the original order
     if not isinstance(x, NeuronCriteria) and not nl.empty:
@@ -310,20 +336,21 @@ def fetch_mesh_neuron(x, *, lod=1, with_synapses=False, missing_mesh='raise',
     return nl
 
 
-def __fetch_mesh(bodyId, *, vol, lod, missing_mesh='raise'):
+def __fetch_mesh(bodyId, *, vol, lod, missing_mesh="raise"):
     """Fetch a single mesh (+ synapses) and construct navis MeshNeuron."""
     # Fetch mesh
     import cloudvolume
+
     try:
         if lod is None:
             mesh = vol.mesh.get(bodyId)
         else:
             mesh = vol.mesh.get(bodyId, lod=lod)
     except cloudvolume.exceptions.MeshDecodeError as err:
-        if 'not found' in str(err):
-            if missing_mesh in ['warn', 'skip']:
-                if missing_mesh == 'warn':
-                    logger.warning(f'No mesh found for {r.bodyId}')
+        if "not found" in str(err):
+            if missing_mesh in ["warn", "skip"]:
+                if missing_mesh == "warn":
+                    logger.warning(f"No mesh found for {r.bodyId}")
                 return
             else:
                 raise
@@ -342,8 +369,16 @@ def __fetch_mesh(bodyId, *, vol, lod, missing_mesh='raise'):
 
 
 @inject_client
-def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
-                    parallel=True, max_threads=5, client=None):
+def fetch_skeletons(
+    x,
+    *,
+    with_synapses=False,
+    heal=False,
+    missing_swc="raise",
+    parallel=True,
+    max_threads=5,
+    client=None,
+):
     """Fetch neuron skeletons as navis.TreeNeurons.
 
     Notes
@@ -382,10 +417,10 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
 
     """
     if isinstance(x, pd.DataFrame):
-        if 'bodyId' in x.columns:
-            x = x['bodyId'].values
-        elif 'bodyid' in x.columns:
-            x = x['bodyid'].values
+        if "bodyId" in x.columns:
+            x = x["bodyId"].values
+        elif "bodyid" in x.columns:
+            x = x["bodyid"].values
         else:
             raise ValueError('DataFrame must have "bodyId" column.')
 
@@ -400,12 +435,14 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
     meta = fetch_neurons(query, client=client, omit_rois=True)
 
     if meta.empty:
-        raise ValueError('No neurons matching the given criteria found!')
+        raise ValueError("No neurons matching the given criteria found!")
     elif not isinstance(wanted_ids, type(None)):
         miss = wanted_ids[~np.isin(wanted_ids, meta.bodyId.values)]
         if len(miss):
-            logger.warning(f'Skipping {len(miss)} body IDs that were not found: '
-                           f'{", ".join(miss.astype(str))}')
+            logger.warning(
+                f"Skipping {len(miss)} body IDs that were not found: "
+                f'{", ".join(miss.astype(str))}'
+            )
 
     # Apply a small number of potential fixes to the meta data
     meta = _fix_meta(meta)
@@ -414,25 +451,29 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
     with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
         futures = {}
         for r in meta.itertuples():
-            f = executor.submit(__fetch_skeleton,
-                                r,
-                                client=client,
-                                with_synapses=with_synapses,
-                                missing_swc=missing_swc,
-                                heal=heal)
+            f = executor.submit(
+                __fetch_skeleton,
+                r,
+                client=client,
+                with_synapses=with_synapses,
+                missing_swc=missing_swc,
+                heal=heal,
+            )
             futures[f] = r.bodyId
 
-        with config.tqdm(desc='Fetching',
-                         total=meta.shape[0],
-                         leave=config.pbar_leave,
-                         disable=meta.shape[0] == 1 or config.pbar_hide) as pbar:
+        with config.tqdm(
+            desc="Fetching",
+            total=meta.shape[0],
+            leave=config.pbar_leave,
+            disable=meta.shape[0] == 1 or config.pbar_hide,
+        ) as pbar:
             for f in as_completed(futures):
                 bodyId = futures[f]
                 pbar.update(1)
                 try:
                     nl.append(f.result())
                 except Exception as exc:
-                    print(f'{bodyId} generated an exception:', exc)
+                    print(f"{bodyId} generated an exception:", exc)
 
     nl = NeuronList(nl)
 
@@ -443,17 +484,18 @@ def fetch_skeletons(x, *, with_synapses=False, heal=False, missing_swc='raise',
     return nl
 
 
-def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
-                     heal=False, max_distance=None):
+def __fetch_skeleton(
+    r, client, with_synapses=True, missing_swc="raise", heal=False, max_distance=None
+):
     """Fetch a single skeleton + synapses and construct navis TreeNeuron."""
     # Fetch skeleton SWC
     try:
-        data = client.fetch_skeleton(r.bodyId, format='pandas', heal=heal)
+        data = client.fetch_skeleton(r.bodyId, format="pandas", heal=heal)
     except HTTPError as err:
         if err.response.status_code == 400:
-            if missing_swc in ['warn', 'skip']:
-                if missing_swc == 'warn':
-                    logger.warning(f'No SWC found for {r.bodyId}')
+            if missing_swc in ["warn", "skip"]:
+                if missing_swc == "warn":
+                    logger.warning(f"No SWC found for {r.bodyId}")
                 return
             else:
                 raise
@@ -461,19 +503,26 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
             raise
 
     # Generate neuron
-    # Note that we are currently assuming that the x/y/z data is isotropic
-    n = TreeNeuron(data,
-                   units=f'{client.meta["voxelSize"][0]} {client.meta["voxelUnits"]}')
+    n = TreeNeuron(
+        data, units=_voxel_size_to_units(client)
+    )
 
     # Reduce precision
-    n._nodes = n._nodes.astype({'node_id': np.int32, 'parent_id': np.int32,
-                                'x': np.float32, 'y': np.float32,
-                                'z': np.float32, 'radius': np.float32})
+    n._nodes = n._nodes.astype(
+        {
+            "node_id": np.int32,
+            "parent_id": np.int32,
+            "x": np.float32,
+            "y": np.float32,
+            "z": np.float32,
+            "radius": np.float32,
+        }
+    )
 
     # Add some missing meta data
     n.id = r.bodyId
 
-    if hasattr(r, 'instance'):
+    if hasattr(r, "instance"):
         n.name = r.instance
 
     n.n_voxels = r.size
@@ -481,49 +530,52 @@ def __fetch_skeleton(r, client, with_synapses=True, missing_swc='raise',
 
     # Make KDE tree for NN
     if r.somaLocation or with_synapses:
-        tree = neuron2KDTree(n, data='nodes')
+        tree = neuron2KDTree(n, data="nodes")
 
     # Set soma
     if r.somaLocation:
         d, i = tree.query([r.somaLocation])
         n.soma = int(n.nodes.iloc[i[0]].node_id)
-        n.soma_radius = r.somaRadius if r.somaRadius else 'radius'
+        n.soma_radius = r.somaRadius if r.somaRadius else "radius"
     else:
         n.soma = None
 
     if with_synapses:
         # Fetch synapses
-        syn = fetch_synapses(r.bodyId,
-                             synapse_criteria=SynapseCriteria(primary_only=True, client=client),
-                             client=client)
+        syn = fetch_synapses(
+            r.bodyId,
+            synapse_criteria=SynapseCriteria(primary_only=True, client=client),
+            client=client,
+        )
 
         if not syn.empty:
             # Process synapses
-            syn['connector_id'] = syn.index.values
-            locs = syn[['x', 'y', 'z']].values
+            syn["connector_id"] = syn.index.values
+            locs = syn[["x", "y", "z"]].values
             d, i = tree.query(locs)
 
-            syn['node_id'] = n.nodes.iloc[i].node_id.values
-            syn['x'] = locs[:, 0]
-            syn['y'] = locs[:, 1]
-            syn['z'] = locs[:, 2]
+            syn["node_id"] = n.nodes.iloc[i].node_id.values
+            syn["x"] = locs[:, 0]
+            syn["y"] = locs[:, 1]
+            syn["z"] = locs[:, 2]
 
             # Keep only relevant columns
-            syn = syn[['connector_id', 'node_id', 'type',
-                       'x', 'y', 'z', 'roi', 'confidence']]
+            syn = syn[
+                ["connector_id", "node_id", "type", "x", "y", "z", "roi", "confidence"]
+            ]
 
             # Manually make the "roi" column of the synapse table into a
             # categorical to save some memory
-            syn['roi'] = syn.roi.astype('category')
+            syn["roi"] = syn.roi.astype("category")
 
             n.connectors = syn
 
     return n
 
 
-def remove_soma_hairball(x: 'core.TreeNeuron',
-                         radius: float = 500,
-                         inplace: bool = False):
+def remove_soma_hairball(
+    x: "core.TreeNeuron", radius: float = 500, inplace: bool = False
+):
     """Remove hairball around soma.
 
     Parameters
@@ -544,8 +596,7 @@ def remove_soma_hairball(x: 'core.TreeNeuron',
             return x
         return
     # Get all nodes within given radius of soma nodes
-    soma_loc = x.nodes.set_index('node_id').loc[[x.soma],
-                                                ['x', 'y', 'z']].values
+    soma_loc = x.nodes.set_index("node_id").loc[[x.soma], ["x", "y", "z"]].values
     tree = neuron2KDTree(x)
     dist, ix = tree.query(soma_loc, k=x.n_nodes, distance_upper_bound=radius)
 
@@ -563,7 +614,7 @@ def remove_soma_hairball(x: 'core.TreeNeuron',
     # segment and remove the rest
     to_remove = [n for s in segs[1:] for n in s]
 
-    to_keep = x.nodes.loc[~x.nodes.node_id.isin(to_remove), 'node_id'].values
+    to_keep = x.nodes.loc[~x.nodes.node_id.isin(to_remove), "node_id"].values
 
     # Move soma if required
     if x.soma in to_remove:
@@ -579,30 +630,34 @@ def remove_soma_hairball(x: 'core.TreeNeuron',
 def get_seg_source(*, client=None):
     """Get segmentation source for given client+dataset."""
     # First try to fetch the scene for the neuroglancer
-    url = f'{client.server}/api/npexplorer/nglayers/{client.dataset}.json'
+    url = f"{client.server}/api/npexplorer/nglayers/{client.dataset}.json"
 
     r = client.session.get(url)
     try:
         r.raise_for_status()
         scene = r.json()
-        segs = [s for s in scene['layers'] if s.get('type') == 'segmentation']
+        segs = [s for s in scene["layers"] if s.get("type") == "segmentation"]
     except BaseException:
         segs = []
 
     # If we didn't find a `dataset.json`, will check the client's meta data for a seg source
     if not segs:
-        segs = [s for s in client.meta['neuroglancerMeta'] if s.get('dataType') == 'segmentation']
+        segs = [
+            s
+            for s in client.meta["neuroglancerMeta"]
+            if s.get("dataType") == "segmentation"
+        ]
 
     if not len(segs):
         return None
 
     # Check if any segmentation source matches our dataset exactly
-    named_segs = [s for s in segs if s.get('name') == client.dataset]
+    named_segs = [s for s in segs if s.get("name") == client.dataset]
     if len(named_segs):
         segs = named_segs
 
     # If there are multiple segmentation layers, select the first entry
-    seg_source = segs[0]['source']
+    seg_source = segs[0]["source"]
 
     # If there are multiple segmentation sources for
     # the layer we picked, select the first source.
@@ -612,15 +667,17 @@ def get_seg_source(*, client=None):
     # If it's a dict like {'source': url, 'subsources'...},
     # select the url.
     if isinstance(seg_source, dict):
-        seg_source = seg_source['url']
+        seg_source = seg_source["url"]
 
     if not isinstance(seg_source, str):
         e = f"Could not understand segmentation source: {seg_source}"
         raise RuntimeError(e)
 
     if len(segs) > 1:
-        logger.warning(f'{len(segs)} segmentation sources found. Using the '
-                       f'first entry: "{seg_source}"')
+        logger.warning(
+            f"{len(segs)} segmentation sources found. Using the "
+            f'first entry: "{seg_source}"'
+        )
 
     return seg_source
 
@@ -628,13 +685,13 @@ def get_seg_source(*, client=None):
 def _fix_meta(meta):
     """Fix a number of potential issues with neuprint metadata."""
     # Make sure there is a somaLocation and somaRadius column
-    if 'somaLocation' not in meta.columns:
-        meta['somaLocation'] = None
-    if 'somaRadius' not in meta.columns:
-        meta['somaRadius'] = None
+    if "somaLocation" not in meta.columns:
+        meta["somaLocation"] = None
+    if "somaRadius" not in meta.columns:
+        meta["somaRadius"] = None
     # Backfill from tosomaLocation if available
     if "tosomaLocation" in meta.columns:
-        meta['somaLocation'] = meta.somaLocation.fillna(meta.tosomaLocation)
+        meta["somaLocation"] = meta.somaLocation.fillna(meta.tosomaLocation)
 
     # Fix coordinate columns
     for col in ("somaLocation", "tosomaLocation"):
@@ -644,12 +701,28 @@ def _fix_meta(meta):
         # Prevent an issue when coordinates are returned as string:
         # "Point{SpatialRefId=9157, X=48556.000000, Y=43018.000000, Z=37620.000000}"
         if isinstance(meta[col].values[0], str):
-            if meta[col].values[0].startswith('Point'):
-                meta[col] = meta[col].str.extract(r'X=(\d+.\d+), Y=(\d+.\d+), Z=(\d+.\d+)').values.astype(float).tolist()
+            if meta[col].values[0].startswith("Point"):
+                meta[col] = (
+                    meta[col]
+                    .str.extract(r"X=(\d+.\d+), Y=(\d+.\d+), Z=(\d+.\d+)")
+                    .values.astype(float)
+                    .tolist()
+                )
 
         # Prevent an issue when coordinates are returned as dict
         if isinstance(meta[col].values[0], dict):
             if "coordinates" in meta[col].values[0]:
-                meta[col] = meta[col].apply(lambda x: x['coordinates'])
+                meta[col] = meta[col].apply(lambda x: x["coordinates"])
 
     return meta
+
+
+def _voxel_size_to_units(client):
+    """Extract voxel size from client and convert to pint units."""
+    units = client.meta["voxelUnits"]
+    voxel_size = np.asarray(client.meta["voxelSize"])
+
+    if (voxel_size == voxel_size[0]).all():
+        return f"{voxel_size[0]} {units}"
+    else:
+        return [f"{vs} {units}" for vs in voxel_size]
