@@ -1508,12 +1508,13 @@ def reroot_skeleton(
                 warnings.simplefilter("ignore")
 
                 # Find paths to all roots
+                vs_roots = g.vs.select(node_id_in=x.root)
                 path = g.get_shortest_paths(
-                    g.vs.find(node_id=new_root), [g.vs.find(node_id=r) for r in x.root]
+                    g.vs.find(node_id=new_root), vs_roots
                 )
                 epath = g.get_shortest_paths(
                     g.vs.find(node_id=new_root),
-                    [g.vs.find(node_id=r) for r in x.root],
+                    vs_roots,
                     output="epath",
                 )
 
@@ -1609,7 +1610,7 @@ def reroot_skeleton(
 
     # Make sure node ID has the same datatype as before
     if x.nodes.node_id.dtype != nodeid_dtype:
-        x.nodes["node_id"] = x.nodes.node_id.astype(nodeid_dtype, copy=False)
+        x.nodes["node_id"] = x.nodes.node_id.astype(nodeid_dtype)
 
     # Finally: only reset non-graph related attributes
     if x.igraph and config.use_igraph:
