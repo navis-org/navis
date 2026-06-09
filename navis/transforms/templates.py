@@ -1258,7 +1258,7 @@ def symmetrize_brain(
 def mirror_brain(
     x: Union["core.NeuronObject", "pd.DataFrame", "np.ndarray"],
     template: Union[str, "TemplateBrain"],
-    mirror_axis: Union[Literal["x"], Literal["y"], Literal["z"]] = "x",
+    mirror_axis: Union[Literal["x"], Literal["y"], Literal["z"]] = "auto",
     warp: Union[Literal["auto"], bool] = "auto",
     via: Optional[str] = None,
     verbose: bool = False,
@@ -1282,8 +1282,10 @@ def mirror_brain(
                     will be searched against registered template brains.
                     Alternatively check out [`navis.transforms.mirror`][]
                     for a lower level interface.
-    mirror_axis :   'x' | 'y' | 'z', optional
-                    Axis to mirror. Defaults to `x`.
+    mirror_axis :   'auto' | 'x' | 'y' | 'z', optional
+                    Axis to mirror. If "auto" (default), will try get the correct
+                    mirror axis from the template brain's meta data. If that is
+                    not available, will default to "x".
     warp :          bool | "auto" | Transform, optional
                     If 'auto', will check if a non-rigid mirror transformation
                     exists for the given `template` and apply it after the
@@ -1294,7 +1296,8 @@ def mirror_brain(
                     into that space, then mirror and transform back.
                     Use this if there is no mirror registration for the original
                     template, or to transform to a symmetrical template in which
-                    flipping is sufficient.
+                    flipping is sufficient. Note that `mirror_axis` must match
+                    the mirror axis of the "via" template!
     verbose :       bool
                     If True, will print some useful info on the transform(s).
     progress :      bool
@@ -1502,6 +1505,18 @@ def mirror_brain(
     # Reshape if flat array
     if bbox.ndim == 1:
         bbox = bbox.reshape(3, 2)
+
+    if isinstance(mirror_axis, str) and mirror_axis == "auto":
+        # Try to get mirror axis from template brain meta data
+        if hasattr(tb, "mirror_axis"):
+            mirror_axis = tb.mirror_axis
+        else:
+            # Default to x axis
+            mirror_axis = "x"
+            if verbose:
+                print(
+                    f'No mirror axis info found for template "{tb.label}", defaulting to "x"'
+                )
 
     # Index of mirror axis
     ix = {"x": 0, "y": 1, "z": 2}[mirror_axis]
