@@ -263,7 +263,7 @@ def neuron2nx(x: "core.NeuronObject", simplify=False, epsilon=None) -> nx.DiGrap
 
     """
     if isinstance(x, core.NeuronList):
-        return [neuron2nx(x.loc[i]) for i in range(x.shape[0])]
+        return [neuron2nx(n) for n in x]
 
     if isinstance(x, core.TreeNeuron):
         # Collect nodes
