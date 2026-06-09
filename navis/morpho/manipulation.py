@@ -1025,7 +1025,7 @@ def split_axon_dendrite_prop(
     use_weights: Union[bool, str] = "balance",
     alpha: float = 1,
     max_iter: int = 10_000,
-    tol: float = 1e-5,
+    tol: float = 1,
     label_only: bool = False,
     verbose: bool = False,
 ) -> "core.NeuronList":
@@ -1036,6 +1036,14 @@ def split_axon_dendrite_prop(
     between axon and dendrite (i.e. no linker or CBF). On the plus
     side, you get probabilities for each node/vertex and the method is
     not dependent on flow metrics which can be noisy for some neurons.
+
+    A note of caution: on neurons where axon/dendrites are not well
+    segregated (e.g. 50/50 mix of pre/postsynapses on the dendrite) or
+    where one synapse type is very dominant, label propagation might
+    return garbage results. A warning sign is if the propagation takes a
+    long time to converge or doesn't converge at all, or if the resulting
+    compartment probabilities are close to 0.5 for large chunks of
+    the neuron.
 
     Parameters
     ----------
@@ -1060,14 +1068,18 @@ def split_axon_dendrite_prop(
                            propagation (default).
                          - values between 0 and 1 will softly clamp the
                            original labels.
-    max_iter/tol :      int / float
+    max_iter/tol :      int / float | "hard"
                         Stop conditions for the label propagation:
                          - `max_iter` is the maximum number of iterations
-                         - `tol` is the tolerance for convergence.
-                        We stop when either of those two is reached.
+                         - `tol` is the stop condition for convergence
+                        We stop when either of those two is reached. See
+                        `navis.propagate_labels` for details.
     label_only :        bool,
                         If True, will not split the neuron but rather compartments
                         and probabilities to the neuron. See Returns for details!
+    verbose :           bool
+                        Whether to print out convergence information during label
+                        propagation.
 
     Returns
     -------
@@ -1101,6 +1113,9 @@ def split_axon_dendrite_prop(
             Axon/dendrite split really only works correctly on neurons consisting of a single
             tree. Use this function to heal fragmented neurons before trying
             the axon/dendrite split.
+    [`navis.propagate_labels`][]
+            Functions for propagating arbitrary labels on a neuron.`split_axon_dendrite_prop` is
+            a specific application of this function.
 
     """
     assert use_weights in (
@@ -1110,13 +1125,16 @@ def split_axon_dendrite_prop(
     ), f'`use_weights` must be True, False or "balance", got {use_weights}'
 
     def _calc_pre_post(x, balance_weights):
+        tree = graph.neuron2KDTree(x)
         if len(post_co := x.postsynapses[["x", "y", "z"]].values):
-            post_nodes = x.snap(post_co)[0]
+            post_nodes = tree.query(post_co)[1]
+            # post_nodes = x.snap(post_co)[0]
         else:
             post_nodes = np.array([], dtype=int)
 
         if len(pre_co := x.presynapses[["x", "y", "z"]].values):
-            pre_nodes = x.snap(pre_co)[0]
+            pre_nodes = tree.query(pre_co)[1]
+            # pre_nodes = x.snap(pre_co)[0]
         else:
             pre_nodes = np.array([], dtype=int)
 
