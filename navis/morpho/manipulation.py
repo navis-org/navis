@@ -2705,21 +2705,16 @@ def drop_fluff(
     6037
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron, core.MeshNeuron, core.Dotprops))
+    utils.eval_param(
+        x, name="x", allowed_types=(core.TreeNeuron, core.MeshNeuron, core.Dotprops)
+    )
 
-    if isinstance(x, (core.MeshNeuron, core.TreeNeuron)):
-        G = x.graph
-        # Skeleton graphs are directed
-        if G.is_directed():
-            G = G.to_undirected()
-    elif isinstance(x, core.Dotprops):
-        G = graph.neuron2nx(x, epsilon=epsilon)
-
-    cc = sorted(nx.connected_components(G), key=lambda x: len(x), reverse=True)
+    # This function uses navis_fastcore if available
+    cc = sorted(graph.graph_utils._connected_components(x), key=lambda x: len(x), reverse=True)
 
     # Translate keep_size to number of nodes
     if keep_size and keep_size < 1:
-        keep_size = len(G.nodes) * keep_size
+        keep_size = sum(len(c) for c in cc) * keep_size
 
     if keep_size:
         cc = [c for c in cc if len(c) >= keep_size]
@@ -2737,7 +2732,9 @@ def drop_fluff(
 
     # See if we need to/can re-attach any connectors
     if x.has_connectors:
-        id_col = [c for c in ('node_id', 'vertex_id', 'point_id') if c in x.connectors.columns]
+        id_col = [
+            c for c in ("node_id", "vertex_id", "point_id") if c in x.connectors.columns
+        ]
         if id_col:
             id_col = id_col[0]
             disc = ~x.connectors[id_col].isin(x.graph.nodes).values
