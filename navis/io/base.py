@@ -28,6 +28,7 @@ from ftplib import FTP
 from pathlib import Path
 from zipfile import ZipFile, ZipInfo
 from functools import partial, wraps
+from importlib.util import find_spec
 from concurrent.futures import ThreadPoolExecutor
 from requests_futures.sessions import FuturesSession
 from typing import List, Union, Iterable, Dict, Optional, Any, IO
@@ -49,6 +50,7 @@ logger = config.get_logger(__name__)
 
 DEFAULT_INCLUDE_SUBDIRS = False
 GCSFS_GLOBAL = None  # Global gcsfs filesystem for parallel reading
+GS_FORCE_HTTPS = True  # Whether to force https when reading from Google Storage (if True, gcsfs is not required)
 
 # Regular expression to figure out if a string is a regex pattern
 rgx = re.compile(r"[\\\.\?\[\]\+\^\$\*]")
@@ -740,7 +742,9 @@ class BaseReader(ABC):
 
         """
         # This will initialize the global gcsfs filesystem if necessary
-        gcsfs = get_gs_filesystem()
+        gcsfs = None
+        if not GS_FORCE_HTTPS and find_spec("gcsfs") is not None:
+            gcsfs = get_gs_filesystem()
 
         read_fn = partial(self.read_from_gs, gcsfs=gcsfs, attrs=attrs)
         neurons = parallel_read_gs(
@@ -756,7 +760,7 @@ class BaseReader(ABC):
     def read_from_gs(
         self,
         files: Union[str, List[str]],
-        gcsfs,
+        gcsfs: Optional[Any] = None,
         attrs: Optional[Dict[str, Any]] = None,
     ) -> "core.NeuronList":
         """Read given file(s) from an Google Storage bucket.
@@ -767,7 +771,7 @@ class BaseReader(ABC):
         ----------
         files :     str | list thereof
                     Filepaths(s) to read.
-        gcsfs :
+        gcsfs :     gcsfs.GCSFileSystem or None
                     The Google Cloud Storage filesystem client.
         attrs :     dict or None
                     Arbitrary attributes to include in the TreeNeuron.
@@ -789,9 +793,18 @@ class BaseReader(ABC):
             props = self.parse_filename(file)
             props["origin"] = f"gs://{file}"
             try:
-                with gcsfs.open(file, "rb") as f:
-                    n = self.read_buffer(f, attrs=merge_dicts(props, attrs))
-                    neurons.append(n)
+                if gcsfs is not None:
+                    with gcsfs.open(file, "rb") as f:
+                        n = self.read_buffer(f, attrs=merge_dicts(props, attrs))
+                        neurons.append(n)
+                else:
+                    url = f"https://storage.googleapis.com/{file}"
+                    with requests.get(url, stream=True) as r:
+                        r.raise_for_status()
+                        n = self.read_buffer(
+                            io.BytesIO(r.content), attrs=merge_dicts(props, attrs)
+                        )
+                        neurons.append(n)
             except BaseException:
                 if self.errors == "ignore":
                     path, f = file.rsplit("/", 1)
@@ -1768,7 +1781,9 @@ def parallel_read_gs(
     Parameters
     ----------
     read_fn :       Callable
-    gcsfs :         gcsfs.GCSFileSystem
+    gcsfs :         gcsfs.GCSFileSystem | None
+                    If not provided, we will use https but then we can't read
+                    from a path or subdirectories.
     path :          str | list thereof
                     Path to directory, single file, or list of files inside
                     the bucket.
@@ -1822,6 +1837,11 @@ def parallel_read_gs(
         pattern = None
         if "*" in p:
             p, pattern = p.rsplit("/", 1)
+
+        if gcsfs is None:
+            raise ValueError(
+                "To read from Google storage buckets, you must have `gcsfs` installed and provide a `gcsfs.GCSFileSystem` object to the reader."
+            )
 
         if not gcsfs.isdir(p):
             raise ValueError(f"Path '{p}' is not a directory in the bucket")
@@ -1900,3 +1920,28 @@ def parallel_read_gs(
         neurons = [read_fn(file, gcsfs=gcsfs) for file in prog(to_read)]
 
     return neurons
+
+
+def to_https_protocol(url, raise_error=True):
+    """Convert a cloud storage URL to its HTTPS equivalent.
+
+    For example, `gs://bucket/path` becomes `https://storage.googleapis.com/bucket/path`.
+
+    Parameters
+    ----------
+    url : str
+        Cloud storage URL.
+
+    Returns
+    -------
+    str
+        HTTPS URL.
+
+    """
+    if url.startswith("gs://"):
+        return url.replace("gs://", "https://storage.googleapis.com/", 1)
+    elif url.startswith("s3://"):
+        return url.replace("s3://", "https://s3.amazonaws.com/", 1)
+    elif raise_error:
+        raise ValueError(f"Unsupported cloud storage protocol in URL: {url}")
+    return url
