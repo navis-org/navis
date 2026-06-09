@@ -37,6 +37,8 @@ from .. import graph, utils, config, core
 # Set up logging
 logger = config.get_logger(__name__)
 
+_BORUVKA_THRESHOLD = 100
+
 __all__ = sorted(
     [
         "prune_by_strahler",
@@ -1318,6 +1320,7 @@ def stitch_skeletons(
     ] = "ALL",
     master: Union[Literal["SOMA"], Literal["LARGEST"], Literal["FIRST"]] = "SOMA",
     max_dist: Optional[float] = None,
+    algorithm: str = "auto",
 ) -> "core.TreeNeuron":
     """Stitch multiple skeletons together.
 
@@ -1359,6 +1362,11 @@ def stitch_skeletons(
     max_dist :          float,  optional
                         Max distance at which to stitch nodes. This can result
                         in a neuron with multiple roots.
+    algorithm :         "auto" | "mst" | "boruvka", optional
+                        Algorithm to use for stitching. "auto" (default)
+                        selects "boruvka" when there are more than 50
+                        fragments and "mst" otherwise. See `heal_skeleton`
+                        for a full description.
 
     Returns
     -------
@@ -1495,7 +1503,7 @@ def stitch_skeletons(
     if not utils.is_iterable(method) and (method == "NONE" or method is None):
         return m
 
-    return _stitch_mst(m, nodes=method, inplace=False, max_dist=max_dist)
+    return _stitch_mst(m, nodes=method, inplace=False, max_dist=max_dist, algorithm=algorithm)
 
 
 def _mst_igraph(nl: "core.NeuronList", new_edges: pd.DataFrame) -> List[List[int]]:
@@ -2084,8 +2092,10 @@ def heal_skeleton(
     method: Union[Literal["LEAFS"], Literal["ALL"]] = "ALL",
     max_dist: Optional[float] = None,
     min_size: Optional[float] = None,
+    use_radius: Union[bool, float] = False,
     drop_disc: float = False,
     mask: Optional[Sequence] = None,
+    algorithm: str = "auto",
     inplace: bool = False,
 ) -> Optional[NeuronObject]:
     """Heal fragmented skeleton(s).
@@ -2112,6 +2122,11 @@ def heal_skeleton(
                 Minimum size in nodes for fragments to be reattached. Fragments
                 smaller than `min_size` will be ignored during stitching and
                 hence remain disconnected.
+    use_radius :    bool | float, optional
+                If True, will use the radius of nodes when calculating distances
+                between them. This effectively prioritizes connecting nodes with
+                similar radii. If float, will use that value as weight for radius:
+                higher values = more importance for radius.
     drop_disc : bool
                 If True and the neuron remains fragmented after healing (i.e.
                 `max_dist` or `min_size` prevented a full connect), we will
@@ -2120,6 +2135,21 @@ def heal_skeleton(
     mask :      list-like, optional
                 Either a boolean mask or a list of node IDs. If provided will
                 only heal breaks between these nodes.
+    algorithm : "auto" | "mst" | "boruvka"
+                Algorithm to use for stitching:
+                    - "mst": build a complete inter-fragment distance graph and
+                    compute a global minimum spanning tree. High quality but
+                    O(F²) in the number of fragments.
+                    - "boruvka": iterative Borůvka algorithm. For each
+                    component, only the single nearest neighbour in any
+                    *other* component is found per round, then cheapest edges
+                    are added and components are merged. Much faster for
+                    neurons with many disconnected fragments (e.g. > ~100).
+                    Produces the same MST as "mst" when edge weights are
+                    unique, but may differ in degenerate cases.
+                    - "auto" (default): uses "boruvka" when there are more
+                    than 100 connected components (after filtering), and
+                    "mst" otherwise.
     inplace :   bool, optional
                 If False, will perform healing on and return a copy.
 
@@ -2169,7 +2199,8 @@ def heal_skeleton(
         x = x.copy()
 
     _ = _stitch_mst(
-        x, nodes=method, max_dist=max_dist, min_size=min_size, mask=mask, inplace=True
+        x, nodes=method, max_dist=max_dist, min_size=min_size, mask=mask,
+        algorithm=algorithm, inplace=True
     )
 
     # See if we need to drop remaining disconnected fragments
@@ -2183,124 +2214,6 @@ def heal_skeleton(
     return x
 
 
-def _stitch_mst_old(
-    x: "core.TreeNeuron",
-    nodes: Union[Literal["LEAFS"], Literal["ALL"], list] = "ALL",
-    max_dist: Optional[float] = np.inf,
-    min_size: Optional[float] = None,
-    mask: Optional[Sequence] = None,
-    inplace: bool = False,
-) -> Optional["core.TreeNeuron"]:
-    """THIS FUNCTION IS DEPCRECATED. USE `_stitch_mst` INSTEAD."""
-    assert isinstance(x, core.TreeNeuron)
-    # Code modified from neuprint-python:
-    # https://github.com/connectome-neuprint/neuprint-python
-    if max_dist is True or not max_dist:
-        max_dist = np.inf
-
-    if not isinstance(mask, type(None)):
-        mask = np.asarray(mask)
-        if mask.dtype == bool:
-            if len(mask) != len(x.nodes):
-                raise ValueError(
-                    "Length of boolean mask must match number of nodes in the neuron"
-                )
-            mask = x.nodes.node_id.values[mask]
-
-    # Get connected components
-    cc = graph._connected_components(x)
-    if len(cc) == 1:
-        # There's only one component -- no healing necessary
-        return x
-
-    # Turn into a dictionary node -> component
-    cc = {n: i for i, c in enumerate(cc) for n in c}
-
-    # Turn into a Series
-    cc = x.nodes.node_id.map(cc)
-
-    to_use = x.nodes
-    # Drop fragments smaller than threshold
-    if not isinstance(min_size, type(None)):
-        sizes = cc.value_counts()
-        above = sizes[sizes >= min_size].index
-        to_use = to_use[cc.isin(above)]
-        cc = cc[cc.isin(above)]
-
-    # Filter to leaf nodes if applicable
-    if nodes == "LEAFS":
-        keep = to_use["type"].isin(["end", "root"])
-        to_use = to_use[keep]
-        cc = cc[keep]
-
-    # If mask, drop everything that is masked out
-    if not isinstance(mask, type(None)):
-        keep = to_use.node_id.isin(mask)
-        to_use = to_use[keep]
-        cc = cc[keep]
-
-    # Collect fragments
-    Fragment = namedtuple("Fragment", ["frag_id", "node_ids", "kd"])
-    fragments = []
-    for frag_id, df in to_use.groupby(cc):
-        kd = KDTree(df[[*"xyz"]].values)
-        fragments.append(Fragment(frag_id, df.node_id.values, kd))
-
-    # Sort from big-to-small, so the calculations below use a
-    # KD tree for the larger point set in every fragment pair.
-    fragments = sorted(fragments, key=lambda frag: -len(frag.node_ids))
-
-    # We could use the full graph and connect all fragment pairs at their
-    # nearest neighbors, but it's faster to treat each fragment as a single
-    # node and run MST on that quotient graph, which is tiny.
-    # Note to self:
-    # This approach works well if we have a small number of fragments to connect
-    # But with a large number of fragments, the number of comparisons grows
-    # exponentially (len(fragments) ** 2 - len(fragments)) / 2) and we would be
-    # better off running a brute force pairwise distance function on all
-    # relevant nodes and constructing the graph from that.
-    frag_graph = nx.Graph()
-    for frag_a, frag_b in combinations(fragments, 2):
-        coords_b = frag_b.kd.data
-        if coords_b.ndim == 1:
-            coords_b = coords_b.reshape(-1, 3)
-        distances, indexes = frag_a.kd.query(coords_b, distance_upper_bound=max_dist)
-
-        # Ignore fragments that are too far apart
-        if (max_dist < np.inf) and np.all(np.isinf(distances)):
-            continue
-
-        index_b = np.argmin(distances)
-        index_a = indexes[index_b]
-
-        node_a = frag_a.node_ids[index_a]
-        node_b = frag_b.node_ids[index_b]
-        dist_ab = distances[index_b]
-
-        # Add edge from one fragment to another,
-        # but keep track of which fine-grained skeleton
-        # nodes were used to calculate distance.
-        frag_graph.add_edge(
-            frag_a.frag_id,
-            frag_b.frag_id,
-            node_a=node_a,
-            node_b=node_b,
-            distance=dist_ab,
-        )
-
-    # Compute inter-fragment MST edges
-    frag_edges = nx.minimum_spanning_edges(frag_graph, weight="distance", data=True)
-
-    # For each inter-fragment edge, add the corresponding
-    # fine-grained edge between skeleton nodes in the original graph.
-    g = x.graph.to_undirected()
-    to_add = [[e[2]["node_a"], e[2]["node_b"]] for e in frag_edges]
-    g.add_edges_from(to_add)
-
-    # Rewire based on graph
-    return graph.rewire_skeleton(x, g, inplace=inplace)
-
-
 def _stitch_mst(
     x: "core.TreeNeuron",
     nodes: Union[Literal["LEAFS"], Literal["ALL"], list] = "ALL",
@@ -2308,6 +2221,7 @@ def _stitch_mst(
     min_size: Optional[float] = None,
     use_radius: Union[bool, float] = False,
     mask: Optional[Sequence] = None,
+    algorithm: str = "auto",
     inplace: bool = False,
 ) -> Optional["core.TreeNeuron"]:
     """Stitch disconnected neuron using a minimum spanning tree.
@@ -2337,6 +2251,21 @@ def _stitch_mst(
     mask :          list-like, optional
                     Either a boolean mask or a list of node IDs. If provided
                     will only heal breaks between these nodes.
+    algorithm :     "auto" | "mst" | "boruvka"
+                    Algorithm to use for stitching:
+                      - "mst": build a complete inter-fragment distance graph and
+                        compute a global minimum spanning tree. High quality but
+                        O(F²) in the number of fragments.
+                      - "boruvka": iterative Borůvka algorithm. For each
+                        component, only the single nearest neighbour in any
+                        *other* component is found per round, then cheapest edges
+                        are added and components are merged. Much faster for
+                        neurons with many disconnected fragments (e.g. > ~100).
+                        Produces the same MST as "mst" when edge weights are
+                        unique, but may differ in degenerate cases.
+                      - "auto" (default): uses "boruvka" when there are more
+                        than 100 connected components (after filtering), and
+                        "mst" otherwise.
     inplace :       bool
                     If True, will stitch the original neuron in place.
 
@@ -2409,12 +2338,48 @@ def _stitch_mst(
         # Add segment radius column
         # Note: isolated nodes will not have a segment radius - we will fall back
         # to their own radius, and if that is also missing, to 0
-        to_use["radius_seg"] = to_use.node_id.map(seg_rad).fillna(
-            rad
-        ).fillna(0)
+        to_use = to_use.copy()
+        to_use["radius_seg"] = to_use.node_id.map(seg_rad).fillna(rad).fillna(0)
         cols_to_use.append("radius_seg")
 
-    # Collect fragments
+    # Decide which algorithm to run
+    n_components = cc.nunique()
+    if algorithm == "auto":
+        use_boruvka = n_components > _BORUVKA_THRESHOLD
+    elif algorithm == "boruvka":
+        use_boruvka = True
+    elif algorithm == "mst":
+        use_boruvka = False
+    else:
+        raise ValueError(
+            f'Unknown algorithm "{algorithm}". Must be "auto", "mst" or "boruvka".'
+        )
+
+    if use_boruvka:
+        to_add = _boruvka_edges(to_use, cc, cols_to_use, max_dist)
+    else:
+        to_add = _mst_edges(to_use, cc, cols_to_use, max_dist)
+
+    # For each inter-fragment edge, add the corresponding
+    # fine-grained edge between skeleton nodes in the original graph.
+    G = x.graph.to_undirected()
+    G.add_edges_from(to_add)
+
+    # Rewire based on graph
+    return graph.rewire_skeleton(x, G, inplace=inplace)
+
+
+def _mst_edges(
+    to_use: pd.DataFrame,
+    cc: pd.Series,
+    cols_to_use: List[str],
+    max_dist: float,
+) -> List[List[int]]:
+    """Build inter-fragment edges via an all-pairs query + global MST.
+
+    This is O(F²·N/F) = O(F·N) in queries (F = fragments, N = total nodes).
+    Produces an exact global MST between fragments.
+    """
     Fragment = namedtuple("Fragment", ["frag_id", "node_ids", "kd"])
     fragments = []
     for frag_id, df in to_use.groupby(cc):
@@ -2423,15 +2388,13 @@ def _stitch_mst(
 
     # Sort nodes by connected component for faster masking later
     to_use_srt = np.argsort(cc.values)
-
-    # Sort nodes to match connected component order
     to_use = to_use.iloc[to_use_srt]
     to_use_co = to_use[cols_to_use].values
     to_use_ids = to_use.node_id.values
 
     # Determine cc boundaries
-    cc = cc.iloc[to_use_srt]
-    cc_bounds = np.unique(cc.values, return_index=True)[1]
+    cc_srt = cc.iloc[to_use_srt]
+    cc_bounds = np.unique(cc_srt.values, return_index=True)[1]
 
     # Precompute splits for node IDs in each fragment
     to_use_ids_split = np.split(to_use_ids, cc_bounds[1:])
@@ -2439,29 +2402,20 @@ def _stitch_mst(
     # Now generate the graph
     frag_graph = nx.Graph()
     for i, frag_nodes, tree in fragments:
-        # Find the closest point in this fragment to any other leaf node
-        # dist: distances to closest point
-        # idsx: index of closest point in this fragment for each leaf node
         dist, idsx = tree.query(to_use_co, distance_upper_bound=max_dist)
 
-        # Split into one array per connected components
         dist_split = np.split(dist, cc_bounds[1:])
         idsx_split = np.split(idsx, cc_bounds[1:])
 
         for j, (dy, idsy) in enumerate(zip(dist_split, idsx_split)):
-            # Skip same fragment
             if i == j:
                 continue
 
-            # Find index of minimum distance
             d_min_idx = np.argmin(dy)
             d_min = dy[d_min_idx]
-            if d_min == np.inf:  # no connection found
+            if d_min == np.inf:
                 continue
 
-            # Add edge from one fragment to another,
-            # but keep track of which fine-grained skeleton
-            # nodes were used to calculate distance.
             frag_graph.add_edge(
                 i,
                 j,
@@ -2470,17 +2424,150 @@ def _stitch_mst(
                 distance=d_min,
             )
 
-    # Calculate the minimum spanning tree of the fragment graph
     frag_edges = nx.minimum_spanning_edges(frag_graph, weight="distance", data=True)
+    return [[e[2]["node_a"], e[2]["node_b"]] for e in frag_edges]
 
-    # For each inter-fragment edge, add the corresponding
-    # fine-grained edge between skeleton nodes in the original graph.
-    G = x.graph.to_undirected()
-    to_add = [[e[2]["node_a"], e[2]["node_b"]] for e in frag_edges]
-    G.add_edges_from(to_add)
 
-    # Rewire based on graph
-    return graph.rewire_skeleton(x, G, inplace=inplace)
+def _boruvka_edges(
+    to_use: pd.DataFrame,
+    cc: pd.Series,
+    cols_to_use: List[str],
+    max_dist: float,
+) -> List[List[int]]:
+    """Build inter-fragment edges using Borůvka's algorithm.
+
+    In each round every super-component finds its single cheapest outgoing
+    edge, those edges are added and components are merged.  The number of
+    components at least halves each round, so only O(log F) rounds are needed.
+
+    A single KDTree is built once over all candidate nodes.  If pykdtree is
+    available its ``query()`` accepts a boolean ``mask`` argument that excludes
+    the querying component's own nodes from being returned as neighbours, so no
+    per-component tree rebuild is required.  With scipy's ``cKDTree`` (no mask
+    support) we fall back to building a small per-component tree from the
+    remaining nodes each time.
+    """
+    coords = to_use[cols_to_use].values.astype(np.float64)
+    node_ids = to_use.node_id.values
+    n = len(node_ids)
+
+    # Build the tree once.  For pykdtree we reuse it every round via its mask
+    # argument; for scipy we rebuild a per-component tree as a fallback.
+    tree = KDTree(coords)
+    _has_mask = "pykdtree" in type(tree).__module__
+
+    # Union-Find with path compression and union by rank
+    uf_parent = np.arange(n, dtype=np.intp)
+    uf_rank = np.zeros(n, dtype=np.intp)
+
+    # Initialise UF: union all nodes within the same original fragment
+    orig_labels = cc.values.copy()
+    unique_labels, inv = np.unique(orig_labels, return_inverse=True)
+    frag_rep: dict = {}
+    for i, lab in enumerate(inv):
+        label = unique_labels[lab]
+        if label not in frag_rep:
+            frag_rep[label] = i
+        else:
+            uf_parent[i] = frag_rep[label]
+
+    def _find(a: int) -> int:
+        root = a
+        while uf_parent[root] != root:
+            root = uf_parent[root]
+        # Path compression
+        while uf_parent[a] != root:
+            uf_parent[a], a = root, uf_parent[a]
+        return root
+
+    def _union(a: int, b: int) -> None:
+        ra, rb = _find(a), _find(b)
+        if ra == rb:
+            return
+        if uf_rank[ra] < uf_rank[rb]:
+            ra, rb = rb, ra
+        uf_parent[rb] = ra
+        if uf_rank[ra] == uf_rank[rb]:
+            uf_rank[ra] += 1
+
+    result_edges: List[List[int]] = []
+
+    while True:
+        comp_of = np.array([_find(i) for i in range(n)])
+        unique_comps = np.unique(comp_of)
+        if len(unique_comps) == 1:
+            break
+
+        # best[comp_root] = (distance, src_node_id, dst_node_id, src_idx, dst_idx)
+        best: dict = {}
+
+        if _has_mask:
+            # pykdtree path: query the single shared tree for each component,
+            # masking out that component's own nodes so they are never returned
+            # as neighbours.  Returned indices are into the original data array.
+            for comp_root in unique_comps:
+                mask_self = comp_of == comp_root
+                self_indices = np.where(mask_self)[0]
+
+                dist, idx = tree.query(
+                    coords[mask_self],
+                    k=1,
+                    distance_upper_bound=max_dist,
+                    mask=mask_self,
+                )
+
+                min_pos = int(np.argmin(dist))
+                d_min = dist[min_pos]
+                if d_min == np.inf:
+                    continue
+
+                src_idx = self_indices[min_pos]
+                dst_idx = int(idx[min_pos])  # index into the full coords array
+
+                best[comp_root] = (d_min, node_ids[src_idx], node_ids[dst_idx], src_idx, dst_idx)
+        else:
+            # scipy fallback: build a small tree from the non-self nodes
+            for comp_root in unique_comps:
+                mask_self = comp_of == comp_root
+                mask_other = ~mask_self
+
+                coords_other = coords[mask_other]
+                if len(coords_other) == 0:
+                    continue
+
+                tree_other = KDTree(coords_other)
+                dist, idx = tree_other.query(coords[mask_self], distance_upper_bound=max_dist)
+
+                min_pos = int(np.argmin(dist))
+                d_min = dist[min_pos]
+                if d_min == np.inf:
+                    continue
+
+                self_indices = np.where(mask_self)[0]
+                src_idx = self_indices[min_pos]
+                dst_idx = np.where(mask_other)[0][int(idx[min_pos])]
+
+                best[comp_root] = (d_min, node_ids[src_idx], node_ids[dst_idx], src_idx, dst_idx)
+
+        if not best:
+            break
+
+        # Add the cheapest outgoing edge from each component, deduplicating
+        # edges that connect the same pair of super-components.
+        added_pairs: set = set()
+        for comp_root, (d, na, nb, src_idx, dst_idx) in best.items():
+            ra = _find(src_idx)
+            rb = _find(dst_idx)
+            if ra == rb:
+                continue  # already merged this round
+            pair = (min(ra, rb), max(ra, rb))
+            if pair in added_pairs:
+                continue
+            added_pairs.add(pair)
+            result_edges.append([na, nb])
+            _union(ra, rb)
+
+    return result_edges
 
 
 @utils.map_neuronlist(desc="Pruning", must_zip=["source"], allow_parallel=True)
