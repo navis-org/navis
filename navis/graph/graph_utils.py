@@ -1480,7 +1480,7 @@ def reroot_skeleton(
 
             if root not in x.tags:
                 raise ValueError(
-                    f"#{x.id}: Found no nodes with tag {root}" " - please double check!"
+                    f"#{x.id}: Found no nodes with tag {root} - please double check!"
                 )
 
             elif len(x.tags[root]) > 1:
@@ -1521,8 +1521,14 @@ def reroot_skeleton(
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
 
-                # Find paths to all roots
+                # Find vertices corresponding to current root(s)
                 vs_roots = g.vs.select(node_id_in=x.root)
+
+                # Sort to match x.root
+                vs_roots = {v['node_id']: v for v in vs_roots}
+                vs_roots = [vs_roots[r] for r in x.root]
+
+                # Find paths to all roots
                 path = g.get_shortest_paths(
                     g.vs.find(node_id=new_root), vs_roots
                 )
