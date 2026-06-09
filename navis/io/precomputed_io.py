@@ -641,6 +641,9 @@ def _write_skeleton(x, filename, radius=False):
 @lru_cache
 def _fetch_info_file(base_url, raise_missing=True):
     """Try and fetch `info` file for given base url."""
+    # Convert e.g. gs:// to https:// if needed
+    base_url = base.to_https_protocol(base_url, raise_error=False)
+
     if not base_url.endswith("/"):
         base_url += "/"
     r = requests.get(f"{base_url}info")
