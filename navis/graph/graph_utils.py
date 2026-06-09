@@ -101,7 +101,8 @@ def _generate_segments(
 
     if utils.fastcore and (
         # fastcore supports returning lengths since version 0.0.9
-        not return_lengths or utils.fastcore.__version_vector__ >= (0, 0, 9)
+        not return_lengths
+        or utils.fastcore.__version_vector__ >= (0, 0, 9)
     ):
         if weight == "weight":
             weight = utils.fastcore.dag.parent_dist(
@@ -215,8 +216,21 @@ def _connected_components(
         ms = utils.fastcore.connected_components(
             x.nodes.node_id.values, x.nodes.parent_id.values
         )
-        # Translate into list of sets
-        cc = [x.nodes.node_id.values[ms == i] for i in np.unique(ms)]
+        # Translate into list of arrays of IDs
+        # cc = [x.nodes.node_id.values[ms == i] for i in np.unique(ms)]
+        # Translate into list of arrays of IDs
+        order = np.argsort(ms, kind="mergesort")
+        ms_sorted = ms[order]
+        _, start_idx, counts = np.unique(ms_sorted, return_index=True, return_counts=True)
+        cc = [x.nodes.node_id.values[order[start:start + count]] for start, count in zip(start_idx, counts)]
+    elif isinstance(x, core.MeshNeuron) and utils.fastcore and hasattr(utils.fastcore, "mesh_connected_components"):
+        # This returns for each vertex the ID of its component
+        ms = utils.fastcore.mesh_connected_components(x.faces, len(x.vertices))  # type: ignore
+        # Translate into list of arrays of IDs
+        order = np.argsort(ms, kind="mergesort")
+        ms_sorted = ms[order]
+        _, start_idx, counts = np.unique(ms_sorted, return_index=True, return_counts=True)
+        cc = [order[start:start + count] for start, count in zip(start_idx, counts)]
     elif config.use_igraph and x.igraph:
         G: igraph.Graph = x.igraph  # noqa
         # Get the vertex clustering
