@@ -399,7 +399,7 @@ class Handler:
         ob['id'] = str(x.id)
 
         blender_verts = verts.tolist()
-        me.from_pydata(list(blender_verts), [], list(x.faces))
+        me.from_pydata(list(blender_verts), list(x.edges), list(x.faces))
         me.update()
 
         me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
