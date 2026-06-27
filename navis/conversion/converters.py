@@ -12,6 +12,7 @@
 #    GNU General Public License for more details.
 
 import numpy as np
+import pandas as pd
 import skeletor as sk
 import trimesh as tm
 import networkx as nx
@@ -251,8 +252,9 @@ def mesh2skeleton(x: 'core.MeshNeuron',
         s = morpho.subset_neuron(s, keep, inplace=True)
 
         # Fix vertex map
-        for b, p in zip(bristles.node_id.values, bristles.parent_id.values):
-            s.vertex_map[s.vertex_map == b] = p
+        mapping = dict(zip(bristles.node_id.values, bristles.parent_id.values))
+        vm = pd.Series(s.vertex_map)
+        s.vertex_map = vm.map(mapping).fillna(vm).astype(s.vertex_map.dtype).values
 
     # In particular with method wavefront, some nodes (mostly leafs) can have
     # a radius of 0. We will fix this here by giving them 1/2 the radius of
