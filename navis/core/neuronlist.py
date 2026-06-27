@@ -536,6 +536,32 @@ class NeuronList:
                                                               disable=config.pbar_hide,
                                                               leave=False)])
 
+    def __imul__(self, other):
+        """Implement in-place multiplication for coordinates.
+
+        In contrast to ``nl * other``, this modifies the neurons in place and
+        hence avoids making (potentially very expensive) copies.
+        """
+        for n in config.tqdm(self.neurons,
+                             desc='Multiplying',
+                             disable=config.pbar_hide,
+                             leave=False):
+            n *= other
+        return self
+
+    def __itruediv__(self, other):
+        """Implement in-place division for coordinates.
+
+        In contrast to ``nl / other``, this modifies the neurons in place and
+        hence avoids making (potentially very expensive) copies.
+        """
+        for n in config.tqdm(self.neurons,
+                             desc='Dividing',
+                             disable=config.pbar_hide,
+                             leave=False):
+            n /= other
+        return self
+
     def __and__(self, other):
         """Implement bitwise AND using the & operator."""
         if isinstance(other, core.BaseNeuron):
