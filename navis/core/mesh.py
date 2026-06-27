@@ -190,7 +190,9 @@ class MeshNeuron(BaseNeuron):
             n = self.copy() if copy else self
             _ = np.divide(n.vertices, other, out=n.vertices, casting='unsafe')
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+                # Note: reassign (instead of in-place /=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] / other
 
             # Convert units
             # Note: .to_compact() throws a RuntimeWarning and returns unchanged
@@ -211,7 +213,9 @@ class MeshNeuron(BaseNeuron):
             n = self.copy() if copy else self
             _ = np.multiply(n.vertices, other, out=n.vertices, casting='unsafe')
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+                # Note: reassign (instead of in-place *=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] * other
 
             # Convert units
             # Note: .to_compact() throws a RuntimeWarning and returns unchanged
@@ -231,7 +235,9 @@ class MeshNeuron(BaseNeuron):
             n = self.copy() if copy else self
             _ = np.add(n.vertices, other, out=n.vertices, casting='unsafe')
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] += other
+                # Note: reassign (instead of in-place +=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] + other
 
             self._clear_temp_attr()
 
@@ -247,7 +253,9 @@ class MeshNeuron(BaseNeuron):
             n = self.copy() if copy else self
             _ = np.subtract(n.vertices, other, out=n.vertices, casting='unsafe')
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] -= other
+                # Note: reassign (instead of in-place -=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] - other
 
             self._clear_temp_attr()
 

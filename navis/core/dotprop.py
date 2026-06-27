@@ -143,7 +143,9 @@ class Dotprops(BaseNeuron):
             n = self.copy() if copy else self
             _ = np.divide(n.points, other, out=n.points, casting='unsafe')
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+                # Note: reassign (instead of in-place /=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] / other
 
             # Force recomputing of KDTree
             if hasattr(n, '_tree'):
@@ -166,7 +168,9 @@ class Dotprops(BaseNeuron):
             n = self.copy() if copy else self
             _ = np.multiply(n.points, other, out=n.points, casting='unsafe')
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+                # Note: reassign (instead of in-place *=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] * other
 
             # Force recomputing of KDTree
             if hasattr(n, '_tree'):
@@ -189,7 +193,9 @@ class Dotprops(BaseNeuron):
             n = self.copy() if copy else self
             _ = np.add(n.points, other, out=n.points, casting='unsafe')
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] += other
+                # Note: reassign (instead of in-place +=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] + other
 
             # Force recomputing of KDTree
             if hasattr(n, '_tree'):
@@ -208,7 +214,9 @@ class Dotprops(BaseNeuron):
             n = self.copy() if copy else self
             _ = np.subtract(n.points, other, out=n.points, casting='unsafe')
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] -= other
+                # Note: reassign (instead of in-place -=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] - other
 
             # Force recomputing of KDTree
             if hasattr(n, '_tree'):

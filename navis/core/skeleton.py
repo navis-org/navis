@@ -224,13 +224,15 @@ class TreeNeuron(BaseNeuron):
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes[['x', 'y', 'z', 'radius']] /= other
+            # Note: reassign (instead of in-place /=) so that integer
+            # coordinates can be cast to float if necessary
+            n.nodes[['x', 'y', 'z', 'radius']] = n.nodes[['x', 'y', 'z', 'radius']] / other
 
             # At this point we can ditch any 4th unit
             if utils.is_iterable(other):
                 other = other[:3]
             if n.has_connectors:
-                n.connectors[['x', 'y', 'z']] /= other
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] / other
 
             if hasattr(n, 'soma_radius'):
                 if isinstance(n.soma_radius, numbers.Number):
@@ -261,13 +263,15 @@ class TreeNeuron(BaseNeuron):
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes[['x', 'y', 'z', 'radius']] *= other
+            # Note: reassign (instead of in-place *=) so that integer
+            # coordinates can be cast to float if necessary
+            n.nodes[['x', 'y', 'z', 'radius']] = n.nodes[['x', 'y', 'z', 'radius']] * other
 
             # At this point we can ditch any 4th unit
             if utils.is_iterable(other):
                 other = other[:3]
             if n.has_connectors:
-                n.connectors[['x', 'y', 'z']] *= other
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] * other
 
             if hasattr(n, 'soma_radius'):
                 if isinstance(n.soma_radius, numbers.Number):
@@ -298,11 +302,13 @@ class TreeNeuron(BaseNeuron):
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes[['x', 'y', 'z']] += other
+            # Note: reassign (instead of in-place +=) so that integer
+            # coordinates can be cast to float if necessary
+            n.nodes[['x', 'y', 'z']] = n.nodes[['x', 'y', 'z']] + other
 
             # Do the connectors
             if n.has_connectors:
-                n.connectors[['x', 'y', 'z']] += other
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] + other
 
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
@@ -325,11 +331,13 @@ class TreeNeuron(BaseNeuron):
 
             # If a number, consider this an offset for coordinates
             n = self.copy() if copy else self
-            n.nodes[['x', 'y', 'z']] -= other
+            # Note: reassign (instead of in-place -=) so that integer
+            # coordinates can be cast to float if necessary
+            n.nodes[['x', 'y', 'z']] = n.nodes[['x', 'y', 'z']] - other
 
             # Do the connectors
             if n.has_connectors:
-                n.connectors[['x', 'y', 'z']] -= other
+                n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] - other
 
             n._clear_temp_attr(exclude=['classify_nodes'])
             return n
