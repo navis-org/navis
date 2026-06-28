@@ -287,6 +287,9 @@ def fetch_mesh_neuron(
     nl = NeuronList(nl)
 
     # Add meta data
+    for col in ("instance", "size", "status", "statusLabel", "somaLocation", "somaRadius"):
+        if col not in meta.columns:
+            meta[col] = None
     instances = meta.set_index("bodyId").instance.to_dict()
     sizes = meta.set_index("bodyId")["size"].to_dict()
     status = meta.set_index("bodyId").status.to_dict()
