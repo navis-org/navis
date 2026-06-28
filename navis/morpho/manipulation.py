@@ -802,17 +802,6 @@ def split_axon_dendrite(
         cellbodyfiber, "cellbodyfiber", allowed_values=("soma", "root", False)
     )
 
-    if metric == "flow_centrality":
-        msg = (
-            "As of navis version 1.4.0, `method='flow_centrality'` "
-            "uses synapse-independent, morphology-only flow to generate splits."
-            "Please use `method='synapse_flow_centrality' for "
-            "synapse-based axon-dendrite splits. "
-            "This warning will be removed in a future version of navis."
-        )
-        warnings.warn(msg, DeprecationWarning)
-        logger.warning(msg)
-
     if len(x.root) > 1:
         raise ValueError(
             f"Unable to split neuron {x.id}: multiple roots. "
@@ -963,21 +952,27 @@ def split_axon_dendrite(
     dendrite = list(dendrite)
 
     # If we have, assign these nodes to the closest node with a compartment
-    if any(miss):
-        # Find the closest nodes with a compartment
-        m = graph.geodesic_matrix(original, directed=False, weight=None, from_=miss)
-
-        # Subset geodesic matrix to nodes that have a compartment
+    if len(miss):
+        # Nodes that already have a compartment
         nodes_w_comp = original.nodes.node_id.values[
             ~np.isin(original.nodes.node_id.values, miss)
         ]
-        closest = np.argmin(m.loc[:, nodes_w_comp].values, axis=1)
-        closest_id = nodes_w_comp[closest]
 
-        linker += m.index.values[np.isin(closest_id, linker)].tolist()
-        axon += m.index.values[np.isin(closest_id, axon)].tolist()
-        dendrite += m.index.values[np.isin(closest_id, dendrite)].tolist()
-        cbf += m.index.values[np.isin(closest_id, cbf)].tolist()
+        # For each orphan node, find the geodesically nearest labeled node.
+        # We use a memory-efficient nearest-target search instead of building a
+        # full (n_miss, n_nodes) geodesic matrix, which would run out of memory
+        # on large neurons.
+        closest_id, _ = graph._geodesic_nearest(
+            original, targets=nodes_w_comp, query=miss, weight=None, directed=False
+        )
+
+        # Orphans in a fragment without any labeled node are unreachable (-1)
+        # and simply stay unassigned.
+        valid = closest_id >= 0
+        linker += miss[valid & np.isin(closest_id, linker)].tolist()
+        axon += miss[valid & np.isin(closest_id, axon)].tolist()
+        dendrite += miss[valid & np.isin(closest_id, dendrite)].tolist()
+        cbf += miss[valid & np.isin(closest_id, cbf)].tolist()
 
     # Add labels
     if label_only:

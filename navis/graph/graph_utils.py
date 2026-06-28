@@ -14,6 +14,8 @@
 import numbers
 import warnings
 
+from collections import defaultdict
+
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -936,7 +938,7 @@ def geodesic_matrix(
 
         miss = from_[~np.isin(from_, nodeList)].astype(str)
         if len(miss):
-            raise ValueError(f'Node/vertex IDs not present: {", ".join(miss)}')
+            raise ValueError(f"Node/vertex IDs not present: {', '.join(miss)}")
 
         indices = np.where(np.isin(nodeList, from_))[0]
         ix = nodeList[indices]
@@ -951,6 +953,148 @@ def geodesic_matrix(
     dmat = csgraph.dijkstra(m, directed=directed, indices=indices, limit=limit)
 
     return pd.DataFrame(dmat, columns=nodeList, index=ix)  # type: ignore  # no stubs
+
+
+def _geodesic_nearest(
+    x: "core.TreeNeuron",
+    targets: Iterable[int],
+    query: Optional[Iterable[int]] = None,
+    weight: Optional[str] = None,
+    directed: bool = False,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Find, for each query node, the geodesically nearest of the `targets` nodes.
+
+    This is a memory-efficient alternative to building a full geodesic distance
+    matrix with [`navis.geodesic_matrix`][]: it only keeps, for each query node,
+    the nearest target and the distance to it. It therefore scales to several
+    100k nodes (O(N) memory) where `geodesic_matrix` would materialise an
+    `(n_query, n_nodes)` matrix and run out of memory.
+
+    Uses `navis_fastcore.geodesic_nearest` if available and falls back to a
+    multi-source `scipy.sparse.csgraph.dijkstra(min_only=True)` search.
+
+    Note
+    ----
+    `query` and `targets` are expected to be disjoint (the typical "assign
+    unlabeled nodes to the nearest labeled node" use case). If a query node is
+    itself a target the two backends may disagree on whether it matches itself
+    or the nearest *other* target.
+
+    Parameters
+    ----------
+    x :         TreeNeuron
+    targets :   iterable of node IDs
+                Candidate nodes to snap to.
+    query :     iterable of node IDs, optional
+                Nodes to find a nearest target for. If `None`, uses all nodes.
+    weight :    'weight' | None
+                If "weight" distances are physical edge lengths, if `None`
+                distances are the number of nodes (hops).
+    directed :  bool
+                If True, only travel child -> parent (towards the root).
+
+    Returns
+    -------
+    nearest :   np.ndarray
+                Node ID of the nearest target for each query node (`-1` if no
+                target is reachable). Ordered to match `query` (or `x.nodes` if
+                `query` is `None`).
+    distances : np.ndarray
+                Distance to that nearest target (`np.inf` if unreachable).
+
+    """
+    if not isinstance(x, core.TreeNeuron):
+        raise ValueError(f'Expected TreeNeuron, got "{type(x)}"')
+
+    node_ids = x.nodes.node_id.values
+    parent_ids = x.nodes.parent_id.values
+    ix = pd.Index(node_ids)
+
+    targets = np.asarray(list(targets))
+    query = node_ids if query is None else np.asarray(list(query))
+
+    # Nothing to snap to (or nothing to snap) -> everything unreachable.
+    if not len(targets) or not len(query):
+        return (
+            np.full(len(query), -1, dtype=node_ids.dtype),
+            np.full(len(query), np.inf, dtype=float),
+        )
+
+    # Per-node distance to parent (root = 0). `None` -> unweighted (hop count).
+    if weight == "weight":
+        coords = x.nodes[["x", "y", "z"]].values.astype(np.float32)
+        has_parent = parent_ids >= 0
+        p_ix = ix.get_indexer(parent_ids)
+        weights = np.zeros(len(node_ids), dtype=np.float32)
+        weights[has_parent] = np.linalg.norm(
+            coords[has_parent] - coords[p_ix[has_parent]], axis=1
+        )
+    else:
+        weights = None
+
+    # Fast path: compiled fastcore implementation (linear time, O(N) memory).
+    if utils.fastcore and hasattr(utils.fastcore, "geodesic_nearest"):
+        distances, nearest = utils.fastcore.geodesic_nearest(
+            node_ids,
+            parent_ids,
+            sources=query,
+            targets=targets,
+            directed=directed,
+            weights=weights,
+        )
+        distances = np.asarray(distances, dtype=float)
+        nearest = np.asarray(nearest)
+        # fastcore returns -1 for unreachable sources
+        distances[distances < 0] = np.inf
+        return nearest, distances
+
+    # Fallback: multi-source Dijkstra. `min_only=True` keeps only each node's
+    # distance to the *nearest* source -> O(N) memory instead of O(N_sources*N).
+    has_parent = parent_ids >= 0
+    child_ix = ix.get_indexer(node_ids[has_parent])
+    parent_ix = ix.get_indexer(parent_ids[has_parent])
+    edge_w = (
+        np.ones(child_ix.size, dtype=np.float32)
+        if weights is None
+        else weights[has_parent]
+    )
+
+    if directed:
+        # We run the search FROM the targets (see `indices` below), so to recover
+        # "distance from each query node to its nearest target travelling
+        # child -> parent (towards the root)" the search must travel the *opposite*
+        # way out of each target, i.e. parent -> child (towards its descendants).
+        rows, cols, data = parent_ix, child_ix, edge_w
+    else:
+        rows = np.concatenate([child_ix, parent_ix])
+        cols = np.concatenate([parent_ix, child_ix])
+        data = np.concatenate([edge_w, edge_w])
+
+    N = len(node_ids)
+    adj = csr_matrix((data, (rows, cols)), shape=(N, N))
+    # csgraph.dijkstra expects int32 indices/indptr
+    adj.indptr = adj.indptr.astype("int32", copy=False)
+    adj.indices = adj.indices.astype("int32", copy=False)
+
+    # Sources are the targets; for each node we get its nearest target + distance.
+    src = ix.get_indexer(targets)
+    dist_all, _, sources = csgraph.dijkstra(
+        adj,
+        directed=directed,
+        indices=src,
+        min_only=True,
+        unweighted=weights is None,
+        return_predecessors=True,
+    )
+
+    q_ix = ix.get_indexer(query)
+    src_node_ix = sources[q_ix]  # graph index of nearest target (< 0 if none)
+    reachable = src_node_ix >= 0
+    nearest = np.full(query.shape, -1, dtype=node_ids.dtype)
+    nearest[reachable] = node_ids[src_node_ix[reachable]]
+    distances = dist_all[q_ix].astype(float)
+    distances[~reachable] = np.inf
+    return nearest, distances
 
 
 @utils.lock_neuron
@@ -2051,75 +2195,134 @@ def connected_subgraph(
     True
 
     """
+    # `src` is the TreeNeuron we can pull node/parent arrays from (if any). For a
+    # bare nx.DiGraph we fall back to iterating its edges.
+    src = None
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
-            g = x[0].graph
+            src = x[0]
+            g = src.graph
     elif isinstance(x, core.TreeNeuron):
+        src = x
         g = x.graph
     elif isinstance(x, nx.DiGraph):
         g = x
     else:
         raise TypeError(f'Input must be a single TreeNeuron or graph, got "{type(x)}".')
 
+    # Build a `node -> parent` map and the set of nodes in the graph.
+    # `parent.get(n)` returns None for roots (which have no parent) - this is our
+    # natural walk terminator (mirrors `next(g.successors(n), None)`).
+    # For a TreeNeuron we can build this straight from the node table (faster and
+    # avoids touching networkx); for a bare graph (e.g. the subgraph *view* passed
+    # by `split_axon_dendrite`) we do a single linear pass over its edges.
+    if src is not None:
+        nid = src.nodes.node_id.values
+        pid = src.nodes.parent_id.values
+        parent = {n: p for n, p in zip(nid, pid) if p >= 0}
+        nodes = set(nid.tolist())
+    else:
+        parent = {u: v for u, v in g.edges()}  # edge (u, v) => v is parent of u
+        nodes = set(g.nodes())
+
     ss = set(ss)
-    missing = ss - set(g.nodes)
-    if np.any(missing):
+    missing = ss - nodes
+    if missing:
         missing = np.array(list(missing)).astype(str)  # do NOT remove list() here!
-        raise ValueError(f'Nodes not found: {",".join(missing)}')
+        raise ValueError(f"Nodes not found: {','.join(missing)}")
 
-    # Find nodes that are leafs WITHIN the subset
-    g_ss = g.subgraph(ss)
-    in_degree = dict(g_ss.in_degree)
-    leafs = ss & {n for n, d in in_degree.items() if not d}
+    # Find nodes that are leafs WITHIN the subset: an ss node is an ss-leaf iff none
+    # of its children are in ss, i.e. it is not the parent of any other ss node.
+    ss_parents = {parent[n] for n in ss if parent.get(n) in ss}
+    leafs = ss - ss_parents
 
-    # Run this for each connected component of the neuron
+    # Memoised depth (distance to root; root = 0). Each node is resolved exactly
+    # once thanks to the `n in depth` early stop -> O(N). Replaces the old
+    # `longest_path.index(...)` ordering key (which was O(depth) per lookup).
+    depth = {}
+
+    def fill_depth(n):
+        stack = []
+        while n is not None and n not in depth:
+            stack.append(n)
+            n = parent.get(n)
+        d = depth[n] + 1 if n is not None else 0
+        for m in reversed(stack):
+            depth[m] = d
+            d += 1
+
+    # Walk every ss-leaf towards its root, stopping as soon as we hit an already
+    # visited node. We accumulate, per node, how many leaf-walks pass through it
+    # (`pass_count`) and which component (terminal root) it belongs to (`comp_of`).
+    # Components are derived implicitly: leaves ending at the same root share one.
+    pass_count = {}
+    comp_of = {}
+    comp_leaves = defaultdict(list)
+    comp_touched = defaultdict(list)
+    for leaf in leafs:
+        fill_depth(leaf)
+        # First pass: walk to root, counting passes and finding the component root.
+        n = leaf
+        root = leaf
+        while n is not None:
+            pass_count[n] = pass_count.get(n, 0) + 1
+            root = n
+            n = parent.get(n)
+        comp_leaves[root].append(leaf)
+        # Second pass: tag every (not yet tagged) node on this path with its
+        # component root and record it as touched. Early-stops where a previous
+        # leaf-walk already tagged the shared upper segment.
+        n = leaf
+        while n is not None and n not in comp_of:
+            comp_of[n] = root
+            comp_touched[root].append(n)
+            n = parent.get(n)
+
+    # Group ss nodes by component once (every ss node lies on some leaf-walk and is
+    # therefore tagged in `comp_of`). Avoids re-scanning all of ss per component.
+    ss_by_comp = defaultdict(list)
+    for n in ss:
+        ss_by_comp[comp_of[n]].append(n)
+
     include = set()
     new_roots = []
-    for cc in nx.connected_components(g.to_undirected()):
-        # Walk from each node to root and keep track of path
-        paths = []
-        for n in leafs & cc:
-            this_path = []
-            while n is not None:
-                this_path.append(n)
-                n = next(g.successors(n), None)
-            paths.append(this_path)
+    for root, cleaves in comp_leaves.items():
+        need = len(cleaves)
+        # Nodes common to ALL leaf-walks form a contiguous root->LCA chain; the LCA
+        # (branch point / new root) is the deepest of them.
+        common = [n for n in comp_touched[root] if pass_count[n] == need]
+        lca = max(common, key=lambda n: depth[n])
 
-        # If none of these cc in subset there won't be paths
-        if not paths:
-            continue
-
-        # Find the nodes that all paths have in common
-        common = set.intersection(*[set(p) for p in paths])
-
-        # Now find the first (most distal from root) common node
-        longest_path = sorted(paths, key=lambda x: len(x))[-1]
-        first_common = sorted(common, key=lambda x: longest_path.index(x))[0]
-
-        # Now go back to paths and collect all nodes until this first common node
-        for p in paths:
-            it = iter(p)
-            n = next(it, None)
-            while n is not None:
-                if n in include:
-                    break
-                if n == first_common:
-                    include.add(n)
-                    break
+        # Include, for each leaf, every node up to and including the LCA.
+        for leaf in cleaves:
+            n = leaf
+            while n is not None and n not in include:
                 include.add(n)
-                n = next(it, None)
+                if n == lca:
+                    break
+                n = parent.get(n)
 
-        # In cases where there are even more distal common ancestors
-        # (first common will typically be a branch point)
-        this_ss = ss & cc
-        if this_ss - include:
-            # Make sure the new root is set correctly
-            nr = sorted(this_ss - include, key=lambda x: longest_path.index(x))[-1]
-            new_roots.append(nr)
-            # Add those nodes to be included
-            include = set.union(include, this_ss)
+        # Edge case: ss may contain nodes that are strict ancestors of the LCA
+        # (they are never ss-leaves, so they're not in `include` yet). The new root
+        # must be the most proximal of those (closest to the old root, i.e. smallest
+        # depth); we then fill the *full* chain from the LCA up to it so the result
+        # stays connected (the old code added only the ss nodes, leaving a
+        # disconnected gap between the LCA and the new root).
+        this_ss = ss_by_comp[root]
+        proximal = [n for n in this_ss if n not in include]
+        if proximal:
+            new_root = min(proximal, key=lambda n: depth[n])
+            new_roots.append(new_root)
+            # All proximal ss nodes are ancestors of the LCA, so walking from the
+            # LCA towards the root reaches `new_root` and passes every one of them.
+            n = lca
+            while True:
+                include.add(n)
+                if n == new_root:
+                    break
+                n = parent.get(n)
         else:
-            new_roots.append(first_common)
+            new_roots.append(lca)
 
     return np.array(list(include)), new_roots
 

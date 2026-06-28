@@ -33,6 +33,7 @@ from .graph_utils import (
     find_main_branchpoint,
     generate_list_of_childs,
     geodesic_matrix,
+    _geodesic_nearest,
     node_label_sorting,
     _break_segments,
     _generate_segments,
