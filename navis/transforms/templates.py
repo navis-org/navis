@@ -1345,7 +1345,7 @@ def mirror_brain(
     utils.eval_param(
         mirror_axis,
         name="mirror_axis",
-        allowed_values=("x", "y", "z"),
+        allowed_values=("x", "y", "z", "auto"),
         on_error="raise",
     )
     if not isinstance(warp, (BaseTransform, TransformSequence)):
