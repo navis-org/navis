@@ -79,6 +79,13 @@ warn_caching = True
 # Primarily used for debugging
 use_igraph = True
 
+# Default backend for NBLAST functions:
+#   "builtin" (default) uses navis' own multiprocessing implementation.
+#   Set to "auto" to instead pick the fastest available backend that supports
+#   the requested operation and parameters (e.g. navis-fastcore if installed),
+#   or name a specific backend (e.g. "fastcore") to force it.
+default_nblast_backend = "builtin"
+
 # Default color for neurons
 default_color = (.95, .65, .04)
 

@@ -20,9 +20,7 @@ import time
 
 import numpy as np
 import pandas as pd
-import multiprocessing as mp
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Union, Optional
 from typing_extensions import Literal
 
@@ -31,9 +29,9 @@ from ..core import NeuronList, BaseNeuron
 
 from .base import Blaster, NestedIndices
 from .smat import Lookup2d
+from .backends import resolve_backend
 
-from .nblast_funcs import (check_microns, find_optimal_partition,
-                           nblast_preflight, smat_fcwb)
+from .nblast_funcs import nblast_preflight, smat_fcwb
 
 try:
     from pykdtree.kdtree import KDTree
@@ -187,7 +185,8 @@ class SynBlaster(Blaster):
             if ty not in t_trees:
                 # Note that this infinite distance will simply get the worst
                 # score possible in the scoring function
-                dists = np.append(dists, [self.score_fn.max_dist] * qt.data.shape[0])
+                n_pts = qt.n if isinstance(qt, KDTree) else qt.shape[0]
+                dists = np.append(dists, [np.inf] * n_pts)
             else:
                 # Note: we're building the trees lazily here once we actually need them.
                 # The main reason is that pykdtree is not picklable and hence
@@ -238,7 +237,8 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
              normalized: bool = True,
              smat: Optional[Union[str, pd.DataFrame]] = 'auto',
              n_cores: int = os.cpu_count() // 2,
-             progress: bool = True) -> pd.DataFrame:
+             progress: bool = True,
+             backend: Optional[str] = None) -> pd.DataFrame:
     """Synapsed-based variant of NBLAST.
 
     The gist is this: for each synapse in the query neuron, we find the closest
@@ -284,6 +284,11 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
     progress :      bool
                     Whether to show progress bars. This may cause some overhead,
                     so switch off if you don't really need it.
+    backend :       str, optional
+                    Which NBLAST backend to use. If `None` (default), uses
+                    `navis.config.default_nblast_backend` ("builtin"). Set that
+                    to "auto" to pick the fastest available backend. Note that
+                    only the "builtin" backend implements SynBLAST.
 
     Returns
     -------
@@ -317,7 +322,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
     # Run pre-flight checks
     nblast_preflight(query, target, n_cores,
                      req_unique_ids=True, req_dotprops=False,
-                     req_microns=isinstance(smat, str) and smat=='auto')
+                     req_microns=isinstance(smat, str) and smat == 'auto')
 
     # Make sure all neurons have connectors
     if not all(query.has_connectors):
@@ -333,170 +338,19 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
             raise ValueError('Connector tables must have a "type" column if '
                              '`by_type=True` or `cn_types` is not `None`.')
 
-    # Find a partition that produces batches that each run in approximately
-    # 10 seconds
-    if n_cores and n_cores > 1:
-        if progress:
-            # If progress bar, we need to make smaller mini batches.
-            # These mini jobs must not be too small - otherwise the overhead
-            # from spawning and sending results between processes slows things
-            # down dramatically. Hence we want to make sure that each job runs
-            # for >10s. The run time depends on the system and how big the neurons
-            # are. Here, we run a quick test and try to extrapolate from there
-            n_rows, n_cols = find_batch_partition(query, target,
-                                                  T=10 * JOB_SIZE_MULTIPLIER)
-        else:
-            # If no progress bar needed, we can just split neurons evenly across
-            # all available cores
-            n_rows, n_cols = find_optimal_partition(n_cores, query, target)
-    else:
-        n_rows = n_cols = 1
+    # Select the backend that will run this SynBLAST
+    be = resolve_backend("synblast",
+                         backend or config.default_nblast_backend,
+                         scores=scores, smat=smat)
 
-    # Calculate self-hits once for all neurons
-    nb = SynBlaster(normalized=normalized,
-                    by_type=by_type,
-                    smat=smat,
-                    progress=progress)
-
-    def get_connectors(n):
-        """Gets the required connectors from a neuron."""
-        if not isinstance(cn_types, type(None)):
-            return n.connectors[n.connectors['type'].isin(cn_types)]
-        else:
-            return n.connectors
-
-    query_self_hits = np.array([nb.calc_self_hit(get_connectors(n)) for n in query])
-    target_self_hits = np.array([nb.calc_self_hit(get_connectors(n)) for n in target])
-
-    # Initialize a pool of workers
-    # Note that we're forcing "spawn" instead of "fork" (default on linux)!
-    # This is to reduce the memory footprint since "fork" appears to inherit all
-    # variables (including all neurons) while "spawn" appears to get only
-    # what's required to run the job?
-    with ProcessPoolExecutor(max_workers=n_cores,
-                             mp_context=mp.get_context('spawn')) as pool:
-        with config.tqdm(desc='Preparing',
-                         total=n_rows * n_cols,
-                         leave=False,
-                         disable=not progress) as pbar:
-            futures = {}
-            blasters = []
-            for qix in np.array_split(np.arange(len(query)), n_rows):
-                for tix in np.array_split(np.arange(len(target)), n_cols):
-                    # Initialize NBlaster
-                    this = SynBlaster(normalized=normalized,
-                                      by_type=by_type,
-                                      smat=smat,
-                                      progress=progress)
-
-                    # Add queries and targets
-                    for i, ix in enumerate(qix):
-                        n = query[ix]
-                        this.append(get_connectors(n), id=n.id, self_hit=query_self_hits[ix])
-                    for i, ix in enumerate(tix):
-                        n = target[ix]
-                        this.append(get_connectors(n), id=n.id, self_hit=target_self_hits[ix])
-
-                    # Keep track of indices of queries and targets
-                    this.queries = np.arange(len(qix))
-                    this.targets = np.arange(len(tix)) + len(qix)
-                    this.queries_ix = qix  # this facilitates filling in the big matrix later
-                    this.targets_ix = tix  # this facilitates filling in the big matrix later
-                    this.pbar_position = len(blasters) if not utils.is_jupyter() else None
-
-                    blasters.append(this)
-                    pbar.update()
-
-                    # If multiple cores requested, submit job to the pool right away
-                    if n_cores and n_cores > 1 and (n_cols > 1 or n_rows > 1):
-                        this.progress=False  # no progress bar for individual NBLASTERs
-                        futures[pool.submit(this.multi_query_target,
-                                            q_idx=this.queries,
-                                            t_idx=this.targets,
-                                            scores=scores)] = this
-
-        # Collect results
-        if futures and len(futures) > 1:
-            # Prepare empty score matrix
-            scores = pd.DataFrame(np.empty((len(query), len(target)),
-                                           dtype=this.dtype),
-                                  index=query.id, columns=target.id)
-            scores.index.name = 'query'
-            scores.columns.name = 'target'
-
-            # Collect results
-            # We're dropping the "N / N_total" bit from the progress bar because
-            # it's not helpful here
-            fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]')
-            for f in config.tqdm(as_completed(futures),
-                                 desc='NBLASTing',
-                                 bar_format=fmt,
-                                 total=len(futures),
-                                 smoothing=0,
-                                 disable=not progress,
-                                 leave=False):
-                res = f.result()
-                this = futures[f]
-                # Fill-in big score matrix
-                scores.iloc[this.queries_ix, this.targets_ix] = res.values
-        else:
-            scores = this.multi_query_target(this.queries,
-                                             this.targets,
-                                             scores=scores)
-
-    return scores
-
-    # Find an optimal partition that minimizes the number of neurons
-    # we have to send to each process
-    n_rows, n_cols = find_optimal_partition(n_cores, query, target)
-
-    blasters = []
-    for q in np.array_split(query, n_rows):
-        for t in np.array_split(target, n_cols):
-            # Initialize SynNBlaster
-            this = SynBlaster(normalized=normalized,
-                              by_type=by_type,
-                              smat=smat,
-                              progress=progress)
-            # Add queries and targets
-            for nl in [q, t]:
-                for n in nl:
-                    if not isinstance(cn_types, type(None)):
-                        cn = n.connectors[n.connectors['type'].isin(cn_types)]
-                    else:
-                        cn = n.connectors
-
-                    this.append(cn, id=n.id)
-
-            # Keep track of indices of queries and targets
-            this.queries = np.arange(len(q))
-            this.targets = np.arange(len(t)) + len(q)
-            this.pbar_position = len(blasters) if not utils.is_jupyter() else None
-
-            blasters.append(this)
-
-    # If only one core, we don't need to break out the multiprocessing
-    if n_cores == 1:
-        return this.multi_query_target(this.queries,
-                                       this.targets,
-                                       scores=scores)
-
-    with ProcessPoolExecutor(max_workers=len(blasters)) as pool:
-        # Each nblaster is passed to its own process
-        futures = [pool.submit(this.multi_query_target,
-                               q_idx=this.queries,
-                               t_idx=this.targets,
-                               scores=scores) for this in blasters]
-
-        results = [f.result() for f in futures]
-
-    scores = pd.DataFrame(np.zeros((len(query), len(target))),
-                          index=query.id, columns=target.id)
-
-    for res in results:
-        scores.loc[res.index, res.columns] = res.values
-
-    return scores
+    return be.synblast(query, target,
+                       by_type=by_type,
+                       cn_types=cn_types,
+                       scores=scores,
+                       normalized=normalized,
+                       smat=smat,
+                       n_cores=n_cores,
+                       progress=progress)
 
 
 def find_batch_partition(q, t, T=10):
