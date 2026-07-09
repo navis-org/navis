@@ -1450,7 +1450,10 @@ def update_axes3d_bounds(ax):
             for s in c._segments3d:
                 points.append(s)
         elif isinstance(c, Poly3DCollection):
-            points.append(c._vec[:3, :].T)
+            if hasattr(c, "_vec"):
+                points.append(c._vec[:3, :].T)
+            elif hasattr(c, "_faces"):
+                points.append(c._faces.reshape(-1, 3))
         elif isinstance(c, (Path3DCollection, Patch3DCollection)):
             points.append(np.array(c._offsets3d).T)
 
