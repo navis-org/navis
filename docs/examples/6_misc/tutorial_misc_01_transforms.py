@@ -36,7 +36,7 @@ import flybrains
 # Importing `flybrains` automatically registers the transforms with {{ navis }}. This in turn allows {{ navis }} to plot a
 # sequence of bridging transformations to map between any connected template spaces.
 #
-# ![Flybrain Bridging Graph](https://github.com/navis-org/navis-flybrains/blob/main/_static/bridging_graph.png?raw=true)
+# ![Flybrain Bridging Graph](https://raw.githubusercontent.com/navis-org/navis-flybrains/main/_static/bridging_graph.png)
 #
 # In addition to those bridging transforms, `flybrains` also contains mirror registrations (we will cover those later), meta data
 # and meshes for the template brains:
