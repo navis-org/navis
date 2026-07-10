@@ -2739,7 +2739,9 @@ def propagate_labels(
     >>> # neighborhood suggests a different label.
     >>> prop_labels = navis.graph.graph_utils.propagate_labels(n, labels, clamping=False)
     >>> prop_labels[:5]
-    array(['post', 'post', 'post', 'post', 'post'], dtype=object)
+    <ArrowStringArray>
+    ['post', 'post', 'post', 'post', 'post']
+    Length: 5, dtype: str
 
     >>> # To visualize
     >>> # navis.plot3d(n, color_by=prop_labels, palette={"pre": "red", "post": "blue"})
