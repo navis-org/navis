@@ -22,6 +22,14 @@ from scipy.spatial.distance import cdist
 from .base import BaseTransform
 
 
+# Hotfix for morphops (unmaintained since 2021): it still calls `np.row_stack`,
+# which was deprecated in numpy 1.24 and removed in numpy 2.0+. `row_stack` was
+# always just an alias for `vstack`, so we restore it if it's missing. Remove
+# once the pending morphops PR is merged and released.
+if not hasattr(np, "row_stack"):
+    np.row_stack = np.vstack
+
+
 def distance_matrix(X, Y):
     """For (p1,k)-shaped X and (p2,k)-shaped Y, returns the (p1,p2) matrix
     where the element at [i,j] is the distance between X[i,:] and Y[j,:].
