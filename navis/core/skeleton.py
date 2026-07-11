@@ -897,16 +897,12 @@ class TreeNeuron(BaseNeuron):
         Once calculated stored as `.igraph`. Call function again to update
         iGraph.
 
-        Important
-        ---------
-        Returns `None` if igraph is not installed!
-
         See Also
         --------
         [`navis.neuron2igraph`][]
 
         """
-        self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
+        self._igraph = graph.neuron2igraph(self)
         return self._igraph
 
 

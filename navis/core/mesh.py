@@ -312,7 +312,7 @@ class MeshNeuron(BaseNeuron):
         # If igraph does not exist, create and return
         if not hasattr(self, '_igraph'):
             # This also sets the attribute
-            self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
+            self._igraph = graph.neuron2igraph(self)
         return self._igraph
 
     @property

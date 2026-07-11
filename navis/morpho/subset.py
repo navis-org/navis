@@ -330,16 +330,15 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
     if "_graph_nx" in x.__dict__:
         x._graph_nx = x.graph.subgraph(x.nodes.node_id.values)
     if "_igraph" in x.__dict__:
-        if x.igraph and config.use_igraph:
-            id2ix = {
-                n: ix
-                for ix, n in zip(
-                    x.igraph.vs.indices, x.igraph.vs.get_attribute_values("node_id")
-                )
-            }
-            indices = [id2ix[n] for n in x.nodes.node_id.values]
-            vs = x.igraph.vs[indices]
-            x._igraph = x.igraph.subgraph(vs)
+        id2ix = {
+            n: ix
+            for ix, n in zip(
+                x.igraph.vs.indices, x.igraph.vs.get_attribute_values("node_id")
+            )
+        }
+        indices = [id2ix[n] for n in x.nodes.node_id.values]
+        vs = x.igraph.vs[indices]
+        x._igraph = x.igraph.subgraph(vs)
 
     if hasattr(x, "_soma") and x._soma is not None:
         # Check if soma is still in the neuron

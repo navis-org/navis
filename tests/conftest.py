@@ -1,14 +1,14 @@
-import json
-from pathlib import Path
 import os
-from typing import List
-
-import pandas as pd
-import pytest
-import numpy as np
 import nrrd
-
+import json
 import navis
+import pytest
+
+import numpy as np
+import pandas as pd
+
+from typing import List
+from pathlib import Path
 
 
 @pytest.fixture(scope="session")

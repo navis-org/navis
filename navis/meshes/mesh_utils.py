@@ -14,7 +14,6 @@
 import os
 
 import multiprocessing as mp
-import networkx as nx
 import numpy as np
 import pandas as pd
 import trimesh as tm

@@ -41,7 +41,6 @@ _DEFAULTS = dict(
     switch_dist=1,  # Distance threshold for inverting angle (i.e. flip branch direction)
     syn_linewidth=1.5,  # Line width for connectors
     syn_highlight_color=(1, 0, 0),  # Color for highlighted connectors
-    force_nx=False,  # Force using networkx over igraph
     color=(0.1, 0.1, 0.1),  # Color for neurites
 )
 
@@ -205,22 +204,16 @@ def _plot_subway(
     root_nodes = x.root
     branch_nodes = set(x.branch_points.node_id.values)
 
-    # Use igraph if possible:
-    if x.igraph and not DEFAULTS["force_nx"]:
-        # Convert node IDs to igraph vertex indices
-        leaf_vs = x.igraph.vs.select(node_id_in=leaf_nodes)
-        root_vs = x.igraph.vs.select(node_id_in=root_nodes)
+    # Convert node IDs to igraph vertex indices
+    leaf_vs = x.igraph.vs.select(node_id_in=leaf_nodes)
+    root_vs = x.igraph.vs.select(node_id_in=root_nodes)
 
-        # Now get paths from all tips to the root
-        paths = x.igraph.get_shortest_paths(root_vs[0], leaf_vs, mode="ALL")
+    # Now get paths from all tips to the root
+    paths = x.igraph.get_shortest_paths(root_vs[0], leaf_vs, mode="ALL")
 
-        # Translate indices back into node ids
-        ids = np.array(x.igraph.vs.get_attribute_values("node_id"))
-        paths_tn = [ids[p] for p in paths]
-    else:
-        # Fall back to networkX
-        iterator = nx.shortest_path(x.graph, target=root_nodes[0])
-        paths_tn = [iterator[l][::-1] for l in leaf_nodes]
+    # Translate indices back into node ids
+    ids = np.array(x.igraph.vs.get_attribute_values("node_id"))
+    paths_tn = [ids[p] for p in paths]
 
     # Generate DataFrame with all the info
     nodes = x.nodes.set_index("node_id")

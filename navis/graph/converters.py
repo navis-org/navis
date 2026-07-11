@@ -19,10 +19,7 @@ import scipy.sparse
 
 from typing import Union, Optional, List, Iterable
 
-try:
-    import igraph
-except ModuleNotFoundError:
-    igraph = None
+import igraph
 
 from .. import config, core
 
@@ -195,9 +192,6 @@ def network2igraph(
                         iGraph representation of the network.
 
     """
-    if igraph is None:
-        raise ModuleNotFoundError("igraph must be installed to use this function.")
-
     if isinstance(x, pd.DataFrame):
         present = [c in x.columns for c in ["source", "target", "weight"]]
         if all(present):
@@ -491,11 +485,8 @@ def neuron2igraph(
     x: "core.NeuronObject",
     simplify: bool = False,
     connectivity: int = 18,
-    raise_not_installed: bool = True,
 ) -> "igraph.Graph":
     """Turn Tree-, Mesh- or VoxelNeuron(s) into an iGraph graph.
-
-    Requires iGraph to be installed.
 
     Parameters
     ----------
@@ -510,9 +501,6 @@ def neuron2igraph(
                              - 6 = faces
                              - 18 = faces + edges
                              - 26 = faces + edges + vertices
-    raise_not_installed :   bool
-                            If False and igraph is not installed will silently
-                            return `None`.
 
     Returns
     -------
@@ -520,20 +508,8 @@ def neuron2igraph(
                 Representation of the neuron. Returns list of graphs
                 if x is multiple neurons. Directed for TreeNeurons, undirected
                 for MeshNeurons.
-    None
-                If igraph not installed.
 
     """
-    # If iGraph is not installed return nothing
-    if igraph is None:
-        if not raise_not_installed:
-            return None
-        else:
-            raise ModuleNotFoundError(
-                "iGraph appears to not be installed (properly). "
-                'Make sure "import igraph" works.'
-            )
-
     if isinstance(x, core.NeuronList):
         return [
             neuron2igraph(x.loc[i], connectivity=connectivity)

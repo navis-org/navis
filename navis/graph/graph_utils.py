@@ -16,6 +16,7 @@ import warnings
 
 from collections import defaultdict
 
+import igraph
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -24,7 +25,6 @@ from typing_extensions import Literal
 from typing import Union, Optional, List, Tuple, Sequence, Dict, Set, overload, Iterable
 
 from scipy.special import softmax
-from pandas.api.types import CategoricalDtype
 from scipy.sparse import csgraph, csr_matrix, diags
 
 from .. import graph, utils, config, core, morpho
@@ -134,13 +134,10 @@ def _generate_segments(
     endNodeIDs = x.nodes[x.nodes.type == "end"].node_id.values
     endNodeIDs = sorted(endNodeIDs, key=lambda x: d.get(x, 0), reverse=True)
 
-    if config.use_igraph and x.igraph:
-        g: igraph.Graph = x.igraph  # noqa
-        # Convert endNodeIDs to indices
-        id2ix = dict(zip(x.igraph.vs["node_id"], range(len(x.igraph.vs))))
-        endNodeIDs = [id2ix[n] for n in endNodeIDs]
-    else:
-        g: nx.DiGraph = x.graph
+    g: igraph.Graph = x.igraph
+    # Convert endNodeIDs to indices
+    id2ix = dict(zip(g.vs["node_id"], range(len(g.vs))))
+    endNodeIDs = [id2ix[n] for n in endNodeIDs]
 
     seen: set = set()
     sequences = []
@@ -160,10 +157,9 @@ def _generate_segments(
         if len(sequence) > 1:
             sequences.append(sequence)
 
-    # If igraph, turn indices back to node IDs
-    if config.use_igraph and x.igraph:
-        ix2id = {v: k for k, v in id2ix.items()}
-        sequences = [[ix2id[ix] for ix in s] for s in sequences]
+    # Turn indices back to node IDs
+    ix2id = {v: k for k, v in id2ix.items()}
+    sequences = [[ix2id[ix] for ix in s] for s in sequences]
 
     # Sort sequences by length
     lengths = [d[s[0]] - d[s[-1]] for s in sequences]
@@ -233,8 +229,8 @@ def _connected_components(
         ms_sorted = ms[order]
         _, start_idx, counts = np.unique(ms_sorted, return_index=True, return_counts=True)
         cc = [order[start:start + count] for start, count in zip(start_idx, counts)]
-    elif config.use_igraph and x.igraph:
-        G: igraph.Graph = x.igraph  # noqa
+    else:
+        G: igraph.Graph = x.igraph
         # Get the vertex clustering
         vc = G.components(mode="WEAK")
         # Membership maps indices to connected components
@@ -248,10 +244,6 @@ def _connected_components(
 
         # Extract node IDs/vertex indices for each component
         cc = [ids[ms == i] for i in np.unique(ms)]
-    else:
-        G: nx.DiGraph = x.graph
-        cc = nx.connected_components(G.to_undirected())
-        cc = list(cc)
 
     return cc
 
@@ -293,8 +285,8 @@ def _break_segments(x: "core.NeuronObject") -> list:
         seg_list = utils.fastcore.break_segments(
             x.nodes.node_id.values, x.nodes.parent_id.values
         )
-    elif x.igraph and config.use_igraph:
-        g: Union["igraph.Graph", "nx.DiGraph"] = x.igraph  # noqa
+    else:
+        g: igraph.Graph = x.igraph
         end = g.vs.select(_indegree=0).indices
         branch = g.vs.select(_indegree_gt=1, _outdegree=1).indices
         root = g.vs.select(_outdegree=0).indices
@@ -319,20 +311,6 @@ def _break_segments(x: "core.NeuronObject") -> list:
             v: n for v, n in zip(g.vs.indices, g.vs.get_attribute_values("node_id"))
         }
         seg_list = [[ix_id[n] for n in s] for s in seg_list]
-    else:
-        seeds = x.nodes[x.nodes.type.isin(["branch", "end"])].node_id.values
-        stops = x.nodes[x.nodes.type.isin(["branch", "root"])].node_id.values
-        # Converting to set speeds up the "parent in stops" check
-        stops = set(stops)
-        g = x.graph
-        seg_list = []
-        for s in seeds:
-            parent = next(g.successors(s), None)
-            seg = [s, parent]
-            while parent not in stops:
-                parent = next(g.successors(parent), None)
-                seg.append(parent)
-            seg_list.append(seg)
 
     return seg_list
 
@@ -387,120 +365,6 @@ def dist_to_root(
         dist = {id2ix[k]: v for k, v in dist.items()}
 
     return dist
-
-
-def _edge_count_to_root_old(x: "core.TreeNeuron") -> dict:
-    """Return a map of nodeID vs number of edges.
-
-    Starts from the first node that lacks successors (aka the root).
-
-    """
-    current_level: List[int]
-    g: Union["igraph.Graph", "nx.DiGraph"]  # noqa
-    if x.igraph and config.use_igraph:
-        g = x.igraph
-        current_level = g.vs(_outdegree=0).indices
-    else:
-        g = x.graph
-        current_level = list(x.root)
-
-    dist = {}
-    count = 1
-    next_level: List[Union[str, int]] = []
-    while current_level:
-        # Consume all elements in current_level
-        while current_level:
-            node = current_level.pop()
-            dist[node] = count
-            next_level.extend(g.predecessors(node))
-        # Rotate lists (current_level is now empty)
-        current_level, next_level = next_level, current_level  # type: ignore
-        count += 1
-
-    # Map vertex index to node ID
-    if x.igraph and config.use_igraph:
-        # Grab graph once to avoid overhead from stale checks
-        g = x.igraph
-        dist = {g.vs[k]["node_id"]: v for k, v in dist.items()}
-
-    return dist
-
-
-@utils.map_neuronlist(desc="Classifying", allow_parallel=True)
-@utils.lock_neuron
-def _classify_nodes_old(
-    x: "core.NeuronObject", inplace: bool = True
-) -> Optional["core.NeuronObject"]:
-    """Classify neuron's nodes into end nodes, branches, slabs or root.
-
-    Adds `'type'` column to `x.nodes`.
-
-    Parameters
-    ----------
-    x :         TreeNeuron | NeuronList
-                Neuron(s) whose nodes to classify nodes.
-    inplace :   bool, optional
-                If `False`, nodes will be classified on a copy which is then
-                returned leaving the original neuron unchanged.
-
-    Returns
-    -------
-    TreeNeuron/List
-
-    Examples
-    --------
-    >>> import navis
-    >>> nl = navis.example_neurons(2)
-    >>> _ = navis.graph.classify_nodes(nl, inplace=True)
-
-    """
-    if not inplace:
-        x = x.copy()
-
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
-
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
-
-    # Make sure there are nodes to classify
-    if not x.nodes.empty:
-        if config.use_igraph and x.igraph:
-            # Get graph representation of neuron
-            vs = x.igraph.vs
-            # Get branch/end nodes based on their degree of connectivity
-            ends = vs.select(_indegree=0).get_attribute_values("node_id")
-            branches = vs.select(_indegree_gt=1).get_attribute_values("node_id")
-        else:
-            # Get graph representation of neuron
-            g = x.graph
-            # Get branch/end nodes based on their degree of connectivity
-            deg = pd.DataFrame.from_dict(dict(g.degree()), orient="index")
-            # [ n for n in g.nodes if g.degree(n) == 1 ]
-            ends = deg[deg.iloc[:, 0] == 1].index.values
-            # [ n for n in g.nodes if g.degree(n) > 2 ]
-            branches = deg[deg.iloc[:, 0] > 2].index.values
-
-        # This also resets the column if it already exists. This is important
-        # because an existing column will be categorical and if we try setting
-        # types that didn't previously exist, it will throw exceptions.
-        x.nodes["type"] = "slab"
-
-        x.nodes.loc[x.nodes.node_id.isin(ends), "type"] = "end"
-        x.nodes.loc[x.nodes.node_id.isin(branches), "type"] = "branch"
-        x.nodes.loc[x.nodes.parent_id < 0, "type"] = "root"
-    else:
-        x.nodes["type"] = None
-
-    # Turn into categorical data - saves tons of memory
-    # Note that we have to make sure all categories are set even if they
-    # don't exist (e.g. if a neuron has no branch points)
-    cat_types = CategoricalDtype(
-        categories=["end", "branch", "root", "slab"], ordered=False
-    )
-    x.nodes["type"] = x.nodes["type"].astype(cat_types)
-
-    return x
 
 
 @utils.map_neuronlist(desc="Classifying", allow_parallel=True)
@@ -666,47 +530,26 @@ def distal_to(
     else:
         tnB = x.nodes.node_id.values
 
-    if x.igraph and config.use_igraph:
-        # Map node ID to index
-        id2ix = {n: v for v, n in zip(x.igraph.vs.indices, x.igraph.vs["node_id"])}
+    # Grab graph once to avoid overhead from stale checks
+    G: igraph.Graph = x.igraph
 
-        # Convert node IDs to indices
-        tnA = [id2ix[n] for n in tnA]  # type: ignore
-        tnB = [id2ix[n] for n in tnB]  # type: ignore
+    # Map node ID to index
+    id2ix = {n: v for v, n in zip(G.vs.indices, G.vs["node_id"])}
 
-        # Get path lengths
-        le = x.igraph.distances(tnA, tnB, mode="OUT")
+    # Convert node IDs to indices
+    tnA = [id2ix[n] for n in tnA]  # type: ignore
+    tnB = [id2ix[n] for n in tnB]  # type: ignore
 
-        # Converting to numpy array first is ~2X as fast
-        le = np.asarray(le)
+    # Get path lengths
+    le = G.distances(tnA, tnB, mode="OUT")
 
-        # Convert to True/False
-        le = le != float("inf")
+    # Converting to numpy array first is ~2X as fast
+    le = np.asarray(le)
 
-        df = pd.DataFrame(
-            le, index=x.igraph.vs[tnA]["node_id"], columns=x.igraph.vs[tnB]["node_id"]
-        )
-    else:
-        # Generate empty DataFrame
-        df = pd.DataFrame(
-            np.zeros((len(tnA), len(tnB)), dtype=bool), columns=tnB, index=tnA
-        )
+    # Convert to True/False
+    le = le != float("inf")
 
-        # Iterate over all targets
-        # Grab graph once to avoid overhead from stale checks
-        g = x.graph
-        for nB in config.tqdm(
-            tnB,
-            desc="Querying paths",
-            disable=(len(tnB) < 1000) | config.pbar_hide,
-            leave=config.pbar_leave,
-        ):
-            # Get all paths TO this target. This function returns a dictionary:
-            # { source1 : path_length, source2 : path_length, ... } containing
-            # all nodes distal to this node.
-            paths = nx.shortest_path_length(g, source=None, target=nB)
-            # Check if sources are among our targets
-            df[nB] = [nA in paths for nA in tnA]
+    df = pd.DataFrame(le, index=G.vs[tnA]["node_id"], columns=G.vs[tnB]["node_id"])
 
     if df.shape == (1, 1):
         return df.values[0][0]
@@ -887,21 +730,16 @@ def geodesic_matrix(
     if isinstance(x, core.MeshNeuron):
         directed = False
 
-    if x.igraph and config.use_igraph:
-        if isinstance(x, core.TreeNeuron):
-            nodeList = np.array(x.igraph.vs.get_attribute_values("node_id"))
-        else:
-            nodeList = np.arange(len(x.igraph.vs))
+    # Grab graph once to avoid overhead from stale checks
+    G: igraph.Graph = x.igraph
 
-        # Matrix is ordered by vertex number
-        m = _igraph_to_sparse(x.igraph, weight_attr=weight)
+    if isinstance(x, core.TreeNeuron):
+        nodeList = np.array(G.vs.get_attribute_values("node_id"))
     else:
-        nodeList = np.array(x.graph.nodes())
+        nodeList = np.arange(len(G.vs))
 
-        if hasattr(nx, "to_scipy_sparse_matrix"):
-            m = nx.to_scipy_sparse_matrix(x.graph, nodeList, weight=weight)
-        else:
-            m = nx.to_scipy_sparse_array(x.graph, nodeList, weight=weight)
+    # Matrix is ordered by vertex number
+    m = _igraph_to_sparse(G, weight_attr=weight)
 
     if not isinstance(from_, type(None)):
         from_ = np.unique(utils.make_iterable(from_))
@@ -917,7 +755,6 @@ def geodesic_matrix(
         ix = nodeList
 
     # For some reason csgraph.dijkstra expects indices/indptr as int32
-    # igraph seems to do that by default but networkx uses int64 for indices
     m.indptr = m.indptr.astype("int32", copy=False)
     m.indices = m.indices.astype("int32", copy=False)
     dmat = csgraph.dijkstra(m, directed=directed, indices=indices, limit=limit)
@@ -1151,17 +988,10 @@ def dist_between(x: "core.NeuronObject", a: int, b: int) -> float:
         else:
             raise ValueError(f"Need a single TreeNeuron, got {len(x)}")
 
+    G: Union[igraph.Graph, nx.DiGraph]
     if isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
-        G: Union[
-            "igraph.Graph",  # noqa
-            "nx.DiGraph",
-        ] = (
-            x.igraph if (x.igraph and config.use_igraph) else x.graph
-        )
-    elif isinstance(x, nx.DiGraph):
-        G = x
-    elif "igraph" in str(type(x.igraph)):
-        # We can't use isinstance here because igraph library might not be installed
+        G = x.igraph
+    elif isinstance(x, (igraph.Graph, nx.DiGraph)):
         G = x
     else:
         raise ValueError(f"Unable to process data of type {type(x)}")
@@ -1627,100 +1457,60 @@ def reroot_skeleton(
         if any(x.root == new_root):
             continue
 
-        if x.igraph and config.use_igraph:
-            # Grab graph once to avoid overhead from stale checks
-            g = x.igraph
+        # Grab graph once to avoid overhead from stale checks
+        g: igraph.Graph = x.igraph
 
-            # Prevent warnings in the following code - querying paths between
-            # unreachable nodes will otherwise generate a runtime warning
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
+        # Prevent warnings in the following code - querying paths between
+        # unreachable nodes will otherwise generate a runtime warning
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
 
-                # Find vertices corresponding to current root(s)
-                vs_roots = g.vs.select(node_id_in=x.root)
+            # Find vertices corresponding to current root(s)
+            vs_roots = g.vs.select(node_id_in=x.root)
 
-                # Sort to match x.root
-                vs_roots = {v['node_id']: v for v in vs_roots}
-                vs_roots = [vs_roots[r] for r in x.root]
+            # Sort to match x.root
+            vs_roots = {v['node_id']: v for v in vs_roots}
+            vs_roots = [vs_roots[r] for r in x.root]
 
-                # Find paths to all roots
-                path = g.get_shortest_paths(
-                    g.vs.find(node_id=new_root), vs_roots
-                )
-                epath = g.get_shortest_paths(
-                    g.vs.find(node_id=new_root),
-                    vs_roots,
-                    output="epath",
-                )
+            # Find paths to all roots
+            path = g.get_shortest_paths(
+                g.vs.find(node_id=new_root), vs_roots
+            )
+            epath = g.get_shortest_paths(
+                g.vs.find(node_id=new_root),
+                vs_roots,
+                output="epath",
+            )
 
-            # Extract paths that actually worked (i.e. within a continuous fragment)
-            path = [p for p in path if p][0]
-            epath = [p for p in epath if p][0]
+        # Extract paths that actually worked (i.e. within a continuous fragment)
+        path = [p for p in path if p][0]
+        epath = [p for p in epath if p][0]
 
-            edges = [(s, t) for s, t in zip(path[:-1], path[1:])]
+        edges = [(s, t) for s, t in zip(path[:-1], path[1:])]
 
-            weights = [g.es[e]["weight"] for e in epath]
+        weights = [g.es[e]["weight"] for e in epath]
 
-            # Get all weights and append inversed new weights
-            all_weights = g.es["weight"] + weights
+        # Get all weights and append inversed new weights
+        all_weights = g.es["weight"] + weights
 
-            # Add inverse edges: old_root->new_root
-            g.add_edges([(e[1], e[0]) for e in edges])
+        # Add inverse edges: old_root->new_root
+        g.add_edges([(e[1], e[0]) for e in edges])
 
-            # Re-set weights
-            g.es["weight"] = all_weights
+        # Re-set weights
+        g.es["weight"] = all_weights
 
-            # Remove new_root->old_root
-            g.delete_edges(edges)
+        # Remove new_root->old_root
+        g.delete_edges(edges)
 
-            # Get degree of old root for later categorisation
-            old_root_deg = len(g.es.select(_target=path[-1]))
+        # Get degree of old root for later categorisation
+        old_root_deg = len(g.es.select(_target=path[-1]))
 
-            # Translate path indices to node IDs
-            ix2id = {
-                ix: n
-                for ix, n in zip(g.vs.indices, g.vs.get_attribute_values("node_id"))
-            }
-            path = [ix2id[i] for i in path]
-        else:
-            # Grab graph once to avoid overhead from stale checks
-            g = x.graph
-            # If this NetworkX graph is just an (immutable) view, turn it into a
-            # full, independent graph
-            nx_main_version = ".".join(nx.__version__.split(".")[:2])
-            if float(nx_main_version) < 2.2:
-                if isinstance(g, nx.classes.graphviews.ReadOnlyGraph):
-                    x._graph_nx = g = nx.DiGraph(g)
-            elif hasattr(g, "_NODE_OK"):
-                x._graph_nx = g = nx.DiGraph(g)
-            elif nx.is_frozen(g):
-                x._graph_nx = g = nx.DiGraph(g)
-
-            # Walk from new root to old root and remove edges along the way
-            parent = next(g.successors(new_root), None)
-            if not parent:
-                # new_root is already the root
-                continue
-
-            path = [new_root]
-            weights = []
-            while parent is not None:
-                weights.append(g[path[-1]][parent]["weight"])
-                g.remove_edge(path[-1], parent)
-                path.append(parent)
-                parent = next(g.successors(parent), None)
-
-            # Invert path and add weights
-            new_edges = [
-                (path[i + 1], path[i], {"weight": weights[i]})
-                for i in range(len(path) - 1)
-            ]
-
-            # Add inverted path between old and new root
-            g.add_edges_from(new_edges)
-
-            # Get degree of old root for later categorisation
-            old_root_deg = g.in_degree(path[-1])
+        # Translate path indices to node IDs
+        ix2id = {
+            ix: n
+            for ix, n in zip(g.vs.indices, g.vs.get_attribute_values("node_id"))
+        }
+        path = [ix2id[i] for i in path]
 
         # Set index to node ID for later
         x.nodes.set_index("node_id", inplace=True)
@@ -1748,10 +1538,7 @@ def reroot_skeleton(
         x.nodes["node_id"] = x.nodes.node_id.astype(nodeid_dtype)
 
     # Finally: only reset non-graph related attributes
-    if x.igraph and config.use_igraph:
-        x._clear_temp_attr(exclude=["igraph", "classify_nodes"])
-    else:
-        x._clear_temp_attr(exclude=["graph", "classify_nodes"])
+    x._clear_temp_attr(exclude=["igraph", "classify_nodes"])
 
     return x
 
@@ -1879,10 +1666,7 @@ def cut_skeleton(
         res.remove(to_cut)
 
         # Cut neuron
-        if x.igraph and config.use_igraph:
-            cut = _cut_igraph(to_cut, cn, ret)
-        else:
-            cut = _cut_networkx(to_cut, cn, ret)
+        cut = _cut_igraph(to_cut, cn, ret)
 
         # If ret != 'both', we will get only a single neuron - therefore
         # make sure cut is iterable
@@ -1943,62 +1727,6 @@ def _cut_igraph(
 
         # Clear other temporary attributes
         prox._clear_temp_attr(exclude=["igraph", "type", "classify_nodes"])
-
-    if ret == "both":
-        return dist, prox
-    elif ret == "distal":
-        return dist
-    else:  # elif ret == 'proximal':
-        return prox
-
-
-def _cut_networkx(
-    x: "core.TreeNeuron", cut_node: Union[int, str], ret: str
-) -> Union["core.TreeNeuron", Tuple["core.TreeNeuron", "core.TreeNeuron"]]:
-    """Use networkX graph to cut a neuron."""
-    # Get subgraphs consisting of nodes distal to cut node
-    dist_graph: nx.DiGraph = nx.bfs_tree(x.graph, cut_node, reverse=True)
-
-    if ret == "distal" or ret == "both":
-        # bfs_tree does not preserve 'weight'
-        # -> need to subset original graph by those nodes
-        dist_graph = x.graph.subgraph(dist_graph.nodes)
-
-        # Generate new neurons
-        # This is the actual bottleneck of the function: ~70% of time
-        dist = morpho.subset_neuron(x, subset=dist_graph, inplace=False)  # type: ignore  # doesn't know nx.DiGraph
-
-        # Change new root for dist
-        dist.nodes.loc[dist.nodes.node_id == cut_node, "parent_id"] = -1
-        dist.nodes.loc[dist.nodes.node_id == cut_node, "type"] = "root"
-
-        # Reassign graphs
-        dist._graph_nx = dist_graph
-
-        # Clear other temporary attributes
-        dist._clear_temp_attr(exclude=["graph", "type", "classify_nodes"])
-
-    if ret == "proximal" or ret == "both":
-        # bfs_tree does not preserve 'weight'
-        # need to subset original graph by those nodes
-        ss_nodes = [n for n in x.graph.nodes if n not in dist_graph.nodes] + [cut_node]
-        prox_graph: nx.DiGraph = x.graph.subgraph(ss_nodes)
-
-        # Generate new neurons
-        # This is the actual bottleneck of the function: ~70% of time
-        prox = morpho.subset_neuron(x, subset=prox_graph, inplace=False)
-
-        # Change cut node to end node for prox
-        prox.nodes.loc[prox.nodes.node_id == cut_node, "type"] = "end"
-
-        # Reassign graphs
-        prox._graph_nx = prox_graph
-
-        # Clear other temporary attributes
-        prox._clear_temp_attr(exclude=["graph", "type", "classify_nodes"])
-
-    # ATTENTION: prox/dist_graph contain pointers to the original graph
-    # -> changes to attributes will propagate back
 
     if ret == "both":
         return dist, prox

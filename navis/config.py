@@ -73,12 +73,6 @@ pbar_leave = False
 # Default settings for caching
 warn_caching = True
 
-# Default setting for igraph:
-#   If True, will use iGraph if possible
-#   If False, will ignore iGraph even if present
-# Primarily used for debugging
-use_igraph = True
-
 # Default backend for NBLAST functions:
 #   "builtin" (default) uses navis' own multiprocessing implementation.
 #   Set to "auto" to instead pick the fastest available backend that supports
