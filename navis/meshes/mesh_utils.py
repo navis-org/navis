@@ -83,7 +83,7 @@ def fix_mesh(
 
     if remove_fragments:
         to_drop = []
-        for c in nx.connected_components(m.vertex_adjacency_graph):
+        for c in graph.graph_utils._connected_components(m):
             if len(c) <= remove_fragments:
                 to_drop += list(c)
 
