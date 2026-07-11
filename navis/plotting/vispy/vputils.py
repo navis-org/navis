@@ -51,17 +51,22 @@ def clear3d():
 
 
 def close3d():
-    """Close existing 3D viewer (wipes memory)."""
+    """Close and forget existing 3D viewer."""
     try:
         viewer = get_viewer()
+        if viewer is None:
+            return
         viewer.close()
-        globals().pop('viewer')
+        delattr(config, 'primary_viewer')
         del viewer
-    except BaseException:
-        pass
+    except BaseException as e:
+        config.logger.warning('Error closing 3D viewer: {}'.format(e))
 
 
 def pop3d():
     """Remove the last item added to the 3D canvas."""
     viewer = get_viewer()
-    viewer.pop()
+    if viewer:
+        viewer.pop()
+    else:
+        config.logger.warning('No active 3D viewer to pop from.')
