@@ -550,8 +550,9 @@ def _worker_wrapper(x):
     return f(*args, **kwargs)
 
 
-
-def face_dist_sorting(x, from_, strahler_weight=False, inplace=False):
+def face_dist_sorting(
+    x, from_, strahler_weight=False, heal_method="ALL", inplace=False
+):
     """Sort faces by distance from given point.
 
     This allows you to e.g. use Blender's "build" modifier to grow neurons
@@ -566,6 +567,8 @@ def face_dist_sorting(x, from_, strahler_weight=False, inplace=False):
     strahler_weight :   bool
                 If True, will use Strahler index to grow twigs slower than
                 backbone.
+    heal_method : 'LEAFS' | "ALL"
+                Method using for healing the skeletonized neuron.
     inplace :   bool
                 Whether to modify the input mesh or a copy thereof.
 
@@ -587,7 +590,7 @@ def face_dist_sorting(x, from_, strahler_weight=False, inplace=False):
 
     # Generate the skeleton
     # (note we don't shave to avoid issues with vertex map)
-    sk = x.skeletonize(heal=True, shave=False)
+    sk = x.skeletonize(heal=heal_method, shave=False)
 
     # Get the node index for our from_
     seed = sk.snap(from_)[0]
