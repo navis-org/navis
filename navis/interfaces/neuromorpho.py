@@ -16,6 +16,7 @@
 See http://neuromorpho.org/apiReference.html for documentation.
 """
 
+import os
 import requests
 
 import pandas as pd
@@ -29,7 +30,17 @@ from ..io import read_swc
 from .. import utils, config
 
 
-baseurl = 'http://neuromorpho.org'
+BASEURL = 'https://neuromorpho.org'
+HEADERS = requests.utils.default_headers()
+HEADERS.update(
+    {
+        'User-Agent': 'github.com/navis-org/navis',
+    }
+)
+
+# In the past there were some issues with neuromorpho's SSL certificate
+# This is not recommended but you can switch off verification here
+VERIFY = bool(os.environ.get('NAVIS_NEUROMORPHO_VERIFY', True))
 
 
 def find_neurons(page_limit: Optional[int] = None,
@@ -70,7 +81,7 @@ def find_neurons(page_limit: Optional[int] = None,
     # Turn strings into lists
     filters = {k: list(utils.make_iterable(v)) for k, v in filters.items()}
 
-    url = utils.make_url(baseurl, 'api', 'neuron', 'select')
+    url = utils.make_url(BASEURL, 'api', 'neuron', 'select')
 
     if isinstance(page_limit, type(None)):
         page_limit = float('inf')
@@ -78,7 +89,7 @@ def find_neurons(page_limit: Optional[int] = None,
     data: List[str] = []
 
     # Load the first page to get the total number of pages
-    resp = requests.post(f'{url}?page=0', json=filters)
+    resp = requests.post(f'{url}?page=0', json=filters, headers=HEADERS, verify=VERIFY)
     content = resp.json()
     total_pages = content['page']['totalPages'] - 1
     page_limit = min(page_limit, total_pages)
@@ -89,7 +100,8 @@ def find_neurons(page_limit: Optional[int] = None,
     with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
         futures = {}
         while page < page_limit:
-            f = executor.submit(requests.post, f'{url}?page={page}', json=filters)
+            f = executor.submit(requests.post, f'{url}?page={page}',
+                                json=filters, headers=HEADERS, verify=VERIFY)
             futures[f] = page
             page += 1
 
@@ -134,13 +146,13 @@ def get_neuron_info(x: Union[str, int]) -> pd.Series:
         pass
 
     if isinstance(x, str):
-        url = utils.make_url(baseurl, 'api', 'neuron', 'name', x)
+        url = utils.make_url(BASEURL, 'api', 'neuron', 'name', x)
     elif isinstance(x, int):
-        url = utils.make_url(baseurl, 'api', 'neuron', 'id', str(x))
+        url = utils.make_url(BASEURL, 'api', 'neuron', 'id', str(x))
     else:
         raise TypeError(f'Expected string or int, got {type(x)}')
 
-    resp = requests.get(url)
+    resp = requests.get(url, headers=HEADERS, verify=VERIFY)
 
     resp.raise_for_status()
 
@@ -225,9 +237,11 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
     archive: str = info['archive']
     name: str = info['neuron_name']
 
-    url = utils.make_url(baseurl, 'dableFiles', archive.lower(), 'CNG version', name + '.CNG.swc')
+    url = utils.make_url(BASEURL, 'dableFiles', archive.lower(), 'CNG version', name + '.CNG.swc')
+    r = requests.get(url, verify=VERIFY)
+    r.raise_for_status()
 
-    n = read_swc(url, **kwargs)
+    n = read_swc(r.content.decode(), **kwargs)
 
     n.id = info.get('neuron_id', n.id)
     n.name = info.get('neuron_name', getattr(n, 'name'))
@@ -250,8 +264,8 @@ def get_neuron_fields() -> Dict[str, List[str]]:
      ...
 
     """
-    url = utils.make_url(baseurl, 'api', 'neuron', 'fields')
-    resp = requests.get(url)
+    url = utils.make_url(BASEURL, 'api', 'neuron', 'fields')
+    resp = requests.get(url, headers=HEADERS, verify=VERIFY)
 
     resp.raise_for_status()
 
@@ -288,9 +302,9 @@ def get_available_field_values(field: str) -> List[str]:
                      leave=config.pbar_leave,
                      desc='Fetching') as pbar:
         while True:
-            url = utils.make_url(baseurl, 'api', 'neuron', 'fields', field, page=page)
+            url = utils.make_url(BASEURL, 'api', 'neuron', 'fields', field, page=page)
 
-            resp = requests.get(url)
+            resp = requests.get(url, headers=HEADERS, verify=VERIFY)
 
             resp.raise_for_status()
 
