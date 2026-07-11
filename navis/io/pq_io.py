@@ -206,34 +206,41 @@ def read_parquet(
     # Meta data is encoded as {"{ID}_{PROPERTY}": VALUE}
     # Here we pre-emptively turn this into {(ID, PROPERTY): VALUE}
     # Note that we're dropping "private" properties where the key starts with "_"
-    neuron_meta = {tuple(k.split(':')): v for k, v in metadata.items() if not k.startswith('_')}
+    neuron_meta = {
+        tuple(k.split(":")): v for k, v in metadata.items() if not k.startswith("_")
+    }
 
     # Convert to pandas
     table = table.to_pandas()
 
     # Check if we're doing skeletons or dotprops
-    if 'node_id' in table.columns:
+    if "node_id" in table.columns:
         _extract_neuron = _extract_skeleton
-    elif 'vect_x' in table.columns:
+    elif "vect_x" in table.columns:
         _extract_neuron = _extract_dotprops
     else:
-        raise TypeError('Unable to extract neuron from parquet file with '
-                        f'columns {table.columns}')
+        raise TypeError(
+            f"Unable to extract neuron from parquet file with columns {table.columns}"
+        )
 
     # If this is a single neuron
-    if 'neuron' not in table.columns:
+    if "neuron" not in table.columns:
         if metadata:
-            id = [v for k, v in metadata.items() if k[1] == 'id'][0]
+            id = [v for k, v in metadata.items() if k[1] == "id"][0]
         else:
-            id = '0'  # <-- generic ID as fallback if we don't have metadata
+            id = "0"  # <-- generic ID as fallback if we don't have metadata
         return _extract_neuron(table, id, neuron_meta)
     else:
         neurons = []
         # Note: this could be done in threads
-        for i, (id, this_table) in enumerate(config.tqdm(table.groupby('neuron'),
-                                             disable=not progress,
-                                             leave=False,
-                                             desc='Making nrn')):
+        for i, (id, this_table) in enumerate(
+            config.tqdm(
+                table.groupby("neuron"),
+                disable=not progress,
+                leave=False,
+                desc="Making nrn",
+            )
+        ):
             this_table = this_table.drop("neuron", axis=1)
             neurons.append(_extract_neuron(this_table, id, neuron_meta))
         return core.NeuronList(neurons)
@@ -252,15 +259,15 @@ def _extract_skeleton(nodes, id, metadata):
     if "soma" in this_meta:
         soma = this_meta.pop("soma")
         # Parse a list string (e.g. "[1]") back into a list
-        if soma.startswith('['):
-            soma = [_try_int(i.strip()) for i in soma[1:-1].split(',')]
+        if soma.startswith("["):
+            soma = [_try_int(i.strip()) for i in soma[1:-1].split(",")]
         else:
             soma = _try_int(soma)
     else:
         soma = None
 
     # Make the neuron
-    this_meta['id'] = id
+    this_meta["id"] = id
     tn = core.TreeNeuron(nodes, **this_meta)
 
     # Fix soma
@@ -281,16 +288,15 @@ def _extract_dotprops(table, id, metadata):
     this_meta = {k: v for k, v in this_meta.items() if v != "None"}
 
     # Make the neuron
-    this_meta['id'] = id
-    this_meta['k'] = this_meta.get('k', 5)  # <- set a default K of 5
+    this_meta["id"] = id
+    this_meta["k"] = this_meta.get("k", 5)  # <- set a default K of 5
 
-    if 'vect_x' in table:
-        this_meta['vect'] = table[['vect_x', 'vect_y', 'vect_z']].values
-    if 'alpha' in table:
-        this_meta['alpha'] = table['alpha'].values
+    if "vect_x" in table:
+        this_meta["vect"] = table[["vect_x", "vect_y", "vect_z"]].values
+    if "alpha" in table:
+        this_meta["alpha"] = table["alpha"].values
 
-    return core.Dotprops(table[['x', 'y', 'z']].values,
-                       **this_meta)
+    return core.Dotprops(table[["x", "y", "z"]].values, **this_meta)
 
 
 def _try_int(x):
@@ -303,7 +309,7 @@ def _try_int(x):
 
 def _int_to_bytes(x, bits=64):
     """Convert integer to bytes."""
-    return int(x).to_bytes(bits, 'big')
+    return int(x).to_bytes(bits, "big")
 
 
 def _bytes_to_int(x):
@@ -311,9 +317,9 @@ def _bytes_to_int(x):
     return int.from_bytes(x, "big")
 
 
-def write_parquet(x: 'core.NeuronObject',
-                  filepath: Union[str, Path],
-                  write_meta: bool = True) -> None:
+def write_parquet(
+    x: "core.NeuronObject", filepath: Union[str, Path], write_meta: bool = True
+) -> None:
     """Write TreeNeuron(s) or Dotprops to parquet file.
 
     See [here](https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md)
@@ -372,21 +378,24 @@ def write_parquet(x: 'core.NeuronObject',
         types = x.types
         if types == (core.TreeNeuron,):
             _write_parquet = _write_parquet_skeletons
-        elif types == (core.Dotprops, ):
+        elif types == (core.Dotprops,):
             _write_parquet = _write_parquet_dotprops
         else:
-            raise TypeError('Can only write either TreeNeurons or Dotprops to '
-                            f'parquet but NeuronList contains {types}')
+            raise TypeError(
+                "Can only write either TreeNeurons or Dotprops to "
+                f"parquet but NeuronList contains {types}"
+            )
         if x.is_degenerated:
-            raise ValueError('NeuronList must not contain non-unique IDs')
+            raise ValueError("NeuronList must not contain non-unique IDs")
     else:
-        if isinstance(x, (core.TreeNeuron, )):
+        if isinstance(x, (core.TreeNeuron,)):
             _write_parquet = _write_parquet_skeletons
-        elif isinstance(x, (core.Dotprops, )):
+        elif isinstance(x, (core.Dotprops,)):
             _write_parquet = _write_parquet_dotprops
         else:
-            raise TypeError('Can only write TreeNeurons or Dotprops to parquet, '
-                            f'got "{type(x)}"')
+            raise TypeError(
+                f'Can only write TreeNeurons or Dotprops to parquet, got "{type(x)}"'
+            )
 
     return _write_parquet(x, filepath=filepath, write_meta=write_meta)
 

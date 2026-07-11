@@ -1185,7 +1185,9 @@ def dist_between(x: "core.NeuronObject", a: int, b: int) -> float:
         G: Union[
             "igraph.Graph",  # noqa
             "nx.DiGraph",
-        ] = x.igraph if (x.igraph and config.use_igraph) else x.graph
+        ] = (
+            x.igraph if (x.igraph and config.use_igraph) else x.graph
+        )
     elif isinstance(x, nx.DiGraph):
         G = x
     elif "igraph" in str(type(x.igraph)):
@@ -1195,12 +1197,12 @@ def dist_between(x: "core.NeuronObject", a: int, b: int) -> float:
         raise ValueError(f"Unable to process data of type {type(x)}")
 
     if (
-        (utils.is_iterable(a) and len(a) > 1)  # type: ignore  # this is just a check
-        or (utils.is_iterable(b) and len(b) > 1)
+        utils.is_iterable(a) and len(a) > 1
+    ) or (  # type: ignore  # this is just a check
+        utils.is_iterable(b) and len(b) > 1
     ):  # type: ignore  # this is just a check
         raise ValueError(
-            "Can only process single nodes/vertices. Use "
-            "navis.geodesic_matrix instead."
+            "Can only process single nodes/vertices. Use navis.geodesic_matrix instead."
         )
 
     a = utils.make_non_iterable(a)
@@ -1385,8 +1387,7 @@ def split_into_fragments(
             x = x[0]
         else:
             raise Exception(
-                f"{x.shape[0]} neurons provided. Please provide "
-                "only a single neuron!"
+                f"{x.shape[0]} neurons provided. Please provide only a single neuron!"
             )
 
     if not isinstance(x, core.TreeNeuron):
@@ -1530,7 +1531,7 @@ def longest_neurite(
 
     if not from_root:
         # Find the two most distal points (N.B. roots can also be "ends")
-        leafs = x.nodes.loc[x.nodes.type.isin(("root", "end")), 'node_id'].values
+        leafs = x.nodes.loc[x.nodes.type.isin(("root", "end")), "node_id"].values
         dists = geodesic_matrix(x, from_=leafs)[leafs]
 
         # If the neuron is fragmented, we will have infinite distances
@@ -1879,7 +1880,7 @@ def cut_skeleton(
                 raise ValueError(f"Neuron {x.id} has no tags")
             if cn not in x.tags:
                 raise ValueError(
-                    f"#{x.id}: Found no node with tag {cn}" " - please double check!"
+                    f"#{x.id}: Found no node with tag {cn} - please double check!"
                 )
             cn_ids += x.tags[cn]
         elif cn not in x.nodes.node_id.values:
@@ -2091,7 +2092,10 @@ def node_label_sorting(
 
     # Get directed (!) distance from terminals to all other nodes
     geo = geodesic_matrix(
-        x, from_=x.nodes[x.nodes.type.isin(("end", "root", "branch"))].node_id.values, directed=True, weight="weight" if weighted else None
+        x,
+        from_=x.nodes[x.nodes.type.isin(("end", "root", "branch"))].node_id.values,
+        directed=True,
+        weight="weight" if weighted else None,
     )
     # Set distance between unreachable points to None
     # Need to reinitialise SparseMatrix to replace float('inf') with NaN
@@ -2382,7 +2386,7 @@ def insert_nodes(
     where = np.asarray(where)
     if where.ndim != 2 or where.shape[1] != 2:
         raise ValueError(
-            "Expected `where` to be a (N, 2) list of pairs. " f"Got {where.shape}"
+            f"Expected `where` to be a (N, 2) list of pairs. Got {where.shape}"
         )
 
     # Validate if that's desired
@@ -2401,7 +2405,7 @@ def insert_nodes(
 
         if np.any(not_connected):
             raise ValueError(
-                "The following pairs are not connected: " f"{where[not_connected]}"
+                f"The following pairs are not connected: {where[not_connected]}"
             )
 
         # Flip nodes where necessary to sure we have (parent, child) order
@@ -2421,8 +2425,7 @@ def insert_nodes(
     # Make sure we have correct coordinates
     if coords.shape[0] != where.shape[0]:
         raise ValueError(
-            f"Expected {where.shape[0]} coordinates or distances, "
-            f"got {coords.shape[0]}"
+            f"Expected {where.shape[0]} coordinates or distances, got {coords.shape[0]}"
         )
 
     # If array of fractional distances translate to coordinates
@@ -2456,8 +2459,10 @@ def insert_nodes(
     # Remap nodes
     new_parents = dict(zip(where[:, 1], new_nodes.node_id.values))
     to_rewire = nodes.node_id.isin(new_parents)
-    nodes.loc[to_rewire, "parent_id"] = nodes.loc[to_rewire, "node_id"].map(new_parents).values.astype(
-        nodes.dtypes["parent_id"], copy=False
+    nodes.loc[to_rewire, "parent_id"] = (
+        nodes.loc[to_rewire, "node_id"]
+        .map(new_parents)
+        .values.astype(nodes.dtypes["parent_id"], copy=False)
     )
 
     if not inplace:

@@ -35,10 +35,12 @@ from .. import core, config, intersection, graph, morpho
 logger = config.get_logger(__name__)
 
 
-def fix_mesh(mesh: Union[tm.Trimesh, 'core.MeshNeuron'],
-             fill_holes: bool = False,
-             remove_fragments: bool = False,
-             inplace: bool = False):
+def fix_mesh(
+    mesh: Union[tm.Trimesh, "core.MeshNeuron"],
+    fill_holes: bool = False,
+    remove_fragments: bool = False,
+    inplace: bool = False,
+):
     """Try to fix some common problems with mesh.
 
      1. Remove infinite values
@@ -139,8 +141,9 @@ def smooth_mesh_trimesh(x, iterations=5, L=0.5, inplace=False):
     elif isinstance(x, tm.Trimesh):
         mesh = x.copy()
     else:
-        raise TypeError('Expected MeshNeuron, Volume or trimesh.Trimesh, '
-                        f'got "{type(x)}"')
+        raise TypeError(
+            f'Expected MeshNeuron, Volume or trimesh.Trimesh, got "{type(x)}"'
+        )
 
     assert isinstance(mesh, tm.Trimesh)
 
@@ -188,30 +191,26 @@ def points_to_mesh(points, res, threshold=None, denoise=True):
     """
     if not skimage:
         raise ModuleNotFoundError(
-            'Meshing requires `skimage`:\n'
-            '  pip3 install scikit-image'
-            )
+            "Meshing requires `skimage`:\n  pip3 install scikit-image"
+        )
 
     points = np.asarray(points)
 
     if points.ndim != 2 or points.shape[1] != 3:
-        raise ValueError(f'Points must be of shape (N, 3), got {points.shape}')
+        raise ValueError(f"Points must be of shape (N, 3), got {points.shape}")
 
     # Generate counts per voxel
-    vxl, cnt = np.unique((points / res).round().astype(int),
-                         return_counts=True, axis=0)
+    vxl, cnt = np.unique((points / res).round().astype(int), return_counts=True, axis=0)
 
     # Turn into a DataFrame
-    voxels = pd.DataFrame(np.vstack(vxl), columns=['x', 'y', 'z'])
-    voxels['count'] = cnt
+    voxels = pd.DataFrame(np.vstack(vxl), columns=["x", "y", "z"])
+    voxels["count"] = cnt
 
     if threshold:
-        voxels = voxels[voxels['count'] > 1]
+        voxels = voxels[voxels["count"] > 1]
 
     # Generate empty matrix
-    mat = np.zeros((voxels.x.max() + 1,
-                    voxels.y.max() + 1,
-                    voxels.z.max() + 1))
+    mat = np.zeros((voxels.x.max() + 1, voxels.y.max() + 1, voxels.z.max() + 1))
 
     # Fill matrix
     mat[voxels.x, voxels.y, voxels.z] = 1
@@ -232,13 +231,16 @@ def points_to_mesh(points, res, threshold=None, denoise=True):
     # Run the marching cube algorithm
     # (newer versions of skimage have a "marching cubes" function and
     # the marching_cubes_lewiner is deprecreated)
-    marching_cubes = getattr(measure, 'marching_cubes',
-                             getattr(measure, 'marching_cubes_lewiner', None))
-    verts, faces, normals, values = marching_cubes(mat.astype(float),
-                                                   level=0,
-                                                   gradient_direction='ascent',
-                                                   allow_degenerate=False,
-                                                   step_size=1)
+    marching_cubes = getattr(
+        measure, "marching_cubes", getattr(measure, "marching_cubes_lewiner", None)
+    )
+    verts, faces, normals, values = marching_cubes(
+        mat.astype(float),
+        level=0,
+        gradient_direction="ascent",
+        allow_degenerate=False,
+        step_size=1,
+    )
     # Turn coordinates back into original units
     verts *= res
 
@@ -491,31 +493,31 @@ def pointlabels_to_meshes(
         mat = ndimage.binary_erosion(mat)
 
         if not np.any(mat):
-            logger.warning(f'Label {l} did not produce a mesh.')
+            logger.warning(f"Label {l} did not produce a mesh.")
             continue
 
         # Use marching cubes to create surface model
         # (newer versions of skimage have a "marching cubes" function and
         # the marching_cubes_lewiner is deprecreated)
-        marching_cubes = getattr(measure, 'marching_cubes',
-                                 getattr(measure, 'marching_cubes_lewiner', None))
-        verts, faces, normals, values = marching_cubes(mat.astype(float),
-                                                       level=0,
-                                                       allow_degenerate=False,
-                                                       step_size=1)
+        marching_cubes = getattr(
+            measure, "marching_cubes", getattr(measure, "marching_cubes_lewiner", None)
+        )
+        verts, faces, normals, values = marching_cubes(
+            mat.astype(float), level=0, allow_degenerate=False, step_size=1
+        )
 
         # Scale back to original units
         verts *= res
 
         # Add offset
-        offset = voxels[['x', 'y', 'z']].min(axis=0).values  # keep .values !
+        offset = voxels[["x", "y", "z"]].min(axis=0).values  # keep .values !
         verts += offset
 
         # Somehow we seem to have introduced an offset
         verts -= padding
         verts += 0.5 * res
 
-        if method == 'kde':
+        if method == "kde":
             verts[:, 1] -= 0.5 * res
 
         # Make a trimesh
@@ -523,10 +525,12 @@ def pointlabels_to_meshes(
 
         if drop_fluff:
             # Drop small stuff (anything that makes up less than 10% of the faces)
-            cc = tm.graph.connected_components(edges=new_mesh.face_adjacency,
-                                               nodes=np.arange(len(new_mesh.faces)),
-                                               min_len=1,
-                                               engine=None)
+            cc = tm.graph.connected_components(
+                edges=new_mesh.face_adjacency,
+                nodes=np.arange(len(new_mesh.faces)),
+                min_len=1,
+                engine=None,
+            )
             if len(cc) > 1:
                 min_faces = new_mesh.faces.shape[0] * 0.1
                 to_keep = [c for c in cc if (len(c) >= min_faces)]

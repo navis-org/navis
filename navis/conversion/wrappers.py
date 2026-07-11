@@ -15,7 +15,6 @@ import trimesh as tm
 import numpy as np
 
 from typing import Union, Optional
-from typing_extensions import Literal
 
 from .. import core, config, utils
 from .converters import (neuron2voxels, mesh2skeleton, tree2meshneuron,

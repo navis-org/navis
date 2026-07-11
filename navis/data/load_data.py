@@ -24,40 +24,40 @@ from ..core import Volume, NeuronList, TreeNeuron, MeshNeuron
 from ..io import read_swc
 from ..graph import nx2neuron
 
-__all__ = ['example_neurons', 'example_volume']
+__all__ = ["example_neurons", "example_volume"]
 
 fp = os.path.dirname(__file__)
 
-gml_path = os.path.join(fp, 'gml')
-swc_path = os.path.join(fp, 'swc')
-vols_path = os.path.join(fp, 'volumes')
-obj_path = os.path.join(fp, 'obj')
-syn_path = os.path.join(fp, 'synapses')
+gml_path = os.path.join(fp, "gml")
+swc_path = os.path.join(fp, "swc")
+vols_path = os.path.join(fp, "volumes")
+obj_path = os.path.join(fp, "obj")
+syn_path = os.path.join(fp, "synapses")
 
-gml = sorted([f for f in os.listdir(gml_path) if f.endswith('.gml')])
-swc = sorted([f for f in os.listdir(swc_path) if f.endswith('.swc')])
-vols = sorted([f for f in os.listdir(vols_path) if f.endswith('.obj')])
-obj = sorted([f for f in os.listdir(obj_path) if f.endswith('.obj')])
-syn = sorted([f for f in os.listdir(syn_path) if f.endswith('.csv')])
+gml = sorted([f for f in os.listdir(gml_path) if f.endswith(".gml")])
+swc = sorted([f for f in os.listdir(swc_path) if f.endswith(".swc")])
+vols = sorted([f for f in os.listdir(vols_path) if f.endswith(".obj")])
+obj = sorted([f for f in os.listdir(obj_path) if f.endswith(".obj")])
+syn = sorted([f for f in os.listdir(syn_path) if f.endswith(".csv")])
 
 NeuronObject = Union[TreeNeuron, MeshNeuron, NeuronList]
 
 # Soma positions for the example neurons (for the meshes)
-SOMA_POS = {1734350788: [14957.1, 36540.7, 28432.4],
-            1734350908: [15503.5, 35903.1, 23151.6],
-            722817260: None,
-            754534424: [15150, 35262.7, 23136.6],
-            754538881: [13810, 35236, 25222.8]}
+SOMA_POS = {
+    1734350788: [14957.1, 36540.7, 28432.4],
+    1734350908: [15503.5, 35903.1, 23151.6],
+    722817260: None,
+    754534424: [15150, 35262.7, 23136.6],
+    754538881: [13810, 35236, 25222.8],
+}
 
 
-def example_neurons(n: Optional[int] = None,
-                    kind:  Union[Literal['mesh'],
-                                 Literal['skeleton'],
-                                 Literal['mix']] = 'skeleton',
-                    synapses: bool = True,
-                    source: Union[Literal['swc'],
-                                  Literal['gml']] = 'swc',
-                    ) -> NeuronObject:
+def example_neurons(
+    n: Optional[int] = None,
+    kind: Union[Literal["mesh"], Literal["skeleton"], Literal["mix"]] = "skeleton",
+    synapses: bool = True,
+    source: Union[Literal["swc"], Literal["gml"]] = "swc",
+) -> NeuronObject:
     """Load example neuron(s).
 
     These example neurons are skeletons and meshes of the same olfactory
@@ -107,11 +107,11 @@ def example_neurons(n: Optional[int] = None,
     >>> nl = navis.example_neurons()
 
     """
-    if kind not in ['skeleton', 'mesh', 'mix']:
+    if kind not in ["skeleton", "mesh", "mix"]:
         raise ValueError(f'Unknown value for `kind`: "{kind}"')
 
     if isinstance(n, type(None)):
-        if kind == 'mix':
+        if kind == "mix":
             n = len(swc) + len(obj)
         else:
             n = len(swc)
@@ -121,47 +121,51 @@ def example_neurons(n: Optional[int] = None,
     if isinstance(n, int) and n < 1:
         raise ValueError("Unable to return less than 1 neuron.")
 
-    if kind == 'mix':
-        n_mesh = round(n/2)
+    if kind == "mix":
+        n_mesh = round(n / 2)
         n_skel = n - n_mesh
     else:
         n_mesh = n_skel = n
 
     nl = []
-    if kind in ['skeleton', 'mix']:
-        if source == 'gml':
+    if kind in ["skeleton", "mix"]:
+        if source == "gml":
             graphs = [nx.read_gml(os.path.join(gml_path, g)) for g in gml[:n_skel]]
-            nl += [nx2neuron(g,
-                             units='8 nm',
-                             id=int(f.split('.')[0])) for f, g in zip(gml, graphs)]
-        elif source == 'swc':
-            nl += [read_swc(os.path.join(swc_path, f),
-                            units='8 nm',
-                            id=int(f.split('.')[0])) for f in swc[:n_skel]]
+            nl += [
+                nx2neuron(g, units="8 nm", id=int(f.split(".")[0]))
+                for f, g in zip(gml, graphs)
+            ]
+        elif source == "swc":
+            nl += [
+                read_swc(
+                    os.path.join(swc_path, f), units="8 nm", id=int(f.split(".")[0])
+                )
+                for f in swc[:n_skel]
+            ]
         else:
             raise ValueError(f'Source must be "swc" or "gml", not "{source}"')
 
-    if kind in ['mesh', 'mix']:
+    if kind in ["mesh", "mix"]:
         files = [os.path.join(obj_path, f) for f in obj[:n_mesh]]
-        nl += [MeshNeuron(fp,
-                          units='8 nm',
-                          name=f.split('.')[0],
-                          id=int(f.split('.')[0])) for f, fp in zip(obj, files)]
+        nl += [
+            MeshNeuron(fp, units="8 nm", name=f.split(".")[0], id=int(f.split(".")[0]))
+            for f, fp in zip(obj, files)
+        ]
         for n in nl:
             n.soma_pos = SOMA_POS[n.id]
 
     if synapses:
         for n in nl:
-            n.connectors = pd.read_csv(os.path.join(syn_path, f'{n.id}.csv'))
+            n.connectors = pd.read_csv(os.path.join(syn_path, f"{n.id}.csv"))
 
             if isinstance(n, MeshNeuron):
-                n._connectors.drop('node_id', axis=1, inplace=True)
+                n._connectors.drop("node_id", axis=1, inplace=True)
 
-    with open(os.path.join(fp, 'meta.json'), 'r') as f:
+    with open(os.path.join(fp, "meta.json"), "r") as f:
         meta = json.load(f)
 
     for n in nl:
-        n.name = meta[str(n.id)]['instance']
+        n.name = meta[str(n.id)]["instance"]
 
     if len(nl) == 1:
         return nl[0]

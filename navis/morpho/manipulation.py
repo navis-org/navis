@@ -257,8 +257,7 @@ def prune_by_strahler(
     if isinstance(to_prune, int):
         if to_prune < 1:
             raise ValueError(
-                "SI to prune must be positive. Please see docs"
-                "for additional options."
+                "SI to prune must be positive. Please see docs for additional options."
             )
         to_prune = [to_prune]
     elif isinstance(to_prune, range):
@@ -463,7 +462,11 @@ def _prune_twigs_simple(
                 neuron.nodes.parent_id.values,
                 neuron.nodes[["x", "y", "z"]].values,
             ),
-            mask=neuron.nodes.node_id.isin(mask_nodes).values if mask_nodes is not None else None,
+            mask=(
+                neuron.nodes.node_id.isin(mask_nodes).values
+                if mask_nodes is not None
+                else None
+            ),
         )
 
         if len(nodes_to_keep) < neuron.n_nodes:
@@ -471,7 +474,11 @@ def _prune_twigs_simple(
 
             if recursive:
                 _prune_twigs_simple(
-                    neuron, size=size, inplace=True, recursive=recursive - 1, mask=mask_nodes
+                    neuron,
+                    size=size,
+                    inplace=True,
+                    recursive=recursive - 1,
+                    mask=mask_nodes,
                 )
     else:
         # Find terminal nodes
@@ -504,7 +511,11 @@ def _prune_twigs_simple(
             # Go recursive
             if recursive:
                 prune_twigs(
-                    neuron, size=size, inplace=True, recursive=recursive - 1, mask=mask_nodes
+                    neuron,
+                    size=size,
+                    inplace=True,
+                    recursive=recursive - 1,
+                    mask=mask_nodes,
                 )
 
     return neuron

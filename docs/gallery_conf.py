@@ -24,4 +24,3 @@ conf = {
     'min_reported_time': min_reported_time,
     # "image_scrapers": ('matplotlib', plotly_sg_scraper),
 }
-

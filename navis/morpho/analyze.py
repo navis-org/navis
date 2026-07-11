@@ -114,4 +114,3 @@ def find_soma(x: 'core.TreeNeuron') -> Sequence[int]:
     # If no labels to check we can return the mask directly
     else:
         return x.nodes.node_id.values[mask]
-

@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-""" Interface with Blender. Unlike other moduls of navis, this module is
+"""Interface with Blender. Unlike other moduls of navis, this module is
 not automatically imported as it only works from within Blender.
 """
 
@@ -32,7 +32,7 @@ import seaborn as sns
 import trimesh as tm
 
 from .. import core, utils, config
-from ..plotting.colors import eval_color
+from ..plotting.colors import eval_color, vertex_colors
 
 logger = config.get_logger(__name__)
 
@@ -41,8 +41,9 @@ try:
     import bmesh
     import mathutils
 except ModuleNotFoundError:
-    logger.error('Unable to load Blender API - this module only works from '
-                 'within Blender!')
+    logger.error(
+        "Unable to load Blender API - this module only works from " "within Blender!"
+    )
 except BaseException:
     raise
 
@@ -97,75 +98,84 @@ class Handler:
     >>> h.add(nl, neurites=False, connectors=False)
 
     """
-    cn_dict = {
-        0: dict(name='presynapses',
-                color=(1, 0, 0)),
-        1: dict(name='postsynapses',
-                color=(0, 0, 1)),
-        2: dict(name='gapjunction',
-                color=(0, 1, 0)),
-        3: dict(name='abutting',
-                color=(1, 0, 1))
 
+    cn_dict = {
+        0: dict(name="presynapses", color=(1, 0, 0)),
+        1: dict(name="postsynapses", color=(0, 0, 1)),
+        2: dict(name="gapjunction", color=(0, 1, 0)),
+        3: dict(name="abutting", color=(1, 0, 1)),
     }  # : defines default colours/names for different connector types
 
     # Some synonyms
-    cn_dict['pre'] = cn_dict[0]
-    cn_dict['post'] = cn_dict[1]
-    cn_dict['gap'] = cn_dict['gapjunction'] = cn_dict[2]
-    cn_dict['abutting'] = cn_dict[3]
+    cn_dict["pre"] = cn_dict[0]
+    cn_dict["post"] = cn_dict[1]
+    cn_dict["gap"] = cn_dict["gapjunction"] = cn_dict[2]
+    cn_dict["abutting"] = cn_dict[3]
 
     # Some other parameters
-    cn_dict['display'] = 'lines'  # "lines" or "spheres", overriden if MeshNeuron
-    cn_dict['size'] = 0.01  # sets size of spheres only
+    cn_dict["display"] = "lines"  # "lines" or "spheres", overriden if MeshNeuron
+    cn_dict["size"] = 0.01  # sets size of spheres only
 
-    defaults = dict(bevel_depth=0.007,
-                    bevel_resolution=5,
-                    resolution_u=10)
+    defaults = dict(bevel_depth=0.007, bevel_resolution=5, resolution_u=10)
 
-    def __init__(self,
-                 scaling=1 / 10000,
-                 axes_order=[0, 1, 2],
-                 ax_translate=[1, 1, 1]):
+    def __init__(self, scaling=1 / 10000, axes_order=[0, 1, 2], ax_translate=[1, 1, 1]):
         self.scaling = scaling
         self.cn_dict = Handler.cn_dict
         self.axes_order = axes_order
         self.ax_translate = ax_translate
 
     def _selection_helper(self, type):
-        return [ob.name for ob in bpy.data.objects if 'type' in ob and ob['type'] == type]
+        return [
+            ob.name for ob in bpy.data.objects if "type" in ob and ob["type"] == type
+        ]
 
     def _cn_selection_helper(self, cn_type):
-        return [ob.name for ob in bpy.data.objects if 'type' in ob and ob['type'] == 'CONNECTORS' and ob['cn_type'] == cn_type]
+        return [
+            ob.name
+            for ob in bpy.data.objects
+            if "type" in ob and ob["type"] == "CONNECTORS" and ob["cn_type"] == cn_type
+        ]
 
     def __getattr__(self, key):
-        if key == 'neurons' or key == 'neuron' or key == 'neurites':
-            return ObjectList(self._selection_helper('NEURON'))
-        elif key == 'connectors' or key == 'connector':
-            return ObjectList(self._selection_helper('CONNECTORS'))
-        elif key == 'soma' or key == 'somas':
-            return ObjectList(self._selection_helper('SOMA'))
-        elif key == 'selected':
-            return ObjectList([ob.name for ob in bpy.context.selected_objects if 'navis_object' in ob])
-        elif key == 'visible':
+        if key == "neurons" or key == "neuron" or key == "neurites":
+            return ObjectList(self._selection_helper("NEURON"))
+        elif key == "connectors" or key == "connector":
+            return ObjectList(self._selection_helper("CONNECTORS"))
+        elif key == "soma" or key == "somas":
+            return ObjectList(self._selection_helper("SOMA"))
+        elif key == "selected":
+            return ObjectList(
+                [ob.name for ob in bpy.context.selected_objects if "navis_object" in ob]
+            )
+        elif key == "visible":
             objects = [o for o in self.neurons if not o.hide]
             return ObjectList(objects)
-        elif key == 'presynapses':
+        elif key == "presynapses":
             return ObjectList(self._cn_selection_helper(0))
-        elif key == 'postsynapses':
+        elif key == "postsynapses":
             return ObjectList(self._cn_selection_helper(1))
-        elif key == 'gapjunctions':
+        elif key == "gapjunctions":
             return ObjectList(self._cn_selection_helper(2))
-        elif key == 'abutting':
+        elif key == "abutting":
             return ObjectList(self._cn_selection_helper(3))
-        elif key == 'all':
+        elif key == "all":
             return self.neurons + self.connectors + self.soma
         else:
-            raise AttributeError('Unknown attribute ' + key)
+            raise AttributeError("Unknown attribute " + key)
 
-    def add(self, x, neurites=True, soma=True, connectors=True, redraw=False,
-            use_radii=False, skip_existing=False, downsample=False,
-            collection=None, **kwargs):
+    def add(
+        self,
+        x,
+        neurites=True,
+        soma=True,
+        connectors=True,
+        redraw=False,
+        use_radii=False,
+        skip_existing=False,
+        downsample=False,
+        collection=None,
+        **kwargs,
+    ):
         """Add neuron(s) to scene.
 
         Parameters
@@ -210,7 +220,7 @@ class Handler:
         start = time.time()
 
         if skip_existing:
-            exists = [ob.get('id', None) for ob in bpy.data.objects]
+            exists = [ob.get("id", None) for ob in bpy.data.objects]
 
         if isinstance(x, (core.BaseNeuron, core.NeuronList)):
             if redraw:
@@ -223,15 +233,17 @@ class Handler:
                 # Skip existing if applicable
                 if skip_existing and n.id in exists:
                     continue
-                self._create_neuron(n,
-                                    neurites=neurites,
-                                    soma=soma,
-                                    connectors=connectors,
-                                    collection=collection,
-                                    downsample=downsample,
-                                    use_radii=use_radii)
+                self._create_neuron(
+                    n,
+                    neurites=neurites,
+                    soma=soma,
+                    connectors=connectors,
+                    collection=collection,
+                    downsample=downsample,
+                    use_radii=use_radii,
+                )
                 if redraw:
-                    bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+                    bpy.ops.wm.redraw_timer(type="DRAW_WIN_SWAP", iterations=1)
                 wm.progress_update(i)
             wm.progress_end()
         elif isinstance(x, tm.Trimesh):
@@ -241,14 +253,14 @@ class Handler:
         elif isinstance(x, core.Dotprops):
             self._create_dotprops(x, collection=collection, **kwargs)
         else:
-            raise AttributeError(f'Unable add data type of type {type(x)}')
+            raise AttributeError(f"Unable add data type of type {type(x)}")
 
-        print(f'Import done in {time.time()-start:.2f}s')
+        print(f"Import done in {time.time()-start:.2f}s")
 
         return
 
     def clear(self):
-        """Clear all neurons """
+        """Clear all neurons"""
         self.all.delete()
 
     def _create_scatter2(self, x, collection=None, **kwargs):
@@ -258,32 +270,31 @@ class Handler:
 
         """
         if x.ndim != 2 or x.shape[1] != 3:
-            raise ValueError('Array must be of shape N,3')
+            raise ValueError("Array must be of shape N,3")
 
         # Get & scale coordinates and invert y
         coords = x.astype(float)[:, self.axes_order]
         coords *= float(self.scaling)
         coords *= self.ax_translate
 
-        verts, faces = calc_sphere(kwargs.get('size', 0.02),
-                                   kwargs.get('sp_res', 7),
-                                   kwargs.get('sp_res', 7))
+        verts, faces = calc_sphere(
+            kwargs.get("size", 0.02), kwargs.get("sp_res", 7), kwargs.get("sp_res", 7)
+        )
 
-        mesh = bpy.data.meshes.new(kwargs.get('name', 'scatter'))
+        mesh = bpy.data.meshes.new(kwargs.get("name", "scatter"))
         mesh.from_pydata(verts, [], faces)
-        mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
+        mesh.polygons.foreach_set("use_smooth", [True] * len(mesh.polygons))
 
         objects = []
         for i, co in enumerate(coords):
-            obj = bpy.data.objects.new(kwargs.get('name', 'scatter') + str(i),
-                                       mesh)
+            obj = bpy.data.objects.new(kwargs.get("name", "scatter") + str(i), mesh)
             obj.location = co
             obj.show_name = False
             objects.append(obj)
 
         # Link to scene and add to group
-        group_name = kwargs.get('name', 'scatter')
-        if group_name != 'scatter' and group_name in bpy.data.groups:
+        group_name = kwargs.get("name", "scatter")
+        if group_name != "scatter" and group_name in bpy.data.groups:
             group = bpy.data.groups[group_name]
         else:
             group = bpy.data.groups.new(group_name)
@@ -305,7 +316,7 @@ class Handler:
     def _create_scatter(self, x, collection=None, **kwargs):
         """Create scatter."""
         if x.ndim != 2 or x.shape[1] != 3:
-            raise ValueError('Array must be of shape N,3')
+            raise ValueError("Array must be of shape N,3")
 
         # Get & scale coordinates and invert y
         coords = x.astype(float)[:, self.axes_order]
@@ -313,9 +324,10 @@ class Handler:
         coords *= self.ax_translate
 
         # Generate a base sphere
-        base_sphere = tm.creation.uv_sphere(radius=kwargs.get('size', 0.02),
-                                            count=[kwargs.get('sp_res', 7),
-                                                   kwargs.get('sp_res', 7)])
+        base_sphere = tm.creation.uv_sphere(
+            radius=kwargs.get("size", 0.02),
+            count=[kwargs.get("sp_res", 7), kwargs.get("sp_res", 7)],
+        )
         base_verts, base_faces = base_sphere.vertices, base_sphere.faces
 
         # Repeat sphere vertices
@@ -326,16 +338,17 @@ class Handler:
 
         # Repeat sphere faces and offset vertex indices
         sp_faces = np.tile(base_faces.T, coords.shape[0]).T
-        face_offsets = np.repeat(np.arange(coords.shape[0]),
-                                 base_faces.shape[0], axis=0)
+        face_offsets = np.repeat(
+            np.arange(coords.shape[0]), base_faces.shape[0], axis=0
+        )
         face_offsets *= base_verts.shape[0]
         sp_faces += face_offsets.reshape((face_offsets.size, 1))
 
         # Generate mesh
-        mesh = bpy.data.meshes.new(kwargs.get('name', 'scatter'))
+        mesh = bpy.data.meshes.new(kwargs.get("name", "scatter"))
         mesh.from_pydata(sp_verts, [], sp_faces.tolist())
-        mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
-        obj = bpy.data.objects.new(kwargs.get('name', 'scatter'), mesh)
+        mesh.polygons.foreach_set("use_smooth", [True] * len(mesh.polygons))
+        obj = bpy.data.objects.new(kwargs.get("name", "scatter"), mesh)
 
         if not collection:
             col = bpy.context.scene.collection
@@ -352,20 +365,30 @@ class Handler:
 
         return obj
 
-    def _create_neuron(self, x, neurites=True, soma=True, connectors=True,
-                       use_radii=False, downsample=False, collection=None):
+    def _create_neuron(
+        self,
+        x,
+        neurites=True,
+        soma=True,
+        connectors=True,
+        use_radii=False,
+        downsample=False,
+        collection=None,
+    ):
         """Create neuron object."""
-        mat_name = (f'M#{x.id}')[:59]
+        mat_name = (f"M#{x.id}")[:59]
 
-        mat = bpy.data.materials.get(mat_name,
-                                     bpy.data.materials.new(mat_name))
+        mat = bpy.data.materials.get(mat_name, bpy.data.materials.new(mat_name))
 
         if isinstance(x, core.TreeNeuron):
             if neurites:
-                self._create_skeleton(x, mat,
-                                      use_radii=use_radii,
-                                      downsample=downsample,
-                                      collection=collection)
+                self._create_skeleton(
+                    x,
+                    mat,
+                    use_radii=use_radii,
+                    downsample=downsample,
+                    collection=collection,
+                )
             if soma and not isinstance(x.soma, type(None)):
                 self._create_soma(x, mat, collection=collection)
         elif isinstance(x, core.MeshNeuron):
@@ -380,7 +403,7 @@ class Handler:
 
     def _create_mesh(self, x, mat, collection=None):
         """Create mesh from MeshNeuron."""
-        name = getattr(x, 'name', '')
+        name = getattr(x, "name", "")
 
         # Make copy of vertices as we are potentially modifying them
         verts = x.vertices.copy()
@@ -390,19 +413,19 @@ class Handler:
         verts = verts[:, self.axes_order]
         verts *= self.ax_translate
 
-        me = bpy.data.meshes.new(f'{name} mesh')
+        me = bpy.data.meshes.new(f"{name} mesh")
         ob = bpy.data.objects.new(f"#{x.id} - {name}", me)
         ob.location = (0, 0, 0)
         ob.show_name = True
-        ob['type'] = 'NEURON'
-        ob['navis_object'] = True
-        ob['id'] = str(x.id)
+        ob["type"] = "NEURON"
+        ob["navis_object"] = True
+        ob["id"] = str(x.id)
 
         blender_verts = verts.tolist()
         me.from_pydata(list(blender_verts), [], list(x.faces))
         me.update()
 
-        me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
+        me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
 
         ob.active_material = mat
 
@@ -416,45 +439,49 @@ class Handler:
 
         col.objects.link(ob)
 
-    def _create_skeleton(self, x, mat, use_radii=False, downsample=False,
-                         collection=None):
+    def _create_skeleton(
+        self, x, mat, use_radii=False, downsample=False, collection=None
+    ):
         """Create neuron branches."""
-        name = getattr(x, 'name', '')
+        name = getattr(x, "name", "")
 
-        cu = bpy.data.curves.new(f"{name} mesh", 'CURVE')
+        cu = bpy.data.curves.new(f"{name} mesh", "CURVE")
         ob = bpy.data.objects.new(f"#{x.id} - {name}", cu)
         ob.location = (0, 0, 0)
         ob.show_name = True
-        ob['type'] = 'NEURON'
-        ob['navis_object'] = True
-        ob['id'] = str(x.id)
-        cu.dimensions = '3D'
-        cu.fill_mode = 'FULL'
-        cu.bevel_resolution = self.defaults.get('bevel_resolution', 5)
-        cu.resolution_u = self.defaults.get('resolution_u', 10)
+        ob["type"] = "NEURON"
+        ob["navis_object"] = True
+        ob["id"] = str(x.id)
+        cu.dimensions = "3D"
+        cu.fill_mode = "FULL"
+        cu.bevel_resolution = self.defaults.get("bevel_resolution", 5)
+        cu.resolution_u = self.defaults.get("resolution_u", 10)
 
         if use_radii:
             cu.bevel_depth = 1
         else:
-            cu.bevel_depth = self.defaults.get('bevel_depth', 0.007)
+            cu.bevel_depth = self.defaults.get("bevel_depth", 0.007)
 
         # DO NOT touch this: lookup via dict is >10X faster!
-        tn_coords = {r.node_id: (r.x * self.scaling,
-                                 r.y * self.scaling,
-                                 r.z * self.scaling) for r in x.nodes.itertuples()}
+        tn_coords = {
+            r.node_id: (r.x * self.scaling, r.y * self.scaling, r.z * self.scaling)
+            for r in x.nodes.itertuples()
+        }
         if use_radii:
-            tn_radii = {r.node_id: r.radius * self.scaling for r in x.nodes.itertuples()}
+            tn_radii = {
+                r.node_id: r.radius * self.scaling for r in x.nodes.itertuples()
+            }
 
         for s in x.segments:
             if isinstance(downsample, int) and downsample > 1:
                 mask = np.zeros(len(s), dtype=bool)
                 mask[downsample::downsample] = True
 
-                keep = np.isin(s, x.nodes[x.nodes['type'] != 'slab'].node_id.values)
+                keep = np.isin(s, x.nodes[x.nodes["type"] != "slab"].node_id.values)
 
                 s = np.array(s)[mask | keep]
 
-            sp = cu.splines.new('POLY')
+            sp = cu.splines.new("POLY")
 
             coords = np.array([tn_coords[tn] for tn in s])
             coords = coords[:, self.axes_order]
@@ -467,12 +494,12 @@ class Handler:
             coords = np.c_[coords, [0] * coords.shape[0]]
 
             # Set point coordinates
-            sp.points.foreach_set('co', coords.ravel())
-            sp.points.foreach_set('weight', s)
+            sp.points.foreach_set("co", coords.ravel())
+            sp.points.foreach_set("weight", s)
 
             if use_radii:
                 r = [tn_radii[tn] for tn in s]
-                sp.points.foreach_set('radius', r)
+                sp.points.foreach_set("radius", r)
 
         ob.active_material = mat
 
@@ -493,27 +520,25 @@ class Handler:
         # Generate uuid
         object_id = str(uuid.uuid4())
 
-        mat_name = (f'M#{object_id}')[:59]
-        mat = bpy.data.materials.get(mat_name,
-                                     bpy.data.materials.new(mat_name))
+        mat_name = (f"M#{object_id}")[:59]
+        mat = bpy.data.materials.get(mat_name, bpy.data.materials.new(mat_name))
 
-        cu = bpy.data.curves.new(f"{getattr(x, 'dotprop', '')} mesh", 'CURVE')
-        ob = bpy.data.objects.new(f"#{object_id} - {getattr(x, 'neuron_name', '')}",
-                                  cu)
+        cu = bpy.data.curves.new(f"{getattr(x, 'dotprop', '')} mesh", "CURVE")
+        ob = bpy.data.objects.new(f"#{object_id} - {getattr(x, 'neuron_name', '')}", cu)
         ob.location = (0, 0, 0)
         ob.show_name = True
-        ob['type'] = 'DOTPROP'
-        ob['navis_object'] = True
-        ob['id'] = object_id
-        cu.dimensions = '3D'
-        cu.fill_mode = 'FULL'
+        ob["type"] = "DOTPROP"
+        ob["navis_object"] = True
+        ob["id"] = object_id
+        cu.dimensions = "3D"
+        cu.fill_mode = "FULL"
         cu.bevel_resolution = 5
         cu.bevel_depth = 0.007
 
         # Prepare lines - this is based on nat:::plot3d.dotprops
-        halfvect = (np.vstack(x.vector) / 2 * scale_vect)
-        starts = (np.vstack(x.point) - halfvect)
-        ends = (np.vstack(x.point) + halfvect)
+        halfvect = np.vstack(x.vector) / 2 * scale_vect
+        starts = np.vstack(x.point) - halfvect
+        ends = np.vstack(x.point) + halfvect
 
         halfvect *= self.scaling
         starts *= self.scaling
@@ -526,7 +551,7 @@ class Handler:
         segments = list(zip(starts, ends))
 
         for s in segments:
-            sp = cu.splines.new('POLY')
+            sp = cu.splines.new("POLY")
 
             # Add points
             sp.points.add(1)
@@ -535,7 +560,7 @@ class Handler:
             coords = np.c_[s, [0, 0]]
 
             # Set point coordinates
-            sp.points.foreach_set('co', coords.ravel())
+            sp.points.foreach_set("co", coords.ravel())
 
         ob.active_material = mat
 
@@ -626,28 +651,33 @@ class Handler:
             col = bpy.data.collections.new(collection)
             bpy.context.scene.collection.children.link(col)
 
-        for t in x.connectors['type'].unique():
+        for t in x.connectors["type"].unique():
             con = x.connectors[x.connectors.type == t]
 
             # See if we have pre-defined names/colors for this
-            settings = self.cn_dict.get(t, {'name': t, 'color': (0, 0, 0)})
+            settings = self.cn_dict.get(t, {"name": t, "color": (0, 0, 0)})
 
             if con.empty:
                 continue
 
             # Get & scale coordinates and invert y
-            cn_coords = con[['x', 'y', 'z']].values.astype(float)
+            cn_coords = con[["x", "y", "z"]].values.astype(float)
 
             ob_name = f'{settings["name"]} of {x.id}'
 
             # Only plot as lines if this is a TreeNeuron
-            if self.cn_dict.get('display', 'lines') == 'lines' and isinstance(x, core.TreeNeuron):
+            if self.cn_dict.get("display", "lines") == "lines" and isinstance(
+                x, core.TreeNeuron
+            ):
                 cn_coords = cn_coords[:, self.axes_order]
                 cn_coords *= float(self.scaling)
                 cn_coords *= self.ax_translate
 
-                tn_coords = x.nodes.set_index('node_id').loc[con.node_id.values,
-                                                             ['x', 'y', 'z']].values.astype(float)
+                tn_coords = (
+                    x.nodes.set_index("node_id")
+                    .loc[con.node_id.values, ["x", "y", "z"]]
+                    .values.astype(float)
+                )
                 tn_coords = tn_coords[:, self.axes_order]
                 tn_coords *= float(self.scaling)
                 tn_coords *= self.ax_translate
@@ -660,42 +690,43 @@ class Handler:
                 # This will have to be transposed to get pairs of cn and tn
                 # (see below)
                 coords = np.dstack([cn_coords, tn_coords])
-                cu = bpy.data.curves.new(ob_name + ' mesh', 'CURVE')
+                cu = bpy.data.curves.new(ob_name + " mesh", "CURVE")
                 ob = bpy.data.objects.new(ob_name, cu)
-                cu.dimensions = '3D'
-                cu.fill_mode = 'FULL'
+                cu.dimensions = "3D"
+                cu.fill_mode = "FULL"
                 cu.bevel_resolution = 0
                 cu.bevel_depth = 0.007
                 cu.resolution_u = 0
 
                 for cn in coords:
-                    sp = cu.splines.new('POLY')
+                    sp = cu.splines.new("POLY")
 
                     # Add a second point
                     sp.points.add(1)
 
                     # Move points
-                    sp.points.foreach_set('co', cn.T.ravel())
+                    sp.points.foreach_set("co", cn.T.ravel())
                 col.objects.link(ob)
             else:
-                ob = self._create_scatter(cn_coords,
-                                          collection=collection,
-                                          size=self.cn_dict.get('size', 0.01))
+                ob = self._create_scatter(
+                    cn_coords,
+                    collection=collection,
+                    size=self.cn_dict.get("size", 0.01),
+                )
                 ob.name = ob_name
 
-            ob['type'] = 'CONNECTORS'
-            ob['navis_object'] = True
-            ob['cn_type'] = t
-            ob['id'] = str(x.id)
+            ob["type"] = "CONNECTORS"
+            ob["navis_object"] = True
+            ob["cn_type"] = t
+            ob["id"] = str(x.id)
             ob.location = (0, 0, 0)
             ob.show_name = False
 
             mat_name = f'{settings["name"]} of #{str(x.id)}'
-            mat = bpy.data.materials.get(mat_name,
-                                         bpy.data.materials.new(mat_name))
-            mat.diffuse_color = eval_color(settings['color'],
-                                           color_range=1,
-                                           force_alpha=True)
+            mat = bpy.data.materials.get(mat_name, bpy.data.materials.new(mat_name))
+            mat.diffuse_color = eval_color(
+                settings["color"], color_range=1, force_alpha=True
+            )
             ob.active_material = mat
 
         return
@@ -709,7 +740,7 @@ class Handler:
                     Must contain 'faces', 'vertices'
 
         """
-        mesh_name = str(getattr(volume, 'name', 'mesh'))
+        mesh_name = str(getattr(volume, "name", "mesh"))
 
         verts = volume.vertices.copy()
 
@@ -720,7 +751,7 @@ class Handler:
 
         blender_verts = verts.tolist()
 
-        me = bpy.data.meshes.new(mesh_name + '_mesh')
+        me = bpy.data.meshes.new(mesh_name + "_mesh")
         ob = bpy.data.objects.new(mesh_name, me)
 
         scn = bpy.context.scene
@@ -729,7 +760,7 @@ class Handler:
         me.from_pydata(list(blender_verts), [], list(volume.faces))
         me.update()
 
-        me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
+        me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
 
     def select(self, x, *args):
         """Select given neurons.
@@ -756,14 +787,14 @@ class Handler:
         ids = utils.eval_id(x)
 
         if not ids:
-            logger.error('No ids found.')
+            logger.error("No ids found.")
 
         names = []
 
         for ob in bpy.data.objects:
             ob.select_set(False)
-            if 'id' in ob:
-                if ob['id'] in ids:
+            if "id" in ob:
+                if ob["id"] in ids:
                     ob.select_set(True)
                     names.append(ob.name)
         return ObjectList(names, handler=self)
@@ -880,6 +911,7 @@ class ObjectList:
     >>> handler.select('annotation:uPN right').presynapses.color(0, 1, 0)
 
     """
+
     def __init__(self, object_names, handler=None):
         if not isinstance(object_names, list):
             object_names = [object_names]
@@ -888,38 +920,94 @@ class ObjectList:
         self.handler = handler
 
     def __getattr__(self, key):
-        if key in ['neurons', 'neuron', 'neurites']:
-            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'NEURON'])
-        elif key in ['connectors', 'connector']:
-            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS'])
-        elif key in ['soma', 'somas']:
-            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'SOMA'])
-        elif key == 'presynapses':
-            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 0])
-        elif key == 'postsynapses':
-            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 1])
-        elif key == 'gapjunctions':
-            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 2])
-        elif key == 'abutting':
-            return ObjectList([n for n in self.object_names if n in bpy.data.objects and bpy.data.objects[n]['type'] == 'CONNECTORS' and bpy.data.objects[n]['cn_type'] == 3])
-        elif key.lower() in ['id', 'ids']:
-            return [bpy.data.objects[n]['id'] for n in self.object_names if n in bpy.data.objects]
+        if key in ["neurons", "neuron", "neurites"]:
+            return ObjectList(
+                [
+                    n
+                    for n in self.object_names
+                    if n in bpy.data.objects and bpy.data.objects[n]["type"] == "NEURON"
+                ]
+            )
+        elif key in ["connectors", "connector"]:
+            return ObjectList(
+                [
+                    n
+                    for n in self.object_names
+                    if n in bpy.data.objects
+                    and bpy.data.objects[n]["type"] == "CONNECTORS"
+                ]
+            )
+        elif key in ["soma", "somas"]:
+            return ObjectList(
+                [
+                    n
+                    for n in self.object_names
+                    if n in bpy.data.objects and bpy.data.objects[n]["type"] == "SOMA"
+                ]
+            )
+        elif key == "presynapses":
+            return ObjectList(
+                [
+                    n
+                    for n in self.object_names
+                    if n in bpy.data.objects
+                    and bpy.data.objects[n]["type"] == "CONNECTORS"
+                    and bpy.data.objects[n]["cn_type"] == 0
+                ]
+            )
+        elif key == "postsynapses":
+            return ObjectList(
+                [
+                    n
+                    for n in self.object_names
+                    if n in bpy.data.objects
+                    and bpy.data.objects[n]["type"] == "CONNECTORS"
+                    and bpy.data.objects[n]["cn_type"] == 1
+                ]
+            )
+        elif key == "gapjunctions":
+            return ObjectList(
+                [
+                    n
+                    for n in self.object_names
+                    if n in bpy.data.objects
+                    and bpy.data.objects[n]["type"] == "CONNECTORS"
+                    and bpy.data.objects[n]["cn_type"] == 2
+                ]
+            )
+        elif key == "abutting":
+            return ObjectList(
+                [
+                    n
+                    for n in self.object_names
+                    if n in bpy.data.objects
+                    and bpy.data.objects[n]["type"] == "CONNECTORS"
+                    and bpy.data.objects[n]["cn_type"] == 3
+                ]
+            )
+        elif key.lower() in ["id", "ids"]:
+            return [
+                bpy.data.objects[n]["id"]
+                for n in self.object_names
+                if n in bpy.data.objects
+            ]
         else:
-            raise AttributeError('Unknown attribute ' + key)
+            raise AttributeError("Unknown attribute " + key)
 
     def __getitem__(self, key):
         if isinstance(key, int) or isinstance(key, slice):
             return ObjectList(self.object_names[key], handler=self.handler)
         else:
-            raise Exception('Unable to index non-integers.')
+            raise Exception("Unable to index non-integers.")
 
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
-        self._repr = pd.DataFrame([[n, n in bpy.data.objects] for n in self.object_names],
-                                  columns=['name', 'still_exists']
-                                  )
+        self._repr = pd.DataFrame(
+            [[n, n in bpy.data.objects] for n in self.object_names],
+            columns=["name", "still_exists"],
+        )
         return str(self._repr)
 
     def __len__(self):
@@ -927,10 +1015,11 @@ class ObjectList:
 
     def __add__(self, to_add):
         if not isinstance(to_add, ObjectList):
-            raise AttributeError('Can only merge other object lists')
+            raise AttributeError("Can only merge other object lists")
         print(to_add.object_names)
-        return ObjectList(list(set(self.object_names + to_add.object_names)),
-                          handler=self.handler)
+        return ObjectList(
+            list(set(self.object_names + to_add.object_names)), handler=self.handler
+        )
 
     @property
     def objects(self):
@@ -995,11 +1084,11 @@ class ObjectList:
 
         """
         for ob in self.objects:
-            ob.active_material.diffuse_color = eval_color((r, g, b, a),
-                                                          color_range=1,
-                                                          force_alpha=True)
+            ob.active_material.diffuse_color = eval_color(
+                (r, g, b, a), color_range=1, force_alpha=True
+            )
 
-    def colorize(self, groups=None, palette='hls'):
+    def colorize(self, groups=None, palette="hls"):
         """Assign colors across the color spectrum.
 
         Parameters
@@ -1029,16 +1118,16 @@ class ObjectList:
             cmap = {}
             for ob in objects:
                 # Get the group either by name or ID
-                g = groups.get(ob.name, groups.get(ob.get('id'), None))
-                cmap[ob] = groups_cmap.get(g, (.1, .1, .1))
+                g = groups.get(ob.name, groups.get(ob.get("id"), None))
+                cmap[ob] = groups_cmap.get(g, (0.1, 0.1, 0.1))
         else:
-            raise TypeError(f'`groups` must be either None or dict, got {type(groups)}')
+            raise TypeError(f"`groups` must be either None or dict, got {type(groups)}")
 
         for ob in objects:
             try:
-                ob.active_material.diffuse_color = eval_color(cmap[ob],
-                                                              color_range=1,
-                                                              force_alpha=True)
+                ob.active_material.diffuse_color = eval_color(
+                    cmap[ob], color_range=1, force_alpha=True
+                )
             except BaseException:
                 logger.warning(f'Error changing color of object "{ob}"')
 
@@ -1067,7 +1156,7 @@ class ObjectList:
 
         """
         for ob in self.objects:
-            if ob.type == 'CURVE':
+            if ob.type == "CURVE":
                 ob.data.bevel_depth = r
 
     def hide(self, viewport=True, render=False):
@@ -1107,9 +1196,9 @@ def calc_sphere(radius, nrPolar, nrAzimuthal):
 
     # 1/2: vertices
     verts = []
-    currV = mathutils.Vector((0.0, 0.0, radius))        # top vertex
+    currV = mathutils.Vector((0.0, 0.0, radius))  # top vertex
     verts.append(currV)
-    for iPolar in range(1, nrPolar - 1):                # regular vertices
+    for iPolar in range(1, nrPolar - 1):  # regular vertices
         currPolar = dPolar * float(iPolar)
 
         currCosP = math.cos(currPolar)
@@ -1121,41 +1210,46 @@ def calc_sphere(radius, nrPolar, nrAzimuthal):
             currCosA = math.cos(currAzimuthal)
             currSinA = math.sin(currAzimuthal)
 
-            currV = mathutils.Vector((currSinP * currCosA,
-                                      currSinP * currSinA,
-                                      currCosP)) * radius
+            currV = (
+                mathutils.Vector((currSinP * currCosA, currSinP * currSinA, currCosP))
+                * radius
+            )
             verts.append(currV)
-    currV = mathutils.Vector((0.0, 0.0, - radius))        # bottom vertex
+    currV = mathutils.Vector((0.0, 0.0, -radius))  # bottom vertex
     verts.append(currV)
 
     # 2/2: faces
     faces = []
-    for iAzimuthal in range(nrAzimuthal):                # top faces
+    for iAzimuthal in range(nrAzimuthal):  # top faces
         iNextAzimuthal = iAzimuthal + 1
         if iNextAzimuthal >= nrAzimuthal:
             iNextAzimuthal -= nrAzimuthal
         faces.append([0, iAzimuthal + 1, iNextAzimuthal + 1])
 
-    for iPolar in range(nrPolar - 3):                    # regular faces
+    for iPolar in range(nrPolar - 3):  # regular faces
         iAzimuthalStart = iPolar * nrAzimuthal + 1
 
         for iAzimuthal in range(nrAzimuthal):
             iNextAzimuthal = iAzimuthal + 1
             if iNextAzimuthal >= nrAzimuthal:
                 iNextAzimuthal -= nrAzimuthal
-            faces.append([iAzimuthalStart + iAzimuthal,
-                          iAzimuthalStart + iAzimuthal + nrAzimuthal,
-                          iAzimuthalStart + iNextAzimuthal + nrAzimuthal,
-                          iAzimuthalStart + iNextAzimuthal])
+            faces.append(
+                [
+                    iAzimuthalStart + iAzimuthal,
+                    iAzimuthalStart + iAzimuthal + nrAzimuthal,
+                    iAzimuthalStart + iNextAzimuthal + nrAzimuthal,
+                    iAzimuthalStart + iNextAzimuthal,
+                ]
+            )
 
     iLast = len(verts) - 1
     iAzimuthalStart = iLast - nrAzimuthal
-    for iAzimuthal in range(nrAzimuthal):                # bottom faces
+    for iAzimuthal in range(nrAzimuthal):  # bottom faces
         iNextAzimuthal = iAzimuthal + 1
         if iNextAzimuthal >= nrAzimuthal:
             iNextAzimuthal -= nrAzimuthal
-        faces.append([iAzimuthalStart + iAzimuthal,
-                      iLast,
-                      iAzimuthalStart + iNextAzimuthal])
+        faces.append(
+            [iAzimuthalStart + iAzimuthal, iLast, iAzimuthalStart + iNextAzimuthal]
+        )
 
     return np.vstack(verts), faces

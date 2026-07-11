@@ -86,25 +86,21 @@ def downsample_neuron(
 
     """
     if downsampling_factor <= 1:
-        raise ValueError('Downsampling factor must be greater than 1.')
+        raise ValueError("Downsampling factor must be greater than 1.")
 
     if not inplace:
         x = x.copy()
 
     if isinstance(x, core.TreeNeuron):
-        _ = _downsample_treeneuron(x,
-                                   downsampling_factor=downsampling_factor,
-                                   preserve_nodes=preserve_nodes)
+        _ = _downsample_treeneuron(
+            x, downsampling_factor=downsampling_factor, preserve_nodes=preserve_nodes
+        )
     elif isinstance(x, core.Dotprops):
-        _ = _downsample_dotprops(x,
-                                 downsampling_factor=downsampling_factor)
+        _ = _downsample_dotprops(x, downsampling_factor=downsampling_factor)
     elif isinstance(x, core.VoxelNeuron):
-        _ = _downsample_voxels(x,
-                               downsampling_factor=downsampling_factor)
+        _ = _downsample_voxels(x, downsampling_factor=downsampling_factor)
     elif isinstance(x, core.MeshNeuron):
-        _ = meshes.simplify_mesh(x,
-                                 F=1/downsampling_factor,
-                                 inplace=True)
+        _ = meshes.simplify_mesh(x, F=1 / downsampling_factor, inplace=True)
     else:
         raise TypeError(f'Unable to downsample data of type "{type(x)}"')
 
@@ -172,30 +168,36 @@ def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
         if isinstance(preserve_nodes, str):
             table = getattr(x, preserve_nodes)
             if not isinstance(table, pd.DataFrame):
-                raise TypeError(f'Expected "{preserve_nodes}" to be a '
-                                f'DataFrame - got {type(table)}')
-            if 'node_id' not in table.columns:
-                raise IndexError(f'DataFrame {preserve_nodes} has no "node_id"'
-                                 ' column.')
+                raise TypeError(
+                    f'Expected "{preserve_nodes}" to be a '
+                    f"DataFrame - got {type(table)}"
+                )
+            if "node_id" not in table.columns:
+                raise IndexError(
+                    f'DataFrame {preserve_nodes} has no "node_id"' " column."
+                )
 
-            preserve_nodes = table['node_id'].values
+            preserve_nodes = table["node_id"].values
 
         if not isinstance(preserve_nodes, (list, set, np.ndarray)):
-            raise TypeError('Expected "preserve_nodes" to be list-like, got '
-                            f'"{type(preserve_nodes)}"')
+            raise TypeError(
+                'Expected "preserve_nodes" to be list-like, got '
+                f'"{type(preserve_nodes)}"'
+            )
 
     if x.nodes.shape[0] <= 1:
-        logger.warning(f'Neuron {x.id} has no nodes. Skipping.')
+        logger.warning(f"Neuron {x.id} has no nodes. Skipping.")
         return
 
-    list_of_parents = {n: p for n, p in zip(x.nodes.node_id.values,
-                                            x.nodes.parent_id.values)}
+    list_of_parents = {
+        n: p for n, p in zip(x.nodes.node_id.values, x.nodes.parent_id.values)
+    }
     list_of_parents[-1] = -1  # type: ignore  # doesn't know that node_id is int
 
-    if 'type' not in x.nodes:
+    if "type" not in x.nodes:
         graph.classify_nodes(x)
 
-    selection = x.nodes.type != 'slab'
+    selection = x.nodes.type != "slab"
 
     if utils.is_iterable(preserve_nodes):
         selection = selection | x.nodes.node_id.isin(preserve_nodes)  # type: ignore
@@ -241,9 +243,9 @@ def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
     new_nodes = x.nodes[x.nodes.node_id.isin(list(new_parents.keys()))].copy()
 
     # Assign new parent IDs
-    new_nodes['parent_id'] = new_nodes.node_id.map(new_parents).astype(int)
+    new_nodes["parent_id"] = new_nodes.node_id.map(new_parents).astype(int)
 
-    logger.debug(f'Nodes before/after: {len(x.nodes)}/{len(new_nodes)}')
+    logger.debug(f"Nodes before/after: {len(x.nodes)}/{len(new_nodes)}")
 
     x.nodes = new_nodes
 

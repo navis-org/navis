@@ -26,6 +26,7 @@ logger = config.get_logger(__name__)
 
 def trigger_init(func):
     """Trigger delayed initialization."""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         self = args[0]
@@ -33,6 +34,7 @@ def trigger_init(func):
         if not self.initialized:
             self.__delayed_init__()
         return func(*args, **kwargs)
+
     return wrapper
 
 
@@ -42,21 +44,21 @@ class BaseTransform(ABC):
     If the transform is invertible, implement via __neg__ method.
     """
 
-    def append(self, other: 'BaseTransform'):
+    def append(self, other: "BaseTransform"):
         """Append another transform to this one.
 
         This is used to try to concatenate transforms of the same type into
         a single step to speed things up (e.g. for CMTK transforms). If that's
         not possible or not useful, must raise a `NotImplementedError`.
         """
-        raise NotImplementedError(f'Unable to append {type(other)} to {type(self)}')
+        raise NotImplementedError(f"Unable to append {type(other)} to {type(self)}")
 
-    def check_if_possible(self, on_error: str = 'raise'):
+    def check_if_possible(self, on_error: str = "raise"):
         """Test if running the transform is possible."""
         return
 
     @abstractmethod
-    def copy(self) -> 'BaseTransform':
+    def copy(self) -> "BaseTransform":
         """Return copy."""
         pass
 
@@ -80,7 +82,7 @@ class AliasTransform(BaseTransform):
         """Initialize."""
         pass
 
-    def __neg__(self) -> 'AliasTransform':
+    def __neg__(self) -> "AliasTransform":
         """Invert transform."""
         return self.copy()
 
@@ -117,7 +119,7 @@ class FunctionTransform(BaseTransform):
     def __init__(self, func):
         """Initialize."""
         if not callable(func):
-            raise TypeError('`func` must be callable')
+            raise TypeError("`func` must be callable")
         self.func = func
 
     def __eq__(self, other):
@@ -150,13 +152,18 @@ class FunctionTransform(BaseTransform):
         """
         if isinstance(points, pd.DataFrame):
             # Make sure x/y/z columns are present
-            if np.any([c not in points for c in ['x', 'y', 'z']]):
-                raise ValueError('points DataFrame must have x/y/z columns.')
-            points = points[['x', 'y', 'z']].values
-        elif not (isinstance(points, np.ndarray) and points.ndim == 2 and points.shape[1] == 3):
-            raise TypeError('`points` must be numpy array of shape (N, 3) or '
-                            'pandas DataFrame with x/y/z columns')
+            if np.any([c not in points for c in ["x", "y", "z"]]):
+                raise ValueError("points DataFrame must have x/y/z columns.")
+            points = points[["x", "y", "z"]].values
+        elif not (
+            isinstance(points, np.ndarray) and points.ndim == 2 and points.shape[1] == 3
+        ):
+            raise TypeError(
+                "`points` must be numpy array of shape (N, 3) or "
+                "pandas DataFrame with x/y/z columns"
+            )
         return self.func(points.copy())
+
 
 class TransformSequence:
     """A sequence of transforms.
@@ -189,17 +196,17 @@ class TransformSequence:
         return self.__repr__()
 
     def __repr__(self):
-        return f'TransformSequence with {len(self)} transform(s)'
+        return f"TransformSequence with {len(self)} transform(s)"
 
     def __len__(self) -> int:
         """Count number of transforms in this sequence."""
         return len(self.transforms)
 
-    def __neg__(self) -> 'TransformSequence':
+    def __neg__(self) -> "TransformSequence":
         """Invert transform sequence."""
         return TransformSequence(*[-t for t in self.transforms[::-1]])
 
-    def append(self, transform: 'BaseTransform'):
+    def append(self, transform: "BaseTransform"):
         """Add transform to list."""
         if isinstance(transform, TransformSequence):
             # Unpack if other is sequence of transforms
@@ -209,8 +216,8 @@ class TransformSequence:
             if not isinstance(tr, BaseTransform):
                 raise TypeError(f'Unable append "{type(tr)}"')
 
-            if not hasattr(transform, 'xform') or not callable(transform.xform):
-                raise TypeError('Transform does not appear to have a `xform` method')
+            if not hasattr(transform, "xform") or not callable(transform.xform):
+                raise TypeError("Transform does not appear to have a `xform` method")
 
             # Try to merge with the last transform in the sequence
             if len(self):
@@ -223,14 +230,14 @@ class TransformSequence:
             else:
                 self.transforms.append(tr)
 
-    def xform(self, points: np.ndarray,
-              affine_fallback: bool = True,
-              **kwargs) -> np.ndarray:
+    def xform(
+        self, points: np.ndarray, affine_fallback: bool = True, **kwargs
+    ) -> np.ndarray:
         """Perform transforms in sequence."""
         # First check if any of the transforms raise any issues ahead of time
         # This can e.g. be missing binaries like CMTK's streamxform
         for tr in self.transforms:
-            tr.check_if_possible(on_error='raise')
+            tr.check_if_possible(on_error="raise")
 
         # Now transform points in sequence
         # Make a copy of the points to avoid changing the originals
@@ -248,10 +255,10 @@ class TransformSequence:
             if all(is_nan):
                 continue
 
-            if 'affine_fallback' in params:
-                xf[~is_nan] = tr.xform(xf[~is_nan],
-                                       affine_fallback=affine_fallback,
-                                       **kwargs)
+            if "affine_fallback" in params:
+                xf[~is_nan] = tr.xform(
+                    xf[~is_nan], affine_fallback=affine_fallback, **kwargs
+                )
             else:
                 xf[~is_nan] = tr.xform(xf[~is_nan], **kwargs)
 
