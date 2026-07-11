@@ -31,7 +31,7 @@ except ModuleNotFoundError:
     xxhash = None
 
 
-__all__ = ['VoxelNeuron']
+__all__ = ["VoxelNeuron"]
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -83,29 +83,32 @@ class VoxelNeuron(BaseNeuron):
     soma: Optional[Union[list, np.ndarray]]
 
     #: Attributes used for neuron summary
-    SUMMARY_PROPS = ['type', 'name', 'units', 'shape', 'dtype']
+    SUMMARY_PROPS = ["type", "name", "units", "shape", "dtype"]
 
     #: Attributes to be used when comparing two neurons.
-    EQ_ATTRIBUTES = ['name', 'shape', 'dtype']
+    EQ_ATTRIBUTES = ["name", "shape", "dtype"]
 
     #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = ['_memory_usage', '_shape', '_voxels', '_grid']
+    TEMP_ATTR = ["_memory_usage", "_shape", "_voxels", "_grid"]
 
     #: Core data table(s) used to calculate hash
-    CORE_DATA = ['_data']
+    CORE_DATA = ["_data"]
 
-    def __init__(self,
-                 x: Union[np.ndarray],
-                 offset: Optional[np.ndarray] = None,
-                 cache: bool = True,
-                 units: Union[pint.Unit, str] = None,
-                 **metadata
-                 ):
+    def __init__(
+        self,
+        x: Union[np.ndarray],
+        offset: Optional[np.ndarray] = None,
+        cache: bool = True,
+        units: Union[pint.Unit, str] = None,
+        **metadata,
+    ):
         """Initialize Voxel Neuron."""
         super().__init__()
 
         if not isinstance(x, (np.ndarray, type(None))):
-            raise utils.ConstructionError(f'Unable to construct VoxelNeuron from "{type(x)}".')
+            raise utils.ConstructionError(
+                f'Unable to construct VoxelNeuron from "{type(x)}".'
+            )
 
         if isinstance(x, np.ndarray):
             if x.ndim == 2 and x.shape[1] in [3, 4]:
@@ -115,7 +118,9 @@ class VoxelNeuron(BaseNeuron):
             elif x.ndim == 3:
                 self._data = np.ascontiguousarray(x)
             else:
-                raise utils.ConstructionError(f'Unable to construct VoxelNeuron from {x.shape} array.')
+                raise utils.ConstructionError(
+                    f"Unable to construct VoxelNeuron from {x.shape} array."
+                )
 
         for k, v in metadata.items():
             try:
@@ -157,7 +162,9 @@ class VoxelNeuron(BaseNeuron):
 
             n.offset = n.offset / other
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] /= other
+                # Note: reassign (instead of in-place /=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[["x", "y", "z"]] = n.connectors[["x", "y", "z"]] / other
 
             self._clear_temp_attr()
 
@@ -179,7 +186,9 @@ class VoxelNeuron(BaseNeuron):
 
             n.offset = n.offset * other
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] *= other
+                # Note: reassign (instead of in-place *=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[["x", "y", "z"]] = n.connectors[["x", "y", "z"]] * other
 
             self._clear_temp_attr()
 
@@ -194,7 +203,9 @@ class VoxelNeuron(BaseNeuron):
 
             n.offset = n.offset + other
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] += other
+                # Note: reassign (instead of in-place +=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[["x", "y", "z"]] = n.connectors[["x", "y", "z"]] + other
 
             self._clear_temp_attr()
 
@@ -209,7 +220,9 @@ class VoxelNeuron(BaseNeuron):
 
             n.offset = n.offset - other
             if n.has_connectors:
-                n.connectors.loc[:, ['x', 'y', 'z']] -= other
+                # Note: reassign (instead of in-place -=) so that integer
+                # connector coordinates can be cast to float if necessary
+                n.connectors[["x", "y", "z"]] = n.connectors[["x", "y", "z"]] - other
 
             self._clear_temp_attr()
 
@@ -220,9 +233,9 @@ class VoxelNeuron(BaseNeuron):
     def _base_data_type(self) -> str:
         """Type of data (grid or voxels) underlying this neuron."""
         if self._data.ndim == 3:
-            return 'grid'
+            return "grid"
         else:
-            return 'voxels'
+            return "voxels"
 
     @property
     def dtype(self) -> type:
@@ -233,14 +246,14 @@ class VoxelNeuron(BaseNeuron):
     def bbox(self) -> np.ndarray:
         """Bounding box (includes connectors) in units."""
         mn = self.offset
-        if self._base_data_type == 'voxels':
+        if self._base_data_type == "voxels":
             mx = np.max(self.voxels, axis=0) * self.units.magnitude + self.offset
         else:
             mx = np.array(self.grid.shape) * self.units.magnitude + self.offset
 
         if self.has_connectors:
-            cn_mn = np.min(self.connectors[['x', 'y', 'z']].values, axis=0)
-            cn_mx = np.max(self.connectors[['x', 'y', 'z']].values, axis=0)
+            cn_mn = np.min(self.connectors[["x", "y", "z"]].values, axis=0)
+            cn_mx = np.max(self.connectors[["x", "y", "z"]].values, axis=0)
 
             mn = np.min(np.vstack((mn, cn_mn)), axis=0)
             mx = np.max(np.vstack((mx, cn_mx)), axis=0)
@@ -259,10 +272,10 @@ class VoxelNeuron(BaseNeuron):
     @temp_property
     def voxels(self):
         """Voxels making up the neuron."""
-        if self._base_data_type == 'voxels':
+        if self._base_data_type == "voxels":
             return self._data[:, :3]
 
-        if hasattr(self, '_voxels'):
+        if hasattr(self, "_voxels"):
             return self._voxels
 
         voxels = np.dstack(np.where(self._data))[0]
@@ -275,8 +288,8 @@ class VoxelNeuron(BaseNeuron):
         if not isinstance(voxels, np.ndarray):
             raise TypeError(f'Voxels must be numpy array, got "{type(voxels)}"')
         if voxels.ndim != 2 or voxels.shape[1] != 3:
-            raise ValueError('Voxels must be (N, 3) array')
-        if 'float' in str(voxels.dtype):
+            raise ValueError("Voxels must be (N, 3) array")
+        if "float" in str(voxels.dtype):
             voxels = voxels.astype(np.int64)
         self._data = voxels
         self._clear_temp_attr()
@@ -285,16 +298,14 @@ class VoxelNeuron(BaseNeuron):
     @temp_property
     def grid(self):
         """Voxel grid representation."""
-        if self._base_data_type == 'grid':
+        if self._base_data_type == "grid":
             return self._data
 
-        if hasattr(self, '_grid'):
+        if hasattr(self, "_grid"):
             return self._grid
 
         grid = np.zeros(self.shape, dtype=self.values.dtype)
-        grid[self._data[:, 0],
-             self._data[:, 1],
-             self._data[:, 2]] = self.values
+        grid[self._data[:, 0], self._data[:, 1], self._data[:, 2]] = self.values
 
         if self.cache:
             self._grid = grid
@@ -305,7 +316,7 @@ class VoxelNeuron(BaseNeuron):
         if not isinstance(grid, np.ndarray):
             raise TypeError(f'Grid must be numpy array, got "{type(grid)}"')
         if grid.ndim != 3:
-            raise ValueError('Grid must be 3D array')
+            raise ValueError("Grid must be 3D array")
         self._data = grid
         self._clear_temp_attr()
 
@@ -313,30 +324,32 @@ class VoxelNeuron(BaseNeuron):
     @temp_property
     def values(self):
         """Values for each voxel (can be None)."""
-        if self._base_data_type == 'grid':
+        if self._base_data_type == "grid":
             values = self._data.flatten()
             return values[values > 0]
         else:
-            if not isinstance(getattr(self, '_values', None), type(None)):
+            if not isinstance(getattr(self, "_values", None), type(None)):
                 return self._values
             else:
                 return np.ones(self._data.shape[0])
 
     @values.setter
     def values(self, values):
-        if self._base_data_type == 'grid':
-            raise ValueError('Unable to set values for VoxelNeurons that were '
-                             'initialized with a grid')
+        if self._base_data_type == "grid":
+            raise ValueError(
+                "Unable to set values for VoxelNeurons that were "
+                "initialized with a grid"
+            )
 
         if isinstance(values, type(None)):
-            if hasattr(self, '_values'):
-                delattr(self, '_values')
+            if hasattr(self, "_values"):
+                delattr(self, "_values")
             return
 
         if not isinstance(values, np.ndarray):
             raise TypeError(f'Values must be numpy array, got "{type(values)}"')
         elif values.ndim != 1 or values.shape[0] != self.voxels.shape[0]:
-            raise ValueError('Voxels must be (N, ) array of the same length as voxels')
+            raise ValueError("Voxels must be (N, ) array of the same length as voxels")
 
         self._values = values
         self._clear_temp_attr()
@@ -353,7 +366,7 @@ class VoxelNeuron(BaseNeuron):
         else:
             offset = np.asarray(offset)
             if offset.ndim != 1 or offset.shape[0] != 3:
-                raise ValueError('Offset must be (3, ) array of x/y/z coordinates.')
+                raise ValueError("Offset must be (3, ) array of x/y/z coordinates.")
             self._offset = offset
 
         self._clear_temp_attr()
@@ -362,8 +375,8 @@ class VoxelNeuron(BaseNeuron):
     @temp_property
     def shape(self):
         """Shape of voxel grid."""
-        if not hasattr(self, '_shape'):
-            if self._base_data_type == 'voxels':
+        if not hasattr(self, "_shape"):
+            if self._base_data_type == "voxels":
                 self._shape = tuple(self.voxels.max(axis=0) + 1)
             else:
                 self._shape = self._data.shape
@@ -372,7 +385,7 @@ class VoxelNeuron(BaseNeuron):
     @property
     def type(self) -> str:
         """Neuron type."""
-        return 'navis.VoxelNeuron'
+        return "navis.VoxelNeuron"
 
     @property
     def density(self) -> float:
@@ -475,24 +488,22 @@ class VoxelNeuron(BaseNeuron):
         x.offset = np.array(x.offset) + mn * x.units_xyz.magnitude
 
         # Drop empty planes
-        if x._base_data_type == 'voxels':
+        if x._base_data_type == "voxels":
             x._data = voxels - mn
         else:
             mx = voxels.max(axis=0)
-            x._data = x._data[mn[0]: mx[0] + 1,
-                              mn[1]: mx[1] + 1,
-                              mn[2]: mx[2] + 1]
+            x._data = x._data[mn[0] : mx[0] + 1, mn[1] : mx[1] + 1, mn[2] : mx[2] + 1]
 
         if not inplace:
             return x
 
-    def threshold(self, threshold, inplace=False) -> 'VoxelNeuron':
+    def threshold(self, threshold, inplace=False) -> "VoxelNeuron":
         """Drop below-threshold voxels."""
         x = self
         if not inplace:
             x = x.copy()
 
-        if x._base_data_type == 'grid':
+        if x._base_data_type == "grid":
             x._data[x._data < threshold] = 0
         else:
             x._data = x._data[x.values >= threshold]
