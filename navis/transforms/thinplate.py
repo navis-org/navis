@@ -141,8 +141,8 @@ class TPStransform(BaseTransform):
         return self._A
 
     @property
-    def matrix_rigid(self):
-        """Return the rigid transformation matrix."""
+    def matrix_affine(self):
+        """Return the affine transformation matrix."""
         # The first row in self.A is the translation vector
         # The next 3x3 block is the rotation matrix
         # Let's combine these into a typical 4x4 transformation matrix

@@ -156,7 +156,7 @@ class GridTransform(BaseTransform):
 
         points_xf = self.xform(points, affine_fallback=False)
 
-        m = TPStransform(points, points_xf).matrix_rigid
+        m = TPStransform(points, points_xf).matrix_affine
 
         # Calculate the affine part as the mean displacement across the field
         self._affine = AffineTransform(m)
