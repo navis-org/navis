@@ -19,7 +19,7 @@ import numpy as np
 import scipy.spatial
 import scipy.interpolate
 
-from typing import Union, Optional, List
+from typing import Union, Optional
 from typing_extensions import Literal
 
 from .. import config, core, utils, graph
@@ -98,7 +98,7 @@ def resample_skeleton(x: 'core.NeuronObject',
     ...                                resample_to=1000 / 8,
     ...                                inplace=False)
     >>> round(n_rs.sampling_resolution)
-    134
+    112
 
     See Also
     --------
@@ -138,120 +138,8 @@ def resample_skeleton(x: 'core.NeuronObject',
             else:
                 non_num_cols.append(col)
 
-    # Collect coordinates
-    locs = dict(zip(x.nodes.node_id.values, x.nodes[["x", "y", "z"]].values))
-
-    # Collect values for all columns
-    values = {
-        col: dict(zip(x.nodes.node_id.values, x.nodes[col].values))
-        for col in num_cols + non_num_cols
-    }
-
-    # For categorical columns, we need to translate them to numerical values
-    cat2num = {}
-    num2cat = {}
-    for col in non_num_cols:
-        cat2num[col] = {c: i for i, c in enumerate(x.nodes[col].unique())}
-        num2cat[col] = {i: c for c, i in cat2num[col].items()}
-
-    new_nodes: List = []
-    max_tn_id = x.nodes.node_id.max() + 1
-
-    errors = 0
-
-    # Iterate over segments
-    for i, seg in enumerate(x.small_segments):
-        # Get coordinates
-        coords = np.vstack([locs[n] for n in seg])
-        # Get radii
-        # rad = [radii[tn] for tn in seg]
-
-        # Vecs between subsequently measured points
-        vecs = np.diff(coords.T)
-
-        # path: cum distance along points (norm from first to Nth point)
-        dist = np.cumsum(np.linalg.norm(vecs, axis=0))
-        dist = np.insert(dist, 0, 0)
-
-        # If path is too short, just keep the first and last node
-        if dist[-1] < resample_to or (method == "cubic" and len(seg) <= 3):
-            new_nodes += [
-                [seg[0], seg[-1]] + [values[c][seg[0]] for c in num_cols + non_num_cols]
-            ]
-            continue
-
-        # Distances (i.e. resolution) of interpolation
-        n_nodes = np.round(dist[-1] / resample_to)
-        new_dist = np.linspace(dist[0], dist[-1], int(n_nodes))
-
-        samples = {}
-        # Interpolate numerical columns
-        for col in num_cols:
-            try:
-                samples[col] = scipy.interpolate.interp1d(
-                    dist, [values[col][n] for n in seg], kind=method
-                )
-            except ValueError as e:
-                if skip_errors:
-                    errors += 1
-                    new_nodes += x.nodes.loc[
-                        x.nodes.node_id.isin(seg[:-1]),
-                        ["node_id", "parent_id"] + num_cols + non_num_cols,
-                    ].values.tolist()
-                    continue
-                else:
-                    raise e
-        # Interpolate non-numerical columns
-        for col in non_num_cols:
-            try:
-                samples[col] = scipy.interpolate.interp1d(
-                    dist, [cat2num[col][values[col][n]] for n in seg], kind="nearest"
-                )
-            except ValueError as e:
-                if skip_errors:
-                    errors += 1
-                    new_nodes += x.nodes.loc[
-                        x.nodes.node_id.isin(seg[:-1]),
-                        ["node_id", "parent_id"] + num_cols + non_num_cols,
-                    ].values.tolist()
-                    continue
-                else:
-                    raise e
-
-        # Sample each column
-        new_values = {}
-        for col in num_cols:
-            new_values[col] = samples[col](new_dist)
-        for col in non_num_cols:
-            new_values[col] = [num2cat[col][int(samples[col](d))] for d in new_dist]
-
-        # Generate new ids (start and end node IDs of this segment are kept)
-        new_ids = np.concatenate(
-            (seg[:1], [max_tn_id + i for i in range(len(new_dist) - 2)], seg[-1:])
-        )
-
-        # Increase max index
-        max_tn_id += len(new_ids)
-
-        # Keep track of new nodes
-        new_nodes += [
-            [tn, pn] + [new_values[c][i] for c in num_cols + non_num_cols]
-            for i, (tn, pn) in enumerate(zip(new_ids[:-1], new_ids[1:]))
-        ]
-
-    if errors:
-        logger.warning(f"{errors} ({errors/i:.0%}) segments skipped due to " "errors")
-
-    # Add root node(s)
-    root = x.nodes.loc[
-        x.nodes.node_id.isin(utils.make_iterable(x.root)),
-        ["node_id", "parent_id"] + num_cols + non_num_cols,
-    ]
-    new_nodes += [list(r) for r in root.values]
-
-    # Generate new nodes dataframe
-    new_nodes = pd.DataFrame(
-        data=new_nodes, columns=["node_id", "parent_id"] + num_cols + non_num_cols
+    new_nodes = _resample_segments(
+        x, resample_to, method, num_cols, non_num_cols, skip_errors
     )
 
     # At this point, new node and parent IDs will be 64 bit integers and x/y/z columns will
@@ -273,7 +161,7 @@ def resample_skeleton(x: 'core.NeuronObject',
         # If there is an overflow downcast to smallest possible dtype
         # N.B. we could also check for underflow but that's less likely
         if new_nodes[col].max() >= np.iinfo(np.int32).max:
-            new_nodes[col] = pd.to_nunmeric(new_nodes[col], downcast="integer")
+            new_nodes[col] = pd.to_numeric(new_nodes[col], downcast="integer")
             dtypes[col] = new_nodes[col].dtype  # Update dtype
 
     # Now cast the rest
@@ -282,8 +170,21 @@ def resample_skeleton(x: 'core.NeuronObject',
     # Remove duplicate nodes (branch points)
     new_nodes = new_nodes[~new_nodes.node_id.duplicated()]
 
-    # Generate KDTree
-    tree = scipy.spatial.cKDTree(new_nodes[["x", "y", "z"]].values)
+    # Soma, connectors and tags are pinned to whichever node in the resampled
+    # neuron ended up closest to their original position. The KDTree and the
+    # indexed node table needed for that are built on first use - a neuron with
+    # none of the three does not pay for them.
+    tree, old_nodes = None, None
+
+    def snap_to_new(node_ids):
+        """Map old node IDs onto the closest node in the resampled neuron."""
+        nonlocal tree, old_nodes
+        if tree is None:
+            tree = scipy.spatial.cKDTree(new_nodes[["x", "y", "z"]].values)
+            old_nodes = x.nodes.set_index("node_id", inplace=False)
+        _, ix = tree.query(old_nodes.loc[node_ids, ["x", "y", "z"]].values)
+        return new_nodes.node_id.values[ix]
+
     # Map soma onto new nodes if required
     # Note that if `._soma` is a soma detection function we can't tell
     # how to deal with it. Ideally the new soma node will
@@ -292,22 +193,19 @@ def resample_skeleton(x: 'core.NeuronObject',
     # than one soma is detected now. Also a "label" column in the node
     # table would be lost at this point.
     # We will go for the easy option which is to pin the soma at this point.
-    nodes = x.nodes.set_index("node_id", inplace=False)
-    if np.any(getattr(x, "soma")):
-        soma_nodes = utils.make_iterable(x.soma)
-        old_pos = nodes.loc[soma_nodes, ["x", "y", "z"]].values
-
-        # Get nearest neighbours
-        dist, ix = tree.query(old_pos)
-        node_map = dict(zip(soma_nodes, new_nodes.node_id.values[ix]))
+    # N.B. `.soma` may be a detection function, so only ask for it once
+    soma = x.soma
+    if np.any(soma):
+        soma_nodes = utils.make_iterable(soma)
+        node_map = dict(zip(soma_nodes, snap_to_new(soma_nodes)))
 
         # Map back onto neuron
-        if utils.is_iterable(x.soma):
+        if utils.is_iterable(soma):
             # Use _soma to avoid checks - the new nodes have not yet been
             # assigned to the neuron!
-            x._soma = [node_map[n] for n in x.soma]
+            x._soma = [node_map[n] for n in soma]
         else:
-            x._soma = node_map[x.soma]
+            x._soma = node_map[soma]
     else:
         # If `._soma` was (read: is) a function but it didn't detect anything in
         # the original neurons, this makes sure that the resampled neuron
@@ -316,29 +214,16 @@ def resample_skeleton(x: 'core.NeuronObject',
 
     # Map connectors back if necessary
     if x.has_connectors:
-        # Get position of old synapse-bearing nodes
-        old_tn_position = nodes.loc[x.connectors.node_id, ["x", "y", "z"]].values
-
-        # Get nearest neighbours
-        dist, ix = tree.query(old_tn_position)
-
-        # Map back onto neuron
-        x.connectors["node_id"] = new_nodes.node_id.values[ix]
+        x.connectors["node_id"] = snap_to_new(x.connectors.node_id)
 
     # Map tags back if necessary
     # Expects `tags` to be a dictionary {'tag': [node_id1, node_id2, ...]}
     if x.has_tags and isinstance(x.tags, dict):
         # Get nodes that need remapping
-        nodes_to_remap = list({n for l in x.tags.values() for n in l})
-
-        # Get position of old tag-bearing nodes
-        old_tn_position = nodes.loc[nodes_to_remap, ["x", "y", "z"]].values
-
-        # Get nearest neighbours
-        dist, ix = tree.query(old_tn_position)
+        nodes_to_remap = list({n for tagged in x.tags.values() for n in tagged})
 
         # Map back onto tags
-        node_map = dict(zip(nodes_to_remap, new_nodes.node_id.values[ix]))
+        node_map = dict(zip(nodes_to_remap, snap_to_new(nodes_to_remap)))
         x.tags = {k: [node_map[n] for n in v] for k, v in x.tags.items()}
 
     # Set nodes (avoid setting on copy warning)
@@ -348,6 +233,323 @@ def resample_skeleton(x: 'core.NeuronObject',
     x._clear_temp_attr()
 
     return x
+
+
+def _resample_segments(x, resample_to, method, num_cols, non_num_cols, skip_errors):
+    """Build the resampled node table for `x`.
+
+    Each of the neuron's small segments is resampled independently at
+    `resample_to` intervals. The first and last node of a segment are always
+    kept, which is what preserves roots, leafs and branch points.
+
+    Returns a DataFrame with columns `["node_id", "parent_id"] + num_cols +
+    non_num_cols`. Node/parent IDs are int64 and all other columns float64 -
+    the caller casts them back to the neuron's original dtypes.
+    """
+    nodes = x.nodes
+    cols = num_cols + non_num_cols
+    n_num = len(num_cols)
+    segs = x.small_segments
+
+    # Pack every column into a single float matrix so that we can interpolate
+    # them all with the same machinery. Non-numerical columns are label-encoded
+    # and decoded again at the very end.
+    # N.B. `use_na_sentinel=False` makes NaN a category in its own right - without
+    # it NaN would encode to -1 and decode back to whatever the *last* category is.
+    num2cat = {}
+    encoded = []
+    for col in cols:
+        if col in non_num_cols:
+            codes, num2cat[col] = pd.factorize(nodes[col].values, use_na_sentinel=False)
+            encoded.append(codes.astype(np.float64))
+        else:
+            encoded.append(nodes[col].values.astype(np.float64))
+    vals = np.stack(encoded, axis=1)
+
+    if not len(segs):
+        new_nodes = _empty_rows(cols)
+    else:
+        # Flatten the segments into one long array so that we only have to
+        # translate node IDs into row indices once.
+        seg_n_nodes = np.array([len(s) for s in segs])
+        offsets = np.concatenate(([0], np.cumsum(seg_n_nodes)))
+        flat = np.concatenate([np.asarray(s) for s in segs])
+        vals_flat = vals[pd.Index(nodes.node_id.values).get_indexer(flat)]
+
+        # Cumulative distance along each segment, computed for all segments at
+        # once: take the norm between consecutive rows of the flattened array,
+        # zero out the steps that straddle a segment boundary, then subtract
+        # each segment's starting offset from the global cumulative sum.
+        step = np.zeros(len(flat))
+        step[1:] = np.linalg.norm(np.diff(vals_flat[:, :3], axis=0), axis=1)
+        step[offsets[:-1]] = 0
+        cum = np.cumsum(step)
+        dist = cum - np.repeat(cum[offsets[:-1]], seg_n_nodes)
+        seg_cable = dist[offsets[1:] - 1]
+
+        # Segments that are shorter than the target resolution are collapsed to
+        # their first and last node. Same for segments with too few nodes to fit
+        # a cubic spline.
+        keep = seg_cable < resample_to
+        if method == "cubic":
+            keep |= seg_n_nodes <= 3
+
+        resampler = _resample_linear if method == "linear" else _resample_nonlinear
+        new_nodes = resampler(
+            flat, vals_flat, dist, seg_cable, seg_n_nodes, offsets, keep,
+            resample_to, nodes, cols, n_num, method, skip_errors
+        )
+
+    # Add the root node(s): they only ever appear as a segment's *last* node
+    # and are therefore not among the rows generated above.
+    root_ix = pd.Index(nodes.node_id.values).get_indexer(utils.make_iterable(x.root))
+    new_nodes = {
+        "node_id": np.concatenate([new_nodes["node_id"], nodes.node_id.values[root_ix]]),
+        "parent_id": np.concatenate([new_nodes["parent_id"], nodes.parent_id.values[root_ix]]),
+        "values": np.vstack([new_nodes["values"], vals[root_ix]]),
+    }
+
+    data = {"node_id": new_nodes["node_id"], "parent_id": new_nodes["parent_id"]}
+    for i, col in enumerate(cols):
+        if col in non_num_cols:
+            data[col] = num2cat[col][new_nodes["values"][:, i].astype(int)]
+        else:
+            data[col] = new_nodes["values"][:, i]
+
+    return pd.DataFrame(data)
+
+
+def _empty_rows(cols):
+    """Empty row collection in the format used by the `_resample_*` helpers."""
+    return {
+        "node_id": np.empty(0, dtype=np.int64),
+        "parent_id": np.empty(0, dtype=np.int64),
+        "values": np.empty((0, len(cols)), dtype=np.float64),
+    }
+
+
+def _sample_counts(seg_cable, resample_to):
+    """Number of sample points for each segment to be resampled.
+
+    A segment of length L sampled at N points spans N - 1 intervals, so hitting a
+    spacing of `resample_to` takes `round(L / resample_to) + 1` points. Note the
+    caller only ever resamples segments with `L >= resample_to`, so this is always
+    at least 2 (i.e. the segment's start and end node).
+    """
+    return np.round(seg_cable / resample_to).astype(np.int64) + 1
+
+
+def _new_ids(first_id, last_id, n_pts, max_id):
+    """Generate node and parent IDs for the resampled segments.
+
+    The first and last node ID of each segment are preserved; the nodes in
+    between get fresh IDs starting at `max_id`. Each segment emits `n_pts - 1`
+    rows: node IDs `[first, new_0, ..., new_n-3]` with parents shifted by one,
+    `[new_0, ..., new_n-3, last]`.
+    """
+    # N.B. we consume only `n_pts - 2` IDs per segment but advance the counter by
+    # `n_pts` - this leaves gaps but keeps the IDs unique, which is all we need
+    id_base = max_id + np.concatenate(([0], np.cumsum(n_pts)[:-1]))
+
+    n_new = n_pts - 2
+    new_off = np.concatenate(([0], np.cumsum(n_new)))
+    interm = np.repeat(id_base, n_new) + (
+        np.arange(new_off[-1]) - np.repeat(new_off[:-1], n_new)
+    )
+
+    n_rows = n_pts - 1
+    row_off = np.concatenate(([0], np.cumsum(n_rows)))
+    is_first = np.zeros(row_off[-1], dtype=bool)
+    is_first[row_off[:-1]] = True
+    is_last = np.zeros(row_off[-1], dtype=bool)
+    is_last[row_off[1:] - 1] = True
+
+    node_id = np.empty(row_off[-1], dtype=np.int64)
+    node_id[is_first] = first_id
+    node_id[~is_first] = interm
+
+    parent_id = np.empty(row_off[-1], dtype=np.int64)
+    parent_id[~is_last] = interm
+    parent_id[is_last] = last_id
+
+    return node_id, parent_id
+
+
+def _resample_linear(flat, vals_flat, dist, seg_cable, seg_n_nodes, offsets, keep,
+                     resample_to, nodes, cols, n_num, method, skip_errors):
+    """Resample all segments at once using linear interpolation.
+
+    Rather than fitting an interpolator per segment, we map the segments onto a
+    single, strictly monotonic axis - segment `i` occupies `[i, i + 0.5]`, which
+    leaves a gap before segment `i + 1` - and interpolate each column with a
+    single `np.interp` call across the whole neuron.
+
+    Note this only works because linear interpolation is *local*: only the two
+    knots bracketing a sample contribute to it, so no segment can bleed into its
+    neighbours across the gaps. See `_resample_nonlinear` for the methods where
+    that does not hold.
+    """
+    resample = ~keep
+    n_pts = _sample_counts(seg_cable[resample], resample_to)
+    n_rows = n_pts - 1
+
+    # Rows are laid out in segment order (i.e. short and resampled segments
+    # interleaved) so that the row order matches the order of `.small_segments`
+    rows_per_seg = np.ones(len(seg_n_nodes), dtype=np.int64)
+    rows_per_seg[resample] = n_rows
+    seg_row_off = np.concatenate(([0], np.cumsum(rows_per_seg)))
+
+    node_id = np.empty(seg_row_off[-1], dtype=np.int64)
+    parent_id = np.empty(seg_row_off[-1], dtype=np.int64)
+    values = np.empty((seg_row_off[-1], len(cols)), dtype=np.float64)
+
+    first_id = flat[offsets[:-1]]
+    last_id = flat[offsets[1:] - 1]
+
+    # Segments that are too short collapse into a single row
+    short = seg_row_off[:-1][keep]
+    node_id[short] = first_id[keep]
+    parent_id[short] = last_id[keep]
+    values[short] = vals_flat[offsets[:-1][keep]]
+
+    if resample.any():
+        # Normalised sampling axis. N.B. we normalise by segment length rather
+        # than offsetting by the cumulative cable length: the latter grows large
+        # enough to eat into float64's mantissa, which would shift the
+        # tie-breaking of the nearest-neighbour interpolation below.
+        base = np.arange(len(seg_n_nodes), dtype=np.float64)
+        safe_cable = np.where(seg_cable > 0, seg_cable, 1)
+        xp = np.repeat(base, seg_n_nodes) + 0.5 * dist / np.repeat(safe_cable, seg_n_nodes)
+
+        # Sample points, i.e. `base + 0.5 * linspace(0, 1, n_pts)` per segment
+        pt_off = np.concatenate(([0], np.cumsum(n_pts)))
+        within = np.arange(pt_off[-1]) - np.repeat(pt_off[:-1], n_pts)
+        x_new = np.repeat(base[resample], n_pts) + 0.5 * within / np.repeat(n_pts - 1, n_pts)
+
+        samples = np.empty((pt_off[-1], len(cols)), dtype=np.float64)
+        for i in range(n_num):
+            samples[:, i] = np.interp(x_new, xp, vals_flat[:, i])
+
+        # Non-numerical columns are mapped by nearest neighbour, on the raw (i.e.
+        # un-normalised) distances and one segment at a time. That's a hair slower
+        # but reproduces scipy's tie-breaking at coincident nodes exactly, which
+        # the normalised axis would not.
+        if n_num < len(cols):
+            starts, ends = offsets[:-1][resample], offsets[1:][resample]
+            for i in range(len(n_pts)):
+                s, e = starts[i], ends[i]
+                samples[pt_off[i]:pt_off[i + 1], n_num:] = _nearest(
+                    dist[s:e],
+                    vals_flat[s:e, n_num:],
+                    np.linspace(0, seg_cable[resample][i], n_pts[i]),
+                )
+
+        # Each segment's last sample is only ever used as a parent, never as a
+        # node in its own right - so drop its values
+        not_last = np.ones(pt_off[-1], dtype=bool)
+        not_last[pt_off[1:] - 1] = False
+
+        rows = _rows_for(seg_row_off[:-1][resample], n_rows)
+        node_id[rows], parent_id[rows] = _new_ids(
+            first_id[resample], last_id[resample], n_pts, nodes.node_id.max() + 1
+        )
+        values[rows] = samples[not_last]
+
+    return {"node_id": node_id, "parent_id": parent_id, "values": values}
+
+
+def _resample_nonlinear(flat, vals_flat, dist, seg_cable, seg_n_nodes, offsets, keep,
+                        resample_to, nodes, cols, n_num, method, skip_errors):
+    """Resample all segments using a non-linear interpolation method.
+
+    Unlike linear (and nearest) interpolation, methods such as "cubic" are
+    *global*: the fitted curve is continuous across all knots. We must therefore
+    fit them one segment at a time - but we can at least fit all numerical
+    columns in one go by interpolating along `axis=0`.
+    """
+    resample = ~keep
+    n_pts = _sample_counts(seg_cable[resample], resample_to)
+
+    first_id = flat[offsets[:-1]]
+    last_id = flat[offsets[1:] - 1]
+
+    # Pre-generate the IDs for every segment we intend to resample, then hand
+    # each segment its slice below
+    node_id, parent_id = _new_ids(
+        first_id[resample], last_id[resample], n_pts, nodes.node_id.max() + 1
+    )
+    row_off = np.concatenate(([0], np.cumsum(n_pts - 1)))
+    # Maps a segment index onto its position among the resampled segments
+    pos = np.zeros(len(seg_n_nodes), dtype=np.int64)
+    pos[resample] = np.arange(len(n_pts))
+
+    errors = 0
+    chunks = []
+    for i in range(len(seg_n_nodes)):
+        s, e = offsets[i], offsets[i + 1]
+
+        # Segments that are too short collapse into a single row
+        if keep[i]:
+            chunks.append((first_id[i:i + 1], last_id[i:i + 1], vals_flat[s:s + 1]))
+            continue
+
+        j = pos[i]
+        lo, hi = row_off[j], row_off[j + 1]
+        # N.B. we drop the last sample point: it is only ever used as a parent ID,
+        # never as a node in its own right
+        new_dist = np.linspace(0, seg_cable[i], n_pts[j])[:-1]
+
+        values = np.empty((hi - lo, len(cols)), dtype=np.float64)
+        try:
+            values[:, :n_num] = scipy.interpolate.interp1d(
+                dist[s:e], vals_flat[s:e, :n_num], kind=method, axis=0
+            )(new_dist)
+        except ValueError:
+            if not skip_errors:
+                raise
+            # Fall back to keeping the segment's original nodes
+            errors += 1
+            chunks.append((flat[s:e - 1], flat[s + 1:e], vals_flat[s:e - 1]))
+            continue
+
+        if n_num < len(cols):
+            values[:, n_num:] = _nearest(
+                dist[s:e], vals_flat[s:e, n_num:], new_dist
+            )
+
+        chunks.append((node_id[lo:hi], parent_id[lo:hi], values))
+
+    if errors:
+        logger.warning(
+            f"{errors} ({errors / len(seg_n_nodes):.0%}) segments skipped due to errors"
+        )
+
+    return {
+        "node_id": np.concatenate([c[0] for c in chunks]).astype(np.int64),
+        "parent_id": np.concatenate([c[1] for c in chunks]).astype(np.int64),
+        "values": np.vstack([c[2] for c in chunks]),
+    }
+
+
+def _rows_for(row_starts, n_rows):
+    """Row indices occupied by each segment, flattened."""
+    off = np.concatenate(([0], np.cumsum(n_rows)))
+    return np.repeat(row_starts, n_rows) + (
+        np.arange(off[-1]) - np.repeat(off[:-1], n_rows)
+    )
+
+
+def _nearest(dist, values, new_dist):
+    """Nearest-neighbour interpolation.
+
+    Equivalent to `scipy.interpolate.interp1d(dist, values, kind="nearest")` -
+    including the halving-before-adding, which matters for reproducing scipy's
+    tie-breaking at coincident nodes.
+    """
+    half = dist / 2.0
+    bounds = half[1:] + half[:-1]
+    ix = np.searchsorted(bounds, new_dist, side="left").clip(0, len(dist) - 1)
+    return values[ix]
 
 
 @utils.map_neuronlist(desc='Binning', allow_parallel=True)
