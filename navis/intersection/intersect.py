@@ -40,93 +40,102 @@ except ModuleNotFoundError:
     logger.debug("Package ncollpyde not found.")
 
 
-__all__ = sorted(['in_volume', 'intersection_matrix'])
+__all__ = sorted(["in_volume", "intersection_matrix"])
 
-Modes = Union[Literal['IN'], Literal['OUT']]
+Modes = Union[Literal["IN"], Literal["OUT"]]
 
-Backends = Union[Literal['ncollpyde'],
-                 Literal['pyoctree'],
-                 Literal['scipy'],
-                 Sequence[Union[Literal['ncollpyde'],
-                                Literal['pyoctree'],
-                                Literal['scipy']]]
-                 ]
-
-@overload
-def in_volume(x: 'core.TreeNeuron',
-              volume: core.Volume,
-              inplace: bool = False,
-              mode: Modes = 'IN',
-              backend: Backends = ('ncollpyde', 'pyoctree'),
-              n_rays: Optional[int] = None,
-              prevent_fragments: bool = False) -> 'core.TreeNeuron': ...
+Backends = Union[
+    Literal["ncollpyde"],
+    Literal["pyoctree"],
+    Literal["scipy"],
+    Sequence[Union[Literal["ncollpyde"], Literal["pyoctree"], Literal["scipy"]]],
+]
 
 
 @overload
-def in_volume(x: 'core.NeuronList',
-              volume: core.Volume,
-              inplace: bool = False,
-              mode: Modes = 'IN',
-              backend: Backends = ('ncollpyde', 'pyoctree'),
-              n_rays: Optional[int] = None,
-              prevent_fragments: bool = False) -> 'core.NeuronList': ...
+def in_volume(
+    x: "core.TreeNeuron",
+    volume: core.Volume,
+    inplace: bool = False,
+    mode: Modes = "IN",
+    backend: Backends = ("ncollpyde", "pyoctree"),
+    n_rays: Optional[int] = None,
+    prevent_fragments: bool = False,
+) -> "core.TreeNeuron": ...
 
 
 @overload
-def in_volume(x: Union[Sequence, pd.DataFrame],
-              volume: core.Volume,
-              inplace: bool = False,
-              mode: Modes = 'IN',
-              backend: Backends = ('ncollpyde', 'pyoctree'),
-              n_rays: Optional[int] = None,
-              prevent_fragments: bool = False) -> Sequence[bool]: ...
+def in_volume(
+    x: "core.NeuronList",
+    volume: core.Volume,
+    inplace: bool = False,
+    mode: Modes = "IN",
+    backend: Backends = ("ncollpyde", "pyoctree"),
+    n_rays: Optional[int] = None,
+    prevent_fragments: bool = False,
+) -> "core.NeuronList": ...
 
 
 @overload
-def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
-              volume: Union[Dict[str, core.Volume],
-                            Sequence[core.Volume]],
-              inplace: bool = False,
-              mode: Modes = 'IN',
-              backend: Backends = ('ncollpyde', 'pyoctree'),
-              n_rays: Optional[int] = None,
-              prevent_fragments: bool = False) -> Dict[str,
-                                                       Union[Sequence[bool],
-                                                             'core.NeuronObject']]: ...
+def in_volume(
+    x: Union[Sequence, pd.DataFrame],
+    volume: core.Volume,
+    inplace: bool = False,
+    mode: Modes = "IN",
+    backend: Backends = ("ncollpyde", "pyoctree"),
+    n_rays: Optional[int] = None,
+    prevent_fragments: bool = False,
+) -> Sequence[bool]: ...
+
+
+@overload
+def in_volume(
+    x: Union["core.NeuronObject", Sequence, pd.DataFrame],
+    volume: Union[Dict[str, core.Volume], Sequence[core.Volume]],
+    inplace: bool = False,
+    mode: Modes = "IN",
+    backend: Backends = ("ncollpyde", "pyoctree"),
+    n_rays: Optional[int] = None,
+    prevent_fragments: bool = False,
+) -> Dict[str, Union[Sequence[bool], "core.NeuronObject"]]: ...
 
 
 # We do need the full signature b/c we're recursively calling in_volume
 # which means that there is uncertainty
 @overload
-def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
-              volume: Union[core.Volume,
-                            Dict[str, core.Volume],
-                            Sequence[core.Volume]],
-              inplace: bool = False,
-              mode: Modes = 'IN',
-              backend: Backends = ('ncollpyde', 'pyoctree'),
-              n_rays: Optional[int] = None,
-              prevent_fragments: bool = False) -> Optional[Union['core.NeuronObject',
-                                                                 Sequence[bool],
-                                                                 Dict[str, Union[Sequence[bool],
-                                                                                 'core.NeuronObject']]
-                                                                 ]]: ...
+def in_volume(
+    x: Union["core.NeuronObject", Sequence, pd.DataFrame],
+    volume: Union[core.Volume, Dict[str, core.Volume], Sequence[core.Volume]],
+    inplace: bool = False,
+    mode: Modes = "IN",
+    backend: Backends = ("ncollpyde", "pyoctree"),
+    n_rays: Optional[int] = None,
+    prevent_fragments: bool = False,
+) -> Optional[
+    Union[
+        "core.NeuronObject",
+        Sequence[bool],
+        Dict[str, Union[Sequence[bool], "core.NeuronObject"]],
+    ]
+]: ...
 
 
-def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
-              volume: Union[core.Volume,
-                            Dict[str, core.Volume],
-                            Sequence[core.Volume]],
-              mode: Modes = 'IN',
-              backend: Backends = ('ncollpyde', 'pyoctree'),
-              n_rays: Optional[int] = None,
-              prevent_fragments: bool = False,
-              validate: bool = False,
-              inplace: bool = False,) -> Optional[Union['core.NeuronObject',
-                                                        Sequence[bool],
-                                                        Dict[str, Union[Sequence[bool],
-                                                                        'core.NeuronObject']]
-                                                        ]]:
+def in_volume(
+    x: Union["core.NeuronObject", Sequence, pd.DataFrame],
+    volume: Union[core.Volume, Dict[str, core.Volume], Sequence[core.Volume]],
+    mode: Modes = "IN",
+    backend: Backends = ("ncollpyde", "pyoctree"),
+    n_rays: Optional[int] = None,
+    prevent_fragments: bool = False,
+    validate: bool = False,
+    inplace: bool = False,
+) -> Optional[
+    Union[
+        "core.NeuronObject",
+        Sequence[bool],
+        Dict[str, Union[Sequence[bool], "core.NeuronObject"]],
+    ]
+]:
     """Test if points/neurons are within a given volume.
 
     Notes
@@ -224,16 +233,17 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
     344
 
     """
-    allowed_backends = ('ncollpyde', 'pyoctree', 'scipy')
+    allowed_backends = ("ncollpyde", "pyoctree", "scipy")
 
     if not utils.is_iterable(backend):
         backend = [backend]
 
     if any(set(backend) - set(allowed_backends)):
-        raise ValueError(f'Unknown backend in "{backend}". Allowed backends: '
-                         f'{allowed_backends}')
+        raise ValueError(
+            f'Unknown backend in "{backend}". Allowed backends: {allowed_backends}'
+        )
 
-    if mode not in ('IN', 'OUT'):
+    if mode not in ("IN", "OUT"):
         raise ValueError(f'`mode` must be "IN" or "OUT", not "{mode}"')
 
     # If we are given multiple volumes
@@ -241,14 +251,16 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         # Force into dict
         if not isinstance(volume, dict):
             # Make sure all Volumes can be uniquely indexed
-            vnames = [getattr(v, 'name', i) for i, v in enumerate(volume)]
+            vnames = [getattr(v, "name", i) for i, v in enumerate(volume)]
             dupli = [str(v) for v in set(vnames) if vnames.count(v) > 1]
             if dupli:
-                raise ValueError('Duplicate Volume names detected: '
-                                 f'{", ".join(dupli)}. Volume.name must be '
-                                 'unique.')
+                raise ValueError(
+                    "Duplicate Volume names detected: "
+                    f"{', '.join(dupli)}. Volume.name must be "
+                    "unique."
+                )
 
-            volume = {getattr(v, 'name', i): v for i, v in enumerate(volume)}
+            volume = {getattr(v, "name", i): v for i, v in enumerate(volume)}
 
         # Make sure everything is a volume
         volume = {k: utils.make_volume(v) for k, v in volume.items()}
@@ -256,28 +268,33 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         # Validate now - this might safe us troubles later
         if validate:
             for v in volume.values():
-                msg = 'Mesh is not a volume ' \
-                      '(e.g. not watertight, incorrect ' \
-                      'winding) and could not be fixed. ' \
-                      'Use `validate=False` to skip validation and ' \
-                      'perform intersection regardless.'
+                msg = (
+                    "Mesh is not a volume "
+                    "(e.g. not watertight, incorrect "
+                    "winding) and could not be fixed. "
+                    "Use `validate=False` to skip validation and "
+                    "perform intersection regardless."
+                )
                 try:
                     v.validate()
                 except utils.VolumeError as e:
-                    raise utils.VolumeError(f'{v}: {msg}') from e
+                    raise utils.VolumeError(f"{v}: {msg}") from e
                 except BaseException:
                     raise
 
         data: Dict[str, Any] = dict()
-        for v in config.tqdm(volume, desc='Volumes', disable=config.pbar_hide,
-                             leave=config.pbar_leave):
-            data[v] = in_volume(x,
-                                volume=volume[v],
-                                inplace=False,
-                                n_rays=n_rays,
-                                mode=mode,
-                                validate=False,
-                                backend=backend)
+        for v in config.tqdm(
+            volume, desc="Volumes", disable=config.pbar_hide, leave=config.pbar_leave
+        ):
+            data[v] = in_volume(
+                x,
+                volume=volume[v],
+                inplace=False,
+                n_rays=n_rays,
+                mode=mode,
+                validate=False,
+                backend=backend,
+            )
         return data
 
     # Coerce volume into navis.Volume
@@ -287,18 +304,20 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
         raise TypeError(f'Expected navis.Volume, got "{type(volume)}"')
 
     # From here on out volume is a single core.Volume
-    vol: 'core.Volume' = volume  # type: ignore
+    vol: "core.Volume" = volume  # type: ignore
 
     if validate:
-        msg = 'Mesh is not a volume ' \
-              '(e.g. not watertight, incorrect ' \
-              'winding) and could not be fixed. ' \
-              'Use `validate=False` to skip validation and ' \
-              'perform intersection regardless.'
+        msg = (
+            "Mesh is not a volume "
+            "(e.g. not watertight, incorrect "
+            "winding) and could not be fixed. "
+            "Use `validate=False` to skip validation and "
+            "perform intersection regardless."
+        )
         try:
             vol.validate()
         except utils.VolumeError as e:
-            raise utils.VolumeError(f'{vol}: {msg}') from e
+            raise utils.VolumeError(f"{vol}: {msg}") from e
         except BaseException:
             raise
 
@@ -309,7 +328,7 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
 
     if isinstance(x, (core.BaseNeuron)):
         if isinstance(x, core.TreeNeuron):
-            data = x.nodes[['x', 'y', 'z']].values
+            data = x.nodes[["x", "y", "z"]].values
         elif isinstance(x, core.Dotprops):
             data = x.points
         elif isinstance(x, core.MeshNeuron):
@@ -318,29 +337,27 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
             data = x.voxels * x.units_xyz.magnitude + x.units_xyz.magnitude / 2
             data += x.offset
 
-        in_v = in_volume(data,
-                         vol,
-                         mode='IN',
-                         n_rays=n_rays,
-                         validate=False,
-                         backend=backend)
+        in_v = in_volume(
+            data, vol, mode="IN", n_rays=n_rays, validate=False, backend=backend
+        )
 
         # If mode is OUT, invert selection
-        if mode == 'OUT':
+        if mode == "OUT":
             in_v = ~np.array(in_v)
 
         # Only subset if there are actually nodes to remove
         if not all(in_v):
             if isinstance(x, core.TreeNeuron):
-                _ = morpho.subset_neuron(x,
-                                         subset=x.nodes[in_v].node_id.values,
-                                         inplace=True,
-                                         prevent_fragments=prevent_fragments)
+                _ = morpho.subset_neuron(
+                    x,
+                    subset=x.nodes[in_v].node_id.values,
+                    inplace=True,
+                    prevent_fragments=prevent_fragments,
+                )
             elif isinstance(x, (core.MeshNeuron, core.Dotprops)):
-                _ = morpho.subset_neuron(x,
-                                         subset=in_v,
-                                         inplace=True,
-                                         prevent_fragments=prevent_fragments)
+                _ = morpho.subset_neuron(
+                    x, subset=in_v, inplace=True, prevent_fragments=prevent_fragments
+                )
             elif isinstance(x, core.VoxelNeuron):
                 values = x.values[in_v]
                 x._data = x.voxels[in_v]
@@ -349,43 +366,48 @@ def in_volume(x: Union['core.NeuronObject', Sequence, pd.DataFrame],
 
         return x
     elif isinstance(x, core.NeuronList):
-        for n in config.tqdm(x, desc='Subsetting',
-                             leave=config.pbar_leave,
-                             disable=config.pbar_hide):
-            in_volume(n, vol, inplace=True, mode=mode, backend=backend,
-                      validate=False, n_rays=n_rays,
-                      prevent_fragments=prevent_fragments)
+        for n in config.tqdm(
+            x, desc="Subsetting", leave=config.pbar_leave, disable=config.pbar_hide
+        ):
+            in_volume(
+                n,
+                vol,
+                inplace=True,
+                mode=mode,
+                backend=backend,
+                validate=False,
+                n_rays=n_rays,
+                prevent_fragments=prevent_fragments,
+            )
 
         return x
     elif isinstance(x, pd.DataFrame):
-        points = x[['x', 'y', 'z']].values
+        points = x[["x", "y", "z"]].values
     elif isinstance(x, np.ndarray):
         points = x
     elif isinstance(x, (list, tuple)):
         points = np.array(x)
 
     if points.ndim != 2 or points.shape[1] != 3:  # type: ignore  # does not know about numpy
-        raise ValueError('Points must be array of shape (N,3).')
+        raise ValueError("Points must be array of shape (N,3).")
 
     for b in backend:
-        if b == 'ncollpyde' and ncollpyde:
-            return in_volume_ncoll(points, vol,
-                                   n_rays=n_rays)
-        elif b == 'pyoctree' and pyoctree:
-            return in_volume_pyoc(points, vol,
-                                  n_rays=n_rays)
-        elif b == 'scipy':
+        if b == "ncollpyde" and ncollpyde:
+            return in_volume_ncoll(points, vol, n_rays=n_rays)
+        elif b == "pyoctree" and pyoctree:
+            return in_volume_pyoc(points, vol, n_rays=n_rays)
+        elif b == "scipy":
             return in_volume_convex(points, vol, approximate=False)
 
-    raise ValueError(f'None of the specified backends were available: {backend}')
+    raise ValueError(f"None of the specified backends were available: {backend}")
 
 
-def intersection_matrix(x: 'core.NeuronObject',
-                        volumes: Union[List[core.Volume],
-                                       Dict[str, core.Volume]],
-                        attr: Optional[str] = None,
-                        **kwargs
-                        ) -> pd.DataFrame:
+def intersection_matrix(
+    x: "core.NeuronObject",
+    volumes: Union[List[core.Volume], Dict[str, core.Volume]],
+    attr: Optional[str] = None,
+    **kwargs,
+) -> pd.DataFrame:
     """Compute intersection matrix between a set of neurons and volumes.
 
     Parameters
@@ -427,8 +449,7 @@ def intersection_matrix(x: 'core.NeuronObject',
         raise TypeError(f'x must be Neuron/List, not "{type(x)}"')
 
     if not isinstance(volumes, (list, dict)):
-        raise TypeError('Volumes must be given as list or dict, not '
-                        f'"{type(volumes)}"')
+        raise TypeError(f'Volumes must be given as list or dict, not "{type(volumes)}"')
 
     if isinstance(volumes, list):
         volumes_dict = {v.name: v for v in volumes}
@@ -442,12 +463,14 @@ def intersection_matrix(x: 'core.NeuronObject',
     data = in_volume(x, volumes_dict, inplace=False, **kwargs)
 
     if not attr:
-        df = pd.DataFrame([[n for n in data[v]] for v in data],
-                          index=list(data.keys()),
-                          columns=x.id)
+        df = pd.DataFrame(
+            [[n for n in data[v]] for v in data], index=list(data.keys()), columns=x.id
+        )
     else:
-        df = pd.DataFrame([[getattr(n, attr) for n in data[v]] for v in data],
-                          index=list(data.keys()),
-                          columns=x.id)
+        df = pd.DataFrame(
+            [[getattr(n, attr) for n in data[v]] for v in data],
+            index=list(data.keys()),
+            columns=x.id,
+        )
 
     return df
