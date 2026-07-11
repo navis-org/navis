@@ -909,11 +909,6 @@ class TreeNeuron(BaseNeuron):
         self._igraph = graph.neuron2igraph(self, raise_not_installed=False)
         return self._igraph
 
-    @overload
-    def resample(self, resample_to: int, inplace: Literal[False]) -> 'TreeNeuron': ...
-
-    @overload
-    def resample(self, resample_to: int, inplace: Literal[True]) -> None: ...
 
     def resample(self, resample_to, inplace=False):
         """Resample neuron to given resolution.
@@ -946,18 +941,6 @@ class TreeNeuron(BaseNeuron):
         if not inplace:
             return x
         return None
-
-    @overload
-    def downsample(self,
-                   factor: float,
-                   inplace: Literal[False],
-                   **kwargs) -> 'TreeNeuron': ...
-
-    @overload
-    def downsample(self,
-                   factor: float,
-                   inplace: Literal[True],
-                   **kwargs) -> None: ...
 
     def downsample(self, factor=5, inplace=False, **kwargs):
         """Downsample the neuron by given factor.

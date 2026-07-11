@@ -572,36 +572,6 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
     return x
 
 
-#  only this combination will return a single bool
-@overload
-def distal_to(
-    x: "core.TreeNeuron",
-    a: Union[str, str],
-    b: Union[str, int],
-) -> bool:
-    pass
-
-
-#  if above types don't a DataFrame will be returned
-@overload
-def distal_to(
-    x: "core.TreeNeuron",
-    a: Optional[List[Union[str, int]]],
-    b: Optional[Union[str, int, List[Union[str, int]]]],
-) -> pd.DataFrame:
-    pass
-
-
-#  if above types don't a DataFrame will be returned
-@overload
-def distal_to(
-    x: "core.TreeNeuron",
-    a: Optional[Union[str, int, List[Union[str, int]]]],
-    b: Optional[List[Union[str, int]]],
-) -> pd.DataFrame:
-    pass
-
-
 @utils.lock_neuron
 def distal_to(
     x: "core.TreeNeuron",
