@@ -2564,7 +2564,12 @@ def rewire_skeleton(
     if g.is_directed():
         g = g.to_undirected()
 
-    g = nx.minimum_spanning_tree(g, weight="weight")
+    # The MST is only needed to break cycles. If the graph is already a forest
+    # (which is the common case - e.g. when edges were only removed, or when
+    # fragments were bridged) we can skip it: the MST of a forest is that same
+    # forest, and computing it is expensive on large neurons.
+    if g.number_of_edges() != (g.number_of_nodes() - nx.number_connected_components(g)):
+        g = nx.minimum_spanning_tree(g, weight="weight")
 
     if not root:
         root = x.root[0] if x.root[0] in g.nodes else next(iter(g.nodes))
