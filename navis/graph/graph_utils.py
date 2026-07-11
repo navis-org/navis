@@ -2690,8 +2690,9 @@ def propagate_labels(
     Returns
     -------
     prop :      array
-                Array of propagated labels for each node/vertex in the neuron. Nodes/vertices
-                that weren't visited (e.g. disconnected from any labeled nodes) will have NaN.
+                Object-dtype array of propagated labels for each node/vertex in the neuron.
+                Nodes/vertices that weren't visited (e.g. disconnected from any labeled
+                nodes) will have NaN.
     (prop, probs, labels) : tuple, optional
                 If `return_probs!=False`, returns a tuple containing:
                   - `prop`: array of propagated labels
@@ -2719,9 +2720,7 @@ def propagate_labels(
     >>> # neighborhood suggests a different label.
     >>> prop_labels = navis.graph.graph_utils.propagate_labels(n, labels, clamping=False)
     >>> prop_labels[:5]
-    <ArrowStringArray>
-    ['post', 'post', 'post', 'post', 'post']
-    Length: 5, dtype: str
+    array(['post', 'post', 'post', 'post', 'post'], dtype=object)
 
     >>> # To visualize
     >>> # navis.plot3d(n, color_by=prop_labels, palette={"pre": "red", "post": "blue"})
@@ -2933,10 +2932,22 @@ def propagate_labels(
         else:
             prop[node] = label_set[np.argmax(F[i])]
 
+    # Map the labels back into node/vertex order.
+    # N.B. we explicitly build an object-dtype array instead of letting pandas/numpy
+    # infer it: the inferred dtype is not stable across versions. pandas >= 3 infers
+    # `str` (-> ArrowStringArray) for string labels while pandas < 3 gives `object`,
+    # and `np.array` on an all-labeled mesh yields a fixed-width `<U*` array that
+    # cannot hold NaN.
     if isinstance(x, core.TreeNeuron):
-        prop_array = x.nodes.node_id.map(prop).values
+        keys = x.nodes.node_id.values
     else:
-        prop_array = np.array([prop[i] for i in range(len(x.vertices))])
+        keys = range(len(x.vertices))
+
+    prop_array = np.full(len(keys), np.nan, dtype=object)
+    for i, key in enumerate(keys):
+        label = prop.get(key)
+        if label is not None:
+            prop_array[i] = label
 
     if return_probs:
         if return_probs == "raw":
