@@ -374,6 +374,23 @@ class BayesianTraversalModel(TraversalModel):
                         which will linearly scale probability of traversal
                         from 0 to 100% between edges weights 0 to 0.3.
 
+    Notes
+    -----
+    This model is a fast, deterministic approximation of the Monte-Carlo
+    [`navis.models.network_models.TraversalModel`][]. For each node it
+    propagates the full delivery distribution of every inbound edge (the
+    parent's traversal-time distribution convolved with the edge's per-step
+    firing probability) and is therefore *exact* for tree-like graphs and for
+    single points of reconvergence (e.g. diamonds). It does, however, still
+    assume that a node's parents are traversed *independently*. This holds
+    whenever the parents' traversal times are independent (as in a diamond),
+    but is only an approximation when two or more parents share correlated
+    upstream ancestry. In that case the model may slightly mistime the node's
+    traversal; use `TraversalModel` (Monte-Carlo) as ground truth if exactness
+    matters there. Note also that, as with `TraversalModel`, results near the
+    `max_steps` horizon are affected by truncation - increase `max_steps` if a
+    node's traversal-time distribution has not effectively converged to 1.
+
     Examples
     --------
     >>> from navis.models import BayesianTraversalModel
@@ -501,16 +518,40 @@ class BayesianTraversalModel(TraversalModel):
                     cmf = cmfs[idx, :]
                     inbound = edges_idx[edges_idx[:, 1] == idx, :]
                     pre = inbound[:, 0].astype(np.int64)
+                    p_edge = inbound[:, 2]
 
-                    # Traversal probability for each inbound edge at each time.
-                    posteriors = cmfs[pre, :] * np.expand_dims(inbound[:, 2], axis=1)
-                    # At each time, compute the probability that at least one inbound edge
-                    # is traversed.
-                    new_pmf = 1 - np.prod(1 - posteriors, axis=0)
-                    new_cmf = cmf.copy()
-                    # Offset the time-cumulative probability by 1 to account for traversal iteration.
-                    # Use maximum of previous CMF as it is monotonic and to include fixed seed traversal.
-                    new_cmf[1:] = np.maximum(cmf[1:], 1 - np.cumprod(1 - new_pmf[:-1]))
+                    # Probability that each parent *first* activates at a given step.
+                    pmf = np.diff(cmfs[pre, :], axis=1, prepend=0.)
+
+                    # For each inbound edge, compute the probability that it has
+                    # delivered traversal to this node by a given step. An edge
+                    # whose parent became active at step ``k`` fires with
+                    # probability ``p`` at each subsequent step, so it has
+                    # delivered by step ``t`` with probability ``1 - (1-p)^(t-k)``.
+                    # The delivery CMF is therefore the parent's activation-time
+                    # PMF convolved with this geometric edge-firing distribution.
+                    # This correctly models the fact that all of a single edge's
+                    # per-step firings are driven by the *same* (monotone)
+                    # parent-activation event, rather than treating them as
+                    # independent across time (the latter over-counts traversal
+                    # and made this node appear to be reached too early - see #194).
+                    # The convolution is evaluated via the recurrence
+                    # ``c[t] = (1-p) * c[t-1] + pmf[t]``, with
+                    # ``deliver = parent_cmf - c``.
+                    q = 1 - p_edge
+                    c = np.empty_like(pmf)
+                    c[:, 0] = pmf[:, 0]
+                    for t in range(1, pmf.shape[1]):
+                        c[:, t] = q * c[:, t - 1] + pmf[:, t]
+                    deliver = cmfs[pre, :] - c
+
+                    # Combine inbound edges assuming independence *across parents*.
+                    # This is exact for tree-like graphs and single points of
+                    # reconvergence (e.g. diamonds); see the Notes in the class
+                    # docstring for the residual approximation. Take the maximum
+                    # with the previous CMF as it is monotonic and to preserve
+                    # fixed seed traversal.
+                    new_cmf = np.maximum(cmf, 1 - np.prod(1 - deliver, axis=0))
                     np.clip(new_cmf, 0., 1., out=new_cmf)
 
                     if np.allclose(cmf, new_cmf):
