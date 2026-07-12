@@ -1635,24 +1635,23 @@ def reroot_skeleton(
         # Grab graph once to avoid overhead from stale checks
         g: igraph.Graph = x.igraph
 
+        # Map node ID -> vertex index up front. `vs.select(node_id_in=...)` and
+        # `vs.find(node_id=...)` both scan every vertex in Python, and we're inside
+        # a loop over the new roots.
+        id2ix = {nid: ix for ix, nid in enumerate(g.vs["node_id"])}
+
+        # Vertices of the current root(s), in the same order as x.root
+        vs_roots = [id2ix[r] for r in x.root]
+
         # Prevent warnings in the following code - querying paths between
         # unreachable nodes will otherwise generate a runtime warning
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
 
-            # Find vertices corresponding to current root(s)
-            vs_roots = g.vs.select(node_id_in=x.root)
-
-            # Sort to match x.root
-            vs_roots = {v['node_id']: v for v in vs_roots}
-            vs_roots = [vs_roots[r] for r in x.root]
-
             # Find paths to all roots
-            path = g.get_shortest_paths(
-                g.vs.find(node_id=new_root), vs_roots
-            )
+            path = g.get_shortest_paths(id2ix[new_root], vs_roots)
             epath = g.get_shortest_paths(
-                g.vs.find(node_id=new_root),
+                id2ix[new_root],
                 vs_roots,
                 output="epath",
             )
