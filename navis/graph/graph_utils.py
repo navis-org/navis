@@ -1971,10 +1971,14 @@ def node_label_sorting(
     # Get relevant terminal nodes
     term = x.nodes[x.nodes.type == "end"].node_id.values
 
-    # Get directed (!) distance from terminals to all other nodes
+    # Get directed (!) distances between the nodes of the simplified skeleton.
+    # Those are the only ones we ever index below - the walk happens on
+    # `simplify_graph(x.graph)`, whose nodes are exactly the ends/roots/branches.
+    breaks = x.nodes[x.nodes.type.isin(("end", "root", "branch"))].node_id.values
     geo = geodesic_matrix(
         x,
-        from_=x.nodes[x.nodes.type.isin(("end", "root", "branch"))].node_id.values,
+        from_=breaks,
+        to_=breaks,
         directed=True,
         weight="weight" if weighted else None,
     )
