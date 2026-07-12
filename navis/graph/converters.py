@@ -775,51 +775,44 @@ def edges2neuron(edges, vertices=None, validate=True, **kwargs):
     if edges.max() > (len(vertices)-1):
         raise IndexError("vertex index out of range")
 
-    G = nx.Graph()
-    G.add_nodes_from(np.arange(len(vertices)))
-    G.add_edges_from(edges)
-
     # Note: at this point we could just pass the graph to nx2neuron
     # But because we know it came from from vertices and edges, we
     # can skip certain checks and make the process a bit faster
 
     if validate:
-        if not nx.is_forest(G):
-            while True:
-                try:
-                    # Find cycle
-                    cycle = nx.find_cycle(G)
-                except nx.exception.NetworkXNoCycle:
-                    break
-                except BaseException:
-                    raise
+        G = igraph.Graph(n=len(vertices), edges=edges.tolist(), directed=False)
 
-                # Sort by degree
-                cycle = sorted(cycle, key=lambda x: G.degree[x[0]])
+        # Drop cycles. A spanning forest keeps every vertex connected while
+        # removing exactly the edges that close a cycle.
+        if G.ecount() != G.vcount() - len(G.components(mode="WEAK")):
+            G = G.spanning_tree()
 
-                # Remove the edge with the lowest degree
-                G.remove_edge(cycle[0][0], cycle[0][1])
+        # Root each connected component at its lowest vertex index and orient the
+        # edges towards it. We do this with a single breadth-first search from a
+        # virtual node joined to every root - one search per component would be
+        # O(components * N), which degrades badly on fragmented input.
+        roots = [min(c) for c in G.components(mode="WEAK")]
 
-        parents = {}
-        for cc in nx.connected_components(G):
-            # If this is a disconnected node
-            if len(cc) == 1:
-                parents[cc.pop()] = -1
-                continue
+        H = G.copy()
+        virtual = H.vcount()
+        H.add_vertices(1)
+        H.add_edges([(virtual, r) for r in roots])
 
-            sg = nx.subgraph(G, cc)
-            # Pick a random root
-            r = cc.pop()
-            # Generate parent->child dictionary
-            this = nx.predecessor(sg, r)
+        # igraph's BFS reports the root's parent as -1, which is also navis'
+        # convention for a root - so the roots need no special-casing here.
+        pred = H.bfs(virtual)[2]
 
-            # Update overall parent dictionary
-            # (note that we assign -1 as root's parent)
-            parents.update({k: v[0] if v else -1 for k, v in this.items()})
+        parents = dict(zip(range(G.vcount()), pred))
+        for r in roots:
+            parents[r] = -1
+    else:
+        # Caller vouches for the data: edges are already (child, parent) and
+        # cycle-free. Anything without a parent is a root.
+        parents = dict(zip(edges[:, 0].tolist(), edges[:, 1].tolist()))
 
     nodes = pd.DataFrame(vertices, columns=['x', 'y', 'z'])
     nodes.insert(0, 'node_id', nodes.index)
-    nodes.insert(1, 'parent_id', nodes.index.map(parents))
+    nodes.insert(1, 'parent_id', nodes.index.map(parents).fillna(-1).astype(int))
 
     return core.TreeNeuron(nodes, **kwargs)
 
