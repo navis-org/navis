@@ -2258,7 +2258,11 @@ def _stitch_mst(
 
     """
     assert isinstance(x, core.TreeNeuron)
-    assert nodes in ("ALL", "LEAFS")
+    if nodes not in ("ALL", "LEAFS"):
+        raise ValueError(
+            f'`nodes` must be "ALL" or "LEAFS", got "{nodes}". To restrict '
+            "stitching to a set of node IDs, pass them as `mask` instead."
+        )
     if max_dist is True or not max_dist:
         max_dist = np.inf
 
