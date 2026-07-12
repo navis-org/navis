@@ -606,12 +606,14 @@ def arbor_segregation_index(x: "core.NeuronObject") -> "core.NeuronObject":
     logger.setLevel(current_level)
 
     # Get number of pre/postsynapses distal to each branch's childs
-    # Note that we're using geodesic matrix here because it is much more
-    # efficient than for `distal_to` for larger queries/neurons
     dists = graph.geodesic_matrix(
-        y, from_=np.append(pre_node_ids, post_node_ids), directed=True, weight=None
+        y,
+        from_=np.append(pre_node_ids, post_node_ids),
+        to_=calc_node_ids,
+        directed=True,
+        weight=None,
     )
-    distal = dists[calc_node_ids] < np.inf
+    distal = dists < np.inf
 
     # Since nodes can have multiple pre-/postsynapses but they show up only
     # once in distal, we have to reindex to reflect the correct number of synapes
