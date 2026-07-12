@@ -15,10 +15,11 @@ import numpy as np
 import pandas as pd
 import skeletor as sk
 import trimesh as tm
-import networkx as nx
 
 from numbers import Number
 from scipy.ndimage import gaussian_filter
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import minimum_spanning_tree
 from typing import Union, Optional
 
 from .. import core, config, utils, morpho, graph
@@ -99,20 +100,36 @@ def points2skeleton(x: Union['core.Dotprops', np.ndarray],
             not_inf = le != np.inf
             edges += list(zip(ix1[not_inf], ix2[not_inf], le[not_inf]))
 
-    # Generate graph
-    G = nx.Graph()
-    G.add_nodes_from(ix1)
-    G.add_weighted_edges_from(edges)
+    # Extract the minimum spanning tree. The kNN edges are already a weighted sparse
+    # structure, so we can hand them straight to scipy instead of detouring through
+    # a networkx graph.
+    edges = np.asarray(edges, dtype=float)
+    src = edges[:, 0].astype(np.int64)
+    tgt = edges[:, 1].astype(np.int64)
+    weights = edges[:, 2]
 
-    # Extract minimum spanning tree
-    G_mst = nx.minimum_spanning_tree(G)
+    # Collapse (a, b) and (b, a) into a single undirected edge and drop self-loops:
+    # a COO matrix *sums* duplicate entries, which would otherwise double the weight
+    # of every reciprocal nearest-neighbour pair.
+    lo = np.minimum(src, tgt)
+    hi = np.maximum(src, tgt)
+    keep = lo != hi
+    lo, hi, weights = lo[keep], hi[keep], weights[keep]
 
-    # Add the coordinates as node properties
-    nx.set_node_attributes(G_mst, dict(zip(G.nodes, pts[:, 0])), name='x')
-    nx.set_node_attributes(G_mst, dict(zip(G.nodes, pts[:, 1])), name='y')
-    nx.set_node_attributes(G_mst, dict(zip(G.nodes, pts[:, 2])), name='z')
+    _, uniq = np.unique(np.stack([lo, hi], axis=1), axis=0, return_index=True)
+    lo, hi, weights = lo[uniq], hi[uniq], weights[uniq]
 
-    return graph.nx2neuron(G_mst)
+    # csgraph returns the tree as a sparse matrix, in which a zero-weight edge is
+    # indistinguishable from an absent one - and duplicate points sit at distance
+    # exactly 0. Shifting every weight by a constant keeps them off zero without
+    # changing the tree: all spanning trees have the same number of edges, so a
+    # constant per-edge offset shifts every candidate's total by the same amount.
+    adj = coo_matrix((weights + 1, (lo, hi)), shape=(len(pts), len(pts)))
+    mst = minimum_spanning_tree(adj).tocoo()
+
+    mst_edges = np.stack([mst.row, mst.col], axis=1)
+
+    return graph.edges2neuron(mst_edges, vertices=pts)
 
 
 @utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
@@ -236,6 +253,41 @@ def mesh2skeleton(x: 'core.MeshNeuron',
         _ = morpho.heal_skeleton(s, inplace=True, method='ALL')
 
     if shave:
+        # --- alternative approach: drop all terminal segments that are more or less straight ---
+        # # First node of all small segments
+        # n1 = np.array([seg[0] for seg in s.small_segments])
+        # n2 = np.array([seg[-1] for seg in s.small_segments])
+
+        # # Which segments are terminal
+        # leafs = s.leafs.node_id.values
+        # bp = s.branch_points.node_id.values
+        # is_term = np.isin(n1, leafs) & np.isin(n2, bp)
+        # term_seg = np.array(s.small_segments, dtype=object)[is_term]
+
+        # # Calculate geodesic length of terminal segments
+        # seg_lengths = np.array([graph.segment_length(s, seg) for seg in term_seg])
+
+        # # Calculate Euclidean tip->end distance
+        # nodes = s.nodes.set_index('node_id')
+        # start = nodes.loc[[seg[0] for seg in term_seg], ["x", "y", "z"]].values
+        # end = nodes.loc[[seg[-1] for seg in term_seg], ["x", "y", "z"]].values
+        # L = np.sqrt(((start - end) ** 2).sum(axis=1))
+
+        # # Calculate tortuosity
+        # tort = seg_lengths / L
+
+        # # Drop all terminal segments that are more ore less straight
+        # seg_to_drop = term_seg[tort <= 1.2]
+        # nodes_to_drop = np.concatenate([t[:-1] for t in seg_to_drop])
+        # keep = s.nodes[~s.nodes.node_id.isin(nodes_to_drop)].node_id.values
+
+        # # Subset neuron
+        # s = morpho.subset_neuron(s, keep, inplace=True)
+
+        # # Fix vertex map
+        # for seg in seg_to_drop:
+        #     s.vertex_map[np.isin(s.vertex_map, seg[:-1])] = seg[-1]
+
         # Find single node bristles
         leafs = s.leafs.node_id.values
 
@@ -329,6 +381,9 @@ def _make_voxels(x: 'core.BaseNeuron',
         pts = x.points
     elif isinstance(x, (core.MeshNeuron, tm.Trimesh)):
         pts = np.array(x.vertices)
+    else:
+        raise TypeError(f'Expected TreeNeuron, Dotprops or MeshNeuron, got '
+                        f'"{type(x)}"')
 
     # Convert points to voxel indices
     ix = (pts / pitch).round().astype(int)
