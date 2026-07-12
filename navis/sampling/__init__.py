@@ -13,5 +13,6 @@
 
 from .downsampling import downsample_neuron
 from .resampling import resample_skeleton, resample_along_axis
+from .points import sample_skeleton
 
-__all__ = ['downsample_neuron', 'resample_skeleton', 'resample_along_axis']
+__all__ = ['downsample_neuron', 'resample_skeleton', 'resample_along_axis', 'sample_skeleton']
