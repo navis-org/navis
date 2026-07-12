@@ -1925,9 +1925,18 @@ def generate_list_of_childs(x: "core.NeuronObject") -> Dict[int, List[int]]:
 
     """
     assert isinstance(x, core.TreeNeuron)
-    # Grab graph once to avoid overhead from stale checks
-    g = x.graph
-    return {n: [e[0] for e in g.in_edges(n)] for n in g.nodes}
+
+    # The node table already *is* a child->parent map, so we can invert it directly
+    # instead of building a graph and asking it for `in_edges` once per node.
+    nid = x.nodes.node_id.values
+    pid = x.nodes.parent_id.values
+
+    childs: Dict[int, List[int]] = {n: [] for n in nid.tolist()}
+    has_parent = pid >= 0
+    for c, p in zip(nid[has_parent].tolist(), pid[has_parent].tolist()):
+        childs[p].append(c)
+
+    return childs
 
 
 def node_label_sorting(
