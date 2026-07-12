@@ -500,14 +500,16 @@ class TreeNeuron(BaseNeuron):
 
         See also
         --------
-        networkx.is_forest()
-                    Function used to test whether neuron is a tree.
         :attr:`TreeNeuron.cycles`
                     If your neuron is not a tree, this will help you identify
                     cycles.
 
         """
-        return nx.is_forest(self.graph)
+        # A graph is a forest iff it has no cycles, i.e. iff every component is a
+        # tree and therefore contributes exactly (n_vertices - 1) edges. Cheaper
+        # than walking the graph (which is what networkx's is_forest does).
+        G = self.igraph
+        return G.ecount() == G.vcount() - len(G.components(mode="WEAK"))
 
     @property
     def subtrees(self) -> List[List[int]]:
