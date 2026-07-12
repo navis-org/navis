@@ -646,6 +646,7 @@ def skeleton_adjacency_matrix(
 def geodesic_matrix(
     x: "core.NeuronObject",
     from_: Optional[Iterable[int]] = None,
+    to_: Optional[Iterable[int]] = None,
     directed: bool = False,
     weight: Optional[str] = "weight",
     limit: Union[float, int] = np.inf,
@@ -660,6 +661,12 @@ def geodesic_matrix(
                 Node IDs (for TreeNeurons) or vertex indices (for MeshNeurons).
                 If provided, will compute distances only FROM this subset to
                 all other nodes/vertices.
+    to_ :       list | numpy.ndarray, optional
+                Node IDs (for TreeNeurons) or vertex indices (for MeshNeurons).
+                If provided, will compute distances only TO this subset. Use
+                together with `from_` to get just the block you need instead of
+                slicing a full matrix afterwards - that can be the difference
+                between a few MB and a few GB on a large neuron.
     directed :  bool, optional
                 For TreeNeurons only: if True, pairs without a child->parent
                 path will be returned with `distance = "inf"`.
@@ -694,12 +701,11 @@ def geodesic_matrix(
 
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> # Generate distance matrix
-    >>> m = navis.geodesic_matrix(n)
-    >>> # Subset matrix to leaf nodes
     >>> leafs = n.nodes[n.nodes.type=='end'].node_id.values
-    >>> l_dist = m.loc[leafs, leafs]
-    >>> # Get mean
+    >>> # Compute just the leaf-by-leaf block. Note that generating the full
+    >>> # matrix and subsetting it afterwards would give the same answer but
+    >>> # has to materialise every node-to-node distance to get there.
+    >>> l_dist = navis.geodesic_matrix(n, from_=leafs, to_=leafs)
     >>> round(l_dist.mean().mean())
     12983
 
@@ -714,36 +720,39 @@ def geodesic_matrix(
 
     limit = x.map_units(limit, on_error="raise")
 
+    def _check(sel, valid):
+        """Normalise a `from_`/`to_` selection and make sure it exists."""
+        sel = np.unique(utils.make_iterable(sel))
+        miss = sel[~np.isin(sel, valid)]
+        if len(miss):
+            raise ValueError(
+                f"Node/vertex IDs not present: {', '.join(miss.astype(str))}"
+            )
+        return sel
+
     # Use fastcore if available
     if utils.fastcore and isinstance(x, core.TreeNeuron):
+        node_ids = x.nodes.node_id.values
+
         # Calculate node distances
         if weight == "weight":
             weight = utils.fastcore.dag.parent_dist(
-                x.nodes.node_id.values,
+                node_ids,
                 x.nodes.parent_id.values,
                 x.nodes[["x", "y", "z"]].values,
                 root_dist=0,
             )
 
-        # Check for missing sources
-        if not isinstance(from_, type(None)):
-            from_ = np.unique(utils.make_iterable(from_))
-
-            miss = from_[~np.isin(from_, x.nodes.node_id.values)]
-            if len(miss):
-                raise ValueError(
-                    f"Node/vertex IDs not present: {', '.join(miss.astype(str))}"
-                )
-            ix = from_
-        else:
-            ix = x.nodes.node_id.values
+        from_ = None if from_ is None else _check(from_, node_ids)
+        to_ = None if to_ is None else _check(to_, node_ids)
 
         dmat = utils.fastcore.geodesic_matrix(
-            x.nodes.node_id.values,
+            node_ids,
             x.nodes.parent_id.values,
             weights=weight,
             directed=directed,
             sources=from_,
+            targets=to_,
         )
 
         # Fastcore returns -1 for unreachable node pairs
@@ -752,7 +761,11 @@ def geodesic_matrix(
         if limit is not None and limit is not np.inf:
             dmat[dmat > limit] = np.inf
 
-        return pd.DataFrame(dmat, index=ix, columns=x.nodes.node_id.values)
+        return pd.DataFrame(
+            dmat,
+            index=node_ids if from_ is None else from_,
+            columns=node_ids if to_ is None else to_,
+        )
 
     # Makes no sense to use directed for MeshNeurons
     if isinstance(x, core.MeshNeuron):
@@ -769,25 +782,30 @@ def geodesic_matrix(
     # Matrix is ordered by vertex number
     m = _igraph_to_sparse(G, weight_attr=weight)
 
-    if not isinstance(from_, type(None)):
-        from_ = np.unique(utils.make_iterable(from_))
+    from_ = None if from_ is None else _check(from_, nodeList)
+    to_ = None if to_ is None else _check(to_, nodeList)
 
-        miss = from_[~np.isin(from_, nodeList)].astype(str)
-        if len(miss):
-            raise ValueError(f"Node/vertex IDs not present: {', '.join(miss)}")
-
-        indices = np.where(np.isin(nodeList, from_))[0]
-        ix = nodeList[indices]
-    else:
-        indices = None
-        ix = nodeList
+    # Note: `nodeList` is in graph (i.e. node table) order, so we have to look up
+    # where each requested ID sits rather than assume it is sorted. Doing this for
+    # the rows as well keeps the row order identical to the fastcore path above.
+    lookup = pd.Index(nodeList)
+    indices = None if from_ is None else lookup.get_indexer(from_)
 
     # For some reason csgraph.dijkstra expects indices/indptr as int32
     m.indptr = m.indptr.astype("int32", copy=False)
     m.indices = m.indices.astype("int32", copy=False)
     dmat = csgraph.dijkstra(m, directed=directed, indices=indices, limit=limit)
 
-    return pd.DataFrame(dmat, columns=nodeList, index=ix)  # type: ignore  # no stubs
+    # csgraph has no notion of targets, so we have to subset after the fact. This
+    # is the fallback - the fastcore path above never materialises these columns.
+    if to_ is not None:
+        dmat = dmat[:, lookup.get_indexer(to_)]
+
+    return pd.DataFrame(  # type: ignore  # no stubs
+        dmat,
+        index=nodeList if from_ is None else from_,
+        columns=nodeList if to_ is None else to_,
+    )
 
 
 def _geodesic_nearest(
