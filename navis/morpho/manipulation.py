@@ -891,14 +891,13 @@ def split_axon_dendrite(
     linker = set(x.nodes.loc[is_linker, "node_id"].values)
 
     # We try to perform processing on the graph to avoid overhead from
-    # (re-)generating neurons
-    g = x.graph.to_undirected()
-
-    # Drop linker nodes
-    g.remove_nodes_from(linker)
+    # (re-)generating neurons. Note we work off the neuron's igraph: building the
+    # networkx graph (and then copying it via `to_undirected`) costs more than
+    # everything we do with it.
+    keep = x.nodes.node_id.values[~x.nodes.node_id.isin(linker).values]
 
     # Break into connected components
-    cc = list(nx.connected_components(g))
+    cc = graph.connected_components_of(x, keep)
 
     # Figure out which one is which
     axon = set()
@@ -958,13 +957,13 @@ def split_axon_dendrite(
     # clean-up
     # First: it is quite likely that the axon(s) and/or the dendrites fragmented
     # and we need to stitch them back together using linker but not dendrites!
-    g = x.graph.subgraph(np.append(list(axon), list(linker)))
+    g = graph.subset_igraph(x, np.append(list(axon), list(linker)))
     axon = set(graph.connected_subgraph(g, axon)[0])
 
     # Remove nodes that were re-assigned to axon from linker
     linker = linker - axon
 
-    g = x.graph.subgraph(np.append(list(dendrite), list(linker)))
+    g = graph.subset_igraph(x, np.append(list(dendrite), list(linker)))
     dendrite = set(graph.connected_subgraph(g, dendrite)[0])
 
     # Remove nodes that were re-assigned to axon from linker
@@ -978,10 +977,9 @@ def split_axon_dendrite(
         # To excise the CBF, we subset the neuron to those parts with
         # no/hardly any flow and find the part that contains the soma
         no_flow = x.nodes[x.nodes[metric] <= x.nodes[metric].max() * 0.05]
-        g = x.graph.subgraph(no_flow.node_id.values)
 
         # Find the connected component containing the soma
-        for c in nx.connected_components(g.to_undirected()):
+        for c in graph.connected_components_of(x, no_flow.node_id.values):
             if x.root[0] in c:
                 cbf = set(c)
                 dendrite = dendrite - cbf
