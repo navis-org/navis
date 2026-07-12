@@ -161,3 +161,38 @@ def test_empty_skeleton_graph_functions():
     assert len(navis.graph.graph_utils._break_segments(n)) == 0
     assert navis.geodesic_matrix(n).empty
     assert len(n.root) == 0
+
+
+@pytest.mark.parametrize("validate", [True, False])
+def test_edges2neuron(validate):
+    """`validate=False` used to raise an UnboundLocalError."""
+    # A simple Y: 0 -> 1 -> 2, with 3 branching off 1
+    verts = np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0], [1, 1, 0]], dtype=float)
+    # Edges are (child, parent) - which is what `validate=False` trusts them to be
+    edges = np.array([[0, 1], [2, 1], [3, 1]])
+
+    n = navis.edges2neuron(edges, vertices=verts, validate=validate)
+
+    assert isinstance(n, navis.TreeNeuron)
+    assert n.n_nodes == 4
+    assert n.is_tree
+    # Same tree either way, regardless of how it ends up rooted
+    edge_set = {
+        frozenset((c, p))
+        for c, p in zip(n.nodes.node_id.values, n.nodes.parent_id.values)
+        if p >= 0
+    }
+    assert edge_set == {frozenset((0, 1)), frozenset((2, 1)), frozenset((3, 1))}
+
+
+def test_edges2neuron_cycle():
+    """Cycles must be broken (only relevant with validate=True)."""
+    verts = np.zeros((4, 3), dtype=float)
+    verts[:, 0] = np.arange(4)
+    # 0-1-2-0 is a cycle, 3 hangs off 2
+    edges = np.array([[0, 1], [1, 2], [2, 0], [2, 3]])
+
+    n = navis.edges2neuron(edges, vertices=verts)
+
+    assert n.n_nodes == 4
+    assert n.is_tree  # cycle was broken
