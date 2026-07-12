@@ -30,6 +30,8 @@ try:
 except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
+import scipy.spatial
+
 from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import breadth_first_order
 from scipy.sparse.csgraph import connected_components as _sparse_cc
@@ -337,7 +339,7 @@ def prune_twigs(
     `size`. This is very fast but rather stupid: for example, if a twig is
     just 1 nanometer longer than `size` it will not be touched at all. If you
     require precision, set `exact=True` which will prune *exactly* `size`
-    off the terminals but is about an order of magnitude slower.
+    off the terminals at a few times the cost.
 
     Parameters
     ----------
@@ -530,6 +532,42 @@ def _prune_twigs_simple(
     return neuron
 
 
+def _subtree_height(neuron: "core.TreeNeuron", weight: str = "weight") -> pd.Series:
+    """Geodesic distance from each node down to the furthest leaf below it.
+
+    Returns a Series of heights indexed by node ID (leafs have height 0).
+
+    A leaf `l` that is distal to `v` always sits below `v`, so the path between
+    them runs straight down and `dist(v -> l) == depth(l) - depth(v)`. That turns
+    "how far is the furthest leaf under v" into "what is the deepest leaf under v",
+    which one upward sweep answers.
+    """
+    nid = neuron.nodes.node_id.values
+    pid = neuron.nodes.parent_id.values
+
+    ix = {n: i for i, n in enumerate(nid.tolist())}
+    parent_ix = np.array([ix.get(p, -1) for p in pid.tolist()], dtype=np.int64)
+
+    d = graph.dist_to_root(neuron, weight=weight)
+    depth = np.array([d[n] for n in nid.tolist()], dtype=float)
+
+    # Leafs are the nodes that are nobody's parent
+    leaf_ix = np.where(~np.isin(nid, pid))[0]
+
+    # Walk up from each leaf, deepest first. Once we hit a node already carrying a
+    # value >= ours, every ancestor above it does too and we can stop - so each
+    # node is written exactly once and the whole sweep is O(N).
+    deepest = np.full(len(nid), -np.inf)
+    for i in leaf_ix[np.argsort(-depth[leaf_ix])]:
+        dl = depth[i]
+        v = i
+        while v != -1 and deepest[v] < dl:
+            deepest[v] = dl
+            v = parent_ix[v]
+
+    return pd.Series(deepest - depth, index=nid)
+
+
 def _prune_twigs_precise(
     neuron: "core.TreeNeuron",
     size: float,
@@ -548,13 +586,15 @@ def _prune_twigs_precise(
     if not inplace:
         neuron = neuron.copy()
 
-    # Find terminal nodes
-    leafs = neuron.leafs.node_id.values
-
-    # Find all nodes that could possibly be within distance to a leaf
-    tree = graph.neuron2KDTree(neuron)
-    res = tree.query_ball_point(neuron.leafs[["x", "y", "z"]].values, r=size)
-    candidates = neuron.nodes.node_id.values[np.unique(np.concatenate(res))]
+    # Find all nodes that could possibly be within distance to a leaf. Note we ask
+    # each node for its *nearest* leaf rather than asking each leaf for every node
+    # within `size`: the latter materialises one hit per (leaf, node) pair - easily
+    # millions - only to collapse them down to at most one entry per node.
+    leaf_tree = scipy.spatial.cKDTree(neuron.leafs[["x", "y", "z"]].values)
+    dist, _ = leaf_tree.query(
+        neuron.nodes[["x", "y", "z"]].values, k=1, distance_upper_bound=size
+    )
+    candidates = neuron.nodes.node_id.values[np.isfinite(dist)]
 
     if callable(mask):
         mask = mask(neuron)
@@ -576,36 +616,21 @@ def _prune_twigs_precise(
     if not len(candidates):
         return neuron
 
-    # For each node in neuron find out which leafs are directly distal to it
-    # `distal` is a matrix with all nodes in columns and leafs in rows
-    distal = graph.distal_to(neuron, a=leafs, b=candidates)
+    # A node may be pruned only if *every* leaf distal to it lies within `size` -
+    # i.e. iff the height of its sub-tree (the geodesic distance down to its
+    # furthest distal leaf) is <= size. `_subtree_height` gets that in a single
+    # O(N) sweep; this used to run an all-pairs Dijkstra to answer the same
+    # question.
+    # N.B. computed on the *unpruned* neuron - we still need these heights after
+    # the subset below.
+    height = _subtree_height(neuron)
 
-    # Turn matrix into dictionary {'node': [leafs, distal, to, it]}
-    melted = distal.reset_index(drop=False).melt(id_vars="index")
-    melted = melted[melted.value]
-
-    # `distal` is now a dictionary for {'node_id': [leaf1, leaf2, ..], ..}
-    distal = melted.groupby("variable")["index"].apply(list).to_dict()
-
-    # For each node find the distance to any leaf - note we are using `size`
-    # as cutoff here
-    # `path_len` is a dict mapping {nodeA: {nodeB: length, ...}, ...}
-    # if nodeB is not in dictionary, it's not within reach
-    path_len = dict(
-        nx.all_pairs_dijkstra_path_length(
-            neuron.graph.reverse(), cutoff=size, weight="weight"
-        )
-    )
-
-    # For each leaf in `distal` check if it's within length
-    not_in_length = {k: set(v) - set(path_len[k]) for k, v in distal.items()}
+    node_ids = neuron.nodes.node_id.values
+    in_range = np.intersect1d(node_ids[height.values <= size], candidates)
 
     # For a node to be deleted its PARENT has to be within
     # `length` to ALL edges that are distal do it
-    in_range = {k for k, v in not_in_length.items() if not any(v)}
-    nodes_to_keep = neuron.nodes.loc[
-        ~neuron.nodes.parent_id.isin(in_range), "node_id"
-    ].values
+    nodes_to_keep = node_ids[~np.isin(neuron.nodes.parent_id.values, in_range)]
 
     if len(nodes_to_keep) < neuron.n_nodes:
         # Subset neuron
@@ -621,11 +646,14 @@ def _prune_twigs_precise(
         is_new_leaf = is_new_leaf & np.isin(neuron.nodes.node_id, mask_nodes)
 
     new_leafs = neuron.nodes[is_new_leaf].node_id.values
-    max_len = [max([path_len[l1][l2] for l2 in distal[l1]]) for l1 in new_leafs]
+
+    # Distance from each new leaf down to the furthest leaf it used to carry. That
+    # is exactly the sub-tree height we already computed on the unpruned neuron.
+    max_len = height.loc[new_leafs].values
 
     # For each of the new leafs check how much we need to take of the existing
     # edge
-    len_to_prune = size - np.array(max_len)
+    len_to_prune = size - max_len
 
     # Get vectors from leafs to their parents
     nodes = neuron.nodes.set_index("node_id")
