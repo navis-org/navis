@@ -985,12 +985,46 @@ def segment_length(x: "core.TreeNeuron", segment: List[int]) -> float:
     if not isinstance(x, core.TreeNeuron):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
-    # Get graph once to avoid overhead from validation - do NOT change this
-    graph = x.graph
-    dist = np.array(
-        [graph.edges[(c, p)]["weight"] for c, p in zip(segment[:-1], segment[1:])]
-    )
-    return sum(dist)
+    return float(segment_lengths(x, [segment])[0])
+
+
+def segment_lengths(x: "core.TreeNeuron", segments: Sequence[Sequence[int]]):
+    """Get the length of each of many linear segments.
+
+    Same as calling [`navis.segment_length`][] on each segment but builds the node
+    lookup once instead of once per segment.
+
+    Returns
+    -------
+    np.ndarray
+                Length of each segment.
+    """
+    if not len(segments):
+        return np.zeros(0)
+
+    # An edge's weight is just the distance between its two nodes, so we can read
+    # the lengths straight off the coordinates rather than going via a graph.
+    # Note the cast to float64: node coordinates are often float32, and summing
+    # those would drift away from the weights networkx used to hand us.
+    coords = x.nodes[["x", "y", "z"]].values.astype(float)
+
+    # Resolve every segment's node IDs in one lookup - `get_indexer` has enough
+    # per-call overhead that doing it once per segment costs more than the walk it
+    # replaces.
+    lengths = np.array([len(s) for s in segments])
+    flat = np.concatenate([np.asarray(s) for s in segments])
+    coords = coords[pd.Index(x.nodes.node_id).get_indexer(flat)]
+
+    # Distance from each node to the one before it...
+    step = np.zeros(len(flat))
+    step[1:] = np.linalg.norm(np.diff(coords, axis=0), axis=1)
+
+    # ...except the first node of each segment, which has no predecessor *in that
+    # segment* - this also discards the bogus step across each segment boundary.
+    starts = np.concatenate([[0], np.cumsum(lengths)[:-1]])
+    step[starts] = 0
+
+    return np.add.reduceat(step, starts)
 
 
 @utils.lock_neuron
