@@ -1507,7 +1507,7 @@ def longest_neurite(
     if not from_root:
         # Find the two most distal points (N.B. roots can also be "ends")
         leafs = x.nodes.loc[x.nodes.type.isin(("root", "end")), "node_id"].values
-        dists = geodesic_matrix(x, from_=leafs)[leafs]
+        dists = geodesic_matrix(x, from_=leafs, to_=leafs)
 
         # If the neuron is fragmented, we will have infinite distances
         dists[dists == np.inf] = -1
