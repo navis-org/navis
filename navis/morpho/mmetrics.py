@@ -1245,10 +1245,10 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
     config.pbar_hide = current_state
 
     # Get number of leafs distal to each branch's childs
-    # Note that we're using geodesic matrix here because it is much more
-    # efficient than for `distal_to` for larger queries/neurons
-    dists = graph.geodesic_matrix(y, from_=leafs, directed=True, weight=None)
-    distal = (dists[calc_node_ids] < np.inf).sum(axis=0)
+    dists = graph.geodesic_matrix(
+        y, from_=leafs, to_=calc_node_ids, directed=True, weight=None
+    )
+    distal = (dists < np.inf).sum(axis=0)
 
     # Calculate the flow
     flow = {n: (total_leafs - distal[n]) * distal[n] for n in calc_node_ids}
