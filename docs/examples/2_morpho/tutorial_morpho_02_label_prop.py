@@ -38,6 +38,7 @@ neuron to try to label the axon and dendrite.
 import navis
 
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -94,7 +95,7 @@ np.unique(pred.astype(str), return_counts=True)
 # Next, we will visualise the predicted labels across the neuron.
 
 # Fill the Nones with a new category for plotting
-pred[pred == None] = "unlabeled"
+pred[pd.isnull(pred)] = "unlabeled"
 
 navis.plot3d(
     n,
