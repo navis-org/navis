@@ -49,6 +49,7 @@ __all__ = sorted(
         "rewire_skeleton",
         "insert_nodes",
         "remove_nodes",
+        "collapse_nodes",
         "dist_to_root",
         "skeleton_adjacency_matrix",
         "propagate_labels",
@@ -2231,6 +2232,114 @@ def remove_nodes(
 
     # Drop nodes
     x.nodes = x.nodes[~x.nodes.node_id.isin(which)].copy()
+
+    # Clear temporary attributes
+    x._clear_temp_attr()
+
+    return x
+
+
+def collapse_nodes(
+    x: "core.TreeNeuron",
+    which: List[int],
+    new_co: Iterable[Union[float, int]] = None,
+    inplace: bool = False,
+) -> Optional["core.TreeNeuron"]:
+    """Collapse group of nodes into a single node.
+
+    Parameters
+    ----------
+    x :         TreeNeuron
+                Neuron to collapse nodes in.
+    which :     list of node IDs
+                IDs of nodes to collapse. The first node in the list will be
+                the one that the others are collapsed into.
+    new_co :    (x, y, z) coordinates, optional
+                Coordinates for the new node. If not given, will use the
+                center of the nodes to be collapsed.
+    inplace :   bool
+                If True, will modify the neuron inplace. If False, will return
+                a modified copy of the neuron.
+
+    Returns
+    -------
+    TreeNeuron
+
+    Examples
+    --------
+    Collapse a group of nodes into a single node
+
+    >>> import navis
+    >>> import numpy as np
+    >>> n = navis.example_neurons(1)
+    >>> n.n_nodes
+    4465
+    >>> # Collapse nodes around the soma
+    >>> soma_dist = np.linalg.norm(n.vertices - n.soma_pos, axis=1)
+    >>> to_collapse = n.nodes.node_id[soma_dist < 1000].values
+    >>> x = navis.collapse_nodes(n, to_collapse, new_co=n.soma_pos[0])
+    >>> x.n_nodes
+    4415
+
+    See Also
+    --------
+    [`navis.remove_nodes`][]
+            Remove nodes from the neuron without changing the structure.
+
+    """
+    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+
+    if not utils.is_iterable(which):
+        which = [which]
+    which = np.asarray(which)
+
+    miss = ~np.isin(which, x.nodes.node_id.values)
+    if np.any(miss):
+        raise ValueError(f"{len(miss)} node IDs not found in neuron")
+
+    if not inplace:
+        x = x.copy()
+
+    # We will use the lowest node ID as the node to collapse into
+    center_node = np.min(which)
+
+    # Move that new center node
+    if new_co is None:
+        new_co = x.nodes.loc[x.nodes.node_id.isin(which), ["x", "y", "z"]].values.mean(
+            axis=0
+        )
+    x.nodes.loc[x.nodes.node_id == center_node, ["x", "y", "z"]] = new_co
+
+    # Make igraph
+    G = graph.neuron2igraph(x)
+
+    # Mapping for old to new IDs
+    mapping = np.arange(len(G.vs))
+    node_ids = np.array(G.vs["node_id"])
+    mapping[np.isin(node_ids, which)] = center_node
+
+    # Contract nodes
+    G.contract_vertices(mapping, combine_attrs="first")
+
+    # Depth-first search from center node (vertex IDs/parent IDs)
+    vids, pids = G.dfs(center_node, mode="all")
+
+    # Rewire nodes
+    lop = dict(zip(x.nodes.node_id.values, x.nodes.parent_id.values))
+    new_node_ids = np.array(G.vs["node_id"])
+    lop.update(dict(zip(new_node_ids[vids], new_node_ids[pids])))
+    lop[center_node] = -1
+
+    # Rewire neuron
+    x.nodes["parent_id"] = x.nodes.node_id.map(lop)
+
+    # Drop nodes
+    keep = ~x.nodes.node_id.isin(which) | (x.nodes.node_id == center_node)
+    x.nodes = x.nodes[keep].copy()
+
+    # Check if there is a vertex map to update
+    if hasattr(x, "_vertex_map"):
+        x._vertex_map[np.isin(x._vertex_map, which)] = center_node
 
     # Clear temporary attributes
     x._clear_temp_attr()
