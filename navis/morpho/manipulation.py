@@ -1379,6 +1379,8 @@ def stitch_skeletons(
     ] = "ALL",
     master: Union[Literal["SOMA"], Literal["LARGEST"], Literal["FIRST"]] = "SOMA",
     max_dist: Optional[float] = None,
+    min_size: Optional[int] = None,
+    use_radius: Union[bool, float] = False,
 ) -> "core.TreeNeuron":
     """Stitch multiple skeletons together.
 
@@ -1406,7 +1408,9 @@ def stitch_skeletons(
                             (4) List of node IDs that are allowed to be used.
                                 Note that if these nodes are insufficient
                                 the resulting neuron will not be fully
-                                connected.
+                                connected. Also note that node IDs are remapped
+                                if the fragments have duplicate IDs (see above),
+                                in which case a list of IDs is ambiguous.
 
     master :            'SOMA' | 'LARGEST' | 'FIRST', optional
                         Sets the master neuron:
@@ -1420,6 +1424,16 @@ def stitch_skeletons(
     max_dist :          float,  optional
                         Max distance at which to stitch nodes. This can result
                         in a neuron with multiple roots.
+    min_size :          int, optional
+                        Minimum size in nodes for fragments to be reattached.
+                        Fragments smaller than `min_size` will be ignored and
+                        hence remain disconnected.
+    use_radius :        bool | float
+                        Whether to take node radii into account when measuring
+                        distances. That way, nodes with similar radii will be
+                        preferred for stitching. If float, will be used as a
+                        scaling factor: higher values increase the influence of
+                        radius on the distance calculation.
 
     Returns
     -------
@@ -1556,7 +1570,22 @@ def stitch_skeletons(
     if not utils.is_iterable(method) and (method == "NONE" or method is None):
         return m
 
-    return _stitch_mst(m, nodes=method, inplace=False, max_dist=max_dist)
+    # A list of node IDs means "only these nodes may be used to bridge fragments",
+    # which is exactly what `mask` does. `nodes` itself only takes "ALL"/"LEAFS".
+    if utils.is_iterable(method):
+        nodes, mask = "ALL", method
+    else:
+        nodes, mask = method, None
+
+    return _stitch_mst(
+        m,
+        nodes=nodes,
+        mask=mask,
+        inplace=False,
+        max_dist=max_dist,
+        min_size=min_size,
+        use_radius=use_radius,
+    )
 
 
 
