@@ -1682,7 +1682,9 @@ def betweeness_centrality(
         elif from_ == "branch_points":
             sources = G.vs.select(_indegree_ge=2)
         else:
-            sources = G.vs.select(node_id_in=from_)
+            # Note: `vs.select(node_id_in=...)` scans every vertex in Python
+            ids = np.asarray(G.vs["node_id"])
+            sources = G.vs[np.where(np.isin(ids, from_))[0].tolist()]
 
         roots = G.vs.select(_outdegree=0)
         for r in roots:
