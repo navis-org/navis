@@ -102,11 +102,7 @@ def _generate_segments(
 
     assert weight in ("weight", None), f'Unable to use weight "{weight}"'
 
-    if utils.fastcore and (
-        # fastcore supports returning lengths since version 0.0.9
-        not return_lengths
-        or utils.fastcore.__version_vector__ >= (0, 0, 9)
-    ):
+    if utils.fastcore:
         if weight == "weight":
             weight = utils.fastcore.dag.parent_dist(
                 x.nodes.node_id.values,
@@ -115,15 +111,10 @@ def _generate_segments(
                 root_dist=0,
             )
 
-        # Depending on fastcore version it will return either just `segs` or (`segs`, `lengths`)
-        res = utils.fastcore.generate_segments(
+        # As of version >0.0.9, fastcore returns a tuple of (`segs`, `lengths`)
+        segs, lengths = utils.fastcore.generate_segments(
             x.nodes.node_id.values, x.nodes.parent_id.values, weights=weight
         )
-        if isinstance(res, tuple):
-            segs, lengths = res
-        else:
-            segs = res
-            lengths = None
 
         if return_lengths:
             return segs, lengths
