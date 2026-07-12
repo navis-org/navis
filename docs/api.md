@@ -154,9 +154,9 @@ In addition, a [`navis.TreeNeuron`][] has a range of different properties:
 | [`navis.rewire_skeleton()`][navis.rewire_skeleton] | {{ autosummary("navis.rewire_skeleton") }} |
 | [`navis.insert_nodes()`][navis.insert_nodes] | {{ autosummary("navis.insert_nodes") }} |
 | [`navis.remove_nodes()`][navis.remove_nodes] | {{ autosummary("navis.remove_nodes") }} |
+| [`navis.collapse_nodes()`][navis.collapse_nodes] | {{ autosummary("navis.collapse_nodes") }} |
 | [`navis.graph.simplify_graph()`][navis.graph.simplify_graph] | {{ autosummary("navis.graph.simplify_graph") }} |
 | [`navis.graph.skeleton_adjacency_matrix()`][navis.graph.skeleton_adjacency_matrix] | {{ autosummary("navis.graph.skeleton_adjacency_matrix") }} |
-
 
 
 ### Mesh neurons
@@ -382,6 +382,7 @@ Functions to down- or resample neurons.
 | Function | Description |
 |----------|-------------|
 | [`navis.resample_skeleton()`][navis.resample_skeleton] | {{ autosummary("navis.resample_skeleton") }} |
+| [`navis.sample_skeleton()`][navis.sample_skeleton] | {{ autosummary("navis.sample_skeleton") }} |
 | [`navis.resample_along_axis()`][navis.resample_along_axis] | {{ autosummary("navis.resample_along_axis") }} |
 | [`navis.downsample_neuron()`][navis.downsample_neuron] | {{ autosummary("navis.downsample_neuron") }} |
 | [`navis.simplify_mesh()`][navis.simplify_mesh] | {{ autosummary("navis.simplify_mesh") }} |
