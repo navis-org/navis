@@ -1028,28 +1028,36 @@ def segment_lengths(x: "core.TreeNeuron", segments: Sequence[Sequence[int]]):
 
 
 @utils.lock_neuron
-def dist_between(x: "core.NeuronObject", a: int, b: int) -> float:
+def dist_between(x: "core.NeuronObject", a, b):
     """Get the geodesic distance between nodes in nanometers.
 
     Parameters
     ----------
     x :             TreeNeuron | MeshNeuron | NeuronList
                     If NeuronList must contain only a single neuron.
-    a,b :           int
+    a,b :           int | list of int
                     Node IDs (for TreeNeurons) or vertex indices (MeshNeurons)
-                    to check the distance between.
+                    to check the distance between. Can be single nodes or
+                    matched arrays of nodes, in which case distances are
+                    computed pairwise (`a[0]` to `b[0]`, `a[1]` to `b[1]`, ...).
+                    One of them may also be a single node, which is then
+                    broadcast against the other.
 
     Returns
     -------
-    int
-                    distance in nm
+    float
+                    Distance in nm if `a` and `b` are single nodes.
+    np.ndarray
+                    Distances in nm if either `a` or `b` is a list of nodes.
+                    Unreachable pairs are `np.inf`.
 
     See Also
     --------
     [`navis.distal_to`][]
         Check if a node A is distal to node B.
     [`navis.geodesic_matrix`][]
-        Get all-by-all geodesic distance matrix.
+        Get all-by-all geodesic distance matrix. Use this if you want distances
+        between *every* A and *every* B rather than between matched pairs.
     [`navis.segment_length`][]
         Much faster if you have a linear segment and know all node IDs.
 
@@ -1061,6 +1069,14 @@ def dist_between(x: "core.NeuronObject", a: int, b: int) -> float:
     ...                        n.nodes.node_id.values[0],
     ...                        n.nodes.node_id.values[1])
 
+    Distances between many pairs at once:
+
+    >>> d = navis.dist_between(n,
+    ...                        n.nodes.node_id.values[:100],
+    ...                        n.nodes.node_id.values[-100:])
+    >>> d.shape
+    (100,)
+
     """
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
@@ -1068,46 +1084,88 @@ def dist_between(x: "core.NeuronObject", a: int, b: int) -> float:
         else:
             raise ValueError(f"Need a single TreeNeuron, got {len(x)}")
 
-    G: Union[igraph.Graph, nx.DiGraph]
-    if isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
-        G = x.igraph
-    elif isinstance(x, (igraph.Graph, nx.DiGraph)):
-        G = x
-    else:
+    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron, igraph.Graph, nx.DiGraph)):
         raise ValueError(f"Unable to process data of type {type(x)}")
 
-    if (
-        utils.is_iterable(a) and len(a) > 1
-    ) or (  # type: ignore  # this is just a check
-        utils.is_iterable(b) and len(b) > 1
-    ):  # type: ignore  # this is just a check
-        raise ValueError(
-            "Can only process single nodes/vertices. Use navis.geodesic_matrix instead."
-        )
-
-    a = utils.make_non_iterable(a)
-    b = utils.make_non_iterable(b)
+    # Scalar in -> scalar out. Note that a length-1 iterable counts as a scalar
+    # here, which is what this function has always done.
+    scalar = not utils.is_iterable(a) and not utils.is_iterable(b)
 
     try:
-        _ = int(a)
-        _ = int(b)
+        a = np.asarray(utils.make_iterable(a)).astype(int)
+        b = np.asarray(utils.make_iterable(b)).astype(int)
     except BaseException:
         raise ValueError("a, b need to be node IDs or vertex indices!")
 
-    # If we're working with network X DiGraph
-    if isinstance(G, nx.DiGraph):
-        return int(
-            nx.algorithms.shortest_path_length(
-                G.to_undirected(as_view=True), a, b, weight="weight"
-            )
+    if a.size != b.size and a.size != 1 and b.size != 1:
+        raise ValueError(
+            f"Got {a.size} nodes for `a` and {b.size} for `b`. These must "
+            "either match up pairwise or one of them must be a single node."
         )
-    else:
-        if isinstance(x, core.TreeNeuron):
-            a = G.vs.find(node_id=a)
-            b = G.vs.find(node_id=b)
+    a, b = np.broadcast_arrays(a, b)
 
-        # If not, we're assuming g is an iGraph object
-        return G.distances(a, b, weights="weight", mode="ALL")[0][0]
+    if isinstance(x, core.TreeNeuron) and utils.fastcore:
+        node_ids = x.nodes.node_id.values
+        parent_ids = x.nodes.parent_id.values
+
+        weights = utils.fastcore.dag.parent_dist(
+            node_ids,
+            parent_ids,
+            x.nodes[["x", "y", "z"]].values,
+            root_dist=0,
+        )
+        dist = utils.fastcore.geodesic_pairs(
+            node_ids,
+            parent_ids,
+            pairs=np.stack((a, b), axis=1),
+            weights=weights,
+        ).astype(float)
+
+        # Fastcore is documented to return -1 for unreachable pairs but as of
+        # 0.5.1 `geodesic_pairs` does not: it hands back a bogus 1.0 when a and b
+        # sit in different fragments. Only fragmented neurons can have unreachable
+        # pairs at all (a forest has one root per connected component), so we only
+        # pay for this where it matters.
+        if len(x.root) > 1:
+            cc = utils.fastcore.connected_components(node_ids, parent_ids)
+            lookup = pd.Index(node_ids)
+            unreachable = cc[lookup.get_indexer(a)] != cc[lookup.get_indexer(b)]
+            dist[unreachable] = np.inf
+
+        dist[dist < 0] = np.inf
+        return float(dist[0]) if scalar else dist
+
+    G: Union[igraph.Graph, nx.DiGraph] = (
+        x.igraph if isinstance(x, (core.TreeNeuron, core.MeshNeuron)) else x
+    )
+
+    # If we're working with a networkx DiGraph
+    if isinstance(G, nx.DiGraph):
+        und = G.to_undirected(as_view=True)
+        dist = np.array(
+            [
+                nx.algorithms.shortest_path_length(und, int(i), int(j), weight="weight")
+                for i, j in zip(a, b)
+            ]
+        )
+        return int(dist[0]) if scalar else dist
+
+    if isinstance(x, core.TreeNeuron):
+        id2ix = dict(zip(G.vs["node_id"], G.vs.indices))
+        a = np.array([id2ix[i] for i in a.tolist()])
+        b = np.array([id2ix[i] for i in b.tolist()])
+
+    # Ask igraph only for the unique sources/targets and fan the answers back
+    # out - `distances` returns a full sources x targets matrix, so handing it
+    # the raw (possibly very repetitive) pair lists would be quadratic.
+    ua, a_inv = np.unique(a, return_inverse=True)
+    ub, b_inv = np.unique(b, return_inverse=True)
+    dmat = np.asarray(
+        G.distances(ua.tolist(), ub.tolist(), weights="weight", mode="ALL")
+    )
+    dist = dmat[a_inv, b_inv]
+
+    return float(dist[0]) if scalar else dist
 
 
 @utils.map_neuronlist(desc="Searching", allow_parallel=True)
