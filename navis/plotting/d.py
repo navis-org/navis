@@ -147,31 +147,20 @@ def plot1d(x: 'core.NeuronObject',
         # Get topological sort (root -> terminals)
         topology = graph.node_label_sorting(n, weighted=True)
 
-        # Get terminals and branch points
-        roots = n.nodes[n.nodes.type == 'root'].node_id.values
-        bp = n.nodes[n.nodes.type == 'branch'].node_id.values
+        # Get terminals
         term = n.nodes[n.nodes.type == 'end'].node_id.values
-        breaks = np.concatenate((bp, term, roots))
 
         # Order this neuron's segments by topology (remember that segments are
         # sorted child -> parent, i.e. distal to proximal)
         topo_ix = dict(zip(topology, range(len(topology))))
         segs = sorted(n.small_segments, key=lambda x: topo_ix[x[0]])
 
-        # Keep only the first and the last node in each segment
-        segs = [[s[0], s[1]] for s in segs]
-
-        # Now get distances for each segment
-        if 'nodes_geodesic_distance_matrix' in n.__dict__:
-            # If available, use existing geodesic distance matrix
-            dist_mat = n.nodes_geodesic_distance_matrix
-        else:
-            # If not, compute matrix for subset of nodes
-            dist_mat = graph.geodesic_matrix(n, from_=breaks, directed=False)
-
-        # Get length of each segment
-        lengths = np.array([dist_mat.loc[s[0], s[1]] for s in segs])
+        # Get length of each segment (this is the width of its bar)
+        lengths = graph.segment_lengths(n, segs)
         max_x.append(sum(lengths))
+
+        # Keep only the first (distal) and the last (proximal) node in each segment
+        segs = [[s[0], s[-1]] for s in segs]
 
         # Plot
         curr_dist = 0
