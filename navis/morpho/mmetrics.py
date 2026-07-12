@@ -753,22 +753,30 @@ def bending_flow(x: "core.NeuronObject") -> "core.NeuronObject":
 
     # Get list of branch_points
     bp_node_ids = y.nodes[y.nodes.type == "branch"].node_id.values.tolist()
-    # Add root if it is also a branch point
+
+    # Child lists come straight off the node table - no need to build a graph just
+    # to ask it for `degree` and `in_edges`.
+    all_childs = graph.generate_list_of_childs(y)
+
+    # Add root if it is also a branch point. A root has no parent, so its degree is
+    # simply its number of children.
     for root in y.root:
-        if y.graph.degree(root) > 1:
+        if len(all_childs[root]) > 1:
             bp_node_ids += [root]
 
     # Get a list of childs of each branch point
-    bp_childs = {t: [e[0] for e in y.graph.in_edges(t)] for t in bp_node_ids}
+    bp_childs = {t: all_childs[t] for t in bp_node_ids}
     childs = [tn for l in bp_childs.values() for tn in l]
 
     # Get number of pre/postsynapses distal to each branch's childs
-    # Note that we're using geodesic matrix here because it is much more
-    # efficient than for `distal_to` for larger queries/neurons
     dists = graph.geodesic_matrix(
-        y, from_=np.append(pre_node_ids, post_node_ids), directed=True, weight=None
+        y,
+        from_=np.append(pre_node_ids, post_node_ids),
+        to_=childs,
+        directed=True,
+        weight=None,
     )
-    distal = dists[childs] < np.inf
+    distal = dists < np.inf
 
     # Since nodes can have multiple pre-/postsynapses but they show up only
     # once in distal, we have to reindex to reflect the correct
@@ -1085,12 +1093,14 @@ def synapse_flow_centrality(
     config.pbar_hide = current_state
 
     # Get number of pre/postsynapses distal to each branch's childs
-    # Note that we're using geodesic matrix here because it is much more
-    # efficient than for `distal_to` for larger queries/neurons
     dists = graph.geodesic_matrix(
-        y, from_=np.append(pre_node_ids, post_node_ids), directed=True, weight=None
+        y,
+        from_=np.append(pre_node_ids, post_node_ids),
+        to_=calc_node_ids,
+        directed=True,
+        weight=None,
     )
-    distal = dists[calc_node_ids] < np.inf
+    distal = dists < np.inf
 
     # Since nodes can have multiple pre-/postsynapses but they show up only
     # once in distal, we have to reindex to reflect the correct number of synapes
