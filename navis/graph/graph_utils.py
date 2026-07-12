@@ -203,7 +203,7 @@ def _connected_components(
     >>> cc = navis.graph_utils._connected_components(n)
     >>> m = navis.example_neurons(1, kind='mesh')
     >>> cc = navis.graph_utils._connected_components(m)
-    >>> dp = navis.example_neurons(1, kind='dotprops')
+    >>> dp = navis.make_dotprops(n, k=5)
     >>> cc = navis.graph_utils._connected_components(dp)
 
     """
