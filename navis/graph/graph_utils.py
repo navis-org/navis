@@ -547,26 +547,37 @@ def distal_to(
     else:
         tnB = x.nodes.node_id.values
 
-    # Grab graph once to avoid overhead from stale checks
-    G: igraph.Graph = x.igraph
+    if utils.fastcore:
+        # `targets` is what keeps this cheap: igraph will happily take a target
+        # list but computes an all-sources search to honour it, and the result is
+        # a len(a) x n_nodes matrix either way. Here we only ever materialise the
+        # len(a) x len(b) block we actually return.
+        le = utils.fastcore.geodesic_matrix(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            sources=tnA,
+            targets=tnB,
+            directed=True,
+            weights=None,
+        )
+        # Fastcore uses -1 (not inf) for unreachable pairs
+        reachable = le >= 0
+    else:
+        # Grab graph once to avoid overhead from stale checks
+        G: igraph.Graph = x.igraph
 
-    # Map node ID to index
-    id2ix = {n: v for v, n in zip(G.vs.indices, G.vs["node_id"])}
+        # Map node ID to index
+        id2ix = {n: v for v, n in zip(G.vs.indices, G.vs["node_id"])}
 
-    # Convert node IDs to indices
-    tnA = [id2ix[n] for n in tnA]  # type: ignore
-    tnB = [id2ix[n] for n in tnB]  # type: ignore
+        # Convert node IDs to indices
+        ixA = [id2ix[n] for n in tnA]  # type: ignore
+        ixB = [id2ix[n] for n in tnB]  # type: ignore
 
-    # Get path lengths
-    le = G.distances(tnA, tnB, mode="OUT")
+        # Converting to numpy array first is ~2X as fast
+        le = np.asarray(G.distances(ixA, ixB, mode="OUT"))
+        reachable = le != float("inf")
 
-    # Converting to numpy array first is ~2X as fast
-    le = np.asarray(le)
-
-    # Convert to True/False
-    le = le != float("inf")
-
-    df = pd.DataFrame(le, index=G.vs[tnA]["node_id"], columns=G.vs[tnB]["node_id"])
+    df = pd.DataFrame(reachable, index=tnA, columns=tnB)
 
     if df.shape == (1, 1):
         return df.values[0][0]
