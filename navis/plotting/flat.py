@@ -204,15 +204,16 @@ def _plot_subway(
     root_nodes = x.root
     branch_nodes = set(x.branch_points.node_id.values)
 
-    # Convert node IDs to igraph vertex indices
-    leaf_vs = x.igraph.vs.select(node_id_in=leaf_nodes)
-    root_vs = x.igraph.vs.select(node_id_in=root_nodes)
+    # Convert node IDs to igraph vertex indices. Note `vs.select(node_id_in=...)`
+    # would scan every vertex in Python.
+    ids = np.asarray(x.igraph.vs["node_id"])
+    leaf_vs = np.where(np.isin(ids, leaf_nodes))[0].tolist()
+    root_vs = np.where(np.isin(ids, root_nodes))[0].tolist()
 
     # Now get paths from all tips to the root
     paths = x.igraph.get_shortest_paths(root_vs[0], leaf_vs, mode="ALL")
 
     # Translate indices back into node ids
-    ids = np.array(x.igraph.vs.get_attribute_values("node_id"))
     paths_tn = [ids[p] for p in paths]
 
     # Generate DataFrame with all the info
