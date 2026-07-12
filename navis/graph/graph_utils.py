@@ -2035,21 +2035,46 @@ def node_label_sorting(
     return np.concatenate(node_list, dtype=int)
 
 
-def _igraph_to_sparse(graph, weight_attr=None):
-    edges = graph.get_edgelist()
+def subset_igraph(x: "core.TreeNeuron", keep) -> "igraph.Graph":
+    """Induce the sub-graph of a neuron's igraph on a set of node IDs.
+
+    The igraph equivalent of `x.graph.subgraph(keep)`, but without paying to build
+    the networkx graph. `node_id` is carried over onto the new vertices.
+    """
+    G: igraph.Graph = x.igraph
+    ids = np.asarray(G.vs["node_id"])
+    keep = np.fromiter(keep, dtype=ids.dtype, count=len(keep))
+    return G.subgraph(np.where(np.isin(ids, keep))[0])
+
+
+def connected_components_of(x: "core.TreeNeuron", keep) -> List[Set[int]]:
+    """Weakly connected components of the sub-graph induced on `keep`.
+
+    Returns sets of node IDs, mirroring `nx.connected_components`.
+    """
+    sub = subset_igraph(x, keep)
+    ids = np.asarray(sub.vs["node_id"])
+    return [set(ids[c].tolist()) for c in sub.components(mode="WEAK")]
+
+
+def _igraph_to_sparse(graph, weight_attr=None, transpose=False):
+    n = graph.vcount()
+    edges = np.asarray(graph.get_edgelist(), dtype=np.int64).reshape(-1, 2)
+
     if weight_attr is None:
-        weights = [1] * len(edges)
+        weights = np.ones(len(edges))
     else:
-        weights = graph.es[weight_attr]
+        weights = np.asarray(graph.es[weight_attr])
+
+    rows, cols = edges[:, 0], edges[:, 1]
     if not graph.is_directed():
-        edges.extend([(v, u) for u, v in edges])
-        weights.extend(weights)
-    # Note: previously, we used a generator (weights, zip(*egdes)) as input to
-    # csr_matrix but with Scipy 1.13.0 this has stopped working
-    edges = np.array(edges)
-    return csr_matrix(
-        (weights, (edges[:, 0], edges[:, 1])), shape=(len(graph.vs), len(graph.vs))
-    )
+        rows, cols = np.concatenate([rows, cols]), np.concatenate([cols, rows])
+        weights = np.concatenate([weights, weights])
+
+    if transpose:
+        rows, cols = cols, rows
+
+    return csr_matrix((weights, (rows, cols)), shape=(n, n))
 
 
 def connected_subgraph(
@@ -2085,16 +2110,15 @@ def connected_subgraph(
 
     """
     # `src` is the TreeNeuron we can pull node/parent arrays from (if any). For a
-    # bare nx.DiGraph we fall back to iterating its edges.
+    # bare graph we fall back to reading its edges.
     src = None
+    g = None
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
             src = x[0]
-            g = src.graph
     elif isinstance(x, core.TreeNeuron):
         src = x
-        g = x.graph
-    elif isinstance(x, nx.DiGraph):
+    elif isinstance(x, (nx.DiGraph, igraph.Graph)):
         g = x
     else:
         raise TypeError(f'Input must be a single TreeNeuron or graph, got "{type(x)}".')
@@ -2103,13 +2127,19 @@ def connected_subgraph(
     # `parent.get(n)` returns None for roots (which have no parent) - this is our
     # natural walk terminator (mirrors `next(g.successors(n), None)`).
     # For a TreeNeuron we can build this straight from the node table (faster and
-    # avoids touching networkx); for a bare graph (e.g. the subgraph *view* passed
-    # by `split_axon_dendrite`) we do a single linear pass over its edges.
+    # avoids touching a graph library at all); for a bare graph (e.g. the induced
+    # sub-graph passed by `split_axon_dendrite`) we do a single pass over its edges.
     if src is not None:
         nid = src.nodes.node_id.values
         pid = src.nodes.parent_id.values
         parent = {n: p for n, p in zip(nid, pid) if p >= 0}
         nodes = set(nid.tolist())
+    elif isinstance(g, igraph.Graph):
+        ids = np.asarray(g.vs["node_id"])
+        edges = np.asarray(g.get_edgelist(), dtype=np.int64).reshape(-1, 2)
+        # edge (u, v) => v is parent of u
+        parent = dict(zip(ids[edges[:, 0]].tolist(), ids[edges[:, 1]].tolist()))
+        nodes = set(ids.tolist())
     else:
         parent = {u: v for u, v in g.edges()}  # edge (u, v) => v is parent of u
         nodes = set(g.nodes())
@@ -2391,6 +2421,13 @@ def remove_nodes(
     >>> n2 = navis.remove_nodes(n, n.nodes.node_id.values[100:200])
     >>> n2.n_nodes
     4365
+
+    See Also
+    --------
+    [`navis.collapse_nodes`][]
+            Collapse a group of nodes into a single node. This is different
+            from removing nodes as it will potentially change the structure of
+            the neuron.
 
     """
     utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
@@ -2795,13 +2832,12 @@ def propagate_labels(
     # Drop missing labels from the dict
     labels = {k: v for k, v in labels.items() if not pd.isnull(v)}
 
-    # Convert neuron to graph
-    G = x.graph
+    # Convert neuron to graph. Note igraph's vertex order is identical to the
+    # node/vertex table, so the row order of `F` (which `return_probs` exposes)
+    # is the same as it was when this used networkx.
+    G: igraph.Graph = x.igraph
 
-    if not directed and G.is_directed():
-        G = G.to_undirected()
-
-    nodes = list(G.nodes())
+    nodes = G.vs["node_id"] if isinstance(x, core.TreeNeuron) else list(G.vs.indices)
     n = len(nodes)
     node_index = {node: i for i, node in enumerate(nodes)}
 
@@ -2858,8 +2894,14 @@ def propagate_labels(
                     f"({n}) or the number of labeled nodes ({len(labels)})."
                 )
 
-    # Adjacency matrix (sparse, float32)
-    A = nx.to_scipy_sparse_array(G, nodelist=nodes, format="csr", dtype=np.float32)
+    # Adjacency matrix (sparse, float32). `_igraph_to_sparse` already emits both
+    # directions for an undirected graph (i.e. MeshNeurons); a skeleton's graph is
+    # directed child->parent and needs symmetrising by hand. Skeletons have no
+    # reciprocal edges, so adding the transpose can't double-count.
+    A = _igraph_to_sparse(G, weight_attr="weight").astype(np.float32)
+    if not directed and G.is_directed():
+        A = A + A.T
+    A = A.tocsr()
 
     # Row-normalize adjacency (sparse)
     row_sums = np.asarray(A.sum(axis=1)).flatten().astype(np.float32)
