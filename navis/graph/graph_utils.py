@@ -1240,21 +1240,21 @@ def find_main_branchpoint(
         x = x.reroot(x.soma, inplace=False)
 
     if method == "longest_neurite":
-        G = x.graph
+        G: igraph.Graph = x.igraph
+        ids = np.asarray(G.vs["node_id"])
 
         # First, find longest path
-        longest = nx.dag_longest_path(G, weight="weight")
+        longest = _longest_weighted_path(G, weight="weight")
 
-        # Remove longest path
-        # (use subgraph to avoid editing original or copying raph)
-        keep = ~np.isin(G.nodes, longest)
-        G = G.subgraph(np.array(G.nodes)[keep])
-
-        # Find second longest path
-        sc_longest = nx.dag_longest_path(G, weight="weight")
+        # Remove it and find the second longest path through what's left
+        g = G.copy()
+        g.delete_vertices(longest)
+        sc_longest = _longest_weighted_path(g, weight="weight")
 
         # Parent of the last node in sc_longest is the common branch point
-        bp = list(x.graph.successors(sc_longest[-1]))[0]
+        last = int(np.asarray(g.vs["node_id"])[sc_longest[-1]])
+        id2ix = {nid: ix for ix, nid in enumerate(ids.tolist())}
+        bp = ids[G.successors(id2ix[last])[0]]
     else:
         # Get betweenness for each node
         x = morpho.betweeness_centrality(x, directed=True, from_="branch_points")
@@ -1342,60 +1342,97 @@ def split_into_fragments(
     if reroot_soma and not isinstance(x.soma, type(None)):
         x.reroot(x.soma, inplace=True)
 
-    # Collect nodes of the n longest neurites
-    tn_to_preserve: List[int] = []
+    # Collect nodes of the n longest neurites. We work on a copy of the igraph and
+    # delete each claimed neurite from it, rather than rebuilding the whole graph
+    # from the node table on every iteration.
+    g: igraph.Graph = x.igraph.copy()
+
     fragments = []
     i = 0
-    while i < n:
-        if tn_to_preserve:
-            # Generate fresh graph
-            g = graph.neuron2nx(x)
+    while i < n and g.vcount():
+        path = _longest_weighted_path(g, weight="weight")
 
-            # Remove nodes that we have already preserved
-            g.remove_nodes_from(tn_to_preserve)
-        else:
-            g = x.graph
+        if not len(path):
+            break
 
-        # Get path
-        longest_path = nx.dag_longest_path(g)
-
-        # Check if fragment is still long enough
+        # Check if fragment is still long enough. Note this sums the weight of
+        # every edge *pointing into* the path - not just the path's own edges.
+        # Preserved as-is from the networkx implementation.
         if min_size:
-            this_length = sum(
-                [
-                    v
-                    for k, v in nx.get_edge_attributes(g, "weight").items()
-                    if k[1] in longest_path
-                ]
-            )
+            edges = np.asarray(g.get_edgelist(), dtype=np.int64).reshape(-1, 2)
+            weights = np.asarray(g.es["weight"])
+            this_length = weights[np.isin(edges[:, 1], path)].sum()
             if this_length <= min_size:
                 break
 
-        tn_to_preserve += longest_path
-        fragments.append(longest_path)
+        fragments.append(np.asarray(g.vs["node_id"])[path])
+
+        # Drop the claimed nodes so the next iteration finds the next-longest
+        g.delete_vertices(path)
 
         i += 1
 
-    # Next, make some virtual cuts and get the complement of nodes for
-    # each fragment
-    graphs = [x.graph.copy()]
-    # Grab graph once to avoide overhead from stale checking
-    g = x.graph
+    # Next, make some virtual cuts and get the complement of nodes for each
+    # fragment. The first fragment starts out as the whole neuron; every other one
+    # is the sub-tree distal to its proximal-most node.
+    G: igraph.Graph = x.igraph
+    ids = np.asarray(G.vs["node_id"])
+    id2ix = {nid: ix for ix, nid in enumerate(ids.tolist())}
+
+    node_sets = [set(ids.tolist())]
     for fr in fragments[1:]:
-        this_g = nx.bfs_tree(g, fr[-1], reverse=True)
+        # mode="IN" walks edges backwards (child->parent reversed), i.e. collects
+        # everything distal to this node - the igraph equivalent of the
+        # `nx.bfs_tree(..., reverse=True)` this replaced.
+        distal = G.subcomponent(id2ix[fr[-1]], mode="IN")
+        node_sets.append(set(ids[distal].tolist()))
 
-        graphs.append(this_g)
+    # Remove nodes that are claimed by a subsequent (i.e. more distal) fragment
+    for i, s in enumerate(node_sets):
+        for s2 in node_sets[i + 1 :]:
+            s -= s2
 
-    # Next, we need to remove nodes that are in subsequent graphs from
-    # those graphs
-    for i, g in enumerate(graphs):
-        for g2 in graphs[i + 1 :]:
-            g.remove_nodes_from(g2.nodes)
-
-    # Now make neurons
-    nl = core.NeuronList([morpho.subset_neuron(x, g) for g in graphs])
+    # Now make neurons - keep node-table order for a stable result
+    nl = core.NeuronList(
+        [morpho.subset_neuron(x, ids[np.isin(ids, list(s))]) for s in node_sets]
+    )
 
     return nl
+
+
+def _longest_weighted_path(g: "igraph.Graph", weight="weight") -> np.ndarray:
+    """Find the longest weighted path in an in-forest (edges point child->parent).
+
+    Every maximal path in such a graph is fixed by its starting node - just follow
+    the parents up to a sink - so the longest one starts at whichever node is
+    furthest from its sink. That makes this a distances-to-sinks problem rather
+    than the general (NP-hard) longest-path problem.
+    """
+    n = g.vcount()
+    sinks = np.where(np.asarray(g.outdegree()) == 0)[0]
+    if not len(sinks):
+        return np.empty(0, dtype=int)
+
+    # Join every sink to one virtual super-sink at zero cost and run a *single*
+    # search. Each node in an in-forest reaches exactly one sink, so its distance
+    # to the super-sink is the distance to its own sink. Searching from each sink
+    # separately would be O(sinks x N) - and note that lopping off a neurite turns
+    # every severed branch into a fresh sink, so `sinks` is not small.
+    h = g.copy()
+    h.add_vertices(1)
+    h.add_edges([(int(s), n) for s in sinks])
+    h.es[weight] = np.concatenate(
+        [np.asarray(g.es[weight]), np.zeros(len(sinks))]
+    ).tolist()
+
+    dists = np.asarray(h.distances(source=[n], weights=weight, mode="IN")[0][:n])
+    dists[~np.isfinite(dists)] = -1
+    start = int(np.argmax(dists))
+
+    # Path from `start` to the super-sink, minus the super-sink itself
+    path = h.get_shortest_paths(start, to=n, weights=weight, mode="OUT")[0]
+
+    return np.asarray(path[:-1])
 
 
 @utils.map_neuronlist(desc="Pruning", allow_parallel=True)
