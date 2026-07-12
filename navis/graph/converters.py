@@ -485,6 +485,7 @@ def neuron2igraph(
     x: "core.NeuronObject",
     simplify: bool = False,
     connectivity: int = 18,
+    epsilon: Optional[float] = None
 ) -> "igraph.Graph":
     """Turn Tree-, Mesh- or VoxelNeuron(s) into an iGraph graph.
 
@@ -501,6 +502,10 @@ def neuron2igraph(
                              - 6 = faces
                              - 18 = faces + edges
                              - 26 = faces + edges + vertices
+    epsilon :               float, optional
+                            For Dotprops only: maximum distance between two points to
+                            connect them. If `None`, will use 5x the average distance
+                            between points (i.e. `5 * x.sampling_resolution`).
 
     Returns
     -------
@@ -571,6 +576,16 @@ def neuron2igraph(
     elif isinstance(x, core.VoxelNeuron):
         edges = _voxels2edges(x, connectivity=connectivity)
         G = igraph.Graph(edges, n=len(x.voxels), directed=False)
+    elif isinstance(x, core.Dotprops):
+        if epsilon is None:
+            epsilon = 5 * x.sampling_resolution
+
+        # Generate KDTree
+        tree = neuron2KDTree(x)
+
+        # Generate graph and assign custom properties
+        edges = list(tree.query_pairs(epsilon))
+        G = igraph.Graph(edges, n=x.n_points, directed=False)
     else:
         raise ValueError(f'Unable to convert data of type "{type(x)}" to igraph.')
 

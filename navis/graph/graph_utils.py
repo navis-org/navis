@@ -182,7 +182,8 @@ def _generate_segments(
 
 
 def _connected_components(
-    x: Union["core.TreeNeuron", "core.MeshNeuron"],
+    x: Union["core.TreeNeuron", "core.MeshNeuron", "core.Dotprops"],
+    epsilon: Optional[float] = None,
 ) -> List[Set[int]]:
     """Extract the connected components within a neuron.
 
@@ -190,7 +191,12 @@ def _connected_components(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron
+    x :         TreeNeuron | MeshNeuron | Dotprops
+                Neuron for which to extract connected components.
+    epsilon :   float, optional
+                For Dotprops only: distance threshold to consider two points
+                connected. If not provided, will use 5 x the average distance
+                between points.
 
     Returns
     -------
@@ -206,9 +212,11 @@ def _connected_components(
     >>> cc = navis.graph_utils._connected_components(n)
     >>> m = navis.example_neurons(1, kind='mesh')
     >>> cc = navis.graph_utils._connected_components(m)
+    >>> dp = navis.example_neurons(1, kind='dotprops')
+    >>> cc = navis.graph_utils._connected_components(dp)
 
     """
-    assert isinstance(x, (core.TreeNeuron, core.MeshNeuron))
+    assert isinstance(x, (core.TreeNeuron, core.MeshNeuron, core.Dotprops))
 
     if isinstance(x, core.TreeNeuron) and utils.fastcore:
         # This returns for each node the ID of its root
@@ -231,7 +239,10 @@ def _connected_components(
         _, start_idx, counts = np.unique(ms_sorted, return_index=True, return_counts=True)
         cc = [order[start:start + count] for start, count in zip(start_idx, counts)]
     else:
-        G: igraph.Graph = x.igraph
+        if isinstance(x, core.Dotprops):
+            G: igraph.Graph = graph.neuron2igraph(x, epsilon=epsilon)
+        else:
+            G: igraph.Graph = x.igraph
         # Get the vertex clustering
         vc = G.components(mode="WEAK")
         # Membership maps indices to connected components

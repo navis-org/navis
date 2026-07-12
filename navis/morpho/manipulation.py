@@ -3021,7 +3021,7 @@ def drop_fluff(
     )
 
     # This function uses navis_fastcore if available
-    cc = sorted(graph.graph_utils._connected_components(x), key=lambda x: len(x), reverse=True)
+    cc = sorted(graph.graph_utils._connected_components(x, epsilon=epsilon), key=lambda x: len(x), reverse=True)
 
     # Translate keep_size to number of nodes
     if keep_size and keep_size < 1:
