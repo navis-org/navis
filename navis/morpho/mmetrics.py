@@ -391,8 +391,8 @@ def segment_analysis(x: "core.NeuronObject") -> "core.NeuronObject":
     nodes = x.nodes.set_index("node_id")
     SI = nodes.loc[[s[0] for s in segs], "strahler_index"].values
 
-    # Get segment lengths
-    seg_lengths = np.array([graph.segment_length(x, s) for s in segs])
+    # Get segment lengths (builds the node lookup once, not once per segment)
+    seg_lengths = graph.segment_lengths(x, segs)
 
     # Get tortuosity
     start = nodes.loc[[s[0] for s in segs], ["x", "y", "z"]].values
