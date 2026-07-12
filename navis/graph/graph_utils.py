@@ -354,18 +354,34 @@ def dist_to_root(
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f"Expected TreeNeuron, got {type(x)}")
 
-    dist = {}
-    for root in x.root:
-        dist.update(nx.shortest_path_length(x.graph, target=root, weight=weight))
+    G: igraph.Graph = x.igraph
+    ids = np.asarray(G.vs["node_id"])
 
-    # Map node ID to vertex index for igraph
-    if igraph_indices:
-        if not x.igraph:
-            raise ValueError("Neuron does not have an igraph representation.")
-        id2ix = dict(zip(x.igraph.vs["node_id"], range(len(x.igraph.vs))))
-        dist = {id2ix[k]: v for k, v in dist.items()}
+    # Note: `vs.select(node_id_in=...)` would be the idiomatic igraph here but it
+    # scans every vertex in Python and costs more than the search itself.
+    roots = np.where(np.isin(ids, x.root))[0]
 
-    return dist
+    # Edges run child->parent; transposing gives us root->child, so a search from
+    # the roots yields each node's distance to its own root.
+    #
+    # `min_only` is what keeps this O(N): every node reaches exactly one root, so
+    # the distance to the *nearest* root is the distance to its own. Asking igraph
+    # for `distances(source=roots)` instead would hand back a roots x N matrix -
+    # fine for one root, hundreds of MB for a badly fragmented neuron.
+    adj = _igraph_to_sparse(G, weight_attr=weight, transpose=True)
+
+    # csgraph.dijkstra wants int32 indices/indptr
+    adj.indptr = adj.indptr.astype("int32", copy=False)
+    adj.indices = adj.indices.astype("int32", copy=False)
+
+    dists = csgraph.dijkstra(adj, directed=True, indices=roots, min_only=True)
+
+    # Unreachable nodes (i.e. those in another fragment) come back as inf and are
+    # simply left out - matching the networkx behaviour this replaced.
+    keys = np.arange(len(ids)) if igraph_indices else ids
+    reachable = np.isfinite(dists)
+
+    return dict(zip(keys[reachable].tolist(), dists[reachable].tolist()))
 
 
 @utils.map_neuronlist(desc="Classifying", allow_parallel=True)
