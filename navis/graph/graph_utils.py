@@ -311,7 +311,13 @@ def _break_segments(x: "core.NeuronObject") -> list:
         # Converting to set speeds up the "parent in stops" check
         stops = set(branch + root)
         seg_list = []
-        for s in seeds:
+        # Iterate the seeds in node table order (igraph's vertex indices are the node
+        # table's row numbers). Without the `sorted` we would be walking a Python set,
+        # i.e. in hash order - which is arbitrary, depends on the number of seeds, and
+        # does not match the order fastcore returns. Consumers such as
+        # `segment_analysis` and the NEURON interface enumerate the segments, so the
+        # order ends up in their output and must not depend on the backend.
+        for s in sorted(seeds):
             parent = g.successors(s)[0]
             seg = [s, parent]
             while parent not in stops:
