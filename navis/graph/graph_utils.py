@@ -1173,17 +1173,7 @@ def dist_between(x: "core.NeuronObject", a, b):
             weights=weights,
         ).astype(float)
 
-        # Fastcore is documented to return -1 for unreachable pairs but as of
-        # 0.5.1 `geodesic_pairs` does not: it hands back a bogus 1.0 when a and b
-        # sit in different fragments. Only fragmented neurons can have unreachable
-        # pairs at all (a forest has one root per connected component), so we only
-        # pay for this where it matters.
-        if len(x.root) > 1:
-            cc = utils.fastcore.connected_components(node_ids, parent_ids)
-            lookup = pd.Index(node_ids)
-            unreachable = cc[lookup.get_indexer(a)] != cc[lookup.get_indexer(b)]
-            dist[unreachable] = np.inf
-
+        # Fastcore returns -1 for unreachable pairs
         dist[dist < 0] = np.inf
         return float(dist[0]) if scalar else dist
 
