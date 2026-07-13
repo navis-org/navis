@@ -20,12 +20,81 @@ pip uninstall navis -y
 pip install git+https://github.com/navis-org/navis@master
 ```
 
+##### Breaking
+- [`mirror_brain`][navis.mirror_brain] now defaults to `mirror_axis="auto"`, i.e. takes the mirror axis from the template brain's meta data (falling back to `x`). This can change results for templates whose mirror axis is not `x`
+- `TPStransform.matrix_rigid` (added in 1.11.0) was renamed to `.matrix_affine`
+- {{ navis }}' internal graph algorithms no longer fall back to `networkx` - consequently `navis.config.use_igraph` is gone. `TreeNeuron.graph`, [`neuron2nx`][navis.neuron2nx] & co. are unaffected
+- `requests-futures` is no longer a dependency: it was only used for the parallel URL reader, which now uses a plain `ThreadPoolExecutor`
+- note that a number of bug fixes below **change outputs**: see the entries for flow centrality on fragmented neurons, [`resample_skeleton`][navis.resample_skeleton], [`plot1d`][navis.plot1d], `classify_nodes` and `small_segments`
+
 ##### Additions
-- new function: [`propagate_labels`][navis.propagate_labels] propagates sparse labels across a neuron (see new tutorial for details)
-- new function: [`split_axon_dendrite_prop`][navis.split_axon_dendrite_prop] uses label propagation to split a neuron into axon and dendrite (see new tutorial for details)
+- new interface: `navis.interfaces.brain_image_library` provides access to the [Brain Image Library](https://www.brainimagelibrary.org) which hosts thousands of single neuron reconstructions (see new tutorial)
+- new function: [`propagate_labels`][navis.propagate_labels] propagates sparse labels across a neuron (see new tutorial)
+- new function: [`split_axon_dendrite_prop`][navis.split_axon_dendrite_prop] uses label propagation to split a neuron into axon and dendrite (see new tutorial)
+- new function: [`sample_skeleton`][navis.sample_skeleton] draws a given number of points at equal geodesic spacing along a skeleton
+- new function: [`collapse_nodes`][navis.collapse_nodes] collapses a group of nodes into a single node
+- NBLAST gained pluggable backends: [`nblast`][navis.nblast], [`nblast_smart`][navis.nblast_smart], [`nblast_allbyall`][navis.nblast_allbyall] and [`synblast`][navis.synblast] have a new `backend` parameter accepting `"builtin"` (the default), `"fastcore"` (requires `navis-fastcore`) or `"auto"`. The default can be changed globally via `navis.config.default_nblast_backend` and third parties can register their own backend with `navis.nbl.backends.register_backend`
+- [`geodesic_matrix`][navis.geodesic_matrix] has a new `to_` parameter which restricts the *columns* of the matrix, mirroring the existing `from_`. Previously, the only way to get a `from_` x `to_` block was to compute every column and subset afterwards (for the leaf-by-leaf matrix of a 45k node skeleton: 794ms/2.2GB -> 126ms/307MB)
+- [`dist_between`][navis.dist_between] now accepts matched arrays of nodes and returns their pairwise distances instead of raising `"Can only process single nodes"`. With `navis-fastcore` this is ~750x faster than the loop it replaces (1000 pairs on a 45k node skeleton: 4.7s -> 6ms); a single pair still returns a single float
+- [`stitch_skeletons`][navis.stitch_skeletons] now exposes `min_size` and `use_radius`, which the underlying stitcher already supported but which the signature dropped
+- [`NeuronList`][navis.NeuronList] now supports in-place scaling (`nl *= 1000`, `nl /= 1000`) which - unlike `nl * 1000` - does not copy every neuron
+- `face_dist_sorting` gained a `heal_method` parameter
+
+##### Improvements
+- {{ navis }} now requires `navis-fastcore` >= 0.6.1 (still an optional dependency)
+- `classify_nodes` is 6-20x faster and uses up to 40x less memory (10.3ms/6.2MB -> 0.5ms/0.1MB for a 71k node skeleton) which matters because it runs on every neuron mutation: it now uses `navis-fastcore` if available and builds the `type` column from integer categorical codes instead of an array of strings (the latter also speeds up the non-fastcore path by ~5x)
+- the subtree height (the geodesic distance from a node down to the farthest leaf below it) is now computed with `navis-fastcore` if available: 14-31x faster and ~10x less memory. This backs [`prune_twigs`][navis.prune_twigs] with `exact=True` (2.2x faster, 4x less memory) and `node_label_sorting`
+- `node_label_sorting` no longer builds a directed geodesic matrix (**4.6 GB** for a 71k node skeleton - the single largest allocation in {{ navis }}): 4.6x faster and 31x less memory. The resulting order is unchanged. This also speeds up [`plot1d`][navis.plot1d] and [`skeleton_adjacency_matrix`][navis.graph.skeleton_adjacency_matrix] with `sort=True`
+- [`ivscc_features`][navis.ivscc_features] no longer builds a leafs-by-all-nodes distance matrix (**8.5 GB** for a 71k node skeleton!) to compute a single number: `max_path_length` is now 185x faster and uses 350x less memory
+- [`geodesic_matrix`][navis.geodesic_matrix] now uses `navis-fastcore` for `MeshNeurons` too: ~19-68x faster and ~30-60x less memory
+- [`longest_neurite`][navis.longest_neurite] with `from_root=False` no longer builds a leafs-by-leafs distance matrix just to take its maximum: 29x faster and 125x less memory (722ms/785MB -> 25ms/6.3MB for a 71k node skeleton)
+- [`distal_to`][navis.distal_to] now uses `navis-fastcore` if available: 13x faster and 5x less memory (it previously asked igraph for a source-by-target block, which igraph answers by running an all-sources search)
+- [`arbor_segregation_index`][navis.arbor_segregation_index], [`bending_flow`][navis.bending_flow], [`synapse_flow_centrality`][navis.synapse_flow_centrality], [`flow_centrality`][navis.flow_centrality], [`longest_neurite`][navis.longest_neurite] and `node_label_sorting` now request only the geodesic distances they actually use (see `to_` above)
+- major speed-up for [`heal_skeleton`][navis.heal_skeleton] and [`stitch_skeletons`][navis.stitch_skeletons]: they now use `navis-fastcore` if available (2.5-340x faster on real, fragmented skeletons, e.g. 85s -> 0.25s for a 640k node skeleton), and the built-in fallback was rewritten around a vectorized Borůvka algorithm (5-15x faster and ~7x less memory, e.g. 8s/640MB -> 0.5s/90MB for a 220k node skeleton with 5k fragments). Results are unchanged: both produce the same minimum spanning tree
+- major speed-up for [`resample_skeleton`][navis.resample_skeleton]: ~15-20x faster with the default `method="linear"` (e.g. 100ms -> 7ms for the example neuron; 425ms -> 64ms when densifying it to 132k nodes, as [`xform_brain`][navis.xform_brain] does) by interpolating all segments and columns in one go instead of fitting one `scipy.interpolate.interp1d` per column *per segment*. Non-linear methods (e.g. `"cubic"`) can't share that trick but still gain ~4x. It also no longer builds a KDTree and an indexed copy of the node table when the neuron has no soma, connectors or tags to re-map
+- [`reroot_skeleton`][navis.reroot_skeleton] builds a node ID -> vertex index map once instead of scanning all vertices for each root: much faster on heavily fragmented neurons
+- [`split_axon_dendrite`][navis.split_axon_dendrite] no longer runs out of memory on very large (100k+ nodes) neurons - the assignment of orphan nodes used to build a full orphans-by-all-nodes geodesic matrix - and is faster (igraph instead of `networkx`)
+- [`drop_fluff`][navis.drop_fluff], [`fix_mesh`][navis.fix_mesh] and everything else built on connected components are faster: `navis-fastcore` is now used for `MeshNeurons` too, igraph otherwise
+- [`skeletonize`][navis.skeletonize] with `shave=True`: fixing up the vertex map was an O(n_bristles x n_vertices) Python loop and is now a single vectorized map - a major bottleneck on large meshes
+- [`rewire_skeleton`][navis.rewire_skeleton] now skips the minimum spanning tree if the graph is already a forest (i.e. has no cycles)
+- [`H5transform`][navis.transforms.H5transform] and [`GridTransform`][navis.transforms.GridTransform] use `scipy.ndimage.map_coordinates` (~2x faster), and copies of an `H5transform` now carry over the cache - previously [`xform_brain`][navis.xform_brain] copied the transform and hence never benefitted from caching
+- [`skeletonize`][navis.skeletonize] for point clouds/[`Dotprops`][navis.Dotprops] uses `scipy`'s minimum spanning tree instead of `networkx` and now correctly handles duplicate points
+- `betweeness_centrality`, [`plot_flat`][navis.plot_flat] and [`segment_analysis`][navis.segment_analysis] are faster
+- reading from URLs with the default `parallel="auto"` now goes parallel from 5 files onwards instead of 200. The 200 was tuned for the process pool used to read local files; URLs are read in a *thread* pool and are network- rather than CPU-bound. Reading e.g. 100 neurons off a remote server no longer means 100 sequential blocking requests
+- URL reads now share a single `requests.Session`, so connections to the same host are pooled and kept alive
+- `read_*` functions can now read from Google buckets (`gs://...`) without `gcsfs` installed
 
 ##### Fixes
-- fixed a bug in `neuprint.fetch_mesh_neuron` if fetching multiple neurons and if `with_synapses=True` that caused synapses to not be assigned to the correct neuron
+- neurons read from a list of URLs **in parallel** came back stripped of their identity: the parallel reader handed the downloaded *bytes* (instead of the URL) to the parser, so the filename was never parsed. Affected neurons had no `file`, an `origin` of `"string"`, a `name` of `"SWC"`/`"MESH"`/... and a random `id`, and any `fmt` was silently ignored - i.e. the same input produced different neurons depending on `parallel`. [`read_mesh`][navis.read_mesh] failed outright (`ReadError`) since it needs the filename to determine the file type
+- [`read_swc`][navis.read_swc] & co. no longer choke on URLs with a query string (e.g. `.../neuron.swc?token=123`, whose file extension was previously parsed as `swc?token=123`) and now decode percent-encoded filenames (`%20` -> a space)
+- [`flow_centrality`][navis.flow_centrality], [`synapse_flow_centrality`][navis.synapse_flow_centrality] and [`arbor_segregation_index`][navis.arbor_segregation_index] returned wrong values for **fragmented neurons**: all three work out how many leafs/synapses are *proximal* to a node as `total - distal`, which is only valid on a single-rooted neuron. Nodes in another fragment are neither distal nor proximal but were silently counted as proximal, inflating the flow. Totals are now counted within each node's own fragment. **This changes the output for fragmented neurons** (they were previously wrong); single-rooted neurons are unaffected. Note that [`synapse_flow_centrality`][navis.synapse_flow_centrality] was only affected without `navis-fastcore`, so the two backends used to disagree; `bending_flow` was never affected
+- `TreeNeuron.small_segments` returned the segments in a different **order** depending on whether `navis-fastcore` was installed (without it, {{ navis }} walked a Python `set`, i.e. in arbitrary hash order). They are now always ordered by the node table position of their seed node, which is what `navis-fastcore` already did. Several functions `enumerate()` the segments, so the order was ending up in their output - most visibly the **row order of [`segment_analysis`][navis.segment_analysis]**
+- `classify_nodes`: a node whose parent does not exist is now classified as `root` instead of `end`. Such a neuron is already broken (it raises in `neuron2igraph`)
+- [`despike_skeleton`][navis.despike_skeleton]: nodes whose flanking nodes coincided were assigned a spike ratio read from uninitialised memory and were hence flagged as spikes (and removed) at random
+- [`plot1d`][navis.plot1d]: the bars were drawn using the length of each segment's *first edge* rather than the length of the whole segment. The x-axis was therefore far too short and distorted per-segment; for the example neuron it spanned 74,934 instead of 266,477 units of cable. **This changes the rendered plot** (it was previously wrong)
+- [`resample_skeleton`][navis.resample_skeleton]: the resampled neuron was consistently coarser than requested. A segment of length `L` sampled at `N` nodes spans `N - 1` intervals, but the node count was `round(L / resample_to)` instead of `round(L / resample_to) + 1`. **This changes the output**: neurons now come back with slightly more nodes and a sampling resolution much closer to `resample_to` (example neuron at `resample_to=125`: 2039 -> 2284 nodes, achieved resolution 140 -> 112)
+- [`resample_skeleton`][navis.resample_skeleton]: `skip_errors=True` never actually skipped anything (the failing segment raised a `KeyError` instead); failing segments now keep their original nodes, as intended
+- [`resample_skeleton`][navis.resample_skeleton]: fixed a typo (`pd.to_nunmeric`) that raised an `AttributeError` whenever the new node IDs overflowed the original `int32` node ID column, and a `NameError` in the "N segments skipped" warning for neurons without segments
+- [`heal_skeleton`][navis.heal_skeleton]: the `use_radius` parameter was accepted but silently ignored; it is now honoured
+- [`heal_skeleton`][navis.heal_skeleton]: with `use_radius`, isolated nodes (which belong to no segment) were given an unrelated node's radius and were not scaled by `use_radius`; they now correctly fall back to their own, scaled radius
+- [`heal_skeleton`][navis.heal_skeleton]: fragments that remain disconnected (because of `max_dist`/`min_size`/`mask`) now keep their original root instead of being re-rooted arbitrarily
+- [`stitch_skeletons`][navis.stitch_skeletons]: passing `method=<list of node IDs>` - documented as option (4) - raised a bare `AssertionError`. It now works and restricts the new edges to those nodes. Note that node IDs are remapped when the fragments have duplicate IDs, in which case a list of IDs is ambiguous
+- [`dist_between`][navis.dist_between]: unreachable node pairs are now correctly reported as `inf` (`navis-fastcore` 0.5.1 returned a bogus `1.0`; fixed in 0.6.0, which {{ navis }} now requires)
+- [`drop_fluff`][navis.drop_fluff] works on [`Dotprops`][navis.Dotprops] again
+- `models.BayesianTraversalModel`: corrected the traversal-probability propagation so results now match the Monte-Carlo `TraversalModel` for reconvergent graphs (e.g. diamonds); previously an independence assumption across time caused nodes to appear traversed too early (#194)
+- neuron math operators (`+`, `-`, `*`, `/`) no longer break on neurons with integer node/connector coordinates under modern `pandas`
+- [`simplify_mesh`][navis.simplify_mesh]: passing a float ratio as `F` failed with the `pyfqmr` and `open3d` backends because the computed face count was not an integer
+- [`plot2d`][navis.plot2d]: fixed an `AttributeError` with `matplotlib` 3.11 (which removed `Poly3DCollection._vec`)
+- [`close3d`][navis.close3d]/[`pop3d`][navis.pop3d] no longer break when there is no active viewer, and `close3d` now actually releases `config.primary_viewer`
+- transforms: [`GridTransform`][navis.transforms.GridTransform] and [`CMTKtransform`][navis.transforms.CMTKtransform] had broken `copy()` methods - for `GridTransform` this dropped `spacing`/`offset` and hence produced wrong coordinates for any copied (i.e. any [`xform_brain`][navis.xform_brain]'d) transform. Also fixed `GridTransform.from_warpfield` when the input is an actual warpmap
+- `neuprint` interface: fixed synapses not being assigned to the correct neuron when `fetch_mesh_neuron` was called for multiple neurons with `with_synapses=True`
+- `neuprint` interface: no longer errors on datasets whose meta data lacks fields such as `instance`, `size`, `status` or `somaLocation`, and now sets the correct units for datasets with **anisotropic** voxels (the x voxel size was previously assumed for all three axes)
+- `neuromorpho` interface: works again - it now uses `https`, sends a user agent (the server was rejecting requests without one) and gained a `NAVIS_NEUROMORPHO_VERIFY` environment variable to disable SSL verification if the certificate is broken
+- [`read_precomputed`][navis.read_precomputed]: fixed reading from Google buckets
+- silenced `pandas` deprecation warnings in [`read_swc`][navis.read_swc] and [`NeuronConnector`][navis.NeuronConnector]
+
+##### Notes
+- [`heal_skeleton`][navis.heal_skeleton] with `use_radius` can give marginally different (but equally valid) results depending on whether `navis-fastcore` is installed: each node is weighted by the mean radius of *its* segment, but branch points belong to several segments and end up with whichever one is assigned last - and the two backends enumerate segments in a different order. Both still produce a true minimum spanning tree. This is not new but is easier to run into now that fastcore is used by default
 
 ## Version `1.11.0` { data-toc-label="1.11.0" }
 _Date: 27/02/26_

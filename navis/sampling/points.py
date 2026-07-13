@@ -154,7 +154,8 @@ def sample_skeleton(
     Returns
     -------
     np.ndarray (n_points, 3)
-                XYZ coordinates of sampled points.
+                XYZ coordinates of sampled points. If `x` is a NeuronList,
+                returns a list of such arrays - one per neuron.
 
     Examples
     --------
@@ -163,6 +164,11 @@ def sample_skeleton(
     >>> pts = navis.sample_skeleton(n, n_points=50)
     >>> pts.shape
     (50, 3)
+
+    >>> nl = navis.example_neurons(2)
+    >>> pts = navis.sample_skeleton(nl, n_points=50)
+    >>> [p.shape for p in pts]
+    [(50, 3), (50, 3)]
 
     See Also
     --------
