@@ -788,6 +788,37 @@ from navis.interfaces import insectbrain_db
 | [`insectbrain_db.search_neurons()`][navis.interfaces.insectbrain_db.search_neurons] | {{ autosummary("navis.interfaces.insectbrain_db.search_neurons") }} |
 
 
+### Brain Image Library API
+
+Set of functions to search and download data from the [Brain Image Library](https://www.brainimagelibrary.org)
+(BIL) which hosts brain imagery as well as thousands of single neuron reconstructions
+(see [tutorials](../generated/gallery/4_remote/tutorial_remote_05_bil/)).
+
+_Not imported at top level! Must be imported explicitly:_
+
+```python
+from navis.interfaces import brain_image_library
+```
+
+| Function | Description |
+|----------|-------------|
+| [`brain_image_library.search()`][navis.interfaces.brain_image_library.search] | {{ autosummary("navis.interfaces.brain_image_library.search") }} |
+| [`brain_image_library.query()`][navis.interfaces.brain_image_library.query] | {{ autosummary("navis.interfaces.brain_image_library.query") }} |
+| [`brain_image_library.get_metadata()`][navis.interfaces.brain_image_library.get_metadata] | {{ autosummary("navis.interfaces.brain_image_library.get_metadata") }} |
+| [`brain_image_library.get_dataset_url()`][navis.interfaces.brain_image_library.get_dataset_url] | {{ autosummary("navis.interfaces.brain_image_library.get_dataset_url") }} |
+| [`brain_image_library.list_files()`][navis.interfaces.brain_image_library.list_files] | {{ autosummary("navis.interfaces.brain_image_library.list_files") }} |
+| [`brain_image_library.download_files()`][navis.interfaces.brain_image_library.download_files] | {{ autosummary("navis.interfaces.brain_image_library.download_files") }} |
+| [`brain_image_library.get_neurons()`][navis.interfaces.brain_image_library.get_neurons] | {{ autosummary("navis.interfaces.brain_image_library.get_neurons") }} |
+| [`brain_image_library.clear_metadata_cache()`][navis.interfaces.brain_image_library.clear_metadata_cache] | {{ autosummary("navis.interfaces.brain_image_library.clear_metadata_cache") }} |
+
+!!! warning
+
+    BIL hosts datasets of up to hundreds of terabytes. `list_files` and
+    `download_files` will refuse to crawl/download very large datasets unless
+    you explicitly override their guardrails. For bulk transfers use
+    [Globus](https://www.brainimagelibrary.org/download.html) instead.
+
+
 ### Blender API
 
 Functions to be run inside [Blender 3D](https://www.blender.org/) and import

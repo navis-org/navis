@@ -26,16 +26,26 @@ soma_depths = [0.36101451, 0.62182935, 0.16423996, 0.48303029, 0.2956563]
 # %%
 # ## Part I: Loading and Aligning Neurons
 #
-# First we need to load the neurons. Here, we will take them straight from their FTP server
-# but you can of course download them first and then load from disk!
+# First we need to load the neurons. These reconstructions live in the
+# [Brain Image Library](https://www.brainimagelibrary.org) (BIL) and {{ navis }} ships an
+# [interface](../../../api.md#brain-image-library-api) for it.
+#
+# BIL stores this collection as one small dataset per cell, each indexed by the very cell ID we
+# already have. So we can look up the dataset for each of our cells, then grab the transformed
+# SWC file from it:
 
 import navis
+import navis.interfaces.brain_image_library as bil
 
-nl = navis.read_swc(
-    "ftp://download.brainimagelibrary.org/biccn/zeng/pseq/morph/200526/",
-    limit=[f"{i}_transformed.swc" for i in ids],  #  Load only the files we need
-    fmt="{name,id:int}_transformed.swc",  # Parse the name and id from the file name
-)
+# Look up the BIL dataset for each of our cells
+datasets = [bil.query("specimen", "localid", str(i))[0] for i in ids]
+
+# Load the transformed skeletons (each dataset also contains a raw SWC and a marker file)
+nl = bil.get_neurons(datasets, pattern="*_transformed.swc")
+
+# The neurons come back in the order we asked for them, so we can just re-attach the cell IDs
+nl.set_neuron_attributes(ids, name="id")
+nl.set_neuron_attributes([str(i) for i in ids], name="name")
 
 # %%
 # To make our lives a bit easier, we will attach the soma depth to the neurons as metadata:
