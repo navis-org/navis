@@ -47,6 +47,42 @@ __all__ = sorted(
 )
 
 
+def _component_counts(
+    x: "core.TreeNeuron", counted: np.ndarray, index: np.ndarray
+) -> pd.Series:
+    """For each node in `index`, count how many of `counted` sit in its fragment.
+
+    The flow metrics work out how many synapses/leafs are *proximal* to a node as
+    `total - distal`. That identity only holds on a neuron with a single root: there,
+    every node is either distal or proximal to `n`. On a fragmented neuron there is a
+    third category - nodes in another fragment, which are neither - and counting them
+    as proximal inflates the flow. Restricting the total to `n`'s own fragment is what
+    makes the metric independent of what else happens to sit in the node table.
+
+    `counted` may contain duplicates (a node can carry several synapses); each one is
+    counted, matching the `len(pre_node_ids)` this replaces.
+
+    Returns
+    -------
+    pd.Series
+                Indexed by `index`.
+
+    """
+    # A forest has exactly one root per fragment, so a single root means "connected"
+    # and the totals are simply the global ones.
+    if len(x.root) <= 1:
+        return pd.Series(len(counted), index=index)
+
+    frags = graph._connected_components(x)
+    comp = pd.Series(
+        np.concatenate([np.full(len(f), i) for i, f in enumerate(frags)]),
+        index=np.concatenate([np.asarray(list(f)) for f in frags]),
+    )
+    per_frag = comp.loc[counted].value_counts()
+
+    return comp.loc[index].map(per_frag).fillna(0).astype(int)
+
+
 def parent_dist(
     x: Union["core.TreeNeuron", pd.DataFrame], root_dist: Optional[int] = None
 ) -> None:
@@ -628,15 +664,16 @@ def arbor_segregation_index(x: "core.NeuronObject") -> "core.NeuronObject":
     # Now go over all branch points and check flow between branches
     # (centrifugal) vs flow from branches to root (centripetal)
     SI = {}
-    total_pre = pre_node_ids.shape[0]
-    total_post = post_node_ids.shape[0]
+    # Note these are per-fragment totals - see `_component_counts`
+    total_pre = _component_counts(x, pre_node_ids, calc_node_ids)
+    total_post = _component_counts(x, post_node_ids, calc_node_ids)
     for n in calc_node_ids:
         # Get the SI if we were to cut at this point
         post = distal_post_sum[n]
         pre = distal_pre_sum[n]
         n_syn = [
             {"presynapses": pre, "postsynapses": post},
-            {"presynapses": total_pre - pre, "postsynapses": total_post - post},
+            {"presynapses": total_pre[n] - pre, "postsynapses": total_post[n] - post},
         ]
         SI[n] = segregation_index(n_syn)
 
@@ -1068,14 +1105,16 @@ def synapse_flow_centrality(
     # Get list of nodes with pre/postsynapses
     pre_node_ids = x.connectors[x.connectors.type == pre].node_id.values
     post_node_ids = x.connectors[x.connectors.type == post].node_id.values
-    total_post = len(post_node_ids)
-    total_pre = len(pre_node_ids)
 
     # Get list of points to calculate flow centrality for:
     # branches and and their children
     is_bp = x.nodes["type"] == "branch"
     is_cn = x.nodes.node_id.isin(x.connectors.node_id)
     calc_node_ids = x.nodes[is_bp | is_cn].node_id.values
+
+    # Note these are per-fragment totals - see `_component_counts`
+    total_post = _component_counts(x, post_node_ids, calc_node_ids)
+    total_pre = _component_counts(x, pre_node_ids, calc_node_ids)
 
     # We will be processing a super downsampled version of the neuron to
     # speed up calculations
@@ -1115,13 +1154,13 @@ def synapse_flow_centrality(
     if mode != "centripetal":
         # Centrifugal is the flow from all proximal posts- to all distal presynapses
         centrifugal = {
-            n: (total_post - distal_post[n]) * distal_pre[n] for n in calc_node_ids
+            n: (total_post[n] - distal_post[n]) * distal_pre[n] for n in calc_node_ids
         }
 
     if mode != "centrifugal":
         # Centripetal is the flow from all distal post- to all non-distal presynapses
         centripetal = {
-            n: distal_post[n] * (total_pre - distal_pre[n]) for n in calc_node_ids
+            n: distal_post[n] * (total_pre[n] - distal_pre[n]) for n in calc_node_ids
         }
 
     # Now map this onto our neuron
@@ -1224,10 +1263,12 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
 
     # Get list of leafs
     leafs = x.leafs.node_id.values
-    total_leafs = len(leafs)
 
     # Get list of points to calculate flow centrality for:
     calc_node_ids = x.branch_points.node_id.values
+
+    # Note these are per-fragment totals - see `_component_counts`
+    total_leafs = _component_counts(x, leafs, calc_node_ids)
 
     # We will be processing a super downsampled version of the neuron to
     # speed up calculations
@@ -1251,7 +1292,7 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
     distal = (dists < np.inf).sum(axis=0)
 
     # Calculate the flow
-    flow = {n: (total_leafs - distal[n]) * distal[n] for n in calc_node_ids}
+    flow = {n: (total_leafs[n] - distal[n]) * distal[n] for n in calc_node_ids}
 
     # At this point there is only flow for branch points and connectors nodes.
     # Let's complete that mapping by adding flow for the nodes between branch points.
