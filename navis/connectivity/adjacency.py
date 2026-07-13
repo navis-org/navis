@@ -194,7 +194,7 @@ class NeuronConnector:
 
         for (src, tgt), rows in edges.items():
             df_tmp = pd.DataFrame(rows, columns=list(headers), dtype=object)
-            df = df_tmp.astype(headers, copy=False)
+            df = df_tmp.astype(headers)
             g.add_edge(src, tgt, connectors=df, weight=len(df))
 
         return g

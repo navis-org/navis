@@ -156,7 +156,7 @@ class SwcReader(base.BaseReader):
         core.TreeNeuron
         """
         n = core.TreeNeuron(
-            sanitise_nodes(nodes.astype(self._dtypes, errors="ignore", copy=False)),
+            sanitise_nodes(nodes.astype(self._dtypes, errors="ignore")),
             connectors=self._extract_connectors(nodes),
         )
 
