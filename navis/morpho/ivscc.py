@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 from scipy.stats import wasserstein_distance
 from typing import Union, Sequence
 
-from .. import config, graph, core
+from .. import config, graph, core, utils
 from . import subset_neuron, tortuosity
 
 # Set up logging
@@ -73,12 +73,34 @@ class Features(ABC):
             if self.neuron.soma not in self.neuron.root:
                 self.neuron = self.neuron.reroot(self.neuron.soma)
 
-            # Calculate geodesic distances from leafs to all other nodes (directed)
-            self.leaf_dists = graph.geodesic_matrix(
-                self.neuron, self.neuron.leafs.node_id.values, directed=True
-            )
-            # Replace infinities with -1
-            self.leaf_dists[self.leaf_dists == float("inf")] = -1
+            # For each leaf, the geodesic distance to the farthest node it can reach
+            # travelling towards the root (i.e. its distance to the root). Note we
+            # only ever use the maximum, so there is no point in building the full
+            # leafs x nodes matrix - that's gigabytes on a large neuron.
+            leafs = np.unique(self.neuron.leafs.node_id.values)
+            node_ids = self.neuron.nodes.node_id.values
+            parent_ids = self.neuron.nodes.parent_id.values
+
+            if utils.fastcore:
+                dists, _ = utils.fastcore.geodesic_farthest(
+                    node_ids,
+                    parent_ids,
+                    sources=leafs,
+                    directed=True,
+                    weights=utils.fastcore.dag.parent_dist(
+                        node_ids,
+                        parent_ids,
+                        self.neuron.nodes[["x", "y", "z"]].values,
+                        root_dist=0,
+                    ),
+                )
+            else:
+                dmat = graph.geodesic_matrix(self.neuron, leafs, directed=True)
+                # Replace infinities with -1
+                dmat[dmat == float("inf")] = -1
+                dists = dmat.values.max(axis=1)
+
+            self.max_leaf_dist = pd.Series(dists, index=leafs)
 
         self.features = {}
 
@@ -145,8 +167,8 @@ class BasicFeatures(Features):
         )
         self.record_feature(
             "max_path_length",
-            self.leaf_dists.loc[
-                self.leaf_dists.index.isin(self.neuron.nodes.node_id)
+            self.max_leaf_dist.loc[
+                self.max_leaf_dist.index.isin(self.neuron.nodes.node_id)
             ].values.max(),
         )
 
