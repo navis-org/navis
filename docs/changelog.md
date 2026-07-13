@@ -20,6 +20,9 @@ pip uninstall navis -y
 pip install git+https://github.com/navis-org/navis@master
 ```
 
+## Version `1.12.0` { data-toc-label="1.12.0" }
+_Date: 13/06/26_
+
 ##### Breaking
 - [`mirror_brain`][navis.mirror_brain] now defaults to `mirror_axis="auto"`, i.e. takes the mirror axis from the template brain's meta data (falling back to `x`). This can change results for templates whose mirror axis is not `x`
 - `TPStransform.matrix_rigid` (added in 1.11.0) was renamed to `.matrix_affine`
