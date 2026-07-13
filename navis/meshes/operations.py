@@ -138,12 +138,12 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
     if backend == 'pyfqmr':
         # This expects a target face count
         if F < 1:
-            F = F * len(x.faces)
+            F = int(F * len(x.faces))
         _ = simplify_mesh_fqmr(x, F=F, inplace=True, **kwargs)
     elif backend == 'open3d':
         # This expects a target face count
         if F < 1:
-            F = F * len(x.faces)
+            F = int(F * len(x.faces))
         _ = simplify_mesh_open3d(x, F=F, inplace=True, **kwargs)
     elif backend == 'blender':
         # This expects a ratio
