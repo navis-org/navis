@@ -1205,24 +1205,23 @@ def get_neurons(
 
     urls = list(files.url)
 
-    # N.B. we must not rely on `read_swc`'s default of parallel="auto": that
-    # only kicks in at >= 200 objects, so a typical dataset would otherwise be
-    # fetched serially, one blocking request at a time.
+    # Pass `max_threads` explicitly so that the caller controls the number of
+    # threads we hit the BIL servers with. `read_swc` takes care of `name` and
+    # `origin` (it parses them from the URL).
     nl = read_swc(urls, parallel=max_threads if parallel else False, **kwargs)
 
-    # navis' parallel URL reader hands the *bytes* to the parser rather than the
-    # URL, so the neurons come back with a UUID instead of a name. Restore the
-    # provenance ourselves. Order is preserved, but check to be safe.
+    # A dataset is one cell more often than not, so a bare file name is rarely
+    # unique across datasets. Give each neuron a composite id and keep the
+    # dataset it came from - neither is something navis can derive itself.
+    # Order is preserved, but check to be safe.
     if len(nl) == len(files):
         for neuron, row in zip(nl, files.itertuples()):
-            neuron.name = Path(row.name).stem
             neuron.id = f"{row.bildid}/{Path(row.name).stem}"
-            neuron.origin = row.url
             neuron.bildid = row.bildid
     else:
         logger.warning(
-            "Could not match neurons back to their source files - `name` and "
-            "`id` may be missing."
+            "Could not match neurons back to their source files - `id` and "
+            "`bildid` may be missing."
         )
 
     return nl

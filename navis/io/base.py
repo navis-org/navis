@@ -30,7 +30,7 @@ from zipfile import ZipFile, ZipInfo
 from functools import partial, wraps
 from importlib.util import find_spec
 from concurrent.futures import ThreadPoolExecutor
-from requests_futures.sessions import FuturesSession
+from urllib.parse import urlparse, unquote
 from typing import List, Union, Iterable, Dict, Optional, Any, IO
 
 from .. import config, utils, core
@@ -52,8 +52,48 @@ DEFAULT_INCLUDE_SUBDIRS = False
 GCSFS_GLOBAL = None  # Global gcsfs filesystem for parallel reading
 GS_FORCE_HTTPS = True  # Whether to force https when reading from Google Storage (if True, gcsfs is not required)
 
+# At what number of objects `parallel="auto"` switches to parallel reading.
+# Local files are read in a process pool, so we only bother in bulk. URLs are
+# read in a thread pool and are network- (not CPU-) bound, so we parallelize
+# much earlier - see `parallel_read`.
+PARALLEL_THRESHOLD = 200
+PARALLEL_THRESHOLD_URL = 5
+# Number of threads used to read URLs (when `parallel` is True/"auto"). Kept
+# deliberately modest: many of the servers we read from (e.g. NeuroMorpho, the
+# Brain Image Library) are public academic services.
+URL_THREADS_DEFAULT = 8
+
 # Regular expression to figure out if a string is a regex pattern
 rgx = re.compile(r"[\\\.\?\[\]\+\^\$\*]")
+
+_SESSION = None
+_SESSION_PID = None
+
+
+def get_session() -> requests.Session:
+    """Return a `requests.Session` for reading URLs.
+
+    Using a session (instead of bare `requests.get` calls) means connections are
+    pooled and kept alive, which matters a lot when reading many files off the
+    same host.
+
+    Note this is a module-level session rather than an attribute on the reader:
+    `read_fn` is handed to a `multiprocessing.Pool` in `parallel_read` and a
+    `Session` - while picklable - would otherwise be shipped into every worker.
+    We also key it on the pid so that a forked child never inherits (and
+    corrupts) the parent's live sockets.
+    """
+    global _SESSION, _SESSION_PID
+
+    if _SESSION is None or _SESSION_PID != os.getpid():
+        session = requests.Session()
+        # Pool must be at least as large as the number of threads we may use
+        adapter = requests.adapters.HTTPAdapter(pool_maxsize=32)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        _SESSION, _SESSION_PID = session, os.getpid()
+
+    return _SESSION
 
 
 def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:
@@ -799,7 +839,7 @@ class BaseReader(ABC):
                         neurons.append(n)
                 else:
                     url = f"https://storage.googleapis.com/{file}"
-                    with requests.get(url, stream=True) as r:
+                    with get_session().get(url, stream=True) as r:
                         r.raise_for_status()
                         n = self.read_buffer(
                             io.BytesIO(r.content), attrs=merge_dicts(props, attrs)
@@ -886,10 +926,14 @@ class BaseReader(ABC):
         # will load the whole file into memory while the streaming solution
         # may have raised an exception earlier if the file was corrupted or
         # the wrong format.
-        with requests.get(url, stream=False) as r:
+        with get_session().get(url, stream=False) as r:
             r.raise_for_status()
-            props = self.parse_filename(url.split("/")[-1])
-            props["origin"] = url
+            # N.B. we must not simply use `url.split("/")[-1]` here: that would
+            # drag any query string into the filename (e.g. "n.swc?token=abc",
+            # which in turn makes the file extension "swc?token=abc") and would
+            # leave percent-encoding (e.g. "%20") in the neuron's name.
+            props = self.parse_filename(unquote(Path(urlparse(url).path).name))
+            props["origin"] = url  # keep the full URL as the origin
             return self.read_buffer(
                 io.BytesIO(r.content), attrs=merge_dicts(props, attrs)
             )
@@ -1348,25 +1392,37 @@ def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
     """Read neurons from some objects with the given reader function,
     potentially in parallel.
 
-    Reader function must be picklable.
+    URLs are read in a thread pool, everything else in a process pool - so
+    `read_fn` must be picklable unless all `objs` are URLs.
 
     Parameters
     ----------
     read_fn :       Callable
     objs :          Iterable
-    parallel :      str | bool | int
-                    "auto" or True for `n_cores` // 2, otherwise int for number
-                    of jobs, or false for serial.
+    parallel :      str | bool | int | (str, int)
+                    "auto" or True for `n_cores` // 2 (URLs: `URL_THREADS_DEFAULT`),
+                    otherwise int for number of jobs, or False for serial. Can
+                    also be a `(mode, threshold)` tuple to override at what
+                    number of objects "auto" switches to parallel.
 
     Returns
     -------
     core.NeuronList
 
     """
-    try:
-        length = len(objs)
-    except TypeError:
-        length = None
+    # Materialize: we inspect `objs` more than once below and must not consume
+    # a generator in the process
+    objs = list(objs)
+
+    if not objs:
+        return []
+
+    length = len(objs)
+
+    is_urls = all(
+        isinstance(obj, str) and obj.startswith(("http://", "https://"))
+        for obj in objs
+    )
 
     prog = partial(
         config.tqdm,
@@ -1381,44 +1437,38 @@ def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
     if isinstance(parallel, tuple):
         parallel, threshold = parallel
     else:
-        threshold = 200
+        threshold = PARALLEL_THRESHOLD_URL if is_urls else PARALLEL_THRESHOLD
 
-    if (
-        isinstance(parallel, str)
-        and parallel.lower() == "auto"
-        and not isinstance(length, type(None))
-        and length < threshold
-    ):
+    if isinstance(parallel, str) and parallel.lower() == "auto" and length < threshold:
         parallel = False
 
-    if parallel:
+    if not parallel:
+        return [read_fn(obj) for obj in prog(objs)]
+
+    if is_urls:
+        # Reading URLs is network- not CPU-bound, so we use threads.
+        # Note we hand `read_fn` the URL and *not* the downloaded bytes: it has
+        # to go through `read_url` for the filename to be parsed into
+        # `name`/`id`/`origin` and for `fmt` to be applied.
         # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
-            n_cores = max(1, os.cpu_count() // 2)
+            n_threads = URL_THREADS_DEFAULT
         else:
-            n_cores = int(parallel)
+            n_threads = int(parallel)
 
-        # If all objects are URLs, we will use threads instead of processes
-        if all(
-            isinstance(obj, str)
-            and (obj.startswith("http://") or obj.startswith("https://"))
-            for obj in objs
-        ):
-            session = FuturesSession(max_workers=n_cores)
-            futures = {session.get(url): url for url in objs}
-            neurons = []
-            for fut, url in prog(futures.items()):
-                r = fut.result()
-                r.raise_for_status()
-                neurons.append(read_fn(r.content))
-        else:
-            with mp.Pool(processes=n_cores) as pool:
-                results = pool.imap(read_fn, objs)
-                neurons = list(prog(results))
+        with ThreadPoolExecutor(max_workers=n_threads) as executor:
+            # `.map` preserves the order of the inputs
+            return list(prog(executor.map(read_fn, objs)))
+
+    # Do not swap this as `isinstance(True, int)` returns `True`
+    if isinstance(parallel, (bool, str)):
+        # N.B. `os.cpu_count()` can return None
+        n_cores = max(1, (os.cpu_count() or 1) // 2)
     else:
-        neurons = [read_fn(obj) for obj in prog(objs)]
+        n_cores = int(parallel)
 
-    return neurons
+    with mp.Pool(processes=n_cores) as pool:
+        return list(prog(pool.imap(read_fn, objs)))
 
 
 def parallel_read_archive(

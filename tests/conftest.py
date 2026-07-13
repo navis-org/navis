@@ -3,10 +3,13 @@ import nrrd
 import json
 import navis
 import pytest
+import functools
+import threading
 
 import numpy as np
 import pandas as pd
 
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from typing import List
 from pathlib import Path
 
@@ -14,6 +17,48 @@ from pathlib import Path
 @pytest.fixture(scope="session")
 def data_dir():
     return Path(__file__).resolve().parent.parent / "navis" / "data"
+
+
+@pytest.fixture(scope="session")
+def http_server(data_dir):
+    """Serve `navis/data` over loopback.
+
+    This lets us test reading from URLs without touching the actual network.
+    Yields the base URL, e.g. "http://127.0.0.1:54321".
+    """
+
+    class QuietHandler(SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass  # don't spam the test output
+
+    handler = functools.partial(QuietHandler, directory=str(data_dir))
+
+    # Threading (not plain HTTPServer) because we read from this concurrently.
+    # Port 0 = let the OS pick a free one.
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    # A proxy configured in the environment would otherwise hijack loopback
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("NO_PROXY", "127.0.0.1,localhost")
+        mp.setenv("no_proxy", "127.0.0.1,localhost")
+        try:
+            yield f"http://127.0.0.1:{server.server_port}"
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+
+@pytest.fixture
+def swc_urls(http_server, swc_paths):
+    return [f"{http_server}/swc/{p.name}" for p in swc_paths]
+
+
+@pytest.fixture
+def obj_urls(http_server, obj_paths):
+    return [f"{http_server}/obj/{p.name}" for p in obj_paths]
 
 
 @pytest.fixture(scope="session")
