@@ -1548,15 +1548,34 @@ def longest_neurite(
 
     if not from_root:
         # Find the two most distal points (N.B. roots can also be "ends")
-        leafs = x.nodes.loc[x.nodes.type.isin(("root", "end")), "node_id"].values
-        dists = geodesic_matrix(x, from_=leafs, to_=leafs)
+        leafs = np.unique(x.nodes.loc[x.nodes.type.isin(("root", "end")), "node_id"].values)
 
-        # If the neuron is fragmented, we will have infinite distances
-        dists[dists == np.inf] = -1
+        if utils.fastcore:
+            # We only need each leaf's distance to its farthest leaf, so there is no
+            # point in materialising the full leafs x leafs matrix just to take its
+            # maximum. Note fastcore also uses -1 for unreachable (i.e. fragmented).
+            dists, _ = utils.fastcore.geodesic_farthest(
+                x.nodes.node_id.values,
+                x.nodes.parent_id.values,
+                sources=leafs,
+                targets=leafs,
+                weights=utils.fastcore.dag.parent_dist(
+                    x.nodes.node_id.values,
+                    x.nodes.parent_id.values,
+                    x.nodes[["x", "y", "z"]].values,
+                    root_dist=0,
+                ),
+            )
+        else:
+            dmat = geodesic_matrix(x, from_=leafs, to_=leafs)
+            # If the neuron is fragmented, we will have infinite distances
+            dmat[dmat == np.inf] = -1
+            dists = dmat.values.max(axis=1)
 
-        # This might be multiple values
-        mx = np.where(dists == np.max(dists.values))
-        start = dists.columns[mx[0][0]]  # translate to node ID
+        # The longest neurite has two ends and either is a valid place to root it.
+        # Which one we get is down to float32 rounding, so pick deterministically:
+        # the first leaf (leafs are sorted) that is within rounding of the maximum.
+        start = leafs[np.isclose(dists, np.max(dists), rtol=1e-5).argmax()]
 
         # Reroot to one of the nodes that gives the longest distance
         x.reroot(start, inplace=True)
