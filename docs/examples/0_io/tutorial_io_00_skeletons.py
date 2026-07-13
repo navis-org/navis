@@ -75,7 +75,8 @@ s = navis.read_swc('https://v2.virtualflybrain.org/data/VFB/i/jrch/jup2/VFB_0010
 # %%
 
 # From an FTP folder:
-nl = navis.read_swc('ftp://download.brainimagelibrary.org/biccn/zeng/pseq/morph/200526/', limit=3)
+# Note: this FTP server is no longer available, commented out until I find a replacement!
+# nl = navis.read_swc('ftp://download.brainimagelibrary.org/biccn/zeng/pseq/morph/200526/', limit=3)
 
 
 # !!! tip
