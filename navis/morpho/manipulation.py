@@ -541,9 +541,24 @@ def _subtree_height(neuron: "core.TreeNeuron", weight: str = "weight") -> pd.Ser
     them runs straight down and `dist(v -> l) == depth(l) - depth(v)`. That turns
     "how far is the furthest leaf under v" into "what is the deepest leaf under v",
     which one upward sweep answers.
+
+    Uses `navis_fastcore.subtree_height` if available.
     """
     nid = neuron.nodes.node_id.values
     pid = neuron.nodes.parent_id.values
+
+    if utils.fastcore:
+        heights = utils.fastcore.subtree_height(
+            nid,
+            pid,
+            weights=None
+            if weight is None
+            else utils.fastcore.dag.parent_dist(
+                nid, pid, neuron.nodes[["x", "y", "z"]].values, root_dist=0
+            ),
+        )
+        # Fastcore works in float32; keep the float64 the callers used to get
+        return pd.Series(np.asarray(heights, dtype=float), index=nid)
 
     ix = {n: i for i, n in enumerate(nid.tolist())}
     parent_ix = np.array([ix.get(p, -1) for p in pid.tolist()], dtype=np.int64)

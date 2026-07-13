@@ -2032,38 +2032,30 @@ def node_label_sorting(
     # Get relevant terminal nodes
     term = x.nodes[x.nodes.type == "end"].node_id.values
 
-    # Get directed (!) distances between the nodes of the simplified skeleton.
-    # Those are the only ones we ever index below - the walk happens on
-    # `simplify_graph(x.graph)`, whose nodes are exactly the ends/roots/branches.
-    breaks = x.nodes[x.nodes.type.isin(("end", "root", "branch"))].node_id.values
-    geo = geodesic_matrix(
-        x,
-        from_=breaks,
-        to_=breaks,
-        directed=True,
-        weight="weight" if weighted else None,
-    )
-    # Set distance between unreachable points to None
-    # Need to reinitialise SparseMatrix to replace float('inf') with NaN
-    # dist_mat[geo == float('inf')] = None
-    dist_mat = pd.DataFrame(
-        np.where(
-            geo == float("inf"),  # type: ignore  # no stubs for SparseDataFrame
-            np.nan,
-            geo,
-        ),
-        columns=geo.columns,
-        index=geo.index,
-    )
+    weight = "weight" if weighted else None
+
+    # The walk below sorts each node `n` by "distance to the farthest terminal below
+    # `n`" plus "distance from `n` up to the node we are walking from". This used to
+    # come out of a directed breaks-by-breaks geodesic matrix, but neither term needs
+    # one: the first is `n`'s subtree height and the second - since we only ever walk
+    # to an ancestor of `n` - is a difference of root distances. Both are O(N).
+    # The matrix was the single largest allocation in navis (19512 x 19512, i.e.
+    # 4.5GB, for a 71k node skeleton).
+    # Plain dicts: the sort keys below do one scalar lookup per node and pandas
+    # charges ~2.5us for each of those.
+    height = morpho.manipulation._subtree_height(x, weight=weight).to_dict()
+    depth = dist_to_root(x, weight=weight)
+
+    def sort_key(parent):
+        """Sort a node's children by the longest path running through them."""
+        return lambda n: height[n] + (depth[n] - depth[parent])
 
     # Get starting points (i.e. branches off the root) and sort by longest
     # path to a terminal (note we're operating on the simplified version
     # of the skeleton)
     G = graph.simplify_graph(x.graph)
     curr_points = sorted(
-        list(G.predecessors(x.root[0])),
-        key=lambda n: dist_mat[n].max() + dist_mat.loc[n, x.root[0]],
-        reverse=True,
+        list(G.predecessors(x.root[0])), key=sort_key(x.root[0]), reverse=True
     )
 
     # Walk from root towards terminals, prioritising longer branches
@@ -2076,8 +2068,7 @@ def node_label_sorting(
         else:
             new_points = sorted(
                 list(G.predecessors(nodes_walked[-1])),
-                # Use distance to the farthest terminal + distance to current node as sorting key
-                key=lambda n: dist_mat[n].max() + dist_mat.loc[n, nodes_walked[-1]],
+                key=sort_key(nodes_walked[-1]),
                 reverse=True,
             )
             curr_points = new_points + curr_points
