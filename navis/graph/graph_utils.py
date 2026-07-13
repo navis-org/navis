@@ -32,6 +32,15 @@ from .. import graph, utils, config, core, morpho
 # Set up logging
 logger = config.get_logger(__name__)
 
+# The node types `classify_nodes` assigns, in the order of their categorical codes
+NODE_TYPES = ["end", "branch", "root", "slab"]
+
+# Fastcore classifies into 0=root, 1=leaf, 2=branch, 3=slab - use this to translate
+# its output into the codes of `NODE_TYPES`
+_FASTCORE_NODE_TYPES = np.array(
+    [NODE_TYPES.index(t) for t in ("root", "end", "branch", "slab")], dtype=np.int8
+)
+
 __all__ = sorted(
     [
         "classify_nodes",
@@ -425,32 +434,41 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
         x.nodes["type"] = None
         return x
 
-    # Make sure there are nodes to classify
-    # Note: I have tried to optimized the s**t out of this, i.e. every
-    # single line of code here has been tested for speed. Do not
-    # change anything unless you know what you're doing!
-
-    # Turns out that numpy.isin() recently started to complain if the
-    # node_ids are uint64 and the parent_ids are int64 (but strangely
-    # not with 32bit integers). If that's the case we have to convert
-    # the node_ids to int64.
     node_ids = x.nodes.node_id.values
     parent_ids = x.nodes.parent_id.values
 
-    if node_ids.dtype == np.uint64:
-        node_ids = node_ids.astype(np.int64)
+    # Note: we work with the integer *codes* of `NODE_TYPES` throughout and only
+    # ever turn them into labels at the very end. Going via a string array (as
+    # this used to) makes `pd.Categorical` factorize N strings, which costs more
+    # than the classification itself.
+    if utils.fastcore:
+        # Fastcore uses its own order (0=root, 1=leaf, 2=branch, 3=slab)
+        cl = _FASTCORE_NODE_TYPES[utils.fastcore.classify_nodes(node_ids, parent_ids)]
+    else:
+        # Note: I have tried to optimized the s**t out of this, i.e. every
+        # single line of code here has been tested for speed. Do not
+        # change anything unless you know what you're doing!
 
-    cl = np.full(len(x.nodes), "slab", dtype="<U6")
-    cl[~np.isin(node_ids, parent_ids)] = "end"
-    bp = x.nodes.parent_id.value_counts()
-    bp = bp.index.values[bp.values > 1]
-    cl[np.isin(node_ids, bp)] = "branch"
-    cl[parent_ids < 0] = "root"
+        # Turns out that numpy.isin() recently started to complain if the
+        # node_ids are uint64 and the parent_ids are int64 (but strangely
+        # not with 32bit integers). If that's the case we have to convert
+        # the node_ids to int64.
+        if node_ids.dtype == np.uint64:
+            node_ids = node_ids.astype(np.int64)
+
+        cl = np.full(len(x.nodes), NODE_TYPES.index("slab"), dtype=np.int8)
+        cl[~np.isin(node_ids, parent_ids)] = NODE_TYPES.index("end")
+        bp = x.nodes.parent_id.value_counts()
+        bp = bp.index.values[bp.values > 1]
+        cl[np.isin(node_ids, bp)] = NODE_TYPES.index("branch")
+        cl[parent_ids < 0] = NODE_TYPES.index("root")
+
     if categorical:
-        cl = pd.Categorical(
-            cl, categories=["end", "branch", "root", "slab"], ordered=False
+        x.nodes["type"] = pd.Categorical.from_codes(
+            cl, categories=NODE_TYPES, ordered=False
         )
-    x.nodes["type"] = cl
+    else:
+        x.nodes["type"] = np.asarray(NODE_TYPES, dtype="<U6")[cl]
 
     return x
 
@@ -772,6 +790,32 @@ def geodesic_matrix(
     # Makes no sense to use directed for MeshNeurons
     if isinstance(x, core.MeshNeuron):
         directed = False
+
+    if utils.fastcore and isinstance(x, core.MeshNeuron):
+        vertex_ids = np.arange(len(x.vertices))
+
+        from_ = None if from_ is None else _check(from_, vertex_ids)
+        to_ = None if to_ is None else _check(to_, vertex_ids)
+
+        dmat = utils.fastcore.geodesic_matrix_mesh(
+            x.faces,
+            # Without coordinates fastcore weights every edge as 1 (i.e. hop count)
+            vertices=x.vertices if weight == "weight" else None,
+            n_vertices=len(vertex_ids),
+            sources=from_,
+            targets=to_,
+            # Fastcore takes `None` rather than infinity for "no limit"
+            limit=None if limit is None or not np.isfinite(limit) else limit,
+        )
+
+        # Fastcore returns -1 for unreachable vertex pairs
+        dmat[dmat < 0] = np.inf
+
+        return pd.DataFrame(
+            dmat,
+            index=vertex_ids if from_ is None else from_,
+            columns=vertex_ids if to_ is None else to_,
+        )
 
     # Grab graph once to avoid overhead from stale checks
     G: igraph.Graph = x.igraph
