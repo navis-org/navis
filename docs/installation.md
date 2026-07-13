@@ -94,8 +94,8 @@ directly, are listed below:
 
     `navis-fastcore` re-implements a bunch of low-level functions in Rust
     and wraps them in Python. {{ navis }} will use `fastcore` under the hood
-    if it is available. This is a highly recommended extra as it can
-    speed up operations such as geodesic distances, Strahler Index, pruning
+    if it is available. This is a *highly* recommended extra as it speeds up
+    many operations such as NBLAST, geodesic distances, Strahler Index, pruning
     and other downstream functions by several orders of magnitude.
 
     ``` shell
