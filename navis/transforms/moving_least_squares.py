@@ -68,6 +68,9 @@ class MovingLeastSquaresTransform(BaseTransform):
         >>> tr.xform(points)                                        # doctest: +SKIP
         array([[  1.        ,  15.        ,   5.        ],
                [ 81.56361725, 155.32071504, 187.3147564 ]])
+        >>> # The global affine part of the transform
+        >>> tr.matrix_affine.shape
+        (4, 4)
 
         """
         assert direction in ("forward", "inverse")
@@ -101,6 +104,34 @@ class MovingLeastSquaresTransform(BaseTransform):
             points_xf.append(self.transformer.transform(batch, reverse=self.reverse))
 
         return np.concatenate(points_xf, axis=0)
+
+    @property
+    def matrix_affine(self):
+        """Return the affine transformation matrix.
+
+        Note that moving least squares is a *locally* weighted affine transform:
+        every point effectively gets its own affine matrix. This property returns
+        the *global* affine, i.e. the least-squares fit of the source onto the
+        target landmarks. That is the transform the moving least squares converges
+        to far away from the landmarks, where the distance weights even out.
+
+        """
+        source, target = self._control_points()
+        source = np.asarray(source, dtype=float)
+        target = np.asarray(target, dtype=float)
+        ndim = source.shape[1]
+
+        # Least-squares fit of `source_homogeneous @ coefs = target`
+        source_hom = np.ones((source.shape[0], ndim + 1))
+        source_hom[:, :ndim] = source
+        coefs = np.linalg.lstsq(source_hom, target, rcond=None)[0]
+
+        # Combine into a typical (4, 4) transformation matrix
+        # where the last row is [0, 0, 0, 1]
+        m = np.eye(ndim + 1)
+        m[:ndim, :ndim] = coefs[:ndim].T
+        m[:ndim, ndim] = coefs[ndim]
+        return m
 
     def __neg__(self) -> "MovingLeastSquaresTransform":
         """Invert direction"""
