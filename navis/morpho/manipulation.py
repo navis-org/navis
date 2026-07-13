@@ -1804,9 +1804,15 @@ def despike_skeleton(
             dist_AC = np.linalg.norm(A - C, axis=1)
 
             # Get the spikes
-            spikes_ix = np.where(
-                np.divide(dist_AB, dist_AC, where=dist_AC != 0) > sigma
-            )[0]
+            # Note: where A and C coincide (dist_AC == 0) the ratio is left at
+            # zero, i.e. B is never considered a spike
+            ratio = np.divide(
+                dist_AB,
+                dist_AC,
+                out=np.zeros_like(dist_AB, dtype=float),
+                where=dist_AC != 0,
+            )
+            spikes_ix = np.where(ratio > sigma)[0]
             spikes = this_B.iloc[spikes_ix]
 
             if not spikes.empty:
