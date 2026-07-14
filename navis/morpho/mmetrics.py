@@ -1504,7 +1504,7 @@ def _tortuosity_segmented(x: "core.TreeNeuron", seg_length: Union[int, float, st
 def sholl_analysis(
     x: "core.NeuronObject",
     radii: Union[int, list] = 10,
-    center: Union[Literal["root"], Literal["soma"], list, int] = "centermass",
+    center: Union[Literal["centermass", "root", "soma"], list, int] = "centermass",
     geodesic=False,
 ) -> Union[float, Sequence[float], pd.DataFrame]:
     """Run Sholl analysis for given neuron(s).
@@ -1528,8 +1528,9 @@ def sholl_analysis(
                     - (3, ) list-like is interpreted as x/y/z coordinate
     geodesic :  bool
                 If True, will use geodesic (along-the-arbor) instead of
-                Euclidean distances. This does not work if center is an x/y/z
-                coordinate.
+                Euclidean distances. This requires `center` to be a node on the
+                arbor - i.e. "root", "soma" or a node ID. It does not work with
+                an x/y/z coordinate or with the default "centermass".
 
     Returns
     -------
@@ -1567,52 +1568,63 @@ def sholl_analysis(
             "neurons. Use `navis.heal_fragmented_neuron` first."
         )
 
-    if center == "soma" and not x.has_soma:
-        raise ValueError(f"Neuron {x.id} has no soma.")
-    elif utils.is_iterable(center):
-        center = np.asarray(center)
-        if center.ndim != 1 or len(center) != 3:
+    nodes = x.nodes.set_index("node_id").copy()
+
+    # Resolve `center` to either a node ID or an x/y/z coordinate. Note that we
+    # must check for coordinates/node IDs before comparing against the string
+    # presets: `center` may be an array and `array == "soma"` is an elementwise
+    # comparison, not a scalar `False`.
+    center_node = None
+    center_xyz = None
+    if utils.is_iterable(center):
+        center_xyz = np.asarray(center, dtype=float)
+        if center_xyz.ndim != 1 or len(center_xyz) != 3:
             raise ValueError(
                 "`center` must be (3, ) list-like when providing "
-                f"a coordinate. Got {center.shape}"
+                f"a coordinate. Got {center_xyz.shape}"
             )
         if geodesic:
             raise ValueError(
-                "Must not provide a `center` as coordinate when " "geodesic=True"
+                "Must not provide a `center` as coordinate when geodesic=True"
             )
-    elif center == "root" and len(x.root) > 1:
+    elif isinstance(center, (int, np.integer)):
+        if center not in nodes.index.values:
+            raise ValueError(f"{center} is not a valid node ID.")
+        center_node = center
+    elif center == "soma":
+        if not x.has_soma:
+            raise ValueError(f"Neuron {x.id} has no soma.")
+        center_node = utils.make_iterable(x.soma)[0]
+    elif center == "root":
+        if len(x.root) > 1:
+            raise ValueError(
+                f"Neuron {x.id} has multiple roots. Please specify "
+                "which node/coordinate to use as center."
+            )
+        center_node = utils.make_iterable(x.root)[0]
+    elif center == "centermass":
+        if geodesic:
+            raise ValueError(
+                "`geodesic=True` requires `center` to be 'root', 'soma' or a "
+                "node ID - 'centermass' is a coordinate."
+            )
+        center_xyz = x.nodes[["x", "y", "z"]].mean(axis=0).values.astype(float)
+    else:
         raise ValueError(
-            f"Neuron {x.id} has multiple roots. Please specify "
-            "which node/coordinate to use as center."
+            '`center` must be "centermass", "root", "soma", a node ID or a '
+            f'(3, ) x/y/z coordinate. Got "{center}"'
         )
-
-    if center == "centermass":
-        center = x.nodes[["x", "y", "z"]].mean(axis=0).values
 
     # Calculate distances for each node
-    nodes = x.nodes.set_index("node_id").copy()
     if not geodesic:
-        if isinstance(center, int):
-            if center not in nodes.index.values:
-                raise ValueError(f"{center} is not a valid node ID.")
-
-            center = nodes.loc[center, ["x", "y", "z"]].values
-        elif center == "soma":
-            center = nodes.loc[utils.make_iterable(x.soma)[0], ["x", "y", "z"]].values
-        elif center == "root":
-            center = nodes.loc[utils.make_iterable(x.root)[0], ["x", "y", "z"]].values
-        center = center.astype(float)
+        if center_xyz is None:
+            center_xyz = nodes.loc[center_node, ["x", "y", "z"]].values.astype(float)
 
         nodes["dist"] = np.sqrt(
-            ((x.nodes[["x", "y", "z"]].values - center) ** 2).sum(axis=1)
+            ((x.nodes[["x", "y", "z"]].values - center_xyz) ** 2).sum(axis=1)
         )
     else:
-        if center == "soma":
-            center = x.soma[0]
-        elif center == "root":
-            center = x.root[0]
-
-        nodes["dist"] = graph.geodesic_matrix(x, from_=center)[
+        nodes["dist"] = graph.geodesic_matrix(x, from_=center_node)[
             x.nodes.node_id.values
         ].values[0]
 
@@ -1623,7 +1635,7 @@ def sholl_analysis(
     ty = nodes.loc[not_root, "type"].values
 
     # Generate radii for the Sholl spheres
-    if isinstance(radii, int):
+    if isinstance(radii, (int, np.integer)):
         radii = np.linspace(0, dists.max(), radii + 1)
     else:
         if radii[0] != 0:
