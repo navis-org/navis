@@ -237,10 +237,12 @@ def mesh2skeleton(x: 'core.MeshNeuron',
         mesh = sk.pre.fix_mesh(mesh, remove_disconnected=False)
 
     kwargs['progress'] = False
+
+    kwargs['progress'] = kwargs.get("progress", False)
     if method == 'wavefront':
         skeleton = sk.skeletonize.by_wavefront(mesh, **kwargs)
     elif method == 'teasar':
-        skeleton = sk.skeletonize.by_teasar(x, inv_dist=inv_dist, **kwargs)
+        skeleton = sk.skeletonize.by_teasar(mesh, inv_dist=inv_dist, **kwargs)
 
     props['vertex_map'] = skeleton.mesh_map
 
