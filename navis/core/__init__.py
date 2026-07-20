@@ -18,11 +18,11 @@ from .mesh import MeshNeuron
 from .dotprop import Dotprops
 from .voxel import VoxelNeuron
 from .neuronlist import NeuronList
-from .core_utils import make_dotprops, to_neuron_space, NeuronProcessor
+from .core_utils import make_dotprops, to_neuron_space, cast_neuron, NeuronProcessor
 
 from typing import Union
 
 NeuronObject = Union[NeuronList, TreeNeuron, BaseNeuron, MeshNeuron]
 
 __all__ = ['Volume', 'Neuron', 'BaseNeuron', 'TreeNeuron', 'MeshNeuron',
-           'Dotprops', 'VoxelNeuron', 'NeuronList', 'make_dotprops']
+           'Dotprops', 'VoxelNeuron', 'NeuronList', 'make_dotprops', 'cast_neuron']

@@ -36,7 +36,7 @@ try:
 except ModuleNotFoundError:
     ProcessingPool = None
 
-__all__ = ['make_dotprops', 'to_neuron_space']
+__all__ = ['make_dotprops', 'to_neuron_space', 'cast_neuron']
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -405,6 +405,147 @@ def to_neuron_space(units: Union[int, float, pint.Quantity, pint.Unit],
     # I hope that in practice it won't screw things up:
     # even if asking for
     return utils.round_smart(mag)
+
+
+@utils.map_neuronlist(desc="Converting", allow_parallel=True)
+def cast_neuron(x: "core.NeuronObject",
+                dtype: Union[str, type, np.dtype],
+                inplace: bool = False) -> "core.NeuronObject":
+    """Convert neuron(s) to given data type.
+
+    Which data is converted depends on the neuron type:
+
+    - `TreeNeurons`: the `x`, `y`, `z` and `radius` node columns
+    - `MeshNeurons`: the vertices (faces are indices and stay untouched)
+    - `Dotprops`: the points and - for float dtypes - the tangent vectors
+      and alpha values
+    - `VoxelNeurons`: the voxel values (i.e. `.grid` or `.values`)
+
+    Connectors (if present) are converted for all neuron types. Anything that
+    indexes into the above (mesh faces, voxel coordinates, node/parent IDs) is
+    left untouched.
+
+    Parameters
+    ----------
+    x :         Neuron | NeuronList
+                Neuron(s) to convert.
+    dtype :     str | type | np.dtype
+                Data type to convert to - e.g. `np.float32`, `"float32"` or
+                `"uint8"`. Must be a numeric data type.
+    inplace :   bool, optional
+                If True, will modify original neuron. If False, we will
+                operate on and return a copy.
+
+    Returns
+    -------
+    Neuron/NeuronList
+                Same datatype as input.
+
+    Examples
+    --------
+    >>> import navis
+    >>> import numpy as np
+    >>> n = navis.example_neurons(1, kind='mesh')
+    >>> n.vertices.dtype
+    dtype('float64')
+    >>> n32 = navis.cast_neuron(n, np.float32)
+    >>> n32.vertices.dtype
+    dtype('float32')
+
+    Note that downcasting is lossy - use with care:
+
+    >>> n.memory_usage() > n32.memory_usage()
+    True
+
+    """
+    dtype = np.dtype(dtype)
+
+    if not np.issubdtype(dtype, np.number):
+        raise ValueError(f'Expected a numeric data type, got "{dtype}"')
+
+    if not isinstance(x, core.BaseNeuron):
+        raise TypeError(f'Unable to convert data of type "{type(x)}"')
+
+    if not inplace:
+        x = x.copy()
+
+    if isinstance(x, core.TreeNeuron):
+        _cast_treeneuron(x, dtype)
+    elif isinstance(x, core.MeshNeuron):
+        _cast_meshneuron(x, dtype)
+    elif isinstance(x, core.Dotprops):
+        _cast_dotprops(x, dtype)
+    elif isinstance(x, core.VoxelNeuron):
+        _cast_voxelneuron(x, dtype)
+    else:
+        raise TypeError(f'Unable to convert data of type "{type(x)}"')
+
+    # Connectors are spatial data for every neuron type
+    if x.has_connectors:
+        for c in ('x', 'y', 'z'):
+            x.connectors[c] = x.connectors[c].astype(dtype)
+
+    return x
+
+
+def _cast_treeneuron(x, dtype):
+    """Convert TreeNeuron node coordinates."""
+    assert isinstance(x, core.TreeNeuron)
+
+    for c in ('x', 'y', 'z', 'radius'):
+        if c in x.nodes.columns:
+            x.nodes[c] = x.nodes[c].astype(dtype)
+
+    # Topology is unchanged, so no need to reclassify nodes
+    x._clear_temp_attr(exclude=['classify_nodes'])
+
+
+def _cast_meshneuron(x, dtype):
+    """Convert MeshNeuron vertices."""
+    assert isinstance(x, core.MeshNeuron)
+
+    # Note: faces are indices into `vertices` and hence left alone
+    x._vertices = x._vertices.astype(dtype, copy=False)
+
+    x._clear_temp_attr()
+
+
+def _cast_dotprops(x, dtype):
+    """Convert Dotprops points (and vectors/alpha for float dtypes)."""
+    assert isinstance(x, core.Dotprops)
+
+    x._points = x._points.astype(dtype, copy=False)
+    # Reset the KDTree since it was built from the old points
+    x._tree = None
+
+    # Tangent vectors are unit vectors and alphas are in [0, 1] - casting
+    # either to an integer type would simply zero them out
+    if np.issubdtype(dtype, np.integer):
+        logger.warning(f'Neuron {x.id}: not converting tangent vectors and '
+                       'alpha values to an integer data type.')
+        return
+
+    if not isinstance(x._vect, type(None)):
+        x._vect = x._vect.astype(dtype, copy=False)
+    if not isinstance(x._alpha, type(None)):
+        x._alpha = x._alpha.astype(dtype, copy=False)
+
+
+def _cast_voxelneuron(x, dtype):
+    """Convert VoxelNeuron values."""
+    assert isinstance(x, core.VoxelNeuron)
+
+    if x._base_data_type == 'grid':
+        x._data = x._data.astype(dtype, copy=False)
+    else:
+        # Note: `_data` holds voxel coordinates which are indices into the
+        # grid and are hence left alone - downcasting them to e.g. uint8 would
+        # silently wrap around for anything but the smallest of grids
+        values = getattr(x, '_values', None)
+        if not isinstance(values, type(None)):
+            x._values = values.astype(dtype, copy=False)
+
+    x._clear_temp_attr()
 
 
 class NeuronProcessor:

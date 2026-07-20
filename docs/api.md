@@ -1006,6 +1006,7 @@ Below table has an overview for which functions work with which neuron types:
 | [`navis.in_volume`][]          | yes        | yes        | yes         | yes      |
 | smoothing                  | [`navis.smooth_skeleton`][] | [`navis.smooth_mesh`][] | [`navis.smooth_voxels`][] | no |
 | [`navis.downsample_neuron`][]  | yes        | yes        | yes         | yes      |
+| [`navis.cast_neuron`][]             | yes        | yes        | yes         | yes      |
 | resampling (e.g. [`navis.resample_skeleton`][]) | yes | no |       no | no        |
 | [`navis.make_dotprops`][]      | yes        | yes        | yes         | yes      |
 | NBLAST ([`navis.nblast`][], etc.) | no[^1]       | no[^1]         | no[^1]          | yes      |
