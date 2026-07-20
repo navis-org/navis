@@ -236,7 +236,8 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     if fix_mesh:
         mesh = sk.pre.fix_mesh(mesh, remove_disconnected=False)
 
-    kwargs['progress'] = False
+    # Warm-up the trimesh cache (this will use fastcore if available)
+    _ = utils.mesh_unique_edges(mesh, return_lengths=True)
 
     kwargs['progress'] = kwargs.get("progress", False)
     if method == 'wavefront':

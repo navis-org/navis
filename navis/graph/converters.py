@@ -21,7 +21,7 @@ from typing import Union, Optional, List, Iterable
 
 import igraph
 
-from .. import config, core
+from .. import config, core, utils
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -289,9 +289,10 @@ def neuron2nx(x: "core.NeuronObject", simplify=False, epsilon=None) -> nx.DiGrap
     elif isinstance(x, core.MeshNeuron):
         G = nx.Graph()
         G.add_nodes_from(np.arange(x.n_vertices))
+        elist, elengths = utils.mesh_unique_edges(x.trimesh, return_lengths=True)
         edges = [
             (e[0], e[1], l)
-            for e, l in zip(x.trimesh.edges_unique, x.trimesh.edges_unique_length)
+            for e, l in zip(elist, elengths)
         ]
         G.add_weighted_edges_from(edges)
     elif isinstance(x, core.Dotprops):
@@ -570,9 +571,9 @@ def neuron2igraph(
         if simplify:
             simplify_graph(G, inplace=True)
     elif isinstance(x, core.MeshNeuron):
-        elist = x.trimesh.edges_unique
+        elist, elengths = utils.mesh_unique_edges(x.trimesh, return_lengths=True)
         G = igraph.Graph(elist, n=x.n_vertices, directed=False)
-        G.es["weight"] = x.trimesh.edges_unique_length
+        G.es["weight"] = elengths
     elif isinstance(x, core.VoxelNeuron):
         edges = _voxels2edges(x, connectivity=connectivity)
         G = igraph.Graph(edges, n=len(x.voxels), directed=False)

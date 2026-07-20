@@ -328,7 +328,7 @@ class MeshNeuron(BaseNeuron):
     @property
     def sampling_resolution(self) -> float:
         """Average distance between vertices."""
-        return float(self.trimesh.edges_unique_length.mean())
+        return float(utils.mesh_unique_edges(self.trimesh, return_lengths=True)[1].mean())
 
     @property
     @add_units(compact=True, power=3)

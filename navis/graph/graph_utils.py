@@ -241,6 +241,10 @@ def _connected_components(
     else:
         if isinstance(x, core.Dotprops):
             G: igraph.Graph = graph.neuron2igraph(x, epsilon=epsilon)
+        elif isinstance(x, tm.Trimesh):
+            elist, elengths = utils.mesh_unique_edges(x, return_lengths=True)
+            G = igraph.Graph(elist, n=len(x.vertices), directed=False)
+            G.es["weight"] = elengths
         else:
             G: igraph.Graph = x.igraph
         # Get the vertex clustering

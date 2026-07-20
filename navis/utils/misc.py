@@ -18,12 +18,18 @@ import urllib
 
 import numpy as np
 import pandas as pd
+import trimesh as tm
 
 from typing import Optional, Union, List, Iterable, Dict, Tuple, Any
 
 from .. import config, core
 from .eval import is_mesh
 from ..transforms.templates import TemplateBrain
+
+try:
+    import navis_fastcore as fastcore
+except ModuleNotFoundError:
+    fastcore = None
 
 
 # Set up logging
@@ -63,13 +69,13 @@ def round_smart(num: Union[int, float], prec: int = 8) -> float:
     return round(num, max(prec - N, 0))
 
 
-def sizeof_fmt(num, suffix='B'):
+def sizeof_fmt(num, suffix="B"):
     """Bytes to Human readable."""
-    for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
         num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
+    return "%.1f%s%s" % (num, "Yi", suffix)
 
 
 def make_volume(x: Any) -> 'core.Volume':
@@ -435,5 +441,70 @@ def check_vispy():
     >>> navis.close3d()
     """
     from ..data import example_neurons
+
     nl = example_neurons()
-    return nl.plot3d(backend='vispy')
+    return nl.plot3d(backend="vispy")
+
+
+def mesh_unique_edges(x, return_lengths=False):
+    """Return unique edges of a mesh as (N, 2) numpy array.
+
+    Will use fastcore if available.
+
+    Parameters
+    ----------
+    x :         MeshNeuron | Trimesh | mesh-like
+                A mesh to get unique edges from.
+    return_lengths : bool
+                If True, will also return the lengths of the edges.
+
+    Returns
+    -------
+    edges : (N, 2) numpy array
+            Unique edges of the mesh.
+    lengths : (N,) numpy array, optional
+              Lengths of the unique edges, returned if `return_lengths` is True.
+
+    """
+    if not is_mesh(x):
+        raise TypeError(f"Expected mesh-like, got {type(x)}")
+
+    mesh = x.trimesh if isinstance(x, core.MeshNeuron) else x
+
+    if not isinstance(mesh, tm.Trimesh):
+        mesh = tm.Trimesh(vertices=x.vertices, faces=x.faces, process=False)
+
+    if (
+        fastcore is not None  # must have fastcore
+        and hasattr(fastcore, 'unique_edges')  # fastcore must have unique_edges function
+        and "edges_unique" not in mesh._cache  # unique edges not yet cached
+    ):
+        # Note: we always ask for index and inverse. Trimesh generates these as a
+        # side-effect of `edges_unique` and caches them under separate keys. If we
+        # seed `edges_unique` without them, `edges_unique_inverse` silently returns
+        # `None` and `faces_unique_edges` raises - so the cache must stay consistent.
+        res = fastcore.unique_edges(
+            mesh.faces,
+            vertices=mesh.vertices if return_lengths else None,
+            return_index=True,
+            return_inverse=True,
+        )
+        if return_lengths:
+            edges, index, inverse, lengths = res
+            mesh._cache["edges_unique_length"] = tm.caching.tracked_array(lengths)
+        else:
+            edges, index, inverse = res
+
+        # Update cache (mirrors what trimesh's `edges_unique` populates)
+        mesh._cache["edges_unique"] = edges
+        mesh._cache["edges_unique_idx"] = index
+        mesh._cache["edges_unique_inverse"] = inverse
+    else:
+        edges = mesh.edges_unique
+        if return_lengths:
+            lengths = mesh.edges_unique_length
+
+    if return_lengths:
+        return edges, lengths
+
+    return edges

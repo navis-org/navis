@@ -172,7 +172,7 @@ def combine_meshes(meshes, max_dist='auto', progress=True):
     comb.remove_unreferenced_vertices()
 
     if max_dist == 'auto':
-        max_dist = comb.edges_unique_length.mean()
+        max_dist = utils.mesh_unique_edges(comb, return_lengths=True)[1].mean()
 
     for m in config.tqdm(meshes[1:], desc='Combining',
                          disable=config.pbar_hide or not progress,
