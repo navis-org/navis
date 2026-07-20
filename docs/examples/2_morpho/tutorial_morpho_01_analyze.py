@@ -123,6 +123,73 @@ ax.set_yscale("log")
 #
 # For an example of a Sholl analyses, check out the [MICrONS tutorial](../4_remote/tutorial_remote_02_microns).
 #
+# ## Branch, Path & Soma-Exit Angles
+#
+# {{ navis }} can also measure the *angles* in a neuron's geometry:
+#
+# - [`navis.branch_angles`][] : the angle between child branches at each branch point
+# - [`navis.path_angles`][] : the bend at each continuation (slab) node
+# - [`navis.root_angles`][] : each segment's angle relative to the root direction
+# - [`navis.soma_exit_angles`][] : the angles between the neurites leaving the soma
+#
+# These are most informative for neurons with a clear dendritic/axonal layout such as
+# vertebrate cortical cells. The example neurons we have been using so far are insect
+# neurons, so let's instead pull a few mouse cortical reconstructions from the
+# [Brain Image Library](../4_remote/tutorial_remote_05_bil) (BIL) to demonstrate:
+
+import pandas as pd
+
+import navis.interfaces.brain_image_library as bil
+
+# A handful of patch-seq mouse cortical cells (the same dataset as the "Cortical Neurons"
+# plotting tutorial). These SWCs carry a `label` column: 1 = soma, 2 = axon, 3 = dendrite.
+ids = [601506507, 601790961, 601803754]
+datasets = [bil.query("specimen", "localid", str(i))[0] for i in ids]
+cortical = bil.get_neurons(datasets, pattern="*_transformed.swc")
+
+# The angle metrics are measured relative to the root, so root each neuron at its soma:
+for cn in cortical:
+    cn.reroot(cn.soma, inplace=True)
+
+cortical
+
+# %%
+# [`navis.branch_angles`][] returns one row per branch point, so the result is
+# effectively a distribution we can summarize or plot. Let's compute it per neuron and
+# use the `label` column to split the branch angles by compartment (axon vs dendrite):
+
+frames = []
+for cn in cortical:
+    b = navis.branch_angles(cn)
+    # Map each branch point onto its compartment label (per-neuron, since node IDs
+    # are only unique within a neuron)
+    b["compartment"] = b.node_id.map(cn.nodes.set_index("node_id").label)
+    frames.append(b)
+
+ba = pd.concat(frames, ignore_index=True)
+ba["compartment"] = ba.compartment.map({2: "axon", 3: "dendrite"})
+ba.head()
+
+# %%
+# Now we can compare the branch-angle distributions between axon and dendrite:
+
+ax = sns.violinplot(
+    data=ba.dropna(subset=["compartment"]),
+    x="compartment",
+    y="branch_angle",
+    cut=0,
+)
+_ = ax.set_ylabel("branch angle (degrees)")
+
+# %%
+# The other angle functions behave the same way. For instance, [`navis.soma_exit_angles`][]
+# gives the angles between the neurites leaving the soma; MorphoPy's `mean_soma_exit_angle`
+# statistic is simply the mean of these per neuron:
+
+sea = navis.soma_exit_angles(cortical)
+sea.groupby("neuron").soma_exit_angle.mean()
+
+# %%
 # ## Geodesic Distances
 #
 # Working with Euclidean distances is straight forward and we won't cover this extensively but here is an example where

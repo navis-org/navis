@@ -52,7 +52,7 @@ A summary of changes can be found
 
 NAVis comes with batteries included but is also highly extensible. Some
 libraries built on top of NAVis:
-* [flybrains](https://github.com/navis-org/navis-flybrains) provides templates and transforms for *Drosophila* brains to use with navis
+* [flybrains](https://github.com/navis-org/navis-flybrains) (_Drosophila_, mostly), [fishbrains](https://github.com/navis-org/navis-fishbrains) and [mousebrains](https://github.com/navis-org/navis-mousebrains) provides brain templates, meshes and transforms to use with navis
 * [pymaid](https://pymaid.readthedocs.io/en/latest/) pulls and pushes data from/to CATMAID servers
 * [fafbseg](https://fafbseg-py.readthedocs.io/en/latest/index.html) contains tools to work with auto-segmented data for the FAFB EM dataset including FlyWire
 
