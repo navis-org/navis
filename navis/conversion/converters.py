@@ -11,9 +11,12 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import skeletor as sk
+import sparsecubes
 import trimesh as tm
 
 from numbers import Number
@@ -414,8 +417,14 @@ def neuron2voxels(x: 'core.BaseNeuron',
     Parameters
     ----------
     x :             TreeNeuron | MeshNeuron | Dotprops
-                    Neuron(s) to voxelize. Uses the neurons' nodes, vertices and
-                    points, respectively.
+                    Neuron(s) to voxelize. TreeNeurons and Dotprops are
+                    voxelized by binning their nodes and points, respectively.
+                    MeshNeurons are voxelized properly via
+                    [`sparsecubes.voxelize`][]: their surface is walked and the
+                    interior filled, which - unlike binning the vertices -
+                    does not miss faces larger than a voxel. Note that
+                    `counts`, `vectors` and `alphas` are per-point quantities
+                    and fall back to binning the mesh's vertices.
     pitch :         float | iterable thereof
                     Side length(s) voxels. Can be isometric (float) or an
                     iterable of dimensions in (x, y, z).
@@ -469,8 +478,12 @@ def neuron2voxels(x: 'core.BaseNeuron',
     else:
         pitch = np.array([x.map_units(p, on_error='raise') for p in pitch])
 
-    # Convert to voxel indices
-    ix, _ = _make_voxels(x=x, pitch=pitch, strip=False)
+    # Meshes have faces and can therefore be voxelized properly - walking the
+    # surface and filling the interior - instead of just binning their vertices,
+    # which misses any face larger than a voxel. `counts`, `vectors` and
+    # `alphas` are per-point quantities though, so those still need the points.
+    is_mesh = isinstance(x, (core.MeshNeuron, tm.Trimesh))
+    solid = is_mesh and not counts and not vectors and not alphas
 
     if isinstance(bounds, type(None)):
         bounds = x.bbox
@@ -484,8 +497,48 @@ def neuron2voxels(x: 'core.BaseNeuron',
     dim = np.ceil(bounds[:, 1] / pitch) - np.floor(bounds[:, 0] / pitch)
     shape = np.ceil(dim).astype(int) + 1
 
-    # Get unique voxels
-    if not counts:
+    # `counts` produces an integer grid and `smooth` a float32 one - check
+    # against whichever dtype we will actually end up holding.
+    # Note this has to happen *before* voxelizing: work scales with the number
+    # of voxels, so a pitch fine enough to blow up the grid would grind away for
+    # a very long time before we ever got here to reject it.
+    if counts:
+        grid_dtype = np.int64
+    elif smooth:
+        grid_dtype = np.float32
+    else:
+        grid_dtype = bool
+    utils.check_grid_size(
+        shape, grid_dtype, hint="Try a coarser `pitch` or tighter `bounds`."
+    )
+
+    # Convert to voxel indices. Note `sparsecubes` uses the same convention as
+    # `_make_voxels` - voxel `i` is centred on `i * pitch` - so the two produce
+    # indices in the same space and everything downstream is shared.
+    if solid:
+        ix = None
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            vxl = sparsecubes.voxelize(
+                x.trimesh if isinstance(x, core.MeshNeuron) else x, spacing=pitch
+            )
+
+        # Neuron meshes are routinely not watertight, so `sparsecubes` warning
+        # about unfilled columns is expected rather than exceptional - demote it
+        # to a debug log. Anything else is re-raised: we are only quietening the
+        # one known-noisy case, not swallowing warnings wholesale.
+        for w in caught:
+            if "watertight" in str(w.message):
+                logger.debug(f"Voxelizing {x.id}: {w.message}")
+            else:
+                warnings.warn_explicit(w.message, w.category, w.filename, w.lineno)
+    else:
+        ix, _ = _make_voxels(x=x, pitch=pitch, strip=False)
+
+    # Get unique voxels (`sparsecubes` already returns them sorted + deduplicated)
+    if solid:
+        cnt = None
+    elif not counts:
         vxl = np.unique(ix, axis=0)
     else:
         vxl, cnt = np.unique(ix, axis=0, return_counts=True)
@@ -493,7 +546,8 @@ def neuron2voxels(x: 'core.BaseNeuron',
     # Substract lower bounds
     offset = (bounds[:, 0] / pitch)
     vxl = vxl - offset.round().astype(int)
-    ix = ix - offset.round().astype(int)
+    if ix is not None:
+        ix = ix - offset.round().astype(int)
 
     # Drop voxels outside the defined bounds
     vxl = vxl[vxl.min(axis=1) >= 0]

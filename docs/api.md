@@ -189,6 +189,7 @@ These are methods and properties specific to [VoxelNeurons][navis.VoxelNeuron]:
 
 | Property | Description |
 |------|------|
+| [`VoxelNeuron.densify()`][navis.VoxelNeuron.densify] | {{ autosummary("navis.VoxelNeuron.densify") }} |
 | [`VoxelNeuron.density`][navis.VoxelNeuron.density] | {{ autosummary("navis.VoxelNeuron.density") }} |
 | [`VoxelNeuron.grid`][navis.VoxelNeuron.grid] | {{ autosummary("navis.VoxelNeuron.grid") }} |
 | [`VoxelNeuron.max`][navis.VoxelNeuron.max] | {{ autosummary("navis.VoxelNeuron.max") }} |
@@ -196,6 +197,7 @@ These are methods and properties specific to [VoxelNeurons][navis.VoxelNeuron]:
 | [`VoxelNeuron.nnz`][navis.VoxelNeuron.nnz] | {{ autosummary("navis.VoxelNeuron.nnz") }} |
 | [`VoxelNeuron.offset`][navis.VoxelNeuron.offset] | {{ autosummary("navis.VoxelNeuron.offset") }} |
 | [`VoxelNeuron.shape`][navis.VoxelNeuron.shape] | {{ autosummary("navis.VoxelNeuron.shape") }} |
+| [`VoxelNeuron.sparsify()`][navis.VoxelNeuron.sparsify] | {{ autosummary("navis.VoxelNeuron.sparsify") }} |
 | [`VoxelNeuron.strip()`][navis.VoxelNeuron.strip] | {{ autosummary("navis.VoxelNeuron.strip") }} |
 | [`VoxelNeuron.threshold()`][navis.VoxelNeuron.threshold] | {{ autosummary("navis.VoxelNeuron.threshold") }} |
 | [`VoxelNeuron.voxels`][navis.VoxelNeuron.voxels] | {{ autosummary("navis.VoxelNeuron.voxels") }} |

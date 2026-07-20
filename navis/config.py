@@ -80,6 +80,17 @@ warn_caching = True
 #   or name a specific backend (e.g. "fastcore") to force it.
 default_nblast_backend = "builtin"
 
+
+# Maximum size (in bytes) of a dense voxel grid that navis will allocate.
+# Voxel grids are allocated from a *shape*, not from the number of filled
+# voxels: `VoxelNeuron.shape` is derived from the voxel coordinates, so a
+# handful of far-apart voxels can imply a grid of terabytes. On systems that
+# overcommit, numpy hands out such an array without complaint and the process
+# is then OOM-killed (SIGKILL, no traceback) once the pages are touched - hence
+# we check up-front instead of relying on `MemoryError`.
+# Set to 0 or None to disable the check.
+max_grid_size = int(os.environ.get('NAVIS_MAX_GRID_SIZE', 4 * 1024 ** 3))  # 4 GiB
+
 # Default color for neurons
 default_color = (.95, .65, .04)
 

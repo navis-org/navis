@@ -78,13 +78,74 @@ def sizeof_fmt(num, suffix="B"):
     return "%.1f%s%s" % (num, "Yi", suffix)
 
 
-def make_volume(x: Any) -> 'core.Volume':
+def check_grid_size(shape, dtype=bool, hint: Optional[str] = None) -> None:
+    """Raise if allocating a dense voxel grid would exhaust memory.
+
+    Voxel grids are allocated from a *shape*, not from the number of filled
+    voxels, so even a handful of far-apart voxels can imply a grid of
+    terabytes. On systems that overcommit, numpy will hand out such an array
+    without complaint and the process is then OOM-killed once the pages are
+    actually touched - which is why we check up-front rather than relying on
+    numpy to raise `MemoryError`.
+
+    Parameters
+    ----------
+    shape :     iterable of int
+                Shape of the grid about to be allocated.
+    dtype :     numpy dtype
+                Data type of the grid.
+    hint :      str, optional
+                Additional advice to append to the error message.
+
+    Raises
+    ------
+    MemoryError
+                If the grid would exceed `navis.config.max_grid_size`.
+
+    Examples
+    --------
+    >>> import navis
+    >>> navis.utils.check_grid_size((10, 10, 10))
+    >>> navis.utils.check_grid_size((1e6, 1e6, 1e6))
+    Traceback (most recent call last):
+    ...
+    MemoryError: Allocating a 1000000x1000000x1000000 voxel grid ...
+
+    """
+    limit = config.max_grid_size
+    if not limit:
+        return
+
+    # Use Python ints throughout: the product overflows int64 for the very
+    # shapes we are trying to catch here
+    size = math.prod(int(s) for s in shape) * np.dtype(dtype).itemsize
+
+    if size <= limit:
+        return
+
+    msg = (
+        f"Allocating a {'x'.join(str(int(s)) for s in shape)} voxel grid of "
+        f"dtype {np.dtype(dtype)} requires {sizeof_fmt(size)}, which exceeds "
+        f"navis' limit of {sizeof_fmt(limit)}."
+    )
+    if hint:
+        msg += f" {hint}"
+    msg += (
+        " If this is intentional, raise or disable the limit via "
+        "`navis.config.max_grid_size` (or the NAVIS_MAX_GRID_SIZE "
+        "environment variable)."
+    )
+
+    raise MemoryError(msg)
+
+
+def make_volume(x: Any) -> "core.Volume":
     """Try making a navis.Volume from input object."""
     if isinstance(x, core.Volume):
         return x
     if is_mesh(x):
         inits = dict(vertices=x.vertices, faces=x.faces)
-        for p in ['name', 'id', 'color']:
+        for p in ["name", "id", "color"]:
             if hasattr(x, p):
                 inits[p] = getattr(x, p, None)
         return core.Volume(**inits)
@@ -117,15 +178,15 @@ def is_url(x: str) -> bool:
 def _type_of_script() -> str:
     """Return context (terminal, jupyter, colab, iPython) in which navis is run."""
     try:
-        ipy_str = str(type(get_ipython()))  # type: ignore
-        if 'zmqshell' in ipy_str:
-            return 'jupyter'
-        elif 'colab' in ipy_str:
-            return 'colab'
+        ipy_str = str(type(get_ipython()))  # noqa: F821
+        if "zmqshell" in ipy_str:
+            return "jupyter"
+        elif "colab" in ipy_str:
+            return "colab"
         else:  # if 'terminal' in ipy_str:
-            return 'ipython'
+            return "ipython"
     except BaseException:
-        return 'terminal'
+        return "terminal"
 
 
 def is_jupyter() -> bool:
@@ -141,7 +202,7 @@ def is_jupyter() -> bool:
     False
 
     """
-    return _type_of_script() in ('jupyter', 'colab')
+    return _type_of_script() in ("jupyter", "colab")
 
 
 def is_blender() -> bool:
@@ -155,10 +216,10 @@ def is_blender() -> bool:
     False
 
     """
-    return 'blender' in sys.executable.lower()
+    return "blender" in sys.executable.lower()
 
 
-def set_loggers(level: str = 'INFO'):
+def set_loggers(level: str = "INFO"):
     """Set levels for all associated module loggers.
 
     Examples
@@ -176,9 +237,11 @@ def set_loggers(level: str = 'INFO'):
     config.logger.setLevel(level)
 
 
-def set_pbars(hide: Optional[bool] = None,
-              leave: Optional[bool] = None,
-              jupyter: Optional[bool] = None) -> None:
+def set_pbars(
+    hide: Optional[bool] = None,
+    leave: Optional[bool] = None,
+    jupyter: Optional[bool] = None,
+) -> None:
     """Set global progress bar behaviors.
 
     Parameters
@@ -215,7 +278,7 @@ def set_pbars(hide: Optional[bool] = None,
     if isinstance(jupyter, bool):
         if jupyter:
             if not is_jupyter():
-                logger.error('No Jupyter environment detected.')
+                logger.error("No Jupyter environment detected.")
             else:
                 config.tqdm = config.tqdm_notebook
                 config.trange = config.trange_notebook
@@ -226,9 +289,10 @@ def set_pbars(hide: Optional[bool] = None,
     return
 
 
-def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.NeuronObject'],
-                   raise_on_error: bool = True
-                   ) -> List['core.NeuronObject']:
+def unpack_neurons(
+    x: Union[Iterable, "core.NeuronList", "core.NeuronObject"],
+    raise_on_error: bool = True,
+) -> List["core.NeuronObject"]:
     """Unpack neurons and returns a list of individual neurons.
 
     Examples
@@ -265,8 +329,7 @@ def unpack_neurons(x: Union[Iterable, 'core.NeuronList', 'core.NeuronObject'],
     return neurons
 
 
-def set_default_connector_colors(x: Union[List[tuple], Dict[str, tuple]]
-                                 ) -> None:
+def set_default_connector_colors(x: Union[List[tuple], Dict[str, tuple]]) -> None:
     """Set/update default connector colors.
 
     Parameters
@@ -285,15 +348,14 @@ def set_default_connector_colors(x: Union[List[tuple], Dict[str, tuple]]
         if isinstance(v, dict):
             config.default_connector_colors[k].update(v)
         else:
-            config.default_connector_colors[k]['color'] = v
+            config.default_connector_colors[k]["color"] = v
 
     return
 
 
-def parse_objects(x) -> Tuple['core.NeuronList',
-                              List['core.Volume'],
-                              List[np.ndarray],
-                              List]:
+def parse_objects(
+    x,
+) -> Tuple["core.NeuronList", List["core.Volume"], List[np.ndarray], List]:
     """Categorize objects e.g. for plotting.
 
     Returns
@@ -341,18 +403,22 @@ def parse_objects(x) -> Tuple['core.NeuronList',
         x = y
 
     # Collect neuron objects, make a single NeuronList and split into types
-    neurons = core.NeuronList([ob for ob in x if isinstance(ob,
-                                                            (core.BaseNeuron,
-                                                             core.NeuronList))],
-                              make_copy=False)
+    neurons = core.NeuronList(
+        [ob for ob in x if isinstance(ob, (core.BaseNeuron, core.NeuronList))],
+        make_copy=False,
+    )
 
     # Collect visuals
-    visuals = [ob for ob in x if 'vispy' in str(type(ob)) or 'pygfx.objects' in str(type(ob))]
+    visuals = [
+        ob for ob in x if "vispy" in str(type(ob)) or "pygfx.objects" in str(type(ob))
+    ]
 
     # Collect and parse volumes
-    volumes = [ob for ob in x if not isinstance(ob, (core.BaseNeuron,
-                                                     core.NeuronList))
-               and is_mesh(ob)]
+    volumes = [
+        ob
+        for ob in x
+        if not isinstance(ob, (core.BaseNeuron, core.NeuronList)) and is_mesh(ob)
+    ]
     # Add templatebrains
     volumes += [ob.mesh for ob in x if isinstance(ob, TemplateBrain)]
     # Converts any non-navis meshes into Volumes
@@ -360,18 +426,21 @@ def parse_objects(x) -> Tuple['core.NeuronList',
 
     # Collect dataframes with X/Y/Z coordinates
     dataframes = [ob for ob in x if isinstance(ob, pd.DataFrame)]
-    if [d for d in dataframes if False in np.isin(['x', 'y', 'z'], d.columns)]:
-        logger.warning('DataFrames must have x, y and z columns.')
+    if [d for d in dataframes if False in np.isin(["x", "y", "z"], d.columns)]:
+        logger.warning("DataFrames must have x, y and z columns.")
     # Filter to and extract x/y/z coordinates
-    dataframes = [d for d in dataframes if False not in [c in d.columns for c in ['x', 'y', 'z']]]
-    dataframes = [d[['x', 'y', 'z']].values for d in dataframes]
+    dataframes = [
+        d for d in dataframes if False not in [c in d.columns for c in ["x", "y", "z"]]
+    ]
+    dataframes = [d[["x", "y", "z"]].values for d in dataframes]
 
     # Collect arrays
     arrays = [ob.copy() for ob in x if isinstance(ob, np.ndarray)]
     # Remove arrays with wrong dimensions
     if [ob for ob in arrays if ob.shape[1] != 3 and ob.shape[0] != 2]:
-        logger.warning('Arrays need to be of shape (N, 3) for scatter or (2, N)'
-                       ' for line plots.')
+        logger.warning(
+            "Arrays need to be of shape (N, 3) for scatter or (2, N)" " for line plots."
+        )
     arrays = [ob for ob in arrays if any(np.isin(ob.shape, [2, 3]))]
 
     points = dataframes + arrays
@@ -417,11 +486,11 @@ def make_url(baseurl, *args: str, **GET) -> str:
     # Generate the URL
     for arg in args:
         arg_str = str(arg)
-        joiner = '' if url.endswith('/') else '/'
-        relative = arg_str[1:] if arg_str.startswith('/') else arg_str
+        joiner = "" if url.endswith("/") else "/"
+        relative = arg_str[1:] if arg_str.startswith("/") else arg_str
         url = requests.compat.urljoin(url + joiner, relative)
     if GET:
-        url += f'?{urllib.parse.urlencode(GET)}'
+        url += f"?{urllib.parse.urlencode(GET)}"
     return url
 
 
