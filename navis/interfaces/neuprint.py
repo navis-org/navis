@@ -16,6 +16,8 @@
 navis-specific functions.
 """
 
+import copy
+import threading
 import trimesh
 
 from urllib.parse import urlparse
@@ -60,6 +62,24 @@ logger = config.get_logger(__name__)
 
 # Define some integer types
 int_types = (int, np.integer)
+
+# Holds a per-thread copy of the neuprint client (see `_init_worker`)
+_thread_local = threading.local()
+
+
+def _init_worker(client):
+    """Give this worker thread its own copy of the client.
+
+    `requests.Session` is not thread-safe which is why neuprint-python hands out
+    a separate deepcopy of the client to each thread (see
+    `neuprint.client.default_client`). Passing an explicit client into a thread
+    bypasses that mechanism, so we have to do the copying ourselves.
+
+    Note that `Session`/`HTTPAdapter` implement `__getstate__`/`__setstate__`,
+    so the copy gets a fresh connection pool rather than aliasing the original's.
+    `Client.__init__` is not re-run, i.e. this costs no extra requests.
+    """
+    _thread_local.client = copy.deepcopy(client)
 
 
 @inject_client
@@ -451,7 +471,11 @@ def fetch_skeletons(
     meta = _fix_meta(meta)
 
     nl = []
-    with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
+    with ThreadPoolExecutor(
+        max_workers=1 if not parallel else max_threads,
+        initializer=_init_worker,
+        initargs=(client,),
+    ) as executor:
         futures = {}
         for r in meta.itertuples():
             f = executor.submit(
@@ -491,6 +515,10 @@ def __fetch_skeleton(
     r, client, with_synapses=True, missing_swc="raise", heal=False, max_distance=None
 ):
     """Fetch a single skeleton + synapses and construct navis TreeNeuron."""
+    # Use this thread's own client (and hence session) if we have one - see
+    # `_init_worker`. Falls back to the passed client when called directly.
+    client = getattr(_thread_local, "client", client)
+
     # Fetch skeleton SWC
     try:
         data = client.fetch_skeleton(r.bodyId, format="pandas", heal=heal)
