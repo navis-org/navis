@@ -19,6 +19,7 @@ from collections import defaultdict
 import igraph
 import numpy as np
 import pandas as pd
+import trimesh as tm
 import networkx as nx
 
 from typing_extensions import Literal
@@ -182,16 +183,16 @@ def _generate_segments(
 
 
 def _connected_components(
-    x: Union["core.TreeNeuron", "core.MeshNeuron", "core.Dotprops"],
+    x: Union["core.TreeNeuron", "core.MeshNeuron", "core.Dotprops", "tm.Trimesh"],
     epsilon: Optional[float] = None,
 ) -> List[Set[int]]:
     """Extract the connected components within a neuron.
 
-    Will use `navis-fastcore` for skeletons, if available.
+    Will use `navis-fastcore` for skeletons and meshes, if available.
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops
+    x :         TreeNeuron | MeshNeuron | Dotprops | Trimesh
                 Neuron for which to extract connected components.
     epsilon :   float, optional
                 For Dotprops only: distance threshold to consider two points
@@ -216,7 +217,7 @@ def _connected_components(
     >>> cc = navis.graph_utils._connected_components(dp)
 
     """
-    assert isinstance(x, (core.TreeNeuron, core.MeshNeuron, core.Dotprops))
+    assert isinstance(x, (core.TreeNeuron, core.MeshNeuron, core.Dotprops, tm.Trimesh))
 
     if isinstance(x, core.TreeNeuron) and utils.fastcore:
         # This returns for each node the ID of its root
@@ -228,16 +229,27 @@ def _connected_components(
         # Translate into list of arrays of IDs
         order = np.argsort(ms, kind="mergesort")
         ms_sorted = ms[order]
-        _, start_idx, counts = np.unique(ms_sorted, return_index=True, return_counts=True)
-        cc = [x.nodes.node_id.values[order[start:start + count]] for start, count in zip(start_idx, counts)]
-    elif isinstance(x, core.MeshNeuron) and utils.fastcore and hasattr(utils.fastcore, "mesh_connected_components"):
+        _, start_idx, counts = np.unique(
+            ms_sorted, return_index=True, return_counts=True
+        )
+        cc = [
+            x.nodes.node_id.values[order[start : start + count]]
+            for start, count in zip(start_idx, counts)
+        ]
+    elif (
+        isinstance(x, (core.MeshNeuron, tm.Trimesh))
+        and utils.fastcore
+        and hasattr(utils.fastcore, "mesh_connected_components")
+    ):
         # This returns for each vertex the ID of its component
         ms = utils.fastcore.mesh_connected_components(x.faces, len(x.vertices))  # type: ignore
         # Translate into list of arrays of IDs
         order = np.argsort(ms, kind="mergesort")
         ms_sorted = ms[order]
-        _, start_idx, counts = np.unique(ms_sorted, return_index=True, return_counts=True)
-        cc = [order[start:start + count] for start, count in zip(start_idx, counts)]
+        _, start_idx, counts = np.unique(
+            ms_sorted, return_index=True, return_counts=True
+        )
+        cc = [order[start : start + count] for start, count in zip(start_idx, counts)]
     else:
         if isinstance(x, core.Dotprops):
             G: igraph.Graph = graph.neuron2igraph(x, epsilon=epsilon)
@@ -1552,7 +1564,9 @@ def longest_neurite(
 
     if not from_root:
         # Find the two most distal points (N.B. roots can also be "ends")
-        leafs = np.unique(x.nodes.loc[x.nodes.type.isin(("root", "end")), "node_id"].values)
+        leafs = np.unique(
+            x.nodes.loc[x.nodes.type.isin(("root", "end")), "node_id"].values
+        )
 
         if utils.fastcore:
             # We only need each leaf's distance to its farthest leaf, so there is no
@@ -1746,8 +1760,7 @@ def reroot_skeleton(
 
         # Translate path indices to node IDs
         ix2id = {
-            ix: n
-            for ix, n in zip(g.vs.indices, g.vs.get_attribute_values("node_id"))
+            ix: n for ix, n in zip(g.vs.indices, g.vs.get_attribute_values("node_id"))
         }
         path = [ix2id[i] for i in path]
 
