@@ -9,10 +9,13 @@ some libraries that are built directly on top of {{ navis }}.
 
 ![NAVis ecosystem](_static/navis_ecosystem.png)
 
-## flybrains
+## template brains + transforms
 
-[flybrains](https://github.com/navis-org/navis-flybrains) is a package that
-bundles fly template brains and transforms that {{ navis }} can use to map spatial
+{{ navis }} provides the scaffolding to work with brain templates and transforms, but it does not ship any itself. Instead, those are provided by separate packages:
+
+#### `flybrains`
+
+[flybrains](https://github.com/navis-org/navis-flybrains) bundles many fly template brains and transforms that {{ navis }} can use to map spatial
 data (e.g. neurons) from one brain space to another. If you installed {{ navis }}
 via ``pip`` with the ``[flybrains]`` option, you should already have this package.
 
@@ -27,6 +30,14 @@ navis.plot2d(flybrains.JRC2018U)
 n = navis.example_neurons(3, kind='skeleton')
 xf = navis.xform_brain(n, source='JRCFIB2018F', target='JRC2018F')
 ```
+
+#### `fishbrains`
+
+[fishbrains](https://github.com/navis-org/navis-fishbrains) contains template brains and transforms for zebrafish.
+
+#### `mousebrains`
+
+[mousebrains](https://github.com/navis-org/navis-mousebrains/) contains template brains and transforms for mouse.
 
 ## pymaid
 
