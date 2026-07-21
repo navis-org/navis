@@ -44,7 +44,7 @@ def read_rda(f: str,
     ----------
     f :                 str
                         Filepath.
-    combined :          bool
+    combine :           bool
                         What to do if there are multiple neuronlists contained
                         in the RDA files. By default, we will combine them into
                         a single NeuronList but you can also choose to keep them

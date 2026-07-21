@@ -14,7 +14,7 @@ Both of these are subclasses of `trimesh.Trimesh` and can be used as such.
 !!! note
     {{ navis }} has dedicated interfaces for loading meshes from remote data sources
     (e.g. the MICrONS, neuromorpho, Virtual Fly Brain or Janelia hemibrain datasets).
-    These are covered in separate [tutorials](../../gallery).
+    These are covered in separate [tutorials](../index.md).
 
 ## From files
 

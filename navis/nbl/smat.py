@@ -123,7 +123,7 @@ class LookupNdBuilder:
                     objects (typically neurons) which will be used as the
                     training set. Importantly: each object must have a
                     `len()`!
-    matching_sets : list of lists of index into `neurons`
+    matching_lists : list of lists of index into `neurons`
                     Lists of neurons, as indices into `neurons`, which
                     should be considered matches:
 
@@ -138,14 +138,14 @@ class LookupNdBuilder:
                     number of points in the first argument. This function
                     returns values describing the quality of point matches
                     from a query to a target neuron.
-    nonmatching :   list of index into `neurons`, optional
+    nonmatching_list : list of index into `neurons`, optional
                     List of objects, as indices into `neurons`, which
                     should be be considered NON-matches. If not given,
                     all `neurons` will be used (on the assumption that
                     matches are a small subset of possible pairs).
     draw_strat :    "batched" | "greedy"
                     Strategy for randomly drawing non-matching pairs. Only
-                    relevant if `nonmatching` is not provided.
+                    relevant if `nonmatching_list` is not provided.
                     "batched" should be the right choice in most scenarios.
                     "greedy" can be better if your pool of neurons is very
                     small.
@@ -827,7 +827,7 @@ class Digitizer(LookupAxis[float]):
 
         Parameters
         ----------
-        bound_strs : Sequence[str]
+        interval_strs : Sequence[str]
             Strings representing intervals, which must abut and have open/closed
             boundaries specified by brackets.
 

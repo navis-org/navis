@@ -183,7 +183,7 @@ _ = ax.set_title("dendrite probability")
 #
 # Below table compares flow- and propagation-based functions:
 #
-# |                             | [`split_axon_dendrite`][navis.split_axon_dendrite] (flow)    | [`split_axon_dendrite_prop`](navis.split_axon_dendrite_prop) (propagation) |
+# |                             | [`split_axon_dendrite`][navis.split_axon_dendrite] (flow)    | [`split_axon_dendrite_prop`][navis.split_axon_dendrite_prop] (propagation) |
 # |-----------------------------|---------------------------|----------------------------|
 # | Works on `TreeNeurons`?     | Yes                       | Yes                        |
 # | Works on `MeshNeurons`?     | Yes but still operates on the skeleton         | Yes   |

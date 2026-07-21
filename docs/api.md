@@ -104,7 +104,7 @@ this neuron type. Note that most of them are simply short-hands for the other
 
 | Method | Description |
 |--------|-------------|
-| [`TreeNeuron.convert_units()`][navis.TreeNeuron.convert_units] | {{ autosummary("navis.TreeNeuron.convert_units") }} |
+| [`TreeNeuron.convert_units()`][navis.BaseNeuron.convert_units] | {{ autosummary("navis.TreeNeuron.convert_units") }} |
 | [`TreeNeuron.cell_body_fiber()`][navis.TreeNeuron.cell_body_fiber] | {{ autosummary("navis.TreeNeuron.cell_body_fiber") }} |
 | [`TreeNeuron.downsample()`][navis.TreeNeuron.downsample] | {{ autosummary("navis.TreeNeuron.downsample") }} |
 | [`TreeNeuron.get_graph_nx()`][navis.TreeNeuron.get_graph_nx] | {{ autosummary("navis.TreeNeuron.get_graph_nx") }} |
@@ -259,8 +259,8 @@ Properties:
 |----------|-------------|
 | [`NeuronList.bbox`][navis.NeuronList.bbox] | {{ autosummary("navis.NeuronList.bbox") }} |
 | [`NeuronList.empty`][navis.NeuronList.empty] | {{ autosummary("navis.NeuronList.empty") }} |
-| [`NeuronList.id`][navis.NeuronList.id] | An array with the IDs of the neurons contained in the list. |
-| [`NeuronList.idx`][navis.NeuronList.idx] | An indexer similar to pandas' `iloc` that accepts neuron IDs. |
+| `NeuronList.id` | An array with the IDs of the neurons contained in the list. |
+| `NeuronList.idx` | An indexer similar to pandas' `iloc` that accepts neuron IDs. |
 | [`NeuronList.is_degenerated`][navis.NeuronList.is_degenerated] | {{ autosummary("navis.NeuronList.is_degenerated") }} |
 | [`NeuronList.is_mixed`][navis.NeuronList.is_mixed] | {{ autosummary("navis.NeuronList.is_mixed") }} |
 | [`NeuronList.shape`][navis.NeuronList.shape] | {{ autosummary("navis.NeuronList.shape") }} |
@@ -473,11 +473,11 @@ High-level functions:
 | [`navis.xform_brain()`][navis.xform_brain] | {{ autosummary("navis.xform_brain") }} |
 | [`navis.symmetrize_brain()`][navis.symmetrize_brain] | {{ autosummary("navis.symmetrize_brain") }} |
 | [`navis.mirror_brain()`][navis.mirror_brain] | {{ autosummary("navis.mirror_brain") }} |
-| [`navis.transforms.mirror()`][navis.transforms.mirror] |
-| [`navis.align.align_rigid()`][navis.align.align_rigid] | {{ autosummary("navis.align.align_rigid") }} |
-| [`navis.align.align_deform()`][navis.align.align_deform] | {{ autosummary("navis.align.align_deform") }} |
-| [`navis.align.align_pca()`][navis.align.align_pca] | {{ autosummary("navis.align.align_pca") }} |
-| [`navis.align.align_pairwise()`][navis.align.align_pairwise] | {{ autosummary("navis.align.align_pairwise") }} |
+| [`navis.transforms.mirror()`][navis.mirror] |
+| [`navis.align.align_rigid()`][navis.transforms.align.align_rigid] | {{ autosummary("navis.align.align_rigid") }} |
+| [`navis.align.align_deform()`][navis.transforms.align.align_deform] | {{ autosummary("navis.align.align_deform") }} |
+| [`navis.align.align_pca()`][navis.transforms.align.align_pca] | {{ autosummary("navis.align.align_pca") }} |
+| [`navis.align.align_pairwise()`][navis.transforms.align.align_pairwise] | {{ autosummary("navis.align.align_pairwise") }} |
 
 {{ navis }} supports several types of transforms:
 
@@ -930,7 +930,6 @@ from navis.interfaces import microns
 |----------|-------------|
 | [`microns.get_cave_client()`][navis.interfaces.microns.get_cave_client] | {{ autosummary("navis.interfaces.microns.get_cave_client") }} |
 | [`microns.fetch_neurons()`][navis.interfaces.microns.fetch_neurons] | {{ autosummary("navis.interfaces.microns.fetch_neurons") }} |
-| [`microns.get_somas()`][navis.interfaces.microns.get_somas] | {{ autosummary("navis.interfaces.microns.get_somas") }} |
 
 Please also see the [MICrONS tutorial](../generated/gallery/4_remote/tutorial_remote_02_microns/).
 
@@ -956,7 +955,6 @@ from navis.interfaces import h01
 |----------|-------------|
 | [`h01.get_cave_client()`][navis.interfaces.h01.get_cave_client] | {{ autosummary("navis.interfaces.h01.get_cave_client") }} |
 | [`h01.fetch_neurons()`][navis.interfaces.h01.fetch_neurons] | {{ autosummary("navis.interfaces.h01.fetch_neurons") }} |
-| [`h01.get_somas()`][navis.interfaces.h01.get_somas] | {{ autosummary("navis.interfaces.h01.get_somas") }} |
 
 Please also see the [H01 tutorial](../generated/gallery/4_remote/tutorial_remote_04_h01/).
 

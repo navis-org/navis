@@ -15,24 +15,41 @@ add the generated pages to the site.
 Modified from https://mkdocstrings.github.io/recipes/#generate-a-literate-navigation-file
 
 """
+import importlib
+import warnings
+
 import navis
 
-# Importing submodules that aren't imported by default
-import navis.models
-import navis.interfaces.neuron
-import navis.interfaces.neuromorpho
-import navis.interfaces.neuprint
-import navis.interfaces.insectbrain_db
-import navis.interfaces.blender
-import navis.interfaces.microns
-try:
-    import navis.interfaces.cytoscape
-except ImportError:
-    pass
-try:
-    import navis.interfaces.r
-except ImportError:
-    pass
+# Submodules that aren't imported by default. These pull in optional
+# third-party dependencies (neuron, caveclient, rpy2, ...) and some of them
+# raise at import time when those are missing. Import them defensively: a
+# missing optional dependency should cost us that module's API reference page,
+# not the entire docs build.
+OPTIONAL_SUBMODULES = (
+    "navis.models",
+    "navis.interfaces.neuron",
+    "navis.interfaces.neuromorpho",
+    "navis.interfaces.neuprint",
+    "navis.interfaces.insectbrain_db",
+    "navis.interfaces.blender",
+    "navis.interfaces.microns",
+    "navis.interfaces.h01",
+    "navis.interfaces.brain_image_library",
+    "navis.interfaces.cytoscape",
+    "navis.interfaces.r",
+)
+
+for _module in OPTIONAL_SUBMODULES:
+    try:
+        importlib.import_module(_module)
+    except BaseException as _exc:
+        # Deliberately broad: these modules like to raise ImportError
+        # subclasses, RuntimeError or even SystemExit when their backend is
+        # unavailable (e.g. the Blender API outside of Blender).
+        warnings.warn(
+            f"Could not import {_module} ({type(_exc).__name__}: {_exc}). "
+            "Its API reference page will be missing from the docs."
+        )
 
 
 import inspect
@@ -56,6 +73,25 @@ def print(*args, **kwargs):
     if verbose:
         print_org(*args, **kwargs)
 
+
+def _safe_hasattr(obj, name):
+    """`hasattr` that also survives objects raising non-AttributeError."""
+    try:
+        return hasattr(obj, name)
+    except BaseException:
+        return False
+
+
+def _is_wrapped(obj):
+    """Is this a decorated function that is no longer a plain function?
+
+    `functools.lru_cache` (and friends) return an object that is callable and
+    carries the original function's `__name__`/`__module__` but does *not*
+    satisfy `inspect.isfunction`. Without this, every `@lru_cache`-decorated
+    public function silently vanishes from the API reference.
+    """
+    return callable(obj) and _safe_hasattr(obj, '__wrapped__')
+
 # Here we collect a dictionary of {function: module}
 to_traverse = [navis]
 root = Path(__file__).parent.parent
@@ -72,7 +108,14 @@ while to_traverse:
         if name[0] == '_':
             print('skipped (private).')
             continue
-        obj = getattr(current, name)
+        try:
+            obj = getattr(current, name)
+        except BaseException as exc:
+            # Some libraries (e.g. trimesh) park a placeholder object under the
+            # name of an optional dependency that re-raises the original import
+            # error on *any* attribute access. Don't let that kill the crawl.
+            print(f'skipped (raised {type(exc).__name__} on access).')
+            continue
 
         if inspect.ismodule(obj):
             print('module...', end='')
@@ -94,12 +137,12 @@ while to_traverse:
                 print('skipped (already seen).')
         # In some cases the object's name may not actually be defined in the module
         # E.g. named tuples
-        elif not hasattr(obj, '__name__') or not hasattr(current, obj.__name__):
+        elif not _safe_hasattr(obj, '__name__') or not _safe_hasattr(current, obj.__name__):
             print('skipped (not defined).')
             continue
-        elif inspect.isfunction(obj) or inspect.isclass(obj):
+        elif inspect.isfunction(obj) or inspect.isclass(obj) or _is_wrapped(obj):
             # Skip things that aren't part of navis
-            if not obj.__module__.startswith('navis'):
+            if not getattr(obj, '__module__', '').startswith('navis'):
                 print('skipped (not navis).')
                 continue
 

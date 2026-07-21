@@ -704,6 +704,9 @@ def read_h5(filepath: str,
     This import is following the schema specified
     [here](https://github.com/flyconnectome/hnf)
 
+    Note that the `annotations`, `strict` and `reader` parameters are only
+    relevant when reading raw (i.e. non-serialized) data.
+
     Parameters
     ----------
     filepath :          filepath
@@ -750,9 +753,6 @@ def read_h5(filepath: str,
     ret_errors :        bool
                         If True, will also return a list of errors encountered
                         while parsing the neurons.
-
-    Only relevant for raw data:
-
     annotations :       bool | str | list of str
                         Whether to load annotations associated with the
                         neuron(s):
@@ -940,6 +940,9 @@ def write_h5(n: 'core.NeuronObject',
              overwrite_neurons: bool = False) -> 'core.NeuronObject':
     """Write Neuron/List to Hdf5 file.
 
+    Note that the `annotations` and `format` parameters are only relevant
+    if `raw=True`.
+
     Parameters
     ----------
     n :                 Neuron | NeuronList
@@ -961,9 +964,6 @@ def write_h5(n: 'core.NeuronObject',
     overwrite_neurons : bool
                         If a given neuron already exists in the h5 file whether
                         to overwrite it or throw an exception.
-
-    Only relevant if `raw=True`:
-
     annotations :       str | list thereof, optional
                         Whether to write annotations (e.g. "connectors")
                         associated with the neuron(s) to file. Annotations

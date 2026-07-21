@@ -352,13 +352,14 @@ class CompartmentModel:
         by the same NetStim - i.e. they will all receive their spike(s) at the
         same time.
 
+        The parameters below are grouped by prefix: `spike_*` (plus `start`)
+        control the presynaptic spikes, `syn_*` the synapse itself and `cn_*`
+        the connection between the two.
+
         Parameters
         ----------
         where :         int | list of int
                         Node IDs at which to simulate synaptic input.
-
-        Properties for presynaptic spikes:
-
         start :         int
                         Onset [ms] of first spike from beginning of simulation.
         spike_no :      int
@@ -367,18 +368,12 @@ class CompartmentModel:
                         Interval [ms] between consecutive spikes.
         spike_noise :   float [0-1]
                         Fractional randomness in spike timing.
-
-        Synapse properties:
-
         syn_tau1 :      int
                         Rise time constant [ms].
         syn_tau2 :      int
                         Decay time constant [ms].
         syn_rev_pot :   int
                         Reversal potential (e) [mV].
-
-        Connection properties:
-
         cn_thresh :     int
                         Presynaptic membrane potential [mV] at which synaptic
                         event is triggered.
@@ -602,24 +597,21 @@ class CompartmentModel:
         This uses the Exp2Syn synapse and treats `pre` as the presynaptic
         object.
 
+        The parameters below are grouped by prefix: `syn_*` control the synapse
+        itself, `cn_*` the connection between pre- and postsynaptic side.
+
         Parameters
         ----------
         pre :           NetStim | section
                         The presynaptic object to connect to this neuron.
         where :         int | list of int
                         Node IDs at which to simulate synaptic input.
-
-        Synapse properties:
-
         syn_tau1 :      int
                         Rise time constant [ms].
         syn_tau2 :      int
                         Decay time constant [ms].
         syn_rev_pot :   int
                         Reversal potential (e) [mV].
-
-        Connection properties:
-
         cn_thresh :     int
                         Presynaptic membrane potential [mV] at which synaptic
                         event is triggered.

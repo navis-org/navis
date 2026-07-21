@@ -47,7 +47,7 @@ def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
 
     Parameters
     ----------
-    voxels :        VoxelNeuron | (N, 3) np.array
+    vox :           VoxelNeuron | (N, 3) np.array
                     Object to voxelize. Can be a VoxelNeuron or an (N, 3) array
                     of x, y, z voxel coordinates.
     spacing :       np.array

@@ -150,10 +150,10 @@ _Date: 06/02/25_
 
 ##### Improvements
 - made reading neurons from `.tar` archives much faster
-- [`read_swc`](navis.read_swc) now works if additional columns are present
+- [`read_swc`][navis.read_swc] now works if additional columns are present
 
 ##### Fixes
-- `opacity` parameter [`plot3d`](navis.plot3d) now works correctly when using the plotly backend
+- `opacity` parameter [`plot3d`][navis.plot3d] now works correctly when using the plotly backend
 - fixed an issue with Elastix transforms on Windows machines
 - fixes for [`navis.longest_neurite`][] when `from_root=False`
 - fixed issues with neuPrint interface when using multiple clients

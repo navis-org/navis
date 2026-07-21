@@ -172,11 +172,11 @@ class GridTransform(BaseTransform):
 
     @classmethod
     def from_file(cls, filepath: str) -> "GridTransform":
-        """Create GridTransform a file.
+        """Create GridTransform from a file.
 
         Parameters
         ----------
-        file :          str
+        filepath :      str
                         Path to file. Currently supported formats:
                           - NRRD files with deformation fields
                           - Numpy .npy files with deformation fields

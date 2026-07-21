@@ -866,7 +866,7 @@ class BaseReader(ABC):
 
         Parameters
         ----------
-        fpath :             str | os.PathLike
+        path :              str | os.PathLike
                             Path to directory containing files.
         include_subdirs :   bool, optional
                             Whether to descend into subdirectories, default False.
@@ -1086,7 +1086,7 @@ class BaseReader(ABC):
 
         Parameters
         ----------
-        obj :               sequence
+        objs :              sequence
                             Sequence of anything readable by read_any_single or
                             directory path(s).
         include_subdirs :   bool

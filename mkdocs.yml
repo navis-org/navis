@@ -152,7 +152,12 @@ plugins:
       remove_config_comments: true
       matplotlib_animations: true
       image_srcset: ['2x']
-      # only_warn_on_example_error: true
+      # Several tutorials pull data from third-party services (BIL, neuPrint,
+      # CAVE, InsectBrainDB, ...). When one of those is down or unreachable from
+      # the runner the example fails through no fault of ours - that must not
+      # block the docs from deploying. Genuine breakage is still caught by the
+      # "Test tutorials" workflow, which runs the same examples on every push.
+      only_warn_on_example_error: true
   - markdown-exec
 
 extra:

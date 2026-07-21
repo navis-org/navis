@@ -890,10 +890,12 @@ class NeuronList:
 
         Parameters
         ----------
-        name :      str
-                    Name of the property to get.
-        default :   any, optional
-                    Default value to return if attribute is not found.
+        *args
+                    Arguments passed to `getattr`: the name of the property to
+                    get and, optionally, a default value to return if the
+                    attribute is not found.
+        **kwargs
+                    Keyword arguments passed to `getattr`.
 
         Returns
         -------

@@ -17,7 +17,7 @@ pip3 install neuprint-python
 `navis.interfaces.neuprint` wraps `neuprint-python` and adds a few new functions to fetch and convert data into {{ navis }} objects.
 
 """
-
+# %%
 # Import navis
 import navis
 

@@ -26,7 +26,7 @@ different neuron types (see further [below](#converting-neuron-types))!
 !!! important
     In this guide we introduce the different neuron types using data bundled with {{ navis }}.
     To learn how to load your own neurons into {{ navis }} please see the tutorials on
-    [Import/Export](../../gallery#import-export).
+    [Import/Export](index.md#import-export).
 
 ## TreeNeurons
 
@@ -35,7 +35,7 @@ acyclic graph, i.e. they consist of nodes and each node connects to at most one 
 This format is commonly used to describe a neuron's topology and often shared using
 [SWC](http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html) files.
 
-![skeleton](../../../_static/skeleton.png)
+![skeleton](../../_static/skeleton.png)
 
 A [`navis.TreeNeuron`][] is typically loaded from an SWC file via [`navis.read_swc`][]
 but you can also constructed one yourself from e.g. `pandas.DataFrame` or a `networkx.DiGraph`.
@@ -66,7 +66,7 @@ sk.nodes.head()
 #
 # [`MeshNeurons`][navis.MeshNeuron] consist of vertices and faces, and are a typical output of e.g. image segmentation.
 #
-# ![mesh](../../../_static/mesh.png)
+# ![mesh](../../_static/mesh.png)
 #
 # A [`navis.MeshNeuron`][] can be constructed from any object that has `.vertices` and `.faces` properties, a
 # dictionary of `vertices` and `faces` or a file that can be parsed by `trimesh.load`.
@@ -91,7 +91,7 @@ m.vertices, m.faces
 # describing the local orientation. This simple representation often comes from e.g. light-level data
 # or as direvative of skeletons/meshes (see [`navis.make_dotprops`][]).
 #
-# ![dotprops](../../../_static/dotprops.png)
+# ![dotprops](../../_static/dotprops.png)
 #
 # Dotprops are used e.g. for [NBLAST](../5_nblast/tutorial_nblast_00_intro). See the [dotprops I/O](../0_io/tutorial_io_02_dotprops)
 # tutorial for details.
@@ -115,7 +115,7 @@ dp.points, dp.vect
 # [`VoxelNeurons`][navis.VoxelNeuron] represent neurons as either 3d image or x/y/z voxel coordinates
 # typically obtained from e.g. light-level microscopy.
 #
-# ![voxels](../../../_static/voxel.png)
+# ![voxels](../../_static/voxel.png)
 #
 # [`navis.VoxelNeuron`][] consist of either a dense 3d `(N, M, K)` array (a "grid") or a sparse 2d `(N, 3)`
 # array of voxel coordinates (COO format). You will probably find yourself loading these
@@ -601,6 +601,6 @@ navis.plot3d([vx, mm], fig_autosize=True)
 #
 #     Learn about how to load your own neurons into {{ navis }}.
 #
-#     [:octicons-arrow-right-24: I/O Tutorials](../../gallery#import-export)
+#     [:octicons-arrow-right-24: I/O Tutorials](index.md#import-export)
 #
 # </div>

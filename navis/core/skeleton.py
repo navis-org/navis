@@ -1176,13 +1176,11 @@ class TreeNeuron(BaseNeuron):
 
         Parameters
         ----------
-        x :             TreeNeuron | NeuronList
         depth :         int | float
                         Distance from source at which to start pruning.
         source :        int, optional
                         Source node for depth calculation. If `None`, will use
-                        root. If `x` is a list of neurons then must provide a
-                        source for each neuron.
+                        the root node.
         inplace :       bool, optional
                         If False, pruning is performed on copy of original neuron
                         which is then returned.

@@ -14,7 +14,7 @@ functions to them from one of the various file formats:
 !!! note
     {{ navis }} has dedicated interfaces for loading skeletons from remote data sources
     (e.g. the MICrONS, neuromorpho, Virtual Fly Brain or Janelia hemibrain datasets).
-    These are covered in separate [tutorials](../../gallery).
+    These are covered in separate [tutorials](../index.md).
 
     If you have light-level microscopy data, you might also be interested in the
     tutorial on [skeletons from light-level data](../zzz_tutorial_io_05_skeletonize).
@@ -148,7 +148,7 @@ navis.plot2d(nl[:10], method='2d', radius=False)
 # That said: {{ navis }} lets you read and write skeletons from/to precomputed format using [`navis.read_precomputed`][] and
 # [`navis.write_precomputed`][]. Note that these functions work on both precomputed skeletons and meshes.
 #
-# Also check out the [tutorial](../../gallery/4_remote/tutorial_remote_01_cloudvolume) on reading skeletons straight from
+# Also check out the [tutorial](../4_remote/tutorial_remote_01_cloudvolume.md) on reading skeletons straight from
 # a neuroglancer source using `cloud-volume`.
 #
 # ## Manual construction

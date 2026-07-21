@@ -345,7 +345,8 @@ def intersection_matrix(
     ----------
     x :               NeuronList | single neuron
                       Neuron(s) to intersect.
-    volume :          list or dict of navis.Volume
+    volumes :         list or dict of navis.Volume
+                      Volume(s) to intersect with.
     attr :            str | None, optional
                       Attribute to return for intersected neurons (e.g.
                       'cable_length' for TreeNeurons). If None, will return

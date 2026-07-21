@@ -8,7 +8,7 @@ This tutorial will show you how to load/create Dotprops.
 NBLASTing. They are typically derivatives of skeletons or meshes but you can load them straight from
 e.g. confocal image stacks using [`navis.read_nrrd`][] or [`navis.read_tiff`][].
 
-![dotprops](../../../../_static/dotprops.png)
+![dotprops](../../../_static/dotprops.png)
 """
 
 # %%

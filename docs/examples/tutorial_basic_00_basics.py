@@ -135,6 +135,6 @@ nl.plot3d(backend='plotly')
 #
 #     Learn about how to load your own neurons into {{ navis }}.
 #
-#     [:octicons-arrow-right-24: I/O Tutorials](../../gallery#import-export)
+#     [:octicons-arrow-right-24: I/O Tutorials](index.md#import-export)
 #
 # </div>

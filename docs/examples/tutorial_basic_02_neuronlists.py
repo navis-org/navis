@@ -66,7 +66,7 @@ nl.cable_length
 # !!! note
 #     The `n_{attribute}` pattern works with any "countable" neuron attributes like nodes, connectors, etc.
 #
-# If the neuron attribute is a dataframe, the [`NeuronList`](navis.NeuronList) will concatenate them and
+# If the neuron attribute is a dataframe, the [`NeuronList`][navis.NeuronList] will concatenate them and
 # add a new column with the neuron ID:
 
 nl.nodes  # note the `neuron` column
@@ -428,13 +428,13 @@ nl
 #
 #     Learn about how to load your own neurons into {{ navis }}.
 #
-#     [:octicons-arrow-right-24: I/O Tutorials](../../gallery#import-export)
+#     [:octicons-arrow-right-24: I/O Tutorials](index.md#import-export)
 #
 # -   :material-toothbrush-paste:{ .lg .middle } __Visualizations__
 #     ---
 #
 #     Check out the guides on visualizations.
 #
-#     [:octicons-arrow-right-24: I/O Tutorials](../../gallery#plotting)
+#     [:octicons-arrow-right-24: I/O Tutorials](index.md#plotting)
 #
 # </div>
