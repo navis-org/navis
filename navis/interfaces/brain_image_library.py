@@ -907,6 +907,7 @@ def _list_files_single(
     rows: List[dict] = []
     n_requests = 0
     truncated = None
+    failed: List[str] = []
 
     with config.tqdm(
         desc="Crawling", leave=config.pbar_leave, disable=config.pbar_hide
@@ -936,6 +937,17 @@ def _list_files_single(
                     try:
                         entries = _parse_autoindex(f.result(), url)
                     except Exception as exc:
+                        # The root listing failing means we know nothing at all
+                        # about this dataset - don't quietly return an empty
+                        # table and let the caller draw the wrong conclusion.
+                        if url == root:
+                            raise BILError(
+                                f"Failed to list dataset '{bildid}' at {url}: "
+                                f"{exc}\nThe BIL download server may be down or "
+                                "unreachable from this machine - check "
+                                f"{DOWNLOAD_URL} and try again."
+                            ) from exc
+                        failed.append(url)
                         logger.warning(f"Failed to list {url}: {exc}")
                         continue
 
@@ -963,6 +975,13 @@ def _list_files_single(
         logger.warning(
             f"Crawl stopped early (`{truncated}` reached): this file listing is "
             f"INCOMPLETE. Increase `{truncated}`, lower `max_depth`, or use Globus."
+        )
+
+    if failed:
+        logger.warning(
+            f"{len(failed)} of {n_requests} directory listings for '{bildid}' "
+            "failed: this file listing is INCOMPLETE. This is typically a "
+            "transient problem with the BIL download server - try again."
         )
 
     files = pd.DataFrame(
@@ -1188,6 +1207,18 @@ def get_neurons(
     files = available[[fnmatch(n, pattern) for n in available.name]]
 
     if not len(files):
+        # An empty listing is a different problem from "no *.swc in here" and
+        # warrants a different hint: the dataset may be empty, but far more
+        # likely the crawl was blocked or the listing didn't get that deep.
+        if not len(available):
+            raise ValueError(
+                "The file listing for this dataset is empty - there is nothing "
+                "to load. If you passed a dataset ID, try inspecting it with "
+                "`list_files()` first: the crawl may have been cut short (see "
+                "`max_depth`/`max_files`/`max_requests`) or the BIL download "
+                "server may be unreachable."
+            )
+
         found = sorted({Path(n).suffix for n in available.name if Path(n).suffix})
         raise ValueError(
             f'No files matching "{pattern}" in this dataset.'
