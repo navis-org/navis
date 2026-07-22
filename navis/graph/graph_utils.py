@@ -182,27 +182,49 @@ def _generate_segments(
         return sequences
 
 
+def _group_by_label(labels: np.ndarray) -> List[np.ndarray]:
+    """Group indices by their label: one array of indices per component."""
+    order = np.argsort(labels, kind="mergesort")
+    _, start_idx, counts = np.unique(
+        labels[order], return_index=True, return_counts=True
+    )
+    return [order[start : start + count] for start, count in zip(start_idx, counts)]
+
+
 def _connected_components(
-    x: Union["core.TreeNeuron", "core.MeshNeuron", "core.Dotprops", "tm.Trimesh"],
+    x: Union[
+        "core.TreeNeuron",
+        "core.MeshNeuron",
+        "core.Dotprops",
+        "core.VoxelNeuron",
+        "tm.Trimesh",
+    ],
     epsilon: Optional[float] = None,
+    connectivity: int = 26,
 ) -> List[Set[int]]:
     """Extract the connected components within a neuron.
 
-    Will use `navis-fastcore` for skeletons and meshes, if available.
+    Will use `navis-fastcore` for skeletons and meshes, and `sparse-cubes` for
+    voxels, if available.
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | Trimesh
-                Neuron for which to extract connected components.
-    epsilon :   float, optional
-                For Dotprops only: distance threshold to consider two points
-                connected. If not provided, will use 5 x the average distance
-                between points.
+    x :             TreeNeuron | MeshNeuron | Dotprops | VoxelNeuron | Trimesh
+                    Neuron for which to extract connected components.
+    epsilon :       float, optional
+                    For Dotprops only: distance threshold to consider two points
+                    connected. If not provided, will use 5 x the average distance
+                    between points.
+    connectivity :  6 | 18 | 26, optional
+                    For VoxelNeurons only: which neighbours count as connected.
+                    6 = faces only, 18 = faces + edges, 26 (default) = faces +
+                    edges + corners.
 
     Returns
     -------
     list
-                List containing sets of node/vertex IDs for each subgraph.
+                List containing sets of node/vertex IDs for each subgraph. For
+                VoxelNeurons these are indices into `.voxels`.
 
     Examples
     --------
@@ -217,7 +239,22 @@ def _connected_components(
     >>> cc = navis.graph_utils._connected_components(dp)
 
     """
-    assert isinstance(x, (core.TreeNeuron, core.MeshNeuron, core.Dotprops, tm.Trimesh))
+    assert isinstance(
+        x,
+        (
+            core.TreeNeuron,
+            core.MeshNeuron,
+            core.Dotprops,
+            core.VoxelNeuron,
+            tm.Trimesh,
+        ),
+    )
+
+    if isinstance(x, core.VoxelNeuron):
+        # `sparse-cubes` labels the components straight off the sparse voxels,
+        # so this never builds a graph (or the dense grid)
+        ms = x.connected_components(connectivity=connectivity)
+        return _group_by_label(ms)
 
     if isinstance(x, core.TreeNeuron) and utils.fastcore:
         # This returns for each node the ID of its root
@@ -225,17 +262,8 @@ def _connected_components(
             x.nodes.node_id.values, x.nodes.parent_id.values
         )
         # Translate into list of arrays of IDs
-        # cc = [x.nodes.node_id.values[ms == i] for i in np.unique(ms)]
-        # Translate into list of arrays of IDs
-        order = np.argsort(ms, kind="mergesort")
-        ms_sorted = ms[order]
-        _, start_idx, counts = np.unique(
-            ms_sorted, return_index=True, return_counts=True
-        )
-        cc = [
-            x.nodes.node_id.values[order[start : start + count]]
-            for start, count in zip(start_idx, counts)
-        ]
+        node_ids = x.nodes.node_id.values
+        cc = [node_ids[group] for group in _group_by_label(ms)]
     elif (
         isinstance(x, (core.MeshNeuron, tm.Trimesh))
         and utils.fastcore
@@ -243,13 +271,8 @@ def _connected_components(
     ):
         # This returns for each vertex the ID of its component
         ms = utils.fastcore.mesh_connected_components(x.faces, len(x.vertices))  # type: ignore
-        # Translate into list of arrays of IDs
-        order = np.argsort(ms, kind="mergesort")
-        ms_sorted = ms[order]
-        _, start_idx, counts = np.unique(
-            ms_sorted, return_index=True, return_counts=True
-        )
-        cc = [order[start : start + count] for start, count in zip(start_idx, counts)]
+        # Translate into list of arrays of vertex indices
+        cc = _group_by_label(ms)
     else:
         if isinstance(x, core.Dotprops):
             G: igraph.Graph = graph.neuron2igraph(x, epsilon=epsilon)

@@ -16,6 +16,7 @@ import networkx as nx
 import pandas as pd
 import scipy.spatial
 import scipy.sparse
+import sparsecubes
 
 from typing import Union, Optional, List, Iterable
 
@@ -231,13 +232,15 @@ def network2igraph(
     return g
 
 
-def neuron2nx(x: "core.NeuronObject", simplify=False, epsilon=None) -> nx.DiGraph:
+def neuron2nx(
+    x: "core.NeuronObject", simplify=False, epsilon=None, connectivity=6
+) -> nx.DiGraph:
     """Turn Tree-, Mesh- or VoxelNeuron into an NetworkX graph.
 
     Parameters
     ----------
     x :         TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList
-                Uses simple 6-connectedness for voxels.
+                Neuron(s) to convert.
     simplify :  bool
                 For TreeNeurons only: simplify the graph by keeping only roots,
                 leaves and branching points. Preserves the original
@@ -246,6 +249,11 @@ def neuron2nx(x: "core.NeuronObject", simplify=False, epsilon=None) -> nx.DiGrap
                 For Dotprops only: maximum distance between two points to
                 connect them. If `None`, will use 5x the average distance
                 between points (i.e. `5 * x.sampling_resolution`).
+    connectivity : 6 | 18 | 26
+                For VoxelNeurons only. Defines the connectedness:
+                 - 6 = faces (default)
+                 - 18 = faces + edges
+                 - 26 = faces + edges + vertices
 
     Returns
     -------
@@ -257,7 +265,12 @@ def neuron2nx(x: "core.NeuronObject", simplify=False, epsilon=None) -> nx.DiGrap
 
     """
     if isinstance(x, core.NeuronList):
-        return [neuron2nx(n) for n in x]
+        return [
+            neuron2nx(
+                n, simplify=simplify, epsilon=epsilon, connectivity=connectivity
+            )
+            for n in x
+        ]
 
     if isinstance(x, core.TreeNeuron):
         # Collect nodes
@@ -307,26 +320,18 @@ def neuron2nx(x: "core.NeuronObject", simplify=False, epsilon=None) -> nx.DiGrap
         G.add_nodes_from(np.arange(x.n_points))
         G.add_edges_from(tree.query_pairs(epsilon))
     elif isinstance(x, core.VoxelNeuron):
-        # First we need to determine the 6-connecivity between voxels
-        edges = []
-        # Go over each axis
-        for i in range(3):
-            # Generate an offset of 1 voxel along given axis
-            offset = np.zeros(3, dtype=int)
-            offset[i] = 1
-            # Combine real and offset voxels
-            vox_off = x.voxels + offset
-            # Find out which voxels overlap (i.e. count == 2 after offset)
-            unique, cnt = np.unique(
-                np.append(x.voxels, vox_off, axis=0), axis=0, return_counts=True
-            )
+        # `sparsecubes` gives us the adjacency straight off the sparse voxels.
+        # Note the nodes it returns are deduplicated and sorted, and the edge
+        # indices refer to *those* rows - hence we index into `nodes`, not
+        # `x.voxels`, to recover the coordinates.
+        nodes, edges = sparsecubes.edges(x.voxels, connectivity=connectivity)
 
-            connected = unique[cnt > 1]
-            for vox in connected:
-                edges.append([tuple(vox), tuple(vox - offset)])
         G = nx.Graph()
+        # Nodes are keyed by coordinate tuple (not index) for VoxelNeurons
         G.add_nodes_from([tuple(v) for v in x.voxels])
-        G.add_edges_from(edges)
+        G.add_edges_from(
+            [(tuple(nodes[i]), tuple(nodes[j])) for i, j in edges]
+        )
     else:
         raise ValueError(
             f'Unable to convert data of type "{type(x)}" to networkx graph.'
@@ -425,9 +430,7 @@ def simplify_graph(G, inplace=False):
 
 
 def _voxels2edges(x, connectivity=18):
-    """Turn VoxelNeuron into an edges.
-
-    This is function requires scikit-learn to be available.
+    """Turn VoxelNeuron into an edge list.
 
     Parameters
     ----------
@@ -441,17 +444,12 @@ def _voxels2edges(x, connectivity=18):
     Returns
     -------
     edges :         (N, 2) numpy array
+                    Undirected edges as index pairs into `x.voxels` (each edge
+                    appears once). Note that duplicate voxels - which a
+                    VoxelNeuron should not have - are collapsed onto their
+                    first occurrence.
 
     """
-    # The distances and metric we will use depend on the connectedness
-    METRICS = {6: "manhattan", 18: "euclidean", 26: "chebyshev"}
-    DISTANCES = {6: 1, 18: 1.5, 26: 1}
-
-    try:
-        from sklearn.neighbors import KDTree
-    except ModuleNotFoundError:
-        raise ModuleNotFoundError("This function requires scikit-learn to be installed.")
-
     assert connectivity in (
         6,
         18,
@@ -460,26 +458,23 @@ def _voxels2edges(x, connectivity=18):
     assert isinstance(x, core.VoxelNeuron)
 
     voxels = x.voxels
-    # Create tree with given distance metric
-    tree = KDTree(voxels, leaf_size=40, metric=METRICS[connectivity])
 
-    # Query ball pairs
-    indices = tree.query_radius(voxels, r=DISTANCES[connectivity])
+    # `sparsecubes` builds the adjacency straight off the sparse voxels - no
+    # KD-tree, no dense grid. Note it deduplicates and sorts, so its edge
+    # indices refer to the `nodes` it returns rather than to `voxels`.
+    nodes, edges = sparsecubes.edges(voxels, connectivity=connectivity)
 
-    # Collected edges
-    edges = []
-    for i, hits in enumerate(indices):
-        # Add edges
-        edges += [(i, ix) for ix in hits]
-    edges = np.array(edges)
+    if not len(edges):
+        return np.zeros((0, 2), dtype=np.int64)
 
-    # Drop self-hits
-    edges = edges[edges[:, 0] != edges[:, 1]]
+    # Callers index back into `x.voxels` (`neuron2igraph` builds a graph with
+    # one vertex per voxel row), so translate the node indices into voxel rows
+    vox2node = sparsecubes.binary.index_of(voxels, nodes)
+    node2vox = np.full(len(nodes), -1, dtype=np.int64)
+    # Reverse assignment; for duplicate voxels the first occurrence wins
+    node2vox[vox2node[::-1]] = np.arange(len(voxels))[::-1]
 
-    # Keep only A->B edges and drop B->A edges
-    edges = np.unique(np.sort(edges, axis=1), axis=0)
-
-    return edges
+    return node2vox[edges]
 
 
 def neuron2igraph(

@@ -13,8 +13,8 @@
 
 import numpy as np
 import pandas as pd
+import sparsecubes
 
-from scipy import ndimage
 from typing import Optional, Union, List
 
 from .. import config, graph, core, utils, meshes
@@ -107,17 +107,39 @@ def downsample_neuron(
     return x
 
 
-def _downsample_voxels(x, downsampling_factor, order=1):
-    """Downsample voxels."""
+def _downsample_voxels(x, downsampling_factor, agg="max"):
+    """Downsample voxels.
+
+    Pools voxels into `downsampling_factor`-sized cells straight off the sparse
+    voxels. Note this never allocates the dense grid - which matters because a
+    neuron sparse enough to be worth downsampling is exactly the kind whose grid
+    may not fit in memory (see `navis.config.max_grid_size`).
+    """
     assert isinstance(x, core.VoxelNeuron)
 
-    zoom_factor = 1 / downsampling_factor
+    # Pooling voxels into coarse cells only makes sense for whole factors.
+    # Note we must use the *same* integer for the units below - scaling them by
+    # the requested factor while pooling by a different one would resize the
+    # neuron.
+    factor = int(round(downsampling_factor))
+    if factor != downsampling_factor:
+        logger.warning(
+            f"VoxelNeurons can only be downsampled by whole factors - rounding "
+            f"{downsampling_factor} to {factor}."
+        )
 
-    # order=1 means linear interpolation
-    x._data = ndimage.zoom(x.grid, zoom_factor, order=order)
+    voxels, values = sparsecubes.downsample(
+        x.voxels, factor, values=x.values, agg=agg
+    )
 
-    # We have to change the units here too
-    x.units *= downsampling_factor
+    # The coarse grid's canvas shrinks by the same factor
+    shape = np.ceil(np.array(x.shape) / factor).astype(int)
+
+    x._replace_voxels(voxels, values, inplace=True)
+    x._canvas_shape = tuple(shape)
+
+    # Voxels are now bigger, so the units have to grow with them
+    x.units = x.units_xyz * factor
 
 
 def _downsample_dotprops(x, downsampling_factor, method="simple"):

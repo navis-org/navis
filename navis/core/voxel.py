@@ -19,12 +19,13 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import sparsecubes
 
 from typing import Union, Optional
 
 from .. import utils, config
 from .base import BaseNeuron
-from .core_utils import temp_property, add_units
+from .core_utils import temp_property
 
 try:
     import xxhash
@@ -316,12 +317,53 @@ class VoxelNeuron(BaseNeuron):
         return np.vstack((mn, mx)).T
 
     @property
-    @add_units(compact=True, power=3)
     def volume(self) -> float:
-        """Volume of neuron."""
+        """Volume of neuron: number of filled voxels times a voxel's volume.
+
+        Note this is *not* wrapped in `add_units`: the arithmetic below already
+        produces a `pint` Quantity, so decorating it would apply the units a
+        second time and report a volume in e.g. micrometer**6.
+        """
         # Get volume of a single voxel
         voxel_volume = self.units_xyz[0] * self.units_xyz[1] * self.units_xyz[2]
         return (self.nnz * voxel_volume).to_compact()
+
+    @property
+    def surface_area(self) -> float:
+        """Area of the neuron's exposed (blocky, staircase) surface.
+
+        This is the area of the voxel faces that border the background, so it
+        follows the voxel grid rather than a smoothed surface - meshing the
+        neuron first and taking `MeshNeuron.area` will give you a somewhat
+        smaller number.
+
+        Requires sparse-cubes >= 0.4.0.
+
+        Examples
+        --------
+        >>> import navis
+        >>> n = navis.example_neurons(1, kind='mesh')
+        >>> vx = navis.voxelize(n, pitch='2 microns')
+        >>> vx.surface_area  # doctest: +SKIP
+        <Quantity(21776.0, 'micrometer ** 2')>
+
+        """
+        area = sparsecubes.measure.surface_area(self.voxels, spacing=self.units_xyz.magnitude)
+        return (area * self.units_xyz.units**2).to_compact()
+
+    @property
+    def centroid(self) -> np.ndarray:
+        """Centre of mass of the neuron, in units (i.e. including the offset).
+
+        Note this is the centroid of the *occupied voxels* - it is not weighted
+        by their values.
+
+        Requires sparse-cubes >= 0.4.0.
+        """
+        centre = sparsecubes.measure.centroid(self.voxels, spacing=self.units_xyz.magnitude)
+        # `.centroid` is in the voxel grid's own frame; shift it into the same
+        # space as `.bbox` and the connectors
+        return centre + self.offset
 
     @property
     @temp_property
@@ -842,6 +884,562 @@ class VoxelNeuron(BaseNeuron):
             # Restore the original canvas - without this a densify/sparsify
             # round-trip can silently shrink the neuron
             x._canvas_shape = tuple(shape)
+
+        if not inplace:
+            return x
+
+    def mesh(self, **kwargs):
+        """Convert this neuron into a mesh.
+
+        Shorthand for [`navis.mesh`][] - see there for details.
+
+        Parameters
+        ----------
+        **kwargs
+                    Keyword arguments are passed through to
+                    [`navis.conversion.voxels2mesh`][].
+
+        Returns
+        -------
+        [`navis.MeshNeuron`][]
+                    Note that data tables (e.g. `connectors`) are not carried
+                    over from the input neuron.
+
+        Examples
+        --------
+        >>> import navis
+        >>> n = navis.example_neurons(1, kind='mesh')
+        >>> vx = navis.voxelize(n, pitch='2 microns')
+        >>> m = vx.mesh()
+        >>> type(m)
+        <class 'navis.core.mesh.MeshNeuron'>
+
+        """
+        from ..conversion import mesh
+
+        return mesh(self, **kwargs)
+
+    def skeletonize(self, **kwargs):
+        """Convert this neuron into a skeleton.
+
+        Shorthand for [`navis.skeletonize`][] - see there for details.
+
+        Parameters
+        ----------
+        **kwargs
+                    Keyword arguments are passed through to
+                    [`navis.conversion.voxels2skeleton`][], e.g. `method`
+                    ("teasar" or "thin") or `heal`.
+
+        Returns
+        -------
+        [`navis.TreeNeuron`][]
+                    Note that data tables (e.g. `connectors`) are not carried
+                    over from the input neuron.
+
+        Examples
+        --------
+        >>> import navis
+        >>> n = navis.example_neurons(1, kind='mesh')
+        >>> vx = navis.voxelize(n, pitch='2 microns')
+        >>> sk = vx.skeletonize()
+        >>> type(sk)
+        <class 'navis.core.skeleton.TreeNeuron'>
+
+        """
+        from ..conversion import skeletonize
+
+        return skeletonize(self, **kwargs)
+
+    def distance_transform(self, spacing=None, workers: int = -1) -> np.ndarray:
+        """Distance from each voxel to the nearest background voxel.
+
+        Requires sparse-cubes >= 0.4.0.
+
+        Parameters
+        ----------
+        spacing :   (3, ) array, optional
+                    Voxel size to scale distances by. Defaults to this neuron's
+                    units, i.e. distances come out in the neuron's own units
+                    rather than in voxels. Pass `[1, 1, 1]` for voxel counts.
+        workers :   int, optional
+                    Number of threads to use. Default (-1) uses all cores.
+
+        Returns
+        -------
+        np.ndarray
+                    (N, ) array of distances, aligned row for row with
+                    `.voxels` (and hence with `.values`).
+
+        """
+
+        if spacing is None:
+            spacing = self.units_xyz.magnitude
+
+        return sparsecubes.measure.distance_transform(self.voxels, spacing=spacing, workers=workers)
+
+    def connected_components(self, connectivity: int = 26) -> np.ndarray:
+        """Label the neuron's connected components.
+
+        Requires sparse-cubes >= 0.4.0.
+
+        Parameters
+        ----------
+        connectivity :  6 | 18 | 26, optional
+                        Which neighbours count as connected: 6 = faces only,
+                        18 = faces + edges, 26 = faces + edges + corners.
+
+        Returns
+        -------
+        np.ndarray
+                    (N, ) array of component labels (`0 .. n_components - 1`),
+                    aligned row for row with `.voxels`.
+
+        See Also
+        --------
+        [`navis.drop_fluff`][]
+                    Uses this to remove small disconnected fragments.
+
+        """
+        _, labels = sparsecubes.measure.connected_components(self.voxels, connectivity=connectivity)
+        return labels
+
+    def dilate(
+        self,
+        iterations: int = 1,
+        connectivity: int = 6,
+        fill=None,
+        inplace: bool = False,
+    ) -> Optional["VoxelNeuron"]:
+        """Grow the neuron by its voxel neighbourhood.
+
+        Adds every background voxel adjacent to the neuron, `iterations` times
+        over. Note that iterating a 6-connected step grows a diamond, not a
+        ball - this matches `scipy.ndimage.binary_dilation`'s semantics.
+
+        Parameters
+        ----------
+        iterations :    int, optional
+                        Number of dilation steps.
+        connectivity :  6 | 18 | 26, optional
+                        Which neighbours count as adjacent: 6 = faces only,
+                        18 = faces + edges, 26 = faces + edges + corners.
+        fill :          int | float, optional
+                        Value given to the newly added voxels. Defaults to this
+                        neuron's maximum value, i.e. a binary neuron stays
+                        binary. Existing voxels always keep their values.
+        inplace :       bool, optional
+                        If False, will return a modified copy.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                        Only if `inplace=False`.
+
+        See Also
+        --------
+        [`navis.VoxelNeuron.erode`][]
+                        The inverse operation.
+
+        Examples
+        --------
+        >>> import navis
+        >>> import numpy as np
+        >>> n = navis.VoxelNeuron(np.array([[5, 5, 5]]))
+        >>> n.dilate().nnz  # doctest: +SKIP
+        7
+
+        """
+        out = sparsecubes.binary.dilate(
+            self.voxels, iterations=iterations, connectivity=connectivity
+        )
+        return self._replace_voxels(out, self._carry_values(out, fill), inplace)
+
+    def erode(
+        self,
+        iterations: int = 1,
+        connectivity: int = 6,
+        inplace: bool = False,
+    ) -> Optional["VoxelNeuron"]:
+        """Shrink the neuron by peeling voxels that touch the background.
+
+        A voxel survives only if *all* of its `connectivity` neighbours are also
+        part of the neuron, so the outer shell is always removed. Note this can
+        consume a thin neuron entirely - use [`navis.VoxelNeuron.thin`][] if you
+        want to preserve topology.
+
+        Parameters
+        ----------
+        iterations :    int, optional
+                        Number of erosion steps.
+        connectivity :  6 | 18 | 26, optional
+                        See [`navis.VoxelNeuron.dilate`][].
+        inplace :       bool, optional
+                        If False, will return a modified copy.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                        Only if `inplace=False`. Surviving voxels keep their
+                        values.
+
+        """
+        out = sparsecubes.binary.erode(self.voxels, iterations=iterations, connectivity=connectivity)
+        return self._replace_voxels(out, self._carry_values(out), inplace)
+
+    def opening(
+        self,
+        iterations: int = 1,
+        connectivity: int = 6,
+        fill=None,
+        inplace: bool = False,
+    ) -> Optional["VoxelNeuron"]:
+        """Erode, then dilate: strips specks and thin spurs, keeps bulk shape.
+
+        Small structures that the erosion destroys do not come back, which makes
+        this the standard way to remove surface noise before meshing or
+        skeletonizing. See [`navis.VoxelNeuron.dilate`][] for the parameters.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                        Only if `inplace=False`.
+
+        """
+        out = sparsecubes.binary.opening(
+            self.voxels, iterations=iterations, connectivity=connectivity
+        )
+        return self._replace_voxels(out, self._carry_values(out, fill), inplace)
+
+    def closing(
+        self,
+        iterations: int = 1,
+        connectivity: int = 6,
+        fill=None,
+        inplace: bool = False,
+    ) -> Optional["VoxelNeuron"]:
+        """Dilate, then erode: bridges narrow gaps and fills small pits.
+
+        Note this **can fuse structures** that pass within `2 * iterations`
+        voxels of each other. To fill enclosed voids without that risk use
+        [`navis.VoxelNeuron.fill_cavities`][], which is topology-safe. See
+        [`navis.VoxelNeuron.dilate`][] for the parameters.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                        Only if `inplace=False`.
+
+        """
+        out = sparsecubes.binary.closing(
+            self.voxels, iterations=iterations, connectivity=connectivity
+        )
+        return self._replace_voxels(out, self._carry_values(out, fill), inplace)
+
+    def thin(self, inplace: bool = False, **kwargs) -> Optional["VoxelNeuron"]:
+        """Thin the neuron to a one-voxel-wide medial curve (centerline).
+
+        Unlike [`navis.VoxelNeuron.erode`][] this preserves topology and
+        endpoints. Note that - unlike [`navis.thin_voxels`][], which goes
+        through scikit-image and a dense grid - this works straight off the
+        sparse voxels and never allocates the bounding box.
+
+        Parameters
+        ----------
+        inplace :   bool, optional
+                    If False, will return a modified copy.
+        **kwargs
+                    Passed through to `sparsecubes.binary.thin`, e.g.
+                    `preserve_endpoints` or `max_iterations`.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                    Only if `inplace=False`. Surviving voxels keep their values.
+
+        """
+        out = sparsecubes.binary.thin(self.voxels, **kwargs)
+        return self._replace_voxels(out, self._carry_values(out), inplace)
+
+    def fill_cavities(
+        self, fill=None, inplace: bool = False, **kwargs
+    ) -> Optional["VoxelNeuron"]:
+        """Fill enclosed background voids.
+
+        Unlike [`navis.VoxelNeuron.closing`][] this is topology-safe: it only
+        fills voids that are actually enclosed and can never fuse two separate
+        structures.
+
+        Parameters
+        ----------
+        fill :      int | float, optional
+                    Value given to the newly filled voxels. Defaults to this
+                    neuron's maximum value.
+        inplace :   bool, optional
+                    If False, will return a modified copy.
+        **kwargs
+                    Passed through to `sparsecubes.binary.fill_cavities`, e.g.
+                    `mode` or `max_cavity_size`.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                    Only if `inplace=False`.
+
+        """
+        out = sparsecubes.binary.fill_cavities(self.voxels, **kwargs)
+        return self._replace_voxels(out, self._carry_values(out, fill), inplace)
+
+    def union(
+        self, *others, fill=None, inplace: bool = False
+    ) -> Optional["VoxelNeuron"]:
+        """Voxels present in this neuron *or* any of the others.
+
+        Note that `others` must live on the same voxel lattice: same voxel size,
+        and offsets differing by a whole number of voxels. Differing offsets are
+        translated automatically; anything else raises.
+
+        Parameters
+        ----------
+        *others :   VoxelNeuron | (N, 3) array
+                    One or more neurons (or raw voxel indices) to combine with.
+        fill :      int | float, optional
+                    Value given to voxels contributed by `others`. Defaults to
+                    this neuron's maximum. Voxels already in this neuron keep
+                    their own values, so this neuron always wins on overlap.
+        inplace :   bool, optional
+                    If False, will return a modified copy.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                    Only if `inplace=False`.
+
+        """
+        sets = [self.voxels] + [self._voxels_in_frame(o) for o in others]
+        out = sparsecubes.binary.union(*sets)
+        return self._replace_voxels(out, self._carry_values(out, fill), inplace)
+
+    def intersection(self, *others, inplace: bool = False) -> Optional["VoxelNeuron"]:
+        """Voxels present in this neuron *and* in every one of the others.
+
+        See [`navis.VoxelNeuron.union`][] for how neurons are aligned.
+
+        Parameters
+        ----------
+        *others :   VoxelNeuron | (N, 3) array
+                    One or more neurons (or raw voxel indices) to intersect with.
+        inplace :   bool, optional
+                    If False, will return a modified copy.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                    Only if `inplace=False`. The result is a subset of this
+                    neuron, so all voxels keep their values.
+
+        """
+        sets = [self.voxels] + [self._voxels_in_frame(o) for o in others]
+        out = sparsecubes.binary.intersection(*sets)
+        return self._replace_voxels(out, self._carry_values(out), inplace)
+
+    def difference(self, other, inplace: bool = False) -> Optional["VoxelNeuron"]:
+        """Voxels in this neuron but not in `other` (set subtraction).
+
+        See [`navis.VoxelNeuron.union`][] for how neurons are aligned.
+
+        Parameters
+        ----------
+        other :     VoxelNeuron | (N, 3) array
+                    Neuron (or raw voxel indices) to subtract.
+        inplace :   bool, optional
+                    If False, will return a modified copy.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                    Only if `inplace=False`. The result is a subset of this
+                    neuron, so all voxels keep their values.
+
+        """
+        out = sparsecubes.binary.difference(self.voxels, self._voxels_in_frame(other))
+        return self._replace_voxels(out, self._carry_values(out), inplace)
+
+    def symmetric_difference(
+        self, other, fill=None, inplace: bool = False
+    ) -> Optional["VoxelNeuron"]:
+        """Voxels in exactly one of this neuron and `other` (set XOR).
+
+        See [`navis.VoxelNeuron.union`][] for how neurons are aligned.
+
+        Parameters
+        ----------
+        other :     VoxelNeuron | (N, 3) array
+                    Neuron (or raw voxel indices) to compare against.
+        fill :      int | float, optional
+                    Value given to voxels contributed by `other`. Defaults to
+                    this neuron's maximum.
+        inplace :   bool, optional
+                    If False, will return a modified copy.
+
+        Returns
+        -------
+        [`navis.VoxelNeuron`][]
+                    Only if `inplace=False`.
+
+        """
+        out = sparsecubes.binary.symmetric_difference(self.voxels, self._voxels_in_frame(other))
+        return self._replace_voxels(out, self._carry_values(out, fill), inplace)
+
+    def iou(self, other) -> float:
+        """Intersection over union (Jaccard index) with `other`.
+
+        A pure overlap measure on the occupied voxels - values are ignored.
+        See [`navis.VoxelNeuron.union`][] for how the two neurons are aligned.
+
+        Parameters
+        ----------
+        other :     VoxelNeuron | (N, 3) array
+                    Neuron (or raw voxel indices) to compare against.
+
+        Returns
+        -------
+        float
+                    Between 0 (disjoint) and 1 (identical).
+
+        See Also
+        --------
+        [`navis.VoxelNeuron.dice`][]
+                    The Dice coefficient, which weights the overlap higher.
+
+        Examples
+        --------
+        >>> import navis
+        >>> import numpy as np
+        >>> a = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1]]))
+        >>> b = navis.VoxelNeuron(np.array([[1, 1, 1], [2, 2, 2]]))
+        >>> a.iou(b)
+        0.3333333333333333
+
+        """
+        return sparsecubes.measure.iou(self.voxels, self._voxels_in_frame(other))
+
+    def dice(self, other) -> float:
+        """Dice coefficient (F1 score) with `other`.
+
+        Like [`navis.VoxelNeuron.iou`][] but counts the intersection twice, so
+        it is more forgiving of partial overlap. Values are ignored.
+
+        Parameters
+        ----------
+        other :     VoxelNeuron | (N, 3) array
+                    Neuron (or raw voxel indices) to compare against.
+
+        Returns
+        -------
+        float
+                    Between 0 (disjoint) and 1 (identical).
+
+        """
+        return sparsecubes.measure.dice(self.voxels, self._voxels_in_frame(other))
+
+    def _voxels_in_frame(self, other) -> np.ndarray:
+        """Express `other`'s voxels in this neuron's voxel frame.
+
+        Voxel coordinates are grid indices, so they only mean the same thing in
+        two neurons whose grids share a scale and an origin. Rather than
+        silently combining misaligned neurons we translate where we can and
+        raise where we cannot.
+        """
+        if isinstance(other, np.ndarray):
+            if other.ndim != 2 or other.shape[1] != 3:
+                raise ValueError(
+                    f"Expected (N, 3) array of voxel indices, got {other.shape}"
+                )
+            return other.astype(np.int64, copy=False)
+
+        if not isinstance(other, VoxelNeuron):
+            raise TypeError(
+                f'Expected VoxelNeuron or (N, 3) array, got "{type(other)}"'
+            )
+
+        try:
+            other_units = other.units_xyz.to(self.units_xyz.units).magnitude
+            other_offset = (
+                (other.offset * other.units_xyz.units)
+                .to(self.units_xyz.units)
+                .magnitude
+            )
+        except pint.DimensionalityError:
+            raise ValueError(
+                "Unable to combine VoxelNeurons with incompatible units: "
+                f"{self.units} vs {other.units}."
+            )
+
+        if not np.allclose(other_units, self.units_xyz.magnitude):
+            raise ValueError(
+                "Unable to combine VoxelNeurons with different voxel sizes "
+                f"({self.units} vs {other.units}). Resample one of them first."
+            )
+
+        # Offsets may differ - that just means the grids start at different
+        # places - but only if they still land on the same lattice
+        delta = (other_offset - self.offset) / self.units_xyz.magnitude
+        if not np.allclose(delta, np.round(delta)):
+            raise ValueError(
+                "Unable to combine VoxelNeurons whose offsets differ by a "
+                f"non-integer number of voxels (differ by {delta} voxels). "
+                "Their grids do not line up."
+            )
+
+        return other.voxels + np.round(delta).astype(np.int64)
+
+    def _carry_values(self, voxels: np.ndarray, fill=None) -> np.ndarray:
+        """Values for `voxels`, taken from this neuron wherever they overlap.
+
+        Voxels the operation invented have no value of their own and get `fill`
+        (by default this neuron's maximum, so a binary neuron stays binary).
+        """
+        values = self.values
+
+        if fill is None:
+            fill = values.max() if len(values) else 1
+
+        out = np.full(len(voxels), fill, dtype=values.dtype)
+        ix = sparsecubes.binary.index_of(voxels, self.voxels)
+        hit = ix >= 0
+        out[hit] = values[ix[hit]]
+
+        return out
+
+    def _replace_voxels(
+        self, voxels: np.ndarray, values: np.ndarray, inplace: bool
+    ) -> Optional["VoxelNeuron"]:
+        """Return this neuron with its data swapped for `voxels`/`values`."""
+        x = self if inplace else self.copy()
+
+        # Grab the canvas before swapping the data (same dance as `.sparsify()`)
+        shape = np.array(x.shape)
+        voxels = np.asarray(voxels)
+
+        # Growing an object that touches index 0 pushes coordinates negative,
+        # which a voxel grid cannot represent. Shift the frame rather than
+        # dropping them: moving the origin and compensating the offset keeps the
+        # neuron in the exact same physical place.
+        if len(voxels):
+            shift = np.minimum(voxels.min(axis=0), 0)
+            if (shift < 0).any():
+                voxels = voxels - shift
+                x.offset = np.asarray(x.offset, dtype=float) + (
+                    shift * x.units_xyz.magnitude
+                )
+                shape = shape - shift
+
+        x._data = np.ascontiguousarray(voxels.astype(np.int64, copy=False))
+        x._values = np.ascontiguousarray(values)
+
+        x._clear_temp_attr()
+        x._canvas_shape = tuple(shape)
 
         if not inplace:
             return x

@@ -19,6 +19,7 @@ import warnings
 import pandas as pd
 import numpy as np
 import networkx as nx
+import sparsecubes
 import trimesh as tm
 
 from itertools import combinations
@@ -2973,12 +2974,54 @@ def prune_at_depth(
     return x
 
 
+def _drop_fluff_voxels(x, keep_size, n_largest, connectivity, inplace):
+    """Remove small disconnected fragments from a VoxelNeuron.
+
+    Kept separate from the generic path because voxels have no graph and are
+    not supported by `subset_neuron` - and because `sparse-cubes` can do the
+    common case (drop everything below a size) in one step.
+    """
+    voxels, values = x.voxels, x.values
+
+    # Fractions are relative to the total number of voxels
+    if keep_size and keep_size < 1:
+        keep_size = len(voxels) * keep_size
+
+    if keep_size and not n_largest:
+        # `remove_small_objects` is exactly this operation and skips building
+        # and sorting the full component list
+        kept = sparsecubes.measure.remove_small_objects(
+            voxels, int(np.ceil(keep_size)), connectivity=connectivity
+        )
+        mask = sparsecubes.binary.index_of(voxels, kept) >= 0
+    else:
+        cc = sorted(
+            graph.graph_utils._connected_components(x, connectivity=connectivity),
+            key=len,
+            reverse=True,
+        )
+        if keep_size:
+            cc = [c for c in cc if len(c) >= keep_size]
+        # Without `n_largest` we keep just the biggest component
+        cc = cc[:n_largest] if n_largest else cc[:1]
+
+        mask = np.zeros(len(voxels), dtype=bool)
+        if cc:
+            mask[np.concatenate(cc)] = True
+
+    out = x._replace_voxels(voxels[mask], values[mask], inplace)
+
+    # Unlike the generic path we always return the neuron, not None
+    return x if inplace else out
+
+
 @utils.map_neuronlist(desc="Removing fluff", allow_parallel=True)
 def drop_fluff(
     x: Union["core.TreeNeuron", "core.MeshNeuron", "core.NeuronList"],
     keep_size: Optional[float] = None,
     n_largest: Optional[int] = None,
     epsilon: Optional[float] = None,
+    connectivity: int = 26,
     inplace: bool = False,
 ):
     """Remove small disconnected pieces of "fluff".
@@ -2990,12 +3033,12 @@ def drop_fluff(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :         TreeNeuron | MeshNeuron | Dotprops | VoxelNeuron | NeuronList
                 The neuron(s) to remove fluff from.
     keep_size : float, optional
-                Use this to set a size (in number of nodes/vertices) for small
-                bits to keep. If `keep_size` < 1 it will be intepreted as
-                fraction of total nodes/vertices/points.
+                Use this to set a size (in number of nodes/vertices/voxels) for
+                small bits to keep. If `keep_size` < 1 it will be intepreted as
+                fraction of total nodes/vertices/points/voxels.
     n_largest : int, optional
                 If set, will keep the `n_largest` connected components. Note:
                 if provided, `keep_size` will be applied first!
@@ -3003,6 +3046,10 @@ def drop_fluff(
                 For Dotprops: distance at which to consider two points to be
                 connected. If `None`, will use the default value of 5 times
                 the average node distance (`x.sampling_resolution`).
+    connectivity : 6 | 18 | 26, optional
+                For VoxelNeurons: which neighbouring voxels count as connected.
+                6 = faces only, 18 = faces + edges, 26 (default) = faces +
+                edges + corners.
     inplace :   bool, optional
                 If False, pruning is performed on copy of original neuron
                 which is then returned.
@@ -3038,8 +3085,25 @@ def drop_fluff(
 
     """
     utils.eval_param(
-        x, name="x", allowed_types=(core.TreeNeuron, core.MeshNeuron, core.Dotprops)
+        x,
+        name="x",
+        allowed_types=(
+            core.TreeNeuron,
+            core.MeshNeuron,
+            core.Dotprops,
+            core.VoxelNeuron,
+        ),
     )
+
+    # Voxels have no graph to subset, so they get their own (much shorter) path
+    if isinstance(x, core.VoxelNeuron):
+        return _drop_fluff_voxels(
+            x,
+            keep_size=keep_size,
+            n_largest=n_largest,
+            connectivity=connectivity,
+            inplace=inplace,
+        )
 
     # This function uses navis_fastcore if available
     cc = sorted(graph.graph_utils._connected_components(x, epsilon=epsilon), key=lambda x: len(x), reverse=True)

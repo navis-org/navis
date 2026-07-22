@@ -189,17 +189,35 @@ These are methods and properties specific to [VoxelNeurons][navis.VoxelNeuron]:
 
 | Property | Description |
 |------|------|
+| [`VoxelNeuron.centroid`][navis.VoxelNeuron.centroid] | {{ autosummary("navis.VoxelNeuron.centroid") }} |
+| [`VoxelNeuron.closing()`][navis.VoxelNeuron.closing] | {{ autosummary("navis.VoxelNeuron.closing") }} |
+| [`VoxelNeuron.connected_components()`][navis.VoxelNeuron.connected_components] | {{ autosummary("navis.VoxelNeuron.connected_components") }} |
 | [`VoxelNeuron.densify()`][navis.VoxelNeuron.densify] | {{ autosummary("navis.VoxelNeuron.densify") }} |
 | [`VoxelNeuron.density`][navis.VoxelNeuron.density] | {{ autosummary("navis.VoxelNeuron.density") }} |
+| [`VoxelNeuron.dice()`][navis.VoxelNeuron.dice] | {{ autosummary("navis.VoxelNeuron.dice") }} |
+| [`VoxelNeuron.difference()`][navis.VoxelNeuron.difference] | {{ autosummary("navis.VoxelNeuron.difference") }} |
+| [`VoxelNeuron.dilate()`][navis.VoxelNeuron.dilate] | {{ autosummary("navis.VoxelNeuron.dilate") }} |
+| [`VoxelNeuron.distance_transform()`][navis.VoxelNeuron.distance_transform] | {{ autosummary("navis.VoxelNeuron.distance_transform") }} |
+| [`VoxelNeuron.erode()`][navis.VoxelNeuron.erode] | {{ autosummary("navis.VoxelNeuron.erode") }} |
+| [`VoxelNeuron.fill_cavities()`][navis.VoxelNeuron.fill_cavities] | {{ autosummary("navis.VoxelNeuron.fill_cavities") }} |
 | [`VoxelNeuron.grid`][navis.VoxelNeuron.grid] | {{ autosummary("navis.VoxelNeuron.grid") }} |
+| [`VoxelNeuron.intersection()`][navis.VoxelNeuron.intersection] | {{ autosummary("navis.VoxelNeuron.intersection") }} |
+| [`VoxelNeuron.iou()`][navis.VoxelNeuron.iou] | {{ autosummary("navis.VoxelNeuron.iou") }} |
 | [`VoxelNeuron.max`][navis.VoxelNeuron.max] | {{ autosummary("navis.VoxelNeuron.max") }} |
+| [`VoxelNeuron.mesh()`][navis.VoxelNeuron.mesh] | {{ autosummary("navis.VoxelNeuron.mesh") }} |
 | [`VoxelNeuron.min`][navis.VoxelNeuron.min] | {{ autosummary("navis.VoxelNeuron.min") }} |
 | [`VoxelNeuron.nnz`][navis.VoxelNeuron.nnz] | {{ autosummary("navis.VoxelNeuron.nnz") }} |
 | [`VoxelNeuron.offset`][navis.VoxelNeuron.offset] | {{ autosummary("navis.VoxelNeuron.offset") }} |
+| [`VoxelNeuron.opening()`][navis.VoxelNeuron.opening] | {{ autosummary("navis.VoxelNeuron.opening") }} |
 | [`VoxelNeuron.shape`][navis.VoxelNeuron.shape] | {{ autosummary("navis.VoxelNeuron.shape") }} |
+| [`VoxelNeuron.skeletonize()`][navis.VoxelNeuron.skeletonize] | {{ autosummary("navis.VoxelNeuron.skeletonize") }} |
 | [`VoxelNeuron.sparsify()`][navis.VoxelNeuron.sparsify] | {{ autosummary("navis.VoxelNeuron.sparsify") }} |
 | [`VoxelNeuron.strip()`][navis.VoxelNeuron.strip] | {{ autosummary("navis.VoxelNeuron.strip") }} |
+| [`VoxelNeuron.surface_area`][navis.VoxelNeuron.surface_area] | {{ autosummary("navis.VoxelNeuron.surface_area") }} |
+| [`VoxelNeuron.symmetric_difference()`][navis.VoxelNeuron.symmetric_difference] | {{ autosummary("navis.VoxelNeuron.symmetric_difference") }} |
+| [`VoxelNeuron.thin()`][navis.VoxelNeuron.thin] | {{ autosummary("navis.VoxelNeuron.thin") }} |
 | [`VoxelNeuron.threshold()`][navis.VoxelNeuron.threshold] | {{ autosummary("navis.VoxelNeuron.threshold") }} |
+| [`VoxelNeuron.union()`][navis.VoxelNeuron.union] | {{ autosummary("navis.VoxelNeuron.union") }} |
 | [`VoxelNeuron.voxels`][navis.VoxelNeuron.voxels] | {{ autosummary("navis.VoxelNeuron.voxels") }} |
 
 
@@ -229,6 +247,7 @@ These functions will let you convert between neuron types:
 | [`navis.mesh()`][navis.mesh] | {{ autosummary("navis.mesh") }} |
 | [`navis.voxelize()`][navis.voxelize] | {{ autosummary("navis.voxelize") }} |
 | [`navis.conversion.voxels2mesh()`][navis.conversion.voxels2mesh] | {{ autosummary("navis.conversion.voxels2mesh") }} |
+| [`navis.conversion.voxels2skeleton()`][navis.conversion.voxels2skeleton] | {{ autosummary("navis.conversion.voxels2skeleton") }} |
 | [`navis.conversion.tree2meshneuron()`][navis.conversion.tree2meshneuron] | {{ autosummary("navis.conversion.tree2meshneuron") }} |
 
 See also [Utility](#utility) for functions to convert to/from basic data types.
@@ -1010,10 +1029,10 @@ Below table has an overview for which functions work with which neuron types:
 | NBLAST ([`navis.nblast`][], etc.) | no[^1]       | no[^1]         | no[^1]          | yes      |
 | [`navis.xform_brain`][]        | yes        | yes        | yes (slow!) | yes      |
 | [`navis.mirror_brain`][]       | yes        | yes        | no          | yes      |
-| [`navis.skeletonize`][]        | no         | yes        | no          | no       |
+| [`navis.skeletonize`][]        | no         | yes        | yes         | yes      |
 | [`navis.mesh`][]               | yes        | no         | yes         | no       |
 | [`navis.voxelize`][]           | yes        | yes        | no          | yes      |
-| [`navis.drop_fluff`][]         | yes        | yes        | no          | no       |
+| [`navis.drop_fluff`][]         | yes        | yes        | yes         | yes      |
 | [`navis.break_fragments`][]    | yes        | yes        | no          | no       |
 
 [^1]: Use [`navis.make_dotprops`][] to turn these neurons into [`navis.Dotprops`][].

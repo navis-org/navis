@@ -340,6 +340,121 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     return s
 
 
+@utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
+def voxels2skeleton(vox: Union['core.VoxelNeuron', np.ndarray],
+                    method: str = 'wavefront',
+                    spacing: Union[str, np.ndarray] = 'auto',
+                    heal: bool = False,
+                    **kwargs) -> 'core.TreeNeuron':
+    """Turn voxels into a skeleton.
+
+    Uses [`sparsecubes`][], which works directly off the sparse voxels instead
+    of densifying them to a 3D grid.
+
+    Parameters
+    ----------
+    vox :           VoxelNeuron | (N, 3) np.array
+                    Object to skeletonize. Can be a VoxelNeuron or an (N, 3)
+                    array of x, y, z voxel coordinates.
+    method :        "wavefront" | "teasar" | "thin"
+                    Which algorithm to use:
+                      - "wavefront" (default) propagates a geodesic wave and
+                        collapses each ring of equidistant voxels to its
+                        centroid. Needs neither a thinning pass nor a distance
+                        transform, which makes it the fastest of the three, and
+                        node positions are sub-voxel. Radii come for free from
+                        the rings (volume-preserving by default).
+                      - "teasar" produces well-centered, medial-axis skeletons.
+                        This is a sparse reimplementation of `kimimaro`.
+                      - "thin" peels the voxels down to a one-voxel-wide medial
+                        curve and extracts the centerline from that. Tends to
+                        produce more (and shorter) branches.
+                    Note this mirrors [`navis.conversion.mesh2skeleton`][],
+                    which also defaults to "wavefront".
+    spacing :       "auto" | (3, ) array
+                    Voxel size. If "auto" and input is a `VoxelNeuron` we use
+                    the neuron's `.units`, else spacing will be `(1, 1, 1)`.
+    heal :          bool
+                    Whether to heal the resulting skeleton if it has multiple
+                    connected components. Note that voxel data is often
+                    fragmented, so this can make a big difference.
+    **kwargs
+                    Keyword arguments are passed through to the underlying
+                    `sparsecubes` skeletonizer, e.g. `min_branch_length`, or
+                    `radius_agg`/`step_size` for "wavefront".
+
+    Returns
+    -------
+    skeleton :      navis.TreeNeuron
+                    Note that data tables (e.g. `connectors`) are not carried
+                    over from the input neuron.
+
+    See Also
+    --------
+    [`navis.skeletonize`][]
+                    The high-level wrapper you would normally use.
+
+    Examples
+    --------
+    >>> import navis
+    >>> n = navis.example_neurons(1, kind='mesh')
+    >>> vx = navis.voxelize(n, pitch='2 microns')
+    >>> sk = navis.conversion.voxels2skeleton(vx)
+    >>> sk.n_nodes > 0
+    True
+
+    """
+    utils.eval_param(vox, 'vox', allowed_types=(core.VoxelNeuron, np.ndarray))
+    utils.eval_param(method, 'method',
+                     allowed_values=('wavefront', 'teasar', 'thin'))
+
+    if isinstance(spacing, str) and spacing == 'auto':
+        if not isinstance(vox, core.VoxelNeuron):
+            spacing = np.array([1, 1, 1])
+        else:
+            spacing = vox.units_xyz.magnitude
+
+    voxels = vox.voxels if isinstance(vox, core.VoxelNeuron) else vox
+
+    if voxels.ndim != 2 or voxels.shape[1] != 3:
+        raise ValueError(f'Voxels must be shape (N, 3), got {voxels.shape}')
+
+    if not len(voxels):
+        raise ValueError('Unable to skeletonize empty voxel data.')
+
+    if method == 'wavefront':
+        # Radii fall out of the ring contraction, so nothing extra to ask for
+        skel = sparsecubes.wavefront_skeletonize(voxels, spacing=spacing,
+                                                 **kwargs)
+    elif method == 'teasar':
+        skel = sparsecubes.teasar_skeletonize(voxels, spacing=spacing, **kwargs)
+    else:
+        # `radii=True` so the SWC gets meaningful radii instead of zeros
+        kwargs['radii'] = kwargs.get('radii', True)
+        skel = sparsecubes.thin_skeletonize(voxels, spacing=spacing, **kwargs)
+
+    swc = pd.DataFrame(skel.to_swc(), columns=['node_id', 'label', 'x', 'y', 'z',
+                                               'radius', 'parent_id'])
+    swc['node_id'] = swc.node_id.astype(int)
+    swc['parent_id'] = swc.parent_id.astype(int)
+    swc['label'] = swc.label.astype(int)
+
+    props = {}
+    if isinstance(vox, core.VoxelNeuron):
+        # Skeleton coordinates are in the voxel grid's own frame - shift them
+        # into the same space as the neuron's bounding box and connectors
+        swc[['x', 'y', 'z']] += vox.offset
+        # `spacing` has already been applied, so one unit is now one `units`
+        props = {'units': f'1 {vox.units.units}', 'id': vox.id, 'name': vox.name}
+
+    s = core.TreeNeuron(swc, **props)
+
+    if heal:
+        _ = morpho.heal_skeleton(s, inplace=True, method='ALL')
+
+    return s
+
+
 def _make_voxels(x: 'core.BaseNeuron',
                  pitch: Union[list, tuple, float],
                  strip: bool = False):
