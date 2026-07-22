@@ -388,7 +388,24 @@ class VoxelNeuron(BaseNeuron):
             raise ValueError("Voxels must be (N, 3) array")
         if "float" in str(voxels.dtype):
             voxels = voxels.astype(np.int64)
-        self._data = voxels
+
+        # Values are aligned row for row with the voxels, so they can not
+        # survive an assignment that changes their number. Dropping them (after
+        # which `.values` falls back to ones) is the only safe option: keeping
+        # them would leave `.nnz`/`.volume` silently wrong and make `.grid`
+        # raise. Note this is easy to hit now that grids auto-sparsify, i.e.
+        # even a grid-constructed neuron carries `_values`.
+        values = getattr(self, "_values", None)
+        if values is not None and len(values) != len(voxels):
+            logger.warning(
+                f"Dropping this neuron's {len(values):,} values: they no "
+                f"longer match the {len(voxels):,} voxels assigned. Set "
+                "`.values` afterwards to attach new ones."
+            )
+            del self._values
+
+        # Contiguous arrays are required for hashing (see `__init__`)
+        self._data = np.ascontiguousarray(voxels)
         self._clear_temp_attr()
 
     @property
@@ -503,13 +520,25 @@ class VoxelNeuron(BaseNeuron):
                 # silently reshape the neuron. Note `_canvas_shape` deliberately
                 # lives outside TEMP_ATTR: `_shape` alone gets cleared on the
                 # next data change and the canvas would not survive it.
-                shape = self.voxels.max(axis=0) + 1
+                voxels = self.voxels
                 canvas = getattr(self, "_canvas_shape", None)
-                if canvas is not None:
-                    # Take the larger of the two so the canvas can never clip
-                    # data that has grown past it
-                    shape = np.maximum(shape, canvas)
-                self._shape = tuple(shape)
+                if not len(voxels):
+                    # Empty neurons have no coordinates to reduce over. They are
+                    # not exotic: an all-zero grid sparsifies to nothing, and
+                    # `erode()`/`thin()`/`difference()` can consume a neuron
+                    # entirely. Fall back to the canvas they were left on so
+                    # `.shape` (and with it `.grid`, `.bbox`, `repr()`, ...)
+                    # keeps working.
+                    shape = (0, 0, 0) if canvas is None else canvas
+                else:
+                    shape = voxels.max(axis=0) + 1
+                    if canvas is not None:
+                        # Take the larger of the two so the canvas can never
+                        # clip data that has grown past it
+                        shape = np.maximum(shape, canvas)
+                # Plain ints: the shape is user-facing (`repr`, `summary()`) and
+                # numpy scalars leak into it via `_canvas_shape`
+                self._shape = tuple(int(s) for s in shape)
             else:
                 self._shape = self._data.shape
         return self._shape
@@ -559,7 +588,10 @@ class VoxelNeuron(BaseNeuron):
     @property
     def density(self) -> float:
         """Fraction of filled voxels."""
-        return self.nnz / np.prod(self.shape)
+        # A neuron with a zero-sized shape (i.e. empty and without a canvas)
+        # has no cells to be a fraction of - report 0 rather than a nan
+        n_cells = math.prod(int(s) for s in self.shape)
+        return self.nnz / n_cells if n_cells else 0.0
 
     @property
     def nnz(self) -> int:
@@ -697,6 +729,14 @@ class VoxelNeuron(BaseNeuron):
 
         # Get offset until first filled voxel
         voxels = x.voxels
+        if not len(voxels):
+            # Nothing to strip - and no coordinates to derive the crop from.
+            # Dropping the canvas is still the right call: stripping an empty
+            # neuron to its (non-existent) data leaves a zero-shaped one.
+            if hasattr(x, "_canvas_shape"):
+                del x._canvas_shape
+                x._clear_temp_attr()
+            return None if inplace else x
         mn = voxels.min(axis=0)
         x.offset = np.array(x.offset) + mn * x.units_xyz.magnitude
 
@@ -749,6 +789,11 @@ class VoxelNeuron(BaseNeuron):
         x = self
         if not inplace:
             x = x.copy()
+
+        if not x.nnz:
+            # Nothing to scale - and no maximum to scale by. Bailing keeps
+            # `normalize()` usable on neurons that e.g. `erode()` emptied.
+            return None if inplace else x
 
         if x._base_data_type == "grid":
             x._data = (x._data / x._data.max()) * mx
