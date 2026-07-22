@@ -29,7 +29,8 @@ import pandas as pd
 from subprocess import check_call
 
 from .. import utils, config
-from .base import BaseTransform, TransformSequence
+from .backends import BackendMixin, get_cmtk_reg
+from .base import BaseTransform, TransformSequence, parse_points
 
 __all__ = ["xform_cmtk"]
 
@@ -71,7 +72,13 @@ _cmtkbin = find_cmtkbin()
 
 
 def requires_cmtk(func):
-    """Check if CMTK is available."""
+    """Check if CMTK is available.
+
+    Note that navis-fastcore can substitute for CMTK when transforming *points*
+    but not for image transforms (`reformatx`/`xform2dfield`) - those still
+    require the actual binaries.
+
+    """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -79,7 +86,9 @@ def requires_cmtk(func):
             raise ValueError(
                 "Cannot find CMTK. Please install from "
                 "http://www.nitrc.org/projects/cmtk and "
-                "make sure that it is your path!"
+                "make sure that it is your path! Note that navis-fastcore can "
+                "transform points without CMTK but does not (yet) implement "
+                "image transforms."
             )
         return func(*args, **kwargs)
 
@@ -160,10 +169,12 @@ def xform_cmtk(
     return xf
 
 
-class CMTKtransform(BaseTransform):
+class CMTKtransform(BackendMixin, BaseTransform):
     """CMTK transforms of 3D spatial data.
 
-    Requires [CMTK](https://www.nitrc.org/projects/cmtk/) to be installed.
+    Requires either [CMTK](https://www.nitrc.org/projects/cmtk/) to be installed,
+    or navis-fastcore - the latter implements CMTK transforms in Rust and needs
+    no external binaries. See the `backend` parameter.
 
     Parameters
     ----------
@@ -174,6 +185,9 @@ class CMTKtransform(BaseTransform):
                     `reg`.
     threads :       int, optional
                     Number of threads to use.
+    backend :       "auto" | "fastcore" | "binary", optional
+                    Which implementation to use. `None` (default) defers to
+                    `navis.config.default_transform_backend`.
 
     Examples
     --------
@@ -181,9 +195,46 @@ class CMTKtransform(BaseTransform):
     >>> tr = transforms.cmtk.CMTKtransform('/path/to/CMTK_directory.list')
     >>> tr.xform(points) # doctest: +SKIP
 
+    Notes
+    -----
+    TODO (when navis-fastcore becomes a hard dependency and the "binary" backend
+    goes away): switch `affine_fallback` to fastcore's `fallback_to_affine="hop"`.
+
+    We currently ask fastcore for `fallback_to_affine=True`, i.e. "re-run a failed
+    point affine-only through the *whole* chain, from where it started". That is
+    what `streamxform --affine-only` does, and while we support both backends they
+    have to agree - so it is the right choice for now.
+
+    But it is the cruder of the two. Where several registrations are merged into
+    one transform (which happens on about half of all bridging paths), a point that
+    clears the first few warps and then leaves the domain loses those warps too.
+    fastcore's `"hop"` keeps them and swaps the affine in only for the hop that
+    actually failed. On a 2-registration chain the two differ on ~19% of points, by
+    a median of ~2 world units.
+
+    Once there is no binary to stay consistent with, `"hop"` is the better answer.
+
     """
 
-    def __init__(self, regs: list, directions: str = "forward", threads: int = None):
+    # A CMTK warp has no closed-form inverse: going backwards means solving for
+    # each point iteratively. That is ~2-4x slower than going forwards and fails on
+    # a different (usually larger) set of points, which come back as NaN.
+    #
+    # 2 means navis will take one extra forward hop rather than invert a CMTK
+    # registration once. Kept modest deliberately: unlike elastix, CMTK
+    # registrations rarely ship a purpose-built reverse, so the graph genuinely
+    # depends on inverting them - roughly three quarters of all bridging paths do.
+    # Weighting them heavily would just push routes into long detours.
+    inverse_weight_factor = 2
+
+    def __init__(
+        self,
+        regs: list,
+        directions: str = "forward",
+        threads: int = None,
+        backend: str = None,
+    ):
+        self._backend = backend
         self.directions = list(utils.make_iterable(directions))
         for d in self.directions:
             assert d in ("forward", "inverse"), (
@@ -207,6 +258,11 @@ class CMTKtransform(BaseTransform):
 
         if self.command != other.command:
             raise ValueError("Unable to merge CMTKtransforms using different commands.")
+
+        if self.backend != other.backend:
+            raise ValueError(
+                "Unable to merge CMTKtransforms using different backends."
+            )
 
         x = self.copy()
         x.regs += other.regs
@@ -321,6 +377,14 @@ class CMTKtransform(BaseTransform):
                     "Unable to merge CMTKtransforms using " "different commands."
                 )
 
+            # Note we must raise a NotImplementedError (rather than e.g. a
+            # ValueError) if we can't merge: that's the signal TransformSequence
+            # uses to chain the transforms instead.
+            if self.backend != transform.backend:
+                raise NotImplementedError(
+                    "Unable to merge CMTKtransforms using different backends."
+                )
+
             self.regs += transform.regs
             self.directions += transform.directions
         elif isinstance(transform, str):
@@ -335,20 +399,25 @@ class CMTKtransform(BaseTransform):
 
     def check_if_possible(self, on_error: str = "raise"):
         """Check if this transform is possible."""
-        if not _cmtkbin:
+        msg = None
+        # Note the binaries are only required for the "binary" backend - the
+        # whole point of the fastcore backend is that it doesn't need them.
+        if self.backend == "binary" and not _cmtkbin:
             msg = (
                 "Folder with CMTK binaries not found. Make sure the "
-                "directory is in your PATH environment variable."
+                "directory is in your PATH environment variable - or install "
+                "navis-fastcore to transform points without CMTK."
             )
-            if on_error == "raise":
-                raise BaseException(msg)
-            return msg
-        for r in self.regs:
-            if not os.path.isdir(r) and not os.path.isfile(r):
-                msg = f"Registration {r} not found."
-                if on_error == "raise":
-                    raise BaseException(msg)
-                return msg
+        else:
+            for r in self.regs:
+                if not os.path.isdir(r) and not os.path.isfile(r):
+                    msg = f"Registration {r} not found."
+                    break
+
+        if msg and on_error == "raise":
+            raise BaseException(msg)
+
+        return msg
 
     def copy(self) -> "CMTKtransform":
         """Return copy."""
@@ -356,6 +425,7 @@ class CMTKtransform(BaseTransform):
             regs=copy.copy(self.regs),
             directions=copy.copy(self.directions),
             threads=self.threads,
+            backend=self._backend,
         )
 
     def parse_cmtk_output(self, output: str, fail_value=np.nan) -> np.ndarray:
@@ -434,6 +504,24 @@ class CMTKtransform(BaseTransform):
 
         """
         self.check_if_possible(on_error="raise")
+
+        if self.backend == "fastcore":
+            # One parsed object serves every direction - fastcore takes the
+            # per-hop direction at xform time, and our `directions` map straight
+            # onto its `invert` flags.
+            #
+            # `fallback_to_affine=True` means "re-run the whole chain affine-only
+            # from the original point" - what streamxform --affine-only does, and
+            # so what we need while the binary backend still exists.
+            # See the class Notes: switch this to "hop" once it doesn't.
+            reg = get_cmtk_reg(tuple(str(r) for r in self.regs))
+            return reg.xform(
+                parse_points(points),
+                transform="affine" if affine_only else "warp",
+                fallback_to_affine=bool(affine_fallback) and not affine_only,
+                invert=[d == "inverse" for d in self.directions],
+                n_cores=self.threads,
+            )
 
         if isinstance(points, pd.DataFrame):
             # Make sure x/y/z columns are present
@@ -530,10 +618,14 @@ class CMTKtransform(BaseTransform):
 
         return transform, space_dir
 
+    @requires_cmtk
     def to_dfield(
         self, template, out=None, absolute: bool = True, verbose: bool = False
     ) -> np.ndarray:
         """Convert transform to dense deformation field.
+
+        Note this always requires CMTK: navis-fastcore implements point but not
+        image transforms.
 
         Parameters
         ----------
@@ -676,6 +768,7 @@ class CMTKtransform(BaseTransform):
             for f in to_remove:
                 os.remove(f)
 
+    @requires_cmtk
     def xform_image(
         self,
         im,
@@ -685,6 +778,9 @@ class CMTKtransform(BaseTransform):
         verbose=False,
     ):
         """Transform an image using CMTK's reformatx.
+
+        Note this always requires CMTK: navis-fastcore implements point but not
+        image transforms.
 
         Parameters
         ----------

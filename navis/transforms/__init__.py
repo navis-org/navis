@@ -13,6 +13,7 @@
 
 from .templates import registry, xform_brain, mirror_brain, symmetrize_brain
 from .xfm_funcs import xform, mirror
+from .backends import set_transform_backend, clear_transform_cache
 from .base import AliasTransform, FunctionTransform
 from .affine import AffineTransform
 from .elastix import ElastixTransform

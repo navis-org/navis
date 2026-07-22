@@ -19,6 +19,7 @@ import pandas as pd
 
 from scipy.spatial.distance import cdist
 
+from .backends import BackendMixin, fastcore_landmarks_available
 from .base import BaseTransform
 
 
@@ -44,8 +45,14 @@ def distance_matrix(X, Y):
 mops.lmk_util.distance_matrix = distance_matrix
 
 
-class TPStransform(BaseTransform):
+class TPStransform(BackendMixin, BaseTransform):
     """Thin Plate Spline transforms of 3D spatial data.
+
+    Runs on `morphops`, or - if navis-fastcore is installed - on its Rust
+    implementation. See the `backend` parameter. The spline is always *fitted*
+    with `morphops` (numpy's LAPACK-backed solve is faster than fastcore's here);
+    the fastcore backend only changes how points are *transformed*, which is
+    where it is ~10-15x faster. The two agree to ~1e-13.
 
     Notes
     -----
@@ -68,6 +75,11 @@ class TPStransform(BaseTransform):
                         batching the transformation by default.
                         Please note that the the overhead from batching
                         seems negligible.
+                        Ignored on the "fastcore" backend, which never
+                        materialises that matrix in the first place.
+    backend :           "auto" | "fastcore" | "python", optional
+                        Which implementation to use. `None` (default) defers to
+                        `navis.config.default_transform_backend`.
 
     Examples
     --------
@@ -84,16 +96,21 @@ class TPStransform(BaseTransform):
 
     """
 
+    _fallback_backend = "python"
+    _fastcore_available = staticmethod(fastcore_landmarks_available)
+
     def __init__(
         self,
         landmarks_source: np.ndarray,
         landmarks_target: np.ndarray,
         batch_size: int = 100_000,
+        backend: str = None,
     ):
         """Initialize class."""
         self.batch_size = batch_size
         self.source = np.asarray(landmarks_source)
         self.target = np.asarray(landmarks_target)
+        self._backend = backend
 
         # Some checks
         if self.source.shape[1] != 3:
@@ -107,6 +124,7 @@ class TPStransform(BaseTransform):
             )
 
         self._W, self._A = None, None
+        self._fc = None
 
     def __eq__(self, other) -> bool:
         """Implement equality comparison."""
@@ -120,10 +138,45 @@ class TPStransform(BaseTransform):
     def __neg__(self) -> "TPStransform":
         """Invert direction."""
         # Switch source and target
-        return TPStransform(self.target, self.source)
+        return TPStransform(
+            self.target,
+            self.source,
+            batch_size=self.batch_size,
+            backend=self._backend,
+        )
+
+    @property
+    def _fastcore_tps(self):
+        """The (lazily built) fastcore transform used to apply the spline.
+
+        Built from morphops-computed coefficients via `from_coefs` rather than
+        by letting fastcore fit the spline itself. The two halves of a TPS scale
+        oppositely: fastcore's fused-distance `xform` is ~10-15x faster than the
+        morphops one, but its fit (a blocked LU) is several times slower than
+        numpy's LAPACK-backed `solve`. Fitting with morphops and applying with
+        fastcore takes the faster of each - so on this backend the fit is never
+        a regression and the transform is much quicker.
+
+        Deferred for the same reason the coefficients are: template packages
+        such as `flybrains` construct every transform they ship at import time,
+        and most are never used.
+
+        """
+        if self._fc is None:
+            from .. import utils
+
+            # `self.W`/`self.A` trigger the (morphops) fit if it hasn't happened
+            self._fc = utils.fastcore.TpsTransform.from_coefs(
+                self.source, self.W, self.A
+            )
+        return self._fc
 
     def _calc_tps_coefs(self):
-        # Calculate thinplate coefficients
+        # Always fit with morphops, on either backend: numpy's LAPACK-backed
+        # solve beats fastcore's blocked LU and the two agree to ~1e-13. On the
+        # fastcore backend the coefficients are then handed to
+        # `TpsTransform.from_coefs` (see `_fastcore_tps`), so the fast xform is
+        # applied to a numpy-fitted spline.
         self._W, self._A = mops.tps_coefs(self.source, self.target)
 
     @property
@@ -157,6 +210,10 @@ class TPStransform(BaseTransform):
         """Make copy."""
         x = TPStransform(self.source, self.target)
 
+        # N.B. this also carries over `_backend` and any already-computed
+        # coefficients (`_W`/`_A`/`_fc`). Sharing the latter is safe - they are
+        # never mutated - and saves re-fitting, which is cubic in the number of
+        # landmarks.
         x.__dict__.update(self.__dict__)
 
         return x
@@ -179,6 +236,12 @@ class TPStransform(BaseTransform):
             if any(c not in points for c in ["x", "y", "z"]):
                 raise ValueError("DataFrame must have x/y/z columns.")
             points = points[["x", "y", "z"]].values
+
+        if self.backend == "fastcore":
+            # No batching here: fastcore fuses the (N, M) distance matrix into
+            # the accumulation instead of building it, so peak memory is just
+            # the output array.
+            return self._fastcore_tps.xform(np.asarray(points))
 
         batch_size = self.batch_size if self.batch_size else points.shape[0]
         points_xf = []

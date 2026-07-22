@@ -38,11 +38,70 @@ def trigger_init(func):
     return wrapper
 
 
+def is_invertible(transform) -> bool:
+    """Check whether a transform can be inverted (i.e. whether `-tr` works).
+
+    Prefer this over a bare `hasattr(tr, '__neg__')`: some transforms are only
+    invertible under certain conditions (e.g. elastix transforms, which can only
+    be inverted with navis-fastcore installed) and say so via an `invertible`
+    property.
+
+    """
+    return bool(getattr(transform, "invertible", hasattr(transform, "__neg__")))
+
+
+def parse_points(points) -> np.ndarray:
+    """Coerce points to a contiguous (N, 3) float64 array."""
+    if isinstance(points, pd.DataFrame):
+        # Make sure x/y/z columns are present
+        if np.any([c not in points for c in ["x", "y", "z"]]):
+            raise ValueError("points DataFrame must have x/y/z columns.")
+        points = points[["x", "y", "z"]].values
+    elif not (
+        isinstance(points, np.ndarray) and points.ndim == 2 and points.shape[1] == 3
+    ):
+        raise TypeError(
+            "`points` must be numpy array of shape (N, 3) or "
+            "pandas DataFrame with x/y/z columns"
+        )
+
+    return np.ascontiguousarray(points, dtype=np.float64)
+
+
 class BaseTransform(ABC):
     """Abstract base class for transforms.
 
     If the transform is invertible, implement via __neg__ method.
     """
+
+    # How much dearer this transform is to traverse backwards than forwards.
+    #
+    # The bridging graph charges an inverse edge `weight * inverse_weight_factor`,
+    # so a factor of N means "navis will detour through up to N-1 extra forward
+    # hops rather than invert this once".
+    #
+    # The default of 1 says inverting is free, which is true whenever the inverse
+    # is stored (H5's `invdfield`), exact (an affine's matrix inverse) or simply a
+    # re-fit of the same landmarks (thin-plate spline). Raise it for transforms
+    # that have to *solve* for the inverse numerically - see CMTKtransform and
+    # ElastixTransform.
+    #
+    # Note this is only a default: passing `weight_inv` to `register_transform`
+    # overrides it.
+    inverse_weight_factor: float = 1
+
+    @property
+    def invertible(self) -> bool:
+        """Whether this transform can be inverted.
+
+        Defaults to "does it implement `__neg__`". Override this if
+        invertibility depends on run-time state.
+
+        Must be cheap! This is evaluated for every registered transform each
+        time the bridging graph is built - it must not touch the disk.
+
+        """
+        return hasattr(self, "__neg__")
 
     def append(self, other: "BaseTransform"):
         """Append another transform to this one.
@@ -205,6 +264,11 @@ class TransformSequence:
     def __neg__(self) -> "TransformSequence":
         """Invert transform sequence."""
         return TransformSequence(*[-t for t in self.transforms[::-1]])
+
+    @property
+    def invertible(self) -> bool:
+        """Whether every transform in this sequence can be inverted."""
+        return all(is_invertible(t) for t in self.transforms)
 
     def append(self, transform: "BaseTransform"):
         """Add transform to list."""

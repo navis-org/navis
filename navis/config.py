@@ -80,6 +80,36 @@ warn_caching = True
 #   or name a specific backend (e.g. "fastcore") to force it.
 default_nblast_backend = "builtin"
 
+# Default backend for point transforms - CMTK/elastix and the landmark
+# transforms (thin-plate spline, moving least squares):
+#   "auto" (default) uses navis-fastcore's in-process Rust implementation if
+#   available and falls back to the original implementation otherwise - the
+#   external binaries (`streamxform`, `transformix`) for CMTK/elastix,
+#   `morphops`/`molesq` for the landmark transforms.
+#   Set to "fastcore" to force the Rust path (raises if unavailable), or to
+#   "binary"/"python" to force the original implementation. Those two names are
+#   interchangeable; each transform reports whichever fits it.
+# Prefer `navis.transforms.set_transform_backend()` over setting this directly:
+# elastix transforms are only invertible on the fastcore backend, so changing
+# the backend also has to invalidate the cached bridging graph.
+default_transform_backend = "auto"
+
+# Whether elastix transforms may be inverted *by the bridging graph*.
+# The fastcore backend can invert an elastix transform (the `transformix` binary
+# cannot), and `-transform` / `TransformSequence` always honour that. This flag
+# only controls whether the template registry is also allowed to traverse an
+# elastix registration backwards when it plots a route between two templates.
+#
+# It defaults to False, and should stay there for as long as navis-fastcore is an
+# optional dependency: the binary backend cannot invert at all, so enabling this
+# would let the two backends find different routes.
+#
+# It is otherwise safe to turn on: on `flybrains` it changes nothing whatsoever
+# (no re-routing, no new routes, and no route actually uses an inverted elastix),
+# because every elastix registration there already ships with a purpose-built
+# reverse. Its only effect is to provide a route where somebody registered an
+# elastix transform without one. Revisit once fastcore is required.
+elastix_invertible = False
 
 # Maximum size (in bytes) of a dense voxel grid that navis will allocate.
 # Voxel grids are allocated from a *shape*, not from the number of filled

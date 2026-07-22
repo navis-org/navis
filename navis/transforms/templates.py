@@ -15,7 +15,6 @@
 
 import functools
 import math
-import numbers
 import os
 import pathlib
 import warnings
@@ -38,7 +37,7 @@ from typing_extensions import Literal
 from .. import config, core, utils
 
 from . import factory
-from .base import TransformSequence, BaseTransform, AliasTransform
+from .base import TransformSequence, BaseTransform, AliasTransform, is_invertible
 from .xfm_funcs import mirror, xform
 
 # Catch some stupid warning about installing python-Levenshtein
@@ -65,6 +64,76 @@ try:
 except BaseException:
     logger.error("Error parsing the `NAVIS_TRANSFORMS` environment variable")
     _OS_TRANSPATHS = []
+
+
+def _deprecate_reciprocal(reciprocal, inverse_weight):
+    """Map the old `reciprocal` argument onto `inverse_weight`."""
+    if reciprocal is None:
+        return inverse_weight
+
+    warnings.warn(
+        "`reciprocal` is deprecated and will be removed in a future version - "
+        "use `inverse_weight` instead. Note the default changed from 0.5 to 1: "
+        "navis no longer discounts inverse transforms across the board, because "
+        "each transform now says for itself how expensive it is to invert.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return reciprocal
+
+
+def _pick_edge(G, n1, n2, prefer_forward: bool = True):
+    """Pick which transform to use for the hop n1 -> n2.
+
+    Two templates can be connected by more than one registration - typically a
+    purpose-built registration for this direction alongside the inverse of its
+    counterpart, but sometimes several independent registrations.
+
+    Selection is by weight, and - as everywhere else - **lower weight wins**. That
+    is the same rule `nx.shortest_path` used to cost the route in the first place,
+    so the transform we hand back is the one the route was planned around.
+
+    On top of that, if `prefer_forward` is True (the default), a forward
+    registration beats the inverse of its counterpart *regardless of weight*: it is
+    the map its authors actually fitted for this direction. Weights still decide
+    among several forward registrations (or, if there is no forward edge, among
+    several inverse ones).
+
+    Why the preference is not simply expressed as a weight: `weight` is what
+    `shortest_path` minimises when choosing the path, and the two uses pull in
+    opposite directions. To stop an inverse edge dragging unrelated routes through
+    it you must weight it *up*; to stop it being picked over a forward edge you
+    must weight it *down*. No single number does both. So weight means one thing
+    only - what a hop costs - and forward-vs-inverse is decided here.
+
+    Parameters
+    ----------
+    prefer_forward :    bool
+                        If False, pick purely by weight and let an inverse edge win
+                        if it is cheaper. Use this if you have weighted your graph
+                        deliberately and want it taken at face value.
+
+    """
+    edges = []
+    i = 0
+    # Collect all edges between those two nodes
+    # - this is annoyingly complicated with MultiDiGraphs
+    while True:
+        try:
+            e = G.edges[(n1, n2, i)]
+        except KeyError:
+            break
+        edges.append(e)
+        i += 1
+
+    candidates = edges
+    if prefer_forward:
+        # (Edges added before `inverse` was tracked are treated as forward.)
+        forward = [e for e in edges if not e.get("inverse", False)]
+        candidates = forward if forward else edges
+
+    # Lower weight wins - same rule `shortest_path` used to pick the route.
+    return min(candidates, key=lambda e: e["weight"])["transform"]
 
 
 class TemplateRegistry:
@@ -218,13 +287,32 @@ class TemplateRegistry:
                             Type of transform.
         skip_existing :     bool
                             If True will skip if transform is already in registry.
-        weight :            int
-                            Giving a transform a lower weight will make it
-                            preferable when plotting bridging sequences.
-        weight_inv :        int, optional
-                            Weight for inverse transform. If not given, will be
-                            set to same as `weight`.
+        weight :            float
+                            What this transform costs to traverse forwards.
+                            **Lower weight = more likely to be used** - both when
+                            choosing a route and when picking between several
+                            registrations connecting the same two templates.
+        weight_inv :        float, optional
+                            What this transform costs to traverse *backwards*.
 
+                            If not given, defaults to
+                            `weight * transform.inverse_weight_factor` - i.e. the
+                            transform says for itself how much dearer it is to
+                            invert. That is 1 for anything whose inverse is stored
+                            or exact (affine, H5, thin-plate spline), and more for
+                            anything that has to solve for it numerically (CMTK,
+                            and elastix especially).
+
+                            Passing this explicitly overrides
+                            `inverse_weight_factor` entirely - use it when you know
+                            better than the default for a particular registration.
+
+                            Note that weight decides which *route* is taken; it does
+                            not, on its own, decide whether an inverse is used in
+                            place of a purpose-built registration. That is
+                            `prefer_forward` (see
+                            `TemplateRegistry.find_bridging_path`), which is on by
+                            default.
 
         See Also
         --------
@@ -242,9 +330,19 @@ class TemplateRegistry:
             target=target,
             transform=transform,
             type=transform_type,
-            invertible=hasattr(transform, "__neg__"),
+            invertible=is_invertible(transform),
             weight=weight,
-            weight_inv=weight_inv if weight_inv is not None else weight,
+            # Some transforms are dearer to traverse backwards than forwards -
+            # elastix in particular, where the inverse is an iterative numerical
+            # solve rather than a stored map. Those advertise an
+            # `inverse_weight_factor` to say so, and their inverse edges cost more.
+            # Note this only affects what a hop *costs*; a forward registration is
+            # preferred over an inverse one regardless (see `_pick_edge`).
+            weight_inv=(
+                weight_inv
+                if weight_inv is not None
+                else weight * getattr(transform, "inverse_weight_factor", 1)
+            ),
         )
 
         # Don't add if already exists
@@ -343,26 +441,45 @@ class TemplateRegistry:
 
     @functools.lru_cache()
     def bridging_graph(
-        self, reciprocal: Union[Literal[False], int, float] = True
+        self,
+        inverse_weight: Union[Literal[False], int, float] = 1,
+        reciprocal=None,
     ) -> nx.DiGraph:
         """Generate networkx Graph describing the bridging paths.
 
         Parameters
         ----------
+        inverse_weight :    bool | float
+                        Whether to add inverse edges for transforms that can be
+                        inverted, and what to charge for them.
+
+                        `1` (default) trusts the weights already on the graph: an
+                        inverse edge costs its transform's `weight_inv`, which by
+                        default already accounts for how expensive that particular
+                        transform is to invert (see `register_transform`).
+
+                        Pass another number to scale every inverse edge by it - a
+                        blunt, global "avoid going backwards" (> 1) or "don't mind
+                        going backwards" (< 1) dial. Remember lower weight = more
+                        likely to be used.
+
+                        `False` drops inverse edges altogether.
         reciprocal :    bool | float
-                        If True or float, will add forward and inverse edges for
-                        transforms that are invertible. If float, the inverse
-                        edges' weights will be scaled by that factor. Can
-                        be used to generally prefer forward transforms over inverse ones.
+                        Deprecated alias for `inverse_weight`.
 
         Returns
         -------
         networkx.MultiDiGraph
 
         """
+        inverse_weight = _deprecate_reciprocal(reciprocal, inverse_weight)
+
         # Drop mirror transforms
         bridge = [t for t in self.transforms if t.type == "bridging"]
-        bridge_inv = [t for t in bridge if t.invertible]
+        # Note we re-check invertibility here rather than trusting the snapshot
+        # taken at registration time: for elastix transforms it depends on the
+        # transform backend, which the user can change at run time.
+        bridge_inv = [t for t in bridge if is_invertible(t.transform)]
 
         # Generate graph
         # Note we are using MultiDi graph here because we might
@@ -380,39 +497,28 @@ class TemplateRegistry:
                     "transform": t.transform,
                     "type": type(t.transform).__name__,
                     "weight": t.weight,
+                    "inverse": False,
                 },
             )
             for t in bridge
         ]
 
-        if reciprocal:
-            if isinstance(reciprocal, numbers.Number):
-                rv_edges = [
-                    (
-                        t.target,
-                        t.source,
-                        {
-                            "transform": -t.transform,  # note inverse transform!
-                            "type": str(type(t.transform)).split(".")[-1],
-                            "weight": t.weight_inv * reciprocal,
-                        },
-                    )
-                    for t in bridge_inv
-                ]
-            else:
-                rv_edges = [
-                    (
-                        t.target,
-                        t.source,
-                        {
-                            "transform": -t.transform,  # note inverse transform!
-                            "type": str(type(t.transform)).split(".")[-1],
-                            "weight": t.weight_inv,
-                        },
-                    )
-                    for t in bridge_inv
-                ]
-            edges += rv_edges
+        if inverse_weight is not False:
+            # `True` means "as weighted" - i.e. the same as 1.
+            scale = 1 if inverse_weight is True else inverse_weight
+            edges += [
+                (
+                    t.target,
+                    t.source,
+                    {
+                        "transform": -t.transform,  # note inverse transform!
+                        "type": type(t.transform).__name__,
+                        "weight": t.weight_inv * scale,
+                        "inverse": True,
+                    },
+                )
+                for t in bridge_inv
+            ]
 
         G.add_edges_from(edges)
 
@@ -424,7 +530,9 @@ class TemplateRegistry:
         target: str,
         via: Optional[str] = None,
         avoid: Optional[str] = None,
-        reciprocal=True,
+        inverse_weight=1,
+        prefer_forward: bool = True,
+        reciprocal=None,
     ) -> tuple:
         """Find bridging path from source to target.
 
@@ -438,10 +546,18 @@ class TemplateRegistry:
                         Force specific intermediate template(s).
         avoid :         str | list thereof, optional
                         Avoid going through specific intermediate template(s).
+        inverse_weight : bool | float
+                        What to charge for traversing a transform backwards. See
+                        `TemplateRegistry.bridging_graph`. Lower = more likely to
+                        be used.
+        prefer_forward : bool
+                        Where two templates are connected by both a purpose-built
+                        registration and the inverse of its counterpart, use the
+                        purpose-built one - regardless of weight. Set to False to
+                        pick on weight alone, i.e. to take your graph's weights
+                        entirely at face value.
         reciprocal :    bool | float
-                        If True or float, will add forward and inverse edges for
-                        transforms that are invertible. If float, the inverse
-                        edges' weights will be scaled by that factor.
+                        Deprecated alias for `inverse_weight`.
 
         Returns
         -------
@@ -451,8 +567,10 @@ class TemplateRegistry:
                         Transforms as [[path_to_transform, inverse], ...]
 
         """
+        inverse_weight = _deprecate_reciprocal(reciprocal, inverse_weight)
+
         # Generate (or get cached) bridging graph
-        G = self.bridging_graph(reciprocal=reciprocal)
+        G = self.bridging_graph(inverse_weight=inverse_weight)
 
         if len(G) == 0:
             raise ValueError("No bridging registrations available")
@@ -548,24 +666,10 @@ class TemplateRegistry:
 
         # `path` holds the sequence of nodes we are traversing but not which
         # transforms (i.e. edges) to use
-        transforms = []
-        for n1, n2 in zip(path[:-1], path[1:]):
-            this_edges = []
-            i = 0
-            # First collect all edges between those two nodes
-            # - this is annoyingly complicated with MultiDiGraphs
-            while True:
-                try:
-                    e = G.edges[(n1, n2, i)]
-                except KeyError:
-                    break
-                this_edges.append([e["transform"], e["weight"]])
-                i += 1
-
-            # Now find the edge with the highest weight
-            # (inverse transforms might have a lower weight)
-            this_edges = sorted(this_edges, key=lambda x: x[-1])
-            transforms.append(this_edges[-1][0])
+        transforms = [
+            _pick_edge(G, n1, n2, prefer_forward=prefer_forward)
+            for n1, n2 in zip(path[:-1], path[1:])
+        ]
 
         return path, transforms
 
@@ -575,8 +679,10 @@ class TemplateRegistry:
         target: str,
         via: Optional[str] = None,
         avoid: Optional[str] = None,
-        reciprocal: bool = True,
+        inverse_weight=1,
+        prefer_forward: bool = True,
         cutoff: int = None,
+        reciprocal=None,
     ) -> tuple:
         """Find all bridging paths from source to target.
 
@@ -590,13 +696,20 @@ class TemplateRegistry:
                         Force specific intermediate template(s).
         avoid :         str | list thereof, optional
                         Avoid specific intermediate template(s).
-        reciprocal :    bool | float
-                        If True or float, will add forward and inverse edges for
-                        transforms that are invertible. If float, the inverse
-                        edges' weights will be scaled by that factor.
+        inverse_weight : bool | float
+                        What to charge for traversing a transform backwards. See
+                        `TemplateRegistry.bridging_graph`. Lower = more likely to
+                        be used.
+        prefer_forward : bool
+                        Where two templates are connected by both a purpose-built
+                        registration and the inverse of its counterpart, use the
+                        purpose-built one - regardless of weight. See
+                        `TemplateRegistry.find_bridging_path`.
         cutoff :        int, optional
                         Depth to stop the search. Only paths of length
                         <= cutoff are returned.
+        reciprocal :    bool | float
+                        Deprecated alias for `inverse_weight`.
 
         Returns
         -------
@@ -607,8 +720,10 @@ class TemplateRegistry:
                         Transforms as [[path_to_transform, inverse], ...]
 
         """
+        inverse_weight = _deprecate_reciprocal(reciprocal, inverse_weight)
+
         # Generate (or get cached) bridging graph
-        G = self.bridging_graph(reciprocal=reciprocal)
+        G = self.bridging_graph(inverse_weight=inverse_weight)
 
         if len(G) == 0:
             raise ValueError("No bridging registrations available")
@@ -665,24 +780,10 @@ class TemplateRegistry:
 
             # `path` holds the sequence of nodes we are traversing but not which
             # transforms (i.e. edges) to use
-            transforms = []
-            for n1, n2 in zip(path[:-1], path[1:]):
-                this_edges = []
-                i = 0
-                # First collect all edges between those two nodes
-                # - this is annoyingly complicated with MultiDiGraphs
-                while True:
-                    try:
-                        e = G.edges[(n1, n2, i)]
-                    except KeyError:
-                        break
-                    this_edges.append([e["transform"], e["weight"]])
-                    i += 1
-
-                # Now find the edge with the highest weight
-                # (inverse transforms might have a lower weight)
-                this_edges = sorted(this_edges, key=lambda x: x[-1])
-                transforms.append(this_edges[-1][0])
+            transforms = [
+                _pick_edge(G, n1, n2, prefer_forward=prefer_forward)
+                for n1, n2 in zip(path[:-1], path[1:])
+            ]
 
             yield path, transforms
 
@@ -692,7 +793,8 @@ class TemplateRegistry:
         source: str,
         target: str,
         via: Optional[str] = None,
-        inverse_weight: float = 0.5,
+        inverse_weight: float = 1,
+        prefer_forward: bool = True,
     ) -> tuple:
         """Find shortest bridging sequence to get from source to target.
 
@@ -706,8 +808,17 @@ class TemplateRegistry:
                             Waystations to traverse on the way from source to
                             target.
         inverse_weight :    float
-                            Weight for inverse transforms. If < 1 will prefer
-                            forward transforms.
+                            Scales the cost of traversing a transform backwards.
+                            The default of `1` takes the graph's weights at face
+                            value: each transform already declares how expensive it
+                            is to invert (see `register_transform`). Raise it to
+                            make navis detour further to avoid going backwards at
+                            all. Remember lower weight = more likely to be used.
+        prefer_forward :    bool
+                            Where two templates are connected by both a
+                            purpose-built registration and the inverse of its
+                            counterpart, use the purpose-built one - regardless of
+                            weight. Set to False to pick on weight alone.
 
         Returns
         -------
@@ -728,7 +839,12 @@ class TemplateRegistry:
         seq = [nodes[0]]
         transforms = []
         for n1, n2 in zip(nodes[:-1], nodes[1:]):
-            path, tr = self.find_bridging_path(n1, n2, reciprocal=inverse_weight)
+            path, tr = self.find_bridging_path(
+                n1,
+                n2,
+                inverse_weight=inverse_weight,
+                prefer_forward=prefer_forward,
+            )
             seq = np.append(seq, path[1:])
             transforms = np.append(transforms, tr)
 
@@ -877,7 +993,7 @@ class TemplateRegistry:
 
         """
         # Get graph
-        G = self.bridging_graph(reciprocal=False)
+        G = self.bridging_graph(inverse_weight=False)
 
         # Draw nodes and edges
         node_labels = {n: n for n in G.nodes}

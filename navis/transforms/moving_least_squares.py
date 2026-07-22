@@ -17,16 +17,21 @@ import numpy as np
 import pandas as pd
 from molesq import Transformer
 
+from .backends import BackendMixin, fastcore_landmarks_available
 from .base import BaseTransform
 
 
-class MovingLeastSquaresTransform(BaseTransform):
+class MovingLeastSquaresTransform(BackendMixin, BaseTransform):
+    _fallback_backend = "python"
+    _fastcore_available = staticmethod(fastcore_landmarks_available)
+
     def __init__(
         self,
         landmarks_source: np.ndarray,
         landmarks_target: np.ndarray,
         direction: str = "forward",
         batch_size: int = 100_000,
+        backend: str = None,
     ) -> None:
         """Moving Least Squares transforms of 3D spatial data.
 
@@ -34,12 +39,15 @@ class MovingLeastSquaresTransform(BaseTransform):
         [implementation](https://github.com/ceesem/catalysis/blob/master/catalysis/transform.py)
         by Casey Schneider-Mizell of the affine algorithm published in
         [Schaefer et al. 2006](https://dl.acm.org/doi/pdf/10.1145/1179352.1141920).
+        If navis-fastcore is installed, its Rust implementation of the same
+        algorithm is used instead - see the `backend` parameter.
 
         Notes
         -----
         At least in my hands, `TPStransforms` are significantly faster than
         `MovingLeastSquaresTransforms`. The results are similar but not identical,
-        so make sure to use the one that works best for your use case.
+        so make sure to use the one that works best for your use case. The two
+        backends agree with each other to ~1e-13.
 
         Parameters
         ----------
@@ -55,6 +63,11 @@ class MovingLeastSquaresTransform(BaseTransform):
             and M is the number of locations, which can get prohibitively expensive.
             We avoid the issue by batching the transformation by default. Note that the
             overhead from batching seems negligible.
+            Ignored on the "fastcore" backend, which reduces over landmarks
+            instead of materialising that matrix.
+        backend : "auto" | "fastcore" | "python", optional
+            Which implementation to use. `None` (default) defers to
+            `navis.config.default_transform_backend`.
 
         Examples
         --------
@@ -77,6 +90,31 @@ class MovingLeastSquaresTransform(BaseTransform):
         self.transformer = Transformer(landmarks_source, landmarks_target)
         self.reverse = direction == "inverse"
         self.batch_size = int(batch_size)
+        self._backend = backend
+        self._fc = None
+
+    @property
+    def _fastcore_mls(self):
+        """The (lazily built) fastcore transform.
+
+        Moving least squares has no fit - construction just stores the
+        landmarks - so building this is cheap. It is lazy only so that an
+        install without fastcore never touches the attribute.
+
+        Always built in the forward direction; `xform` passes `reverse` per
+        call. That matters because navis keeps the direction in a plain
+        `self.reverse` which `__neg__` (and users) flip in place, so a cached
+        object with the direction baked in would go stale.
+
+        """
+        if self._fc is None:
+            from .. import utils
+
+            self._fc = utils.fastcore.MlsTransform(
+                self.transformer.control_points,
+                self.transformer.deformed_control_points,
+            )
+        return self._fc
 
     def xform(self, points: np.ndarray) -> np.ndarray:
         """Transform points.
@@ -96,6 +134,13 @@ class MovingLeastSquaresTransform(BaseTransform):
             if any([c not in points for c in ["x", "y", "z"]]):
                 raise ValueError("DataFrame must have x/y/z columns.")
             points = points[["x", "y", "z"]].values
+
+        if self.backend == "fastcore":
+            # No batching here: everything but the result is a reduction over
+            # landmarks, so peak memory is just the output array.
+            return self._fastcore_mls.xform(
+                np.asarray(points), reverse=self.reverse
+            )
 
         batch_size = self.batch_size if self.batch_size else len(points)
         points_xf = []

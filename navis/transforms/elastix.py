@@ -25,8 +25,12 @@ import platform
 import numpy as np
 import pandas as pd
 
-from .base import BaseTransform
+from .backends import BackendMixin, elastix_is_invertible, get_elastix_transform
+from .base import BaseTransform, parse_points
+from .. import config
 from ..utils import make_iterable
+
+logger = config.get_logger(__name__)
 
 _search_path = [i for i in os.environ["PATH"].split(os.pathsep) if len(i) > 0]
 
@@ -125,13 +129,17 @@ def elastix_version(as_string=False):
         return tuple(int(v) for v in version.split("."))
 
 
-class ElastixTransform(BaseTransform):
+class ElastixTransform(BackendMixin, BaseTransform):
     """Elastix transforms of 3D spatial data.
 
-    Requires [Elastix](https://github.com/SuperElastix/elastix/). Based on
-    code by Jasper Phelps (<https://github.com/jasper-tms/pytransformix>).
+    Requires either [Elastix](https://github.com/SuperElastix/elastix/) to be
+    installed, or navis-fastcore - the latter implements elastix transforms in
+    Rust and needs no external binaries. See the `backend` parameter.
 
-    Note that elastix transforms can not be inverted!
+    Based on code by Jasper Phelps (<https://github.com/jasper-tms/pytransformix>).
+
+    Note that elastix transforms can only be inverted on the "fastcore" backend:
+    the `transformix` binary has no way to compute an inverse.
 
     Parameters
     ----------
@@ -143,40 +151,167 @@ class ElastixTransform(BaseTransform):
                         typically files supplemental to the main transform
                         file (e.g. defining an additional affine transform).
 
+                        Only relevant for the "binary" backend, and only because
+                        `transformix` looks for chained transform files in the
+                        current directory. fastcore resolves them itself - it
+                        follows the recorded path and, failing that, looks for
+                        that file's basename next to the transform that named it,
+                        which is the same thing copying them into one directory
+                        achieves. On that backend this argument is ignored.
+    backend :           "auto" | "fastcore" | "binary", optional
+                        Which implementation to use. `None` (default) defers to
+                        `navis.config.default_transform_backend`.
+
     Examples
     --------
     >>> from navis import transforms
     >>> tr = transforms.ElastixTransform('/path/to/transform/transform')
     >>> tr.xform(points) # doctest: +SKIP
 
+    Notes
+    -----
+    Inverting an elastix transform is a Gauss-Newton solve per point: ~80x the cost
+    of going forwards (and ~4x a dedicated reverse registration), it drops the ~0.04%
+    of points that have no preimage, and where the warp folds ~4% of points come back
+    somewhere other than they started - inherent to inverting a non-injective map,
+    not a solver defect.
+
+    So a purpose-built reverse registration should always beat an on-the-fly
+    inversion. It does: `_pick_edge` prefers a forward registration over the inverse
+    of its counterpart unconditionally, and `inverse_weight_factor` (above) keeps an
+    inverse hop from looking like a shortcut when routing.
+
+    `navis.config.elastix_invertible` nonetheless defaults to *off*, and should stay
+    that way while navis-fastcore is an optional dependency: the "binary" backend
+    cannot invert at all, so turning it on would let the two backends find different
+    routes. Revisit when fastcore is required. It is safe to enable - on `flybrains`
+    it changes nothing at all, because every elastix registration there already ships
+    with a reverse - so the only thing it buys today is a route where somebody
+    registered an elastix transform and no reverse for it.
+
+    One thing worth knowing before anyone tunes this: a dedicated reverse registration
+    is *not* the inverse of its forward twin - they are independent fits. Ours agree
+    to a median of ~0.2 world units, but the dedicated reverse only round-trips through
+    the forward map to a median of 0.17 (p95 128), where the numerical inverse
+    round-trips to ~1e-13. Preferring the dedicated registration is a choice about
+    *which map you want* - the one its authors fitted, and the one the field uses - not
+    a claim that it is more accurate.
+
     """
 
-    def __init__(self, file: str, copy_files=[]):
+    # Traversing an elastix transform backwards is a Gauss-Newton solve per point:
+    # ~80x the cost of going forwards, and it is *lossy* - points whose preimage
+    # does not exist come back as NaN (~0.04%), and where the warp folds another
+    # ~4% land somewhere other than they started.
+    #
+    # 5 means navis will detour through up to four extra forward transforms rather
+    # than invert an elastix registration once. Deliberately not the 80x runtime
+    # ratio: routing trades accuracy, not seconds, and every extra hop carries its
+    # own interpolation error and loses its own out-of-domain points. Five is a
+    # judgement call - it says "this is a last resort", without licensing an absurd
+    # detour to avoid it.
+    inverse_weight_factor = 5
+
+    _invert = False
+
+    def __init__(self, file: str, copy_files=None, backend: str = None):
         self.file = pathlib.Path(file)
-        self.copy_files = copy_files
+        self.copy_files = copy_files if copy_files is not None else []
+        self._backend = backend
 
     def __eq__(self, other: "ElastixTransform") -> bool:
         """Implement equality comparison."""
         if isinstance(other, ElastixTransform):
-            if self.file == other.file:
+            if self.file == other.file and self._invert == other._invert:
                 return True
         return False
 
+    def __neg__(self) -> "ElastixTransform":
+        """Invert transform."""
+        # Note this is defined unconditionally (so that `hasattr(tr, '__neg__')`
+        # is True) but the honest answer lives in `.can_invert`/`.invertible` -
+        # which is why the registry must ask *those* instead.
+        if self.backend != "fastcore":
+            raise NotImplementedError(
+                "Inverting elastix transforms requires navis-fastcore "
+                "(`pip install navis-fastcore`): the `transformix` binary "
+                "cannot compute an inverse."
+            )
+
+        if not self.can_invert:
+            raise NotImplementedError(
+                f"Elastix transform {self.file} cannot be inverted: its chain "
+                'combines transforms via "Add".'
+            )
+
+        x = self.copy()
+        x._invert = not x._invert
+        return x
+
+    @property
+    def can_invert(self) -> bool:
+        """Whether `-transform` works.
+
+        Needs the fastcore backend (`transformix` cannot invert) *and* a file
+        that is actually invertible - a chain combined via "Add" is not. The
+        latter is settled with fastcore's header-only probe, so this stays cheap
+        enough to ask of every transform in the registry.
+
+        """
+        if self.backend != "fastcore" or not self.file.is_file():
+            return False
+        return elastix_is_invertible(str(self.file))
+
+    @property
+    def invertible(self) -> bool:
+        """Whether the bridging graph may traverse this transform backwards.
+
+        Deliberately *narrower* than `can_invert`: inverting works whenever we're
+        on the fastcore backend with an invertible file, but we only let the
+        registry route through an inverse if `navis.config.elastix_invertible`
+        says so. Every elastix registration we know of ships with a purpose-built
+        reverse registration, so the inverse buys no new connectivity - it just
+        adds a cheaper-looking parallel edge that drags unrelated routes through
+        it.
+
+        Note the config check comes first, so that in the default case this costs
+        a single lookup and never touches the disk - it is evaluated for every
+        registered transform each time the bridging graph is built.
+
+        """
+        if not getattr(config, "elastix_invertible", False):
+            return False
+        return self.can_invert
+
     def check_if_possible(self, on_error: str = "raise"):
         """Check if this transform is possible."""
-        if not _elastixbin:
-            msg = (
-                "Folder with elastix binaries not found. Make sure the "
-                "directory is in your PATH environment variable."
-            )
-            if on_error == "raise":
-                raise BaseException(msg)
-            return msg
+        msg = None
         if not self.file.is_file():
             msg = f"Transformation file {self.file} not found."
-            if on_error == "raise":
-                raise BaseException(msg)
-                return msg
+        elif self.backend == "binary":
+            if not _elastixbin:
+                msg = (
+                    "Folder with elastix binaries not found. Make sure the "
+                    "directory is in your PATH environment variable - or install "
+                    "navis-fastcore to transform points without elastix."
+                )
+            elif self._invert:
+                msg = (
+                    "Inverse elastix transforms require navis-fastcore: the "
+                    "`transformix` binary cannot compute an inverse."
+                )
+        elif self._invert and not elastix_is_invertible(str(self.file)):
+            # Header-only probe - no need to parse the coefficients just to find
+            # out we can't use them.
+            msg = (
+                f"Elastix transform {self.file} cannot be inverted: its "
+                'chain combines transforms via "Add".'
+            )
+
+        if msg and on_error == "raise":
+            raise BaseException(msg)
+
+        return msg
 
     def copy(self) -> "ElastixTransform":
         """Return copy."""
@@ -237,6 +372,24 @@ class ElastixTransform(BaseTransform):
 
         """
         self.check_if_possible(on_error="raise")
+
+        if self.backend == "fastcore":
+            if return_logs:
+                raise ValueError(
+                    "`return_logs=True` requires the `transformix` binary "
+                    "(use `backend='binary'`)."
+                )
+
+            if self.copy_files:
+                logger.debug(
+                    "`copy_files` is ignored on the fastcore backend: it resolves "
+                    "chained transform files itself."
+                )
+
+            # One parsed object serves both directions - fastcore takes `invert`
+            # at xform time - so a transform and its inverse share a cache entry.
+            tr = get_elastix_transform(str(self.file))
+            return tr.xform(parse_points(points), invert=self._invert)
 
         if isinstance(points, pd.DataFrame):
             # Make sure x/y/z columns are present
