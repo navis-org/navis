@@ -39,7 +39,7 @@ flybrains  #extra: flybrains
 
 cloud-volume>=5.2.0  #extra: cloudvolume
 
-navis-fastcore>=0.7.1  #extra: fastcore
+navis-fastcore>=0.8.0  #extra: fastcore
 
 plotly>=4.9  #extra: plotly
 
