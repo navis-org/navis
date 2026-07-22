@@ -422,6 +422,7 @@ NBLAST and related functions:
 | [`navis.nblast`][navis.nblast] | {{ autosummary("navis.nblast") }} |
 | [`navis.nblast_smart`][navis.nblast_smart] | {{ autosummary("navis.nblast_smart") }} |
 | [`navis.nblast_allbyall`][navis.nblast_allbyall] | {{ autosummary("navis.nblast_allbyall") }} |
+| [`navis.nblast_knn`][navis.nblast_knn] | {{ autosummary("navis.nblast_knn") }} |
 | [`navis.nblast_align`][navis.nblast_align] | {{ autosummary("navis.nblast_align") }} |
 | [`navis.synblast`][navis.synblast] | {{ autosummary("navis.synblast") }} |
 | [`navis.persistence_distances`][navis.persistence_distances] | {{ autosummary("navis.persistence_distances") }} |
@@ -465,6 +466,7 @@ Functions to calculate Euclidean and geodesic ("along-the-arbor") distances.
 | [`navis.dist_between()`][navis.dist_between] | {{ autosummary("navis.dist_between") }} |
 | [`navis.dist_to_root()`][navis.dist_to_root] | {{ autosummary("navis.dist_to_root") }} |
 | [`navis.geodesic_matrix()`][navis.geodesic_matrix] | {{ autosummary("navis.geodesic_matrix") }} |
+| [`navis.graph.geodesic_clusters()`][navis.graph.geodesic_clusters] | {{ autosummary("navis.graph.geodesic_clusters") }} |
 | [`navis.segment_length()`][navis.segment_length] | {{ autosummary("navis.segment_length") }} |
 
 ## Intersection
