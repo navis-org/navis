@@ -597,8 +597,14 @@ class Dotprops(BaseNeuron):
         vect, alpha = tangents_and_alpha(
             np.asarray(x.points, dtype=np.float64), k
         )
-        x.vect = vect.astype(x.points.dtype, copy=False)
-        x.alpha = alpha.astype(x.points.dtype, copy=False)
+        # Match the points' precision - but only if those are floats: tangents
+        # are unit vectors and alpha is in [0, 1], so casting them to an integer
+        # type (integer coordinates are perfectly legal) would zero them out.
+        if np.issubdtype(x.points.dtype, np.floating):
+            vect = vect.astype(x.points.dtype, copy=False)
+            alpha = alpha.astype(x.points.dtype, copy=False)
+        x.vect = vect
+        x.alpha = alpha
 
         # Keep track of k
         x.k = k

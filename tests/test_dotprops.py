@@ -231,6 +231,22 @@ def test_recalculate_tangents_no_nan_on_duplicates():
     assert np.allclose(out.alpha[:5], 0)
 
 
+@pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32, np.float64])
+def test_recalculate_tangents_dtypes(dtype):
+    """Tangents must stay unit vectors - even for integer coordinates."""
+    n = navis.example_neurons(1, kind="skeleton")
+    dp = navis.make_dotprops(n, k=5)
+    dp.points = np.round(dp.points).astype(dtype)
+
+    out = dp.recalculate_tangents(5, inplace=False)
+
+    assert np.allclose(np.linalg.norm(np.asarray(out.vect, float), axis=1), 1)
+    assert (np.asarray(out.alpha, float) > 0).any()
+    # Float precision is carried over from the points, integers are not
+    expected = dtype if np.issubdtype(dtype, np.floating) else np.float64
+    assert out.vect.dtype == expected and out.alpha.dtype == expected
+
+
 # ------------------------------------------------------------ backend parity
 
 
