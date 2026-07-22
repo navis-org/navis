@@ -261,6 +261,28 @@ def test_changing_voxels_invalidates_cached_shape(voxel_neuron):
     assert voxel_neuron.shape == (10, 10, 10)
 
 
+def test_changing_voxels_drops_mismatched_values(voxel_neuron):
+    """Assigning fewer voxels must not leave the old values behind.
+
+    Regression: `.values` stayed at its old length, so `.nnz`/`.volume` counted
+    voxels that no longer existed and `.grid` raised a broadcasting error.
+    """
+    voxel_neuron.grid  # populate the caches
+
+    voxel_neuron.voxels = np.array([[0, 0, 0], [1, 1, 1]])
+
+    assert len(voxel_neuron.values) == len(voxel_neuron.voxels) == 2
+    assert voxel_neuron.nnz == 2
+    assert np.count_nonzero(voxel_neuron.grid) == 2
+
+
+def test_changing_voxels_keeps_matching_values(voxel_neuron):
+    """...but values that still line up row for row are carried over."""
+    voxel_neuron.voxels = VOXELS + 1
+
+    assert np.array_equal(voxel_neuron.values, VALUES)
+
+
 # ---------------------------------------------------------------------------
 # copy
 # ---------------------------------------------------------------------------
@@ -414,6 +436,70 @@ def test_strip(neuron):
     assert out.nnz == neuron.nnz
     # The offset takes up the slack, so the filled voxels don't move
     assert np.allclose(out.offset, before[:, 0] + VOXELS.min(axis=0) * 8)
+
+
+# ---------------------------------------------------------------------------
+# Empty neurons
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(params=["auto", True, False])
+def empty_neuron(request):
+    """A neuron with no filled voxels, in every backing.
+
+    Note that with `sparsify` at its default this ends up voxel-backed with an
+    empty coordinate array - the case that used to blow up.
+    """
+    return navis.VoxelNeuron(
+        np.zeros((10, 10, 10), dtype=np.float64),
+        units=UNITS,
+        offset=OFFSET.copy(),
+        sparsify=request.param,
+    )
+
+
+def test_empty_neuron_keeps_its_shape(empty_neuron):
+    """An empty neuron reports the canvas it was built on, not an error.
+
+    Regression: `.shape` reduced over the (empty) voxels, so an all-zero grid
+    raised "zero-size array to reduction" - and with it `.grid`, `.bbox` and
+    `repr()`.
+    """
+    assert empty_neuron.shape == (10, 10, 10)
+    assert empty_neuron.nnz == 0
+    assert empty_neuron.density == 0
+    assert empty_neuron.grid.shape == (10, 10, 10)
+    assert not np.any(empty_neuron.grid)
+    assert np.allclose(empty_neuron.bbox[:, 0], OFFSET)
+    assert "VoxelNeuron" in repr(empty_neuron)
+
+
+def test_empty_neuron_survives_manipulation(empty_neuron):
+    """Operations that have nothing to work on must no-op, not raise."""
+    assert empty_neuron.flip("x").shape == (10, 10, 10)
+    assert empty_neuron.normalize().nnz == 0
+    assert empty_neuron.threshold(1).nnz == 0
+    assert empty_neuron.strip().nnz == 0
+    assert empty_neuron.sparsify().nnz == empty_neuron.densify().nnz == 0
+
+
+def test_emptied_neuron_is_usable():
+    """`erode()` can consume a neuron entirely - the result must still work."""
+    grid = np.zeros((20, 20, 20), dtype=np.uint8)
+    grid[5:15, 10, 10] = 1  # one voxel thin, so a single erosion clears it
+
+    n = navis.VoxelNeuron(grid, units=UNITS)
+    eroded = n.erode()
+
+    assert eroded.nnz == 0
+    assert len(eroded.values) == 0
+    # The canvas survives, i.e. the empty neuron still occupies the same space
+    assert eroded.shape == n.shape
+    assert np.array_equal(eroded.bbox, n.bbox)
+    assert "VoxelNeuron" in repr(eroded)
+    # ...and it can be fed straight back into the set operations
+    assert eroded.union(n).nnz == n.nnz
+    assert eroded.iou(n) == 0
 
 
 # ---------------------------------------------------------------------------

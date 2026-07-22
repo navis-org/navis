@@ -150,3 +150,57 @@ def test_sholl_neuronlist():
 
     assert len(res) == 2
     assert all(isinstance(r, pd.DataFrame) for r in res)
+
+
+@pytest.fixture
+def star():
+    """Root at the origin with four straight 10-unit arms along +x/-x/+y/-y.
+
+    Every sphere of radius r < 10 must cut each arm exactly once, so the correct
+    number of intersections is 4 - regardless of whether distances are measured
+    Euclidean or geodesic, which for this geometry are identical.
+    """
+    rows = [dict(node_id=0, parent_id=-1, x=0.0, y=0.0, z=0.0, radius=1)]
+    nid = 1
+    for axis, sign in [(0, 1), (0, -1), (1, 1), (1, -1)]:
+        parent = 0
+        for step in range(1, 11):
+            xyz = [0.0, 0.0, 0.0]
+            xyz[axis] = float(sign * step)
+            rows.append(
+                dict(
+                    node_id=nid,
+                    parent_id=parent,
+                    x=xyz[0],
+                    y=xyz[1],
+                    z=xyz[2],
+                    radius=1,
+                )
+            )
+            parent = nid
+            nid += 1
+    return navis.TreeNeuron(pd.DataFrame(rows), units="1 nm")
+
+
+@pytest.mark.parametrize("geodesic", [False, True], ids=["euclidean", "geodesic"])
+def test_sholl_intersections_count_both_directions(star, geodesic):
+    """An edge intersects a sphere if exactly one of its ends is inside it.
+
+    Regression guard: the count used to be `(dists <= r) & (pdists > r)`, i.e. only
+    edges crossing *inwards*. For an arbor rooted at the center virtually every edge
+    points outwards, so intersections were massively undercounted; with geodesic
+    distances - where a child is always further out than its parent - the condition
+    can never hold and the column was identically zero.
+    """
+    res = navis.sholl_analysis(
+        star, radii=[2, 4, 6, 8], center="root", geodesic=geodesic
+    )
+
+    assert res.intersections.tolist() == [4, 4, 4, 4]
+
+
+def test_sholl_intersections_nonzero_geodesic(n):
+    """Geodesic Sholl analysis must actually find intersections on a real neuron."""
+    res = navis.sholl_analysis(n, radii=10, center="soma", geodesic=True)
+
+    assert res.intersections.sum() > 0

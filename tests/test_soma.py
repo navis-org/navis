@@ -87,6 +87,31 @@ def test_soma_ellipsoid_properties(meshes):
     assert ell.distance_to_surface(far)[0] > 0
 
 
+def test_soma_ellipsoid_scale():
+    """Fitting a known shell must recover its true semi-axes, not a multiple.
+
+    The vertices are a surface sample, so the second moment about an axis is
+    `a^2 / 3`. Using the solid-body `a^2 / 5` inflates every semi-axis by
+    `sqrt(5/3)` ~ 1.29 (and the volume by ~2.2x).
+    """
+    import trimesh
+
+    sphere = trimesh.creation.icosphere(subdivisions=4, radius=1000.0)
+
+    n = navis.MeshNeuron(sphere, id=1)
+    ell = navis.find_soma_mesh(n, min_soma_radius=100)
+    assert np.allclose(ell.radii, 1000, rtol=0.01)
+    assert np.isclose(ell.volume, 4 / 3 * np.pi * 1000**3, rtol=0.03)
+    # ... and the surface sits where it should
+    assert ell.contains(ell.center + [990, 0, 0])[0]
+    assert not ell.contains(ell.center + [1010, 0, 0])[0]
+
+    # Same for an anisotropic shell (a, b, c = 1000, 600, 400)
+    scaled = trimesh.Trimesh(sphere.vertices * [1.0, 0.6, 0.4], sphere.faces)
+    ell = navis.find_soma_mesh(navis.MeshNeuron(scaled, id=2), min_soma_radius=100)
+    assert np.allclose(ell.radii, [1000, 600, 400], rtol=0.01)
+
+
 def test_find_soma_mesh_rejects_treeneuron():
     """A TreeNeuron should be rejected - use `find_soma` for skeletons."""
     sk = navis.example_neurons(1, kind="skeleton")
@@ -162,6 +187,28 @@ def test_find_soma_dist_factor_stable(skeletons):
             continue
         results = {int(navis.find_soma(n, dist_factor=f)) for f in (2, 3, 4)}
         assert len(results) == 1
+
+
+def test_find_soma_beats_thick_neurite(skeletons):
+    """A lone fat node on a thick neurite must not beat the fat soma region."""
+    n = next(n for n in skeletons if n.id == 1734350788).copy()
+    n.soma_detection_label = None  # radius-only path
+
+    nodes = n.nodes.copy()
+    # Node 4177 is the soma: make it and its immediate neighbourhood fat
+    nodes.loc[nodes.node_id.isin([4464, 4178, 9, 10]), "radius"] = 300
+    nodes.loc[nodes.node_id == 4177, "radius"] = 375
+    # Nodes 270-300 are a stretch of neurite ~23 um away. Make them candidates
+    # (i.e. above the detection radius) with a single, even fatter node in the
+    # middle - that node wins on radius alone but not on regional radius.
+    neurite = nodes.node_id.isin(range(270, 301))
+    nodes.loc[neurite, "radius"] = 130
+    nodes.loc[nodes.node_id == 285, "radius"] = 400
+    n.nodes = nodes
+
+    # Sanity check: the plant does beat the soma on a plain radius argmax
+    assert int(nodes.node_id.values[np.argmax(nodes.radius.values)]) == 285
+    assert int(navis.find_soma(n)) == 4177
 
 
 def test_find_soma_missing_radius(skeletons):

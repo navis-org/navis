@@ -60,18 +60,16 @@ def no_fastcore(monkeypatch):
     backends.clear_transform_cache()
 
 
-@pytest.fixture
-def tiny_cmtk(tmp_path):
-    """A minimal affine-only CMTK registration."""
-    reg = tmp_path / "tiny.list"
-    reg.mkdir()
-    (reg / "registration").write_text(
+def _write_cmtk(path, xlate=(10, -5, 2)):
+    """Write a minimal affine-only CMTK registration."""
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "registration").write_text(
         "! TYPEDSTREAM 1.1\n\n"
         "registration {\n"
         '\treference_study "ref.nrrd"\n'
         '\tfloating_study "flt.nrrd"\n'
         "\taffine_xform {\n"
-        "\t\txlate 10 -5 2\n"
+        f"\t\txlate {xlate[0]} {xlate[1]} {xlate[2]}\n"
         "\t\trotate 0 0 5\n"
         "\t\tscale 1.1 0.9 1\n"
         "\t\tshear 0 0 0\n"
@@ -79,23 +77,39 @@ def tiny_cmtk(tmp_path):
         "\t}\n"
         "}\n"
     )
-    return reg
+    return path
+
+
+def _write_elastix(
+    path,
+    params=(10.0, -5.0, 2.0),
+    initial="NoInitialTransform",
+    combine="Compose",
+):
+    """Write a minimal translation-only elastix transform."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        '(Transform "TranslationTransform")\n'
+        "(NumberOfParameters 3)\n"
+        f"(TransformParameters {params[0]} {params[1]} {params[2]})\n"
+        f'(InitialTransformParametersFileName "{initial}")\n'
+        f'(HowToCombineTransforms "{combine}")\n'
+        "(FixedImageDimension 3)\n"
+        "(MovingImageDimension 3)\n"
+    )
+    return path
+
+
+@pytest.fixture
+def tiny_cmtk(tmp_path):
+    """A minimal affine-only CMTK registration."""
+    return _write_cmtk(tmp_path / "tiny.list")
 
 
 @pytest.fixture
 def tiny_elastix(tmp_path):
     """A minimal translation-only elastix transform."""
-    fp = tmp_path / "TransformParameters.0.txt"
-    fp.write_text(
-        '(Transform "TranslationTransform")\n'
-        "(NumberOfParameters 3)\n"
-        "(TransformParameters 10.0 -5.0 2.0)\n"
-        '(InitialTransformParametersFileName "NoInitialTransform")\n'
-        '(HowToCombineTransforms "Compose")\n'
-        "(FixedImageDimension 3)\n"
-        "(MovingImageDimension 3)\n"
-    )
-    return fp
+    return _write_elastix(tmp_path / "TransformParameters.0.txt")
 
 
 POINTS = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0], [100.0, 50.0, 25.0]])
@@ -153,27 +167,13 @@ def test_backend_resolved_lazily(tiny_cmtk):
 @pytest.fixture
 def add_chain_elastix(tmp_path):
     """A two-step elastix chain combined via "Add" - which cannot be inverted."""
-    base = tmp_path / "base.txt"
-    base.write_text(
-        '(Transform "TranslationTransform")\n'
-        "(NumberOfParameters 3)\n"
-        "(TransformParameters 10.0 -5.0 2.0)\n"
-        '(InitialTransformParametersFileName "NoInitialTransform")\n'
-        '(HowToCombineTransforms "Compose")\n'
-        "(FixedImageDimension 3)\n"
-        "(MovingImageDimension 3)\n"
+    base = _write_elastix(tmp_path / "base.txt")
+    return _write_elastix(
+        tmp_path / "child.txt",
+        params=(1.0, 1.0, 1.0),
+        initial=base.name,
+        combine="Add",
     )
-    child = tmp_path / "child.txt"
-    child.write_text(
-        '(Transform "TranslationTransform")\n'
-        "(NumberOfParameters 3)\n"
-        "(TransformParameters 1.0 1.0 1.0)\n"
-        f'(InitialTransformParametersFileName "{base.name}")\n'
-        '(HowToCombineTransforms "Add")\n'
-        "(FixedImageDimension 3)\n"
-        "(MovingImageDimension 3)\n"
-    )
-    return child
 
 
 @needs_fastcore
@@ -207,25 +207,11 @@ def test_elastix_resolves_initial_transform_by_basename(tmp_path):
     back to the basename alongside the naming file is exactly what `copy_files`
     achieves by copying everything into one directory - so it is not needed here.
     """
-    base = tmp_path / "base_affine.txt"
-    base.write_text(
-        '(Transform "TranslationTransform")\n'
-        "(NumberOfParameters 3)\n"
-        "(TransformParameters 10.0 -5.0 2.0)\n"
-        '(InitialTransformParametersFileName "NoInitialTransform")\n'
-        '(HowToCombineTransforms "Compose")\n'
-        "(FixedImageDimension 3)\n"
-        "(MovingImageDimension 3)\n"
-    )
-    child = tmp_path / "child.txt"
-    child.write_text(
-        '(Transform "TranslationTransform")\n'
-        "(NumberOfParameters 3)\n"
-        "(TransformParameters 1.0 1.0 1.0)\n"
-        '(InitialTransformParametersFileName "/gone/from/this/machine/base_affine.txt")\n'
-        '(HowToCombineTransforms "Compose")\n'
-        "(FixedImageDimension 3)\n"
-        "(MovingImageDimension 3)\n"
+    _write_elastix(tmp_path / "base_affine.txt")
+    child = _write_elastix(
+        tmp_path / "child.txt",
+        params=(1.0, 1.0, 1.0),
+        initial="/gone/from/this/machine/base_affine.txt",
     )
 
     # No `copy_files`, and the recorded path does not exist - must still chain.
@@ -560,6 +546,20 @@ def test_elastix_parity_out_of_bounds():
 
 
 # ------------------------------------------------------------------ bridging graph
+#
+# The invariants below are checked against two registries:
+#
+# * a synthetic one built from the tiny registrations above. It reproduces the
+#   structure that matters - CMTK and elastix edges, a purpose-built reverse
+#   next to every elastix registration, parallel edges of differing weight - and
+#   needs no data at all, so it runs everywhere.
+# * the real flybrains one, which is what users actually route through.
+#
+# Mind that `pip install flybrains` only *ships* the BANC and FANC
+# registrations; everything else - all the CMTK ones, i.e. anything involving
+# FCWB, JFRC2, JRC2018F -> JRCFIB2018F etc. - is an opt-in download into
+# `~/flybrain-data`. CI has no such download (and shouldn't), so anything that
+# needs those must skip rather than fail.
 
 
 @pytest.fixture
@@ -568,9 +568,77 @@ def flybrains_registry():
     return fb
 
 
+@pytest.fixture
+def synthetic_registry(tmp_path):
+    """A bridging graph shaped like the real one, but built from thin air.
+
+        Araw -> A      affine    (unit conversion)
+        Bum  -> B      affine
+        Dum  -> D      affine
+        A    -> B      CMTK      (twice: a good and a poorer registration)
+        B    -> C      CMTK
+        A    -> C      CMTK      (direct, but dear enough to lose to A -> B -> C)
+        C   <-> D      elastix   (two purpose-built registrations, not an inverse)
+        D   <-> E      elastix   (ditto)
+
+    The duplicated `A -> B` gives edge selection something to choose between,
+    and the dear `A -> C` gives the shortest path something to reject - so both
+    halves of the routing actually do work here.
+    """
+    from navis.transforms.affine import AffineTransform
+    from navis.transforms.templates import TemplateRegistry
+
+    reg = TemplateRegistry(scan_paths=False)
+
+    def add(transform, source, target, **kwargs):
+        reg.register_transform(
+            transform, source=source, target=target, transform_type="bridging", **kwargs
+        )
+
+    def cmtk(name, xlate):
+        return CMTKtransform(_write_cmtk(tmp_path / f"{name}.list", xlate))
+
+    def elastix(name, params):
+        return ElastixTransform(_write_elastix(tmp_path / f"{name}.txt", params))
+
+    # Unit conversions - cheap, exact and invertible either way
+    add(AffineTransform(np.diag([1e-3, 1e-3, 1e-3, 1])), "Araw", "A", weight=0.1)
+    add(AffineTransform(np.diag([1e-3, 1e-3, 1e-3, 1])), "Bum", "B", weight=0.1)
+    add(AffineTransform(np.diag([1e-3, 1e-3, 1e-3, 1])), "Dum", "D", weight=0.1)
+
+    # CMTK registrations, including two parallel A -> B and a poor A -> C shortcut
+    add(cmtk("A_B", (10, -5, 2)), "A", "B", weight=1)
+    add(cmtk("A_B_alt", (11, -4, 3)), "A", "B", weight=2)
+    add(cmtk("B_C", (-2, 8, 1)), "B", "C", weight=1)
+    add(cmtk("A_C", (7, 3, 4)), "A", "C", weight=5)
+
+    # Elastix registrations - as in flybrains, each comes with a purpose-built
+    # reverse rather than relying on a numerical inversion
+    add(elastix("C_D", (10.0, -5.0, 2.0)), "C", "D", weight=1)
+    add(elastix("D_C", (-10.0, 5.0, -2.0)), "D", "C", weight=1)
+    add(elastix("D_E", (1.0, 2.0, 3.0)), "D", "E", weight=1)
+    # Deliberately dearer than inverting `D -> E` (elastix inverses cost 5x), so
+    # that letting the graph invert elastix puts a *cheaper*-looking edge right
+    # next to a purpose-built registration. That is the case that used to go
+    # wrong, and without it these tests pass whatever `_pick_edge` does.
+    add(elastix("E_D", (-1.0, -2.0, -3.0)), "E", "D", weight=6)
+
+    return reg
+
+
+@pytest.fixture(params=["synthetic", "flybrains"])
+def bridging_registry(request):
+    """Both registries, so each invariant is checked on either."""
+    if request.param == "flybrains":
+        pytest.importorskip("flybrains")
+        return navis.transforms.registry
+    return request.getfixturevalue("synthetic_registry")
+
+
 # The paths navis picks today. Making elastix invertible adds a numerically
 # inverted edge alongside every purpose-built reverse registration - none of
-# these may start routing through one.
+# these may start routing through one. These all use registrations that
+# flybrains ships, i.e. they need no download.
 BASELINE_PATHS = {
     ("JRC2018F", "BANCum"): ["JRC2018F", "BANCum"],
     ("BANCum", "JRC2018F"): ["BANCum", "JRC2018F"],
@@ -586,8 +654,29 @@ BASELINE_PATHS = {
         "FANCum_fixed",
         "FANC",
     ],
-    ("JFRC2", "FCWB"): ["JFRC2", "FCWB"],
 }
+
+# Same, but for routes that only exist once the (CMTK) bridging registrations
+# have been downloaded - `flybrains.download_jefferislab_transforms()`.
+DOWNLOADED_PATHS = {
+    ("JFRC2", "FCWB"): ["JFRC2", "FCWB"],
+    ("FCWB", "JFRC2"): ["FCWB", "JFRC2"],
+}
+
+
+def _knows(*templates):
+    """Whether the flybrains registry knows these templates."""
+    try:
+        import flybrains  # noqa: F401
+    except ImportError:
+        return False
+    return set(templates).issubset(navis.transforms.registry.bridging_graph().nodes)
+
+
+needs_downloaded_regs = pytest.mark.skipif(
+    not _knows(*{t for pair in DOWNLOADED_PATHS for t in pair}),
+    reason="jefferislab bridging registrations not downloaded",
+)
 
 
 @needs_fastcore
@@ -601,9 +690,23 @@ def test_bridging_paths_unchanged(flybrains_registry, backend, pair, expected):
     assert list(path) == expected
 
 
-def _all_routes():
-    """Every bridging route in the registry, as the transforms it would use."""
-    reg = navis.transforms.registry
+@needs_fastcore
+@needs_downloaded_regs
+@pytest.mark.parametrize("backend", ["binary", "fastcore"])
+@pytest.mark.parametrize("pair,expected", list(DOWNLOADED_PATHS.items()))
+def test_downloaded_bridging_paths_unchanged(
+    flybrains_registry, backend, pair, expected
+):
+    """As above but for the downloaded CMTK registrations - local runs only."""
+    navis.config.default_transform_backend = backend
+    navis.transforms.registry.clear_caches()
+
+    path, _ = navis.transforms.registry.find_bridging_path(*pair)
+    assert list(path) == expected
+
+
+def _all_routes(reg):
+    """Every bridging route in a registry, as the transforms it would use."""
     reg.clear_caches()
 
     def descr(t):
@@ -630,26 +733,27 @@ def _all_routes():
 
 
 @needs_fastcore
-def test_switching_backend_does_not_reroute(flybrains_registry):
+def test_switching_backend_does_not_reroute(bridging_registry):
     """The Rust backend must be a drop-in: same routes, same transforms.
 
     This is the regression test that matters. It walks *every* pair of templates
-    in the registry (~3900 routes), not a hand-picked few - picking a different
-    transform anywhere would silently change people's coordinates.
+    in the registry, not a hand-picked few - picking a different transform
+    anywhere would silently change people's coordinates.
     """
     navis.transforms.set_transform_backend("binary")
-    binary = _all_routes()
+    binary = _all_routes(bridging_registry)
 
     navis.transforms.set_transform_backend("fastcore")
-    fastcore = _all_routes()
+    fastcore = _all_routes(bridging_registry)
 
+    assert binary, "no routes to compare"
     assert set(binary) == set(fastcore)
     differing = {k for k in binary if binary[k] != fastcore[k]}
     assert not differing, f"{len(differing)} routes changed, e.g. {list(differing)[:3]}"
 
 
 @needs_fastcore
-def test_elastix_inversion_changes_nothing(flybrains_registry):
+def test_elastix_inversion_changes_nothing(bridging_registry):
     """Allowing the graph to invert elastix must not disturb any existing route.
 
     Every elastix registration ships with a purpose-built reverse, so the inverse
@@ -662,11 +766,12 @@ def test_elastix_inversion_changes_nothing(flybrains_registry):
     decides the former on its own.
     """
     navis.transforms.set_transform_backend("fastcore", elastix_invertible=False)
-    without = _all_routes()
+    without = _all_routes(bridging_registry)
 
     navis.transforms.set_transform_backend("fastcore", elastix_invertible=True)
-    with_inv = _all_routes()
+    with_inv = _all_routes(bridging_registry)
 
+    assert without, "no routes to compare"
     assert set(with_inv) == set(without), "expected no new connectivity"
 
     changed = {k for k in without if without[k] != with_inv[k]}
@@ -674,6 +779,29 @@ def test_elastix_inversion_changes_nothing(flybrains_registry):
 
     used = [k for k, v in with_inv.items() if any("inv=True" in t for t in v)]
     assert not used, f"{len(used)} routes used an inverted elastix over a dedicated one"
+
+
+@needs_fastcore
+def test_synthetic_registry_is_representative(synthetic_registry):
+    """Guards the fixture the two tests above lean on.
+
+    Both are self-consistency checks, so a graph that quietly lost its CMTK or
+    elastix edges would still "pass" - vacuously. Note flybrains alone cannot
+    cover this: it *ships* only the elastix registrations, the CMTK ones are an
+    opt-in download that CI does not do.
+    """
+    types = {type(t.transform).__name__ for t in synthetic_registry.transforms}
+    assert types == {"CMTKtransform", "ElastixTransform", "AffineTransform"}
+
+    navis.transforms.set_transform_backend("fastcore", elastix_invertible=True)
+    routes = _all_routes(synthetic_registry)
+
+    n = len(set(synthetic_registry.bridging_graph().nodes))
+    assert len(routes) == n * (n - 1), "graph not connected"
+
+    # Some route has to go backwards through a CMTK registration, otherwise the
+    # inverse half of the graph is never exercised.
+    assert any("inverse" in t for r in routes.values() for t in r)
 
 
 def test_forward_edge_beats_an_inverse_one_regardless_of_weight():
@@ -797,12 +925,12 @@ def test_reciprocal_is_deprecated():
 @needs_fastcore
 @pytest.mark.parametrize("elastix_invertible", [False, True])
 def test_bridging_graph_never_parses_a_transform(
-    flybrains_registry, elastix_invertible
+    bridging_registry, elastix_invertible
 ):
     """Building the graph asks every transform whether it is invertible.
 
-    That question must never turn into a full parse: flybrains registers 50+
-    registrations at 3-37 ms each, so a parsing probe would add ~1 s to
+    That question must never turn into a full parse: flybrains registers dozens
+    of registrations at 3-37 ms each, so a parsing probe would add ~1 s to
     `import flybrains`. With elastix inversion off we don't touch the disk at
     all; with it on we use fastcore's header-only probe.
     """
@@ -812,10 +940,10 @@ def test_bridging_graph_never_parses_a_transform(
         "fastcore", elastix_invertible=elastix_invertible
     )
     backends.clear_transform_cache()
-    navis.transforms.registry.clear_caches()
+    bridging_registry.clear_caches()
 
     start = time.perf_counter()
-    navis.transforms.registry.bridging_graph()
+    bridging_registry.bridging_graph()
     elapsed = time.perf_counter() - start
 
     assert backends.get_elastix_transform.cache_info().misses == 0, "graph parsed a file"
