@@ -18,6 +18,7 @@ from .base import AliasTransform, FunctionTransform
 from .affine import AffineTransform
 from .elastix import ElastixTransform
 from .thinplate import TPStransform
+from .similarity import SimilarityTransform
 from .h5reg import H5transform
 from .grid import GridTransform
 from .cmtk import CMTKtransform
