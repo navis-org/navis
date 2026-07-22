@@ -515,6 +515,7 @@ High-level functions:
 | [`navis.transforms.TPStransform`][] | {{ autosummary("navis.transforms.TPStransform") }} |
 | [`navis.transforms.AliasTransform`][] | {{ autosummary("navis.transforms.AliasTransform") }} |
 | [`navis.transforms.MovingLeastSquaresTransform`][] | {{ autosummary("navis.transforms.MovingLeastSquaresTransform") }} |
+| [`navis.transforms.SimilarityTransform`][] | {{ autosummary("navis.transforms.SimilarityTransform") }} |
 
 The [`TemplateRegistry`][navis.transforms.templates.TemplateRegistry] keeps track of template brains, transforms and such:
 
