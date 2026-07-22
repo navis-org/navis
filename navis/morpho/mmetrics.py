@@ -1643,8 +1643,12 @@ def sholl_analysis(
 
     data = []
     for i in range(1, len(radii)):
-        # Find the number of crossings
-        crossings = ((dists <= radii[i]) & (pdists > radii[i])).sum()
+        # An edge intersects the sphere if exactly one of its two ends is inside
+        # it - hence the XOR. Note that `(dists <= r) & (pdists > r)` only counts
+        # edges crossing *inwards*, which for an arbor rooted at (or near) the
+        # center is almost none of them - and, with geodesic distances, where a
+        # child is always further from the center than its parent, exactly none.
+        crossings = ((dists <= radii[i]) != (pdists <= radii[i])).sum()
 
         # Get the (approximate) cable length in this sphere
         this_sphere = (dists > radii[i - 1]) & (dists < radii[i])
