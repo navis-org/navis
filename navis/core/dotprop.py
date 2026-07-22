@@ -584,25 +584,21 @@ class Dotprops(BaseNeuron):
             raise ValueError(f"Too few points ({n_points}) to calculate {k} "
                              "nearest-neighbors")
 
-        # Create the KDTree and get the k-nearest neighbors for each point
-        dist, ix = self.kdtree.query(x.points, k=k)
+        # Compute tangent vectors and alpha values. N.B. unlike `make_dotprops`
+        # this does not drop points with duplicate coordinates - it must keep a
+        # 1:1 correspondence with `.points`, which it is not allowed to change.
+        # Those points get alpha=0 and an arbitrary unit vector (rather than the
+        # NaN this used to produce, which silently poisoned every NBLAST score
+        # the neuron took part in).
+        # N.B. imported here rather than at module level: `core_utils` is
+        # imported *after* this module in `navis.core.__init__`.
+        from .core_utils import tangents_and_alpha
 
-        # Get points: array of (N, k, 3)
-        pt = x.points[ix]
-
-        # Generate centers for each cloud of k nearest neighbors
-        centers = np.mean(pt, axis=1)
-
-        # Generate vector from center
-        cpt = pt - centers.reshape((pt.shape[0], 1, 3))
-
-        # Get inertia (N, 3, 3)
-        inertia = cpt.transpose((0, 2, 1)) @ cpt
-
-        # Extract vector and alpha
-        u, s, vh = np.linalg.svd(inertia)
-        x.vect = vh[:, 0, :]
-        x.alpha = (s[:, 0] - s[:, 1]) / np.sum(s, axis=1)
+        vect, alpha = tangents_and_alpha(
+            np.asarray(x.points, dtype=np.float64), k
+        )
+        x.vect = vect.astype(x.points.dtype, copy=False)
+        x.alpha = alpha.astype(x.points.dtype, copy=False)
 
         # Keep track of k
         x.k = k
