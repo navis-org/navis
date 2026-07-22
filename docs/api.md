@@ -354,6 +354,8 @@ Functions to analyze morphology.
 | Function | Description |
 |----------|-------------|
 | [`navis.find_main_branchpoint()`][navis.find_main_branchpoint] | {{ autosummary("navis.find_main_branchpoint") }} |
+| [`navis.find_soma()`][navis.find_soma] | {{ autosummary("navis.find_soma") }} |
+| [`navis.find_soma_mesh()`][navis.find_soma_mesh] | {{ autosummary("navis.find_soma_mesh") }} |
 | [`navis.form_factor()`][navis.form_factor] | {{ autosummary("navis.form_factor") }} |
 | [`navis.persistence_points()`][navis.persistence_points] | {{ autosummary("navis.persistence_points") }} |
 | [`navis.persistence_vectors()`][navis.persistence_vectors] | {{ autosummary("navis.persistence_vectors") }} |

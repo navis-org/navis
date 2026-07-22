@@ -21,7 +21,7 @@ from .manipulation import (prune_by_strahler, stitch_skeletons,
                            heal_skeleton, break_fragments,
                            prune_twigs, prune_at_depth, cell_body_fiber,
                            drop_fluff, combine_neurons)
-from .analyze import find_soma
+from .analyze import find_soma, find_soma_mesh, SomaEllipsoid
 from .angles import (branch_angles, path_angles, root_angles, soma_exit_angles)
 from .subset import subset_neuron
 from .persistence import (persistence_points, persistence_vectors,
@@ -36,7 +36,8 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_ce
            'prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite', 'split_axon_dendrite_prop',
            'average_skeletons', 'despike_skeleton', 'guess_radius', 'smooth_skeleton',
            'heal_skeleton', 'break_fragments', 'prune_twigs',
-           'find_soma', 'prune_at_depth', 'cell_body_fiber', 'drop_fluff',
+           'find_soma', 'find_soma_mesh', 'SomaEllipsoid',
+           'prune_at_depth', 'cell_body_fiber', 'drop_fluff',
            'subset_neuron', 'smooth_voxels', 'sholl_analysis',
            'persistence_points', 'betweeness_centrality',
            'persistence_vectors', 'persistence_distances', 'combine_neurons',
