@@ -321,8 +321,13 @@ def _fit_soma_ellipsoid(vertices: np.ndarray, center: np.ndarray):
 
     Adapted from skeliner's `Soma.fit`: eigen-decompose the second-moment
     matrix of the vertices about `center`; the eigenvectors are the principal
-    axes and the semi-axes are `sqrt(5 * eigenvalue)` (~2 sigma, a rough
-    95%-of-mass envelope). Sorted so that a >= b >= c.
+    axes and the semi-axes are `sqrt(3 * eigenvalue)`. Sorted so that
+    a >= b >= c.
+
+    Note the factor 3: the samples are mesh *vertices*, i.e. a shell, for which
+    the second moment about an axis is `a^2 / 3`. The solid-body factor 5
+    (`a^2 / 5`, what you would use for a volume-filled ellipsoid) would inflate
+    every semi-axis by `sqrt(5 / 3)` ~ 1.29 and the volume by ~2.2x.
 
     Returns
     -------
@@ -334,7 +339,7 @@ def _fit_soma_ellipsoid(vertices: np.ndarray, center: np.ndarray):
     moment = diff.T @ diff / max(len(vertices) - 1, 1)
     ev, evec = np.linalg.eigh(moment)
     order = np.argsort(ev)[::-1]
-    radii = np.sqrt(5.0 * np.clip(ev[order], 0, None))
+    radii = np.sqrt(3.0 * np.clip(ev[order], 0, None))
     axes = evec[:, order]
     return radii, axes
 
