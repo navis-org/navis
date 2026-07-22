@@ -40,7 +40,12 @@ __all__ = ["NblastBackend", "register_backend", "get_backend",
 
 # Operation name -> is implemented by looking up an attribute of the same name
 # on the backend. This is the canonical list of dispatchable operations.
-OPERATIONS = ("nblast", "nblast_allbyall", "nblast_smart", "synblast")
+#
+# Note that not every operation has a built-in implementation: `nblast_knn` is
+# provided only by navis-fastcore. `resolve_backend` reports that cleanly rather
+# than handing back a builtin that would `AttributeError`.
+OPERATIONS = ("nblast", "nblast_allbyall", "nblast_smart", "synblast",
+              "nblast_knn")
 
 # Registry of name -> backend instance
 _BACKENDS = {}
@@ -161,12 +166,35 @@ def resolve_backend(operation: str, backend="auto", **params) -> NblastBackend:
 
     if backend in (None, "auto"):
         # Highest priority first; builtin (priority 0) is the fallback
+        rejected = {}
         for be in sorted(available_backends(), key=lambda b: -b.priority):
-            if not be.unsupported(operation, **params):
+            reasons = be.unsupported(operation, **params)
+            if not reasons:
                 return be
+            rejected[be.name] = reasons
+
         # Nothing supported the request - fall back to builtin so we can raise
         # a meaningful error (or run it, if builtin does support it).
-        return get_backend("builtin")
+        builtin = get_backend("builtin")
+        if builtin.implements(operation):
+            return builtin
+
+        # Not even builtin implements this, i.e. the operation is exclusive to
+        # some other backend (currently only `nblast_knn`, which needs
+        # navis-fastcore) and that backend is missing, too old or was ruled out
+        # by the parameters. Say which, instead of returning a backend that
+        # would `AttributeError` on the very next line.
+        missing = [b.name for b in _BACKENDS.values()
+                   if not b.available() and b.implements(operation)]
+        msg = f"No available NBLAST backend can run '{operation}'."
+        if missing:
+            msg += (f" Backend(s) {missing} implement it but are not available"
+                    " - their optional dependencies are not installed"
+                    " (`pip install -U navis-fastcore`).")
+        if rejected:
+            detail = '; '.join(f"{n}: {', '.join(r)}" for n, r in rejected.items())
+            msg += f" Rejected: {detail}."
+        raise ValueError(msg)
 
     be = get_backend(backend)
 

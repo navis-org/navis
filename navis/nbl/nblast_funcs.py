@@ -33,7 +33,8 @@ from ..core import NeuronList, Dotprops, make_dotprops
 from .base import Blaster, NestedIndices
 from .backends import resolve_backend
 
-__all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'sim_to_dist']
+__all__ = ['nblast', 'nblast_smart', 'nblast_allbyall', 'nblast_knn',
+           'sim_to_dist']
 
 fp = os.path.dirname(__file__)
 smat_path = os.path.join(fp, 'score_mats')
@@ -582,6 +583,217 @@ def nblast(query: Union[Dotprops, NeuronList],
                      n_cores=n_cores,
                      progress=progress,
                      smat_kwargs=smat_kwargs)
+
+
+def nblast_knn(query: Union[Dotprops, NeuronList],
+               target: Optional[Union[Dotprops, NeuronList]] = None,
+               k: int = 20,
+               scores: Union[Literal['forward'], Literal['mean'],
+                             Literal['min'], Literal['max']] = 'mean',
+               n_candidates: int = 200,
+               format: Union[Literal['long'], Literal['wide'],
+                             Literal['arrays']] = 'long',
+               normalized: bool = True,
+               use_alpha: bool = False,
+               smat: Optional[Union[str, pd.DataFrame]] = 'auto',
+               limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
+               precision: Union[int, str, np.dtype] = 64,
+               n_cores: int = os.cpu_count() // 2,
+               progress: bool = True,
+               backend: Optional[str] = None,
+               voxel: float = 20.0,
+               n_dirs: int = 3,
+               splat: bool = True,
+               smat_kwargs: Optional[Dict] = dict()):
+    """Find the `k` nearest neighbours of each neuron, without the full matrix.
+
+    An all-by-all NBLAST is the wrong shape for a k-nearest-neighbour question
+    at scale: 164k neurons is 2.7e10 pairs and a 107 GB score matrix, when all
+    that is wanted from it is a 26 MB k-NN graph (typically to feed a UMAP
+    embedding). This computes that graph directly, in three stages:
+
+    1. each neuron is reduced to a coarse voxel-occupancy signature;
+    2. the `n_candidates` most similar neurons per row are shortlisted from
+       those signatures;
+    3. the *exact* NBLAST score is computed for the shortlisted pairs only.
+
+    Every returned score is therefore an exact NBLAST score - only *which*
+    neurons get shortlisted is approximate. Measured on 163,976 neurons,
+    recall@20 is 0.990 at the default `n_candidates`, having scored 0.16% of
+    pairs.
+
+    !!! important
+        This function requires [navis-fastcore](https://github.com/schlegelp/fastcore-rs)
+        (`pip install navis-fastcore`). Unlike the other NBLAST functions there
+        is no built-in Python implementation to fall back on.
+
+    Parameters
+    ----------
+    query :         Dotprops | NeuronList
+                    Query neuron(s) to find neighbours for.
+    target :        Dotprops | NeuronList, optional
+                    If given, neighbours are searched among these instead of
+                    among `query` itself. Note the difference this makes: with
+                    `target=None` (default) each neuron is excluded from its own
+                    neighbour list, whereas with an explicit `target` nothing is
+                    excluded and a neuron present in both sets will match itself
+                    at a score of 1. The candidate shortlist is also slightly
+                    less generous in this mode - consider raising
+                    `n_candidates` by ~40% to get comparable recall.
+    k :             int
+                    Number of neighbours to return per query neuron.
+    scores :        'mean' | 'forward' | 'min' | 'max'
+                    How to combine the forward and reverse score of each pair.
+                    Note this happens *before* the top-`k` cut, which is why it
+                    matters more here than for a full score matrix: with a
+                    matrix you can symmetrise afterwards against the transpose,
+                    but once only `k` neighbours per row are kept the transpose
+                    is gone. Hence the default is `'mean'` rather than
+                    `'forward'` as elsewhere in navis. `'both'` is not
+                    available.
+    n_candidates :  int
+                    Size of the per-neuron shortlist, and the one knob trading
+                    recall against runtime. Measured recall@20 on 163,976 real
+                    neurons: 0.911 at 50, 0.969 at 100, 0.990 at 200, 0.996 at
+                    400. The budget required for a given recall grows only about
+                    logarithmically with the number of neurons.
+    format :        'long' | 'wide' | 'arrays'
+                    Shape of the returned data - see `Returns`.
+    normalized :    bool
+                    Whether to return normalized NBLAST scores.
+    use_alpha :     bool
+                    Whether to weight NBLAST scores by the "alpha" (local
+                    backbone-ness) of the query neuron's points.
+    smat :          str | pd.DataFrame | Lookup2d
+                    Scoring matrix. Defaults to the FCWB matrix ("auto"), which
+                    expects neurons in microns. Callables and `"v1"` are not
+                    supported here.
+    limit_dist :    float | "auto" | None
+                    Distance at which to stop the nearest-neighbour search.
+    precision :     int [16, 32, 64] | str | np.dtype
+                    Precision for the returned scores.
+    n_cores :       int
+                    Number of threads to use.
+    progress :      bool
+                    Whether to show a progress bar.
+    backend :       str, optional
+                    Which NBLAST backend to use. Only "fastcore" implements this
+                    operation, so this really only exists for symmetry with the
+                    other NBLAST functions.
+    voxel :         float
+                    Edge length of the signature voxels used for the shortlist,
+                    in the units of the neurons (microns for the FCWB matrix).
+                    10-20 measure equivalently.
+    n_dirs :        int
+                    Number of tangent-direction bins for the signature. Use 1 to
+                    disable them.
+    splat :         bool
+                    Whether to trilinearly spread each point over its 8
+                    surrounding voxels when building the signature. Worth about
+                    0.05 recall@20.
+    smat_kwargs :   dict
+                    Additional parameters passed to scoring functions.
+
+    Returns
+    -------
+    pandas.DataFrame
+                    For `format='long'` (default) a tidy frame with one row per
+                    match and columns `query`, `target`, `score` and `rank`
+                    (1 = best). Neurons with fewer than `k` candidates simply
+                    contribute fewer rows.
+
+                    For `format='wide'` the layout
+                    [`navis.nbl.extract_matches`][navis.nbl.extract_matches]
+                    produces: an `id` column plus `match_1`/`score_1` ...
+                    `match_k`/`score_k`, padded with `None`/`NaN`.
+    (idx, scores) : (np.ndarray, np.ndarray)
+                    For `format='arrays'`, two `(n_query, k)` arrays: integer
+                    *positions* into `target` (or into `query` if `target` is
+                    `None`) and the matching scores, descending. Short rows are
+                    padded with `-1`/`-inf`. This is the form
+                    [UMAP](https://umap-learn.readthedocs.io) wants - pass
+                    `precomputed_knn=(idx, 1 - scores)`.
+
+    References
+    ----------
+    Costa M, Manton JD, Ostrovsky AD, Prohaska S, Jefferis GS. NBLAST: Rapid,
+    Sensitive Comparison of Neuronal Structure and Construction of Neuron
+    Family Databases. Neuron. 2016 Jul 20;91(2):293-311.
+    doi: 10.1016/j.neuron.2016.06.012.
+
+    Examples
+    --------
+    >>> import navis
+    >>> nl = navis.example_neurons(n=5)
+    >>> # Convert to microns and then to dotprops
+    >>> dps = navis.make_dotprops(nl * (8 / 1000))
+    >>> knn = navis.nblast_knn(dps, k=2, progress=False)     # doctest: +SKIP
+    >>> knn.columns.tolist()                                 # doctest: +SKIP
+    ['query', 'target', 'score', 'rank']
+
+    Feed a UMAP embedding:
+
+    >>> idx, scores = navis.nblast_knn(dps, k=20,
+    ...                                format='arrays')      # doctest: +SKIP
+    >>> import umap                                          # doctest: +SKIP
+    >>> emb = umap.UMAP(precomputed_knn=(idx, 1 - scores)).fit(...)  # doctest: +SKIP
+
+    See Also
+    --------
+    [`navis.nblast_allbyall`][]
+                Computes the full score matrix - use when you can afford it and
+                want exact neighbours.
+    [`navis.nblast_smart`][]
+                Also prunes the pairs it scores, but returns a (sparse) full
+                matrix rather than a k-NN graph.
+    [`navis.nbl.extract_matches`][]
+                Pulls top matches out of an existing score matrix.
+
+    """
+    utils.eval_param(scores, name='scores',
+                     allowed_values=('forward', 'mean', 'min', 'max', None))
+    utils.eval_param(format, name='format',
+                     allowed_values=('long', 'wide', 'arrays'))
+
+    if not isinstance(k, (int, np.integer)) or k < 1:
+        raise ValueError(f'`k` must be a positive integer, got {k}')
+
+    # N.B. unlike in `nblast` we must NOT default `target` to `query`: passing
+    # the same set twice is a different (and here unwanted) operation - it stops
+    # fastcore excluding each neuron from its own neighbour list.
+    query_dps = NeuronList(query)
+    target_dps = NeuronList(target) if target is not None else None
+
+    nblast_preflight(query_dps,
+                     target_dps if target_dps is not None else query_dps,
+                     n_cores,
+                     req_unique_ids=True,
+                     req_microns=isinstance(smat, str) and smat == 'auto')
+
+    # Select the backend. Note we default to "auto" rather than to
+    # `config.default_nblast_backend`: the latter is "builtin", which has no
+    # k-NN implementation at all, so honouring it would make the plain
+    # `navis.nblast_knn(x)` call fail even with fastcore installed.
+    be = resolve_backend("nblast_knn",
+                         backend or "auto",
+                         scores=scores, smat=smat)
+
+    return be.nblast_knn(query_dps, target_dps,
+                         k=k,
+                         scores=scores,
+                         n_candidates=n_candidates,
+                         format=format,
+                         normalized=normalized,
+                         use_alpha=use_alpha,
+                         smat=smat,
+                         limit_dist=limit_dist,
+                         precision=precision,
+                         n_cores=n_cores,
+                         progress=progress,
+                         voxel=voxel,
+                         n_dirs=n_dirs,
+                         splat=splat,
+                         smat_kwargs=smat_kwargs)
 
 
 def nblast_allbyall(x: NeuronList,

@@ -18,9 +18,11 @@
 ``Lookup2d`` as the scoring matrix, does its own threading, and returns a plain
 numpy array which we wrap back into a labeled DataFrame.
 
-It only implements classic ``nblast`` / ``nblast_allbyall`` (not ``nblast_smart``
-or ``synblast``) and does not support ``approx_nn``, ``scores='both'`` or
-arbitrary/callable/analytic (``'v1'``) scoring matrices.
+It does not support ``approx_nn``, ``scores='both'`` or arbitrary/callable/
+analytic (``'v1'``) scoring matrices.
+
+``nblast_knn`` is *exclusive* to this backend - there is no built-in
+implementation - so it raises if navis-fastcore is missing or too old.
 """
 
 import numpy as np
@@ -63,6 +65,18 @@ class FastcoreBackend(NblastBackend):
             return reasons
 
         reasons = []
+        # `nblast_knn` arrived later than the rest of the NBLAST API, so an
+        # installed fastcore can be perfectly usable for everything else while
+        # lacking this one. Note this is checked here rather than in
+        # `available()`/`implements()` so that an old fastcore still serves the
+        # other operations, and so that a *missing* fastcore is still reported
+        # as "implements it but is not installed".
+        if operation == 'nblast_knn':
+            from ... import utils
+            if not callable(getattr(utils.fastcore, 'nblast_knn', None)):
+                reasons.append("the installed navis-fastcore is too old to "
+                               "provide `nblast_knn` "
+                               "(`pip install -U navis-fastcore`)")
         if params.get('approx_nn', False):
             reasons.append("'approx_nn=True' is not supported by fastcore")
         if params.get('scores', None) == 'both':
@@ -104,6 +118,66 @@ class FastcoreBackend(NblastBackend):
         out = pd.DataFrame(M, index=query.id, columns=target.id)
         out.index.name = 'query'
         out.columns.name = 'target'
+        return out
+
+    def nblast_knn(self, query, target, *, k, scores, n_candidates, normalized,
+                   use_alpha, smat, limit_dist, precision, n_cores, progress,
+                   voxel, n_dirs, splat, format, smat_kwargs):
+        from ... import utils
+        symmetry = None if scores in (None, 'forward') else scores
+        idx, sc = utils.fastcore.nblast_knn(
+            query,
+            # `None` (rather than `query`) is meaningful: it puts fastcore on
+            # the all-by-all path, which excludes each neuron from its own
+            # neighbour list. Passing `query` twice would give every row a
+            # self-match at 1.0.
+            target,
+            k=k,
+            symmetry=symmetry,
+            n_candidates=n_candidates,
+            voxel=voxel,
+            n_dirs=n_dirs,
+            splat=splat,
+            smat=self._convert_smat(smat, use_alpha),
+            normalize=normalized,
+            use_alpha=use_alpha,
+            limit_dist=limit_dist,
+            n_cores=n_cores,
+            precision=precision,
+            progress=progress,
+        )
+
+        if format == 'arrays':
+            return idx, sc
+
+        # Map the (n_query, k) indices back onto neuron IDs. Rows with fewer
+        # than `k` candidates are padded with -1/-inf by fastcore; `-1` would
+        # silently index the *last* neuron, so mask before taking.
+        target_ids = np.asarray((target if target is not None else query).id)
+        query_ids = np.asarray(query.id)
+        valid = idx >= 0
+        matches = target_ids[np.where(valid, idx, 0)]
+        # Take the width from the result rather than from `k`: they agree today,
+        # but an IndexError here would be a puzzling way to find out otherwise.
+        k = idx.shape[1]
+
+        if format == 'long':
+            rank = np.broadcast_to(np.arange(1, k + 1), idx.shape)
+            out = pd.DataFrame({
+                'query': np.repeat(query_ids, k)[valid.ravel()],
+                'target': matches[valid],
+                'score': sc[valid],
+                'rank': rank[valid],
+            })
+            return out.reset_index(drop=True)
+
+        # 'wide': the layout `navis.nbl.extract_matches` produces, so the two
+        # are interchangeable downstream.
+        out = pd.DataFrame({'id': query_ids})
+        for i in range(k):
+            col = np.where(valid[:, i], matches[:, i], None)
+            out[f'match_{i + 1}'] = col
+            out[f'score_{i + 1}'] = np.where(valid[:, i], sc[:, i], np.nan)
         return out
 
     def nblast_smart(self, query, target, *, aba, t, criterion, scores,
