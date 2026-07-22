@@ -21,7 +21,7 @@ pip install git+https://github.com/navis-org/navis@master
 ```
 
 ##### Breaking
-- **[`VoxelNeurons`][navis.VoxelNeuron] now avoid the dense grid wherever possible**, which requires [sparse-cubes](https://github.com/navis-org/sparse-cubes) `>= 0.5.0`. Materialising a grid larger than `navis.config.max_grid_size` (2 GiB) now raises a `MemoryError` instead of being silently OOM-killed - a neuron's grid is sized by its *bounding box*, so a handful of far-apart voxels can imply terabytes. Raise or disable the limit if you hit it on data you know fits.
+- **[`VoxelNeurons`][navis.VoxelNeuron] now avoid the dense grid wherever possible**, which requires [sparse-cubes](https://github.com/navis-org/sparse-cubes) `>= 0.5.0` - now pulled in as `sparse-cubes[skeleton]`, so that its [dijkstra3d-sparse](https://github.com/schlegelp/dijkstra3d-sparse) accelerator comes along too (skeletonization falls back to `scipy` without it, but TEASAR is ~11x slower at 100k voxels and the gap widens with size). Materialising a grid larger than `navis.config.max_grid_size` (2 GiB) now raises a `MemoryError` instead of being silently OOM-killed - a neuron's grid is sized by its *bounding box*, so a handful of far-apart voxels can imply terabytes. Raise or disable the limit if you hit it on data you know fits.
 - [`navis.smooth_voxels`][navis.smooth_voxels] treats everything outside the neuron as empty (scipy's `mode="constant"`). It previously used scipy's default, which *reflects* at the canvas boundary and invents signal outside the imaged volume; results change for neurons touching that edge.
 
 ##### Additions
