@@ -2465,11 +2465,22 @@ def _component_labels(x: "core.TreeNeuron") -> Tuple[np.ndarray, int]:
     par_ix = id2ix.reindex(parent_ids).values
     has_parent = ~np.isnan(par_ix)
 
+    edges = np.stack(
+        [np.arange(N)[has_parent], par_ix[has_parent].astype(np.int64)], axis=1
+    )
+
+    if utils.fastcore is not None and hasattr(
+        utils.fastcore, "connected_components_graph"
+    ):
+        # Straight off the edge list - no sparse matrix to build. N.B. fastcore
+        # labels each component by its *smallest member index*, but callers
+        # index a `bincount` with these, so relabel to a contiguous 0..n-1.
+        labels = utils.fastcore.connected_components_graph(edges, N)
+        uniq, labels = np.unique(labels, return_inverse=True)
+        return labels.astype(np.int64, copy=False).reshape(-1), len(uniq)
+
     adj = coo_matrix(
-        (
-            np.ones(int(has_parent.sum()), dtype=np.int8),
-            (np.arange(N)[has_parent], par_ix[has_parent].astype(np.int64)),
-        ),
+        (np.ones(len(edges), dtype=np.int8), (edges[:, 0], edges[:, 1])),
         shape=(N, N),
     ).tocsr()
 

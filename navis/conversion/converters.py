@@ -122,6 +122,11 @@ def points2skeleton(x: Union['core.Dotprops', np.ndarray],
     _, uniq = np.unique(np.stack([lo, hi], axis=1), axis=0, return_index=True)
     lo, hi, weights = lo[uniq], hi[uniq], weights[uniq]
 
+    # N.B. navis-fastcore has a `minimum_spanning_tree` that would slot in here
+    # (and returns row indices, so it needs no weight offset), but measured
+    # end-to-end it is a wash - the k-NN and the edge-building loop above
+    # dominate, and the MST itself is a rounding error. Not worth a second path.
+    #
     # csgraph returns the tree as a sparse matrix, in which a zero-weight edge is
     # indistinguishable from an absent one - and duplicate points sit at distance
     # exactly 0. Shifting every weight by a constant keeps them off zero without

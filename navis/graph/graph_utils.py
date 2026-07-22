@@ -191,6 +191,48 @@ def _group_by_label(labels: np.ndarray) -> List[np.ndarray]:
     return [order[start : start + count] for start, count in zip(start_idx, counts)]
 
 
+def skeleton_edges(x: "core.TreeNeuron"):
+    """A skeleton's child -> parent edges as 0-based node *indices*.
+
+    The fastcore graph primitives all work in index space (`0 .. n_nodes - 1`)
+    off a plain edge list, whereas navis works in node IDs - so anything wiring
+    one to the other needs this.
+
+    Returns
+    -------
+    edges :     (E, 2) int64 array
+                Roots have no parent and simply contribute no edge.
+    node_ids :  (N, ) array
+                The node ID for each index, i.e. the inverse mapping.
+
+    """
+    node_ids = x.nodes.node_id.values
+    parent_ids = x.nodes.parent_id.values
+    n_nodes = len(node_ids)
+
+    if not n_nodes:
+        return np.zeros((0, 2), dtype=np.int64), node_ids
+
+    id2ix = pd.Series(np.arange(n_nodes), index=node_ids)
+    par_ix = id2ix.reindex(parent_ids).values
+    has_parent = ~np.isnan(par_ix)
+
+    edges = np.stack(
+        [np.arange(n_nodes)[has_parent], par_ix[has_parent].astype(np.int64)], axis=1
+    )
+    return edges, node_ids
+
+
+def _fastcore_has(name: str) -> bool:
+    """Whether the installed navis-fastcore provides `name`.
+
+    Probed per function rather than by version: these primitives arrived in
+    different releases, and the version metadata is unreliable in editable
+    installs.
+    """
+    return utils.fastcore is not None and hasattr(utils.fastcore, name)
+
+
 def _connected_components(
     x: Union[
         "core.TreeNeuron",
@@ -1039,6 +1081,221 @@ def _geodesic_nearest(
     distances = dist_all[q_ix].astype(float)
     distances[~reachable] = np.inf
     return nearest, distances
+
+
+def geodesic_clusters(
+    x: Union["core.TreeNeuron", "core.MeshNeuron"],
+    max_dist: float,
+    weight: Optional[str] = "weight",
+    seeds: Optional[Iterable[int]] = None,
+    connected: bool = True,
+) -> np.ndarray:
+    """Partition a neuron into clusters of bounded geodesic radius.
+
+    Repeatedly takes an unassigned node as a seed and grows a cluster outwards
+    from it, absorbing every node within `max_dist` *along the arbor* that no
+    earlier cluster has already claimed.
+
+    The radius is the true geodesic distance from the seed, not the length of
+    the walk that reached it - a node close to a seed is never excluded merely
+    because the traversal arrived the long way round. Clusters therefore expand
+    *through* nodes an earlier cluster claimed, so each raw cluster is a true
+    ball around its seed **minus** whatever earlier clusters took.
+
+    !!! warning "This is a bounded-radius partition, not a uniform downsampling"
+        The subtraction above routinely disconnects a cluster: on the example
+        neurons 33-50% of raw clusters come back in several pieces (up to 35),
+        and a cluster scattered in pieces has a centroid that need not lie near
+        any of them. `connected=True` (the default) repairs that by splitting
+        each cluster into its connected components - but the pieces are then
+        many and small (on `example_neurons(1)` at `max_dist=5000`: 16 raw
+        clusters become 77, median size 10 nodes, 9 of them singletons).
+
+        So while each cluster is guaranteed to be connected and to lie within
+        `max_dist` of its seed, cluster *sizes* are very uneven and their
+        centroids are **not** spaced by anything like `max_dist`. If you want an
+        even spacing along the arbor use [`navis.resample_skeleton`][]; this is
+        the right tool when you need a bounded-radius partition of the graph
+        itself.
+
+    Uses `navis_fastcore.geodesic_clusters` if available and falls back to a
+    per-seed bounded `scipy.sparse.csgraph.dijkstra`. The greedy outer loop is
+    inherently sequential, so the fallback is a Python loop over clusters and
+    is markedly slower on neurons that produce many of them.
+
+    Parameters
+    ----------
+    x :         TreeNeuron | MeshNeuron
+    max_dist :  float
+                Maximum distance from a cluster's seed, in the neuron's units
+                (or in hops if `weight=None`). Must be finite and non-negative.
+    weight :    'weight' | None
+                If "weight" (default) distances are physical edge lengths, if
+                `None` they are the number of hops.
+    seeds :     iterable of node IDs (vertex indices for meshes), optional
+                Nodes to prefer as seeds, in order. Anything left unassigned
+                afterwards seeds a cluster of its own. A seed an earlier cluster
+                already claimed is skipped.
+    connected : bool
+                Whether to split clusters that the greedy assignment left
+                disconnected into their connected components (see above). This
+                only ever *increases* the number of clusters, and every piece
+                still lies within `max_dist` of the original seed. Set to False
+                for the raw greedy assignment.
+
+    Returns
+    -------
+    labels :    np.ndarray
+                Cluster index for each node, aligned with `x.nodes` (or
+                `x.vertices` for a MeshNeuron) and contiguous in
+                `[0, n_clusters)`. Every node is labelled, so the number of
+                clusters is `labels.max() + 1`.
+
+    Examples
+    --------
+    >>> import navis
+    >>> import numpy as np
+    >>> n = navis.example_neurons(1, kind='skeleton')
+    >>> labels = navis.graph.geodesic_clusters(n, max_dist=5000)
+    >>> # Every node is assigned, and there are fewer clusters than nodes
+    >>> bool((labels >= 0).all()), bool(labels.max() + 1 < n.n_nodes)
+    (True, True)
+    >>> # Collapse each cluster to its centroid
+    >>> co = n.nodes[['x', 'y', 'z']].values
+    >>> centroids = np.stack([co[labels == i].mean(axis=0)
+    ...                       for i in range(labels.max() + 1)])
+
+    See Also
+    --------
+    [`navis.downsample_neuron`][]
+                Topological downsampling - keeps every Nth node.
+    [`navis.resample_skeleton`][]
+                Resamples to an even spacing along the arbor. Prefer this if
+                what you want is uniform sampling - see the warning above.
+
+    """
+    max_dist = float(max_dist)
+    if not np.isfinite(max_dist) or max_dist < 0:
+        raise ValueError(f"`max_dist` must be finite and non-negative, got {max_dist}")
+
+    edges, weights, n_nodes, ids = _cluster_graph(x, weight)
+
+    seed_ix = None
+    if seeds is not None:
+        seeds = np.fromiter(seeds, dtype=ids.dtype, count=len(list(seeds))) \
+            if not isinstance(seeds, np.ndarray) else seeds
+        seed_ix = pd.Index(ids).get_indexer(np.asarray(seeds))
+        if (seed_ix < 0).any():
+            raise ValueError("Some `seeds` are not part of this neuron.")
+
+    if _fastcore_has("geodesic_clusters"):
+        labels, _ = utils.fastcore.geodesic_clusters(
+            edges, n_nodes, max_dist, weights=weights, seeds=seed_ix
+        )
+        labels = np.asarray(labels)
+    else:
+        labels = _geodesic_clusters_scipy(edges, weights, n_nodes, max_dist, seed_ix)
+
+    if connected:
+        labels = _split_disconnected(edges, labels, n_nodes)
+
+    return labels
+
+
+def _split_disconnected(edges, labels, n_nodes):
+    """Split each cluster into its connected components and relabel.
+
+    An edge joins two nodes of the same cluster or it does not; dropping the
+    ones that do not and taking connected components of what remains splits
+    every cluster exactly along its own internal breaks.
+    """
+    if not len(edges):
+        return np.arange(n_nodes, dtype=np.int32)
+
+    intra = edges[labels[edges[:, 0]] == labels[edges[:, 1]]]
+
+    if _fastcore_has("connected_components_graph"):
+        comp = utils.fastcore.connected_components_graph(intra, n_nodes)
+    else:
+        adj = csr_matrix(
+            (
+                np.ones(len(intra), dtype=np.int8),
+                (intra[:, 0], intra[:, 1]),
+            ),
+            shape=(n_nodes, n_nodes),
+        )
+        comp = csgraph.connected_components(adj, directed=False)[1]
+
+    # Relabel contiguously. N.B. this renumbers clusters - the raw growth order
+    # does not survive a split anyway.
+    _, out = np.unique(comp, return_inverse=True)
+    return out.reshape(-1).astype(np.int32, copy=False)
+
+
+def _cluster_graph(x, weight):
+    """Edge list, edge weights, node count and node IDs for `geodesic_clusters`."""
+    if isinstance(x, core.TreeNeuron):
+        edges, ids = skeleton_edges(x)
+        if weight == "weight":
+            co = x.nodes[["x", "y", "z"]].values.astype(np.float64)
+            w = np.linalg.norm(co[edges[:, 0]] - co[edges[:, 1]], axis=1)
+        else:
+            w = None
+        return edges, w, len(ids), ids
+
+    if isinstance(x, core.MeshNeuron):
+        edges = np.asarray(utils.mesh_unique_edges(x.trimesh), dtype=np.int64)
+        if weight == "weight":
+            co = np.asarray(x.vertices, dtype=np.float64)
+            w = np.linalg.norm(co[edges[:, 0]] - co[edges[:, 1]], axis=1)
+        else:
+            w = None
+        n = len(x.vertices)
+        return edges, w, n, np.arange(n)
+
+    raise TypeError(f"Expected TreeNeuron or MeshNeuron, got {type(x)}")
+
+
+def _geodesic_clusters_scipy(edges, weights, n_nodes, max_dist, seed_ix):
+    """Fallback for `geodesic_clusters`: one bounded Dijkstra per cluster.
+
+    N.B. each search runs on the *full* graph rather than on what is left
+    unclaimed - that is what makes every cluster a true ball around its seed
+    (see the note in `geodesic_clusters`) - and only the *assignment* skips
+    nodes an earlier cluster took.
+    """
+    w = np.ones(len(edges), dtype=np.float64) if weights is None else np.asarray(weights)
+    adj = csr_matrix(
+        (
+            np.concatenate([w, w]),
+            (
+                np.concatenate([edges[:, 0], edges[:, 1]]),
+                np.concatenate([edges[:, 1], edges[:, 0]]),
+            ),
+        ),
+        shape=(n_nodes, n_nodes),
+    )
+    adj.indptr = adj.indptr.astype("int32", copy=False)
+    adj.indices = adj.indices.astype("int32", copy=False)
+
+    labels = np.full(n_nodes, -1, dtype=np.int32)
+
+    # Preferred seeds first, then everything still unassigned in index order.
+    order = np.arange(n_nodes)
+    if seed_ix is not None and len(seed_ix):
+        order = np.concatenate([np.asarray(seed_ix), order])
+
+    n_clusters = 0
+    for seed in order:
+        if labels[seed] != -1:
+            continue
+        dist = csgraph.dijkstra(
+            adj, directed=False, indices=int(seed), limit=max_dist
+        )
+        labels[(dist <= max_dist) & (labels == -1)] = n_clusters
+        n_clusters += 1
+
+    return labels
 
 
 @utils.lock_neuron
@@ -2144,6 +2401,29 @@ def connected_components_of(x: "core.TreeNeuron", keep) -> List[Set[int]]:
 
     Returns sets of node IDs, mirroring `nx.connected_components`.
     """
+    if _fastcore_has("connected_components_graph"):
+        # Inducing the subgraph is just dropping every edge with an endpoint
+        # outside `keep` - no graph object needs building, which is what makes
+        # this ~60x quicker than the igraph route below.
+        edges, node_ids = skeleton_edges(x)
+        # N.B. via `fromiter`, not `asarray`: `keep` is routinely a *set*, which
+        # `np.asarray` turns into a 0-d object array that matches nothing.
+        keep = np.fromiter(keep, dtype=node_ids.dtype, count=len(keep))
+        in_keep = np.isin(node_ids, keep)
+
+        if len(edges):
+            edges = edges[in_keep[edges[:, 0]] & in_keep[edges[:, 1]]]
+
+        labels = utils.fastcore.connected_components_graph(edges, len(node_ids))
+
+        # Nodes outside `keep` are isolated in the induced subgraph but still
+        # carry a label, so drop them before grouping.
+        kept_ix = np.flatnonzero(in_keep)
+        return [
+            set(node_ids[kept_ix[g]].tolist())
+            for g in _group_by_label(labels[kept_ix])
+        ]
+
     sub = subset_igraph(x, keep)
     ids = np.asarray(sub.vs["node_id"])
     return [set(ids[c].tolist()) for c in sub.components(mode="WEAK")]
