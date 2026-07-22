@@ -41,10 +41,11 @@ def find_soma(x: 'core.TreeNeuron', *, dist_factor: float = 3.0) -> Optional[int
     - Candidates are nodes whose `radius >= soma_detection_radius` (nodes with
       missing radius - `NaN` or `<= 0` - are ignored) and, if the node table
       has a `label` column, whose label also matches `soma_detection_label`.
-    - Candidates are spatially clustered around the fattest one (within
-      `dist_factor` times its radius) and the fattest node of that cluster is
-      returned. This prevents thick nodes elsewhere on the arbor (e.g. a thick
-      primary neurite) from being mistaken for the soma.
+    - Each candidate is scored by the mean radius of the candidates within
+      `dist_factor` times its own radius, and the fattest node of the best
+      scoring cluster is returned. Because it is the fattest *region* that wins,
+      individual thick nodes elsewhere on the arbor (e.g. on a primary neurite)
+      are not mistaken for the soma.
 
     If neither `.soma_detection_radius` nor `.soma_detection_label` is set, or
     no candidate is found, returns `None`.
@@ -53,8 +54,9 @@ def find_soma(x: 'core.TreeNeuron', *, dist_factor: float = 3.0) -> Optional[int
     ----------
     x :             TreeNeuron
     dist_factor :   float
-                    Candidate nodes within `dist_factor` times the fattest
-                    candidate's radius are treated as part of the soma.
+                    Candidate nodes within `dist_factor` times a candidate's
+                    radius are treated as belonging to the same cluster. Larger
+                    values average over a wider neighbourhood.
 
     Returns
     -------
@@ -117,12 +119,17 @@ def find_soma(x: 'core.TreeNeuron', *, dist_factor: float = 3.0) -> Optional[int
     node_ids = x.nodes.node_id.values
 
     if have_usable_radius:
-        # Spatial clustering: take the ball of `dist_factor * R` around the
-        # fattest candidate and return the fattest node within it.
+        # Spatial clustering: the soma is the fattest *region*, not necessarily
+        # the fattest single node. Score each candidate by the mean radius of
+        # the candidates in the ball of `dist_factor * R` around it: a lone
+        # thick node (e.g. on a primary neurite) is diluted by its thinner
+        # neighbours while a soma is fat throughout. The fattest node of the
+        # winning ball is returned.
         coords = x.nodes[['x', 'y', 'z']].values.astype(float)[cand_idx]
         cand_r = radii[cand_idx]
-        seed = int(np.argmax(cand_r))
-        inl = cKDTree(coords).query_ball_point(coords[seed], dist_factor * cand_r[seed])
+        balls = cKDTree(coords).query_ball_point(coords, dist_factor * cand_r)
+        scores = np.array([cand_r[b].mean() for b in balls])
+        inl = balls[int(np.argmax(scores))]
         best = node_ids[cand_idx][inl][int(np.argmax(cand_r[inl]))]
     else:
         # Label-only path (no radius to seed a ball): use the largest connected
