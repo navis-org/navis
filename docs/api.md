@@ -637,6 +637,7 @@ Functions to convert between data types.
 | [`navis.network2igraph()`][navis.network2igraph] | {{ autosummary("navis.network2igraph") }} |
 | [`navis.nx2neuron()`][navis.nx2neuron] | {{ autosummary("navis.nx2neuron") }} |
 | [`navis.edges2neuron()`][navis.edges2neuron] | {{ autosummary("navis.edges2neuron") }} |
+| [`navis.cast_neuron()`][navis.cast_neuron] | {{ autosummary("navis.cast_neuron") }} |
 
 ## Network Models
 

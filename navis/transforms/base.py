@@ -346,18 +346,21 @@ class TransOptimizer:
     ----------
     tr :        Transform | TransformSequence
                 The transform or sequence thereof to be optimized.
-    mode :      None | "medium" | "aggressive"
-                Mode for optimization:
-                  - `None`: no optimization
-                  - "medium": some optimization but keep upfront cost low
-                  - "aggressive": high upfront cost but should be faster in the long run
+    bbox :      (3, 2) array
+                Bounding box of the data about to be transformed. Used to
+                work out which part of a deformation field to pre-cache.
+    caching :   bool
+                Whether to pre-cache deformation fields. This is the only
+                optimization currently implemented - with `caching=False`
+                this class is a no-op.
 
     Examples
     --------
+    >>> import numpy as np
     >>> from navis.transforms import h5reg
     >>> from navis.transforms.base import TransOptimizer
     >>> tr = h5reg.H5transform('path/to/reg.h5', direction='inverse') # doctest: +SKIP
-    >>> with TransOptimizer(tr, mode='aggressive'):                   # doctest: +SKIP
+    >>> with TransOptimizer(tr, bbox=pts.T, caching=True):            # doctest: +SKIP
     >>>     xf = tr.xform(pts)                                        # doctest: +SKIP
 
     """

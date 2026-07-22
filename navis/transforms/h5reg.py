@@ -560,10 +560,6 @@ class H5transform(BaseTransform):
         cval :          float
                         Value used for points outside the boundaries when
                         mode='constant'.
-        chunk_size :    int
-                        Size of chunks to process along each dimension.
-                        Larger chunks are faster but use more memory.
-                        Only relevant for Python (not numba) path.
         cache :         bool
                         If True, we will cache the deformation field for
                         subsequent future transforms. This is generally
