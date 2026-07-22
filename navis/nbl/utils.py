@@ -13,19 +13,43 @@
 
 """Module containing utility functions for BLASTING."""
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import scipy.cluster.hierarchy as sch
 
 from scipy.spatial.distance import squareform, pdist
 
-from .. import config
+from .. import config, utils
 
 logger = config.logger
 
 
+def _fastcore_matrix(scores, func):
+    """The score matrix as an array `func` can take, or `None` to use numpy.
+
+    navis-fastcore needs a float16/32/64 buffer that is C- or F-contiguous. A
+    DataFrame's `.values` is a view onto the underlying block as long as the
+    frame has a single dtype - including *after* a transpose, which is what lets
+    `extract_matches` serve `axis=1` without copying a matrix that may well be
+    tens of GB.
+
+    """
+    if utils.fastcore is None or not hasattr(utils.fastcore, func):
+        return None
+
+    vals = scores.values
+    if vals.dtype not in (np.float16, np.float32, np.float64):
+        return None
+    if not (vals.flags['C_CONTIGUOUS'] or vals.flags['F_CONTIGUOUS']):
+        return None
+
+    return vals
+
+
 def extract_matches(scores, N=None, threshold=None, percentage=None,
-                    axis=0, distances='auto'):
+                    axis=0, distances='auto', max_matches=None):
     """Extract top matches from score matrix.
 
     See `N`, `threshold` or `percentage` for the criterion.
@@ -42,9 +66,6 @@ def extract_matches(scores, N=None, threshold=None, percentage=None,
                     Extract all matches within a given range of the top match.
                     E.g. `percentage=0.05` will return all matches within
                     5% of the top match.
-    single_cols :   bool
-                    If True will return single columns with comma-separated
-                    strings for match ID and match score, respectively.
     axis :          0 | 1
                     For which axis to produce matches.
     distances :     "auto" | bool
@@ -52,12 +73,30 @@ def extract_matches(scores, N=None, threshold=None, percentage=None,
                     we need to look for the lowest instead of the highest values).
                     "auto" (default) will infer based on the diagonal of the
                     `scores` matrix. Use boolean to override.
+    max_matches :   int, optional
+                    Refuse to return more than this many matches in total. Only
+                    applies to `threshold`/`percentage`, whose output size is not
+                    known in advance - an over-broad cutoff on a large matrix can
+                    otherwise take the machine down. The count is established
+                    before anything is allocated.
 
     Returns
     -------
     pd.DataFrame
                     Note that the format is slightly different depending on
                     the criterion.
+
+    Notes
+    -----
+    Uses [navis-fastcore](https://github.com/schlegelp/fastcore-rs) if available
+    (~20-90x faster for `N`, ~4-10x for `percentage`) and numpy otherwise. The
+    two agree except where scores *tie*, in which case which of the equal
+    matches comes first is arbitrary and differs between the backends.
+
+    `NaN`s are skipped, not ranked: a query scored against some targets but not
+    others gets its best *valid* matches rather than a `NaN` match. If a query
+    has fewer than `N` valid scores, the remaining `match_k`/`score_k` come back
+    empty - `None` or `NaN` depending on your pandas version.
 
     """
     assert axis in (0, 1), '`axis` must be 0 or 1'
@@ -73,106 +112,191 @@ def extract_matches(scores, N=None, threshold=None, percentage=None,
     if distances == 'auto':
         distances = True if most(np.diag(scores.values).round(2) == 0) else False
 
-    # Transposing is easier than dealing with the different axes further down
+    # Transposing is easier than dealing with the different axes further down.
+    # N.B. this is free: for a single-dtype frame `.T` is a view, and both
+    # backends read a C- or F-contiguous buffer equally happily.
     if axis == 1:
         scores = scores.T
 
     if N is not None:
+        if N > scores.shape[1]:
+            raise ValueError(f'Cannot extract N={N} matches from only '
+                             f'{scores.shape[1]} candidates.')
         return _extract_matches_n(scores,
                                   N=N,
                                   distances=distances)
     elif threshold is not None:
         return _extract_matches_threshold(scores,
                                           threshold=threshold,
-                                          distances=distances)
+                                          distances=distances,
+                                          max_matches=max_matches)
     elif percentage is not None:
         return _extract_matches_perc(scores,
                                      perc=percentage,
-                                     distances=distances)
+                                     distances=distances,
+                                     max_matches=max_matches)
 
 
 def _extract_matches_n(scores, N=None, distances=False):
     """Return top N matches."""
+    arr = _fastcore_matrix(scores, 'top_matches')
+    if arr is not None:
+        # `axis=0` because `extract_matches` has already transposed if needed
+        top_n, top_scores = utils.fastcore.top_matches(arr, N, axis=0,
+                                                       distances=distances)
+        return _collate_matches_n(scores, top_n, top_scores, N)
+
+    vals = scores.values
+    top_n, top_scores = _top_n_numpy(vals, N, distances)
+
+    if np.isnan(top_scores).any():
+        # numpy sorts NaN to the end - i.e. ranks it as the *best* similarity -
+        # so a single unscored pair would otherwise become that query's top
+        # match. Take NaNs out of the running and re-run; the copy is only paid
+        # for when there actually are NaNs. Queries left with fewer than N valid
+        # scores come back as None/NaN, which is what fastcore returns too.
+        sentinel = np.inf if distances else -np.inf
+        top_n, top_scores = _top_n_numpy(np.where(np.isnan(vals), sentinel, vals),
+                                         N, distances)
+        invalid = top_scores == sentinel
+        top_n = np.where(invalid, -1, top_n)
+        top_scores = np.where(invalid, np.nan, top_scores)
+
+    return _collate_matches_n(scores, top_n, top_scores, N)
+
+
+def _top_n_numpy(vals, N, distances):
+    """Top N values per row, best first. Returns (indices, scores)."""
     if not distances:
         if N > 1:
             # This partitions of the largest N values (faster than argsort)
             # Their correct order, however, is not guaranteed
-            top_n = np.argpartition(scores.values, -N, axis=-1)[:, -N:]
+            top_n = np.argpartition(vals, -N, axis=-1)[:, -N:]
         else:
             # For N=1 this is still faster
-            top_n = np.argmax(scores.values, axis=-1).reshape(-1, 1)
+            top_n = np.argmax(vals, axis=-1).reshape(-1, 1)
     else:
         if N > 1:
-            top_n = np.argpartition(scores.values, N, axis=-1)[:, :N]
+            # N.B. `kth=N - 1` (not `N`): both partition the N smallest into the
+            # first N slots, but `N` is out of bounds when N == vals.shape[1]
+            top_n = np.argpartition(vals, N - 1, axis=-1)[:, :N]
         else:
-            top_n = np.argmin(scores.values, axis=-1).reshape(-1, 1)
+            top_n = np.argmin(vals, axis=-1).reshape(-1, 1)
 
     # This make sure we order them properly
-    top_scores = scores.values[np.arange(len(scores)).reshape(-1, 1), top_n]
+    rows = np.arange(len(vals)).reshape(-1, 1)
+    top_scores = vals[rows, top_n]
     ind_ordered = np.argsort(top_scores, axis=1)
 
     if distances:
         ind_ordered = ind_ordered[:, ::-1]
 
-    top_n = top_n[np.arange(len(top_n)).reshape(-1, 1), ind_ordered]
-    top_scores = top_scores[np.arange(len(top_scores)).reshape(-1, 1), ind_ordered]
+    # Reverse into best-first, which is the order both backends collate from
+    return (top_n[rows, ind_ordered][:, ::-1],
+            top_scores[rows, ind_ordered][:, ::-1])
 
-    # Now collate matches
+
+def _collate_matches_n(scores, top_n, top_scores, N):
+    """Collate best-first (n_queries, N) index/score arrays into a table."""
+    cols = scores.columns.values
+
     matches = pd.DataFrame()
     matches['id'] = scores.index.values
     for i in range(N):
-        matches[f'match_{i + 1}'] = scores.columns[top_n[:, -(i + 1)]]
-        matches[f'score_{i + 1}'] = top_scores[:, -(i + 1)]
+        ix = top_n[:, i]
+        match = cols[ix]
+        # A query with fewer than N valid (non-NaN) scores gets -1 here, which
+        # would otherwise quietly wrap around to the last column
+        missing = ix < 0
+        if missing.any():
+            match = match.astype(object)
+            match[missing] = None
+        matches[f'match_{i + 1}'] = match
+        matches[f'score_{i + 1}'] = top_scores[:, i]
 
     return matches
 
 
-def _extract_matches_threshold(scores, threshold=.3, distances=False):
+def _extract_matches_threshold(scores, threshold=.3, distances=False,
+                               max_matches=None):
     """Extract all matches above a given threshold from score matrix."""
-    if not distances:
-        ind, cols = np.where(scores.values >= threshold)
+    arr = _fastcore_matrix(scores, 'matches_above')
+    if arr is not None:
+        offsets, cols, values = utils.fastcore.matches_above(
+            arr, threshold=threshold, axis=0, distances=distances,
+            max_matches=max_matches)
+        ind = np.repeat(np.arange(len(offsets) - 1), np.diff(offsets))
     else:
-        ind, cols = np.where(scores.values <= threshold)
+        # N.B. NaNs compare False either way, so they are excluded here too
+        if not distances:
+            ind, cols = np.where(scores.values >= threshold)
+        else:
+            ind, cols = np.where(scores.values <= threshold)
+        _check_max_matches(len(ind), max_matches)
+        values = scores.values[ind, cols]
 
     matches = pd.DataFrame()
-    matches['query'] = scores.index[ind]
-    matches['match'] = scores.columns[cols]
-    matches['score'] = scores.values[ind, cols]
+    matches['query'] = scores.index.values[ind]
+    matches['match'] = scores.columns.values[cols]
+    matches['score'] = values
     matches = matches.sort_values(['query', 'match', 'score']).set_index(['query', 'match'])
 
     return matches
 
 
-def _extract_matches_perc(scores, perc=.05, distances=False):
+def _extract_matches_perc(scores, perc=.05, distances=False, max_matches=None):
     """Extract all matches within a given percentage of the top match."""
-    if not distances:
-        thresh = np.max(scores.values, axis=1)
-        thresh = thresh - np.abs(thresh * perc)
-        ind, cols = np.where(scores.values >= thresh.reshape(-1, 1))
+    arr = _fastcore_matrix(scores, 'matches_above')
+    if arr is not None:
+        offsets, cols, values = utils.fastcore.matches_above(
+            arr, percentage=perc, axis=0, distances=distances,
+            max_matches=max_matches)
     else:
-        thresh = np.min(scores.values, axis=1)
-        thresh = thresh + np.abs(thresh * perc)
-        ind, cols = np.where(scores.values <= thresh.reshape(-1, 1))
+        # N.B. nanmax/nanmin: a query with *some* unscored pairs should still
+        # get matches, rather than a NaN threshold that nothing can clear. One
+        # with no valid scores at all still gets none - as it does on fastcore -
+        # so the "All-NaN slice" warning that comes with it is just noise
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            if not distances:
+                thresh = np.nanmax(scores.values, axis=1)
+                thresh = thresh - np.abs(thresh * perc)
+                ind, cols = np.where(scores.values >= thresh.reshape(-1, 1))
+            else:
+                thresh = np.nanmin(scores.values, axis=1)
+                thresh = thresh + np.abs(thresh * perc)
+                ind, cols = np.where(scores.values <= thresh.reshape(-1, 1))
+        _check_max_matches(len(ind), max_matches)
 
-    matches = pd.DataFrame()
-    matches.index = scores.index
+        # Sort each query's matches best first, and convert to the same
+        # CSR-style (offsets, indices, values) layout fastcore returns
+        values = scores.values[ind, cols]
+        order = np.lexsort((values if distances else -values, ind))
+        cols, values = cols[order], values[order]
+        offsets = np.zeros(len(scores) + 1, dtype=np.int64)
+        offsets[1:] = np.cumsum(np.bincount(ind, minlength=len(scores)))
 
     match_str = []
     scores_str = []
-    for i in range(len(matches)):
-        this = cols[ind == i]
-        sc = scores.values[i, this]
-        srt = np.argsort(sc)[::-1]
-        m = scores.columns[this][srt]
-        sc = sc[srt]
+    cols = scores.columns.values[cols].astype(str)
+    values = values.round(3).astype(str)
+    for start, stop in zip(offsets[:-1], offsets[1:]):
+        match_str.append(','.join(cols[start:stop]))
+        scores_str.append(','.join(values[start:stop]))
 
-        match_str.append(','.join(m.astype(str)))
-        scores_str.append(','.join(sc.round(3).astype(str)))
-
+    matches = pd.DataFrame()
+    matches.index = scores.index
     matches['matches'] = match_str
     matches['scores'] = scores_str
 
     return matches
+
+
+def _check_max_matches(n, max_matches):
+    """Guard the numpy path, which has no equivalent of fastcore's own check."""
+    if max_matches is not None and n > max_matches:
+        raise ValueError(f'Criterion yields {n} matches, which exceeds '
+                         f'`max_matches={max_matches}`.')
 
 
 def update_scores(queries, targets, scores_ex, nblast_func, **kwargs):
@@ -210,7 +334,7 @@ def update_scores(queries, targets, scores_ex, nblast_func, **kwargs):
     ...                                   scores_ex=scores.iloc[:3, 2:],
     ...                                   nblast_func=navis.nblast,
     ...                                   n_cores=1)
-    >>> np.all(scores == scores2)
+    >>> bool(np.all(scores == scores2))
     True
 
     """
