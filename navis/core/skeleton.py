@@ -216,7 +216,7 @@ class TreeNeuron(BaseNeuron):
             if utils.is_iterable(other):
                 # If divisor is isotropic use only single value
                 if len(set(other)) == 1:
-                    other == other[0]
+                    other = other[0]
                 elif len(other) != 4:
                     raise ValueError('Division by list/array requires 4 '
                                      'divisors for x/y/z and radius - '
@@ -255,7 +255,7 @@ class TreeNeuron(BaseNeuron):
             if utils.is_iterable(other):
                 # If multiplicator is isotropic use only single value
                 if len(set(other)) == 1:
-                    other == other[0]
+                    other = other[0]
                 elif len(other) != 4:
                     raise ValueError('Multiplication by list/array requires 4'
                                      'multipliers for x/y/z and radius - '
@@ -294,7 +294,7 @@ class TreeNeuron(BaseNeuron):
             if utils.is_iterable(other):
                 # If offset isotropic use only single value
                 if len(set(other)) == 1:
-                    other == other[0]
+                    other = other[0]
                 elif len(other) != 3:
                     raise ValueError('Addition by list/array requires 3'
                                      'multipliers for x/y/z coordinates '
@@ -323,7 +323,7 @@ class TreeNeuron(BaseNeuron):
             if utils.is_iterable(other):
                 # If offset is isotropic use only single value
                 if len(set(other)) == 1:
-                    other == other[0]
+                    other = other[0]
                 elif len(other) != 3:
                     raise ValueError('Addition by list/array requires 3'
                                      'multipliers for x/y/z coordinates '
@@ -1388,7 +1388,7 @@ class TreeNeuron(BaseNeuron):
             x2 = self.copy()
             x2.__dict__.update(x.__dict__)
             x2._clear_temp_attr()
-            return x
+            return x2
 
     def snap(self, locs, to='nodes'):
         """Snap xyz location(s) to closest node or synapse.
