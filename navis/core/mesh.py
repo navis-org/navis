@@ -22,6 +22,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import skeletor as sk
+import sparsecubes
 import trimesh as tm
 
 from typing import Union, Optional
@@ -356,7 +357,7 @@ class MeshNeuron(BaseNeuron):
     @skeleton.setter
     def skeleton(self, s):
         """Attach skeleton respresentation for this neuron."""
-        if isinstance(s, sk.Skeleton):
+        if isinstance(s, (sk.Skeleton, sparsecubes.Skeleton)):
             s = TreeNeuron(s, id=self.id, name=self.name)
         elif not isinstance(s, TreeNeuron):
             raise TypeError(f'`.skeleton` must be a TreeNeuron, got "{type(s)}"')

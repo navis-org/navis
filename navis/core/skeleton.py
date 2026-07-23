@@ -22,6 +22,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import skeletor as sk
+import sparsecubes
 
 from io import BufferedIOBase
 
@@ -81,6 +82,7 @@ class TreeNeuron(BaseNeuron):
                      - `BufferedIOBase` e.g. from `open(filename)`
                      - `networkx.DiGraph` parsed by [`navis.nx2neuron`][]
                      - `skeletor.Skeleton`
+                     - `sparsecubes.Skeleton`
                      - `TreeNeuron` - in this case we will try to copy every
                        attribute
                      - `None` will initialize an empty neuron
@@ -171,6 +173,20 @@ class TreeNeuron(BaseNeuron):
         elif isinstance(x, sk.Skeleton):
             self.nodes = x.swc.copy()
             self.vertex_map = x.mesh_map
+        elif isinstance(x, sparsecubes.Skeleton):
+            # Unlike a skeletor skeleton, a sparsecubes skeleton has no
+            # associated mesh (and hence no vertex-to-node map). Build the
+            # nodes table from its SWC array - same as `voxels2skeleton`.
+            cols = ['node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id']
+            if len(x.nodes):
+                nodes = pd.DataFrame(x.to_swc(), columns=cols)
+                nodes['node_id'] = nodes.node_id.astype(int)
+                nodes['parent_id'] = nodes.parent_id.astype(int)
+                nodes['label'] = nodes.label.astype(int)
+            else:
+                # `to_swc()` chokes on an empty skeleton, so short-circuit it
+                nodes = pd.DataFrame(columns=cols)
+            self.nodes = nodes
         elif isinstance(x, TreeNeuron):
             self.__dict__.update(x.copy().__dict__)
             # Try to copy every attribute
