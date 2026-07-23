@@ -283,7 +283,7 @@ class Dotprops(BaseNeuron):
     @property
     def datatables(self) -> List[str]:
         """Names of all DataFrames attached to this neuron."""
-        return [k for k, v in self.__dict__.items() if isinstance(v, pd.DataFrame, np.ndarray)]
+        return [k for k, v in self.__dict__.items() if isinstance(v, (pd.DataFrame, np.ndarray))]
 
     @property
     def kdtree(self):
@@ -348,12 +348,12 @@ class Dotprops(BaseNeuron):
         elif utils.is_iterable(soma):
             if not any(soma):
                 soma = None
-            elif any(np.array(soma) < 0) or any(np.array(soma) > self.points.shape[0]):
+            elif any(np.array(soma) < 0) or any(np.array(soma) >= self.points.shape[0]):
                 logger.warning(f'Soma(s) {soma} not found in points.')
                 soma = None
         else:
-            if 0 < soma < self.points.shape[0]:
-                logger.warning(f'Soma {soma} not found in node table.')
+            if not (0 < soma < self.points.shape[0]):
+                logger.warning(f'Soma {soma} not found in points.')
                 soma = None
 
         return soma
