@@ -40,7 +40,7 @@ def in_volume_convex(points: np.ndarray,
         if isinstance(points, list):
             points = np.array(points)
         elif isinstance(points, pd.DataFrame):
-            points = points.to_matrix()
+            points = points.values
 
         return [list(ConvexHull(np.append(verts, list([p]), axis=0)).vertices) == intact_verts for p in points]
     else:

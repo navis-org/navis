@@ -16,8 +16,10 @@ import networkx as nx
 
 try:
     from pykdtree.kdtree import KDTree
+    _HAS_PYKDTREE = True
 except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
+    _HAS_PYKDTREE = False
 
 
 def sample_points_uniform(points, size, output="points"):
@@ -59,8 +61,18 @@ def sample_points_uniform(points, size, output="points"):
 
     while mask.sum() > size:
         # Find the point with the largest distance to its nearest neighbor
-        d, ind = tree.query(points[mask], k=2, mask=~mask)
-        d, ind = d[:, 1], ind[:, 1]
+        if _HAS_PYKDTREE:
+            # pykdtree can mask out the already-removed points from the
+            # single pre-built tree
+            d, ind = tree.query(points[mask], k=2, mask=~mask)
+            d, ind = d[:, 1], ind[:, 1]
+        else:
+            # scipy's cKDTree has no `mask` argument, so query a tree built
+            # from just the currently-active points and map indices back
+            active_ix = p_ind[mask]
+            tree_active = KDTree(points[mask])
+            d, ind = tree_active.query(points[mask], k=2)
+            d, ind = d[:, 1], active_ix[ind[:, 1]]
 
         # Find pairs of nodes that are close to each other
         is_close = d == d.min()

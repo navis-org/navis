@@ -59,8 +59,12 @@ def round_smart(num: Union[int, float], prec: int = 8) -> float:
     10000000.0
 
     """
+    # log10 is undefined for 0 (and negatives) - nothing to round there
+    if num == 0:
+        return round(num, prec)
+
     # Number of digits before decimal
-    lg = math.log10(num)
+    lg = math.log10(abs(num))
     if lg < 0:
         N = 0
     else:
