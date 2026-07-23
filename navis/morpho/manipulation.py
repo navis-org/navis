@@ -1680,10 +1680,11 @@ def average_skeletons(
     other_neurons = x[[n != bn for n in x]]
 
     # Make sure these stay 2-dimensional arrays -> will add a colum for each
-    # "other" neuron
-    base_x = base_nodes[:, 0:1]
-    base_y = base_nodes[:, 1:2]
-    base_z = base_nodes[:, 2:3]
+    # "other" neuron. Collect columns in lists and stack once at the end
+    # instead of `np.append`-ing in the loop (which is quadratic).
+    x_cols = [base_nodes[:, 0:1]]
+    y_cols = [base_nodes[:, 1:2]]
+    z_cols = [base_nodes[:, 2:3]]
 
     # For each "other" neuron, collect nearest neighbour coordinates
     for n in other_neurons:
@@ -1699,9 +1700,13 @@ def average_skeletons(
             nn_ix[nn_dist != float("inf")]
         ]
         # Add coords to base coords
-        base_x = np.append(base_x, this_coords[:, 0:1], axis=1)
-        base_y = np.append(base_y, this_coords[:, 1:2], axis=1)
-        base_z = np.append(base_z, this_coords[:, 2:3], axis=1)
+        x_cols.append(this_coords[:, 0:1])
+        y_cols.append(this_coords[:, 1:2])
+        z_cols.append(this_coords[:, 2:3])
+
+    base_x = np.hstack(x_cols)
+    base_y = np.hstack(y_cols)
+    base_z = np.hstack(z_cols)
 
     # Calculate means
     mean_x = np.mean(base_x, axis=1)
