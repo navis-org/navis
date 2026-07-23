@@ -103,7 +103,7 @@ class AffineTransform(BaseTransform):
         """
         points = np.asarray(points)
 
-        if points.ndim != 2 and points.shape[1] != 3:
+        if points.ndim != 2 or points.shape[1] != 3:
             raise ValueError('`points` must be of shape (N, 3)')
 
         # Add a fourth column to points

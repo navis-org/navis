@@ -46,7 +46,7 @@ def parse_json(filepath: str, **kwargs):
 
     transforms = []
     for reg in data:
-        if not isinstance(reg, type(dict)):
+        if not isinstance(reg, dict):
             raise TypeError(f'{filepath} expected data as dict or list of '
                             f'dicts, got "{type(reg)}"')
 
@@ -79,17 +79,17 @@ def transform_factory(filepath: str, **kwargs):
     fp = pathlib.Path(filepath)
 
     # Check if file/path exists
-    if not fp.is_dir() or not fp.is_file():
+    if not fp.exists():
         raise ValueError(f'{fp} does not appear to exist')
 
-    if fp.endswith('.list'):
+    if fp.suffix == '.list':
         return CMTKtransform(fp, **kwargs)
 
-    if fp.endswith('.h5'):
+    if fp.suffix == '.h5':
         return H5transform(fp, **kwargs)
 
     # Custom transforms
-    if fp.endswith('.json'):
+    if fp.suffix == '.json':
         return parse_json(fp, **kwargs)
 
     raise TypeError(f'Unknown transform format for {filepath}')

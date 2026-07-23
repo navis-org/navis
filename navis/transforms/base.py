@@ -148,7 +148,7 @@ class AliasTransform(BaseTransform):
     def __eq__(self, other):
         """Check if the same."""
         if isinstance(other, AliasTransform):
-            True
+            return True
         return False
 
     def copy(self):
@@ -280,7 +280,7 @@ class TransformSequence:
             if not isinstance(tr, BaseTransform):
                 raise TypeError(f'Unable append "{type(tr)}"')
 
-            if not hasattr(transform, "xform") or not callable(transform.xform):
+            if not hasattr(tr, "xform") or not callable(tr.xform):
                 raise TypeError("Transform does not appear to have a `xform` method")
 
             # Try to merge with the last transform in the sequence

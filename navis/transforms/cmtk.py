@@ -245,8 +245,9 @@ class CMTKtransform(BackendMixin, BaseTransform):
         self.command = "streamxform"
         self.threads = threads
 
-        if len(directions) == 1 and len(regs) >= 1:
-            directions = directions * len(regs)
+        # Broadcast a single direction to all registrations
+        if len(self.directions) == 1 and len(self.regs) >= 1:
+            self.directions = self.directions * len(self.regs)
 
         if len(self.regs) != len(self.directions):
             raise ValueError("Must provide one direction per regs")
