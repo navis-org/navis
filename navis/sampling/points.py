@@ -31,18 +31,21 @@ def _ss_build_tree(x: 'core.TreeNeuron'):
     nodes   = x.nodes.set_index('node_id')
     root_id = x.nodes.loc[x.nodes.parent_id < 0, 'node_id'].values[0]
 
-    parent_map: dict = {}
-    children:   dict = {}
-    xyz:        dict = {}
+    # Vectorised extraction (avoids a slow per-row `.iterrows()`)
+    node_ids   = nodes.index.values
+    parent_ids = nodes['parent_id'].values
+    coords     = nodes[['x', 'y', 'z']].values.astype(float)
 
-    for nid, row in nodes.iterrows():
-        xyz[nid] = row[['x', 'y', 'z']].values.astype(float)
-        children.setdefault(nid, [])
-        if row.parent_id < 0:
+    parent_map: dict = {}
+    children:   dict = {nid: [] for nid in node_ids}
+    xyz:        dict = {nid: coords[i] for i, nid in enumerate(node_ids)}
+
+    for nid, pid in zip(node_ids, parent_ids):
+        if pid < 0:
             parent_map[nid] = None
         else:
-            parent_map[nid] = row.parent_id
-            children.setdefault(row.parent_id, []).append(nid)
+            parent_map[nid] = pid
+            children.setdefault(pid, []).append(nid)
 
     depth_map  = {root_id: 0}
     root_dist  = {root_id: 0.0}

@@ -325,14 +325,21 @@ class Volume(UnitObject, trimesh.Trimesh):
         if False in [isinstance(v, Volume) for v in x]:
             raise TypeError("Input must be list of volumes")
 
-        vertices: np.ndarray = np.empty((0, 3))
+        vertices_list: List[np.ndarray] = []
         faces: List[List[int]] = []
 
-        # Reindex faces
+        # Reindex faces (collect vertices and concatenate once at the end to
+        # avoid the quadratic cost of `np.append` in a loop)
+        offs = 0
         for vol in x:
-            offs = len(vertices)
-            vertices = np.append(vertices, vol.vertices, axis=0)
+            vertices_list.append(np.asarray(vol.vertices))
             faces += [[f[0] + offs, f[1] + offs, f[2] + offs] for f in vol.faces]
+            offs += len(vol.vertices)
+
+        if vertices_list:
+            vertices = np.concatenate(vertices_list, axis=0)
+        else:
+            vertices = np.empty((0, 3))
 
         return cls(vertices=vertices, faces=faces, name=name, color=color)
 
