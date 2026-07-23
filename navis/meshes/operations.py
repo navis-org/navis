@@ -182,13 +182,15 @@ def combine_meshes(meshes, max_dist='auto', progress=True):
 
         # Offset faces
         vertex_offset = comb.vertices.shape[0]
-        new_faces = m.faces + vertex_offset
 
         # Find vertices that can be merged - note that we are effectively
         # zippig the two meshes by making sure that each vertex can only be
         # merged once
         dist, ix = tree.query(m.vertices, distance_upper_bound=max_dist)
 
+        # Build a per-vertex remap (local index -> global index) rather than
+        # scanning the entire face array once per merged vertex (was O(V*F))
+        remap = np.arange(m.vertices.shape[0]) + vertex_offset
         merged = set()
         # Merge closest vertices first
         for i in np.argsort(dist):
@@ -199,11 +201,14 @@ def combine_meshes(meshes, max_dist='auto', progress=True):
             if ix[i] in merged:
                 continue
 
-            # Remap this vertex
-            new_faces[new_faces == (i + vertex_offset)] = ix[i]
+            # Remap this vertex onto the existing (comb) vertex
+            remap[i] = ix[i]
 
             # Track that target vertex has already been seen
             merged.add(ix[i])
+
+        # Apply the remap to all faces in a single vectorized pass
+        new_faces = remap[m.faces]
 
         # Merge vertices and faces
         comb.vertices = np.append(comb.vertices, m.vertices, axis=0)
