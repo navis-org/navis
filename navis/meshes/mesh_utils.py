@@ -206,13 +206,17 @@ def points_to_mesh(points, res, threshold=None, denoise=True):
     voxels["count"] = cnt
 
     if threshold:
-        voxels = voxels[voxels["count"] > 1]
+        voxels = voxels[voxels["count"] >= threshold]
 
-    # Generate empty matrix
-    mat = np.zeros((voxels.x.max() + 1, voxels.y.max() + 1, voxels.z.max() + 1))
+    vx = voxels[["x", "y", "z"]].values
+    # Rebase voxel indices to start at 0 so negative or large coordinates
+    # don't wrap around (negative indexing) or allocate a huge sparse grid
+    offset = vx.min(axis=0)
+    vx = vx - offset
 
-    # Fill matrix
-    mat[voxels.x, voxels.y, voxels.z] = 1
+    # Generate empty matrix and fill it
+    mat = np.zeros(tuple(vx.max(axis=0) + 1))
+    mat[vx[:, 0], vx[:, 1], vx[:, 2]] = 1
 
     if denoise:
         # Denoise by a round of erosion...
@@ -240,8 +244,8 @@ def points_to_mesh(points, res, threshold=None, denoise=True):
         allow_degenerate=False,
         step_size=1,
     )
-    # Turn coordinates back into original units
-    verts *= res
+    # Turn coordinates back into original units (undoing the rebasing offset)
+    verts = (verts + offset) * res
 
     # Somehow we seem to have introduced an offset equal to our resolution
     verts -= res
