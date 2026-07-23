@@ -289,8 +289,9 @@ def strahler_index(
 
         # The last `this_node` is either a branch node or the root
         # If a branch point: check, if all its childs have already been
-        # processed
-        if parent_node > 0:
+        # processed (root is signalled by parent_node == -1, so use >= 0 to
+        # also handle a branch point whose node ID is 0)
+        if parent_node >= 0:
             node_ready = True
             for child in list_of_childs[parent_node]:
                 if child not in seen:
@@ -1436,9 +1437,9 @@ def _tortuosity_simple(x: "core.TreeNeuron") -> float:
         # Calculate Euclidean distance for this segment
         R = np.linalg.norm(coords[0] - coords[-1])
         T = L / R
-        T_all = np.append(T_all, T)
+        T_all.append(T)
 
-    return T_all.mean()
+    return np.mean(T_all)
 
 
 def _tortuosity_segmented(x: "core.TreeNeuron", seg_length: Union[int, float, str]) -> float:
@@ -1495,9 +1496,11 @@ def _tortuosity_segmented(x: "core.TreeNeuron", seg_length: Union[int, float, st
 
         R = np.linalg.norm(new_coords[:-1] - new_coords[1:], axis=1)
         T = seg_length / R
-        T_all = np.append(T_all, T)
+        T_all.append(T)
 
-    return T_all.mean()
+    if not T_all:
+        return np.nan
+    return np.concatenate(T_all).mean()
 
 
 @utils.map_neuronlist(desc="Sholl analysis", allow_parallel=True)

@@ -917,6 +917,7 @@ def split_axon_dendrite(
 
     # Figure out which one is which
     axon = set()
+    dendrite = set()
     if split == "prepost":
         # Collect # of pre- and postsynapses on each of the connected components
         sm = pd.DataFrame()
@@ -1780,10 +1781,13 @@ def despike_skeleton(
     # Index nodes table by node ID
     this_nodes = x.nodes.set_index("node_id", inplace=False)
 
-    segs_to_walk = x.segments
+    # Copy the list so we don't mutate the neuron's cached `.segments`
+    segs_to_walk = list(x.segments)
 
     if reverse:
-        segs_to_walk += x.segments[::-1]
+        # Walk each segment proximal->distal too, i.e. reverse the node order
+        # *within* each segment (not the order of the segments in the list)
+        segs_to_walk = segs_to_walk + [seg[::-1] for seg in x.segments]
 
     # For each spike length do -> do this in reverse to correct the long
     # spikes first
