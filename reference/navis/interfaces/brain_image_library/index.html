@@ -1,0 +1,1218 @@
+<!DOCTYPE html><html lang="en" class="no-js"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Python library for analysis of neuroanatomical data."><link href="../blender/" rel="prev"><link href="../cave_utils/" rel="next"><link rel="icon" href="../../../../assets/images/favicon.png"><meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7"><title>brain_image_library - navis</title><link rel="stylesheet" href="../../../../assets/stylesheets/main.ec1eaa64.min.css"><link rel="stylesheet" href="../../../../assets/stylesheets/palette.ab4e12ef.min.css"><link rel="stylesheet" href="../../../../assets/external/fonts.googleapis.com/css.49ea35f2.css"><style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style><link rel="stylesheet" href="../../../../assets/_markdown_exec_pyodide.css"><link rel="stylesheet" href="../../../../assets/_mkdocstrings.css"><link rel="stylesheet" href="../../../../stylesheets/extra.css"><link rel="stylesheet" href="../../../../assets/external/unpkg.com/katex@0/dist/katex.min.css"><link rel="stylesheet" href="../../../../sg_gallery-binder.css"><link rel="stylesheet" href="../../../../sg_gallery-dataframe.css"><link rel="stylesheet" href="../../../../sg_gallery-rendered-html.css"><link rel="stylesheet" href="../../../../sg_gallery.css"><script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script><link href="../../../../assets/stylesheets/glightbox.min.css" rel="stylesheet"><script src="../../../../assets/javascripts/glightbox.min.js"></script><style id="glightbox-style">
+            html.glightbox-open { overflow: initial; height: 100%; }
+            .gslide-title { margin-top: 0px; user-select: text; }
+            .gslide-desc { color: #666; user-select: text; }
+            .gslide-image img { background: white; }
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color); }
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color); }
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color); }
+        </style></head> <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo"> <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off"> <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off"> <label class="md-overlay" for="__drawer"></label> <div data-md-component="skip"> <a href="#navis.interfaces.brain_image_library.BILError" class="md-skip"> Skip to content </a> </div> <div data-md-component="announce"> </div> <header class="md-header md-header--shadow md-header--lifted" data-md-component="header"> <nav class="md-header__inner md-grid" aria-label="Header"> <a href="../../../.." title="navis" class="md-header__button md-logo" aria-label="navis" data-md-component="logo"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg> </a> <label class="md-header__button md-icon" for="__drawer"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg> </label> <div class="md-header__title" data-md-component="header-title"> <div class="md-header__ellipsis"> <div class="md-header__topic"> <span class="md-ellipsis"> navis </span> </div> <div class="md-header__topic" data-md-component="header-topic"> <span class="md-ellipsis"> brain_image_library </span> </div> </div> </div> <form class="md-header__option" data-md-component="palette"> <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo" aria-label="Switch to dark mode" type="radio" name="__palette" id="__palette_0"> <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden=""> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M296.5 291.1C321 265.2 336 230.4 336 192c0-79.5-64.5-144-144-144S48 112.5 48 192c0 38.4 15 73.2 39.5 99.1 21.3 22.4 44.9 54 53.3 92.9h102.4c8.4-39 32-70.5 53.3-92.9m34.8 33C307.7 349 288 379.4 288 413.7V432c0 44.2-35.8 80-80 80h-32c-44.2 0-80-35.8-80-80v-18.3c0-34.3-19.7-64.7-43.3-89.6C20 289.7 0 243.2 0 192 0 86 86 0 192 0s192 86 192 192c0 51.2-20 97.7-52.7 132.1M144 184c0 13.3-10.7 24-24 24s-24-10.7-24-24c0-48.6 39.4-88 88-88 13.3 0 24 10.7 24 24s-10.7 24-24 24c-22.1 0-40 17.9-40 40"></path></svg> </label> <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="white" data-md-color-accent="pink" aria-label="Switch to light mode" type="radio" name="__palette" id="__palette_1"> <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden=""> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M292.9 384c7.3-22.3 21.9-42.5 38.4-59.9C364 289.7 384 243.2 384 192 384 86 298 0 192 0S0 86 0 192c0 51.2 20 97.7 52.7 132.1 16.5 17.4 31.2 37.6 38.4 59.9h201.7zm-4.9 48H96v16c0 44.2 35.8 80 80 80h32c44.2 0 80-35.8 80-80zM184 112c-39.8 0-72 32.2-72 72 0 13.3-10.7 24-24 24s-24-10.7-24-24c0-66.3 53.7-120 120-120 13.3 0 24 10.7 24 24s-10.7 24-24 24"></path></svg> </label> </form> <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script> <label class="md-header__button md-icon" for="__search"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg> </label> <div class="md-search" data-md-component="search" role="dialog"> <label class="md-search__overlay" for="__search"></label> <div class="md-search__inner" role="search"> <form class="md-search__form" name="search"> <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required=""> <label class="md-search__icon md-icon" for="__search"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg> </label> <nav class="md-search__options" aria-label="Search"> <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg> </button> </nav> </form> <div class="md-search__output"> <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix=""> <div class="md-search-result" data-md-component="search-result"> <div class="md-search-result__meta"> Initializing search </div> <ol class="md-search-result__list" role="presentation"></ol> </div> </div> </div> </div> </div> <div class="md-header__source"> <a href="https://github.com/navis-org/navis" title="Go to repository" class="md-source" data-md-component="source"> <div class="md-source__icon md-icon"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg> </div> <div class="md-source__repository"> navis-org/navis </div> </a> </div> </nav> <nav class="md-tabs" aria-label="Tabs" data-md-component="tabs"> <div class="md-grid"> <ul class="md-tabs__list"> <li class="md-tabs__item"> <a href="../../../.." class="md-tabs__link"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path></svg> Home </a> </li> <li class="md-tabs__item"> <a href="../../../../installation/" class="md-tabs__link"> Installation </a> </li> <li class="md-tabs__item"> <a href="../../../../quickstart/" class="md-tabs__link"> Quickstart </a> </li> <li class="md-tabs__item"> <a href="../../../../generated/gallery/" class="md-tabs__link"> Tutorials </a> </li> <li class="md-tabs__item"> <a href="../../../../ecosystem/" class="md-tabs__link"> <span style="color:rgb(250,175,3)">NAVis</span> &amp; Friends </a> </li> <li class="md-tabs__item"> <a href="../../../../publications/" class="md-tabs__link"> Publications </a> </li> <li class="md-tabs__item"> <a href="../../../../changelog/" class="md-tabs__link"> Changelog </a> </li> <li class="md-tabs__item md-tabs__item--active"> <a href="../../../../api/" class="md-tabs__link"> API Documentation </a> </li> </ul> </div> </nav> </header> <div class="md-container" data-md-component="container"> <main class="md-main" data-md-component="main"> <div class="md-main__inner md-grid"> <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation"> <div class="md-sidebar__scrollwrap"> <div class="md-sidebar__inner"> <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0"> <label class="md-nav__title" for="__drawer"> <a href="../../../.." title="navis" class="md-nav__button md-logo" aria-label="navis" data-md-component="logo"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg> </a> navis </label> <div class="md-nav__source"> <a href="https://github.com/navis-org/navis" title="Go to repository" class="md-source" data-md-component="source"> <div class="md-source__icon md-icon"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg> </div> <div class="md-source__repository"> navis-org/navis </div> </a> </div> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../../.." class="md-nav__link"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path></svg> <span class="md-ellipsis"> Home </span> </a> </li> <li class="md-nav__item"> <a href="../../../../installation/" class="md-nav__link"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m21.71 20.29-1.42 1.42a1 1 0 0 1-1.41 0L7 9.85A3.8 3.8 0 0 1 6 10a4 4 0 0 1-3.78-5.3l2.54 2.54.53-.53 1.42-1.42.53-.53L4.7 2.22A4 4 0 0 1 10 6a3.8 3.8 0 0 1-.15 1l11.86 11.88a1 1 0 0 1 0 1.41M2.29 18.88a1 1 0 0 0 0 1.41l1.42 1.42a1 1 0 0 0 1.41 0l5.47-5.46-2.83-2.83M20 2l-4 2v2l-2.17 2.17 2 2L18 8h2l2-4Z"></path></svg> <span class="md-ellipsis"> Installation </span> </a> </li> <li class="md-nav__item"> <a href="../../../../quickstart/" class="md-nav__link"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m13.13 22.19-1.63-3.83c1.57-.58 3.04-1.36 4.4-2.27zM5.64 12.5l-3.83-1.63 6.1-2.77C7 9.46 6.22 10.93 5.64 12.5M21.61 2.39S16.66.269 11 5.93c-2.19 2.19-3.5 4.6-4.35 6.71-.28.75-.09 1.57.46 2.13l2.13 2.12c.55.56 1.37.74 2.12.46A19.1 19.1 0 0 0 18.07 13c5.66-5.66 3.54-10.61 3.54-10.61m-7.07 7.07c-.78-.78-.78-2.05 0-2.83s2.05-.78 2.83 0c.77.78.78 2.05 0 2.83s-2.05.78-2.83 0m-5.66 7.07-1.41-1.41zM6.24 22l3.64-3.64c-.34-.09-.67-.24-.97-.45L4.83 22zM2 22h1.41l4.77-4.76-1.42-1.41L2 20.59zm0-2.83 4.09-4.08c-.21-.3-.36-.62-.45-.97L2 17.76z"></path></svg> <span class="md-ellipsis"> Quickstart </span> </a> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4"> <div class="md-nav__link md-nav__container"> <a href="../../../../generated/gallery/" class="md-nav__link "> <span class="md-ellipsis"> Tutorials </span> </a> <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_4"> <span class="md-nav__icon md-icon"></span> Tutorials </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2"> <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0"> <span class="md-ellipsis"> General Tutorials </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_4_2"> <span class="md-nav__icon md-icon"></span> General Tutorials </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../../../generated/gallery/tutorial_basic_00_basics/" class="md-nav__link"> <span class="md-ellipsis"> The Basics </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/tutorial_basic_01_neurons/" class="md-nav__link"> <span class="md-ellipsis"> Neuron Types </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/tutorial_basic_02_neuronlists/" class="md-nav__link"> <span class="md-ellipsis"> Lists of Neurons </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3"> <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0"> <span class="md-ellipsis"> Import / Export </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_4_3"> <span class="md-nav__icon md-icon"></span> Import / Export </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../../../generated/gallery/0_io/tutorial_io_00_skeletons/" class="md-nav__link"> <span class="md-ellipsis"> Skeletons </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/0_io/tutorial_io_01_meshes/" class="md-nav__link"> <span class="md-ellipsis"> Meshes </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/0_io/tutorial_io_02_dotprops/" class="md-nav__link"> <span class="md-ellipsis"> Dotprops </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/0_io/tutorial_io_04_pickle/" class="md-nav__link"> <span class="md-ellipsis"> Pickling </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/0_io/zzz_tutorial_io_05_skeletonize/" class="md-nav__link"> <span class="md-ellipsis"> Skeletons from light-level data </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4"> <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0"> <span class="md-ellipsis"> Plotting </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_4_4"> <span class="md-nav__icon md-icon"></span> Plotting </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../../../generated/gallery/1_plotting/tutorial_plotting_00_intro/" class="md-nav__link"> <span class="md-ellipsis"> Plotting Overview </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/1_plotting/tutorial_plotting_01_colors/" class="md-nav__link"> <span class="md-ellipsis"> Coloring </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/1_plotting/tutorial_plotting_02_1d/" class="md-nav__link"> <span class="md-ellipsis"> Neuron "Barcodes" </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/1_plotting/tutorial_plotting_03_dend/" class="md-nav__link"> <span class="md-ellipsis"> Neuron Topology </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/1_plotting/tutorial_plotting_04_skeletons/" class="md-nav__link"> <span class="md-ellipsis"> Fine-tuning Skeletons </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/1_plotting/tutorial_plotting_05_depth/" class="md-nav__link"> <span class="md-ellipsis"> Depth-coloring </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/1_plotting/tutorial_plotting_06_cortex/" class="md-nav__link"> <span class="md-ellipsis"> Cortical Neurons </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/1_plotting/tutorial_plotting_07_xkcd/" class="md-nav__link"> <span class="md-ellipsis"> XKCD Style </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_5"> <label class="md-nav__link" for="__nav_4_5" id="__nav_4_5_label" tabindex="0"> <span class="md-ellipsis"> Morphology </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_4_5"> <span class="md-nav__icon md-icon"></span> Morphology </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../../../generated/gallery/2_morpho/tutorial_morpho_00_manipulate/" class="md-nav__link"> <span class="md-ellipsis"> Manipulate Morphology </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/2_morpho/tutorial_morpho_01_analyze/" class="md-nav__link"> <span class="md-ellipsis"> Analyzing Neuron Morphology </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/2_morpho/tutorial_morpho_02_label_prop/" class="md-nav__link"> <span class="md-ellipsis"> Label Propagation </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/2_morpho/tutorial_morpho_03_ad_split/" class="md-nav__link"> <span class="md-ellipsis"> Axon-Dendrite Splits </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_6"> <label class="md-nav__link" for="__nav_4_6" id="__nav_4_6_label" tabindex="0"> <span class="md-ellipsis"> Interfaces </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_4_6"> <span class="md-nav__icon md-icon"></span> Interfaces </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../../../generated/gallery/3_interfaces/tutorial_interfaces_00_neuron/" class="md-nav__link"> <span class="md-ellipsis"> NEURON simulator </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/3_interfaces/tutorial_interfaces_01_neuron2/" class="md-nav__link"> <span class="md-ellipsis"> Visualize NEURON model </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/3_interfaces/tutorial_interfaces_02_blender/" class="md-nav__link"> <span class="md-ellipsis"> Blender 3D </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_7"> <label class="md-nav__link" for="__nav_4_7" id="__nav_4_7_label" tabindex="0"> <span class="md-ellipsis"> Remote Data Sources </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_4_7"> <span class="md-nav__icon md-icon"></span> Remote Data Sources </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../../../generated/gallery/4_remote/tutorial_remote_00_neuprint/" class="md-nav__link"> <span class="md-ellipsis"> neuPrint </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/4_remote/tutorial_remote_01_cloudvolume/" class="md-nav__link"> <span class="md-ellipsis"> Neuroglancer &amp; CloudVolume </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/4_remote/tutorial_remote_02_microns/" class="md-nav__link"> <span class="md-ellipsis"> The MICrONS Datasets </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/4_remote/tutorial_remote_03_insect_db/" class="md-nav__link"> <span class="md-ellipsis"> Insect Brain DB </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/4_remote/tutorial_remote_04_h01/" class="md-nav__link"> <span class="md-ellipsis"> H01 Dataset </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/4_remote/tutorial_remote_05_bil/" class="md-nav__link"> <span class="md-ellipsis"> Brain Image Library </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_8"> <label class="md-nav__link" for="__nav_4_8" id="__nav_4_8_label" tabindex="0"> <span class="md-ellipsis"> NBLAST </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_8_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_4_8"> <span class="md-nav__icon md-icon"></span> NBLAST </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../../../generated/gallery/5_nblast/tutorial_nblast_00_intro/" class="md-nav__link"> <span class="md-ellipsis"> NBLAST </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/5_nblast/tutorial_nblast_03_smat/" class="md-nav__link"> <span class="md-ellipsis"> Custom score matrices </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/5_nblast/zzz_tutorial_nblast_01_flycircuit/" class="md-nav__link"> <span class="md-ellipsis"> NBLAST against FlyCircuit </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/5_nblast/zzz_tutorial_nblast_02_hemibrain/" class="md-nav__link"> <span class="md-ellipsis"> NBLAST using light-level data </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_9"> <label class="md-nav__link" for="__nav_4_9" id="__nav_4_9_label" tabindex="0"> <span class="md-ellipsis"> Misc </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_9_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_4_9"> <span class="md-nav__icon md-icon"></span> Misc </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../../../generated/gallery/6_misc/tutorial_misc_00_multiprocess/" class="md-nav__link"> <span class="md-ellipsis"> Multiprocessing </span> </a> </li> <li class="md-nav__item"> <a href="../../../../generated/gallery/6_misc/tutorial_misc_01_transforms/" class="md-nav__link"> <span class="md-ellipsis"> Transformations </span> </a> </li> </ul> </nav> </li> </ul> </nav> </li> <li class="md-nav__item"> <a href="../../../../ecosystem/" class="md-nav__link"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12 21.35-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53z"></path></svg> <span class="md-ellipsis"> <span style="color:rgb(250,175,3)">NAVis</span> &amp; Friends </span> </a> </li> <li class="md-nav__item"> <a href="../../../../publications/" class="md-nav__link"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 22a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-6v7L9.5 7.5 7 9V2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2z"></path></svg> <span class="md-ellipsis"> Publications </span> </a> </li> <li class="md-nav__item"> <a href="../../../../changelog/" class="md-nav__link"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.803.179Q8.76.171 7.72.38C5.639.797 3.974 1.828 2.77 3.445 1.232 5.515.367 8.072.049 11.492c-.125 1.353.008 2.711.181 4.216a9.97 9.97 0 0 0 2.144 5.214c.933 1.157 2.004 1.917 3.272 2.324a12 12 0 0 0 3.336.574 6 6 0 0 0 .795-.034l.416-.041a93 93 0 0 0 1.721-.186 21.4 21.4 0 0 0 7.393-2.257c2.007-1.048 3.41-2.594 4.17-4.597.354-.93.523-1.713.523-2.445a4.6 4.6 0 0 0-.064-.762c-.405-2.379-1.235-4.428-2.555-6.264-1.634-2.276-3.288-3.878-5.202-5.045C13.993.86 11.89.193 9.803.18Zm-.439 1.064q1.154-.032 2.376.237h-.001c2.73.597 5.137 2.002 7.154 4.173 2.288 2.46 3.591 5.045 3.988 7.899.071.528-.013 1.114-.096 1.622-.388 2.327-1.663 4.063-3.786 5.16a21 21 0 0 1-7.166 2.182c-.558.066-1.12.123-1.757.187l-.088.01a6.8 6.8 0 0 1-1.658-.03c-.69-.098-1.472-.21-2.224-.389-1.767-.42-3.069-1.622-3.978-3.658-.684-1.538-1.038-3.245-1.081-5.233a17.9 17.9 0 0 1 1.149-6.798c.62-1.641 1.517-3.453 3.462-4.418a8.75 8.75 0 0 1 3.706-.944m1.108 1.47a7.8 7.8 0 0 0-2.24.41c-1.6.525-2.718 1.304-3.523 2.438-1.499 2.118-2.275 4.58-2.31 7.325a10.1 10.1 0 0 0 .803 4.388c1.081 2.569 3.053 4.064 5.707 4.326 2.796.27 5.543-.381 8.178-1.937a8.1 8.1 0 0 0 2.772-2.624 7.1 7.1 0 0 0 1.168-3.86c0-2.162-1.015-4.47-3.049-6.862a6.4 6.4 0 0 0-.704-.707c-2.333-2.006-4.567-2.966-6.802-2.898zm.099 1.035c1.492-.022 3.015.475 4.672 1.508 1.783 1.117 3.161 2.763 4.091 4.909.887 2.02.905 3.938.058 5.696a6.8 6.8 0 0 1-2.907 2.988c-2.253 1.232-4.315 1.776-6.458 1.713h-.022c-1.55.06-2.89-.32-4.098-1.163-.7-.488-1.241-1.202-1.655-2.183a10.9 10.9 0 0 1-.872-4.273A12.7 12.7 0 0 1 4.404 8.09a12 12 0 0 1 .874-1.622l.163-.27c.67-1.108 1.725-1.639 3.103-2.099a6.8 6.8 0 0 1 2.027-.35zm.03 1.62c-1.18.037-2.28.465-3.289 1.283-1.395 1.13-2.23 2.72-2.63 4.993a7.24 7.24 0 0 0 .676 4.613c1.062 2.054 2.8 3.11 5.026 3.05h.008c2.958-.155 5.11-1.249 6.573-3.347a5.6 5.6 0 0 0 1.06-3.245 5.8 5.8 0 0 0-.242-1.639c-.72-2.435-2.161-4.145-4.29-5.085q-1.514-.667-2.892-.624Zm.312 1.064c.77.008 1.547.191 2.35.55 1.862.833 3.073 2.332 3.598 4.462.526 2.13-.27 4.205-2.066 5.423-1.479.999-2.93 1.447-4.438 1.367h-.04c-1.004.08-1.994-.226-2.943-.91a3.67 3.67 0 0 1-1.29-1.72 7.6 7.6 0 0 1-.514-2.727 8.5 8.5 0 0 1 .747-3.38c.676-1.556 1.724-2.503 3.215-2.893q.69-.18 1.38-.172zM9.455 8.758v6.882h1.155v-1.908l1.68 1.908h1.462l-2.273-2.5 1.871-1.958h-1.509l-1.231 1.337V8.758Z"></path></svg> <span class="md-ellipsis"> Changelog </span> </a> </li> <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked=""> <div class="md-nav__link md-nav__container"> <a href="../../../../api/" class="md-nav__link "> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m15.07 11.25-.9.92C13.45 12.89 13 13.5 13 15h-2v-.5c0-1.11.45-2.11 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41a2 2 0 0 0-2-2 2 2 0 0 0-2 2H8a4 4 0 0 1 4-4 4 4 0 0 1 4 4 3.2 3.2 0 0 1-.93 2.25M13 19h-2v-2h2M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10c0-5.53-4.5-10-10-10"></path></svg> <span class="md-ellipsis"> API Documentation </span> </a> <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex=""> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true"> <label class="md-nav__title" for="__nav_8"> <span class="md-nav__icon md-icon"></span> API Documentation </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item md-nav__item--active md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1" checked=""> <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0"> <span class="md-ellipsis"> Code References </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="true"> <label class="md-nav__title" for="__nav_8_1"> <span class="md-nav__icon md-icon"></span> Code References </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item md-nav__item--active md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1" checked=""> <div class="md-nav__link md-nav__container"> <a href="../../" class="md-nav__link "> <span class="md-ellipsis"> navis </span> </a> <label class="md-nav__link " for="__nav_8_1_1" id="__nav_8_1_1_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_1_label" aria-expanded="true"> <label class="md-nav__title" for="__nav_8_1_1"> <span class="md-nav__icon md-icon"></span> navis </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../config/" class="md-nav__link"> <span class="md-ellipsis"> config </span> </a> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_2"> <div class="md-nav__link md-nav__container"> <a href="../../connectivity/" class="md-nav__link "> <span class="md-ellipsis"> connectivity </span> </a> <label class="md-nav__link " for="__nav_8_1_1_2" id="__nav_8_1_1_2_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_2_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_2"> <span class="md-nav__icon md-icon"></span> connectivity </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../connectivity/adjacency/" class="md-nav__link"> <span class="md-ellipsis"> adjacency </span> </a> </li> <li class="md-nav__item"> <a href="../../connectivity/similarity/" class="md-nav__link"> <span class="md-ellipsis"> similarity </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_3"> <div class="md-nav__link md-nav__container"> <a href="../../conversion/" class="md-nav__link "> <span class="md-ellipsis"> conversion </span> </a> <label class="md-nav__link " for="__nav_8_1_1_3" id="__nav_8_1_1_3_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_3_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_3"> <span class="md-nav__icon md-icon"></span> conversion </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../conversion/meshing/" class="md-nav__link"> <span class="md-ellipsis"> meshing </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_4"> <div class="md-nav__link md-nav__container"> <a href="../../core/" class="md-nav__link "> <span class="md-ellipsis"> core </span> </a> <label class="md-nav__link " for="__nav_8_1_1_4" id="__nav_8_1_1_4_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_4_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_4"> <span class="md-nav__icon md-icon"></span> core </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../core/base/" class="md-nav__link"> <span class="md-ellipsis"> base </span> </a> </li> <li class="md-nav__item"> <a href="../../core/core_utils/" class="md-nav__link"> <span class="md-ellipsis"> core_utils </span> </a> </li> <li class="md-nav__item"> <a href="../../core/skeleton/" class="md-nav__link"> <span class="md-ellipsis"> skeleton </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_5"> <div class="md-nav__link md-nav__container"> <a href="../../graph/" class="md-nav__link "> <span class="md-ellipsis"> graph </span> </a> <label class="md-nav__link " for="__nav_8_1_1_5" id="__nav_8_1_1_5_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_5_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_5"> <span class="md-nav__icon md-icon"></span> graph </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../graph/graph_utils/" class="md-nav__link"> <span class="md-ellipsis"> graph_utils </span> </a> </li> <li class="md-nav__item"> <a href="../../graph/clinic/" class="md-nav__link"> <span class="md-ellipsis"> clinic </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_6"> <div class="md-nav__link md-nav__container"> <a href="../../meshes/" class="md-nav__link "> <span class="md-ellipsis"> meshes </span> </a> <label class="md-nav__link " for="__nav_8_1_1_6" id="__nav_8_1_1_6_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_6_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_6"> <span class="md-nav__icon md-icon"></span> meshes </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../meshes/b3d/" class="md-nav__link"> <span class="md-ellipsis"> b3d </span> </a> </li> <li class="md-nav__item"> <a href="../../meshes/mesh_utils/" class="md-nav__link"> <span class="md-ellipsis"> mesh_utils </span> </a> </li> <li class="md-nav__item"> <a href="../../meshes/o3d/" class="md-nav__link"> <span class="md-ellipsis"> o3d </span> </a> </li> <li class="md-nav__item"> <a href="../../meshes/operations/" class="md-nav__link"> <span class="md-ellipsis"> operations </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_7"> <div class="md-nav__link md-nav__container"> <a href="../../models/" class="md-nav__link "> <span class="md-ellipsis"> models </span> </a> <label class="md-nav__link " for="__nav_8_1_1_7" id="__nav_8_1_1_7_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_7_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_7"> <span class="md-nav__icon md-icon"></span> models </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../models/network_models/" class="md-nav__link"> <span class="md-ellipsis"> network_models </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_8"> <div class="md-nav__link md-nav__container"> <a href="../../morpho/" class="md-nav__link "> <span class="md-ellipsis"> morpho </span> </a> <label class="md-nav__link " for="__nav_8_1_1_8" id="__nav_8_1_1_8_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_8_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_8"> <span class="md-nav__icon md-icon"></span> morpho </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../morpho/ivscc/" class="md-nav__link"> <span class="md-ellipsis"> ivscc </span> </a> </li> <li class="md-nav__item"> <a href="../../morpho/mmetrics/" class="md-nav__link"> <span class="md-ellipsis"> mmetrics </span> </a> </li> <li class="md-nav__item"> <a href="../../morpho/persistence/" class="md-nav__link"> <span class="md-ellipsis"> persistence </span> </a> </li> <li class="md-nav__item"> <a href="../../morpho/subset/" class="md-nav__link"> <span class="md-ellipsis"> subset </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_9"> <div class="md-nav__link md-nav__container"> <a href="../../nbl/" class="md-nav__link "> <span class="md-ellipsis"> nbl </span> </a> <label class="md-nav__link " for="__nav_8_1_1_9" id="__nav_8_1_1_9_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_9_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_9"> <span class="md-nav__icon md-icon"></span> nbl </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../nbl/ablast_funcs/" class="md-nav__link"> <span class="md-ellipsis"> ablast_funcs </span> </a> </li> <li class="md-nav__item"> <a href="../../nbl/backends/" class="md-nav__link"> <span class="md-ellipsis"> backends </span> </a> </li> <li class="md-nav__item"> <a href="../../nbl/nblast_funcs/" class="md-nav__link"> <span class="md-ellipsis"> nblast_funcs </span> </a> </li> <li class="md-nav__item"> <a href="../../nbl/smat/" class="md-nav__link"> <span class="md-ellipsis"> smat </span> </a> </li> <li class="md-nav__item"> <a href="../../nbl/synblast_funcs/" class="md-nav__link"> <span class="md-ellipsis"> synblast_funcs </span> </a> </li> <li class="md-nav__item"> <a href="../../nbl/utils/" class="md-nav__link"> <span class="md-ellipsis"> utils </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_10"> <div class="md-nav__link md-nav__container"> <a href="../../plotting/" class="md-nav__link "> <span class="md-ellipsis"> plotting </span> </a> <label class="md-nav__link " for="__nav_8_1_1_10" id="__nav_8_1_1_10_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_10_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_10"> <span class="md-nav__icon md-icon"></span> plotting </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../plotting/colors/" class="md-nav__link"> <span class="md-ellipsis"> colors </span> </a> </li> <li class="md-nav__item"> <a href="../../plotting/dd/" class="md-nav__link"> <span class="md-ellipsis"> dd </span> </a> </li> <li class="md-nav__item"> <a href="../../plotting/ddd/" class="md-nav__link"> <span class="md-ellipsis"> ddd </span> </a> </li> <li class="md-nav__item"> <a href="../../plotting/plot_utils/" class="md-nav__link"> <span class="md-ellipsis"> plot_utils </span> </a> </li> <li class="md-nav__item"> <a href="../../plotting/settings/" class="md-nav__link"> <span class="md-ellipsis"> settings </span> </a> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_10_6"> <label class="md-nav__link" for="__nav_8_1_1_10_6" id="__nav_8_1_1_10_6_label" tabindex="0"> <span class="md-ellipsis"> vispy </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_8_1_1_10_6_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_10_6"> <span class="md-nav__icon md-icon"></span> vispy </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../plotting/vispy/viewer/" class="md-nav__link"> <span class="md-ellipsis"> viewer </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_10_7"> <label class="md-nav__link" for="__nav_8_1_1_10_7" id="__nav_8_1_1_10_7_label" tabindex="0"> <span class="md-ellipsis"> k3d </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_8_1_1_10_7_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_10_7"> <span class="md-nav__icon md-icon"></span> k3d </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../plotting/k3d/k3d_objects/" class="md-nav__link"> <span class="md-ellipsis"> k3d_objects </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_10_8"> <label class="md-nav__link" for="__nav_8_1_1_10_8" id="__nav_8_1_1_10_8_label" tabindex="0"> <span class="md-ellipsis"> plotly </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_8_1_1_10_8_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_10_8"> <span class="md-nav__icon md-icon"></span> plotly </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../plotting/plotly/graph_objs/" class="md-nav__link"> <span class="md-ellipsis"> graph_objs </span> </a> </li> </ul> </nav> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_11"> <div class="md-nav__link md-nav__container"> <a href="../../transforms/" class="md-nav__link "> <span class="md-ellipsis"> transforms </span> </a> <label class="md-nav__link " for="__nav_8_1_1_11" id="__nav_8_1_1_11_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_11_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_11"> <span class="md-nav__icon md-icon"></span> transforms </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../transforms/align/" class="md-nav__link"> <span class="md-ellipsis"> align </span> </a> </li> <li class="md-nav__item"> <a href="../../transforms/affine/" class="md-nav__link"> <span class="md-ellipsis"> affine </span> </a> </li> <li class="md-nav__item"> <a href="../../transforms/backends/" class="md-nav__link"> <span class="md-ellipsis"> backends </span> </a> </li> <li class="md-nav__item"> <a href="../../transforms/base/" class="md-nav__link"> <span class="md-ellipsis"> base </span> </a> </li> <li class="md-nav__item"> <a href="../../transforms/cmtk/" class="md-nav__link"> <span class="md-ellipsis"> cmtk </span> </a> </li> <li class="md-nav__item"> <a href="../../transforms/elastix/" class="md-nav__link"> <span class="md-ellipsis"> elastix </span> </a> </li> <li class="md-nav__item"> <a href="../../transforms/factory/" class="md-nav__link"> <span class="md-ellipsis"> factory </span> </a> </li> <li class="md-nav__item"> <a href="../../transforms/h5reg/" class="md-nav__link"> <span class="md-ellipsis"> h5reg </span> </a> </li> <li class="md-nav__item"> <a href="../../transforms/templates/" class="md-nav__link"> <span class="md-ellipsis"> templates </span> </a> </li> <li class="md-nav__item"> <a href="../../transforms/thinplate/" class="md-nav__link"> <span class="md-ellipsis"> thinplate </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_12"> <div class="md-nav__link md-nav__container"> <a href="../../utils/" class="md-nav__link "> <span class="md-ellipsis"> utils </span> </a> <label class="md-nav__link " for="__nav_8_1_1_12" id="__nav_8_1_1_12_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_12_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_12"> <span class="md-nav__icon md-icon"></span> utils </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../utils/cv/" class="md-nav__link"> <span class="md-ellipsis"> cv </span> </a> </li> <li class="md-nav__item"> <a href="../../utils/decorators/" class="md-nav__link"> <span class="md-ellipsis"> decorators </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_13"> <label class="md-nav__link" for="__nav_8_1_1_13" id="__nav_8_1_1_13_label" tabindex="0"> <span class="md-ellipsis"> intersection </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_13_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_13"> <span class="md-nav__icon md-icon"></span> intersection </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../intersection/intersect/" class="md-nav__link"> <span class="md-ellipsis"> intersect </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--active md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_14" checked=""> <label class="md-nav__link" for="__nav_8_1_1_14" id="__nav_8_1_1_14_label" tabindex="0"> <span class="md-ellipsis"> interfaces </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_14_label" aria-expanded="true"> <label class="md-nav__title" for="__nav_8_1_1_14"> <span class="md-nav__icon md-icon"></span> interfaces </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../blender/" class="md-nav__link"> <span class="md-ellipsis"> blender </span> </a> </li> <li class="md-nav__item md-nav__item--active"> <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc"> <label class="md-nav__link md-nav__link--active" for="__toc"> <span class="md-ellipsis"> brain_image_library </span> <span class="md-nav__icon md-icon"></span> </label> <a href="./" class="md-nav__link md-nav__link--active"> <span class="md-ellipsis"> brain_image_library </span> </a> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class="md-nav__title" for="__toc"> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix=""> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.BILError" class="md-nav__link"> <span class="md-ellipsis"> BILError </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.clear_metadata_cache" class="md-nav__link"> <span class="md-ellipsis"> clear_metadata_cache </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.download_files" class="md-nav__link"> <span class="md-ellipsis"> download_files </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.get_dataset_url" class="md-nav__link"> <span class="md-ellipsis"> get_dataset_url </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.get_metadata" class="md-nav__link"> <span class="md-ellipsis"> get_metadata </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.get_neurons" class="md-nav__link"> <span class="md-ellipsis"> get_neurons </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.list_files" class="md-nav__link"> <span class="md-ellipsis"> list_files </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.query" class="md-nav__link"> <span class="md-ellipsis"> query </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.search" class="md-nav__link"> <span class="md-ellipsis"> search </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item"> <a href="../cave_utils/" class="md-nav__link"> <span class="md-ellipsis"> cave_utils </span> </a> </li> <li class="md-nav__item"> <a href="../h01/" class="md-nav__link"> <span class="md-ellipsis"> h01 </span> </a> </li> <li class="md-nav__item"> <a href="../insectbrain_db/" class="md-nav__link"> <span class="md-ellipsis"> insectbrain_db </span> </a> </li> <li class="md-nav__item"> <a href="../microns/" class="md-nav__link"> <span class="md-ellipsis"> microns </span> </a> </li> <li class="md-nav__item"> <a href="../neuprint/" class="md-nav__link"> <span class="md-ellipsis"> neuprint </span> </a> </li> <li class="md-nav__item"> <a href="../neuromorpho/" class="md-nav__link"> <span class="md-ellipsis"> neuromorpho </span> </a> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_14_9"> <div class="md-nav__link md-nav__container"> <a href="../neuron/" class="md-nav__link "> <span class="md-ellipsis"> neuron </span> </a> <label class="md-nav__link " for="__nav_8_1_1_14_9" id="__nav_8_1_1_14_9_label" tabindex="0"> <span class="md-nav__icon md-icon"></span> </label> </div> <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_8_1_1_14_9_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_14_9"> <span class="md-nav__icon md-icon"></span> neuron </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../neuron/comp/" class="md-nav__link"> <span class="md-ellipsis"> comp </span> </a> </li> <li class="md-nav__item"> <a href="../neuron/network/" class="md-nav__link"> <span class="md-ellipsis"> network </span> </a> </li> </ul> </nav> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_15"> <label class="md-nav__link" for="__nav_8_1_1_15" id="__nav_8_1_1_15_label" tabindex="0"> <span class="md-ellipsis"> io </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_15_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_15"> <span class="md-nav__icon md-icon"></span> io </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../io/base/" class="md-nav__link"> <span class="md-ellipsis"> base </span> </a> </li> <li class="md-nav__item"> <a href="../../io/hdf_io/" class="md-nav__link"> <span class="md-ellipsis"> hdf_io </span> </a> </li> <li class="md-nav__item"> <a href="../../io/mesh_io/" class="md-nav__link"> <span class="md-ellipsis"> mesh_io </span> </a> </li> <li class="md-nav__item"> <a href="../../io/nmx_io/" class="md-nav__link"> <span class="md-ellipsis"> nmx_io </span> </a> </li> <li class="md-nav__item"> <a href="../../io/nrrd_io/" class="md-nav__link"> <span class="md-ellipsis"> nrrd_io </span> </a> </li> <li class="md-nav__item"> <a href="../../io/precomputed_io/" class="md-nav__link"> <span class="md-ellipsis"> precomputed_io </span> </a> </li> <li class="md-nav__item"> <a href="../../io/rda_io/" class="md-nav__link"> <span class="md-ellipsis"> rda_io </span> </a> </li> <li class="md-nav__item"> <a href="../../io/swc_io/" class="md-nav__link"> <span class="md-ellipsis"> swc_io </span> </a> </li> <li class="md-nav__item"> <a href="../../io/tiff_io/" class="md-nav__link"> <span class="md-ellipsis"> tiff_io </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_1_16"> <label class="md-nav__link" for="__nav_8_1_1_16" id="__nav_8_1_1_16_label" tabindex="0"> <span class="md-ellipsis"> sampling </span> <span class="md-nav__icon md-icon"></span> </label> <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_1_16_label" aria-expanded="false"> <label class="md-nav__title" for="__nav_8_1_1_16"> <span class="md-nav__icon md-icon"></span> sampling </label> <ul class="md-nav__list" data-md-scrollfix=""> <li class="md-nav__item"> <a href="../../sampling/downsampling/" class="md-nav__link"> <span class="md-ellipsis"> downsampling </span> </a> </li> </ul> </nav> </li> </ul> </nav> </li> </ul> </nav> </li> </ul> </nav> </li> </ul> </nav> </div> </div> </div> <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc"> <div class="md-sidebar__scrollwrap"> <div class="md-sidebar__inner"> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class="md-nav__title" for="__toc"> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix=""> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.BILError" class="md-nav__link"> <span class="md-ellipsis"> BILError </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.clear_metadata_cache" class="md-nav__link"> <span class="md-ellipsis"> clear_metadata_cache </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.download_files" class="md-nav__link"> <span class="md-ellipsis"> download_files </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.get_dataset_url" class="md-nav__link"> <span class="md-ellipsis"> get_dataset_url </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.get_metadata" class="md-nav__link"> <span class="md-ellipsis"> get_metadata </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.get_neurons" class="md-nav__link"> <span class="md-ellipsis"> get_neurons </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.list_files" class="md-nav__link"> <span class="md-ellipsis"> list_files </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.query" class="md-nav__link"> <span class="md-ellipsis"> query </span> </a> </li> <li class="md-nav__item"> <a href="#navis.interfaces.brain_image_library.search" class="md-nav__link"> <span class="md-ellipsis"> search </span> </a> </li> </ul> </nav> </div> </div> </div> <div class="md-content" data-md-component="content"> <article class="md-content__inner md-typeset"> <h1>brain_image_library</h1> <div class="doc doc-object doc-class"> <h2 id="navis.interfaces.brain_image_library.BILError" class="doc doc-heading"> <code>navis.interfaces.brain_image_library.BILError</code> <a href="#navis.interfaces.brain_image_library.BILError" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Raised when the Brain Image Library API returns an error.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/brain_image_library.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">85</span>
+<span class="normal">86</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">BILError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Raised when the Brain Image Library API returns an error."""</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.brain_image_library.clear_metadata_cache" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">brain_image_library</span><span class="o">.</span><span class="n">clear_metadata_cache</span></code> <a href="#navis.interfaces.brain_image_library.clear_metadata_cache" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Clear the in-process metadata cache.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/brain_image_library.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">351</span>
+<span class="normal">352</span>
+<span class="normal">353</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">clear_metadata_cache</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Clear the in-process metadata cache."""</span>
+    <span class="n">_META_CACHE</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.brain_image_library.download_files" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">brain_image_library</span><span class="o">.</span><span class="n">download_files</span></code> <a href="#navis.interfaces.brain_image_library.download_files" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Download files from a BIL dataset.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Dataset ID ("bildid"), or the output of
+        [`navis.interfaces.brain_image_library.list_files`][] - in
+        which case exactly those files are downloaded.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str | pandas.DataFrame</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>filepath</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Directory to download to. The dataset's directory structure
+        is preserved underneath it.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str | pathlib.Path</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>pattern</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Only download files matching this glob, e.g. `"*.swc"`.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_size</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Refuse to download more than this in total (e.g. `"10G"`).
+        BIL hosts datasets of hundreds of terabytes - this is here
+        to stop you pulling one by accident. Set to `None` to
+        disable the check.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code><span title="navis.interfaces.brain_image_library.DEFAULT_MAX_DOWNLOAD">DEFAULT_MAX_DOWNLOAD</span></code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>skip_existing</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Skip files that already exist locally.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>parallel</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Whether to download in parallel.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_threads</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Max number of parallel threads to use.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>4</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>**kwargs</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Passed to [`navis.interfaces.brain_image_library.list_files`][].
+</code></pre></div> </div> <p> <span class="doc-param-default"> <b>DEFAULT:</b> <code>{}</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="pandas">pandas</span>.<span title="pandas.DataFrame">DataFrame</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>The file table with an added <code>filepath</code> column.</p> </div> </td> </tr> </tbody> </table> <p><span class="doc-section-title">Examples:</span></p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">navis.interfaces.brain_image_library</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bil</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">files</span> <span class="o">=</span> <span class="n">bil</span><span class="o">.</span><span class="n">download_files</span><span class="p">(</span><span class="s1">'ace-boo-van'</span><span class="p">,</span> <span class="s1">'~/bil'</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="s1">'*.swc'</span><span class="p">)</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/brain_image_library.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
+<span class="normal">1046</span>
+<span class="normal">1047</span>
+<span class="normal">1048</span>
+<span class="normal">1049</span>
+<span class="normal">1050</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span>
+<span class="normal">1058</span>
+<span class="normal">1059</span>
+<span class="normal">1060</span>
+<span class="normal">1061</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span>
+<span class="normal">1064</span>
+<span class="normal">1065</span>
+<span class="normal">1066</span>
+<span class="normal">1067</span>
+<span class="normal">1068</span>
+<span class="normal">1069</span>
+<span class="normal">1070</span>
+<span class="normal">1071</span>
+<span class="normal">1072</span>
+<span class="normal">1073</span>
+<span class="normal">1074</span>
+<span class="normal">1075</span>
+<span class="normal">1076</span>
+<span class="normal">1077</span>
+<span class="normal">1078</span>
+<span class="normal">1079</span>
+<span class="normal">1080</span>
+<span class="normal">1081</span>
+<span class="normal">1082</span>
+<span class="normal">1083</span>
+<span class="normal">1084</span>
+<span class="normal">1085</span>
+<span class="normal">1086</span>
+<span class="normal">1087</span>
+<span class="normal">1088</span>
+<span class="normal">1089</span>
+<span class="normal">1090</span>
+<span class="normal">1091</span>
+<span class="normal">1092</span>
+<span class="normal">1093</span>
+<span class="normal">1094</span>
+<span class="normal">1095</span>
+<span class="normal">1096</span>
+<span class="normal">1097</span>
+<span class="normal">1098</span>
+<span class="normal">1099</span>
+<span class="normal">1100</span>
+<span class="normal">1101</span>
+<span class="normal">1102</span>
+<span class="normal">1103</span>
+<span class="normal">1104</span>
+<span class="normal">1105</span>
+<span class="normal">1106</span>
+<span class="normal">1107</span>
+<span class="normal">1108</span>
+<span class="normal">1109</span>
+<span class="normal">1110</span>
+<span class="normal">1111</span>
+<span class="normal">1112</span>
+<span class="normal">1113</span>
+<span class="normal">1114</span>
+<span class="normal">1115</span>
+<span class="normal">1116</span>
+<span class="normal">1117</span>
+<span class="normal">1118</span>
+<span class="normal">1119</span>
+<span class="normal">1120</span>
+<span class="normal">1121</span>
+<span class="normal">1122</span>
+<span class="normal">1123</span>
+<span class="normal">1124</span>
+<span class="normal">1125</span>
+<span class="normal">1126</span>
+<span class="normal">1127</span>
+<span class="normal">1128</span>
+<span class="normal">1129</span>
+<span class="normal">1130</span>
+<span class="normal">1131</span>
+<span class="normal">1132</span>
+<span class="normal">1133</span>
+<span class="normal">1134</span>
+<span class="normal">1135</span>
+<span class="normal">1136</span>
+<span class="normal">1137</span>
+<span class="normal">1138</span>
+<span class="normal">1139</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">download_files</span><span class="p">(</span>
+    <span class="n">x</span><span class="p">,</span>
+    <span class="n">filepath</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+    <span class="n">pattern</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">max_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_MAX_DOWNLOAD</span><span class="p">,</span>
+    <span class="n">skip_existing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">parallel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Download files from a BIL dataset.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    x :             str | pandas.DataFrame</span>
+<span class="sd">                    Dataset ID ("bildid"), or the output of</span>
+<span class="sd">                    [`navis.interfaces.brain_image_library.list_files`][] - in</span>
+<span class="sd">                    which case exactly those files are downloaded.</span>
+<span class="sd">    filepath :      str | pathlib.Path</span>
+<span class="sd">                    Directory to download to. The dataset's directory structure</span>
+<span class="sd">                    is preserved underneath it.</span>
+<span class="sd">    pattern :       str, optional</span>
+<span class="sd">                    Only download files matching this glob, e.g. `"*.swc"`.</span>
+<span class="sd">    max_size :      str, optional</span>
+<span class="sd">                    Refuse to download more than this in total (e.g. `"10G"`).</span>
+<span class="sd">                    BIL hosts datasets of hundreds of terabytes - this is here</span>
+<span class="sd">                    to stop you pulling one by accident. Set to `None` to</span>
+<span class="sd">                    disable the check.</span>
+<span class="sd">    skip_existing : bool</span>
+<span class="sd">                    Skip files that already exist locally.</span>
+<span class="sd">    parallel :      bool</span>
+<span class="sd">                    Whether to download in parallel.</span>
+<span class="sd">    max_threads :   int</span>
+<span class="sd">                    Max number of parallel threads to use.</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">                    Passed to [`navis.interfaces.brain_image_library.list_files`][].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pandas.DataFrame</span>
+<span class="sd">                    The file table with an added `filepath` column.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import navis.interfaces.brain_image_library as bil</span>
+<span class="sd">    &gt;&gt;&gt; files = bil.download_files('ace-boo-van', '~/bil', pattern='*.swc')   # doctest: +SKIP</span>
+
+<span class="sd">    """</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="n">x</span> <span class="k">if</span> <span class="n">_is_file_table</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">else</span> <span class="n">list_files</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="n">pattern</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">_is_file_table</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">and</span> <span class="n">pattern</span><span class="p">:</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="n">files</span><span class="p">[[</span><span class="n">fnmatch</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">files</span><span class="o">.</span><span class="n">name</span><span class="p">]]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No files to download."</span><span class="p">)</span>
+
+    <span class="c1"># Guardrail. Note `list_files` may legitimately have been called with</span>
+    <span class="c1"># `force=True`, so this is an independent check.</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">files</span><span class="p">[</span><span class="s2">"size"</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">max_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">limit</span> <span class="o">=</span> <span class="n">_parse_size</span><span class="p">(</span><span class="n">max_size</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">limit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not parse `max_size='</span><span class="si">{</span><span class="n">max_size</span><span class="si">}</span><span class="s2">'`."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="n">limit</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Downloading these </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> files would fetch "</span>
+                <span class="sa">f</span><span class="s2">"~</span><span class="si">{</span><span class="n">utils</span><span class="o">.</span><span class="n">sizeof_fmt</span><span class="p">(</span><span class="n">total</span><span class="p">)</span><span class="si">}</span><span class="s2">, which exceeds `max_size=</span><span class="si">{</span><span class="n">max_size</span><span class="si">}</span><span class="s2">`.</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="s2">"Your options:</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="s2">"  - narrow the selection with `pattern=...`</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="s2">"  - raise `max_size` or set it to `None` to disable this check</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="sa">f</span><span class="s2">"  - </span><span class="si">{</span><span class="n">_HELP_GLOBUS</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+    <span class="n">filepath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+
+    <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">files</span><span class="o">.</span><span class="n">itertuples</span><span class="p">():</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">filepath</span> <span class="o">/</span> <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">directory</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span> <span class="o">/</span> <span class="n">row</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="n">files</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">filepath</span><span class="o">=</span><span class="n">targets</span><span class="p">)</span>
+
+    <span class="n">todo</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">filepath</span><span class="p">),</span> <span class="n">row</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">files</span><span class="o">.</span><span class="n">itertuples</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">skip_existing</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">filepath</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">())</span>
+    <span class="p">]</span>
+
+    <span class="n">n_skipped</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">todo</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_skipped</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Skipping </span><span class="si">{</span><span class="n">n_skipped</span><span class="si">}</span><span class="s2"> file(s) that already exist."</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">todo</span><span class="p">:</span>
+        <span class="n">todo_bytes</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">s</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">todo</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">pd</span><span class="o">.</span><span class="n">isnull</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+        <span class="k">with</span> <span class="n">config</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span>
+            <span class="n">desc</span><span class="o">=</span><span class="s2">"Downloading"</span><span class="p">,</span>
+            <span class="n">total</span><span class="o">=</span><span class="n">todo_bytes</span> <span class="k">if</span> <span class="n">todo_bytes</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">unit</span><span class="o">=</span><span class="s2">"B"</span><span class="p">,</span>
+            <span class="n">unit_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">leave</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">pbar_leave</span><span class="p">,</span>
+            <span class="n">disable</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">pbar_hide</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span>
+                <span class="n">max_workers</span><span class="o">=</span><span class="mi">1</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">parallel</span> <span class="k">else</span> <span class="n">max_threads</span>
+            <span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+                <span class="n">futures</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">_download_file</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">pbar</span><span class="p">):</span> <span class="n">url</span>
+                    <span class="k">for</span> <span class="n">url</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">todo</span>
+                <span class="p">}</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>  <span class="c1"># raise any exception</span>
+
+    <span class="k">return</span> <span class="n">files</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.brain_image_library.get_dataset_url" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">brain_image_library</span><span class="o">.</span><span class="n">get_dataset_url</span></code> <a href="#navis.interfaces.brain_image_library.get_dataset_url" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Return the download URL(s) for the given dataset(s).</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Dataset ID(s) ("bildid").
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str | list of str | pandas.DataFrame</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>If a single dataset was requested.</p> </div> </td> </tr> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code>list of str</code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>If multiple datasets were requested.</p> </div> </td> </tr> </tbody> </table> <p><span class="doc-section-title">Examples:</span></p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">navis.interfaces.brain_image_library</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bil</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">bil</span><span class="o">.</span><span class="n">get_dataset_url</span><span class="p">(</span><span class="s1">'ace-boo-van'</span><span class="p">)</span>
+<span class="go">'https://download.brainimagelibrary.org/22/5c/225c37cacfbd897c/'</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/brain_image_library.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">613</span>
+<span class="normal">614</span>
+<span class="normal">615</span>
+<span class="normal">616</span>
+<span class="normal">617</span>
+<span class="normal">618</span>
+<span class="normal">619</span>
+<span class="normal">620</span>
+<span class="normal">621</span>
+<span class="normal">622</span>
+<span class="normal">623</span>
+<span class="normal">624</span>
+<span class="normal">625</span>
+<span class="normal">626</span>
+<span class="normal">627</span>
+<span class="normal">628</span>
+<span class="normal">629</span>
+<span class="normal">630</span>
+<span class="normal">631</span>
+<span class="normal">632</span>
+<span class="normal">633</span>
+<span class="normal">634</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_dataset_url</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Return the download URL(s) for the given dataset(s).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    x :         str | list of str | pandas.DataFrame</span>
+<span class="sd">                Dataset ID(s) ("bildid").</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">                If a single dataset was requested.</span>
+<span class="sd">    list of str</span>
+<span class="sd">                If multiple datasets were requested.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import navis.interfaces.brain_image_library as bil</span>
+<span class="sd">    &gt;&gt;&gt; bil.get_dataset_url('ace-boo-van')</span>
+<span class="sd">    'https://download.brainimagelibrary.org/22/5c/225c37cacfbd897c/'</span>
+
+<span class="sd">    """</span>
+    <span class="n">ids</span> <span class="o">=</span> <span class="n">_extract_ids</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">meta</span> <span class="o">=</span> <span class="n">get_metadata</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>
+
+    <span class="n">urls</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">bildid</span><span class="p">,</span> <span class="n">url</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">bildid</span><span class="p">,</span> <span class="n">meta</span><span class="o">.</span><span class="n">url</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">url</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">BILError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Dataset '</span><span class="si">{</span><span class="n">bildid</span><span class="si">}</span><span class="s2">' has no public download directory "</span>
+                <span class="s2">"(it may be embargoed or not yet released)."</span>
+            <span class="p">)</span>
+        <span class="n">urls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">urls</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">urls</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.brain_image_library.get_metadata" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">brain_image_library</span><span class="o">.</span><span class="n">get_metadata</span></code> <a href="#navis.interfaces.brain_image_library.get_metadata" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Fetch metadata for one or more BIL datasets.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        The dataset ID(s) ("bildid"). Can also be a DataFrame with
+        a `bildid` column, e.g. the output of
+        [`navis.interfaces.brain_image_library.search`][].
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str | list of str | pandas.DataFrame</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>raw</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        If True, return the raw (nested) JSON records instead of a
+        DataFrame. Use this to get at the `Assets`, `Contributors`
+        and `Publication` divisions which do not survive
+        flattening intact.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>parallel</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Whether to fetch in parallel.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_threads</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Max number of parallel threads to use.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>4</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>chunk_size</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Number of datasets to request per call.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>100</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="pandas">pandas</span>.<span title="pandas.DataFrame">DataFrame</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>One row per dataset. <code>Specimen</code> entries are collapsed: a field is a scalar if all specimens agree and a tuple otherwise. <code>n_specimens</code> always tells you how many there actually were.</p> </div> </td> </tr> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code>list of dict</code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>If <code>raw=True</code>.</p> </div> </td> </tr> </tbody> </table> <p><span class="doc-section-title">Examples:</span></p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">navis.interfaces.brain_image_library</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bil</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">meta</span> <span class="o">=</span> <span class="n">bil</span><span class="o">.</span><span class="n">get_metadata</span><span class="p">(</span><span class="s1">'ace-boo-van'</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">meta</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="go">'Single neuron reconstruction from fMOST images'</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/brain_image_library.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span>
+<span class="normal">522</span>
+<span class="normal">523</span>
+<span class="normal">524</span>
+<span class="normal">525</span>
+<span class="normal">526</span>
+<span class="normal">527</span>
+<span class="normal">528</span>
+<span class="normal">529</span>
+<span class="normal">530</span>
+<span class="normal">531</span>
+<span class="normal">532</span>
+<span class="normal">533</span>
+<span class="normal">534</span>
+<span class="normal">535</span>
+<span class="normal">536</span>
+<span class="normal">537</span>
+<span class="normal">538</span>
+<span class="normal">539</span>
+<span class="normal">540</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span>
+<span class="normal">550</span>
+<span class="normal">551</span>
+<span class="normal">552</span>
+<span class="normal">553</span>
+<span class="normal">554</span>
+<span class="normal">555</span>
+<span class="normal">556</span>
+<span class="normal">557</span>
+<span class="normal">558</span>
+<span class="normal">559</span>
+<span class="normal">560</span>
+<span class="normal">561</span>
+<span class="normal">562</span>
+<span class="normal">563</span>
+<span class="normal">564</span>
+<span class="normal">565</span>
+<span class="normal">566</span>
+<span class="normal">567</span>
+<span class="normal">568</span>
+<span class="normal">569</span>
+<span class="normal">570</span>
+<span class="normal">571</span>
+<span class="normal">572</span>
+<span class="normal">573</span>
+<span class="normal">574</span>
+<span class="normal">575</span>
+<span class="normal">576</span>
+<span class="normal">577</span>
+<span class="normal">578</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata</span><span class="p">(</span>
+    <span class="n">x</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">raw</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">parallel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Fetch metadata for one or more BIL datasets.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    x :             str | list of str | pandas.DataFrame</span>
+<span class="sd">                    The dataset ID(s) ("bildid"). Can also be a DataFrame with</span>
+<span class="sd">                    a `bildid` column, e.g. the output of</span>
+<span class="sd">                    [`navis.interfaces.brain_image_library.search`][].</span>
+<span class="sd">    raw :           bool</span>
+<span class="sd">                    If True, return the raw (nested) JSON records instead of a</span>
+<span class="sd">                    DataFrame. Use this to get at the `Assets`, `Contributors`</span>
+<span class="sd">                    and `Publication` divisions which do not survive</span>
+<span class="sd">                    flattening intact.</span>
+<span class="sd">    parallel :      bool</span>
+<span class="sd">                    Whether to fetch in parallel.</span>
+<span class="sd">    max_threads :   int</span>
+<span class="sd">                    Max number of parallel threads to use.</span>
+<span class="sd">    chunk_size :    int</span>
+<span class="sd">                    Number of datasets to request per call.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pandas.DataFrame</span>
+<span class="sd">                    One row per dataset. `Specimen` entries are collapsed: a</span>
+<span class="sd">                    field is a scalar if all specimens agree and a tuple</span>
+<span class="sd">                    otherwise. `n_specimens` always tells you how many there</span>
+<span class="sd">                    actually were.</span>
+<span class="sd">    list of dict</span>
+<span class="sd">                    If `raw=True`.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import navis.interfaces.brain_image_library as bil</span>
+<span class="sd">    &gt;&gt;&gt; meta = bil.get_metadata('ace-boo-van')</span>
+<span class="sd">    &gt;&gt;&gt; meta.title.values[0]</span>
+<span class="sd">    'Single neuron reconstruction from fMOST images'</span>
+
+<span class="sd">    """</span>
+    <span class="n">ids</span> <span class="o">=</span> <span class="n">_extract_ids</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ids</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Got no dataset IDs to fetch metadata for."</span><span class="p">)</span>
+
+    <span class="n">_retrieve</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span><span class="p">,</span> <span class="n">max_threads</span><span class="o">=</span><span class="n">max_threads</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="n">chunk_size</span><span class="p">)</span>
+
+    <span class="n">records</span> <span class="o">=</span> <span class="p">[</span><span class="n">_META_CACHE</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ids</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">_META_CACHE</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">records</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">BILError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No metadata found for: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">raw</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">records</span>
+
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_records</span><span class="p">([</span><span class="n">_flatten_record</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">records</span><span class="p">])</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.brain_image_library.get_neurons" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">brain_image_library</span><span class="o">.</span><span class="n">get_neurons</span></code> <a href="#navis.interfaces.brain_image_library.get_neurons" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Fetch neuron reconstructions from a BIL dataset.</p> <p>Skeletons are streamed straight into memory - nothing is written to disk. Use <a class="autorefs autorefs-internal" title="navis.interfaces.brain_image_library.download_files" href="#navis.interfaces.brain_image_library.download_files"><code>navis.interfaces.brain_image_library.download_files</code></a> if you want the files themselves.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Dataset ID ("bildid"), or the output of
+        [`navis.interfaces.brain_image_library.list_files`][] - in
+        which case exactly those files are loaded. The latter lets
+        you inspect what you are about to fetch first.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str | pandas.DataFrame</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>pattern</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Which files to read. Defaults to `"*.swc"`.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>'*.swc'</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_neurons</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Cap the number of neurons fetched.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>parallel</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Whether to fetch in parallel.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_threads</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Max number of parallel threads to use.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>4</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>**kwargs</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Passed to [`navis.read_swc`][]. Note that BIL does not
+        reliably record the units of its reconstructions - pass
+        e.g. `units='um'` if you know them. The `image.stepsizex`
+        field in the metadata (e.g. "0.35 micron/pixel") tells you
+        the voxel size if the coordinates are in voxels.
+</code></pre></div> </div> <p> <span class="doc-param-default"> <b>DEFAULT:</b> <code>{}</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="navis">navis</span>.<a class="autorefs autorefs-internal" title="navis.NeuronList" href="../../#navis.NeuronList">NeuronList</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <p><span class="doc-section-title">Examples:</span></p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">navis.interfaces.brain_image_library</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bil</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Look before you leap</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">files</span> <span class="o">=</span> <span class="n">bil</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="s1">'ace-boo-van'</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="s1">'*.swc'</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nl</span> <span class="o">=</span> <span class="n">bil</span><span class="o">.</span><span class="n">get_neurons</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="n">max_neurons</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">nl</span><span class="p">)</span>
+<span class="go">5</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/brain_image_library.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1149</span>
+<span class="normal">1150</span>
+<span class="normal">1151</span>
+<span class="normal">1152</span>
+<span class="normal">1153</span>
+<span class="normal">1154</span>
+<span class="normal">1155</span>
+<span class="normal">1156</span>
+<span class="normal">1157</span>
+<span class="normal">1158</span>
+<span class="normal">1159</span>
+<span class="normal">1160</span>
+<span class="normal">1161</span>
+<span class="normal">1162</span>
+<span class="normal">1163</span>
+<span class="normal">1164</span>
+<span class="normal">1165</span>
+<span class="normal">1166</span>
+<span class="normal">1167</span>
+<span class="normal">1168</span>
+<span class="normal">1169</span>
+<span class="normal">1170</span>
+<span class="normal">1171</span>
+<span class="normal">1172</span>
+<span class="normal">1173</span>
+<span class="normal">1174</span>
+<span class="normal">1175</span>
+<span class="normal">1176</span>
+<span class="normal">1177</span>
+<span class="normal">1178</span>
+<span class="normal">1179</span>
+<span class="normal">1180</span>
+<span class="normal">1181</span>
+<span class="normal">1182</span>
+<span class="normal">1183</span>
+<span class="normal">1184</span>
+<span class="normal">1185</span>
+<span class="normal">1186</span>
+<span class="normal">1187</span>
+<span class="normal">1188</span>
+<span class="normal">1189</span>
+<span class="normal">1190</span>
+<span class="normal">1191</span>
+<span class="normal">1192</span>
+<span class="normal">1193</span>
+<span class="normal">1194</span>
+<span class="normal">1195</span>
+<span class="normal">1196</span>
+<span class="normal">1197</span>
+<span class="normal">1198</span>
+<span class="normal">1199</span>
+<span class="normal">1200</span>
+<span class="normal">1201</span>
+<span class="normal">1202</span>
+<span class="normal">1203</span>
+<span class="normal">1204</span>
+<span class="normal">1205</span>
+<span class="normal">1206</span>
+<span class="normal">1207</span>
+<span class="normal">1208</span>
+<span class="normal">1209</span>
+<span class="normal">1210</span>
+<span class="normal">1211</span>
+<span class="normal">1212</span>
+<span class="normal">1213</span>
+<span class="normal">1214</span>
+<span class="normal">1215</span>
+<span class="normal">1216</span>
+<span class="normal">1217</span>
+<span class="normal">1218</span>
+<span class="normal">1219</span>
+<span class="normal">1220</span>
+<span class="normal">1221</span>
+<span class="normal">1222</span>
+<span class="normal">1223</span>
+<span class="normal">1224</span>
+<span class="normal">1225</span>
+<span class="normal">1226</span>
+<span class="normal">1227</span>
+<span class="normal">1228</span>
+<span class="normal">1229</span>
+<span class="normal">1230</span>
+<span class="normal">1231</span>
+<span class="normal">1232</span>
+<span class="normal">1233</span>
+<span class="normal">1234</span>
+<span class="normal">1235</span>
+<span class="normal">1236</span>
+<span class="normal">1237</span>
+<span class="normal">1238</span>
+<span class="normal">1239</span>
+<span class="normal">1240</span>
+<span class="normal">1241</span>
+<span class="normal">1242</span>
+<span class="normal">1243</span>
+<span class="normal">1244</span>
+<span class="normal">1245</span>
+<span class="normal">1246</span>
+<span class="normal">1247</span>
+<span class="normal">1248</span>
+<span class="normal">1249</span>
+<span class="normal">1250</span>
+<span class="normal">1251</span>
+<span class="normal">1252</span>
+<span class="normal">1253</span>
+<span class="normal">1254</span>
+<span class="normal">1255</span>
+<span class="normal">1256</span>
+<span class="normal">1257</span>
+<span class="normal">1258</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_neurons</span><span class="p">(</span>
+    <span class="n">x</span><span class="p">,</span>
+    <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"*.swc"</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">max_neurons</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">parallel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NeuronList</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Fetch neuron reconstructions from a BIL dataset.</span>
+
+<span class="sd">    Skeletons are streamed straight into memory - nothing is written to disk.</span>
+<span class="sd">    Use [`navis.interfaces.brain_image_library.download_files`][] if you want</span>
+<span class="sd">    the files themselves.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    x :             str | pandas.DataFrame</span>
+<span class="sd">                    Dataset ID ("bildid"), or the output of</span>
+<span class="sd">                    [`navis.interfaces.brain_image_library.list_files`][] - in</span>
+<span class="sd">                    which case exactly those files are loaded. The latter lets</span>
+<span class="sd">                    you inspect what you are about to fetch first.</span>
+<span class="sd">    pattern :       str</span>
+<span class="sd">                    Which files to read. Defaults to `"*.swc"`.</span>
+<span class="sd">    max_neurons :   int, optional</span>
+<span class="sd">                    Cap the number of neurons fetched.</span>
+<span class="sd">    parallel :      bool</span>
+<span class="sd">                    Whether to fetch in parallel.</span>
+<span class="sd">    max_threads :   int</span>
+<span class="sd">                    Max number of parallel threads to use.</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">                    Passed to [`navis.read_swc`][]. Note that BIL does not</span>
+<span class="sd">                    reliably record the units of its reconstructions - pass</span>
+<span class="sd">                    e.g. `units='um'` if you know them. The `image.stepsizex`</span>
+<span class="sd">                    field in the metadata (e.g. "0.35 micron/pixel") tells you</span>
+<span class="sd">                    the voxel size if the coordinates are in voxels.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    navis.NeuronList</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import navis.interfaces.brain_image_library as bil</span>
+<span class="sd">    &gt;&gt;&gt; # Look before you leap</span>
+<span class="sd">    &gt;&gt;&gt; files = bil.list_files('ace-boo-van', pattern='*.swc')</span>
+<span class="sd">    &gt;&gt;&gt; nl = bil.get_neurons(files, max_neurons=5)</span>
+<span class="sd">    &gt;&gt;&gt; len(nl)</span>
+<span class="sd">    5</span>
+
+<span class="sd">    """</span>
+    <span class="c1"># Split off the kwargs meant for `list_files` - the rest go to `read_swc`</span>
+    <span class="n">list_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">_LIST_FILES_KWARGS</span><span class="p">}</span>
+
+    <span class="c1"># Note we deliberately crawl *without* the pattern and filter afterwards:</span>
+    <span class="c1"># it costs no extra requests and means we can tell the user which file types</span>
+    <span class="c1"># the dataset actually contains if nothing matches.</span>
+    <span class="n">available</span> <span class="o">=</span> <span class="n">x</span> <span class="k">if</span> <span class="n">_is_file_table</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">else</span> <span class="n">list_files</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">**</span><span class="n">list_kwargs</span><span class="p">)</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="n">available</span><span class="p">[[</span><span class="n">fnmatch</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">available</span><span class="o">.</span><span class="n">name</span><span class="p">]]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">):</span>
+        <span class="c1"># An empty listing is a different problem from "no *.swc in here" and</span>
+        <span class="c1"># warrants a different hint: the dataset may be empty, but far more</span>
+        <span class="c1"># likely the crawl was blocked or the listing didn't get that deep.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">available</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The file listing for this dataset is empty - there is nothing "</span>
+                <span class="s2">"to load. If you passed a dataset ID, try inspecting it with "</span>
+                <span class="s2">"`list_files()` first: the crawl may have been cut short (see "</span>
+                <span class="s2">"`max_depth`/`max_files`/`max_requests`) or the BIL download "</span>
+                <span class="s2">"server may be unreachable."</span>
+            <span class="p">)</span>
+
+        <span class="n">found</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">Path</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">available</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">Path</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span><span class="p">})</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">'No files matching "</span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s1">" in this dataset.'</span>
+            <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">" File types present: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">found</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span> <span class="k">if</span> <span class="n">found</span> <span class="k">else</span> <span class="s2">""</span><span class="p">)</span>
+            <span class="o">+</span> <span class="s2">" Note that BIL cell morphology datasets often ship Vaa3D "</span>
+            <span class="s2">"reconstructions (.eswc, .ano, .apo) instead of plain SWC - navis "</span>
+            <span class="s2">"cannot read those directly."</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">max_neurons</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_neurons</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Restricting to the first </span><span class="si">{</span><span class="n">max_neurons</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span><span class="si">}</span><span class="s2"> files."</span>
+        <span class="p">)</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="n">files</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="n">max_neurons</span><span class="p">]</span>
+
+    <span class="n">urls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">files</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+
+    <span class="c1"># Pass `max_threads` explicitly so that the caller controls the number of</span>
+    <span class="c1"># threads we hit the BIL servers with. `read_swc` takes care of `name` and</span>
+    <span class="c1"># `origin` (it parses them from the URL).</span>
+    <span class="n">nl</span> <span class="o">=</span> <span class="n">read_swc</span><span class="p">(</span><span class="n">urls</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="n">max_threads</span> <span class="k">if</span> <span class="n">parallel</span> <span class="k">else</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="c1"># A dataset is one cell more often than not, so a bare file name is rarely</span>
+    <span class="c1"># unique across datasets. Give each neuron a composite id and keep the</span>
+    <span class="c1"># dataset it came from - neither is something navis can derive itself.</span>
+    <span class="c1"># Order is preserved, but check to be safe.</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nl</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">neuron</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nl</span><span class="p">,</span> <span class="n">files</span><span class="o">.</span><span class="n">itertuples</span><span class="p">()):</span>
+            <span class="n">neuron</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">row</span><span class="o">.</span><span class="n">bildid</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">Path</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span><span class="si">}</span><span class="s2">"</span>
+            <span class="n">neuron</span><span class="o">.</span><span class="n">bildid</span> <span class="o">=</span> <span class="n">row</span><span class="o">.</span><span class="n">bildid</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">"Could not match neurons back to their source files - `id` and "</span>
+            <span class="s2">"`bildid` may be missing."</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">nl</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.brain_image_library.list_files" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">brain_image_library</span><span class="o">.</span><span class="n">list_files</span></code> <a href="#navis.interfaces.brain_image_library.list_files" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>List the files in a BIL dataset.</p> <p>This works by crawling the dataset's directory listing. Note that BIL hosts datasets with over a million files - see the guardrails below.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Dataset ID(s) ("bildid"), or a DataFrame with a `bildid`
+        column. Note that BIL often splits a collection into one
+        small dataset per cell, so listing several at once is a
+        perfectly normal thing to do.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str | list of str | pandas.DataFrame</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>pattern</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Only return files matching this glob, e.g. `"*.swc"`.
+        Note this filters the *results*: we still have to visit
+        every directory to see what is in it, so a pattern does
+        not make crawling a huge dataset any cheaper.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>recursive</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Whether to descend into subdirectories.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_depth</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        How deep to descend. BIL layouts are shallow.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>3</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_files</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Stop after this many files (per dataset).
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>10000</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_requests</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Stop after this many directory listings (per dataset).
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>500</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>force</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        BIL hosts datasets of hundreds of terabytes and millions of
+        files. By default we refuse to crawl anything larger than
+        `SIZE_WARN_GB`/`FILE_WARN_COUNT`. Set True to override.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>parallel</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Whether to crawl in parallel.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_threads</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Max number of parallel threads to use.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>4</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="pandas">pandas</span>.<span title="pandas.DataFrame">DataFrame</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Columns: <code>name</code>, <code>url</code>, <code>size</code> (bytes), <code>last_modified</code>, <code>directory</code>, <code>depth</code> and <code>bildid</code>. Datasets are returned in the order they were requested. Feed this straight into <a class="autorefs autorefs-internal" title="navis.interfaces.brain_image_library.get_neurons" href="#navis.interfaces.brain_image_library.get_neurons"><code>navis.interfaces.brain_image_library.get_neurons</code></a> or <a class="autorefs autorefs-internal" title="navis.interfaces.brain_image_library.download_files" href="#navis.interfaces.brain_image_library.download_files"><code>navis.interfaces.brain_image_library.download_files</code></a>.</p> </div> </td> </tr> </tbody> </table> <p><span class="doc-section-title">Examples:</span></p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">navis.interfaces.brain_image_library</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bil</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">files</span> <span class="o">=</span> <span class="n">bil</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="s1">'ace-boo-van'</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="s1">'*.swc'</span><span class="p">)</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/brain_image_library.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">774</span>
+<span class="normal">775</span>
+<span class="normal">776</span>
+<span class="normal">777</span>
+<span class="normal">778</span>
+<span class="normal">779</span>
+<span class="normal">780</span>
+<span class="normal">781</span>
+<span class="normal">782</span>
+<span class="normal">783</span>
+<span class="normal">784</span>
+<span class="normal">785</span>
+<span class="normal">786</span>
+<span class="normal">787</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span>
+<span class="normal">791</span>
+<span class="normal">792</span>
+<span class="normal">793</span>
+<span class="normal">794</span>
+<span class="normal">795</span>
+<span class="normal">796</span>
+<span class="normal">797</span>
+<span class="normal">798</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span>
+<span class="normal">809</span>
+<span class="normal">810</span>
+<span class="normal">811</span>
+<span class="normal">812</span>
+<span class="normal">813</span>
+<span class="normal">814</span>
+<span class="normal">815</span>
+<span class="normal">816</span>
+<span class="normal">817</span>
+<span class="normal">818</span>
+<span class="normal">819</span>
+<span class="normal">820</span>
+<span class="normal">821</span>
+<span class="normal">822</span>
+<span class="normal">823</span>
+<span class="normal">824</span>
+<span class="normal">825</span>
+<span class="normal">826</span>
+<span class="normal">827</span>
+<span class="normal">828</span>
+<span class="normal">829</span>
+<span class="normal">830</span>
+<span class="normal">831</span>
+<span class="normal">832</span>
+<span class="normal">833</span>
+<span class="normal">834</span>
+<span class="normal">835</span>
+<span class="normal">836</span>
+<span class="normal">837</span>
+<span class="normal">838</span>
+<span class="normal">839</span>
+<span class="normal">840</span>
+<span class="normal">841</span>
+<span class="normal">842</span>
+<span class="normal">843</span>
+<span class="normal">844</span>
+<span class="normal">845</span>
+<span class="normal">846</span>
+<span class="normal">847</span>
+<span class="normal">848</span>
+<span class="normal">849</span>
+<span class="normal">850</span>
+<span class="normal">851</span>
+<span class="normal">852</span>
+<span class="normal">853</span>
+<span class="normal">854</span>
+<span class="normal">855</span>
+<span class="normal">856</span>
+<span class="normal">857</span>
+<span class="normal">858</span>
+<span class="normal">859</span>
+<span class="normal">860</span>
+<span class="normal">861</span>
+<span class="normal">862</span>
+<span class="normal">863</span>
+<span class="normal">864</span>
+<span class="normal">865</span>
+<span class="normal">866</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">list_files</span><span class="p">(</span>
+    <span class="n">x</span><span class="p">,</span>
+    <span class="n">pattern</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="n">max_files</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10_000</span><span class="p">,</span>
+    <span class="n">max_requests</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+    <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">parallel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""List the files in a BIL dataset.</span>
+
+<span class="sd">    This works by crawling the dataset's directory listing. Note that BIL</span>
+<span class="sd">    hosts datasets with over a million files - see the guardrails below.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    x :             str | list of str | pandas.DataFrame</span>
+<span class="sd">                    Dataset ID(s) ("bildid"), or a DataFrame with a `bildid`</span>
+<span class="sd">                    column. Note that BIL often splits a collection into one</span>
+<span class="sd">                    small dataset per cell, so listing several at once is a</span>
+<span class="sd">                    perfectly normal thing to do.</span>
+<span class="sd">    pattern :       str, optional</span>
+<span class="sd">                    Only return files matching this glob, e.g. `"*.swc"`.</span>
+<span class="sd">                    Note this filters the *results*: we still have to visit</span>
+<span class="sd">                    every directory to see what is in it, so a pattern does</span>
+<span class="sd">                    not make crawling a huge dataset any cheaper.</span>
+<span class="sd">    recursive :     bool</span>
+<span class="sd">                    Whether to descend into subdirectories.</span>
+<span class="sd">    max_depth :     int</span>
+<span class="sd">                    How deep to descend. BIL layouts are shallow.</span>
+<span class="sd">    max_files :     int</span>
+<span class="sd">                    Stop after this many files (per dataset).</span>
+<span class="sd">    max_requests :  int</span>
+<span class="sd">                    Stop after this many directory listings (per dataset).</span>
+<span class="sd">    force :         bool</span>
+<span class="sd">                    BIL hosts datasets of hundreds of terabytes and millions of</span>
+<span class="sd">                    files. By default we refuse to crawl anything larger than</span>
+<span class="sd">                    `SIZE_WARN_GB`/`FILE_WARN_COUNT`. Set True to override.</span>
+<span class="sd">    parallel :      bool</span>
+<span class="sd">                    Whether to crawl in parallel.</span>
+<span class="sd">    max_threads :   int</span>
+<span class="sd">                    Max number of parallel threads to use.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pandas.DataFrame</span>
+<span class="sd">                    Columns: `name`, `url`, `size` (bytes), `last_modified`,</span>
+<span class="sd">                    `directory`, `depth` and `bildid`. Datasets are returned in</span>
+<span class="sd">                    the order they were requested. Feed this straight into</span>
+<span class="sd">                    [`navis.interfaces.brain_image_library.get_neurons`][] or</span>
+<span class="sd">                    [`navis.interfaces.brain_image_library.download_files`][].</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import navis.interfaces.brain_image_library as bil</span>
+<span class="sd">    &gt;&gt;&gt; files = bil.list_files('ace-boo-van', pattern='*.swc')</span>
+
+<span class="sd">    """</span>
+    <span class="n">ids</span> <span class="o">=</span> <span class="n">_extract_ids</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ids</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Got no dataset IDs to list files for."</span><span class="p">)</span>
+
+    <span class="c1"># Fetch metadata for all datasets up front (one round-trip) so that the</span>
+    <span class="c1"># per-dataset crawls below hit the cache.</span>
+    <span class="n">get_metadata</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span><span class="p">,</span> <span class="n">max_threads</span><span class="o">=</span><span class="n">max_threads</span><span class="p">)</span>
+
+    <span class="n">frames</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">with</span> <span class="n">config</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span>
+        <span class="n">desc</span><span class="o">=</span><span class="s2">"Listing datasets"</span><span class="p">,</span>
+        <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">),</span>
+        <span class="n">leave</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">pbar_leave</span><span class="p">,</span>
+        <span class="n">disable</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">pbar_hide</span><span class="p">,</span>
+    <span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">bildid</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">:</span>
+            <span class="n">frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">_list_files_single</span><span class="p">(</span>
+                    <span class="n">bildid</span><span class="p">,</span>
+                    <span class="n">pattern</span><span class="o">=</span><span class="n">pattern</span><span class="p">,</span>
+                    <span class="n">recursive</span><span class="o">=</span><span class="n">recursive</span><span class="p">,</span>
+                    <span class="n">max_depth</span><span class="o">=</span><span class="n">max_depth</span><span class="p">,</span>
+                    <span class="n">max_files</span><span class="o">=</span><span class="n">max_files</span><span class="p">,</span>
+                    <span class="n">max_requests</span><span class="o">=</span><span class="n">max_requests</span><span class="p">,</span>
+                    <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span>
+                    <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span><span class="p">,</span>
+                    <span class="n">max_threads</span><span class="o">=</span><span class="n">max_threads</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.brain_image_library.query" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">brain_image_library</span><span class="o">.</span><span class="n">query</span></code> <a href="#navis.interfaces.brain_image_library.query" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Run a single raw query against the BIL metadata API.</p> <p>This is a low-level escape hatch for division/element combinations not covered by <a class="autorefs autorefs-internal" title="navis.interfaces.brain_image_library.search" href="#navis.interfaces.brain_image_library.search"><code>navis.interfaces.brain_image_library.search</code></a>. No validation is performed on <code>division</code>/<code>element</code>.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>division</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    The metadata division, e.g. "dataset" or "specimen".
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>element</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    The metadata element to search, e.g. "generalmodality".
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>value</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    The value to search for. Note that BIL matches values
+    *exactly* - there is no substring or fuzzy matching.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code>list of str</code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>The IDs ("bildids") of matching datasets. Empty if no match.</p> </div> </td> </tr> </tbody> </table> <p><span class="doc-section-title">Examples:</span></p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">navis.interfaces.brain_image_library</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bil</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ids</span> <span class="o">=</span> <span class="n">bil</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">'dataset'</span><span class="p">,</span> <span class="s1">'generalmodality'</span><span class="p">,</span> <span class="s1">'cell morphology'</span><span class="p">)</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/brain_image_library.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">query</span><span class="p">(</span><span class="n">division</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">element</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Run a single raw query against the BIL metadata API.</span>
+
+<span class="sd">    This is a low-level escape hatch for division/element combinations not</span>
+<span class="sd">    covered by [`navis.interfaces.brain_image_library.search`][]. No validation</span>
+<span class="sd">    is performed on `division`/`element`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    division :  str</span>
+<span class="sd">                The metadata division, e.g. "dataset" or "specimen".</span>
+<span class="sd">    element :   str</span>
+<span class="sd">                The metadata element to search, e.g. "generalmodality".</span>
+<span class="sd">    value :     str</span>
+<span class="sd">                The value to search for. Note that BIL matches values</span>
+<span class="sd">                *exactly* - there is no substring or fuzzy matching.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of str</span>
+<span class="sd">                The IDs ("bildids") of matching datasets. Empty if no match.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import navis.interfaces.brain_image_library as bil</span>
+<span class="sd">    &gt;&gt;&gt; ids = bil.query('dataset', 'generalmodality', 'cell morphology')</span>
+
+<span class="sd">    """</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">make_url</span><span class="p">(</span><span class="n">BASEURL</span><span class="p">,</span> <span class="s2">"query"</span><span class="p">,</span> <span class="o">*</span><span class="nb">str</span><span class="p">(</span><span class="n">division</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"/"</span><span class="p">),</span> <span class="o">**</span><span class="p">{</span><span class="n">element</span><span class="p">:</span> <span class="n">value</span><span class="p">})</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">_get_json</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"bildids"</span><span class="p">,</span> <span class="p">[]))</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.brain_image_library.search" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">brain_image_library</span><span class="o">.</span><span class="n">search</span></code> <a href="#navis.interfaces.brain_image_library.search" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Search BIL for datasets matching the given criteria.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>limit</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Cap the number of datasets returned.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>metadata</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        If True (default), fetch full metadata for the hits and
+        return it as a DataFrame. If False, return just the IDs -
+        much faster if you only need the IDs.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>parallel</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Whether to run the individual queries in parallel.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>max_threads</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Max number of parallel threads to use.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>4</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>**filters</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Search criteria as `field=value`. See
+        [`navis.interfaces.brain_image_library.FIELDS`][] for the
+        available fields.
+
+        Note the semantics:
+
+        - across fields the filters are combined with **AND**
+        - within a field, multiple values are combined with **OR**
+          (e.g. `species=['mouse', 'rat']`)
+
+        Values must match **exactly** - BIL does no substring or
+        fuzzy matching. Use `text=...` for a full-text search.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="typing.Iterable" href="https://docs.python.org/3/library/typing.html#typing.Iterable">Iterable</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]]</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>{}</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="pandas">pandas</span>.<span title="pandas.DataFrame">DataFrame</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>One row per dataset. Feed this straight into <a class="autorefs autorefs-internal" title="navis.interfaces.brain_image_library.get_neurons" href="#navis.interfaces.brain_image_library.get_neurons"><code>navis.interfaces.brain_image_library.get_neurons</code></a> or <a class="autorefs autorefs-internal" title="navis.interfaces.brain_image_library.list_files" href="#navis.interfaces.brain_image_library.list_files"><code>navis.interfaces.brain_image_library.list_files</code></a>.</p> </div> </td> </tr> </tbody> </table> <p><span class="doc-section-title">Examples:</span></p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">navis.interfaces.brain_image_library</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bil</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Find mouse single-neuron reconstructions</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ds</span> <span class="o">=</span> <span class="n">bil</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">species</span><span class="o">=</span><span class="s1">'mouse'</span><span class="p">,</span> <span class="n">generalmodality</span><span class="o">=</span><span class="s1">'cell morphology'</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Full-text search</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ds</span> <span class="o">=</span> <span class="n">bil</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s1">'barrel cortex'</span><span class="p">)</span>
+</code></pre></div> <p>Note that <code>class</code> is a Python keyword and hence can't be used as a keyword argument. Pass it as a dict instead:</p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ds</span> <span class="o">=</span> <span class="n">bil</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="s1">'class'</span><span class="p">:</span> <span class="s1">'somevalue'</span><span class="p">})</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/brain_image_library.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">parallel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">filters</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Search BIL for datasets matching the given criteria.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    limit :         int, optional</span>
+<span class="sd">                    Cap the number of datasets returned.</span>
+<span class="sd">    metadata :      bool</span>
+<span class="sd">                    If True (default), fetch full metadata for the hits and</span>
+<span class="sd">                    return it as a DataFrame. If False, return just the IDs -</span>
+<span class="sd">                    much faster if you only need the IDs.</span>
+<span class="sd">    parallel :      bool</span>
+<span class="sd">                    Whether to run the individual queries in parallel.</span>
+<span class="sd">    max_threads :   int</span>
+<span class="sd">                    Max number of parallel threads to use.</span>
+<span class="sd">    **filters</span>
+<span class="sd">                    Search criteria as `field=value`. See</span>
+<span class="sd">                    [`navis.interfaces.brain_image_library.FIELDS`][] for the</span>
+<span class="sd">                    available fields.</span>
+
+<span class="sd">                    Note the semantics:</span>
+
+<span class="sd">                    - across fields the filters are combined with **AND**</span>
+<span class="sd">                    - within a field, multiple values are combined with **OR**</span>
+<span class="sd">                      (e.g. `species=['mouse', 'rat']`)</span>
+
+<span class="sd">                    Values must match **exactly** - BIL does no substring or</span>
+<span class="sd">                    fuzzy matching. Use `text=...` for a full-text search.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pandas.DataFrame</span>
+<span class="sd">                    One row per dataset. Feed this straight into</span>
+<span class="sd">                    [`navis.interfaces.brain_image_library.get_neurons`][] or</span>
+<span class="sd">                    [`navis.interfaces.brain_image_library.list_files`][].</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import navis.interfaces.brain_image_library as bil</span>
+<span class="sd">    &gt;&gt;&gt; # Find mouse single-neuron reconstructions</span>
+<span class="sd">    &gt;&gt;&gt; ds = bil.search(species='mouse', generalmodality='cell morphology')</span>
+<span class="sd">    &gt;&gt;&gt; # Full-text search</span>
+<span class="sd">    &gt;&gt;&gt; ds = bil.search(text='barrel cortex')</span>
+
+<span class="sd">    Note that `class` is a Python keyword and hence can't be used as a keyword</span>
+<span class="sd">    argument. Pass it as a dict instead:</span>
+
+<span class="sd">    &gt;&gt;&gt; ds = bil.search(**{'class': 'somevalue'})                # doctest: +SKIP</span>
+
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">filters</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"`search` requires at least one filter, e.g. `search(species='mouse')`. "</span>
+            <span class="s2">"See `brain_image_library.FIELDS` for available fields."</span>
+        <span class="p">)</span>
+
+    <span class="n">_check_fields</span><span class="p">(</span><span class="n">filters</span><span class="p">)</span>
+
+    <span class="c1"># Flatten to a list of (division, element, value) jobs</span>
+    <span class="n">jobs</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">FIELDS</span><span class="p">[</span><span class="n">field</span><span class="p">],</span> <span class="n">field</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">filters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">utils</span><span class="o">.</span><span class="n">make_iterable</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="c1"># OR within a field, AND across fields</span>
+    <span class="n">per_field</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">set</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">f</span><span class="p">:</span> <span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">filters</span><span class="p">}</span>
+    <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="mi">1</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">parallel</span> <span class="k">else</span> <span class="n">max_threads</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">{</span><span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">div</span><span class="p">,</span> <span class="n">el</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span> <span class="n">el</span> <span class="k">for</span> <span class="n">div</span><span class="p">,</span> <span class="n">el</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">jobs</span><span class="p">}</span>
+        <span class="k">with</span> <span class="n">config</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span>
+            <span class="n">desc</span><span class="o">=</span><span class="s2">"Querying"</span><span class="p">,</span>
+            <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span>
+            <span class="n">leave</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">pbar_leave</span><span class="p">,</span>
+            <span class="n">disable</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">pbar_hide</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">):</span>
+                <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">per_field</span><span class="p">[</span><span class="n">futures</span><span class="p">[</span><span class="n">f</span><span class="p">]]</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">())</span>
+
+    <span class="n">ids</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="o">*</span><span class="n">per_field</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ids</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">"No datasets matched. Note that BIL matches values *exactly* - "</span>
+            <span class="s2">"check spelling and capitalisation, or try a full-text search "</span>
+            <span class="s2">"via `search(text=...)`."</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"bildid"</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">limit</span><span class="p">:</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="n">ids</span><span class="p">[:</span><span class="n">limit</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"bildid"</span><span class="p">:</span> <span class="n">ids</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">get_metadata</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span><span class="p">,</span> <span class="n">max_threads</span><span class="o">=</span><span class="n">max_threads</span><span class="p">)</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class="md-footer"> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class="md-copyright"> Made with <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener"> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class="md-dialog" data-md-component="dialog"> <div class="md-dialog__inner md-typeset"></div> </div> <div class="md-progress" data-md-component="progress" role="progressbar"></div> <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["content.tabs.link", "content.code.annotate", "navigation.indexes", "navigation.instant", "navigation.instant.progress", "navigation.tabs", "navigation.tabs.sticky", "content.code.copy"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script> <script src="../../../../assets/javascripts/bundle.d7400e89.min.js"></script> <script src="../../../../assets/_markdown_exec_pyodide.js"></script> <script src="../../../../javascripts/katex.js"></script> <script src="../../../../assets/external/unpkg.com/katex@0/dist/katex.min.js"></script> <script src="../../../../assets/external/unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script> <script src="../../../../assets/external/unpkg.com/mermaid@11/dist/mermaid.min.js"></script>  <script id="init-glightbox">document.querySelectorAll('.glightbox').forEach(function(element) {
+    try {
+        var img = element.querySelector('img');
+        if (img && img.src) {
+            element.setAttribute('href', img.src);
+        } else {
+            console.log('No img element with src attribute found');
+        }
+    } catch (error) {
+        console.log('Error:', error);
+    }
+});
+const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(()=>{ lightbox.reload(); });
+</script></body></html>
