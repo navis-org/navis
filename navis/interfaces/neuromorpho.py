@@ -40,7 +40,9 @@ HEADERS.update(
 
 # In the past there were some issues with neuromorpho's SSL certificate
 # This is not recommended but you can switch off verification here
-VERIFY = bool(os.environ.get('NAVIS_NEUROMORPHO_VERIFY', True))
+VERIFY = str(os.environ.get('NAVIS_NEUROMORPHO_VERIFY', 'True')).lower() not in (
+    'false', '0', 'no', 'off', ''
+)
 
 
 def find_neurons(page_limit: Optional[int] = None,
@@ -91,7 +93,9 @@ def find_neurons(page_limit: Optional[int] = None,
     # Load the first page to get the total number of pages
     resp = requests.post(f'{url}?page=0', json=filters, headers=HEADERS, verify=VERIFY)
     content = resp.json()
-    total_pages = content['page']['totalPages'] - 1
+    # `totalPages` is a count (pages 0 .. totalPages-1); we've already fetched
+    # page 0 and the loop below fetches pages 1 .. page_limit-1
+    total_pages = content['page']['totalPages']
     page_limit = min(page_limit, total_pages)
     data += content['_embedded']['neuronResources']
 
@@ -312,7 +316,9 @@ def get_available_field_values(field: str) -> List[str]:
 
             data += content['fields']
 
-            if page == content['page']['totalPages']:
+            # Pages are 0-indexed and `totalPages` is a count, so the last
+            # valid page is totalPages - 1
+            if page >= content['page']['totalPages'] - 1:
                 break
 
             pbar.total = content['page']['totalPages']

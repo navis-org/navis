@@ -529,7 +529,7 @@ def roots_to_mat(
         else:
             raise MaterializationMatchError(msg)
 
-    if dataset not in ("public, "):
+    if dataset != "public":
         raise MaterializationMatchError(
             "Given root IDs do not (co-)exist in any of the available "
             "materialization versions (including live). Try updating "

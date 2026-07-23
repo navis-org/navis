@@ -373,7 +373,7 @@ def __fetch_mesh(bodyId, *, vol, lod, missing_mesh="raise"):
         if "not found" in str(err):
             if missing_mesh in ["warn", "skip"]:
                 if missing_mesh == "warn":
-                    logger.warning(f"No mesh found for {r.bodyId}")
+                    logger.warning(f"No mesh found for {bodyId}")
                 return
             else:
                 raise

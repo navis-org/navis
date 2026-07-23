@@ -59,7 +59,9 @@ class Session:
         self.password = password
 
         self.token = token
-        self.created_at = created_at
+        # Use the setter so that `_token_created_at` is always initialised
+        # (otherwise `token_expired` raises AttributeError)
+        self.token_created_at = created_at
 
     @property
     def token_expired(self):

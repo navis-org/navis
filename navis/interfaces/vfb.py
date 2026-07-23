@@ -250,7 +250,8 @@ def get_skeletons(x, template=None, max_threads=5, verbose=True):
 def _fetch_single_skeleton(img, **kwargs):
     """Fetch a single skeleton. Intended to be wrapped by ThreadPoolExecutor."""
     # Fetch the SWC table (oddly this seems to stall occasionally)
-    r = requests.get(img['image_folder'] + '/volume.swc')
+    r = requests.get(img['image_folder'] + '/volume.swc', timeout=30)
+    r.raise_for_status()
     swc = pd.read_csv(StringIO(r.content.decode()),
                       sep=' ', comment='#', header=None)
     swc.columns = ['node_id', 'label',

@@ -109,7 +109,7 @@ def generate_network(x, layout='fruchterman-rheingold', apply_style=True,
 
     if layout not in cy.layout.get_all() + [None]:
         raise ValueError('Unknown layout. Available options: '
-                         ', '.join(cy.layout.get_all()))
+                         + ', '.join(cy.layout.get_all()))
 
     # Clear session
     if clear_session:
