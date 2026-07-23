@@ -73,7 +73,7 @@ def points2skeleton(x: Union['core.Dotprops', np.ndarray],
     if isinstance(x, core.Dotprops):
         pts = x.points
     else:
-        if (x.ndim != 2) and (x.shape[1] != 3):
+        if (x.ndim != 2) or (x.shape[1] != 3):
             raise ValueError(f'Points must be shape (N, 3), got {x.shape}')
         pts = x
 
@@ -711,12 +711,15 @@ def neuron2voxels(x: 'core.BaseNeuron',
 
     # Get unique voxels
     uni, inv = np.unique(ix, axis=0, return_inverse=True)
+    inv = np.asarray(inv).ravel()
+
+    # Pre-group points by voxel so we don't rescan all points each iteration
+    # (the old `pts[inv == i]` was O(n_voxels * n_points))
+    counts = np.bincount(inv, minlength=len(uni))
+    groups = np.split(pts[np.argsort(inv, kind='stable')], np.cumsum(counts)[:-1])
 
     # Go over each voxel
-    for i in range(len(uni)):
-        # Get points in this voxel
-        pt = pts[inv == i]
-
+    for i, pt in enumerate(groups):
         # Reshape
         pt = pt.reshape(1, -1, 3)
 
@@ -744,8 +747,8 @@ def neuron2voxels(x: 'core.BaseNeuron',
 
     if vectors:
         n.vectors = vects
-    if alpha:
-        n.alphas = alpha
+    if alphas:
+        n.alphas = alph
 
     return n
 
