@@ -410,7 +410,7 @@ class H5transform(BaseTransform):
             if "affine" in field.attrs:
                 # The affine part of the transform is a 4 x 4 matrix where the upper
                 # 3 x 4 part (row x columns) is an attribute of the h5 dataset
-                M = np.ones((4, 4))
+                M = np.eye(4)
                 M[:3, :4] = field.attrs["affine"].reshape(3, 4)
                 affine = AffineTransform(M)
             else:
@@ -646,7 +646,7 @@ class H5transform(BaseTransform):
                     qmult = float(ds.attrs.get("quantization_multiplier", 1))
 
                     if "affine" in ds.attrs:
-                        affine = np.ones((4, 4), dtype=np.float64)
+                        affine = np.eye(4, dtype=np.float64)
                         affine[:3, :4] = ds.attrs["affine"].reshape(3, 4)
                         apply_affine = 1 if reg_inv.direction == "inverse" else 2
                     else:
