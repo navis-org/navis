@@ -576,7 +576,8 @@ class NeuronList:
     def __or__(self, other):
         """Implement bitwise OR using the | operator."""
         if isinstance(other, core.BaseNeuron):
-            neurons = self.neurons
+            # Copy the list so we don't mutate `self` in place
+            neurons = list(self.neurons)
             if not any(n == other for n in neurons):
                 neurons.append(other)
             return self.__class__(neurons, make_copy=self.copy_on_subset)
@@ -725,7 +726,8 @@ class NeuronList:
 
         indices = list(range(len(self.neurons)))
         random.shuffle(indices)
-        return self.__class__([n for i, n in enumerate(self.neurons) if i in indices[:N]],
+        keep = set(indices[:N])
+        return self.__class__([n for i, n in enumerate(self.neurons) if i in keep],
                               make_copy=self.copy_on_subset)
 
     def plot3d(self, **kwargs):

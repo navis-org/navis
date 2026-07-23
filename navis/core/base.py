@@ -267,9 +267,12 @@ class BaseNeuron(UnitObject):
             # discrepancy -> this saves tons of time!
             for at in self.EQ_ATTRIBUTES:
                 comp = getattr(self, at, None) == getattr(other, at, None)
-                if isinstance(comp, np.ndarray) and not all(comp):
-                    return False
-                elif comp is False:
+                if isinstance(comp, np.ndarray):
+                    if not comp.all():
+                        return False
+                # `not comp` also catches numpy scalars (np.bool_(False) is
+                # not False, so the old `comp is False` check missed them)
+                elif not comp:
                     return False
             # If all comparisons have passed, return True
             return True
@@ -815,7 +818,7 @@ class BaseNeuron(UnitObject):
                             size += dt.itemsize * v.shape[0]
                 elif isinstance(v, pd.Series):
                     if isinstance(v.dtype, pd.CategoricalDtype):
-                        size += len(dt.categories) * dt.itemsize
+                        size += len(v.dtype.categories) * v.dtype.itemsize
                     else:
                         size += v.dtype.itemsize * v.shape[0]
 
