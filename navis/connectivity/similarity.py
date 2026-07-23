@@ -483,4 +483,8 @@ def _calc_synapse_similarity(cnA: pd.DataFrame,
         part2 = np.exp(-1 * (closest_dist**2) / (2 * sigma**2))
         all_values += (part1 * part2).tolist()
 
+    # No shared connector types -> no similarity
+    if not all_values:
+        return 0
+
     return sum(all_values) / len(all_values)

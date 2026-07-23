@@ -123,7 +123,7 @@ def matching_pipeline(scores: pd.DataFrame,
         if isinstance(N, slice) or N >= 1:
             matches = get_top_N_matches(x, scores=scores, N=N)
         else:
-            matches = get_top_score_matches(x, scores=scores, N=N)
+            matches = get_top_score_matches(x, scores=scores, min_score=N)
         # Stop if no matches given the criteria
         if matches.empty:
             print(f'No match candidates found for {x}')

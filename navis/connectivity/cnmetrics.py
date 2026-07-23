@@ -111,7 +111,7 @@ def connectivity_sparseness(x: Union[pd.DataFrame, np.ndarray],
     elif which == 'LTS':
         return 1 / (1 - (1 / N)) * (1 - np.nansum(x / N, axis=0) ** 2 / np.nansum(x**2 / N, axis=0))
     elif which == 'activity_ratio':
-        a = (np.nansum(x, axis=0) / N) ** 2 / (np.nansum(x, axis=0) ** 2 / N)
+        a = (np.nansum(x, axis=0) / N) ** 2 / (np.nansum(x**2, axis=0) / N)
         return 1 - a
     else:
         raise ValueError('Parameter "which" must be either "LTS", "LTK" or '

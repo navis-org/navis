@@ -196,7 +196,7 @@ def bipartite_match(scores: pd.DataFrame,
             left_ix, right_ix = scipy.optimize.linear_sum_assignment(scores_final, maximize=True)
 
             # Drop matches that have effectively minus infinity scores
-            is_above = scores_final.values[left_ix, right_ix] > 1e-10
+            is_above = scores_final.values[left_ix, right_ix] > -1e10
             left_ix, right_ix = left_ix[is_above], right_ix[is_above]
 
             # Convert to row/column names
@@ -208,7 +208,7 @@ def bipartite_match(scores: pd.DataFrame,
             missing = np.array(list(set(scores_final.columns) - set(right_id)))
 
             # We can only rematch neurons that have a possible match to begin with
-            missing = missing[scores_final[missing].max(axis=0) > 1e-10]
+            missing = missing[scores_final[missing].max(axis=0) > -1e10]
 
             # Transpose matrix
             scores_final = scores_final.T

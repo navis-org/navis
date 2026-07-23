@@ -356,11 +356,14 @@ class BuiltinBackend(NblastBackend):
             mask = scr >= sel.reshape(-1, 1)
         else:
             srt = np.argsort(scr.values, axis=1)[:, ::-1]
-            mask = pd.DataFrame(np.zeros(scr.shape, dtype=bool),
-                                columns=scr.columns, index=scr.index)
-            _ = np.arange(mask.shape[0])
+            # Build the mask with numpy fancy indexing (pointwise). Using
+            # `DataFrame.iloc[rows, cols]` here would do cross-product (block)
+            # indexing and mark far too many cells.
+            mask_arr = np.zeros(scr.shape, dtype=bool)
+            _ = np.arange(mask_arr.shape[0])
             for N in range(t):
-                mask.iloc[_, srt[:, N]] = True
+                mask_arr[_, srt[:, N]] = True
+            mask = pd.DataFrame(mask_arr, columns=scr.columns, index=scr.index)
 
         # --- Full NBLAST on the selected pairs --- #
         query_self_hits = np.array([nb.calc_self_hit(n) for n in query_dps])
