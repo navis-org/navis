@@ -284,7 +284,7 @@ class H5ReaderV1(BaseH5Reader):
             return {}
 
         if isinstance(annotations, bool):
-            annotations = [k for k, grp in an_grp.items() if isinstance(grp, type(h5py.Group))]
+            annotations = [k for k, grp in an_grp.items() if isinstance(grp, h5py.Group)]
         else:
             annotations = utils.make_iterable(annotations)
 
@@ -390,7 +390,9 @@ class H5ReaderV1(BaseH5Reader):
                             name=neuron_grp.attrs.get('neuron_name'))
 
         if 'skeleton_map' in me_grp:
-            n.skeleton_map = me_grp['skeleton_map']
+            # [:] materializes the array; without it we'd store a live h5py
+            # Dataset that becomes a dangling handle once the file is closed
+            n.skeleton_map = me_grp['skeleton_map'][:]
 
         # Check if we have units
         self.parse_add_units(me_grp, neuron_grp, n)
@@ -856,7 +858,7 @@ def read_h5(filepath: str,
     else:
         # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
-            n_cores = os.cpu_count() - 2
+            n_cores = max(1, (os.cpu_count() or 2) - 2)
         else:
             n_cores = int(parallel)
 

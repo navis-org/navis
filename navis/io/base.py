@@ -14,6 +14,7 @@
 import io
 import os
 import re
+import fnmatch
 import tarfile
 import datetime
 import requests
@@ -1569,7 +1570,7 @@ def parallel_read_archive(
     if parallel:
         # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
-            n_cores = max(1, os.cpu_count() // 2)
+            n_cores = max(1, (os.cpu_count() or 1) // 2)
         else:
             n_cores = int(parallel)
 
@@ -1709,7 +1710,7 @@ def parallel_read_ftp(
     if parallel:
         # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
-            n_cores = max(1, os.cpu_count() // 2)
+            n_cores = max(1, (os.cpu_count() or 1) // 2)
         else:
             n_cores = int(parallel)
 
@@ -1899,7 +1900,7 @@ def parallel_read_gs(
         content = gcsfs.ls(p.replace('gs://', ''), detail=False)
 
         # Parse content into filenames
-        to_read = []
+        # Note: do NOT reset `to_read` here - it accumulates across all paths
         for line in content:
             if not line:
                 continue
@@ -1915,7 +1916,7 @@ def parallel_read_gs(
                     to_read.append(fp)
                 elif file_ext and file.endswith(file_ext):
                     to_read.append(fp)
-            elif re.match(file, pattern):
+            elif fnmatch.fnmatch(file, pattern):
                 to_read.append(fp)
 
     if isinstance(limit, int):
