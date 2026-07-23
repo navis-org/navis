@@ -158,14 +158,13 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
                              leave=config.pbar_leave):
             matching_indices.append(_distributor(c))
 
-    # Create empty scores matrix
+    # Create scores matrix. `matching_indices` is already in
+    # `product(neurons, neurons)` (row-major) order, so we can reshape it
+    # directly instead of doing N**2 individual `.at` assignments.
     neurons = adjacency.index.values
-    matching_scores = pd.DataFrame(np.zeros((len(neurons), len(neurons))),
-                                   index=neurons, columns=neurons)
-    # Populate scores matrix
-    comb_id = product(neurons, neurons)
-    for i, v in enumerate(comb_id):
-        matching_scores.at[v[0], v[1]] = matching_indices[i]
+    matching_scores = pd.DataFrame(
+        np.asarray(matching_indices).reshape(len(neurons), len(neurons)),
+        index=neurons, columns=neurons)
 
     return matching_scores
 
