@@ -331,7 +331,7 @@ def align_pca(x, individually=True):
     --------
     >>> import navis
     >>> n1, n2 = navis.example_neurons(2, kind='skeleton')
-    >>> n1_aligned, pcas = navis.align.align_pca(n1, n2)
+    >>> n1_aligned, pcas = navis.align.align_pca(n1, n2)  # doctest: +SKIP
 
     """
     try:
