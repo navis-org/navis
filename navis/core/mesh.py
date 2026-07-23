@@ -201,7 +201,7 @@ class MeshNeuron(BaseNeuron):
                 warnings.simplefilter("ignore")
                 n.units = (n.units * other).to_compact()
 
-            self._clear_temp_attr()
+            n._clear_temp_attr()
 
             return n
         return NotImplemented
@@ -224,7 +224,7 @@ class MeshNeuron(BaseNeuron):
                 warnings.simplefilter("ignore")
                 n.units = (n.units / other).to_compact()
 
-            self._clear_temp_attr()
+            n._clear_temp_attr()
 
             return n
         return NotImplemented
@@ -239,7 +239,7 @@ class MeshNeuron(BaseNeuron):
                 # connector coordinates can be cast to float if necessary
                 n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] + other
 
-            self._clear_temp_attr()
+            n._clear_temp_attr()
 
             return n
         # If another neuron, return a list of neurons
@@ -257,7 +257,7 @@ class MeshNeuron(BaseNeuron):
                 # connector coordinates can be cast to float if necessary
                 n.connectors[['x', 'y', 'z']] = n.connectors[['x', 'y', 'z']] - other
 
-            self._clear_temp_attr()
+            n._clear_temp_attr()
 
             return n
         return NotImplemented
@@ -450,12 +450,18 @@ class MeshNeuron(BaseNeuron):
             raise ValueError('Expected a single (x, y, z) location or a '
                              '(N, 3) array of multiple locations')
 
-        if to not in ('vertices', 'vertex', 'connectors', 'connectors'):
+        if to in ('vertices', 'vertex'):
+            data = self.vertices
+        elif to in ('connectors', 'connector'):
+            if not self.has_connectors:
+                raise ValueError('Neuron does not have connectors to snap to.')
+            data = self.connectors[['x', 'y', 'z']].values
+        else:
             raise ValueError('`to` must be "vertices" or "connectors", '
                              f'got {to}')
 
         # Generate tree
-        tree = scipy.spatial.cKDTree(data=self.vertices)
+        tree = scipy.spatial.cKDTree(data=data)
 
         # Find the closest node
         dist, ix = tree.query(locs)

@@ -217,7 +217,7 @@ class VoxelNeuron(BaseNeuron):
                 # connector coordinates can be cast to float if necessary
                 n.connectors[["x", "y", "z"]] = n.connectors[["x", "y", "z"]] / other
 
-            self._clear_temp_attr()
+            n._clear_temp_attr()
 
             return n
         return NotImplemented
@@ -241,7 +241,7 @@ class VoxelNeuron(BaseNeuron):
                 # connector coordinates can be cast to float if necessary
                 n.connectors[["x", "y", "z"]] = n.connectors[["x", "y", "z"]] * other
 
-            self._clear_temp_attr()
+            n._clear_temp_attr()
 
             return n
         return NotImplemented
@@ -258,7 +258,7 @@ class VoxelNeuron(BaseNeuron):
                 # connector coordinates can be cast to float if necessary
                 n.connectors[["x", "y", "z"]] = n.connectors[["x", "y", "z"]] + other
 
-            self._clear_temp_attr()
+            n._clear_temp_attr()
 
             return n
         return NotImplemented
@@ -275,7 +275,7 @@ class VoxelNeuron(BaseNeuron):
                 # connector coordinates can be cast to float if necessary
                 n.connectors[["x", "y", "z"]] = n.connectors[["x", "y", "z"]] - other
 
-            self._clear_temp_attr()
+            n._clear_temp_attr()
 
             return n
         return NotImplemented
