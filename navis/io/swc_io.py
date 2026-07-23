@@ -229,7 +229,7 @@ def sanitise_nodes(nodes: pd.DataFrame, allow_empty=True) -> pd.DataFrame:
 
     if is_na.any():
         # Remove nodes with missing data
-        nodes = nodes.loc[~is_na.any(axis=1)]
+        nodes = nodes.loc[~is_na]
 
         # Because we removed nodes, we'll have to run a more complicated root
         # detection
@@ -567,8 +567,8 @@ def write_swc(
                     )
                 raise TypeError(msg)
     elif not isinstance(x, core.TreeNeuron):
-        msg = f'Can only write TreeNeurons to SWC, not "{type(n)}"'
-        if isinstance(n, core.Dotprops):
+        msg = f'Can only write TreeNeurons to SWC, not "{type(x)}"'
+        if isinstance(x, core.Dotprops):
             msg += (
                 ". For Dotprops, you can use either `navis.write_nrrd`"
                 " or `navis.write_parquet`."
