@@ -447,7 +447,7 @@ def scatter2k3d(x, **kwargs):
         if isinstance(scatter, pd.DataFrame):
             if not all([c in scatter.columns for c in ["x", "y", "z"]]):
                 raise ValueError("DataFrame must have x, y and z columns")
-            scatter = [["x", "y", "z"]].values
+            scatter = scatter[["x", "y", "z"]].values
 
         if not isinstance(scatter, np.ndarray):
             scatter = np.array(scatter)
@@ -490,7 +490,7 @@ def volume2k3d(x, colormap, settings):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            trace_data = [
+            trace_data.append(
                 k3d.mesh(
                     vertices=v.vertices.astype("float32"),
                     indices=v.faces.astype("uint32"),
@@ -499,6 +499,6 @@ def volume2k3d(x, colormap, settings):
                     flat_shading=False,
                     opacity=opacity,
                 )
-            ]
+            )
 
     return trace_data

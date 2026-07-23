@@ -318,7 +318,7 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
     # If numerical and we weren't given a categorical palette
     if all(is_num) and not isinstance(palette, dict):
         # Get min/max values
-        if not vmin:
+        if vmin is None:
             vmin = [np.nanmin(v) for v in values]
 
             if norm_global:
@@ -326,7 +326,7 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
         else:
             vmin = np.repeat(vmin, len(values))
 
-        if not vmax:
+        if vmax is None:
             vmax = [np.nanmax(v) for v in values]
 
             if norm_global:

@@ -659,6 +659,8 @@ def plot3d_k3d(x, **kwargs):
         plot.camera_zoom_speed = 2
         plot.camera_pan_speed = 1
         plot.grid_visible = False
+    else:
+        plot = settings.plot
 
     # Add data
     for trace in data:

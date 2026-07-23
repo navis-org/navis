@@ -536,7 +536,7 @@ def plot2d(
             neurons,
             desc="Plot neurons",
             leave=False,
-            disable=config.pbar_hide | len(neurons) <= 10,
+            disable=config.pbar_hide or (len(neurons) <= 10),
         )
     ):
         if not settings.connectors_only:
@@ -1168,7 +1168,7 @@ def _plot_skeleton(neuron, color, ax, settings):
                 )
             elif isinstance(color, np.ndarray) and color.ndim == 2:
                 # If we have a color for each node, we need to drop the roots
-                if color.shape[1] != coords.shape[0]:
+                if color.shape[0] != coords.shape[0]:
                     lc.set_color(color[neuron.nodes.parent_id.values >= 0])
                 else:
                     lc.set_color(color)
@@ -1232,7 +1232,7 @@ def _plot_skeleton(neuron, color, ax, settings):
             ) or settings.depth_coloring:
                 coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
                 # If we have a color for each node, we need to drop the roots
-                if isinstance(color, np.ndarray) and color.shape[1] != coords.shape[0]:
+                if isinstance(color, np.ndarray) and color.shape[0] != coords.shape[0]:
                     line_color = color[neuron.nodes.parent_id.values >= 0]
                 else:
                     line_color = color

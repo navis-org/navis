@@ -119,7 +119,7 @@ def neuron2plotly(x, colormap, settings):
             legendgroup = settings.legend_group[neuron.id]
             for d in trace_data:
                 # If it is not the first entry, hide it
-                if getattr(d, "legendgroup", None) == settings.legend_group:
+                if getattr(d, "legendgroup", None) == legendgroup:
                     showlegend = False
                     break
         elif isinstance(settings.legend_group, str):

@@ -303,7 +303,7 @@ def neuron2vispy(x, settings):
                     f"Don't know how to plot neuron of type '{type(neuron)}'"
                 )
 
-        if settings.connectors or settings.connectors_only and neuron.has_connectors:
+        if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
             visuals += connectors2vispy(neuron, neuron_color, object_id, settings)
 
     return visuals
