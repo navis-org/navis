@@ -212,7 +212,8 @@ def _write_nrrd(
     if not isinstance(x, (core.VoxelNeuron, core.Dotprops)):
         raise TypeError(f'Expected VoxelNeuron or Dotprops, got "{type(x)}"')
 
-    header = getattr(x, "nrrd_header", {})
+    # Copy so we don't mutate the neuron's own stored header
+    header = dict(getattr(x, "nrrd_header", {}))
     header["space dimension"] = 3
     header["space directions"] = np.diag(x.units_xyz.magnitude)
     header["space units"] = [str(x.units_xyz.units)] * 3

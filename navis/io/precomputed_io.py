@@ -617,9 +617,12 @@ def _write_skeleton(x, filename, radius=False):
     vertex_positions = x.nodes[["x", "y", "z"]].values.astype("float32", order="C")
     # Map edges node IDs to node indices
     node_ix = pd.Series(x.nodes.reset_index(drop=True).index, index=x.nodes.node_id)
-    edges = x.edges.copy().astype("uint32", order="C")
+    # Map node IDs -> indices *before* casting to uint32, otherwise large
+    # node IDs get truncated and the .loc lookup fails/mismaps
+    edges = x.edges.copy()
     edges[:, 0] = node_ix.loc[edges[:, 0]].values
     edges[:, 1] = node_ix.loc[edges[:, 1]].values
+    edges = edges.astype("uint32", order="C")
     edges = edges[:, [1, 0]]  # For some reason we have to switch direction
 
     result.write(struct.pack("<II", vertex_positions.shape[0], edges.shape[0]))

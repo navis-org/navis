@@ -225,10 +225,10 @@ def read_parquet(
 
     # If this is a single neuron
     if "neuron" not in table.columns:
-        if metadata:
-            id = [v for k, v in metadata.items() if k[1] == "id"][0]
-        else:
-            id = "0"  # <-- generic ID as fallback if we don't have metadata
+        # `neuron_meta` is keyed by (ID, PROPERTY) tuples
+        ids = [v for k, v in neuron_meta.items() if len(k) > 1 and k[1] == "id"]
+        # Generic ID as fallback if we don't have metadata
+        id = ids[0] if ids else "0"
         return _extract_neuron(table, id, neuron_meta)
     else:
         neurons = []
