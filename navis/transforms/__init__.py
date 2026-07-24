@@ -11,7 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from .templates import registry, xform_brain, mirror_brain, symmetrize_brain
+from .templates import registry, xform_brain, mirror_brain, symmetrize_brain, render_template
 from .xfm_funcs import xform, mirror
 from .backends import set_transform_backend, clear_transform_cache
 from .base import AliasTransform, FunctionTransform
@@ -27,4 +27,4 @@ from .moving_least_squares import MovingLeastSquaresTransform
 from .import align
 
 # Make sure that only these functions are avaialable at top level
-__all__ = ['xform_brain', 'mirror_brain', 'xform', 'mirror', 'symmetrize_brain', 'align']
+__all__ = ['xform_brain', 'mirror_brain', 'xform', 'mirror', 'symmetrize_brain', 'align', 'render_template']

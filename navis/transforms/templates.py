@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcl
 import networkx as nx
 import seaborn as sns
+import sparsecubes
 import trimesh as tm
 
 from matplotlib.lines import Line2D
@@ -46,7 +47,7 @@ with warnings.catch_warnings():
     import fuzzywuzzy as fw
     import fuzzywuzzy.process
 
-__all__ = ["xform_brain", "mirror_brain", "symmetrize_brain"]
+__all__ = ["xform_brain", "mirror_brain", "symmetrize_brain", "render_template"]
 
 logger = config.get_logger(__name__)
 
@@ -1676,6 +1677,181 @@ class TemplateBrain:
             name = getattr(self, "regName", getattr(self, "name", None))
             raise ValueError(f"{name} does not appear to have a mesh")
         return self._mesh
+
+
+def render_template(
+    x: "core.NeuronObject",
+    template: TemplateBrain,
+    source: Optional[str] = None,
+    depth: bool = False,
+    smooth: int = 0,
+) -> np.ndarray:
+    """Render neurons into template space.
+
+    Parameters
+    ----------
+    x :             TreeNeuron | MeshNeuron | Dotprops | NeuronList
+                    Neuron(s) to render. Uses each neuron's nodes, points or
+                    (solid-voxelized) mesh, respectively. Multiple neurons are
+                    accumulated into the same grid.
+    template :      TemplateBrain
+                    Template to use for bounds, shape and voxel sizes.
+    source :        str, optional
+                    If provided, will first transform the neuron(s) from
+                    `source` template space into the `template` space.
+                    If not provided, will assume that the neuron(s) are already
+                    in the `template` space.
+    depth :         bool
+                    Only affects MeshNeurons: if True, weigh each mesh voxel by
+                    its distance to the surface (via
+                    [`sparsecubes.measure.distance_transform`][]) instead of a
+                    flat occupancy of 1. Thick regions (e.g. the soma) then
+                    contribute more than thin neurites. TreeNeurons and
+                    Dotprops are unaffected (still binned by point count).
+    smooth :        int
+                    If non-zero, will apply a Gaussian filter with `smooth`
+                    as `sigma`.
+
+    Returns
+    -------
+    numpy array
+                    3D numpy array with rendered neuron(s) in template space.
+                    The shape of the array is determined by the `template`
+                    bounding box and voxel size.
+
+    Examples
+    --------
+    This example requires the
+    [flybrains](https://github.com/navis-org/navis-flybrains)
+    library to be installed: `pip3 install flybrains`
+
+    >>> import navis
+    >>> import flybrains
+    >>> # Neurons must be in - or transformed into - the template's space
+    >>> n = navis.example_neurons(5)
+    >>> # Render into the JRC2018F template grid
+    >>> img = navis.render_template(n, template=flybrains.JRC2018F,   # doctest: +SKIP
+    ...                             source='JRCFIB2018Fraw')
+
+    """
+    if not isinstance(template, TemplateBrain):
+        raise TypeError(
+            f"Expected `template` to be of type TemplateBrain, got {type(template)}"
+        )
+    for attr in ("dims", "boundingbox", "voxdims"):
+        if not hasattr(template, attr):
+            raise ValueError(f'Template "{template.name}" must have `.{attr}` defined.')
+
+    pitch = np.asarray(template.voxdims, dtype=float)
+    bounds = np.asarray(template.boundingbox, dtype=float).reshape((3, 2))
+    shape = np.asarray(template.dims)
+
+    if (bounds[:, 0] >= bounds[:, 1]).any():
+        raise ValueError(
+            "Template bounding box must have lower bounds smaller than upper "
+            "bounds:",
+            bounds,
+        )
+
+    if shape.ndim != 1 or len(shape) != 3:
+        raise ValueError(
+            "Expected template `dims` to be a list, tuple or array of length "
+            f"3, got {template.dims}"
+        )
+    shape = tuple(int(d) for d in shape)
+
+    # Voxel index of the bounding box's lower corner. Both the binned points and
+    # the mesh voxels are mapped with the same round-to-nearest convention used
+    # by `neuron2voxels`/`sparsecubes`, so the two line up in the same grid.
+    offset = np.round(bounds[:, 0] / pitch).astype(int)
+
+    # Guard against templates whose (fixed-size) grid would exhaust memory
+    utils.check_grid_size(
+        shape, np.float32, hint="The template's voxel grid is very large."
+    )
+
+    # Transform the neuron(s) into template space
+    if source:
+        x = xform_brain(x, source=source, target=template.name)
+
+    from .. import sampling
+
+    image = np.zeros(shape, dtype=np.float32)
+
+    def _accumulate(voxels, weights=1.0):
+        """Add voxels (in template-grid indices) to the image, dropping any
+        that fall outside the grid."""
+        voxels = np.asarray(voxels)
+        if not len(voxels):
+            return
+        keep = np.all((voxels >= 0) & (voxels < shape), axis=1)
+        voxels = voxels[keep]
+        if not len(voxels):
+            return
+        if not np.isscalar(weights):
+            weights = np.asarray(weights)[keep]
+        image[voxels[:, 0], voxels[:, 1], voxels[:, 2]] += weights
+
+    # Iterate over neurons and fill the image grid
+    for neuron in core.NeuronList(x):
+        if isinstance(neuron, core.MeshNeuron):
+            # Meshes are voxelized properly - walking the surface and filling
+            # the interior via `sparsecubes` - rather than just binning their
+            # vertices, which would miss any face larger than a voxel.
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                voxels = sparsecubes.voxelize(neuron.trimesh, spacing=pitch)
+
+            # Neuron meshes are routinely not watertight, so a `sparsecubes`
+            # warning about unfilled columns is expected rather than exceptional
+            # - demote it to a debug log and re-raise anything else.
+            for w in caught:
+                if "watertight" in str(w.message):
+                    logger.debug(f"Voxelizing {neuron.id}: {w.message}")
+                else:
+                    warnings.warn_explicit(
+                        w.message, w.category, w.filename, w.lineno
+                    )
+
+            # `sparsecubes` already returns unique voxels in the same
+            # convention. By default each occupied voxel contributes 1; with
+            # `depth` it instead contributes its distance to the surface, so
+            # thick regions weigh more than thin neurites.
+            if depth:
+                weights = sparsecubes.measure.distance_transform(
+                    voxels, spacing=pitch
+                )
+                _accumulate(voxels - offset, weights)
+            else:
+                _accumulate(voxels - offset)
+        elif isinstance(neuron, (core.TreeNeuron, core.Dotprops)):
+            if isinstance(neuron, core.TreeNeuron):
+                # Resample first so that long edges don't leave gaps between
+                # nodes in the grid
+                neuron = sampling.resample_skeleton(
+                    neuron, resample_to=pitch.min() / 2
+                )
+                pts = neuron.nodes[["x", "y", "z"]].values
+            else:
+                pts = neuron.points
+
+            # Bin the points and accumulate per-voxel counts
+            voxels = np.round(pts / pitch).astype(int) - offset
+            voxels, counts = np.unique(voxels, axis=0, return_counts=True)
+            _accumulate(voxels, counts.astype(np.float32))
+        else:
+            raise TypeError(
+                f"Don't know how to render neuron of type '{type(neuron)}' "
+                "into template space."
+            )
+
+    # Apply Gaussian filter
+    if smooth:
+        from scipy.ndimage import gaussian_filter
+
+        image = gaussian_filter(image, sigma=smooth)
+
+    return image
 
 
 # Initialize the registry
