@@ -531,6 +531,9 @@ def neuron2voxels(x: 'core.BaseNeuron',
                   counts: bool = False,
                   vectors: bool = False,
                   alphas: bool = False,
+                  fill: bool = True,
+                  fill_cavities: bool = False,
+                  depth: bool = False,
                   smooth: int = 0) -> 'core.VoxelNeuron':
     """Turn neuron into voxels.
 
@@ -560,6 +563,26 @@ def neuron2voxels(x: 'core.BaseNeuron',
     alphas :        bool
                     If True, will also return a grid with alpha values as
                     `.alpha` property.
+    fill :          bool
+                    Only for MeshNeurons voxelized via `sparsecubes` (i.e. when
+                    `counts`, `vectors` and `alphas` are all False): if True
+                    (default), fill the mesh interior; if False, keep only the
+                    surface shell. The shell is a robust fallback for meshes
+                    where the interior fill misbehaves (e.g. badly
+                    non-watertight meshes).
+    fill_cavities : bool
+                    Only for MeshNeurons voxelized via `sparsecubes`: if True,
+                    fill enclosed cavities via
+                    [`sparsecubes.binary.fill_cavities`][]. Useful to patch
+                    voids left by a non-watertight surface.
+    depth :         bool
+                    Only for MeshNeurons voxelized via `sparsecubes`: if True,
+                    weigh each voxel by its distance to the surface (via
+                    [`sparsecubes.measure.distance_transform`][]) instead of a
+                    plain True/False occupancy, producing a float grid in which
+                    deep/thick regions (e.g. the soma) have larger values than
+                    thin neurites. Mutually exclusive with `counts`, `vectors`
+                    and `alphas`.
     smooth :        int
                     If non-zero, will apply a Gaussian filter with `smooth`
                     as `sigma`.
@@ -603,7 +626,15 @@ def neuron2voxels(x: 'core.BaseNeuron',
     # which misses any face larger than a voxel. `counts`, `vectors` and
     # `alphas` are per-point quantities though, so those still need the points.
     is_mesh = isinstance(x, (core.MeshNeuron, tm.Trimesh))
-    solid = is_mesh and not counts and not vectors and not alphas
+    mesh_voxelize = is_mesh and not counts and not vectors and not alphas
+
+    if depth and not is_mesh:
+        raise ValueError("`depth=True` is only available for MeshNeurons.")
+    if depth and (counts or vectors or alphas):
+        raise ValueError(
+            "`depth=True` is mutually exclusive with `counts`, `vectors` and "
+            "`alphas`."
+        )
 
     if isinstance(bounds, type(None)):
         bounds = x.bbox
@@ -624,7 +655,7 @@ def neuron2voxels(x: 'core.BaseNeuron',
     # a very long time before we ever got here to reject it.
     if counts:
         grid_dtype = np.int64
-    elif smooth:
+    elif depth or smooth:
         grid_dtype = np.float32
     else:
         grid_dtype = bool
@@ -635,12 +666,15 @@ def neuron2voxels(x: 'core.BaseNeuron',
     # Convert to voxel indices. Note `sparsecubes` uses the same convention as
     # `_make_voxels` - voxel `i` is centred on `i * pitch` - so the two produce
     # indices in the same space and everything downstream is shared.
-    if solid:
+    dist = None
+    if mesh_voxelize:
         ix = None
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             vxl = sparsecubes.voxelize(
-                x.trimesh if isinstance(x, core.MeshNeuron) else x, spacing=pitch
+                x.trimesh if isinstance(x, core.MeshNeuron) else x,
+                spacing=pitch,
+                solid=fill,
             )
 
         # Neuron meshes are routinely not watertight, so `sparsecubes` warning
@@ -652,16 +686,27 @@ def neuron2voxels(x: 'core.BaseNeuron',
                 logger.debug(f"Voxelizing {x.id}: {w.message}")
             else:
                 warnings.warn_explicit(w.message, w.category, w.filename, w.lineno)
+
+        # Optionally patch enclosed cavities left by a non-watertight surface
+        if fill_cavities:
+            vxl = sparsecubes.binary.fill_cavities(vxl)
+
+        # Distance-to-surface weighting is computed on the full (absolute) voxel
+        # set so the field reflects the whole object, then carried through the
+        # out-of-bounds crop below.
+        if depth:
+            dist = sparsecubes.measure.distance_transform(vxl, spacing=pitch)
     else:
         ix, _ = _make_voxels(x=x, pitch=pitch, strip=False)
 
     # Get unique voxels (`sparsecubes` already returns them sorted + deduplicated)
-    if solid:
-        cnt = None
-    elif not counts:
-        vxl = np.unique(ix, axis=0)
-    else:
+    cnt = None
+    if mesh_voxelize:
+        pass
+    elif counts:
         vxl, cnt = np.unique(ix, axis=0, return_counts=True)
+    else:
+        vxl = np.unique(ix, axis=0)
 
     # Substract lower bounds
     offset = (bounds[:, 0] / pitch)
@@ -669,19 +714,25 @@ def neuron2voxels(x: 'core.BaseNeuron',
     if ix is not None:
         ix = ix - offset.round().astype(int)
 
-    # Drop voxels outside the defined bounds
-    vxl = vxl[vxl.min(axis=1) >= 0]
-    vxl = vxl[np.all(vxl < shape, axis=1)]
+    # Drop voxels outside the defined bounds, carrying `cnt`/`dist` along so
+    # they stay row-aligned with `vxl`
+    inb = (vxl.min(axis=1) >= 0) & np.all(vxl < shape, axis=1)
+    vxl = vxl[inb]
+    if cnt is not None:
+        cnt = cnt[inb]
+    if dist is not None:
+        dist = dist[inb]
 
-    # Generate grid
-    grid = np.zeros(shape=shape, dtype=bool)
-
-    # Populate grid
-    if not counts:
-        grid[vxl[:, 0], vxl[:, 1], vxl[:, 2]] = True
-    else:
-        grid = grid.astype(int)
+    # Generate and populate grid
+    if depth:
+        grid = np.zeros(shape=shape, dtype=np.float32)
+        grid[vxl[:, 0], vxl[:, 1], vxl[:, 2]] = dist
+    elif counts:
+        grid = np.zeros(shape=shape, dtype=int)
         grid[vxl[:, 0], vxl[:, 1], vxl[:, 2]] = cnt
+    else:
+        grid = np.zeros(shape=shape, dtype=bool)
+        grid[vxl[:, 0], vxl[:, 1], vxl[:, 2]] = True
 
     # Apply Gaussian filter
     if smooth:
