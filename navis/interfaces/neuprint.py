@@ -34,6 +34,13 @@ try:
     except NameError:
         pass
     from neuprint.client import inject_client
+
+    # Keep a reference to neuprint's own (de-duplicating) `fetch_synapses`. Our
+    # own `fetch_synapses` (defined further down) shadows it but delegates back
+    # to this for the default (de-duplicating) behaviour.
+    from neuprint import fetch_synapses as _neuprint_fetch_synapses
+    from neuprint.queries.neuroncriteria import neuroncriteria_args
+    from neuprint.utils import iter_batches
 except ModuleNotFoundError:
     msg = dedent("""
           neuprint library not found. Please install using pip:
@@ -83,6 +90,190 @@ def _init_worker(client):
 
 
 @inject_client
+@neuroncriteria_args("neuron_criteria")
+def fetch_synapses(
+    neuron_criteria,
+    synapse_criteria=None,
+    batch_size=10,
+    *,
+    dedup=True,
+    nt=None,
+    client=None,
+):
+    """Fetch synapses for a neuron or selection of neurons.
+
+    This is a thin wrapper around `neuprint.fetch_synapses` that adds the
+    option to *not* de-duplicate presynapses (see `dedup`).
+
+    In insect connectomes synapses are typically polyadic, i.e. a single
+    presynapse connects to multiple postsynapses. By default - and as done by
+    `neuprint.fetch_synapses` - each presynapse is reported only once. With
+    `dedup=False` a presynapse is instead reported once for each postsynaptic
+    site it connects to. This is useful if you want presynapse counts to
+    reflect the number of downstream connections.
+
+    Parameters
+    ----------
+    neuron_criteria : bodyId(s) | type/instance | NeuronCriteria
+                    Determines which bodies to fetch synapses for.
+    synapse_criteria : SynapseCriteria, optional
+                    Filter synapses by roi, type or confidence. See
+                    `neuprint.SynapseCriteria` for details.
+    batch_size :    int
+                    To avoid timeouts, synapses are fetched in batches of this
+                    many bodies.
+    dedup :         bool
+                    If True (default), presynapses that appear in more than one
+                    SynapseSet are de-duplicated - this matches the behaviour of
+                    `neuprint.fetch_synapses`. If False, each presynapse is
+                    reported once per postsynaptic site it connects to.
+    nt :            None | 'max' | 'all', optional
+                    Whether/how to fetch neurotransmitter predictions for each
+                    "pre" synapse. See `neuprint.fetch_synapses` for details.
+                    Only supported with `dedup=True`.
+    client :        neuprint.Client, optional
+                    If `None` will try using global client.
+
+    Returns
+    -------
+    pandas.DataFrame
+                    Each row represents a single synapse.
+
+    """
+    # De-duplicating is the default neuprint behaviour - simply delegate.
+    # (`nt` is passed through explicitly rather than via `**kwargs` because
+    # neuprint's `@neuroncriteria_args` decorator does not compose with a
+    # `**kwargs` parameter.)
+    if dedup:
+        return _neuprint_fetch_synapses(
+            neuron_criteria,
+            synapse_criteria=synapse_criteria,
+            batch_size=batch_size,
+            nt=nt,
+            client=client,
+        )
+
+    # The no-dedup path runs our own query and does not replicate neuprint's
+    # neurotransmitter handling.
+    if nt is not None:
+        raise ValueError(
+            "Fetching neurotransmitters (`nt`) is only supported with "
+            "`dedup=True` (it is handled by `neuprint.fetch_synapses`)."
+        )
+
+    # No-dedup path: mirror neuprint's batching (see `neuprint.fetch_synapses`)
+    # but run a query that omits the `WITH DISTINCT n, s` step.
+    neuron_criteria.matchvar = "n"
+    q = f"""
+        {neuron_criteria.global_with(prefix=8)}
+        MATCH (n:{neuron_criteria.label})
+        {neuron_criteria.all_conditions(prefix=8)}
+        RETURN n.bodyId as bodyId
+    """
+    bodies = client.fetch_custom(q)["bodyId"].values
+
+    batch_dfs = []
+    for batch_bodies in iter_batches(bodies, batch_size):
+        batch_criteria = copy.copy(neuron_criteria)
+        batch_criteria.bodyId = batch_bodies
+        batch_df = _fetch_synapses_no_dedup(batch_criteria, synapse_criteria, client)
+        if len(batch_df) > 0:
+            batch_dfs.append(batch_df)
+
+    if batch_dfs:
+        return pd.concat(batch_dfs, ignore_index=True)
+
+    # Return empty results, but with correct dtypes (matches neuprint)
+    dtypes = {
+        "bodyId": np.dtype("int64"),
+        "type": pd.CategoricalDtype(categories=["pre", "post"], ordered=False),
+        "roi": pd.Series([""]).dtype,
+        "x": np.dtype("int32"),
+        "y": np.dtype("int32"),
+        "z": np.dtype("int32"),
+        "confidence": np.dtype("float32"),
+    }
+    return pd.DataFrame([], columns=dtypes.keys()).astype(dtypes)
+
+
+def _fetch_synapses_no_dedup(neuron_criteria, synapse_criteria, client):
+    """Fetch synapses for given neurons WITHOUT de-duplicating presynapses.
+
+    This mirrors neuprint's private `_fetch_synapses` but omits the
+    `WITH DISTINCT n, s` step, so that each presynapse is reported once per
+    postsynaptic site (i.e. once per SynapseSet it is contained in). We do not
+    replicate its neurotransmitter (`nt`) handling - that path goes through
+    `neuprint.fetch_synapses` (see `fetch_synapses` with `dedup=True`).
+
+    TODO: drop this copy once neuprint-python exposes a `dedup`/`distinct`
+    toggle on `fetch_synapses`; until then this is coupled to the (private)
+    query/output shape of `neuprint.queries.synapses._fetch_synapses`.
+    """
+    neuron_criteria.matchvar = "n"
+
+    if synapse_criteria is None:
+        synapse_criteria = SynapseCriteria(client=client)
+
+    if synapse_criteria.primary_only:
+        return_rois = {*client.primary_rois}
+    else:
+        return_rois = {*client.all_rois}
+
+    # If the user specified rois to filter synapses by, but hasn't specified rois
+    # in the NeuronCriteria, add them to the NeuronCriteria to speed up the query.
+    if synapse_criteria.rois and not neuron_criteria.rois:
+        neuron_criteria.rois = {*synapse_criteria.rois}
+        neuron_criteria.roi_req = "any"
+
+    # Fetch results. Note the absence of a `WITH DISTINCT n, s` step (compared
+    # to `neuprint.fetch_synapses`) which is what keeps presynapses duplicated.
+    cypher = dedent(f"""\
+        {neuron_criteria.global_with(prefix=8)}
+        MATCH (n:{neuron_criteria.label})
+        {neuron_criteria.all_conditions('n', prefix=8)}
+
+        MATCH (n)-[:Contains]->(ss:SynapseSet),
+              (ss)-[:Contains]->(s:Synapse)
+
+        {synapse_criteria.condition('n', 's', prefix=8)}
+
+        RETURN n.bodyId as bodyId,
+               s.type as type,
+               s.confidence as confidence,
+               s.location.x as x,
+               s.location.y as y,
+               s.location.z as z,
+               apoc.map.removeKeys(s, ['location', 'confidence', 'type']) as syn_info
+    """)
+
+    data = client.fetch_custom(cypher, format="json")["data"]
+
+    # Assemble DataFrame
+    syn_table = []
+    for body, syn_type, conf, x, y, z, syn_info in data:
+        # Exclude non-primary ROIs if necessary
+        syn_rois = return_rois & {*syn_info.keys()}
+        for roi in syn_rois:
+            syn_table.append((body, syn_type, roi, x, y, z, conf))
+
+        if not syn_rois:
+            syn_table.append((body, syn_type, None, x, y, z, conf))
+
+    syn_df = pd.DataFrame(
+        syn_table, columns=["bodyId", "type", "roi", "x", "y", "z", "confidence"]
+    )
+
+    # Save RAM with smaller dtypes and interned strings
+    syn_df["type"] = pd.Categorical(syn_df["type"], ["pre", "post"])
+    syn_df["x"] = syn_df["x"].astype(np.int32)
+    syn_df["y"] = syn_df["y"].astype(np.int32)
+    syn_df["z"] = syn_df["z"].astype(np.int32)
+    syn_df["confidence"] = syn_df["confidence"].astype(np.float32)
+
+    return syn_df
+
+
+@inject_client
 def fetch_roi(roi, *, client=None):
     """Fetch given ROI.
 
@@ -119,6 +310,7 @@ def fetch_mesh_neuron(
     *,
     lod=1,
     with_synapses=False,
+    dedup=True,
     missing_mesh="raise",
     parallel=True,
     max_threads=5,
@@ -153,6 +345,12 @@ def fetch_mesh_neuron(
                     source does not support LODs (e.g. for DVID).
     with_synapses : bool, optional
                     If True will download and attach synapses as `.connectors`.
+    dedup :         bool, optional
+                    Only relevant if `with_synapses=True`. In insect connectomes
+                    synapses are polyadic (a presynapse connects to multiple
+                    postsynapses). If True (default), presynapses are
+                    de-duplicated. If False, each presynapse is reported once
+                    per postsynaptic site it connects to.
     missing_mesh :  'raise' | 'warn' | 'skip'
                     What to do if no mesh is found for a given body ID:
 
@@ -341,6 +539,7 @@ def fetch_mesh_neuron(
         syn = fetch_synapses(
             meta.bodyId.values,
             synapse_criteria=SynapseCriteria(primary_only=True, client=client),
+            dedup=dedup,
             client=client,
         )
 
@@ -396,6 +595,7 @@ def fetch_skeletons(
     x,
     *,
     with_synapses=False,
+    dedup=True,
     heal=False,
     missing_swc="raise",
     parallel=True,
@@ -415,6 +615,12 @@ def fetch_skeletons(
                     DataFrame with "bodyId"  or "bodyid" column.
     with_synapses : bool, optional
                     If True will also attach synapses as `.connectors`.
+    dedup :         bool, optional
+                    Only relevant if `with_synapses=True`. In insect connectomes
+                    synapses are polyadic (a presynapse connects to multiple
+                    postsynapses). If True (default), presynapses are
+                    de-duplicated. If False, each presynapse is reported once
+                    per postsynaptic site it connects to.
     heal :          bool | int | float, optional
                     If True, will automatically heal fragmented skeletons using
                     neuprint-python's `heal_skeleton` function. Pass a float
@@ -483,6 +689,7 @@ def fetch_skeletons(
                 r,
                 client=client,
                 with_synapses=with_synapses,
+                dedup=dedup,
                 missing_swc=missing_swc,
                 heal=heal,
             )
@@ -512,7 +719,7 @@ def fetch_skeletons(
 
 
 def __fetch_skeleton(
-    r, client, with_synapses=True, missing_swc="raise", heal=False, max_distance=None
+    r, client, with_synapses=True, dedup=True, missing_swc="raise", heal=False, max_distance=None
 ):
     """Fetch a single skeleton + synapses and construct navis TreeNeuron."""
     # Use this thread's own client (and hence session) if we have one - see
@@ -576,6 +783,7 @@ def __fetch_skeleton(
         syn = fetch_synapses(
             r.bodyId,
             synapse_criteria=SynapseCriteria(primary_only=True, client=client),
+            dedup=dedup,
             client=client,
         )
 

@@ -815,6 +815,7 @@ These are the additional functions added by {{ navis }}:
 | [`neuprint.fetch_roi()`][navis.interfaces.neuprint.fetch_roi] | {{ autosummary("navis.interfaces.neuprint.fetch_roi") }} |
 | [`neuprint.fetch_skeletons()`][navis.interfaces.neuprint.fetch_skeletons] | {{ autosummary("navis.interfaces.neuprint.fetch_skeletons") }} |
 | [`neuprint.fetch_mesh_neuron()`][navis.interfaces.neuprint.fetch_mesh_neuron] | {{ autosummary("navis.interfaces.neuprint.fetch_mesh_neuron") }} |
+| [`neuprint.fetch_synapses()`][navis.interfaces.neuprint.fetch_synapses] | {{ autosummary("navis.interfaces.neuprint.fetch_synapses") }} |
 
 Please also check out the [tutorials](../generated/gallery/4_remote/tutorial_remote_00_neuprint/) for examples of how to fetch and work with data from neuPrint.
 
