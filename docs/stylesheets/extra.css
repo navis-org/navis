@@ -30,3 +30,48 @@ table thead th {
   color: var(--text-color);
   font-size: 10pt;
 }
+
+/* --- Example page showcase: code left, interactive result right --- */
+.qs-split {
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
+  margin-top: 0.6rem;
+}
+.qs-split > * {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+.qs-split .highlight > pre,
+.qs-split pre > code {
+  margin: 0;
+}
+/* rounded "boxes" for both columns, PyVista-style */
+.qs-split .highlight,
+.qs-split .highlight > pre,
+.qs-split .highlight pre > code {
+  border-radius: 0.7rem;
+}
+.qs-split .plotly-graph-div,
+.qs-split img {
+  width: 100% !important;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+}
+/* static example images: match the interactive plot box height */
+.qs-split img {
+  height: 380px;
+  object-fit: contain;
+}
+.qs-split p {
+  margin: 0;
+}
+/* stack the columns on narrow screens */
+@media (max-width: 59.9em) {
+  .qs-split {
+    flex-direction: column;
+  }
+}
