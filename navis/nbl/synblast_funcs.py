@@ -270,9 +270,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
 
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    `os.cpu_count() // 2`. This should ideally be an even
-                    number as that allows optimally splitting queries onto
-                    individual processes.
+                    `os.cpu_count() // 2`.
     normalized :    bool, optional
                     Whether to return normalized SynBLAST scores.
     smat :          str | pd.DataFrame, optional
@@ -354,8 +352,14 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
                        progress=progress)
 
 
-def find_batch_partition(q, t, T=10):
-    """Find partitions such that each batch takes about `T` seconds."""
+def estimate_target_blocks(q, t, T=10):
+    """Estimate a block count such that each block takes about `T` seconds.
+
+    SynBLAST counterpart to
+    [`estimate_target_blocks`][navis.nbl.nblast_funcs.estimate_target_blocks],
+    timing a single connector query instead of a dotprop one. Feeds
+    `partition_grid` as its `target_blocks`.
+    """
     # Get a median-sized query and target
     q_ix = np.argsort(q.n_connectors)[len(q)//2]
     t_ix = np.argsort(t.n_connectors)[len(t)//2]
@@ -377,7 +381,7 @@ def find_batch_partition(q, t, T=10):
     # Number of neurons per batch
     neurons_per_batch  = max(1, int(np.sqrt(queries_per_batch)))
 
-    n_rows = len(q) // neurons_per_batch
-    n_cols = len(t) // neurons_per_batch
+    n_rows = max(1, len(q) // neurons_per_batch)
+    n_cols = max(1, len(t) // neurons_per_batch)
 
-    return max(1, n_rows), max(1, n_cols)
+    return n_rows * n_cols

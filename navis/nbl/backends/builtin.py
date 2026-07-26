@@ -128,33 +128,33 @@ class BuiltinBackend(NblastBackend):
                         progress=progress,
                         smat_kwargs=smat_kwargs)
 
-    def _partition(self, q, t, n_cores, progress, aba=False):
-        """Find (n_rows, n_cols) partition of the query/target matrix."""
-        from ..nblast_funcs import (find_batch_partition, find_optimal_partition,
+    def _partition(self, q, t, n_cores, progress, estimate_fn=None):
+        """Find (n_rows, n_cols) partition of the query/target matrix.
+
+        Estimates a target block count from a per-block runtime budget, then
+        hands it to `partition_grid`, which balances the grid, floors it at
+        `MIN_BLOCKS_PER_CORE` blocks per core and rounds up to full waves so no
+        core sits idle. `estimate_fn(q, t, T=...)` supplies the count; it
+        defaults to the dotprop estimator, and SynBLAST passes its connector
+        one - everything else about the partition is shared.
+        """
+        from ..nblast_funcs import (estimate_target_blocks, partition_grid,
                                      JOB_SIZE_MULTIPLIER, JOB_MAX_TIME_SECONDS)
 
         if not (n_cores and n_cores > 1):
             return 1, 1
 
-        if progress:
-            # If progress bar, we need to make smaller mini batches. These mini
-            # jobs must not be too small - otherwise the overhead from spawning
-            # and sending results between processes slows things down
-            # dramatically. Hence we want each job to run for >10s. The run time
-            # depends on the system and how big the neurons are, so we run a
-            # quick test and extrapolate.
-            return find_batch_partition(q, t, T=10 * JOB_SIZE_MULTIPLIER)
+        if estimate_fn is None:
+            estimate_fn = estimate_target_blocks
 
-        # No progress bar: for a plain query->target NBLAST we aim for each
-        # batch to finish in a certain amount of time (to avoid stragglers);
-        # for all-by-all we just split evenly across cores.
-        if aba:
-            return find_optimal_partition(n_cores, q, t)
+        # Aim for each block to run for a bounded amount of time. With a progress
+        # bar we want short (~10s) blocks so the bar moves; without one we allow
+        # much longer blocks (less overhead). All-by-all shares this path:
+        # partition_grid derives the shape from the query/target counts either way.
+        T = 10 * JOB_SIZE_MULTIPLIER if progress else JOB_MAX_TIME_SECONDS
+        target_blocks = estimate_fn(q, t, T=T)
 
-        n_rows, n_cols = find_batch_partition(q, t, T=JOB_MAX_TIME_SECONDS)
-        if (n_rows * n_cols) < n_cores:
-            n_rows, n_cols = find_optimal_partition(n_cores, q, t)
-        return n_rows, n_cols
+        return partition_grid(n_cores, len(q), len(t), target_blocks=target_blocks)
 
     # ------------------------------------------------------------------ #
     # Operations
@@ -218,7 +218,7 @@ class BuiltinBackend(NblastBackend):
         """All-by-all NBLAST (always forward scores)."""
         dps = x
 
-        n_rows, n_cols = self._partition(dps, dps, n_cores, progress, aba=True)
+        n_rows, n_cols = self._partition(dps, dps, n_cores, progress)
 
         # Calculate self-hits once for all neurons
         nb = self._make_blaster(use_alpha, normalized, smat, limit_dist,
@@ -416,22 +416,16 @@ class BuiltinBackend(NblastBackend):
     def synblast(self, query, target, *, by_type, cn_types, scores, normalized,
                  smat, n_cores, progress):
         """Synapse-based NBLAST (SynBLAST)."""
-        from ..synblast_funcs import SynBlaster, find_batch_partition
-        from ..nblast_funcs import find_optimal_partition
+        from ..synblast_funcs import SynBlaster, estimate_target_blocks
 
         def get_connectors(n):
             if cn_types is not None:
                 return n.connectors[n.connectors['type'].isin(cn_types)]
             return n.connectors
 
-        # Find a partition that produces batches that each run in ~10s
-        if n_cores and n_cores > 1:
-            if progress:
-                n_rows, n_cols = find_batch_partition(query, target, T=10)
-            else:
-                n_rows, n_cols = find_optimal_partition(n_cores, query, target)
-        else:
-            n_rows = n_cols = 1
+        # Same partitioning as NBLAST, but timed on connector queries.
+        n_rows, n_cols = self._partition(query, target, n_cores, progress,
+                                         estimate_fn=estimate_target_blocks)
 
         # Calculate self-hits once for all neurons
         nb = SynBlaster(normalized=normalized, by_type=by_type, smat=smat,

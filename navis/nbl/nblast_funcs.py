@@ -48,6 +48,12 @@ logger = config.get_logger(__name__)
 JOB_SIZE_MULTIPLIER = 1
 JOB_MAX_TIME_SECONDS = 60 * 30
 
+# Minimum number of work blocks to create per core. Values > 1 give the process
+# pool spare work to hide stragglers (neurons vary in size, so equal block
+# *counts* don't mean equal block *times*) at the cost of shipping a little more
+# neuron data. See `partition_grid`.
+MIN_BLOCKS_PER_CORE = 2
+
 # This controls how many threads we allow pykdtree to use during multi-core
 # NBLAST
 OMP_NUM_THREADS_LIMIT = 1
@@ -321,9 +327,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     sufficient.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    `os.cpu_count() // 2`. This should ideally be an even
-                    number as that allows optimally splitting queries onto
-                    individual processes.
+                    `os.cpu_count() // 2`.
     progress :      bool
                     Whether to show progress bars.
     backend :       str, optional
@@ -495,9 +499,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                     Impact depends on the use case - testing highly recommended!
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    `os.cpu_count() // 2`. This should ideally be an even
-                    number as that allows optimally splitting queries onto
-                    individual processes.
+                    `os.cpu_count() // 2`.
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                     Precision for scores. Defaults to 64 bit (double) floats.
                     This is useful to reduce the memory footprint for very large
@@ -819,9 +821,7 @@ def nblast_allbyall(x: NeuronList,
                     similar sampling resolutions.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    `os.cpu_count() // 2`. This should ideally be an even
-                    number as that allows optimally splitting queries onto
-                    individual processes.
+                    `os.cpu_count() // 2`.
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
                     that have lots of branches.
@@ -949,24 +949,24 @@ def test_single_query_time(q, t, it=100):
     return np.mean(timings)  # seconds per medium sized query
 
 
-def find_batch_partition(q, t, T=10, n_cores=None):
-    """Find partitions such that each batch takes about `T` seconds.
+def estimate_target_blocks(q, t, T=10):
+    """Estimate a block count such that each block takes about `T` seconds.
+
+    Times a single query and extrapolates to how many blocks the query x target
+    matrix should be split into for each to run for ~`T` seconds. The result
+    feeds `partition_grid` as its `target_blocks`.
 
     Parameters
     ----------
     q,t :       NeuronList of Dotprops
                 Query and targets, respectively.
     T :         int
-                Time (in seconds) to aim for.
-    n_cores :   int, optional
-                Number of cores that will be used. If provided, will try to
-                make sure that (n_rows * n_cols) is a multiple of n_cores by
-                increasing the number of rows (thereby decreasing the time
-                per batch).
+                Time (in seconds) to aim for per block.
 
     Returns
     -------
-    n_rows, n_cols
+    int
+                Target number of blocks.
 
     """
     # Test a single query
@@ -981,19 +981,90 @@ def find_batch_partition(q, t, T=10, n_cores=None):
     n_rows = max(1, len(q) // neurons_per_batch)
     n_cols = max(1, len(t) // neurons_per_batch)
 
-    if n_cores and ((n_rows * n_cols) > n_cores):
-        while (n_rows * n_cols) % n_cores:
-            n_rows += 1
-
-    return n_rows, n_cols
+    return n_rows * n_cols
 
 
-def find_optimal_partition(N_cores, q, t):
-    """Find an optimal partition for given NBLAST query.
+def partition_grid(n_cores, nq, nt, target_blocks, min_per_core=MIN_BLOCKS_PER_CORE):
+    """Pick a balanced (n_rows, n_cols) grid for the query x target matrix.
+
+    The grid is chosen so that work spreads across `n_cores` workers without
+    leaving cores idle and without shipping more neuron data than necessary:
+
+    - **No idle cores.** The block count is rounded to a whole multiple of
+      `n_cores` (so every wave uses all cores) and floored at
+      ``min_per_core * n_cores`` blocks. The floor gives the pool spare work to
+      hide stragglers - neurons vary in size, so equal block *counts* don't
+      mean equal block *times*, and one block per core would leave the rest
+      idle whenever a block runs long. Both bounds are capped at ``nq * nt`` -
+      we can't make more blocks than there are query/target pairs.
+    - **Minimal data.** Among grids of the chosen size we pick the one that
+      ships the least neuron data. Each block pickles its slice of queries and
+      targets to a spawned process; a query slice is re-sent once per column
+      and a target slice once per row, so the data shipped is
+      ``n_cols * nq + n_rows * nt``.
 
     Parameters
     ----------
-    N_cores :   int
+    n_cores :       int
+                    Number of worker processes the blocks will run on.
+    nq, nt :        int
+                    Number of queries and targets, respectively.
+    target_blocks : int
+                    Desired number of blocks (e.g. derived from a per-block
+                    runtime target). Raised to the floor and rounded up to a
+                    whole multiple of `n_cores`.
+    min_per_core :  int
+                    Minimum number of blocks to create per core.
+
+    Returns
+    -------
+    n_rows, n_cols
+
+    """
+    nq, nt = int(nq), int(nt)
+    max_blocks = nq * nt
+    if max_blocks <= 1 or n_cores <= 1:
+        return 1, 1
+
+    # Desired block count: at least `min_per_core` per core, at most one block
+    # per query/target pair.
+    lo = min(max_blocks, max(1, min_per_core) * n_cores)
+    want = min(max_blocks, max(int(round(target_blocks)), lo))
+
+    best_key = best_grid = None
+    for n_rows in range(1, min(nq, want) + 1):
+        # Fewest columns that reach `want` blocks with this many rows. n_rows
+        # never exceeds `want`, so the ceil-division is always >= 1.
+        n_cols = min(nt, -(-want // n_rows))  # -(-a // b) == ceil(a / b)
+        n_blocks = n_rows * n_cols
+        # Don't accept a grid that would idle cores - unless we've simply run
+        # out of pairs to split (n_blocks == max_blocks).
+        if n_blocks < lo and n_blocks < max_blocks:
+            continue
+        # Prefer complete waves, then least data shipped (n_cols * nq + n_rows *
+        # nt), then closest to `want`.
+        key = (n_blocks % n_cores != 0, n_cols * nq + n_rows * nt,
+               abs(n_blocks - want))
+        if best_key is None or key < best_key:
+            best_key, best_grid = key, (n_rows, n_cols)
+
+    # `best_grid` is always set: n_rows == min(nq, want) yields n_blocks >= want
+    # (or == max_blocks), which passes the filter.
+    return best_grid
+
+
+def find_optimal_partition(n_cores, q, t):
+    """Find a balanced (n_rows, n_cols) grid using the minimal number of blocks.
+
+    Thin wrapper around [`partition_grid`][navis.nbl.nblast_funcs.partition_grid]
+    for callers that only have the query and target NeuronLists at hand. Passes
+    no meaningful block target, so the grid lands on `partition_grid`'s
+    `min_per_core` floor - the smallest partition that still keeps every core
+    busy.
+
+    Parameters
+    ----------
+    n_cores :   int
                 Number of available cores.
     q,t :       NeuronList of Dotprops
                 Query and targets, respectively.
@@ -1003,26 +1074,7 @@ def find_optimal_partition(N_cores, q, t):
     n_rows, n_cols
 
     """
-    neurons_per_query = []
-    for n_rows in range(1, N_cores + 1):
-        # Skip splits we can't make
-        if N_cores % n_rows:
-            continue
-        if n_rows > len(q):
-            continue
-
-        n_cols = min(int(N_cores / n_rows), len(t))
-
-        n_queries = len(q) / n_rows
-        n_targets = len(t) / n_cols
-
-        neurons_per_query.append([n_rows, n_cols, n_queries + n_targets])
-
-    # Find the optimal partition
-    neurons_per_query = np.array(neurons_per_query)
-    n_rows, n_cols = neurons_per_query[np.argmin(neurons_per_query[:, 2]), :2]
-
-    return int(n_rows), int(n_cols)
+    return partition_grid(n_cores, len(q), len(t), target_blocks=0)
 
 
 def force_dotprops(x, k, resample, progress=False):
@@ -1244,11 +1296,7 @@ def nblast_preflight(query, target, n_cores, batch_size=None,
         raise TypeError('`n_cores` must be an integer > 0')
 
     n_cores = int(n_cores)
-    if n_cores > 1 and n_cores % 2:
-        logger.warning('NBLAST is most efficient if `n_cores` is an even number')
-    elif n_cores < 1:
-        raise ValueError('`n_cores` must not be smaller than 1')
-    elif n_cores > os.cpu_count():
+    if n_cores > os.cpu_count():
         logger.warning('`n_cores` should not larger than the number of '
                        'available cores')
 
