@@ -471,6 +471,27 @@ Functions to calculate Euclidean and geodesic ("along-the-arbor") distances.
 | [`navis.graph.geodesic_clusters()`][navis.graph.geodesic_clusters] | {{ autosummary("navis.graph.geodesic_clusters") }} |
 | [`navis.segment_length()`][navis.segment_length] | {{ autosummary("navis.segment_length") }} |
 
+## Machine Learning
+
+Functions for preparing neurons as inputs to machine-learning models, e.g.
+normalizing their pose, augmenting a training set, breaking them into fixed-size
+fragments or turning them into feature-carrying point clouds.
+
+| Function | Description |
+|----------|-------------|
+| [`navis.ml.normalize_neuron()`][navis.ml.normalize_neuron] | {{ autosummary("navis.ml.normalize_neuron") }} |
+| [`navis.ml.augment_neuron()`][navis.ml.augment_neuron] | {{ autosummary("navis.ml.augment_neuron") }} |
+| [`navis.ml.jitter_neuron()`][navis.ml.jitter_neuron] | {{ autosummary("navis.ml.jitter_neuron") }} |
+| [`navis.ml.rotate_neuron()`][navis.ml.rotate_neuron] | {{ autosummary("navis.ml.rotate_neuron") }} |
+| [`navis.ml.translate_neuron()`][navis.ml.translate_neuron] | {{ autosummary("navis.ml.translate_neuron") }} |
+| [`navis.ml.scale_neuron()`][navis.ml.scale_neuron] | {{ autosummary("navis.ml.scale_neuron") }} |
+| [`navis.ml.warp_neuron()`][navis.ml.warp_neuron] | {{ autosummary("navis.ml.warp_neuron") }} |
+| [`navis.ml.drop_nodes()`][navis.ml.drop_nodes] | {{ autosummary("navis.ml.drop_nodes") }} |
+| [`navis.ml.chunk_neuron()`][navis.ml.chunk_neuron] | {{ autosummary("navis.ml.chunk_neuron") }} |
+| [`navis.ml.sample_cable()`][navis.ml.sample_cable] | {{ autosummary("navis.ml.sample_cable") }} |
+| [`navis.ml.sample_surface()`][navis.ml.sample_surface] | {{ autosummary("navis.ml.sample_surface") }} |
+| [`navis.ml.sample_points_uniform()`][navis.ml.sample_points_uniform] | {{ autosummary("navis.ml.sample_points_uniform") }} |
+
 ## Intersection
 
 Functions to intersect points and neurons with volumes. For example, if you'd

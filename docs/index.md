@@ -318,7 +318,7 @@ morphology. It stands on the shoulders of the excellent
 
     ---
 
-    Smoothing, resampling, skeletonization, meshing and [more](api.md#neuron-morphology)!
+    Smoothing, pruning, resampling, skeletonization, meshing and [more](api.md#neuron-morphology)!
 
 -   :fontawesome-solid-computer:{ .lg .middle } __Fast__
 
@@ -331,7 +331,7 @@ morphology. It stands on the shoulders of the excellent
 
     ---
 
-    Cluster your neurons by e.g. morphology using [NBLAST](generated/gallery/5_nblast/tutorial_nblast_00_intro).
+    Cluster your neurons by morphology using on the various [NBLAST](generated/gallery/5_nblast/tutorial_nblast_00_intro) variants.
 
 -   :material-move-resize:{ .lg .middle } __Transforms__
 
@@ -361,8 +361,14 @@ morphology. It stands on the shoulders of the excellent
 
     ---
 
-    Load neurons into [Blender 3D](generated/gallery/3_interfaces/tutorial_interfaces_02_blender), simulate neurons and networks using
-    [NEURON](generated/gallery/3_interfaces/tutorial_interfaces_00_neuron), or use the R natverse library via `rpy2`.
+    Load neurons into [Blender 3D](generated/gallery/3_interfaces/tutorial_interfaces_02_blender) or simulate neurons and networks using
+    [NEURON](generated/gallery/3_interfaces/tutorial_interfaces_00_neuron).
+
+-   :octicons-mortar-board-24:{ .lg .middle } __ML-ready__
+
+    ---
+
+    Various utilities to support machine learning: sampling, normalization, augmentation and more.
 
 -   :material-google-circles-extended:{ .lg .middle } __Extensible__
 

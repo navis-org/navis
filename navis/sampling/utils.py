@@ -64,6 +64,16 @@ def sample_points_uniform(points, size, output="points", method="auto"):
     See `output` parameter. Indices/points are returned in ascending index
     order regardless of the sampling method.
 
+    See Also
+    --------
+    [`navis.ml.chunk_neuron`][]
+                Break a neuron into fixed-size, spatially-coherent fragments
+                (tiling/oversampling) rather than drawing a single uniform
+                subsample. The complementary primitive for preparing ML inputs.
+    [`navis.ml.normalize_neuron`][]
+                Canonicalize a neuron's pose (center/orient/scale) - a common
+                preprocessing step before sampling points for a model.
+
     """
     points = np.asarray(points)
 

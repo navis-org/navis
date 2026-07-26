@@ -27,3 +27,8 @@ from .plotting import *
 from .sampling import *
 from .transforms import *
 from .utils import *
+
+# `navis.ml` groups the machine-learning helpers under their own namespace
+# (`navis.ml.chunk_neuron`, ...) rather than lifting them to the top level.
+# Imported last so its dependencies (graph, sampling, core) are already loaded.
+from . import ml

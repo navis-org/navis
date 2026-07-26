@@ -15,4 +15,9 @@ from .downsampling import downsample_neuron
 from .resampling import resample_skeleton, resample_along_axis
 from .points import sample_skeleton
 
-__all__ = ['downsample_neuron', 'resample_skeleton', 'resample_along_axis', 'sample_skeleton']
+# `sample_cable` / `sample_surface` also live in `.points` but are deliberately
+# NOT lifted to the top-level `navis.*` namespace - they are exposed only via
+# `navis.ml` (like `sample_points_uniform`), see `navis/ml/__init__.py`.
+
+__all__ = ['downsample_neuron', 'resample_skeleton', 'resample_along_axis',
+           'sample_skeleton']
