@@ -13,40 +13,38 @@ Extract skeletons from confocal microscopy image stacks.
 Extracting neuron skeletons from microscopy data is a common but non-trivial task. There are about
 as many ways to do this as there are people doing it - from fully manual to fully automated tracing.
 
-In this tutorial, we will show you a fully automated way using a number of easy-to-install Python
-packages. If this isn't for you, check out the [Alternatives](#alternatives) section at the end of this tutorial.
+This tutorial walks through a fully automated pipeline built from a few easy-to-install Python
+packages. If it isn't for you, check out the [Alternatives](#alternatives) at the end.
 
-## Requirements:
+```mermaid
+graph LR
+    A[Download<br>H5J stack] -->|"Fiji"| B[NRRD file];
+    B -->|"nrrd.read()"| C[Threshold];
+    C -->|"cc3d"| D[Label<br>components];
+    D -->|"kimimaro"| E[Skeletons];
+    E -->|"read_swc()"| F[NAVis neurons];
+```
 
-Please make sure you have the following packages installed:
+!!! note "Requirements"
+    This tutorial needs three extra packages - install them all in one go:
+    ```shell
+    pip install pynrrd connected-components-3d kimimaro -U
+    ```
 
-- [`pynrrd`](https://github.com/mhe/pynrrd) to load image stacks
-  ```shell
-  pip install pynrrd -U
-  ```
-- [`connected-components-3d`](https://github.com/seung-lab/connected-components-3d) (cc3d) to label connected components
-  ``` shell
-  pip install connected-components-3d -U
-  ```
-- [`kimimaro`](https://github.com/seung-lab/kimimaro) to extract the skeletons
-  ```shell
-  pip install kimimaro -U
-  ```
+    - [`pynrrd`](https://github.com/mhe/pynrrd) - load NRRD image stacks
+    - [`connected-components-3d`](https://github.com/seung-lab/connected-components-3d) (cc3d) - label connected components
+    - [`kimimaro`](https://github.com/seung-lab/kimimaro) - extract the skeletons
 
 ## Preparing the data
 
-The pipeline we're using here was designed for pre-segmented data, so there is little in the way
-of dealing with noisy data. Fortunately, the image stack we will use is exceptionally clean which
-makes the skeletonization process very straightforward.
+This pipeline was designed for pre-segmented data and does little to handle noise. Fortunately, the
+image stack we'll use is exceptionally clean, which keeps skeletonization straightforward.
 
-In practice, you may have to do some pre-processing to clean up your data before running the skeletonization.
-If your run-of-the-mill thresholding, denoising, etc. doesn't cut it, you can also try more advanced
-segmentation techniques.
-
-There are various fairly easy-to-use tools available for this, e.g. [Ilastik](https://www.ilastik.org) (see the
+In practice you may need to pre-process your data first. If ordinary thresholding and denoising don't
+cut it, reach for more advanced segmentation tools such as [Ilastik](https://www.ilastik.org) (see its
 [pixel classification](https://www.ilastik.org/documentation/pixelclassification/pixelclassification) and
-[voxel segmentation](https://www.ilastik.org/documentation/voxelsegmentation/voxelsegmentation) tutorials) or
-[DeepImageJ](https://deepimagej.github.io/).
+[voxel segmentation](https://www.ilastik.org/documentation/voxelsegmentation/voxelsegmentation) tutorials)
+or [DeepImageJ](https://deepimagej.github.io/).
 
 ### Download Image Stack
 
@@ -62,15 +60,16 @@ select "Download H5J stack: Unaligned".
 
 ### Convert to NRRD
 
-Next, we need to open this file in [Fiji/ImageJ](https://imagej.net/software/fiji/) to convert it to
-a format we can work with in Python:
+H5J isn't a format we can load directly in Python, so we first convert it to NRRD using
+[Fiji/ImageJ](https://imagej.net/software/fiji/).
 
-1. Fire up Fiji/ImageJ
-2. Drag & drop the `SS00731-20140620_20_C5-f-63x-ventral-Split_GAL4-unaligned_stack.h5j` file into Fiji
-3. Go to "Image" -> "Colors" -> "Split Channels" to split the image into the channels
-4. Discard all but the red "C1" channel with our neurons
-5. Go to "Image" -> "Type" -> "8-bit" to convert the image to 8-bit (optional but recommended)
-6. Save via "File" -> "Save As" -> "NRRD" and save the file as `neuron.nrrd`
+??? note "Converting H5J to NRRD in Fiji"
+    1. Fire up Fiji/ImageJ.
+    2. Drag & drop the `SS00731-...-unaligned_stack.h5j` file into Fiji.
+    3. "Image" → "Colors" → "Split Channels" to split the image into its channels.
+    4. Discard all but the red "C1" channel (our neurons).
+    5. "Image" → "Type" → "8-bit" to convert to 8-bit (optional but recommended).
+    6. "File" → "Save As" → "NRRD" and save as `neuron.nrrd`.
 
 ![Z stack](../../../_static/lm_tut/C1.gif)
 
@@ -95,8 +94,8 @@ im, header = nrrd.read(
 )
 
 # %%
-# Next, we need to find some sensible threshold to binarize the image. This is not strictly
-# necessary (see the further note down) but at least for starters this is more intuitive.
+# Next we pick a threshold to binarize the image. This isn't strictly necessary, but it's the
+# more intuitive place to start.
 
 # Threshold the image
 mask = (im >= 20).astype(np.uint8)
@@ -118,13 +117,12 @@ mask = (im >= 20).astype(np.uint8)
 #
 # ![mask](../../../_static/lm_tut/mask.png)
 #
-# A couple notes on the thresholding:
+# !!! tip "Getting the threshold right"
+#     - Test candidate thresholds interactively in e.g. ImageJ/Fiji.
+#     - Remove as much background as possible *without* disconnecting neurites.
+#     - Perfection is the enemy of progress - we can denoise and reconnect during post-processing.
 #
-# - feel free to test the thresholding in e.g. ImageJ/Fiji
-# - remove as much background as possible without disconnecting neurites
-# - perfection is the enemy of progress: we can denoise/reconnect during postprocessing
-#
-# Next, we need to label the connected components in the image:
+# Next, label the connected components in the image:
 
 # %%
 # Extract the labels
@@ -164,42 +162,42 @@ to_skeletonize = np.arange(1, N)
 
 
 # %%
-# Now we can run the actual skeletonization!
+# Now run the actual skeletonization.
 #
 # !!! note "Skeletonization parameters"
-#     There are a number of parameters that are worth explaining
-#     first because you might want to tweak them for your data:
+#     A handful of parameters are worth tweaking for your data - the key ones are called out in the
+#     annotations below. See the [`kimimaro` repository](https://github.com/seung-lab/kimimaro) for the
+#     full list and a detailed explanation.
 #
-#     - `scale` & `const`: control how detailed your skeleton will be: lower = more detailed but more noise
-#     - `anisotropy`: controls the voxel size - see the `header` dictionary for the voxel size of our image
-#     - `dust_threshold`: controls how small connected components are skipped
-#     - `object_ids`:  a list of labels to process (remember that we skipped the background label)
-#     - `max_path`: if this is set, the algorithm will only process N paths in each skeleton - you can use
-#       this to finish early (e.g. for testing)
+# ```python
+# skels = kimimaro.skeletonize(
+#     labels,
+#     teasar_params={
+#         "scale": 1.5,                      # (1)!
+#         "const": 1,                        # physical units (1 micron in our case)
+#         "pdrf_scale": 100000,
+#         "pdrf_exponent": 4,
+#         "soma_acceptance_threshold": 3.5,  # physical units
+#         "soma_detection_threshold": 1,     # physical units
+#         "soma_invalidation_const": 0.5,    # physical units
+#         "soma_invalidation_scale": 2,
+#         "max_paths": None,                 # (2)!
+#     },
+#     object_ids=list(to_skeletonize),       # (3)!
+#     dust_threshold=500,                    # (4)!
+#     anisotropy=(0.19, .19, 0.38),          # (5)!
+#     progress=True,                         # show progress bar
+#     parallel=6,                            # (6)!
+#     parallel_chunk_size=1,                 # skeletons processed before updating the progress bar
+# )
+# ```
 #
-#     See the [`kimimaro` repository](https://github.com/seung-lab/kimimaro) for a detailed explanation
-#     of the parameters!
-
-skels = kimimaro.skeletonize(
-    labels,
-    teasar_params={
-        "scale": 1.5,
-        "const": 1,  # physical units (1 micron in our case)
-        "pdrf_scale": 100000,
-        "pdrf_exponent": 4,
-        "soma_acceptance_threshold": 3.5,  # physical units
-        "soma_detection_threshold": 1,  # physical units
-        "soma_invalidation_const": 0.5,  # physical units
-        "soma_invalidation_scale": 2,
-        "max_paths": None,  # default None
-    },
-    object_ids=list(to_skeletonize), # process only the specified labels
-    dust_threshold=500,  # skip connected components with fewer than this many voxels
-    anisotropy=(0.19, .19, 0.38),  # voxel size in physical units
-    progress=True,  # show progress bar
-    parallel=6,  # <= 0 all cpu, 1 single process, 2+ multiprocess
-    parallel_chunk_size=1,  # how many skeletons to process before updating progress bar
-)
+# 1.  Together with `const`, controls skeleton detail: lower values = more detail but more noise.
+# 2.  Cap on paths processed per skeleton. Set it low to finish early, e.g. for a quick test (`None` = no cap).
+# 3.  Only process these labels - remember we dropped the background label `0`.
+# 4.  Skip connected components with fewer than this many voxels.
+# 5.  Voxel size in physical units - check the `header` dict for your image's spacing.
+# 6.  Parallelism: `<= 0` uses all CPUs, `1` runs single-process, `2+` uses multiprocessing.
 
 # %%
 # `skels` is a dictionary of `{label: cloudvolume.Skeleton}`. Let's convert these to {{ navis }} neurons:
@@ -234,11 +232,13 @@ nl = navis.NeuronList([navis.read_swc(s.to_swc(), id=i) for i, s in skels.items(
 #
 # ## Alternatives
 #
-# If the pipeline described in this tutorial does not work for you, there are a number of alternatives:
+# If this pipeline doesn't work for your data, consider:
 #
-# 1. [Simple Neurite Tracer](https://imagej.net/plugins/snt/index) is a popular ImageJ plugin for semi-automated tracing
-# 2. Folks at the Allen Institute for Brain Science have published a [protocol for reconstructing neurons](https://portal.brain-map.org/explore/toolkit/morpho-reconstruction/vaa3d-mozak)
-# 3. [NeuTube](https://neutracing.com/tutorial/) is an open-source software for reconstructing neurons from fluorescence microscopy images
+# | Tool | What it is |
+# |------|------------|
+# | [Simple Neurite Tracer](https://imagej.net/plugins/snt/index) | Popular ImageJ plugin for semi-automated tracing. |
+# | [Vaa3D / Mozak](https://portal.brain-map.org/explore/toolkit/morpho-reconstruction/vaa3d-mozak) | The Allen Institute's protocol for reconstructing neurons. |
+# | [NeuTube](https://neutracing.com/tutorial/) | Open-source reconstruction from fluorescence microscopy images. |
 #
 # ## Acknowledgements
 #

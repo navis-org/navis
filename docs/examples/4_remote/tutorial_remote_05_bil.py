@@ -10,6 +10,10 @@ single neuron reconstructions - for example the fMOST-based mouse reconstruction
 [BRAIN Initiative Cell Census Network (BICCN)](https://biccn.org).
 
 {{ navis }} provides an interface that wraps BIL's metadata API and its download server:
+
+!!! note "Network access"
+    This tutorial queries BIL's metadata API and download server over the network, so it needs an
+    internet connection. No account or token is required.
 """
 
 # %%
@@ -21,19 +25,22 @@ import navis.interfaces.brain_image_library as bil
 # %%
 # ## Searching for datasets
 #
-# Datasets are identified by a "bildid" - a little word triplet such as `ace-boo-van`. To find datasets, use
-# `search`. Any number of fields can be combined: across fields they are combined with AND, and within a field
-# multiple values are combined with OR.
+# Datasets are identified by a "bildid" - a little word triplet such as `ace-boo-van`. Use `search` to find them:
 #
-# Note that BIL matches values **exactly** - there is no substring or fuzzy matching. Use `search(text=...)` for a
-# free-text search.
+# !!! note "How search matches"
+#     | Rule | Behavior |
+#     |------|----------|
+#     | Across different fields | combined with **AND** |
+#     | Multiple values within one field | combined with **OR** |
+#     | Value matching | **exact** - no substring or fuzzy matching |
+#
+#     See `bil.FIELDS` for all searchable fields, and use `search(text=...)` for a free-text search.
 
 ds = bil.search(species="mouse", generalmodality="cell morphology", technique="fMOST", limit=5)
 ds[["bildid", "title", "species", "technique", "number_of_files"]]
 
 # %%
-# See `bil.FIELDS` for all available search fields. If you need a field that isn't in there, you can drop down to
-# the raw API via `bil.query(division, element, value)`.
+# If you need a field that isn't in `bil.FIELDS`, drop down to the raw API via `bil.query(division, element, value)`.
 
 # %%
 # ## Inspecting a dataset
@@ -45,7 +52,7 @@ meta = bil.get_metadata("ace-boo-van")
 meta[["title", "species", "genotype", "dataset_size_gb", "number_of_files", "rights"]]
 
 # %%
-# !!! important "Datasets can be huge"
+# !!! warning "Datasets can be huge"
 #
 #     BIL hosts datasets of hundreds of terabytes and millions of files. `list_files` and `download_files`
 #     therefore refuse to crawl or download very large datasets unless you explicitly override their guardrails.
@@ -79,8 +86,8 @@ nl
 # bil.download_files(files, "~/bil_data")
 
 # %%
-# Do note that datasets carry their own licenses - check the `rights` and `dataset.rightsuri` fields before you
-# re-use any data.
+# !!! warning "Check the license"
+#     Datasets carry their own licenses. Check the `rights` and `dataset.rightsuri` fields before you re-use any data.
 
 # %%
 # Let's plot the neurons we fetched:

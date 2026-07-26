@@ -34,14 +34,14 @@ n = navis.ml.normalize_neuron(navis.example_neurons(1, kind="skeleton"))
 #
 # There are six building blocks:
 #
-# - [`navis.ml.jitter_neuron`][] - independent Gaussian noise per point.
-# - [`navis.ml.warp_neuron`][] - a smooth, spatially-correlated elastic
-#   deformation (the low-frequency counterpart to jitter).
-# - [`navis.ml.rotate_neuron`][] - a random rotation about the centroid.
-# - [`navis.ml.scale_neuron`][] - a random scaling about the centroid.
-# - [`navis.ml.translate_neuron`][] - a random shift of the whole neuron.
-# - [`navis.ml.drop_nodes`][] - randomly drop nodes/points (a sparser
-#   reconstruction).
+# | Function | Effect | Size units | Preserves topology? |
+# |----------|--------|------------|---------------------|
+# | [`navis.ml.jitter_neuron`][] | independent Gaussian noise per point | absolute (coordinate units) | yes |
+# | [`navis.ml.warp_neuron`][] | smooth, spatially-correlated elastic deformation | relative (fraction of bbox) | yes |
+# | [`navis.ml.rotate_neuron`][] | random rotation about the centroid | angle (degrees) | yes |
+# | [`navis.ml.scale_neuron`][] | random scaling about the centroid | relative (a factor) | yes |
+# | [`navis.ml.translate_neuron`][] | random shift of the whole neuron | absolute (coordinate units) | yes |
+# | [`navis.ml.drop_nodes`][] | randomly drop nodes/points (sparser reconstruction) | fraction of nodes | keeps branch points, root & connectivity |
 #
 # Let's look at what each does to the same skeleton. We overlay the original (grey)
 # with the augmented copy (color).
@@ -86,8 +86,14 @@ plt.tight_layout()
 # ## Composing a pipeline: `augment_neuron`
 #
 # Rather than chaining these by hand, [`navis.ml.augment_neuron`][] runs them in a
-# sensible order - ``drop -> warp -> rotate -> scale -> translate -> jitter``
-# (topology first, smooth deformation before rigid ones, independent noise last).
+# sensible order - topology first, smooth deformation before the rigid transforms,
+# and independent noise last:
+#
+# ```mermaid
+# graph LR
+#     D["drop"] --> W["warp"] --> R["rotate"] --> S["scale"] --> T["translate"] --> J["jitter"];
+# ```
+#
 # Each argument is `None` to skip that step, its primary value to run it with
 # defaults, or a dict for full control.
 
@@ -143,12 +149,9 @@ plt.tight_layout()
 
 # %%
 # !!! important
-#     `jitter` and `translate` take **absolute** sizes (in coordinate units),
-#     while `warp` and `scale` are relative (fractions of the bounding box / a
-#     factor). That's why we [normalized](tutorial_ml_00_normalize.md) first: on a
-#     unit-RMS neuron a `jitter` sigma of ~0.01-0.05 is a gentle perturbation. On a
-#     raw neuron in nanometers you would instead use something on the order of the
-#     node spacing.
+#     The **Size units** column above is why we [normalized](tutorial_ml_00_normalize.md) first:
+#     on a unit-RMS neuron a `jitter` sigma of ~0.01-0.05 is a gentle perturbation, but on a raw
+#     neuron in nanometers you would instead use something on the order of the node spacing.
 #
 # ## A full training-input pipeline
 #

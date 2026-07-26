@@ -82,11 +82,11 @@ nl_mix
 #
 # In such cases you have to be a bit more careful about asking for attributes that are not shared across all neurons:
 #
-# ```python
-# # This will throw an error because MeshNeurons
-# # don't have a `cable_length` attribute
-# nl_mix.cable_length
-# ```
+# !!! warning "Missing attributes"
+#     ```python
+#     # MeshNeurons have no `cable_length` - so this raises an error:
+#     nl_mix.cable_length
+#     ```
 
 # Instead use the `get_neuron_attributes()` method with a default value:
 nl_mix.get_neuron_attributes('cable_length', None)
@@ -95,177 +95,100 @@ nl_mix.get_neuron_attributes('cable_length', None)
 # %%
 # ## Indexing NeuronLists
 #
-# A [`NeuronList`][navis.NeuronList] works similar to normal lists with a bunch of additional perks:
+# A [`NeuronList`][navis.NeuronList] indexes like a cross between a Python `list`, a numpy array and a
+# pandas DataFrame. The tabs below cover the main styles - each returns a new [`NeuronList`][navis.NeuronList]:
+#
+# === "By position"
+#     Integers, lists of integers and slices - just like numpy:
+#     ```python
+#     nl[0]         # a single neuron
+#     nl[[0, 2]]    # first and third neuron
+#     nl[:2]        # first two neurons
+#     ```
+#
+# === "By attribute"
+#     Index with a boolean array - which includes any neuron attribute (`n_nodes`, `cable_length`, `soma`, ...):
+#     ```python
+#     nl[nl.n_branches > 700]   # neurons with many branches
+#     nl[nl.soma != None]       # neurons that have a soma
+#     ```
+#
+# === "By name"
+#     Match against the neurons' `.name`. Pass a single name, several names or - since {{ navis }}
+#     matches with `re.fullmatch` - a regex pattern:
+#     ```python
+#     nl["DA1_lPN_R1"]                   # single name
+#     nl[["DA1_lPN_R1", "DA1_lPN_R2"]]   # multiple names
+#     nl[".*DA1.*"]                       # regex
+#     ```
+#
+# === "By ID"
+#     Every neuron has an `.id` (a random UUID if you didn't set one). Use the `.idx` indexer to select
+#     by ID, much like pandas' `.loc[]`:
+#     ```python
+#     nl.idx[1734350908]
+#     ```
+#
+# Let's see one in action. First, give our three neurons unique names:
 
-# Get the first neuron in the list
+# %%
 nl = navis.example_neurons(n=3)
-nl[0]
-
-# %%
-# ### Index by position
-#
-# [`NeuronLists`][navis.NeuronList] are designed to behave similar to numpy arrays in that they allow some fancy
-# indexing.
-#
-# You've already seen how to extract a single neuron from a [`NeuronList`][navis.NeuronList] using a single integer
-# index. Like with numpy arrays, this also works for lists of indices...
-
-# %%
-nl = navis.example_neurons(n=3)
-nl[[0, 2]]
-
-# %%
-# ... or slices
-
-# %%
-nl[:2]
-
-# %%
-# ### Index by attributes
-#
-# You can index [`NeuronLists`][navis.NeuronList] by boolean `numpy.arrays` - that includes
-# neuron attributes, e.g. `n_nodes`, `cable_length`, `soma`, etc.
-#
-# Index using node count:
-
-# %%
-subset = nl[nl.n_branches > 700]
-subset
-
-# %%
-# Here is an example where we subset to neurons that have a soma:
-
-# %%
-subset = nl[nl.soma != None]  # Index by boolean array
-subset
-
-# %%
-# ### Index by name
-#
-# [`navis.TreeNeuron`][] can (but don't have to) have names (`.name`). If you, for example,
-# import neurons from SWC files they will inherit their name from the file by default.
-#
-# Our example neurons all have the same name, so to demo this feature we will need to make
-# those names unique:
-
-# %%
 for i, n in enumerate(nl):
     n.name = n.name + str(i + 1)
 nl
 
 # %%
-# You can index by single...
-
-# %%
-nl["DA1_lPN_R1"]
-
-# %%
-# ... or multiple names:
-
-# %%
-nl[["DA1_lPN_R1", "DA1_lPN_R2"]]
-
-# %%
-# #### Using regex
-#
-# Under the hood {{ navis }} uses `re.fullmatch` to match neuron names - so you can use regex!
-
-# %%
+# Now subset to the neurons whose name matches the "DA1" pattern:
 nl[".*DA1.*"]
-
-# %%
-# ### Index by ID
-#
-# All neurons have an ID - even if you don't explicitly assign one, a UUID will be assigned under the hood.
-
-# %%
-nl[0].id
-
-# %%
-# Neuron lists can be indexed by their ID (similar to `.loc[]` in pandas DataFrames) by using the `.idx` indexer:
-
-# %%
-nl.idx[1734350908]
 
 # %%
 # ## Neuron Math
 #
-# {{ navis }} implements a very simple and intuitive syntax to add and remove items from a [`navis.NeuronList`][]:
+# {{ navis }} implements an intuitive syntax for combining and subsetting [`NeuronLists`][navis.NeuronList].
+# If you know how Python's `list` and `set` operators behave, these will feel right at home:
 #
-# ### Addition
+# | Operator          | On a `NeuronList`                        | Familiar from |
+# |-------------------|------------------------------------------|---------------|
+# | `A + B`           | concatenate (also combines two neurons)  | `list + list` |
+# | `A - B`           | remove the neurons in `B` from `A`       | `list.pop()`  |
+# | `A & B`           | keep only neurons present in both        | `set & set`   |
+# | <code>A &#124; B</code> | union of both lists                | <code>set &#124; set</code> |
+# | `A * x`, `A / x`  | **scale coordinates** by `x`             | —             |
 #
-# To merge two lists in Python, you can simply add them:
-
-# %%
-[1] + [3]
-
-# %%
-# [`navis.NeuronList`][] works exactly the same:
-
-# %%
-nl[:2] + nl[2:]
-
-# %%
-# This also works with two single [`navis.TreeNeurons`][navis.TreeNeuron]! You can use that to combine them into a list:
-
-# %%
-nl[0] + nl[1]
-
-# %%
-# ### Subtraction
+# The first four operators change *which* neurons are in the list:
 #
-# To remove an item from a Python list, you would call the `.pop()` method:
-
-# %%
-l = [1, 2, 3]
-l.pop(2)
-l
-
-# %%
-# For [`navis.NeuronList`][] you can use subtraction:
-
-# %%
-nl - nl[2]
-
-# %%
-# ### Bitwise AND
+# === "Add `+`"
+#     Concatenate two lists - or combine two single neurons into a list:
+#     ```python
+#     nl[:2] + nl[2:]     # -> a list of 3 neurons
+#     nl[0] + nl[1]       # two single neurons -> a NeuronList
+#     ```
 #
-# To find the intersection between two lists, you would use `sets` and the `&` operator:
-
-# %%
-set([0, 1, 2]) & set([2, 3, 4])
-
-# %%
-# [`navis.NeuronList`][] work similarly:
-
-# %%
-nl[[0, 1]] & nl[[1, 2]]
-
-# %%
-# ### Bitwise OR
+# === "Subtract `-`"
+#     Drop neurons from the list:
+#     ```python
+#     nl - nl[2]          # remove the third neuron
+#     ```
 #
-# To generate the union between two lists, you would use `sets` and the `|` operator:
-
-# %%
-set([0, 1, 2]) | set([2, 3, 4])
-
-# %%
-# [`navis.NeuronLists`][navis.NeuronList] work similarly:
-
-# %%
-nl[[0, 1]] | nl[[1, 2]]
-
-# %%
-# !!! important
-#     Be aware that bitwise AND and OR will likely change the order of the neurons in the list.
-
-# %%
-# ### Multiplication and Division
+# === "AND `&`"
+#     Intersection - keep only neurons present in *both* lists:
+#     ```python
+#     nl[[0, 1]] & nl[[1, 2]]     # -> just neuron 1
+#     ```
 #
-# So far, all operations have led to changes in the structure of the [`navis.NeuronList`][].
-# **Multiplication and division are different**! Just like multiplying/dividing individual neurons
-# by a number, multiplying/dividing a [`navis.NeuronList`][] will change the *coordinates* of nodes, vertices, etc.
-# (including associated data such as radii or connector positions) of the neurons in the list:
+# === "OR `|`"
+#     Union of both lists:
+#     ```python
+#     nl[[0, 1]] | nl[[1, 2]]     # -> neurons 0, 1 and 2
+#     ```
+#
+# !!! warning "Order is not preserved"
+#     Bitwise `&` and `|` will likely reorder the neurons in the resulting list.
+#
+# ### Multiplication & division: scaling coordinates
+#
+# **Multiplication and division are the odd ones out.** Rather than changing *which* neurons are in the
+# list, they scale the *coordinates* of every neuron in it - nodes, vertices, connectors and radii alike:
 
 # %%
 nl.units  # our neurons are originally in 8x8x8 nm voxels

@@ -52,16 +52,22 @@ dp = navis.read_nrrd(
 )
 
 # %%
-# !!! note "Thinning"
-#     In the above [`read_nrrd`][navis.read_nrrd] call we used `thin=True`. This is a post-processing step that
-#     thins the image to a single pixel width. This will produce "cleaner" dotprops but can also remove denser
-#     neurites thus emphasizing the backbone of the neuron. This option requires the `scikit-image` package:
+# ??? tip "Tuning dotprops"
+#     A handful of parameters control the quality of your dotprops - expect to tune them for your data:
 #
-#     ```bash
-#     pip install scikit-image
-#     ```
+#     - **`threshold`** (image input): which voxels are bright enough to become points. Higher = stricter.
+#     - **`thin`** (image input): thins the image to single-pixel width before sampling. Produces "cleaner"
+#       dotprops but can erode denser neurites, emphasizing the backbone. Requires `scikit-image`:
+#         ```bash
+#         pip install scikit-image
+#         ```
+#     - **`k`**: number of neighbours used to estimate each point's tangent vector. Higher `k` = smoother;
+#       lower `k` = more detail but more noise. Clean connectome skeletons do well with a low `k`; for noisy
+#       confocal data try `k=20`. Accepted by both [`read_nrrd`][navis.read_nrrd] and [`make_dotprops`][navis.make_dotprops].
+#     - **`dp_dist`** (for [`drop_fluff`][navis.drop_fluff]): max distance for two points to count as connected
+#       when finding connected components. Defaults to 5× the average inter-point distance.
 #
-#  Let's overlay the dotprops on the maximum projection:
+# Now overlay the dotprops on the maximum projection (reusing the same `imshow` recipe as above):
 
 fig, ax = plt.subplots()
 ax.imshow(
@@ -89,12 +95,6 @@ ax.imshow(
 navis.plot2d(dp, ax=ax, view=("x", "-y"), method="2d", color="r", linewidth=1.5)
 
 # %%
-# !!! note
-#     To extract the connected components, [`navis.drop_fluff`][] treats all pairs of points within a certain distance
-#     as connected. The distance is determined by the `dp_dist` parameter which defaults to 5 x the average distance
-#     between points. That is a good value for this example but you may need to adjust it for your data.
-#
-#
 # ## From other neurons
 #
 # Let's say you have a bunch of skeletons and you need to convert them to dotprops for NBLAST. For that you use
@@ -114,12 +114,7 @@ axins.set_ylim(15e3, 13e3)
 ax.indicate_inset_zoom(axins, edgecolor="black")
 
 # %%
-# !!! note
-#     The `k` parameter in [`make_dotprops`][navis.make_dotprops] determines how many neighbours are considered to
-#     generate the tangent vector for a given point.
-#     Higher `k` = smoother. Lower `k` = more detailed but also more noisy. If you have clean data such as these
-#     connectome-derived skeletons, you can go with a low `k`. For confocal data, you might want to go with a higher `k`
-#     (e.g. 20) to smooth out the noise. You can pass `k` to [`navis.read_nrrd`][] as well.
+# (See the [Tuning dotprops](#from-image-data) tip above for how `k` shapes the result.)
 #
 # ## Manual construction
 #

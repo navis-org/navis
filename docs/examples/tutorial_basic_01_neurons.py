@@ -184,7 +184,8 @@ fig, ax = navis.plot2d(
 )
 
 # %%
-# In above plot, red dots are presynapses (outputs) and cyan dots are postsynapses (inputs).
+# !!! info "Reading the plot"
+#     Red dots are presynapses (outputs), cyan dots are postsynapses (inputs).
 #
 # ### Somas
 #
@@ -484,15 +485,28 @@ print(f"Nodes in graph after: {len(n.graph.nodes)}")
 # %%
 # ## Converting neuron types
 #
-# {{ navis }} provides a couple functions to move between neuron types:
+# {{ navis }} provides four functions to move between neuron types:
 #
-# - [`navis.make_dotprops`][]: Convert any neuron to dotprops
-# - [`navis.skeletonize`][]: Convert any neuron to a skeleton
-# - [`navis.mesh`][]: Convert any neuron to a mesh
-# - [`navis.voxelize`][]: Convert any neuron to a voxel grid
+# - [`navis.make_dotprops`][]: any neuron :material-arrow-right-thin: dotprops
+# - [`navis.skeletonize`][]: any neuron :material-arrow-right-thin: skeleton
+# - [`navis.mesh`][]: any neuron :material-arrow-right-thin: mesh
+# - [`navis.voxelize`][]: any neuron :material-arrow-right-thin: voxel grid
 #
-# In particular meshing and skeletonizing are non-trivial and you might have to play around with the
-# parameters to optimize results with your data! Let's demonstrate on some example:
+# ```mermaid
+# graph LR
+#     M(MeshNeuron) -->|"skeletonize()"| T(TreeNeuron)
+#     T -->|"mesh()"| M
+#     T -->|"make_dotprops()"| D(Dotprops)
+#     M -->|"voxelize()"| V(VoxelNeuron)
+#     V -->|"mesh()"| M
+# ```
+#
+# !!! warning "Conversions can be lossy"
+#     Meshing and skeletonizing in particular are non-trivial - expect to tune the parameters to
+#     get good results with your data. Conversions also tend to discard information (skeletonizing
+#     a mesh throws away its surface, for example), so hold on to the original if you can.
+#
+# Let's demonstrate:
 
 # %%
 
@@ -540,50 +554,47 @@ navis.plot3d([vx, mm], fig_autosize=True)
 # %%
 # ## Neuron attributes
 #
-# This is a *selection* of neuron class (i.e. [`navis.TreeNeuron`][], [`navis.MeshNeuron`][], etc.) attributes.
-#
-# All neurons have this:
+# A *selection* of neuron attributes. Every neuron - whatever its type - has:
 #
 # - `name`: a name
-# - `id`: a (hopefully unique) identifier - defaults to random UUID if not set explicitly
-# - `bbox`: Bounding box of neuron
+# - `id`: a (hopefully unique) identifier - defaults to a random UUID if not set explicitly
+# - `bbox`: bounding box of the neuron
 # - `units` (optional): spatial units (e.g. "1 micrometer" or "8 nanometer" voxels)
 # - `connectors` (optional): connector table
 #
-# Only for [`TreeNeurons`][navis.TreeNeuron]:
+# On top of that, each type carries its own core data:
 #
-# - `nodes`: node table
-# - `cable_length`: cable length(s)
-# - `soma`: node ID(s) of soma (if applicable)
-# - `root`: root node ID(s)
-# - `segments`: list of linear segments
-# - `graph`: NetworkX graph representation of the neuron
-# - `igraph`: iGraph representation of the neuron (if library available)
+# === "TreeNeuron"
+#     - `nodes`: the SWC node table
+#     - `cable_length`: cable length(s)
+#     - `soma`: node ID(s) of the soma (if applicable)
+#     - `root`: root node ID(s)
+#     - `segments`: list of linear segments
+#     - `graph` / `igraph`: NetworkX / iGraph representation of the neuron
 #
-# Only for [`MeshNeurons`][navis.MeshNeuron]:
+# === "MeshNeuron"
+#     - `vertices` / `faces`: the mesh vertices and faces
+#     - `volume`: volume of the mesh
+#     - `soma_pos`: x/y/z position of the soma
 #
-# - `vertices`/`faces`: vertices and faces
-# - `volume`: volume of mesh
-# - `soma_pos`: x/y/z position of soma
+# === "VoxelNeuron"
+#     - `voxels`: `(N, 3)` sparse representation
+#     - `grid`: `(N, M, K)` dense voxel grid
 #
-# Only for [`VoxelNeurons`][navis.VoxelNeuron]:
+# === "Dotprops"
+#     - `points`: `(N, 3)` x/y/z points
+#     - `vect`: `(N, 3)` vector associated with each point
 #
-# - `voxels`: `(N, 3)` sparse representation
-# - `grid`: `(N, M, K)` voxel grid representation
+# === "NeuronList"
+#     A [`NeuronList`][navis.NeuronList] surfaces the attributes of the neurons it holds, plus a few of its own:
 #
-# Only for [`Dotprops`][navis.Dotprops]:
+#     - `is_mixed`: `True` if the list contains more than one neuron type
+#     - `is_degenerated`: `True` if the list contains neurons with non-unique IDs
+#     - `types`: tuple of all neuron types in the list
+#     - `shape`: size of the list `(N, )`
 #
-# - `points` `(N, 3`) x/y/z points
-# - `vect`: `(N, 3)` array of the vector associated with each point
-#
-# All above attributes can be accessed via [`NeuronLists`][navis.NeuronList] containing the neurons. In addition you can also get:
-#
-# - `is_mixed`: returns `True` if list contains more than one neuron type
-# - `is_degenerated`: returns `True` if list contains neurons with non-unique IDs
-# - `types`: tuple with all types of neurons in the list
-# - `shape`: size of neuronlist `(N, )`
-#
-# All attributes and methods are accessible through auto-completion.
+# !!! tip "Explore interactively"
+#     Every attribute and method is accessible through auto-completion - type `n.` and hit ++tab++.
 #
 # ## What next?
 #
@@ -606,3 +617,8 @@ navis.plot3d([vx, mm], fig_autosize=True)
 #     [:octicons-arrow-right-24: I/O Tutorials](index.md#import-export)
 #
 # </div>
+#
+# *[SWC]: A plain-text format storing a neuron skeleton as a table of connected nodes.
+# *[COO]: Coordinate list - a sparse format that stores only the occupied voxels as coordinates.
+# *[UUID]: Universally Unique Identifier.
+# *[EM]: Electron Microscopy.

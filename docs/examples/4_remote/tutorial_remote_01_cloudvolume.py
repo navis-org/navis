@@ -11,12 +11,12 @@ William Silversmith (Seung lab, Princeton) and others. While `CloudVolume` is no
 it shares much of its functionality. As a rule of thumb: if you can view a dataset in `Neuroglancer`, you can download
 that data using `CloudVolume`. For example:
 
-1. [FlyWire](https://flywire.ai/) is a segmentation of an entire *Drosophila* brain. This dataset is very much work in progress and you
-   will need to register and apply for access. Check out [FAFBseg](https://fafbseg-py.readthedocs.io) for a fairly mature interface built on
-   top of {{ navis }}.
-2. [Google's flood-filling segmentation](http://fafb-ffn1.storage.googleapis.com/landing.html) of an entire *Drosophila* brain.
-3. The Allen Institute's [MICrONs datasets](https://www.microns-explorer.org/). We have a separate [tutorial](../tutorial_remote_02_microns) on this!
-4. The Janelia [hemibrain connectome](https://neuprint.janelia.org).
+| Dataset | Description |
+|---------|-------------|
+| [FlyWire](https://flywire.ai/) | Segmentation of an entire *Drosophila* brain. Very much work in progress; you'll need to register and apply for access. See [FAFBseg](https://fafbseg-py.readthedocs.io) for a mature {{ navis }}-based interface. |
+| [Google FFN](http://fafb-ffn1.storage.googleapis.com/landing.html) | Google's flood-filling segmentation of an entire *Drosophila* brain. |
+| [MICrONS](https://www.microns-explorer.org/) | The Allen Institute's datasets - see the dedicated [MICrONS tutorial](../tutorial_remote_02_microns). |
+| [hemibrain](https://neuprint.janelia.org) | The Janelia hemibrain connectome. |
 
 You can find the source for the data you want to access by right-clicking on the layer in question and selecting the "Source" tab on the right:
 
@@ -32,6 +32,10 @@ First of all, you will want to make sure `cloud-volume` is installed and up-to-d
 pip install cloud-volume -U
 ```
 
+!!! note "Network access"
+    This tutorial downloads data from remote Neuroglancer sources, so it needs an internet connection.
+    Some datasets (e.g. FlyWire) additionally require you to register and authenticate.
+
 Once that's done we can start pulling data using `cloud-volume`. In this example here, we will use the Google segmentation of the FAFB dataset:
 """
 
@@ -44,8 +48,9 @@ import cloudvolume as cv
 # mkdocs_gallery_thumbnail_path = '_static/neuroglancer_source.png'
 
 # %%
-# *Before* we connect to the datasource we have to "monkey patch" `cloudvolume` using [`navis.patch_cloudvolume`][]. That will
-# teach `cloudvolume` to return {{ navis }} neurons:
+# !!! important "Patch before you connect"
+#     [`navis.patch_cloudvolume`][] monkey-patches `cloudvolume` so that its `get()` methods return
+#     {{ navis }} neurons. Run it *before* you create the `CloudVolume` object, and only once per session.
 
 # This needs to be run only once at the beginning of each session
 navis.patch_cloudvolume()
@@ -100,3 +105,5 @@ sk
 # !!! experiment "Try it out!"
 #     If you are working a lot with NeuroGlancer and need to e.g. generate or parse URLs, you might want to check out the
 #     [`nglscenes`](https://github.com/schlegelp/nglscenes) package.
+#
+# *[EM]: Electron Microscopy.

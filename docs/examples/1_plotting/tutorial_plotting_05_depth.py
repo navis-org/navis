@@ -4,12 +4,13 @@ Depth-coloring
 
 Add a sense of depth by coloring neurons along the viewing axis.
 
-The obvious issue with 2d plots is that they are... well, 2d. This means that you can't easily convey depth information.
-What we can do, however, is color the neuron by depth - that is by the distance to the camera.
-This is a simple way to give a sense of the neuron's 3d structure.
+The obvious issue with 2d plots is that they are... well, 2d, so they can't easily convey depth.
+What we *can* do is color the neuron by depth - i.e. by distance to the camera - to hint at its
+3d structure.
 
-Note that this currently works only for [`navis.plot2d`][] (i.e. `matplotlib`):
-
+!!! note "matplotlib only"
+    Depth-coloring currently works only with [`navis.plot2d`][] (the `matplotlib` backend). It supports
+    both [`TreeNeurons`][navis.TreeNeuron] and [`MeshNeurons`][navis.MeshNeuron] and methods `2d` and `3d`.
 """
 
 import navis
@@ -26,20 +27,20 @@ fig, ax = navis.plot2d(
 plt.tight_layout()
 
 # %%
-# The `depth_coloring` parameter will color the neuron by distance from the camera. For this neuron, the ventral dendrites
-# are closest to the camera whereas the dorsal axon is further away.
+# `depth_coloring=True` colors the neuron by distance from the camera. For this neuron, the ventral
+# dendrites are closest to the camera while the dorsal axon is furthest away.
 #
-# By default, this will use the `jet` colormap. You can change this to any of
-# [`matplotlib`'s colormaps](https://matplotlib.org/stable/users/explain/colors/colormaps.html)
-# using the `palette` parameter:
-
-fig, ax = navis.plot2d(
-    n,
-    depth_coloring=True,
-    palette="hsv",
-    method='2d',
-    view=("x", "-z"),
-)
-
-# %%
-# This should work with both [`TreeNeurons`][navis.TreeNeuron] and [`MeshNeurons`][navis.MeshNeuron] and methods `2d` and `3d`.
+# !!! tip "Pick your colormap"
+#     By default depth-coloring uses the `jet` colormap. Pass any of
+#     [matplotlib's colormaps](https://matplotlib.org/stable/users/explain/colors/colormaps.html)
+#     via the `palette` parameter.
+#
+# === "`jet` (default)"
+#     ```python
+#     navis.plot2d(n, depth_coloring=True, method="2d", view=("x", "-z"))
+#     ```
+#
+# === "`hsv`"
+#     ```python
+#     navis.plot2d(n, depth_coloring=True, palette="hsv", method="2d", view=("x", "-z"))
+#     ```

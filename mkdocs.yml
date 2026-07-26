@@ -41,6 +41,7 @@ theme:
     - navigation.tabs
     - navigation.tabs.sticky
     - content.code.copy
+    - content.tooltips
   #logo: images/icon.png
   # below option would prevents loading typefaces from Google Fonts
   # but see also the privacy plugin below
@@ -79,7 +80,12 @@ markdown_extensions:
   - pymdownx.extra
   - pymdownx.highlight
   - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.keys
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - tables

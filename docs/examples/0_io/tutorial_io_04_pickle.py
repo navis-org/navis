@@ -1,48 +1,52 @@
-
 """
 Pickling
 ========
 
 Quickly cache and reload neurons with Python's pickle module.
 
-All neuron types including whole [`NeuronLists`][navis.NeuronList] can be "pickled" :cucumber:.
-If you don't know what that is: pickling is storing the actual Python object as a
-bytes stream. This is incredibly fast and works very well for short-term storage
-but has a few downsides:
-
-1. Pickle files can only be re-opened in Python
-2. The pickled object is (sort of) specific to your current Python environment. If
-   you e.g. update Python, {{ navis }} or even just `numpy` or `pandas` you may not
-   be able to open the file again.
-3. Pickle files can contain arbitrary Python code. Never open a pickle file from
-   an untrusted source!
-
-With that out of the way, pickling is incredibly easy:
-
-```python
-import navis
-import pickle
-
-# Load some example neurons
-nl = navis.example_neurons(3, kind='mesh')
-
-# Pickle neurons to file
-with open('/Users/philipps/Downloads//meshes.pkl', 'wb') as f:
-    pickle.dump(nl, f)
-```
-
-To "unpickle", i.e. read the file back into Python:
-
-```python
-# Read neurons back from pickle file
-with open('/Users/philipps/Downloads//meshes.pkl', 'rb') as f:
-    nl = pickle.load(f)
-```
-
-This tutorial has hopefully given you some entry points on how to load your data.
-See also the [I/O API reference](../../../api.md#importexport).
-
+All {{ navis }} neurons - including whole [`NeuronLists`][navis.NeuronList] - can be "pickled" :cucumber:.
+Pickling serialises the live Python object to a byte stream: it's extremely fast and ideal for
+short-term caching, with a couple of important caveats.
 """
+
+# %%
+# !!! warning "Caveats"
+#     Pickling is fast but is *not* a durable archival format:
+#
+#     1. Pickle files can only be re-opened in Python.
+#     2. The pickled object is tied to your current environment. If you update Python, {{ navis }}
+#        or even just `numpy` or `pandas`, you may no longer be able to open an old file.
+#
+# !!! danger "Never unpickle untrusted files"
+#     A pickle file can contain arbitrary Python code that runs the moment it is loaded. **Only ever
+#     unpickle files you created yourself or that come from a source you fully trust.**
+
+# %%
+# With that out of the way, pickling is straightforward:
+#
+# === "Save"
+#     ```python
+#     import navis
+#     import pickle
+#
+#     # Load some example neurons
+#     nl = navis.example_neurons(3, kind='mesh')
+#
+#     # Pickle the NeuronList to a file
+#     with open('neurons.pkl', 'wb') as f:
+#         pickle.dump(nl, f)
+#     ```
+#
+# === "Load"
+#     ```python
+#     import pickle
+#
+#     # Read the neurons back from the pickle file
+#     with open('neurons.pkl', 'rb') as f:
+#         nl = pickle.load(f)
+#     ```
+#
+# See also the [I/O API reference](../../../api.md#importexport).
 
 # %%
 

@@ -31,30 +31,40 @@ from tqdm import tqdm
 
 def load_dotprops_csv(fp):
     """Load dotprops from CSV files in filepath `fp`."""
-    # Turn into a path object
     fp = Path(fp).expanduser()
 
-    # Go over each CSV file
     files = list(fp.glob('*.csv'))
     dotprops = []
     for f in tqdm(files, desc='Loading dotprops', leave=False):
-        # Read file
         csv = pd.read_csv(f)
 
-        # Each row is a point with associated vector
         pts = csv[['pt_x', 'pt_y', 'pt_z']].values
         vect = csv[['vec_x', 'vec_y', 'vec_z']].values
 
-        # Turn into a Dotprops
         dp = navis.Dotprops(points=pts, k=20, vect=vect, units='1 micron')
-
-        # Use filename as ID/name
         dp.name = dp.id = f.name[:-4]
 
-        # Add this dotprop to the list before moving on to the next
         dotprops.append(dp)
 
     return navis.NeuronList(dotprops)
+
+# %%
+# For each CSV file (one neuron each), the loader does:
+#
+# ```python
+# csv = pd.read_csv(f)                                                # (1)!
+#
+# pts = csv[['pt_x', 'pt_y', 'pt_z']].values                         # (2)!
+# vect = csv[['vec_x', 'vec_y', 'vec_z']].values
+#
+# dp = navis.Dotprops(points=pts, k=20, vect=vect, units='1 micron')  # (3)!
+# dp.name = dp.id = f.name[:-4]                                       # (4)!
+# ```
+#
+# 1.  Each CSV holds one neuron — read it into a DataFrame.
+# 2.  The `pt_*` columns are the point coordinates; the `vec_*` columns the associated tangent vectors.
+# 3.  Build a [`navis.Dotprops`][] from the points and vectors (already in microns).
+# 4.  Use the filename (minus the `.csv`) as the neuron's `name` and `id`.
 
 # %%
 # Load dotprops from the filepath
@@ -62,27 +72,36 @@ fc_dps = load_dotprops_csv('flycircuit_dotprops')
 fc_dps
 
 # %%
-# !!! note
-#     To avoid having to re-generate these dotprops, you could consider pickling them:
+# Generating these dotprops is slow, so pickle them once and reload from the pickle next time — much faster than
+# parsing the CSVs again:
+#
+# === "Save"
 #     ```python
 #     import pickle
+#
 #     with open('flycircuit_dps.pkl', 'wb') as f:
 #         pickle.dump(fc_dps, f)
 #     ```
 #
-#     In the future you can then reload the dotprops like so (much faster than loading from CSV):
+# === "Load"
 #     ```python
+#     import pickle
+#
 #     with open('flycircuit_dps.pkl', 'rb') as f:
 #         fc_dps = pickle.load(f)
 #     ```
 #
-# Note: The names/ids correspond to the flycircuit gene + clone names:
+# The names/ids correspond to the flycircuit gene + clone names:
 
 fc_dps[0]
 
 # %%
 # In case your query neurons are in a different brain space, you can use [flybrains](https://github.com/navis-org/navis-flybrains) to
 # convert them to flycircuit's `FCWB` space.
+#
+# !!! note "Requires flybrains"
+#     Converting between brain spaces needs the optional [flybrains](https://github.com/navis-org/navis-flybrains) package
+#     and its bridging transforms (downloaded once via the `flybrains.download_...` functions).
 #
 # For demonstration purposes we will use the example neurons - olfactory DA1 projection neurons from the hemibrain connectome - that ship
 # with {{ navis }} and try to find their closest match in the FlyCircuit dataset.

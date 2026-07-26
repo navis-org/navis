@@ -9,7 +9,11 @@ first.
 
 ## Setup the model
 
-The setup will be similar to the previous tutorial: use one of the example neurons to create a compartment model:
+!!! note "Same setup as the previous tutorial"
+    The cell below repeats the compartment-model setup from the
+    [introductory NEURON tutorial](../tutorial_interfaces_00_neuron): load an example neuron, set the
+    biophysical constants, label axon and dendrite, and insert the passive and Hodgkin-Huxley mechanisms.
+    It has to run so the later cells work, but you can skip reading it if you've been through that tutorial.
 
 """
 # %%
@@ -128,7 +132,21 @@ _ = fig.colorbar(sm, ax=ax, fraction=0.075, shrink=0.5, label="V")
 # ## Animate
 #
 # One option to animate the voltage recordings over time is to use matplotlib's animation functionality.
-# For that we have to do a bit of setup:
+# For that we have to do a bit of setup.
+#
+# The tricky part is the per-frame update: voltages are recorded *per node*, but the mesh is colored
+# *per face*. So each frame we remap the values node :material-arrow-right-thin: vertex :material-arrow-right-thin: face:
+#
+# ```python
+# vert_voltage = records[i].values[mesh.vertex_map]     # (1)!
+# face_voltage = vert_voltage[mesh.faces].mean(axis=1)  # (2)!
+# c.set_array(face_voltage)                             # (3)!
+# ```
+#
+# 1.  `mesh.vertex_map` gives, for every mesh *vertex*, the skeleton *node* it came from - so this pulls the
+#     recorded voltage of that node at frame `i` onto each vertex.
+# 2.  Each face has three vertices; averaging their voltages gives one value per face.
+# 3.  Push the per-face values onto the plot's collection to recolor the mesh.
 
 # Convert our skeleton to a mesh for nicer visualization
 mesh = navis.conversion.tree2meshneuron(n, warn_missing_radii=False)
@@ -149,14 +167,11 @@ c.set_norm(plt.Normalize(vmin=-70, vmax=10))
 
 # This function updates the voltages according to the frame
 def animate(i):
-    # We need to map the voltages at individual nodes to faces in the mesh
-    # First nodes to vertices
+    # Map node voltages -> vertices -> faces (see the annotated snippet above)
     vert_voltage = records[i].values[mesh.vertex_map]
-    # Then vertices to faces
     face_voltage = vert_voltage[mesh.faces].mean(axis=1)
-    # Set the values
     c.set_array(face_voltage)
-    # Also update the timestamp
+    # Update the timestamp
     t.set_text(f'{i * 0.025:.2f} ms')
     return (c, t)
 
@@ -165,3 +180,10 @@ ani = animation.FuncAnimation(fig, animate, interval=40, blit=True, repeat=True,
 
 
 # %%
+# !!! note "Displaying the animation"
+#     Building the `FuncAnimation` doesn't display it. In a Jupyter notebook, render it inline with:
+#     ```python
+#     from IPython.display import HTML
+#     HTML(ani.to_jshtml())
+#     ```
+#     Alternatively, save it to a file with `ani.save("animation.mp4")`.

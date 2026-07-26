@@ -10,6 +10,10 @@ insect species. Check out [Heinze et al. (2021)](https://elifesciences.org/artic
 
 While the website features a comprehensive search and some nifty analyses, it can be useful to download these data to run your own
 analyses or compare to other data sets. For that purpose, {{ navis }} provides an interface to Insect Brain DB that wraps parts of their API:
+
+!!! note "Network access"
+    This tutorial downloads data from the Insect Brain Database over the network, so it needs an internet
+    connection. No account or token is required.
 """
 
 # mkdocs_gallery_thumbnail_path = '_static/insect_brain_db_thumbnail.png'
@@ -20,6 +24,37 @@ import navis
 
 # Import the actual Insect Brain DB interface
 import navis.interfaces.insectbrain_db as ibdb
+
+# %%
+# This tutorial walks through three kinds of data you can pull from the Insect Brain Database:
+#
+# <div class="grid cards" markdown>
+#
+# -   :material-information-outline:{ .lg .middle } __Species metadata__
+#
+#     ---
+#
+#     List the available species and pull metadata for one of them.
+#
+#     [:octicons-arrow-right-24: Fetching meta data](#fetching-meta-data)
+#
+# -   :material-cube-outline:{ .lg .middle } __Neuropil meshes__
+#
+#     ---
+#
+#     Download brain region meshes for a species.
+#
+#     [:octicons-arrow-right-24: Fetching meshes](#fetching-meshes)
+#
+# -   :material-graph-outline:{ .lg .middle } __Neuron skeletons__
+#
+#     ---
+#
+#     Search for cell types and fetch their reconstructions.
+#
+#     [:octicons-arrow-right-24: Fetch neurons](#fetch-neurons)
+#
+# </div>
 
 # %%
 # ## Fetching meta data
@@ -67,8 +102,10 @@ locust_neurons = ibdb.search_neurons(species='Desert Locust')
 locust_neurons.head()
 
 # %%
-# Let's fetch skeletons ("reconstructions") for some of the above neurons. Note that not all neurons have skeletons
-# (see the "reconstruction_creator" column)!
+# Now fetch skeletons ("reconstructions") for some of the above neurons.
+#
+# !!! note "Not all neurons have skeletons"
+#     Only some entries come with a reconstruction - check the `reconstruction_creator` column to see which ones do.
 
 # You can use IDs or names, or a combination thereof to fetch skeletons
 sk = ibdb.get_skeletons('CL1a-R2')

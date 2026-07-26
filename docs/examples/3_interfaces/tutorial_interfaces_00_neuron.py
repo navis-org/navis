@@ -4,25 +4,52 @@ NEURON simulator
 
 Run compartment-model simulations of neurons and networks via the NEURON simulator.
 
-[NEURON](https://neuron.yale.edu/neuron/) is a simulation environment to model neurons and networks thereof.
-`NEURON` itself is rather complex (neurons are complex things after all) and fairly low-level which results
-in lots of boilerplate code. There are some libraries (e.g. [NetPyNE](http://netpyne.org)) that wrap `NEURON`
-and provide a higher-level interface to facilitate building models. In my experience these are typically
-geared towards creating models based on probabilities (e.g. "create 100 neurons with a 10% chance to be
-connected to another neuron") rather than the well defined morphology/connectivity you get from e.g. connectomes.
+[NEURON](https://neuron.yale.edu/neuron/) is a simulation environment for modeling neurons and networks.
+It's powerful but fairly low-level, so building models tends to involve a lot of boilerplate. Higher-level
+wrappers like [NetPyNE](http://netpyne.org) exist, but they're geared towards probabilistic models (e.g.
+"create 100 neurons with a 10% chance of connecting") rather than the well-defined morphology and connectivity
+you get from connectomics.
 
-{{ navis }} does *not* try to emulate a full simulation suite but tries to fill a gap for people wanting to use
-non-probabilistic data (e.g. from connectomics) by providing an entry point for you to get started with some
-simple models and take it from there. At this point there are two types of models:
+{{ navis }} doesn't try to be a full simulation suite. Instead it fills a gap for people working with
+non-probabilistic data (e.g. from connectomics), giving you an entry point to get started with simple models
+and build from there. There are two types of models:
 
-1. [`CompartmentModel`][navis.interfaces.neuron.comp.CompartmentModel] for modeling individual neurons
-2. [`PointNetwork`][navis.interfaces.neuron.network.PointNetwork] for modeling networks from point processes
+<div class="grid cards" markdown>
+
+-   :material-brain:{ .lg .middle } __CompartmentModel__
+
+    ---
+
+    Model an individual neuron (you can also connect several) from a skeleton.
+
+    [:octicons-arrow-right-24: Compartment models](#compartment-models)
+
+-   :material-graph:{ .lg .middle } __PointNetwork__
+
+    ---
+
+    Model a network of point-process neurons from an edge list.
+
+    [:octicons-arrow-right-24: Point networks](#point-networks)
+
+</div>
 
 ## Compartment models
 
 A [`CompartmentModel`][navis.interfaces.neuron.comp.CompartmentModel] represents a single neuron (although you
 can connect multiple of these neurons) and is constructed from a skeleton (i.e. [`navis.TreeNeuron`][], see also
-[`navis.conversion.mesh2skeleton`][]).
+[`navis.conversion.mesh2skeleton`][]). The full pipeline looks like this:
+
+```mermaid
+graph LR
+    A[Load skeleton] --> B[Build model]
+    B --> C[Label axon & dendrite]
+    C --> D[Insert mechanisms]
+    D --> E[Add recordings]
+    E --> F[Add stimulation]
+    F --> G[Run simulation]
+    G --> H[Plot results]
+```
 """
 # %%
 import navis
@@ -44,23 +71,25 @@ n.reroot(n.soma, inplace=True)
 cmp = nrn.CompartmentModel(n, res=10)
 
 # %%
-# `NEURON` compartment models are effectively collections of connected linear segments. Each of these
-# segments can have its own set of properties and mechanisms. Here, we will use some biophysical properties
+# `NEURON` compartment models are collections of connected linear segments, and each segment can carry its
+# own properties and mechanisms. Here we set three biophysical constants for the whole neuron, using values
 # from [Tobin et al. (2017)](https://elifesciences.org/articles/24838):
+#
+# ```python
+# cmp.Ra = 266.1                         # (1)!
+# cmp.cm = 0.8                           # (2)!
+# cmp.insert("pas", g=1 / 20800, e=-60)  # (3)!
+# ```
+#
+# 1.  Specific axial resistivity, in `Ohm cm`.
+# 2.  Specific membrane capacitance, in `mF / cm**2`.
+# 3.  Passive ("leak") membrane properties: `g` is the specific leak conductance (`1/Rm`, where `Rm` is the
+#     specific membrane resistance in `Ohm cm**2`) and `e` is the leak reversal potential.
 
-# Set the specific axial resistivity for the entire neuron in Ohm cm
+# Set axial resistivity, membrane capacitance and passive membrane properties
 cmp.Ra = 266.1
-
-# Set the specific membrane capacitance in mF / cm**2
 cmp.cm = 0.8
-
-# Add passive membrane properties for the entire neuron
-cmp.insert(
-    "pas",
-    g=1
-    / 20800,  # specific leakage conductance = 1/Rm; Rm = specific membrane resistance in Ohm cm**2
-    e=-60,  # leakage reverse potential
-)
+cmp.insert("pas", g=1 / 20800, e=-60)
 
 # %%
 # At this point we already have a passive model of our *Drosophila* projection neuron. Next, we will determine
@@ -234,14 +263,15 @@ axes[1].set_ylabel("spikes [Hz]")
 # I suspect there is something wrong with the radii along the cell body fiber - perhaps a pinch point somewhere? This just
 # illustrates that good skeletons are paramount and you should critically inspect the results of your models.
 #
-# Many methods in [`CompartmentModel`][navis.interfaces.neuron.comp.CompartmentModel] try to use sensible defaults to make
-# sure that you get some sort of effect. That said, it's advisable that you adjust parameters as you fit your model to real
-# world data. Check the help to see what you can do:
+# Many methods in [`CompartmentModel`][navis.interfaces.neuron.comp.CompartmentModel] use sensible defaults so
+# you get some sort of effect out of the box. As you fit a model to real-world data, you'll want to tune the
+# parameters.
 #
-# Try this for example
-# ```python
-# help(cmp.add_synaptic_input)
-# ```
+# !!! tip "Discover the parameters"
+#     Every method documents its options - check the help for any of them, e.g.:
+#     ```python
+#     help(cmp.add_synaptic_input)
+#     ```
 #
 # ## Point Networks
 #
@@ -295,5 +325,7 @@ ax.set_xlim(0, 1000)
 #
 # - [Model DB](https://senselab.med.yale.edu/ModelDB/) contains various published `NEURON` models and mechanisms
 # - [NetPyNE](http://netpyne.org/) wraps `NEURON` and provides high-level syntax to create models
+#
+# *[HH]: Hodgkin-Huxley - the classic model of the action potential.
 
 

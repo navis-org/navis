@@ -12,6 +12,13 @@ has two complementary primitives for that:
   per-node/vertex features), and
 - **chunking** tiles a neuron into fixed-size, spatially-coherent fragments.
 
+| Function | Input | Samples by | Returns |
+|----------|-------|------------|---------|
+| [`navis.ml.sample_cable`][] | skeleton | uniform arclength along the cable | DataFrame of points + interpolated columns |
+| [`navis.ml.sample_surface`][] | mesh | surface area | DataFrame of points + source vertex |
+| [`navis.ml.sample_points_uniform`][] | point cloud | farthest-point spacing | subsampled points (or indices/mask) |
+| [`navis.ml.chunk_neuron`][] | skeleton or mesh | geodesic (or Euclidean) tiling | list of positional-index arrays |
+
 !!! note
     This tutorial follows on from [Normalizing Neurons](tutorial_ml_00_normalize.md).
     In practice you would usually normalize *before* sampling so every cloud lives
@@ -168,10 +175,12 @@ print("batch shape:", batch.shape)                              # (n_fragments, 
 #
 # `chunk_neuron` has a few `mode`s worth knowing:
 #
-# - `"partition"` - non-overlapping tiles (the default).
-# - `"cover"` - overlapping, covering every node at least once.
-# - `"random"` / `"spaced"` - `k` fragments from random / evenly-spread seeds,
-#   great for oversampling a training set.
+# | `mode` | Behaviour |
+# |--------|-----------|
+# | `"partition"` | non-overlapping tiles (the default) |
+# | `"cover"` | overlapping tiles, covering every node at least once |
+# | `"random"` | `k` fragments from random seeds - good for oversampling a training set |
+# | `"spaced"` | `k` fragments from evenly-spread seeds - good for oversampling a training set |
 #
 # And `connected=False` grows fragments by *Euclidean* distance instead (the
 # `size` nearest points in space), which packs tightly but ignores the arbor.

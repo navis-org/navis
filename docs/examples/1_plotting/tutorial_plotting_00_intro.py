@@ -122,10 +122,13 @@ plt.tight_layout()
 # | vispy (deprecated) | yes     | yes      |
 # | k3d                 | yes     | no       |
 #
-# By default, the choice is automatic and depends on (1) what backends are installed and (2) the context:
+# By default, the choice is automatic and depends on (1) what backends are installed and (2) the context.
+# The first available backend in each row wins:
 #
-#   - from IPython/Terminal/scripts: octarine :material-code-greater-than: vispy :material-code-greater-than: plotly
-#   - from Jupyter Lab/Notebook: plotly :material-code-greater-than: octarine :material-code-greater-than: k3d
+# | Context                      | Backend priority (first available wins)                                      |
+# |------------------------------|------------------------------------------------------------------------------|
+# | IPython / Terminal / scripts | octarine :material-arrow-right-thin: vispy :material-arrow-right-thin: plotly |
+# | Jupyter Lab / Notebook       | plotly :material-arrow-right-thin: octarine :material-arrow-right-thin: k3d   |
 #
 # You can always force a specific backend using the `backend` parameter in [`navis.plot3d`][]:
 #
@@ -160,9 +163,9 @@ plt.tight_layout()
 # export NAVIS_PLOT3D_BACKEND="octarine"
 # ```
 #
-# !!! important "Google Colaboratory"
-#     The `jupyter_rfb` used by Octarine and Vispy to render 3D plots in Jupyter does not work in Google Colaboratory.
-#     If you are using Google Colaboratory, we recommend you use the plotly backend.
+# !!! note "Google Colaboratory"
+#     The `jupyter_rfb` that Octarine and Vispy use to render 3D plots in Jupyter does not work in Google
+#     Colaboratory. There, use the plotly backend instead.
 #
 # With that out of the way, let's have a look at some 3D plots! You will notice that for the `octarine`, `vispy` and `k3d`
 # backends we're just showing screenshots - that's because their interactive plots can't be embedded into this documentation.
@@ -186,50 +189,43 @@ plt.tight_layout()
 #     ```
 #     ![vispy](../../../_static/vispy_viewer.png)
 #
-# !!! important
-#     If you are using Octarine/Vispy from Jupyter, we may have to explicitly call the `viewer.show()` method *in the last line of the cell*
-#     for the widget to show up.
+# !!! note "Showing the viewer in Jupyter"
+#     From Jupyter, you may need to call `viewer.show()` *in the last line of the cell* for the
+#     Octarine/Vispy widget to appear.
 #
 #
-# A few important notes regarding the Octarine/Vispy backends:
+# A few things to know about the Octarine/Vispy backends:
 #
-# - The `viewer` is dynamic: you can keep adding/removing items in other cells. However, it will die with the kernel (unlike `plotly`)!
-# - By default, {{ navis }} will track the "primary" viewer and subsequent calls of [`navis.plot3d`][] will add object to that primary viewer
-#
-#     * if you want to force a new viewer: `navis.plot3d(nl, viewer='new')`
-#     * if you want to add to a specific viewer: `navis.plot3d(nl, viewer=viewer)`
-#
-# - You can dynamically resize the canvas (in Jupyter by dragging the lower right corner)
-# - For Jupyter: the rendering runs in your Jupyter Kernel and the frames are sent to Jupyter via a remote frame buffer (`jupyter_rfb`). If your
-#   Jupyter kernel runs on a remote machine you might experience some lag depending on the connection speed and quality.
+# - The `viewer` is dynamic - keep adding/removing items from other cells - but it dies with the kernel (unlike `plotly`)!
+# - {{ navis }} tracks a "primary" viewer; subsequent [`navis.plot3d`][] calls add to it. Force a new one with
+#   `navis.plot3d(nl, viewer='new')` or target a specific one with `navis.plot3d(nl, viewer=viewer)`.
+# - You can resize the canvas (in Jupyter by dragging the lower right corner).
+# - In Jupyter, rendering runs in your kernel and frames are streamed via a remote frame buffer (`jupyter_rfb`);
+#   a remote kernel may add some lag.
 #
 # Some important methods for the `viewer` object:
 #
 # ```python
-# # Close the viewer
-# viewer.close()
-#
-# # Close the current primary viewer
-# navis.close3d()
-#
-# # Add neurons to the primary viewer
-# navis.plot3d(nl)
-#
-# # Add neurons to a specific
-# navis.plot3d(nl, viewer=viewer)
-#
-# # Clear viewer
-# viewer.clear3d()
-#
-# # Clear the primary viewer
-# navis.clear3d()
+# viewer.close()                   # (1)!
+# navis.close3d()                  # (2)!
+# navis.plot3d(nl)                 # (3)!
+# navis.plot3d(nl, viewer=viewer)  # (4)!
+# viewer.clear3d()                 # (5)!
+# navis.clear3d()                  # (6)!
 # ```
 #
-# The Octarine viewer itself has a bunch of neat features - check out the [documentation](https://schlegelp.github.io/octarine/) to learn more.
+# 1.  Close the viewer.
+# 2.  Close the current primary viewer.
+# 3.  Add neurons to the primary viewer.
+# 4.  Add neurons to a specific viewer.
+# 5.  Clear the viewer.
+# 6.  Clear the primary viewer.
 #
-# !!! important
-#     The Vispy backend is deprecated and will be removed in future versions of {{ navis }}. If you can please switch to Octarine.
-#     If you have any issues with Octarine and want us to keep the Vispy backend, please let us know!
+# The Octarine viewer has many more neat features - check out its [documentation](https://schlegelp.github.io/octarine/) to learn more.
+#
+# !!! warning "Vispy is deprecated"
+#     The Vispy backend is deprecated and will be removed in a future version of {{ navis }} - please switch
+#     to Octarine if you can. If Octarine doesn't work for you and you'd like us to keep Vispy, let us know!
 
 # %%
 # ### K3d
@@ -278,10 +274,10 @@ navis.plot3d(
 #
 # | Action          | Octarine/Vispy | Plotly | K3d |
 # |-----------------|----------------|--------|-----|
-# | Rotate          | Left Mouse + Drag          | Left Mouse + Drag  | Left Mouse + Drag  |
-# | Zoom            | Mousewheel                 | Mousewheel         | Mousewheel         |
-# | Pan             | Right Mouse + Drag         | Right Mouse + Drag | Right Mouse + Drag |
-# | Hide/Unhide<br>objects  | `viewer.hide()`<br>`viewer.show()` | Click on legend | Click on legend |
+# | Rotate          | ++left-button++ + drag  | ++left-button++ + drag  | ++left-button++ + drag  |
+# | Zoom            | scroll wheel            | scroll wheel            | scroll wheel            |
+# | Pan             | ++right-button++ + drag | ++right-button++ + drag | ++right-button++ + drag |
+# | Hide/Unhide<br>objects  | `viewer.hide()`<br>`viewer.show()` | click on legend | click on legend |
 #
 # !!! note "Camera rotation"
 #     If the camera rotation using plotly causes problems, try clicking on the "Orbital rotation" in the upper right tool bar.

@@ -6,13 +6,26 @@ Prune, resample, smooth and reshape neuron morphology.
 
 See the [API reference](../../api#neuron-morphology) for a complete list of available functions.
 
-As you might imagine some manipulations (e.g. smoothing or simplification) will work on all/most neuron
-types while others will only work on specific types. For example rerooting only makes sense on a [`navis.TreeNeuron`][].
+Some manipulations work on all (or most) neuron types; others only make sense for a specific type -
+rerooting, for example, only applies to a [`navis.TreeNeuron`][]. As a rule of thumb, a generically
+named function like [`downsample_neuron`][navis.downsample_neuron] accepts multiple types, while a
+specialized one like [`reroot_skeleton`][navis.reroot_skeleton] is type-specific. Depending on your
+data you may therefore need to convert between neuron types first.
 
-The rule of thumb is this: if a function is called e.g. [`downsample_neuron`][navis.downsample_neuron] it should work with
-multiple, if not all, neuron types while specialized functions will be called e.g. [`reroot_skeleton`][navis.reroot_skeleton].
-So depending on what data you are working with and what you want to get out of it, you might have to explicitly convert between
-neuron types. See the respective function's docstring for details!
+This tutorial covers the operations below - the table doubles as an index and shows which neuron types
+each supports:
+
+| Operation | `TreeNeuron` | `MeshNeuron` | `Dotprops` | `VoxelNeuron` |
+|-----------|:---:|:---:|:---:|:---:|
+| [Reroot](#rerooting) ([`reroot_skeleton`][navis.reroot_skeleton]) | ✅ | — | — | — |
+| [Downsample](#simplifying) ([`downsample_neuron`][navis.downsample_neuron]) | ✅ | ✅ | ✅ | ✅ |
+| [Resample](#resampling) ([`resample_skeleton`][navis.resample_skeleton]) | ✅ | — | — | — |
+| [Smooth](#smoothing) ([`smooth_skeleton`][navis.smooth_skeleton] / [`smooth_mesh`][navis.smooth_mesh] / [`smooth_voxels`][navis.smooth_voxels]) | ✅ | ✅ | — | ✅ |
+| [Cut & prune](#cutting-pruning) ([`cut_skeleton`][navis.cut_skeleton], [`prune_twigs`][navis.prune_twigs]) | ✅ | ✅ | — | — |
+| [Subset to volume](#intersecting-with-volumes) ([`in_volume`][navis.in_volume]) | ✅ | ✅ | ✅ | ✅ |
+
+Cutting or pruning a [`navis.MeshNeuron`][] operates on its skeleton and propagates the changes back to
+the mesh, so the result may not be perfect (e.g. not watertight).
 
 ## Rerooting
 
@@ -40,9 +53,8 @@ navis.reroot_skeleton(n, n.soma, inplace=True)
 #
 # ## Simplifying
 #
-# If you work with large lists of neurons you may want to downsample/simplify before e.g. trying to plot them. This is one of
-# the things that - in principle work - with all neuron types. The implementation, however, depends on the neuron type. Lookup
-# the respective function's help (e.g. via the [`API`](../../../api.md)) for details.
+# Downsampling/simplifying is handy before, say, plotting large lists of neurons. It works on all
+# neuron types (see the table at the top), though the implementation differs per type.
 #
 # For [`TreeNeurons`][navis.TreeNeuron] downsampling means skipping N nodes (here 10):
 
@@ -86,7 +98,7 @@ sk_resampled = navis.resample_skeleton(sk, resample_to="1 micron", inplace=False
 print(sk_resampled.sampling_resolution * sk_resampled.units)
 
 # %%
-# Let's visualize what we did there:
+# Comparing the original, resampled and downsampled skeletons side by side:
 
 # %%
 import matplotlib.pyplot as plt
@@ -133,25 +145,42 @@ plt.tight_layout()
 # As you can see the resampling increased the node density in the backbone and decreased it in the finer
 # neurites to bring things on par. Downsampling just thinned out the nodes across the board.
 #
-# !!! important
-#     Resampling has a caveat you need to be aware of: nodes are not merely moved around to match the
-#     desired resolution - they are regenerated from scratch. As a consequence, the original node IDs
-#     are - with a few exceptions - all gone.
+# !!! warning "Resampling regenerates node IDs"
+#     Nodes are not merely moved around to match the desired resolution - they are regenerated from
+#     scratch. As a consequence, the original node IDs are (with a few exceptions) all gone.
 #
+# %%
 # ## Smoothing
 #
-# Smoothing is one of those things that work on all neurons but the approaches are so vastly different that
-# there are separate functions: [`navis.smooth_skeleton`][], [`navis.smooth_mesh`][] and [`navis.smooth_voxels`][]:
+# Smoothing works on all neuron types, but the approaches differ so much that each has its own
+# function. Pick the tab for your neuron type:
+#
+# === "skeleton"
+#     [`navis.smooth_skeleton`][] uses a rolling window along the linear segments:
+#     ```python
+#     sk = navis.example_neurons(n=1, kind="skeleton")
+#     sk_smoothed = navis.smooth_skeleton(sk, window=5, inplace=False)
+#     ```
+#
+# === "mesh"
+#     [`navis.smooth_mesh`][] applies iterative rounds of Laplacian smoothing:
+#     ```python
+#     me = navis.example_neurons(n=1, kind="mesh")
+#     me_smoothed = navis.smooth_mesh(me, iterations=5, inplace=False)
+#     ```
+#
+# === "voxels"
+#     [`navis.smooth_voxels`][] applies a Gaussian filter to the voxel grid:
+#     ```python
+#     vx = navis.voxelize(navis.example_neurons(n=1, kind="mesh"), pitch="1 micron")
+#     vx_smoothed = navis.smooth_voxels(vx, sigma=2, inplace=False)
+#     ```
+#
+# Running the skeleton smoother on a real neuron:
 
-# smooth_skeleton uses a rolling window along the linear segments
 sk = navis.example_neurons(n=1, kind="skeleton")
 sk_smoothed = navis.smooth_skeleton(sk, window=5, inplace=False)
-
-# %%
-
-# smooth_mesh uses iterative rounds of Laplacian smoothing
-me = navis.example_neurons(n=1, kind="mesh")
-me_smoothed = navis.smooth_mesh(me, iterations=5, inplace=False)
+sk_smoothed
 
 # %%
 # ## Cutting & Pruning
@@ -161,7 +190,7 @@ me_smoothed = navis.smooth_mesh(me, iterations=5, inplace=False)
 # on their skeleton and changes are propagated back to the mesh. Fair warning though: this may not be perfect
 # (e.g. the resulting mesh might not be watertight) - should be good enough for a first pass though!
 #
-# Let's start with something easy: cutting a skeleton in two at a given node.
+# Start with the simplest case: cutting a skeleton in two at a given node.
 
 # Load the neuron
 n = navis.example_neurons(1, kind="skeleton")
@@ -246,7 +275,7 @@ plt.tight_layout()
 
 
 # %%
-# Let's try something more sophisticated: pruning by Strahler index:
+# Next, pruning by Strahler index:
 
 # Load a fresh skeleton
 n = navis.example_neurons(1, kind="skeleton")
@@ -304,7 +333,7 @@ plt.tight_layout()
 # ## Intersecting with Volumes
 #
 # We can also intersect neurons with [`navis.Volume`][] (and `trimesh.Trimesh` for that matter).
-# This is useful if you want to e.g. subset a neuron to a certain brain region. Let's see how this works:
+# This is useful e.g. to subset a neuron to a certain brain region:
 
 # %%
 # Load an example navis.Volume
@@ -327,11 +356,10 @@ plt.tight_layout()
 
 
 # %%
-# Does this work with all neuron types? There is no simple answer unfortunately. In theory, anything that
-# works on skeletons should also work on meshes, and _vice versa_. However, [`navis.Dotprops`][] and [`navis.VoxelNeuron`][] are
-# so fundamentally different that certain operations just don't make sense. For example we can't cut them but we
-# can subset them to a given volume. Check out the [I/O API reference](../../../api.md#neuron-types-and-functions) docs for
-# an overview of what works with which neuron type.
+# As the table at the top of this tutorial shows, not every operation applies to every neuron type:
+# [`Dotprops`][navis.Dotprops] and [`VoxelNeurons`][navis.VoxelNeuron] can't be cut, for example, but they
+# *can* be subset to a volume. See the [API reference](../../../api.md#neuron-types-and-functions) for the
+# full matrix.
 
 # Note that [`navis.in_volume`][] also works with arbitrary spatial data (i.e. `(N, 3)` arrays of x/y/z locations):
 

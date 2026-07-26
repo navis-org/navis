@@ -9,21 +9,35 @@ the distribution of pre- and postsynapses alone.
 
 ## Background
 
-The function that does the heavy lifting is [`navis.propagate_labels()`][navis.propagate_labels]. It takes a neuron
-(skeleton or mesh) and a set of initial labels and then propagates those labels across the neuron based on its topology.
+The function that does the heavy lifting is [`navis.propagate_labels()`][navis.propagate_labels]. It takes a
+neuron (skeleton or mesh) plus a set of initial labels and spreads those labels across the neuron following
+its topology.
 
 ![label_propagation](../../../_static/label_propagation.png)
 
-The way this is implemented in {{ navis }} is effectively as a series of matrix multiplications. The neuron's topology
-- node-to-node for skeletons and vertex-to-vertex for meshes - is represented as an adjacency matrix, and the labels
-are represented as a vector. By multiplying the adjacency matrix by the label vector, we can propagate the labels
-across the neuron. This process is repeated iteratively until convergence: we either stop when the labels stop changing
-(`tol` parameter) or after a certain number of iterations (`max_iter` parameter).
+??? info "How propagation works (the math)"
+    Propagation is implemented as a series of matrix multiplications. The neuron's topology - node-to-node
+    for skeletons, vertex-to-vertex for meshes - is an adjacency matrix, and the labels are a vector.
+    Multiplying the two spreads the labels one step across the neuron; repeating the operation carries them
+    further. We iterate until the labels stop changing (`tol`) or a maximum number of iterations is reached
+    (`max_iter`).
 
-There are a number of ways to customize the propagation process. First, by default all input labels are treated the same
-but we can specify `weight` to give different importance to different labels, making some more likely to propagate than others.
-Second, we can decide whether we want to allow the initial set of labels to be changed during the propagation process by
-changing the `clamping` parameter.
+    ```mermaid
+    graph LR
+        A["Adjacency matrix<br>(topology)"] --> X(("×"))
+        L["Label vector"] --> X
+        X --> U["Updated labels"]
+        U -->|"repeat until tol / max_iter"| X
+    ```
+
+The propagation can be tuned with a few knobs:
+
+| Parameter  | What it controls |
+|------------|------------------|
+| `weights`  | Per-label importance as a `dict` mapping label &rarr; float. Higher-weighted labels propagate more readily; `None` (default) treats all labels equally. |
+| `clamping` | Whether the initial labels may change. `True` (default) keeps them fixed; `False` lets them change freely; `"soft"` / `"soft:alpha"` lets them change but biases them toward their original value. |
+| `tol`      | Convergence tolerance. With the default (`>= 1`) we stop once no label has flipped for `tol` iterations; values `< 1` compare probability changes instead. |
+| `max_iter` | Maximum number of iterations. |
 
 ## Axon-Dendrite Labeling
 
@@ -67,21 +81,18 @@ labels[pre_vertices] = 'pre'
 np.unique(labels.astype(str), return_counts=True)
 
 # %%
-# Now we have our initial labels, we can propagate them across the neuron. By default, the initial labels are "clamped", meaning
-# they cannot change during the propagation process. In insect neurons, pre- and postsynapses are typically mixed - i.e.
-# the axon will have some amount of postsynapses and vice versa for the dendrites. If we want a smooth labeling across the neuron,
-# we need to allow the initial labels to change during the propagation process. We can do this by setting `clamping=False`.
-# Alternatively, we can also provide an alpha value via e.g. `clamping="soft:0.9"` to determine how resilient the initial labels are to change.
-#
-# Let's propagate those labels across the neuron and see what we get!
+# With our initial labels ready, we can propagate them. By default the initial labels are "clamped" (fixed).
+# But in insect neurons pre- and postsynapses are mixed - the axon carries some postsynapses and vice versa -
+# so for a smooth labeling we let the initial labels change too, via `clamping=False` (or a soft clamp like
+# `clamping="soft:0.9"`; see the table above).
 
 pred = navis.propagate_labels(n, labels, clamping=False, max_iter=10000, tol=1e-6, verbose=True)
 
 # %%
-# Note how the prediction didn't converge? In the worst case scenario, that means we haven't reached the entirety of the neuron and some vertices
-# remain unlabeled but in our case it just means that the probabilities haven't fully stabilised yet - which may not even affect the final labels.
-# You can increase the max number of iterations (or decrease the tolerance) to get a fully converged solution. If you run your own experiments,
-# it's worth playing around with these parameters to find the optimum balance between convergence and runtime.
+# Note how the prediction didn't converge? Worst case, that means some vertices are never reached and stay
+# unlabeled; here it just means the probabilities haven't fully stabilised yet - which may not even change
+# the final labels. Raise `max_iter` (or lower `tol`) for a fully converged solution, trading runtime for
+# convergence.
 #
 # Let's check the distribution of our predicted labels:
 np.unique(pred.astype(str), return_counts=True)
@@ -130,13 +141,25 @@ navis.plot3d(
 # If you wanted, you could use those probabilities to make finer categories such low vs high confidence axon/dendrite labels, or even just use the probabilities directly for
 # downstream analyses instead of hard labels.
 #
-# ## Final Notes
+# ## Notes
 #
-# 1. If your neuron is not contiguous (i.e. has multiple disconnected components), your labels can't propagate across those components.
-# 2. For large mesh neurons it can be computationally expensive to propagate labels across the entire neuron. In that case, you can try to speed things up by downsampling the neuron first.
+# !!! note
+#     - If your neuron isn't contiguous (i.e. has multiple disconnected components), labels can't
+#       propagate across the gaps.
+#     - Propagating across a large mesh can be computationally expensive - downsampling the neuron first
+#       is a good way to speed things up.
 #
-# That's it for now! Please see the [axon/dendrite split tutorial](../../2_morpho/tutorial_morpho_03_ad_split) for a deep dive into determining axon vs dendrite, including
-# alternative approaches using flow metrics.
+# <div class="grid cards" markdown>
+#
+# -   :material-call-split:{ .lg .middle } __Axon-dendrite splits__
+#
+#     ---
+#
+#     A deep dive into determining axon vs dendrite, including alternative flow-based approaches.
+#
+#     [:octicons-arrow-right-24: Axon-dendrite tutorial](../../2_morpho/tutorial_morpho_03_ad_split)
+#
+# </div>
 
 # %%
 

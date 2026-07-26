@@ -4,12 +4,12 @@ Meshes
 
 Load and save mesh neurons in OBJ, PLY, STL and other formats.
 
-{{ navis }} knows two types of meshes:
+{{ navis }} knows two types of meshes, both subclasses of `trimesh.Trimesh` (and usable as such):
 
-1. [`navis.MeshNeuron`][] for neurons
-2. [`navis.Volume`][] for meshes that are not neurons, e.g. neuropil or brain meshes
-
-Both of these are subclasses of `trimesh.Trimesh` and can be used as such.
+| Class | Use for |
+|-------|---------|
+| [`navis.MeshNeuron`][] | Neurons stored as meshes, e.g. from EM segmentation. |
+| [`navis.Volume`][]     | Meshes that are *not* neurons, e.g. neuropils or brain outlines. |
 
 !!! note
     {{ navis }} has dedicated interfaces for loading meshes from remote data sources
@@ -26,30 +26,26 @@ Under the hood, that function uses `trimesh.load_mesh` which supports most of th
 import navis
 
 # %%
+# Like [`navis.read_swc`][], you can point [`navis.read_mesh`][] at a single file or a folder:
+#
 # ```python
-# # Load an example file (here a FlyWire neuron I downloaded and saved locally)
-# mesh = navis.read_mesh('test_neuron.stl')
+# mesh = navis.read_mesh('test_neuron.stl')        # (1)!
+#
+# meshes = navis.read_mesh('neurons/*.stl')        # (2)!
 # ```
+#
+# 1.  A single mesh file - returns a [`navis.MeshNeuron`][].
+# 2.  All matching files in a folder. You must give the extension (e.g. `*.stl`) so {{ navis }} knows what to read.
 
 # %%
-# The interface is similar to [`navis.read_swc`][] in that you can point
-# [`navis.read_mesh`][] at single file or at folders with multiple files:
-
-# %%
+# By default [`navis.read_mesh`][] returns neurons. Use `output` to get a [`navis.Volume`][] or a
+# raw `trimesh.Trimesh` instead:
+#
 # ```python
-#  # When reading all files in folder you have to specify the file extension (e.g. *.stl)
-#  meshes = navis.read_mesh('neurons/*.stl')
+# vol = navis.read_mesh('test_mesh.stl', output='volume')   # (1)!
 # ```
-
-# %%
-# By default, [`navis.read_mesh`][] will return neurons. Use the `output` parameter to get
-# a [`navis.Volume`][] or a `trimesh.Trimesh` instead:
-
-# %%
-# ```python
-# # Load a mesh file into a Volume
-# vol = navis.read_mesh('test_mesh.stl', output='volume')
-# ```
+#
+# 1.  `output` also accepts `'neuron'` (the default) and `'trimesh'`.
 
 # %%
 # ## Manual construction
@@ -87,36 +83,32 @@ vol
 # %%
 # ## To files
 #
-# For saving [`navis.MeshNeurons`][navis.MeshNeuron] or [`navis.Volumes`][navis.Volume] to disk, use [`navis.write_mesh`][].
-
-# %%
-# Save single neuron to file:
+# Save [`navis.MeshNeurons`][navis.MeshNeuron] or [`navis.Volumes`][navis.Volume] with [`navis.write_mesh`][]:
+#
 # ```python
 # m = navis.example_neurons(1, kind='mesh')
-# navis.write_mesh(m, '~/Downloads/neuron.obj')
-# ```
-
-
-# %%
-# Save a bunch of neurons to mesh:
-# ```python
+# navis.write_mesh(m, '~/Downloads/neuron.obj')          # (1)!
+#
 # nl = navis.example_neurons(3, kind='mesh')
-# navis.write_mesh(nl, '~/Downloads/', filetype='obj')
+# navis.write_mesh(nl, '~/Downloads/', filetype='obj')   # (2)!
 # ```
+#
+# 1.  A single neuron to a named file. The extension (`.obj`, `.ply`, `.stl`, ...) sets the format.
+# 2.  A whole `NeuronList` to a folder - `filetype` is required here because the path has no extension.
 
 # %%
-# By default, [`navis.write_mesh`][] will write multiple neurons to files named `{neuron.id}.obj`.
-# You can change this behavior by specifying the format in the filename:
-# ```python
-# # Use the neuron name instead of the id
-# navis.write_mesh(nl, '~/Downloads/{neuron.name}.obj')
-# ```
+# Just like [`write_swc`][navis.write_swc], the filepath controls how batches of neurons are named:
+#
+# | Filepath pattern | Result |
+# |------------------|--------|
+# | `~/Downloads/` (+ `filetype`) | One file per neuron, named `{neuron.id}.obj` (the default). |
+# | `~/Downloads/{neuron.name}.obj` | One file per neuron, named by each neuron's `.name`. |
+# | `~/Downloads/{neuron.id}.obj` | One file per neuron, named by each neuron's `.id`. |
 
 # %%
-# !!! important
-#     One thing to keep in mind here is that {{ navis }} only works with triangular faces,
-#     i.e. no quads or polygons! Please see the documentation of [`navis.MeshNeuron`][] and
-#     [`navis.Volume`][] for details.
+# !!! warning "Triangular faces only"
+#     {{ navis }} works exclusively with triangular faces - no quads or polygons. See the
+#     [`navis.MeshNeuron`][] and [`navis.Volume`][] docs for details.
 #
 # This tutorial has hopefully given you some entry points on how to load your data. See also the [I/O API reference](../../../api.md#importexport).
 # Also note that all {{ navis }} neurons can be stored to disk using ``pickle`` - see the [pickling tutorial](../tutorial_io_04_pickle).

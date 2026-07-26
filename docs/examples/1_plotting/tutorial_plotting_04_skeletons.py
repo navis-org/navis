@@ -11,6 +11,14 @@ We will focus on how to finetune [`plot2d`][navis.plot2d] plots because `matplot
 [`plot3d`][navis.plot3d] backends when it comes to rendering lines. That said: some of the things we show here will also
 work for the other backends (Octarine, Vispy and K3d) - just not all.
 
+Here are the three main parameters for styling skeleton lines at a glance:
+
+| Parameter    | Effect                                                                  | Works in `plot3d`? |
+|--------------|-------------------------------------------------------------------------|--------------------|
+| `radius`     | Draw skeletons as tubes (`True`) or as lines (`False`, default)         | :material-check:   |
+| `linewidth`  | Line thickness - also scales the tubes when `radius=True`; default `1`  | :material-check:   |
+| `linestyle`  | Dash style, e.g. `"--"` (only when `radius=False`); default `"-"`       | :material-close:   |
+
 """
 
 # %%
@@ -20,6 +28,18 @@ work for the other backends (Octarine, Vispy and K3d) - just not all.
 # instead of lines using the `radius` parameter. By default, `radius` is set to `False` and skeletons are plotted as lines[^1].
 #
 # [^1]: This is because plotting tubes can be slow for large number of skeletons.
+#
+# === "Lines (`radius=False`)"
+#     The default - fast and good for many skeletons at once:
+#     ```python
+#     navis.plot2d(n, view=("x", "-z"), method="2d")
+#     ```
+#
+# === "Tubes (`radius=True`)"
+#     Uses each node's radius to draw tubes:
+#     ```python
+#     navis.plot2d(n, view=("x", "-z"), method="2d", radius=True)
+#     ```
 
 import navis
 import matplotlib.pyplot as plt
@@ -27,13 +47,7 @@ import matplotlib.pyplot as plt
 # Load a neuron
 n = navis.example_neurons(1, kind="skeleton")
 
-# Plot as lines
-fig, ax = navis.plot2d(n, view=("x", "-z"), method="2d")
-plt.tight_layout()
-
-# %%
-# Setting `radius=True` will plot skeletons as tubes using its nodes' radii information:
-
+# Render the tube version:
 fig, ax = navis.plot2d(n, view=("x", "-z"), method="2d", radius=True)
 plt.tight_layout()
 
@@ -76,4 +90,6 @@ fig, ax = navis.plot2d(
 )
 
 # %%
-# The `radius` and `linewidth` parameters will also work with [`plot3d`][navis.plot3d] but the `linestyle` parameter will not.
+# !!! note "`linestyle` is matplotlib-only"
+#     The `radius` and `linewidth` parameters also work with [`plot3d`][navis.plot3d], but `linestyle`
+#     does not - it is specific to the `matplotlib` ([`plot2d`][navis.plot2d]) backend.

@@ -4,8 +4,8 @@ Neuron "Barcodes"
 
 Visualize a neuron's branching pattern as a topological "barcode".
 
-This visualization technique is based on [Cuntz et al (2010)](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000877)
-and turns a neuron's branching pattern into a unique "barcode" using topological sorting.
+This technique turns a neuron's branching pattern into a unique "barcode" using topological sorting,
+based on [Cuntz et al. (2010) :octicons-link-external-16:](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000877).
 """
 
 import navis
@@ -25,17 +25,16 @@ plt.tight_layout()
 #     the sorting.
 
 # %%
-# So what's actually happening here? The barcode is a way to represent the branching pattern of a neuron
-# in a unique way. The barcode is created by breaking the neuron into linear segments between branch points and
-# sorting them by walking from the root to the leaves in a depth-first manner. At each branch point
-# we prioritize the branch that maximizes the distance to the root.
+# ??? info "How the barcode is constructed"
+#     The barcode represents a neuron's branching pattern in a unique way. It is built by breaking the
+#     neuron into linear segments between branch points and sorting them by walking from the root to the
+#     leaves depth-first, prioritizing the branch that maximizes the distance to the root at each branch
+#     point.
 #
-# In the plot each segment is represented by a rectangle where the width corresponds to the segment's length.
-# Segments that terminate in a leaf node are plotted with a darker color.
+#     In the plot, each segment is a rectangle whose width corresponds to the segment's length. Segments
+#     that terminate in a leaf node are drawn in a darker color.
 #
-# Here's a simple example to illustrate this:
-#
-# ![barcode](../../../_static/barcode.png)
+#     ![barcode](../../../_static/barcode.png)
 
 # %%
 #

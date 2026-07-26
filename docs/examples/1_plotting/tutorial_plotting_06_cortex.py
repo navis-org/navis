@@ -9,6 +9,19 @@ In this exercise we will visualize morphological data from ["Integrated Morphoel
 by Gouwens, Sorensen _et al._, Cell (2020). Specifically, we will re-create a plot similar to their
 [Figure 4A](https://www.cell.com/cms/10.1016/j.cell.2020.09.057/asset/c684cc3f-ee17-4a36-98c9-e464a7ce8063/main.assets/gr4_lrg.jpg).
 
+The pipeline in a nutshell:
+
+```mermaid
+graph LR
+    A[Load neurons<br>from BIL] --> B[Align by<br>soma depth];
+    B --> C[Layered<br>plot];
+    C --> D[Depth KDE];
+```
+
+!!! note "Needs network access"
+    This tutorial downloads reconstructions from the [Brain Image Library](https://www.brainimagelibrary.org)
+    (BIL) at runtime, so it needs an internet connection.
+
 For brevity, we will use some fixed cell IDs and properties from the dataset. These were taken from the
 [`20200711_patchseq_metadata_mouse.csv`](https://brainmapportal-live-4cc80a57cd6e400d854-f7fdcae.divio-media.net/filer_public/5e/2a/5e2a5936-61da-4e09-b6da-74ab97ce1b02/20200711_patchseq_metadata_mouse.csv)
 file provided alongside the supplementary material of the paper:
@@ -59,10 +72,8 @@ nl.set_neuron_attributes(
 nl
 
 # %%
-# Next, we need to align the neurons according to their soma depth! The normalized `cell_soma_normalized_depth` should
-# map to a physical range of `0` to `922.5861720311` microns.
-#
-# Let's demo with one neuron before we run this for all neurons:
+# Next, we align the neurons by soma depth. The normalized `cell_soma_normalized_depth` maps onto a
+# physical range of `0` to `922.586` microns. Let's work through one neuron first:
 
 # Grab one of the neurons
 n = nl[0]
@@ -71,11 +82,13 @@ n = nl[0]
 print(f"Normalized soma depth: {n.cell_soma_normalized_depth}")
 
 # %%
-# The physical soma depth is simply the normalized depth multiplied by the total depth of the cortex.
-# Note that we're positioning from the bottom - i.e. 922.586 will be at the surface and 0 at the bottom!
-# This is to make our lives easier when it comes to plotting since the origin in `matplotlib`
-# figures is in the bottom left corner.
+# ??? info "Why we position from the bottom"
+#     The physical soma depth is just the normalized depth times the total cortical depth
+#     (`922.586` microns). We position *from the bottom* - so `922.586` is at the surface and `0` at
+#     the bottom - because `matplotlib`'s origin sits in the bottom-left corner, which keeps the
+#     plotting math simple.
 
+# %%
 phys_y = (1 - n.cell_soma_normalized_depth) * 922.5861720311
 print(f"Physical soma depth: {phys_y}")
 
@@ -90,8 +103,8 @@ offset = [0, phys_y, 0] - n.soma_pos[0]
 offset
 
 # %%
-# Moving or scaling neurons in {{ navis }} is super straight forward: adding, subtracting, dividing or multiplying neurons by a number or an
-# `[x, y, z]` vector will change their coordinates:
+# Moving or scaling neurons in {{ navis }} is straightforward: adding, subtracting, multiplying or
+# dividing a neuron by a number or an `[x, y, z]` vector changes its coordinates:
 
 # Move the neuron to the new centered position
 n += offset
@@ -115,7 +128,34 @@ nl.soma_pos.reshape(-1, 3)
 # %% [markdown]
 # ## Part II: Plotting
 #
-# Now that we have loaded and aligned the neurons, let's recreate a plot similar to those in Figure 4A:
+# Now that the neurons are loaded and aligned, let's recreate a plot similar to Figure 4A.
+#
+# The SWC files carry a `label` column encoding each node's compartment, which we map to colors:
+#
+# ```python
+# compartment_palette = {
+#     1: color,       # (1)!
+#     2: axon_color,  # (2)!
+#     3: color,       # (3)!
+# }
+# ```
+#
+# 1.  `1` = soma
+# 2.  `2` = axon
+# 3.  `3` = dendrites
+#
+# We also draw the cortical layer boundaries - the top bound of each layer, in microns from the surface:
+#
+# | Layer  | Top bound (µm) |
+# |--------|----------------|
+# | L1     | 0              |
+# | L2/3   | 115.11         |
+# | L4     | 333.47         |
+# | L5     | 453.62         |
+# | L6     | 687.65         |
+# | L6b    | 883.13         |
+#
+# The helper below wraps it all up:
 
 def plot_neurons(to_plot, color="purple", axon_color="magenta", offset=500):
     """Plot all neurons of a given transcriptomic type.
@@ -140,14 +180,7 @@ def plot_neurons(to_plot, color="purple", axon_color="magenta", offset=500):
     # Offset the neurons along the x-axis so that they don't overlap
     to_plot = [n + [offset * i, 0, 0] for i, n in enumerate(to_plot)]
 
-    # The SWC files for this dataset include a `label` column which
-    # indicates the compartment type:
-    # 1 = soma
-    # 2 = axon
-    # 3 = dendrites
-    # We will use this `label` to color the neurons' compartments.
-
-    # Here we define a color palette for the compartments:
+    # Map each compartment `label` (1=soma, 2=axon, 3=dendrites) to a color:
     compartment_palette = {1: color, 2: axon_color, 3: color}
 
     # Plot the neuron

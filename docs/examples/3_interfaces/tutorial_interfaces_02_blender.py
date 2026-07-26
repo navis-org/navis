@@ -35,10 +35,13 @@ way is probably this:
 
     ![Blender PIP](../../../_static/blender_pip.png)
 
-    !!! warning
-        You may have to escape whitespaces in the path to Blender's Python executable
-        like we did above! On OSX this is done with a backslash `\`. On Windows you
-        have to wrap the path in quotes `"` if it contains spaces.
+    You may have to escape whitespace in the path to Blender's Python executable, like we did above:
+
+    === "macOS/Linux"
+        Escape each space with a backslash, e.g. `Blender\ 4.1.app/.../bin/python3.11`.
+
+    === "Windows"
+        Wrap the path in double quotes if it contains spaces, e.g. `"C:\...\Blender\python.exe"`.
 
     If the above command throws an error along the lines of `"No module named pip"`:
     get `pip` by downloading ``get-pip.py`` from
@@ -63,46 +66,37 @@ way is probably this:
     [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -m pip install navis
     ```
 
-    !!! important
-        It's possible that this install fails with an error message along the lines
-        of `'Python.h' file not found`. The reason for this is that Blender
-        ships with a "Python light" and you have to manually provide the Python
-        header files:
+    ??? warning "If the install fails to compile"
+        If the install fails with `'Python.h' file not found`, Blender's "Python light" is missing its
+        header files and you have to supply them manually:
 
-        First, find out the *exact* Blender Python version:
+        1. Find the *exact* Blender Python version:
 
-        ```shell
-        [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -V
-        ```
+            ```shell
+            [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -V
+            ```
 
-        Next point your browser at https://www.python.org/downloads/source/ and
-        download the Gzipped source tarball from the exact same Python version,
-        i.e. `Python-3.X.X.tgz` and save it to your Downloads directory.
+        2. Download the matching *Gzipped source tarball* (`Python-3.X.X.tgz`) from
+           <https://www.python.org/downloads/source/> into your Downloads directory.
 
-        Finally you need to copy everything in the `Include` folder inside that
-        tarball into the corresponding `include` folder in your Blender's Python.
-        In a terminal run::
+        3. Copy the headers from the tarball's `Include` folder into Blender's Python `include` folder:
 
-        ```shell
-        cd ~/Downloads/
-        tar -xzf Python-3.X.X.tgz
-        cp Python-3.X.X/Include/* [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11
-        ```
+            ```shell
+            cd ~/Downloads/
+            tar -xzf Python-3.X.X.tgz
+            cp Python-3.X.X/Include/* [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11
+            ```
 
-        If the above fails you have one more option: figure out which dependency fails
-        to compile and compile it on your system's Python.
+        If that still fails, compile the offending dependency on your system's Python and install the wheel:
 
-        a) Install the *exact* same version of Python as Blender is running on your
-        system
-        b) Download the source code for the offending dependency either from PyPI
-        where it'll likely be some `tar.gz` file under "Download files" or
-        from the Github repository
-        c) Run `python setup.py bdist_wheel` to compile the dependency into a wheel
-        file (will appear as `.whl` file in a `/dist` subdirectory)
-        d) Go back to Blender's Python and install the dependency from that wheel:
-        ```shell
-        [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -m pip install <full file name of wheel file with .whl extension>
-        ```
+        1. Install the *exact* same version of Python that Blender uses.
+        2. Download the dependency's source (a `tar.gz` from PyPI's "Download files", or the GitHub repo).
+        3. Build a wheel with `python setup.py bdist_wheel` (it appears as a `.whl` in the `/dist` subdirectory).
+        4. Install that wheel into Blender's Python:
+
+            ```shell
+            [..]/Blender\ 4.1.app/Contents/Resources/4.1/python/bin/python3.11 -m pip install <wheel-file>.whl
+            ```
 
 4. You should now be all set to use {{ navis }} in Blender. Check out Quickstart!
 
@@ -136,17 +130,18 @@ Now initialise the interface with Blender and import the neurons.
 The interface lets you manipulate neurons in Blender too.
 
 ```python
->>> # Colorize neurons
->>> h.colorize()
->>> # Change thickness of all neurons
->>> h.neurons.bevel(.02)
->>> # Select subset
->>> subset = h.select(nl[:2])
->>> # Make subset red
->>> subset.color(1, 0, 0)
->>> # Clear all objects
->>> h.clear()
+h.colorize()               # (1)!
+h.neurons.bevel(0.02)      # (2)!
+subset = h.select(nl[:2])  # (3)!
+subset.color(1, 0, 0)      # (4)!
+h.clear()                  # (5)!
 ```
+
+1.  Give every neuron a different color.
+2.  Set the thickness (bevel) of all neurons.
+3.  Select a subset of neurons - here the first two.
+4.  Color that subset red (values are `R, G, B`).
+5.  Remove all objects from the scene.
 
 !!! note
     Blender's Python console does not show all outputs. Please check the terminal

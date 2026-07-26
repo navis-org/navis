@@ -16,26 +16,30 @@ confocal image stack and finding the same neuron in an EM connectome.
 Specifically, we will use an image from Janelia's collection of split-Gal4 driver lines and match it against the neurons in the
 [hemibrain connectome](https://neuprint.janelia.org).
 
-Before we get started make sure that:
+!!! note "Requirements"
+    Before you start, make sure:
 
-- {{ navis }} is installed and up-to-date
-- [`flybrains`](https://github.com/navis-org/navis-flybrains) is installed and you have downloaded the Saalfeld lab's and VFB bridging
-   transforms (see `flybrains.download_...` functions)
-- download and extract [hemibrain-v1.2-skeletons.tar](https://storage.googleapis.com/hemibrain/v1.2/hemibrain-v1.2-skeletons.tar.gz)
-  (kindly provided by Stuart Berg, Janelia Research Campus)
+    - {{ navis }} is installed and up-to-date
+    - [`flybrains`](https://github.com/navis-org/navis-flybrains) is installed and you've downloaded the Saalfeld lab's and VFB
+      bridging transforms (see the `flybrains.download_...` functions)
+    - you've downloaded and extracted [hemibrain-v1.2-skeletons.tar](https://storage.googleapis.com/hemibrain/v1.2/hemibrain-v1.2-skeletons.tar.gz)
+      (kindly provided by Stuart Berg, Janelia Research Campus)
 
 Next we need to pick an image stack to use as query. You can browse the expression patterns of the Janelia split-Gal4 lines
 [here](https://splitgal4.janelia.org/cgi-bin/splitgal4.cgi). I ended up picking `LH1112` which is a very clean line containing a couple
 of WED projection neurons. Among other data, you can download these stacks as "gendered" (i.e. female or male) or "unisex" space.
 Unfortunately, all image stacks are in Janelia's `.h5j` format which I haven't figured out how to read straight into Python.
 
-Two options:
+Two ways to get a `.nrrd`:
 
-1. Load them into Fiji and save the GFP signal channel as `.nrrd` file.
-2. Go to [VirtualFlyBrain](http://www.virtualflybrain.org/), search for your line of interest LH1112 (not all lines are available on VFB)
-   and download the "Signal(NRRD)" at the bottom of Term Info panel on the right hand side.
+=== "Fiji"
+    Load the stack into Fiji and save the GFP signal channel as a `.nrrd` file.
 
-I went for option 2 here and downloaded a `VFB_001013cg.nrrd`. This is the neuron we'll be searching for:
+=== "VirtualFlyBrain"
+    Go to [VirtualFlyBrain](http://www.virtualflybrain.org/), search for your line of interest (LH1112; not all lines are
+    available on VFB) and download the "Signal(NRRD)" at the bottom of the Term Info panel on the right-hand side.
+
+I went with VirtualFlyBrain and downloaded `VFB_001013cg.nrrd`. This is the neuron we'll be searching for:
 
 ![LH1112 z-stack](https://s3.amazonaws.com/janelia-flylight-imagery/Lateral+Horn+2019/LH1112/LH1112-20150313_46_A2-f-20x-brain-Split_GAL4-multichannel_mip.png)
 
@@ -111,8 +115,8 @@ scores = navis.nblast(query_xf / 125, targets / 125, scores="mean")
 scores.head()
 
 # %%
-# !!! note
-#     You can greatly speed up NBLAST by installing the optional dependency `pykdtree`:
+# ??? example "Speeding up NBLAST"
+#     You can greatly speed up NBLAST by installing the optional [pykdtree](https://github.com/storpipfugl/pykdtree) library:
 #     ```shell
 #     pip3 install pykdtree
 #     ```
@@ -129,12 +133,11 @@ scores.loc["LH1112"].sort_values(ascending=False)
 fig = navis.plot3d([query_xf, targets.idx[[2030342003, 2214504597, 1069223047]]])
 
 # %%
-# On a final note: the scores for those matches are rather low (1 = perfect match).
+# A final note: the scores for these matches are rather low (1 = a perfect match).
 #
-# The main reason for this is that our image stack contains two neurons (the left and the right version) so half of our
-# `query` won't have a match in any of the individual hemibrain neurons. We could have fixed that by subsetting the query
-# to the approximate hemibrain bounding box. This is also a good idea for bilateral neurons that have parts of their
-# arbour outside the hemibrain volume:
+# The main reason is that our image stack contains two neurons (left and right), so half of the `query` has no match in any
+# single hemibrain neuron. Subsetting the query to the approximate hemibrain bounding box fixes this — also a good idea for
+# bilateral neurons whose arbour extends outside the hemibrain volume:
 
 # %%
 # Remove the left-hand-side neuron based on the position
@@ -147,9 +150,10 @@ query_ss = navis.subset_neuron(query_xf, query_xf.points[:, 0] <= 35_000)
 query_ss
 
 # %%
-# Using `query_ss` should yield much improved scores.
+# !!! tip "Improving your scores"
+#     Two levers for better matches:
 #
-# Another potential pitfall is the generation of dotprops from the image itself: if you compare the image- against the
-# skeleton-derived dotprops, you might notice that the latter have fewer and less dense points. That's a natural
-# consequence of the image containing multiple individuals of the same cell type but we could have tried to ameliorate
-# this by some pre-processing (e.g. downsampling or thinning the image).
+#     - **Subset the query.** Re-running with `query_ss` drops the unmatched half of the image and should yield much
+#       higher scores.
+#     - **Pre-process the image dotprops.** Image-derived dotprops are denser than the skeleton-derived ones because the image
+#       contains several individuals of the same cell type. Downsampling or thinning the image beforehand helps.

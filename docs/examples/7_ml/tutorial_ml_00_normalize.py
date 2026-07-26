@@ -21,7 +21,9 @@ A neuron means the same thing no matter where it sits, how it is oriented or wha
 units it was reconstructed in. A learning-based model should not have to spend
 capacity discovering that. [`navis.ml.normalize_neuron`][] removes those nuisance
 degrees of freedom up front by mapping every neuron into a canonical frame with a
-single rigid-plus-uniform-scale transform ``p' = s * R @ (p - c)``:
+single rigid-plus-uniform-scale transform:
+
+$$ p' = s R (p - c) $$
 
 - **center** (`c`) moves a chosen reference point to the origin,
 - **rotate** (`R`) aligns the principal axes of the arbor with x/y/z, and
@@ -113,7 +115,7 @@ plt.tight_layout()
 # The two canonical poses are identical - the arbitrary rotation and translation
 # were removed.
 #
-# !!! note
+# ??? note "How PCA orientation is disambiguated"
 #     PCA orientation is disambiguated deterministically (the same shape always
 #     lands the same way up) and handedness is preserved - neurons are never
 #     mirrored, because morphology is chiral and a reflection would be a different
@@ -122,11 +124,16 @@ plt.tight_layout()
 #
 # ## The knobs
 #
-# Each of the three steps is configurable and can be turned off independently.
+# Each of the three steps is configurable and can be turned off independently by passing `None`:
 #
-# `center` picks the reference point moved to the origin - `"centroid"` (default),
-# `"bbox"` (bounding-box midpoint), `"soma"` (for skeletons with a soma), an
-# explicit `(x, y, z)`, or `None`:
+# | Parameter | Options | Default | Effect |
+# |-----------|---------|---------|--------|
+# | `center` | `"centroid"`, `"bbox"` (bounding-box midpoint), `"soma"`, an explicit `(x, y, z)`, `None` | `"centroid"` | moves the reference point to the origin |
+# | `rotate` | `"pca"`, `None` | `"pca"` | aligns the arbor's principal axes with x/y/z |
+# | `scale` | `"rms"` (unit RMS radius), `"extent"` (longest axis becomes 1), `"max"` (farthest point becomes 1), `None` | `"rms"` | sets the overall size convention |
+#
+# `center` picks the reference point moved to the origin - here the soma, with rotation and
+# scaling switched off:
 
 soma_centered = navis.ml.normalize_neuron(n, center="soma", rotate=None, scale=None)
 sid = np.atleast_1d(n.soma)
@@ -134,9 +141,8 @@ soma_co = soma_centered.nodes.set_index("node_id").loc[sid, ["x", "y", "z"]].val
 print("soma at origin:", np.allclose(soma_co.mean(axis=0), 0, atol=1e-5))
 
 # %%
-# `scale` sets the size convention - `"rms"` (default, unit RMS radius; robust to
-# a few far-flung nodes), `"extent"` (longest principal axis becomes 1) or
-# `"max"` (farthest point at radius 1; unit enclosing sphere):
+# `scale` sets the size convention. The three options differ in what they hold fixed -
+# `"rms"` is robust to a few far-flung nodes, while `"max"` gives a unit enclosing sphere:
 
 for scale in ("rms", "extent", "max"):
     c = navis.ml.normalize_neuron(n, scale=scale).nodes[["x", "y", "z"]].values

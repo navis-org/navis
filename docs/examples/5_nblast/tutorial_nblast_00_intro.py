@@ -25,15 +25,16 @@ given query and a given target neuron is determined by:
 
     The absolute dot product is used because the orientation of the tangent vectors typically has no meaning in our data representation.
 
-    A suitable scoring function $f$ was determined empirically (see the [NBLAST paper](http://flybrain.mrc-lmb.cam.ac.uk/si/nblast/www/paper/))
-    and is shipped with {{ navis }} as scoring matrices:
+    ??? info "Where the scoring function comes from"
+        A suitable scoring function $f$ was determined empirically (see the [NBLAST paper](http://flybrain.mrc-lmb.cam.ac.uk/si/nblast/www/paper/))
+        and is shipped with {{ navis }} as scoring matrices:
 
-    ![NBLAST_score_mat](../../../_static/NBLAST_score_mat_inv.png)
+        ![NBLAST_score_mat](../../../_static/NBLAST_score_mat_inv.png)
 
-    Importantly, these matrices were created using _Drosophila_ neurons from the [FlyCircuit](http://flycircuit.tw/) light-level dataset which
-    are in microns. Consequently, you should make sure your neurons are also in micrometer units for NBLAST! If you are working on non-insect
-    neurons you might have to play around with the scaling to improve results. Alternatively, you can also produce your own scoring function
-    (see [this tutorial](../tutorial_nblast_03_smat)).
+        Importantly, these matrices were created using _Drosophila_ neurons from the [FlyCircuit](http://flycircuit.tw/) light-level dataset which
+        are in microns. Consequently, you should make sure your neurons are also in micrometer units for NBLAST! If you are working on non-insect
+        neurons you might have to play around with the scaling to improve results. Alternatively, you can also produce your own scoring function
+        (see [this tutorial](../tutorial_nblast_03_smat)).
 
 3. Produce a per-pair score:
 
@@ -44,7 +45,17 @@ given query and a given target neuron is determined by:
     This step is optional but highly recommended: normalizing the raw score by dividing by the raw score of a self-self comparison of the query neuron.
 
 
-Putting it all together, the formula for the raw score $S$ is:
+Putting it all together:
+
+```mermaid
+graph LR
+    A["Query + target"] -->|"1. nearest neighbour"| B["Point pairs"];
+    B -->|"2. scoring function f"| C["Raw scores"];
+    C -->|"3. sum over pairs"| D["Raw score S"];
+    D -->|"4. normalise"| E["Final score"];
+```
+
+The formula for the raw score $S$ is:
 
 $$
 S(query,target)=\sum_{i=1}^{n}f(d_{i}, |\\vec{u_i} \cdot \\vec{v_i}|)
@@ -104,7 +115,7 @@ nbl
 
 # %%
 #
-# Painless, wasn't it? The `nbl` scores dataframe has the query neurons as rows and the target neurons as columns.
+# The `nbl` scores dataframe has the query neurons as rows and the target neurons as columns.
 #
 # Let's run an all-by-all NBLAST next:
 
@@ -161,14 +172,13 @@ sns.despine(trim=True, bottom=True)
 plt.tight_layout()
 
 # %%
-# We'll leave it at that for now but just to have it mentioned: there is also a [`navis.nblast_smart`][] function which tries to cut some corners and may
-# be useful if you want to run very large NBLASTs.
+# We'll leave it there for now. Here are the NBLAST functions we've seen so far, plus [`navis.nblast_smart`][] — and when to reach for each:
 #
-# These are the functions we have seen so far:
-#
-# - [`navis.nblast`][]: classic query :octicons-arrow-right-24: target NBLAST
-# - [`navis.nblast_allbyall`][]: pairwise, all-by-all NBLAST
-# - [`navis.nblast_smart`][]: a "smart" version of NBLAST
+# | Function | What it does | Use when |
+# |----------|--------------|----------|
+# | [`navis.nblast`][] | classic query :octicons-arrow-right-24: target NBLAST | matching neurons between two datasets |
+# | [`navis.nblast_allbyall`][] | pairwise, all-by-all NBLAST | clustering neurons into morphologically similar groups |
+# | [`navis.nblast_smart`][] | a "smart" NBLAST that cuts corners | running very large NBLASTs |
 #
 # ## Another flavour: syNBLAST
 #
@@ -202,10 +212,13 @@ plt.tight_layout()
 #
 # The toy data above is not really suited to demonstrate NBLAST because these neurons are of the same type (i.e. we do not expect to see differences).
 #
-# Let's try something more elaborate and pull some hemibrain neurons from [neuPrint](https://neuprint.janelia.org/). For this you need to install the
-# `neuprint-python` package (`pip3 install neuprint-python`), make a neuPrint account and generate/set an authentication token. Sounds complicated
-# but is all pretty painless - see the [neuPrint documentation](https://connectome-neuprint.github.io/neuprint-python/docs/quickstart.html) for details.
-# There is also a separate {{ navis }} tutorial on neuprint [here](../4_remote/tutorial_remote_00_neuprint).
+# Let's try something more elaborate and pull some hemibrain neurons from [neuPrint](https://neuprint.janelia.org/).
+#
+# !!! note "Needs network access and a neuPrint token"
+#     This section fetches neurons live from neuPrint, so it needs an internet connection. You'll also need to install the
+#     `neuprint-python` package (`pip3 install neuprint-python`), make a neuPrint account and generate/set an authentication token.
+#     See the [neuPrint documentation](https://connectome-neuprint.github.io/neuprint-python/docs/quickstart.html) for details,
+#     or the dedicated {{ navis }} [neuPrint tutorial](../4_remote/tutorial_remote_00_neuprint).
 #
 # Once that's done we can get started by importing the neuPrint interface from {{ navis }}:
 
@@ -310,6 +323,37 @@ plt.tight_layout()
 # %%
 # Note how clusters 3 and 8 look a bit odd? That's because these likely still contain more than one type of neuron. We should probably
 # have gone with a slightly finer clustering. But this little demo should be enough to get you started!
+
+# %%
+# ## What next?
+#
+# <div class="grid cards" markdown>
+#
+# -   :material-tune:{ .lg .middle } __Custom score matrices__
+#
+#     ---
+#
+#     Train an NBLAST scoring matrix on your own data.
+#
+#     [:octicons-arrow-right-24: Score matrices](../tutorial_nblast_03_smat)
+#
+# -   :material-magnify:{ .lg .middle } __NBLAST against FlyCircuit__
+#
+#     ---
+#
+#     Match a query neuron against the entire FlyCircuit light-level dataset.
+#
+#     [:octicons-arrow-right-24: FlyCircuit example](../zzz_tutorial_nblast_01_flycircuit)
+#
+# -   :material-microscope:{ .lg .middle } __Light-level vs EM__
+#
+#     ---
+#
+#     Match a confocal image stack against hemibrain EM skeletons.
+#
+#     [:octicons-arrow-right-24: Light-level example](../zzz_tutorial_nblast_02_hemibrain)
+#
+# </div>
 
 # %%
 

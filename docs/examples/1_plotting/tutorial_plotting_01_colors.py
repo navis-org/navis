@@ -28,44 +28,54 @@ import matplotlib.pyplot as plt
 nl = navis.example_neurons(3, kind="mesh")
 
 # %%
-# A single color for all neurons:
-
-navis.plot2d(nl, color="r", view=("x", "-z"), method="2d")
-plt.tight_layout()
-
-# %%
-# A list of colors for each neuron:
+# {{ navis }} gives you several ways to tell it which colors to use:
+#
+# === "Single color"
+#     One color for all neurons:
+#     ```python
+#     navis.plot2d(nl, color="r", view=("x", "-z"), method="2d")
+#     ```
+#
+# === "List of colors"
+#     One color per neuron:
+#     ```python
+#     navis.plot2d(nl, color=["r", "g", "b"], view=("x", "-z"), method="2d")
+#     ```
+#
+# === "Palette"
+#     Draw colors from a named palette:
+#     ```python
+#     navis.plot2d(nl, palette="Greens", view=("x", "-z"), method="2d")
+#     ```
+#
+# === "`ID -> color`"
+#     A dictionary mapping neuron ID to color:
+#     ```python
+#     colors = dict(zip(nl.id, ["r", "g", "b"]))
+#     navis.plot2d(nl, color=colors, view=("x", "-z"), method="2d")
+#     ```
+#
+# Let's render the list-of-colors version:
 
 navis.plot2d(nl, color=["r", "g", "b"], view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 # %%
-# A palette to choose colors from:
-
-navis.plot2d(nl, palette="Greens", view=("x", "-z"), method="2d")
-plt.tight_layout()
-
-# %%
-# A mapping of neuron ID -> color:
-
-colors = dict(zip(nl.id, ["r", "g", "b"]))
-navis.plot2d(nl, color=colors, view=("x", "-z"), method="2d")
-plt.tight_layout()
-
-# %%
-# Individual colors can be provided as:
+# Individual colors can be provided in several formats:
 #
-#  - names (e.g. "red", "green", "blue") like we did above
-#  - hex codes (e.g. "#FF0000", "#00FF00", "#0000FF")
-#  - RGB or RGBA tuples (e.g. `(1, 0, 0)` for red)
+# | Format            | Example                                |
+# |-------------------|----------------------------------------|
+# | Name              | `"red"`, `"green"`, `"blue"`           |
+# | Hex code          | `"#FF0000"`, `"#00FF00"`, `"#0000FF"`  |
+# | RGB / RGBA tuple  | `(1, 0, 0)` for red                    |
 
-# Provide a list of 3 colors - one for each neuron - in various formats:
+# Provide a list of 3 colors - one for each neuron - mixing formats:
 navis.plot2d(nl, color=["red", "#FF0000", (0, 0, 0)], view=("x", "-z"), method="2d")
 plt.tight_layout()
 
 # %%
 # What if you want to color neurons by some categorical property - for example their type or brain region?
-# Easy peasy: just use the `color_by` parameter!
+# Use the `color_by` parameter!
 
 # A list with labels, one for each neuron
 types = ["typeA", "typeB", "typeA"]
@@ -85,8 +95,8 @@ plt.tight_layout()
 # %%
 # ## Coloring Neurites
 #
-# So far so good but what if you want to color the neurites of an individual neuron? For example make its axon red and its dendrites blue?
-# Also easy peasy: `color_by` can also be used to color nodes/vertices!
+# What if you want to color the neurites of an individual neuron - say, its axon red and its dendrites blue?
+# `color_by` also works on individual nodes/vertices!
 #
 # ### By Labels
 
@@ -149,9 +159,9 @@ m.strahler_index  # this is an array with one value per vertex
 navis.plot3d(m, color_by="strahler_index", palette="viridis", legend=False)
 
 # %%
-# !!! note
-#     In the examples above we have provided `color_by` as the name of a property or a column in the node table.
-#     We could have also provided an array of values directly:
+# ??? tip "Passing values directly instead of a column name"
+#     In the examples above we passed `color_by` as the name of a property or a column in the node table.
+#     You can also pass an array of values directly:
 #     ```python
 #     navis.plot2d(n, color_by=n.nodes.strahler_index, palette="viridis")
 #     ```

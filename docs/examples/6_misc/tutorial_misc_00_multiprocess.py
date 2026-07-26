@@ -34,58 +34,48 @@ def time_func(func, *args, **kwargs):
 nl = navis.example_neurons()
 
 # %%
-# !!! important
+# !!! note
 #     This documentation is built on Github Actions where the number of cores can be as low as 2. The speedup on
 #     your machine should be more pronounced than what you see below. That said: parallel processing has some
 #     overhead and for small tasks the overhead can be larger than the speed-up.
 
 # %%
-# Without parallel processing:
-time_func (
-    navis.resample_skeleton,
-    nl,
-    resample_to=125
-)
-
-# %%
-# With parallel processing:
-time_func (
-    navis.resample_skeleton,
-    nl,
-    resample_to=125,
-    parallel=True
-)
-
-# %%
-# The same also works for neuron methods!
+# The same `parallel` switch works whether you call the module-level function or the
+# neuron's own method - just add `parallel=True`:
 #
-# Without parallel processing:
-
-time_func (
-    nl.resample, 125
-)
+# === "Serial"
+#     ```python
+#     navis.resample_skeleton(nl, resample_to=125)   # module-level function
+#     nl.resample(125)                               # equivalent neuron method
+#     ```
+#
+# === "Parallel"
+#     ```python
+#     navis.resample_skeleton(nl, resample_to=125, parallel=True)
+#     nl.resample(125, parallel=True)
+#     ```
+#
+# Let's time the function form to see it for real:
 
 # %%
-# With parallel processing:
-
-time_func (
-    nl.resample, 125, parallel=True
-)
+# Serial:
+time_func(navis.resample_skeleton, nl, resample_to=125)
 
 # %%
-# By default `parallel=True` will use half the available CPU cores.
-# You can adjust that behaviour using the `n_cores` parameter:
+# Parallel:
+time_func(navis.resample_skeleton, nl, resample_to=125, parallel=True)
 
-time_func (
-    nl.resample, 125, parallel=True, n_cores=2
-)
+# %%
+# By default `parallel=True` uses half the available CPU cores. Adjust that with the
+# `n_cores` parameter:
+
+time_func(nl.resample, 125, parallel=True, n_cores=2)
 
 # %%
 # !!! note
-#     The name `n_cores` is actually a bit misleading as it determines the number of parallel processes
-#     that {{ navis }} will spawn. There is nothing stopping you from setting `n_cores` to a number higher than
-#     the number of available CPU cores. However, doing so will likely over-subscribe your CPU and end up
-#     slowing things down.
+#     The name `n_cores` is a bit misleading: it sets the number of parallel *processes*
+#     that {{ navis }} spawns. Nothing stops you from setting it higher than your CPU count -
+#     but doing so will likely over-subscribe the CPU and end up slowing things down.
 
 # %%
 # ## Parallelizing generic functions

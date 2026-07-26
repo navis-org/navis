@@ -23,22 +23,30 @@ _So how do we determine what's axon and what's dendrite?_
 
 {{ navis }} currently implements two methods for axon-dendrite splits:
 
-1. Flow-based splits via [`navis.split_axon_dendrite`][navis.split_axon_dendrite]
-2. Label propagation via [`navis.split_axon_dendrite_prop`][navis.split_axon_dendrite_prop]
+=== "Flow (SFC)"
+    Flow-based splits via [`navis.split_axon_dendrite`][navis.split_axon_dendrite]. Draws paths from
+    inputs to outputs and cuts at the segment(s) with the highest synapse flow. Fast, returns a
+    "linker" and finds cell body fibers, but gives no probabilities.
+
+=== "Label propagation"
+    Splits via [`navis.split_axon_dendrite_prop`][navis.split_axon_dendrite_prop]. Seeds axon/dendrite
+    labels from the pre-/postsynapses and propagates them across the neuron. Slower, but returns
+    per-node/-vertex probabilities.
 
 Both methods work on neuron skeletons (`TreeNeurons`) as well as meshes (`MeshNeuron`), and require
-the neuron to have pre- and postsynapses as `.connectors`. Please see also the table at the bottom
-for a direct comparison.
+the neuron to have pre- and postsynapses as `.connectors`. See the table at the bottom for a direct
+comparison.
 
 ### Synapse Flow Centrality
 
-Splitting a neuron into axon and dendrite using synapse flow centrality (SFC) was first proposed by
-[Schneider-Mizell _et al._ (2016)](). In a nutshell: we draw paths from all inputs (postsynapses)
-to all outputs (presynapses). For each segment in the neuron, we count the paths that go across
-it. If we split the neuron at the segment(s) with the highest SFC, we separate it into axon
-and dendrite.
+??? info "How synapse flow centrality works"
+    Splitting a neuron into axon and dendrite using synapse flow centrality (SFC) was first proposed by
+    [Schneider-Mizell et al. (2016)](https://elifesciences.org/articles/12059). In a nutshell: we draw
+    paths from all inputs (postsynapses) to all outputs (presynapses). For each segment in the neuron,
+    we count the paths that cross it. Splitting at the segment(s) with the highest SFC separates the
+    neuron into axon and dendrite.
 
-![Synapse Flow Centrality Split](../../../_static/sfc_split.png "Synapse flow centrality split")
+    ![Synapse Flow Centrality Split](../../../_static/sfc_split.png "Synapse flow centrality split")
 
 !!! note
     [`navis.split_axon_dendrite`][navis.split_axon_dendrite] also implements a number of other

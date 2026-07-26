@@ -23,9 +23,14 @@ make sure `caveclient` (and with it `cloud-volume`) is installed:
 pip install caveclient cloud-volume -U
 ```
 
-The first time you run below code, you might have to get and set a client secret. Simply follow the instructions
-in the terminal and when in doubt, check out the section about authentication in the
-[`caveclient` docs](https://caveconnectome.github.io/CAVEclient/tutorials/authentication/).
+!!! warning "Requires network access and authentication"
+    This tutorial queries live MICrONS servers over the network, so it needs an internet connection.
+    Fetching neurons also requires a CAVE authentication token - see the note below.
+
+!!! note "Authentication"
+    The first time you run the code below, you might have to get and set a client secret. Follow the
+    instructions printed in the terminal and, when in doubt, see the authentication section of the
+    [`caveclient` docs](https://caveconnectome.github.io/CAVEclient/tutorials/authentication/).
 
 Let's get started:
 """
@@ -36,14 +41,16 @@ import navis
 import navis.interfaces.microns as mi
 
 # %%
-# You will find that most functions in the interface accept a `datastack` parameter. At the time of writing, the available stacks are:
+# Most functions in the interface accept a `datastack` parameter. At the time of writing, the available stacks are:
 #
-#  - `cortex65` (also called "minnie65") is the anterior portion of the cortical mm<sup>3</sup> dataset
-#  - `cortex35` (also called "minnie35") is the (smaller) posterior portion of the cortical mm<sup>3</sup> dataset
-#  - `layer 2/3` (also called "pinky") is the earlier, smaller cortical dataset
+# | Datastack | Alias | Description |
+# |-----------|-------|-------------|
+# | `cortex65` | `minnie65` | Anterior portion of the cortical mm<sup>3</sup> dataset |
+# | `cortex35` | `minnie35` | (Smaller) posterior portion of the cortical mm<sup>3</sup> dataset |
+# | `layer 2/3` | `pinky` | The earlier, smaller cortical dataset |
 #
-# If not specified, the default is `cortex65`. Both `cortex65` and `cortex35` always map to the most recent version of that dataset.
-# You can use [`get_datastacks`][navis.interfaces.microns.get_datastacks] to see all available datastacks:
+# If not specified, the default is `cortex65`. Both `cortex65` and `cortex35` always map to the most recent version of that
+# dataset. Use [`get_datastacks`][navis.interfaces.microns.get_datastacks] to list all available datastacks:
 mi.get_datastacks()
 
 # %%
@@ -69,11 +76,11 @@ ct.head()
 ct.cell_type.value_counts()
 
 # %%
-# !!! important
-#     Not all neurons in the dataset have been proofread. In theory, you can check if a neuron has been proofread using the
-#     corresponding annotation table:
+# ??? important "Checking proofreading status"
+#     Not all neurons in the dataset have been proofread. In theory, you can check whether a neuron has been proofread
+#     using the corresponding annotation table:
 #     ```python
-#     table = client.materialize.query_table('proofreading_status_public_release')#
+#     table = client.materialize.query_table('proofreading_status_public_release')
 #     fully_proofread = table[
 #           table.status_dendrite.isin(['extented', 'clean']) &
 #           table.status_axon.isin(['extented', 'clean'])
@@ -160,9 +167,9 @@ fig, ax = navis.plot2d(n, view=("x", "y"), figsize=(10, 10), c="k", method="2d")
 
 cmap = plt.get_cmap("viridis")
 
-# Plot Sholl circles and color by number of intersections
+# Draw one Sholl circle per radius, colored by the number of intersections
 center = n.soma_pos
-# Drop the outer Sholl circles where there are no intersections
+# Normalize intersection counts to [0, 1] so they map onto the colormap
 norm = Normalize(vmin=0, vmax=(sha.intersections.max() + 1))
 for r in sha.index.values:
     ints = sha.loc[r, "intersections"]
@@ -188,3 +195,5 @@ _ = plt.colorbar(
 # Here's a little taster:
 #
 #  <iframe width="560" height="315" src="https://www.youtube.com/embed/wl3sFG7WQJc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+#
+# *[EM]: Electron Microscopy.

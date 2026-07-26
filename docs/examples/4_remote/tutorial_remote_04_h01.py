@@ -27,7 +27,10 @@ pip install caveclient -U
        ```
 
     Note that the H01 dataset uses a server address that is different from the default `CAVEClient` server.
-    Also be aware that creating a new token by finishing step 2 will invalidate the previous token!
+
+!!! warning "A new token invalidates the previous one"
+    Creating a new token by finishing step 2 will invalidate your previous token. If you already have a
+    working token, reuse it rather than generating a new one.
 
 """
 
@@ -39,6 +42,15 @@ from navis.interfaces import h01
 
 # Initialize the client
 client = h01.get_cave_client()
+
+# %%
+# This tutorial walks through a typical H01 workflow:
+#
+# 1. [Query the available tables](#query-tables) and materialization versions
+# 2. [Query the synapse table](#query-materialized-synapse-table) by pre-/postsynaptic IDs
+# 3. [Run live synapse queries](#live-synapse-queries) against the latest root IDs
+# 4. [Query the cells table](#query-cells-table) and [filter by cell type](#filter-by-cell-type)
+# 5. [Fetch neuron meshes](#fetch-neuron-meshes) and [turn them into skeletons](#make-skeletons-from-meshes)
 
 # %%
 # ### Query Tables
@@ -56,13 +68,24 @@ client.materialize.get_tables()
 client.materialize.synapse_query(limit=10)
 
 # %%
-# Query specific pre- and/or postsynaptic IDs
+# Query specific pre- and/or postsynaptic IDs:
 
 syn = client.materialize.synapse_query(
     post_ids=[864691131861340864],
-    # pre_ids=[ADD YOUR ROOT ID],
 )
 syn.head()
+
+# %%
+# To filter by presynaptic partners instead (or in addition), pass `pre_ids`:
+#
+# ```python
+# syn = client.materialize.synapse_query(
+#     post_ids=[864691131861340864],
+#     pre_ids=[YOUR_ROOT_ID],  # (1)!
+# )
+# ```
+#
+# 1.  Replace `YOUR_ROOT_ID` with the root ID(s) of the presynaptic neuron(s) you're interested in.
 
 # %%
 print(len(syn))

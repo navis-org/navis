@@ -8,33 +8,65 @@ Skeletons are probably the most common representation of neurons and are stored 
 of connected nodes (the "skeleton"). In {{ navis }}, skeletons are represented by the
 [`navis.TreeNeuron`][] class.
 
-You can either construct these manually (see bottom of this page) or use one of the built-in
-functions to load them from one of the various file formats:
+Build them manually (see the [bottom of this page](#manual-construction)) or use one of the built-in
+readers for the various skeleton file formats:
+
+<div class="grid cards" markdown>
+
+-   :material-file-document-outline:{ .lg .middle } __SWC__
+
+    ---
+
+    The most common skeleton format - read & write, including from zip archives, URLs and FTP.
+
+    [:octicons-arrow-right-24: From SWC files](#from-swc-files)
+
+-   :material-xml:{ .lg .middle } __NMX__
+
+    ---
+
+    XML-based format used by pyKNOSSOS (read-only).
+
+    [:octicons-arrow-right-24: From NMX files](#from-nmx-files)
+
+-   :material-cube-outline:{ .lg .middle } __Precomputed__
+
+    ---
+
+    Neuroglancer's compact binary format - read & write.
+
+    [:octicons-arrow-right-24: From Neuroglancer Precomputed](#from-neuroglancer-precomputed)
+
+-   :material-hammer-wrench:{ .lg .middle } __Manual__
+
+    ---
+
+    Roll your own [`TreeNeuron`][navis.TreeNeuron] from an SWC-like table.
+
+    [:octicons-arrow-right-24: Manual construction](#manual-construction)
+
+</div>
 
 !!! note
     {{ navis }} has dedicated interfaces for loading skeletons from remote data sources
     (e.g. the MICrONS, neuromorpho, Virtual Fly Brain or Janelia hemibrain datasets).
     These are covered in separate [tutorials](../index.md).
 
-    If you have light-level microscopy data, you might also be interested in the
-    tutorial on [skeletons from light-level data](../zzz_tutorial_io_05_skeletonize).
+    If you have light-level microscopy data, see the tutorial on
+    [skeletons from light-level data](../zzz_tutorial_io_05_skeletonize).
 
 ## From SWC files
 
-SWC is a common format for storing neuron skeletons. Thus {{ navis }} provides functions to both
-read and write SWC files. To demo these, we will be using supplemental data from
-Bates, Schlegel et al. (Current Biology, 2020). If you want to follow along, please download
-Supplemental Data S1 ([link](https://doi.org/10.1016/j.cub.2020.06.042)). If you do, make sure
-to adjust the filepaths in the examples according to where you saved it to.
+SWC is the most common format for storing neuron skeletons, and {{ navis }} reads and writes it.
+The examples below use Supplemental Data S1 from
+[Bates, Schlegel et al. (2020)](https://doi.org/10.1016/j.cub.2020.06.042) - download it to follow
+along and adjust the filepaths to match where you saved it.
 
 """
 
 # %%
-# I extracted the archive with the supplemental data inside my downloads folder.
-#
-# It contains a bunch of CSV files with meta data but the important file for us is the
-# `"skeletons_swc.zip"`. Now you could extract that zip archive too but {{ navis }} can
-# actually read directly from (and write to) zip files!
+# The archive holds a bunch of metadata CSVs, but the file we want is `skeletons_swc.zip`.
+# No need to unzip it - {{ navis }} reads directly from (and writes to) zip archives.
 
 # %%
 import navis
@@ -73,46 +105,43 @@ s
 s = navis.read_swc('https://v2.virtualflybrain.org/data/VFB/i/jrch/jup2/VFB_00101567/volume.swc')
 
 # %%
-
-# From an FTP folder:
-# Note: this FTP server is no longer available, commented out until I find a replacement!
+# You can even read straight from an FTP folder (this particular server is currently offline, shown for reference):
+#
+# ```python
 # nl = navis.read_swc('ftp://download.brainimagelibrary.org/biccn/zeng/pseq/morph/200526/', limit=3)
-
-
-# !!! tip
-#     [`read_swc`][navis.read_swc] is super flexible and can handle a variety of inputs (file names, folders, archives, URLs, etc.).
-#     Importantly, it also lets you customize which/how neurons are loaded. For example:
-#      - the `limit` parameter can also be used to load only files matching a given pattern
-#      - the `fmt` parameter lets you specify how to parse filenames into neuron names and ids
+# ```
+#
+# !!! tip "`read_swc` is flexible"
+#     [`read_swc`][navis.read_swc] handles a whole range of inputs - file names, folders, archives, URLs and more -
+#     and lets you customise *which* and *how* neurons are loaded:
+#
+#     - `limit` can also take a pattern to load only matching files
+#     - `fmt` controls how filenames are parsed into neuron names and IDs
+#
 #     Many of the other `navis.read_*` functions share these features!
 
 # %%
 # ## To SWC files
 #
-# Now let's say you have skeletons and you want to save them to disk. Easy!
+# Saving skeletons back to disk works the same way. Write a single neuron:
 
 # %%
 
-# Write a single neuron:
 navis.write_swc(s, './mmc2/my_neuron.swc')
 
 # %%
-
-# Write a whole list of skeletons to a folder and use the neurons' `name` property as filename:
-navis.write_swc(sample, './mmc2/{neuron.name}.swc')
-
-# %%
-
-# Write directly to a zip file:
-navis.write_swc(sample, './mmc2/skeletons.zip')
-
-# %%
-
-# Write directly to a zip file and use the neuron name as filename:
-navis.write_swc(sample, './mmc2/{neuron.name}.swc@skeletons.zip')
-
-# %%
-# See [`navis.write_swc`][] for further details!
+# The magic is all in the filepath: use a `{neuron.name}` placeholder to name files by a neuron
+# property, and append `@archive.zip` to write straight into a zip. These compose freely:
+#
+# | Filepath pattern | Result |
+# |------------------|--------|
+# | `my_neuron.swc` | A single neuron to one file. |
+# | `{neuron.name}.swc` | One file per neuron in a `NeuronList`, named by each neuron's `.name`. |
+# | `skeletons.zip` | The whole `NeuronList` bundled into a single zip archive. |
+# | `{neuron.name}.swc@skeletons.zip` | One file per neuron, named by `.name`, *inside* a zip archive. |
+#
+# The placeholder can reference any neuron property, e.g. `{neuron.id}.swc`. See
+# [`navis.write_swc`][] for further details.
 #
 # ## From NMX files
 #
@@ -189,5 +218,8 @@ s
 #
 # Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`MeshNeurons`][navis.MeshNeuron]
 # (see also the API reference on [neuron conversion](../../../api.md#converting-between-types)).
+#
+# *[SWC]: A plain-text format storing a neuron skeleton as a table of connected nodes.
+# *[FTP]: File Transfer Protocol - a standard way of serving files over a network.
 
 # mkdocs_gallery_thumbnail_path = '_static/skeleton_thumbnail.png'

@@ -39,12 +39,30 @@ plt.tight_layout()
 from navis.nbl.smat import Lookup2d, Digitizer, LookupDistDotBuilder
 
 # %%
+# These three classes do the work:
 #
-# - [`navis.nbl.smat.Lookup2d`][]: this is the lookup table, it can be passed to any nblast-related class or function
-# - [`navis.nbl.smat.Digitizer`][]: this converts continuous values into discrete indices which are used to look up score values in an array, we need one for each axis of the lookup table
-# - [`navis.nbl.smat.LookupDistDotBuilder`][] is the helper class which generates [`navis.nbl.smat.Lookup2d`][] instances from training data
+# | Class | Role |
+# |-------|------|
+# | [`navis.nbl.smat.Lookup2d`][] | The lookup table itself — pass it to any NBLAST class or function. |
+# | [`navis.nbl.smat.Digitizer`][] | Converts continuous values into the discrete bin indices used to look up scores; you need one per axis of the table. |
+# | [`navis.nbl.smat.LookupDistDotBuilder`][] | Builds [`navis.nbl.smat.Lookup2d`][] instances from training data. |
 #
-# First, we need some training data. Let's augment our set of example neurons by randomly mutating them:
+# First, we need some training data. We augment our example neurons by randomly mutating each one — translating, jittering
+# and rescaling its coordinates:
+#
+# ```python
+# coords += RNG.normal(scale=translation_sigma, size=coords.shape[-1])  # (1)!
+# coords += RNG.normal(scale=jitter_sigma, size=coords.shape)           # (2)!
+#
+# mean = np.mean(coords, axis=0)                                        # (3)!
+# coords -= mean
+# coords *= RNG.normal(loc=1.0, scale=scale_sigma)
+# coords += mean
+# ```
+#
+# 1.  Translate the whole neuron by a single random offset — the same shift for every node.
+# 2.  Jitter each node independently by a small random amount.
+# 3.  Rescale about the centroid by a random factor.
 
 import numpy as np
 
@@ -61,11 +79,9 @@ def augment_neuron(
     dims = list("xyz")
     coords = nrn.nodes[dims].to_numpy()
 
-    # translate whole neuron
     coords += RNG.normal(scale=translation_sigma, size=coords.shape[-1])
-    # jitter individual coordinates
     coords += RNG.normal(scale=jitter_sigma, size=coords.shape)
-    # rescale
+
     mean = np.mean(coords, axis=0)
     coords -= mean
     coords *= RNG.normal(loc=1.0, scale=scale_sigma)
@@ -122,5 +138,9 @@ result.columns = [dp.name for dp in new_dps]
 result
 
 # %%
-# You can see that while there aren't any particularly good scores (this is a very small amount of training data, and one would
-# normally preprocess the neurons), in each case the original's best match is its augmented partner.
+# In each case, the original's best match is its augmented partner.
+#
+# !!! warning "Tiny training set"
+#     Don't read too much into the absolute scores here — this is a very small amount of training data, and one would
+#     normally preprocess the neurons first. Use this example to understand the mechanics, not as a recipe for a
+#     production score matrix.

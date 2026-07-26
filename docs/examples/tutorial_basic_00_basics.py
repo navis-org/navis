@@ -46,15 +46,13 @@ n.nodes.head()
 #     We highly recommend familiarizing yourself with pandas! There are plenty of good tutorials out there but pandas' own
 #     [10 Minutes to pandas](https://pandas.pydata.org/pandas-docs/stable/10min.html) is a good place to start.
 #
-# Try typing in "`n.`" and hitting tab: most attributes and functions are accessible via autocompletion.
-# If you don't know what a function does, check out the documentation using `help()` or via the [API documentation](../../../api):
-# ```python
-# help(navis.TreeNeuron.root)
-# ```
-#
-# ```python
-# help(navis.TreeNeuron.downsample)
-# ```
+# !!! tip "Discovering methods interactively"
+#     Type `n.` and hit ++tab++ - most attributes and functions are accessible via autocompletion.
+#     Not sure what something does? Ask for `help()` (or browse the [API documentation](../../../api)):
+#     ```python
+#     help(navis.TreeNeuron.root)
+#     help(navis.TreeNeuron.downsample)
+#     ```
 
 # %%
 # You will notice that many {{ navis }} functions that accept neurons have an `inplace` parameter. This is analogous to pandas:

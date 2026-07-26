@@ -16,6 +16,10 @@ pip3 install neuprint-python
 
 `navis.interfaces.neuprint` wraps `neuprint-python` and adds a few new functions to fetch and convert data into {{ navis }} objects.
 
+!!! warning "Requires network access and a token"
+    This tutorial talks to a live neuPrint server, so it needs an internet connection. You will also need a
+    neuPrint account and an API token - see the "Authentication" note below for how to set it.
+
 """
 # %%
 # Import navis
@@ -25,9 +29,11 @@ import navis
 import navis.interfaces.neuprint as neu
 
 # %%
-# First set up the connection:
-# You can either pass your API token directly or store as `NEUPRINT_APPLICATION_CREDENTIALS` environment variable.
-# The latter is the recommended way and we will use it here:
+# ## Set up the connection
+#
+# !!! note "Authentication"
+#     Pass your API token directly via `token=...`, or store it as a `NEUPRINT_APPLICATION_CREDENTIALS`
+#     environment variable. The latter is the recommended approach and the one we use here.
 
 client = neu.Client(
     "https://neuprint.janelia.org/",
@@ -44,13 +50,15 @@ mbons, roi_info = neu.fetch_neurons(
 mbons.head(3)
 
 # %%
-# {{ navis }} has added three functions to `neu`:
+# On top of neuprint-python's own functions, {{ navis }} adds three that return {{ navis }} objects:
 #
-#  - [`navis.interfaces.neuprint.fetch_roi`][]: returns a [`navis.Volume`][] from a ROI
-#  - [`navis.interfaces.neuprint.fetch_skeletons`][]: returns fully fledged [`navis.TreeNeurons`][navis.TreeNeuron] - nodes, synapses, soma and all
-#  - [`navis.interfaces.neuprint.fetch_mesh_neuron`][]: returns [`navis.MeshNeurons`][navis.MeshNeuron] - including synapses
+# | Function | Returns |
+# |----------|---------|
+# | [`fetch_roi`][navis.interfaces.neuprint.fetch_roi] | a [`navis.Volume`][] from a ROI |
+# | [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] | fully-fledged [`navis.TreeNeurons`][navis.TreeNeuron] - nodes, synapses, soma and all |
+# | [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] | [`navis.MeshNeurons`][navis.MeshNeuron] - including synapses |
 #
-# Let's start by fetching the mesh for the right mushroom body ROI:
+# Start by fetching the mesh for the right mushroom body ROI:
 mb = neu.fetch_roi("MB(R)")
 mb
 
@@ -85,5 +93,8 @@ plt.tight_layout()
 
 # %%
 # All {{ navis }} functions for analysis & visualization should work on these neurons. If not, please open an issue on Github.
+#
+# *[EM]: Electron Microscopy.
+# *[ROI]: Region of interest.
 
 # mkdocs_gallery_thumbnail_path = '_static/neuprint_logo.png'
