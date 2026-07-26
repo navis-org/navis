@@ -386,33 +386,48 @@ def _get_coordinates_map(transform, bbox, shape, spacing):
 def _guess_change(xyz_before: np.ndarray,
                   xyz_after: np.ndarray,
                   sample: float = .1) -> tuple:
-    """Guess change in units during xforming."""
+    """Guess order-of-magnitude change in units during xforming.
+
+    Compares pairwise distances between a random subset of points before and
+    after the transform. Pairwise distances are invariant to the rotation and
+    translation of the transform, so their ratio isolates the change in scale
+    (e.g. nm -> um). We use the *median* of the per-pair ratios which is robust
+    to (a) near-coincident source points that would otherwise blow up the ratio
+    and (b) individual points that failed to transform or flew off.
+    """
     if isinstance(xyz_before, pd.DataFrame):
         xyz_before = xyz_before[['x', 'y', 'z']].values
     if isinstance(xyz_after, pd.DataFrame):
         xyz_after = xyz_after[['x', 'y', 'z']].values
 
-    # Select the same random sample of points in both spaces
+    # `sample` <= 1 is interpreted as a fraction, otherwise as an absolute count
     if sample <= 1:
         sample = int(xyz_before.shape[0] * sample)
 
-    # Make sure we don't sample more than we have
-    sample = min(xyz_before.shape[0], sample)
+    # Make sure we sample at least one but no more points than we have
+    sample = min(xyz_before.shape[0], max(int(sample), 1))
 
     rnd_ix = np.random.choice(xyz_before.shape[0], sample, replace=False)
-    sample_bef = xyz_before[rnd_ix, :]
-    sample_aft = xyz_after[rnd_ix, :]
 
-    # Get pairwise distance between those points
-    dist_pre = pdist(sample_bef)
-    dist_post = pdist(sample_aft)
+    # Get pairwise distances between those points in both spaces
+    dist_pre = pdist(xyz_before[rnd_ix, :])
+    dist_post = pdist(xyz_after[rnd_ix, :])
 
-    # Calculate how the distance between nodes changed and get the average
-    # Note we are ignoring nans - happens e.g. when points did not transform.
-    with np.errstate(divide='ignore', invalid='ignore'):
-        change = dist_post / dist_pre
-    # Drop infinite values in rare cases where nodes end up on top of another
-    mean_change = np.nanmean(change[change < np.inf])
+    # Only keep pairs where both distances are finite and the source distance is
+    # non-zero. This drops div-by-zero blow-ups from near-coincident points and
+    # NaNs from points that did not transform.
+    ok = np.isfinite(dist_pre) & np.isfinite(dist_post) & (dist_pre > 0)
+    if not ok.any():
+        # Nothing usable -> assume units did not change
+        return 1.0, 0
+
+    # Median ratio is robust to outliers in both directions
+    mean_change = float(np.median(dist_post[ok] / dist_pre[ok]))
+
+    # Guard against a degenerate estimate (e.g. all points collapsed) that
+    # would make log10 raise or return NaN and silently corrupt data downstream
+    if not np.isfinite(mean_change) or mean_change <= 0:
+        return 1.0, 0
 
     # Find the order of magnitude
     magnitude = round(math.log10(mean_change))

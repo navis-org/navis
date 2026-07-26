@@ -24,7 +24,6 @@ from datetime import datetime
 from colorsys import hsv_to_rgb
 from typing import Union, Optional, List
 from typing_extensions import Literal
-from scipy.spatial.distance import pdist
 
 import pandas as pd
 import numpy as np
@@ -36,6 +35,7 @@ from rpy2.robjects.packages import importr
 from rpy2.robjects import pandas2ri, numpy2ri
 
 from .. import core, plotting, config, utils
+from ..transforms.xfm_funcs import _guess_change
 
 # Inconveniently, rpy2's version vector differs in the way it's constructed
 # between 2.X `((2, 9, 4), '')` and 3.X (3, 3, 2)
@@ -1282,37 +1282,6 @@ def xform_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                                         **kwargs)
 
     return np.array(xf)
-
-
-def _guess_change(xyz_before, xyz_after, sample=.1):
-    """Guess change in units during xforming."""
-    if isinstance(xyz_before, pd.DataFrame):
-        xyz_before = xyz_before[['x', 'y', 'z']].values
-    if isinstance(xyz_after, pd.DataFrame):
-        xyz_after = xyz_after[['x', 'y', 'z']].values
-
-    # Select the same random sample of points in both spaces
-    if sample <= 1:
-        sample = int(xyz_before.shape[0] * sample)
-    rnd_ix = np.random.choice(xyz_before.shape[0], sample, replace=False)
-    sample_bef = xyz_before[rnd_ix, :]
-    sample_aft = xyz_after[rnd_ix, :]
-
-    # Get pairwise distance between those points
-    dist_pre = pdist(sample_bef)
-    dist_post = pdist(sample_aft)
-
-    # Calculate how the distance between nodes changed and get the average
-    # Note we are ignoring nans - happens e.g. when points did not transform.
-    with np.errstate(divide='ignore', invalid='ignore'):
-        change = dist_post / dist_pre
-    # Drop infinite values in rare cases where nodes end up on top of another
-    mean_change = np.nanmean(change[change < np.inf])
-
-    # Find the order of magnitude
-    magnitude = round(math.log10(mean_change))
-
-    return mean_change, magnitude
 
 
 def mirror_brain(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],

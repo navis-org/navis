@@ -14,7 +14,6 @@
 """Functions to work with templates."""
 
 import functools
-import math
 import os
 import pathlib
 import warnings
@@ -29,7 +28,6 @@ import sparsecubes
 import trimesh as tm
 
 from matplotlib.lines import Line2D
-from scipy.spatial.distance import pdist
 
 from collections import namedtuple
 from typing import List, Union, Optional
@@ -1170,39 +1168,6 @@ def xform_brain(
                 break
 
     return xf
-
-
-def _guess_change(
-    xyz_before: np.ndarray, xyz_after: np.ndarray, sample: float = 0.1
-) -> tuple:
-    """Guess change in units during xforming."""
-    if isinstance(xyz_before, pd.DataFrame):
-        xyz_before = xyz_before[["x", "y", "z"]].values
-    if isinstance(xyz_after, pd.DataFrame):
-        xyz_after = xyz_after[["x", "y", "z"]].values
-
-    # Select the same random sample of points in both spaces
-    if sample <= 1:
-        sample = int(xyz_before.shape[0] * sample)
-    rnd_ix = np.random.choice(xyz_before.shape[0], sample, replace=False)
-    sample_bef = xyz_before[rnd_ix, :]
-    sample_aft = xyz_after[rnd_ix, :]
-
-    # Get pairwise distance between those points
-    dist_pre = pdist(sample_bef)
-    dist_post = pdist(sample_aft)
-
-    # Calculate how the distance between nodes changed and get the average
-    # Note we are ignoring nans - happens e.g. when points did not transform.
-    with np.errstate(divide="ignore", invalid="ignore"):
-        change = dist_post / dist_pre
-    # Drop infinite values in rare cases where nodes end up on top of another
-    mean_change = np.nanmean(change[change < np.inf])
-
-    # Find the order of magnitude
-    magnitude = round(math.log10(mean_change))
-
-    return mean_change, magnitude
 
 
 def symmetrize_brain(
