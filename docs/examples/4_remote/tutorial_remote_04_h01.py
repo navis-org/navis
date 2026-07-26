@@ -127,11 +127,11 @@ navis.plot3d([interneurons_ds], color=colors)
 # %%
 # ### Make skeletons from meshes
 
-interneurons_sk = navis.skeletonize(interneurons_ds, heal=False)
-interneurons_sk
+sk = navis.skeletonize(interneurons_ds[0], heal=False)
+sk
 
 
 # %%
 
 # Plot
-navis.plot3d([interneurons_sk[0], interneurons_ds[0]], color=[(1, 0, 0), (1, 1, 1, 0.5)])
+navis.plot3d([sk, interneurons_ds[0]], color=[(1, 0, 0), (1, 1, 1, 0.5)])
