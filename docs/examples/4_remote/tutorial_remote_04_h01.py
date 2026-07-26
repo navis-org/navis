@@ -110,6 +110,8 @@ interneuron_ids
 # %%
 # ### Fetch Neuron Meshes
 interneurons = h01.fetch_neurons(interneuron_ids, lod=2, with_synapses=False)
+
+# Downsample the meshes for faster plotting and skeletonization
 interneurons_ds = navis.simplify_mesh(interneurons, F=1 / 3)
 interneurons_ds
 
@@ -123,13 +125,13 @@ navis.plot3d([interneurons_ds], color=colors)
 
 
 # %%
-# ### Fetch Skeletons
+# ### Make skeletons from meshes
 
-interneurons_sk = navis.skeletonize(interneurons, parallel=True)
+interneurons_sk = navis.skeletonize(interneurons_ds, heal=False)
 interneurons_sk
 
 
 # %%
 
 # Plot
-navis.plot3d([interneurons_sk[0], interneurons[0]], color=[(1, 0, 0), (1, 1, 1, 0.5)])
+navis.plot3d([interneurons_sk[0], interneurons_ds[0]], color=[(1, 0, 0), (1, 1, 1, 0.5)])
