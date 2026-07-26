@@ -406,7 +406,11 @@ def simplify_graph(G, inplace=False):
         branches = G.vs.select(_indegree_gt=1, _outdegree_ne=0)
         roots = G.vs.select(_outdegree=0)
 
-        stop_nodes = np.concatenate((roots.indices, leafs.indices, branches.indices))
+        # Set for O(1) membership in the walk below (the networkx branch above
+        # likewise uses a set)
+        stop_nodes = set(
+            np.concatenate((roots.indices, leafs.indices, branches.indices))
+        )
 
         # Walk from each leaf/branch point to the next leaf, branch or root
         to_remove = []

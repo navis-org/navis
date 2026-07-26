@@ -298,11 +298,13 @@ class OverlapFeatures(Features):
     compartments = ("axon", "basal_dendrite", "apical_dendrite")
 
     def extract_features(self):
+        # Labels present in the neuron (set for O(1) membership below)
+        labels = set(self.neuron.nodes.label.values)
         # Iterate over compartments
         for c1 in self.compartments:
-            if c1 in self.neuron.nodes.label.values:
+            if c1 in labels:
                 c1_nodes = self.neuron.nodes[self.neuron.nodes.label == c1]
-            elif comp_to_label.get(c1, c1) in self.neuron.nodes.label.values:
+            elif comp_to_label.get(c1, c1) in labels:
                 c1_nodes = self.neuron.nodes[
                     self.neuron.nodes.label == comp_to_label[c1]
                 ]
@@ -311,9 +313,9 @@ class OverlapFeatures(Features):
             for c2 in self.compartments:
                 if c1 == c2:
                     continue
-                if c2 in self.neuron.nodes.label.values:
+                if c2 in labels:
                     c2_nodes = self.neuron.nodes[self.neuron.nodes.label == c2]
-                elif comp_to_label.get(c2, c2) in self.neuron.nodes.label.values:
+                elif comp_to_label.get(c2, c2) in labels:
                     c2_nodes = self.neuron.nodes[
                         self.neuron.nodes.label == comp_to_label[c2]
                     ]
@@ -419,8 +421,9 @@ def _check_compartments(n, compartments):
     elif isinstance(compartments, Sequence):
         if "label" not in n.nodes.columns:
             raise ValueError("No 'label' column found in node table.")
+        present = set(n.nodes.label.unique())
         for c in compartments:
-            if c not in n.nodes.label.unique():
+            if c not in present:
                 raise ValueError(f"Compartment not present: {c}")
         return compartments
     elif compartments in (None, False):

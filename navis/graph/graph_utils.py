@@ -2161,6 +2161,7 @@ def cut_skeleton(
         where = [where]
 
     # Process cut nodes (i.e. if tag)
+    node_ids = set(x.nodes.node_id.values)  # O(1) membership in the loop below
     cn_ids: List[int] = []
     for cn in where:
         # If cut_node is a tag (rather than an ID), try finding that node
@@ -2172,7 +2173,7 @@ def cut_skeleton(
                     f"#{x.id}: Found no node with tag {cn} - please double check!"
                 )
             cn_ids += x.tags[cn]
-        elif cn not in x.nodes.node_id.values:
+        elif cn not in node_ids:
             raise ValueError(f'No node with ID "{cn}" found.')
         elif cn in x.root:
             raise ValueError(f'Unable to cut at node "{cn}" - node is root')
@@ -2326,8 +2327,8 @@ def node_label_sorting(
     if len(x.root) > 1:
         raise ValueError("Unable to process multi-root neurons!")
 
-    # Get relevant terminal nodes
-    term = x.nodes[x.nodes.type == "end"].node_id.values
+    # Get relevant terminal nodes (as a set for O(1) membership in the walk below)
+    term = set(x.nodes[x.nodes.type == "end"].node_id.values)
 
     weight = "weight" if weighted else None
 
