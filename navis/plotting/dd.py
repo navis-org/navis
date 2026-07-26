@@ -1115,6 +1115,69 @@ def _set_view3d(ax, settings):
         getattr(ax, f"set_{non_view_axis}ticks")([])
 
 
+def _colors_are_categorical(colors, frac=0.25, floor=20):
+    """Guess whether per-node colors are categorical.
+
+    Grouping a neuron's edges into contiguous same-color lines (see
+    `_collapse_colored_segments`) only pays off when many neighbouring nodes
+    share a color, i.e. the data is categorical (few distinct colors). For
+    (quasi-)continuous colors almost every node differs, so grouping would
+    achieve nothing and be slower than the vectorised per-edge path. We use
+    the number of distinct colors as a cheap proxy to decide.
+    """
+    n_unique = len(np.unique(colors, axis=0))
+    return n_unique <= max(floor, int(len(colors) * frac))
+
+
+def _collapse_colored_segments(neuron, node_colors):
+    """Merge a neuron's edges into contiguous same-color polylines.
+
+    Instead of drawing every child->parent edge as its own 2-point segment
+    (which looks jagged and bloats vector exports), we walk each linear stretch
+    ("slab") of the neuron and merge consecutive edges that share a color into a
+    single multi-point line. Adjacent runs share their boundary vertex so the
+    lines still join up without gaps.
+
+    Parameters
+    ----------
+    neuron :        TreeNeuron
+    node_colors :   (N, 4) array
+                    One RGBA color for each node in `neuron.nodes` (row order).
+
+    Returns
+    -------
+    lines :         list of (M, 3) arrays
+                    Contiguous polylines in xyz coordinates.
+    colors :        (n_lines, 4) array
+                    One RGBA color per polyline.
+
+    """
+    coords, seg_cols = segments_to_coords(neuron, node_colors=node_colors)
+
+    lines = []
+    colors = []
+    for seg, cols in zip(coords, seg_cols):
+        if len(seg) < 2:
+            continue
+        cols = np.asarray(cols)
+        # Color each edge by its first node, then find where the color changes
+        # along this slab. Segments run tip->root, so the first node of an edge
+        # is its child - matching the per-edge coloring used elsewhere.
+        edge_cols = cols[:-1]
+        changes = np.any(edge_cols[1:] != edge_cols[:-1], axis=1)
+        breaks = np.flatnonzero(changes) + 1
+        starts = np.concatenate(([0], breaks))
+        ends = np.concatenate((breaks, [len(edge_cols)]))
+        for s, e in zip(starts, ends):
+            # Run spans edges s..e-1, i.e. vertices s..e. Sharing vertex `e`
+            # with the next run keeps consecutive lines connected.
+            lines.append(seg[s : e + 1])
+            colors.append(edge_cols[s])
+
+    colors = np.array(colors) if colors else np.zeros((0, node_colors.shape[1]))
+    return lines, colors
+
+
 def _plot_skeleton(neuron, color, ax, settings):
     """Plot skeleton."""
 
@@ -1140,6 +1203,32 @@ def _plot_skeleton(neuron, color, ax, settings):
                 label=f'{getattr(neuron, "name", "NA")} - #{neuron.id}',
             )
             ax.add_line(this_line)
+        elif (
+            not settings.depth_coloring
+            and isinstance(color, np.ndarray)
+            and color.ndim == 2
+            and color.shape[0] == neuron.nodes.shape[0]
+            and _colors_are_categorical(color)
+        ):
+            # Categorical per-node colors (e.g. `color_by='strahler_index'`):
+            # merge contiguous same-color edges into continuous polylines. This
+            # gives proper line joins (instead of a pile of short segments) and
+            # far fewer artists, which keeps vector exports small.
+            lines, line_colors = _collapse_colored_segments(neuron, color)
+            xy = [
+                np.column_stack(_parse_view2d(line, settings.view)) for line in lines
+            ]
+            lc = LineCollection(
+                xy,
+                colors=line_colors,
+                rasterized=settings.rasterize,
+                joinstyle="round",
+                capstyle="round",
+            )
+            lc.set_linewidth(settings.linewidth)
+            lc.set_linestyle(settings.linestyle)
+            lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
+            ax.add_collection(lc)
         else:
             if isinstance(settings.palette, str):
                 cmap = plt.get_cmap(settings.palette)
@@ -1154,6 +1243,10 @@ def _plot_skeleton(neuron, color, ax, settings):
                 norm=settings.norm if settings.depth_coloring else None,
                 rasterized=settings.rasterize,
                 joinstyle="round",
+                # Round caps make the individual node-to-node segments blend
+                # into contiguous-looking lines instead of leaving notches at
+                # every joint (`joinstyle` has no effect on 2-point segments).
+                capstyle="round",
             )
 
             lc.set_linewidth(settings.linewidth)
@@ -1228,6 +1321,16 @@ def _plot_skeleton(neuron, color, ax, settings):
         # For simple scenes, add whole neurons at a time to speed up rendering
         if settings.method == "3d":
             if (
+                not settings.depth_coloring
+                and isinstance(color, np.ndarray)
+                and color.ndim == 2
+                and color.shape[0] == neuron.nodes.shape[0]
+                and _colors_are_categorical(color)
+            ):
+                # Categorical per-node colors: merge contiguous same-color edges
+                # into continuous polylines (see 2D path for rationale).
+                coords, line_color = _collapse_colored_segments(neuron, color)
+            elif (
                 isinstance(color, np.ndarray) and color.ndim == 2
             ) or settings.depth_coloring:
                 coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
@@ -1253,6 +1356,9 @@ def _plot_skeleton(neuron, color, ax, settings):
                 cmap=cmap if settings.depth_coloring else None,
                 lw=settings.linewidth,
                 joinstyle="round",
+                # Round caps avoid notches where per-node/depth-coloured
+                # segments meet (see 2D path for details).
+                capstyle="round",
                 rasterized=settings.rasterize,
                 linestyle=settings.linestyle,
             )
