@@ -1,4 +1,4 @@
-"""
+r"""
 NBLAST
 ======
 
@@ -63,7 +63,7 @@ $$
 
 Broadly speaking, there are two applications for NBLAST:
 
-1. Matching neurons neurons between two datasets
+1. Matching neurons between two datasets
 2. Clustering neurons into morphologically similar groups
 
 Before we get our feet wet, two things to keep in mind:
@@ -88,7 +88,7 @@ import navis
 nl = navis.example_neurons()
 
 # %%
-# NBLAST works on dotprops - these consist of points and tangent vectors decribing the shape of a neuron and are represented by the [`navis.Dotprops`][] class
+# NBLAST works on dotprops - these consist of points and tangent vectors describing the shape of a neuron and are represented by the [`navis.Dotprops`][] class
 # in {{ navis }}. You can generate those dotprops from skeletons (i.e. [`TreeNeurons`][navis.TreeNeuron]), meshes (i.e. [`MeshNeurons`][navis.MeshNeuron])
 # (see [`navis.make_dotprops`][] for details) or straight from image data (see [`navis.read_nrrd`][] and [`navis.read_tiff`][]) - e.g. confocal stacks.
 
@@ -164,7 +164,7 @@ plt.tight_layout()
 # We'll leave it at that for now but just to have it mentioned: there is also a [`navis.nblast_smart`][] function which tries to cut some corners and may
 # be useful if you want to run very large NBLASTs.
 #
-# These are the functions we seen so far:
+# These are the functions we have seen so far:
 #
 # - [`navis.nblast`][]: classic query :octicons-arrow-right-24: target NBLAST
 # - [`navis.nblast_allbyall`][]: pairwise, all-by-all NBLAST

@@ -23,7 +23,7 @@ ax.set_ylabel("dot product")
 plt.tight_layout()
 
 # %%
-# This scoring matrix works suprisingly well in many cases! However, how appropriate it is for
+# This scoring matrix works surprisingly well in many cases! However, how appropriate it is for
 # your data depends on a number of factors:
 #
 # - How big your neurons are (commonly addressed by scaling the distance axis of the built-in score matrix)
@@ -99,7 +99,7 @@ as_table = smat.to_dataframe()
 as_table
 
 # %%
-# Now that we can have this score matrix, we can use it for a problem which can be solved by NBLAST: we've mixed up a bag of neurons
+# Now that we have this score matrix, we can use it for a problem which can be solved by NBLAST: we've mixed up a bag of neurons
 # which look very similar to some of our examples, and need to know which they match with.
 
 original_dps = dotprops[: len(original)]

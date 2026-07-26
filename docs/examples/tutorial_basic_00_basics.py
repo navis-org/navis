@@ -2,9 +2,9 @@
 The Basics
 ==========
 
-This tutorial will introduce some of the basics concepts in NAVis.
+This tutorial will introduce some of the basic concepts in {{ navis }}.
 
-This is not supposed to be comprehensive but rather to give you a flavor of how things work. For inspiriation,
+This is not supposed to be comprehensive but rather to give you a flavor of how things work. For inspiration,
 explore the [example gallery](../index) and for detailed explanations have a look at the [API documentation](../../../api/).
 
 ## Single Neurons
@@ -94,7 +94,7 @@ nl
 nl[0]
 
 # %%
-# [`navis.NeuronList`][] lets you run/access all functions (methods) and properties of the neurons it contrains:
+# [`navis.NeuronList`][] lets you run/access all functions (methods) and properties of the neurons it contains:
 
 # %%
 nl.cable_length

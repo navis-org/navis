@@ -104,7 +104,7 @@ nl[0]
 # %%
 # ### Index by position
 #
-# [`NeuronLists`][navis.NeuronList] are designed to behave similar to numpy arrays in that they allow some fancing
+# [`NeuronLists`][navis.NeuronList] are designed to behave similar to numpy arrays in that they allow some fancy
 # indexing.
 #
 # You've already seen how to extract a single neuron from a [`NeuronList`][navis.NeuronList] using a single integer
@@ -176,7 +176,7 @@ nl[".*DA1.*"]
 # %%
 # ### Index by ID
 #
-# All neurons have an ID - even if you don't explicitly assign one, a UUID will assigned under the hood.
+# All neurons have an ID - even if you don't explicitly assign one, a UUID will be assigned under the hood.
 
 # %%
 nl[0].id
@@ -206,13 +206,13 @@ nl.idx[1734350908]
 nl[:2] + nl[2:]
 
 # %%
-# This also works on with two single [`navis.TreeNeurons`][navis.TreeNeuron]! You can use that to combine them into a list:
+# This also works with two single [`navis.TreeNeurons`][navis.TreeNeuron]! You can use that to combine them into a list:
 
 # %%
 nl[0] + nl[1]
 
 # %%
-# ### Substraction
+# ### Subtraction
 #
 # To remove an item from a Python list, you would call the `.pop()` method:
 
@@ -222,7 +222,7 @@ l.pop(2)
 l
 
 # %%
-# For [`navis.NeuronList`][] you can use substraction:
+# For [`navis.NeuronList`][] you can use subtraction:
 
 # %%
 nl - nl[2]
@@ -281,7 +281,7 @@ nl_um.units
 # ## Comparing NeuronLists
 #
 # [`navis.NeuronList`][] implements some of the basic arithmetic and comparison operators that you might
-# know from standard `lists` or `numpy.arrays`. Most this should be fairly intuitive (I hope) but there
+# know from standard `lists` or `numpy.arrays`. Most of this should be fairly intuitive (I hope) but there
 # are a few things you should be aware of. The following examples will illustrate that.
 #
 #
@@ -294,7 +294,7 @@ nl_um.units
 2 == 1
 
 # %%
-# For [`navis.TreeNeuron`][] this is comparison done by looking at the neurons' attribues:
+# For [`navis.TreeNeuron`][] this comparison is done by looking at the neurons' attributes:
 # morphologies (soma & root nodes, cable length, etc) and meta data (name).
 
 # %%

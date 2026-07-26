@@ -73,7 +73,7 @@ ax.imshow(
 navis.plot2d(dp, ax=ax, view=("x", "-y"), method="2d", color="r", linewidth=1.5)
 
 # %%
-# This looks pretty good but we have a bit of little fluff around the brain which we may want to get rid off:
+# This looks pretty good but we have a bit of little fluff around the brain which we may want to get rid of:
 
 # Drop everything but the two largest connected components
 dp = navis.drop_fluff(dp, n_largest=2)
@@ -92,12 +92,12 @@ navis.plot2d(dp, ax=ax, view=("x", "-y"), method="2d", color="r", linewidth=1.5)
 # !!! note
 #     To extract the connected components, [`navis.drop_fluff`][] treats all pairs of points within a certain distance
 #     as connected. The distance is determined by the `dp_dist` parameter which defaults to 5 x the average distance
-#     between points. That is a good value for this example but you may need adjust it for your data.
+#     between points. That is a good value for this example but you may need to adjust it for your data.
 #
 #
 # ## From other neurons
 #
-# Let's say you have a bunch of skeletons and you need to convert them to dotprops for NBLAST. For that you
+# Let's say you have a bunch of skeletons and you need to convert them to dotprops for NBLAST. For that you use
 # [`navis.make_dotprops`][]:
 
 sk = navis.example_neurons(3, kind="skeleton")
@@ -116,7 +116,7 @@ ax.indicate_inset_zoom(axins, edgecolor="black")
 # %%
 # !!! note
 #     The `k` parameter in [`make_dotprops`][navis.make_dotprops] determines how many neighbours are considered to
-#     generated the tangent vector for a given point.
+#     generate the tangent vector for a given point.
 #     Higher `k` = smoother. Lower `k` = more detailed but also more noisy. If you have clean data such as these
 #     connectome-derived skeletons, you can go with a low `k`. For confocal data, you might want to go with a higher `k`
 #     (e.g. 20) to smooth out the noise. You can pass `k` to [`navis.read_nrrd`][] as well.

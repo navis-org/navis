@@ -37,7 +37,7 @@ import navis
 
 # %%
 # ```python
-#  # When reading all files in folder you have to specificy the file extension (e.g. *.stl)
+#  # When reading all files in folder you have to specify the file extension (e.g. *.stl)
 #  meshes = navis.read_mesh('neurons/*.stl')
 # ```
 

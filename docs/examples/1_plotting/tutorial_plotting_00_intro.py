@@ -60,7 +60,7 @@ plt.tight_layout()
 #
 # Above plot used the default `matplotlib` 2D plot. You might notice that the plot looks rather "flat" - i.e. neurons seem
 # to be layered on top of each other without intertwining. That is one of the limitations of `matplotlib`'s 3d backend.
-# We can try to ameliorate this by adjust the `method` parameter:
+# We can try to ameliorate this by adjusting the `method` parameter:
 
 # Plot settings for more complex scenes - comes at a small performance cut though
 fig, ax = navis.plot2d(nl, method="3d_complex", view=("x", "-z"))
@@ -89,7 +89,7 @@ plt.tight_layout()
 # %%
 # !!! note
 #     Did you note that we set `non_view_axes3d='show'` in above example? By default, {{ navis }} hides the axis that is parallel to
-#     the viewing direction is hidden to not clutter the image. Because we were going to change the perspective,
+#     the viewing direction to not clutter the image. Because we were going to change the perspective,
 #     we set it to `show`. FYI: if the plot is rendered in a separate window (e.g. if you run Python from
 #     terminal), you can change the perspective by dragging the image.
 #
@@ -110,7 +110,7 @@ plt.tight_layout()
 # ## 3D plots
 #
 # By "3D plots" we typically mean interactive 3D plots as opposed to the (mostly) static 2D or semi-3D plots above.
-# 3D plots are great for great for exploring your data interactively but you can also use them to generate high-quality
+# 3D plots are great for exploring your data interactively but you can also use them to generate high-quality
 # static images.
 #
 # As laid out at the top of this page: for 3D plots, we are using either [octarine](https://schlegelp.github.io/octarine/),
@@ -120,7 +120,7 @@ plt.tight_layout()
 # |---------------------|---------|----------|
 # | octarine            | yes     | yes      |
 # | plotly              | yes     | yes but only via export to html |
-# | vispy (depcrecated) | yes     | yes      |
+# | vispy (deprecated) | yes     | yes      |
 # | k3d                 | yes     | no       |
 #
 # By default, the choice is automatic and depends on (1) what backends are installed and (2) the context:
@@ -161,9 +161,9 @@ plt.tight_layout()
 # export NAVIS_PLOT3D_BACKEND="octarine"
 # ```
 #
-# !!! important "Google Collaboratory"
-#     The `jupyter_rfb` used by Octarine and Vispy to render 3D plots in Jupyter does not work in Google Collaboratory.
-#     If you are using Google Collaboratory, we recommend you use the plotly backend.
+# !!! important "Google Colaboratory"
+#     The `jupyter_rfb` used by Octarine and Vispy to render 3D plots in Jupyter does not work in Google Colaboratory.
+#     If you are using Google Colaboratory, we recommend you use the plotly backend.
 #
 # With that out of the way, let's have a look at some 3D plots! You will notice that for the `octarine`, `vispy` and `k3d`
 # backends we're just showing screenshots - that's because their interactive plots can't be embedded into this documentation.
@@ -201,8 +201,8 @@ plt.tight_layout()
 #     * if you want to add to a specific viewer: `navis.plot3d(nl, viewer=viewer)`
 #
 # - You can dynamically resize the canvas (in Jupyter by dragging the lower right corner)
-# - For Jupyter: the rendering runs in your Jupyter Kernel and the frames are sent to Jupyter via a remote frame buffer (`jupyter_rbf`). If your
-#   Jupyter kernel runs on a remote machine you might experiences some lag depending on the connection speed and quality.
+# - For Jupyter: the rendering runs in your Jupyter Kernel and the frames are sent to Jupyter via a remote frame buffer (`jupyter_rfb`). If your
+#   Jupyter kernel runs on a remote machine you might experience some lag depending on the connection speed and quality.
 #
 # Some important methods for the `viewer` object:
 #
@@ -226,7 +226,7 @@ plt.tight_layout()
 # navis.clear3d()
 # ```
 #
-# The Octarine viewer itsel has a bunch of neat features - check out the [documentation](https://schlegelp.github.io/octarine/) to learn more.
+# The Octarine viewer itself has a bunch of neat features - check out the [documentation](https://schlegelp.github.io/octarine/) to learn more.
 #
 # !!! important
 #     The Vispy backend is deprecated and will be removed in future versions of {{ navis }}. If you can please switch to Octarine.

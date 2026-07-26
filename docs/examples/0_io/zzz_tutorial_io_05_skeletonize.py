@@ -96,7 +96,7 @@ im, header = nrrd.read(
 
 # %%
 # Next, we need to find some sensible threshold to binarize the image. This is not strictly
-# necessary (see the further note down) but at least for starters this more intuitive.
+# necessary (see the further note down) but at least for starters this is more intuitive.
 
 # Threshold the image
 mask = (im >= 20).astype(np.uint8)
@@ -124,7 +124,7 @@ mask = (im >= 20).astype(np.uint8)
 # - remove as much background as possible without disconnecting neurites
 # - perfection is the enemy of progress: we can denoise/reconnect during postprocessing
 #
-# Next, we we need to label the connected components in the image:
+# Next, we need to label the connected components in the image:
 
 # %%
 # Extract the labels
@@ -147,26 +147,26 @@ labels, N = cc3d.connected_components(mask, return_N=True)
 # Collect some statistics
 stats = cc3d.statistics(labels)
 
-print("Total no. of labeled componenents:", N)
+print("Total no. of labeled components:", N)
 print("Per-label voxel counts:", np.sort(stats["voxel_counts"])[::-1])
 print("Label IDs:", np.argsort(stats["voxel_counts"])[::-1])
 
 # %%
 # ```
-# Total no. of labeled componenents: 37836
+# Total no. of labeled components: 37836
 # Per-label voxel counts: [491996140    527374    207632 ...         1         1         1]
 # Label IDs: [    0  6423  6091 ... 22350 22351 18918]
 # ```
 #
 # Note how label `0` has suspiciously many voxels? That's because this is the background label.
-# We need to make sure to exlude it from the skeletonization process:
+# We need to make sure to exclude it from the skeletonization process:
 to_skeletonize = np.arange(1, N)
 
 
 # %%
 # Now we can run the actual skeletonization!
 #
-# !!! note "Skeletonization paramters"
+# !!! note "Skeletonization parameters"
 #     There are a number of parameters that are worth explaining
 #     first because you might want to tweak them for your data:
 #
@@ -238,7 +238,7 @@ nl = navis.NeuronList([navis.read_swc(s.to_swc(), id=i) for i, s in skels.items(
 #
 # 1. [Simple Neurite Tracer](https://imagej.net/plugins/snt/index) is a popular ImageJ plugin for semi-automated tracing
 # 2. Folks at the Allen Institute for Brain Science have published a [protocol for reconstructing neurons](https://portal.brain-map.org/explore/toolkit/morpho-reconstruction/vaa3d-mozak)
-# 3. [NeuTube](https://neutracing.com/tutorial/) is an open-source software for reconstructing neurongs from fluorescence microscopy images
+# 3. [NeuTube](https://neutracing.com/tutorial/) is an open-source software for reconstructing neurons from fluorescence microscopy images
 #
 # ## Acknowledgements
 #

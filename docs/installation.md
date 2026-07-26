@@ -257,7 +257,7 @@ directly, are listed below:
     #### `cloudvolume`: [cloud-volume](https://github.com/seung-lab/cloud-volume)
 
     Reading and writing images, meshes, and skeletons in Neuroglancer precomputed format.
-    This is required required for e.g. the MICrONs interface.
+    This is required for e.g. the MICrONs interface.
 
     ``` shell
     pip install cloud-volume

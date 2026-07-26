@@ -5,7 +5,7 @@ Neuron "Barcodes"
 In this tutorial we'll explore a unique way to visualize the branching pattern of neurons using "barcodes".
 
 This visualization technique is based on [Cuntz et al (2010)](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000877)
-and turns a neuron's branching pattern into a unique "barcode" using toplogical sorting.
+and turns a neuron's branching pattern into a unique "barcode" using topological sorting.
 """
 
 import navis
@@ -20,17 +20,17 @@ plt.tight_layout()
 
 # %%
 # !!! important
-#     [`navis.plot1d`][] only works with [`navis.TreeNeurons`][navis.TreeNeuron]. These neurons must be have
+#     [`navis.plot1d`][] only works with [`navis.TreeNeurons`][navis.TreeNeuron]. These neurons must have
 #     only a single root (i.e. a single connected component) which is used as the point of reference for
 #     the sorting.
 
 # %%
 # So what's actually happening here? The barcode is a way to represent the branching pattern of a neuron
 # in a unique way. The barcode is created by breaking the neuron into linear segments between branch points and
-# sorting them by walking from the root to the leafs in a depth-first manner. At each branch point
+# sorting them by walking from the root to the leaves in a depth-first manner. At each branch point
 # we prioritize the branch that maximizes the distance to the root.
 #
-# In the plot each segment is represented by a rectangle where the width correspond to the segment's length.
+# In the plot each segment is represented by a rectangle where the width corresponds to the segment's length.
 # Segments that terminate in a leaf node are plotted with a darker color.
 #
 # Here's a simple example to illustrate this:
@@ -53,7 +53,7 @@ plt.tight_layout()
 #     Instead of [`navis.longest_neurite`][] you could also use e.g. [`navis.prune_twigs`][] to
 #     remove small branches below a certain size.
 #
-# That's easier to interpet! Let's pull up the neuron to compare:
+# That's easier to interpret! Let's pull up the neuron to compare:
 
 # Draw the full neuron in black
 fig, ax = navis.plot2d(n, view=('x', '-z'), method='2d', color='k')

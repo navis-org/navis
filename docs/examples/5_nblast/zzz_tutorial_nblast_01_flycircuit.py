@@ -14,10 +14,10 @@ If you work with _Drosophila_, chances are you have heard of [FlyCircuit](http:/
 single neuron clones published by [Chiang et al. (2010)](https://www.cell.com/current-biology/fulltext/S0960-9822(10)01522-8).
 
 For R, there is a package containing dotprops and meta data for these neurons: [`nat.flycircuit`](https://github.com/natverse/flycircuit).
-This does not yet exist for Python. However, it's still pretty straight forward to run an NBLAST against the entire flycircuit dataset in Python!
+This does not yet exist for Python. However, it's still pretty straightforward to run an NBLAST against the entire flycircuit dataset in Python!
 
 First you need to download flycircuit dotprops from [Zenodo](https://zenodo.org/record/5205616) (~850Mb). Next, unzip the archive containing the
-dotprops as CSV files. Now we we need to load them into {{ navis }} (adjust filepaths as required):
+dotprops as CSV files. Now we need to load them into {{ navis }} (adjust filepaths as required):
 """
 
 # %%

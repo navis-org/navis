@@ -285,7 +285,7 @@ Properties:
 | [`NeuronList.shape`][navis.NeuronList.shape] | {{ autosummary("navis.NeuronList.shape") }} |
 | [`NeuronList.types`][navis.NeuronList.types]| {{ autosummary("navis.NeuronList.types") }} |
 
-Please see the [tutorial on ``NeuronList``](../generated/gallery/tutorial_basic_02_neuronlists_intro/) for more
+Please see the [tutorial on ``NeuronList``](../generated/gallery/tutorial_basic_02_neuronlists/) for more
 information, including how to index them.
 
 ## Visualization

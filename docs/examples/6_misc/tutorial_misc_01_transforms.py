@@ -8,7 +8,7 @@ This tutorial will show you how to transform and mirror neurons.
 
 As of version `0.5.0`, {{ navis }} includes functions that let you transform and mirror spatial data (e.g. neurons).
 This new functionality splits into high- and low-level functions. In this tutorial, we will start by exploring
-the higher-level functions that most users will use and then take a sneak peak at the low-level functions.
+the higher-level functions that most users will use and then take a sneak peek at the low-level functions.
 
 At the moment, navis supports the following transform types:
 
@@ -122,7 +122,7 @@ plt.tight_layout()
 # For the first step, we need to know the length of the mirror axis. This is why - similar to having registered transforms - we need to have
 # meta data about the template space (i.e. the bounding box) available to {{ navis }}.
 #
-# The second step is optional. For example, `JRC2018F` and `JRC2018U` are templates generate from averaging multiple fly brains and are
+# The second step is optional. For example, `JRC2018F` and `JRC2018U` are templates generated from averaging multiple fly brains and are
 # therefore already mirror symmetrical, meaning we don't need the additional warping transform. `flybrains` does include some mirror transforms
 # though: e.g. for `FCWB`, `VNCIS1` or `JFRC2`!
 #
@@ -159,7 +159,7 @@ plt.tight_layout()
 
 import pandas as pd
 
-# These landmarks map betweet FAFB (v14 and v13) and a light level template
+# These landmarks map between FAFB (v14 and v13) and a light level template
 # We will use only the v13 and v14 landmarks
 landmarks_v14 = pd.read_csv(
     "https://github.com/saalfeldlab/elm/raw/master/lm-em-landmarks_v14.csv", header=None
@@ -183,7 +183,7 @@ landmarks_v14.columns = landmarks_v13.columns = [
 landmarks_v13.head()
 
 # %%
-# Now we can use those landmarks to generate a thin plate spine transform:
+# Now we can use those landmarks to generate a thin plate spline transform:
 
 # %%
 from navis.transforms.thinplate import TPStransform
@@ -237,7 +237,7 @@ _ = navis.plot2d(xf_fafb13, c='r', ax=ax)
 # %%
 # ### Registering Template Brains
 #
-# For completeness, lets also have a quick look at registering additional template brains.
+# For completeness, let's also have a quick look at registering additional template brains.
 #
 # Template brains are represented in navis as [`navis.transforms.templates.TemplateBrain`][] and there is currently no canonical way of
 # constructing them: you can associate as much or as little data with them as you like. However, for them to be useful they should have

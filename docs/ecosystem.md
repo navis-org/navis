@@ -78,7 +78,7 @@ from fafbseg import flywire
 n = flywire.get_mesh_neuron(720575940613091290)
 
 # Skeletonize using NAVis
-s navis.skeletonize(n)
+s = navis.skeletonize(n)
 ```
 
 ## natverse

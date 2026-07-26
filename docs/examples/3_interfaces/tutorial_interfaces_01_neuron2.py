@@ -34,14 +34,14 @@ cmp = nrn.CompartmentModel(n, res=10)
 # Set the specific axial resistivity for the entire neuron in Ohm cm
 cmp.Ra = 266.1
 
-# Set the specific membran capacitance in mF / cm**2
+# Set the specific membrane capacitance in mF / cm**2
 cmp.cm = 0.8
 
-# Add passive membran properties for the entire neuron
+# Add passive membrane properties for the entire neuron
 cmp.insert(
     "pas",
     g=1
-    / 20800,  # specific leakage conductance = 1/Rm; Rm = specific membran resistance in Ohm cm**2
+    / 20800,  # specific leakage conductance = 1/Rm; Rm = specific membrane resistance in Ohm cm**2
     e=-60,  # leakage reverse potential
 )
 

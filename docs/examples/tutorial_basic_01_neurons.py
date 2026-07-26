@@ -4,7 +4,7 @@ Neuron Types
 
 This tutorial will show you the different neuron types and how to work with them.
 
-Depending your data/workflows, you will use different representations of neurons.
+Depending on your data/workflows, you will use different representations of neurons.
 If, for example, you work with light-level data you might end up extracting point
 clouds or neuron skeletons from image stacks. If, on the other hand, you work with
 segmented EM data, you will typically work with meshes.
@@ -38,7 +38,7 @@ This format is commonly used to describe a neuron's topology and often shared us
 ![skeleton](../../_static/skeleton.png)
 
 A [`navis.TreeNeuron`][] is typically loaded from an SWC file via [`navis.read_swc`][]
-but you can also constructed one yourself from e.g. `pandas.DataFrame` or a `networkx.DiGraph`.
+but you can also construct one yourself from e.g. `pandas.DataFrame` or a `networkx.DiGraph`.
 See the [skeleton I/O](../0_io/tutorial_io_00_skeletons) tutorial for details.
 
 {{ navis }} ships with a couple example *Drosophila* neurons from the Janelia hemibrain project published
@@ -89,7 +89,7 @@ m.vertices, m.faces
 #
 # [`Dotprops`][navis.Dotprops] represent neurons as point clouds where each point is associated with a vector
 # describing the local orientation. This simple representation often comes from e.g. light-level data
-# or as direvative of skeletons/meshes (see [`navis.make_dotprops`][]).
+# or as a derivative of skeletons/meshes (see [`navis.make_dotprops`][]).
 #
 # ![dotprops](../../_static/dotprops.png)
 #
@@ -227,7 +227,7 @@ m.soma_pos = None
 #
 # {{ navis }} supports assigning units to neurons. The neurons shipping with {{ navis }}, for example, are in 8x8x8nm voxel space[^1]:
 #
-# [^1]: The example neurons are from the [Janelia hemibrain connectome](https://www.janelia.org/project-team/flyem/hemibrain) project which as imaged at 8x8x8nm resolution.
+# [^1]: The example neurons are from the [Janelia hemibrain connectome](https://www.janelia.org/project-team/flyem/hemibrain) project which was imaged at 8x8x8nm resolution.
 
 # %%
 m = navis.example_neurons(1, kind="mesh")
@@ -273,7 +273,7 @@ navis.config.add_units = False  # reset to default
 # %%
 # !!! note
 #     Note that `n.cable_length` is now a `pint.Quantity` object. This may make certain operations
-#     a bit more cumbersome which is why this feature is optional. You can to a float by calling
+#     a bit more cumbersome which is why this feature is optional. You can convert to a float by calling
 #     `.magnitude`:
 #
 #     ```python
@@ -318,7 +318,7 @@ navis.config.add_units = False  # reset to default
 #     ```
 #
 # !!! experiment "Addition & Subtraction"
-#     Multiplication and division will scale the neuro as you've seen above.
+#     Multiplication and division will scale the neuron as you've seen above.
 #     Similarly, adding or subtracting to/from neurons will offset the neuron's coordinates:
 #     ```python
 #     n = navis.example_neurons(1)
@@ -337,7 +337,7 @@ navis.config.add_units = False  # reset to default
 #
 # Above we've already seen examples of passing neurons to functions - for example [`navis.plot2d(n)`][navis.plot2d].
 #
-# For some {{ navis }} functions, neurons offer have shortcut "methods":
+# For some {{ navis }} functions, neurons have shortcut "methods":
 
 # %% [markdown]
 # === "Using shorthand methods"
@@ -405,7 +405,7 @@ print(f"{n.n_nodes} nodes before and {n_lh.n_nodes} nodes after pruning")
 2 == 1
 
 # %%
-# For {{ navis }} neurons this is comparison done by looking at the neurons' attribues:
+# For {{ navis }} neurons this comparison is done by looking at the neurons' attributes:
 # morphologies (soma & root nodes, cable length, etc) and meta data (name).
 
 # %%
@@ -466,7 +466,7 @@ print(f"Nodes in graph after: {len(n.graph.nodes)}")
 # %%
 # Here, the changes to the node table automatically triggered a regeneration of the graph. This works
 # because {{ navis }} checks hash values of neurons and in this instance it detected that the node
-# node table - which represents the core data for [`TreeNeurons`][navis.TreeNeuron] - had changed.
+# table - which represents the core data for [`TreeNeurons`][navis.TreeNeuron] - had changed.
 # It would not work the other way around: changing the graph does not trigger changes in the node table.
 #
 # Again: as long as you are using built-in functions, you don't have to worry about this. If you do

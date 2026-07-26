@@ -118,7 +118,7 @@ plt.tight_layout()
 
 n = navis.example_neurons(1, kind="skeleton")
 
-# This adds an `strahler_index` column to the node table
+# This adds a `strahler_index` column to the node table
 navis.strahler_index(n)
 
 n.nodes.head()

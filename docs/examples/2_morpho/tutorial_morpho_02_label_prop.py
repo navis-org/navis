@@ -89,7 +89,7 @@ pred = navis.propagate_labels(n, labels, clamping=False, max_iter=10000, tol=1e-
 np.unique(pred.astype(str), return_counts=True)
 
 # %%
-# So we seem to be having some `None` values in our predictions. On closer inspection, these on little internal "flakes" that are disconnected from the rest
+# So we seem to be having some `None` values in our predictions. On closer inspection, these are little internal "flakes" that are disconnected from the rest
 # of the neuron mesh and thus never receive any signal during the propagation. We will ignore those for now!
 #
 # Next, we will visualise the predicted labels across the neuron.

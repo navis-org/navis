@@ -9,7 +9,7 @@ of connected nodes (the "skeleton"). In {{ navis }}, skeletons are represented b
 [`navis.TreeNeuron`][] class.
 
 You can either construct these manually (see bottom of this page) or use one of the built-in
-functions to them from one of the various file formats:
+functions to load them from one of the various file formats:
 
 !!! note
     {{ navis }} has dedicated interfaces for loading skeletons from remote data sources
@@ -60,7 +60,7 @@ sample
 # We can also point [`navis.read_swc()`][navis.read_swc] at single files instead of folders or zip archives:
 
 # %%
-# For this I extraced the skeletons_swc.zip archive
+# For this I extracted the skeletons_swc.zip archive
 s = navis.read_swc('./mmc2/swc/CENT/11519759.swc')
 s
 
@@ -81,7 +81,7 @@ s = navis.read_swc('https://v2.virtualflybrain.org/data/VFB/i/jrch/jup2/VFB_0010
 
 # !!! tip
 #     [`read_swc`][navis.read_swc] is super flexible and can handle a variety of inputs (file names, folders, archives, URLs, etc.).
-#     Importantly, it also let you customize which/how neurons are loaded. For example:
+#     Importantly, it also lets you customize which/how neurons are loaded. For example:
 #      - the `limit` parameter can also be used to load only files matching a given pattern
 #      - the `fmt` parameter lets you specify how to parse filenames into neuron names and ids
 #     Many of the other `navis.read_*` functions share these features!
@@ -116,7 +116,7 @@ navis.write_swc(sample, './mmc2/{neuron.name}.swc@skeletons.zip')
 #
 # ## From NMX files
 #
-# NMX is a xml-based format used e.g. by [pyKNOSSOS](https://github.com/adwanner/PyKNOSSOS) to store skeletons plus meta data.
+# NMX is an xml-based format used e.g. by [pyKNOSSOS](https://github.com/adwanner/PyKNOSSOS) to store skeletons plus meta data.
 # {{ navis }} supports reading (but not writing) this format. If you want to follow
 # along download [this dataset](https://doi.org/10.5281/zenodo.58985) by Wanner et al. (2016).
 # Just like the SWCs, I extracted the archive to my downloads folder:
@@ -143,7 +143,7 @@ navis.plot2d(nl[:10], method='2d', radius=False)
 # ## From Neuroglancer Precomputed
 #
 # Among other formats, neuroglancer supports a "precomputed" format for skeletons
-# (see specs [here](https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/skeletons.md).
+# (see specs [here](https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/skeletons.md).
 # This binary format is more compact than uncompressed SWC files but is not used outside of neuroglancer as far as I know.
 # That said: {{ navis }} lets you read and write skeletons from/to precomputed format using [`navis.read_precomputed`][] and
 # [`navis.write_precomputed`][]. Note that these functions work on both precomputed skeletons and meshes.

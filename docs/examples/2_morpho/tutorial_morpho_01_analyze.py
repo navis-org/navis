@@ -77,7 +77,7 @@ print(f"Mesh cable length: {m.skeleton.cable_length * m.units}")
 # Importantly, some {{ navis }} functions (e.g. [`navis.segment_analysis`][], see below) that accept
 # [`MeshNeurons`][navis.MeshNeuron] as input, really use this skeleton representation under-the-hood.
 #
-# The skeleton representation of the mesh lets us access many toplogical properties:
+# The skeleton representation of the mesh lets us access many topological properties:
 
 m.skeleton.n_leafs
 
@@ -192,7 +192,7 @@ sea.groupby("neuron").soma_exit_angle.mean()
 # %%
 # ## Geodesic Distances
 #
-# Working with Euclidean distances is straight forward and we won't cover this extensively but here is an example where
+# Working with Euclidean distances is straightforward and we won't cover this extensively but here is an example where
 # we are measuring the average distances between a node and its parent (= the sampling rate):
 
 import numpy as np

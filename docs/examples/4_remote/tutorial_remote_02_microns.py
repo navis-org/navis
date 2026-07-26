@@ -5,7 +5,7 @@ The MICrONS Datasets
 In this tutorial we will explore the MICrONS datasets.
 
 The [Allen Institute for Brain Science](https://alleninstitute.org/) in collaboration with Princeton University,
-and Baylor College of Medicine released two large connecotmics dataset:
+and Baylor College of Medicine released two large connectomics datasets:
 
 1. A "Cortical mm<sup>3</sup>" of mouse visual cortex. This one is broken into two portions: "65" and "35"
 2. A smaller "Layer 2/3" dataset of mouse visual cortex.
@@ -92,7 +92,7 @@ n
 #     hierarchical layers of chunks of which the lowest layer are supervoxel IDs.
 
 # %%
-# MICrONS neurons can be fairly large, i.e. have lots of faces. You can try using using a higher `lod` ("level of detail", higher = coarser)
+# MICrONS neurons can be fairly large, i.e. have lots of faces. You can try using a higher `lod` ("level of detail", higher = coarser)
 # but not all datastacks actually support multi-resolution meshes. If they don't (like this one) the `lod` parameter is silently ignored.
 #
 # For visualization in this documentation we will simplify the neuron a little. For this, you need either
@@ -105,7 +105,7 @@ n_ds = navis.simplify_mesh(n, F=1 / 3)
 n_ds
 
 # %%
-# Plot the downsample neuron (again: the downsampling is mostly for the sake of this documentation)
+# Plot the downsampled neuron (again: the downsampling is mostly for the sake of this documentation)
 
 navis.plot3d(
     n_ds,
@@ -126,7 +126,7 @@ navis.plot3d(
 import numpy as np
 
 # The neuron mesh will automatically be skeletonized for this analysis
-# Note: were defining radii from 0 to 160 microns in 5 micron steps
+# Note: we're defining radii from 0 to 160 microns in 5 micron steps
 sha = navis.sholl_analysis(n, center="soma", radii=np.arange(0, 160_000, 5_000))
 
 # %%

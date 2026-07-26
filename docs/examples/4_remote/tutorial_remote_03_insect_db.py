@@ -48,7 +48,7 @@ navis.plot3d(locust_brain, volume_legend=True)
 
 # %%
 
-# This is for the tutorial thumbail:
+# This is for the tutorial thumbnail:
 import matplotlib.pyplot as plt
 fig, ax = navis.plot2d(locust_brain, method='2d')
 ax.set_axis_off()

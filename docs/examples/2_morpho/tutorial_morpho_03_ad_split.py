@@ -26,7 +26,7 @@ _So how do we determine what's axon and what's dendrite?_
 1. Flow-based splits via [`navis.split_axon_dendrite`][navis.split_axon_dendrite]
 2. Label propagation via [`navis.split_axon_dendrite_prop`][navis.split_axon_dendrite_prop]
 
-Both methods work on neuron skeletons (`TreeNeurons`) as well meshes (`MeshNeuron`), and require
+Both methods work on neuron skeletons (`TreeNeurons`) as well as meshes (`MeshNeuron`), and require
 the neuron to have pre- and postsynapses as `.connectors`. Please see also the table at the bottom
 for a direct comparison.
 
@@ -34,7 +34,7 @@ for a direct comparison.
 
 Splitting a neuron into axon and dendrite using synapse flow centrality (SFC) was first proposed by
 [Schneider-Mizell _et al._ (2016)](). In a nutshell: we draw paths from all inputs (postsynapses)
-to all outputs (presynapses). For each segment in the neuron, we counts the paths that go across
+to all outputs (presynapses). For each segment in the neuron, we count the paths that go across
 it. If we split the neuron at the segment(s) with the highest SFC, we separate it into axon
 and dendrite.
 
@@ -129,7 +129,7 @@ splits = navis.split_axon_dendrite_prop(n)
 fig, ax = navis.plot2d(splits, color=splits.color, view=("x", "-z"))
 
 # %%
-# Alread looks good! However, we're not actually making use of the biggest advantage of this method:
+# Already looks good! However, we're not actually making use of the biggest advantage of this method:
 # it gives us probabilities!
 #
 # To get probabilities, we need to use label-only mode:

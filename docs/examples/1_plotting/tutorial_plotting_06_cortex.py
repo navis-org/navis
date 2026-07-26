@@ -73,7 +73,7 @@ print(f"Normalized soma depth: {n.cell_soma_normalized_depth}")
 # %%
 # The physical soma depth is simply the normalized depth multiplied by the total depth of the cortex.
 # Note that we're positioning from the bottom - i.e. 922.586 will be at the surface and 0 at the bottom!
-# This is to make our lifes easier when it comes to plotting since the origin in `matplotlib`
+# This is to make our lives easier when it comes to plotting since the origin in `matplotlib`
 # figures is in the bottom left corner.
 
 phys_y = (1 - n.cell_soma_normalized_depth) * 922.5861720311
@@ -96,7 +96,7 @@ offset
 # Move the neuron to the new centered position
 n += offset
 
-# Check the that the soma is now in the correct position
+# Check that the soma is now in the correct position
 n.soma_pos[0]
 
 # %%

@@ -287,7 +287,7 @@ morphology. It stands on the shoulders of the excellent
 
 <div class="grid cards" markdown>
 
--   :simple-databricks:{ .lg .middle } __Polgyglot__
+-   :simple-databricks:{ .lg .middle } __Polyglot__
 
     ---
 
@@ -331,7 +331,7 @@ morphology. It stands on the shoulders of the excellent
 
     ---
 
-    Cluster your neurons by morphology using on the various [NBLAST](generated/gallery/5_nblast/tutorial_nblast_00_intro) variants.
+    Cluster your neurons by morphology using the various [NBLAST](generated/gallery/5_nblast/tutorial_nblast_00_intro) variants.
 
 -   :material-move-resize:{ .lg .middle } __Transforms__
 

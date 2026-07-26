@@ -30,14 +30,14 @@ print(n)  # markdown-exec: hide
     [`navis.example_neurons`][] for details).
 
     You will most likely want to load your own neuron data. {{ navis }} has dedicated
-    functions such as [`navis.read_swc`][] for that . Check out the
+    functions such as [`navis.read_swc`][] for that. Check out the
     [I/O Tutorials](../generated/gallery#import-export) to learn more!
 
 {{ navis }} represents neurons as [`navis.TreeNeuron`][], [`navis.MeshNeuron`][], [`navis.VoxelNeuron`][] or
 [`navis.Dotprops`][] - see the tutorial on [Neuron Types](../generated/gallery/tutorial_basic_01_neurons/)
 for details.
 
-In above code we asked for a skeleton, so the neuron returned is a [`TreeNeuron`][navis.TreeNeuron].
+In the above code we asked for a skeleton, so the neuron returned is a [`TreeNeuron`][navis.TreeNeuron].
 Like all neuron types, this class is essentially a wrapper around the actual
 neuron data (in case of skeletons, a node table) and has some convenient features.
 
@@ -145,7 +145,7 @@ You may notice that many {{ navis }} functions that modify neurons (resampling, 
 `inplace` parameter. This is analogous to `pandas` where `inplace` defines whether we
 modify the original (`inplace=True`) or operate on and return a copy (`inplace=False`, default).
 
-Downsample a copy of our skeleton and leaving the original unchanged
+Downsample a copy of our skeleton, leaving the original unchanged
 (this is the default for almost all functions):
 
 ```python
@@ -158,7 +158,7 @@ Downsample the original neuron:
 navis.downsample_neuron(neuron, 10, inplace=True)
 ```
 
-Using `inplace=True` can be useful if you work with lots of neurons and want avoid making
+Using `inplace=True` can be useful if you work with lots of neurons and want to avoid making
 unnecessary copies to keep the memory footprint low!
 
 

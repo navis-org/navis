@@ -40,7 +40,7 @@ navis.reroot_skeleton(n, n.soma, inplace=True)
 #
 # ## Simplifying
 #
-# If you work with large lists of neurons you may want to downsample/simplifiy before e.g. trying to plot them. This is one of
+# If you work with large lists of neurons you may want to downsample/simplify before e.g. trying to plot them. This is one of
 # the things that - in principle work - with all neuron types. The implementation, however, depends on the neuron type. Lookup
 # the respective function's help (e.g. via the [`API`](../../../api.md)) for details.
 #
@@ -135,7 +135,7 @@ plt.tight_layout()
 #
 # !!! important
 #     Resampling has a caveat you need to be aware of: nodes are not merely moved around to match the
-#     desired resolution - they are regenerated from scratch. As consequence, the original node IDs
+#     desired resolution - they are regenerated from scratch. As a consequence, the original node IDs
 #     are - with a few exceptions - all gone.
 #
 # ## Smoothing
@@ -149,7 +149,7 @@ sk_smoothed = navis.smooth_skeleton(sk, window=5, inplace=False)
 
 # %%
 
-# smooth_mesh uses a iterative rounds of Laplacian smoothing
+# smooth_mesh uses iterative rounds of Laplacian smoothing
 me = navis.example_neurons(n=1, kind="mesh")
 me_smoothed = navis.smooth_mesh(me, iterations=5, inplace=False)
 
@@ -318,7 +318,7 @@ m_outside_lh = navis.in_volume(m, lh, mode="OUT", inplace=False)
 # And plot!
 
 # %%
-# Plot pruned branchs neuron in green
+# Plot pruned branches neuron in green
 fig, ax = navis.plot2d(
     [m_lh, m_outside_lh, lh], color=["red", "green"], figsize=(10, 10), view=("x", "-z")
 )
@@ -328,7 +328,7 @@ plt.tight_layout()
 
 # %%
 # Does this work with all neuron types? There is no simple answer unfortunately. In theory, anything that
-# works on skeletons should also work on meshes, and _vice versa_. However, [`navis.Dotprops`][] [`navis.VoxelNeuron`][] are
+# works on skeletons should also work on meshes, and _vice versa_. However, [`navis.Dotprops`][] and [`navis.VoxelNeuron`][] are
 # so fundamentally different that certain operations just don't make sense. For example we can't cut them but we
 # can subset them to a given volume. Check out the [I/O API reference](../../../api.md#neuron-types-and-functions) docs for
 # an overview of what works with which neuron type.

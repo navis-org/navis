@@ -6,7 +6,7 @@ In this notebook, you can learn how to work with the H01 dataset using NAVis.
 
 The [H01 dataset](https://www.science.org/doi/10.1126/science.adk4858) contains 57,000 cells and 150 million synapses
 from a cubic millimeter of the human temporal cortex, which is [proofread](https://h01-release.storage.googleapis.com/proofreading.html)
-using the CAVE ecoystem.
+using the CAVE ecosystem.
 
 With this interface, you can access both a snapshot of the proofread dataset and the latest dataset using `caveclient`:
 
@@ -17,7 +17,7 @@ pip install caveclient -U
 !!! note "Authentication"
     If this is your first time using `CAVEclient` to access the `H01` dataset, you might have to get and set your authentication token:
 
-    1. Go to: https://https//global.brain-wire-test.org/auth/api/v1/create_token to create a new token.
+    1. Go to: https://global.brain-wire-test.org/auth/api/v1/create_token to create a new token.
     2. Log in with your Google credentials and copy the token shown afterward.
     3. Save it to your computer with:
        ```python

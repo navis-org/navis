@@ -5,10 +5,10 @@ Multiprocessing
 This notebook will show you how to use parallel processing with `navis`.
 
 By default, most {{ navis }} functions use only a single thread/process (although some third-party functions
-used under the hood might). Distributing expensive computations across multiple cores can speed things up considerable.
+used under the hood might). Distributing expensive computations across multiple cores can speed things up considerably.
 
 Many {{ navis }} functions natively support parallel processing. This notebook will illustrate various ways
-to use parallelism. Before we get start: {{ navis }} uses `pathos` for multiprocessing - if you installed
+to use parallelism. Before we get started: {{ navis }} uses `pathos` for multiprocessing - if you installed
 {{ navis }} with `pip install navis[all]` you should be all set. If not, you can install `pathos` separately:
 
 ```shell
@@ -90,7 +90,7 @@ time_func (
 # %%
 # ## Parallelizing generic functions
 #
-# For non-{{ navis }} function you can use [`NeuronList.apply`][navis.NeuronList.apply] to parallelize them.
+# For non-{{ navis }} functions you can use [`NeuronList.apply`][navis.NeuronList.apply] to parallelize them.
 #
 # First, let's write a mock function that simply waits one second and then returns the number of nodes:
 

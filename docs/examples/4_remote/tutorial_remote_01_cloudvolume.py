@@ -12,13 +12,13 @@ it shares much of its functionality. As a rule of thumb: if you can view a datas
 that data using `CloudVolume`. For example:
 
 1. [FlyWire](https://flywire.ai/) is a segmentation of an entire *Drosophila* brain. This dataset is very much work in progress and you
-   will to register and apply for access. Check out [FAFBseg](https://fafbseg-py.readthedocs.io) for a fairly mature interface built on
+   will need to register and apply for access. Check out [FAFBseg](https://fafbseg-py.readthedocs.io) for a fairly mature interface built on
    top of {{ navis }}.
 2. [Google's flood-filling segmentation](http://fafb-ffn1.storage.googleapis.com/landing.html) of an entire *Drosophila* brain.
 3. The Allen Institute's [MICrONs datasets](https://www.microns-explorer.org/). We have a separate [tutorial](../tutorial_remote_02_microns) on this!
 4. The Janelia [hemibrain connectome](https://neuprint.janelia.org).
 
-You can find the find the source for the data you want to access by right-clicking on the layer in question and selecting the "Source" tab on the right:
+You can find the source for the data you want to access by right-clicking on the layer in question and selecting the "Source" tab on the right:
 
 ![Neuroglancer source](../../../_static/neuroglancer_source.png)
 
@@ -26,7 +26,7 @@ You can find the find the source for the data you want to access by right-clicki
 and to fetch meshes and skeletons (if available). {{ navis }} & friends provide simple interfaces for some of the datasets (see e.g. the
 neuPrint and the MICrONs tutorials) but there is also some lower-level option to pull neurons into {{ navis }} via `CloudVolume`.
 
-First of all, you will want to make sure to `cloud-volume` is installed and up-to-date:
+First of all, you will want to make sure `cloud-volume` is installed and up-to-date:
 
 ```shell
 pip install cloud-volume -U
@@ -57,7 +57,7 @@ vol = cv.CloudVolume(
 # %%
 # Fetch neuron meshes:
 
-# Setting `as_navis=True` we will get us MeshNeurons
+# Setting `as_navis=True` will get us MeshNeurons
 m = vol.mesh.get([4335355146, 2913913713, 2137190164, 2268989790], as_navis=True, lod=3)
 m
 
@@ -94,5 +94,5 @@ sk
 # could download the meshes and use [`navis.skeletonize`][] to skeletonize them.
 #
 # !!! experiment "Try it out!"
-#     If you are working a lot with NeuroGlancer and need to e.g. generated or parse URLs, you might want to check out the
+#     If you are working a lot with NeuroGlancer and need to e.g. generate or parse URLs, you might want to check out the
 #     [`nglscenes`](https://github.com/schlegelp/nglscenes) package.

@@ -54,7 +54,7 @@ hide:
 
 <ol>
     <li value = "68">
-    <strong>MoMo - Combining Neuron Morphology and Connectivity for Interactive Motif Analysis in Connectomes.</strong> Shewarega et al., EEE Transactions on Visualization and Computer Graphics (2025). <a href="http://dx.doi.org/10.1109/TVCG.2025.3634808">10.1109/TVCG.2025.3634808</a>
+    <strong>MoMo - Combining Neuron Morphology and Connectivity for Interactive Motif Analysis in Connectomes.</strong> Shewarega et al., IEEE Transactions on Visualization and Computer Graphics (2025). <a href="http://dx.doi.org/10.1109/TVCG.2025.3634808">10.1109/TVCG.2025.3634808</a>
     </li>
 </ol>
 
@@ -78,7 +78,7 @@ hide:
 
 <ol>
     <li value = "64">
-    <strong>SynAnno: Interactive Guided Proofreading of Synaptic Annotations.</strong> Lauenburg et al., EEE Transactions on Visualization and Computer Graphics (2025). <a href="https://doi.org/10.1109/TVCG.2025.3634824">10.1109/TVCG.2025.3634824</a>
+    <strong>SynAnno: Interactive Guided Proofreading of Synaptic Annotations.</strong> Lauenburg et al., IEEE Transactions on Visualization and Computer Graphics (2025). <a href="https://doi.org/10.1109/TVCG.2025.3634824">10.1109/TVCG.2025.3634824</a>
     </li>
 </ol>
 

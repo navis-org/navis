@@ -32,7 +32,7 @@ Unfortunately, all image stacks are in Janelia's `.h5j` format which I haven't f
 Two options:
 
 1. Load them into Fiji and save the GFP signal channel as `.nrrd` file.
-2. Go to [VirtualFlyBrain](http://www.virtualflybrain.org/), search for your line of interested LH1112 (not all lines are be available on VFB)
+2. Go to [VirtualFlyBrain](http://www.virtualflybrain.org/), search for your line of interest LH1112 (not all lines are available on VFB)
    and download the "Signal(NRRD)" at the bottom of Term Info panel on the right hand side.
 
 I went for option 2 here and downloaded a `VFB_001013cg.nrrd`. This is the neuron we'll be searching for:
@@ -149,5 +149,5 @@ query_ss
 #
 # Another potential pitfall is the generation of dotprops from the image itself: if you compare the image- against the
 # skeleton-derived dotprops, you might notice that the latter have fewer and less dense points. That's a natural
-# consequence the image containing multiple individuals of the same cell type but we could have tried to ameliorate
+# consequence of the image containing multiple individuals of the same cell type but we could have tried to ameliorate
 # this by some pre-processing (e.g. downsampling or thinning the image).

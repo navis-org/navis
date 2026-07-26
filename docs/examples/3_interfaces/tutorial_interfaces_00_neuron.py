@@ -6,17 +6,17 @@ This tutorial will show you how to simulate neurons and networks thereof using t
 
 [NEURON](https://neuron.yale.edu/neuron/) is a simulation environment to model neurons and networks thereof.
 `NEURON` itself is rather complex (neurons are complex things after all) and fairly low-level which results
-in lots of boiler plate code. There are some libraries (e.g. [NetPyNE](http://netpyne.org)) that wrap `NEURON`
+in lots of boilerplate code. There are some libraries (e.g. [NetPyNE](http://netpyne.org)) that wrap `NEURON`
 and provide a higher-level interface to facilitate building models. In my experience these are typically
 geared towards creating models based on probabilities (e.g. "create 100 neurons with a 10% chance to be
 connected to another neuron") rather than the well defined morphology/connectivity you get from e.g. connectomes.
 
 {{ navis }} does *not* try to emulate a full simulation suite but tries to fill a gap for people wanting to use
-non-probabalistic data (e.g. from connectomics) by providing an entry point for you to get started with some
+non-probabilistic data (e.g. from connectomics) by providing an entry point for you to get started with some
 simple models and take it from there. At this point there are two types of models:
 
 1. [`CompartmentModel`][navis.interfaces.neuron.comp.CompartmentModel] for modeling individual neurons
-2. [`PointNetwork`][navis.interfaces.neuron.network.PointNetwork] for modeling networks from point proceses
+2. [`PointNetwork`][navis.interfaces.neuron.network.PointNetwork] for modeling networks from point processes
 
 ## Compartment models
 
@@ -51,20 +51,20 @@ cmp = nrn.CompartmentModel(n, res=10)
 # Set the specific axial resistivity for the entire neuron in Ohm cm
 cmp.Ra = 266.1
 
-# Set the specific membran capacitance in mF / cm**2
+# Set the specific membrane capacitance in mF / cm**2
 cmp.cm = 0.8
 
-# Add passive membran properties for the entire neuron
+# Add passive membrane properties for the entire neuron
 cmp.insert(
     "pas",
     g=1
-    / 20800,  # specific leakage conductance = 1/Rm; Rm = specific membran resistance in Ohm cm**2
+    / 20800,  # specific leakage conductance = 1/Rm; Rm = specific membrane resistance in Ohm cm**2
     e=-60,  # leakage reverse potential
 )
 
 # %%
 # At this point we already have a passive model of our *Drosophila* projection neuron. Next, we will determine
-# what's axon and what's dendrite, and add a Hodgkins & Huxley mechanism so we have some actual action potentials to observe.
+# what's axon and what's dendrite, and add a Hodgkin & Huxley mechanism so we have some actual action potentials to observe.
 #
 # This will also illustrate one of the features of [`CompartmentModels`][navis.interfaces.neuron.comp.CompartmentModel]:
 # we keep a correspondence to the original skeleton via node (and connector) IDs. This allows you to modify, stimulate
@@ -92,7 +92,7 @@ plt.tight_layout()
 
 # %%
 # !!! note
-#     A little excursion about how `NEURON` represents neurons before we add the Hodgkins & Huxley (HH) mechanism:
+#     A little excursion about how `NEURON` represents neurons before we add the Hodgkin & Huxley (HH) mechanism:
 #     neurons consist of linear "*sections*" while individual (continuous) positions along each section are called
 #     "*segments*". That distinction is important because our skeleton nodes correspond to *segments* but a mechanism
 #     such as HH is applied for entire *sections*.
@@ -249,7 +249,7 @@ axes[1].set_ylabel("spikes [Hz]")
 # run. For larger networks it can be sufficient to model each neuron as a single "point process".
 # [`PointNetwork`][navis.interfaces.neuron.PointNetwork] lets you quickly create such a network from an edge list.
 #
-# In this tutorial we will use toy data but it is just as straight forward to plugin real data:
+# In this tutorial we will use toy data but it is just as straightforward to plug in real data:
 
 # First create a small 3 way network where one of the neurons (B) is inhibitory
 import pandas as pd
@@ -285,7 +285,7 @@ ax.set_xlim(0, 1000)
 
 # %%
 # This toy example worked quite well: spikes in neuron `A` elicit occasional spikes in `C` via temporal summation. Activity in the
-# inhibitiory neuron `B` hyperpolarizes `C` and it stops firing until well after activity in `B` has ceased.
+# inhibitory neuron `B` hyperpolarizes `C` and it stops firing until well after activity in `B` has ceased.
 #
 # The `NEURON` interface is a very recent addition and it might well change in the future (or become its own package). Functionality
 # is also still limited and while I don't intend to write a feature-complete wrapper for `NEURON`, I do welcome feature requests or
