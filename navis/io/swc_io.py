@@ -11,7 +11,6 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import csv
 import datetime
 import io
 import json
@@ -640,13 +639,22 @@ def _write_swc(
     elif not header.endswith("\n"):
         header += "\n"
 
-    with open(filepath, "w") as file:
+    with open(filepath, "w", newline="") as file:
         # Write header
         file.write(header)
 
-        # Write data
-        writer = csv.writer(file, delimiter=" ")
-        writer.writerows(swc.astype(str).values)
+        # Write data. `to_csv` is much faster and far more memory-efficient than
+        # stringifying the entire table (`astype(str)`) and going through
+        # `csv.writer` row by row. `lineterminator`/`na_rep` reproduce the
+        # previous output byte-for-byte.
+        swc.to_csv(
+            file,
+            sep=" ",
+            header=False,
+            index=False,
+            lineterminator="\r\n",
+            na_rep="nan",
+        )
 
     if return_node_map:
         return node_map
