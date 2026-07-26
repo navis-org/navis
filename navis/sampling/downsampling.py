@@ -32,6 +32,7 @@ def downsample_neuron(
     downsampling_factor: Union[int, float],
     inplace: bool = False,
     preserve_nodes: Optional[List[int]] = None,
+    method: str = "simple",
 ) -> Optional["core.NeuronObject"]:
     """Downsample neuron(s) by a given factor.
 
@@ -56,6 +57,18 @@ def downsample_neuron(
                             to the neuron (e.g. "connectors"). DataFrame must
                             have `node_id` column. Only relevant for
                             TreeNeurons.
+    method :                "simple" | "uniform" | "fps" | "decimate"
+                            How to pick which points to keep. Only relevant for
+                            Dotprops (ignored for all other neuron types):
+                              - "simple" (default): take every N-th point. Fast
+                                but not spatially uniform.
+                              - "uniform": draw a uniform sample, automatically
+                                choosing farthest-point sampling or decimation
+                                depending on size.
+                              - "fps": force farthest-point sampling (most
+                                uniform coverage but O(N * size)).
+                              - "decimate": force decimation (fast, scales to
+                                large point clouds).
     inplace :               bool, optional
                             If True, will modify original neuron. If False, we
                             will operate and return o a copy.
@@ -96,7 +109,9 @@ def downsample_neuron(
             x, downsampling_factor=downsampling_factor, preserve_nodes=preserve_nodes
         )
     elif isinstance(x, core.Dotprops):
-        _ = _downsample_dotprops(x, downsampling_factor=downsampling_factor)
+        _ = _downsample_dotprops(
+            x, downsampling_factor=downsampling_factor, method=method
+        )
     elif isinstance(x, core.VoxelNeuron):
         _ = _downsample_voxels(x, downsampling_factor=downsampling_factor)
     elif isinstance(x, core.MeshNeuron):
@@ -143,7 +158,23 @@ def _downsample_voxels(x, downsampling_factor, agg="max"):
 
 
 def _downsample_dotprops(x, downsampling_factor, method="simple"):
-    """Downsample Dotprops."""
+    """Downsample Dotprops.
+
+    Parameters
+    ----------
+    method :    "simple" | "uniform" | "fps" | "decimate"
+                How to pick the points to keep:
+                  - "simple": take every N-th point. Fast but not spatially
+                    uniform (order-dependent).
+                  - "uniform": draw a uniform sample, automatically using
+                    farthest-point sampling or decimation depending on size.
+                  - "fps": force farthest-point sampling (most uniform coverage
+                    but O(N * size)).
+                  - "decimate": force decimation (fast and scales to large
+                    point clouds).
+                See [`navis.sampling.utils.sample_points_uniform`][] for details
+                on the last three.
+    """
     assert isinstance(x, core.Dotprops)
 
     # Can't downsample if no points
@@ -157,9 +188,15 @@ def _downsample_dotprops(x, downsampling_factor, method="simple"):
     # Generate a mask
     if method == "simple":
         mask = np.arange(0, x._points.shape[0], int(downsampling_factor))
-    elif method == "uniform":
+    elif method in ("uniform", "fps", "decimate"):
+        # "uniform" lets sample_points_uniform pick the strategy; "fps"/"decimate"
+        # force it.
+        sampler = "auto" if method == "uniform" else method
         mask = sample_points_uniform(
-            x._points, x._points.shape[0] // downsampling_factor, output="mask"
+            x._points,
+            int(x._points.shape[0] // downsampling_factor),
+            output="mask",
+            method=sampler,
         )
     else:
         raise ValueError(f"Unknown (down-)sampling method: {method}")

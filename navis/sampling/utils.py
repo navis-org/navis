@@ -11,8 +11,9 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+import heapq
+
 import numpy as np
-import networkx as nx
 
 try:
     from pykdtree.kdtree import KDTree
@@ -22,12 +23,27 @@ except ModuleNotFoundError:
     _HAS_PYKDTREE = False
 
 
-def sample_points_uniform(points, size, output="points"):
-    """Draw uniform sample from point cloud.
+# Farthest-point sampling is O(N * size) and produces a more uniform sample than
+# decimation. We only use it while that cost stays small (roughly a few hundred
+# ms) and otherwise fall back to the cheaper decimation.
+_FPS_MAX_WORK = 2e7
 
-    This functions works by iteratively removing the point with the smallest
-    distance to its nearest neighbor until the desired number of points is
-    reached.
+# Number of nearest neighbours precomputed per point for decimation. Larger
+# values mean fewer (expensive) tree re-queries but more up-front memory/time.
+_DECIMATE_NEIGHBORS = 16
+
+
+def sample_points_uniform(points, size, output="points", method="auto"):
+    """Draw a uniform sample from a point cloud.
+
+    Two strategies are available:
+
+    - ``"fps"`` (farthest-point sampling) iteratively picks the point that is
+      farthest from everything picked so far. This gives the most uniform
+      coverage but costs ``O(N * size)``.
+    - ``"decimate"`` iteratively removes the point with the smallest distance to
+      its nearest (still-present) neighbour until ``size`` points remain. This is
+      cheap (``~O(N log N)``) and scales to large point clouds.
 
     Parameters
     ----------
@@ -39,82 +55,154 @@ def sample_points_uniform(points, size, output="points"):
                 If "points", returns the sampled points. If "indices", returns
                 the indices of the sampled points. If "mask", returns a boolean
                 mask of the sampled points.
+    method :    "auto" | "fps" | "decimate", optional
+                Sampling strategy (see above). "auto" uses farthest-point
+                sampling while it is cheap and decimation otherwise.
 
     Returns
     -------
-    See `output` parameter.
+    See `output` parameter. Indices/points are returned in ascending index
+    order regardless of the sampling method.
 
     """
     points = np.asarray(points)
 
     assert isinstance(points, np.ndarray) and points.ndim == 2 and points.shape[1] == 3
     assert output in ("points", "indices", "mask")
+    assert method in ("auto", "fps", "decimate")
     assert (size > 0) and (size <= len(points))
 
-    # Start with all points in the mask
-    mask = np.ones(len(points), dtype=bool)
+    N = len(points)
 
-    # Generate a tree
-    tree = KDTree(points)
+    if size == N:
+        mask = np.ones(N, dtype=bool)
+    else:
+        if method == "auto":
+            # Use farthest-point sampling while its O(N * size) cost stays small,
+            # otherwise fall back to the much cheaper decimation.
+            method = "fps" if (N * size) <= _FPS_MAX_WORK else "decimate"
 
-    p_ind = np.arange(len(points))
-
-    while mask.sum() > size:
-        # Find the point with the largest distance to its nearest neighbor
-        if _HAS_PYKDTREE:
-            # pykdtree can mask out the already-removed points from the
-            # single pre-built tree
-            d, ind = tree.query(points[mask], k=2, mask=~mask)
-            d, ind = d[:, 1], ind[:, 1]
+        if method == "fps":
+            mask = _sample_fps(points, size)
         else:
-            # scipy's cKDTree has no `mask` argument, so query a tree built
-            # from just the currently-active points and map indices back
-            active_ix = p_ind[mask]
-            tree_active = KDTree(points[mask])
-            d, ind = tree_active.query(points[mask], k=2)
-            d, ind = d[:, 1], active_ix[ind[:, 1]]
-
-        # Find pairs of nodes that are close to each other
-        is_close = d == d.min()
-        pairs = np.stack((p_ind[mask][is_close], p_ind[ind][is_close]), axis=1)
-
-        # At this point we will have pairs show up multiple times - (a, b) and (b, a)
-        pairs = np.unique(np.sort(pairs, axis=1), axis=0)
-
-        # Imagine we have two candidate pairs for removal: (a, b) and (b, c)
-        # In that case we can remove (a and c) or (b) but not (a, b) or (b, c)
-        # because that might leave a hole in the point cloud
-        G = nx.Graph()
-        G.add_edges_from(pairs)
-
-        to_remove = []
-        for cc in nx.connected_components(G):
-            # If these are two nodes, it doesn't matter which one we drop
-            if len(cc) <= 2:
-                to_remove.append(cc.pop())
-                continue
-            # If we have three or more nodes, we will simply remove the one
-            # with the highest degree
-            to_remove.append(sorted(cc, key=lambda x: G.degree(x))[-1])
-
-        # Number of nodes we still need to remove
-        n_remove = mask.sum() - size
-
-        if n_remove >= len(to_remove):
-            mask[to_remove] = False
-        else:
-            mask[to_remove[:n_remove]] = False
+            mask = _sample_decimate(points, size)
 
     if output == "mask":
         return mask
     elif output == "indices":
-        return p_ind[mask]
-    elif output == "points":
-        return points[mask].copy()
+        return np.arange(N)[mask]
+    return points[mask].copy()
 
 
+def _sample_fps(points, size):
+    """Farthest-point sampling.
+
+    Returns a boolean mask of the ``size`` selected points. Starts from the first
+    point and repeatedly adds the point with the largest distance to the set of
+    already-selected points.
+    """
+    points = np.asarray(points, dtype=np.float64)
+    N = len(points)
+
+    sel = np.empty(size, dtype=np.int64)
+    sel[0] = 0
+    # Squared distance of every point to the selected set (sqrt is monotonic, so
+    # we can compare squared distances and skip it in the hot loop).
+    dist = np.sum((points - points[0]) ** 2, axis=1)
+    dist[0] = -np.inf  # never re-select an already-selected point
+    for k in range(1, size):
+        j = int(np.argmax(dist))
+        sel[k] = j
+        # A point's distance to the selected set can only shrink as we add points.
+        np.minimum(dist, np.sum((points - points[j]) ** 2, axis=1), out=dist)
+        # Coincident points sit at distance 0 from a selected point; mark this one
+        # so argmax can't hand it back on the next iteration.
+        dist[j] = -np.inf
+
+    mask = np.zeros(N, dtype=bool)
+    mask[sel] = True
+    return mask
 
 
+def _sample_decimate(points, size):
+    """Decimate a point cloud down to ``size`` points.
 
+    Returns a boolean mask of the surviving points. Repeatedly removes the point
+    with the smallest distance to its nearest surviving neighbour.
 
+    Rather than recomputing all nearest-neighbour distances every time a point is
+    removed (which is ``O(N)`` per removal), we keep them in a min-heap and only
+    recompute the distance for a point once its recorded nearest neighbour has
+    itself been removed. The distance to the nearest surviving neighbour can only
+    grow as points are removed, so this lazy update always yields the correct
+    global minimum.
+    """
+    N = len(points)
+    alive = np.ones(N, dtype=bool)
 
+    tree = KDTree(points)
+
+    # Precompute the K nearest neighbours of every point once. As points are
+    # removed we walk down this list to find the nearest surviving neighbour and
+    # only fall back to a fresh tree query once the list is exhausted.
+    K = int(min(_DECIMATE_NEIGHBORS, N - 1))
+    dd, ii = tree.query(points, k=K + 1)
+
+    # Drop the self-match from every row. It is usually in column 0 but can be
+    # elsewhere when points are coincident (distance 0), so locate it explicitly.
+    rows = np.arange(N)
+    is_self = ii == rows[:, None]
+    keep = ~is_self
+    keep[~is_self.any(axis=1), -1] = False  # no self found -> just drop last col
+    neigh_idx = ii[keep].reshape(N, K)
+    neigh_d = dd[keep].reshape(N, K)
+
+    ptr = np.zeros(N, dtype=np.int64)   # position of each point's nearest survivor
+    nn = neigh_idx[:, 0].copy()         # current nearest surviving neighbour
+
+    def nearest_alive(i):
+        """Nearest surviving neighbour of ``i`` as (distance, index)."""
+        p = ptr[i]
+        row = neigh_idx[i]
+        while p < K and not alive[row[p]]:
+            p += 1
+        ptr[i] = p
+        if p < K:
+            return float(neigh_d[i, p]), int(row[p])
+        # Precomputed neighbours exhausted -> query the tree for the nearest
+        # point that is neither ``i`` nor already removed.
+        if _HAS_PYKDTREE:
+            masked = ~alive
+            masked[i] = True
+            d1, j1 = tree.query(points[i:i + 1], k=1, mask=masked)
+            return float(d1[0]), int(j1[0])
+        kf = min(K * 2, N)
+        while True:
+            d1, j1 = tree.query(points[i:i + 1], k=kf)
+            for dv, jv in zip(np.atleast_1d(d1[0]), np.atleast_1d(j1[0])):
+                if jv != i and alive[jv]:
+                    return float(dv), int(jv)
+            if kf >= N:
+                return np.inf, i
+            kf = min(kf * 2, N)
+
+    heap = [(float(neigh_d[i, 0]), int(i)) for i in range(N)]
+    heapq.heapify(heap)
+
+    n_alive = N
+    while n_alive > size:
+        d, i = heapq.heappop(heap)
+        if not alive[i]:
+            continue
+        if not alive[nn[i]]:
+            # Recorded nearest neighbour is gone -> refresh and re-insert. The new
+            # distance is >= the old one, so it is safe to defer i's removal.
+            dnew, jnew = nearest_alive(i)
+            nn[i] = jnew
+            heapq.heappush(heap, (dnew, i))
+            continue
+        # i has the globally smallest nearest-neighbour distance -> remove it.
+        alive[i] = False
+        n_alive -= 1
+
+    return alive
