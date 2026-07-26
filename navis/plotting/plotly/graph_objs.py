@@ -39,6 +39,91 @@ __all__ = [
 # Generate sphere for somas
 BASE_SPHERE = tm.primitives.Sphere(radius=1, center=(0, 0, 0), subdivisions=2)
 
+# Lighting presets for `go.Mesh3d`. Plotly's own defaults (ambient=0.8,
+# specular=0.05) produce a flat, washed-out surface - these presets lower the
+# ambient term and add specular highlights to give meshes proper depth.
+LIGHTING_PRESETS = {
+    # navis default: dimensional but not shiny - works for neurons and volumes
+    "default": dict(ambient=0.45, diffuse=0.8, specular=0.35, roughness=0.55, fresnel=0.2),
+    "studio": dict(ambient=0.45, diffuse=0.8, specular=0.35, roughness=0.55, fresnel=0.2),
+    # soft, no highlights - good for busy scenes where highlights add noise
+    "matte": dict(ambient=0.55, diffuse=0.9, specular=0.03, roughness=1.0, fresnel=0.05),
+    # wet/plastic look with strong highlights
+    "glossy": dict(ambient=0.35, diffuse=0.7, specular=1.0, roughness=0.2, fresnel=0.6),
+    # bright rim - reads well on translucent volume shells
+    "rim": dict(ambient=0.6, diffuse=0.6, specular=0.2, roughness=0.5, fresnel=2.0),
+    # plotly's own (near-flat) defaults - i.e. the pre-2.x navis look
+    "plotly": dict(ambient=0.8, diffuse=0.8, specular=0.05, roughness=0.5, fresnel=0.2),
+}
+
+# Scene color themes: paper/scene background + axis background + gridlines.
+SCENE_THEMES = {
+    "light": dict(
+        paper="rgba(0,0,0,0)", scene=None,
+        axis_bg="rgb(240, 240, 240)", grid="rgb(255, 255, 255)", tick="rgb(68, 68, 68)",
+    ),
+    "white": dict(
+        paper="white", scene="white",
+        axis_bg="white", grid="rgb(225, 225, 225)", tick="rgb(68, 68, 68)",
+    ),
+    "dark": dict(
+        paper="rgb(17, 17, 17)", scene="rgb(17, 17, 17)",
+        axis_bg="rgb(17, 17, 17)", grid="rgb(60, 60, 60)", tick="rgb(190, 190, 190)",
+    ),
+}
+
+
+def _resolve_lighting(settings):
+    """Turn the `lighting` setting into a plotly lighting dict (or None)."""
+    lighting = settings.get("lighting", True)
+    if lighting in (False, None, "none"):
+        return None
+    if lighting is True:
+        lighting = "default"
+    if isinstance(lighting, str):
+        if lighting not in LIGHTING_PRESETS:
+            raise ValueError(
+                f'Unknown lighting preset "{lighting}". '
+                f"Available: {', '.join(LIGHTING_PRESETS)} (or pass a dict)."
+            )
+        return dict(LIGHTING_PRESETS[lighting])
+    if isinstance(lighting, dict):
+        return lighting
+    raise TypeError(
+        f"`lighting` must be bool, str or dict, got {type(lighting).__name__}"
+    )
+
+
+def _mesh_lighting_kwargs(vertices, settings):
+    """Build the lighting/lightposition/flatshading kwargs for a `go.Mesh3d`.
+
+    The light position is derived from the mesh's own bounding box so that
+    shading is consistent regardless of the data's coordinate scale (nm, um,
+    ...). Acts like a distant directional light coming from above and to the
+    side (matching the default camera).
+    """
+    lighting = _resolve_lighting(settings)
+    if lighting is None:
+        return {}
+
+    kwargs = dict(lighting=lighting, flatshading=settings.get("flatshading", False))
+
+    lightposition = settings.get("lightposition", None)
+    if lightposition is None:
+        v = np.asarray(vertices, dtype=float)
+        center = (v.max(axis=0) + v.min(axis=0)) / 2
+        size = float((v.max(axis=0) - v.min(axis=0)).max()) or 1.0
+        # up (+z) and towards the default camera (-x, +y)
+        pos = center + np.array([-0.5, 0.7, 1.5]) * size * 1.5
+        # plotly clamps lightposition to [-1e5, 1e5] (in data coordinates), so
+        # keep it inside that box - for data with large coordinates this just
+        # means the light sits a little closer.
+        pos = np.clip(pos, -99999, 99999)
+        lightposition = dict(x=pos[0], y=pos[1], z=pos[2])
+    kwargs["lightposition"] = lightposition
+
+    return kwargs
+
 
 def neuron2plotly(x, colormap, settings):
     """Convert neurons to plotly objects."""
@@ -357,6 +442,7 @@ def mesh2plotly(neuron, legendgroup, showlegend, label, color, settings):
             showlegend=showlegend,
             hovertext=hovertext,
             hoverinfo=hoverinfo,
+            **_mesh_lighting_kwargs(neuron.vertices, settings),
             **color_kwargs,
         )
     ]
@@ -580,11 +666,12 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
                     )
                     continue
 
+                soma_verts = BASE_SPHERE.vertices * r + [n.x, n.y, n.z]
                 trace_data += [
                     go.Mesh3d(
-                        x=BASE_SPHERE.vertices[:, 0] * r + n.x,
-                        y=BASE_SPHERE.vertices[:, 1] * r + n.y,
-                        z=BASE_SPHERE.vertices[:, 2] * r + n.z,
+                        x=soma_verts[:, 0],
+                        y=soma_verts[:, 1],
+                        z=soma_verts[:, 2],
                         i=BASE_SPHERE.faces[:, 0],
                         j=BASE_SPHERE.faces[:, 1],
                         k=BASE_SPHERE.faces[:, 2],
@@ -592,6 +679,7 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
                         showlegend=False,
                         hoverinfo="name",
                         color=soma_color,
+                        **_mesh_lighting_kwargs(soma_verts, settings),
                     )
                 ]
 
@@ -715,14 +803,53 @@ def volume2plotly(x, colormap, settings):
                 name=name,
                 showlegend=settings.volume_legend,
                 hoverinfo="none",
+                **_mesh_lighting_kwargs(v.vertices, settings),
             )
         )
 
     return trace_data
 
 
+def _resolve_theme(background):
+    """Turn the `background` setting into a scene color theme dict."""
+    if background is None:
+        return dict(SCENE_THEMES["light"])
+    if isinstance(background, dict):
+        theme = dict(SCENE_THEMES["light"])
+        theme.update(background)
+        return theme
+    if isinstance(background, str):
+        if background in SCENE_THEMES:
+            return dict(SCENE_THEMES[background])
+        # Treat as a plain color for both paper and scene background
+        return dict(
+            paper=background, scene=background,
+            axis_bg=background, grid=background, tick="rgb(120, 120, 120)",
+        )
+    raise TypeError(
+        f"`background` must be None, str or dict, got {type(background).__name__}"
+    )
+
+
 def layout2plotly(**kwargs):
     """Generate layout for plotly figures."""
+    theme = _resolve_theme(kwargs.get("background", None))
+    hide_axes = kwargs.get("hide_axes", True)
+    projection = kwargs.get("projection", "perspective")
+    dragmode = kwargs.get("dragmode", "orbit")
+
+    def axis():
+        return dict(
+            gridcolor=theme["grid"],
+            zerolinecolor=theme["grid"],
+            showbackground=False,
+            showline=False,
+            showgrid=False,
+            backgroundcolor=theme["axis_bg"],
+            color=theme["tick"],
+            visible=not hide_axes,
+        )
+
     layout = dict(
         width=kwargs.get("width", None),  # these override autosize
         height=kwargs.get("height", 600),  # these override autosize
@@ -732,32 +859,11 @@ def layout2plotly(**kwargs):
         legend_orientation=kwargs.get("legend_orientation", "v"),
         legend_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor=theme["paper"],
         scene=dict(
-            xaxis=dict(
-                gridcolor="rgb(255, 255, 255)",
-                zerolinecolor="rgb(255, 255, 255)",
-                showbackground=False,
-                showline=False,
-                showgrid=False,
-                backgroundcolor="rgb(240, 240, 240)",
-            ),
-            yaxis=dict(
-                gridcolor="rgb(255, 255, 255)",
-                zerolinecolor="rgb(255, 255, 255)",
-                showbackground=False,
-                showline=False,
-                showgrid=False,
-                backgroundcolor="rgb(240, 240, 240)",
-            ),
-            zaxis=dict(
-                gridcolor="rgb(255, 255, 255)",
-                zerolinecolor="rgb(255, 255, 255)",
-                showbackground=False,
-                showline=False,
-                showgrid=False,
-                backgroundcolor="rgb(240, 240, 240)",
-            ),
+            xaxis=axis(),
+            yaxis=axis(),
+            zaxis=axis(),
             camera=dict(
                 up=dict(x=0, y=0, z=1),
                 eye=dict(
@@ -765,10 +871,15 @@ def layout2plotly(**kwargs):
                     y=1.0707,
                     z=0.7100,
                 ),
+                projection=dict(type=projection),
             ),
             aspectratio=dict(x=1, y=1, z=1),
             aspectmode="data",
+            dragmode=dragmode,
         ),
     )
+
+    if theme["scene"] is not None:
+        layout["scene"]["bgcolor"] = theme["scene"]
 
     return layout

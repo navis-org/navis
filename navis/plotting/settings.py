@@ -170,6 +170,25 @@ class PlotlySettings(BasePlottingSettings):
     linewidth: Optional[float] = None  # for plotly, linewidth 1 is too thin, we default to 3 in graph_objs.py
     linestyle: str = "-"
 
+    # Surface shading / scene styling (see graph_objs.py for presets)
+    lighting: Union[bool, str, dict] = True
+    lightposition: Optional[dict] = None
+    flatshading: bool = False
+    background: Optional[Union[str, dict]] = None
+    projection: Literal["perspective", "orthographic"] = "perspective"
+    dragmode: Literal["turntable", "orbit"] = "orbit"
+    hide_axes: bool = True
+
+    _synonyms: List[Tuple] = field(
+        default_factory=lambda: [
+            ("linestyle", "ls"),
+            ("linewidth", "lw"),
+            ("color", "colors", "c"),
+            ("background", "bg"),
+            ("projection", "proj"),
+        ]
+    )
+
 
 @dataclass
 class VispySettings(BasePlottingSettings):

@@ -248,6 +248,49 @@ def plot3d(
                       and return either a plotly Figure or a k3d Plot object
                       without immediately showing it.
 
+    lighting :        bool | str | dict, default=True
+
+                      For plotly only! Controls surface shading of meshes,
+                      somata and volumes:
+
+                        - `True` uses navis' default lit look
+                        - `False` (or `"plotly"`) reverts to plotly's near-flat
+                          default shading
+                        - a preset name: `"default"`/`"studio"`, `"matte"`,
+                          `"glossy"` or `"rim"`
+                        - a dict passed straight to plotly's `Mesh3d.lighting`
+                          (keys: `ambient`, `diffuse`, `specular`, `roughness`,
+                          `fresnel`)
+
+                      Related: `lightposition` (dict with x/y/z; by default
+                      derived from each mesh's bounding box) and `flatshading`
+                      (bool, default=False; `True` gives a faceted low-poly
+                      look).
+
+    background :      str | dict, default=None
+
+                      For plotly only! Scene color theme. One of `"light"`
+                      (default), `"white"` or `"dark"`, any color string, or a
+                      dict overriding individual theme colors (`paper`, `scene`,
+                      `axis_bg`, `grid`, `tick`).
+
+    projection :      "perspective" (default) | "orthographic"
+
+                      For plotly only! Camera projection. Orthographic avoids
+                      perspective distortion and is often preferred for figures.
+
+    dragmode :        "orbit" (default) | "turntable"
+
+                      For plotly only! How click-dragging rotates the scene.
+                      "orbit" rotates freely (trackball-style); "turntable"
+                      keeps the z-axis pointing up.
+
+    hide_axes :       bool, default=True
+
+                      For plotly only! If True (default), hides the axes, ticks
+                      and tick labels for a clean render. Set to False to show
+                      the coordinate axes.
+
     **Below parameters are for the Octarine/vispy backends only:**
 
     clear :           bool, default = False
