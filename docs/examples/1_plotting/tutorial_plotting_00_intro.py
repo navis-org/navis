@@ -2,8 +2,7 @@
 Plotting Overview
 =================
 
-This tutorial gives an overview of the plotting capabilities of NAVis. We will cover 2D
-and 3D plotting with various backends and their pro's and con's.
+Overview of 2D and 3D plotting and how NAVis' rendering backends compare.
 
 {{ navis }} contains functions for (static) 2D and (interactive) 3D plotting. These functions
 can use various different backends for plotting. For 2D plots we use [`matplotlib`](http://www.matplotlib.org)

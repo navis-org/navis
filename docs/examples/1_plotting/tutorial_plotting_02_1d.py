@@ -2,7 +2,7 @@
 Neuron "Barcodes"
 =================
 
-In this tutorial we'll explore a unique way to visualize the branching pattern of neurons using "barcodes".
+Visualize a neuron's branching pattern as a topological "barcode".
 
 This visualization technique is based on [Cuntz et al (2010)](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000877)
 and turns a neuron's branching pattern into a unique "barcode" using topological sorting.

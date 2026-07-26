@@ -2,7 +2,7 @@
 Skeletons
 =========
 
-This tutorial will show you how to load and save skeletons.
+Load and save skeletons from SWC and other formats, or build them from scratch.
 
 Skeletons are probably the most common representation of neurons and are stored as a series
 of connected nodes (the "skeleton"). In {{ navis }}, skeletons are represented by the

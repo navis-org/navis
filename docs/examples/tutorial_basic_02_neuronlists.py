@@ -2,7 +2,7 @@
 Lists of Neurons
 ================
 
-This tutorial will show you how to use NeuronLists to efficiently work with many neurons at a time.
+Work with many neurons at once using NeuronLists: indexing, filtering and batch operations.
 
 !!! note
     If you haven't please check out the [neuron types tutorial](../tutorial_basic_01_neurons) first.

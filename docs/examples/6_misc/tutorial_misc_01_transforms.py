@@ -2,7 +2,7 @@
 Transformations
 ===============
 
-This tutorial will show you how to transform and mirror neurons.
+Move neurons between brain templates and mirror them across the midline.
 
 ## Introduction
 

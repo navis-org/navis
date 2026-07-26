@@ -2,7 +2,7 @@
 The MICrONS Datasets
 ====================
 
-In this tutorial we will explore the MICrONS datasets.
+Fetch and explore neurons from the MICrONS EM datasets.
 
 The [Allen Institute for Brain Science](https://alleninstitute.org/) in collaboration with Princeton University,
 and Baylor College of Medicine released two large connectomics datasets:
@@ -29,6 +29,8 @@ in the terminal and when in doubt, check out the section about authentication in
 
 Let's get started:
 """
+
+# mkdocs_gallery_thumbnail_path = '_static/microns_thumbnail.png'
 # %%
 import navis
 import navis.interfaces.microns as mi

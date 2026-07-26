@@ -2,9 +2,7 @@
 Label Propagation
 =================
 
-This tutorial will show you how to propagate an initial set of labels across a neuron. The basic idea is that
-you start with a sparse set of labels (e.g. from a manual annotation) and then use the neuron's topology to propagate
-those labels across the whole neuron.
+Spread a sparse set of labels across a neuron using its topology.
 
 One of the most intuitive applications for this is to try to label the axon and dendrite of a neuron based on
 the distribution of pre- and postsynapses alone.

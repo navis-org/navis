@@ -2,7 +2,7 @@
 Custom score matrices
 =====================
 
-This tutorial shows how to train a custom score matrix for NBLAST.
+Train a custom NBLAST scoring matrix from your own data.
 
 The core of the NBLAST algorithm is a function which converts point matches (defined by a distance and the dot product of the tangent
 vectors) into a score expressing how likely they are to have come from the same cell type. This function is typically a 2D lookup table,

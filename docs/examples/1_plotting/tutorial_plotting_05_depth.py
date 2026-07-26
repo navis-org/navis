@@ -2,7 +2,7 @@
 Depth-coloring
 ==============
 
-This example shows how to color neurons by depth.
+Add a sense of depth by coloring neurons along the viewing axis.
 
 The obvious issue with 2d plots is that they are... well, 2d. This means that you can't easily convey depth information.
 What we can do, however, is color the neuron by depth - that is by the distance to the camera.

@@ -2,7 +2,7 @@
 Brain Image Library
 ===================
 
-In this example we will show you how to fetch data from the Brain Image Library.
+Fetch neurons from the Brain Image Library (BIL).
 
 The Brain Image Library (<https://www.brainimagelibrary.org>, BIL) is a public repository hosted at the Pittsburgh
 Supercomputing Center. It is primarily known for its (very large) microscopy data but it also hosts thousands of

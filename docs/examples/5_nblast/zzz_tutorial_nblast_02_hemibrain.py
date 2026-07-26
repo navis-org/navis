@@ -2,7 +2,7 @@
 NBLAST using light-level data
 =============================
 
-This example demonstrates how to use NBLAST to match light-level neurons against EM skeletons.
+Match light-level neurons against EM skeletons with NBLAST.
 
 !!! important "This example is not executed"
     In contrast to almost all other tutorials, this one is not executed when the documentation is built.
@@ -41,6 +41,8 @@ I went for option 2 here and downloaded a `VFB_001013cg.nrrd`. This is the neuro
 
 Let's get started!
 """
+
+# mkdocs_gallery_thumbnail_path = '_static/nblast_hemibrain_thumbnail.png'
 
 # %%
 import navis

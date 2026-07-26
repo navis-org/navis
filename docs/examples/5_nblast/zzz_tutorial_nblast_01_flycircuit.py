@@ -2,7 +2,7 @@
 NBLAST against FlyCircuit
 =========================
 
-This example demonstrates how to run an NBLAST against the entire FlyCircuit dataset.
+Match a query neuron against the entire FlyCircuit light-level dataset.
 
 !!! important "This example is not executed"
     In contrast to almost all other tutorials, this one is not executed when the documentation is built.
@@ -19,6 +19,8 @@ This does not yet exist for Python. However, it's still pretty straightforward t
 First you need to download flycircuit dotprops from [Zenodo](https://zenodo.org/record/5205616) (~850Mb). Next, unzip the archive containing the
 dotprops as CSV files. Now we need to load them into {{ navis }} (adjust filepaths as required):
 """
+
+# mkdocs_gallery_thumbnail_path = '_static/nblast_flycircuit_thumbnail.png'
 
 # %%
 import navis

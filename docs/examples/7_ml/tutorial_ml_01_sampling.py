@@ -2,9 +2,7 @@
 From Neurons to Model Inputs
 ============================
 
-This tutorial will show you how to turn neurons into fixed-size inputs for a
-machine-learning model - point clouds carrying features, and evenly-sized
-fragments for batching.
+Turn neurons into fixed-size model inputs: feature point clouds and batchable fragments.
 
 Neurons are variable-sized graphs and meshes with uneven node/vertex density.
 Most models want a fixed number of points, sampled evenly. The `navis.ml` module

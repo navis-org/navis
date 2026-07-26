@@ -2,7 +2,7 @@
 H01 Dataset
 ===========
 
-In this notebook, you can learn how to work with the H01 dataset using NAVis.
+Explore the H01 human cortex EM dataset.
 
 The [H01 dataset](https://www.science.org/doi/10.1126/science.adk4858) contains 57,000 cells and 150 million synapses
 from a cubic millimeter of the human temporal cortex, which is [proofread](https://h01-release.storage.googleapis.com/proofreading.html)
@@ -30,6 +30,8 @@ pip install caveclient -U
     Also be aware that creating a new token by finishing step 2 will invalidate the previous token!
 
 """
+
+# mkdocs_gallery_thumbnail_path = '_static/h01_thumbnail.png'
 
 # %%
 import navis

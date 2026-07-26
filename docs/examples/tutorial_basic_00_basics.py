@@ -2,7 +2,7 @@
 The Basics
 ==========
 
-This tutorial will introduce some of the basic concepts in NAVis.
+Get a feel for NAVis: load a neuron, inspect it and run basic operations.
 
 This is not supposed to be comprehensive but rather to give you a flavor of how things work. For inspiration,
 explore the [example gallery](../index) and for detailed explanations have a look at the [API documentation](../../../api/).

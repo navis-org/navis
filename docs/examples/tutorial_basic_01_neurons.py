@@ -2,7 +2,7 @@
 Neuron Types
 ============
 
-This tutorial will show you the different neuron types and how to work with them.
+The four neuron types — skeletons, meshes, dotprops and voxels — and when to use each.
 
 Depending on your data/workflows, you will use different representations of neurons.
 If, for example, you work with light-level data you might end up extracting point
@@ -45,6 +45,8 @@ See the [skeleton I/O](../0_io/tutorial_io_00_skeletons) tutorial for details.
 in [Scheffer et al. (2020)](https://elifesciences.org/articles/57443) and available at <https://neuprint.janelia.org>
 (see also the [neuPrint tutorial](../4_remote/tutorial_remote_00_neuprint)):
 """
+
+# mkdocs_gallery_thumbnail_path = '_static/neuron_types_thumbnail.png'
 
 # %%
 import navis

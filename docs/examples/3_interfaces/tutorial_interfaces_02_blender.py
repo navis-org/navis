@@ -2,7 +2,7 @@
 Blender 3D
 ==========
 
-This tutorial shows how to use NAVis within Blender 3D.
+Drive Blender 3D from NAVis for high-quality neuron renders.
 
 {{ navis }} comes with an interface to import neurons into [Blender 3D](https://www.blender.org)
 for high quality renderings and videos: `navis.interfaces.blender`.

@@ -2,7 +2,7 @@
 Coloring
 ========
 
-This tutorial demonstrates how to adjust colors in NAVis plots.
+Control neuron colors, palettes and colormaps in your plots.
 
 By now, you should already have a basic understanding on how to plot neurons in {{ navis }} (2d vs 3d plots, the various
 backends and plotting methods, etc.) - if not, check out the [plotting tutorial](../tutorial_plotting_00_intro).
@@ -12,6 +12,8 @@ this using `matplotlib` ([`plot2d`][navis.plot2d]) and `plotly` ([`plot3d`][navi
 also works for the other backends (Octarine, Vispy and K3d)!
 
 """
+
+# mkdocs_gallery_thumbnail_path = '_static/coloring_thumbnail.png'
 
 # %%
 # ## Neuron Colors

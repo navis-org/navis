@@ -2,7 +2,7 @@
 Neuroglancer & CloudVolume
 ==========================
 
-This tutorial will show you how to pull data from `Neuroglancer` using [`CloudVolume`](https://github.com/seung-lab/cloud-volume).
+Pull neurons and meshes from Neuroglancer sources via CloudVolume.
 
 [Neuroglancer](https://github.com/google/neuroglancer) is a WebGL-based viewer for volumetric data. You may have used it to browse
 some of the recent large EM datasets. If you want to programmatically access/download these data, you need

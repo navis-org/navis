@@ -2,8 +2,7 @@
 Normalizing Neurons
 ===================
 
-This tutorial will show you how to bring neurons into a canonical pose before
-feeding them to a machine-learning model.
+Bring neurons into a canonical pose for machine-learning models.
 
 {{ navis }} ships a small `navis.ml` module with helpers for preparing neurons as
 model inputs. This first tutorial covers **normalization**; the

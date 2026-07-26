@@ -2,7 +2,7 @@
 Axon-Dendrite Splits
 ====================
 
-This tutorial shows you how to split a neuron into its axonal and dendritic compartment.
+Split a neuron into axon and dendrite from synapse flow centrality.
 
 ## Background
 

@@ -2,7 +2,7 @@
 XKCD Style
 ==========
 
-This example demonstrates how to plot neurons in xkcd style.
+Render neurons in the hand-drawn XKCD sketch style, just for fun.
 
 If you don't already know: `matplotlib` has a [xkcd mode](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.xkcd.html)
 that produces plots that look like they were drawn by hand. This can be a fun way to visualize neurons:

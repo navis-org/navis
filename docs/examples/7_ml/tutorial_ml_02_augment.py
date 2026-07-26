@@ -2,9 +2,7 @@
 Augmenting Neurons
 ==================
 
-This tutorial will show you how to augment a training set of neurons - the
-standard trick for making a model invariant to nuisance variation it shouldn't
-care about.
+Augment neuron training sets with realistic perturbations for robust models.
 
 The `navis.ml` module provides a set of geometric and sampling augmentations.
 Every one of them:

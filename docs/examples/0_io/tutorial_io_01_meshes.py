@@ -2,7 +2,7 @@
 Meshes
 ======
 
-This tutorial will teach you how to load and save meshes.
+Load and save mesh neurons in OBJ, PLY, STL and other formats.
 
 {{ navis }} knows two types of meshes:
 

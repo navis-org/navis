@@ -23,6 +23,13 @@ nav:
     # - Overview: api/index.md
     # - Neurons: api/neurons.md
 
+# Tier-2 prototype: mkdocs-gallery still executes the tutorials and builds the
+# per-page docs + thumbnails; this hook replaces ONLY the rendered content of the
+# gallery landing page (generated/gallery/index.md) with our own layout.
+# Remove this block to fall back to the stock mkdocs-gallery index.
+hooks:
+  - scripts/gallery_index_hook.py
+
 theme:
   name: "material"
   features:

@@ -2,7 +2,7 @@
 Skeletons from light-level data
 ===============================
 
-This tutorial will show you how to extract skeletons from confocal microscopy stacks.
+Extract skeletons from confocal microscopy image stacks.
 
 !!! important "This example is not executed"
     In contrast to almost all other tutorials, this one is not executed when the documentation is built.

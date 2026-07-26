@@ -2,7 +2,7 @@
 Dotprops
 ========
 
-This tutorial will show you how to load/create Dotprops.
+Create dotprops — point-and-vector representations — from skeletons, meshes or raw points.
 
 [`navis.Dotprops`][] are point clouds with associated principal vectors which are mostly used for
 NBLASTing. They are typically derivatives of skeletons or meshes but you can load them straight from

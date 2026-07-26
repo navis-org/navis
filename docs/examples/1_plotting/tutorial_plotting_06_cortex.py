@@ -2,7 +2,7 @@
 Cortical Neurons
 ================
 
-This tutorial demonstrates how to plot cortical neurons.
+Recreate a published figure of cortical GABAergic neurons arranged by soma depth.
 
 
 In this exercise we will visualize morphological data from ["Integrated Morphoelectric and Transcriptomic Classification of Cortical GABAergic Cells"](https://www.cell.com/cell/pdf/S0092-8674(20)31254-X.pdf)

@@ -2,7 +2,7 @@
 Manipulate Morphology
 =====================
 
-This tutorial will give you an impression of how to process and manipulate your neurons' morphology.
+Prune, resample, smooth and reshape neuron morphology.
 
 See the [API reference](../../api#neuron-morphology) for a complete list of available functions.
 

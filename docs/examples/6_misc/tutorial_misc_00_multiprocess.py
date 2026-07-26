@@ -2,7 +2,7 @@
 Multiprocessing
 ===============
 
-This notebook will show you how to use parallel processing with `navis`.
+Speed up batch workloads with built-in parallel processing.
 
 By default, most {{ navis }} functions use only a single thread/process (although some third-party functions
 used under the hood might). Distributing expensive computations across multiple cores can speed things up considerably.

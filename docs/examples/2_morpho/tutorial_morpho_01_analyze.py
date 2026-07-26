@@ -2,7 +2,7 @@
 Analyzing Neuron Morphology
 ===========================
 
-This tutorial will give you an overview of how to analyze neuron morphology.
+Measure morphometrics — segment lengths, geodesic distances and branch angles.
 
 Disclaimer: As you might imagine some properties can be gathered for all/most neuron types while others will only work
 on specific types. For example, topological properties such as cable length, branch points, etc. are easy to get for

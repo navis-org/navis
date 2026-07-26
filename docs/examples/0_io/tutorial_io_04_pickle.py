@@ -3,7 +3,7 @@
 Pickling
 ========
 
-This tutorial shows how to use Python's `pickle` module to quickly store and load neurons.
+Quickly cache and reload neurons with Python's pickle module.
 
 All neuron types including whole [`NeuronLists`][navis.NeuronList] can be "pickled" :cucumber:.
 If you don't know what that is: pickling is storing the actual Python object as a

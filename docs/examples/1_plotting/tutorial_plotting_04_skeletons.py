@@ -2,7 +2,7 @@
 Fine-tuning Skeletons
 =====================
 
-In this example we will demonstrate various ways to fine-tune plots with skeletons.
+Fine-tune skeleton plots: colors, line width, radii and more.
 
 By now, you should already have a basic understanding on how to plot neurons in {{ navis }} (2d vs 3d plots, the various
 backends and plotting methods, etc.) - if not, check out the [plotting tutorial](../tutorial_plotting_00_intro).

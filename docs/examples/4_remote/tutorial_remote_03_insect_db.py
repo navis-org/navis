@@ -2,7 +2,7 @@
 Insect Brain DB
 ===============
 
-In this example we will show you how to fetch data from the Insect Brain DB.
+Fetch neurons and brain meshes from the Insect Brain Database.
 
 The insect brain database (<https://insectbraindb.org>) is an online repository for neuron morphologies, brain regions and experimental
 data across various insect species. At the time of writing Insect Brain DB features close to 400 neuronal cell types from well over 30
@@ -11,6 +11,8 @@ insect species. Check out [Heinze et al. (2021)](https://elifesciences.org/artic
 While the website features a comprehensive search and some nifty analyses, it can be useful to download these data to run your own
 analyses or compare to other data sets. For that purpose, {{ navis }} provides an interface to Insect Brain DB that wraps parts of their API:
 """
+
+# mkdocs_gallery_thumbnail_path = '_static/insect_brain_db_thumbnail.png'
 
 # %%
 # Import navis

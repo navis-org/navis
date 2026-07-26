@@ -2,7 +2,7 @@ r"""
 NBLAST
 ======
 
-This tutorial will introduce you to NBLAST (Costa et al., 2016), a method to compare neurons based on their morphology.
+Compare neuron morphology with NBLAST — the concepts and a first run.
 
 ## What is NBLAST?
 
