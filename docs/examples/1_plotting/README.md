@@ -1,3 +1,3 @@
 ## Plotting
 
-These tutorials will show you how to visualize your neurons:
+Visualize neurons in 2D and 3D — and fine-tune every detail of how they look.

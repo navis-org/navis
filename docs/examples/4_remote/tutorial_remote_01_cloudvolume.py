@@ -39,6 +39,10 @@ Once that's done we can start pulling data using `cloud-volume`. In this example
 import navis
 import cloudvolume as cv
 
+# This tutorial pulls from a remote source that may be unreachable when the docs
+# are built, so we pin a static thumbnail rather than rely on a scraped figure.
+# mkdocs_gallery_thumbnail_path = '_static/neuroglancer_source.png'
+
 # %%
 # *Before* we connect to the datasource we have to "monkey patch" `cloudvolume` using [`navis.patch_cloudvolume`][]. That will
 # teach `cloudvolume` to return {{ navis }} neurons:

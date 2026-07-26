@@ -1,3 +1,3 @@
 ## Interfaces
 
-These tutorials cover interfaces between {{ navis }} and external tools:
+Connect {{ navis }} to external tools like the NEURON simulator and Blender.

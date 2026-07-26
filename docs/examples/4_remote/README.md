@@ -1,3 +1,3 @@
 ## Remote Data Sources
 
-These tutorials will show you how to load data from remote data sources:
+Fetch neurons straight from remote sources such as neuPrint, the MICrONS datasets and the Insect Brain DB.
