@@ -204,6 +204,92 @@ def test_map_columns_missing(neuron):
         )
 
 
+def bump_line(n_nodes=101, amp=4.0):
+    """Straight line with a smooth radius bump - XYZ is preserved by resampling,
+    so any change in `.volume` is due to the radius handling alone."""
+    x = np.arange(n_nodes, dtype=float)
+    n = toy_neuron(
+        np.column_stack([x, np.zeros_like(x), np.zeros_like(x)]),
+        [-1] + list(range(n_nodes - 1)),
+    )
+    n.nodes["radius"] = 1 + amp * np.sin(np.pi * x / (n_nodes - 1))
+    return n
+
+
+def test_preserve_volume_isolated_radius():
+    """On a straight line, `preserve_volume` conserves the frustum volume exactly
+    while plain interpolation undershoots a convex radius profile."""
+    n = bump_line()
+
+    default = navis.resample_skeleton(n, resample_to=20, inplace=False)
+    preserve = navis.resample_skeleton(
+        n, resample_to=20, preserve_volume=True, inplace=False
+    )
+
+    # Plain interpolation cuts across the bump and loses a few % of volume
+    assert abs(default.volume / n.volume - 1) > 0.02
+    # Volume-aware resampling matches the original to numerical precision
+    assert preserve.volume == pytest.approx(n.volume, rel=1e-6)
+
+
+def test_preserve_volume_endpoints_unchanged():
+    """Segment endpoints (here root and leaf) keep their original radii - only
+    interior nodes are rescaled."""
+    n = bump_line()
+
+    preserve = navis.resample_skeleton(
+        n, resample_to=20, preserve_volume=True, inplace=False
+    )
+
+    radii = preserve.nodes.set_index("node_id").radius
+    # Node 0 (root) and node 100 (leaf) are preserved originals, both radius 1.0
+    assert radii.loc[0] == pytest.approx(1.0)
+    assert radii.loc[100] == pytest.approx(1.0)
+
+
+def test_preserve_volume_neuron_fine():
+    """On a real neuron, a fine resample has few collapsed segments, so the
+    global volume is conserved much more tightly than by default."""
+    n = navis.example_neurons(1)
+
+    default = navis.resample_skeleton(n, resample_to=30, inplace=False)
+    preserve = navis.resample_skeleton(
+        n, resample_to=30, preserve_volume=True, inplace=False
+    )
+
+    assert abs(preserve.volume / n.volume - 1) < abs(default.volume / n.volume - 1)
+    assert preserve.volume == pytest.approx(n.volume, rel=5e-3)
+
+
+def test_preserve_volume_off_by_default():
+    """`preserve_volume=False` (the default) must not touch the radii - they stay
+    exactly what plain interpolation produced."""
+    n = bump_line()
+
+    default = navis.resample_skeleton(n, resample_to=20, inplace=False)
+    explicit = navis.resample_skeleton(
+        n, resample_to=20, preserve_volume=False, inplace=False
+    )
+
+    assert np.allclose(default.nodes.radius.values, explicit.nodes.radius.values)
+
+
+@pytest.mark.parametrize("method", ["linear", "cubic"])
+def test_preserve_volume_methods_and_topology(method):
+    """`preserve_volume` works across interpolation methods and leaves topology
+    and node IDs intact."""
+    n = bump_line()
+
+    preserve = navis.resample_skeleton(
+        n, resample_to=15, method=method, preserve_volume=True, inplace=False
+    )
+
+    assert preserve.volume == pytest.approx(n.volume, rel=1e-4)
+    assert not preserve.nodes.node_id.duplicated().any()
+    parents = preserve.nodes.parent_id.values
+    assert np.isin(parents[parents >= 0], preserve.nodes.node_id.values).all()
+
+
 def test_short_segments_kept():
     """Segments shorter than the target resolution collapse to first + last node."""
     n = line(11)  # 10 units long

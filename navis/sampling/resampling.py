@@ -36,7 +36,8 @@ def resample_skeleton(x: 'core.NeuronObject',
                       inplace: bool = False,
                       method: str = 'linear',
                       map_columns: Optional[list] = None,
-                      skip_errors: bool = True
+                      skip_errors: bool = True,
+                      preserve_volume: bool = False
                       ) -> Optional['core.NeuronObject']:
     """Resample skeleton(s) to given resolution.
 
@@ -80,6 +81,20 @@ def resample_skeleton(x: 'core.NeuronObject',
     skip_errors :       bool, optional
                         If True, will skip errors during interpolation and
                         only print summary.
+    preserve_volume :   bool, optional
+                        By default, radii are interpolated point-wise like any
+                        other numeric column, which does *not* conserve a
+                        segment's radius-based volume (`.volume`): resampling
+                        skips over kinks in the radius profile and cuts corners
+                        of the path. If True, the radii of the newly inserted
+                        (interior) nodes are rescaled per small segment so that
+                        each segment matches its original frustum volume. The
+                        segment endpoints (roots, leafs, branch points) keep
+                        their interpolated radii - they are shared between
+                        segments, so scaling them would make a branch point's
+                        radius ambiguous. Segments with no interior nodes (e.g.
+                        collapsed short segments) cannot be corrected and are
+                        left as-is.
 
     Returns
     -------
@@ -137,6 +152,10 @@ def resample_skeleton(x: 'core.NeuronObject',
                 num_cols.append(col)
             else:
                 non_num_cols.append(col)
+
+    # Capture per-segment volumes now, while `x` still holds the original nodes
+    # and topology - we restore them onto the resampled neuron further down.
+    orig_vols = _segment_volumes(x) if preserve_volume else None
 
     new_nodes = _resample_segments(
         x, resample_to, method, num_cols, non_num_cols, skip_errors
@@ -232,7 +251,176 @@ def resample_skeleton(x: 'core.NeuronObject',
     # Clear and regenerate temporary attributes
     x._clear_temp_attr()
 
+    # Restore each segment's original volume by rescaling interior radii. This
+    # must run after `_clear_temp_attr` so that `.small_segments` reflects the
+    # resampled topology.
+    if preserve_volume:
+        _conserve_segment_volumes(x, orig_vols)
+
     return x
+
+
+def _flatten_segments(x):
+    """Flatten `x`'s small segments into aligned arrays for vectorised per-segment math.
+
+    Returns `(seg_n_nodes, offsets, flat, radius, step)`, following the same
+    layout as `_resample_segments`: `flat` is the concatenation of all small
+    segments (branch points appear once per segment they belong to), `radius` the
+    matching float64 radii, and `step[i]` the length of the edge from `flat[i-1]`
+    to `flat[i]` with segment-boundary steps zeroed - so edges never straddle two
+    segments.
+    """
+    segs = x.small_segments
+    seg_n_nodes = np.array([len(s) for s in segs], dtype=np.int64)
+    offsets = np.concatenate(([0], np.cumsum(seg_n_nodes)))
+    if len(segs):
+        flat = np.concatenate([np.asarray(s) for s in segs])
+    else:
+        flat = np.empty(0, dtype=np.int64)
+
+    row_ix = pd.Index(x.nodes.node_id.values).get_indexer(flat)
+    radius = x.nodes.radius.values.astype(np.float64)[row_ix]
+    xyz = x.nodes[["x", "y", "z"]].values.astype(np.float64)[row_ix]
+
+    step = np.zeros(len(flat))
+    if len(flat):
+        step[1:] = np.linalg.norm(np.diff(xyz, axis=0), axis=1)
+        step[offsets[:-1]] = 0.0
+
+    return seg_n_nodes, offsets, flat, radius, step
+
+
+def _reduce_segment_volumes(radius, step, offsets):
+    """Frustum volume of each segment, summed from its per-edge contributions.
+
+    Truncated-cone model: edge `i` (from `flat[i-1]` to `flat[i]`) contributes
+    `(π step[i] / 3)(r_{i-1}² + r_{i-1} r_i + r_i²)`. Segment-boundary rows carry
+    `step == 0`, so cross-segment radii never enter the sum. NaN radii are treated
+    as zero-volume, matching `np.nansum`.
+    """
+    r_prev = np.empty_like(radius)
+    r_prev[0] = 0.0
+    r_prev[1:] = radius[:-1]
+    edge = (np.pi * step / 3.0) * (r_prev ** 2 + r_prev * radius + radius ** 2)
+    edge = np.nan_to_num(edge, nan=0.0)
+    edge[offsets[:-1]] = 0.0
+    return np.add.reduceat(edge, offsets[:-1])
+
+
+def _segment_volumes(x):
+    """Radius-based volume of each of `x`'s small segments.
+
+    Uses the same truncated-cone (frustum) model as `TreeNeuron.volume`: an edge
+    of length L between nodes of radius r1 and r2 has volume
+    `(π L / 3)(r1² + r1 r2 + r2²)`. This is the exact `∫ π r(s)² ds` for a radius
+    that varies linearly along the edge - i.e. the quantity `preserve_volume`
+    conserves. Segments are keyed by their `(distal, proximal)` endpoint node IDs
+    (ID-sorted so the key is independent of traversal direction); those endpoints
+    are preserved by resampling, which is what lets us match new segments back
+    onto their originals.
+    """
+    seg_n_nodes, offsets, flat, radius, step = _flatten_segments(x)
+    if not len(flat):
+        return {}
+
+    vols = _reduce_segment_volumes(radius, step, offsets)
+    first = flat[offsets[:-1]]
+    last = flat[offsets[1:] - 1]
+    return {tuple(sorted((fst, lst))): v for fst, lst, v in zip(first, last, vols)}
+
+
+def _conserve_segment_volumes(x, orig_vols):
+    """Rescale interior node radii so each small segment matches its original volume.
+
+    The endpoints of every small segment (roots, leafs, branch points) are
+    preserved by resampling and keep their interpolated radii - they are shared
+    between segments, so scaling them would make a branch point's radius
+    ambiguous. Only the newly inserted *interior* nodes are scaled, by a single
+    per-segment factor `f`. Because every radius in the frustum sum is then either
+    fixed (endpoint) or `f·ρ` (interior), the segment volume is a quadratic
+    `V(f) = A f² + B f + C`; we recover the coefficients by evaluating `V` at
+    `f = 0, 1, 2` and solve `V(f) = V_orig` for the positive root nearest 1. All
+    of this is done across every segment at once.
+    """
+    seg_n_nodes, offsets, flat, radius, step = _flatten_segments(x)
+    if not len(flat):
+        return
+
+    # Interior = every node that is neither the first nor last of its segment
+    interior = np.ones(len(flat), dtype=bool)
+    interior[offsets[:-1]] = False
+    interior[offsets[1:] - 1] = False
+
+    # V(f) for a scalar f, evaluated for all segments at once
+    def seg_vols(f):
+        return _reduce_segment_volumes(np.where(interior, radius * f, radius),
+                                       step, offsets)
+
+    c = seg_vols(0.0)
+    v1 = seg_vols(1.0)
+    v2 = seg_vols(2.0)
+    a = (v2 - 2.0 * v1 + c) / 2.0
+    b = v1 - c - a
+
+    # Match each segment onto its original volume via the preserved endpoints
+    first = flat[offsets[:-1]]
+    last = flat[offsets[1:] - 1]
+    target = np.array([orig_vols.get(tuple(sorted((fst, lst))), np.nan)
+                       for fst, lst in zip(first, last)])
+
+    f = _solve_scale(a, b, c - target)
+
+    # A segment is correctable only if it has interior nodes, matched an original
+    # and yielded a positive scale factor. Segments with no interior nodes (e.g.
+    # collapsed short segments) are expected and left as-is without warning.
+    want = (seg_n_nodes > 2) & ~np.isnan(target)
+    applied = want & ~np.isnan(f)
+    skipped = int(np.sum(want & np.isnan(f)))
+
+    seg_scale = np.ones(len(seg_n_nodes))
+    seg_scale[applied] = f[applied]
+    upd = interior & np.repeat(applied, seg_n_nodes)
+    if upd.any():
+        new_r = radius * np.repeat(seg_scale, seg_n_nodes)
+        dtype = x.nodes["radius"].dtype
+        mapped = x.nodes["node_id"].map(pd.Series(new_r[upd], index=flat[upd]))
+        x.nodes["radius"] = mapped.fillna(x.nodes["radius"]).astype(dtype)
+
+    if skipped:
+        logger.warning(
+            f"{skipped} segment(s) could not be volume-corrected (no positive "
+            "scale factor found); their volume may have changed."
+        )
+
+
+def _solve_scale(a, b, c, lo=0.1, hi=10.0):
+    """Positive root of `a f² + b f + c = 0` nearest 1, clamped to [lo, hi].
+
+    Vectorised over segments: `a`, `b`, `c` are arrays and the return value is an
+    array with NaN wherever there is no positive (real) root - the caller then
+    leaves that segment's radii untouched.
+    """
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+    c = np.asarray(c, dtype=np.float64)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        # Two quadratic roots (NaN where the discriminant is negative) plus the
+        # single linear root for the degenerate a≈0 case.
+        sq = np.sqrt(np.where((disc := b * b - 4.0 * a * c) >= 0, disc, np.nan))
+        cand = np.stack([(-b + sq) / (2.0 * a),
+                         (-b - sq) / (2.0 * a),
+                         np.where(np.abs(b) > 1e-12, -c / b, np.nan)], axis=-1)
+        # Keep only the meaningful candidate(s): quadratic roots unless a≈0, in
+        # which case only the linear root applies.
+        lin = np.abs(a) < 1e-12
+        cand[lin, :2] = np.nan
+        cand[~lin, 2] = np.nan
+
+    cand = np.where(cand > 0, cand, np.nan)     # positive roots only
+    dist = np.where(np.isnan(cand), np.inf, np.abs(cand - 1.0))
+    chosen = np.take_along_axis(cand, np.argmin(dist, axis=-1)[..., None], axis=-1)[..., 0]
+    return np.clip(chosen, lo, hi)              # NaN (no positive root) stays NaN
 
 
 def _resample_segments(x, resample_to, method, num_cols, non_num_cols, skip_errors):
