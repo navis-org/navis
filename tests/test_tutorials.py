@@ -45,12 +45,50 @@ TO_SKIP = [
     "tutorial_remote_04_h01.py",  # currently fails due to incompatability with most recent CAVEclient
 ]
 
+# Tutorials living under this subdirectory pull data from third-party services
+# (neuPrint, CAVE/MICrONS, InsectBrainDB, BIL, ...) and are therefore prone to
+# transient failures that are outside our control.
+REMOTE_SUBDIR = "4_remote"
+
+
+def _collect_files(args):
+    """Collect the tutorial files to execute.
+
+    Positional arguments (if any) are treated as paths - either directories
+    (searched recursively for `*.py`) or individual files - and let the CI
+    split the deterministic tutorials from the flaky remote ones into separate
+    jobs. Without arguments we fall back to running everything in
+    `docs/examples`.
+
+    Set `NAVIS_SKIP_REMOTE=1` to skip everything under the `4_remote`
+    subdirectory (used by the required, non-remote CI job).
+    """
+    default_path = Path(__file__).parent.parent / "docs/examples"
+
+    if args:
+        files = []
+        for arg in args:
+            p = Path(arg)
+            if not p.is_absolute():
+                # Resolve relative to the cwd first, then the repo root.
+                p = p if p.exists() else default_path.parent.parent / arg
+            if p.is_dir():
+                files.extend(sorted(p.rglob("*.py")))
+            elif p.is_file():
+                files.append(p)
+            else:
+                raise FileNotFoundError(f"No such tutorial path: {arg}")
+    else:
+        files = list(default_path.rglob("*.py"))
+
+    if os.environ.get("NAVIS_SKIP_REMOTE"):
+        files = [f for f in files if REMOTE_SUBDIR not in f.parts]
+
+    return files
+
 
 if __name__ == "__main__":
-    # Recursively search for notebooks
-    path = Path(__file__).parent.parent / "docs/examples"
-
-    files = list(path.rglob("*.py"))
+    files = _collect_files(sys.argv[1:])
     for i, file in enumerate(files):
         if not file.is_file():
             continue

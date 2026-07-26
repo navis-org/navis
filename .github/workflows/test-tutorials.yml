@@ -2,17 +2,35 @@ name: Test tutorials
 
 on: [push]
 
+# Cancel superseded runs on the same ref (replaces the styfle cancel action).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
-
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # "core" runs the deterministic tutorials and is required. "remote" runs
+    # only the tutorials under docs/examples/4_remote, which pull from
+    # third-party services (neuPrint, CAVE/MICrONS, InsectBrainDB, BIL, ...);
+    # those are allowed to fail so a server outage doesn't turn CI red.
+    name: tutorials-${{ matrix.name }}
+    continue-on-error: ${{ matrix.allow_failure }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: core
+            args: ""
+            skip_remote: "1"
+            allow_failure: false
+          - name: remote
+            args: "docs/examples/4_remote"
+            skip_remote: ""
+            allow_failure: true
 
     steps:
-      # This cancels any such job that is still running
-    - name: Cancel Previous Runs
-      uses: styfle/cancel-workflow-action@0.9.1
-      with:
-        access_token: ${{ github.token }}
     - uses: actions/checkout@v5
     - name: Set up Python 3.11
       uses: actions/setup-python@v6
@@ -31,15 +49,32 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install pathos pygraphviz neuron cloud-volume k3d scikit-image open3d
         python -m pip install -e .[test-notebook,all]
+    # Cache the (large, occasionally-unreachable) static downloads. On a hit we
+    # skip the download steps entirely, removing them as a source of flakiness.
+    # Bump the "v1" token below if the transform URLs in this file ever change.
+    - name: Cache test data + transforms
+      id: cache-data
+      uses: actions/cache@v4
+      with:
+        path: |
+          docs/examples/0_io
+          ~/flybrain-data
+        key: navis-testdata-v1-${{ hashFiles('download_test_data.sh') }}
     - name: Download test data
+      if: steps.cache-data.outputs.cache-hit != 'true'
       run: |
         chmod +x download_test_data.sh
         ./download_test_data.sh
     - name: Download downsampled test transform
+      if: steps.cache-data.outputs.cache-hit != 'true'
       run: |
         mkdir -p -- $HOME/flybrain-data
-        curl -o $HOME/flybrain-data/JRC2018F_JRCFIB2018F.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_JRCFIB2018F.h5
-        curl -o $HOME/flybrain-data/JRC2018F_FAFB.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_FAFB.h5
+        curl -fL --retry 5 --retry-all-errors --retry-delay 5 \
+          --connect-timeout 30 --max-time 900 \
+          -o $HOME/flybrain-data/JRC2018F_JRCFIB2018F.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_JRCFIB2018F.h5
+        curl -fL --retry 5 --retry-all-errors --retry-delay 5 \
+          --connect-timeout 30 --max-time 900 \
+          -o $HOME/flybrain-data/JRC2018F_FAFB.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_FAFB.h5
     - name: Run tutorials
       uses: coactions/setup-xvfb@v1
       env:
@@ -51,8 +86,9 @@ jobs:
         NAVIS_PLOT3D_BACKEND: plotly
         QT_QPA_PLATFORM: offscreen
         MPLBACKEND: agg
+        NAVIS_SKIP_REMOTE: ${{ matrix.skip_remote }}
       with:
         run: |
           python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
           python -c "import os;from caveclient import CAVEclient;client=CAVEclient(server_address='https://global.brain-wire-test.org',datastack_name='h01_c3_flat',auth_token=os.getenv('BRAIN_WIRE_SECRET'));client.auth.save_token(os.getenv('BRAIN_WIRE_SECRET'),overwrite=True)"
-          python tests/test_tutorials.py
+          python tests/test_tutorials.py ${{ matrix.args }}

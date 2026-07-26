@@ -15,6 +15,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python 3.11
@@ -34,15 +35,32 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pathos pygraphviz neuron cloud-volume k3d scikit-image open3d
           python -m pip install -e .[test-notebook,all,docs,flybrains,cloud-volume]
+      # Cache the (large, occasionally-unreachable) static downloads. On a hit
+      # we skip the download steps entirely, removing them as a source of
+      # flakiness. Bump the "v1" token below if the transform URLs change.
+      - name: Cache test data + transforms
+        id: cache-data
+        uses: actions/cache@v4
+        with:
+          path: |
+            docs/examples/0_io
+            ~/flybrain-data
+          key: navis-testdata-v1-${{ hashFiles('download_test_data.sh') }}
       - name: Download test data
+        if: steps.cache-data.outputs.cache-hit != 'true'
         run: |
           chmod +x download_test_data.sh
           ./download_test_data.sh
       - name: Download downsampled test transform
+        if: steps.cache-data.outputs.cache-hit != 'true'
         run: |
           mkdir -p -- $HOME/flybrain-data
-          curl -o $HOME/flybrain-data/JRC2018F_JRCFIB2018F.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_JRCFIB2018F.h5
-          curl -o $HOME/flybrain-data/JRC2018F_FAFB.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_FAFB.h5
+          curl -fL --retry 5 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 30 --max-time 900 \
+            -o $HOME/flybrain-data/JRC2018F_JRCFIB2018F.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_JRCFIB2018F.h5
+          curl -fL --retry 5 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 30 --max-time 900 \
+            -o $HOME/flybrain-data/JRC2018F_FAFB.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_FAFB.h5
       - name: Build and deploy docs
         uses: coactions/setup-xvfb@v1
         env:
