@@ -378,23 +378,26 @@ def _patch_frame(cloud, chunks, pad_value):
     encoded as negative indices) become filler rows: coords/attrs ``NaN``,
     `source_id` = `pad_value`.
     """
-    frames = []
+    frames, ids = [], []
     for cid, idx in enumerate(chunks):
         idx = np.asarray(idx)
-        # `cloud.iloc[array]` already returns a fresh frame, so the column assign
-        # below is safe (copy-on-write) without an extra `.copy()`.
         sub = cloud.iloc[idx[idx >= 0]]
         n_pad = int((idx < 0).sum())
         if n_pad:
             sub = pd.concat([sub, _pad_rows(cloud, n_pad, pad_value)], ignore_index=True)
-        sub["chunk_id"] = cid
         frames.append(sub)
+        ids.append(np.full(len(sub), cid, dtype=np.int64))
 
     if not frames:
         out = cloud.iloc[:0].copy()
         out["chunk_id"] = np.zeros(0, dtype=np.int64)
         return out
-    return pd.concat(frames, ignore_index=True)
+    # Assign `chunk_id` on the concatenated frame (always a fresh object) rather
+    # than on each `cloud.iloc[...]` slice: the latter raises SettingWithCopyWarning
+    # on pandas builds without copy-on-write. Also avoids a per-chunk copy.
+    out = pd.concat(frames, ignore_index=True)
+    out["chunk_id"] = np.concatenate(ids)
+    return out
 
 
 def _pad_rows(cloud, n, pad_value):
