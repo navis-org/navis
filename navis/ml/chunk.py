@@ -217,6 +217,7 @@ def sample_patches(
     density=None,
     spacing=None,
     mode="spaced",
+    connected=True,
     k=None,
     sampling_factor=1,
     undersized="keep",
@@ -241,8 +242,14 @@ def sample_patches(
     Because the cloud is uniform, `n_points` + `density` pin each patch's physical
     extent (radius ``~ sqrt(n_points / (pi * density))`` on a surface), and that
     extent is the same across patches and across neurons - the scale-consistency a
-    ball/k-NN point model wants. Patches are grown in **Euclidean** space (spatial
-    balls); there is no geodesic option, since the resampled cloud carries no graph.
+    ball/k-NN point model wants.
+
+    Like [`navis.ml.chunk_neuron`][], patches grow **along the neuron** by default
+    (`connected=True`): each sample is tied to a structural element via its
+    `source_id` (skeleton node / mesh vertex) and growth is geodesic on that native
+    graph, so a patch follows one branch/surface region instead of a Euclidean ball
+    that can straddle two branches passing close in space. Set `connected=False` for
+    plain Euclidean (spatial-ball) patches.
 
     Parameters
     ----------
@@ -255,10 +262,20 @@ def sample_patches(
     spacing :           float, optional
                         Resample resolution as an inter-point distance instead.
     mode :              "spaced" | "partition" | "cover" | "random"
-                        How patches tile the cloud (see [`navis.ml.chunk_neuron`][]).
-                        "spaced" (default) places evenly-spread, possibly-overlapping
-                        patches; "partition" is non-overlapping; "cover" overlaps to
-                        cover every point; "random" seeds at random.
+                        How patches tile the cloud (as in [`navis.ml.chunk_neuron`][]):
+                        "spaced" (default) and "random" scatter evenly-spread /
+                        random, possibly-overlapping patches - good for oversampling,
+                        but they do **not** guarantee full coverage (raise
+                        `sampling_factor`, or use "cover" for that). "cover" overlaps
+                        to cover every point at least once. "partition" tiles
+                        disjointly; with `connected=True`, carving connected patches
+                        strands leftover points into small fragments (drop them with
+                        `undersized="discard"` for clean full-size patches).
+    connected :         bool
+                        If True (default) grow patches geodesically along the neuron
+                        (see above) so each is a single connected piece; if False
+                        grow Euclidean balls (the `n_points` nearest points in space),
+                        which pack tighter but can span nearby branches.
     k :                 int, optional
                         For "random"/"spaced": exact number of patches (overrides
                         `sampling_factor`).
@@ -362,7 +379,7 @@ def sample_patches(
         cloud["chunk_id"] = np.zeros(0, dtype=np.int64)
         return cloud
 
-    backend = _Euclidean(coords)
+    backend = _connected_cloud_backend(x, cloud) if connected else _Euclidean(coords)
     chunks = _chunk_indices(
         backend, len(coords), n_points, mode, k, sampling_factor,
         undersized, pad_value, rs_chunk,
@@ -706,6 +723,88 @@ class _Euclidean:
         there is no disconnected-fluff trap to avoid here (unlike `_Geodesic`).
         """
         return int(rng.integers(0, len(self.coords)))
+
+
+class _ConnectedCloud(_Euclidean):
+    """Grow patches over a resampled cloud along the neuron's own topology - the
+    cloud analogue of ``chunk_neuron(connected=True)``.
+
+    Each sample is attached to a structural vertex (skeleton node / mesh vertex) via
+    its ``source_id``; a patch is grown by geodesic flood-fill on that native graph,
+    collecting the samples on visited vertices until ``size`` are gathered. Because
+    growth follows the arbor/surface, a patch never jumps between branches that only
+    pass close in space, and it stays connected even when the cloud is far sparser
+    than the mesh/skeleton (empty vertices simply conduct without contributing).
+
+    Only geodesic *growth* differs from `_Euclidean`; FPS / random *seeding* is
+    purely spatial, so it is inherited unchanged. Build via `_connected_cloud_backend`,
+    which resolves the graph and the per-sample vertex array (keeping neuron-type
+    knowledge out of this numeric peer of `_Geodesic` / `_Euclidean`).
+    """
+
+    def __init__(self, indptr, indices, data, svtx, coords):
+        super().__init__(coords)                     # KD-tree + spatial FPS seeding
+        self.indptr, self.indices, self.data = indptr, indices, data
+        self.svtx = svtx
+        # vertex -> sample indices (sparse: only vertices that carry a sample)
+        by_vtx: dict = {}
+        for i, v in enumerate(svtx):
+            by_vtx.setdefault(int(v), []).append(i)
+        self.by_vtx = by_vtx
+
+    def grow(self, seed, size, forbidden=None):
+        """`size` samples in a connected structural region around sample `seed`.
+
+        Dijkstra out from the seed's vertex, gathering the samples on each settled
+        vertex (skipping `forbidden` ones) in order of increasing geodesic distance.
+        Returns fewer only when the reachable region runs out of eligible samples.
+        Mirrors `_Geodesic.grow`, but counts *samples* attached to each vertex.
+
+        For a disjoint partition (`forbidden` given), a vertex whose samples are
+        *all* forbidden acts as a wall - growth does not cross it - so each fragment
+        stays a connected region of still-unassigned samples. Empty vertices (which
+        carry no samples) always conduct, bridging the gaps in a sparse cloud.
+        """
+        indptr, indices, data, by_vtx = self.indptr, self.indices, self.data, self.by_vtx
+        settled = set()
+        got: list = []
+        heap = [(0.0, int(self.svtx[seed]))]
+        while heap and len(got) < size:
+            d, u = heapq.heappop(heap)
+            if u in settled:
+                continue
+            settled.add(u)
+            for s in by_vtx.get(u, ()):
+                if forbidden is None or not forbidden[s]:
+                    got.append(s)
+            for j in range(indptr[u], indptr[u + 1]):
+                v = int(indices[j])
+                if v in settled:
+                    continue
+                if forbidden is not None:
+                    sv = by_vtx.get(v)
+                    if sv is not None and all(forbidden[s] for s in sv):
+                        continue                    # fully-assigned vertex: a wall
+                heapq.heappush(heap, (d + float(data[j]), v))
+        return np.array(got[:size], dtype=np.int64)
+
+
+def _connected_cloud_backend(x, cloud):
+    """Backend that grows patches along `x`'s native topology over the resampled
+    `cloud`, locating each sample by its `source_id`. The neuron-type dispatch lives
+    here (mirroring `_geodesic_backend`/`_euclidean_backend`) so `_ConnectedCloud`
+    stays a purely numeric peer.
+    """
+    edges, weights, n, ids = _cluster_graph(x, "weight")
+    indptr, indices, data = _build_csr(edges, weights, n)
+    src = cloud["source_id"].to_numpy()
+    if isinstance(x, core.TreeNeuron):
+        # `source_id` is a node id; `ids` maps graph vertex -> node id.
+        svtx = pd.Index(ids).get_indexer(src).astype(np.int64)
+    else:
+        svtx = src.astype(np.int64)                  # mesh: `source_id` is the vertex
+    coords = cloud[["x", "y", "z"]].to_numpy(np.float64)
+    return _ConnectedCloud(indptr, indices, data, svtx, coords)
 
 
 def _geodesic_backend(x, weight):

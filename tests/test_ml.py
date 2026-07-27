@@ -634,3 +634,68 @@ def test_sample_patches_reproducible(skeleton):
 def test_sample_patches_bad_args_raise(call):
     with pytest.raises((TypeError, ValueError)):
         call()
+
+
+def _two_parallel_branches(gap=0.05, length=5.0, step=0.05):
+    """Two branches running parallel `gap` apart, joined only at the root: points on
+    the two branches are `gap` apart in space but far apart along the cable."""
+    xs = np.arange(step, length + 1e-9, step)
+    coords, parents = [(0.0, 0.0, 0.0)], [-1]           # root
+    for y in (0.0, gap):                                # two branches
+        for i, xv in enumerate(xs):
+            parents.append(0 if i == 0 else len(coords) - 1)
+            coords.append((float(xv), y, 0.0))
+    nodes = pd.DataFrame(np.array(coords), columns=["x", "y", "z"])
+    nodes["node_id"] = np.arange(len(coords))
+    nodes["parent_id"] = parents
+    return navis.TreeNeuron(nodes)
+
+
+def _mean_branch_mix(df):
+    """Mean over patches of how much each mixes the two branches (0 = pure)."""
+    frac = df.assign(B=(df.y > 0.025)).groupby("chunk_id")["B"].mean()
+    return float(np.minimum(frac, 1 - frac).mean())
+
+
+def test_sample_patches_connected_follows_topology():
+    """connected=True keeps patches on one branch; Euclidean balls mix both."""
+    n = _two_parallel_branches()
+    conn = sample_patches(n, n_points=20, spacing=0.05, connected=True,
+                          mode="spaced", random_state=0)
+    euc = sample_patches(n, n_points=20, spacing=0.05, connected=False,
+                         mode="spaced", random_state=0)
+    # connected patches follow the cable (only the junction patch can mix);
+    # Euclidean grabs the parallel branch 0.05 away everywhere -> ~half-and-half.
+    assert _mean_branch_mix(conn) < 0.15
+    assert _mean_branch_mix(euc) > 0.35
+
+
+def test_sample_patches_connected_partition_is_compact():
+    """connected=True keeps partition patches spatially compact; Euclidean scatters
+    far-flung stragglers as the unassigned points deplete."""
+    from scipy.spatial import cKDTree
+    m = navis.example_neurons(1, kind="mesh")
+
+    def worst_gap(d):                       # largest nearest-neighbour gap in any patch
+        w = 0.0
+        for _, g in d.groupby("chunk_id"):
+            c = g[["x", "y", "z"]].values
+            if len(c) > 1:
+                w = max(w, float(cKDTree(c).query(c, k=2)[0][:, 1].max()))
+        return w
+
+    kw = dict(n_points=500, spacing=500 / 8, mode="partition",
+              undersized="discard", random_state=0)
+    conn = sample_patches(m, connected=True, **kw)
+    euc = sample_patches(m, connected=False, **kw)
+    assert worst_gap(conn) < 0.5 * worst_gap(euc)
+
+
+def test_sample_patches_connected_default_and_mesh():
+    """connected=True is the default and works for meshes (sparser than the mesh)."""
+    m = navis.example_neurons(1, kind="mesh")
+    default = sample_patches(m, n_points=64, density=1e-5, mode="spaced", random_state=0)
+    explicit = sample_patches(m, n_points=64, density=1e-5, connected=True,
+                              mode="spaced", random_state=0)
+    assert default.equals(explicit)                       # connected is the default
+    assert default.groupby("chunk_id").size().unique().tolist() == [64]
