@@ -75,3 +75,15 @@ table thead th {
     flex-direction: column;
   }
 }
+
+/* --- Content tabs: a faint outline so it's clear which content belongs to a tab --- */
+.md-typeset .tabbed-set {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  padding: 0 0.8rem 0.4rem;
+}
+/* let the divider under the labels meet the outline on both sides */
+.md-typeset .tabbed-set > .tabbed-labels {
+  margin: 0 -0.8rem;
+  padding: 0 0.8rem;
+}
