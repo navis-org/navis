@@ -13,7 +13,7 @@
 
 """Functions for preparing neurons as inputs to machine-learning models."""
 
-from .chunk import chunk_neuron
+from .chunk import chunk_neuron, sample_patches
 from .normalize import normalize_neuron
 from .augment import (
     jitter_neuron,
@@ -24,15 +24,17 @@ from .augment import (
     drop_nodes,
     augment_neuron,
 )
-# `sample_points_uniform`, `sample_cable` and `sample_surface` are defined in
-# `navis.sampling` but exposed here (and NOT at the top level) so the ML-facing
-# helpers share one namespace (`navis.ml`). `sample_cable`/`sample_surface` are
-# the skeleton/mesh -> point-cloud adapters for feeding neurons to models.
-from ..sampling.utils import sample_points_uniform
+# `sample_points_uniform`, `estimate_spacing`, `sample_cable` and `sample_surface`
+# are defined in `navis.sampling` but exposed here (and NOT at the top level) so the
+# ML-facing helpers share one namespace (`navis.ml`). `sample_cable`/`sample_surface`
+# are the skeleton/mesh -> point-cloud adapters for feeding neurons to models;
+# `estimate_spacing` measures the density of a resulting cloud.
+from ..sampling.utils import sample_points_uniform, estimate_spacing
 from ..sampling.points import sample_cable, sample_surface
 
 __all__ = [
     "chunk_neuron",
+    "sample_patches",
     "normalize_neuron",
     "jitter_neuron",
     "rotate_neuron",
@@ -42,6 +44,7 @@ __all__ = [
     "drop_nodes",
     "augment_neuron",
     "sample_points_uniform",
+    "estimate_spacing",
     "sample_cable",
     "sample_surface",
 ]

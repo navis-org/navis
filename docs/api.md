@@ -488,9 +488,11 @@ fragments or turning them into feature-carrying point clouds.
 | [`navis.ml.warp_neuron()`][navis.ml.warp_neuron] | {{ autosummary("navis.ml.warp_neuron") }} |
 | [`navis.ml.drop_nodes()`][navis.ml.drop_nodes] | {{ autosummary("navis.ml.drop_nodes") }} |
 | [`navis.ml.chunk_neuron()`][navis.ml.chunk_neuron] | {{ autosummary("navis.ml.chunk_neuron") }} |
+| [`navis.ml.sample_patches()`][navis.ml.sample_patches] | {{ autosummary("navis.ml.sample_patches") }} |
 | [`navis.ml.sample_cable()`][navis.ml.sample_cable] | {{ autosummary("navis.ml.sample_cable") }} |
 | [`navis.ml.sample_surface()`][navis.ml.sample_surface] | {{ autosummary("navis.ml.sample_surface") }} |
 | [`navis.ml.sample_points_uniform()`][navis.ml.sample_points_uniform] | {{ autosummary("navis.ml.sample_points_uniform") }} |
+| [`navis.ml.estimate_spacing()`][navis.ml.estimate_spacing] | {{ autosummary("navis.ml.estimate_spacing") }} |
 
 ## Intersection
 

@@ -104,6 +104,61 @@ def sample_points_uniform(points, size, output="points", method="auto"):
     return points[mask].copy()
 
 
+def estimate_spacing(points, aggregate="median"):
+    """Estimate the characteristic point spacing of a cloud.
+
+    Measures, for every point, the distance to its nearest neighbour and returns a
+    single representative value. This is the empirical inverse of the `spacing` knob
+    in [`navis.ml.sample_surface`][]: for a roughly even *surface* sample the areal
+    density relates to the spacing by ``density ~ 1 / spacing**2``. Use it to audit
+    an existing cloud or to pick a `spacing`/`density` for a whole dataset.
+
+    Parameters
+    ----------
+    points :        (N, 3) array
+                    Point cloud to measure.
+    aggregate :     "median" | "mean" | "min", optional
+                    How to reduce the per-point nearest-neighbour distances.
+                    "median" (default) is robust to a few very close pairs.
+
+    Returns
+    -------
+    float
+                    The aggregated nearest-neighbour distance (the characteristic
+                    inter-point spacing).
+
+    See Also
+    --------
+    [`navis.ml.sample_surface`][]
+                    Sample a mesh at a target `spacing`/`density`; this is the
+                    inverse measurement.
+    [`navis.ml.sample_points_uniform`][]
+                    Subsample a cloud to a target size.
+
+    Examples
+    --------
+    >>> import navis
+    >>> import numpy as np
+    >>> pts = np.stack(np.meshgrid(np.arange(10), np.arange(10), 0), -1).reshape(-1, 3)
+    >>> float(navis.ml.estimate_spacing(pts.astype(float)))   # unit grid -> spacing 1
+    1.0
+
+    """
+    points = np.asarray(points, dtype=np.float64)
+    assert points.ndim == 2 and points.shape[1] == 3, "`points` must be an (N, 3) array."
+    assert aggregate in ("median", "mean", "min"), "invalid `aggregate`"
+    if len(points) < 2:
+        raise ValueError("Need at least 2 points to estimate spacing.")
+
+    tree = KDTree(points)
+    # k=2: column 0 is the point itself (distance 0), column 1 its nearest neighbour.
+    dd, _ = tree.query(points, k=2)
+    nn = np.asarray(dd)[:, 1]
+
+    # `aggregate` is asserted above to be one of median/mean/min - all np functions.
+    return float(getattr(np, aggregate)(nn))
+
+
 def _sample_fps(points, size):
     """Farthest-point sampling.
 

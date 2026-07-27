@@ -14,16 +14,18 @@
 import heapq
 
 import numpy as np
+import pandas as pd
 from scipy.sparse import csr_matrix
 from scipy.sparse import csgraph
 from scipy.spatial import cKDTree
 
 from .. import core, config
 from ..graph.graph_utils import _cluster_graph
+from ..sampling.points import sample_surface, sample_cable
 
 logger = config.get_logger(__name__)
 
-__all__ = ["chunk_neuron"]
+__all__ = ["chunk_neuron", "sample_patches"]
 
 
 def chunk_neuron(
@@ -151,26 +153,7 @@ def chunk_neuron(
     True
 
     """
-    if mode not in ("partition", "cover", "random", "spaced"):
-        raise ValueError(
-            f'`mode` must be "partition", "cover", "random" or "spaced", got {mode!r}'
-        )
-
-    if int(size) != size or size <= 0:
-        raise ValueError(f"`size` must be a positive integer, got {size!r}")
-    size = int(size)
-
-    if undersized not in ("pad", "keep", "discard"):
-        raise ValueError(
-            f'`undersized` must be "pad", "keep" or "discard", got {undersized!r}'
-        )
-
-    if sampling_factor <= 0:
-        raise ValueError(f"`sampling_factor` must be > 0, got {sampling_factor!r}")
-
-    if k is not None and int(k) <= 0:
-        raise ValueError(f"`k` must be a positive integer, got {k!r}")
-
+    size = _validate_tiling_args(mode, size, undersized, sampling_factor, k)
     if weight not in ("weight", None):
         raise ValueError(f'`weight` must be "weight" or None, got {weight!r}')
 
@@ -180,6 +163,44 @@ def chunk_neuron(
 
     backend = _geodesic_backend(x, weight) if connected else _euclidean_backend(x)
 
+    return _chunk_indices(
+        backend, n_nodes, size, mode, k, sampling_factor,
+        undersized, pad_value, random_state,
+    )
+
+
+def _validate_tiling_args(mode, size, undersized, sampling_factor, k, size_name="size"):
+    """Validate the tiling contract shared by `chunk_neuron` and `sample_patches`.
+
+    Returns `size` coerced to int. Each public caller validates only its own extra
+    arguments on top (`weight` for `chunk_neuron`; `density`/`spacing` for
+    `sample_patches`).
+    """
+    if mode not in ("partition", "cover", "random", "spaced"):
+        raise ValueError(
+            f'`mode` must be "partition", "cover", "random" or "spaced", got {mode!r}'
+        )
+    if int(size) != size or size <= 0:
+        raise ValueError(f"`{size_name}` must be a positive integer, got {size!r}")
+    if undersized not in ("pad", "keep", "discard"):
+        raise ValueError(
+            f'`undersized` must be "pad", "keep" or "discard", got {undersized!r}'
+        )
+    if sampling_factor <= 0:
+        raise ValueError(f"`sampling_factor` must be > 0, got {sampling_factor!r}")
+    if k is not None and int(k) <= 0:
+        raise ValueError(f"`k` must be a positive integer, got {k!r}")
+    return int(size)
+
+
+def _chunk_indices(backend, n_nodes, size, mode, k, sampling_factor,
+                   undersized, pad_value, random_state):
+    """Dispatch to the mode driver, returning a list of positional-index arrays.
+
+    Shared by `chunk_neuron` (neuron-backed: geodesic or Euclidean backend) and
+    `sample_patches` (cloud-backed: an `_Euclidean` over a resampled point cloud).
+    Assumes its arguments are already validated by the caller.
+    """
     if mode == "partition":
         return _partition(backend, n_nodes, size, undersized, pad_value)
     if mode == "cover":
@@ -187,6 +208,205 @@ def chunk_neuron(
     count = _num_fragments(k, sampling_factor, n_nodes, size)
     driver = _random if mode == "random" else _spaced
     return driver(backend, n_nodes, size, count, undersized, pad_value, random_state)
+
+
+def sample_patches(
+    x,
+    *,
+    n_points,
+    density=None,
+    spacing=None,
+    mode="spaced",
+    k=None,
+    sampling_factor=1,
+    undersized="keep",
+    pad_value=-1,
+    interpolate=None,
+    weights=None,
+    surface_mode="even",
+    attributes=None,
+    random_state=None,
+):
+    """Resample a neuron at a target density, then tile it into fixed-size patches.
+
+    This is the one primitive that fixes **both** a per-patch point count *and* a
+    physical resolution - the combination [`navis.ml.chunk_neuron`][] cannot give
+    you. `chunk_neuron` indexes the neuron's *existing* nodes/vertices, so a patch's
+    density is whatever the reconstruction happened to have; and count-and-density
+    are over-constrained on a fixed point set anyway. `sample_patches` instead
+    **resamples** the neuron to a uniform cloud at the requested `density`/`spacing`
+    (via [`navis.ml.sample_surface`][] for meshes, [`navis.ml.sample_cable`][] for
+    skeletons) and then groups that cloud into spatial patches of `n_points` each.
+
+    Because the cloud is uniform, `n_points` + `density` pin each patch's physical
+    extent (radius ``~ sqrt(n_points / (pi * density))`` on a surface), and that
+    extent is the same across patches and across neurons - the scale-consistency a
+    ball/k-NN point model wants. Patches are grown in **Euclidean** space (spatial
+    balls); there is no geodesic option, since the resampled cloud carries no graph.
+
+    Parameters
+    ----------
+    x :                 TreeNeuron | MeshNeuron
+    n_points :          int
+                        Points per patch (fixed count). Keyword-only.
+    density :           float, optional
+                        Resample resolution: points per unit area (mesh) / length
+                        (skeleton). Exactly one of `density`/`spacing` is required.
+    spacing :           float, optional
+                        Resample resolution as an inter-point distance instead.
+    mode :              "spaced" | "partition" | "cover" | "random"
+                        How patches tile the cloud (see [`navis.ml.chunk_neuron`][]).
+                        "spaced" (default) places evenly-spread, possibly-overlapping
+                        patches; "partition" is non-overlapping; "cover" overlaps to
+                        cover every point; "random" seeds at random.
+    k :                 int, optional
+                        For "random"/"spaced": exact number of patches (overrides
+                        `sampling_factor`).
+    sampling_factor :   float
+                        For "random"/"spaced": how many times over to sample the
+                        cloud (patch count ``~ ceil(sampling_factor * N / n_points)``).
+    undersized :        "keep" | "pad" | "discard"
+                        What to do with a patch that can't reach `n_points` (only the
+                        cloud being smaller than `n_points`, or the "partition"
+                        remainder). "keep" (default) leaves it short - natural in this
+                        long/tidy output; "pad" appends filler rows (coords/attrs
+                        ``NaN``, ``source_id`` = `pad_value`) so every patch has
+                        `n_points` rows; "discard" drops it.
+    pad_value :         int
+                        `source_id` marker for padded rows when ``undersized="pad"``.
+    interpolate :       None | True | str | list of str
+                        Skeletons only: node columns to interpolate/carry onto each
+                        sample (see [`navis.ml.sample_cable`][]).
+    weights :           None | str | array-like
+                        Skeletons only: per-node sampling weights (see
+                        [`navis.ml.sample_cable`][]). Redistributes points; the count
+                        still comes from `density`/`spacing`.
+    surface_mode :      "even" | "surface"
+                        Meshes only: the surface sampling mode (see
+                        [`navis.ml.sample_surface`][]). `spacing` needs "even".
+    attributes :        dict | pandas.DataFrame, optional
+                        Meshes only: per-vertex values to transfer onto samples.
+    random_state :      int | np.random.Generator, optional
+                        Seeds both the resampling jitter and the patch seeding
+                        (split internally so they stay independent). Omit for a fresh
+                        tiling each call.
+
+    Returns
+    -------
+    pandas.DataFrame
+                        Long/tidy form: the resampled cloud's columns (``x``, ``y``,
+                        ``z``, any transferred/interpolated columns, ``source_id``)
+                        plus a ``chunk_id`` column giving each row's patch. Overlapping
+                        patches (cover/random/spaced) **duplicate** a point's row once
+                        per patch it belongs to, so ``groupby("chunk_id")`` yields the
+                        patches. Points in no patch are simply absent.
+
+    See Also
+    --------
+    [`navis.ml.chunk_neuron`][]
+                        Tile a neuron's *existing* nodes/vertices into fixed-count
+                        fragments (no resampling, no density control).
+    [`navis.ml.sample_surface`][] / [`navis.ml.sample_cable`][]
+                        The whole-neuron resamplers this builds on.
+
+    Examples
+    --------
+    >>> import navis
+    >>> m = navis.example_neurons(1, kind="mesh")
+    >>> patches = navis.ml.sample_patches(m, n_points=64, density=1e-5, random_state=0)
+    >>> "chunk_id" in patches.columns
+    True
+    >>> patches.groupby("chunk_id").size().unique().tolist()   # every patch full-size
+    [64]
+    >>> # stack a fixed-size batch tensor from the groups:
+    >>> import numpy as np
+    >>> batch = np.stack([g[["x", "y", "z"]].values
+    ...                   for _, g in patches.groupby("chunk_id")])
+    >>> batch.shape[1:]
+    (64, 3)
+
+    """
+    n_points = _validate_tiling_args(mode, n_points, undersized, sampling_factor, k,
+                                     size_name="n_points")
+    if (density is None) == (spacing is None):
+        raise ValueError(
+            "Provide exactly one of `density` or `spacing` to set the resample "
+            "resolution (they are mutually exclusive)."
+        )
+
+    # Split the RNG so the resampling jitter and the patch seeding are independent
+    # yet jointly reproducible. `None` stays `None` so each step keeps its own
+    # "fresh each call" / deterministic-tiling default (see `sample_*`/`_spaced`).
+    if random_state is None:
+        rs_sample = rs_chunk = None
+    else:
+        rs_sample, rs_chunk = np.random.default_rng(random_state).spawn(2)
+
+    if isinstance(x, core.MeshNeuron):
+        cloud = sample_surface(
+            x, density=density, spacing=spacing, mode=surface_mode,
+            attributes=attributes, random_state=rs_sample,
+        )
+    elif isinstance(x, core.TreeNeuron):
+        cloud = sample_cable(
+            x, density=density, spacing=spacing, interpolate=interpolate,
+            weights=weights, random_state=rs_sample,
+        )
+    else:
+        raise TypeError(
+            f"sample_patches requires a TreeNeuron or MeshNeuron, got {type(x)}."
+        )
+
+    coords = cloud[["x", "y", "z"]].to_numpy(dtype=float)
+    if len(coords) == 0:
+        cloud["chunk_id"] = np.zeros(0, dtype=np.int64)
+        return cloud
+
+    backend = _Euclidean(coords)
+    chunks = _chunk_indices(
+        backend, len(coords), n_points, mode, k, sampling_factor,
+        undersized, pad_value, rs_chunk,
+    )
+    return _patch_frame(cloud, chunks, pad_value)
+
+
+def _patch_frame(cloud, chunks, pad_value):
+    """Assemble the long-form patch DataFrame: the cloud's columns + `chunk_id`.
+
+    One row per (point, patch) membership - overlapping patches duplicate a point's
+    row under each `chunk_id`. Padded slots (present only when ``undersized="pad"``,
+    encoded as negative indices) become filler rows: coords/attrs ``NaN``,
+    `source_id` = `pad_value`.
+    """
+    frames = []
+    for cid, idx in enumerate(chunks):
+        idx = np.asarray(idx)
+        # `cloud.iloc[array]` already returns a fresh frame, so the column assign
+        # below is safe (copy-on-write) without an extra `.copy()`.
+        sub = cloud.iloc[idx[idx >= 0]]
+        n_pad = int((idx < 0).sum())
+        if n_pad:
+            sub = pd.concat([sub, _pad_rows(cloud, n_pad, pad_value)], ignore_index=True)
+        sub["chunk_id"] = cid
+        frames.append(sub)
+
+    if not frames:
+        out = cloud.iloc[:0].copy()
+        out["chunk_id"] = np.zeros(0, dtype=np.int64)
+        return out
+    return pd.concat(frames, ignore_index=True)
+
+
+def _pad_rows(cloud, n, pad_value):
+    """`n` filler rows matching `cloud`'s columns: NaN everywhere except
+    `source_id`, set to `pad_value` so padded rows are identifiable."""
+    out = {}
+    for c in cloud.columns:
+        if c == "source_id":
+            out[c] = np.full(n, pad_value, dtype=np.int64)
+        else:
+            out[c] = np.full(n, np.nan)
+    return pd.DataFrame(out)
 
 
 # --------------------------------------------------------------------------- #

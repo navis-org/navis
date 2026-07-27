@@ -551,3 +551,86 @@ def test_chunk_mesh_indices_address_vertices():
 def test_chunk_bad_mode_raises(skeleton):
     with pytest.raises(ValueError):
         chunk_neuron(skeleton, size=50, mode="nope")
+
+
+# =========================================================================== #
+# sample_patches (resample at a density, then tile into fixed-size patches)
+# =========================================================================== #
+from navis.ml import sample_patches
+
+
+# density is points-per-area (mesh) vs points-per-length (skeleton) - different scales
+@pytest.mark.parametrize("kind,density", [("mesh", 1e-5), ("skeleton", 1e-2)])
+def test_sample_patches_returns_long_frame_with_chunk_id(kind, density):
+    n = navis.example_neurons(1, kind=kind)
+    df = sample_patches(n, n_points=64, density=density, mode="spaced", random_state=0)
+    assert isinstance(df, pd.DataFrame)
+    assert "chunk_id" in df.columns and {"x", "y", "z", "source_id"}.issubset(df.columns)
+    # spaced patches are full-size (grow returns the n_points nearest points)
+    assert df.groupby("chunk_id").size().unique().tolist() == [64]
+
+
+def test_sample_patches_density_fixes_physical_patch_extent():
+    """n_points + density pin each patch's radius; it's ~constant across patches."""
+    m = navis.example_neurons(1, kind="mesh")
+    df = sample_patches(m, n_points=64, density=1e-5, mode="spaced", random_state=0)
+    radii = []
+    for _, g in df.groupby("chunk_id"):
+        c = g[["x", "y", "z"]].values
+        radii.append(np.linalg.norm(c - c.mean(0), axis=1).max())
+    radii = np.array(radii)
+    # coefficient of variation is small -> the resampled cloud is uniform-density
+    assert radii.std() / radii.mean() < 0.5
+
+
+def test_sample_patches_spacing_and_attribute_passthrough():
+    # `spacing` (mesh even mode) and per-vertex attribute transfer both flow through
+    m = navis.example_neurons(1, kind="mesh")
+    lab = np.arange(len(m.vertices)) % 3
+    df = sample_patches(m, n_points=32, spacing=400, attributes={"label": lab},
+                        mode="partition", random_state=0)
+    assert "label" in df.columns
+    assert set(np.unique(df.label.dropna())).issubset({0, 1, 2})
+
+
+def test_sample_patches_cover_overlap_duplicates_rows():
+    """Overlapping patches duplicate a point's row once per chunk it lands in."""
+    m = navis.example_neurons(1, kind="mesh")
+    df = sample_patches(m, n_points=64, density=1e-5, mode="cover", random_state=0)
+    # cover reuses points across patches -> total rows exceed the unique cloud points
+    assert len(df) > df.source_id.nunique()
+
+
+def test_sample_patches_pad_gives_uniform_groups(skeleton):
+    df = sample_patches(skeleton, n_points=64, density=1e-4, mode="partition",
+                        undersized="pad", random_state=0)
+    # every patch has exactly n_points rows; pad rows carry source_id == -1
+    assert df.groupby("chunk_id").size().unique().tolist() == [64]
+    assert (df.source_id == -1).any()
+    # pad rows have NaN coordinates
+    assert df.loc[df.source_id == -1, "x"].isna().all()
+
+
+def test_sample_patches_reproducible(skeleton):
+    a = sample_patches(skeleton, n_points=50, density=1e-4, random_state=7)
+    b = sample_patches(skeleton, n_points=50, density=1e-4, random_state=7)
+    assert a.equals(b)
+
+
+@pytest.mark.parametrize("call", [
+    # neither density nor spacing / both given
+    lambda: sample_patches(navis.example_neurons(1, kind="mesh"), n_points=64),
+    lambda: sample_patches(navis.example_neurons(1, kind="mesh"), n_points=64,
+                           density=1e-5, spacing=400),
+    # n_points positional (keyword-only) / non-positive
+    lambda: sample_patches(navis.example_neurons(1, kind="mesh"), 64, density=1e-5),
+    lambda: sample_patches(navis.example_neurons(1, kind="mesh"), n_points=0, density=1e-5),
+    # bad mode / unsupported type
+    lambda: sample_patches(navis.example_neurons(1, kind="mesh"), n_points=64,
+                           density=1e-5, mode="nope"),
+    lambda: sample_patches(navis.make_dotprops(navis.example_neurons(1, kind="skeleton"), k=5),
+                           n_points=64, density=1e-5),
+])
+def test_sample_patches_bad_args_raise(call):
+    with pytest.raises((TypeError, ValueError)):
+        call()
