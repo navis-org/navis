@@ -257,10 +257,26 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
 
         x.connectors["vertex_id"] = x.connectors.vertex_id.map(new_ix)
 
+    # Extra edges are vertex indices and have to be remapped by hand. Note we
+    # drop them *before* touching the vertices: the `.vertices` setter would
+    # otherwise (rightly) warn about dropping them itself.
+    extra_edges = x.extra_edges
+    n_old = len(x.vertices)
+    x._extra_edges = None
+
     if len(subset):
-        x.vertices, x.faces = submesh(x, vertex_index=subset)
+        x.vertices, x.faces, kept = submesh(x, vertex_index=subset, return_map=True)
     else:
         x.vertices, x.faces = np.empty((0, 3)), np.empty((0, 3))
+        kept = np.array([], dtype=int)
+
+    if len(extra_edges):
+        # Keep only edges where *both* vertices survived, then translate the
+        # old indices into the new ones
+        old2new = np.full(n_old, -1, dtype=np.int64)
+        old2new[kept] = np.arange(len(kept))
+        remapped = old2new[extra_edges]
+        x.extra_edges = remapped[(remapped >= 0).all(axis=1)]
 
     return x
 
@@ -354,7 +370,7 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
     return x
 
 
-def submesh(mesh, *, faces_index=None, vertex_index=None):
+def submesh(mesh, *, faces_index=None, vertex_index=None, return_map=False):
     """Re-imlementation of trimesh.submesh that is faster for our use case.
 
     Notably we:
@@ -377,6 +393,9 @@ def submesh(mesh, *, faces_index=None, vertex_index=None):
                     Indices of faces to keep.
     vertex_index :  array-like
                     Indices of vertices to keep.
+    return_map :    bool
+                    If True, also return the indices of the original vertices
+                    that survived, in the order they appear in the new mesh.
 
     Returns
     -------
@@ -384,6 +403,9 @@ def submesh(mesh, *, faces_index=None, vertex_index=None):
                 Vertices of submesh.
     faces :     np.ndarray
                 Faces of submesh.
+    kept :      np.ndarray
+                Only if `return_map=True`: index into the *original* vertices
+                for each vertex of the submesh.
 
     """
     if faces_index is None and vertex_index is None:
@@ -391,19 +413,26 @@ def submesh(mesh, *, faces_index=None, vertex_index=None):
     elif faces_index is not None and vertex_index is not None:
         raise ValueError("Only one of `faces_index` or `vertex_index` can be provided.")
 
+    def _return(vertices, faces, kept=None):
+        if not return_map:
+            return vertices, faces
+        if kept is None:
+            kept = np.arange(len(vertices))
+        return vertices, faces, kept
+
     # First check if we can return either an empty mesh or the original mesh right away
     if faces_index is not None:
         if len(faces_index) == 0:
-            return np.array([]), np.array([])
+            return _return(np.array([]), np.array([]), np.array([], dtype=int))
         elif len(faces_index) == len(mesh.faces):
             if len(np.unique(faces_index)) == len(mesh.faces):
-                return mesh.vertices.copy(), mesh.faces.copy()
+                return _return(mesh.vertices.copy(), mesh.faces.copy())
     else:
         if len(vertex_index) == 0:
-            return np.array([]), np.array([])
+            return _return(np.array([]), np.array([]), np.array([], dtype=int))
         elif len(vertex_index) == len(mesh.vertices):
             if len(np.unique(vertex_index)) == len(mesh.vertices):
-                return mesh.vertices.copy(), mesh.faces.copy()
+                return _return(mesh.vertices.copy(), mesh.faces.copy())
 
     # Use a view of the original data
     original_faces = mesh.faces.view(np.ndarray)
@@ -434,4 +463,4 @@ def submesh(mesh, *, faces_index=None, vertex_index=None):
     # (making a copy to allow `mask` to be garbage collected)
     faces = mask[faces].copy()
 
-    return vertices, faces
+    return _return(vertices, faces, unique)

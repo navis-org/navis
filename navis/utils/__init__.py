@@ -17,6 +17,7 @@ from .misc import (is_jupyter, set_loggers, set_pbars, unpack_neurons,
                    is_url, make_url, make_volume, sizeof_fmt,
                    round_smart, is_blender, check_vispy, mesh_unique_edges,
                    check_grid_size)
+from .subclasses import TrimeshPlus, validate_extra_edges
 from .validate import validate_options, validate_table
 from .eval import (eval_node_ids, eval_neurons, eval_id, eval_conditions,
                    is_mesh, is_numeric, eval_param)

@@ -519,7 +519,7 @@ def check_vispy():
     return nl.plot3d(backend="vispy")
 
 
-def mesh_unique_edges(x, return_lengths=False):
+def mesh_unique_edges(x, return_lengths=False, extra_edges=True):
     """Return unique edges of a mesh as (N, 2) numpy array.
 
     Will use fastcore if available.
@@ -530,6 +530,11 @@ def mesh_unique_edges(x, return_lengths=False):
                 A mesh to get unique edges from.
     return_lengths : bool
                 If True, will also return the lengths of the edges.
+    extra_edges : bool
+                Whether to include any edges that are not part of the faces
+                (see `MeshNeuron.extra_edges`). These come last in the returned
+                array. Set to False if you are after the mesh *surface* rather
+                than its connectivity.
 
     Returns
     -------
@@ -576,6 +581,19 @@ def mesh_unique_edges(x, return_lengths=False):
         edges = mesh.edges_unique
         if return_lengths:
             lengths = mesh.edges_unique_length
+
+    # Note this happens *after* the cache was seeded above: trimesh's
+    # `edges_unique` must stay faces-only or its own machinery breaks
+    if extra_edges:
+        extra = getattr(x, "extra_edges", None)
+        if extra is not None and len(extra):
+            edges = np.vstack((edges, extra))
+            if return_lengths:
+                verts = np.asarray(mesh.vertices)
+                extra_len = np.linalg.norm(
+                    verts[extra[:, 0]] - verts[extra[:, 1]], axis=1
+                )
+                lengths = np.concatenate((lengths, extra_len))
 
     if return_lengths:
         return edges, lengths

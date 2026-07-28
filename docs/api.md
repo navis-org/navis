@@ -167,6 +167,7 @@ Properties specific to [`navis.MeshNeuron`][]:
 |------|------|
 | [`MeshNeuron.faces`][navis.MeshNeuron.faces] | {{ autosummary("navis.MeshNeuron.faces") }} |
 | [`MeshNeuron.vertices`][navis.MeshNeuron.vertices] | {{ autosummary("navis.MeshNeuron.vertices") }} |
+| [`MeshNeuron.extra_edges`][navis.MeshNeuron.extra_edges] | {{ autosummary("navis.MeshNeuron.extra_edges") }} |
 | [`MeshNeuron.trimesh`][navis.MeshNeuron.trimesh] | {{ autosummary("navis.MeshNeuron.trimesh") }} |
 | [`MeshNeuron.volume`][navis.MeshNeuron.volume] | {{ autosummary("navis.MeshNeuron.volume") }} |
 | [`MeshNeuron.sampling_resolution`][navis.MeshNeuron.sampling_resolution] | {{ autosummary("navis.MeshNeuron.sampling_resolution") }} |
@@ -386,6 +387,7 @@ Functions to edit morphology:
 | [`navis.cut_skeleton()`][navis.cut_skeleton] | {{ autosummary("navis.cut_skeleton") }} |
 | [`navis.guess_radius()`][navis.guess_radius] | {{ autosummary("navis.guess_radius") }} |
 | [`navis.heal_skeleton()`][navis.heal_skeleton] | {{ autosummary("navis.heal_skeleton") }} |
+| [`navis.heal_mesh()`][navis.heal_mesh] | {{ autosummary("navis.heal_mesh") }} |
 | [`navis.longest_neurite()`][navis.longest_neurite] | {{ autosummary("navis.longest_neurite") }} |
 | [`navis.prune_by_strahler()`][navis.prune_by_strahler] | {{ autosummary("navis.prune_by_strahler") }} |
 | [`navis.prune_twigs()`][navis.prune_twigs] | {{ autosummary("navis.prune_twigs") }} |

@@ -21,6 +21,7 @@ from .manipulation import (prune_by_strahler, stitch_skeletons,
                            heal_skeleton, break_fragments,
                            prune_twigs, prune_at_depth, cell_body_fiber,
                            drop_fluff, combine_neurons)
+from .heal import heal_mesh
 from .analyze import find_soma, find_soma_mesh, SomaEllipsoid
 from .angles import (branch_angles, path_angles, root_angles, soma_exit_angles)
 from .subset import subset_neuron
@@ -35,7 +36,7 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_ce
            'segregation_index', 'arbor_segregation_index', 'tortuosity',
            'prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite', 'split_axon_dendrite_prop',
            'average_skeletons', 'despike_skeleton', 'guess_radius', 'smooth_skeleton',
-           'heal_skeleton', 'break_fragments', 'prune_twigs',
+           'heal_skeleton', 'heal_mesh', 'break_fragments', 'prune_twigs',
            'find_soma', 'find_soma_mesh', 'SomaEllipsoid',
            'prune_at_depth', 'cell_body_fiber', 'drop_fluff',
            'subset_neuron', 'smooth_voxels', 'sholl_analysis',

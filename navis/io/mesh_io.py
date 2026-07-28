@@ -326,6 +326,14 @@ def _write_mesh(
     else:
         raise TypeError(f'Unable to write data of type "{type(x)}"')
 
+    if len(getattr(mesh, "extra_edges", ())):
+        # None of the mesh formats trimesh can write has a place for edges that
+        # aren't part of a face
+        logger.warning(
+            f"Mesh has {len(mesh.extra_edges)} extra edges which will be lost "
+            "on export. Use e.g. pickle if you need to preserve them."
+        )
+
     # Write to disk (will only return content if filename is None)
     content = mesh.export(filepath)
 

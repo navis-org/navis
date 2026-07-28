@@ -28,6 +28,7 @@ import trimesh as tm
 from typing import Union, Optional
 
 from .. import utils, config, meshes, conversion, graph
+from ..utils.subclasses import TrimeshPlus, validate_extra_edges
 from .base import BaseNeuron
 from .neuronlist import NeuronList
 from .skeleton import TreeNeuron
@@ -93,13 +94,13 @@ class MeshNeuron(BaseNeuron):
     SUMMARY_PROPS = ['type', 'name', 'units', 'n_vertices', 'n_faces']
 
     #: Attributes to be used when comparing two neurons.
-    EQ_ATTRIBUTES = ['name', 'n_vertices', 'n_faces']
+    EQ_ATTRIBUTES = ['name', 'n_vertices', 'n_faces', 'n_extra_edges']
 
     #: Temporary attributes that need clearing when neuron data changes
     TEMP_ATTR = ['_memory_usage', '_trimesh', '_skeleton', '_igraph', '_graph_nx']
 
     #: Core data table(s) used to calculate hash
-    CORE_DATA = ['vertices', 'faces']
+    CORE_DATA = ['vertices', 'faces', 'extra_edges']
 
     def __init__(self,
                  x,
@@ -120,6 +121,9 @@ class MeshNeuron(BaseNeuron):
             self.vertices, self.faces = x.vertices, x.faces
         elif hasattr(x, 'faces') and hasattr(x, 'vertices'):
             self.vertices, self.faces = x.vertices, x.faces
+            # Pick up extra edges from e.g. a TrimeshPlus
+            if len(getattr(x, 'extra_edges', ())):
+                self.extra_edges = x.extra_edges
         elif isinstance(x, dict):
             if 'faces' not in x or 'vertices' not in x:
                 raise ValueError('Dictionary must contain "vertices" and "faces"')
@@ -291,6 +295,21 @@ class MeshNeuron(BaseNeuron):
             raise TypeError(f'Vertices must be numpy array, got "{type(verts)}"')
         if verts.ndim != 2:
             raise ValueError('Vertices must be 2-dimensional array')
+
+        # Extra edges are vertex *indices* and hence only meaningful for a given
+        # set of vertices. We can't tell whether vertices moved but a change in
+        # their number is a reliable sign that they did (e.g. after merging
+        # duplicates or subsetting) - so we drop the edges instead of silently
+        # rewiring the neuron. Callers that know better (e.g. `subset_neuron`)
+        # re-set them explicitly.
+        old = getattr(self, '_vertices', None)
+        if old is not None and len(old) != len(verts) and self.n_extra_edges:
+            logger.warning(
+                f'Number of vertices changed ({len(old)} -> {len(verts)}): '
+                f'dropping this neuron\'s {self.n_extra_edges} extra edges.'
+            )
+            self.extra_edges = None
+
         self._vertices = verts
         self._clear_temp_attr()
 
@@ -307,6 +326,41 @@ class MeshNeuron(BaseNeuron):
             raise ValueError('Faces must be 2-dimensional array')
         self._faces = faces
         self._clear_temp_attr()
+
+    @property
+    def extra_edges(self):
+        """Edges that are not part of any face.
+
+        These express connectivity the surface itself does not have - e.g.
+        bridges between disconnected fragments. Always a `(M, 2)` array of
+        vertex indices; empty if there are none.
+
+        Note that extra edges are dropped whenever the number of vertices
+        changes (see `.vertices`).
+
+        """
+        edges = getattr(self, '_extra_edges', None)
+        if edges is None:
+            return np.zeros((0, 2), dtype=np.int64)
+        return edges
+
+    @extra_edges.setter
+    def extra_edges(self, edges):
+        self._extra_edges = validate_extra_edges(edges, n_vertices=len(self.vertices))
+
+        # Only clutter the summary if there actually are extra edges
+        if len(self._extra_edges):
+            if 'n_extra_edges' not in self.SUMMARY_PROPS:
+                self.SUMMARY_PROPS.append('n_extra_edges')
+        elif 'n_extra_edges' in self.SUMMARY_PROPS:
+            self.SUMMARY_PROPS.remove('n_extra_edges')
+
+        self._clear_temp_attr()
+
+    @property
+    def n_extra_edges(self) -> int:
+        """Number of edges that are not part of any face."""
+        return len(self.extra_edges)
 
     @property
     @temp_property
@@ -331,7 +385,13 @@ class MeshNeuron(BaseNeuron):
     @property
     def sampling_resolution(self) -> float:
         """Average distance between vertices."""
-        return float(utils.mesh_unique_edges(self.trimesh, return_lengths=True)[1].mean())
+        # N.B. `extra_edges=False`: this describes how finely the *surface* is
+        # sampled, and bridges are typically far longer than any face edge
+        return float(
+            utils.mesh_unique_edges(
+                self.trimesh, return_lengths=True, extra_edges=False
+            )[1].mean()
+        )
 
     @property
     @add_units(compact=True, power=3)
@@ -401,11 +461,18 @@ class MeshNeuron(BaseNeuron):
     @property
     @temp_property
     def trimesh(self):
-        """Trimesh representation of the neuron."""
+        """Trimesh representation of the neuron.
+
+        Note that this is a `navis.utils.TrimeshPlus` - a `trimesh.Trimesh`
+        that also carries this neuron's `.extra_edges`.
+
+        """
         if not getattr(self, '_trimesh', None):
-            self._trimesh = tm.Trimesh(vertices=self._vertices,
-                                       faces=self._faces,
-                                       process=False)
+            self._trimesh = TrimeshPlus(vertices=self._vertices,
+                                        faces=self._faces,
+                                        process=False)
+            if self.n_extra_edges:
+                self._trimesh._extra_edges = self.extra_edges
         return self._trimesh
 
     def copy(self) -> 'MeshNeuron':

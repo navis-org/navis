@@ -435,7 +435,9 @@ def test_stitch_edges_handles_noncontiguous_labels():
     to_use = frag.nodes[keep.values]
     labels = labels[keep.values]
 
-    edges = _stitch_edges(to_use, labels, ["x", "y", "z"], np.inf)
+    edges = _stitch_edges(
+        to_use[["x", "y", "z"]].values, to_use.node_id.values, labels, np.inf
+    )
 
     assert len(edges) == labels.nunique() - 1
     # Every bridge must connect two *different* fragments

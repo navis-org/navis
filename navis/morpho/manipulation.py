@@ -1362,6 +1362,14 @@ def combine_neurons(
         x._vertices = comb.vertices
         x._faces = comb.faces
 
+        # `concatenate` simply stacks the vertices, so each neuron's extra edges
+        # only need shifting by the number of vertices that came before it
+        if any(n.n_extra_edges for n in nl):
+            offsets = np.concatenate([[0], np.cumsum([n.n_vertices for n in nl])[:-1]])
+            x.extra_edges = np.vstack(
+                [n.extra_edges + off for n, off in zip(nl, offsets)]
+            )
+
         if any(nl.has_connectors):
             x._connectors = pd.concat(
                 [n.connectors for n in nl],  # type: ignore  # no stubs for concat
@@ -2175,14 +2183,13 @@ def heal_skeleton(
 
     Returns
     -------
-    None
-                If `inplace=True`.
-    CatmaidNeuron/List
-                If `inplace=False`.
+    TreeNeuron/List
 
 
     See Also
     --------
+    [`navis.heal_mesh`][]
+                The equivalent for meshes.
     [`navis.stitch_skeletons`][]
                 Use to stitch multiple skeletons together.
     [`navis.break_fragments`][]
@@ -2210,7 +2217,10 @@ def heal_skeleton(
 
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
+        msg = f'Expected TreeNeuron(s), got "{type(x)}"'
+        if isinstance(x, core.MeshNeuron):
+            msg += ". Use `navis.heal_mesh` to heal fragmented meshes."
+        raise TypeError(msg)
 
     if not isinstance(max_dist, type(None)):
         max_dist = x.map_units(max_dist, on_error="raise")
@@ -2364,7 +2374,13 @@ def _stitch_mst(
         cols_to_use.append("radius_seg")
 
     # Find the bridges that connect the fragments with minimal added cable
-    to_add = _stitch_edges(to_use, cc, cols_to_use, max_dist, progress=progress)
+    to_add = _stitch_edges(
+        to_use[cols_to_use].values,
+        to_use.node_id.values,
+        cc,
+        max_dist,
+        progress=progress,
+    )
 
     # Rewire the neuron: add the bridges to the existing edges and re-root
     return _rewire_from_edges(x, to_add, inplace=inplace)
@@ -2732,13 +2748,13 @@ def _resolve_by_exclusion(
 
 
 def _stitch_edges(
-    to_use: pd.DataFrame,
+    coords: np.ndarray,
+    ids: np.ndarray,
     cc: np.ndarray,
-    cols_to_use: List[str],
     max_dist: float,
     progress: bool = False,
-) -> List[List[int]]:
-    """Find the minimal-length set of edges connecting a neuron's fragments.
+) -> np.ndarray:
+    """Find the minimal-length set of edges connecting a labelled point set.
 
     This is Borůvka's algorithm over the fragments: in each round every
     (super-)component contributes its single cheapest outgoing edge, those edges
@@ -2759,16 +2775,23 @@ def _stitch_edges(
     result exact while confining the deep-inside nodes - which would otherwise
     have to search across their entire fragment - to a small ball.
 
+    Note this works purely in coordinate space and is therefore agnostic to what
+    the points actually are: skeleton nodes for [`_stitch_mst`][], mesh vertices
+    for [`navis.heal_mesh`][].
+
     Parameters
     ----------
-    to_use :        DataFrame
-                    Node table of the candidate nodes.
+    coords :        (N, D) array
+                    Coordinates of the candidate points. `D` can be more than
+                    three - any extra dimensions simply participate in the
+                    distance metric. `heal_skeleton`'s `use_radius` uses this to
+                    bias stitching towards fragments of similar calibre.
+    ids :           (N, ) array
+                    ID for each candidate point - this is what the returned
+                    edges are made of. For meshes these are vertex indices.
     cc :            (N, ) array
-                    Component label for each node in `to_use` (positionally
+                    Component label for each candidate point (positionally
                     aligned). Labels need not be contiguous.
-    cols_to_use :   list of str
-                    Columns of `to_use` to use as coordinates. Note that this can
-                    be more than three (see the `use_radius` option).
     max_dist :      float
                     Maximum length for any single new edge.
     progress :      bool
@@ -2777,14 +2800,14 @@ def _stitch_edges(
 
     Returns
     -------
-    list
-                    List of `[node_a, node_b]` node ID pairs to connect. At most
-                    `(#fragments - 1)` long; fewer if `max_dist` prevented some
-                    fragments from being connected.
+    (M, 2) array
+                    Pairs of IDs to connect. At most `(#fragments - 1)` long;
+                    fewer if `max_dist` prevented some fragments from being
+                    connected.
 
     """
-    coords = np.ascontiguousarray(to_use[cols_to_use].values, dtype=np.float64)
-    node_ids = to_use.node_id.values
+    coords = np.ascontiguousarray(coords, dtype=np.float64)
+    node_ids = np.asarray(ids)
     n = len(node_ids)
 
     # Compress the (potentially non-contiguous) component labels to 0..F-1 so we
@@ -2793,7 +2816,7 @@ def _stitch_edges(
     n_frags = int(frag_ix.max()) + 1 if n else 0
 
     if n_frags < 2:
-        return []
+        return np.zeros((0, 2), dtype=node_ids.dtype)
 
     tree = KDTree(coords)
 
@@ -2920,7 +2943,7 @@ def _stitch_edges(
 
     pbar.close()
 
-    return edges
+    return np.asarray(edges, dtype=node_ids.dtype).reshape(-1, 2)
 
 
 @utils.map_neuronlist(desc="Pruning", must_zip=["source"], allow_parallel=True)

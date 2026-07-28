@@ -26,7 +26,7 @@ from typing_extensions import Literal
 from typing import Union, Optional, List, Tuple, Sequence, Dict, Set, overload, Iterable
 
 from scipy.special import softmax
-from scipy.sparse import csgraph, csr_matrix, diags
+from scipy.sparse import csgraph, coo_matrix, csr_matrix, diags
 
 from .. import graph, utils, config, core, morpho
 
@@ -191,6 +191,110 @@ def _group_by_label(labels: np.ndarray) -> List[np.ndarray]:
     return [order[start : start + count] for start, count in zip(start_idx, counts)]
 
 
+def _merge_labels(labels: np.ndarray, edges: Optional[np.ndarray]) -> np.ndarray:
+    """Merge component labels that `edges` connect.
+
+    Used to fold a mesh's extra (non-face) edges into a component labelling that
+    was derived from the faces alone. We contract each component into a single
+    node first, so the graph we actually run this on has one node per component
+    (typically a handful) rather than one per vertex.
+
+    Parameters
+    ----------
+    labels :    (N, ) array
+                Component label for each node. Labels need not be contiguous.
+    edges :     (M, 2) array, optional
+                Additional edges as node indices. `None` or empty is a no-op.
+
+    Returns
+    -------
+    labels :    (N, ) array
+                Updated labels. Same as the input where nothing merged.
+
+    """
+    if edges is None or not len(edges):
+        return labels
+
+    # Contract to one node per component
+    uniq, comp = np.unique(labels, return_inverse=True)
+    comp = comp.reshape(-1)
+
+    if len(uniq) == 1:
+        return labels
+
+    comp_edges = comp[np.asarray(edges)]
+    adj = coo_matrix(
+        (
+            np.ones(len(comp_edges), dtype=np.int8),
+            (comp_edges[:, 0], comp_edges[:, 1]),
+        ),
+        shape=(len(uniq), len(uniq)),
+    ).tocsr()
+
+    _, merged = csgraph.connected_components(adj, directed=False)
+
+    # Relabel using the original labels so the output stays interchangeable with
+    # the input (e.g. component labels remain "the smallest member's index" for
+    # fastcore's mesh components)
+    order = np.argsort(merged, kind="stable")
+    _, first = np.unique(merged[order], return_index=True)
+    representative = uniq[order[first]]
+
+    return representative[merged[comp]]
+
+
+def _mesh_component_labels(
+    x: Union["core.MeshNeuron", "tm.Trimesh"],
+) -> Tuple[np.ndarray, int]:
+    """Label each vertex with the connected component it belongs to.
+
+    Unlike [`navis.graph.graph_utils._connected_components`][] this returns a
+    plain integer array positionally aligned with the vertices rather than a
+    list of arrays. That matters whenever you want to index something *by*
+    component - e.g. a `bincount` of component sizes.
+
+    Note this labels the components of the *graph*: a mesh's extra edges (edges
+    that are not part of any face) count as connections.
+
+    Parameters
+    ----------
+    x :         MeshNeuron | Trimesh
+
+    Returns
+    -------
+    labels :    (N, ) int array
+                Component label for each vertex, in vertex order. Labels are
+                contiguous (`0 .. n_components - 1`) but otherwise arbitrary.
+    n :         int
+                Number of connected components.
+
+    """
+    n_verts = len(x.vertices)
+
+    if not n_verts:
+        return np.zeros(0, dtype=np.int64), 0
+
+    if _fastcore_has("mesh_connected_components"):
+        # This is a plain union-find over the faces - no adjacency is built
+        labels = utils.fastcore.mesh_connected_components(x.faces, n_verts)  # type: ignore
+        # Edges that are not part of any face (e.g. bridges added by
+        # `navis.heal_mesh`) are invisible to the above and have to be merged in
+        labels = _merge_labels(labels, getattr(x, "extra_edges", None))
+        # N.B. fastcore labels each component by its smallest member index, so
+        # unlike scipy's below these need compressing
+        uniq, labels = np.unique(labels, return_inverse=True)
+        return labels.reshape(-1).astype(np.int64, copy=False), len(uniq)
+
+    edges = utils.mesh_unique_edges(x)
+    adj = coo_matrix(
+        (np.ones(len(edges), dtype=np.int8), (edges[:, 0], edges[:, 1])),
+        shape=(n_verts, n_verts),
+    ).tocsr()
+    n, labels = csgraph.connected_components(adj, directed=False)
+
+    return labels.astype(np.int64, copy=False), int(n)
+
+
 def skeleton_edges(x: "core.TreeNeuron"):
     """A skeleton's child -> parent edges as 0-based node *indices*.
 
@@ -306,22 +410,12 @@ def _connected_components(
         # Translate into list of arrays of IDs
         node_ids = x.nodes.node_id.values
         cc = [node_ids[group] for group in _group_by_label(ms)]
-    elif (
-        isinstance(x, (core.MeshNeuron, tm.Trimesh))
-        and utils.fastcore
-        and hasattr(utils.fastcore, "mesh_connected_components")
-    ):
-        # This returns for each vertex the ID of its component
-        ms = utils.fastcore.mesh_connected_components(x.faces, len(x.vertices))  # type: ignore
-        # Translate into list of arrays of vertex indices
-        cc = _group_by_label(ms)
+    elif isinstance(x, (core.MeshNeuron, tm.Trimesh)):
+        # Translate the per-vertex labels into a list of arrays of vertex indices
+        cc = _group_by_label(_mesh_component_labels(x)[0])
     else:
         if isinstance(x, core.Dotprops):
             G: igraph.Graph = graph.neuron2igraph(x, epsilon=epsilon)
-        elif isinstance(x, tm.Trimesh):
-            elist, elengths = utils.mesh_unique_edges(x, return_lengths=True)
-            G = igraph.Graph(elist, n=len(x.vertices), directed=False)
-            G.es["weight"] = elengths
         else:
             G: igraph.Graph = x.igraph
         # Get the vertex clustering
@@ -878,22 +972,46 @@ def geodesic_matrix(
     if isinstance(x, core.MeshNeuron):
         directed = False
 
-    if utils.fastcore and isinstance(x, core.MeshNeuron):
+    if (
+        utils.fastcore
+        and isinstance(x, core.MeshNeuron)
+        # Meshes with extra edges need the graph (rather than the mesh) variant;
+        # without it we fall through to the igraph/scipy path below, which gets
+        # its edges from `mesh_unique_edges` and hence sees them too
+        and (not x.n_extra_edges or hasattr(utils.fastcore, "geodesic_matrix_graph"))
+    ):
         vertex_ids = np.arange(len(x.vertices))
 
         from_ = None if from_ is None else _check(from_, vertex_ids)
         to_ = None if to_ is None else _check(to_, vertex_ids)
 
-        dmat = utils.fastcore.geodesic_matrix_mesh(
-            x.faces,
-            # Without coordinates fastcore weights every edge as 1 (i.e. hop count)
-            vertices=x.vertices if weight == "weight" else None,
-            n_vertices=len(vertex_ids),
-            sources=from_,
-            targets=to_,
-            # Fastcore takes `None` rather than infinity for "no limit"
-            limit=None if limit is None or not np.isfinite(limit) else limit,
-        )
+        # Fastcore takes `None` rather than infinity for "no limit"
+        limit_ = None if limit is None or not np.isfinite(limit) else limit
+
+        if not x.n_extra_edges:
+            dmat = utils.fastcore.geodesic_matrix_mesh(
+                x.faces,
+                # Without coordinates fastcore weights every edge as 1 (i.e. hop count)
+                vertices=x.vertices if weight == "weight" else None,
+                n_vertices=len(vertex_ids),
+                sources=from_,
+                targets=to_,
+                limit=limit_,
+            )
+        else:
+            # `geodesic_matrix_mesh` derives the adjacency from the faces and so
+            # can't see edges that aren't part of one - we have to hand it the
+            # full edge list instead
+            edges, lengths = utils.mesh_unique_edges(x, return_lengths=True)
+            dmat = utils.fastcore.geodesic_matrix_graph(
+                edges,
+                n_nodes=len(vertex_ids),
+                weights=lengths if weight == "weight" else None,
+                directed=False,
+                sources=from_,
+                targets=to_,
+                limit=limit_,
+            )
 
         # Fastcore returns -1 for unreachable vertex pairs
         dmat[dmat < 0] = np.inf

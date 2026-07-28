@@ -244,8 +244,9 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     if fix_mesh:
         mesh = sk.pre.fix_mesh(mesh, remove_disconnected=False)
 
-    # Warm-up the trimesh cache (this will use fastcore if available)
-    _ = utils.mesh_unique_edges(mesh, return_lengths=True)
+    # Warm-up the trimesh cache (this will use fastcore if available).
+    # N.B. skeletor works off the faces, so extra edges are irrelevant here.
+    _ = utils.mesh_unique_edges(mesh, return_lengths=True, extra_edges=False)
 
     kwargs['progress'] = kwargs.get("progress", False)
     if method == 'wavefront':
