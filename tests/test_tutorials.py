@@ -32,15 +32,6 @@ def suppress_stdout():
         finally:
             sys.stdout = old_stdout
 
-# Silence logging
-navis.config.logger.setLevel("ERROR")
-
-# Hide pbars
-navis.set_pbars(hide=True)
-
-# Silence warnings
-warnings.filterwarnings("ignore")
-
 TO_SKIP = [
     "tutorial_remote_04_h01.py",  # currently fails due to incompatability with most recent CAVEclient
 ]
@@ -88,6 +79,14 @@ def _collect_files(args):
 
 
 if __name__ == "__main__":
+    # N.B. these are deliberately *not* at module level. This file matches
+    # `test_*.py`, so the main pytest job imports it even though it holds no
+    # tests - and silencing the logger/warnings there would leak into every
+    # other test in the session (it did: it broke tests asserting on warnings).
+    navis.config.logger.setLevel("ERROR")
+    navis.set_pbars(hide=True)
+    warnings.filterwarnings("ignore")
+
     files = _collect_files(sys.argv[1:])
     for i, file in enumerate(files):
         if not file.is_file():

@@ -6,6 +6,8 @@ edges survive the things we do to neurons (storage/invariants), and that the
 code deriving connectivity from a mesh actually sees them (plumbing).
 """
 
+import logging
+
 import navis
 import numpy as np
 import pytest
@@ -133,7 +135,10 @@ def test_arithmetic_preserves(bridged, op):
 
 def test_dropped_when_vertex_count_changes(bridged, caplog):
     """Extra edges are indices - they can't survive a renumbering."""
-    with caplog.at_level("WARNING"):
+    # N.B. pin the level on navis' *own* logger rather than the root one: other
+    # modules in this suite raise it at import time (see `test_tutorials.py`),
+    # which would otherwise swallow the warning before it is ever emitted
+    with caplog.at_level(logging.WARNING, logger="navis"):
         bridged.vertices = bridged.vertices[:-1]
     assert bridged.n_extra_edges == 0
     assert "extra edges" in caplog.text
@@ -352,7 +357,7 @@ def test_combine_neurons_offsets(mesh, bridged):
 
 
 def test_write_mesh_warns(bridged, tmp_path, caplog):
-    with caplog.at_level("WARNING"):
+    with caplog.at_level(logging.WARNING, logger="navis"):
         navis.write_mesh(bridged, tmp_path / "mesh.obj")
     assert "extra edges" in caplog.text
 
