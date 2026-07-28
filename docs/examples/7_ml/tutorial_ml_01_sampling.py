@@ -340,6 +340,122 @@ batch = np.stack([g[["x", "y", "z"]].values for _, g in patches.groupby("chunk_i
 print("patch batch:", batch.shape)                  # (n_patches, 128, 3)
 
 # %%
+# ### Foveated patches: detail *and* context
+#
+# A uniform patch spends its whole budget at one resolution, so `n_points` fixes
+# the detail **and** the extent: ask for fine detail and the patch sees only a
+# sliver of neurite; ask for context and the detail is gone. Your eye solves this
+# with a fovea - sharp in the centre, coarse in the periphery - and `foveate=True`
+# does the same, thinning the point density outwards from the patch centre.
+#
+# | Knob | What it does |
+# |------|--------------|
+# | `foveate` | <code>None &#124; True</code> - off, or scale-free thinning. A float applies a literal `1 / r**foveate` falloff instead |
+# | `reach` | How far the periphery extends: the patch grows `reach * n_points` candidates, then thins back down |
+# | `fovea` | Keep the innermost `fovea` points at *full* density before the falloff starts - widens the `chunk_focus == 1` core |
+#
+# Same 128 points in both panels - the foveated one keeps the dense core and
+# spends what's left following the axon all the way back to the soma:
+
+kw = dict(n_points=128, density=3e-5, mode="spaced", k=1, random_state=1)
+uniform_patch = navis.ml.sample_patches(m, **kw)
+fov_patch = navis.ml.sample_patches(m, foveate=True, reach=32, **kw)
+
+
+def span(d):
+    """Furthest any point in the patch sits from its seed (the first row)."""
+    co = d[["x", "y", "z"]].values
+    return np.linalg.norm(co - co[0], axis=1).max()
+
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+for ax, d, title in [(axes[0], uniform_patch, "uniform"), (axes[1], fov_patch, "foveated")]:
+    navis.plot2d(m, method="2d", view=("x", "-z"), ax=ax, color=(0.9, 0.9, 0.9))
+    navis.plot2d(
+        d[["x", "y", "z"]].values, method="2d", view=("x", "-z"), ax=ax,
+        scatter_kws=dict(c=d.get("chunk_dist", np.zeros(len(d))), cmap="viridis", s=12),
+    )
+    ax.set_title(f"{title}: 128 points, span {span(d):.0f}")
+plt.tight_layout()
+
+# %%
+# Foveated patches carry two extra columns, and a model wants both - a foveated
+# patch spans orders of magnitude in *radius* and in *local resolution*, neither of
+# which is recoverable from the raw coordinates:
+#
+# | Column | Meaning |
+# |--------|---------|
+# | `chunk_dist` | distance to the patch's seed (geodesic when `connected=True`) - the radial coordinate |
+# | `chunk_focus` | how "in focus" the point is: `1.0` at full `density`, falling towards 0 where the cloud was thinned |
+#
+# `chunk_focus` is the fraction of the cloud kept around each point, so it doubles
+# as a per-point confidence weight - and thresholding it pulls out just the crisp
+# core:
+
+print(f"reach: {span(fov_patch) / span(uniform_patch):.0f}x the uniform patch")
+print(f"core:  {(fov_patch.chunk_dist <= span(uniform_patch)).sum()}/128 points still "
+      "inside the uniform patch's radius")
+
+in_focus = fov_patch[fov_patch.chunk_focus == 1.0]
+print(f"focus: {len(in_focus)}/128 points at full density, out to "
+      f"{in_focus.chunk_dist.max():.0f} of {fov_patch.chunk_dist.max():.0f}")
+print(f"       falls to {fov_patch.chunk_focus.min():.4f} at the rim "
+      f"(~1 point kept in {1 / fov_patch.chunk_focus.min():.0f})")
+
+# %%
+# That is the whole trade, and it is a *logarithmic* one: each 4x of `reach` costs
+# only a handful of core points, because the thinning places roughly **equal points
+# per octave of radius**. Raise `density` (or `n_points`) if you need the core back
+# at full resolution.
+#
+# === "Scale-free (default)"
+#
+#     ```python
+#     navis.ml.sample_patches(m, n_points=128, density=3e-5,
+#                             foveate=True, reach=32)
+#     ```
+#
+#     Points are spaced geometrically in radial *rank*. Since a point's rank is
+#     the number of cloud points closer than it, this is a `1 / r**D` falloff for
+#     a locally `D`-dimensional cloud - **without** ever measuring `D`. Prefer it:
+#     `D` really does run from ~1 on a thin neurite to ~2 on a soma within a single
+#     mesh, so it self-calibrates per patch.
+#
+# === "Literal exponent"
+#
+#     ```python
+#     navis.ml.sample_patches(m, n_points=128, density=3e-5,
+#                             foveate=2.0, reach=32)
+#     ```
+#
+#     A true `1 / r**2` weighting keyed on distance. Use it when you want that
+#     exact physical density and accept that the core/periphery split then shifts
+#     with the local geometry.
+#
+# === "Full-resolution core"
+#
+#     ```python
+#     navis.ml.sample_patches(m, n_points=128, density=3e-5,
+#                             foveate=True, reach=32, fovea=32)
+#     ```
+#
+#     The innermost 32 points are taken at full cloud density before any thinning,
+#     for a genuinely crisp core; the remaining 96 spread out over the periphery.
+#
+# !!! warning "Foveated patches do not tile"
+#     They deliberately overlap, so `foveate` requires `mode="spaced"` or
+#     `mode="random"` and raises on `"partition"`/`"cover"` - neither the disjoint
+#     nor the full-coverage guarantee can hold when a patch samples only a fraction
+#     of the territory it spans.
+#
+# !!! tip "Cost"
+#     `reach` is the cost knob: growth does `reach x n_points` work per patch, while
+#     the thinning itself is free. `reach=None` reaches over the whole connected
+#     component - useful, but pay for it deliberately.
+#
+# *[fovea]: the high-acuity centre of the retina - here, the full-resolution core of a patch
+
+# %%
 # ## A typical pipeline
 #
 # Putting it together, a common recipe for feeding a batch of skeletons to a

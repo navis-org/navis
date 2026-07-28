@@ -21,7 +21,12 @@ from scipy.spatial import cKDTree
 
 from .. import core, config
 from ..graph.graph_utils import _cluster_graph
-from ..sampling.points import sample_surface, sample_cable
+from ..sampling.points import (
+    sample_surface,
+    sample_cable,
+    _check_positive_int,
+    _check_positive_number,
+)
 
 logger = config.get_logger(__name__)
 
@@ -163,10 +168,13 @@ def chunk_neuron(
 
     backend = _geodesic_backend(x, weight) if connected else _euclidean_backend(x)
 
-    return _chunk_indices(
+    chunks = _chunk_indices(
         backend, n_nodes, size, mode, k, sampling_factor,
         undersized, pad_value, random_state,
     )
+    # `_chunk_indices` carries a per-point distance-to-seed alongside each fragment
+    # (see `_finalize`); only `sample_patches` surfaces it, so drop it here.
+    return [idx for idx, _, _ in chunks]
 
 
 def _validate_tiling_args(mode, size, undersized, sampling_factor, k, size_name="size"):
@@ -193,13 +201,49 @@ def _validate_tiling_args(mode, size, undersized, sampling_factor, k, size_name=
     return int(size)
 
 
+def _check_foveate_mode(mode):
+    """`partition`/`cover` are incompatible with foveation - fail loudly.
+
+    Both drivers use what `grow` returns as their bookkeeping: `_partition` marks it
+    `assigned`, `_cover` marks it `covered`. A foveated patch reports only its thinned
+    selection, so the gaps between its peripheral points would stay unassigned
+    (`partition` re-grows the same territory forever) or count as covered on the
+    strength of one distant sample (`cover` silently under-covers).
+
+    For `partition` that is fundamental: a disjoint tiling whose patches deliberately
+    skip most of their own territory is not a partition. For `cover` it is only an
+    implementation limit - `_Foveated.grow` still holds the full pre-thinning pool and
+    could report it as "claimed" separately from what the patch contains, which would
+    make cover-at-multiple-scales work. That needs a wider `grow` contract across every
+    backend, so for now both fail loudly.
+    """
+    if mode not in ("random", "spaced"):
+        raise ValueError(
+            f'`foveate` requires `mode="spaced"` or `mode="random"`, got {mode!r}. '
+            "Foveated patches deliberately overlap and do not tile, so the "
+            '"partition" (disjoint) and "cover" (every point included) guarantees '
+            "cannot hold."
+        )
+
+
+def _resolve_foveate(foveate):
+    """Normalise `foveate` to a `falloff` for `_radial_thin`: None = scale-free."""
+    if foveate is True or foveate == "scale-free":
+        return None
+    return _check_positive_number(foveate, "foveate")
+
+
+
 def _chunk_indices(backend, n_nodes, size, mode, k, sampling_factor,
                    undersized, pad_value, random_state):
-    """Dispatch to the mode driver, returning a list of positional-index arrays.
+    """Dispatch to the mode driver, returning one `(indices, distances)` pair per
+    fragment - positional indices plus each point's distance to the fragment's seed
+    (the metric is the backend's own: geodesic or Euclidean).
 
     Shared by `chunk_neuron` (neuron-backed: geodesic or Euclidean backend) and
-    `sample_patches` (cloud-backed: an `_Euclidean` over a resampled point cloud).
-    Assumes its arguments are already validated by the caller.
+    `sample_patches` (cloud-backed: an `_Euclidean`/`_ConnectedCloud` over a resampled
+    point cloud, optionally wrapped in `_Foveated`). Assumes its arguments are already
+    validated by the caller.
     """
     if mode == "partition":
         return _partition(backend, n_nodes, size, undersized, pad_value)
@@ -218,6 +262,9 @@ def sample_patches(
     spacing=None,
     mode="spaced",
     connected=True,
+    foveate=None,
+    reach=32,
+    fovea=0,
     k=None,
     sampling_factor=1,
     undersized="keep",
@@ -240,9 +287,16 @@ def sample_patches(
     skeletons) and then groups that cloud into spatial patches of `n_points` each.
 
     Because the cloud is uniform, `n_points` + `density` pin each patch's physical
-    extent (radius ``~ sqrt(n_points / (pi * density))`` on a surface), and that
-    extent is the same across patches and across neurons - the scale-consistency a
-    ball/k-NN point model wants.
+    extent, and - the property that actually matters for a ball/k-NN point model -
+    that extent is the same across patches and across neurons. As a *flat-surface*
+    approximation the patch radius is ``~ sqrt(n_points / (pi * density))``; this is
+    accurate where the surface is locally flat (e.g. a soma or a large mesh) but
+    **under-estimates the Euclidean extent on thin cable/tubes**, where a patch is a
+    long axial sleeve rather than a flat disk and can run several times longer than
+    the formula suggests (the thinner the neurite, the larger the factor). Treat it
+    as a scaling/dimensional guide, not the achieved radius; if you need the real
+    extent, measure it straight off each patch's coordinates
+    (e.g. ``g[["x", "y", "z"]]`` per ``chunk_id`` group).
 
     Like [`navis.ml.chunk_neuron`][], patches grow **along the neuron** by default
     (`connected=True`): each sample is tied to a structural element via its
@@ -276,6 +330,33 @@ def sample_patches(
                         (see above) so each is a single connected piece; if False
                         grow Euclidean balls (the `n_points` nearest points in space),
                         which pack tighter but can span nearby branches.
+    foveate :           None | True | "scale-free" | float
+                        Spend the point budget unevenly: dense at the patch centre,
+                        thinning outwards, so one patch carries fine local detail
+                        *and* long-range context. `None`/`False` (default) is the
+                        uniform behaviour. ``True``/``"scale-free"`` places points
+                        geometrically in radial rank, which is a ``1 / r**D`` falloff
+                        for a locally `D`-dimensional cloud - equal points per octave
+                        of radius - self-calibrating per patch. A float instead
+                        applies a literal ``1 / r**foveate`` weighting (see
+                        `_radial_thin`); prefer the default unless you specifically
+                        need that physical density, because the measured `D` runs
+                        from ~1 on a thin neurite to ~2 on a soma *within one mesh*,
+                        so a fixed exponent splits the budget differently patch to
+                        patch. Requires ``mode="spaced"``/``"random"``: foveated
+                        patches deliberately overlap and cannot tile.
+    reach :             int | None
+                        Only with `foveate`: grow ``reach * n_points`` candidates per
+                        patch before thinning, so this sets how far the periphery
+                        extends. `None` reaches over the whole connected component
+                        (expensive). Cost scales with `reach`, and it is the dominant
+                        cost of foveation - the thinning itself is free.
+    fovea :             int
+                        Only with `foveate`: keep the innermost `fovea` candidates at
+                        full cloud density before the falloff starts, for a genuinely
+                        full-resolution core. 0 (default) still yields a small dense
+                        centre, because the falloff cannot ask for gaps narrower than
+                        the cloud (see `_spread`).
     k :                 int, optional
                         For "random"/"spaced": exact number of patches (overrides
                         `sampling_factor`).
@@ -316,7 +397,22 @@ def sample_patches(
                         plus a ``chunk_id`` column giving each row's patch. Overlapping
                         patches (cover/random/spaced) **duplicate** a point's row once
                         per patch it belongs to, so ``groupby("chunk_id")`` yields the
-                        patches. Points in no patch are simply absent.
+                        patches. Points in no patch are simply absent. Rows within a
+                        patch are ordered seed-first, by increasing distance.
+
+                        With `foveate` there are two extra columns:
+
+                        - ``chunk_dist`` - the row's distance to its patch's seed
+                          (geodesic when ``connected=True``, else Euclidean). Foveated
+                          patches span orders of magnitude in radius, so feed this to
+                          the model as the radial coordinate rather than inferring
+                          scale from the coordinates.
+                        - ``chunk_focus`` - how "in focus" the row is: the fraction of
+                          the cloud kept around it, ``1.0`` where the patch is at full
+                          `density` (the fovea) and falling towards 0 out in the
+                          sparse periphery. Use it to weight points by how much
+                          resolution actually backs them, or threshold it
+                          (``chunk_focus == 1``) to recover just the crisp core.
 
     See Also
     --------
@@ -341,6 +437,18 @@ def sample_patches(
     ...                   for _, g in patches.groupby("chunk_id")])
     >>> batch.shape[1:]
     (64, 3)
+    >>> # foveated: same 64 points, but reaching much further out
+    >>> fov = navis.ml.sample_patches(m, n_points=64, density=1e-5, mode="spaced",
+    ...                               foveate=True, reach=8, random_state=0)
+    >>> fov.groupby("chunk_id").size().unique().tolist()   # still exactly 64
+    [64]
+    >>> reach = lambda d: np.mean([g.chunk_dist.max()
+    ...                            for _, g in d.groupby("chunk_id")])
+    >>> extent = lambda d: np.mean([np.linalg.norm(
+    ...     g[["x", "y", "z"]].values - g[["x", "y", "z"]].values[0], axis=1).max()
+    ...     for _, g in d.groupby("chunk_id")])
+    >>> bool(reach(fov) > 2 * extent(patches))             # far longer reach
+    True
 
     """
     n_points = _validate_tiling_args(mode, n_points, undersized, sampling_factor, k,
@@ -351,13 +459,27 @@ def sample_patches(
             "resolution (they are mutually exclusive)."
         )
 
-    # Split the RNG so the resampling jitter and the patch seeding are independent
-    # yet jointly reproducible. `None` stays `None` so each step keeps its own
-    # "fresh each call" / deterministic-tiling default (see `sample_*`/`_spaced`).
+    # Resolve the foveation arguments *before* resampling: they are pure argument
+    # checks, and the resample below is the expensive part of this call.
+    fov = foveate is not None and foveate is not False
+    falloff = None
+    if fov:
+        _check_foveate_mode(mode)
+        falloff = _resolve_foveate(foveate)
+        reach = None if reach is None else _check_positive_int(reach, "reach")
+        if int(fovea) != fovea or fovea < 0:
+            raise ValueError(f"`fovea` must be a non-negative integer, got {fovea!r}")
+        fovea = int(fovea)
+
+    # Split the RNG so the resampling jitter, the patch seeding and the foveal
+    # thinning are independent yet jointly reproducible. `None` stays `None` so each
+    # step keeps its own "fresh each call" / deterministic-tiling default (see
+    # `sample_*`/`_spaced`). `spawn` is sequential, so the first two children are
+    # unchanged by the third being drawn.
     if random_state is None:
-        rs_sample = rs_chunk = None
+        rs_sample = rs_chunk = rs_fov = None
     else:
-        rs_sample, rs_chunk = np.random.default_rng(random_state).spawn(2)
+        rs_sample, rs_chunk, rs_fov = np.random.default_rng(random_state).spawn(3)
 
     if isinstance(x, core.MeshNeuron):
         cloud = sample_surface(
@@ -380,23 +502,34 @@ def sample_patches(
         return cloud
 
     backend = _connected_cloud_backend(x, cloud) if connected else _Euclidean(coords)
+    if fov:
+        # `reach=None` means "the whole reachable component": a pool of every point
+        # in the cloud, which `grow` fills only as far as the region actually goes.
+        pool = len(coords) if reach is None else n_points * reach
+        backend = _Foveated(backend, pool, fovea, falloff, rs_fov)
     chunks = _chunk_indices(
         backend, len(coords), n_points, mode, k, sampling_factor,
         undersized, pad_value, rs_chunk,
     )
-    return _patch_frame(cloud, chunks, pad_value)
+    return _patch_frame(cloud, chunks, pad_value, with_dist=fov)
 
 
-def _patch_frame(cloud, chunks, pad_value):
+def _patch_frame(cloud, chunks, pad_value, with_dist=False):
     """Assemble the long-form patch DataFrame: the cloud's columns + `chunk_id`.
 
     One row per (point, patch) membership - overlapping patches duplicate a point's
     row under each `chunk_id`. Padded slots (present only when ``undersized="pad"``,
     encoded as negative indices) become filler rows: coords/attrs ``NaN``,
     `source_id` = `pad_value`.
+
+    `with_dist` additionally emits the two per-point patch columns, `chunk_dist` and
+    `chunk_focus`. Only foveated patches ask for them: they span orders of magnitude
+    in radius and in local resolution, so a model needs both as explicit features. They
+    stay off otherwise, where they would be a constant 0 and 1 - and so the
+    uniform-patch output keeps its established column set.
     """
-    frames, ids = [], []
-    for cid, idx in enumerate(chunks):
+    frames, ids, dists, focuses = [], [], [], []
+    for cid, (idx, dist, focus) in enumerate(chunks):
         idx = np.asarray(idx)
         sub = cloud.iloc[idx[idx >= 0]]
         n_pad = int((idx < 0).sum())
@@ -404,16 +537,25 @@ def _patch_frame(cloud, chunks, pad_value):
             sub = pd.concat([sub, _pad_rows(cloud, n_pad, pad_value)], ignore_index=True)
         frames.append(sub)
         ids.append(np.full(len(sub), cid, dtype=np.int64))
+        if with_dist:
+            dists.append(np.asarray(dist, dtype=float))
+            focuses.append(np.asarray(focus, dtype=float))
 
     if not frames:
         out = cloud.iloc[:0].copy()
         out["chunk_id"] = np.zeros(0, dtype=np.int64)
+        if with_dist:
+            out["chunk_dist"] = np.zeros(0, dtype=float)
+            out["chunk_focus"] = np.zeros(0, dtype=float)
         return out
     # Assign `chunk_id` on the concatenated frame (always a fresh object) rather
     # than on each `cloud.iloc[...]` slice: the latter raises SettingWithCopyWarning
     # on pandas builds without copy-on-write. Also avoids a per-chunk copy.
     out = pd.concat(frames, ignore_index=True)
     out["chunk_id"] = np.concatenate(ids)
+    if with_dist:
+        out["chunk_dist"] = np.concatenate(dists)
+        out["chunk_focus"] = np.concatenate(focuses)
     return out
 
 
@@ -457,11 +599,11 @@ def _partition(backend, n_nodes, size, undersized, pad_value):
     chunks = []
     while not assigned.all():
         seed = _first_unset(assigned)
-        region = backend.grow(seed, size, forbidden=assigned)
+        region, dist, focus = backend.grow(seed, size, forbidden=assigned)
         # Mark everything the growth touched as done either way, so a pocket
         # smaller than `size` is not retried forever.
         assigned[region] = True
-        out = _finalize(region, size, undersized, pad_value)
+        out = _finalize(region, dist, focus, size, undersized, pad_value)
         if out is not None:
             chunks.append(out)
     return chunks
@@ -485,9 +627,9 @@ def _cover(backend, n_nodes, size, undersized, pad_value):
         # No `forbidden`: a fragment may reuse already-covered nodes to fill up
         # to `size` - that reuse is exactly the overlap that lets us keep every
         # fragment full-sized while still discarding nothing.
-        region = backend.grow(seed, size)
+        region, dist, focus = backend.grow(seed, size)
         covered[region] = True
-        out = _finalize(region, size, undersized, pad_value)
+        out = _finalize(region, dist, focus, size, undersized, pad_value)
         if out is not None:
             chunks.append(out)
     return chunks
@@ -497,10 +639,7 @@ def _random(backend, n_nodes, size, count, undersized, pad_value, random_state):
     """`count` fragments from random seeds (independent, may overlap)."""
     rng = np.random.default_rng(random_state)
     seeds = rng.integers(0, n_nodes, size=count)
-    chunks = [
-        _finalize(backend.grow(s, size), size, undersized, pad_value) for s in seeds
-    ]
-    return [c for c in chunks if c is not None]
+    return _grow_all(backend, seeds, size, undersized, pad_value)
 
 
 def _spaced(backend, n_nodes, size, count, undersized, pad_value, random_state):
@@ -529,10 +668,25 @@ def _spaced(backend, n_nodes, size, count, undersized, pad_value, random_state):
             f"`spaced` can place at most one seed per node: asked for {count} "
             f"fragments but only {len(seeds)} unique seeds exist ({n_nodes} nodes)."
         )
-    chunks = [
-        _finalize(backend.grow(s, size), size, undersized, pad_value) for s in seeds
-    ]
-    return [c for c in chunks if c is not None]
+    return _grow_all(backend, seeds, size, undersized, pad_value)
+
+
+def _grow_all(backend, seeds, size, undersized, pad_value):
+    """Grow one fragment per seed and apply the `undersized` policy to each.
+
+    Shared tail of `_random`/`_spaced` (the seed-driven modes): unlike
+    `partition`/`cover` they keep no cross-fragment bookkeeping, so growing is just
+    a map over the seeds. Dropped fragments (``undersized="discard"``) vanish here,
+    which is why distances travel *with* each fragment rather than in a parallel
+    list - there is no stable index to re-align them by.
+    """
+    out = []
+    for s in seeds:
+        region, dist, focus = backend.grow(s, size)
+        chunk = _finalize(region, dist, focus, size, undersized, pad_value)
+        if chunk is not None:
+            out.append(chunk)
+    return out
 
 
 def _num_fragments(k, sampling_factor, n_nodes, size):
@@ -569,10 +723,12 @@ class _Geodesic:
         stopping at `size`. Every settled node (bar the seed) is reached through
         an already-settled neighbour, so the region is connected. `forbidden`
         keeps partition fragments disjoint (growth stays in the unassigned
-        subgraph). Returns indices seed-first, in increasing-distance order.
+        subgraph). Returns ``(indices, distances)`` seed-first, in increasing-
+        distance order; `distances` is the geodesic distance to the seed, which
+        Dijkstra has already computed (it is the heap key each node settles at).
         """
         indptr, indices, data = self.indptr, self.indices, self.data
-        region, settled = [], set()
+        region, dists, settled = [], [], set()
         heap = [(0.0, int(seed))]
         while heap and len(region) < size:
             d, u = heapq.heappop(heap)
@@ -580,6 +736,7 @@ class _Geodesic:
                 continue
             settled.add(u)
             region.append(u)
+            dists.append(d)
             for j in range(indptr[u], indptr[u + 1]):
                 v = int(indices[j])
                 if v in settled:
@@ -587,7 +744,7 @@ class _Geodesic:
                 if forbidden is not None and forbidden[v]:
                     continue
                 heapq.heappush(heap, (d + float(data[j]), v))
-        return np.array(region, dtype=np.int64)
+        return np.array(region, dtype=np.int64), np.array(dists, dtype=float), None
 
     def seed(self, done):
         """Next farthest-point seed, kept on the reachable arbor.
@@ -660,19 +817,22 @@ class _Euclidean:
         """The `size` nearest points to `seed` in Euclidean space.
 
         With `forbidden` (partition) restrict to allowed points; else a straight
-        KD-tree k-NN query. Returns indices seed-first, in increasing-distance
-        order. Fragments need not be graph-connected.
+        KD-tree k-NN query. Returns ``(indices, distances)`` seed-first, in
+        increasing-distance order; both queries produce the distances anyway.
+        Fragments need not be graph-connected.
         """
         if forbidden is None:
-            _, idx = self.tree.query(self.coords[seed], k=min(size, len(self.coords)))
-            return np.atleast_1d(idx).astype(np.int64)
+            d, idx = self.tree.query(self.coords[seed], k=min(size, len(self.coords)))
+            return (np.atleast_1d(idx).astype(np.int64),
+                    np.atleast_1d(d).astype(float), None)
 
         allowed = np.where(~forbidden)[0]
         d = np.linalg.norm(self.coords[allowed] - self.coords[seed], axis=1)
         if len(allowed) > size:
-            allowed = allowed[np.argpartition(d, size - 1)[:size]]
-            d = np.linalg.norm(self.coords[allowed] - self.coords[seed], axis=1)
-        return allowed[np.argsort(d)].astype(np.int64)
+            keep = np.argpartition(d, size - 1)[:size]
+            allowed, d = allowed[keep], d[keep]
+        order = np.argsort(d)
+        return allowed[order].astype(np.int64), d[order], None
 
     def seed(self, done):
         """Next seed: the unset point Euclidean-farthest from everything done.
@@ -764,10 +924,16 @@ class _ConnectedCloud(_Euclidean):
         *all* forbidden acts as a wall - growth does not cross it - so each fragment
         stays a connected region of still-unassigned samples. Empty vertices (which
         carry no samples) always conduct, bridging the gaps in a sparse cloud.
+
+        The returned distances are the *vertex's* geodesic distance to the seed's
+        vertex, so every sample riding on one vertex shares a distance (ties are
+        common in a cloud denser than the mesh). That quantisation is at the scale
+        of one edge and is what `_Foveated` ranks by.
         """
         indptr, indices, data, by_vtx = self.indptr, self.indices, self.data, self.by_vtx
         settled = set()
         got: list = []
+        gdist: list = []
         heap = [(0.0, int(self.svtx[seed]))]
         while heap and len(got) < size:
             d, u = heapq.heappop(heap)
@@ -777,6 +943,7 @@ class _ConnectedCloud(_Euclidean):
             for s in by_vtx.get(u, ()):
                 if forbidden is None or not forbidden[s]:
                     got.append(s)
+                    gdist.append(d)
             for j in range(indptr[u], indptr[u + 1]):
                 v = int(indices[j])
                 if v in settled:
@@ -786,7 +953,47 @@ class _ConnectedCloud(_Euclidean):
                     if sv is not None and all(forbidden[s] for s in sv):
                         continue                    # fully-assigned vertex: a wall
                 heapq.heappush(heap, (d + float(data[j]), v))
-        return np.array(got[:size], dtype=np.int64)
+        return (np.array(got[:size], dtype=np.int64),
+                np.array(gdist[:size], dtype=float), None)
+
+
+class _Foveated:
+    """Wrap any backend so patches get a dense core and a sparse, far-reaching halo.
+
+    A uniform patch spends its whole budget at one resolution, so `n_points` fixes
+    both the detail *and* the extent. This grows a `reach`-times oversized candidate
+    pool and thins it back to `n_points` with a density that falls off with distance
+    - fine local detail plus long-range context for the same point count.
+
+    The thinning is **rank-based** (see `_radial_thin`), which is why this is a
+    generic wrapper: it needs only the seed-first, increasing-distance ordering that
+    every backend's `grow` already guarantees, and works the same on a Euclidean
+    ball or a geodesic region. Seeding is untouched - it delegates straight through,
+    so the patch *centres* stay evenly spread exactly as before.
+
+    Only `grow` differs, so the mode drivers, `_finalize` and `_patch_frame` are
+    unchanged. Note this composes only with the seed-driven modes: see
+    `_check_foveate_mode` for why `partition`/`cover` cannot use it.
+    """
+
+    def __init__(self, inner, pool, fovea, falloff, random_state):
+        self.inner = inner
+        self.pool = pool
+        self.fovea = fovea
+        self.falloff = falloff
+        self.rng = np.random.default_rng(random_state)
+
+    def grow(self, seed, size, forbidden=None):
+        idx, dist, _ = self.inner.grow(seed, self.pool, forbidden)
+        sel, focus = _radial_thin(len(idx), size, self.fovea, self.falloff, dist,
+                                  self.rng)
+        return idx[sel], dist[sel], focus
+
+    def seed(self, done):
+        return self.inner.seed(done)
+
+    def random_seed(self, rng):
+        return self.inner.random_seed(rng)
 
 
 def _connected_cloud_backend(x, cloud):
@@ -821,6 +1028,107 @@ def _euclidean_backend(x):
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
+def _radial_thin(m, size, fovea, falloff, dist, rng):
+    """Pick `size` positions out of `m` distance-sorted candidates, thinned radially.
+
+    Returns ``(positions, focus)``. `positions` index the candidate list, strictly
+    increasing, so the patch keeps its seed-first / increasing-distance order.
+    `focus` is each kept point's **local keep fraction** - see `_focus`.
+
+    Default (``falloff=None``) is **scale-free**: positions are spaced geometrically
+    in rank. Because a candidate's rank is the number of cloud points within its
+    distance - i.e. the cumulative measure, ``~ r**D`` for a locally `D`-dimensional
+    cloud - geometric-in-rank *is* a ``1 / r**D`` density falloff, equal points per
+    octave of radius, without ever estimating `D` (which is what makes it stable
+    across wildly different local geometry; see `sample_patches`' `foveate` docs).
+
+    A float `falloff` instead applies a literal ``1 / r**falloff`` weighting, keyed on
+    true distance rather than rank and softened at the fovea edge so the centre stays
+    finite.
+
+    `fovea` takes the innermost candidates verbatim, at full cloud density, before
+    the falloff starts.
+    """
+    if m <= size:
+        sel = np.arange(m)                       # pool ran dry: nothing to thin
+        return sel, _focus(sel)
+
+    k = min(int(fovea), size)
+    n = size - k
+    if n == 0:
+        sel = np.arange(k)
+        return sel, _focus(sel)
+
+    # Stratified (jittered-grid) draw, mirroring `sample_cable`'s sampling of the
+    # cumulative measure: one position per equal-share bin rather than n evenly
+    # spaced ones. Gives even coverage of the halo and decorrelates the peripheral
+    # picks between epochs (a free augmentation) instead of always hitting the
+    # same ranks.
+    u = (np.arange(n) + rng.random(n)) / n
+
+    if falloff is None:
+        # Geometric in rank over the candidates outside the fovea: u=0 -> the first,
+        # u=1 -> the last.
+        sel = k + np.round((m - k) ** u).astype(np.int64) - 1
+    else:
+        r = dist[k:]
+        # Soften at the fovea edge so `r -> 0` cannot blow up the weight. `dist` has
+        # genuine zeros (the seed itself; and under `connected=True` every sample on
+        # the seed's vertex), so fall back to the smallest positive distance - the
+        # cloud's local spacing - when the edge itself sits at zero.
+        pos = r[r > 0]
+        r0 = float(r[0]) if r[0] > 0 else (float(pos[0]) if len(pos) else 1.0)
+        w = (r0**2 + r**2) ** (-falloff / 2)
+        cum = np.cumsum(w)
+        sel = k + np.searchsorted(cum, u * cum[-1], side="right")
+
+    sel = np.concatenate([np.arange(k), _spread(np.clip(sel, k, m - 1), k, m)])
+    return sel, _focus(sel)
+
+
+def _focus(sel):
+    """How "in focus" each kept point is: the local fraction of candidates kept.
+
+    `sel` is strictly increasing, so the gap to its neighbours says how heavily the
+    cloud was thinned around it: a gap of 1 means every candidate at that radius
+    survived - full `density` resolution - while a gap of 20 means one in twenty did.
+    Focus is the reciprocal of that gap, hence **1 across the full-density core and
+    falling towards 0 out in the periphery**.
+
+    `np.gradient` gives the gap as a central difference (one-sided at the ends), which
+    both centres the estimate on the point and smooths the transition out of the core.
+    Since `sel` increases by at least 1 each step, the gap is always >= 1 and focus
+    always lands in ``(0, 1]``.
+
+    The value is the *realised* local density, not the requested one, so it inherits
+    the stratified jitter's noise in the sparse periphery - that is honest: it is what
+    the patch actually sampled there.
+    """
+    if len(sel) < 2:
+        return np.ones(len(sel), dtype=float)
+    return 1.0 / np.gradient(sel.astype(float))
+
+
+def _spread(sel, lo, hi):
+    """Force `sel` strictly increasing inside ``[lo, hi)``, preserving its shape.
+
+    Both rules above can repeat a position wherever the target spacing drops below
+    one candidate - near the centre, where a geometric ladder takes many steps to
+    advance a whole rank. Nudging those apart is what turns the singularity into a
+    *fully sampled core*: the falloff only starts biting once it asks for gaps wider
+    than the cloud itself. Without this the repeats would collapse into duplicate
+    points and the patch would come up short.
+
+    Caller guarantees ``sel`` is sorted inside ``[lo, hi)`` and that
+    ``len(sel) <= hi - lo``, so spreading always fits: the running max keeps every
+    position ``>= sel[0] >= lo``, and the ceiling never drops below ``lo + i``.
+    """
+    i = np.arange(len(sel))
+    out = np.maximum.accumulate(sel - i) + i     # strictly increasing, >= sel
+    return np.minimum(out, hi - len(sel) + i)    # ...and still inside the pool
+
+
+
 def _first_unset(done):
     """Index of the first ``False`` in `done` - the cheap seed for `partition`.
 
@@ -830,19 +1138,24 @@ def _first_unset(done):
     return int(np.argmax(~done))
 
 
-def _finalize(region, size, undersized, pad_value):
+def _finalize(region, dist, focus, size, undersized, pad_value):
     """Apply the `undersized` policy to one fragment.
 
-    Full-size fragments pass through unchanged. Undersized ones are padded to
-    `size`, kept ragged, or dropped (returns None -> caller skips it).
+    Returns an ``(indices, distances, focus)`` triple kept in lockstep. `distances`
+    holds each point's distance to the fragment's seed in the backend's own metric;
+    `focus` its local keep fraction, or None from the backends that never thin. Both
+    pad with ``NaN`` wherever `indices` pads with `pad_value`. Full-size fragments
+    pass through unchanged; undersized ones are padded to `size`, kept ragged, or
+    dropped (returns None -> caller skips the fragment entirely).
     """
-    if len(region) >= size:
-        return region
+    if len(region) >= size or undersized == "keep":
+        return region, dist, focus
     if undersized == "pad":
-        fill = np.full(size - len(region), pad_value, dtype=np.int64)
-        return np.concatenate([region, fill])
-    if undersized == "keep":
-        return region
+        n_pad = size - len(region)
+        pad = np.full(n_pad, np.nan)
+        return (np.concatenate([region, np.full(n_pad, pad_value, dtype=np.int64)]),
+                np.concatenate([dist, pad]),
+                None if focus is None else np.concatenate([focus, pad]))
     return None  # "discard"
 
 

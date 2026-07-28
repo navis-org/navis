@@ -699,3 +699,192 @@ def test_sample_patches_connected_default_and_mesh():
                               mode="spaced", random_state=0)
     assert default.equals(explicit)                       # connected is the default
     assert default.groupby("chunk_id").size().unique().tolist() == [64]
+
+
+# ---------------------------------------------------------------------------
+# foveated patches (dense core + sparse long-range halo, same point budget)
+# ---------------------------------------------------------------------------
+from navis.ml.chunk import _radial_thin, _spread
+
+
+@pytest.mark.parametrize("foveate", [True, "scale-free", 2.0])
+@pytest.mark.parametrize("connected", [True, False])
+def test_foveate_keeps_exact_count_and_radial_order(foveate, connected):
+    """Thinning a `reach`-times oversized pool still yields exactly n_points,
+    with no duplicates, ordered outward from the seed."""
+    m = navis.example_neurons(1, kind="mesh")
+    df = sample_patches(m, n_points=64, density=1e-5, mode="spaced", k=10,
+                        connected=connected, foveate=foveate, reach=16,
+                        random_state=0)
+    assert df.groupby("chunk_id").size().unique().tolist() == [64]
+    for _, g in df.groupby("chunk_id"):
+        co = g[["x", "y", "z"]].values
+        assert len(np.unique(co, axis=0)) == len(co)      # thinning never repeats
+        assert np.all(np.diff(g["chunk_dist"].values) >= -1e-9)
+
+
+def test_foveate_extends_reach_and_thins_the_core():
+    """The whole point: much greater extent for the same budget, paid for with
+    a proportionally sparser core."""
+    m = navis.example_neurons(1, kind="mesh")
+    kw = dict(n_points=64, density=1e-5, mode="spaced", k=10, random_state=0)
+    uniform = sample_patches(m, **kw)
+    fov = sample_patches(m, foveate=True, reach=32, **kw)
+
+    def extent(d):
+        return np.mean([np.linalg.norm(g[["x", "y", "z"]].values
+                                       - g[["x", "y", "z"]].values[0], axis=1).max()
+                        for _, g in d.groupby("chunk_id")])
+
+    ref = extent(uniform)
+    assert extent(fov) > 3 * ref                          # far longer reach...
+    # ...bought by spending well under half the budget outside the uniform radius
+    in_core = np.mean([(g["chunk_dist"].values <= ref).sum()
+                       for _, g in fov.groupby("chunk_id")])
+    assert 0.3 * 64 < in_core < 0.8 * 64
+
+
+def test_foveate_reach_trades_extent_against_core_resolution():
+    """Bigger `reach` = more extent, fewer points left for the core.
+
+    Needs a cloud with real headroom (density 1e-4, ~6.4k points): at the example
+    mesh's default resolution a 64x pool swallows the whole component, so the
+    extents saturate and the trade is invisible.
+    """
+    m = navis.example_neurons(1, kind="mesh")
+    kw = dict(n_points=32, density=1e-4, mode="spaced", k=10, random_state=0,
+              foveate=True)
+    extent, core = [], []
+    for reach in (4, 16, 64):
+        df = sample_patches(m, reach=reach, **kw)
+        per_patch = [g["chunk_dist"].values for _, g in df.groupby("chunk_id")]
+        extent.append(np.mean([d.max() for d in per_patch]))
+        core.append(np.mean([(d <= extent[0]).sum() for d in per_patch]))
+    assert extent[0] < extent[1] < extent[2]              # reach buys extent...
+    assert core[0] > core[1] > core[2]                    # ...paid for from the core
+
+
+def test_foveate_fovea_gives_a_denser_core():
+    """`fovea` keeps the innermost candidates at full density."""
+    m = navis.example_neurons(1, kind="mesh")
+    kw = dict(n_points=64, density=1e-5, mode="spaced", k=10, random_state=0,
+              foveate=True, reach=32)
+    plain = sample_patches(m, **kw)
+    cored = sample_patches(m, fovea=24, **kw)
+    ref = np.mean([g["chunk_dist"].values.max() for _, g in plain.groupby("chunk_id")])
+    n_in = lambda d: np.mean([(g["chunk_dist"].values <= ref / 8).sum()
+                              for _, g in d.groupby("chunk_id")])
+    assert n_in(cored) > n_in(plain)
+
+
+def test_chunk_dist_only_present_when_foveating():
+    """The uniform output keeps its established column set."""
+    m = navis.example_neurons(1, kind="mesh")
+    kw = dict(n_points=64, density=1e-5, mode="spaced", k=5, random_state=0)
+    assert "chunk_dist" not in sample_patches(m, **kw).columns
+    assert "chunk_dist" in sample_patches(m, foveate=True, **kw).columns
+
+
+def test_foveate_reproducible_and_seed_sensitive():
+    m = navis.example_neurons(1, kind="mesh")
+    kw = dict(n_points=64, density=1e-5, mode="spaced", k=8, foveate=True, reach=16)
+    assert sample_patches(m, random_state=7, **kw).equals(
+        sample_patches(m, random_state=7, **kw))
+    assert not sample_patches(m, random_state=7, **kw).equals(
+        sample_patches(m, random_state=8, **kw))
+
+
+@pytest.mark.parametrize("mode", ["partition", "cover"])
+def test_foveate_rejects_tiling_modes(mode):
+    """Foveated patches overlap by design, so neither tiling guarantee can hold."""
+    m = navis.example_neurons(1, kind="mesh")
+    with pytest.raises(ValueError, match="spaced"):
+        sample_patches(m, n_points=64, density=1e-5, mode=mode, foveate=True)
+
+
+@pytest.mark.parametrize("kwargs", [
+    dict(reach=0), dict(reach=-1), dict(fovea=-1), dict(foveate=0.0),
+    dict(foveate=-2.0),
+])
+def test_foveate_bad_args_raise(kwargs):
+    m = navis.example_neurons(1, kind="mesh")
+    kw = dict(n_points=64, density=1e-5, mode="spaced", k=2)
+    kw.setdefault("foveate", True)
+    kw.update(kwargs)
+    with pytest.raises(ValueError):
+        sample_patches(m, **kw)
+
+
+def test_radial_thin_is_strictly_increasing_and_exact():
+    """The invariant the whole scheme rests on, over the awkward corners:
+    tiny/huge fovea, an exhausted pool, and all-zero distances (every sample
+    sitting on one vertex, which the literal-exponent rule must not divide by)."""
+    rng = np.random.default_rng(0)
+    dist = np.sort(rng.random(2048)) * 100
+    for falloff in (None, 1.0, 2.0):
+        for fovea in (0, 1, 63, 64, 500):
+            sel, focus = _radial_thin(2048, 64, fovea, falloff, dist,
+                                      np.random.default_rng(0))
+            assert len(sel) == 64
+            assert np.all(np.diff(sel) >= 1)
+            assert sel[0] >= 0 and sel[-1] < 2048
+            # focus is a fraction, one per point, full-density at the very centre
+            assert len(focus) == 64
+            assert np.all((focus > 0) & (focus <= 1.0))
+            assert focus[0] == 1.0
+        # every candidate at distance 0 -> no singularity, still exactly 64
+        sel, focus = _radial_thin(2048, 64, 0, falloff, np.zeros(2048),
+                                  np.random.default_rng(0))
+        assert len(sel) == 64 and np.all(np.diff(sel) >= 1) and len(focus) == 64
+    # pool no bigger than the patch: nothing to thin, take everything at full focus
+    for m in (30, 64):
+        sel, focus = _radial_thin(m, 64, 0, None, dist[:m], rng)
+        assert len(sel) == m
+        assert np.all(focus == 1.0)
+
+
+def test_focus_is_one_in_the_core_and_falls_off():
+    """`chunk_focus` is the local keep fraction: 1 at full density, ->0 out in the
+    thinned periphery, and monotonically lower the harder the thinning."""
+    m = navis.example_neurons(1, kind="mesh")
+    kw = dict(n_points=64, density=1e-4, mode="spaced", k=10, random_state=0,
+              foveate=True)
+    df = sample_patches(m, reach=32, **kw)
+    assert "chunk_focus" in df.columns
+    for _, g in df.groupby("chunk_id"):
+        f = g["chunk_focus"].values
+        assert np.all((f > 0) & (f <= 1.0))
+        assert f[0] == 1.0                                # seed is always full-density
+        assert f[-1] < 0.5                               # rim is heavily thinned
+        # the core really is at full cloud density, and it is a real slice of the patch
+        assert 1 <= (f == 1.0).sum() < len(f)
+
+    # an explicit fovea widens the full-density core
+    wide = sample_patches(m, reach=32, fovea=24, **kw)
+    n_full = lambda d: np.mean([(g["chunk_focus"].values == 1.0).sum()
+                                for _, g in d.groupby("chunk_id")])
+    assert n_full(wide) > n_full(df)
+
+    # harder thinning (more reach, same budget) lowers focus overall
+    far = sample_patches(m, reach=128, **kw)
+    assert far["chunk_focus"].mean() < df["chunk_focus"].mean()
+
+
+def test_focus_absent_without_foveate():
+    m = navis.example_neurons(1, kind="mesh")
+    kw = dict(n_points=64, density=1e-5, mode="spaced", k=5, random_state=0)
+    assert "chunk_focus" not in sample_patches(m, **kw).columns
+    assert "chunk_focus" in sample_patches(m, foveate=True, **kw).columns
+
+
+def test_spread_invariant_random():
+    """`_spread` must always return strictly increasing positions inside range."""
+    rng = np.random.default_rng(0)
+    for _ in range(2000):
+        hi = int(rng.integers(2, 500))
+        lo = int(rng.integers(0, hi - 1))
+        n = int(rng.integers(1, hi - lo + 1))
+        out = _spread(np.sort(rng.integers(lo, hi, n)), lo, hi)
+        assert len(out) == n
+        assert np.all(np.diff(out) >= 1)
+        assert out[0] >= lo and out[-1] < hi
