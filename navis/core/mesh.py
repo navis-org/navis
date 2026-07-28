@@ -157,7 +157,9 @@ class MeshNeuron(BaseNeuron):
         self._lock = 0
 
         if validate:
-            self.validate()
+            # N.B. must be in-place: `validate()` otherwise fixes a copy and
+            # hands it back, leaving this neuron untouched
+            self.validate(inplace=True)
 
         self.units = units
 

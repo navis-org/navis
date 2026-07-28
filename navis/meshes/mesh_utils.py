@@ -34,6 +34,32 @@ from .. import core, config, intersection, graph, morpho
 logger = config.get_logger(__name__)
 
 
+def _version_tuple(version: str) -> tuple:
+    """Parse a version string into a comparable tuple of ints.
+
+    Stops at the first non-numeric component so that pre-releases and dev
+    versions (e.g. "4.10.0rc1") compare as their release ("4.10.0").
+    """
+    parts = []
+    for part in str(version).split("."):
+        digits = ""
+        for char in part:
+            if not char.isdigit():
+                break
+            digits += char
+        if not digits:
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+#: `Trimesh.remove_duplicate_faces` and `.remove_degenerate_faces` were replaced
+#: by `.unique_faces()`/`.nondegenerate_faces()` in trimesh 3.23, deprecated in
+#: 4.0 and finally removed in 4.10. We support both sides of that: navis still
+#: allows trimesh as old as 3.8 (see requirements.txt).
+TRIMESH_HAS_FACE_FILTERS = _version_tuple(tm.__version__) >= (3, 23)
+
+
 def fix_mesh(
     mesh: Union[tm.Trimesh, "core.MeshNeuron"],
     fill_holes: bool = False,
@@ -95,8 +121,16 @@ def fix_mesh(
 
     m.remove_infinite_values()
     m.merge_vertices()
-    m.remove_duplicate_faces()
-    m.remove_degenerate_faces()
+
+    if TRIMESH_HAS_FACE_FILTERS:
+        # This is exactly what the (now removed) `remove_duplicate_faces` and
+        # `remove_degenerate_faces` did - see `TRIMESH_HAS_FACE_FILTERS`
+        m.update_faces(m.unique_faces())
+        m.update_faces(m.nondegenerate_faces())
+    else:
+        m.remove_duplicate_faces()
+        m.remove_degenerate_faces()
+
     m.fix_normals()
     m.remove_unreferenced_vertices()
 
