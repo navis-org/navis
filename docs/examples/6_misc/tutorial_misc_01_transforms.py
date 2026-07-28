@@ -269,7 +269,202 @@ ax.legend()
 # representation (e.g. for `print(my_brain)`). I highly recommend you take a look at how [flybrains](https://github.com/navis-org/navis-flybrains)
 # constructs and packages the templates.
 #
+# ## Affines in Neuroglancer
+#
+# [Neuroglancer](https://github.com/google/neuroglancer) can attach an affine transform to each data source, which is
+# the quickest way to overlay data from two affine-related spaces without re-generating anything. Feeding it a {{ navis }}
+# matrix is trivial *once* you know the conventions - so let's nail those down.
+#
+# Every data source in a layer's **Source** tab carries such a matrix - `3x4` for ordinary 3D data - plus a scale for
+# each source and output dimension:
+#
+# |  | source `x`<br>`8nm` | source `y`<br>`8nm` | source `z`<br>`40nm` | translation |
+# |---|:---:|:---:|:---:|:---:|
+# | **output `x`** `8nm` | 1 | 0 | 0 | 0 |
+# | **output `y`** `8nm` | 0 | 1 | 0 | 0 |
+# | **output `z`** `40nm` | 0 | 0 | 1 | 0 |
+#
+# Three rules are all you need:
+#
+# 1. **Rows are output dimensions, columns are source dimensions**, plus a trailing translation column. That is exactly
+#    the layout of a {{ navis }} `4x4` matrix minus its `[0, 0, 0, 1]` bottom row - no transposing required.
+# 2. **The `3x3` block acts on physical coordinates.** Neuroglancer multiplies each coefficient by
+#    `source scale / output scale` internally, so what you type is scale-free: an identity block means "leave the data
+#    where it is", whether the source voxels are 8nm or 8µm. Never hand-compensate for voxel size here.
+# 3. **The translation column is in output *units*, not nanometers.** With output dimensions of `8nm`, a translation of
+#    `1` moves the layer by 8nm - so divide your offsets by the output scale.
+#
+# ```mermaid
+# graph LR
+#     A["source coords<br>(e.g. voxels)"] -->|"× source scale"| B["physical space"];
+#     B -->|"3×3 block"| C["physical space"];
+#     C -->|"÷ output scale"| D["output coords"];
+#     D -->|"+ translation"| E["global position"];
+# ```
+#
+# !!! warning "The translation column is where everyone gets burned"
+#     Rule 3 cuts both ways: editing an output dimension's scale afterwards leaves your translation *number* untouched
+#     but changes what it means. A translation of `73341` is 73µm while the output dimension reads `1nm` and 587µm once
+#     you switch it to `8nm` - the linear block, in contrast, is immune. When in doubt, set the output dimensions to
+#     `1nm` and paste nanometers verbatim.
+#
+# Let's convert the `FAFB14` :octicons-arrow-right-24: `FAFB13` thin-plate spline from earlier. TPS (and moving least
+# squares) transforms expose their affine component directly:
+
+tr.matrix_affine
+
+# %%
+# The conversion is then a two-liner: drop the bottom row, and divide the translation by the output scale.
+
+
+def to_neuroglancer(matrix, output_scale=(1, 1, 1)):
+    """Convert a navis affine matrix into a neuroglancer transform.
+
+    Parameters
+    ----------
+    matrix :        (4, 4) array
+                    Affine matrix mapping nanometers to nanometers.
+    output_scale :  tuple
+                    Scale of neuroglancer's output dimensions, in nanometers.
+
+    Returns
+    -------
+    dict
+                    Drop this into a layer's 'source' in the JSON state.
+
+    """
+    m = np.asarray(matrix, dtype=float)[:3, :4].copy()  # drop the [0, 0, 0, 1] row
+    m[:, 3] /= np.asarray(output_scale, dtype=float)  # translation into output units
+    return {
+        "matrix": m.tolist(),
+        "outputDimensions": {
+            dim: [float(s), "nm"] for dim, s in zip("xyz", output_scale)
+        },
+    }
+
+
+# The public FAFB v14 EM layer has 8 x 8 x 40 nm voxels
+transform = to_neuroglancer(tr.matrix_affine, output_scale=(8, 8, 40))
+
+np.round(transform["matrix"], 6)
+
+# %%
+# Note how the translation shrank from ~73,000 (nanometers) to ~9,200 (multiples of the 8nm output dimension).
+#
+# ??? warning "My transform isn't in nanometers"
+#     Plenty of template spaces are calibrated in microns (`JRC2018F`, `FCWB`, ... - anything ending in `um`), and a
+#     matrix inherits the units of the landmarks it was built from. Rescale it before converting:
+#
+#     ```python
+#     um_to_nm = np.diag([1e3, 1e3, 1e3, 1])
+#     matrix_nm = um_to_nm @ matrix_um @ np.linalg.inv(um_to_nm)
+#     ```
+#
+#     The `3x3` block comes out unchanged (it is unit-free) while the translation is scaled by 1,000. Mixed
+#     units - e.g. nanometers in, microns out - work the same way: pre-multiply with the output conversion,
+#     post-multiply with the inverse of the input conversion.
+#
+# Hit the ``{}`` button ("Edit JSON state") in Neuroglancer's top right corner and give the layer's source the
+# `transform` we just built:
+#
+# ```json
+# {
+#   "type": "image",
+#   "name": "FAFB v14 in v13 space",
+#   "source": {
+#     "url": "precomputed://gs://neuroglancer-fafb-data/fafb_v14/fafb_v14_clahe",
+#     "transform": {
+#       "matrix": [
+#         [0.999919, -0.000803, -0.000097, 9167.666339],
+#         [0.000426,  1.000776, -0.000206, 9862.487323],
+#         [-0.00001, -0.000002,  0.874966,    0.190781]
+#       ],
+#       "outputDimensions": {"x": [8, "nm"], "y": [8, "nm"], "z": [40, "nm"]}
+#     }
+#   }
+# }
+# ```
+#
+# The same numbers can of course be typed straight into the matrix widget in the **Source** tab - the JSON route just
+# spares you 12 rounds of click-and-tab.
+#
+# ??? tip "Source dimensions that aren't `x/y/z`"
+#     Columns follow the source dimensions **in the order the widget lists them** and rows follow the output dimensions.
+#     `precomputed` sources are `x/y/z`, but `n5`, `zarr` & co. often come as `z/y/x` or even `d0/d1/d2`. In that case
+#     permute the matrix to match, e.g. `matrix[np.ix_([2, 1, 0], [2, 1, 0, 3])]` to flip `x/y/z`
+#     :octicons-arrow-right-24: `z/y/x`. Renaming the *output* dimensions in the widget is an easier way to permute
+#     rows only.
+#
+# Before hunting for the layer in the browser, we can check our work by reproducing what Neuroglancer will do with
+# those numbers:
+
+
+def apply_like_neuroglancer(transform, points, source_scale):
+    """Apply a neuroglancer transform the way neuroglancer does. Nanometers in, nanometers out."""
+    m = np.asarray(transform["matrix"], dtype=float)
+    source_scale = np.asarray(source_scale, dtype=float)
+    output_scale = np.array([s for s, _ in transform["outputDimensions"].values()])
+
+    # Neuroglancer rescales the 3x3 block by source/output scale but leaves the translation alone
+    linear = m[:, :3] * (source_scale / output_scale[:, None])
+
+    return ((points / source_scale) @ linear.T + m[:, 3]) * output_scale
+
+
+# The affine part of the transform, applied by navis
+expected = pts_v14 @ tr.matrix_affine[:3, :3].T + tr.matrix_affine[:3, 3]
+
+# The same points, run through the neuroglancer transform
+actual = apply_like_neuroglancer(transform, pts_v14, source_scale=(8, 8, 40))
+
+print(f"Largest deviation: {np.abs(actual - expected).max():.2e} nm")
+
+# %%
+# ### Fitting an affine to a warping transform
+#
+# `.matrix_affine` only exists for thin-plate spline and moving least squares transforms. For a CMTK, Hdf5 or elastix
+# registration - or whenever you want the *best* affine approximation rather than the affine component that happens to
+# fall out of a spline fit - fit one yourself to a cloud of transformed points:
+
+# Sample points across the source template's bounding box and transform them
+rng = np.random.default_rng(0)
+bbox = np.asarray(flybrains.FAFB14.boundingbox).reshape(3, 2)
+pts = rng.uniform(bbox[:, 0], bbox[:, 1], size=(1_000, 3))
+pts_xf = tr.xform(pts)  # this could be any navis transform
+
+# Least-squares fit of an affine to the point correspondences
+solution, *_ = np.linalg.lstsq(
+    np.hstack((pts, np.ones((len(pts), 1)))), pts_xf, rcond=None
+)
+matrix_fitted = np.eye(4)
+matrix_fitted[:3] = solution.T
+
+np.round(matrix_fitted, 6)
+
+# %%
+# How much do we lose by dropping the non-linear part? Let's compare both affines against the full transform:
+
+
+def residuals(matrix):
+    return np.linalg.norm(pts @ matrix[:3, :3].T + matrix[:3, 3] - pts_xf, axis=1)
+
+
+print(f"TPS affine component: {np.median(residuals(tr.matrix_affine)):>4.0f} nm median error")
+print(f"Fitted affine:        {np.median(residuals(matrix_fitted)):>4.0f} nm median error")
+
+# %%
+# Both land within a fraction of a micron here because `FAFB14` :octicons-arrow-right-24: `FAFB13` is almost rigid.
+# Warps between different brains (e.g. `JRC2018F` :octicons-arrow-right-24: `FAFB14`) deform much more and no affine
+# will do them justice - use [`navis.xform_brain`][] and upload the transformed data instead.
+#
+# !!! info "Which direction?"
+#     A layer's transform maps that layer's data into the viewer's space. So if the layer holds `FAFB14` data and you
+#     want to see it in `FAFB13` space, you need the `FAFB14` :octicons-arrow-right-24: `FAFB13` matrix, as above. Got
+#     the transform the wrong way around? `np.linalg.inv(matrix)` fixes it.
+#
 # ## Acknowledgments
 #
 # Much of the transform module is modelled after functions written by Greg Jefferis for the [natverse](http://natverse.org). Likewise,
 # [flybrains](https://github.com/navis-org/navis-flybrains) is a port of data collected by Greg Jefferis for `nat.flybrains` and `nat.jrcbrains`.
+#
+# *[TPS]: Thin-plate spline - a warp defined by pairs of corresponding landmarks.
