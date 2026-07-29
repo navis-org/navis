@@ -22,8 +22,8 @@ import plotly.graph_objs as go
 
 from scipy import ndimage
 
-from ..colors import vertex_colors, eval_color, set_alpha
-from ..plot_utils import segments_to_coords
+from ..colors import vertex_colors, eval_color
+from ..plot_utils import segments_to_coords, use_radius
 from ... import core, utils, config, conversion
 
 logger = config.get_logger(__name__)
@@ -212,14 +212,7 @@ def neuron2plotly(x, colormap, settings):
         else:
             legendgroup = neuron_id
 
-        if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
-            # Number of nodes with radii
-            n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
-            # If less than 30% of nodes have a radius, we will fall back to lines
-            if n_radii / neuron.nodes.shape[0] < 0.3:
-                settings.radius = False
-
-        if isinstance(neuron, core.TreeNeuron) and settings.radius:
+        if use_radius(neuron, settings):
             # Warn once if more than 5% of nodes have missing radii
             if not _radius_warned:
                 if (
@@ -317,8 +310,13 @@ def neuron2plotly(x, colormap, settings):
 
                 c = eval_color(c, color_range=255)
 
-                if settings.get("cn_alpha", None) is not None:
-                    c = set_alpha(c, settings.cn_alpha)
+                # Plotly ignores the alpha channel on line/marker colors, so we
+                # track transparency separately and set it on the trace itself
+                # (same as for the neurites - see `skeleton2plotly`)
+                cn_alpha = settings.get("cn_alpha", None)
+                if cn_alpha is None:
+                    cn_alpha = c[3] if len(c) == 4 else 1
+                c = f"rgb({c[0]},{c[1]},{c[2]})"
 
                 if cn_lay["display"] == "circles" or isinstance(
                     neuron, core.MeshNeuron
@@ -329,9 +327,9 @@ def neuron2plotly(x, colormap, settings):
                             y=this_cn.y.values,
                             z=this_cn.z.values,
                             mode="markers",
+                            opacity=cn_alpha,
                             marker=dict(
-                                color=f"rgb{c}",
-                                opacity=settings.get("cn_alpha", 1),
+                                color=c,
                                 size=(
                                     settings.cn_size
                                     if settings.cn_size
@@ -375,11 +373,8 @@ def neuron2plotly(x, colormap, settings):
                             y=y_coords,
                             z=z_coords,
                             mode="lines",
-                            line=dict(
-                                color="rgb%s" % str(c),
-                                width=5,
-                                opacity=settings.get("cn_alpha", 1),
-                            ),
+                            opacity=cn_alpha,
+                            line=dict(color=c, width=5),
                             name=f"{cn_lay.get(j, {'name': 'connector'})['name']} of {name}",
                             showlegend=False,
                             legendgroup=legendgroup,

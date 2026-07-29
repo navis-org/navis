@@ -20,15 +20,12 @@ import pandas as pd
 import trimesh as tm
 
 from ..colors import vertex_colors, eval_color, color_to_int
-from ..plot_utils import segments_to_coords, fibonacci_sphere
+from ..plot_utils import segments_to_coords, use_radius
 from ... import core, utils, config, conversion
 
 logger = config.get_logger(__name__)
 
 __all__ = ["neuron2k3d", "scatter2k3d", "dotprops2k3d", "voxel2k3d", "volume2k3d"]
-
-# Generate sphere for somas
-fib_points = fibonacci_sphere(samples=30)
 
 
 def neuron2k3d(x, colormap, settings):
@@ -99,14 +96,7 @@ def neuron2k3d(x, colormap, settings):
         else:
             legendgroup = neuron_id
 
-        if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
-            # Number of nodes with radii
-            n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
-            # If less than 30% of nodes have a radius, we will fall back to lines
-            if n_radii / neuron.nodes.shape[0] < 0.3:
-                settings.radius = False
-
-        if isinstance(neuron, core.TreeNeuron) and settings.radius:
+        if use_radius(neuron, settings):
             # Warn once if more than 5% of nodes have missing radii
             if not _radius_warned:
                 if (

@@ -25,7 +25,14 @@ import numpy as np
 import matplotlib.colors as mcl
 
 from ... import core, config, utils, conversion
-from ..colors import prepare_colormap, vertex_colors, eval_color, set_alpha
+from ..colors import (
+    prepare_colormap,
+    vertex_colors,
+    eval_color,
+    set_alpha,
+    parse_color_by,
+)
+from ..plot_utils import use_radius
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -184,26 +191,11 @@ def neuron2vispy(x, settings):
 
     # Color_by can be a per-node/vertex color, or a per-neuron color
     # such as property of the neuron
-    color_neurons_by = None
-    if settings.color_by is not None and x:
-        # Check if this is a neuron property
-        if isinstance(settings.color_by, str):
-            if hasattr(x[0], settings.color_by):
-                # If it is, use it to color neurons
-                color_neurons_by = [getattr(neuron, settings.color_by) for neuron in x]
-                settings.color_by = None
-        elif isinstance(settings.color_by, (list, np.ndarray)):
-            if len(settings.color_by) == len(x):
-                color_neurons_by = settings.color_by
-                settings.color_by = None
+    color_neurons_by, settings.color_by = parse_color_by(
+        settings.color_by, x, settings.palette
+    )
 
     if not isinstance(settings.color_by, type(None)):
-        if not settings.palette:
-            raise ValueError(
-                'Must provide `palette` (e.g. "viridis") argument '
-                "if using `color_by`"
-            )
-
         colormap = vertex_colors(
             x,
             by=settings.color_by,
@@ -256,14 +248,7 @@ def neuron2vispy(x, settings):
         # Generate random ID -> we need this in case we have duplicate IDs
         object_id = uuid.uuid4()
 
-        if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
-            # Number of nodes with radii
-            n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
-            # If less than 30% of nodes have a radius, we will fall back to lines
-            if n_radii / neuron.nodes.shape[0] < 0.3:
-                settings.radius = False
-
-        if isinstance(neuron, core.TreeNeuron) and settings.radius:
+        if use_radius(neuron, settings):
             # Warn once if more than 5% of nodes have missing radii
             if not _radius_warned:
                 if (

@@ -37,8 +37,8 @@ from typing import Union, List, Tuple
 import copy
 
 from .. import utils, config, core, conversion
-from .colors import prepare_colormap, vertex_colors
-from .plot_utils import segments_to_coords, tn_pairs_to_coords
+from .colors import prepare_colormap, vertex_colors, parse_color_by
+from .plot_utils import segments_to_coords, tn_pairs_to_coords, use_radius
 from .settings import Matplotlib2dSettings
 
 __all__ = ["plot2d"]
@@ -375,36 +375,10 @@ def plot2d(
 
     # Here we check whether `color_by` is a neuron property which we
     # want to translate into a single color per neuron, or a
-    # per node/vertex property which we will parse late
-    color_neurons_by = None
-    if settings.color_by is not None and neurons:
-        if not settings.palette:
-            raise ValueError(
-                'Must provide palette (via e.g. `palette="viridis"`) '
-                "when using `color_by` argument."
-            )
-
-        # Check if this may be a neuron property
-        if isinstance(settings.color_by, str):
-            # Check if this could be a neuron property
-            has_prop = hasattr(neurons[0], settings.color_by)
-
-            # For TreeNeurons, we also check if it is a node property
-            # If so, prioritize this.
-            if isinstance(neurons[0], core.TreeNeuron):
-                if settings.color_by in neurons[0].nodes.columns:
-                    has_prop = False
-
-            if has_prop:
-                # If it is, use it to color neurons
-                color_neurons_by = [
-                    getattr(neuron, settings.color_by) for neuron in neurons
-                ]
-                settings.color_by = None
-        elif isinstance(settings.color_by, (list, np.ndarray)):
-            if len(settings.color_by) == len(neurons):
-                color_neurons_by = settings.color_by
-                settings.color_by = None
+    # per node/vertex property which we will parse later
+    color_neurons_by, settings.color_by = parse_color_by(
+        settings.color_by, neurons, settings.palette
+    )
 
     # Generate the per-neuron colors
     (neuron_cmap, volumes_cmap) = prepare_colormap(
@@ -553,16 +527,7 @@ def plot2d(
                 logger.warning(f"Skipping Dotprops w/o points: {neuron.label}")
                 continue
 
-            if isinstance(neuron, core.TreeNeuron) and settings.radius == "auto":
-                # Number of nodes with radii
-                n_radii = (
-                    neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0
-                ).sum()
-                # If less than 30% of nodes have a radius, we will fall back to lines
-                if n_radii / neuron.nodes.shape[0] < 0.3:
-                    settings.radius = False
-
-            if isinstance(neuron, core.TreeNeuron) and settings.radius:
+            if use_radius(neuron, settings):
                 # Warn once if more than 5% of nodes have missing radii
                 if not getattr(fig, "_radius_warned", False):
                     if (
@@ -699,9 +664,12 @@ def plot2d(
             cmap = plt.get_cmap(settings.palette)
         else:
             cmap = DEPTH_CMAP
+        # Note: without neurons there is nothing to normalize against and hence
+        # also nothing to depth-code
         if settings.method == "2d" and settings.depth_scale:
-            sm = ScalarMappable(norm=settings.norm, cmap=cmap)
-            fig.colorbar(sm, ax=ax, fraction=0.075, shrink=0.5, label="Depth")
+            if not isinstance(settings.norm, type(None)):
+                sm = ScalarMappable(norm=settings.norm, cmap=cmap)
+                fig.colorbar(sm, ax=ax, fraction=0.075, shrink=0.5, label="Depth")
         elif settings.method == "3d":
             # Collect all coordinates
             all_co = []
@@ -711,9 +679,10 @@ def plot2d(
                 if "mesh" in visuals[n]:
                     all_co.append(visuals[n]["mesh"]._vec.T[:, [0, 1, 2]])
 
-            all_co = np.concatenate(all_co, axis=0)
-            fig.canvas.mpl_connect("draw_event", Update)
-            set_depth()
+            if all_co:
+                all_co = np.concatenate(all_co, axis=0)
+                fig.canvas.mpl_connect("draw_event", Update)
+                set_depth()
 
     return fig, ax
 
@@ -894,21 +863,23 @@ def _plot_connectors(neuron, color, ax, settings):
         cn_layout.update(settings.cn_layout)
 
     # Update with user color
-    if settings.cn_mesh_colors or settings.cn_layout == "neuron":
-        # change all of the colors to color
+    if settings.cn_mesh_colors or settings.cn_colors == "neuron":
+        # Give connectors the same color as their neuron
         for inner_dict in cn_layout.values():
             # Skip non-color settings
             if not isinstance(inner_dict, dict):
                 continue
             inner_dict["color"] = color
     elif settings.cn_colors:
-        if isinstance(settings.cn_colors, dict):
-            cn_layout.update(settings.cn_colors)
-        else:
-            for inner_dict in cn_layout.values():
-                # Skip non-color settings
-                if not isinstance(inner_dict, dict):
-                    continue
+        for ty, inner_dict in cn_layout.items():
+            # Skip non-color settings
+            if not isinstance(inner_dict, dict):
+                continue
+            # A dict maps connector type -> color and may cover only some types
+            if isinstance(settings.cn_colors, dict):
+                if ty in settings.cn_colors:
+                    inner_dict["color"] = settings.cn_colors[ty]
+            else:
                 inner_dict["color"] = settings.cn_colors
 
     if settings.method == "2d":

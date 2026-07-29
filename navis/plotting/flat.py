@@ -166,6 +166,49 @@ def plot_flat(
         )
 
 
+def _connector_markers(cn, positions, angles, size):
+    """Generate coordinates for connector markers.
+
+    Markers are lines of length `2 * size` centered on the connector's node and
+    orthogonal to the branch that node sits on.
+
+    Parameters
+    ----------
+    cn :        pandas.DataFrame
+                Connector table to generate markers for.
+    positions : dict
+                Maps node ID to its (x, y) position in the dendrogram.
+    angles :    dict
+                Maps node ID to the angle of the branch it sits on.
+    size :      float
+                Half-length of the markers.
+
+    Returns
+    -------
+    x_coords :  np.ndarray
+    y_coords :  np.ndarray
+                Coordinates with a `None` after each marker to make the line
+                discontinuous there.
+
+    """
+    # Get centers for each connector
+    centers = np.vstack(cn.node_id.map(positions))
+    # Angle of the branch they belong to
+    theta = (cn.node_id.map(angles) + 90 * (math.pi / 180)).values
+
+    # Create lines orthogonal to parent branch
+    y_coords = np.sin(theta) * size
+    y_coords = np.dstack(
+        (y_coords + centers[:, 1], -y_coords + centers[:, 1], [None] * len(y_coords))
+    ).flatten()
+    x_coords = np.cos(theta) * size
+    x_coords = np.dstack(
+        (x_coords + centers[:, 0], -x_coords + centers[:, 0], [None] * len(x_coords))
+    ).flatten()
+
+    return x_coords, y_coords
+
+
 def _plot_subway(
     x,
     connectors=False,
@@ -186,7 +229,7 @@ def _plot_subway(
 
     # Change scale of markers if we normalise to max neurite length
     if normalize_distance:
-        DEFAULTS["syn_marker_len"] /= 1000
+        DEFAULTS["syn_marker_size"] /= 1000
         DEFAULTS["switch_dist"] /= 1000
 
     if not ax:
@@ -311,28 +354,9 @@ def _plot_subway(
 
     # Plot connectors
     if connectors and x.has_connectors:
-        # Get centers for each connector
-        centers = np.vstack(x.connectors.node_id.map(positions))
-        # Angle of the branch they belong to
-        angles = (x.connectors.node_id.map(angles) + 90 * (math.pi / 180)).values
-
-        # Create lines orthogonal to parent branch
-        y_coords = np.sin(angles) * DEFAULTS["syn_marker_size"]
-        y_coords = np.dstack(
-            (
-                y_coords + centers[:, 1],
-                -y_coords + centers[:, 1],
-                [None] * len(y_coords),
-            )
-        ).flatten()
-        x_coords = np.cos(angles) * DEFAULTS["syn_marker_size"]
-        x_coords = np.dstack(
-            (
-                x_coords + centers[:, 0],
-                -x_coords + centers[:, 0],
-                [None] * len(x_coords),
-            )
-        ).flatten()
+        x_coords, y_coords = _connector_markers(
+            x.connectors, positions, angles, DEFAULTS["syn_marker_size"]
+        )
 
         cn_cmap = prepare_connector_cmap(x)
         for ty in x.connectors.type.unique():
@@ -349,28 +373,9 @@ def _plot_subway(
     # Plot highlighted connectors
     if not isinstance(highlight_connectors, type(None)) and x.has_connectors:
         this = x.connectors[x.connectors.connector_id.isin(highlight_connectors)]
-        # Get centers for each connector
-        centers = np.vstack(this.node_id.map(positions))
-        # Angle of the branch they belong to
-        angles = (this.node_id.map(angles) + 90 * (math.pi / 180)).values
-
-        # Create lines orthogonal to parent branch
-        y_coords = np.sin(angles) * DEFAULTS["syn_marker_size"]
-        y_coords = np.dstack(
-            (
-                y_coords + centers[:, 1],
-                -y_coords + centers[:, 1],
-                [None] * len(y_coords),
-            )
-        ).flatten()
-        x_coords = np.cos(angles) * DEFAULTS["syn_marker_size"]
-        x_coords = np.dstack(
-            (
-                x_coords + centers[:, 0],
-                -x_coords + centers[:, 0],
-                [None] * len(x_coords),
-            )
-        ).flatten()
+        x_coords, y_coords = _connector_markers(
+            this, positions, angles, DEFAULTS["syn_marker_size"]
+        )
 
         ax.plot(
             x_coords,

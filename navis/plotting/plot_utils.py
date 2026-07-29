@@ -20,9 +20,9 @@ from .. import config, core, utils
 
 import math
 import random
-import warnings
 
 import numpy as np
+import pandas as pd
 
 from collections.abc import Iterable
 from typing import Tuple, Optional, List, Dict
@@ -31,6 +31,25 @@ from typing import Tuple, Optional, List, Dict
 __all__ = ["tn_pairs_to_coords", "segments_to_coords", "fibonacci_sphere", "make_tube"]
 
 logger = config.get_logger(__name__)
+
+
+def use_radius(neuron, settings) -> bool:
+    """Whether this neuron should be rendered with radius.
+
+    Note that we must not cache this decision on the settings: with
+    `radius="auto"` it has to be made for each neuron individually.
+
+    """
+    if not isinstance(neuron, core.TreeNeuron) or not settings.radius:
+        return False
+
+    if settings.radius == "auto":
+        # Number of nodes with radii
+        n_radii = (neuron.nodes.get("radius", pd.Series([])).fillna(0) > 0).sum()
+        # If less than 30% of nodes have a radius, we fall back to lines
+        return (n_radii / neuron.nodes.shape[0]) >= 0.3
+
+    return True
 
 
 def tn_pairs_to_coords(

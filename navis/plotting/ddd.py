@@ -22,7 +22,7 @@ from typing import Union, List
 from importlib.util import find_spec
 
 from .. import utils, config, core
-from .colors import prepare_colormap
+from .colors import prepare_colormap, parse_color_by
 from .settings import OctarineSettings, PlotlySettings, K3dSettings, VispySettings
 
 __all__ = ["plot3d"]
@@ -393,9 +393,9 @@ def plot3d(
 
     """
     # Select backend
-    backend = kwargs.pop("backend", "auto")
+    backend = kwargs.pop("backend", "auto").lower()
     allowed_backends = ("auto", "octarine", "vispy", "plotly", "k3d")
-    if backend.lower() == "auto":
+    if backend == "auto":
         global AUTO_BACKEND
         if AUTO_BACKEND is not None:
             backend = AUTO_BACKEND
@@ -424,11 +424,11 @@ def plot3d(
             AUTO_BACKEND = backend
 
             logger.info(f'Using "{backend}" backend for 3D plotting.')
-    elif backend.lower() not in allowed_backends:
+    elif backend not in allowed_backends:
         raise ValueError(
-            f'Unknown backend "{backend}". ' f'Permitted: {".".join(allowed_backends)}.'
+            f'Unknown backend "{backend}". ' f'Permitted: {", ".join(allowed_backends)}.'
         )
-    elif backend.lower() not in BACKENDS:
+    elif backend not in BACKENDS:
         raise ModuleNotFoundError(
             f'Backend "{backend}" not installed. Please install it via pip '
             "(see https://navis.readthedocs.io/en/latest/source/install.html#optional-dependencies "
@@ -447,7 +447,7 @@ def plot3d(
         return plot3d_octarine(x, **kwargs)
     else:
         raise ValueError(
-            f'Unknown backend "{backend}". ' f'Permitted: {".".join(allowed_backends)}.'
+            f'Unknown backend "{backend}". ' f'Permitted: {", ".join(allowed_backends)}.'
         )
 
 
@@ -559,7 +559,7 @@ def plot3d_octarine(x, **kwargs):
         else:
             viewer = getattr(config, "primary_viewer", None)
     else:
-        viewer = settings.pop("viewer", getattr(config, "primary_viewer"))
+        viewer = settings.pop("viewer", getattr(config, "primary_viewer", None))
 
     # Make sure viewer is visible
     if settings.show:
@@ -618,12 +618,18 @@ def plot3d_plotly(x, **kwargs):
     # Parse objects to plot
     (neurons, volumes, points, visual) = utils.parse_objects(x)
 
+    # `color_by` can be either a neuron property (-> one color per neuron, dealt
+    # with here) or a per-node/vertex property (-> passed on to the backend)
+    color_neurons_by, settings.color_by = parse_color_by(
+        settings.color_by, neurons, settings.palette
+    )
+
     neuron_cmap, volumes_cmap = prepare_colormap(
         settings.color,
         neurons=neurons,
         volumes=volumes,
         palette=settings.palette,
-        color_by=None,
+        color_by=color_neurons_by,
         alpha=settings.alpha,
         color_range=255,
     )
@@ -677,12 +683,18 @@ def plot3d_k3d(x, **kwargs):
     # Parse objects to plot
     (neurons, volumes, points, visual) = utils.parse_objects(x)
 
+    # `color_by` can be either a neuron property (-> one color per neuron, dealt
+    # with here) or a per-node/vertex property (-> passed on to the backend)
+    color_neurons_by, settings.color_by = parse_color_by(
+        settings.color_by, neurons, settings.palette
+    )
+
     neuron_cmap, volumes_cmap = prepare_colormap(
         settings.color,
         neurons=neurons,
         volumes=volumes,
         palette=settings.palette,
-        color_by=None,
+        color_by=color_neurons_by,
         alpha=settings.alpha,
         color_range=255,
     )

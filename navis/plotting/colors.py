@@ -30,7 +30,7 @@ from .. import core, config, utils, morpho
 
 __all__ = ['generate_colors', 'prepare_connector_cmap', 'prepare_colormap',
            'eval_color', 'hex_to_rgb', 'vary_colors', 'vertex_colors',
-           'color_to_int', 'set_alpha']
+           'color_to_int', 'set_alpha', 'parse_color_by']
 
 logger = config.get_logger(__name__)
 
@@ -408,6 +408,55 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
             colors.append(c)
 
     return colors
+
+
+def parse_color_by(color_by, neurons, palette=None):
+    """Split `color_by` into per-neuron and per-node/vertex coloring.
+
+    `color_by` can refer either to a property of the neurons themselves (in
+    which case each neuron gets a single color) or to a per-node/vertex
+    property (in which case colors vary within a neuron). This decides which
+    of the two we are dealing with so that all backends agree.
+
+    Parameters
+    ----------
+    color_by :  str | array | list of arrays | None
+                The `color_by` parameter as provided by the user.
+    neurons :   NeuronList
+                The neurons to be plotted.
+    palette :   str | array, optional
+                Required as soon as `color_by` is provided.
+
+    Returns
+    -------
+    per_neuron :    list | None
+                    One value per neuron. Pass to `prepare_colormap(color_by=)`.
+    per_vertex :    str | array | None
+                    One value per node/vertex. Pass to `vertex_colors(by=)`.
+
+    """
+    if isinstance(color_by, type(None)) or not len(neurons):
+        return None, None
+
+    if isinstance(palette, type(None)):
+        raise ValueError('Must provide palette (via e.g. `palette="viridis"`) '
+                         'when using `color_by` argument.')
+
+    if isinstance(color_by, str):
+        has_prop = hasattr(neurons[0], color_by)
+
+        # For TreeNeurons a node property takes precedence over a neuron property
+        if isinstance(neurons[0], core.TreeNeuron):
+            if color_by in neurons[0].nodes.columns:
+                has_prop = False
+
+        if has_prop:
+            return [getattr(n, color_by) for n in neurons], None
+    elif isinstance(color_by, (list, np.ndarray)):
+        if len(color_by) == len(neurons):
+            return color_by, None
+
+    return None, color_by
 
 
 def prepare_colormap(colors,

@@ -4,7 +4,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
+from matplotlib.collections import LineCollection, PolyCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
 import numpy as np
@@ -13,6 +13,11 @@ import pytest
 import navis
 from navis.plotting.colors import vertex_colors
 from navis.plotting.dd import _collapse_colored_segments, _colors_are_categorical
+
+
+@pytest.fixture
+def two_skeletons():
+    return navis.example_neurons(2, kind="skeleton")
 
 
 @pytest.fixture
@@ -167,3 +172,157 @@ def test_plot2d_plain_color_renders(skeleton):
         assert len(ax.lines) >= 1
     finally:
         plt.close(fig)
+
+
+# --------------------------------------------------------------------------- #
+#  Regressions                                                                 #
+# --------------------------------------------------------------------------- #
+
+
+def test_plotly_connectors_render(skeleton):
+    """Connectors must render with plotly's default ("lines") layout.
+
+    `scatter3d.Line` has no `opacity` property - transparency belongs on the
+    trace.
+    """
+    pytest.importorskip("plotly.graph_objs")
+
+    fig = navis.plot3d(
+        skeleton, connectors=True, cn_alpha=0.4, backend="plotly", inline=False
+    )
+    cn = [t for t in fig.data if t.name and "synapse" in str(t.name).lower()]
+    assert cn
+    assert all(t.opacity == 0.4 for t in cn)
+
+
+def test_plotly_connector_color_alpha(skeleton):
+    """An alpha channel on an explicit connector color becomes trace opacity."""
+    pytest.importorskip("plotly.graph_objs")
+
+    fig = navis.plot3d(
+        skeleton,
+        connectors=True,
+        cn_colors=(255, 0, 0, 0.25),
+        backend="plotly",
+        inline=False,
+    )
+    cn = [t for t in fig.data if t.name and "synapse" in str(t.name).lower()]
+    assert cn
+    # Color must be plain `rgb(...)`; plotly silently accepts a malformed
+    # 4-component `rgb(...)` string but the browser won't render it.
+    for t in cn:
+        assert t.line.color == "rgb(255,0,0)"
+        assert t.opacity == 0.25
+
+
+@pytest.mark.parametrize(
+    "cn_colors", ["neuron", "red", {"pre": "red", "post": "blue"}, {"pre": "red"}]
+)
+def test_plot2d_cn_colors(skeleton, cn_colors):
+    """All documented `cn_colors` forms work in plot2d.
+
+    `"neuron"` used to be tested against `cn_layout` (a dict) and a dict used to
+    clobber the whole per-type layout entry.
+    """
+    fig, ax = navis.plot2d(skeleton, connectors=True, cn_colors=cn_colors)
+    plt.close(fig)
+
+
+def test_color_by_neuron_property_all_backends(two_skeletons):
+    """`color_by=<neuron property>` must work on every backend, not just
+    matplotlib/vispy."""
+    nl = two_skeletons.copy()
+    for i, n in enumerate(nl):
+        n.grp = "a" if i % 2 else "b"
+
+    fig, ax = navis.plot2d(nl, color_by="grp", palette="viridis")
+    plt.close(fig)
+
+    for backend in ("plotly", "k3d"):
+        pytest.importorskip(backend)
+        navis.plot3d(nl, color_by="grp", palette="viridis", backend=backend,
+                     inline=False)
+
+
+def test_color_by_node_property_still_per_vertex(skeleton):
+    """A node property must keep taking the per-vertex path even when the
+    neuron also exposes it as an attribute."""
+    n = skeleton.copy()
+    fig, ax = navis.plot2d(n, color_by="strahler_index", palette="viridis")
+    try:
+        lc = _first_line_collection(ax)
+        # Per-vertex coloring produces a LineCollection with >1 distinct color
+        assert lc is not None
+        assert len(np.unique(lc.get_colors(), axis=0)) > 1
+    finally:
+        plt.close(fig)
+
+
+def test_color_by_requires_palette(two_skeletons):
+    """`color_by` without a palette raises consistently across backends."""
+    nl = two_skeletons.copy()
+    for i, n in enumerate(nl):
+        n.grp = i
+
+    with pytest.raises(ValueError):
+        navis.plot2d(nl, color_by="grp")
+
+    pytest.importorskip("plotly.graph_objs")
+    with pytest.raises(ValueError):
+        navis.plot3d(nl, color_by="grp", backend="plotly", inline=False)
+
+
+def test_radius_auto_is_per_neuron(two_skeletons):
+    """`radius="auto"` must be decided per neuron - one neuron without radii
+    must not force the whole list onto lines."""
+    a, b = two_skeletons[0].copy(), two_skeletons[1].copy()
+    a.nodes["radius"] = 0  # no usable radii -> lines
+    nl = navis.NeuronList([a, b])
+
+    fig, ax = navis.plot2d(nl, radius="auto")
+    try:
+        # `b` should still have been rendered as a tube mesh
+        assert sum(isinstance(c, PolyCollection) for c in ax.collections) == 1
+    finally:
+        plt.close(fig)
+
+    pytest.importorskip("plotly.graph_objs")
+    fig = navis.plot3d(nl, radius="auto", backend="plotly", inline=False)
+    assert sum(t.type == "mesh3d" for t in fig.data) >= 1
+
+
+def test_plot_flat_normalize_distance(skeleton):
+    """`normalize_distance` scaled a key that doesn't exist."""
+    ax, pos = navis.plot_flat(skeleton, layout="subway", normalize_distance=True)
+    plt.close("all")
+    assert pos
+
+
+def test_plot_flat_connectors_and_highlight(skeleton):
+    """Connectors and highlighted connectors must work together - the connector
+    angles used to shadow the per-node angle lookup."""
+    cn_ids = skeleton.connectors.connector_id.values[:3].tolist()
+    ax, pos = navis.plot_flat(
+        skeleton, layout="subway", connectors=True, highlight_connectors=cn_ids
+    )
+    plt.close("all")
+    assert pos
+
+
+@pytest.mark.parametrize("method", ["2d", "3d"])
+def test_depth_coloring_without_neurons(method):
+    """Depth coloring must not blow up when there are no neurons to normalize
+    against."""
+    vol = navis.example_volume("LH")
+    fig, ax = navis.plot2d(vol, depth_coloring=True, method=method)
+    plt.close(fig)
+
+
+def test_backend_is_case_insensitive(skeleton):
+    """A capitalised but valid backend used to pass validation and then fall
+    through to 'unknown backend'."""
+    pytest.importorskip("plotly.graph_objs")
+    navis.plot3d(skeleton, backend="Plotly", inline=False)
+
+    with pytest.raises(ValueError):
+        navis.plot3d(skeleton, backend="bogus")

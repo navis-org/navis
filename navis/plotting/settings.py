@@ -147,6 +147,9 @@ class Matplotlib2dSettings(BasePlottingSettings):
 
     depth_coloring: bool = False
     depth_scale: bool = True
+    # Normalizer for depth coloring. Generated from the data in `plot2d` unless
+    # explicitly provided.
+    norm: Optional[mpl.colors.Normalize] = None
 
 
 @dataclass
