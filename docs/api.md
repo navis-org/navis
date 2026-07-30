@@ -939,8 +939,8 @@ from navis.interfaces import cytoscape
 
 | Function                            | Description                            |
 |-------------------------------------|----------------------------------------|
-| [`cytoscape.generate_network()`][navis.interfaces.cytoscape.generate_network] | {{ autosummary("navis.interfaces.cytoscapecytoscape.generate_network") }} |
-| [`cytoscape.get_client()`][navis.interfaces.cytoscape.get_client] | {{ autosummary("navis.interfaces.cytoscapecytoscape.get_client") }} |
+| [`cytoscape.generate_network()`][navis.interfaces.cytoscape.generate_network] | {{ autosummary("navis.interfaces.cytoscape.generate_network") }} |
+| [`cytoscape.get_client()`][navis.interfaces.cytoscape.get_client] | {{ autosummary("navis.interfaces.cytoscape.get_client") }} |
 
 
 ### Allen MICrONS datasets

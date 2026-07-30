@@ -7,6 +7,11 @@ NAVis is a Python 3 library for **N**euron **A**nalysis and **Vis**ualization.
 ## Documentation
 Visit our documentation [here](https://navis-org.github.io/navis/ "NAVis Documentation")!
 
+Using an AI coding assistant? Point it at
+[llms.txt](https://navis-org.github.io/navis/llms.txt) - a condensed index of the
+whole API plus the idioms that are easy to get wrong (brain spaces, units,
+NBLAST preconditions).
+
 ## Features
 * **polyglot**: work with and convert between neuron skeletons, meshes, dotprops and images
 * **visualize**: 2D (matplotlib) and 3D (octarine, plotly or k3d) plots
