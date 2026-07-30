@@ -15,14 +15,20 @@ hide:
 ## 2026
 
 <ol>
-    <li value = "77">
+    <li value = "78">
     <strong>Deep conservation of head direction circuits in bees, ants and flies.</strong> Sayre et al., bioRxiv (2026). <a href="https://doi.org/10.64898/2026.07.26.740564">10.64898/2026.07.26.740564</a>
     </li>
 </ol>
 
 <ol>
-    <li value = "76">
+    <li value = "77">
     <strong>Organizational principles governing synapse types in a whole-brain connectome.</strong> Gross et al., bioRxiv (2026). <a href="https://doi.org/10.64898/2026.06.23.733969">10.64898/2026.06.23.733969</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "76">
+    <strong>Cell-Type Clusters in the MICrONS Connectome Reveal Hidden Organizational Principles of the Mouse Visual Cortex and Possible Candidate Substrates for Elementary Perceptual States.</strong> Escobar, bioRxiv (2026). <a href="https://doi.org/10.64898/2026.05.12.724707">10.64898/2026.05.12.724707</a>
     </li>
 </ol>
 
