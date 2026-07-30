@@ -15,6 +15,25 @@ hide:
 ## 2026
 
 <ol>
+    <li value = "77">
+    <strong>Deep conservation of head direction circuits in bees, ants and flies.</strong> Sayre et al., bioRxiv (2026). <a href="https://doi.org/10.64898/2026.07.26.740564">10.64898/2026.07.26.740564</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "76">
+    <strong>Organizational principles governing synapse types in a whole-brain connectome.</strong> Gross et al., bioRxiv (2026). <a href="https://doi.org/10.64898/2026.06.23.733969">10.64898/2026.06.23.733969</a>
+    </li>
+</ol>
+
+<ol>
+    <li value = "75">
+    <strong>Axonal ensembles repeatedly cluster and order synapses along dendrites in mouse cortex.</strong> Sarup & Boahen, bioRxiv (2026). <a href="https://doi.org/10.64898/2026.03.31.715753">10.64898/2026.03.31.715753</a>
+    </li>
+</ol>
+
+
+<ol>
     <li value = "74">
     <strong>Drosophila DNp03 descending neurons serve as a hub within a flight saccade network.</strong> Croke et al., Current Biology (2026). <a href="https://doi.org/10.1016/j.cub.2025.11.035">10.1016/j.cub.2025.11.035</a>
     </li>
