@@ -1,0 +1,89 @@
+:root {
+  --text-color-light: white;
+  --text-color-dark: black;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --text-color: var(--text-color-light);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-color: var(--text-color-dark);
+  }
+}
+
+table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f1f1f1;
+  color: var(--text-color);
+}
+
+table thead th {
+  color: var(--text-color);
+  font-size: 10pt;
+}
+
+/* --- Example page showcase: code left, interactive result right --- */
+.qs-split {
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
+  margin-top: 0.6rem;
+}
+.qs-split > * {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+.qs-split .highlight > pre,
+.qs-split pre > code {
+  margin: 0;
+}
+/* rounded "boxes" for both columns, PyVista-style */
+.qs-split .highlight,
+.qs-split .highlight > pre,
+.qs-split .highlight pre > code {
+  border-radius: 0.7rem;
+}
+.qs-split .plotly-graph-div,
+.qs-split img {
+  width: 100% !important;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+}
+/* static example images: match the interactive plot box height */
+.qs-split img {
+  height: 380px;
+  object-fit: contain;
+}
+.qs-split p {
+  margin: 0;
+}
+/* stack the columns on narrow screens */
+@media (max-width: 59.9em) {
+  .qs-split {
+    flex-direction: column;
+  }
+}
+
+/* --- Content tabs: a faint outline so it's clear which content belongs to a tab --- */
+.md-typeset .tabbed-set {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  padding: 0 0.8rem 0.4rem;
+}
+/* let the divider under the labels meet the outline on both sides */
+.md-typeset .tabbed-set > .tabbed-labels {
+  margin: 0 -0.8rem;
+  padding: 0 0.8rem;
+}
