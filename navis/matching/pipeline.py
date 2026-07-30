@@ -19,7 +19,8 @@ import os
 
 from typing import Union, Optional
 
-from .. import core, plotting, io, utils
+from .. import core, io, utils
+from ..plotting.viewer_utils import import_octarine
 
 __all__ = ['matching_pipeline']
 
@@ -102,9 +103,8 @@ def matching_pipeline(scores: pd.DataFrame,
         raise TypeError('Matching pipeline is meant to be run from a terminal '
                         'and does not work in Jupyter environments.')
 
-    # Create from scratch
-    v = plotting.Viewer()
-    v._cycle_mode = 'hide'
+    # Create from scratch (octarine is a soft dependency)
+    v = import_octarine().Viewer()
 
     if add_plot:
         v.add(add_plot)
@@ -173,9 +173,11 @@ def matching_pipeline(scores: pd.DataFrame,
         else:
             colors = ['w'] * len(src) + sns.color_palette('muted', len(trgt))
 
-        # Plot everything
-        v.add([src, trgt], c=colors)
-        v.pin_neurons(src)
+        # Plot everything (`colors` is one color per neuron across src + trgt)
+        v.add_neurons(core.NeuronList([src, trgt]), color=colors)
+        # Pinning the query neurons keeps them visible (and their color intact)
+        # while the user cycles through the candidate matches
+        v.pin_objects(src.id)
 
         # Wait for user to confirm they are happy.
         resp = 'None'
@@ -196,8 +198,8 @@ def matching_pipeline(scores: pd.DataFrame,
         results.append(matched)
 
         # Clear viewer
-        v.remove(src)
-        v.remove(trgt)
+        v.unpin_objects(src.id)
+        v.remove_objects(np.append(src.id, trgt.id))
 
         if resp.lower() == 'b':
             break

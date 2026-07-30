@@ -9,7 +9,7 @@ backends and plotting methods, etc.) - if not, check out the [plotting tutorial]
 
 In this tutorial we will focus on how to finetune these plots by changing colors :rainbow:. We will demonstrate
 this using `matplotlib` ([`plot2d`][navis.plot2d]) and `plotly` ([`plot3d`][navis.plot3d]) but everything shown here
-also works for the other backends (Octarine, Vispy and K3d)!
+also works for the other backends (Octarine and K3d)!
 
 """
 

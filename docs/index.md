@@ -312,7 +312,7 @@ morphology. It stands on the shoulders of the excellent
     ---
 
     Generate beautiful, publication-ready 2D (matplotlib) and 3D (octarine,
-    vispy or plotly) [figures](generated/gallery/#plotting).
+    plotly or k3d) [figures](generated/gallery/#plotting).
 
 -   :material-progress-wrench:{ .lg .middle } __Processing__
 

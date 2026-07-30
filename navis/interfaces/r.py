@@ -904,8 +904,8 @@ class NBLASTresults:
     >>> nbl.sort( 'mu_score' )
     >>> # Show table
     >>> nbl.results
-    >>> # 3D plot top 5 hits using vispy
-    >>> canvas, view = nbl.plot(hits=5)
+    >>> # 3D plot top 5 hits
+    >>> nbl.plot(hits=5)
     >>> # Show distribution of results
     >>> import matplotlib.pyplot as plt
     >>> nbl.results.hist( layout=(3,1), sharex=True)
@@ -957,7 +957,7 @@ class NBLASTresults:
         -------
         Depending on the backends used by `navis.plot3d()`:
 
-        vispy (default) : canvas, view
+        octarine (default) : octarine.Viewer
         plotly : plotly figure dictionary
 
         You can specify the backend by using e.g. `backend='plotly'` in

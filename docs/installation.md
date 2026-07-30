@@ -147,7 +147,7 @@ directly, are listed below:
 
     {{ navis }} supports various different backends for 2D and 3D visualization. For 2D visualizations we
     use `matplotlib` by default which is installed automatically. For 3D visualizations, you can use
-    `octarine3d`, `vispy`, `plotly` or `k3d` backends.
+    `octarine3d`, `plotly` or `k3d` backends.
 
     ---
 
@@ -171,33 +171,7 @@ directly, are listed below:
     !!! note
 
         Older systems (pre ~2018) might not support WGPU. If you are running into issues try updating your
-        operating system and/or your graphics drivers. Failing that, you can fall back to the `vispy`
-        backend.
-
-    ---
-
-    #### `vispy-*` backends: [vispy](https://vispy.org)
-
-    For 3D visualisation in terminal and Jupyter notebooks.
-
-    Vispy provides a high-performance, OpenGL-based viewer for 3D data visualisation.
-    Vispy itself has a choice of window managers: the one which works for you will depend on
-    your operating system, hardware, other installed packages, and how you're using navis.
-    The default, supplied with {{ navis }}' `vispy-default` extra, is `pyside6` (for use from the console)
-    and `jupyter_rfb` (for use in Jupyter notebooks).
-    Each of vispy's backends, listed [here](https://vispy.org/installation.html#backend-requirements)
-    can be installed through vispy and its extras, or {{ navis }}' `vispy-*` extras.
-
-    ``` shell
-    pip install navis[vispy-pyqt5]
-    # or
-    pip install vispy[pyqt5]
-    ```
-
-    !!! note
-
-        The Vispy backend is deprecated in favor of Octarine. We might still decide to keep it if people end
-        up having problems with Octarine. Please get in touch on Github if that's the case.
+        operating system and/or your graphics drivers. Failing that, `plotly` works without a GPU.
 
     ---
 

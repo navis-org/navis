@@ -9,7 +9,7 @@ backends and plotting methods, etc.) - if not, check out the [plotting tutorial]
 
 We will focus on how to finetune [`plot2d`][navis.plot2d] plots because `matplotlib` is much more flexible than the
 [`plot3d`][navis.plot3d] backends when it comes to rendering lines. That said: some of the things we show here will also
-work for the other backends (Octarine, Vispy and K3d) - just not all.
+work for the other backends (Octarine and K3d) - just not all.
 
 Here are the three main parameters for styling skeleton lines at a glance:
 

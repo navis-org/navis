@@ -7,7 +7,7 @@ Overview of 2D and 3D plotting and how NAVis' rendering backends compare.
 {{ navis }} contains functions for (static) 2D and (interactive) 3D plotting. These functions
 can use various different backends for plotting. For 2D plots we use [`matplotlib`](http://www.matplotlib.org)
 and for 3D plots we use either [`octarine`](https://schlegelp.github.io/octarine/),
-[`vispy`](http://www.vispy.org), [`plotly`](http://plot.ly) or [`k3d`](https://k3d-jupyter.org).
+[`plotly`](http://plot.ly) or [`k3d`](https://k3d-jupyter.org).
 
 Which plotting method (2D/3D) and which backend (octarine, plotly, etc.) to use depends on
 what you are after (e.g. static, publication quality figures vs interactive data exploration)
@@ -16,8 +16,7 @@ and your environment (e.g. Jupyter/VS code or terminal). Here's a quick summary:
 | Backend    | Used in              | Pros                                                                 | Cons                                                                                      |
 |------------|----------------------|----------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
 | matplotlib | [`navis.plot2d`][]<br>[`navis.plot1d`][]<br>[`navis.plot_flat`][]   | - high quality (vector graphics!)<br>- works in Jupyter and terminal<br>- exports to vector graphics<br>- myriads of ways to adjust plots | - struggles with correct depth layering in complex scenes<br>- not very interactive (although you can adjust perspective)<br> - slow for large scenes<br>- not good for voxel data (e.g. image volumes) |
-| octarine   | [`navis.plot3d`][]   | - blazingly fast thanks to WGPU backend<br>- works in terminal and Jupyter<br>- very interactive | - may not work on older systems (use `vispy` instead)<br>- not persistent (i.e. dies with notebook kernel)<br>- can't share interactive plot (screenshots only) |
-| vispy      | [`navis.plot3d`][]   | - very interactive<br>- good render quality and performance    | - can't share interactive plot (screenshots only)<br>- not persistent (i.e. dies with notebook kernel)<br>- deprecated in favor of octarine |
+| octarine   | [`navis.plot3d`][]   | - blazingly fast thanks to WGPU backend<br>- works in terminal and Jupyter<br>- very interactive | - may not work on older systems (use `plotly` instead)<br>- not persistent (i.e. dies with notebook kernel)<br>- can't share interactive plot (screenshots only) |
 | plotly     | [`navis.plot3d`][]   | - works "inline" for Jupyter environments<br>- persistent (i.e. plots get saved alongside notebook)<br>- can produce offline HTML plots for sharing  | - not very fast for large scenes<br>- large file sizes (i.e. makes for large `.ipynb` notebook files)<br>- horrendous for voxel data (i.e. images) |
 | k3d        | [`navis.plot3d`][]   | - works "inline" for Jupyter environments<br>- super fast and performant<br>- in memory (i.e. does not increase notebook file size) | - does not work in terminal sessions<br>- not persistent (i.e. dies with notebook kernel)<br>- can't share interactive plot (screenshots only) |
 
@@ -113,22 +112,21 @@ plt.tight_layout()
 # static images.
 #
 # As laid out at the top of this page: for 3D plots, we are using either [octarine](https://schlegelp.github.io/octarine/),
-# [vispy](https://github.com/vispy/vispy), [plotly](https://plotly.com/) or [k3d](https://k3d-jupyter.org). In brief:
+# [plotly](https://plotly.com/) or [k3d](https://k3d-jupyter.org). In brief:
 #
 # | backend             | Jupyter | Terminal |
 # |---------------------|---------|----------|
 # | octarine            | yes     | yes      |
 # | plotly              | yes     | yes but only via export to html |
-# | vispy (deprecated) | yes     | yes      |
 # | k3d                 | yes     | no       |
 #
 # By default, the choice is automatic and depends on (1) what backends are installed and (2) the context.
 # The first available backend in each row wins:
 #
-# | Context                      | Backend priority (first available wins)                                      |
-# |------------------------------|------------------------------------------------------------------------------|
-# | IPython / Terminal / scripts | octarine :material-arrow-right-thin: vispy :material-arrow-right-thin: plotly |
-# | Jupyter Lab / Notebook       | plotly :material-arrow-right-thin: octarine :material-arrow-right-thin: k3d   |
+# | Context                      | Backend priority (first available wins)                                    |
+# |------------------------------|----------------------------------------------------------------------------|
+# | IPython / Terminal / scripts | octarine :material-arrow-right-thin: plotly                                |
+# | Jupyter Lab / Notebook       | plotly :material-arrow-right-thin: octarine :material-arrow-right-thin: k3d |
 #
 # You can always force a specific backend using the `backend` parameter in [`navis.plot3d`][]:
 #
@@ -147,11 +145,6 @@ plt.tight_layout()
 #     n = navis.example_neurons()
 #     navis.plot3d(n, backend='plotly')
 #     ```
-# === "Vispy"
-#     ```python
-#     n = navis.example_neurons()
-#     navis.plot3d(n, backend='vispy')
-#     ```
 # === "k3d"
 #     ```python
 #     n = navis.example_neurons()
@@ -164,37 +157,29 @@ plt.tight_layout()
 # ```
 #
 # !!! note "Google Colaboratory"
-#     The `jupyter_rfb` that Octarine and Vispy use to render 3D plots in Jupyter does not work in Google
+#     The `jupyter_rfb` that Octarine uses to render 3D plots in Jupyter does not work in Google
 #     Colaboratory. There, use the plotly backend instead.
 #
-# With that out of the way, let's have a look at some 3D plots! You will notice that for the `octarine`, `vispy` and `k3d`
+# With that out of the way, let's have a look at some 3D plots! You will notice that for the `octarine` and `k3d`
 # backends we're just showing screenshots - that's because their interactive plots can't be embedded into this documentation.
 #
-# ### Octarine/Vispy
+# ### Octarine
 #
-# Octarine and Vispy are pretty similar in that they both work via a `Viewer` object which allows you to interactively
-# add/remove objects, change colors, etc. The main difference is that Octarine uses modern WGPU instead of OpenGL which makes
-# it much faster than Vispy:
+# Octarine works via a `Viewer` object which allows you to interactively add/remove objects, change colors, etc.
+# It uses modern WGPU (rather than OpenGL) which makes it very fast even for large scenes:
 #
-# === "Octarine"
-#     ```python
-#     nl = navis.example_neurons()
-#     viewer = navis.plot3d(nl, backend='octarine')
-#     ```
-#     ![octarine](../../../_static/octarine_viewer.png)
-# === "Vispy"
-#     ```python
-#     nl = navis.example_neurons()
-#     viewer = navis.plot3d(nl, backend='vispy')
-#     ```
-#     ![vispy](../../../_static/vispy_viewer.png)
+# ```python
+# nl = navis.example_neurons()
+# viewer = navis.plot3d(nl, backend='octarine')
+# ```
+# ![octarine](../../../_static/octarine_viewer.png)
 #
 # !!! note "Showing the viewer in Jupyter"
 #     From Jupyter, you may need to call `viewer.show()` *in the last line of the cell* for the
-#     Octarine/Vispy widget to appear.
+#     Octarine widget to appear.
 #
 #
-# A few things to know about the Octarine/Vispy backends:
+# A few things to know about the Octarine backend:
 #
 # - The `viewer` is dynamic - keep adding/removing items from other cells - but it dies with the kernel (unlike `plotly`)!
 # - {{ navis }} tracks a "primary" viewer; subsequent [`navis.plot3d`][] calls add to it. Force a new one with
@@ -222,17 +207,13 @@ plt.tight_layout()
 # 6.  Clear the primary viewer.
 #
 # The Octarine viewer has many more neat features - check out its [documentation](https://schlegelp.github.io/octarine/) to learn more.
-#
-# !!! warning "Vispy is deprecated"
-#     The Vispy backend is deprecated and will be removed in a future version of {{ navis }} - please switch
-#     to Octarine if you can. If Octarine doesn't work for you and you'd like us to keep Vispy, let us know!
 
 # %%
 # ### K3d
 #
 # `k3d` plots work in Jupyter (and only there) but unlike `plotly` don't persist across sessions. Hence we will only briefly demo
 # them using static screenshots and then move on to plotly. Almost everything you can do with the `plotly` backend can also be done
-# with `k3d` (or `octarine/vispy` for that matter)!
+# with `k3d` (or `octarine` for that matter)!
 
 # %%
 p = navis.plot3d(nl, backend="k3d")
@@ -272,7 +253,7 @@ navis.plot3d(
 #
 # ### Navigating the 3D viewers
 #
-# | Action          | Octarine/Vispy | Plotly | K3d |
+# | Action          | Octarine       | Plotly | K3d |
 # |-----------------|----------------|--------|-----|
 # | Rotate          | ++left-button++ + drag  | ++left-button++ + drag  | ++left-button++ + drag  |
 # | Zoom            | scroll wheel            | scroll wheel            | scroll wheel            |

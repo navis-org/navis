@@ -22,9 +22,17 @@ import plotly.graph_objs as go
 
 from scipy import ndimage
 
+from .._common import (
+    apply_shade_by,
+    resolve_cn_color,
+    resolve_cn_layout,
+    resolve_connectors,
+    resolve_somata,
+    use_radius,
+)
 from ..colors import vertex_colors, eval_color
-from ..plot_utils import segments_to_coords, use_radius
-from ... import core, utils, config, conversion
+from ..plot_utils import segments_to_coords
+from ... import core, config, conversion
 
 logger = config.get_logger(__name__)
 
@@ -150,36 +158,9 @@ def neuron2plotly(x, colormap, settings):
             color_range=255,
         )
 
-    if settings.shade_by is not None:
-        alphamap = vertex_colors(
-            x,
-            by=settings.shade_by,
-            use_alpha=True,
-            palette="viridis",  # palette is irrelevant here
-            vmin=settings.smin,
-            vmax=settings.smax,
-            na="raise",
-            color_range=255,
-        )
+    colormap = apply_shade_by(colormap, x, settings, color_range=255)
 
-        new_colormap = []
-        for c, a in zip(colormap, alphamap):
-            if not (isinstance(c, np.ndarray) and c.ndim == 2):
-                c = np.tile(c, (a.shape[0], 1))
-
-            if c.dtype not in (np.float16, np.float32, np.float64):
-                c = c.astype(np.float16)
-
-            if c.shape[1] == 4:
-                c[:, 3] = a[:, 3]
-            else:
-                c = np.insert(c, 3, a[:, 3], axis=1)
-
-            new_colormap.append(c)
-        colormap = new_colormap
-
-    cn_lay = config.default_connector_colors.copy()
-    cn_lay.update(settings.cn_layout)
+    cn_lay = resolve_cn_layout(settings)
 
     trace_data = []
     _radius_warned = False
@@ -277,37 +258,9 @@ def neuron2plotly(x, colormap, settings):
             else:
                 raise TypeError(f'Unable to plot neurons of type "{type(neuron)}"')
 
-        # Add connectors
-        if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
-            if isinstance(settings.connectors, (list, np.ndarray, tuple)):
-                connectors = neuron.connectors[
-                    neuron.connectors.type.isin(settings.connectors)
-                ]
-            elif settings.connectors in ("pre", "presynapses"):
-                connectors = neuron.presynapses
-            elif settings.connectors in ("post", "postsynapses"):
-                connectors = neuron.postsynapses
-            elif isinstance(settings.connectors, str):
-                connectors = neuron.connectors[
-                    neuron.connectors.type == settings.connectors
-                ]
-            else:
-                connectors = neuron.connectors
-
-            for j, this_cn in connectors.groupby("type"):
-                if settings.cn_colors == "neuron" or settings.get(
-                    "cn_mesh_colors", False
-                ):
-                    c = color
-                elif isinstance(settings.cn_colors, dict):
-                    c = settings.cn_colors.get(
-                        j, cn_lay.get(j, {"color": (10, 10, 10)})["color"]
-                    )
-                elif settings.cn_colors is not None:
-                    c = settings.cn_colors
-                else:
-                    c = cn_lay.get(j, {"color": (10, 10, 10)})["color"]
-
+        # Add connectors (empty frame when they aren't wanted)
+        for j, this_cn in resolve_connectors(neuron, settings).groupby("type"):
+                c = resolve_cn_color(j, cn_lay, color, settings)
                 c = eval_color(c, color_range=255)
 
                 # Plotly ignores the alpha channel on line/marker colors, so we
@@ -620,63 +573,24 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
     ]
 
     # Add soma(s):
-    soma = utils.make_iterable(neuron.soma)
-    if settings.soma:
-        # If soma detection is messed up we might end up producing
-        # hundreds of soma which will freeze the session
-        if len(soma) >= 10:
-            logger.warning(
-                f"Neuron {neuron.id} appears to have {len(soma)} "
-                "somas. That does not look right - will ignore "
-                "them for plotting."
+    for soma in resolve_somata(neuron, color, settings):
+        soma_verts = BASE_SPHERE.vertices * soma.radius + soma.center
+        sc = soma.color
+        trace_data += [
+            go.Mesh3d(
+                x=soma_verts[:, 0],
+                y=soma_verts[:, 1],
+                z=soma_verts[:, 2],
+                i=BASE_SPHERE.faces[:, 0],
+                j=BASE_SPHERE.faces[:, 1],
+                k=BASE_SPHERE.faces[:, 2],
+                legendgroup=legendgroup,
+                showlegend=False,
+                hoverinfo="name",
+                color=f"rgb({sc[0]},{sc[1]},{sc[2]})",
+                **_mesh_lighting_kwargs(soma_verts, settings),
             )
-        else:
-            for s in soma:
-                # Skip `None` somas
-                if isinstance(s, type(None)):
-                    continue
-
-                # If we have colors for every vertex, we need to find the
-                # color that corresponds to this root (or it's parent to be
-                # precise)
-                if isinstance(c, list):
-                    s_ix = np.where(neuron.nodes.node_id == s)[0][0]
-                    soma_color = c[s_ix]
-                else:
-                    soma_color = c
-
-                n = neuron.nodes.set_index("node_id").loc[s]
-                r = (
-                    getattr(n, neuron.soma_radius)
-                    if isinstance(neuron.soma_radius, str)
-                    else neuron.soma_radius
-                )
-
-                # It's possible that the radius column is either missing or just
-                # contains NaNs. In that case we will skip this soma.
-                if pd.isnull(r):
-                    logger.warning(
-                        f"Skipping soma {s} of neuron {neuron.id} "
-                        "because it appears to have no radius."
-                    )
-                    continue
-
-                soma_verts = BASE_SPHERE.vertices * r + [n.x, n.y, n.z]
-                trace_data += [
-                    go.Mesh3d(
-                        x=soma_verts[:, 0],
-                        y=soma_verts[:, 1],
-                        z=soma_verts[:, 2],
-                        i=BASE_SPHERE.faces[:, 0],
-                        j=BASE_SPHERE.faces[:, 1],
-                        k=BASE_SPHERE.faces[:, 2],
-                        legendgroup=legendgroup,
-                        showlegend=False,
-                        hoverinfo="name",
-                        color=soma_color,
-                        **_mesh_lighting_kwargs(soma_verts, settings),
-                    )
-                ]
+        ]
 
     return trace_data
 

@@ -286,7 +286,6 @@ def _xform_image(x: 'core.VoxelNeuron',
     # Generate the transformed neuron
     xf = x.copy()
     # Grid should be the same data type as original
-    # also: vispy doesn't like float64
     xf.grid = grid_xf.astype(xf.grid.dtype)
     # New offset based on bounding box
     xf.offset = target_offset

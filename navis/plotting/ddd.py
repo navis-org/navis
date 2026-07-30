@@ -14,7 +14,6 @@
 """Module contains functions to plot neurons in 3D."""
 
 import os
-import warnings
 
 import numpy as np
 
@@ -23,20 +22,17 @@ from importlib.util import find_spec
 
 from .. import utils, config, core
 from .colors import prepare_colormap, parse_color_by
-from .settings import OctarineSettings, PlotlySettings, K3dSettings, VispySettings
+from .settings import OctarineSettings, PlotlySettings, K3dSettings
+from .viewer_utils import import_octarine
 
 __all__ = ["plot3d"]
 
 logger = config.get_logger(__name__)
 
 # Check if backends are available without importing them
-BACKENDS = tuple(
-    b for b in ("octarine", "vispy", "plotly", "k3d") if find_spec(b) is not None
-)
+BACKENDS = tuple(b for b in ("octarine", "plotly", "k3d") if find_spec(b) is not None)
 JUPYTER_BACKENDS = tuple(b for b in ("plotly", "octarine", "k3d") if b in BACKENDS)
-NON_JUPYTER_BACKENDS = tuple(
-    b for b in ("octarine", "vispy", "plotly") if b in BACKENDS
-)
+NON_JUPYTER_BACKENDS = tuple(b for b in ("octarine", "plotly") if b in BACKENDS)
 AUTO_BACKEND = None  # choose the backend only the first time
 
 
@@ -51,17 +47,16 @@ def plot3d(
 ):
     """Generate interactive 3D plot.
 
-    Uses either [octarine], [vispy], [k3d] or [plotly] as backend.
+    Uses either [octarine], [k3d] or [plotly] as backend.
     By default, the choice is automatic depending on what backends
     are installed and the context:
 
-      - Terminal: octarine > vispy > plotly
+      - Terminal: octarine > plotly
       - Jupyter: plotly > octarine > k3d
 
     See the `backend` parameter on how to change this behavior.
 
     [octarine]: https://schlegelp.github.io/octarine/
-    [vispy]: http://vispy.org
     [k3d]: https://k3d-jupyter.org/
     [plotly]: http://plot.ly
 
@@ -94,7 +89,7 @@ def plot3d(
                       Alpha value for neurons. Overriden if alpha is provided
                       as color specified in `color` has an alpha channel.
 
-    connectors :      bool | "presynapses" | "postsynapses" | str | list, default=True
+    connectors :      bool | "presynapses" | "postsynapses" | str | list, default=False
 
                       Plot connectors. This can either be `True` (plot all
                       connectors), `"presynapses"` (only presynaptic connectors)
@@ -164,7 +159,10 @@ def plot3d(
 
     linewidth :       float, default=3 for plotly and 1 for all others
 
-                      TreeNeurons only.
+                      TreeNeurons only. Note that with `radius=True` this is a
+                      multiplier on the radius rather than a line width, and
+                      there it defaults to 1 in every backend - so plotly's
+                      default of 3 applies to lines only.
 
     linestyle :       str, default='-'
 
@@ -178,7 +176,7 @@ def plot3d(
 
     Figure parameters
     -----------------
-    backend :         'auto' (default) | 'octarine' | 'vispy' | 'plotly' | 'k3d'
+    backend :         'auto' (default) | 'octarine' | 'plotly' | 'k3d'
 
                       Which backend to use for plotting. Note that there will
                       be minor differences in what feature/parameters are
@@ -186,12 +184,10 @@ def plot3d(
 
                         - `auto` selects backend based on availability and
                           context (see above). You can override this by setting an
-                          environment variable e.g. `NAVIS_PLOT3D_BACKEND="vispy"`
+                          environment variable e.g. `NAVIS_PLOT3D_BACKEND="plotly"`
                           or `NAVIS_PLOT3D_JUPYTER_BACKEND="k3d"`.
                         - `octarine` uses WGPU to generate high performances
                           interactive 3D plots. Works both terminal and Jupyter.
-                        - `vispy` similar to octarine but uses OpenGL: slower
-                          but runs on older systems. Works only from terminals.
                         - `plotly` generates 3D plots using WebGL. Works
                           "inline" in Jupyter notebooks but can also produce a
                           HTML file that can be opened in any browers.
@@ -213,7 +209,7 @@ def plot3d(
 
                       Use to adjust figure size.
 
-    fig_autosize :    bool, default=False
+    fig_autosize :    bool, default=True
 
                       For plotly only! Autoscale figure size.
                       Attention: autoscale overrides width and height
@@ -291,7 +287,7 @@ def plot3d(
                       and tick labels for a clean render. Set to False to show
                       the coordinate axes.
 
-    **Below parameters are for the Octarine/vispy backends only:**
+    **Below parameters are for the Octarine backend only:**
 
     clear :           bool, default = False
 
@@ -301,13 +297,6 @@ def plot3d(
     center :          bool, default = True
 
                       If True, will center camera on the newly added objects.
-
-    combine :         bool, default = False
-
-                      If True, will combine objects of the same type into a
-                      single visual. This can greatly improve performance but
-                      also means objects can't be selected individually
-                      anymore. This is Vispy only.
 
     size :            (width, height) tuple, optional
 
@@ -323,10 +312,6 @@ def plot3d(
 
         From terminal: opens a 3D window and returns :class:`octarine.Viewer`.
         From Jupyter: :class:`octarine.Viewer` displayed in an ipywidget.
-
-    If `backend='vispy'`
-
-        Opens a 3D window and returns [`navis.Viewer`][].
 
     If `backend='plotly'`
 
@@ -345,8 +330,8 @@ def plot3d(
     [`octarine.Viewer`](https://schlegelp.github.io/octarine/)
         Interactive 3D viewer.
 
-    [`navis.Viewer`][]
-        Interactive vispy 3D viewer.
+    [`navis.get_viewer`][]
+        Grab the viewer most recently used by `plot3d`.
 
     Examples
     --------
@@ -385,7 +370,7 @@ def plot3d(
     >>> vol.color = (255, 0, 0, .5)
     >>> # This plots a neuronlists, a single neuron and a volume
     >>> v = navis.plot3d([nl[0:2], nl[3], vol])
-    >>> # Clear viewer (works only with octarine and vispy)
+    >>> # Clear viewer (works only with octarine)
     >>> v = navis.plot3d(nl, clear=True)
 
     See the [plotting intro](../../generated/gallery/1_plotting/tutorial_plotting_00_intro)
@@ -394,7 +379,7 @@ def plot3d(
     """
     # Select backend
     backend = kwargs.pop("backend", "auto").lower()
-    allowed_backends = ("auto", "octarine", "vispy", "plotly", "k3d")
+    allowed_backends = ("auto", "octarine", "plotly", "k3d")
     if backend == "auto":
         global AUTO_BACKEND
         if AUTO_BACKEND is not None:
@@ -414,7 +399,7 @@ def plot3d(
                 if not len(NON_JUPYTER_BACKENDS):
                     raise ModuleNotFoundError(
                         "No 3D plotting backends available for REPL/script. Please "
-                        "install one of the following: octarine, vispy, plotly."
+                        "install one of the following: octarine, plotly."
                     )
                 backend = os.environ.get(
                     "NAVIS_PLOT3D_BACKEND", NON_JUPYTER_BACKENDS[0]
@@ -435,9 +420,7 @@ def plot3d(
             "for more information)."
         )
 
-    if backend == "vispy":
-        return plot3d_vispy(x, **kwargs)
-    elif backend == "k3d":
+    if backend == "k3d":
         if not utils.is_jupyter():
             logger.warning("k3d backend only works in Jupyter environments")
         return plot3d_k3d(x, **kwargs)
@@ -451,64 +434,6 @@ def plot3d(
         )
 
 
-def plot3d_vispy(x, **kwargs):
-    """Plot3d() helper function to generate vispy 3D plots.
-
-    This is just to improve readability. Its only purpose is to find the
-    existing viewer or generate a new one.
-
-    """
-    from .vispy.viewer import Viewer
-
-    # If this likely the first invoke, warn the user that vispy is deprecated
-    if not hasattr(config, "primary_viewer"):
-        warnings.warn(
-            (
-                "The `vispy` backend is depcrecated and will be removed in a future version of navis. "
-                "We recommend to use the `octarine` backend instead. If that is for some reason not possible, "
-                "please let us know via the issue tracker at https://github.com/navis-org/navis/issues asap."
-            ),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-    settings = VispySettings().update_settings(**kwargs)
-
-    # Parse objects to plot
-    (neurons, volumes, points, visuals) = utils.parse_objects(x)
-
-    if settings.viewer in (None, "new"):
-        # If does not exists yet, initialise a canvas object and make global
-        if (
-            not isinstance(getattr(config, "primary_viewer", None), Viewer)
-            or settings.viewer == "new"
-        ):
-            viewer = config.primary_viewer = Viewer(size=settings.size)
-        else:
-            viewer = getattr(config, "primary_viewer", None)
-    else:
-        viewer = settings.viewer
-
-    # Make sure viewer is visible
-    if settings.show:
-        viewer.show()
-
-    # We need to pop clear/clear3d to prevent clearing again later
-    if settings.clear:
-        settings.clear = False
-        viewer.clear()
-
-    # Add objects (the viewer currently takes care of producing the visuals)
-    if neurons:
-        viewer.add(neurons, **settings.to_dict())
-    if volumes:
-        viewer.add(volumes, **settings.to_dict())
-    if points:
-        viewer.add(points, scatter_kws=settings.scatter_kws)
-
-    return viewer
-
-
 def plot3d_octarine(x, **kwargs):
     """Plot3d() helper function to generate octarine 3D plots.
 
@@ -517,19 +442,7 @@ def plot3d_octarine(x, **kwargs):
 
     """
     # Lazy import because octarine is not a hard dependency
-    try:
-        import octarine as oc
-    except ModuleNotFoundError:
-        raise ModuleNotFoundError(
-            "navis.plot3d() with the `octarine` backend requires the `octarine3d` library "
-            "to be installed:\n  pip3 install octarine3 octarine-navis-plugin -U"
-        )
-
-    if not hasattr(oc.Viewer, "add_neurons"):
-        raise ModuleNotFoundError(
-            "Looks like the navis plugin for octarine is not installed. "
-            "Please install it via pip:\n  pip install octarine-navis-plugin"
-        )
+    oc = import_octarine()
 
     settings = OctarineSettings().update_settings(**kwargs)
 

@@ -19,9 +19,16 @@ import numpy as np
 import pandas as pd
 import trimesh as tm
 
+from .._common import (
+    resolve_cn_color,
+    resolve_cn_layout,
+    resolve_connectors,
+    resolve_somata,
+    use_radius,
+)
 from ..colors import vertex_colors, eval_color, color_to_int
-from ..plot_utils import segments_to_coords, use_radius
-from ... import core, utils, config, conversion
+from ..plot_utils import segments_to_coords
+from ... import core, config, conversion
 
 logger = config.get_logger(__name__)
 
@@ -62,8 +69,7 @@ def neuron2k3d(x, colormap, settings):
     if not isinstance(settings.shade_by, type(None)):
         logger.warning("`shade_by` does not work with the k3d backend")
 
-    cn_lay = config.default_connector_colors.copy()
-    cn_lay.update(settings.cn_layout)
+    cn_lay = resolve_cn_layout(settings)
 
     trace_data = []
     _radius_warned = False
@@ -161,35 +167,9 @@ def neuron2k3d(x, colormap, settings):
             else:
                 raise TypeError(f'Unable to plot neurons of type "{type(neuron)}"')
 
-        # Add connectors
-        if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
-            if isinstance(settings.connectors, (list, np.ndarray, tuple)):
-                connectors = neuron.connectors[
-                    neuron.connectors.type.isin(settings.connectors)
-                ]
-            elif settings.connectors in ("pre", "presynapses"):
-                connectors = neuron.presynapses
-            elif settings.connectors in ("post", "postsynapses"):
-                connectors = neuron.postsynapses
-            elif isinstance(settings.connectors, str):
-                connectors = neuron.connectors[
-                    neuron.connectors.type == settings.connectors
-                ]
-            else:
-                connectors = neuron.connectors
-
-            for j, this_cn in connectors.groupby("type"):
-                if isinstance(settings.cn_colors, dict):
-                    c = settings.cn_colors.get(
-                        j, cn_lay.get(j, {"color": (10, 10, 10)})["color"]
-                    )
-                elif settings.cn_colors == "neuron":
-                    c = color
-                elif settings.cn_colors:
-                    c = settings.cn_colors
-                else:
-                    c = cn_lay.get(j, {"color": (10, 10, 10)})["color"]
-
+        # Add connectors (empty frame when they aren't wanted)
+        for j, this_cn in resolve_connectors(neuron, settings).groupby("type"):
+                c = resolve_cn_color(j, cn_lay, color, settings)
                 c = color_to_int(eval_color(c, color_range=255))
 
                 cn_label = f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}'
@@ -349,7 +329,7 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, settings):
 
         color_kwargs["colors"] = seg_colors
     else:
-        color_kwargs["color"] = c = color_to_int(color)
+        color_kwargs["color"] = color_to_int(color)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -364,61 +344,20 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, settings):
         ]
 
     # Add soma(s):
-    soma = utils.make_iterable(neuron.soma)
-    if settings.soma:
-        # If soma detection is messed up we might end up producing
-        # hundreds of soma which will freeze the session
-        if len(soma) >= 10:
-            logger.warning(
-                f"Neuron {neuron.id} appears to have {len(soma)} "
-                "somas. That does not look right - will ignore "
-                "them for plotting."
-            )
-        else:
-            for s in soma:
-                # Skip `None` somas
-                if isinstance(s, type(None)):
-                    continue
+    for soma in resolve_somata(neuron, color, settings):
+        sp = tm.primitives.Sphere(radius=soma.radius, subdivisions=2)
 
-                # If we have colors for every vertex, we need to find the
-                # color that corresponds to this root (or it's parent to be
-                # precise)
-                if isinstance(c, (list, np.ndarray)):
-                    s_ix = np.where(neuron.nodes.node_id == s)[0][0]
-                    soma_color = int(c[s_ix])
-                else:
-                    soma_color = int(c)
-
-                n = neuron.nodes.set_index("node_id").loc[s]
-                r = (
-                    getattr(n, neuron.soma_radius)
-                    if isinstance(neuron.soma_radius, str)
-                    else neuron.soma_radius
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            trace_data.append(
+                k3d.mesh(
+                    vertices=sp.vertices + soma.center.astype("float32"),
+                    indices=sp.faces.astype("uint32"),
+                    color=color_to_int(soma.color),
+                    flat_shading=False,
+                    name=f"soma of {label}",
                 )
-
-                # It's possible that the radius column is either missing or just
-                # contains NaNs. In that case we will skip this soma.
-                if pd.isnull(r):
-                    logger.warning(
-                        f"Skipping soma {s} of neuron {neuron.id} "
-                        "because it appears to have no radius."
-                    )
-                    continue
-
-                sp = tm.primitives.Sphere(radius=r, subdivisions=2)
-
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    trace_data.append(
-                        k3d.mesh(
-                            vertices=sp.vertices
-                            + n[["x", "y", "z"]].values.astype("float32"),
-                            indices=sp.faces.astype("uint32"),
-                            color=soma_color,
-                            flat_shading=False,
-                            name=f"soma of {label}",
-                        )
-                    )
+            )
 
     return trace_data
 

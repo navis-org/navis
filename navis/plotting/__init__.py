@@ -15,9 +15,9 @@ from .d import *
 from .dd import *
 from .ddd import *
 from .flat import *
-from .vispy import *
+from .viewer_utils import *
 
 from .colors import vary_colors
 
-__all__ = ['plot1d', 'plot2d', 'plot3d', 'plot_flat', 'vary_colors', 'Viewer',
+__all__ = ['plot1d', 'plot2d', 'plot3d', 'plot_flat', 'vary_colors',
            'get_viewer', 'clear3d', 'close3d', 'pop3d']

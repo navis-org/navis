@@ -367,7 +367,7 @@ def parse_objects(
     Neurons :       navis.NeuronList
     Volume :        list of navis.Volume (trimesh.Trimesh will be converted)
     Points :        list of arrays
-    Visuals :       list of vispy and pygfx visuals
+    Visuals :       list of pygfx visuals
 
     Examples
     --------
@@ -413,9 +413,7 @@ def parse_objects(
     )
 
     # Collect visuals
-    visuals = [
-        ob for ob in x if "vispy" in str(type(ob)) or "pygfx.objects" in str(type(ob))
-    ]
+    visuals = [ob for ob in x if "pygfx.objects" in str(type(ob))]
 
     # Collect and parse volumes
     volumes = [
@@ -496,27 +494,6 @@ def make_url(baseurl, *args: str, **GET) -> str:
     if GET:
         url += f"?{urllib.parse.urlencode(GET)}"
     return url
-
-
-def check_vispy():
-    """Check that vispy works.
-
-    Returns
-    -------
-    vispy.Viewer
-        A viewer which can be closed after use.
-
-    Examples
-    --------
-    >>> import navis
-    >>> viewer = navis.utils.check_vispy()
-    >>> # When the viewer and neurons show up...
-    >>> navis.close3d()
-    """
-    from ..data import example_neurons
-
-    nl = example_neurons()
-    return nl.plot3d(backend="vispy")
 
 
 def mesh_unique_edges(x, return_lengths=False, extra_edges=True):

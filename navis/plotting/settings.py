@@ -170,7 +170,11 @@ class PlotlySettings(BasePlottingSettings):
     volume_legend: bool = False
     width: Optional[int] = None
     height: Optional[int] = 600
-    linewidth: Optional[float] = None  # for plotly, linewidth 1 is too thin, we default to 3 in graph_objs.py
+    # Deliberate sentinel: plotly's two consumers of `linewidth` want different
+    # defaults - 3 for a skeleton's line width (1 is too thin to see) and 1 for
+    # the radius multiplier used when `radius=True`. Both defaults live at their
+    # call site in graph_objs.py, so the field itself can't state either.
+    linewidth: Optional[float] = None
     linestyle: str = "-"
 
     # Surface shading / scene styling (see graph_objs.py for presets)
@@ -191,24 +195,6 @@ class PlotlySettings(BasePlottingSettings):
             ("projection", "proj"),
         ]
     )
-
-
-@dataclass
-class VispySettings(BasePlottingSettings):
-    """Additional plotting parameters for Vispy backend."""
-
-    _name = "vispy backend"
-
-    clear: bool = False
-    center: bool = True
-    combine: bool = False
-    title: Optional[str] = None
-    viewer: Optional["navis.Viewer"] = None
-    shininess: float = 0
-    shading: str = "smooth"
-    size: Optional[Tuple[int, int]] = (800, 600)
-    show: bool = True
-    name: Optional[str] = None
 
 
 @dataclass

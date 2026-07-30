@@ -9,7 +9,7 @@ Visit our documentation [here](https://navis-org.github.io/navis/ "NAVis Documen
 
 ## Features
 * **polyglot**: work with and convert between neuron skeletons, meshes, dotprops and images
-* **visualize**: 2D (matplotlib) and 3D (octarine, vispy, plotly or k3d) plots
+* **visualize**: 2D (matplotlib) and 3D (octarine, plotly or k3d) plots
 * **process**: skeletonization, meshing, smoothing, repair, downsampling, etc.
 * **morphometrics**: Strahler analysis, cable length, volume, tortuosity and more
 * **similarity**: compare & cluster by morphology (e.g. NBLAST, persistence or form factor) or connectivity metrics

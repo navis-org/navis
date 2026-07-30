@@ -45,11 +45,6 @@ plotly>=4.9  #extra: plotly
 
 k3d #extra: k3d
 
-#extra: vispy-default
-
-vispy[pyside6]>=0.6.4
-jupyter_rfb>=0.4.1
-
 #extra: octarine-default
 
 octarine3d[all]>=0.2.3

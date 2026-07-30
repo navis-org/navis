@@ -28,17 +28,23 @@ from matplotlib.collections import LineCollection, PolyCollection
 from matplotlib.cm import ScalarMappable
 
 import numpy as np
-import pandas as pd
 
 import pint
 import warnings
 
 from typing import Union, List, Tuple
-import copy
 
 from .. import utils, config, core, conversion
+from ._common import (
+    apply_shade_by,
+    resolve_cn_color,
+    resolve_cn_layout,
+    resolve_connectors,
+    resolve_somata,
+    use_radius,
+)
 from .colors import prepare_colormap, vertex_colors, parse_color_by
-from .plot_utils import segments_to_coords, tn_pairs_to_coords, use_radius
+from .plot_utils import segments_to_coords, tn_pairs_to_coords
 from .settings import Matplotlib2dSettings
 
 __all__ = ["plot2d"]
@@ -100,7 +106,7 @@ def plot2d(
                         scaled by `linewidth`. Note that this will increase rendering
                         time.
 
-    linewidth :         int | float, default=.5
+    linewidth :         int | float, default=1
 
                         Width of neurites. Also accepts alias `lw`.
 
@@ -140,11 +146,12 @@ def plot2d(
                         normalized. You can control the normalization by passing
                         a `smin` and/or `smax` parameter.
 
-    alpha :             float [0-1], default=1
+    alpha :             float [0-1], default=None
 
-                        Alpha value for neurons. Overriden if alpha is provided
-                        as fourth value in `color` (rgb*a*). You can override
-                        alpha value for connectors by using `cn_alpha`.
+                        Alpha value for neurons. `None` means "leave alone", so
+                        neurons are opaque unless `color` carries its own alpha
+                        (rgb*a*); setting `alpha` explicitly overrides that. You
+                        can set the alpha value for connectors with `cn_alpha`.
 
     mesh_shade :        bool, default=False
 
@@ -163,15 +170,7 @@ def plot2d(
 
                         If True and `depth_coloring=True` will plot a scale.
 
-    connectors :        bool | "presynapses" | "postsynapses" | str | list, default=True
-
-                        Plot connectors. This can either be `True` (plot all
-                        connectors), `"presynapses"` (only presynaptic connectors)
-                        or `"postsynapses"` (only postsynaptic connectors). If
-                        a string or a list is provided, it will be used to filter the
-                        `type` column in the connectors table.
-
-    connectors :        bool | "presynapses" | "postsynapses" | str | list, default=True
+    connectors :        bool | "presynapses" | "postsynapses" | str | list, default=False
 
                         Plot connectors. This can either be `True` (plot all
                         connectors), `"presynapses"` (only presynaptic connectors)
@@ -216,7 +215,7 @@ def plot2d(
 
     Figure parameters
     -----------------
-    method :            '2d' | '3d' (default) | '3d_complex'
+    method :            '2d' (default) | '3d' | '3d_complex'
 
                         Method used to generate plot. Comes in three flavours:
                          1. `2d` uses normal matplotlib. Neurons are plotted on
@@ -404,31 +403,7 @@ def plot2d(
             color_range=1,
         )
 
-    if not isinstance(settings.shade_by, type(None)):
-        alphamap = vertex_colors(
-            neurons,
-            by=settings.shade_by,
-            use_alpha=True,
-            palette="viridis",  # palette is irrelevant here
-            norm_global=settings.norm_global,
-            vmin=settings.smin,
-            vmax=settings.smax,
-            na="raise",
-            color_range=1,
-        )
-
-        new_colormap = []
-        for c, a in zip(neuron_cmap, alphamap):
-            if not (isinstance(c, np.ndarray) and c.ndim == 2):
-                c = np.tile(c, (a.shape[0], 1))
-
-            if c.shape[1] == 4:
-                c[:, 3] = a[:, 3]
-            else:
-                c = np.insert(c, 3, a[:, 3], axis=1)
-
-            new_colormap.append(c)
-        neuron_cmap = new_colormap
+    neuron_cmap = apply_shade_by(neuron_cmap, neurons, settings, color_range=1)
 
     # Generate axes
     if not settings.ax:
@@ -577,8 +552,7 @@ def plot2d(
                     f"Don't know how to plot neuron of type '{type(neuron)}' "
                 )
 
-        if (settings.connectors or settings.connectors_only) and neuron.has_connectors:
-            _ = _plot_connectors(neuron, neuron_cmap[i], ax, settings)
+        _plot_connectors(neuron, neuron_cmap[i], ax, settings)
 
     # Plot points
     for p in points:
@@ -842,45 +816,21 @@ def _plot_dotprops(dp, color, ax, settings):
 
 def _plot_connectors(neuron, color, ax, settings):
     """Plot connectors."""
-    cn_layout = copy.deepcopy(config.default_connector_colors)
-
-    if settings.connectors in ("pre", "presynapses"):
-        connectors = neuron.presynapses
-    elif settings.connectors in ("post", "postsynapses"):
-        connectors = neuron.postsynapses
-    elif isinstance(settings.connectors, str):
-        connectors = neuron.connectors[neuron.connectors.type == settings.connectors]
-    elif isinstance(settings.connectors, (list, np.ndarray, tuple)):
-        connectors = neuron.connectors[neuron.connectors.type.isin(settings.connectors)]
-    else:
-        connectors = neuron.connectors
+    connectors = resolve_connectors(neuron, settings)
 
     if connectors.empty:
         return
 
-    # Update with user settings
-    if settings.cn_layout:
-        cn_layout.update(settings.cn_layout)
-
-    # Update with user color
-    if settings.cn_mesh_colors or settings.cn_colors == "neuron":
-        # Give connectors the same color as their neuron
-        for inner_dict in cn_layout.values():
-            # Skip non-color settings
-            if not isinstance(inner_dict, dict):
-                continue
-            inner_dict["color"] = color
-    elif settings.cn_colors:
-        for ty, inner_dict in cn_layout.items():
-            # Skip non-color settings
-            if not isinstance(inner_dict, dict):
-                continue
-            # A dict maps connector type -> color and may cover only some types
-            if isinstance(settings.cn_colors, dict):
-                if ty in settings.cn_colors:
-                    inner_dict["color"] = settings.cn_colors[ty]
-            else:
-                inner_dict["color"] = settings.cn_colors
+    cn_layout = resolve_cn_layout(settings)
+    # Normalize to RGBA once per type: a partial `cn_colors` dict leaves some
+    # types with their default rgb tuple and others with whatever the user
+    # passed, and matplotlib can't build an array out of a mixed str/tuple
+    # sequence. Doing it per type rather than per connector matters because an
+    # unhashable color (e.g. an rgb array) misses matplotlib's colour cache.
+    cn_color = {
+        ty: mcl.to_rgba(resolve_cn_color(ty, cn_layout, color, settings))
+        for ty in connectors.type.unique()
+    }
 
     if settings.method == "2d":
         for c, this_cn in connectors.groupby("type"):
@@ -889,7 +839,7 @@ def _plot_connectors(neuron, color, ax, settings):
             ax.scatter(
                 x,
                 y,
-                color=cn_layout[c]["color"],
+                color=cn_color[c],
                 edgecolor="none",
                 s=settings.cn_size if settings.cn_size else cn_layout["size"],
                 alpha=settings.get('cn_alpha', None),
@@ -897,7 +847,7 @@ def _plot_connectors(neuron, color, ax, settings):
             )
             ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
     elif settings.method in ["3d", "3d_complex"]:
-        c = [cn_layout[i]["color"] for i in connectors.type.values]
+        c = [cn_color[i] for i in connectors.type.values]
         ax.scatter(
             connectors.x.values,
             connectors.y.values,
@@ -1239,53 +1189,25 @@ def _plot_skeleton(neuron, color, ax, settings):
 
             ax.add_collection(lc)
 
-        if settings.soma and np.any(neuron.soma):
-            soma = utils.make_iterable(neuron.soma)
-            # If soma detection is messed up we might end up producing
-            # dozens of soma which will freeze the kernel
-            if len(soma) >= 10:
-                logger.warning(f"{neuron.id} - {len(soma)} somas found.")
-            for s in soma:
-                if isinstance(color, np.ndarray) and color.ndim > 1:
-                    s_ix = np.where(neuron.nodes.node_id == s)[0][0]
-                    soma_color = color[s_ix]
-                else:
-                    soma_color = color
+        for soma in resolve_somata(neuron, color, settings):
+            soma_color = soma.color
+            if settings.depth_coloring:
+                d = soma.center[_get_depth_axis(settings.view)]
+                soma_color = DEPTH_CMAP(settings.norm(d))
 
-                n = neuron.nodes.set_index("node_id").loc[s]
-                r = (
-                    getattr(n, neuron.soma_radius)
-                    if isinstance(neuron.soma_radius, str)
-                    else neuron.soma_radius
-                )
+            soma_defaults = dict(
+                radius=soma.radius,
+                fill=True,
+                fc=soma_color,
+                rasterized=settings.rasterize,
+                zorder=4,
+                edgecolor="none",
+            )
+            if isinstance(settings.soma, dict):
+                soma_defaults.update(settings.soma)
 
-                # It's possible that the radius column is either missing or just
-                # contains NaNs. In that case we will skip this soma.
-                if pd.isnull(r):
-                    logger.warning(
-                        f"Skipping soma {s} of neuron {neuron.id} "
-                        "because it appears to have no radius."
-                    )
-                    continue
-
-                if settings.depth_coloring:
-                    d = [n.x, n.y, n.z][_get_depth_axis(settings.view)]
-                    soma_color = DEPTH_CMAP(settings.norm(d))
-
-                soma_defaults = dict(
-                    radius=r,
-                    fill=True,
-                    fc=soma_color,
-                    rasterized=settings.rasterize,
-                    zorder=4,
-                    edgecolor="none",
-                )
-                if isinstance(settings.soma, dict):
-                    soma_defaults.update(settings.soma)
-
-                sx, sy = _parse_view2d(np.array([[n.x, n.y, n.z]]), settings.view)
-                c = mpatches.Circle((sx[0], sy[0]), **soma_defaults)
-                ax.add_patch(c)
+            sx, sy = _parse_view2d(soma.center.reshape(1, 3), settings.view)
+            ax.add_patch(mpatches.Circle((sx[0], sy[0]), **soma_defaults))
         return None, None
 
     elif settings.method in ["3d", "3d_complex"]:
@@ -1358,60 +1280,29 @@ def _plot_skeleton(neuron, color, ax, settings):
             line3D_collection = None
 
         surf3D_collections = []
-        if settings.soma and not isinstance(getattr(neuron, "soma", None), type(None)):
-            soma = utils.make_iterable(neuron.soma)
-            # If soma detection is messed up we might end up producing
-            # dozens of soma which will freeze the kernel
-            if len(soma) >= 5:
-                logger.warning(
-                    f"Neuron {neuron.id} appears to have {len(soma)}"
-                    " somas. Skipping plotting its somas."
-                )
-            else:
-                for s in soma:
-                    if isinstance(color, np.ndarray) and color.ndim > 1:
-                        s_ix = np.where(neuron.nodes.node_id == s)[0][0]
-                        soma_color = color[s_ix]
-                    else:
-                        soma_color = color
+        for soma in resolve_somata(neuron, color, settings):
+            resolution = 20
+            u = np.linspace(0, 2 * np.pi, resolution)
+            v = np.linspace(0, np.pi, resolution)
+            r = soma.radius
+            x = r * np.outer(np.cos(u), np.sin(v)) + soma.center[0]
+            y = r * np.outer(np.sin(u), np.sin(v)) + soma.center[1]
+            z = r * np.outer(np.ones(np.size(u)), np.cos(v)) + soma.center[2]
 
-                    n = neuron.nodes.set_index("node_id").loc[s]
-                    r = (
-                        getattr(n, neuron.soma_radius)
-                        if isinstance(neuron.soma_radius, str)
-                        else neuron.soma_radius
-                    )
+            soma_defaults = dict(
+                color=soma.color,
+                shade=settings.mesh_shade,
+                rasterized=settings.rasterize,
+            )
+            if isinstance(settings.soma, dict):
+                soma_defaults.update(settings.soma)
 
-                    # It's possible that the radius column is either missing or just
-                    # contains NaNs. In that case we will skip this soma.
-                    if pd.isnull(r):
-                        logger.warning(
-                            f"Skipping soma {s} of neuron {neuron.id} "
-                            "because it appears to have no radius."
-                        )
-                        continue
+            surf = ax.plot_surface(x, y, z, **soma_defaults)
 
-                    resolution = 20
-                    u = np.linspace(0, 2 * np.pi, resolution)
-                    v = np.linspace(0, np.pi, resolution)
-                    x = r * np.outer(np.cos(u), np.sin(v)) + n.x
-                    y = r * np.outer(np.sin(u), np.sin(v)) + n.y
-                    z = r * np.outer(np.ones(np.size(u)), np.cos(v)) + n.z
+            if settings.group_neurons:
+                surf.set_gid(neuron.id)
 
-                    soma_defaults = dict(
-                        color=soma_color,
-                        shade=settings.mesh_shade,
-                        rasterized=settings.rasterize,
-                    )
-                    if isinstance(settings.soma, dict):
-                        soma_defaults.update(settings.soma)
-
-                    surf = ax.plot_surface(x, y, z, **soma_defaults)
-
-                    if settings.group_neurons:
-                        surf.set_gid(neuron.id)
-
-                    surf3D_collections.append(surf)
+            surf3D_collections.append(surf)
 
         return line3D_collection, surf3D_collections
 

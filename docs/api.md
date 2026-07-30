@@ -318,31 +318,16 @@ has some useful perks: [`navis.Volume`][].
 | `navis.Volume.validate` | {{ autosummary("navis.Volume.validate") }} |
 | `navis.Volume.resize` | {{ autosummary("navis.Volume.resize") }} |
 
-### Vispy 3D viewer
-
-Using [`navis.plot3d()`][navis.plot3d] with `backend="vispy"` from a terminal will spawn
-a Vispy 3D viewer object which has a bunch of useful methods. Note that this requires one of
-navis' ``vispy-*`` extras to be installed, so that vispy has a backend.
-
-| Function | Description |
-|----------|-------------|
-| [`navis.Viewer`][] | {{ autosummary("navis.Viewer") }} |
-| [`navis.Viewer.add()`][navis.Viewer.add] | {{ autosummary("navis.Viewer.add") }} |
-| [`navis.Viewer.clear()`][navis.Viewer.clear] | {{ autosummary("navis.Viewer.clear") }} |
-| [`navis.Viewer.close()`][navis.Viewer.close] | {{ autosummary("navis.Viewer.close") }} |
-| [`navis.Viewer.colorize()][navis.Viewer.colorize] | {{ autosummary("navis.Viewer.colorize") }} |
-| [`navis.Viewer.set_colors()`][navis.Viewer.set_colors] | {{ autosummary("navis.Viewer.set_colors") }} |
-| [`navis.Viewer.hide_neurons()`][navis.Viewer.hide_neurons] | {{ autosummary("navis.Viewer.hide_neurons") }} |
-| [`navis.Viewer.unhide_neurons()`][navis.Viewer.unhide_neurons] | {{ autosummary("navis.Viewer.unhide_neurons") }} |
-| [`navis.Viewer.screenshot()`][navis.Viewer.screenshot] | {{ autosummary("navis.Viewer.screenshot") }} |
-| [`navis.Viewer.show()`][navis.Viewer.show] | {{ autosummary("navis.Viewer.show") }} |
-| [`navis.Viewer.toggle_bounds()`][navis.Viewer.toggle_bounds] | {{ autosummary("navis.Viewer.toggle_bounds") }} |
-
 ### Octarine 3D viewer
 
 Using [`navis.plot3d()`][navis.plot3d] with `backend="octarine"` from a terminal will return
 an `octarine.Viewer` 3D viewer. Please see the `Octarine` [documentation](https://schlegelp.github.io/octarine/)
 for details about the viewer.
+
+The viewer is also stashed away so that you don't have to hold on to it yourself:
+[`navis.get_viewer()`][navis.get_viewer] hands it back to you, and
+[`navis.clear3d()`][navis.clear3d], [`navis.pop3d()`][navis.pop3d] and
+[`navis.close3d()`][navis.close3d] operate on it directly.
 
 ## Neuron Morphology
 
