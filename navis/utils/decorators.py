@@ -88,7 +88,7 @@ def map_neuronlist(
     def decorator(function):
         @wraps(function)
         def wrapper(*args, **kwargs):
-            from .. import core
+            from .. import core, compute
 
             # Get the function's signature
             sig = inspect.signature(function)
@@ -158,9 +158,6 @@ def map_neuronlist(
                             f"Got {len(values)} values of `{p}` for {len(nl)} neurons."
                         )
 
-                # If we use parallel processing it makes sense to modify neurons
-                # "inplace" since they will be copied into the child processes
-                # anyway and that way we can avoid making an additional copy
                 if "inplace" in kwargs:
                     # First check keyword arguments
                     inplace = kwargs["inplace"]
@@ -171,13 +168,34 @@ def map_neuronlist(
                     # All things failing assume it's not inplace
                     inplace = False
 
-                if parallel and "inplace" in sig.parameters:
+                # Prepare processor
+                n_cores = kwargs.pop("n_cores", None)
+                chunksize = kwargs.pop("chunksize", None)
+
+                # Resolve where this will run *before* deciding on `inplace`
+                # below - the two are not independent.
+                be = compute.resolve_backend(
+                    kwargs.pop("backend", None),
+                    parallel=parallel,
+                    n_tasks=len(nl),
+                    n_workers=n_cores,
+                )
+
+                # If neurons are copied into worker processes anyway, we may as
+                # well let the function modify them in place and save a copy.
+                # Only where they really are copied, though: on a thread pool -
+                # or when the work degraded to running inline - "in place" means
+                # the caller's own neurons, so honouring `inplace=False` there
+                # is the difference between a copy and silent mutation.
+                if parallel and be.isolated and "inplace" in sig.parameters:
                     kwargs["inplace"] = True
 
-                # Prepare processor
-                n_cores = kwargs.pop("n_cores", os.cpu_count() // 2)
-                chunksize = kwargs.pop("chunksize", 1)
-                excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
+                # Keyword arguments are not zipped unless they were declared
+                # zippable - otherwise any kwarg whose length happened to match
+                # the number of neurons would be silently sliced up.
+                excl = [k for k in kwargs
+                        if k not in can_zip and k not in must_zip]
+                excl += list(range(1, len(args) + 1))
                 proc = core.NeuronProcessor(
                     nl,
                     wrapper,
@@ -189,6 +207,7 @@ def map_neuronlist(
                     chunksize=chunksize,
                     exclude_zip=excl,
                     n_cores=n_cores,
+                    backend=be,
                 )
                 # Apply function
                 res = proc(nl, *args, **kwargs)
@@ -250,7 +269,7 @@ def map_neuronlist_df(
         @wraps(function)
         def wrapper(*args, **kwargs):
             # Lazy import to avoid issues with circular imports and pickling
-            from .. import core
+            from .. import core, compute
 
             # Get the function's signature
             sig = inspect.signature(function)
@@ -295,8 +314,14 @@ def map_neuronlist_df(
                     _ = kwargs.pop(nl_key)
 
                 # Prepare processor
-                n_cores = kwargs.pop("n_cores", os.cpu_count() // 2)
-                chunksize = kwargs.pop("chunksize", 1)
+                n_cores = kwargs.pop("n_cores", None)
+                chunksize = kwargs.pop("chunksize", None)
+                be = compute.resolve_backend(
+                    kwargs.pop("backend", None),
+                    parallel=parallel,
+                    n_tasks=len(nl),
+                    n_workers=n_cores,
+                )
                 excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
                 proc = core.NeuronProcessor(
                     nl,
@@ -309,6 +334,7 @@ def map_neuronlist_df(
                     chunksize=chunksize,
                     exclude_zip=excl,
                     n_cores=n_cores,
+                    backend=be,
                 )
                 # Apply function. Note we use `_run` rather than calling the
                 # processor: with `omit_failures=True` the failed runs are

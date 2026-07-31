@@ -619,7 +619,10 @@ class NeuronList:
               func: Callable,
               *,
               parallel: bool = False,
-              n_cores: int = os.cpu_count() // 2,
+              n_cores: Optional[int] = None,
+              chunksize: Optional[int] = None,
+              backend=None,
+              progress: bool = True,
               omit_failures: bool = False,
               **kwargs):
         """Apply function across all neurons in this NeuronList.
@@ -637,6 +640,16 @@ class NeuronList:
         n_cores :       int
                         Number of CPUs to use for multiprocessing. Defaults to
                         half the available cores.
+        chunksize :     int, optional
+                        Number of neurons to hand a worker at a time. Defaults
+                        to letting the backend decide.
+        backend :       str | ParallelBackend | concurrent.futures.Executor, optional
+                        Where to run. Defaults to
+                        [`navis.set_parallel_backend`][]'s setting. Note that
+                        `func` must be importable by name (i.e. not a lambda)
+                        unless the backend can serialise by value.
+        progress :      bool
+                        Whether to show a progress bar.
         omit_failures : bool
                         If True, will ignore failures.
 
@@ -664,6 +677,9 @@ class NeuronList:
                                func,
                                parallel=parallel,
                                n_cores=n_cores,
+                               chunksize=chunksize,
+                               backend=backend,
+                               progress=progress,
                                omit_failures=omit_failures,
                                desc=f'Apply {func.__name__}')
 

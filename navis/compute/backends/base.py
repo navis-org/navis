@@ -109,6 +109,16 @@ class ParallelBackend(ABC):
             )
         return reasons
 
+    @staticmethod
+    def _remedy(**requirements) -> str:
+        """How to get past an `unsupported()` rejection."""
+        if requirements.get('by_value'):
+            return (' Lambdas, closures and functions defined in a notebook '
+                    'need a backend that serialises by value - select one with '
+                    "`navis.set_parallel_backend('joblib')` (or 'pathos'), or "
+                    'run with `parallel=False`.')
+        return ''
+
     def chunksize(self, n_tasks: int, n_workers: int,
                   requested: Optional[int] = None,
                   size_hint: Optional[Callable[[], float]] = None) -> int:
@@ -334,7 +344,8 @@ def resolve_backend(backend=None, *, parallel: bool = True,
             detail = '; '.join(f"{n}: {', '.join(r)}"
                                for n, r in rejected.items())
             msg += f' Rejected: {detail}.'
-        msg += " Use `parallel=False` to run serially."
+        msg += ParallelBackend._remedy(**requirements) or \
+            ' Use `parallel=False` to run serially.'
         raise ValueError(msg)
 
     be = get_backend(backend)
@@ -349,7 +360,7 @@ def resolve_backend(backend=None, *, parallel: bool = True,
     if reasons:
         raise ValueError(
             f"Parallel backend '{be.name}' cannot run this work: "
-            f"{'; '.join(reasons)}."
+            f"{'; '.join(reasons)}.{be._remedy(**requirements)}"
         )
 
     return be
