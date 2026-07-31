@@ -26,6 +26,9 @@ from typing import Union, Sequence, Optional, Callable
 from typing_extensions import Literal
 
 from .. import config, graph, utils, core
+# `FailedRun` lives with the dispatch machinery now, but is re-exported here
+# because that's where it has always been importable from.
+from ..compute.dispatch import FailedRun  # noqa: F401
 
 
 try:
@@ -811,17 +814,3 @@ def _try_call(x: Sequence):
         return FailedRun(func, args, kwargs, e)
 
 
-class FailedRun:
-    """Class representing a failed run."""
-    def __init__(self, func, args, kwargs, exception='NA'):
-        self.args = args
-        self.func = func
-        self.kwargs = kwargs
-        self.exception = exception
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __str__(self):
-        return (f'Failed run(function={self.func}, args={self.args}, '
-                f'kwargs={self.kwargs}, exception={self.exception})')

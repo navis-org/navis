@@ -73,6 +73,16 @@ pbar_leave = False
 # Default settings for caching
 warn_caching = True
 
+# Default backend for `parallel=True`, i.e. where per-neuron work is run:
+#   "auto" (default) picks the highest-priority installed backend that can run
+#   the request - `pathos`, then `joblib`, then the dependency-free stdlib
+#   process pool. Name one ("pathos", "joblib", "processes", "threads",
+#   "serial") to force it.
+# Prefer `navis.set_parallel_backend()` over setting this directly: it
+# validates the name up front and also accepts a `concurrent.futures.Executor`,
+# which is how you point navis at a cluster.
+default_parallel_backend = "auto"
+
 # Default backend for NBLAST functions:
 #   "builtin" (default) uses navis' own multiprocessing implementation.
 #   Set to "auto" to instead pick the fastest available backend that supports

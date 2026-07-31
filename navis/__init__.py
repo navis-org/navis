@@ -13,6 +13,7 @@
 
 from .__version__ import __version__, __version_vector__
 
+from .compute import *
 from .connectivity import *
 from .conversion import *
 from .core import *
