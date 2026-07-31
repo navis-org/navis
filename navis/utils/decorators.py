@@ -310,11 +310,21 @@ def map_neuronlist_df(
                     exclude_zip=excl,
                     n_cores=n_cores,
                 )
-                # Apply function
-                res = proc(nl, *args, **kwargs)
+                # Apply function. Note we use `_run` rather than calling the
+                # processor: with `omit_failures=True` the failed runs are
+                # dropped, so `res` is shorter than `nl` and zipping the two
+                # directly would label each dataframe with the wrong neuron.
+                out = proc._run(nl, *args, **kwargs)
+                res = out.results
+                survivors = [n for n, f in zip(nl, out.failed) if not f]
 
-                for n, df in zip(nl, res):
+                for n, df in zip(survivors, res):
                     df.insert(0, column=id_col, value=n.id)
+
+                if not res:
+                    # Every run failed (`_run` has already warned about it) -
+                    # there is nothing to concatenate
+                    return pd.DataFrame()
 
                 df = pd.concat(res, axis=0)
 

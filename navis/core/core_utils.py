@@ -20,6 +20,7 @@ import pandas as pd
 import numpy as np
 import trimesh as tm
 
+from collections import namedtuple
 from scipy.spatial import cKDTree
 from typing import Union, Sequence, Optional, Callable
 from typing_extensions import Literal
@@ -669,6 +670,28 @@ class NeuronProcessor:
         functools.update_wrapper(self, self.function)
 
     def __call__(self, *args, **kwargs):
+        res = self._run(*args, **kwargs).results
+
+        # If result is a list of neurons, combine them back into a single list
+        is_neuron = [isinstance(r, (core.NeuronList, core.BaseNeuron)) for r in res]
+        if all(is_neuron):
+            return self.nl.__class__(utils.unpack_neurons(res))
+        # If results are all None return nothing instead of a list of [None, ..]
+        if np.all([r is None for r in res]):
+            res = None
+        # If not all neurons simply return results and let user deal with it
+        return res
+
+    def _run(self, *args, **kwargs) -> 'MapResult':
+        """Run the function(s) and return results plus the failure mask.
+
+        `__call__` post-processes the results (e.g. re-assembles a NeuronList)
+        and is what callers normally want. Use this instead if you need to pair
+        the results back up with the neurons they came from: with
+        `omit_failures=True` the failed runs are dropped, so `results` is
+        shorter than `self.nl` and the two can no longer be zipped directly.
+        `failed` is a mask over the *input* neurons.
+        """
         # Explicitly providing these parameters overwrites defaults
         parallel = kwargs.pop('parallel', self.parallel)
         n_cores = kwargs.pop('n_cores', self.n_cores)
@@ -756,7 +779,7 @@ class NeuronProcessor:
         # Reset logger level to previous state
         logger.setLevel(level)
 
-        failed = np.array([isinstance(r, FailedRun) for r in res])
+        failed = np.array([isinstance(r, FailedRun) for r in res], dtype=bool)
         res = [r for r in res if not isinstance(r, FailedRun)]
         if any(failed):
             logger.warning(f'{sum(failed)} of {len(self.funcs)} runs failed. '
@@ -765,15 +788,12 @@ class NeuronProcessor:
             failed_ids = self.nl.id[np.where(failed)].astype(str)
             logger.debug(f'The following IDs failed to complete: {", ".join(failed_ids)}')
 
-        # If result is a list of neurons, combine them back into a single list
-        is_neuron = [isinstance(r, (core.NeuronList, core.BaseNeuron)) for r in res]
-        if all(is_neuron):
-            return self.nl.__class__(utils.unpack_neurons(res))
-        # If results are all None return nothing instead of a list of [None, ..]
-        if np.all([r is None for r in res]):
-            res = None
-        # If not all neurons simply return results and let user deal with it
-        return res
+        return MapResult(results=res, failed=failed)
+
+
+#: Return value of `NeuronProcessor._run`: the surviving results, plus a
+#: boolean mask over the *input* neurons marking which ones failed.
+MapResult = namedtuple('MapResult', ['results', 'failed'])
 
 
 def _call(x: Sequence):

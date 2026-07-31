@@ -128,6 +128,41 @@ def test_neuronlist_mapping():
     assert res.neuron.nunique() == 2
 
 
+def test_omit_failures_keeps_ids_aligned():
+    """A failed run must not shift the `neuron` column onto another's data.
+
+    With `omit_failures=True` the failed runs are dropped, so the results are
+    shorter than the input NeuronList. Zipping the two directly used to label
+    every dataframe after the first failure with the wrong neuron - silently.
+    """
+    sk = navis.example_neurons(3, kind="skeleton")
+    # A Dotprops has no nodes, so `branch_angles` fails on it. Putting it in
+    # the middle means a mis-zip shows up on the neuron *after* it.
+    nl = navis.NeuronList([sk[0], navis.make_dotprops(sk[1], k=5), sk[2]])
+
+    res = navis.branch_angles(nl, omit_failures=True)
+
+    assert list(res.neuron.unique()) == [sk[0].id, sk[2].id]
+
+    # ... and the rows really are that neuron's angles, not just its label
+    for n in (sk[0], sk[2]):
+        expected = navis.branch_angles(n).branch_angle.values
+        got = res.loc[res.neuron == n.id, "branch_angle"].values
+        assert np.allclose(got, expected, equal_nan=True)
+
+
+def test_omit_failures_all_failed():
+    """If every run fails we get an empty frame, not a concat error."""
+    nl = navis.NeuronList(
+        [navis.make_dotprops(n, k=5) for n in navis.example_neurons(2, kind="skeleton")]
+    )
+
+    res = navis.branch_angles(nl, omit_failures=True)
+
+    assert isinstance(res, pd.DataFrame)
+    assert res.empty
+
+
 def test_multi_root(toy):
     """Fragmented neurons: each component is referenced to its own root."""
     # Second disconnected component, offset in x, with its own root (node 11)
