@@ -8,12 +8,8 @@ By default, most {{ navis }} functions use only a single thread/process (althoug
 used under the hood might). Distributing expensive computations across multiple cores can speed things up considerably.
 
 Many {{ navis }} functions natively support parallel processing. This notebook will illustrate various ways
-to use parallelism. Before we get started: {{ navis }} uses `pathos` for multiprocessing - if you installed
-{{ navis }} with `pip install navis[all]` you should be all set. If not, you can install `pathos` separately:
-
-```shell
-pip install pathos -U
-```
+to use parallelism. Nothing needs installing to get started - {{ navis }} falls back to the standard library's
+process pool - though see [choosing a backend](#choosing-a-backend) at the bottom for when that matters.
 
 ## Running {{ navis }} functions in parallel
 
@@ -104,7 +100,56 @@ time_func (
     nl.apply, my_func, parallel=True
 )
 
+# %%
+# ## Choosing a backend
+#
+# `parallel=True` says *that* the work should be spread over the neurons;
+# [`navis.set_parallel_backend`][] says *where* it runs. The default (`"auto"`) picks the
+# best backend you have installed, so you rarely need to touch this:
+#
+# | Backend | Needs | Notes |
+# |---|---|---|
+# | `pathos` | `pip install pathos` | Default where installed. Serializes with `dill`, so it can run lambdas. |
+# | `joblib` | `pip install joblib` | Also handles lambdas, and keeps workers alive between calls. |
+# | `processes` | - | Standard library. No dependencies, but cannot ship lambdas. |
+# | `threads` | - | Only helps for work that releases the GIL. |
+# | `serial` | - | No parallelism at all - handy for debugging. |
 
+print(navis.list_parallel_backends())
+
+# %%
+# Set one globally, or scope it to a block:
+#
+# ```python
+# navis.set_parallel_backend("joblib")
+#
+# with navis.set_parallel_backend("threads"):
+#     navis.resample_skeleton(nl, resample_to=125, parallel=True)
+# ```
+#
+# You can also pass a single call its own backend:
+#
+# ```python
+# navis.resample_skeleton(nl, resample_to=125, parallel=True, backend="processes")
+# ```
+
+# %%
+# !!! tip "Running on a cluster"
+#     [`navis.set_parallel_backend`][] also accepts any `concurrent.futures.Executor`,
+#     which is how you point {{ navis }} at more than one machine. Configure the executor
+#     with its own library's API - {{ navis }} deliberately has no `slurm_partition`-style
+#     parameters of its own - and hand it over:
+#
+#     ```python
+#     from dask.distributed import Client
+#
+#     client = Client("tcp://scheduler:8786")
+#     with navis.set_parallel_backend(client.get_executor()):
+#         navis.resample_skeleton(nl, resample_to=125, parallel=True)
+#     ```
+#
+#     Note that neurons are sent to the workers, so for remote backends it pays to raise
+#     `chunksize` - shipping one neuron per task is a lot of overhead for a short job.
 
 # %%
 

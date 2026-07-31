@@ -400,11 +400,18 @@ def map_neuronlist_update_docstring(func, allow_parallel):
     if allow_parallel:
         msg += dedent(f"""\
         parallel :{" " * (offset - 10)}bool
-                  {" " * (offset - 10)}If True and input is NeuronList, use parallel
-                  {" " * (offset - 10)}processing. Requires `pathos`.
+                  {" " * (offset - 10)}If True and input is NeuronList, distribute the
+                  {" " * (offset - 10)}work across multiple processes. See
+                  {" " * (offset - 10)}`navis.set_parallel_backend` for where it runs.
         n_cores : {" " * (offset - 10)}int, optional
                   {" " * (offset - 10)}Numbers of cores to use if `parallel=True`.
                   {" " * (offset - 10)}Defaults to half the available cores.
+        chunksize :{" " * (offset - 11)}int, optional
+                  {" " * (offset - 10)}Number of neurons to hand a worker at a time.
+                  {" " * (offset - 10)}Defaults to letting the backend decide.
+        backend : {" " * (offset - 10)}str | ParallelBackend, optional
+                  {" " * (offset - 10)}Override where this call runs. Defaults to
+                  {" " * (offset - 10)}`navis.config.default_parallel_backend`.
         """)
 
     msg += dedent(f"""\

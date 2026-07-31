@@ -117,11 +117,31 @@ directly, are listed below:
 
     #### `pathos`: [pathos](https://github.com/uqfoundation/pathos)
 
-    Pathos is a multiprocessing library. {{ navis }} uses it to parallelize functions
-    across lists of neurons.
+    One of the backends {{ navis }} can use to parallelize functions across lists of
+    neurons (see [`navis.set_parallel_backend`][]). It is the default where installed
+    because it serializes with `dill`, which means it can also run lambdas and
+    functions defined in a notebook.
+
+    Parallel processing works without it - {{ navis }} falls back to the standard
+    library's process pool - so this is only worth installing if you use
+    `NeuronList.apply()` with a lambda.
 
     ``` shell
     pip install pathos
+    ```
+
+    ---
+
+    #### `joblib`: [joblib](https://joblib.readthedocs.io)
+
+    An alternative parallel backend (see [`navis.set_parallel_backend`][]). Like
+    `pathos` it can ship lambdas, and it keeps its worker processes alive between
+    calls - which makes a sequence of `parallel=True` calls markedly faster.
+    `joblib.parallel_config` also lets you route the work through dask, ray or
+    ipyparallel.
+
+    ``` shell
+    pip install joblib
     ```
 
     ---
