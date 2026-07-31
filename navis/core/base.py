@@ -244,7 +244,44 @@ class BaseNeuron(UnitObject):
                     return "NA"
             return None
 
-        raise AttributeError(f'Attribute "{key}" not found')
+        # Private/dunder misses are the hot path here - `copy`, `pickle` and
+        # `hasattr` probe a lot of them - so don't pay for the nicer message.
+        if key.startswith("_"):
+            raise AttributeError(f'Attribute "{key}" not found')
+
+        raise AttributeError(self._missing_attr_msg(key))
+
+    def _missing_attr_msg(self, key: str) -> str:
+        """Explain a missing attribute in terms of the neuron types that have it.
+
+        A bare `Attribute "cable_length" not found` is a dead end: it doesn't
+        say that the attribute exists on a *different* neuron type, nor how to
+        get one. Reaching for a skeleton-only property on a mesh or dotprops is
+        common enough to be worth naming the way out.
+        """
+        converters = {
+            core.TreeNeuron: "navis.skeletonize(x)",
+            core.MeshNeuron: "navis.mesh(x)",
+            core.VoxelNeuron: "navis.voxelize(x, pitch=...)",
+            core.Dotprops: "navis.make_dotprops(x)",
+        }
+        others = [
+            cls
+            for cls in converters
+            if not isinstance(self, cls) and hasattr(cls, key)
+        ]
+
+        msg = f'{type(self).__name__} has no attribute "{key}".'
+        if not others:
+            return msg
+
+        names = " or ".join(cls.__name__ for cls in others)
+        msg += f" It is available on {names}"
+        if len(others) == 1:
+            msg += f" - convert with `{converters[others[0]]}`."
+        else:
+            msg += " - convert first."
+        return msg
 
     def __str__(self):
         return self.__repr__()
@@ -624,8 +661,19 @@ class BaseNeuron(UnitObject):
         2131.8
 
         """
-        if not isinstance(self.units, (pint.Unit, pint.Quantity)):
-            raise ValueError("Unable to convert: neuron has no units set.")
+        units = self.units
+        # `.units = None` - the default whenever a loader doesn't know better -
+        # round-trips to a *dimensionless* Quantity, which sails past an
+        # isinstance check and then fails inside pint with "Cannot convert from
+        # 'dimensionless' to 'micrometer'": an error that names neither navis
+        # nor `.units`, and doesn't hint that they can simply be set.
+        if not isinstance(units, (pint.Unit, pint.Quantity)) or units.dimensionless:
+            raise ValueError(
+                f'Unable to convert to "{to}": this neuron has no units set. '
+                "Either assign them first (e.g. `n.units = '8 nanometer'`) or "
+                "scale the coordinates directly (`n * 8 / 1000` converts 8nm "
+                "voxels to microns)."
+            )
 
         n = self.copy() if not inplace else self
 

@@ -24,6 +24,23 @@ from typing_extensions import Literal
 
 from .. import config, core, utils, graph
 
+# `method` is handed straight to `scipy.interpolate.interp1d(kind=...)`. Check
+# it here: an unknown value otherwise surfaces from deep inside scipy as
+# "NotImplementedError: <method> is unsupported: Use fitpack routines for other
+# types", which names neither navis nor the parameter, and points at a library
+# the caller never asked for.
+INTERP_METHODS = (
+    "linear",
+    "nearest",
+    "nearest-up",
+    "zero",
+    "slinear",
+    "quadratic",
+    "cubic",
+    "previous",
+    "next",
+)
+
 # Set up logging
 logger = config.get_logger(__name__)
 
@@ -129,6 +146,13 @@ def resample_skeleton(x: 'core.NeuronObject',
     """
     if not isinstance(x, core.TreeNeuron):
         raise TypeError(f'Unable to resample data of type "{type(x)}"')
+
+    if method not in INTERP_METHODS and not isinstance(method, (int, np.integer)):
+        raise ValueError(
+            f'Unknown method "{method}". Allowed values: '
+            f"{', '.join(repr(m) for m in INTERP_METHODS)}, or an int giving "
+            "the spline order."
+        )
 
     # Map units (non-str are just passed through)
     resample_to = x.map_units(resample_to, on_error="raise")

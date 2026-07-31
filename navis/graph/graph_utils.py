@@ -2088,6 +2088,19 @@ def reroot_skeleton(
             else:
                 new_roots[i] = x.tags[root][0]
 
+    # Every root is a node ID by now - check they exist. Without this the
+    # lookup happens deep inside the igraph rerooting below and surfaces as a
+    # bare `KeyError: np.int64(123)`, which mentions neither the neuron nor
+    # that the number was supposed to be a node ID.
+    known_ids = set(x.nodes.node_id.values)
+    missing = [r for r in new_roots if r not in known_ids]
+    if missing:
+        raise ValueError(
+            f"#{x.id}: no node with ID {missing[0]} in this neuron. `new_root` "
+            "must be an existing node ID (see `x.nodes.node_id`) or a node tag. "
+            "Use `navis.find_soma(x)` to root the neuron at its soma."
+        )
+
     # At this point x is TreeNeuron
     x: core.TreeNeuron
     # At this point new_roots is list of int

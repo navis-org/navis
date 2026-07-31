@@ -2210,10 +2210,16 @@ def heal_skeleton(
     1
 
     """
-    method = str(method).upper()
+    # Compare case-insensitively but report back what the caller actually
+    # passed - echoing the upper-cased value reads like a different argument.
+    if str(method).upper() not in ("LEAFS", "ALL"):
+        raise ValueError(
+            f'Unknown method "{method}". Allowed values: "LEAFS" (use only '
+            'leaf and root nodes to heal gaps; faster) or "ALL" (use all '
+            "nodes)."
+        )
 
-    if method not in ("LEAFS", "ALL"):
-        raise ValueError(f'Unknown method "{method}"')
+    method = str(method).upper()
 
     # The decorator makes sure that at this point we have single neurons
     if not isinstance(x, core.TreeNeuron):
