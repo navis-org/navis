@@ -13,21 +13,14 @@
 
 """The pathos backend - what `parallel=True` has always used."""
 
+import importlib.util
+
 from ... import config
 from .base import ParallelBackend
 
 logger = config.get_logger(__name__)
 
 __all__ = ['PathosBackend']
-
-try:
-    # Note we use the private `_ProcessPool` rather than `ProcessingPool`
-    # because the latter ignores `chunksize`, see
-    # https://stackoverflow.com/questions/55611806/how-to-set-chunk-size-when-using-pathos-processingpools-map
-    import pathos
-    ProcessingPool = pathos.pools._ProcessPool
-except ModuleNotFoundError:
-    ProcessingPool = None
 
 
 class PathosBackend(ParallelBackend):
@@ -50,10 +43,16 @@ class PathosBackend(ParallelBackend):
     pickles_by_value = True
 
     def available(self):
-        return ProcessingPool is not None
+        # Spec lookup rather than an import - see the note in `_joblib.py`
+        return importlib.util.find_spec('pathos') is not None
 
     def map(self, func, payloads, *, n_workers):
+        # Note we use the private `_ProcessPool` rather than `ProcessingPool`
+        # because the latter ignores `chunksize`, see
+        # https://stackoverflow.com/questions/55611806/how-to-set-chunk-size-when-using-pathos-processingpools-map
+        import pathos
+
         # Payloads are already chunked by the dispatcher, so pathos must not
         # chunk them a second time.
-        with ProcessingPool(n_workers) as pool:
+        with pathos.pools._ProcessPool(n_workers) as pool:
             yield from pool.imap_unordered(func, payloads, chunksize=1)

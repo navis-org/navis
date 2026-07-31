@@ -20,7 +20,6 @@ functions (e.g. for multiprocessing).
 """
 
 import re
-import os
 import inspect
 import warnings
 
@@ -86,12 +85,14 @@ def map_neuronlist(
     # - make can_zip/must_zip work with positional-only argumens to, i.e. let
     #   it work with integers instead of strings
     def decorator(function):
+        # Computed once at decoration time rather than per call: workers
+        # re-enter this wrapper for every neuron, and `inspect.signature` is
+        # expensive enough to dominate the per-neuron dispatch cost.
+        sig = inspect.signature(function)
+
         @wraps(function)
         def wrapper(*args, **kwargs):
             from .. import core, compute
-
-            # Get the function's signature
-            sig = inspect.signature(function)
 
             try:
                 fnname = function.__name__
@@ -168,8 +169,12 @@ def map_neuronlist(
                     # All things failing assume it's not inplace
                     inplace = False
 
-                # Prepare processor
-                n_cores = kwargs.pop("n_cores", None)
+                # Prepare processor. `n_cores` is defaulted here rather than
+                # left to `NeuronProcessor`, because which backend we resolve
+                # below depends on it: resolving against `None` and then running
+                # against the default can pick two *different* backends, and the
+                # `inplace` decision hangs off the one we resolve here.
+                n_cores = kwargs.pop("n_cores", None) or compute.default_n_workers()
                 chunksize = kwargs.pop("chunksize", None)
 
                 # Resolve where this will run *before* deciding on `inplace`
@@ -266,13 +271,15 @@ def map_neuronlist_df(
     # - make can_zip/must_zip work with positional-only argumens to, i.e. let
     #   it work with integers instead of strings
     def decorator(function):
+        # Computed once at decoration time rather than per call: workers
+        # re-enter this wrapper for every neuron, and `inspect.signature` is
+        # expensive enough to dominate the per-neuron dispatch cost.
+        sig = inspect.signature(function)
+
         @wraps(function)
         def wrapper(*args, **kwargs):
             # Lazy import to avoid issues with circular imports and pickling
             from .. import core, compute
-
-            # Get the function's signature
-            sig = inspect.signature(function)
 
             try:
                 fnname = function.__name__
@@ -313,15 +320,12 @@ def map_neuronlist_df(
                 else:
                     _ = kwargs.pop(nl_key)
 
-                # Prepare processor
+                # Prepare processor. Unlike `map_neuronlist` this decorator has
+                # no `inplace` decision to make, so it has no reason to resolve
+                # the backend itself - `NeuronProcessor` does that once.
                 n_cores = kwargs.pop("n_cores", None)
                 chunksize = kwargs.pop("chunksize", None)
-                be = compute.resolve_backend(
-                    kwargs.pop("backend", None),
-                    parallel=parallel,
-                    n_tasks=len(nl),
-                    n_workers=n_cores,
-                )
+                be = kwargs.pop("backend", None)
                 excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
                 proc = core.NeuronProcessor(
                     nl,
@@ -342,9 +346,8 @@ def map_neuronlist_df(
                 # directly would label each dataframe with the wrong neuron.
                 out = proc._run(nl, *args, **kwargs)
                 res = out.results
-                survivors = [n for n, f in zip(nl, out.failed) if not f]
 
-                for n, df in zip(survivors, res):
+                for n, df in zip(out.neurons, res):
                     df.insert(0, column=id_col, value=n.id)
 
                 if not res:
@@ -529,11 +532,13 @@ def meshneuron_skeleton(
         raise ValueError('Must provide `node_props` for method "node_properties"')
 
     def decorator(function):
+        # Computed once at decoration time rather than per call: workers
+        # re-enter this wrapper for every neuron, and `inspect.signature` is
+        # expensive enough to dominate the per-neuron dispatch cost.
+        sig = inspect.signature(function)
+
         @wraps(function)
         def wrapper(*args, **kwargs):
-            # Get the function's signature
-            sig = inspect.signature(function)
-
             try:
                 fnname = function.__name__
             except BaseException:

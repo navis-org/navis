@@ -12,7 +12,6 @@
 #    GNU General Public License for more details.
 
 from concurrent.futures import ThreadPoolExecutor
-import os
 import random
 import re
 import types
@@ -27,7 +26,7 @@ from pathlib import Path
 from typing import (Sequence, Union, Iterable, List,
                     Optional, Callable, Iterator)
 
-from .. import utils, config, core
+from .. import utils, config, core, compute
 
 __all__ = ['NeuronList']
 
@@ -96,14 +95,14 @@ class NeuronList:
                  make_copy: bool = False,
                  make_using: Optional[type] = None,
                  parallel: bool = False,
-                 n_cores: int = os.cpu_count() // 2,
+                 n_cores: Optional[int] = None,
                  **kwargs):
         # If below parameter is True, most calculations will be parallelized
         # which speeds them up quite a bit. Unfortunately, this uses A TON of
         # memory - for large lists this might make your system run out of
         # memory. In these cases, leave this property at False
         self.parallel = parallel
-        self.n_cores = n_cores
+        self.n_cores = n_cores if n_cores else compute.default_n_workers()
 
         # Determines if subsetting this NeuronList will copy the neurons
         self.copy_on_subset: bool = False

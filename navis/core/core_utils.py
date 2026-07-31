@@ -13,7 +13,6 @@
 
 import functools
 import numbers
-import os
 import pint
 
 import pandas as pd
@@ -22,7 +21,7 @@ import trimesh as tm
 
 from collections import namedtuple
 from scipy.spatial import cKDTree
-from typing import Union, Sequence, Optional, Callable
+from typing import Union, Optional, Callable
 from typing_extensions import Literal
 
 from .. import config, graph, utils, core
@@ -776,35 +775,22 @@ class NeuronProcessor:
 
         failed = np.array([isinstance(r, FailedRun) for r in res], dtype=bool)
         res = [r for r in res if not isinstance(r, FailedRun)]
-        if any(failed):
+        if failed.any():
             logger.warning(f'{sum(failed)} of {len(self.funcs)} runs failed. '
                         'Set logging to debug (`navis.set_loggers("DEBUG")`) '
                         'or repeat with `omit_failures=False` for details.')
             failed_ids = self.nl.id[np.where(failed)].astype(str)
             logger.debug(f'The following IDs failed to complete: {", ".join(failed_ids)}')
 
-        return MapResult(results=res, failed=failed)
+        survivors = [n for n, f in zip(self.nl, failed) if not f]
+
+        return MapResult(results=res, neurons=survivors, failed=failed)
 
 
-#: Return value of `NeuronProcessor._run`: the surviving results, plus a
-#: boolean mask over the *input* neurons marking which ones failed.
-MapResult = namedtuple('MapResult', ['results', 'failed'])
+#: Return value of `NeuronProcessor._run`. `results` holds only the runs that
+#: succeeded; `neurons` are the neurons those results came from (same length,
+#: so the two can be zipped); `failed` is a mask over the *input* neurons.
+MapResult = namedtuple('MapResult', ['results', 'neurons', 'failed'])
 
-
-# Kept for backwards compatibility. The dispatch layer runs a whole chunk of
-# tasks per call now, see `navis.compute.dispatch.run_chunk`.
-def _call(x: Sequence):
-    """Unpack function and args/kwargs and run it."""
-    func, args, kwargs = x
-    return func(*args, **kwargs)
-
-
-def _try_call(x: Sequence):
-    """Unpack function and args/kwargs and run it."""
-    func, args, kwargs = x
-    try:
-        return func(*args, **kwargs)
-    except BaseException as e:
-        return FailedRun(func, args, kwargs, e)
 
 

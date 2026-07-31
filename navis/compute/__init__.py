@@ -30,6 +30,8 @@ has to grow a `slurm_partition` keyword::
 
 """
 
+import atexit
+
 from .dispatch import (map_tasks, default_n_workers, FailedRun,
                        worker_init_hooks, picklable_by_reference)
 from .backends import (ParallelBackend, ExecutorBackend, register_backend,
@@ -41,10 +43,14 @@ def shutdown():
     """Release resources held by the parallel backends.
 
     Backends that keep a pool of workers alive between calls tear it down here.
-    Called automatically at interpreter exit.
+    Called automatically at interpreter exit - including for backends
+    registered by third parties.
     """
     for backend in list(available_backends()):
         backend.shutdown()
+
+
+atexit.register(shutdown)
 
 
 #: Names exported to the top-level `navis` namespace.

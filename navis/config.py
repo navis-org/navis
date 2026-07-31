@@ -83,6 +83,34 @@ warn_caching = True
 # which is how you point navis at a cluster.
 default_parallel_backend = "auto"
 
+# Default number of workers for `parallel=True`. None means "half the available
+# cores". Set via `navis.set_parallel_backend(n_workers=...)`.
+default_n_workers = None
+
+# Settings carried into worker processes. A forked worker inherits these for
+# free, but a spawned one re-imports navis and would otherwise silently revert
+# to the defaults - so anything a user can change and would expect to still
+# apply inside a worker belongs here.
+#
+# Everything listed must be picklable, since it travels with the work. That
+# rules out `ureg`, `logger` and the `tqdm` callables (objects rather than
+# settings - the log *level* is carried separately) and, notably,
+# `default_parallel_backend`, which may hold a live executor. Not carrying it
+# also means a worker never inherits "run this on the cluster", so nested
+# `parallel=True` stays local instead of trying to recurse into the scheduler.
+WORKER_SETTINGS = (
+    "pbar_hide",
+    "pbar_leave",
+    "warn_caching",
+    "add_units",
+    "default_n_workers",
+    "default_nblast_backend",
+    "default_transform_backend",
+    "elastix_invertible",
+    "default_connector_colors",
+    "max_grid_size",
+)
+
 # Default backend for NBLAST functions:
 #   "builtin" (default) uses navis' own multiprocessing implementation.
 #   Set to "auto" to instead pick the fastest available backend that supports

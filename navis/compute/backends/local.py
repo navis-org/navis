@@ -14,7 +14,6 @@
 """Dependency-free backends: serial, threads and the stdlib process pool."""
 
 import os
-import atexit
 import threading
 import multiprocessing as mp
 import concurrent.futures as cf
@@ -152,9 +151,6 @@ def shutdown_pool():
             _POOL.shutdown(wait=False)
             _POOL = None
             _POOL_KEY = None
-
-
-atexit.register(shutdown_pool)
 
 
 class ProcessBackend(ExecutorBackend):

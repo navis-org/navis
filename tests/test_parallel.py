@@ -99,6 +99,23 @@ def test_backend_parity(nl, backend):
     assert [n.n_nodes for n in got] == ref
 
 
+def test_bare_executor_backend(nl):
+    """A user-supplied Executor - the path a cluster client takes.
+
+    Note the executor itself must never end up inside the payload we ship to
+    the workers: it holds a thread lock and is not picklable.
+    """
+    import concurrent.futures as cf
+
+    ref = [n.n_nodes for n in navis.prune_twigs(nl, 5000, inplace=False)]
+
+    with cf.ProcessPoolExecutor(2) as ex:
+        with navis.set_parallel_backend(ex):
+            got = navis.prune_twigs(nl.copy(), 5000, inplace=False, parallel=True)
+
+    assert [n.n_nodes for n in got] == ref
+
+
 @pytest.mark.parametrize('backend', LOCAL_BACKENDS, indirect=True)
 def test_backend_parity_must_zip(nl, backend):
     """`must_zip` arguments must still be distributed per neuron."""
@@ -146,6 +163,23 @@ def test_inplace_false_is_honoured_on_shared_memory(nl, backend):
     before = [n.n_nodes for n in nl]
 
     navis.prune_twigs(nl, 5000, inplace=False, parallel=True, backend=backend)
+
+    assert [n.n_nodes for n in nl] == before
+
+
+def test_inplace_false_is_honoured_on_a_one_core_machine(nl):
+    """The decorator and the processor must agree on the backend.
+
+    The decorator resolves one to decide whether it may force `inplace=True`;
+    the processor resolves again to run. If they see different worker counts
+    they can pick differently - decorator says "isolated, so mutating is free",
+    processor degrades to serial and mutates the caller's own neurons. One
+    worker is exactly that case, and is what a 2-core CI runner defaults to.
+    """
+    before = [n.n_nodes for n in nl]
+
+    with navis.set_parallel_backend(n_workers=1):
+        navis.prune_twigs(nl, 5000, inplace=False, parallel=True)
 
     assert [n.n_nodes for n in nl] == before
 

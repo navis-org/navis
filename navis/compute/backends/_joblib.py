@@ -23,17 +23,14 @@ in benchmarking was the single biggest factor for repeated `parallel=True`
 calls - starting workers costs far more than the work itself for small jobs.
 """
 
+import importlib.util
+
 from ... import config
 from .base import ParallelBackend
 
 logger = config.get_logger(__name__)
 
 __all__ = ['JoblibBackend']
-
-try:
-    import joblib
-except ModuleNotFoundError:
-    joblib = None
 
 
 class JoblibBackend(ParallelBackend):
@@ -51,9 +48,12 @@ class JoblibBackend(ParallelBackend):
     pickles_by_value = True
 
     def available(self):
-        return joblib is not None
+        # Deliberately a spec lookup rather than an import: this runs on every
+        # `backend="auto"` resolution, and importing joblib costs ~15ms that
+        # users who never select it should not pay.
+        return importlib.util.find_spec('joblib') is not None
 
-    def _parallel(self, n_workers):
+    def _parallel(self, joblib, n_workers):
         """Build a `Parallel` that streams results as they land.
 
         `return_as="generator_unordered"` needs joblib >= 1.4; older versions
@@ -68,5 +68,7 @@ class JoblibBackend(ParallelBackend):
         return joblib.Parallel(n_jobs=n_workers)
 
     def map(self, func, payloads, *, n_workers):
-        par = self._parallel(n_workers)
+        import joblib
+
+        par = self._parallel(joblib, n_workers)
         yield from par(joblib.delayed(func)(p) for p in payloads)

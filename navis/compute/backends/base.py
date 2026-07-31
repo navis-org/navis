@@ -30,7 +30,6 @@ from abc import ABC, abstractmethod
 from typing import Callable, Iterator, Optional, Sequence
 
 from ... import config
-from ..dispatch import default_n_workers
 
 logger = config.get_logger(__name__)
 
@@ -159,8 +158,9 @@ class ExecutorBackend(ParallelBackend):
     is a real `cf.Executor` handing back real `cf.Future` objects.
     """
 
+    @abstractmethod
     def get_executor(self, n_workers: int) -> cf.Executor:
-        raise NotImplementedError
+        """Return the executor to submit to."""
 
     def release_executor(self, executor: cf.Executor) -> None:
         """Called when a `map` finishes. No-op if the executor is reused."""
@@ -188,16 +188,11 @@ class WrappedExecutorBackend(ExecutorBackend):
     work, and is the seam the cluster adapters will slot into.
     """
 
-    name = 'custom'
     auto_select = False
 
-    def __init__(self, executor, *, isolated=None, pickles_by_value=None,
-                 name=None):
+    def __init__(self, executor, *, isolated=None, pickles_by_value=None):
         self.executor = executor
-        if name:
-            self.name = name
-        else:
-            self.name = f'custom:{type(executor).__name__}'
+        self.name = f'custom:{type(executor).__name__}'
 
         inferred_isolated, inferred_by_value = _infer_capabilities(executor)
         self.isolated = inferred_isolated if isolated is None else bool(isolated)
@@ -314,7 +309,7 @@ def resolve_backend(backend=None, *, parallel: bool = True,
     # Fall back to the configured default *before* dispatching on type - the
     # config may itself hold a backend instance or an executor.
     if backend is None:
-        backend = getattr(config, 'default_parallel_backend', 'auto')
+        backend = config.default_parallel_backend
 
     if isinstance(backend, ParallelBackend):
         return backend
@@ -378,8 +373,8 @@ class _BackendSetter:
     """
 
     def __init__(self, backend, n_workers):
-        self.previous = getattr(config, 'default_parallel_backend', 'auto')
-        self.previous_n_workers = getattr(config, 'default_n_workers', None)
+        self.previous = config.default_parallel_backend
+        self.previous_n_workers = config.default_n_workers
 
         if backend is not None:
             config.default_parallel_backend = backend
@@ -395,11 +390,7 @@ class _BackendSetter:
 
     def restore(self):
         config.default_parallel_backend = self.previous
-        if self.previous_n_workers is None:
-            if hasattr(config, 'default_n_workers'):
-                del config.default_n_workers
-        else:
-            config.default_n_workers = self.previous_n_workers
+        config.default_n_workers = self.previous_n_workers
 
 
 def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,

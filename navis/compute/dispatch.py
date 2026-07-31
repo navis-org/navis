@@ -29,8 +29,8 @@ import os
 import sys
 import pickle
 
-from dataclasses import dataclass, field
-from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 from .. import config
 
@@ -42,10 +42,11 @@ __all__ = ['map_tasks', 'default_n_workers', 'FailedRun']
 def default_n_workers() -> int:
     """Number of workers to use when the caller didn't say.
 
-    Half the available cores, and never zero: `os.cpu_count()` returns None on
-    platforms that can't tell us, which would otherwise produce a `TypeError`.
+    `navis.config.default_n_workers` if set, else half the available cores.
+    Never zero: `os.cpu_count()` returns None on platforms that can't tell us,
+    which would otherwise produce a `TypeError`.
     """
-    return max(1, (os.cpu_count() or 1) // 2)
+    return config.default_n_workers or max(1, (os.cpu_count() or 1) // 2)
 
 
 # --------------------------------------------------------------------------- #
@@ -57,20 +58,11 @@ def default_n_workers() -> int:
 # defaults back. Without this, `navis.set_pbars(hide=True)` and friends would
 # silently stop applying the moment the backend changed.
 
-#: Config settings worth carrying into a worker. Missing names are skipped, so
-#: this can name settings that only exist in some versions.
-_CONTEXT_KEYS = (
-    'pbar_hide',
-    'pbar_leave',
-    'add_units',
-    'default_nblast_backend',
-    'default_transform_backend',
-    'elastix_invertible',
-)
-
-#: Callables run in each worker after the config has been applied. Use this for
-#: state that lives outside `navis.config` - e.g. `navis.patch_cloudvolume()`.
-#: They must be picklable, i.e. importable by name.
+#: Callables run in a worker before each chunk, after the config has been
+#: applied. Use this for state that lives outside `navis.config` - e.g.
+#: `navis.patch_cloudvolume()`. They must be picklable (importable by name) and
+#: cheap enough to re-run, since there is no uniform "once per worker" hook
+#: across the executors we support.
 worker_init_hooks: List[Callable[[], None]] = []
 
 
@@ -84,16 +76,20 @@ class WorkerContext:
 
     @classmethod
     def snapshot(cls) -> 'WorkerContext':
+        # `hasattr` so this survives a setting being renamed or dropped
         return cls(
             log_level=config.logger.getEffectiveLevel(),
-            settings=tuple((k, getattr(config, k)) for k in _CONTEXT_KEYS
+            settings=tuple((k, getattr(config, k)) for k in config.WORKER_SETTINGS
                            if hasattr(config, k)),
             hooks=tuple(worker_init_hooks),
         )
 
     def apply(self) -> None:
         """Re-establish the parent's state. Runs inside the worker."""
-        config.logger.setLevel(self.log_level)
+        # Only if it differs: `setLevel` invalidates the logging module's level
+        # cache for *every* logger, and this runs once per chunk.
+        if config.logger.getEffectiveLevel() != self.log_level:
+            config.logger.setLevel(self.log_level)
         for key, value in self.settings:
             setattr(config, key, value)
         for hook in self.hooks:
@@ -147,13 +143,12 @@ def run_chunk(payload):
 
     results = []
     for func, args, kwargs in tasks:
-        if not omit_failures:
+        try:
             results.append(func(*args, **kwargs))
-        else:
-            try:
-                results.append(func(*args, **kwargs))
-            except BaseException as e:
-                results.append(_FailedTask(e))
+        except BaseException as e:
+            if not omit_failures:
+                raise
+            results.append(_FailedTask(e))
 
     return index, results
 
@@ -197,9 +192,10 @@ def picklable_by_reference(func) -> bool:
 
 
 #: Exception types a failed pickle can surface as, depending on where in the
-#: machinery it blew up.
-_PICKLE_ERRORS = (pickle.PicklingError, pickle.PickleError, AttributeError,
-                  TypeError)
+#: machinery it blew up. `AttributeError`/`TypeError` are in here because that
+#: is what the stdlib raises for a local object or an unpicklable type - hence
+#: the message check below, so a user's own error of those types is left alone.
+_PICKLE_ERRORS = (pickle.PickleError, AttributeError, TypeError)
 _PICKLE_MARKERS = ('pickle', 'not the same object', 'local object')
 
 
