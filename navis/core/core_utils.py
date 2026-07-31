@@ -26,19 +26,11 @@ from typing import Union, Sequence, Optional, Callable
 from typing_extensions import Literal
 
 from .. import config, graph, utils, core
+from ..compute.backends import resolve_backend
 # `FailedRun` lives with the dispatch machinery now, but is re-exported here
 # because that's where it has always been importable from.
-from ..compute.dispatch import FailedRun  # noqa: F401
-
-
-try:
-    #from pathos.multiprocessing import ProcessingPool
-    # pathos' ProcessingPool apparently ignores chunksize
-    # (see https://stackoverflow.com/questions/55611806/how-to-set-chunk-size-when-using-pathos-processingpools-map)
-    import pathos
-    ProcessingPool = pathos.pools._ProcessPool
-except ModuleNotFoundError:
-    ProcessingPool = None
+from ..compute.dispatch import (FailedRun, map_tasks, default_n_workers,  # noqa: F401
+                                picklable_by_reference)
 
 __all__ = ['make_dotprops', 'to_neuron_space', 'cast_neuron']
 
@@ -640,13 +632,14 @@ class NeuronProcessor:
                  nl: 'core.NeuronList',
                  function: Callable,
                  parallel: bool = False,
-                 n_cores: int = os.cpu_count() // 2,
-                 chunksize: int = 1,
+                 n_cores: Optional[int] = None,
+                 chunksize: Optional[int] = None,
                  progress: bool = True,
                  warn_inplace: bool = True,
                  omit_failures: bool = False,
                  exclude_zip: list = [],
-                 desc: Optional[str] = None):
+                 desc: Optional[str] = None,
+                 backend=None):
         if utils.is_iterable(function):
             if len(function) != len(nl):
                 raise ValueError('Number of functions must match neurons.')
@@ -662,15 +655,27 @@ class NeuronProcessor:
         self.nl = nl
         self.desc = desc
         self.parallel = parallel
-        self.n_cores = n_cores
+        self.n_cores = n_cores if n_cores else default_n_workers()
         self.chunksize = chunksize
         self.progress = progress
         self.warn_inplace = warn_inplace
         self.exclude_zip = exclude_zip
         self.omit_failures = omit_failures
+        self.backend = backend
 
         # This makes sure that help and name match the functions being called
         functools.update_wrapper(self, self.function)
+
+    def _size_hint(self) -> float:
+        """Estimated size of one task in bytes.
+
+        Only called by backends whose chunking policy needs it - a local pool
+        doesn't care, but a scheduler shipping jobs to other machines wants to
+        bundle by payload size rather than by task count.
+        """
+        if not len(self.nl):
+            return 0
+        return self.nl.memory_usage(estimate=True, sample=True) / len(self.nl)
 
     def __call__(self, *args, **kwargs):
         res = self._run(*args, **kwargs).results
@@ -695,9 +700,14 @@ class NeuronProcessor:
         shorter than `self.nl` and the two can no longer be zipped directly.
         `failed` is a mask over the *input* neurons.
         """
-        # Explicitly providing these parameters overwrites defaults
+        # Explicitly providing these parameters overwrites defaults. Note these
+        # are popped *before* the per-neuron args are built below - they are
+        # ours, not the wrapped function's, and leaving them in `kwargs` used to
+        # forward them to the function on the `NeuronList.apply` path.
         parallel = kwargs.pop('parallel', self.parallel)
         n_cores = kwargs.pop('n_cores', self.n_cores)
+        chunksize = kwargs.pop('chunksize', self.chunksize)
+        backend = kwargs.pop('backend', self.backend)
 
         # We will check, for each argument, if it matches the number of
         # functions to run. If they it does, we will zip the values
@@ -724,63 +734,45 @@ class NeuronProcessor:
                 else:
                     parsed_kwargs[i][k] = v[i]
 
-        # Silence loggers (except Errors)
-        level = logger.getEffectiveLevel()
+        # Where does this run? A backend may have been resolved for us already
+        # (the decorators do, because they need to know whether workers get
+        # copies before deciding on `inplace`); otherwise resolve it here.
+        be = resolve_backend(
+            backend,
+            parallel=parallel,
+            n_tasks=len(self.nl),
+            n_workers=n_cores,
+            by_value=not picklable_by_reference(self.function),
+        )
 
+        if self.warn_inplace and kwargs.get('inplace', False) and be.isolated:
+            logger.warning('`inplace=True` does not work with '
+                           'multiprocessing ')
+
+        tasks = list(zip(self.funcs, parsed_args, parsed_kwargs))
+
+        # Silence loggers (except Errors). The `finally` matters: without it an
+        # exception here leaves the shared navis logger pinned at WARNING for
+        # the rest of the session.
+        level = logger.getEffectiveLevel()
         if level < 30:
             logger.setLevel('WARNING')
 
-        # Apply function
-        if parallel:
-            if not ProcessingPool:
-                raise ModuleNotFoundError(
-                    'navis relies on pathos for multiprocessing!'
-                    'Please install pathos and try again:\n'
-                    '  pip3 install pathos -U'
-                    )
-
-            if self.warn_inplace and kwargs.get('inplace', False):
-                logger.warning('`inplace=True` does not work with '
-                               'multiprocessing ')
-
-            with ProcessingPool(n_cores) as pool:
-                combinations = list(zip(self.funcs,
-                                        parsed_args,
-                                        parsed_kwargs))
-                chunksize = kwargs.pop('chunksize', self.chunksize)  # max(int(len(combinations) / 100), 1)
-
-                if not self.omit_failures:
-                    wrapper = _call
-                else:
-                    wrapper = _try_call
-
-                res = list(config.tqdm(pool.imap(wrapper,
-                                                 combinations,
-                                                 chunksize=chunksize),
-                                       total=len(combinations),
-                                       desc=self.desc,
-                                       disable=config.pbar_hide or not self.progress,
-                                       leave=config.pbar_leave))
-        else:
-            res = []
-            for i, n in enumerate(config.tqdm(self.nl, desc=self.desc,
-                                              disable=(config.pbar_hide
-                                                       or not self.progress
-                                                       or len(self.nl) <= 1),
-                                              leave=config.pbar_leave)):
-                try:
-                    res.append(self.funcs[i](*parsed_args[i], **parsed_kwargs[i]))
-                except BaseException as e:
-                    if self.omit_failures:
-                        res.append(FailedRun(func=self.funcs[i],
-                                             args=parsed_args[i],
-                                             kwargs=parsed_kwargs[i],
-                                             exception=e))
-                    else:
-                        raise
-
-        # Reset logger level to previous state
-        logger.setLevel(level)
+        try:
+            res = map_tasks(
+                tasks,
+                backend=be,
+                n_workers=n_cores,
+                chunksize=chunksize,
+                omit_failures=self.omit_failures,
+                desc=self.desc,
+                disable=(config.pbar_hide
+                         or not self.progress
+                         or (not be.concurrent and len(self.nl) <= 1)),
+                size_hint=self._size_hint,
+            )
+        finally:
+            logger.setLevel(level)
 
         failed = np.array([isinstance(r, FailedRun) for r in res], dtype=bool)
         res = [r for r in res if not isinstance(r, FailedRun)]
@@ -799,6 +791,8 @@ class NeuronProcessor:
 MapResult = namedtuple('MapResult', ['results', 'failed'])
 
 
+# Kept for backwards compatibility. The dispatch layer runs a whole chunk of
+# tasks per call now, see `navis.compute.dispatch.run_chunk`.
 def _call(x: Sequence):
     """Unpack function and args/kwargs and run it."""
     func, args, kwargs = x
