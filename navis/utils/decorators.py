@@ -180,7 +180,7 @@ def map_neuronlist(
                 excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
                 proc = core.NeuronProcessor(
                     nl,
-                    function,
+                    wrapper,
                     parallel=parallel,
                     desc=desc,
                     warn_inplace=False,
@@ -300,7 +300,7 @@ def map_neuronlist_df(
                 excl = list(kwargs.keys()) + list(range(1, len(args) + 1))
                 proc = core.NeuronProcessor(
                     nl,
-                    function,
+                    wrapper,
                     parallel=parallel,
                     desc=desc,
                     warn_inplace=False,
