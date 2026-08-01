@@ -637,10 +637,9 @@ def arbor_segregation_index(x: "core.NeuronObject") -> "core.NeuronObject":
 
     # We will be processing a super downsampled version of the neuron to speed
     # up calculations
-    current_level = logger.level
-    logger.setLevel("ERROR")
-    y = x.downsample(factor=float("inf"), preserve_nodes=calc_node_ids, inplace=False)
-    logger.setLevel(current_level)
+    with config.quiet_logger():
+        y = x.downsample(factor=float("inf"), preserve_nodes=calc_node_ids,
+                         inplace=False)
 
     # Get number of pre/postsynapses distal to each branch's childs
     dists = graph.geodesic_matrix(
@@ -771,10 +770,9 @@ def bending_flow(x: "core.NeuronObject") -> "core.NeuronObject":
 
     # We will be processing a super downsampled version of the neuron to speed
     # up calculations
-    current_level = logger.level
-    logger.setLevel("ERROR")
-    y = x.downsample(factor=float("inf"), preserve_nodes="connectors", inplace=False)
-    logger.setLevel(current_level)
+    with config.quiet_logger():
+        y = x.downsample(factor=float("inf"), preserve_nodes="connectors",
+                         inplace=False)
 
     # Figure out how connector types are labeled
     cn_types = y.connectors.type.unique()
@@ -1119,18 +1117,13 @@ def synapse_flow_centrality(
 
     # We will be processing a super downsampled version of the neuron to
     # speed up calculations
-    current_level = logger.level
-    current_state = config.pbar_hide
-    logger.setLevel("ERROR")
-    config.pbar_hide = True
-    y = sampling.downsample_neuron(
-        x=x,
-        downsampling_factor=float("inf"),
-        inplace=False,
-        preserve_nodes=calc_node_ids,
-    )
-    logger.setLevel(current_level)
-    config.pbar_hide = current_state
+    with config.quiet_logger(pbars=True):
+        y = sampling.downsample_neuron(
+            x=x,
+            downsampling_factor=float("inf"),
+            inplace=False,
+            preserve_nodes=calc_node_ids,
+        )
 
     # Get number of pre/postsynapses distal to each branch's childs
     dists = graph.geodesic_matrix(
@@ -1273,18 +1266,13 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
 
     # We will be processing a super downsampled version of the neuron to
     # speed up calculations
-    current_level = logger.level
-    current_state = config.pbar_hide
-    logger.setLevel("ERROR")
-    config.pbar_hide = True
-    y = sampling.downsample_neuron(
-        x=x,
-        downsampling_factor=float("inf"),
-        inplace=False,
-        preserve_nodes=calc_node_ids,
-    )
-    logger.setLevel(current_level)
-    config.pbar_hide = current_state
+    with config.quiet_logger(pbars=True):
+        y = sampling.downsample_neuron(
+            x=x,
+            downsampling_factor=float("inf"),
+            inplace=False,
+            preserve_nodes=calc_node_ids,
+        )
 
     # Get number of leafs distal to each branch's childs
     dists = graph.geodesic_matrix(

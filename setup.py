@@ -15,7 +15,9 @@ install_requires, extras_require = parse_requirement_files(
 dev_only = ["test-notebook", "dev", "docs"]
 # Kept out of `[all]`: needed only to point navis at a cluster, and dask pulls
 # in a sizeable dependency tree that a local install has no use for.
-specialized = ["r", "flybrains", "cloud-volume", "cluster"]
+# N.B. these are *extra* names as declared by `#extra:` in requirements.txt,
+# not distribution names - the cloud-volume package sits under `cloudvolume`.
+specialized = ["r", "flybrains", "cloudvolume", "cluster"]
 all_dev_deps = []
 all_deps = []
 for k, v in extras_require.items():

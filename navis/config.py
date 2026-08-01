@@ -70,6 +70,71 @@ if os.environ.get('NAVIS_TEST_ENV', '').lower() == 'true':
 pbar_hide = False
 pbar_leave = False
 
+
+class quiet_logger:
+    """Silence navis' logger - and optionally its progress bars - for a block.
+
+    For the common case of calling a chatty navis function for a side effect,
+    where its warnings are about a temporary object the caller will never see
+    (a throwaway downsampled copy, say).
+
+    There is only *one* navis logger, so putting the level back is not
+    housekeeping - an exception escaping the block would otherwise leave the
+    whole library silenced for the rest of the session, with nothing to tell
+    anyone why. That is what makes this a context manager rather than a pair of
+    `setLevel` calls at each site.
+
+    Parameters
+    ----------
+    level :     str | int
+                Level to silence *to*. Only ever quietens: a logger already at
+                `ERROR` is left where it is by `quiet_logger('WARNING')`.
+    pbars :     bool
+                Whether to also hide progress bars for the duration.
+
+    Examples
+    --------
+    >>> from navis import config
+    >>> with config.quiet_logger():
+    ...     pass
+
+    """
+
+    def __init__(self, level='ERROR', pbars=False):
+        if isinstance(level, str):
+            level = logging.getLevelName(level.upper())
+        if not isinstance(level, int):
+            raise ValueError(f'Not a logging level: {level!r}')
+        self.level = level
+        self.pbars = pbars
+
+    def __enter__(self):
+        # Restore what was explicitly set, but decide from what is in effect:
+        # a logger inheriting its level has `.level == NOTSET`, and writing that
+        # back would be a no-op where writing back `getEffectiveLevel()` would
+        # pin it.
+        self._previous = logger.level
+        self._changed = logger.getEffectiveLevel() < self.level
+        if self._changed:
+            logger.setLevel(self.level)
+
+        if self.pbars:
+            global pbar_hide
+            self._pbar_hide = pbar_hide
+            pbar_hide = True
+        return self
+
+    def __exit__(self, *args):
+        # `setLevel` drops the level cache of *every* logger in the process, so
+        # don't pay for it where we changed nothing.
+        if self._changed:
+            logger.setLevel(self._previous)
+        if self.pbars:
+            global pbar_hide
+            pbar_hide = self._pbar_hide
+        return False
+
+
 # Default settings for caching
 warn_caching = True
 

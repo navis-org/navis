@@ -368,25 +368,21 @@ class BaseNeuron(UnitObject):
         """Generate 2D plot for thumbnail."""
         import matplotlib.pyplot as plt
 
-        # Store some previous states
-        prev_level = logger.getEffectiveLevel()
-        prev_pbar = config.pbar_hide
         prev_int = plt.isinteractive()
-
         plt.ioff()  # turn off interactive mode
-        logger.setLevel("WARNING")
-        config.pbar_hide = True
-        fig = plt.figure(figsize=(2, 2))
-        ax = fig.add_subplot(111)
-        fig, ax = self.plot2d(connectors=False, ax=ax)
-        output = StringIO()
-        fig.savefig(output, format="svg")
-
-        if prev_int:
-            plt.ion()  # turn on interactive mode
-        logger.setLevel(prev_level)
-        config.pbar_hide = prev_pbar
-        _ = plt.clf()
+        try:
+            with config.quiet_logger(level="WARNING", pbars=True):
+                fig = plt.figure(figsize=(2, 2))
+                ax = fig.add_subplot(111)
+                fig, ax = self.plot2d(connectors=False, ax=ax)
+                output = StringIO()
+                fig.savefig(output, format="svg")
+        finally:
+            # Without the `finally`, a failed plot leaves the session with
+            # interactive mode off and a stray figure holding the canvas
+            if prev_int:
+                plt.ion()  # turn on interactive mode
+            _ = plt.clf()
         return output.getvalue()
 
     def _clear_temp_attr(self, exclude: list = []) -> None:
