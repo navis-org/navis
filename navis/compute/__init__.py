@@ -31,7 +31,7 @@ has to grow a `slurm_partition` keyword::
 
 import atexit
 
-from .dispatch import (map_tasks, default_n_workers, FailedRun,
+from .dispatch import (map_tasks, imap_tasks, default_n_workers, FailedRun,
                        worker_init_hooks, picklable_by_reference)
 from .backends import (ParallelBackend, ExecutorBackend, register_backend,
                        get_backend, list_backends, available_backends,

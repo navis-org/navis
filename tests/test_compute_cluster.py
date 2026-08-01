@@ -15,6 +15,8 @@ import concurrent.futures as cf
 
 import pytest
 
+from pandas.testing import assert_frame_equal
+
 import navis
 from navis.compute.backends import resolve_backend
 
@@ -39,6 +41,13 @@ requires_submitit = pytest.mark.skipif(submitit is None,
 @pytest.fixture
 def neurons():
     return navis.example_neurons(4)
+
+
+@pytest.fixture(scope='module')
+def dotprops():
+    """Dotprops in microns - what NBLAST wants."""
+    return navis.NeuronList([navis.make_dotprops(n / 1000, k=5)
+                             for n in navis.example_neurons(4)])
 
 
 @pytest.fixture(scope='module')
@@ -129,6 +138,23 @@ def test_cluster_omit_failures_keeps_the_survivors(cluster, neurons):
                             omit_failures=True)
 
     assert list(got) == [n.id for n in neurons if not n.id % 2]
+
+
+def test_cluster_runs_an_nblast(cluster, dotprops):
+    """The blocks of a score matrix are units of work like any other.
+
+    NBLAST does its own partitioning - it cuts the query x target matrix into
+    blocks rather than sending one neuron at a time - so this is the check that
+    those blocks survive the trip and land back in the right cells.
+    """
+    expected = navis.nblast(dotprops[:2], dotprops[2:], backend='builtin',
+                            n_cores=1, progress=False)
+
+    with navis.set_parallel_backend(cluster):
+        got = navis.nblast(dotprops[:2], dotprops[2:], backend='builtin',
+                           n_cores=2, progress=False)
+
+    assert_frame_equal(got, expected)
 
 
 def test_cluster_bundles_neurons_into_fewer_units(cluster):

@@ -111,6 +111,19 @@ pip install git+https://github.com/navis-org/navis@master
     Both bundle neurons into fewer, larger units of work - one neuron per task is right on one machine but means a round trip per neuron over a network, or a queued job per neuron on SLURM. {{ navis }} aims for enough units to keep every worker busy while capping each at ~128 MB of neurons, sizing against the *cluster's* worker count where it can see it; `chunksize=` still overrides it per call. The `dask` backend also reads the cluster's actual layout rather than guessing, so a `LocalCluster(processes=False)` - whose workers share memory with you - correctly does *not* get a caller's `inplace=False` turned into an in-place operation.
 
     See the [multiprocessing tutorial](../generated/gallery/6_misc/tutorial_misc_00_multiprocess) for both in context.
+- **NBLAST runs on the same backends, so a big one can go to a cluster.** The built-in NBLAST backend used to build its own `ProcessPoolExecutor`, which meant [`navis.set_parallel_backend`][] had no effect on it. It now dispatches through the same layer as everything else, so this works:
+
+    ```python
+    with navis.set_parallel_backend(client):
+        scores = navis.nblast(query, target, backend="builtin")
+    ```
+
+    The unit of work is a *block of the score matrix* rather than a neuron - NBLAST has always cut the query x target matrix up, and those blocks are what now travel. They are sized from a per-block runtime budget, so each is seconds to minutes of work no matter how many neurons you have, and how finely the matrix is cut is decided from the **cluster's** worker count where {{ navis }} can read it (`n_cores` describes the machine you are submitting from and says nothing about how big the cluster is).
+
+    Two consequences on a single machine, where the default is now `joblib` rather than a private pool: a *repeated* NBLAST is **~1.75x faster** because the workers are no longer thrown away and rebuilt between calls (150 neurons all-by-all on 8 cores: 6.3s :octicons-arrow-right-24: 3.6s), and those workers stay resident for a minute or so afterwards instead of exiting immediately. `navis.compute.shutdown()` reclaims them at once. Scores are unchanged - bit-identical, on every backend.
+
+    !!! warning "navis-fastcore does not distribute"
+        Where [navis-fastcore](https://github.com/schlegelp/fastcore-rs) is installed it is the default NBLAST backend, and it computes the whole matrix in one Rust call with its own threads - so it ignores the parallel backend entirely and will run everything locally. Pass `backend="builtin"` for a distributed NBLAST.
 
 ##### Improvements
 - a mesh's unique edges now come from navis-fastcore where available (new `navis.utils.mesh_unique_edges`) instead of `trimesh.edges_unique`, which sorts an `(n_faces * 3, 2)` array to find them. This sits underneath [`neuron2nx`][navis.neuron2nx]/[`neuron2igraph`][navis.neuron2igraph] for `MeshNeurons` and hence everything built on a mesh graph - geodesic distances, connected components, [`drop_fluff`][navis.drop_fluff], [`fix_mesh`][navis.fix_mesh]. The results are seeded into trimesh's own cache (index and inverse included, so `faces_unique_edges` & co. stay consistent), meaning a mesh that has already computed its edges pays nothing.
@@ -127,6 +140,7 @@ pip install git+https://github.com/navis-org/navis@master
     **[`NeuronList.memory_usage`][navis.NeuronList.memory_usage] now raises instead of returning 0** when it cannot size the neurons. Printing a `NeuronList` still can't fail - it shows `?` and logs the reason at debug - but a returned `0` was indistinguishable from a genuinely empty list, and the chunking policy that consumes this has its own fallback that the old blanket `except` pre-empted. That policy can now size units of work by payload again.
 - `NeuronList.apply()` forwarded `chunksize` and `progress` to the applied function, raising `TypeError`. Both are now explicit parameters, as are `backend` and the already-reserved `parallel`/`n_cores`/`omit_failures`.
 - an exception during parallel dispatch left {{ navis }}' logger pinned at `WARNING` for the rest of the session.
+- **`navis.compute.shutdown()` did not shut down the `joblib` backend's workers** - i.e. the default one's. It kept the loky pool alive, so the one documented way to reclaim those interpreters (each a full navis import, ~300 MB) did nothing. Also runs at interpreter exit, as it always claimed to.
 - **[`navis.nblast`][] with `scores="both"` crashed on every multi-core run.** With `"both"`, each query occupies *two* rows of the result - forward and reverse, stacked under a `(query, score)` MultiIndex - but the code that reassembles the score matrix from its blocks assumed one row per query. Any NBLAST split into more than one block therefore died with `ValueError: setting an array element with a sequence`; only runs that happened to fit in a single block (`n_cores=1`, or a single query and target) ever worked. This predates the backend layer.
 
     While there: [`navis.nblast_smart`][] and [`navis.synblast`][] now **reject** `scores="both"` rather than accepting it and getting it wrong. Neither ever implemented it, and neither documents it - `nblast_smart` raised a broadcast error even serially, and `synblast` silently returned the *forward* score under both labels.

@@ -35,7 +35,16 @@ logger = config.get_logger(__name__)
 
 
 class FastcoreBackend(NblastBackend):
-    """NBLAST backend using ``navis-fastcore``."""
+    """NBLAST backend using ``navis-fastcore``.
+
+    Note that this backend computes the whole matrix in a single call and
+    parallelises it with *threads inside that call*. It therefore ignores
+    [`navis.set_parallel_backend`][] entirely: pointing navis at a cluster and
+    then running an NBLAST on this backend will quietly do all the work on the
+    machine you are sitting at. Use ``backend='builtin'`` to spread an NBLAST
+    across a cluster - it cuts the score matrix into blocks and hands those to
+    whatever backend is configured.
+    """
 
     name = "fastcore"
     # Preferred over the builtin backend when it can serve the request

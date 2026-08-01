@@ -325,5 +325,30 @@ print(navis.list_parallel_backends())
 #     reads the real worker count off the cluster.
 
 # %%
+# ### Sending an NBLAST to a cluster
+#
+# [`navis.nblast`][] and its relatives have no `parallel` switch - they are always
+# parallel, over `n_cores` - but they follow [`navis.set_parallel_backend`][] just the
+# same. The only difference is what a unit of work *is*: {{ navis }} cuts the
+# query :octicons-arrow-right-24: target matrix into blocks and sends those, rather than
+# sending one neuron at a time. Blocks are sized by a runtime budget, so each is seconds
+# to minutes of work however many neurons you have:
+#
+# ```python
+# with navis.set_parallel_backend(client):
+#     scores = navis.nblast(query, target, backend="builtin")
+# ```
+#
+# How finely the matrix is cut is decided from the *cluster's* worker count where
+# {{ navis }} can read it, so `n_cores` on your laptop doesn't cap it.
+#
+# !!! warning "navis-fastcore does not distribute"
+#     Where [navis-fastcore](https://github.com/schlegelp/fastcore-rs) is installed it is
+#     the default NBLAST backend, and it computes the whole matrix in a single Rust call
+#     using its own threads. It therefore ignores the parallel backend completely: point
+#     {{ navis }} at a cluster and it will still do all the work on the machine you are
+#     sitting at. Pass `backend="builtin"` for a distributed NBLAST.
+
+# %%
 
 # mkdocs_gallery_thumbnail_path = '_static/multiprocess.png'

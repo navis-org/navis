@@ -14,23 +14,27 @@
 """Built-in NBLAST backend.
 
 This is the reference implementation: a pure-Python/numpy scoring engine
-(`NBlaster`, see ``nblast_funcs.py``) dispatched across cores with a
-``ProcessPoolExecutor``. All partitioning, pool orchestration and result
-stitching that used to be duplicated across the public ``nblast*`` functions
-now lives here, once.
+(`NBlaster`, see ``nblast_funcs.py``) that cuts the query x target matrix into
+blocks and runs them independently. All partitioning and result stitching that
+used to be duplicated across the public ``nblast*`` functions now lives here,
+once.
 
-The single point where the parallelism is applied is :meth:`BuiltinBackend._map`.
-A backend that only wants a *different dispatcher* (e.g. joblib, threads or a
-serial debug mode) can subclass ``BuiltinBackend`` and override just that method
-- it reuses all the partitioning and stitching.
+*Where* the blocks run is not this module's business. :meth:`BuiltinBackend._map`
+hands them to whatever [`navis.set_parallel_backend`][] points at, so the same
+NBLAST runs on this machine's cores, on a dask cluster or as a SLURM array
+without anything here changing::
+
+    with navis.set_parallel_backend(dask_client):
+        navis.nblast(query, target, backend='builtin')
+
+A block is already sized for an expensive transport: `_partition` picks the
+grid from a per-block *runtime* budget, so each block is seconds to minutes of
+work regardless of how many there are. That is why blocks are handed over one
+per unit of work rather than bundled the way single neurons are.
 """
-
-import multiprocessing as mp
 
 import numpy as np
 import pandas as pd
-
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from ... import config, utils
 from .base import NblastBackend
@@ -39,19 +43,26 @@ logger = config.get_logger(__name__)
 
 
 def _run_job(blaster):
-    """Execute a single block's work.
+    """Execute a single block's work. Runs in the worker.
 
     This is a module-level function (rather than a closure/lambda) so it is
-    picklable and can be dispatched to a ``ProcessPoolExecutor``. The block's
-    parameters travel on the (picklable) blaster instance itself.
+    picklable by reference, i.e. cheap to ship and usable on backends that
+    serialise with plain `pickle`. The block's parameters travel on the
+    (picklable) blaster instance itself.
     """
-    op = blaster._op
-    if op == 'multi_query_target':
-        return blaster.multi_query_target(blaster.queries, blaster.targets,
-                                          scores=blaster._scores)
-    elif op == 'pair_query_target':
-        return blaster.pair_query_target(blaster.pairs, scores=blaster._scores)
-    raise ValueError(f"Unknown block operation '{op}'")
+    from ..nblast_funcs import set_omp_flag
+
+    # Setting `OMP_NUM_THREADS` in the parent only reaches workers that inherit
+    # its environment, which a worker on another machine does not.
+    with set_omp_flag(limits=getattr(blaster, '_omp_limit', None)):
+        op = blaster._op
+        if op == 'multi_query_target':
+            return blaster.multi_query_target(blaster.queries, blaster.targets,
+                                              scores=blaster._scores)
+        elif op == 'pair_query_target':
+            return blaster.pair_query_target(blaster.pairs,
+                                             scores=blaster._scores)
+        raise ValueError(f"Unknown block operation '{op}'")
 
 
 def _empty_scores(query_ids, target_ids, dtype, scores='forward'):
@@ -82,7 +93,7 @@ def _row_positions(queries_ix, scores='forward'):
 
 
 class BuiltinBackend(NblastBackend):
-    """The built-in multiprocessing NBLAST backend."""
+    """The built-in NBLAST backend: navis' own scoring engine, in blocks."""
 
     name = "builtin"
     priority = 0
@@ -98,50 +109,68 @@ class BuiltinBackend(NblastBackend):
     # ------------------------------------------------------------------ #
     # Shared helpers
     # ------------------------------------------------------------------ #
-    def _map(self, jobs, n_cores, progress, desc="NBLASTing"):
-        """Run `jobs` and yield ``(job, result)`` tuples.
+    def _dispatcher(self, n_cores):
+        """The parallel backend this NBLAST's blocks will run on.
+
+        Resolved once per operation, because `_partition` and `_map` have to
+        agree: the grid is sized against the number of workers, and only the
+        backend knows what that really is (`n_cores` describes *this* machine
+        and says nothing about how big a cluster is).
+
+        Deliberately resolved without a task count - how many blocks there are
+        is not known until the grid has been chosen, and choosing the grid
+        needs this. `_map` applies the "not worth dispatching" check itself.
+        """
+        from ... import compute
+
+        return compute.resolve_backend(n_workers=n_cores)
+
+    def _map(self, jobs, n_cores, progress, desc="NBLASTing", backend=None):
+        """Run `jobs` and yield ``(job, result)`` tuples as they complete.
 
         Each *job* is an ``NBlaster`` carrying the picklable attributes read by
         :func:`_run_job` (``_op``, ``_scores`` and the relevant index arrays).
-        With a single job (or a single core) work runs inline; otherwise it is
-        spread across a spawn-based process pool.
+        A single block runs inline; anything more goes to the parallel backend.
 
-        Override this method to swap in a different dispatcher (joblib, threads,
-        serial, ...) while reusing the partitioning and stitching logic.
+        Results are yielded as they arrive rather than collected, so a caller
+        can write each block into the output matrix and let it go. Collecting
+        them first would hold a second copy of the whole matrix.
+
+        One block per unit of work: `chunksize=1` opts out of the bundling that
+        the cluster backends apply to single neurons, because a block is
+        already the unit the partitioner sized for a transport.
         """
+        from ...compute import imap_tasks
         from ..nblast_funcs import set_omp_flag, OMP_NUM_THREADS_LIMIT
 
-        multicore = bool(n_cores and n_cores > 1 and len(jobs) > 1)
+        be = self._dispatcher(n_cores) if backend is None else backend
+        # A lone block is not worth a round trip, whatever the backend
+        dispatch = be.concurrent and len(jobs) > 1
 
         # Avoid multiple layers of concurrency (see pykdtree/OMP notes)
-        with set_omp_flag(limits=OMP_NUM_THREADS_LIMIT if (n_cores and n_cores > 1) else None):
-            if not multicore:
+        limits = OMP_NUM_THREADS_LIMIT if dispatch else None
+        with set_omp_flag(limits=limits):
+            if not dispatch:
                 for this in jobs:
                     yield this, _run_job(this)
                 return
 
-            # Note that we're forcing "spawn" instead of "fork" (default on
-            # linux) to reduce the memory footprint: "fork" appears to inherit
-            # all variables (including all neurons) while "spawn" gets only
-            # what's required to run the job.
-            with ProcessPoolExecutor(max_workers=n_cores,
-                                     mp_context=mp.get_context('spawn')) as pool:
-                futures = {}
-                for this in jobs:
-                    this.progress = False  # no per-block progress bars
-                    futures[pool.submit(_run_job, this)] = this
+            for this in jobs:
+                this.progress = False   # no per-block progress bars
+                this._omp_limit = limits
 
-                # We drop the "N / N_total" bit from the progress bar because
-                # it's not helpful here.
-                fmt = '{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]'
-                for f in config.tqdm(as_completed(futures),
-                                     desc=desc,
-                                     bar_format=fmt,
-                                     total=len(futures),
-                                     smoothing=0,
-                                     disable=not progress,
-                                     leave=False):
-                    yield futures[f], f.result()
+            tasks = [(_run_job, (this,), {}) for this in jobs]
+
+            # We drop the "N / N_total" bit from the progress bar because it's
+            # not helpful here. Hence our own bar rather than the dispatcher's.
+            fmt = '{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]'
+            with config.tqdm(total=len(jobs), desc=desc, bar_format=fmt,
+                             smoothing=0, disable=not progress,
+                             leave=False) as pbar:
+                for index, res in imap_tasks(tasks, backend=be, chunksize=1,
+                                             n_workers=n_cores, disable=True):
+                    pbar.update()
+                    yield jobs[index], res
 
     def _make_blaster(self, use_alpha, normalized, smat, limit_dist, precision,
                       approx_nn, progress, smat_kwargs):
@@ -155,15 +184,21 @@ class BuiltinBackend(NblastBackend):
                         progress=progress,
                         smat_kwargs=smat_kwargs)
 
-    def _partition(self, q, t, n_cores, progress, estimate_fn=None):
+    def _partition(self, q, t, n_cores, progress, estimate_fn=None,
+                   backend=None):
         """Find (n_rows, n_cols) partition of the query/target matrix.
 
         Estimates a target block count from a per-block runtime budget, then
         hands it to `partition_grid`, which balances the grid, floors it at
-        `MIN_BLOCKS_PER_CORE` blocks per core and rounds up to full waves so no
-        core sits idle. `estimate_fn(q, t, T=...)` supplies the count; it
+        `MIN_BLOCKS_PER_CORE` blocks per worker and rounds up to full waves so
+        no worker sits idle. `estimate_fn(q, t, T=...)` supplies the count; it
         defaults to the dotprop estimator, and SynBLAST passes its connector
         one - everything else about the partition is shared.
+
+        How many workers there are is the *backend's* answer, not `n_cores`:
+        the latter is half this machine's cores by default and says nothing
+        about the size of a cluster. `n_cores` still decides *whether* to
+        partition at all, so `n_cores=1` means serial everywhere.
         """
         from ..nblast_funcs import (estimate_target_blocks, partition_grid,
                                      JOB_SIZE_MULTIPLIER, JOB_MAX_TIME_SECONDS)
@@ -171,8 +206,16 @@ class BuiltinBackend(NblastBackend):
         if not (n_cores and n_cores > 1):
             return 1, 1
 
+        # Nothing will run side by side, so splitting the matrix up would only
+        # cost extra copies of the neurons. `set_parallel_backend('serial')`
+        # lands here, and should mean what it says.
+        if backend is not None and not backend.concurrent:
+            return 1, 1
+
         if estimate_fn is None:
             estimate_fn = estimate_target_blocks
+
+        n_workers = n_cores if backend is None else backend.worker_count(n_cores)
 
         # Aim for each block to run for a bounded amount of time. With a progress
         # bar we want short (~10s) blocks so the bar moves; without one we allow
@@ -181,7 +224,8 @@ class BuiltinBackend(NblastBackend):
         T = 10 * JOB_SIZE_MULTIPLIER if progress else JOB_MAX_TIME_SECONDS
         target_blocks = estimate_fn(q, t, T=T)
 
-        return partition_grid(n_cores, len(q), len(t), target_blocks=target_blocks)
+        return partition_grid(n_workers, len(q), len(t),
+                              target_blocks=target_blocks)
 
     # ------------------------------------------------------------------ #
     # Operations
@@ -191,7 +235,9 @@ class BuiltinBackend(NblastBackend):
         """Query -> target NBLAST."""
         query_dps, target_dps = query, target
 
-        n_rows, n_cols = self._partition(query_dps, target_dps, n_cores, progress)
+        be = self._dispatcher(n_cores)
+        n_rows, n_cols = self._partition(query_dps, target_dps, n_cores,
+                                         progress, backend=be)
 
         # Calculate self-hits once for all neurons
         nb = self._make_blaster(use_alpha, normalized, smat, limit_dist,
@@ -226,12 +272,12 @@ class BuiltinBackend(NblastBackend):
 
         # Single block: return its labeled DataFrame directly
         if len(jobs) == 1:
-            (this, res), = self._map(jobs, n_cores, progress)
+            (this, res), = self._map(jobs, n_cores, progress, backend=be)
             return res
 
         # Multiple blocks: stitch results into the big matrix
         out = _empty_scores(query_dps.id, target_dps.id, nb.dtype, scores)
-        for this, res in self._map(jobs, n_cores, progress):
+        for this, res in self._map(jobs, n_cores, progress, backend=be):
             out.iloc[_row_positions(this.queries_ix, scores),
                      this.targets_ix] = res.values
 
@@ -242,7 +288,8 @@ class BuiltinBackend(NblastBackend):
         """All-by-all NBLAST (always forward scores)."""
         dps = x
 
-        n_rows, n_cols = self._partition(dps, dps, n_cores, progress)
+        be = self._dispatcher(n_cores)
+        n_rows, n_cols = self._partition(dps, dps, n_cores, progress, backend=be)
 
         # Calculate self-hits once for all neurons
         nb = self._make_blaster(use_alpha, normalized, smat, limit_dist,
@@ -279,11 +326,8 @@ class BuiltinBackend(NblastBackend):
         if len(jobs) == 1:
             return jobs[0].all_by_all()
 
-        out = pd.DataFrame(np.empty((len(dps), len(dps)), dtype=nb.dtype),
-                           index=dps.id, columns=dps.id)
-        out.index.name = 'query'
-        out.columns.name = 'target'
-        for this, res in self._map(jobs, n_cores, progress):
+        out = _empty_scores(dps.id, dps.id, nb.dtype)
+        for this, res in self._map(jobs, n_cores, progress, backend=be):
             out.iloc[this.queries_ix, this.targets_ix] = res.values
 
         return out
@@ -323,8 +367,9 @@ class BuiltinBackend(NblastBackend):
             target_dps_simp = query_dps_simp
 
         # --- Pre-NBLAST on simplified dotprops --- #
+        be = self._dispatcher(n_cores)
         n_rows, n_cols = self._partition(query_dps_simp, target_dps_simp,
-                                         n_cores, progress)
+                                         n_cores, progress, backend=be)
 
         nb = self._make_blaster(use_alpha, normalized, smat, limit_dist,
                                 precision, approx_nn, progress, smat_kwargs)
@@ -356,15 +401,13 @@ class BuiltinBackend(NblastBackend):
                     pbar.update()
 
         if len(jobs) == 1:
-            (this, res), = self._map(jobs, n_cores, progress, desc='Pre-NBLASTs')
+            (this, res), = self._map(jobs, n_cores, progress,
+                                     desc='Pre-NBLASTs', backend=be)
             scr = res
         else:
-            scr = pd.DataFrame(np.empty((len(query_dps_simp),
-                                         len(target_dps_simp)), dtype=nb.dtype),
-                               index=query_dps_simp.id, columns=target_dps_simp.id)
-            scr.index.name = 'query'
-            scr.columns.name = 'target'
-            for this, res in self._map(jobs, n_cores, progress, desc='Pre-NBLASTs'):
+            scr = _empty_scores(query_dps_simp.id, target_dps_simp.id, nb.dtype)
+            for this, res in self._map(jobs, n_cores, progress,
+                                       desc='Pre-NBLASTs', backend=be):
                 scr.iloc[this.queries_ix, this.targets_ix] = res.values
 
         # If this is an all-by-all and we computed only forward scores
@@ -426,10 +469,10 @@ class BuiltinBackend(NblastBackend):
                     pbar.update()
 
         if len(jobs) == 1:
-            (this, res), = self._map(jobs, n_cores, progress)
+            (this, res), = self._map(jobs, n_cores, progress, backend=be)
             scr[mask] = res
         else:
-            for this, res in self._map(jobs, n_cores, progress):
+            for this, res in self._map(jobs, n_cores, progress, backend=be):
                 scr[this.mask] = res
 
         if return_mask:
@@ -448,8 +491,10 @@ class BuiltinBackend(NblastBackend):
             return n.connectors
 
         # Same partitioning as NBLAST, but timed on connector queries.
+        be = self._dispatcher(n_cores)
         n_rows, n_cols = self._partition(query, target, n_cores, progress,
-                                         estimate_fn=estimate_target_blocks)
+                                         estimate_fn=estimate_target_blocks,
+                                         backend=be)
 
         # Calculate self-hits once for all neurons
         nb = SynBlaster(normalized=normalized, by_type=by_type, smat=smat,
@@ -485,14 +530,11 @@ class BuiltinBackend(NblastBackend):
                     pbar.update()
 
         if len(jobs) == 1:
-            (this, res), = self._map(jobs, n_cores, progress)
+            (this, res), = self._map(jobs, n_cores, progress, backend=be)
             return res
 
-        out = pd.DataFrame(np.empty((len(query), len(target)), dtype=nb.dtype),
-                           index=query.id, columns=target.id)
-        out.index.name = 'query'
-        out.columns.name = 'target'
-        for this, res in self._map(jobs, n_cores, progress):
+        out = _empty_scores(query.id, target.id, nb.dtype)
+        for this, res in self._map(jobs, n_cores, progress, backend=be):
             out.iloc[this.queries_ix, this.targets_ix] = res.values
 
         return out

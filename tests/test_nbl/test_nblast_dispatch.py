@@ -134,3 +134,129 @@ def test_smart_returns_the_mask_it_used(dps):
     # criterion="N" keeps the top `t` targets for every query
     assert (mask.sum(axis=1) == 2).all()
 
+
+# --------------------------------------------------------------------------- #
+# Where the blocks run
+# --------------------------------------------------------------------------- #
+class Recorder(navis.compute.ParallelBackend):
+    """Runs blocks inline, but records - and can reorder - what it was given."""
+
+    name = "recorder"
+    priority = 999
+    auto_select = False
+
+    def __init__(self, *, reverse=False, workers=None):
+        self.reverse = reverse
+        self.workers = workers
+        self.units = []
+
+    def worker_count(self, hint):
+        return hint if self.workers is None else self.workers
+
+    def map(self, func, payloads, *, n_workers):
+        payloads = list(payloads)
+        self.units.append(len(payloads))
+        results = [func(p) for p in payloads]
+        # Completion order is explicitly not input order
+        yield from (reversed(results) if self.reverse else results)
+
+
+@pytest.mark.parametrize("parallel_backend",
+                         ["serial", "threads", "processes", "joblib", "pathos"])
+def test_scores_do_not_depend_on_where_blocks_run(dps, parallel_backend):
+    """Every backend has to produce the numbers the reference run produced."""
+    if parallel_backend not in navis.list_parallel_backends():
+        pytest.skip(f"{parallel_backend} not installed")
+
+    expected = navis.nblast(dps[:3], dps[3:], backend="builtin", n_cores=1,
+                            progress=False)
+
+    with navis.set_parallel_backend(parallel_backend):
+        scores = navis.nblast(dps[:3], dps[3:], backend="builtin", n_cores=4,
+                              progress=False)
+
+    assert_frame_equal(scores, expected)
+
+
+def test_blocks_land_correctly_when_results_arrive_out_of_order(dps):
+    """Completion order is the only order any transport guarantees.
+
+    Every block carries the slice of the matrix it belongs to, so a backend
+    that hands results back backwards must still produce the same matrix.
+    """
+    expected = navis.nblast_allbyall(dps, backend="builtin", n_cores=1,
+                                     progress=False)
+
+    backwards = Recorder(reverse=True)
+    with navis.set_parallel_backend(backwards):
+        scores = navis.nblast_allbyall(dps, backend="builtin", n_cores=4,
+                                       progress=False)
+
+    assert sum(backwards.units) > 1      # it really was split up
+    assert_frame_equal(scores, expected)
+
+
+def test_grid_is_sized_by_the_backend_not_by_n_cores(dps):
+    """`n_cores` describes this machine; a cluster is a different size.
+
+    A block is a unit of work, so how finely to cut the matrix is a question
+    about the *cluster*, not about how many cores the submitting laptop has.
+    """
+    small = Recorder(workers=2)
+    with navis.set_parallel_backend(small):
+        navis.nblast_allbyall(dps, backend="builtin", n_cores=2, progress=False)
+
+    # Same `n_cores`, but this backend says it has far more workers
+    big = Recorder(workers=32)
+    with navis.set_parallel_backend(big):
+        navis.nblast_allbyall(dps, backend="builtin", n_cores=2, progress=False)
+
+    assert sum(big.units) > sum(small.units)
+
+
+def test_one_core_never_leaves_this_process(dps):
+    """`n_cores=1` means serial, whatever backend happens to be configured."""
+    recorder = Recorder()
+    with navis.set_parallel_backend(recorder):
+        scores = navis.nblast(dps[:3], dps[3:], backend="builtin", n_cores=1,
+                              progress=False)
+
+    assert recorder.units == []
+    assert scores.shape == (3, 2)
+
+
+def test_serial_backend_does_not_split_the_matrix(dps):
+    """A backend that runs nothing side by side should not be handed blocks.
+
+    Partitioning costs a copy of each neuron per block it appears in, which
+    buys nothing when the blocks then run one after another anyway.
+    """
+    from navis.nbl.backends.builtin import BuiltinBackend
+    from navis.compute.backends import get_backend
+
+    serial = get_backend("serial")
+    assert BuiltinBackend()._partition(dps, dps, n_cores=8, progress=False,
+                                       backend=serial) == (1, 1)
+
+    with navis.set_parallel_backend("serial"):
+        scores = navis.nblast_allbyall(dps, backend="builtin", n_cores=8,
+                                       progress=False)
+    expected = navis.nblast_allbyall(dps, backend="builtin", n_cores=1,
+                                     progress=False)
+    assert_frame_equal(scores, expected)
+
+
+def test_a_failing_block_raises_the_original_exception(dps, monkeypatch):
+    """A block dying must not surface as something about the transport."""
+    from navis.nbl.backends import builtin
+
+    def boom(blaster):
+        raise RuntimeError("block went bang")
+
+    monkeypatch.setattr(builtin, "_run_job", boom)
+
+    with pytest.raises(RuntimeError, match="block went bang"):
+        with navis.set_parallel_backend("threads"):
+            navis.nblast(dps[:3], dps[3:], backend="builtin", n_cores=4,
+                         progress=False)
+

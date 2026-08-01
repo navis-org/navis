@@ -32,14 +32,14 @@ import functools
 import traceback
 
 from dataclasses import dataclass
-from typing import (Any, Callable, List, NamedTuple, Optional, Sequence,
-                    Tuple)
+from typing import (Any, Callable, Iterator, List, NamedTuple, Optional,
+                    Sequence, Tuple)
 
 from .. import config
 
 logger = config.get_logger(__name__)
 
-__all__ = ['map_tasks', 'default_n_workers', 'FailedRun']
+__all__ = ['map_tasks', 'imap_tasks', 'default_n_workers', 'FailedRun']
 
 
 def default_n_workers() -> int:
@@ -285,6 +285,82 @@ def _serialisation_hint(exc, backend) -> Optional[str]:
 # --------------------------------------------------------------------------- #
 # The dispatcher
 # --------------------------------------------------------------------------- #
+def _iter_completed(backend, payloads, n_workers) -> Iterator:
+    """Yield `(chunk index, results)` as units of work come back.
+
+    A thin wrapper whose only job is to translate a pickling failure into
+    something actionable - and to do so *without* wrapping the caller's own
+    loop body, which is free to re-raise an exception a worker sent home.
+    """
+    try:
+        yield from backend.map(run_chunk, payloads, n_workers=n_workers)
+    except BaseException as e:
+        hint = _serialisation_hint(e, backend)
+        if hint is None:
+            raise
+        raise RuntimeError(hint) from e
+
+
+def imap_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
+               *,
+               backend,
+               n_workers: Optional[int] = None,
+               chunksize: Optional[int] = None,
+               omit_failures: bool = False,
+               desc: Optional[str] = None,
+               disable: bool = False,
+               size_hint: Optional[Callable[[], float]] = None) -> Iterator:
+    """Run `tasks` on `backend`, yielding `(index, result)` as they land.
+
+    Same contract as :func:`map_tasks` except for the order: results arrive as
+    they complete, each tagged with the position of its task in `tasks`. Use
+    this when a result can be consumed - written into an output array, say - as
+    soon as it arrives, rather than held until the last one lands. For a big
+    enough job that is the difference between one copy of the output and two.
+
+    See :func:`map_tasks` for the parameters.
+    """
+    if not len(tasks):
+        return
+
+    n_workers = n_workers or default_n_workers()
+
+    cs = backend.chunksize(len(tasks), n_workers,
+                           requested=chunksize, size_hint=size_hint)
+    cs = max(1, int(cs))
+
+    chunks = [tasks[i:i + cs] for i in range(0, len(tasks), cs)]
+    if cs > 1:
+        logger.debug(f"'{backend.name}': {len(tasks)} tasks in {len(chunks)} "
+                     f'units of up to {cs}.')
+
+    # Only ship the context where it's needed: applying it in-process would
+    # clobber the parent's own config.
+    context = WorkerContext.snapshot() if backend.isolated else None
+
+    # A transport that can't carry an exception home intact (submitit turns
+    # every one of them into a generic "job failed") would otherwise make the
+    # error a caller sees depend on which backend is configured. Have the
+    # worker hand failures back as data instead and raise them here.
+    reraises_here = not backend.marshals_exceptions and not omit_failures
+    payloads = [Chunk(index=i, context=context,
+                      catch=omit_failures or reraises_here,
+                      want_traceback=reraises_here, tasks=c)
+                for i, c in enumerate(chunks)]
+
+    with config.tqdm(total=len(tasks), desc=desc, disable=disable,
+                     leave=config.pbar_leave) as pbar:
+        for index, results in _iter_completed(backend, payloads, n_workers):
+            pbar.update(len(chunks[index]))
+            for offset, (task, result) in enumerate(zip(chunks[index], results)):
+                if isinstance(result, _FailedTask):
+                    if not omit_failures:
+                        result.reraise()
+                    # Rebuild the full FailedRun here, where the args still live
+                    result = FailedRun(*task, exception=result.exception)
+                yield index * cs + offset, result
+
+
 def map_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
               *,
               backend,
@@ -322,60 +398,12 @@ def map_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
                     One entry per task, in the order the tasks were given.
 
     """
-    if not len(tasks):
-        return []
-
-    n_workers = n_workers or default_n_workers()
-
-    cs = backend.chunksize(len(tasks), n_workers,
-                           requested=chunksize, size_hint=size_hint)
-    cs = max(1, int(cs))
-
-    chunks = [tasks[i:i + cs] for i in range(0, len(tasks), cs)]
-    if cs > 1:
-        logger.debug(f"'{backend.name}': {len(tasks)} tasks in {len(chunks)} "
-                     f'units of up to {cs}.')
-
-    # Only ship the context where it's needed: applying it in-process would
-    # clobber the parent's own config.
-    context = WorkerContext.snapshot() if backend.isolated else None
-
-    # A transport that can't carry an exception home intact (submitit turns
-    # every one of them into a generic "job failed") would otherwise make the
-    # error a caller sees depend on which backend is configured. Have the
-    # worker hand failures back as data instead and raise them here. The cost
-    # is that the remaining units run to completion first.
-    reraises_here = not backend.marshals_exceptions and not omit_failures
-    payloads = [Chunk(index=i, context=context,
-                      catch=omit_failures or reraises_here,
-                      want_traceback=reraises_here, tasks=c)
-                for i, c in enumerate(chunks)]
-
     # Results come back in completion order - that's the only contract every
-    # transport can honour - so we put them back using the index we sent.
-    out: List[Optional[list]] = [None] * len(chunks)
-    with config.tqdm(total=len(tasks), desc=desc, disable=disable,
-                     leave=config.pbar_leave) as pbar:
-        try:
-            for index, results in backend.map(run_chunk, payloads,
-                                              n_workers=n_workers):
-                out[index] = results
-                pbar.update(len(chunks[index]))
-        except BaseException as e:
-            hint = _serialisation_hint(e, backend)
-            if hint is None:
-                raise
-            raise RuntimeError(hint) from e
-
-    # Rebuild the full FailedRun here, where the args already live
-    res = []
-    for chunk, results in zip(chunks, out):
-        for (func, args, kwargs), r in zip(chunk, results):
-            if isinstance(r, _FailedTask):
-                if not omit_failures:
-                    r.reraise()
-                res.append(FailedRun(func, args, kwargs, r.exception))
-            else:
-                res.append(r)
-
-    return res
+    # transport can honour - so we put them back using the index they carry.
+    out: List[Any] = [None] * len(tasks)
+    for index, result in imap_tasks(tasks, backend=backend, n_workers=n_workers,
+                                    chunksize=chunksize, desc=desc,
+                                    disable=disable, size_hint=size_hint,
+                                    omit_failures=omit_failures):
+        out[index] = result
+    return out
