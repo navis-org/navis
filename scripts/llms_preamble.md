@@ -112,6 +112,15 @@ navis.prune_twigs(nl, size=5, inplace=True) # also right and saves a copy
 `nl.prune_twigs(size=5)` and `nl.convert_units('um')` work and return a new
 `NeuronList`.
 
+Chaining several functions with `parallel=True` sends the neurons out to the
+workers and back *once per function*. Use `navis.Pipeline` to pay that cost once
+for the whole chain — it also lets the later steps skip their defensive copies:
+
+```python
+pipe = navis.Pipeline().heal_skeleton().prune_twigs(5000).resample_skeleton(1000)
+res = pipe(nl, parallel=True, n_cores=8)
+```
+
 ### 5. Names that look alike and aren't
 
 - `navis.mesh()` converts *to* a mesh; `navis.MeshNeuron` is the class;

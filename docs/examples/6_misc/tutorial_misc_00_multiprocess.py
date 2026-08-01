@@ -101,6 +101,130 @@ time_func (
 )
 
 # %%
+# ## Composing pipelines
+#
+# `parallel=True` sends each neuron out to a worker and back again - once per function.
+# Chain a few functions and you pay that toll every time:
+#
+# ```python
+# sk  = navis.skeletonize(nl, parallel=True)             # neurons out and back
+# res = navis.resample_skeleton(sk, 500, parallel=True)  # ... and again
+# ```
+#
+# The old trick was to smuggle the whole chain into a single `apply` call, which works
+# but does not scale past two or three functions:
+#
+# ```python
+# res = nl.apply(lambda x: navis.resample_skeleton(navis.skeletonize(x), 500),
+#                parallel=True)
+# ```
+#
+# A [`navis.Pipeline`][] is that, made readable. It fuses consecutive per-neuron steps
+# into a *single* task, so each neuron makes the trip once no matter how many steps
+# there are. Build one by naming {{ navis }} functions directly:
+
+pipe = (
+    navis.Pipeline()
+    .heal_skeleton()
+    .prune_twigs(5000)
+    .resample_skeleton(1000)
+)
+pipe
+
+# %%
+# Then call it on your neurons. It takes the same `parallel`, `n_cores`, `backend`,
+# `progress` and `omit_failures` arguments you already know:
+
+def three_calls(nl):
+    x = navis.heal_skeleton(nl, parallel=True, n_cores=2)
+    x = navis.prune_twigs(x, 5000, parallel=True, n_cores=2)
+    return navis.resample_skeleton(x, 1000, parallel=True, n_cores=2)
+
+# Warm the worker pool first, or we would just be timing its start-up
+_ = navis.heal_skeleton(nl, parallel=True, n_cores=2)
+
+# %%
+# Three separate parallel calls - three round-trips per neuron:
+time_func(three_calls, nl)
+
+# %%
+# One pipeline - one round-trip per neuron:
+time_func(pipe, nl, parallel=True, n_cores=2)
+
+# %%
+# !!! note "Why the difference is small here"
+#     What a pipeline saves is the cost of moving neurons in and out of the workers, so
+#     the gap grows with how big your neurons are and how many steps you chain. Five
+#     small example skeletons and three steps is about as unflattering as it gets.
+#
+# %%
+# There is a second saving that does not show up in the task count. Normally every
+# {{ navis }} function has to copy the neuron it is given, because it must not modify
+# yours. A pipeline keeps track of *who owns* the neuron flowing through it: as soon as
+# a step has handed back something the pipeline made itself, every step after it is
+# allowed to work in place. Three steps cost one copy instead of three - and zero when
+# the workers already hold their own copies.
+#
+# !!! tip "Reuse and compose"
+#     Pipelines are immutable: [`add`][navis.Pipeline.add] and friends return a *new*
+#     pipeline, so you can keep a base around and branch off it. `|` splices two
+#     pipelines together.
+#
+#     ```python
+#     clean = navis.Pipeline().heal_skeleton().prune_twigs(5000)
+#     coarse = clean | navis.Pipeline().resample_skeleton(2000)
+#     fine   = clean.resample_skeleton(200)
+#     ```
+
+# %%
+# For a one-off chain, start from the [`NeuronList`][navis.NeuronList] itself and run it
+# straight away:
+
+res = nl.pipeline.heal_skeleton().prune_twigs(5000).run()
+res
+
+# %%
+# ### Steps that aren't per-neuron
+#
+# By default a step is applied to each neuron individually if what reaches it is a
+# `NeuronList`, and called once with the whole thing otherwise. Two methods override
+# that:
+#
+# | Method | What it does |
+# |--------|--------------|
+# | [`add()`][navis.Pipeline.add] | Per neuron if the value is a `NeuronList`, else one call |
+# | [`add_each()`][navis.Pipeline.add_each] | Always map over the elements of the value |
+# | [`add_once()`][navis.Pipeline.add_once] | Always one call, with the whole value |
+#
+# Use `add_once` for functions that work across a whole list at a time -
+# [`navis.xform_brain`][] pools all the coordinates and transforms them in one go, so
+# handing it neurons one by one would be much slower. The fluent equivalents are
+# `pipe.once.xform_brain(...)` and `pipe.each.<func>(...)`.
+#
+# ### Anything can be a step - and anything can be the input
+#
+# Steps do not have to be {{ navis }} functions: [`add()`][navis.Pipeline.add] takes any
+# callable. And the input is simply whatever the first step accepts - it does not have
+# to be neurons at all. Here a query object goes in, the first step turns it into
+# neurons, and everything after that runs per neuron across all your cores:
+#
+# ```python
+# import navis.interfaces.neuprint as neu
+#
+# client = neu.Client("https://neuprint-cns.janelia.org", "male-cns:v1.0")
+# nc = neu.NeuronCriteria(class_="ALPN", somaSide="R")
+#
+# pipe = navis.Pipeline(neu.fetch_mesh_neuron).skeletonize().resample_skeleton(500)
+# res = pipe(nc, parallel=True, n_cores=5)
+# ```
+#
+# !!! note "What actually runs in parallel"
+#     Only the per-neuron segments. The `fetch_mesh_neuron` call above is a single
+#     query and runs in this process; `skeletonize` and `resample_skeleton` are fused
+#     and spread over the five cores. If you want the fetching parallelized too, hand
+#     the pipeline a list and use [`add_each()`][navis.Pipeline.add_each].
+
+# %%
 # ## Choosing a backend
 #
 # `parallel=True` says *that* the work should be spread over the neurons;

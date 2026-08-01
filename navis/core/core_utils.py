@@ -620,6 +620,116 @@ def _cast_voxelneuron(x, dtype):
     x._clear_temp_attr()
 
 
+def mean_task_size(nl: 'core.NeuronList') -> float:
+    """Estimated size of one neuron in bytes.
+
+    Only called by backends whose chunking policy needs it - a local pool
+    doesn't care, but a scheduler shipping jobs to other machines wants to
+    bundle by payload size rather than by task count.
+    """
+    if not len(nl):
+        return 0
+    return nl.memory_usage(estimate=True, sample=True) / len(nl)
+
+
+def assemble_results(results: list, cls=None):
+    """Combine per-neuron results back into a single return value.
+
+    The return-type contract every mapped navis operation shares: neurons come
+    back as a `NeuronList` (flattening any step that produced several), a run
+    that produced nothing but `None` comes back as `None`, and anything else is
+    handed over as-is for the caller to deal with.
+
+    Parameters
+    ----------
+    cls :   type, optional
+            `NeuronList` subclass to rebuild into. Defaults to `NeuronList`.
+
+    """
+    if all(isinstance(r, (core.NeuronList, core.BaseNeuron)) for r in results):
+        return (cls or core.NeuronList)(utils.unpack_neurons(results))
+    if all(r is None for r in results):
+        return None
+    return results
+
+
+def run_tasks(tasks, *, backend, n_workers=None, chunksize=None,
+              omit_failures=False, desc=None, progress=True, size_hint=None,
+              labels=None):
+    """Dispatch `tasks`, keep the loggers quiet, and split off the failures.
+
+    The plumbing shared by everything in navis that maps work over a collection
+    - [`NeuronProcessor`][navis.core.NeuronProcessor] and
+    [`navis.Pipeline`][] - so that they can't drift apart.
+
+    Parameters
+    ----------
+    tasks :         list of (func, args, kwargs)
+    progress :      bool
+                    Whether to show a progress bar. A bar is pointless for a
+                    single task that is about to run inline, so that case is
+                    suppressed here rather than at every call site.
+    labels :        sequence | callable, optional
+                    One identifier per task (e.g. neuron IDs) for the debug
+                    message naming what failed; defaults to the task indices.
+                    Pass a callable if producing them is not free - it is only
+                    called when something actually failed.
+
+    Other parameters carry the defaults of, and are handed straight to,
+    [`map_tasks`][navis.compute.dispatch.map_tasks].
+
+    Returns
+    -------
+    results :       list
+                    Successful runs only, in input order.
+    failed :        np.ndarray
+                    Boolean mask over `tasks`.
+
+    """
+    disable = (config.pbar_hide
+               or not progress
+               or (not backend.concurrent and len(tasks) <= 1))
+
+    # Silence loggers (except Errors). The `finally` matters: without it an
+    # exception here leaves the shared navis logger pinned at WARNING for the
+    # rest of the session.
+    level = logger.getEffectiveLevel()
+    if level < 30:
+        logger.setLevel('WARNING')
+
+    try:
+        res = map_tasks(
+            tasks,
+            backend=backend,
+            n_workers=n_workers,
+            chunksize=chunksize,
+            omit_failures=omit_failures,
+            desc=desc,
+            disable=disable,
+            size_hint=size_hint,
+        )
+    finally:
+        logger.setLevel(level)
+
+    failed = np.array([isinstance(r, FailedRun) for r in res], dtype=bool)
+
+    if not failed.any():
+        return res, failed
+
+    logger.warning(f'{failed.sum()} of {len(tasks)} runs failed. '
+                   'Set logging to debug (`navis.set_loggers("DEBUG")`) '
+                   'or repeat with `omit_failures=False` for details.')
+
+    if labels is None:
+        labels = np.arange(len(tasks))
+    elif callable(labels):
+        labels = labels()
+    named = np.asarray(labels)[failed].astype(str)
+    logger.debug(f'The following failed to complete: {", ".join(named)}')
+
+    return [r for r, f in zip(res, failed) if not f], failed
+
+
 class NeuronProcessor:
     """Apply function across all neurons of a neuronlist.
 
@@ -662,32 +772,19 @@ class NeuronProcessor:
         self.omit_failures = omit_failures
         self.backend = backend
 
-        # This makes sure that help and name match the functions being called
-        functools.update_wrapper(self, self.function)
+        # This makes sure that help and name match the functions being called.
+        # `updated=()` skips the `__dict__` merge, which is a no-op for a plain
+        # function but unsound for anything with instance attributes: a callable
+        # object would copy its own over ours, `function` and `nl` included.
+        functools.update_wrapper(self, self.function, updated=())
 
     def _size_hint(self) -> float:
-        """Estimated size of one task in bytes.
-
-        Only called by backends whose chunking policy needs it - a local pool
-        doesn't care, but a scheduler shipping jobs to other machines wants to
-        bundle by payload size rather than by task count.
-        """
-        if not len(self.nl):
-            return 0
-        return self.nl.memory_usage(estimate=True, sample=True) / len(self.nl)
+        """Estimated size of one task in bytes."""
+        return mean_task_size(self.nl)
 
     def __call__(self, *args, **kwargs):
         res = self._run(*args, **kwargs).results
-
-        # If result is a list of neurons, combine them back into a single list
-        is_neuron = [isinstance(r, (core.NeuronList, core.BaseNeuron)) for r in res]
-        if all(is_neuron):
-            return self.nl.__class__(utils.unpack_neurons(res))
-        # If results are all None return nothing instead of a list of [None, ..]
-        if np.all([r is None for r in res]):
-            res = None
-        # If not all neurons simply return results and let user deal with it
-        return res
+        return assemble_results(res, cls=self.nl.__class__)
 
     def _run(self, *args, **kwargs) -> 'MapResult':
         """Run the function(s) and return results plus the failure mask.
@@ -750,37 +847,20 @@ class NeuronProcessor:
 
         tasks = list(zip(self.funcs, parsed_args, parsed_kwargs))
 
-        # Silence loggers (except Errors). The `finally` matters: without it an
-        # exception here leaves the shared navis logger pinned at WARNING for
-        # the rest of the session.
-        level = logger.getEffectiveLevel()
-        if level < 30:
-            logger.setLevel('WARNING')
-
-        try:
-            res = map_tasks(
-                tasks,
-                backend=be,
-                n_workers=n_cores,
-                chunksize=chunksize,
-                omit_failures=self.omit_failures,
-                desc=self.desc,
-                disable=(config.pbar_hide
-                         or not self.progress
-                         or (not be.concurrent and len(self.nl) <= 1)),
-                size_hint=self._size_hint,
-            )
-        finally:
-            logger.setLevel(level)
-
-        failed = np.array([isinstance(r, FailedRun) for r in res], dtype=bool)
-        res = [r for r in res if not isinstance(r, FailedRun)]
-        if failed.any():
-            logger.warning(f'{sum(failed)} of {len(self.funcs)} runs failed. '
-                        'Set logging to debug (`navis.set_loggers("DEBUG")`) '
-                        'or repeat with `omit_failures=False` for details.')
-            failed_ids = self.nl.id[np.where(failed)].astype(str)
-            logger.debug(f'The following IDs failed to complete: {", ".join(failed_ids)}')
+        res, failed = run_tasks(
+            tasks,
+            backend=be,
+            n_workers=n_cores,
+            chunksize=chunksize,
+            omit_failures=self.omit_failures,
+            desc=self.desc,
+            progress=self.progress,
+            size_hint=self._size_hint,
+            # Lazy: `NeuronList.id` goes through `__getattr__`, which walks the
+            # neurons several times over (4.4 ms at 10k) for a message that is
+            # only printed when something failed.
+            labels=lambda: self.nl.id,
+        )
 
         survivors = [n for n, f in zip(self.nl, failed) if not f]
 

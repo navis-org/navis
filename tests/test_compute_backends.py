@@ -8,6 +8,7 @@ deterministically, which is impossible with a real pool.
 """
 
 import concurrent.futures as cf
+import functools
 
 import pytest
 
@@ -605,6 +606,28 @@ def test_picklable_by_reference():
     # bound methods are fine: they pickle as (object, name)
     n = navis.example_neurons(1)
     assert dispatch.picklable_by_reference(n.resample)
+
+
+def test_picklable_by_reference_unwraps_partial():
+    """A partial travels exactly as far as the function it wraps."""
+    assert dispatch.picklable_by_reference(functools.partial(double, 1))
+    assert not dispatch.picklable_by_reference(functools.partial(lambda x: x, 1))
+
+
+def test_picklable_by_reference_honours_the_hook():
+    """A callable object can answer for itself - `navis.Pipeline` does.
+
+    Without the hook these would both be False: the name check rejects any
+    instance, because `__qualname__` lives on the class, not on it.
+    """
+    class Yes:
+        __picklable_by_reference__ = True
+
+    class No:
+        __picklable_by_reference__ = False
+
+    assert dispatch.picklable_by_reference(Yes())
+    assert not dispatch.picklable_by_reference(No())
 
 
 # --------------------------------------------------------------------------- #

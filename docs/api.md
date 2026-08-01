@@ -283,11 +283,29 @@ Properties:
 | `NeuronList.idx` | An indexer similar to pandas' `iloc` that accepts neuron IDs. |
 | [`NeuronList.is_degenerated`][navis.NeuronList.is_degenerated] | {{ autosummary("navis.NeuronList.is_degenerated") }} |
 | [`NeuronList.is_mixed`][navis.NeuronList.is_mixed] | {{ autosummary("navis.NeuronList.is_mixed") }} |
+| [`NeuronList.pipeline`][navis.NeuronList.pipeline] | {{ autosummary("navis.NeuronList.pipeline") }} |
 | [`NeuronList.shape`][navis.NeuronList.shape] | {{ autosummary("navis.NeuronList.shape") }} |
 | [`NeuronList.types`][navis.NeuronList.types]| {{ autosummary("navis.NeuronList.types") }} |
 
 Please see the [tutorial on ``NeuronList``](../generated/gallery/tutorial_basic_02_neuronlists/) for more
 information, including how to index them.
+
+### Pipelines
+
+Chaining functions over a [`NeuronList`][navis.NeuronList] with `parallel=True` sends the neurons
+to a worker and back once per function. A [`navis.Pipeline`][] fuses consecutive per-neuron steps
+into a single task so they make that trip once for the whole chain, and lets each step modify the
+intermediate the previous one produced instead of taking its own copy.
+
+| Class | Description |
+|-------|-------------|
+| [`navis.Pipeline`][] | {{ autosummary("navis.Pipeline") }} |
+| [`Pipeline.add()`][navis.Pipeline.add] | {{ autosummary("navis.Pipeline.add") }} |
+| [`Pipeline.add_each()`][navis.Pipeline.add_each] | {{ autosummary("navis.Pipeline.add_each") }} |
+| [`Pipeline.add_once()`][navis.Pipeline.add_once] | {{ autosummary("navis.Pipeline.add_once") }} |
+
+See the [multiprocessing tutorial](../generated/gallery/6_misc/tutorial_misc_00_multiprocess/)
+for how they compare to plain `parallel=True`.
 
 ## Visualization
 

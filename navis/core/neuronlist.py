@@ -705,25 +705,27 @@ class NeuronList:
         from .core_utils import NeuronProcessor
         from .pipeline import Pipeline
 
-        # A pipeline knows how to run itself - and has to, because it decides
-        # whether its steps may work in place from the backend, which it can
-        # only do before the work is handed out.
+        run_opts = dict(parallel=parallel, n_cores=n_cores,
+                        chunksize=chunksize, backend=backend,
+                        progress=progress, omit_failures=omit_failures)
+
+        # A pipeline knows how to run itself - and has to, because whether its
+        # steps may work in place follows from the backend, which it can only
+        # settle before the work is handed out. Routed through `NeuronProcessor`
+        # it would still fuse, but every `add_once` step would degrade to
+        # per-neuron and no copy would ever be elided.
+        #
+        # This is a way-station: B.2 (see NAVIS_2.0.md) wants one vectorization
+        # layer, at which point `apply` becomes `Pipeline((func, kwargs))(...)`
+        # and the branch disappears. It can't yet - `apply` zips iterable
+        # arguments whose length matches the list, and a pipeline does not.
         if isinstance(func, Pipeline):
             if kwargs:
                 raise TypeError('A Pipeline takes its arguments when its steps '
                                 f'are added, not here: {sorted(kwargs)}')
-            return func(self, parallel=parallel, n_cores=n_cores,
-                        chunksize=chunksize, backend=backend,
-                        progress=progress, omit_failures=omit_failures)
-        proc = NeuronProcessor(self,
-                               func,
-                               parallel=parallel,
-                               n_cores=n_cores,
-                               chunksize=chunksize,
-                               backend=backend,
-                               progress=progress,
-                               omit_failures=omit_failures,
-                               desc=f'Apply {func.__name__}')
+            return func(self, **run_opts)
+        proc = NeuronProcessor(self, func, desc=f'Apply {func.__name__}',
+                               **run_opts)
 
         return proc(self.neurons, **kwargs)
 

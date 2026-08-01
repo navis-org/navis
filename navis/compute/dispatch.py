@@ -28,6 +28,7 @@ imports are an easy way to break pickling of the functions we ship to workers.
 import os
 import sys
 import pickle
+import functools
 import traceback
 
 from dataclasses import dataclass
@@ -204,9 +205,30 @@ def picklable_by_reference(func) -> bool:
 
     Deliberately conservative: a wrong `False` only means we pick a more
     capable backend, whereas a wrong `True` surfaces as a `PicklingError`.
+
+    A callable object can answer for itself by exposing a
+    `__picklable_by_reference__` attribute. That is the escape hatch for a
+    *composite* callable: one that is not importable by name itself, but
+    travels fine as long as each function it is built from does.
     """
+    # Peel the wrappers first, then ask whatever is actually inside.
+
+    # `functools.partial` reduces to (func, args, kwargs), so it travels
+    # exactly as far as the function it wraps - and it proxies no attributes,
+    # so asking it directly would miss a declaration underneath. Unpicklable
+    # *arguments* are a separate matter and surface via `_serialisation_hint`,
+    # same as for any other task.
+    while isinstance(func, functools.partial):
+        func = func.func
+
     # Unwrap bound methods: `n.resample` pickles fine if the neuron does
     func = getattr(func, '__func__', func)
+
+    # Asked before the name check, which rejects *any* instance: an instance
+    # has no `__qualname__` of its own (that lives on the class).
+    declared = getattr(func, '__picklable_by_reference__', None)
+    if declared is not None:
+        return bool(declared)
 
     module = getattr(func, '__module__', None)
     qualname = getattr(func, '__qualname__', None)
