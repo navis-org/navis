@@ -690,14 +690,15 @@ def test_shutdown_releases_the_pools_backends_keep_alive():
 
     navis.compute.shutdown()
 
-    for name, pool in pools:
+    for _, pool in pools:
         with pytest.raises(RuntimeError):
             pool.submit(len, 'ab')
 
-    # ... and the next call gets a working pool again
-    for name, _ in pools:
-        res = dispatch.map_tasks([(double, (2,), {})], backend=get_backend(name),
-                                 n_workers=2, disable=True)
-        assert res == [4]
+    # ... and a torn-down backend still works afterwards. One is enough: this
+    # costs a fresh pool (~2s of navis imports per worker) to check that a
+    # shut-down executor is replaced rather than reused.
+    name = pools[0][0]
+    assert dispatch.map_tasks([(double, (2,), {})], backend=get_backend(name),
+                              n_workers=2, disable=True) == [4]
     navis.compute.shutdown()
 

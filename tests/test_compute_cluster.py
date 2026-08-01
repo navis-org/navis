@@ -46,8 +46,8 @@ def neurons():
 @pytest.fixture(scope='module')
 def dotprops():
     """Dotprops in microns - what NBLAST wants."""
-    return navis.NeuronList([navis.make_dotprops(n / 1000, k=5)
-                             for n in navis.example_neurons(4)])
+    return navis.make_dotprops(navis.example_neurons(4) / 1000, k=5,
+                               progress=False)
 
 
 @pytest.fixture(scope='module')

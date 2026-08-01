@@ -49,6 +49,13 @@ class SerialBackend(ParallelBackend):
     isolated = False
     pickles_by_value = True     # nothing is serialised at all
 
+    def worker_count(self, hint):
+        # Whatever the caller hoped for, there is exactly one of us. Callers
+        # that size their own units of work off this - NBLAST cuts its score
+        # matrix into one block per worker - would otherwise split work up that
+        # is then going to run one piece after another anyway.
+        return 1
+
     def map(self, func, payloads, *, n_workers):
         for payload in payloads:
             yield func(payload)
