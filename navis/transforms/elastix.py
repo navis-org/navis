@@ -160,7 +160,8 @@ class ElastixTransform(BackendMixin, BaseTransform):
                         achieves. On that backend this argument is ignored.
     backend :           "auto" | "fastcore" | "binary", optional
                         Which implementation to use. `None` (default) defers to
-                        `navis.config.default_transform_backend`.
+                        `navis.config.default_transform_backend`. "binary" is
+                        deprecated and will be removed in 3.0.
 
     Examples
     --------
@@ -182,12 +183,12 @@ class ElastixTransform(BackendMixin, BaseTransform):
     inverse hop from looking like a shortcut when routing.
 
     `navis.config.elastix_invertible` nonetheless defaults to *off*, and should stay
-    that way while navis-fastcore is an optional dependency: the "binary" backend
-    cannot invert at all, so turning it on would let the two backends find different
-    routes. Revisit when fastcore is required. It is safe to enable - on `flybrains`
-    it changes nothing at all, because every elastix registration there already ships
-    with a reverse - so the only thing it buys today is a route where somebody
-    registered an elastix transform and no reverse for it.
+    that way while the deprecated "binary" backend is still selectable: it cannot
+    invert at all, so turning this on would let the two backends find different
+    routes. Flip it in 3.0, when that backend goes away. It is safe to enable - on
+    `flybrains` it changes nothing at all, because every elastix registration there
+    already ships with a reverse - so the only thing it buys today is a route where
+    somebody registered an elastix transform and no reverse for it.
 
     One thing worth knowing before anyone tunes this: a dedicated reverse registration
     is *not* the inverse of its forward twin - they are independent fits. Ours agree

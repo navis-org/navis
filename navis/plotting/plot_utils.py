@@ -24,7 +24,7 @@ import random
 import numpy as np
 
 from collections.abc import Iterable
-from typing import Tuple, Optional, List, Dict
+from typing import Tuple, Optional, List
 
 
 __all__ = ["tn_pairs_to_coords", "segments_to_coords", "fibonacci_sphere", "make_tube"]
@@ -75,7 +75,7 @@ def segments_to_coords(
 ) -> List[np.ndarray]:
     """Turn lists of node IDs into coordinates.
 
-    Will use navis-fastcore if available.
+    Runs on navis-fastcore.
 
     Parameters
     ----------
@@ -98,37 +98,19 @@ def segments_to_coords(
     """
     colors = None
 
-    if utils.fastcore is not None:
-        if node_colors is None:
-            coords = utils.fastcore.segment_coords(
-                x.nodes.node_id.values,
-                x.nodes.parent_id.values,
-                x.nodes[["x", "y", "z"]].values,
-            )
-        else:
-            coords, colors = utils.fastcore.segment_coords(
-                x.nodes.node_id.values,
-                x.nodes.parent_id.values,
-                x.nodes[["x", "y", "z"]].values,
-                node_colors=node_colors,
-            )
+    if node_colors is None:
+        coords = utils.fastcore.segment_coords(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            x.nodes[["x", "y", "z"]].values,
+        )
     else:
-        # Using a dictionary here is orders of manitude faster than .loc[]!
-        locs: Dict[int, Tuple[float, float, float]]
-        # Oddly, this is also the fastest way to generate the dictionary
-        nodes = x.nodes
-        locs = {
-            i: (x, y, z)
-            for i, x, y, z in zip(
-                nodes.node_id.values, nodes.x.values, nodes.y.values, nodes.z.values
-            )
-        }  # type: ignore
-        # locs = {r.node_id: (r.x, r.y, r.z) for r in x.nodes.itertuples()}  # type: ignore
-        coords = [np.array([locs[tn] for tn in s]) for s in x.segments]
-
-        if not isinstance(node_colors, type(None)):
-            ilocs = dict(zip(x.nodes.node_id.values, np.arange(x.nodes.shape[0])))
-            colors = [node_colors[[ilocs[tn] for tn in s]] for s in x.segments]
+        coords, colors = utils.fastcore.segment_coords(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            x.nodes[["x", "y", "z"]].values,
+            node_colors=node_colors,
+        )
 
     modifier = np.asarray(modifier)
     if (modifier != 1).any():

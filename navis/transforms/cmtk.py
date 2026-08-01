@@ -187,7 +187,8 @@ class CMTKtransform(BackendMixin, BaseTransform):
                     Number of threads to use.
     backend :       "auto" | "fastcore" | "binary", optional
                     Which implementation to use. `None` (default) defers to
-                    `navis.config.default_transform_backend`.
+                    `navis.config.default_transform_backend`. "binary" is
+                    deprecated and will be removed in 3.0.
 
     Examples
     --------

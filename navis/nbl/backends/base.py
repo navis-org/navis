@@ -42,8 +42,8 @@ __all__ = ["NblastBackend", "register_backend", "get_backend",
 # on the backend. This is the canonical list of dispatchable operations.
 #
 # Note that not every operation has a built-in implementation: `nblast_knn` is
-# provided only by navis-fastcore. `resolve_backend` reports that cleanly rather
-# than handing back a builtin that would `AttributeError`.
+# provided only by the fastcore backend. `resolve_backend` reports that cleanly
+# rather than handing back a builtin that would `AttributeError`.
 OPERATIONS = ("nblast", "nblast_allbyall", "nblast_smart", "synblast",
               "nblast_knn")
 
@@ -79,8 +79,11 @@ class NblastBackend(ABC):
     def available(self) -> bool:
         """Whether this backend's dependencies are importable.
 
-        Backends whose optional dependencies are missing should return False
-        so they are skipped during ``backend="auto"`` resolution.
+        Backends whose optional dependencies are missing should return False so
+        they are skipped during ``backend="auto"`` resolution. Both backends
+        navis ships return `True` unconditionally - the builtin one has no
+        dependencies and navis-fastcore is required - so this exists for
+        third-party backends registered via [`register_backend`][].
         """
         return True
 
@@ -180,17 +183,16 @@ def resolve_backend(operation: str, backend="auto", **params) -> NblastBackend:
             return builtin
 
         # Not even builtin implements this, i.e. the operation is exclusive to
-        # some other backend (currently only `nblast_knn`, which needs
-        # navis-fastcore) and that backend is missing, too old or was ruled out
-        # by the parameters. Say which, instead of returning a backend that
-        # would `AttributeError` on the very next line.
+        # some other backend (currently only `nblast_knn`, which fastcore owns)
+        # and that backend was ruled out by the parameters or is unavailable.
+        # Say which, instead of returning a backend that would `AttributeError`
+        # on the very next line.
         missing = [b.name for b in _BACKENDS.values()
                    if not b.available() and b.implements(operation)]
         msg = f"No available NBLAST backend can run '{operation}'."
         if missing:
             msg += (f" Backend(s) {missing} implement it but are not available"
-                    " - their optional dependencies are not installed"
-                    " (`pip install -U navis-fastcore`).")
+                    " - their optional dependencies are not installed.")
         if rejected:
             detail = '; '.join(f"{n}: {', '.join(r)}" for n, r in rejected.items())
             msg += f" Rejected: {detail}."

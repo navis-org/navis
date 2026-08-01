@@ -1,18 +1,26 @@
-"""Tests for the code paths that route through navis-fastcore.
+"""Behavioural contracts for the graph primitives fastcore implements.
 
-Most of these functions have two implementations - a fastcore fast path and an
-igraph/scipy fallback - and CI normally only ever exercises the former. The
-tests here pin the *behaviour* so the two cannot drift apart, and they check the
-fallback explicitly by monkeypatching `utils.fastcore` to None.
+These were differential tests: every function was run with and without
+navis-fastcore and the two answers compared. Both fallbacks and oracle are gone
+(fastcore is a hard requirement now) - and the oracle was the weaker one anyway,
+since two implementations can agree and both be wrong. `FASTCORE_DISCREPANCIES.md`
+has a worked example of exactly that.
+
+What is here instead: definitions checked on hand-computed topologies, internal
+consistency (a block of a matrix must equal that block of the whole matrix), and
+- where a reference is genuinely useful - an oracle computed *in the test* with
+scipy. Note the difference from a fallback: this reference is a few lines in one
+test, not a shipped code path that has to be kept bit-identical forever.
 """
 
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import dijkstra
 
 import navis
 from navis import graph as G
-from navis import utils
 
 
 @pytest.fixture
@@ -20,12 +28,6 @@ def n():
     x = navis.example_neurons(1, kind="skeleton")
     navis.graph.classify_nodes(x)
     return x
-
-
-@pytest.fixture
-def no_fastcore(monkeypatch):
-    """Force the igraph/scipy fallback."""
-    monkeypatch.setattr(utils, "fastcore", None)
 
 
 # ---------------------------------------------------------------- geodesic_matrix
@@ -51,21 +53,46 @@ def test_geodesic_matrix_to(n, directed, weight):
     assert list(block.index) == list(np.unique(leafs))
 
 
-def test_geodesic_matrix_to_matches_fallback(n, monkeypatch):
-    """The fastcore path and the scipy fallback must agree - including order."""
-    leafs = n.nodes[n.nodes.type == "end"].node_id.values[:40]
-    bps = n.nodes[n.nodes.type == "branch"].node_id.values[:20]
+def test_geodesic_matrix_is_a_metric(n):
+    """Undirected geodesic distances must be symmetric, zero on the diagonal and
+    obey the triangle inequality. Any of those failing is a real bug, whatever a
+    second implementation might agree to.
+    """
+    rng = np.random.default_rng(0)
+    ids = np.sort(rng.choice(n.nodes.node_id.values, 60, replace=False))
+    d = G.geodesic_matrix(n, from_=ids, to_=ids, directed=False).values
 
-    fast = G.geodesic_matrix(n, from_=leafs, to_=bps)
+    assert np.allclose(np.diag(d), 0)
+    assert np.allclose(d, d.T, rtol=1e-5)
+    # d[i, k] <= d[i, j] + d[j, k] for every j. Distances come back as float32,
+    # so the slack has to scale with their magnitude rather than be absolute.
+    tol = 1e-4 * float(d.max())
+    assert (d[:, None, :] <= d[:, :, None] + d[None, :, :] + tol).all()
 
-    m = n.copy()
-    m._clear_temp_attr()
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = G.geodesic_matrix(m, from_=leafs, to_=bps)
 
-    assert list(fast.index) == list(slow.index)
-    assert list(fast.columns) == list(slow.columns)
-    assert np.allclose(fast.values, slow.values, rtol=1e-5, atol=1e-5)
+def test_geodesic_matrix_matches_a_scipy_reference(n):
+    """Ground truth: Dijkstra over the skeleton's own edge list."""
+    ids = n.nodes.node_id.values
+    pos = pd.Index(ids)
+    coords = n.nodes[["x", "y", "z"]].values.astype(float)
+
+    has_parent = n.nodes.parent_id.values >= 0
+    child = np.arange(len(ids))[has_parent]
+    parent = pos.get_indexer(n.nodes.parent_id.values[has_parent])
+    w = np.linalg.norm(coords[child] - coords[parent], axis=1)
+
+    adj = csr_matrix(
+        (np.concatenate([w, w]),
+         (np.concatenate([child, parent]), np.concatenate([parent, child]))),
+        shape=(len(ids), len(ids)),
+    )
+
+    rng = np.random.default_rng(1)
+    src = np.sort(rng.choice(len(ids), 20, replace=False))
+    expected = dijkstra(adj, directed=False, indices=src)
+
+    got = G.geodesic_matrix(n, from_=ids[src], directed=False)
+    assert np.allclose(got.loc[ids[src], ids].values, expected, rtol=1e-4, atol=1e-4)
 
 
 def test_geodesic_matrix_to_missing_id(n):
@@ -76,20 +103,28 @@ def test_geodesic_matrix_to_missing_id(n):
 # --------------------------------------------------------------------- distal_to
 
 
-def test_distal_to_fastcore_matches_fallback(n, monkeypatch):
-    leafs = n.nodes[n.nodes.type == "end"].node_id.values[:50]
-    bps = n.nodes[n.nodes.type == "branch"].node_id.values[:30]
+def test_distal_to_matches_walking_to_the_root(n):
+    """Ground truth: A is distal to B iff B is on A's path to the root."""
+    parents = dict(
+        zip(n.nodes.node_id.values.tolist(), n.nodes.parent_id.values.tolist())
+    )
 
-    fast = navis.distal_to(n, leafs, bps)
+    def ancestors(a):
+        out, seen = set(), set()
+        while a >= 0 and a not in seen:
+            out.add(a)
+            seen.add(a)
+            a = parents.get(a, -1)
+        return out
 
-    m = n.copy()
-    m._clear_temp_attr()
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = navis.distal_to(m, leafs, bps)
+    leafs = n.nodes[n.nodes.type == "end"].node_id.values[:25]
+    bps = n.nodes[n.nodes.type == "branch"].node_id.values[:15]
 
-    assert list(fast.index) == list(slow.index)
-    assert list(fast.columns) == list(slow.columns)
-    assert (fast.values == slow.values).all()
+    got = navis.distal_to(n, leafs, bps)
+    for a in leafs:
+        anc = ancestors(int(a))
+        for b in bps:
+            assert bool(got.loc[a, b]) == (int(b) in anc), (a, b)
 
 
 def test_distal_to_scalar(n):
@@ -129,20 +164,17 @@ def test_dist_between_pairs(n):
     assert np.allclose(batch, loop, rtol=1e-4)
 
 
-def test_dist_between_pairs_fallback(n, monkeypatch):
-    """The igraph fallback must agree with the fastcore path."""
+def test_dist_between_agrees_with_geodesic_matrix(n):
+    """The pairwise and the matrix route must give the same distances."""
     rng = np.random.default_rng(1)
-    ids = n.nodes.node_id.values
-    a, b = rng.choice(ids, 50), rng.choice(ids, 50)
+    ids = np.sort(rng.choice(n.nodes.node_id.values, 30, replace=False))
+    a = np.repeat(ids[:10], 3)
+    b = np.tile(ids[-3:], 10)
 
-    fast = G.dist_between(n, a, b)
+    pairs = G.dist_between(n, a, b)
+    mat = G.geodesic_matrix(n, from_=ids[:10], to_=ids[-3:], directed=False)
 
-    m = n.copy()
-    m._clear_temp_attr()
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = G.dist_between(m, a, b)
-
-    assert np.allclose(fast, slow, rtol=1e-4)
+    assert np.allclose(pairs, [mat.loc[i, j] for i, j in zip(a, b)], rtol=1e-4)
 
 
 def test_dist_between_broadcast(n):
@@ -277,25 +309,29 @@ def test_plot1d_segment_lengths():
 # ---------------------------------------------------------------- small_segments
 
 
-def test_break_segments_order_matches_fallback(n, monkeypatch):
-    """Both backends must return the segments in the same order.
-
-    The order ends up in the output of consumers that `enumerate()` the segments
-    (`segment_analysis`, the NEURON interface, `resample_skeleton`), so it must not
-    depend on whether fastcore is installed. The igraph branch used to walk a Python
-    set, i.e. in hash order.
+def test_break_segments_partition_the_neuron(n):
+    """Every node must appear in a segment, and only the shared branch/root nodes
+    may appear in more than one.
     """
-    fast = [list(s) for s in G._break_segments(n)]
+    segs = [list(s) for s in G._break_segments(n)]
+    flat = [node for s in segs for node in s]
 
-    m = n.copy()
-    m._clear_temp_attr()
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = [list(s) for s in G._break_segments(m)]
+    assert set(flat) == set(n.nodes.node_id.values.tolist())
 
-    assert fast == slow
+    # A node may repeat only as the proximal end of a segment (i.e. a branch
+    # point or root shared with the segment above it).
+    seen = {}
+    for s in segs:
+        for i, node in enumerate(s):
+            seen.setdefault(node, []).append(i == len(s) - 1)
+    for node, positions in seen.items():
+        if len(positions) > 1:
+            assert sum(not last for last in positions) <= 1, (
+                f"node {node} appears mid-segment more than once"
+            )
 
 
-def test_break_segments_order_is_node_table_order(monkeypatch):
+def test_break_segments_order_is_node_table_order():
     """Segments come back ordered by the node table position of their (distal) seed.
 
     Note this is *position*, not node ID - so use a node table that is not sorted by
@@ -316,35 +352,52 @@ def test_break_segments_order_is_node_table_order(monkeypatch):
     got = [list(s) for s in G._break_segments(navis.Skeleton(nodes.copy()))]
     assert got == expected
 
-    monkeypatch.setattr(utils, "fastcore", None)
-    got = [list(s) for s in G._break_segments(navis.Skeleton(nodes.copy()))]
-    assert got == expected
 
+def test_segment_analysis_rows_follow_small_segments(n):
+    """`segment_analysis` enumerates `small_segments`, so its row order is that
+    order - and its per-row length must be that segment's length.
+    """
+    segs = [list(s) for s in n.small_segments]
+    res = navis.segment_analysis(n.copy())
 
-def test_segment_analysis_row_order_matches_fallback(n, monkeypatch):
-    """The row order of `segment_analysis` must not depend on the backend."""
-    fast = navis.segment_analysis(n.copy())
-
-    m = n.copy()
-    m._clear_temp_attr()
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = navis.segment_analysis(m)
-
-    assert fast.equals(slow)
+    assert len(res) == len(segs)
+    # Sum the child->parent distances along each segment. N.B. deliberately not
+    # `G.segment_length` - that is the helper `segment_analysis` uses internally,
+    # so it would compare the implementation against itself.
+    w = dict(
+        zip(
+            n.nodes.node_id.values.tolist(),
+            navis.morpho.mmetrics.parent_dist(n, root_dist=0),
+        )
+    )
+    expected = [sum(w[i] for i in seg[:-1]) for seg in segs]
+    assert np.allclose(res["length"].values, expected, rtol=1e-4)
 
 
 # ----------------------------------------------------------------- classify_nodes
 
 
 @pytest.mark.parametrize("categorical", [True, False])
-def test_classify_nodes_matches_fallback(n, categorical, monkeypatch):
-    fast = navis.graph.classify_nodes(n.copy(), categorical=categorical).nodes.type
+def test_classify_nodes_matches_the_definitions(n, categorical):
+    """root = no parent; end = nobody's parent; branch = >1 child; else slab."""
+    x = navis.graph.classify_nodes(n.copy(), categorical=categorical)
 
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = navis.graph.classify_nodes(n.copy(), categorical=categorical).nodes.type
+    nid = x.nodes.node_id.values
+    pid = x.nodes.parent_id.values
+    got = np.asarray(x.nodes.type).astype(str)
 
-    assert (np.asarray(fast).astype(str) == np.asarray(slow).astype(str)).all()
-    assert fast.dtype == slow.dtype
+    n_children = pd.Series(pid[pid >= 0]).value_counts()
+    expected = np.where(
+        pid < 0,
+        "root",
+        np.where(
+            ~np.isin(nid, pid),
+            "end",
+            np.where(pd.Series(nid).map(n_children).fillna(0).values > 1,
+                     "branch", "slab"),
+        ),
+    )
+    assert (got == expected).all()
 
 
 @pytest.mark.parametrize(
@@ -362,8 +415,8 @@ def test_classify_nodes_matches_fallback(n, categorical, monkeypatch):
         ([100, 7, 55, 3], [-1, 100, 7, 7], ["root", "branch", "end", "end"]),
     ],
 )
-def test_classify_nodes_topologies(node_ids, parent_ids, expected, monkeypatch):
-    """The fastcore and numpy paths must agree on the awkward topologies."""
+def test_classify_nodes_topologies(node_ids, parent_ids, expected):
+    """Hand-computed classifications for the awkward topologies."""
     def build():
         return navis.Skeleton(
             pd.DataFrame(
@@ -377,16 +430,11 @@ def test_classify_nodes_topologies(node_ids, parent_ids, expected, monkeypatch):
             )
         )
 
-    fast = list(navis.graph.classify_nodes(build()).nodes.type.astype(str))
-    assert fast == expected
-
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = list(navis.graph.classify_nodes(build()).nodes.type.astype(str))
-    assert slow == expected
+    assert list(navis.graph.classify_nodes(build()).nodes.type.astype(str)) == expected
 
 
-def test_classify_nodes_uint64(monkeypatch):
-    """uint64 node IDs used to trip up `np.isin` - make sure both paths cope."""
+def test_classify_nodes_uint64():
+    """uint64 node IDs used to trip up `np.isin` - make sure they still work."""
     nodes = pd.DataFrame(
         {
             "node_id": np.array([0, 1, 2, 3], dtype=np.uint64),
@@ -399,70 +447,88 @@ def test_classify_nodes_uint64(monkeypatch):
     expected = ["root", "branch", "end", "end"]
     assert list(navis.graph.classify_nodes(navis.Skeleton(nodes)).nodes.type.astype(str)) == expected
 
-    monkeypatch.setattr(utils, "fastcore", None)
-    assert list(navis.graph.classify_nodes(navis.Skeleton(nodes)).nodes.type.astype(str)) == expected
-
 
 # ------------------------------------------------------- geodesic_matrix (meshes)
 
 
 @pytest.mark.parametrize("weight", ["weight", None])
-def test_geodesic_matrix_mesh_matches_fallback(weight, monkeypatch):
-    """The mesh fastcore path and the scipy fallback must agree."""
+def test_geodesic_matrix_mesh_matches_a_scipy_reference(weight):
+    """Ground truth: Dijkstra over the mesh's own unique edges."""
     m = navis.example_neurons(1, kind="mesh")
+    edges, lengths = navis.utils.mesh_unique_edges(m, return_lengths=True)
+    w = lengths if weight == "weight" else np.ones(len(edges))
+
+    n_verts = len(m.vertices)
+    adj = csr_matrix(
+        (np.concatenate([w, w]),
+         (np.concatenate([edges[:, 0], edges[:, 1]]),
+          np.concatenate([edges[:, 1], edges[:, 0]]))),
+        shape=(n_verts, n_verts),
+    )
+
     rng = np.random.default_rng(0)
-    src = np.sort(rng.choice(len(m.vertices), 40, replace=False))
-    tgt = np.sort(rng.choice(len(m.vertices), 25, replace=False))
+    src = np.sort(rng.choice(n_verts, 20, replace=False))
+    tgt = np.sort(rng.choice(n_verts, 15, replace=False))
 
-    fast = G.geodesic_matrix(m, from_=src, to_=tgt, weight=weight)
+    expected = dijkstra(adj, directed=False, indices=src)[:, tgt]
+    got = G.geodesic_matrix(m, from_=src, to_=tgt, weight=weight)
 
-    q = m.copy()
-    q._clear_temp_attr()
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = G.geodesic_matrix(q, from_=src, to_=tgt, weight=weight)
-
-    assert list(fast.index) == list(slow.index)
-    assert list(fast.columns) == list(slow.columns)
-    assert np.allclose(fast.values, slow.values, rtol=1e-4, atol=1e-3, equal_nan=True)
+    assert list(got.index) == list(src)
+    assert list(got.columns) == list(tgt)
+    assert np.allclose(got.values, expected, rtol=1e-4, atol=1e-3, equal_nan=True)
 
 
-def test_geodesic_matrix_mesh_limit(monkeypatch):
-    """`limit` must mark the same pairs as unreachable in both backends."""
+def test_geodesic_matrix_mesh_limit():
+    """`limit` marks everything beyond it unreachable and nothing within it."""
     m = navis.example_neurons(1, kind="mesh")
     rng = np.random.default_rng(1)
     src = np.sort(rng.choice(len(m.vertices), 40, replace=False))
 
-    fast = G.geodesic_matrix(m, from_=src, limit=5000)
+    limit = 5000
+    capped = G.geodesic_matrix(m, from_=src, limit=limit)
+    full = G.geodesic_matrix(m, from_=src)
 
-    q = m.copy()
-    q._clear_temp_attr()
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = G.geodesic_matrix(q, from_=src, limit=5000)
-
-    assert (np.isfinite(fast.values) == np.isfinite(slow.values)).all()
-    assert np.isfinite(fast.values).any()  # ...and the limit isn't cutting everything
-    assert np.allclose(fast.values, slow.values, rtol=1e-4, atol=1e-3, equal_nan=True)
+    assert np.isfinite(capped.values).any(), "the limit is cutting everything"
+    # Kept pairs keep their exact distance; dropped pairs were all over the limit
+    kept = np.isfinite(capped.values)
+    assert np.allclose(capped.values[kept], full.values[kept], rtol=1e-4, atol=1e-3)
+    assert (full.values[~kept] > limit).all()
 
 
 # -------------------------------------------------------------- _subtree_height
 
 
 @pytest.mark.parametrize("weight", ["weight", None])
-def test_subtree_height_matches_fallback(n, weight, monkeypatch):
+def test_subtree_height_matches_its_definition(n, weight):
+    """Height(v) = max over leafs below v of depth(leaf) - depth(v).
+
+    Computed here straight off `dist_to_root`, which is the definition rather
+    than a second implementation of the sweep.
+    """
     from navis.morpho.manipulation import _subtree_height
 
-    fast = _subtree_height(n, weight=weight)
+    got = _subtree_height(n, weight=weight)
 
-    m = n.copy()
-    m._clear_temp_attr()
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = _subtree_height(m, weight=weight)
+    depth = G.dist_to_root(n, weight=weight)
+    parents = dict(
+        zip(n.nodes.node_id.values.tolist(), n.nodes.parent_id.values.tolist())
+    )
+    leafs = n.nodes[n.nodes.type == "end"].node_id.values.tolist()
 
-    assert list(fast.index) == list(slow.index)
-    assert np.allclose(fast.values, slow.values, rtol=1e-4, atol=1e-4)
+    expected = {int(k): 0.0 for k in n.nodes.node_id.values}
+    for leaf in leafs:
+        dl, v = depth[leaf], leaf
+        while v != -1:
+            expected[v] = max(expected[v], dl - depth[v])
+            v = parents.get(v, -1)
+
+    ids = n.nodes.node_id.values
+    assert np.allclose(
+        got.loc[ids].values, [expected[int(i)] for i in ids], rtol=1e-4, atol=1e-4
+    )
 
 
-def test_subtree_height_definition(monkeypatch):
+def test_subtree_height_definition():
     """Height = distance down to the farthest leaf below. Leafs are 0."""
     #  0 - 1 - 2 - 3     (3 is 3 hops below 0)
     #       \- 4
@@ -482,12 +548,8 @@ def test_subtree_height_definition(monkeypatch):
     x = navis.Skeleton(nodes)
     assert list(_subtree_height(x, weight=None).loc[[0, 1, 2, 3, 4]]) == expected
 
-    monkeypatch.setattr(utils, "fastcore", None)
-    x = navis.Skeleton(nodes)
-    assert list(_subtree_height(x, weight=None).loc[[0, 1, 2, 3, 4]]) == expected
 
-
-def test_subtree_height_fragmented(monkeypatch):
+def test_subtree_height_fragmented():
     """Each fragment's root gets the height of its own component."""
     nodes = pd.DataFrame(
         {
@@ -500,35 +562,41 @@ def test_subtree_height_fragmented(monkeypatch):
     )
     from navis.morpho.manipulation import _subtree_height
 
-    fast = _subtree_height(navis.Skeleton(nodes), weight="weight")
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = _subtree_height(navis.Skeleton(nodes), weight="weight")
+    got = _subtree_height(navis.Skeleton(nodes), weight="weight")
 
-    assert np.allclose(fast.values, slow.values, rtol=1e-4)
-    assert np.allclose(fast.loc[[0, 1, 2, 3]].values, [1.0, 0.0, 1.0, 0.0], rtol=1e-4)
+    assert np.allclose(got.loc[[0, 1, 2, 3]].values, [1.0, 0.0, 1.0, 0.0], rtol=1e-4)
 
 
 # -------------------------------------------------------------- longest_neurite
 
 
 @pytest.mark.parametrize("k", [1, 2, 3])
-def test_longest_neurite_matches_fallback(n, k, monkeypatch):
-    """A diameter has two ends and float32 rounding decides which one wins.
-
-    Picking the other end reroots the neuron elsewhere, which changes the segment
-    decomposition (and thus the output) for k >= 2. Pin both backends to the same
-    choice.
+def test_longest_neurite_is_a_growing_subset(n, k):
+    """`n=k` must be a connected subset of the neuron, and larger `k` may only add.
 
     NOTE: `from_root=True` is the default and skips the geodesic branch entirely,
     so it *must* be False here or this tests nothing.
     """
-    fast = navis.longest_neurite(n, n=k, from_root=False, inplace=False)
+    got = navis.longest_neurite(n, n=k, from_root=False, inplace=False)
 
-    m = n.copy()
-    m._clear_temp_attr()
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = navis.longest_neurite(m, n=k, from_root=False, inplace=False)
+    assert set(got.nodes.node_id) <= set(n.nodes.node_id)
+    assert got.n_trees == 1
+    assert got.cable_length <= n.cable_length
 
-    assert list(fast.root) == list(slow.root)
-    assert sorted(fast.nodes.node_id) == sorted(slow.nodes.node_id)
-    assert np.isclose(fast.cable_length, slow.cable_length, rtol=1e-4)
+    if k > 1:
+        smaller = navis.longest_neurite(n, n=k - 1, from_root=False, inplace=False)
+        assert set(smaller.nodes.node_id) <= set(got.nodes.node_id)
+        assert got.cable_length >= smaller.cable_length
+
+
+def test_longest_neurite_k1_is_the_diameter(n):
+    """With `from_root=False`, `n=1` is the longest leaf-to-leaf path - i.e. its
+    cable must equal the largest geodesic distance between any two leafs.
+    """
+    got = navis.longest_neurite(n, n=1, from_root=False, inplace=False)
+
+    leafs = n.nodes[n.nodes.type.isin(("end", "root"))].node_id.values
+    dmat = G.geodesic_matrix(n, from_=leafs, to_=leafs, directed=False).values.copy()
+    dmat[~np.isfinite(dmat)] = -1
+
+    assert got.cable_length == pytest.approx(dmat.max(), rel=1e-4)

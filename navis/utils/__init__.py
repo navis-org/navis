@@ -26,10 +26,9 @@ from .cv import (patch_cloudvolume)
 from .decorators import (meshneuron_skeleton, map_neuronlist_df, map_neuronlist,
                          lock_neuron)
 
-try:
-    import navis_fastcore as fastcore
-except ModuleNotFoundError:
-    fastcore = None
+# navis-fastcore is a hard requirement since 2.0. It stays exposed as
+# `utils.fastcore` because that is the name ~80 call sites reach it through.
+import navis_fastcore as fastcore  # noqa: F401
 
 __all__ = ['set_loggers', 'set_pbars', 'set_default_connector_colors',
            'patch_cloudvolume']

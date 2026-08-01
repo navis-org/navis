@@ -346,9 +346,9 @@ print(navis.list_parallel_backends())
 #     computes the whole matrix in a single Rust call using its own threads, so it ignores
 #     the parallel backend completely: select it, point {{ navis }} at a cluster, and all
 #     the work still happens on the machine you are sitting at. It is not the default -
-#     but it *is* what `navis.config.default_nblast_backend = "auto"` picks where it is
-#     installed. Leave that at `"builtin"`, or pass `backend="builtin"` per call, when you
-#     want the NBLAST spread over the cluster.
+#     but it *is* what `navis.config.default_nblast_backend = "auto"` picks. Leave that at
+#     `"builtin"`, or pass `backend="builtin"` per call, when you want the NBLAST spread
+#     over the cluster.
 
 # %%
 

@@ -1,39 +1,31 @@
 """Tests for `navis.nbl.extract_matches`.
 
-The bulk of these run each criterion through *both* backends (navis-fastcore
-and the numpy fallback) and assert they agree. The one thing they are allowed
-to disagree on is the order of *tied* scores - which of two equally good
-matches comes first is arbitrary - so comparisons here are score-based rather
-than label-based wherever ties are possible.
+Unlike the graph primitives, this genuinely *does* have two live code paths:
+`_fastcore_matrix` hands fastcore the score matrix only when its buffer is a
+float16/32/64 and contiguous, and falls back to numpy otherwise rather than
+copying what may be tens of GB. Both paths ship, so comparing them is a real
+test of a real branch - not a fallback kept alive to be an oracle.
 
-`fastcore_off` forces the fallback by blanking `navis.utils.fastcore`, which is
-what `_fastcore_matrix` checks. That is also how a user without fastcore
-installed gets there, so it exercises the real path.
+The one thing they are allowed to disagree on is the order of *tied* scores -
+which of two equally good matches comes first is arbitrary - so comparisons
+here are score-based rather than label-based wherever ties are possible.
+
+`fastcore_off` forces the numpy path the same way a real caller does: by making
+`_fastcore_matrix` decline the matrix.
 """
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from navis import utils
 from navis.nbl import extract_matches
-
-FASTCORE = utils.fastcore
-HAS_FASTCORE = FASTCORE is not None and hasattr(FASTCORE, "top_matches")
-
-needs_fastcore = pytest.mark.skipif(
-    not HAS_FASTCORE, reason="navis-fastcore does not provide `top_matches`"
-)
-
+from navis.nbl import utils as nbl_utils
 
 @pytest.fixture
-def fastcore_off():
-    """Force the numpy fallback."""
-    utils.fastcore = None
-    try:
-        yield
-    finally:
-        utils.fastcore = FASTCORE
+def fastcore_off(monkeypatch):
+    """Force the numpy path by declining every matrix, as a mixed-dtype or
+    non-contiguous frame would."""
+    monkeypatch.setattr(nbl_utils, "_fastcore_matrix", lambda scores: None)
 
 
 def frame(a):
@@ -60,13 +52,14 @@ def distances():
 
 
 def both_backends(func):
-    """Run `func` with fastcore on, then off."""
+    """Run `func` on the fastcore path, then on the numpy one."""
     on = func()
-    utils.fastcore = None
+    orig = nbl_utils._fastcore_matrix
+    nbl_utils._fastcore_matrix = lambda scores: None
     try:
         off = func()
     finally:
-        utils.fastcore = FASTCORE
+        nbl_utils._fastcore_matrix = orig
     return on, off
 
 
@@ -97,7 +90,6 @@ def test_n_shape_and_order(scores, distances, N, dist):
         assert np.allclose(got, m[f"score_{i + 1}"].values)
 
 
-@needs_fastcore
 @pytest.mark.parametrize("N", [1, 5])
 @pytest.mark.parametrize("dist", [True, False])
 def test_n_backends_agree(scores, distances, N, dist):
@@ -113,7 +105,6 @@ def test_n_backends_agree(scores, distances, N, dist):
         assert np.allclose(a[neq], b[neq]), "labels differ on a non-tied score"
 
 
-@needs_fastcore
 def test_n_ties_are_valid_picks():
     """With heavy ties the backends may pick differently - both must be right."""
     rng = np.random.default_rng(2)
@@ -165,7 +156,6 @@ def test_n_too_few_valid_scores():
     assert m.match_2.tolist()[1] == "t1"
 
 
-@needs_fastcore
 def test_nan_backends_agree():
     rng = np.random.default_rng(3)
     a = rng.random((10, 10)).astype(np.float32)
@@ -203,7 +193,6 @@ def test_threshold(scores, distances, dist):
     assert (m.score <= thr).all() if dist else (m.score >= thr).all()
 
 
-@needs_fastcore
 @pytest.mark.parametrize("dist", [True, False])
 def test_threshold_backends_agree(scores, distances, dist):
     s = distances if dist else scores
@@ -254,7 +243,6 @@ def test_percentage_membership(scores, distances, dist):
             assert v <= cutoff + 1e-6 if dist else v >= cutoff - 1e-6
 
 
-@needs_fastcore
 @pytest.mark.parametrize("dist", [True, False])
 def test_percentage_backends_agree(scores, distances, dist):
     s = distances if dist else scores
@@ -288,7 +276,6 @@ def test_numpy_fallback_runs(scores):
     assert len(extract_matches(scores, percentage=0.1)) == len(scores)
 
 
-@needs_fastcore
 def test_non_float_dtype_falls_back():
     """fastcore only takes float16/32/64 - an int matrix must not crash."""
     s = frame(np.arange(20).reshape(4, 5))

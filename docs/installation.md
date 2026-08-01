@@ -59,6 +59,17 @@ Open up a terminal and install {{ navis }} with:
     On Windows, you might run into issues with some of the dependencies. If that happens, we recommend you check
     out the [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install) (WSL).
 
+!!! info "navis-fastcore is required"
+
+    Since 2.0, [navis-fastcore](https://github.com/schlegelp/fastcore-rs) - the Rust
+    engine behind {{ navis }}' graph, geodesic and NBLAST core - is a **core**
+    dependency rather than an optional extra. Both installs above pull it in.
+
+    It ships prebuilt wheels for macOS (Intel and ARM), Windows, and Linux on
+    x86-64, aarch64, i686, armv7l, ppc64le and s390x, so there is nothing to
+    compile. The exception is musl-based Linux (e.g. Alpine), which builds from
+    the source distribution and therefore needs a Rust toolchain.
+
 
   [PyPI]: https://pypi.org/project/navis/
   [virtual environment]: https://realpython.com/what-is-pip/#using-pip-in-a-python-virtual-environment
@@ -90,19 +101,6 @@ directly, are listed below:
 
     ---
 
-    #### `fastcore`: [navis-fastcore](https://github.com/schlegelp/fastcore-rs)
-
-    `navis-fastcore` re-implements a bunch of low-level functions in Rust
-    and wraps them in Python. {{ navis }} will use `fastcore` under the hood
-    if it is available. This is a *highly* recommended extra as it speeds up
-    many operations such as NBLAST, geodesic distances, Strahler Index, pruning
-    and other downstream functions by several orders of magnitude.
-
-    ``` shell
-    pip install navis-fastcore
-    ```
-
-    ---
 
     #### `kdtree`: [pykdtree](https://github.com/storpipfugl/pykdtree)
 

@@ -520,7 +520,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                     Which NBLAST backend to use. If `None` (default), uses
                     `navis.config.default_nblast_backend` ("builtin"). Set that
                     to "auto" to pick the fastest available backend that supports
-                    the request (e.g. `navis-fastcore` if installed), or pass a
+                    the request (usually `fastcore`), or pass a
                     name (e.g. "builtin" or "fastcore") to force a backend here.
     smat_kwargs:    Dictionary with additional parameters passed to scoring
                     functions.
@@ -632,9 +632,8 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
     pairs.
 
     !!! important
-        This function requires [navis-fastcore](https://github.com/schlegelp/fastcore-rs)
-        (`pip install navis-fastcore`). Unlike the other NBLAST functions there
-        is no built-in Python implementation to fall back on.
+        Unlike the other NBLAST functions this one has no built-in Python
+        implementation - it is provided only by the `fastcore` backend.
 
     Parameters
     ----------
@@ -876,7 +875,7 @@ def nblast_allbyall(x: NeuronList,
                     Which NBLAST backend to use. If `None` (default), uses
                     `navis.config.default_nblast_backend` ("builtin"). Set that
                     to "auto" to pick the fastest available backend that supports
-                    the request (e.g. `navis-fastcore` if installed), or pass a
+                    the request (usually `fastcore`), or pass a
                     name (e.g. "builtin" or "fastcore") to force a backend here.
     smat_kwargs:    Dictionary with additional parameters passed to scoring
                     functions.

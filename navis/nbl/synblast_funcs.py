@@ -286,7 +286,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
                     Which NBLAST backend to use. If `None` (default), uses
                     `navis.config.default_nblast_backend` ("builtin"). Set that
                     to "auto" to pick the fastest available backend that supports
-                    the request (e.g. `navis-fastcore` if installed), or pass a
+                    the request (usually `fastcore`), or pass a
                     name (e.g. "builtin" or "fastcore") to force a backend here.
 
     Returns

@@ -22,7 +22,7 @@ import warnings
 import pandas as pd
 import numpy as np
 
-from typing import Union, Optional, Sequence, Dict
+from typing import Union, Optional, Sequence
 from typing_extensions import Literal
 
 from .. import config, graph, sampling, core, utils
@@ -108,31 +108,15 @@ def parent_dist(
     else:
         raise TypeError(f'Need Skeleton or DataFrame, got "{type(x)}"')
 
-    if not utils.fastcore:
-        # Extract node coordinates
-        tn_coords = nodes[["x", "y", "z"]].values
-
-        # Get parent coordinates
-        parent_coords = (
-            nodes.set_index("node_id")
-            .reindex(nodes.parent_id.values)[["x", "y", "z"]]
-            .values
-        )
-
-        # Calculate distances between nodes and their parents
-        w = np.sqrt(np.sum((tn_coords - parent_coords) ** 2, axis=1))
-
-        # Replace root dist (nan by default)
-        w[np.isnan(w)] = root_dist
-    else:
-        w = utils.fastcore.dag.parent_dist(
-            x.nodes.node_id.values,
-            x.nodes.parent_id.values,
-            x.nodes[["x", "y", "z"]].values,
-            root_dist=root_dist,
-        )
-
-    return w
+    # N.B. off `nodes`, not `x.nodes`: this also takes a plain DataFrame, and the
+    # fastcore branch used to reach straight through to `x.nodes` - which meant a
+    # DataFrame only worked on the (now deleted) fallback.
+    return utils.fastcore.dag.parent_dist(
+        nodes.node_id.values,
+        nodes.parent_id.values,
+        nodes[["x", "y", "z"]].values,
+        root_dist=root_dist,
+    )
 
 
 @utils.map_neuronlist(desc="Calc. SI", allow_parallel=True)
@@ -201,124 +185,14 @@ def strahler_index(
     if method not in ["standard", "greedy"]:
         raise ValueError(f'`method` must be "standard" or "greedy", got "{method}"')
 
-    if utils.fastcore:
-        x.nodes["strahler_index"] = utils.fastcore.strahler_index(
-            x.nodes.node_id.values,
-            x.nodes.parent_id.values,
-            method=method,
-            to_ignore=to_ignore,
-            min_twig_size=min_twig_size,
-        ).astype(np.int16)
-        x.nodes["strahler_index"] = x.nodes.strahler_index.fillna(1)
-        return x
-
-    # Find branch, root and end nodes
-    if "type" not in x.nodes:
-        graph.classify_nodes(x)
-
-    end_nodes = x.nodes[x.nodes.type == "end"].node_id.values
-    branch_nodes = x.nodes[x.nodes.type == "branch"].node_id.values
-    root = x.nodes[x.nodes.type == "root"].node_id.values
-
-    end_nodes = set(end_nodes)
-    branch_nodes = set(branch_nodes)
-    root = set(root)
-
-    if min_twig_size:
-        to_ignore = np.append(
-            to_ignore,
-            [
-                seg[0]
-                for seg in x.small_segments
-                if seg[0] in end_nodes and len(seg) < min_twig_size
-            ],
-        ).astype(int)
-
-    # Generate dicts for childs and parents
-    list_of_childs = graph.generate_list_of_childs(x)
-
-    # Get a node ID -> parent ID dictionary for fast lookups
-    parents = x.nodes.set_index("node_id").parent_id.to_dict()
-
-    # Do NOT name any parameter `strahler_index` - this overwrites the function!
-    SI: Dict[int, int] = {}
-
-    starting_points = end_nodes
-    seen = set()
-    while starting_points:
-        logger.debug(f"New starting point. Remaining: {len(starting_points)}")
-        this_node = starting_points.pop()
-
-        # Get upstream indices for this branch
-        previous_indices = [SI[c] for c in list_of_childs[this_node]]
-
-        # If this is a not-a-branch branch
-        if this_node in to_ignore:
-            this_branch_index = 0
-        # If this is an end node: start at 1
-        elif not len(previous_indices):
-            this_branch_index = 1
-        # If this is a slab: assign SI of predecessor
-        elif len(previous_indices) == 1:
-            this_branch_index = previous_indices[0]
-        # If this is a branch point and we're using the greedy method
-        elif method == "greedy":
-            this_branch_index = sum(previous_indices)
-        # If this is a branch point at which similar indices collide: +1
-        elif previous_indices.count(max(previous_indices)) >= 2:
-            this_branch_index = max(previous_indices) + 1
-        # If just a branch point: continue max SI
-        else:
-            this_branch_index = max(previous_indices)
-
-        # Keep track of that this node has been processed
-        seen.add(this_node)
-
-        # Now walk down this segment
-        # Find parent
-        segment = [this_node]
-        parent_node = parents[this_node]
-        while parent_node >= 0 and parent_node not in branch_nodes:
-            this_node = parent_node
-            parent_node = parents[this_node]
-            segment.append(this_node)
-            seen.add(this_node)
-
-        # Update indices for the entire segment
-        SI.update({n: this_branch_index for n in segment})
-
-        # The last `this_node` is either a branch node or the root
-        # If a branch point: check, if all its childs have already been
-        # processed (root is signalled by parent_node == -1, so use >= 0 to
-        # also handle a branch point whose node ID is 0)
-        if parent_node >= 0:
-            node_ready = True
-            for child in list_of_childs[parent_node]:
-                if child not in seen:
-                    node_ready = False
-                    break
-
-            if node_ready is True:
-                starting_points.add(parent_node)
-
-    # Fix branches that were ignored
-    if len(to_ignore):
-        # Go over all terminal branches with the tag
-        for tn in x.nodes[
-            (x.nodes.type == "end") & x.nodes.node_id.isin(to_ignore)
-        ].node_id.values:
-            # Get this terminal's segment
-            this_seg = [s for s in x.small_segments if s[0] == tn][0]
-            # Get strahler index of parent branch
-            this_SI = SI.get(this_seg[-1], 1)
-            SI.update({n: this_SI for n in this_seg})
-
-    # Disconnected single nodes (e.g. after pruning) will end up w/o an entry
-    # --> we will give them an SI of 1
-    x.nodes["strahler_index"] = x.nodes.node_id.map(lambda x: SI.get(x, 1))
-
-    # Set correct data type
-    x.nodes["strahler_index"] = x.nodes.strahler_index.astype(np.int16)
+    x.nodes["strahler_index"] = utils.fastcore.strahler_index(
+        x.nodes.node_id.values,
+        x.nodes.parent_id.values,
+        method=method,
+        to_ignore=to_ignore,
+        min_twig_size=min_twig_size,
+    ).astype(np.int16)
+    x.nodes["strahler_index"] = x.nodes.strahler_index.fillna(1)
 
     return x
 
@@ -995,7 +869,7 @@ def synapse_flow_centrality(
     of each skeleton node in a 3d view, providing a characteristic signature of
     the arbor that enables subjective evaluation of its identity."
 
-    Uses navis-fastcore if available.
+    Runs on navis-fastcore.
 
     Parameters
     ----------
@@ -1067,132 +941,37 @@ def synapse_flow_centrality(
             f'Unable to parse connector types "{cn_types}" for neuron {x.id}'
         )
 
-    if utils.fastcore:
-        x.nodes["synapse_flow_centrality"] = utils.fastcore.synapse_flow_centrality(
-            node_ids=x.nodes.node_id.values,
-            parent_ids=x.nodes.parent_id.values,
-            presynapses=x.nodes.node_id.map(
-                x.connectors[(x.connectors.type == pre)].node_id.value_counts()
-            )
-            .fillna(0)
-            .astype(int)
-            .values,
-            postsynapses=x.nodes.node_id.map(
-                x.connectors[(x.connectors.type == post)].node_id.value_counts()
-            )
-            .fillna(0)
-            .astype(int)
-            .values,
-            mode=mode,
+    x.nodes["synapse_flow_centrality"] = utils.fastcore.synapse_flow_centrality(
+        node_ids=x.nodes.node_id.values,
+        parent_ids=x.nodes.parent_id.values,
+        presynapses=x.nodes.node_id.map(
+            x.connectors[(x.connectors.type == pre)].node_id.value_counts()
         )
-        # Add info on method/mode used for flow centrality
-        x.centrality_method = mode  # type: ignore
-
-        # Need to add a restriction, that a branchpoint cannot have a lower
-        # flow than its highest child -> this happens at the main branch point to
-        # the cell body fiber because the flow doesn't go "through" it in
-        # child -> parent direction but rather "across" it from one child to the
-        # other
-        is_bp = x.nodes["type"] == "branch"
-        bp = x.nodes.loc[is_bp, "node_id"].values
-        bp_childs = x.nodes[x.nodes.parent_id.isin(bp)]
-        max_flow = bp_childs.groupby("parent_id").synapse_flow_centrality.max()
-        x.nodes.loc[is_bp, "synapse_flow_centrality"] = max_flow.loc[bp].values
-        x.nodes["synapse_flow_centrality"] = x.nodes.synapse_flow_centrality.astype(int)
-        return x
-
-    # Get list of nodes with pre/postsynapses
-    pre_node_ids = x.connectors[x.connectors.type == pre].node_id.values
-    post_node_ids = x.connectors[x.connectors.type == post].node_id.values
-
-    # Get list of points to calculate flow centrality for:
-    # branches and and their children
-    is_bp = x.nodes["type"] == "branch"
-    is_cn = x.nodes.node_id.isin(x.connectors.node_id)
-    calc_node_ids = x.nodes[is_bp | is_cn].node_id.values
-
-    # Note these are per-fragment totals - see `_component_counts`
-    total_post = _component_counts(x, post_node_ids, calc_node_ids)
-    total_pre = _component_counts(x, pre_node_ids, calc_node_ids)
-
-    # We will be processing a super downsampled version of the neuron to
-    # speed up calculations
-    with config.quiet_logger(pbars=True):
-        y = sampling.downsample_neuron(
-            x=x,
-            downsampling_factor=float("inf"),
-            inplace=False,
-            preserve_nodes=calc_node_ids,
+        .fillna(0)
+        .astype(int)
+        .values,
+        postsynapses=x.nodes.node_id.map(
+            x.connectors[(x.connectors.type == post)].node_id.value_counts()
         )
-
-    # Get number of pre/postsynapses distal to each branch's childs
-    dists = graph.geodesic_matrix(
-        y,
-        from_=np.append(pre_node_ids, post_node_ids),
-        to_=calc_node_ids,
-        directed=True,
-        weight=None,
+        .fillna(0)
+        .astype(int)
+        .values,
+        mode=mode,
     )
-    distal = dists < np.inf
-
-    # Since nodes can have multiple pre-/postsynapses but they show up only
-    # once in distal, we have to reindex to reflect the correct number of synapes
-    distal_pre = distal.loc[pre_node_ids]
-    distal_post = distal.loc[post_node_ids]
-
-    # Sum up axis - now each row represents the number of pre/postsynapses
-    # that are distal to that node
-    distal_pre = distal_pre.sum(axis=0)
-    distal_post = distal_post.sum(axis=0)
-
-    if mode != "centripetal":
-        # Centrifugal is the flow from all proximal posts- to all distal presynapses
-        centrifugal = {
-            n: (total_post[n] - distal_post[n]) * distal_pre[n] for n in calc_node_ids
-        }
-
-    if mode != "centrifugal":
-        # Centripetal is the flow from all distal post- to all non-distal presynapses
-        centripetal = {
-            n: distal_post[n] * (total_pre[n] - distal_pre[n]) for n in calc_node_ids
-        }
-
-    # Now map this onto our neuron
-    if mode == "centrifugal":
-        flow = centrifugal
-    elif mode == "centripetal":
-        flow = centripetal
-    elif mode == "sum":
-        flow = {n: centrifugal[n] + centripetal[n] for n in centrifugal}
-
-    # At this point there is only flow for branch points and connectors nodes.
-    # Let's complete that mapping by adding flow for the nodes between branch points.
-    for s in x.small_segments:
-        # Segments' orientation goes from distal -> proximal
-
-        # If first node in the segment has no flow, set to 0
-        flow[s[0]] = flow.get(s[0], 0)
-
-        # For each node get the flow of its child
-        for i in range(1, len(s)):
-            if s[i] not in flow:
-                flow[s[i]] = flow[s[i - 1]]
-
-    x.nodes["synapse_flow_centrality"] = x.nodes.node_id.map(flow).fillna(0).astype(int)
+    # Add info on method/mode used for flow centrality
+    x.centrality_method = mode  # type: ignore
 
     # Need to add a restriction, that a branchpoint cannot have a lower
     # flow than its highest child -> this happens at the main branch point to
     # the cell body fiber because the flow doesn't go "through" it in
     # child -> parent direction but rather "across" it from one child to the
     # other
+    is_bp = x.nodes["type"] == "branch"
     bp = x.nodes.loc[is_bp, "node_id"].values
     bp_childs = x.nodes[x.nodes.parent_id.isin(bp)]
     max_flow = bp_childs.groupby("parent_id").synapse_flow_centrality.max()
     x.nodes.loc[is_bp, "synapse_flow_centrality"] = max_flow.loc[bp].values
     x.nodes["synapse_flow_centrality"] = x.nodes.synapse_flow_centrality.astype(int)
-
-    # Add info on method/mode used for flow centrality
-    x.centrality_method = mode  # type: ignore
 
     return x
 
@@ -1796,27 +1575,5 @@ def cable_length(x, mask=None) -> Union[int, float]:
     if not len(nodes):
         return 0
 
-    # See if we can use fastcore
-    if not utils.fastcore:
-        # The by far fastest way to get the cable length is to work on the node table
-        # Using the igraph representation is about the same speed... if it is already calculated!
-        # However, one problem with the graph representation is that with large neuronlists
-        # it adds a lot to the memory footprint.
-        not_root = (nodes.parent_id >= 0).values
-        xyz = nodes[["x", "y", "z"]].values[not_root]
-        xyz_parent = (
-            x.nodes.set_index("node_id")
-            .loc[nodes.parent_id.values[not_root], ["x", "y", "z"]]
-            .values
-        )
-        cable_length = np.sum(np.linalg.norm(xyz - xyz_parent, axis=1))
-    else:
-        cable_length = utils.fastcore.dag.parent_dist(
-            nodes.node_id.values,
-            nodes.parent_id.values,
-            nodes[["x", "y", "z"]].values,
-            root_dist=0,
-        ).sum()
-
-    return cable_length
+    return parent_dist(nodes, root_dist=0).sum()
 

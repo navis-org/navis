@@ -42,8 +42,8 @@ def is_invertible(transform) -> bool:
     """Check whether a transform can be inverted (i.e. whether `-tr` works).
 
     Prefer this over a bare `hasattr(tr, '__neg__')`: some transforms are only
-    invertible under certain conditions (e.g. elastix transforms, which can only
-    be inverted with navis-fastcore installed) and say so via an `invertible`
+    invertible under certain conditions (e.g. elastix transforms, which cannot be
+    inverted on the deprecated "binary" backend) and say so via an `invertible`
     property.
 
     """

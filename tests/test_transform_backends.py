@@ -1,63 +1,53 @@
 """Tests for the CMTK/elastix transform backends.
 
-navis can run CMTK and elastix point transforms either by shelling out to the
-external binaries (`streamxform`, `transformix`) or - if navis-fastcore is
-installed - via its in-process Rust implementation.
+navis runs CMTK and elastix point transforms through navis-fastcore's in-process
+Rust implementation. The deprecated `"binary"` backend shells out to the external
+binaries (`streamxform`, `transformix`) instead, and is kept until 3.0.
 
 Two kinds of test live here:
 
-* Backend *plumbing* (selection, invertibility gating, copying, pickling). These
-  build small synthetic registrations and need no binaries and no downloads, so
-  they run anywhere navis-fastcore is installed.
+* Backend *plumbing* (selection, deprecation, invertibility gating, copying,
+  pickling). These build small synthetic registrations and need no binaries and
+  no downloads, so they run anywhere.
 * Backend *parity* - the two implementations must agree numerically. These need
   both the binaries and real registrations, so they skip unless you have them.
   Note the parity tests are the point of the exercise: run them locally.
-
-NB: navis-fastcore only grew `ElastixTransform`/`CmtkRegistration` after 0.6.1,
-so an older fastcore will skip every fastcore test here rather than fail.
 
 """
 
 import pathlib
 import pickle
+import warnings
 
 import numpy as np
 import pytest
 
 import navis
-from navis import utils
 from navis.transforms import backends
 from navis.transforms.cmtk import CMTKtransform, _cmtkbin
 from navis.transforms.elastix import ElastixTransform, _elastixbin
 from navis.transforms.moving_least_squares import MovingLeastSquaresTransform
 from navis.transforms.thinplate import TPStransform
 
-HAS_FASTCORE = backends.fastcore_transforms_available()
-
-needs_fastcore = pytest.mark.skipif(
-    not HAS_FASTCORE, reason="navis-fastcore has no CMTK/elastix transforms"
-)
 needs_cmtk = pytest.mark.skipif(not _cmtkbin, reason="CMTK binaries not found")
 needs_elastix = pytest.mark.skipif(not _elastixbin, reason="elastix binaries not found")
 
 
 @pytest.fixture(autouse=True)
 def clean_backend_state():
-    """Backend config and the parse cache are global - reset between tests."""
+    """Backend config and the parse cache are global - reset between tests.
+
+    That includes the deprecation-warning registry: the warning is deliberately
+    once-per-session, so without clearing it only whichever test ran first would
+    ever see it.
+    """
+    backends._WARNED_BACKENDS.clear()
     yield
     navis.config.default_transform_backend = "auto"
     navis.config.elastix_invertible = False
+    backends._WARNED_BACKENDS.clear()
     backends.clear_transform_cache()
     navis.transforms.registry.clear_caches()
-
-
-@pytest.fixture
-def no_fastcore(monkeypatch):
-    """Force the binary path."""
-    # Note: must patch the module attribute (not re-import the name) - that's
-    # how the backend looks it up.
-    monkeypatch.setattr(utils, "fastcore", None)
-    backends.clear_transform_cache()
 
 
 def _write_cmtk(path, xlate=(10, -5, 2)):
@@ -118,21 +108,56 @@ POINTS = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0], [100.0, 50.0, 25.0]])
 # --------------------------------------------------------------- backend selection
 
 
-@needs_fastcore
 def test_auto_prefers_fastcore(tiny_cmtk):
     navis.config.default_transform_backend = "auto"
     assert CMTKtransform(tiny_cmtk).backend == "fastcore"
 
 
-def test_auto_falls_back_to_binary(tiny_cmtk, no_fastcore):
+def test_binary_backend_is_deprecated_but_still_works(tiny_cmtk):
+    """"binary" is deprecated as of 2.0 - selecting it must warn and still
+    resolve, since it is not removed until 3.0."""
+    navis.config.default_transform_backend = "binary"
+    with pytest.warns(DeprecationWarning, match="deprecated"):
+        assert CMTKtransform(tiny_cmtk).backend == "binary"
+
+
+def test_set_transform_backend_warns_at_the_callers_frame():
+    """The warning has to fire where the choice is *made*.
+
+    `resolve_backend` runs from navis-internal frames (the `.backend` property is
+    resolved lazily, several times per transform per call), so a warning raised
+    there is both repetitive and - because Python only shows DeprecationWarning
+    from `__main__` by default - invisible to the person who picked the backend.
+    """
+    with pytest.warns(DeprecationWarning, match="deprecated") as rec:
+        navis.transforms.set_transform_backend("binary")
+
+    assert len(rec) == 1
+    # `stacklevel` must blame this test, not anything inside navis
+    assert pathlib.Path(rec[0].filename).name == "test_transform_backends.py"
+
+
+def test_deprecation_warning_is_once_per_session(tiny_cmtk):
+    """Internal code reads `.backend` repeatedly; the user should hear it once."""
+    navis.config.default_transform_backend = "binary"
+    tr = CMTKtransform(tiny_cmtk)
+
+    with pytest.warns(DeprecationWarning, match="deprecated"):
+        tr.backend
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        for _ in range(5):
+            assert tr.backend == "binary"
+
+
+def test_auto_no_longer_falls_back(tiny_cmtk):
+    """navis-fastcore is a hard requirement, so "auto" always resolves to it -
+    and must not warn."""
     navis.config.default_transform_backend = "auto"
-    assert CMTKtransform(tiny_cmtk).backend == "binary"
-
-
-def test_explicit_fastcore_raises_when_unavailable(tiny_cmtk, no_fastcore):
-    navis.config.default_transform_backend = "fastcore"
-    with pytest.raises(ValueError, match="not installed or too old"):
-        CMTKtransform(tiny_cmtk).backend
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        assert CMTKtransform(tiny_cmtk).backend == "fastcore"
 
 
 def test_unknown_backend_raises(tiny_cmtk):
@@ -140,13 +165,11 @@ def test_unknown_backend_raises(tiny_cmtk):
         CMTKtransform(tiny_cmtk, backend="nonsense").backend
 
 
-@needs_fastcore
 def test_per_instance_overrides_config(tiny_cmtk):
     navis.config.default_transform_backend = "fastcore"
     assert CMTKtransform(tiny_cmtk, backend="binary").backend == "binary"
 
 
-@needs_fastcore
 def test_backend_resolved_lazily(tiny_cmtk):
     """Backend must follow a *later* config change.
 
@@ -176,13 +199,11 @@ def add_chain_elastix(tmp_path):
     )
 
 
-@needs_fastcore
 def test_elastix_can_invert_only_with_fastcore(tiny_elastix):
     assert ElastixTransform(tiny_elastix, backend="fastcore").can_invert is True
     assert ElastixTransform(tiny_elastix, backend="binary").can_invert is False
 
 
-@needs_fastcore
 def test_elastix_add_chain_is_not_invertible(add_chain_elastix):
     """`can_invert` is honest per *file*, not just per backend.
 
@@ -199,7 +220,6 @@ def test_elastix_add_chain_is_not_invertible(add_chain_elastix):
     assert "Add" in tr.check_if_possible(on_error="ignore")
 
 
-@needs_fastcore
 def test_elastix_resolves_initial_transform_by_basename(tmp_path):
     """fastcore follows a chained transform even when the recorded path is stale.
 
@@ -219,7 +239,6 @@ def test_elastix_resolves_initial_transform_by_basename(tmp_path):
     assert np.allclose(out, [[11.0, -4.0, 3.0]])
 
 
-@needs_fastcore
 def test_elastix_graph_invertibility_is_opt_in(tiny_elastix):
     """`-tr` always works on fastcore, but the *graph* only inverts if asked.
 
@@ -237,19 +256,24 @@ def test_elastix_graph_invertibility_is_opt_in(tiny_elastix):
     assert tr.invertible is True
 
 
-def test_elastix_neg_raises_without_fastcore(tiny_elastix, no_fastcore):
-    with pytest.raises(NotImplementedError, match="requires navis-fastcore"):
-        -ElastixTransform(tiny_elastix)
+def test_elastix_neg_raises_on_the_binary_backend(tiny_elastix):
+    """`transformix` cannot invert - only the fastcore backend can.
+
+    N.B. the backend is resolved lazily, so both the deprecation warning and the
+    `NotImplementedError` come out of the `-tr`, not the construction.
+    """
+    tr = ElastixTransform(tiny_elastix, backend="binary")
+    with pytest.warns(DeprecationWarning, match="deprecated"):
+        with pytest.raises(NotImplementedError, match="requires navis-fastcore"):
+            -tr
 
 
-@needs_fastcore
 def test_elastix_neg_roundtrips(tiny_elastix):
     tr = ElastixTransform(tiny_elastix, backend="fastcore")
     xf = tr.xform(POINTS)
     assert np.allclose((-tr).xform(xf), POINTS, atol=1e-4)
 
 
-@needs_fastcore
 def test_elastix_not_equal_to_its_inverse(tiny_elastix):
     """Else the registry would dedup a forward and an inverse edge into one."""
     tr = ElastixTransform(tiny_elastix, backend="fastcore")
@@ -257,7 +281,6 @@ def test_elastix_not_equal_to_its_inverse(tiny_elastix):
     assert tr == tr.copy()
 
 
-@needs_fastcore
 def test_double_negation_is_identity(tiny_elastix):
     tr = ElastixTransform(tiny_elastix, backend="fastcore")
     assert -(-tr) == tr
@@ -273,7 +296,6 @@ def test_is_invertible_helper(tiny_elastix, tiny_cmtk):
     )
 
 
-@needs_fastcore
 @pytest.mark.parametrize("opt_in", [False, True])
 def test_registry_honours_elastix_flag(tiny_elastix, opt_in):
     """The registry's invertibility snapshot must follow the flag."""
@@ -290,7 +312,6 @@ def test_registry_honours_elastix_flag(tiny_elastix, opt_in):
 # ---------------------------------------------------------------------- plumbing
 
 
-@needs_fastcore
 def test_copy_preserves_backend(tiny_cmtk, tiny_elastix):
     assert CMTKtransform(tiny_cmtk, backend="binary").copy().backend == "binary"
 
@@ -299,7 +320,6 @@ def test_copy_preserves_backend(tiny_cmtk, tiny_elastix):
     assert tr.copy().backend == "fastcore"
 
 
-@needs_fastcore
 def test_append_refuses_to_merge_across_backends(tiny_cmtk):
     """Must raise NotImplementedError - that's what makes TransformSequence chain."""
     a = CMTKtransform(tiny_cmtk, backend="fastcore")
@@ -312,7 +332,6 @@ def test_append_refuses_to_merge_across_backends(tiny_cmtk):
     assert len(seq.transforms) == 2
 
 
-@needs_fastcore
 def test_append_merges_within_a_backend(tiny_cmtk):
     a = CMTKtransform(tiny_cmtk, backend="fastcore")
     b = CMTKtransform(tiny_cmtk, backend="fastcore")
@@ -321,7 +340,6 @@ def test_append_merges_within_a_backend(tiny_cmtk):
     assert len(seq.transforms[0].regs) == 2
 
 
-@needs_fastcore
 def test_pickle_carries_no_rust_object(tiny_cmtk):
     """The parsed registration is cached module-side, never on the instance.
 
@@ -336,7 +354,6 @@ def test_pickle_carries_no_rust_object(tiny_cmtk):
     assert pickle.loads(blob) == tr
 
 
-@needs_fastcore
 def test_cache_is_not_confused_by_direction(tiny_cmtk):
     """Cache keys are derived from live state, so a mutated transform can't go stale."""
     fwd = CMTKtransform(tiny_cmtk, directions="forward", backend="fastcore")
@@ -348,7 +365,6 @@ def test_cache_is_not_confused_by_direction(tiny_cmtk):
     assert not np.allclose(a, POINTS, atol=1e-4)
 
 
-@needs_fastcore
 def test_return_logs_is_binary_only(tiny_elastix):
     with pytest.raises(ValueError, match="binary"):
         ElastixTransform(tiny_elastix, backend="fastcore").xform(
@@ -356,7 +372,6 @@ def test_return_logs_is_binary_only(tiny_elastix):
         )
 
 
-@needs_fastcore
 def test_missing_file_is_reported(tmp_path):
     tr = ElastixTransform(tmp_path / "nope.txt", backend="fastcore")
     assert "not found" in tr.check_if_possible(on_error="ignore")
@@ -364,7 +379,6 @@ def test_missing_file_is_reported(tmp_path):
         tr.xform(POINTS)
 
 
-@needs_fastcore
 def test_fastcore_needs_no_binaries(tiny_cmtk, tiny_elastix, monkeypatch):
     """The whole point: point transforms without CMTK/elastix installed."""
     monkeypatch.setattr("navis.transforms.cmtk._cmtkbin", None)
@@ -374,7 +388,6 @@ def test_fastcore_needs_no_binaries(tiny_cmtk, tiny_elastix, monkeypatch):
     ElastixTransform(tiny_elastix, backend="fastcore").xform(POINTS)
 
 
-@needs_fastcore
 def test_image_transforms_still_need_cmtk(tiny_cmtk, monkeypatch):
     """fastcore does points, not images - `xform_image` must still demand CMTK."""
     monkeypatch.setattr("navis.transforms.cmtk._cmtkbin", None)
@@ -419,7 +432,6 @@ def _brain_points(n=500, seed=0):
     return np.random.default_rng(seed).uniform([50, 50, 20], [300, 400, 150], (n, 3))
 
 
-@needs_fastcore
 @needs_cmtk
 @has_cmtk_reg
 @pytest.mark.parametrize("direction", ["forward", "inverse"])
@@ -449,7 +461,6 @@ has_cmtk_chain = pytest.mark.skipif(
 )
 
 
-@needs_fastcore
 @needs_cmtk
 @has_cmtk_chain
 @pytest.mark.parametrize(
@@ -487,7 +498,6 @@ def test_cmtk_chain_affine_fallback_matches_binary(directions):
     assert np.allclose(a[m], b[m], atol=1e-4)
 
 
-@needs_fastcore
 @has_cmtk_chain
 def test_one_parse_serves_every_direction():
     """Direction is a traversal property, so all directions share a cache entry."""
@@ -504,7 +514,6 @@ def test_one_parse_serves_every_direction():
     assert backends.get_cmtk_reg.cache_info().misses == 1
 
 
-@needs_fastcore
 @has_cmtk_reg
 @pytest.mark.parametrize("direction", ["forward", "inverse"])
 def test_cmtk_affine_fallback_leaves_no_nans(direction):
@@ -521,7 +530,6 @@ def test_cmtk_affine_fallback_leaves_no_nans(direction):
     assert not np.isnan(tr.xform(pts, affine_fallback=True)).any()
 
 
-@needs_fastcore
 @needs_elastix
 @has_elastix_tp
 def test_elastix_parity():
@@ -533,7 +541,6 @@ def test_elastix_parity():
     assert np.allclose(a, b, atol=1e-4)
 
 
-@needs_fastcore
 @needs_elastix
 @has_elastix_tp
 def test_elastix_parity_out_of_bounds():
@@ -679,7 +686,6 @@ needs_downloaded_regs = pytest.mark.skipif(
 )
 
 
-@needs_fastcore
 @pytest.mark.parametrize("backend", ["binary", "fastcore"])
 @pytest.mark.parametrize("pair,expected", list(BASELINE_PATHS.items()))
 def test_bridging_paths_unchanged(flybrains_registry, backend, pair, expected):
@@ -690,7 +696,6 @@ def test_bridging_paths_unchanged(flybrains_registry, backend, pair, expected):
     assert list(path) == expected
 
 
-@needs_fastcore
 @needs_downloaded_regs
 @pytest.mark.parametrize("backend", ["binary", "fastcore"])
 @pytest.mark.parametrize("pair,expected", list(DOWNLOADED_PATHS.items()))
@@ -732,7 +737,6 @@ def _all_routes(reg):
     return routes
 
 
-@needs_fastcore
 def test_switching_backend_does_not_reroute(bridging_registry):
     """The Rust backend must be a drop-in: same routes, same transforms.
 
@@ -752,7 +756,6 @@ def test_switching_backend_does_not_reroute(bridging_registry):
     assert not differing, f"{len(differing)} routes changed, e.g. {list(differing)[:3]}"
 
 
-@needs_fastcore
 def test_elastix_inversion_changes_nothing(bridging_registry):
     """Allowing the graph to invert elastix must not disturb any existing route.
 
@@ -781,7 +784,6 @@ def test_elastix_inversion_changes_nothing(bridging_registry):
     assert not used, f"{len(used)} routes used an inverted elastix over a dedicated one"
 
 
-@needs_fastcore
 def test_synthetic_registry_is_representative(synthetic_registry):
     """Guards the fixture the two tests above lean on.
 
@@ -922,7 +924,6 @@ def test_reciprocal_is_deprecated():
         reg.bridging_graph(reciprocal=0.5)
 
 
-@needs_fastcore
 @pytest.mark.parametrize("elastix_invertible", [False, True])
 def test_bridging_graph_never_parses_a_transform(
     bridging_registry, elastix_invertible
@@ -955,7 +956,6 @@ def test_bridging_graph_never_parses_a_transform(
         assert backends.elastix_is_invertible.cache_info().misses == 0
 
 
-@needs_fastcore
 @needs_cmtk
 @needs_elastix
 @pytest.mark.parametrize(
@@ -986,14 +986,6 @@ def test_xform_brain_parity(flybrains_registry, source, target):
 # library (morphops / molesq), so both are always installed and the parity tests
 # below need no external tooling - they run wherever fastcore does.
 
-HAS_FASTCORE_LANDMARKS = backends.fastcore_landmarks_available()
-
-needs_fastcore_landmarks = pytest.mark.skipif(
-    not HAS_FASTCORE_LANDMARKS,
-    reason="navis-fastcore has no TpsTransform/MlsTransform",
-)
-
-
 @pytest.fixture
 def landmarks():
     """A source/target landmark pair plus points to transform."""
@@ -1015,7 +1007,6 @@ def _landmark_transforms(source, target, backend):
     ]
 
 
-@needs_fastcore_landmarks
 def test_landmark_backend_selection(landmarks):
     """"auto" picks fastcore; the fallback is spelled "python", not "binary"."""
     source, target, _ = landmarks
@@ -1029,7 +1020,6 @@ def test_landmark_backend_selection(landmarks):
         assert tr.backend == "python"
 
 
-@needs_fastcore_landmarks
 def test_landmark_backend_follows_config(landmarks):
     """The backend is resolved lazily, so config changes are picked up late."""
     source, target, _ = landmarks
@@ -1042,18 +1032,21 @@ def test_landmark_backend_follows_config(landmarks):
     assert [t.backend for t in trs] == ["fastcore"] * len(trs)
 
 
-def test_landmark_transforms_without_fastcore(landmarks, no_fastcore):
-    """Without fastcore we fall back to morphops/molesq rather than raising."""
+def test_landmark_transforms_on_the_python_backend(landmarks):
+    """The morphops/molesq path is deprecated but must still run until 3.0."""
     source, target, points = landmarks
-    for tr in _landmark_transforms(source, target, None):
+    trs = _landmark_transforms(source, target, "python")
+
+    # The warning is once per session per backend, so only the first read of
+    # `.backend` carries it - see `warn_if_deprecated_backend`.
+    with pytest.warns(DeprecationWarning, match="deprecated"):
+        assert trs[0].backend == "python"
+
+    for tr in trs:
         assert tr.backend == "python"
         assert tr.xform(points).shape == points.shape
 
-    with pytest.raises(ValueError, match="not installed or too old"):
-        TPStransform(source, target, backend="fastcore").backend
 
-
-@needs_fastcore_landmarks
 @pytest.mark.parametrize("kind", ["tps", "mls", "mls_inverse"])
 def test_landmark_parity(landmarks, kind):
     """The two backends must agree numerically."""
@@ -1070,7 +1063,6 @@ def test_landmark_parity(landmarks, kind):
     assert np.allclose((-fast).xform(points), (-slow).xform(points), atol=1e-8)
 
 
-@needs_fastcore_landmarks
 def test_tps_coefficients_parity(landmarks):
     """`W`/`A` come from whichever backend is active and must agree.
 
@@ -1089,7 +1081,6 @@ def test_tps_coefficients_parity(landmarks):
     assert fast.A.shape == slow.A.shape == (4, 3)
 
 
-@needs_fastcore_landmarks
 def test_tps_fastcore_fits_with_morphops_not_fastcore(landmarks, monkeypatch):
     """The fastcore backend must not call fastcore's own (slower) TPS fit.
 
@@ -1126,7 +1117,6 @@ def test_tps_fastcore_fits_with_morphops_not_fastcore(landmarks, monkeypatch):
     assert calls["fit"] == 0, "fastcore's own fit must not be used"
 
 
-@needs_fastcore_landmarks
 def test_landmark_transforms_accept_dataframes(landmarks):
     """A DataFrame with x/y/z columns works on either backend."""
     import pandas as pd
@@ -1142,7 +1132,6 @@ def test_landmark_transforms_accept_dataframes(landmarks):
         tr.xform(pd.DataFrame(points, columns=["a", "b", "c"]))
 
 
-@needs_fastcore_landmarks
 def test_landmark_copy_and_pickle_preserve_backend(landmarks):
     """Copies keep the backend request, and both survive a pickle round-trip."""
     source, target, points = landmarks
@@ -1156,7 +1145,6 @@ def test_landmark_copy_and_pickle_preserve_backend(landmarks):
         assert np.allclose(rt.xform(points), tr.xform(points))
 
 
-@needs_fastcore_landmarks
 def test_mls_direction_is_not_cached(landmarks):
     """Direction is per-call, so flipping it after a transform must be honoured.
 

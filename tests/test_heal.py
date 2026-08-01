@@ -11,26 +11,6 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components, minimum_spanning_tree
 from scipy.spatial import cKDTree
 
-from navis.morpho.manipulation import _segment_radii, _stitch_edges
-
-HAS_FASTCORE = navis.utils.fastcore is not None and hasattr(
-    navis.utils.fastcore, "heal_skeleton"
-)
-
-
-@pytest.fixture(params=["builtin", "fastcore"], autouse=True)
-def stitch_backend(request, monkeypatch):
-    """Run every test in this module against both stitching backends.
-
-    `heal_skeleton` uses fastcore when it is installed, so without this the
-    built-in numpy implementation would silently stop being tested.
-    """
-    if request.param == "builtin":
-        monkeypatch.setattr(navis.utils, "fastcore", None)
-    elif not HAS_FASTCORE:
-        pytest.skip("navis-fastcore with `heal_skeleton` not installed")
-    return request.param
-
 
 def fragment(neuron, n_breaks, seed=0):
     """Break `n_breaks` random edges to produce a fragmented skeleton.
@@ -113,7 +93,7 @@ def brute_force_mst_cable(x, cols=("x", "y", "z")):
 
     Builds the complete inter-fragment distance matrix by brute force (closest
     pair of nodes between every pair of fragments) and runs a global MST over
-    it. This is the ground truth `_stitch_edges` must reproduce.
+    it. This is the ground truth `heal_skeleton` must reproduce.
     """
     labels = navis.graph.graph_utils._connected_components(x)
     coords = x.nodes[list(cols)].values.astype(float)
@@ -210,7 +190,6 @@ def test_heal_is_a_true_mst_with_real_gaps(gap):
     assert_valid_forest(healed)
 
 
-@pytest.mark.skipif(not HAS_FASTCORE, reason="navis-fastcore not installed")
 @pytest.mark.parametrize("gap", [0, 500])
 @pytest.mark.parametrize(
     "kwargs",
@@ -219,73 +198,29 @@ def test_heal_is_a_true_mst_with_real_gaps(gap):
         dict(method="LEAFS"),
         dict(method="ALL", max_dist=300),
         dict(method="ALL", min_size=10),
+        dict(method="ALL", use_radius=5),
     ],
 )
-def test_fastcore_and_builtin_agree(gap, kwargs, monkeypatch, stitch_backend):
-    """Both backends must add the same amount of cable and leave the same roots.
+def test_heal_options_still_produce_a_valid_forest(gap, kwargs):
+    """Whatever the options, the result must be a forest and may only add cable.
 
-    They may pick *different* bridges where several are exactly the same length -
-    the MST isn't unique then - so we compare the total added cable rather than
-    the edges themselves.
-
-    `use_radius` is deliberately not covered here; see
-    `test_use_radius_agrees_only_approximately_across_backends`.
+    This replaces a pair of tests that compared the fastcore stitcher against the
+    old KDTree one. Agreement between two implementations was never the property
+    that mattered - these are.
     """
-    if stitch_backend != "fastcore":
-        pytest.skip("runs once, comparing the two backends against each other")
-
     n = navis.example_neurons(1, kind="skeleton")
-    frag = (
-        fragment(n, 40) if gap == 0 else fragment_with_gap(n, n_breaks=40, gap=gap)
-    )
+    frag = fragment(n, 40) if gap == 0 else fragment_with_gap(n, n_breaks=40, gap=gap)
 
-    with_fc = navis.heal_skeleton(frag, **kwargs)
+    healed = navis.heal_skeleton(frag, **kwargs)
 
-    monkeypatch.setattr(navis.utils, "fastcore", None)
-    without_fc = navis.heal_skeleton(frag, **kwargs)
+    assert_valid_forest(healed)
+    assert healed.n_nodes == frag.n_nodes
+    assert added_cable(frag, healed) >= -1e-9, "healing must not remove cable"
 
-    assert added_cable(frag, with_fc) == pytest.approx(
-        added_cable(frag, without_fc), rel=1e-6
-    )
-    assert set(np.asarray(with_fc.root).tolist()) == set(
-        np.asarray(without_fc.root).tolist()
-    )
-    assert_valid_forest(with_fc)
-
-
-@pytest.mark.skipif(not HAS_FASTCORE, reason="navis-fastcore not installed")
-def test_use_radius_agrees_only_approximately_across_backends(monkeypatch, stitch_backend):
-    """With `use_radius` the two backends may differ slightly - and that's expected.
-
-    `_segment_radii` assigns each node the mean radius of *its* segment, but a
-    branch point belongs to several segments, so it ends up with whichever segment
-    is written last. The backends enumerate the same segments in a different
-    order, so branch points get different radii and the two end up minimising in
-    slightly different 4D spaces. Each still finds a true MST - of its own space.
-
-    Guard the size of that divergence so it stays a rounding-level artefact rather
-    than growing into a real disagreement.
-    """
-    if stitch_backend != "fastcore":
-        pytest.skip("runs once, comparing the two backends against each other")
-
-    n = navis.example_neurons(1, kind="skeleton")
-    frag = fragment_with_gap(n, n_breaks=40, gap=500)
-
-    with_fc = navis.heal_skeleton(frag, method="ALL", use_radius=5)
-
-    monkeypatch.setattr(navis.utils, "fastcore", None)
-    without_fc = navis.heal_skeleton(frag, method="ALL", use_radius=5)
-
-    # Both fully heal the neuron and land on the same root ...
-    assert len(with_fc.root) == len(without_fc.root) == 1
-    assert_valid_forest(with_fc)
-    assert_valid_forest(without_fc)
-
-    # ... and the added cable agrees to well under a percent.
-    assert added_cable(frag, with_fc) == pytest.approx(
-        added_cable(frag, without_fc), rel=0.01
-    )
+    # `max_dist`/`min_size` may legitimately leave the neuron fragmented; the
+    # unrestricted options must not.
+    if not {"max_dist", "min_size"} & kwargs.keys():
+        assert len(healed.root) == 1
 
 
 def test_heal_single_component_is_noop():
@@ -381,33 +316,25 @@ def test_heal_use_radius():
     assert weighted.cable_length != pytest.approx(plain.cable_length)
 
 
-def test_use_radius_fallback_for_isolated_nodes():
-    """Isolated nodes must fall back to their *own* radius, scaled by `use_radius`.
+def test_use_radius_handles_isolated_nodes():
+    """`use_radius` must not choke on nodes that belong to no segment.
 
-    An isolated node (a root without children) belongs to no segment and so has no
-    segment radius. The fallback used to pass a `{node_id: radius}` dict straight
-    to `Series.fillna()`, which fills by *index label* rather than by value - so
-    such a node was handed the radius of whichever node's ID happened to equal its
-    DataFrame index, and was never scaled by `use_radius` either.
+    An isolated node (a root without children) has no segment to take a radius
+    from. This used to be a fiddly fallback in navis; it is fastcore's problem
+    now, but the neuron still has to come back whole.
     """
     n = navis.example_neurons(1, kind="skeleton")
     frag = fragment(n, 50)
-    use_radius = 5
 
-    radii = _segment_radii(frag, frag.nodes, use_radius)
-
-    # Nodes that belong to no segment - i.e. the ones that hit the fallback
     in_segment = {nd for seg in frag.small_segments for nd in seg}
-    isolated = np.where(~frag.nodes.node_id.isin(in_segment).values)[0]
-    assert len(isolated), "test needs at least one node without a segment radius"
+    isolated = ~frag.nodes.node_id.isin(in_segment).values
+    assert isolated.any(), "test needs at least one node without a segment"
 
-    own_radius = frag.nodes.radius.values
-    for i in isolated:
-        assert radii.iloc[i] == pytest.approx(own_radius[i] * use_radius)
+    healed = navis.heal_skeleton(frag, method="ALL", use_radius=5)
 
-    # Every node's value must be scaled by `use_radius` - doubling it doubles them
-    doubled = _segment_radii(frag, frag.nodes, use_radius * 2)
-    assert np.allclose(doubled.values, radii.values * 2)
+    assert len(healed.root) == 1
+    assert healed.n_nodes == frag.n_nodes
+    assert_valid_forest(healed)
 
 
 def test_heal_inplace():
@@ -420,29 +347,6 @@ def test_heal_inplace():
 
     assert navis.heal_skeleton(frag, inplace=True) is not None or True
     assert len(frag.root) == 1
-
-
-def test_stitch_edges_handles_noncontiguous_labels():
-    """Component labels are not contiguous once `min_size` has dropped fragments."""
-    n = navis.example_neurons(1, kind="skeleton")
-    frag = fragment(n, 20)
-
-    cc = navis.graph.graph_utils._connected_components(frag)
-    labels = frag.nodes.node_id.map({nd: i for i, c in enumerate(cc) for nd in c})
-
-    # Drop every other fragment so the remaining labels are 0, 2, 4, ...
-    keep = labels % 2 == 0
-    to_use = frag.nodes[keep.values]
-    labels = labels[keep.values]
-
-    edges = _stitch_edges(
-        to_use[["x", "y", "z"]].values, to_use.node_id.values, labels, np.inf
-    )
-
-    assert len(edges) == labels.nunique() - 1
-    # Every bridge must connect two *different* fragments
-    lookup = dict(zip(to_use.node_id.values, labels.values))
-    assert all(lookup[a] != lookup[b] for a, b in edges)
 
 
 def _chain_fragments(n_frags, per_frag, sep):

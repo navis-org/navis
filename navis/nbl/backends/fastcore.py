@@ -22,7 +22,7 @@ It does not support ``approx_nn``, ``scores='both'`` or arbitrary/callable/
 analytic (``'v1'``) scoring matrices.
 
 ``nblast_knn`` is *exclusive* to this backend - there is no built-in
-implementation - so it raises if navis-fastcore is missing or too old.
+implementation to fall back on.
 """
 
 import numpy as np
@@ -53,14 +53,8 @@ class FastcoreBackend(NblastBackend):
     # Preferred over the builtin backend when it can serve the request
     priority = 10
 
-    def available(self):
-        from ... import utils
-        fc = utils.fastcore
-        # Also guard against fastcore builds that predate the NBLAST API: the
-        # older `nblast` name resolves to a submodule, not a callable.
-        return (fc is not None
-                and callable(getattr(fc, 'nblast', None))
-                and callable(getattr(fc, 'nblast_allbyall', None)))
+    # N.B. no `available()` override: navis-fastcore is a hard requirement, so
+    # the base class' `return True` is already correct.
 
     def _smat_ok(self, smat):
         """Whether fastcore can consume this `smat`."""
@@ -77,18 +71,6 @@ class FastcoreBackend(NblastBackend):
             return reasons
 
         reasons = []
-        # `nblast_knn` arrived later than the rest of the NBLAST API, so an
-        # installed fastcore can be perfectly usable for everything else while
-        # lacking this one. Note this is checked here rather than in
-        # `available()`/`implements()` so that an old fastcore still serves the
-        # other operations, and so that a *missing* fastcore is still reported
-        # as "implements it but is not installed".
-        if operation == 'nblast_knn':
-            from ... import utils
-            if not callable(getattr(utils.fastcore, 'nblast_knn', None)):
-                reasons.append("the installed navis-fastcore is too old to "
-                               "provide `nblast_knn` "
-                               "(`pip install -U navis-fastcore`)")
         if params.get('approx_nn', False):
             reasons.append("'approx_nn=True' is not supported by fastcore")
         if params.get('scores', None) == 'both':

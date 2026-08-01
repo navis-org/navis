@@ -11,16 +11,13 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import heapq
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csr_matrix
-from scipy.sparse import csgraph
 from scipy.spatial import cKDTree
 
 from .. import core, config, utils
-from ..graph.graph_utils import _cluster_graph, _fastcore_has
+from ..graph.graph_utils import _cluster_graph
 from ..sampling.points import (
     sample_surface,
     sample_cable,
@@ -241,7 +238,7 @@ def _chunk_indices(backend, n_nodes, size, mode, k, sampling_factor,
     (the metric is the backend's own: geodesic or Euclidean).
 
     Shared by `chunk_neuron` (neuron-backed: geodesic or Euclidean backend) and
-    `sample_patches` (cloud-backed: an `_Euclidean`/`_ConnectedCloud` over a resampled
+    `sample_patches` (cloud-backed: an `_Euclidean`/`_Geodesic` over a resampled
     point cloud, optionally wrapped in `_Foveated`). Assumes its arguments are already
     validated by the caller.
     """
@@ -332,13 +329,8 @@ def sample_patches(
                         which pack tighter but can span nearby branches.
 
                         N.B. with ``connected=True`` the patch *centres* are placed
-                        geodesically when `navis-fastcore` is installed and spatially
-                        when it is not. Both spread the patches evenly and both honour
-                        `random_state`, but they do not pick the same seeds, so the
-                        exact tiling differs between the two environments (the
-                        geodesic one covers slightly more of the neuron per patch).
-                        Install `navis-fastcore` if you need patches to be comparable
-                        across machines - and for a large speed-up besides.
+                        geodesically, i.e. in the same metric the growth uses, and
+                        honour `random_state`.
     foveate :           None | True | "scale-free" | float
                         Spend the point budget unevenly: dense at the patch centre,
                         thinning outwards, so one patch carries fine local detail
@@ -721,39 +713,32 @@ def _num_fragments(k, sampling_factor, n_nodes, size):
 #                       something
 # `_Foveated` wraps any of them and keeps the same contract.
 # --------------------------------------------------------------------------- #
-class _FastcoreGeodesic:
+class _Geodesic:
     """Geodesic growth and seeding on a `navis_fastcore.GeodesicGraph`.
 
-    The fast path for *both* connected modes, because fastcore draws the same
-    node/item distinction these drivers need: `chunk_neuron(connected=True)` builds it
-    without `item_nodes`, so every node is its own item and this stands in for
-    `_Geodesic`; `sample_patches(connected=True)` passes each sample's vertex as
-    `item_nodes`, so growth follows the mesh/skeleton but counts *cloud points*, and it
-    stands in for `_ConnectedCloud`. Either way `grow`/`farthest_seed` speak the item
-    index space the drivers already work in, so nothing above here changes.
+    Serves *both* connected modes, because fastcore draws the same node/item
+    distinction these drivers need: `chunk_neuron(connected=True)` builds it without
+    `item_nodes`, so every node is its own item; `sample_patches(connected=True)`
+    passes each sample's vertex as `item_nodes`, so growth follows the
+    mesh/skeleton but counts *cloud points*. Either way `grow`/`farthest_seed`
+    speak the item index space the drivers already work in.
 
-    Why it is worth a separate backend rather than a faster inner loop: the graph is
-    indexed **once** and each query then costs only the ball it explores. That is
-    exactly this module's access pattern - thousands of small questions of one graph -
-    and it is the pattern the module-level fastcore functions (which rebuild their
-    adjacency per call) are wrong for.
+    Why it is worth a backend of its own rather than calling the module-level
+    fastcore functions: the graph is indexed **once** and each query then costs only
+    the ball it explores. That is exactly this module's access pattern - thousands of
+    small questions of one graph - and it is the pattern the module-level functions
+    (which rebuild their adjacency per call) are wrong for.
 
-    Two things behave slightly differently from the pure-Python fallbacks, both
-    deliberate:
+    Note that edge weights are carried as `float32`, so growth settles ties wherever
+    two points fall within float32 resolution of each other. That shows up in bulk
+    under `weight=None`, where every edge weighs 1 and whole shells of nodes sit at
+    the same hop count - `partition`/`cover` then pick one of several equally valid
+    tilings, deterministically.
 
-    - fastcore carries edge weights as `float32`, so growth settles in a marginally
-      different order wherever two points are within float32 resolution of each other.
-      That only ever reorders exact ties, which are arbitrary in both paths. It does
-      show up in bulk under `weight=None`, where every edge weighs 1 and whole shells
-      of nodes sit at the same hop count: there the two paths carve `partition`/`cover`
-      into different - equally valid - tilings.
-    - Seeding is **geodesic** here, where `_ConnectedCloud` inherits `_Euclidean`'s
-      spatial farthest-point sampling. Geodesic is the metric growth itself uses, and
-      the better one for it: patches cover measurably more of the cloud for the same
-      budget, and none are stranded at a fraction of `size` by a seed landing on a
-      disconnected speck, as spatial FPS does. `_Geodesic`'s seeding is already
-      geodesic and already prefers the largest component, so *that* pairing is exact -
-      same seed sequence, just far faster.
+    Seeding is **geodesic**, i.e. the same metric growth itself uses: patches cover
+    measurably more of the cloud for a given budget than spatial farthest-point
+    sampling, and none are stranded at a fraction of `size` by a seed landing on a
+    disconnected speck.
     """
 
     def __init__(self, edges, weights, n_nodes, item_nodes=None):
@@ -764,9 +749,9 @@ class _FastcoreGeodesic:
     def grow(self, seed, size, forbidden=None):
         """Up to `size` items in a connected geodesic region around item `seed`.
 
-        Semantics match `_Geodesic.grow`/`_ConnectedCloud.grow` node for node - see
-        the latter for the wall/conduct rules that keep `partition` fragments both
-        disjoint and connected.
+        `forbidden` items are walls: they are neither collected nor conducted
+        through, which is what keeps `partition` fragments both disjoint and
+        connected.
         """
         region, dist = self.graph.grow(
             seed, size, forbidden=forbidden, return_distances=True
@@ -777,11 +762,12 @@ class _FastcoreGeodesic:
         return region.astype(np.int64), dist, None
 
     def seed(self, done):
-        """Next farthest-point seed - see `_Geodesic.seed` for the semantics.
+        """Next farthest-point seed: the item geodesically farthest from every
+        region placed so far.
 
         fastcore maintains the distance field incrementally *and* prunes each update
-        against it, which is what stops this going quadratic in the seeds placed the
-        way `_Geodesic._fps_fold` must through scipy.
+        against it, so this stays linear in the seeds placed rather than going
+        quadratic.
         """
         s = self.graph.farthest_seed(done)
         # `None` means every item is done - unreachable from the drivers, which only
@@ -789,116 +775,13 @@ class _FastcoreGeodesic:
         return _first_unset(done) if s is None else int(s)
 
     def random_seed(self, rng):
-        """A random seed from the largest component - as `_Geodesic.random_seed`.
+        """A random seed from the largest component - varies `spaced`'s tiling
+        (per `random_state`) without dropping the first fragment on a speck.
 
         `farthest_seed` deliberately owns no RNG, so the pick is made here off
         `item_components`; that keeps `random_state` the caller's to control.
         """
         return _random_from_largest(self.graph.item_components(), rng)
-
-
-class _Geodesic:
-    """Grow connected geodesic balls along the arbor - `_FastcoreGeodesic` in Python.
-
-    The fallback for when navis-fastcore is not installed: same contract, same
-    fragments bar tie-breaking (see `_FastcoreGeodesic`), just run in the interpreter.
-    """
-
-    def __init__(self, indptr, indices, data, csr):
-        self.indptr, self.indices, self.data, self.csr = indptr, indices, data, csr
-        # Connected components let seeding stay on the reachable arbor and prefer
-        # the largest unfinished component - essential on meshes, which are
-        # riddled with tiny disconnected specks (see `seed`).
-        self.n_comp, self.labels = csgraph.connected_components(csr, directed=False)
-        # Incremental farthest-point-sampling state (see `seed`): running geodesic
-        # distance from every node to its nearest source, and the sources already
-        # folded in. `None` until the first `seed` call.
-        self._fps_min = None
-        self._fps_seen = None
-
-    def grow(self, seed, size, forbidden=None):
-        """Flood-fill a connected region of up to `size` nodes from `seed`.
-
-        Dijkstra-style: settle nodes in order of increasing geodesic distance,
-        stopping at `size`. Every settled node (bar the seed) is reached through
-        an already-settled neighbour, so the region is connected. `forbidden`
-        keeps partition fragments disjoint (growth stays in the unassigned
-        subgraph). Returns ``(indices, distances)`` seed-first, in increasing-
-        distance order; `distances` is the geodesic distance to the seed, which
-        Dijkstra has already computed (it is the heap key each node settles at).
-        """
-        indptr, indices, data = self.indptr, self.indices, self.data
-        region, dists, settled = [], [], set()
-        heap = [(0.0, int(seed))]
-        while heap and len(region) < size:
-            d, u = heapq.heappop(heap)
-            if u in settled:
-                continue
-            settled.add(u)
-            region.append(u)
-            dists.append(d)
-            for j in range(indptr[u], indptr[u + 1]):
-                v = int(indices[j])
-                if v in settled:
-                    continue
-                if forbidden is not None and forbidden[v]:
-                    continue
-                heapq.heappush(heap, (d + float(data[j]), v))
-        return np.array(region, dtype=np.int64), np.array(dists, dtype=float), None
-
-    def seed(self, done):
-        """Next farthest-point seed, kept on the reachable arbor.
-
-        Among nodes not in `done`, return the one geodesically farthest from
-        everything in `done` **that is actually reachable from it** (finite
-        distance). Unreachable nodes have ``inf`` distance; picking those would
-        seed every disconnected speck before the main arbor (a mesh can have
-        hundreds of 4-vertex components), so they are excluded. Only once the
-        reachable frontier is exhausted - or nothing is seeded yet - do we jump
-        to a fresh component, largest first.
-
-        The distance field is maintained incrementally: `done` only ever grows
-        (both callers set bits, never clear them), so each call folds in a
-        Dijkstra from just the *newly* added sources rather than re-running a
-        multi-source Dijkstra over the whole `done` set every time.
-        """
-        if done.any():
-            self._fps_fold(done)
-            reachable = np.isfinite(self._fps_min) & ~done
-            if reachable.any():
-                return int(np.argmax(np.where(reachable, self._fps_min, -np.inf)))
-        return self._largest_unset(done)
-
-    def _fps_fold(self, done):
-        """Fold sources newly present in `done` into the running distance field.
-
-        `self._fps_min[i]` ends up equal to the geodesic distance from `i` to its
-        nearest node in `done` - identical to a multi-source Dijkstra over all of
-        `done`, because ``min`` over sources is associative and `done` only grows.
-        """
-        if self._fps_min is None:
-            self._fps_min = np.full(done.shape[0], np.inf)
-            self._fps_seen = np.zeros(done.shape[0], dtype=bool)
-        new = done & ~self._fps_seen
-        if new.any():
-            d = csgraph.dijkstra(
-                self.csr, directed=False, indices=np.where(new)[0], min_only=True
-            )
-            np.minimum(self._fps_min, d, out=self._fps_min)
-            self._fps_seen |= done
-
-    def _largest_unset(self, done):
-        """First node of the largest component that still has an unset node."""
-        unset = ~done
-        counts = np.bincount(self.labels[unset], minlength=self.n_comp)
-        best = int(np.argmax(counts))
-        return int(np.flatnonzero(unset & (self.labels == best))[0])
-
-    def random_seed(self, rng):
-        """A random seed from the largest component - varies `spaced`'s tiling
-        (per `random_state`) without dropping the first fragment on a speck.
-        """
-        return _random_from_largest(self.labels, rng)
 
 
 class _Euclidean:
@@ -983,84 +866,6 @@ class _Euclidean:
         return int(rng.integers(0, len(self.coords)))
 
 
-class _ConnectedCloud(_Euclidean):
-    """Grow patches over a resampled cloud along the neuron's own topology - the
-    cloud analogue of ``chunk_neuron(connected=True)``.
-
-    Each sample is attached to a structural vertex (skeleton node / mesh vertex) via
-    its ``source_id``; a patch is grown by geodesic flood-fill on that native graph,
-    collecting the samples on visited vertices until ``size`` are gathered. Because
-    growth follows the arbor/surface, a patch never jumps between branches that only
-    pass close in space, and it stays connected even when the cloud is far sparser
-    than the mesh/skeleton (empty vertices simply conduct without contributing).
-
-    The fallback for when navis-fastcore is not installed; `_FastcoreGeodesic` is the
-    fast path and grows the same patches. Only geodesic *growth* differs from
-    `_Euclidean` here - FPS / random *seeding* stays spatial, inherited unchanged,
-    because through scipy it would cost a full multi-source Dijkstra per seed. That
-    is the one place the two paths part ways; see `_FastcoreGeodesic` for why the
-    fast path can afford to seed in the metric it grows in.
-
-    Build via `_connected_cloud_backend`, which resolves the graph and the per-sample
-    vertex array (keeping neuron-type knowledge out of this numeric peer of
-    `_Geodesic` / `_Euclidean`).
-    """
-
-    def __init__(self, indptr, indices, data, svtx, coords):
-        super().__init__(coords)                     # KD-tree + spatial FPS seeding
-        self.indptr, self.indices, self.data = indptr, indices, data
-        self.svtx = svtx
-        # vertex -> sample indices (sparse: only vertices that carry a sample)
-        by_vtx: dict = {}
-        for i, v in enumerate(svtx):
-            by_vtx.setdefault(int(v), []).append(i)
-        self.by_vtx = by_vtx
-
-    def grow(self, seed, size, forbidden=None):
-        """`size` samples in a connected structural region around sample `seed`.
-
-        Dijkstra out from the seed's vertex, gathering the samples on each settled
-        vertex (skipping `forbidden` ones) in order of increasing geodesic distance.
-        Returns fewer only when the reachable region runs out of eligible samples.
-        Mirrors `_Geodesic.grow`, but counts *samples* attached to each vertex.
-
-        For a disjoint partition (`forbidden` given), a vertex whose samples are
-        *all* forbidden acts as a wall - growth does not cross it - so each fragment
-        stays a connected region of still-unassigned samples. Empty vertices (which
-        carry no samples) always conduct, bridging the gaps in a sparse cloud.
-
-        The returned distances are the *vertex's* geodesic distance to the seed's
-        vertex, so every sample riding on one vertex shares a distance (ties are
-        common in a cloud denser than the mesh). That quantisation is at the scale
-        of one edge and is what `_Foveated` ranks by.
-        """
-        indptr, indices, data, by_vtx = self.indptr, self.indices, self.data, self.by_vtx
-        settled = set()
-        got: list = []
-        gdist: list = []
-        heap = [(0.0, int(self.svtx[seed]))]
-        while heap and len(got) < size:
-            d, u = heapq.heappop(heap)
-            if u in settled:
-                continue
-            settled.add(u)
-            for s in by_vtx.get(u, ()):
-                if forbidden is None or not forbidden[s]:
-                    got.append(s)
-                    gdist.append(d)
-            for j in range(indptr[u], indptr[u + 1]):
-                v = int(indices[j])
-                if v in settled:
-                    continue
-                if forbidden is not None:
-                    sv = by_vtx.get(v)
-                    if sv is not None and all(forbidden[s] for s in sv):
-                        continue                    # fully-assigned vertex: a wall
-                heapq.heappush(heap, (d + float(data[j]), v))
-        return (np.array(got[:size], dtype=np.int64),
-                np.array(gdist[:size], dtype=float), None)
-
-
 class _Foveated:
     """Wrap any backend so patches get a dense core and a sparse, far-reaching halo.
 
@@ -1103,8 +908,8 @@ class _Foveated:
 def _connected_cloud_backend(x, cloud):
     """Backend that grows patches along `x`'s native topology over the resampled
     `cloud`, locating each sample by its `source_id`. The neuron-type dispatch lives
-    here (mirroring `_geodesic_backend`/`_euclidean_backend`) so `_ConnectedCloud`
-    stays a purely numeric peer.
+    here (mirroring `_geodesic_backend`/`_euclidean_backend`) so `_Geodesic` stays a
+    purely numeric peer.
     """
     edges, weights, n, ids = _cluster_graph(x, "weight")
     src = cloud["source_id"].to_numpy()
@@ -1113,23 +918,15 @@ def _connected_cloud_backend(x, cloud):
         svtx = pd.Index(ids).get_indexer(src).astype(np.int64)
     else:
         svtx = src.astype(np.int64)                  # mesh: `source_id` is the vertex
-    if _fastcore_has("GeodesicGraph"):
-        # The samples are the graph's *items*; fastcore then needs no coordinates at
-        # all, since it seeds geodesically too (no KD-tree to build).
-        return _FastcoreGeodesic(edges, weights, n, item_nodes=svtx)
-    indptr, indices, data = _build_csr(edges, weights, n)
-    coords = cloud[["x", "y", "z"]].to_numpy(np.float64)
-    return _ConnectedCloud(indptr, indices, data, svtx, coords)
+    # The samples are the graph's *items*; no coordinates are needed, since seeding
+    # is geodesic too (no KD-tree to build).
+    return _Geodesic(edges, weights, n, item_nodes=svtx)
 
 
 def _geodesic_backend(x, weight):
     edges, weights, n_nodes, _ids = _cluster_graph(x, weight)
-    if _fastcore_has("GeodesicGraph"):
-        # No `item_nodes`: every node is its own item, so items and nodes coincide.
-        return _FastcoreGeodesic(edges, weights, n_nodes)
-    indptr, indices, data = _build_csr(edges, weights, n_nodes)
-    csr = csr_matrix((data, indices, indptr), shape=(n_nodes, n_nodes))
-    return _Geodesic(indptr, indices, data, csr)
+    # No `item_nodes`: every node is its own item, so items and nodes coincide.
+    return _Geodesic(edges, weights, n_nodes)
 
 
 def _euclidean_backend(x):
@@ -1252,11 +1049,10 @@ def _first_unset(done):
 def _random_from_largest(labels, rng):
     """A uniformly random index from the most populous component in `labels`.
 
-    The "don't seed the first fragment on a disconnected speck" rule, shared by every
-    geodesic backend's `random_seed`. Works whichever label space the backend hands
-    over - scipy's contiguous ``0..n_comp-1`` or fastcore's "smallest member index"
-    node ids - because `bincount` only ever has to make the *counts* comparable, and
-    an absent label simply counts zero.
+    The "don't seed the first fragment on a disconnected speck" rule behind
+    `_Geodesic.random_seed`. Note fastcore labels each component by its smallest
+    member index rather than contiguously; that is fine here because `bincount`
+    only has to make the *counts* comparable, and an absent label counts zero.
     """
     pool = np.flatnonzero(labels == np.bincount(labels).argmax())
     return int(pool[rng.integers(0, len(pool))])
@@ -1300,16 +1096,3 @@ def _n_nodes(x):
     raise TypeError(f"Expected Skeleton or Mesh, got {type(x)}")
 
 
-def _build_csr(edges, weights, n_nodes):
-    """Symmetric CSR (indptr, indices, data) for the undirected graph."""
-    if len(edges):
-        w = np.ones(len(edges)) if weights is None else np.asarray(weights, float)
-        rows = np.concatenate([edges[:, 0], edges[:, 1]])
-        cols = np.concatenate([edges[:, 1], edges[:, 0]])
-        data = np.concatenate([w, w])
-    else:
-        rows = cols = np.zeros(0, dtype=np.int64)
-        data = np.zeros(0, dtype=float)
-    m = csr_matrix((data, (rows, cols)), shape=(n_nodes, n_nodes))
-    m.sum_duplicates()
-    return m.indptr, m.indices, m.data

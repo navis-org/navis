@@ -179,19 +179,18 @@ WORKER_SETTINGS = (
 # Default backend for NBLAST functions:
 #   "builtin" (default) uses navis' own multiprocessing implementation.
 #   Set to "auto" to instead pick the fastest available backend that supports
-#   the requested operation and parameters (e.g. navis-fastcore if installed),
-#   or name a specific backend (e.g. "fastcore") to force it.
+#   the requested operation and parameters (usually "fastcore"), or name a
+#   specific backend (e.g. "fastcore") to force it.
 default_nblast_backend = "builtin"
 
 # Default backend for point transforms - CMTK/elastix and the landmark
 # transforms (thin-plate spline, moving least squares):
-#   "auto" (default) uses navis-fastcore's in-process Rust implementation if
-#   available and falls back to the original implementation otherwise - the
-#   external binaries (`streamxform`, `transformix`) for CMTK/elastix,
-#   `morphops`/`molesq` for the landmark transforms.
-#   Set to "fastcore" to force the Rust path (raises if unavailable), or to
-#   "binary"/"python" to force the original implementation. Those two names are
-#   interchangeable; each transform reports whichever fits it.
+#   "auto" (default) uses navis-fastcore's in-process Rust implementation.
+#   "binary"/"python" force the original implementation instead - the external
+#   binaries (`streamxform`, `transformix`) for CMTK/elastix, `morphops`/`molesq`
+#   for the landmark transforms. Those two names are interchangeable; each
+#   transform reports whichever fits it. Both are DEPRECATED as of 2.0 and will
+#   be removed in 3.0 - selecting one warns.
 # Prefer `navis.transforms.set_transform_backend()` over setting this directly:
 # elastix transforms are only invertible on the fastcore backend, so changing
 # the backend also has to invalidate the cached bridging graph.
@@ -203,15 +202,15 @@ default_transform_backend = "auto"
 # only controls whether the template registry is also allowed to traverse an
 # elastix registration backwards when it plots a route between two templates.
 #
-# It defaults to False, and should stay there for as long as navis-fastcore is an
-# optional dependency: the binary backend cannot invert at all, so enabling this
-# would let the two backends find different routes.
+# It stays False while the deprecated binary backend is still selectable: that
+# backend cannot invert at all, so enabling this would let the two find different
+# routes. Flip it to True in 3.0, when the binary backend goes away.
 #
 # It is otherwise safe to turn on: on `flybrains` it changes nothing whatsoever
 # (no re-routing, no new routes, and no route actually uses an inverted elastix),
 # because every elastix registration there already ships with a purpose-built
 # reverse. Its only effect is to provide a route where somebody registered an
-# elastix transform without one. Revisit once fastcore is required.
+# elastix transform without one.
 elastix_invertible = False
 
 # Maximum size (in bytes) of a dense voxel grid that navis will allocate.

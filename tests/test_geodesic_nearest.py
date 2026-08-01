@@ -103,7 +103,7 @@ def test_geodesic_nearest_disconnected():
 @pytest.mark.parametrize("directed", [False, True])
 @pytest.mark.parametrize("weight", [None, "weight"])
 def test_geodesic_nearest_matches_ground_truth(neuron, directed, weight):
-    """fastcore + scipy fallback must both match `geodesic_matrix` ground truth."""
+    """`_geodesic_nearest` must match the `geodesic_matrix` ground truth."""
     n = neuron
     ids = n.nodes.node_id.values
     rng = np.random.default_rng(0)
@@ -115,28 +115,15 @@ def test_geodesic_nearest_matches_ground_truth(neuron, directed, weight):
     gt = M.loc[:, labeled].values.min(axis=1)
     gt = np.array([dict(zip(M.index.values, gt))[m] for m in miss])
 
-    def run():
-        near, dist = graph._geodesic_nearest(
-            n, targets=labeled, query=miss, weight=weight, directed=directed
-        )
-        dist = dist.copy()
-        dist[near < 0] = np.inf
-        return dist
+    near, dist = graph._geodesic_nearest(
+        n, targets=labeled, query=miss, weight=weight, directed=directed
+    )
+    dist = dist.copy()
+    dist[near < 0] = np.inf
 
-    # fastcore path (if installed)
-    dist_fc = run()
-    # forced scipy fallback
-    orig = gu.utils.fastcore
-    try:
-        gu.utils.fastcore = None
-        dist_sp = run()
-    finally:
-        gu.utils.fastcore = orig
-
-    for dist in (dist_fc, dist_sp):
-        assert np.array_equal(np.isinf(gt), np.isinf(dist))
-        fin = np.isfinite(gt)
-        assert np.allclose(gt[fin], dist[fin], rtol=1e-4)
+    assert np.array_equal(np.isinf(gt), np.isinf(dist))
+    fin = np.isfinite(gt)
+    assert np.allclose(gt[fin], dist[fin], rtol=1e-4)
 
 
 def test_split_axon_dendrite_runs(neuron):

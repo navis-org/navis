@@ -112,74 +112,22 @@ def _generate_segments(
 
     assert weight in ("weight", None), f'Unable to use weight "{weight}"'
 
-    if utils.fastcore:
-        if weight == "weight":
-            weight = utils.fastcore.dag.parent_dist(
-                x.nodes.node_id.values,
-                x.nodes.parent_id.values,
-                x.nodes[["x", "y", "z"]].values,
-                root_dist=0,
-            )
-
-        # As of version >0.0.9, fastcore returns a tuple of (`segs`, `lengths`)
-        segs, lengths = utils.fastcore.generate_segments(
-            x.nodes.node_id.values, x.nodes.parent_id.values, weights=weight
+    if weight == "weight":
+        weight = utils.fastcore.dag.parent_dist(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            x.nodes[["x", "y", "z"]].values,
+            root_dist=0,
         )
 
-        if return_lengths:
-            return segs, lengths
-        else:
-            return segs
-
-    # Find leaf nodes and sort by distance to root
-    d = dist_to_root(x, igraph_indices=False, weight=weight)
-    endNodeIDs = x.nodes[x.nodes.type == "end"].node_id.values
-    endNodeIDs = sorted(endNodeIDs, key=lambda x: d.get(x, 0), reverse=True)
-
-    g: igraph.Graph = x.igraph
-    # Convert endNodeIDs to indices
-    id2ix = dict(zip(g.vs["node_id"], range(len(g.vs))))
-    endNodeIDs = [id2ix[n] for n in endNodeIDs]
-
-    seen: set = set()
-    sequences = []
-    for nodeID in endNodeIDs:
-        sequence = [nodeID]
-        parents = list(g.successors(nodeID))
-        while True:
-            if not parents:
-                break
-            parentID = parents[0]
-            sequence.append(parentID)
-            if parentID in seen:
-                break
-            seen.add(parentID)
-            parents = list(g.successors(parentID))
-
-        if len(sequence) > 1:
-            sequences.append(sequence)
-
-    # Turn indices back to node IDs
-    ix2id = {v: k for k, v in id2ix.items()}
-    sequences = [[ix2id[ix] for ix in s] for s in sequences]
-
-    # Sort sequences by length
-    lengths = [d[s[0]] - d[s[-1]] for s in sequences]
-    sequences = [x for _, x in sorted(zip(lengths, sequences), reverse=True)]
-
-    # Turn into list of arrays
-    sequences = [np.array(s) for s in sequences]
-
-    # Isolated nodes would not be included in the sequences(because they are treated
-    # as roots, not leafs. Let's add them manually here.
-    for node in nx.isolates(x.graph):
-        sequences.append(np.array([node]))
-        lengths.append(0)
+    segs, lengths = utils.fastcore.generate_segments(
+        x.nodes.node_id.values, x.nodes.parent_id.values, weights=weight
+    )
 
     if return_lengths:
-        return sequences, np.array(sorted(lengths, reverse=True))
+        return segs, lengths
     else:
-        return sequences
+        return segs
 
 
 def _group_by_label(labels: np.ndarray) -> List[np.ndarray]:
@@ -222,6 +170,11 @@ def _merge_labels(labels: np.ndarray, edges: Optional[np.ndarray]) -> np.ndarray
     if len(uniq) == 1:
         return labels
 
+    # N.B. scipy rather than fastcore here, deliberately: the relabelling below
+    # needs *contiguous* `0..n-1` labels, which `csgraph` gives and fastcore's
+    # "smallest member index" convention does not. This runs on the contracted
+    # graph (one node per component, typically a handful), so there is nothing to
+    # gain from switching and an extra relabel pass to lose.
     comp_edges = comp[np.asarray(edges)]
     adj = coo_matrix(
         (
@@ -274,25 +227,15 @@ def _mesh_component_labels(
     if not n_verts:
         return np.zeros(0, dtype=np.int64), 0
 
-    if _fastcore_has("mesh_connected_components"):
-        # This is a plain union-find over the faces - no adjacency is built
-        labels = utils.fastcore.mesh_connected_components(x.faces, n_verts)  # type: ignore
-        # Edges that are not part of any face (e.g. bridges added by
-        # `navis.heal_mesh`) are invisible to the above and have to be merged in
-        labels = _merge_labels(labels, getattr(x, "extra_edges", None))
-        # N.B. fastcore labels each component by its smallest member index, so
-        # unlike scipy's below these need compressing
-        uniq, labels = np.unique(labels, return_inverse=True)
-        return labels.reshape(-1).astype(np.int64, copy=False), len(uniq)
-
-    edges = utils.mesh_unique_edges(x)
-    adj = coo_matrix(
-        (np.ones(len(edges), dtype=np.int8), (edges[:, 0], edges[:, 1])),
-        shape=(n_verts, n_verts),
-    ).tocsr()
-    n, labels = csgraph.connected_components(adj, directed=False)
-
-    return labels.astype(np.int64, copy=False), int(n)
+    # This is a plain union-find over the faces - no adjacency is built
+    labels = utils.fastcore.mesh_connected_components(x.faces, n_verts)  # type: ignore
+    # Edges that are not part of any face (e.g. bridges added by
+    # `navis.heal_mesh`) are invisible to the above and have to be merged in
+    labels = _merge_labels(labels, getattr(x, "extra_edges", None))
+    # N.B. fastcore labels each component by its smallest member index, so these
+    # need compressing to the contiguous `0 .. n_components - 1` we promise above
+    uniq, labels = np.unique(labels, return_inverse=True)
+    return labels.reshape(-1).astype(np.int64, copy=False), len(uniq)
 
 
 def skeleton_edges(x: "core.Skeleton"):
@@ -325,16 +268,6 @@ def skeleton_edges(x: "core.Skeleton"):
         [np.arange(n_nodes)[has_parent], par_ix[has_parent].astype(np.int64)], axis=1
     )
     return edges, node_ids
-
-
-def _fastcore_has(name: str) -> bool:
-    """Whether the installed navis-fastcore provides `name`.
-
-    Probed per function rather than by version: these primitives arrived in
-    different releases, and the version metadata is unreliable in editable
-    installs.
-    """
-    return utils.fastcore is not None and hasattr(utils.fastcore, name)
 
 
 def _connected_components(
@@ -402,7 +335,7 @@ def _connected_components(
         ms = x.connected_components(connectivity=connectivity)
         return _group_by_label(ms)
 
-    if isinstance(x, core.Skeleton) and utils.fastcore:
+    if isinstance(x, core.Skeleton):
         # This returns for each node the ID of its root
         ms = utils.fastcore.connected_components(
             x.nodes.node_id.values, x.nodes.parent_id.values
@@ -468,44 +401,12 @@ def _break_segments(x: "core.NeuronObject") -> list:
     # At this point x is Skeleton
     x: core.Skeleton
 
-    if utils.fastcore:
-        seg_list = utils.fastcore.break_segments(
-            x.nodes.node_id.values, x.nodes.parent_id.values
-        )
-    else:
-        g: igraph.Graph = x.igraph
-        end = g.vs.select(_indegree=0).indices
-        branch = g.vs.select(_indegree_gt=1, _outdegree=1).indices
-        root = g.vs.select(_outdegree=0).indices
-
-        # Get seeds
-        seeds = branch + end
-        # Remove seeds that are also roots (=disconnected single nodes)
-        seeds = set(seeds) - set(root)
-
-        # Converting to set speeds up the "parent in stops" check
-        stops = set(branch + root)
-        seg_list = []
-        # Iterate the seeds in node table order (igraph's vertex indices are the node
-        # table's row numbers). Without the `sorted` we would be walking a Python set,
-        # i.e. in hash order - which is arbitrary, depends on the number of seeds, and
-        # does not match the order fastcore returns. Consumers such as
-        # `segment_analysis` and the NEURON interface enumerate the segments, so the
-        # order ends up in their output and must not depend on the backend.
-        for s in sorted(seeds):
-            parent = g.successors(s)[0]
-            seg = [s, parent]
-            while parent not in stops:
-                parent = g.successors(parent)[0]
-                seg.append(parent)
-            seg_list.append(seg)
-        # Translate indices to node IDs
-        ix_id = {
-            v: n for v, n in zip(g.vs.indices, g.vs.get_attribute_values("node_id"))
-        }
-        seg_list = [[ix_id[n] for n in s] for s in seg_list]
-
-    return seg_list
+    # Segments come back ordered by the node table position of their (distal) seed
+    # node. Consumers such as `segment_analysis`, `resample_skeleton` and the NEURON
+    # interface enumerate the segments, so that order ends up in their output.
+    return utils.fastcore.break_segments(
+        x.nodes.node_id.values, x.nodes.parent_id.values
+    )
 
 
 @utils.lock_neuron
@@ -521,8 +422,10 @@ def dist_to_root(
                         Use "weight" if you want geodesic distance and `None`
                         if you want node count.
     igraph_indices :    bool
-                        Whether to return igraph node indices instead of node
-                        IDs. This is mainly used for internal functions.
+                        Whether to return node *indices* instead of node IDs.
+                        This is mainly used for internal functions. (igraph's
+                        vertex indices are the node table's row numbers, which
+                        is the index space used throughout.)
 
     Returns
     -------
@@ -546,34 +449,28 @@ def dist_to_root(
     if not isinstance(x, core.Skeleton):
         raise TypeError(f"Expected Skeleton, got {type(x)}")
 
-    G: igraph.Graph = x.igraph
-    ids = np.asarray(G.vs["node_id"])
+    ids = x.nodes.node_id.values
+    parents = x.nodes.parent_id.values
 
-    # Note: `vs.select(node_id_in=...)` would be the idiomatic igraph here but it
-    # scans every vertex in Python and costs more than the search itself.
-    roots = np.where(np.isin(ids, x.root))[0]
+    # Every node reaches exactly one root, so this stays O(N) - and unlike a
+    # `geodesic_matrix(from_=roots)` it never materialises a roots x N block,
+    # which is hundreds of MB on a badly fragmented neuron.
+    dists = utils.fastcore.dist_to_root(
+        ids,
+        parents,
+        weights=None
+        if weight is None
+        else utils.fastcore.dag.parent_dist(
+            ids, parents, x.nodes[["x", "y", "z"]].values, root_dist=0
+        ),
+    )
 
-    # Edges run child->parent; transposing gives us root->child, so a search from
-    # the roots yields each node's distance to its own root.
-    #
-    # `min_only` is what keeps this O(N): every node reaches exactly one root, so
-    # the distance to the *nearest* root is the distance to its own. Asking igraph
-    # for `distances(source=roots)` instead would hand back a roots x N matrix -
-    # fine for one root, hundreds of MB for a badly fragmented neuron.
-    adj = _igraph_to_sparse(G, weight_attr=weight, transpose=True)
-
-    # csgraph.dijkstra wants int32 indices/indptr
-    adj.indptr = adj.indptr.astype("int32", copy=False)
-    adj.indices = adj.indices.astype("int32", copy=False)
-
-    dists = csgraph.dijkstra(adj, directed=True, indices=roots, min_only=True)
-
-    # Unreachable nodes (i.e. those in another fragment) come back as inf and are
+    # Unreachable nodes (i.e. those in another fragment) come back as -1 and are
     # simply left out - matching the networkx behaviour this replaced.
     keys = np.arange(len(ids)) if igraph_indices else ids
-    reachable = np.isfinite(dists)
+    reachable = np.asarray(dists) >= 0
 
-    return dict(zip(keys[reachable].tolist(), dists[reachable].tolist()))
+    return dict(zip(keys[reachable].tolist(), np.asarray(dists)[reachable].tolist()))
 
 
 @utils.map_neuronlist(desc="Classifying", allow_parallel=True)
@@ -622,27 +519,8 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
     # ever turn them into labels at the very end. Going via a string array (as
     # this used to) makes `pd.Categorical` factorize N strings, which costs more
     # than the classification itself.
-    if utils.fastcore:
-        # Fastcore uses its own order (0=root, 1=leaf, 2=branch, 3=slab)
-        cl = _FASTCORE_NODE_TYPES[utils.fastcore.classify_nodes(node_ids, parent_ids)]
-    else:
-        # Note: I have tried to optimized the s**t out of this, i.e. every
-        # single line of code here has been tested for speed. Do not
-        # change anything unless you know what you're doing!
-
-        # Turns out that numpy.isin() recently started to complain if the
-        # node_ids are uint64 and the parent_ids are int64 (but strangely
-        # not with 32bit integers). If that's the case we have to convert
-        # the node_ids to int64.
-        if node_ids.dtype == np.uint64:
-            node_ids = node_ids.astype(np.int64)
-
-        cl = np.full(len(x.nodes), NODE_TYPES.index("slab"), dtype=np.int8)
-        cl[~np.isin(node_ids, parent_ids)] = NODE_TYPES.index("end")
-        bp = x.nodes.parent_id.value_counts()
-        bp = bp.index.values[bp.values > 1]
-        cl[np.isin(node_ids, bp)] = NODE_TYPES.index("branch")
-        cl[parent_ids < 0] = NODE_TYPES.index("root")
+    # Fastcore uses its own order (0=root, 1=leaf, 2=branch, 3=slab)
+    cl = _FASTCORE_NODE_TYPES[utils.fastcore.classify_nodes(node_ids, parent_ids)]
 
     if categorical:
         x.nodes["type"] = pd.Categorical.from_codes(
@@ -748,35 +626,19 @@ def distal_to(
     else:
         tnB = x.nodes.node_id.values
 
-    if utils.fastcore:
-        # `targets` is what keeps this cheap: igraph will happily take a target
-        # list but computes an all-sources search to honour it, and the result is
-        # a len(a) x n_nodes matrix either way. Here we only ever materialise the
-        # len(a) x len(b) block we actually return.
-        le = utils.fastcore.geodesic_matrix(
-            x.nodes.node_id.values,
-            x.nodes.parent_id.values,
-            sources=tnA,
-            targets=tnB,
-            directed=True,
-            weights=None,
-        )
-        # Fastcore uses -1 (not inf) for unreachable pairs
-        reachable = le >= 0
-    else:
-        # Grab graph once to avoid overhead from stale checks
-        G: igraph.Graph = x.igraph
-
-        # Map node ID to index
-        id2ix = {n: v for v, n in zip(G.vs.indices, G.vs["node_id"])}
-
-        # Convert node IDs to indices
-        ixA = [id2ix[n] for n in tnA]  # type: ignore
-        ixB = [id2ix[n] for n in tnB]  # type: ignore
-
-        # Converting to numpy array first is ~2X as fast
-        le = np.asarray(G.distances(ixA, ixB, mode="OUT"))
-        reachable = le != float("inf")
+    # `targets` is what keeps this cheap: a full all-sources search would produce a
+    # len(a) x n_nodes matrix either way. Here we only ever materialise the
+    # len(a) x len(b) block we actually return.
+    le = utils.fastcore.geodesic_matrix(
+        x.nodes.node_id.values,
+        x.nodes.parent_id.values,
+        sources=tnA,
+        targets=tnB,
+        directed=True,
+        weights=None,
+    )
+    # Fastcore uses -1 (not inf) for unreachable pairs
+    reachable = le >= 0
 
     df = pd.DataFrame(reachable, index=tnA, columns=tnB)
 
@@ -931,8 +793,7 @@ def geodesic_matrix(
             )
         return sel
 
-    # Use fastcore if available
-    if utils.fastcore and isinstance(x, core.Skeleton):
+    if isinstance(x, core.Skeleton):
         node_ids = x.nodes.node_id.values
 
         # Calculate node distances
@@ -968,94 +829,48 @@ def geodesic_matrix(
             columns=node_ids if to_ is None else to_,
         )
 
-    # Makes no sense to use directed for Meshes
-    if isinstance(x, core.Mesh):
-        directed = False
+    # Only Meshes reach here, and `directed` makes no sense for those - the edge
+    # list is undirected, so it is ignored rather than honoured.
+    vertex_ids = np.arange(len(x.vertices))
 
-    if (
-        utils.fastcore
-        and isinstance(x, core.Mesh)
-        # Meshes with extra edges need the graph (rather than the mesh) variant;
-        # without it we fall through to the igraph/scipy path below, which gets
-        # its edges from `mesh_unique_edges` and hence sees them too
-        and (not x.n_extra_edges or hasattr(utils.fastcore, "geodesic_matrix_graph"))
-    ):
-        vertex_ids = np.arange(len(x.vertices))
+    from_ = None if from_ is None else _check(from_, vertex_ids)
+    to_ = None if to_ is None else _check(to_, vertex_ids)
 
-        from_ = None if from_ is None else _check(from_, vertex_ids)
-        to_ = None if to_ is None else _check(to_, vertex_ids)
+    # Fastcore takes `None` rather than infinity for "no limit"
+    limit_ = None if limit is None or not np.isfinite(limit) else limit
 
-        # Fastcore takes `None` rather than infinity for "no limit"
-        limit_ = None if limit is None or not np.isfinite(limit) else limit
-
-        if not x.n_extra_edges:
-            dmat = utils.fastcore.geodesic_matrix_mesh(
-                x.faces,
-                # Without coordinates fastcore weights every edge as 1 (i.e. hop count)
-                vertices=x.vertices if weight == "weight" else None,
-                n_vertices=len(vertex_ids),
-                sources=from_,
-                targets=to_,
-                limit=limit_,
-            )
-        else:
-            # `geodesic_matrix_mesh` derives the adjacency from the faces and so
-            # can't see edges that aren't part of one - we have to hand it the
-            # full edge list instead
-            edges, lengths = utils.mesh_unique_edges(x, return_lengths=True)
-            dmat = utils.fastcore.geodesic_matrix_graph(
-                edges,
-                n_nodes=len(vertex_ids),
-                weights=lengths if weight == "weight" else None,
-                directed=False,
-                sources=from_,
-                targets=to_,
-                limit=limit_,
-            )
-
-        # Fastcore returns -1 for unreachable vertex pairs
-        dmat[dmat < 0] = np.inf
-
-        return pd.DataFrame(
-            dmat,
-            index=vertex_ids if from_ is None else from_,
-            columns=vertex_ids if to_ is None else to_,
+    if not x.n_extra_edges:
+        dmat = utils.fastcore.geodesic_matrix_mesh(
+            x.faces,
+            # Without coordinates fastcore weights every edge as 1 (i.e. hop count)
+            vertices=x.vertices if weight == "weight" else None,
+            n_vertices=len(vertex_ids),
+            sources=from_,
+            targets=to_,
+            limit=limit_,
+        )
+    else:
+        # `geodesic_matrix_mesh` derives the adjacency from the faces and so
+        # can't see edges that aren't part of one - we have to hand it the
+        # full edge list instead
+        edges, lengths = utils.mesh_unique_edges(x, return_lengths=True)
+        dmat = utils.fastcore.geodesic_matrix_graph(
+            edges,
+            n_nodes=len(vertex_ids),
+            weights=lengths if weight == "weight" else None,
+            directed=False,
+            sources=from_,
+            targets=to_,
+            limit=limit_,
         )
 
-    # Grab graph once to avoid overhead from stale checks
-    G: igraph.Graph = x.igraph
+    # Fastcore returns -1 for unreachable vertex pairs
+    dmat[dmat < 0] = np.inf
 
-    if isinstance(x, core.Skeleton):
-        nodeList = np.array(G.vs.get_attribute_values("node_id"))
-    else:
-        nodeList = np.arange(len(G.vs))
-
-    # Matrix is ordered by vertex number
-    m = _igraph_to_sparse(G, weight_attr=weight)
-
-    from_ = None if from_ is None else _check(from_, nodeList)
-    to_ = None if to_ is None else _check(to_, nodeList)
-
-    # Note: `nodeList` is in graph (i.e. node table) order, so we have to look up
-    # where each requested ID sits rather than assume it is sorted. Doing this for
-    # the rows as well keeps the row order identical to the fastcore path above.
-    lookup = pd.Index(nodeList)
-    indices = None if from_ is None else lookup.get_indexer(from_)
-
-    # For some reason csgraph.dijkstra expects indices/indptr as int32
-    m.indptr = m.indptr.astype("int32", copy=False)
-    m.indices = m.indices.astype("int32", copy=False)
-    dmat = csgraph.dijkstra(m, directed=directed, indices=indices, limit=limit)
-
-    # csgraph has no notion of targets, so we have to subset after the fact. This
-    # is the fallback - the fastcore path above never materialises these columns.
-    if to_ is not None:
-        dmat = dmat[:, lookup.get_indexer(to_)]
-
-    return pd.DataFrame(  # type: ignore  # no stubs
+    return pd.DataFrame(
         dmat,
-        index=nodeList if from_ is None else from_,
-        columns=nodeList if to_ is None else to_,
+        index=vertex_ids if from_ is None else from_,
+        columns=vertex_ids if to_ is None else to_,
     )
 
 
@@ -1074,15 +889,11 @@ def _geodesic_nearest(
     100k nodes (O(N) memory) where `geodesic_matrix` would materialise an
     `(n_query, n_nodes)` matrix and run out of memory.
 
-    Uses `navis_fastcore.geodesic_nearest` if available and falls back to a
-    multi-source `scipy.sparse.csgraph.dijkstra(min_only=True)` search.
-
     Note
     ----
     `query` and `targets` are expected to be disjoint (the typical "assign
-    unlabeled nodes to the nearest labeled node" use case). If a query node is
-    itself a target the two backends may disagree on whether it matches itself
-    or the nearest *other* target.
+    unlabeled nodes to the nearest labeled node" use case). A query node that is
+    itself a target matches itself at distance 0.
 
     Parameters
     ----------
@@ -1112,7 +923,6 @@ def _geodesic_nearest(
 
     node_ids = x.nodes.node_id.values
     parent_ids = x.nodes.parent_id.values
-    ix = pd.Index(node_ids)
 
     targets = np.asarray(list(targets))
     query = node_ids if query is None else np.asarray(list(query))
@@ -1125,79 +935,26 @@ def _geodesic_nearest(
         )
 
     # Per-node distance to parent (root = 0). `None` -> unweighted (hop count).
-    if weight == "weight":
-        coords = x.nodes[["x", "y", "z"]].values.astype(np.float32)
-        has_parent = parent_ids >= 0
-        p_ix = ix.get_indexer(parent_ids)
-        weights = np.zeros(len(node_ids), dtype=np.float32)
-        weights[has_parent] = np.linalg.norm(
-            coords[has_parent] - coords[p_ix[has_parent]], axis=1
+    weights = (
+        utils.fastcore.dag.parent_dist(
+            node_ids, parent_ids, x.nodes[["x", "y", "z"]].values, root_dist=0
         )
-    else:
-        weights = None
-
-    # Fast path: compiled fastcore implementation (linear time, O(N) memory).
-    if utils.fastcore and hasattr(utils.fastcore, "geodesic_nearest"):
-        distances, nearest = utils.fastcore.geodesic_nearest(
-            node_ids,
-            parent_ids,
-            sources=query,
-            targets=targets,
-            directed=directed,
-            weights=weights,
-        )
-        distances = np.asarray(distances, dtype=float)
-        nearest = np.asarray(nearest)
-        # fastcore returns -1 for unreachable sources
-        distances[distances < 0] = np.inf
-        return nearest, distances
-
-    # Fallback: multi-source Dijkstra. `min_only=True` keeps only each node's
-    # distance to the *nearest* source -> O(N) memory instead of O(N_sources*N).
-    has_parent = parent_ids >= 0
-    child_ix = ix.get_indexer(node_ids[has_parent])
-    parent_ix = ix.get_indexer(parent_ids[has_parent])
-    edge_w = (
-        np.ones(child_ix.size, dtype=np.float32)
-        if weights is None
-        else weights[has_parent]
+        if weight == "weight"
+        else None
     )
 
-    if directed:
-        # We run the search FROM the targets (see `indices` below), so to recover
-        # "distance from each query node to its nearest target travelling
-        # child -> parent (towards the root)" the search must travel the *opposite*
-        # way out of each target, i.e. parent -> child (towards its descendants).
-        rows, cols, data = parent_ix, child_ix, edge_w
-    else:
-        rows = np.concatenate([child_ix, parent_ix])
-        cols = np.concatenate([parent_ix, child_ix])
-        data = np.concatenate([edge_w, edge_w])
-
-    N = len(node_ids)
-    adj = csr_matrix((data, (rows, cols)), shape=(N, N))
-    # csgraph.dijkstra expects int32 indices/indptr
-    adj.indptr = adj.indptr.astype("int32", copy=False)
-    adj.indices = adj.indices.astype("int32", copy=False)
-
-    # Sources are the targets; for each node we get its nearest target + distance.
-    src = ix.get_indexer(targets)
-    dist_all, _, sources = csgraph.dijkstra(
-        adj,
+    distances, nearest = utils.fastcore.geodesic_nearest(
+        node_ids,
+        parent_ids,
+        sources=query,
+        targets=targets,
         directed=directed,
-        indices=src,
-        min_only=True,
-        unweighted=weights is None,
-        return_predecessors=True,
+        weights=weights,
     )
-
-    q_ix = ix.get_indexer(query)
-    src_node_ix = sources[q_ix]  # graph index of nearest target (< 0 if none)
-    reachable = src_node_ix >= 0
-    nearest = np.full(query.shape, -1, dtype=node_ids.dtype)
-    nearest[reachable] = node_ids[src_node_ix[reachable]]
-    distances = dist_all[q_ix].astype(float)
-    distances[~reachable] = np.inf
+    distances = np.asarray(distances, dtype=float)
+    nearest = np.asarray(nearest)
+    # fastcore returns -1 for unreachable sources
+    distances[distances < 0] = np.inf
     return nearest, distances
 
 
@@ -1235,11 +992,6 @@ def geodesic_clusters(
         even spacing along the arbor use [`navis.resample_skeleton`][]; this is
         the right tool when you need a bounded-radius partition of the graph
         itself.
-
-    Uses `navis_fastcore.geodesic_clusters` if available and falls back to a
-    per-seed bounded `scipy.sparse.csgraph.dijkstra`. The greedy outer loop is
-    inherently sequential, so the fallback is a Python loop over clusters and
-    is markedly slower on neurons that produce many of them.
 
     Parameters
     ----------
@@ -1306,13 +1058,10 @@ def geodesic_clusters(
         if (seed_ix < 0).any():
             raise ValueError("Some `seeds` are not part of this neuron.")
 
-    if _fastcore_has("geodesic_clusters"):
-        labels, _ = utils.fastcore.geodesic_clusters(
-            edges, n_nodes, max_dist, weights=weights, seeds=seed_ix
-        )
-        labels = np.asarray(labels)
-    else:
-        labels = _geodesic_clusters_scipy(edges, weights, n_nodes, max_dist, seed_ix)
+    labels, _ = utils.fastcore.geodesic_clusters(
+        edges, n_nodes, max_dist, weights=weights, seeds=seed_ix
+    )
+    labels = np.asarray(labels)
 
     if connected:
         labels = _split_disconnected(edges, labels, n_nodes)
@@ -1332,17 +1081,7 @@ def _split_disconnected(edges, labels, n_nodes):
 
     intra = edges[labels[edges[:, 0]] == labels[edges[:, 1]]]
 
-    if _fastcore_has("connected_components_graph"):
-        comp = utils.fastcore.connected_components_graph(intra, n_nodes)
-    else:
-        adj = csr_matrix(
-            (
-                np.ones(len(intra), dtype=np.int8),
-                (intra[:, 0], intra[:, 1]),
-            ),
-            shape=(n_nodes, n_nodes),
-        )
-        comp = csgraph.connected_components(adj, directed=False)[1]
+    comp = utils.fastcore.connected_components_graph(intra, n_nodes)
 
     # Relabel contiguously. N.B. this renumbers clusters - the raw growth order
     # does not survive a split anyway.
@@ -1372,48 +1111,6 @@ def _cluster_graph(x, weight):
         return edges, w, n, np.arange(n)
 
     raise TypeError(f"Expected Skeleton or Mesh, got {type(x)}")
-
-
-def _geodesic_clusters_scipy(edges, weights, n_nodes, max_dist, seed_ix):
-    """Fallback for `geodesic_clusters`: one bounded Dijkstra per cluster.
-
-    N.B. each search runs on the *full* graph rather than on what is left
-    unclaimed - that is what makes every cluster a true ball around its seed
-    (see the note in `geodesic_clusters`) - and only the *assignment* skips
-    nodes an earlier cluster took.
-    """
-    w = np.ones(len(edges), dtype=np.float64) if weights is None else np.asarray(weights)
-    adj = csr_matrix(
-        (
-            np.concatenate([w, w]),
-            (
-                np.concatenate([edges[:, 0], edges[:, 1]]),
-                np.concatenate([edges[:, 1], edges[:, 0]]),
-            ),
-        ),
-        shape=(n_nodes, n_nodes),
-    )
-    adj.indptr = adj.indptr.astype("int32", copy=False)
-    adj.indices = adj.indices.astype("int32", copy=False)
-
-    labels = np.full(n_nodes, -1, dtype=np.int32)
-
-    # Preferred seeds first, then everything still unassigned in index order.
-    order = np.arange(n_nodes)
-    if seed_ix is not None and len(seed_ix):
-        order = np.concatenate([np.asarray(seed_ix), order])
-
-    n_clusters = 0
-    for seed in order:
-        if labels[seed] != -1:
-            continue
-        dist = csgraph.dijkstra(
-            adj, directed=False, indices=int(seed), limit=max_dist
-        )
-        labels[(dist <= max_dist) & (labels == -1)] = n_clusters
-        n_clusters += 1
-
-    return labels
 
 
 @utils.lock_neuron
@@ -1570,7 +1267,7 @@ def dist_between(x: "core.NeuronObject", a, b):
         )
     a, b = np.broadcast_arrays(a, b)
 
-    if isinstance(x, core.Skeleton) and utils.fastcore:
+    if isinstance(x, core.Skeleton):
         node_ids = x.nodes.node_id.values
         parent_ids = x.nodes.parent_id.values
 
@@ -1591,9 +1288,8 @@ def dist_between(x: "core.NeuronObject", a, b):
         dist[dist < 0] = np.inf
         return float(dist[0]) if scalar else dist
 
-    G: Union[igraph.Graph, nx.DiGraph] = (
-        x.igraph if isinstance(x, (core.Skeleton, core.Mesh)) else x
-    )
+    # Meshes and raw graphs - Skeletons returned above.
+    G: Union[igraph.Graph, nx.DiGraph] = x.igraph if isinstance(x, core.Mesh) else x
 
     # If we're working with a networkx DiGraph
     if isinstance(G, nx.DiGraph):
@@ -1605,11 +1301,6 @@ def dist_between(x: "core.NeuronObject", a, b):
             ]
         )
         return int(dist[0]) if scalar else dist
-
-    if isinstance(x, core.Skeleton):
-        id2ix = dict(zip(G.vs["node_id"], G.vs.indices))
-        a = np.array([id2ix[i] for i in a.tolist()])
-        b = np.array([id2ix[i] for i in b.tolist()])
 
     # Ask igraph only for the unique sources/targets and fan the answers back
     # out - `distances` returns a full sources x targets matrix, so handing it
@@ -1966,27 +1657,21 @@ def longest_neurite(
             x.nodes.loc[x.nodes.type.isin(("root", "end")), "node_id"].values
         )
 
-        if utils.fastcore:
-            # We only need each leaf's distance to its farthest leaf, so there is no
-            # point in materialising the full leafs x leafs matrix just to take its
-            # maximum. Note fastcore also uses -1 for unreachable (i.e. fragmented).
-            dists, _ = utils.fastcore.geodesic_farthest(
+        # We only need each leaf's distance to its farthest leaf, so there is no
+        # point in materialising the full leafs x leafs matrix just to take its
+        # maximum. Note fastcore uses -1 for unreachable (i.e. fragmented).
+        dists, _ = utils.fastcore.geodesic_farthest(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            sources=leafs,
+            targets=leafs,
+            weights=utils.fastcore.dag.parent_dist(
                 x.nodes.node_id.values,
                 x.nodes.parent_id.values,
-                sources=leafs,
-                targets=leafs,
-                weights=utils.fastcore.dag.parent_dist(
-                    x.nodes.node_id.values,
-                    x.nodes.parent_id.values,
-                    x.nodes[["x", "y", "z"]].values,
-                    root_dist=0,
-                ),
-            )
-        else:
-            dmat = geodesic_matrix(x, from_=leafs, to_=leafs)
-            # If the neuron is fragmented, we will have infinite distances
-            dmat[dmat == np.inf] = -1
-            dists = dmat.values.max(axis=1)
+                x.nodes[["x", "y", "z"]].values,
+                root_dist=0,
+            ),
+        )
 
         # The longest neurite has two ends and either is a valid place to root it.
         # Which one we get is down to float32 rounding, so pick deterministically:
@@ -2533,32 +2218,26 @@ def connected_components_of(x: "core.Skeleton", keep) -> List[Set[int]]:
 
     Returns sets of node IDs, mirroring `nx.connected_components`.
     """
-    if _fastcore_has("connected_components_graph"):
-        # Inducing the subgraph is just dropping every edge with an endpoint
-        # outside `keep` - no graph object needs building, which is what makes
-        # this ~60x quicker than the igraph route below.
-        edges, node_ids = skeleton_edges(x)
-        # N.B. via `fromiter`, not `asarray`: `keep` is routinely a *set*, which
-        # `np.asarray` turns into a 0-d object array that matches nothing.
-        keep = np.fromiter(keep, dtype=node_ids.dtype, count=len(keep))
-        in_keep = np.isin(node_ids, keep)
+    # Inducing the subgraph is just dropping every edge with an endpoint outside
+    # `keep` - no graph object needs building, which is what makes this ~60x
+    # quicker than going via igraph.
+    edges, node_ids = skeleton_edges(x)
+    # N.B. via `fromiter`, not `asarray`: `keep` is routinely a *set*, which
+    # `np.asarray` turns into a 0-d object array that matches nothing.
+    keep = np.fromiter(keep, dtype=node_ids.dtype, count=len(keep))
+    in_keep = np.isin(node_ids, keep)
 
-        if len(edges):
-            edges = edges[in_keep[edges[:, 0]] & in_keep[edges[:, 1]]]
+    if len(edges):
+        edges = edges[in_keep[edges[:, 0]] & in_keep[edges[:, 1]]]
 
-        labels = utils.fastcore.connected_components_graph(edges, len(node_ids))
+    labels = utils.fastcore.connected_components_graph(edges, len(node_ids))
 
-        # Nodes outside `keep` are isolated in the induced subgraph but still
-        # carry a label, so drop them before grouping.
-        kept_ix = np.flatnonzero(in_keep)
-        return [
-            set(node_ids[kept_ix[g]].tolist())
-            for g in _group_by_label(labels[kept_ix])
-        ]
-
-    sub = subset_igraph(x, keep)
-    ids = np.asarray(sub.vs["node_id"])
-    return [set(ids[c].tolist()) for c in sub.components(mode="WEAK")]
+    # Nodes outside `keep` are isolated in the induced subgraph but still
+    # carry a label, so drop them before grouping.
+    kept_ix = np.flatnonzero(in_keep)
+    return [
+        set(node_ids[kept_ix[g]].tolist()) for g in _group_by_label(labels[kept_ix])
+    ]
 
 
 def _igraph_to_sparse(graph, weight_attr=None, transpose=False):

@@ -16,19 +16,6 @@ import trimesh as tm
 from navis.graph.graph_utils import _connected_components
 from navis.utils.subclasses import TrimeshPlus, validate_extra_edges
 
-HAS_FASTCORE = navis.utils.fastcore is not None
-
-
-@pytest.fixture(params=["builtin", "fastcore"])
-def backend(request, monkeypatch):
-    """Run a test against both the numpy/igraph and the fastcore backend."""
-    if request.param == "builtin":
-        monkeypatch.setattr(navis.utils, "fastcore", None)
-    elif not HAS_FASTCORE:
-        pytest.skip("navis-fastcore not installed")
-    return request.param
-
-
 @pytest.fixture
 def mesh():
     """The example mesh - which happens to consist of 70 fragments."""
@@ -242,18 +229,18 @@ def test_trimesh_cache_stays_faces_only(bridged):
     assert len(trimesh.edges_unique) < len(trimesh.graph_edges)
 
 
-def test_connected_components(mesh, fragments, bridged, backend):
+def test_connected_components(mesh, fragments, bridged):
     merged = sorted(_connected_components(bridged), key=len, reverse=True)
 
     assert len(merged) == len(fragments) - 1
     assert set(merged[0]) == set(fragments[0]) | set(fragments[1])
 
 
-def test_break_fragments(mesh, bridged, backend):
+def test_break_fragments(mesh, bridged):
     assert len(navis.break_fragments(bridged)) == len(navis.break_fragments(mesh)) - 1
 
 
-def test_drop_fluff(mesh, fragments, bridged, backend):
+def test_drop_fluff(mesh, fragments, bridged):
     """The bridged fragment must now count as part of the main component."""
     fluffless = navis.drop_fluff(bridged)
     assert fluffless.n_vertices == len(fragments[0]) + len(fragments[1])
@@ -268,7 +255,7 @@ def test_igraph_and_nx(mesh, bridged):
     ) - 1
 
 
-def test_geodesic_matrix(mesh, bridged, backend):
+def test_geodesic_matrix(mesh, bridged):
     a, b = [int(v) for v in bridged.extra_edges[0]]
 
     # Without the bridge the two fragments are unreachable from one another
@@ -283,27 +270,14 @@ def test_geodesic_matrix(mesh, bridged, backend):
     assert hops == 1
 
 
-@pytest.mark.skipif(not HAS_FASTCORE, reason="navis-fastcore not installed")
-def test_geodesic_matrix_without_graph_variant(bridged, monkeypatch):
-    """Older fastcore has no `geodesic_matrix_graph` - we must not use the mesh
-    variant then, as it would silently ignore the extra edges."""
-    a, b = [int(v) for v in bridged.extra_edges[0]]
-    expected = navis.geodesic_matrix(bridged, from_=[a], to_=[b]).values[0, 0]
-
-    monkeypatch.delattr(navis.utils.fastcore, "geodesic_matrix_graph", raising=False)
-    assert navis.geodesic_matrix(bridged, from_=[a], to_=[b]).values[
-        0, 0
-    ] == pytest.approx(expected, rel=1e-5)
-
-
-def test_geodesic_matrix_unchanged_within_fragment(mesh, fragments, bridged, backend):
+def test_geodesic_matrix_unchanged_within_fragment(mesh, fragments, bridged):
     within = [int(v) for v in fragments[0][:20]]
     before = navis.geodesic_matrix(mesh, from_=within, to_=within)
     after = navis.geodesic_matrix(bridged, from_=within, to_=within)
     assert np.allclose(before.values, after.values)
 
 
-def test_geodesic_clusters(mesh, bridged, backend):
+def test_geodesic_clusters(mesh, bridged):
     """Clusters are grown along the graph, so they may now cross the bridge."""
     a, b = [int(v) for v in bridged.extra_edges[0]]
     bridge_len = np.linalg.norm(bridged.vertices[a] - bridged.vertices[b])

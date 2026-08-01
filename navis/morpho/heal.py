@@ -15,12 +15,12 @@
 
 The mesh counterpart to [`navis.heal_skeleton`][]. The hard part - finding the
 set of bridges that connects the fragments with the least added length - is the
-same problem in both cases and uses the same machinery (`_stitch_edges` in
-`navis.morpho.manipulation`). What differs is how the result is applied: a
-skeleton's topology *is* its `parent_id` column, whereas a mesh's
-is implied by its faces, and a bridge between two vertices cannot be expressed
-as a face without inventing geometry. Bridges therefore go into the neuron's
-`.extra_edges` - part of the graph, not of the surface.
+same problem in both cases and is solved by the same fastcore stitcher. What
+differs is how the result is applied: a skeleton's topology *is* its `parent_id`
+column, whereas a mesh's is implied by its faces, and a bridge between two
+vertices cannot be expressed as a face without inventing geometry. Bridges
+therefore go into the neuron's `.extra_edges` - part of the graph, not of the
+surface.
 
 """
 
@@ -29,13 +29,11 @@ from typing import Optional, Sequence
 import numpy as np
 
 from . import subset
-from .manipulation import _stitch_edges
 from .. import graph, utils, core
 
-# N.B. `navis.graph.graph_utils` imports `morpho` at module level, so its helpers
-# (`_mesh_component_labels`, `_fastcore_has`) have to be reached through the
-# `graph.graph_utils.` attribute path - resolved at call time - rather than
-# imported up here.
+# N.B. `navis.graph.graph_utils` imports `morpho` at module level, so
+# `_mesh_component_labels` has to be reached through the `graph.graph_utils.`
+# attribute path - resolved at call time - rather than imported up here.
 
 __all__ = ["heal_mesh"]
 
@@ -240,19 +238,14 @@ def _bridge_fragments(
 
     coords = np.ascontiguousarray(coords, dtype=np.float64)
 
-    if graph.graph_utils._fastcore_has("stitch_fragments"):
-        # `stitch_fragments` takes a *skeleton* but only ever looks at which
-        # fragment each node belongs to - so rather than building a spanning
-        # tree per fragment we simply point every candidate at one arbitrary
-        # candidate of its own fragment. That is the same partition at no cost.
-        parents = root_of_frag[cand_labels]
-        parents[parents == cand] = -1  # the local roots themselves
+    # `stitch_fragments` takes a *skeleton* but only ever looks at which fragment
+    # each node belongs to - so rather than building a spanning tree per fragment
+    # we simply point every candidate at one arbitrary candidate of its own
+    # fragment. That is the same partition at no cost.
+    parents = root_of_frag[cand_labels]
+    parents[parents == cand] = -1  # the local roots themselves
 
-        bridges, _ = utils.fastcore.stitch_fragments(
-            cand.astype(np.int64), parents, coords, max_dist=max_dist
-        )
-        return np.asarray(bridges, dtype=np.int64).reshape(-1, 2)
-
-    return _stitch_edges(
-        coords, cand, cand_labels, np.inf if max_dist is None else max_dist
+    bridges, _ = utils.fastcore.stitch_fragments(
+        cand.astype(np.int64), parents, coords, max_dist=max_dist
     )
+    return np.asarray(bridges, dtype=np.int64).reshape(-1, 2)

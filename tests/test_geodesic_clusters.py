@@ -1,25 +1,16 @@
 """Tests for `navis.graph.geodesic_clusters`.
 
-Runs on `navis_fastcore.geodesic_clusters` when available, else on a per-seed
-bounded `scipy.sparse.csgraph.dijkstra`. Both are deterministic and greedy in
-the same order, so unlike the other fastcore wirings these must agree
-*exactly* - the labels themselves, not just the partition.
+Runs on `navis_fastcore.geodesic_clusters`. The greedy carve-out is
+deterministic, so these pin what the partition must *be* - every node within
+`max_dist` of its cluster's seed, every cluster connected - rather than
+comparing against a second implementation.
 """
 
 import numpy as np
 import pytest
 
 import navis
-from navis import utils
 from navis.graph.graph_utils import geodesic_clusters
-
-HAS_FASTCORE = utils.fastcore is not None and hasattr(
-    utils.fastcore, "geodesic_clusters"
-)
-
-needs_fastcore = pytest.mark.skipif(
-    not HAS_FASTCORE, reason="navis-fastcore has no `geodesic_clusters`"
-)
 
 
 @pytest.fixture(scope="module")
@@ -30,11 +21,6 @@ def neuron():
 @pytest.fixture(scope="module")
 def mesh():
     return navis.example_neurons(1, kind="mesh")
-
-
-@pytest.fixture
-def no_fastcore(monkeypatch):
-    monkeypatch.setattr(utils, "fastcore", None)
 
 
 # --------------------------------------------------------------------- shape
@@ -113,7 +99,7 @@ def test_connected_only_subdivides(neuron):
         assert len(np.unique(raw[split == c])) == 1
 
 
-@pytest.mark.parametrize("max_dist", [2000, 10000])
+@pytest.mark.parametrize("max_dist", [1000, 2000, 10000])
 def test_clusters_are_balls_of_bounded_radius(neuron, max_dist):
     """Every member is within `max_dist` of *some* member (its seed).
 
@@ -209,48 +195,6 @@ def test_mesh_clusters(mesh):
     assert len(labels) == len(mesh.vertices)
     assert (labels >= 0).all()
     assert set(np.unique(labels).tolist()) == set(range(labels.max() + 1))
-
-
-# ------------------------------------------------------------ backend parity
-
-
-@needs_fastcore
-@pytest.mark.parametrize("max_dist", [1000, 5000, 20000])
-def test_backend_parity_skeleton(neuron, max_dist, monkeypatch):
-    """Both backends are greedy in the same order - labels must match exactly."""
-    fast = geodesic_clusters(neuron, max_dist)
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = geodesic_clusters(neuron, max_dist)
-
-    assert np.array_equal(fast, slow)
-
-
-@needs_fastcore
-def test_backend_parity_hops_and_seeds(neuron, monkeypatch):
-    ids = neuron.nodes.node_id.values
-    seeds = ids[[100, 2000]]
-
-    fast_h = geodesic_clusters(neuron, 10, weight=None)
-    fast_s = geodesic_clusters(neuron, 5000, seeds=seeds)
-    monkeypatch.setattr(utils, "fastcore", None)
-
-    assert np.array_equal(fast_h, geodesic_clusters(neuron, 10, weight=None))
-    assert np.array_equal(fast_s, geodesic_clusters(neuron, 5000, seeds=seeds))
-
-
-@needs_fastcore
-def test_backend_parity_mesh(mesh, monkeypatch):
-    fast = geodesic_clusters(mesh, 2000)
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = geodesic_clusters(mesh, 2000)
-
-    assert np.array_equal(fast, slow)
-
-
-def test_works_without_fastcore(neuron, no_fastcore):
-    labels = geodesic_clusters(neuron, 5000)
-    assert (labels >= 0).all()
-    assert len(labels) == neuron.n_nodes
 
 
 # --------------------------------------------------------------- downsampling

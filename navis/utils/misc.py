@@ -26,10 +26,7 @@ from .. import config, core
 from .eval import is_mesh
 from ..transforms.templates import TemplateBrain
 
-try:
-    import navis_fastcore as fastcore
-except ModuleNotFoundError:
-    fastcore = None
+import navis_fastcore as fastcore
 
 
 # Set up logging
@@ -499,7 +496,8 @@ def make_url(baseurl, *args: str, **GET) -> str:
 def mesh_unique_edges(x, return_lengths=False, extra_edges=True):
     """Return unique edges of a mesh as (N, 2) numpy array.
 
-    Will use fastcore if available.
+    Computed with fastcore and seeded into trimesh's cache; a warm cache is
+    reused as-is.
 
     Parameters
     ----------
@@ -529,11 +527,7 @@ def mesh_unique_edges(x, return_lengths=False, extra_edges=True):
     if not isinstance(mesh, tm.Trimesh):
         mesh = tm.Trimesh(vertices=x.vertices, faces=x.faces, process=False)
 
-    if (
-        fastcore is not None  # must have fastcore
-        and hasattr(fastcore, 'unique_edges')  # fastcore must have unique_edges function
-        and "edges_unique" not in mesh._cache  # unique edges not yet cached
-    ):
+    if "edges_unique" not in mesh._cache:  # unique edges not yet cached
         # Note: we always ask for index and inverse. Trimesh generates these as a
         # side-effect of `edges_unique` and caches them under separate keys. If we
         # seed `edges_unique` without them, `edges_unique_inverse` silently returns

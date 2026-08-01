@@ -17,13 +17,12 @@ import numpy as np
 import pandas as pd
 from molesq import Transformer
 
-from .backends import BackendMixin, fastcore_landmarks_available
+from .backends import BackendMixin
 from .base import BaseTransform
 
 
 class MovingLeastSquaresTransform(BackendMixin, BaseTransform):
     _fallback_backend = "python"
-    _fastcore_available = staticmethod(fastcore_landmarks_available)
 
     def __init__(
         self,
@@ -39,8 +38,9 @@ class MovingLeastSquaresTransform(BackendMixin, BaseTransform):
         [implementation](https://github.com/ceesem/catalysis/blob/master/catalysis/transform.py)
         by Casey Schneider-Mizell of the affine algorithm published in
         [Schaefer et al. 2006](https://dl.acm.org/doi/pdf/10.1145/1179352.1141920).
-        If navis-fastcore is installed, its Rust implementation of the same
-        algorithm is used instead - see the `backend` parameter.
+        Runs on navis-fastcore's Rust implementation of the same algorithm; the
+        deprecated "python" backend runs on `molesq` instead - see the `backend`
+        parameter.
 
         Notes
         -----
@@ -67,7 +67,8 @@ class MovingLeastSquaresTransform(BackendMixin, BaseTransform):
             instead of materialising that matrix.
         backend : "auto" | "fastcore" | "python", optional
             Which implementation to use. `None` (default) defers to
-            `navis.config.default_transform_backend`.
+            `navis.config.default_transform_backend`. "python" is deprecated and
+            will be removed in 3.0.
 
         Examples
         --------

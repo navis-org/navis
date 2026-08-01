@@ -60,8 +60,13 @@ def test_quiet_logger_rejects_a_bad_level():
 
 # The functions that silence the logger to build a throwaway downsampled copy.
 # All take a skeleton with connectors and all used to leak on failure.
+#
+# N.B. `synapse_flow_centrality` is deliberately not in this list: it hands the
+# whole computation to fastcore and never downsamples, so it no longer opens a
+# `quiet_logger` at all. It used to be here only because the pre-fastcore
+# fallback did.
 QUIETENERS = [navis.arbor_segregation_index, navis.bending_flow,
-              navis.synapse_flow_centrality, navis.flow_centrality]
+              navis.flow_centrality]
 
 
 @pytest.mark.parametrize('func', QUIETENERS, ids=lambda f: f.__name__)
@@ -74,9 +79,6 @@ def test_failure_does_not_silence_navis(func, logger_state, monkeypatch):
     def boom(*args, **kwargs):
         raise RuntimeError('boom')
 
-    # `synapse_flow_centrality` hands the whole computation to fastcore where it
-    # can, never reaching the downsample - so take that route away
-    monkeypatch.setattr(navis.utils, 'fastcore', None)
     # Both spellings - two of the four go through the function, two the method
     monkeypatch.setattr(navis.sampling, 'downsample_neuron', boom)
     monkeypatch.setattr(navis.Skeleton, 'downsample', boom)

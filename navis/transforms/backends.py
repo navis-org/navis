@@ -29,9 +29,17 @@ The two families differ only in what the *non*-fastcore option is called:
 are accepted everywhere and mean the same thing - "do not use fastcore" - so a
 single `navis.config.default_transform_backend` can steer both families.
 
+Deprecated
+----------
+Both non-fastcore backends are deprecated as of 2.0 and will be removed in 3.0,
+now that navis-fastcore is a hard requirement. Selecting one emits a
+`DeprecationWarning`; "auto" (the default) has always preferred fastcore, so
+nothing changes for callers who never set a backend explicitly.
+
 """
 
 import functools
+import warnings
 
 from .. import config
 
@@ -44,41 +52,45 @@ FALLBACK_BACKENDS = ("binary", "python")
 BACKENDS = ("auto", "fastcore") + FALLBACK_BACKENDS
 
 
-def fastcore_transforms_available() -> bool:
-    """Whether the installed navis-fastcore can do CMTK/elastix transforms.
+#: Backends already warned about, so that a deprecated backend left set in the
+#: config does not warn on every `.backend` read. `warnings`' own per-callsite
+#: registry cannot do this for us: the warning would be attributed to whichever
+#: navis-internal frame happened to read the property.
+_WARNED_BACKENDS = set()
 
-    We probe for the classes rather than comparing `fastcore.__version__`: the
-    latter is derived from the install metadata and is unreliable (notably in
-    editable installs, where it can lag the actual build by several versions).
+
+def warn_if_deprecated_backend(backend: str, stacklevel: int) -> None:
+    """Warn once per session that `backend` is on its way out.
+
+    Called where a backend is *chosen* - `set_transform_backend`, or a transform
+    resolving one for the first time - rather than on every `.backend` read: the
+    property is resolved lazily and internal code hits it several times per
+    transform per call.
+
+    Parameters
+    ----------
+    stacklevel : int
+                Passed straight to `warnings.warn`, i.e. counted from *this*
+                function: 2 blames the caller, 3 its caller, and so on. It has to
+                land on user code or Python's default filters hide the warning
+                entirely (only `__main__` gets `default::DeprecationWarning`).
 
     """
-    # NB: must go through the module (rather than `from ..utils import fastcore`)
-    # so tests can monkeypatch `navis.utils.fastcore = None`.
-    from .. import utils
+    if backend not in FALLBACK_BACKENDS or backend in _WARNED_BACKENDS:
+        return
 
-    fc = utils.fastcore
-    return (
-        fc is not None
-        and hasattr(fc, "ElastixTransform")
-        and hasattr(fc, "CmtkRegistration")
+    _WARNED_BACKENDS.add(backend)
+    warnings.warn(
+        f'Transform backend "{backend}" is deprecated and will be removed in '
+        "navis 3.0. navis-fastcore is a hard requirement now and does these "
+        "transforms in-process - faster, with no external binaries to install, "
+        'and (for elastix) invertible. Drop the explicit backend or use "auto".',
+        DeprecationWarning,
+        stacklevel=stacklevel,
     )
 
 
-def fastcore_landmarks_available() -> bool:
-    """Whether the installed navis-fastcore can do the landmark transforms.
-
-    Probed separately from `fastcore_transforms_available` - and for the same
-    reason it probes classes rather than a version - because the two arrived in
-    different fastcore releases. An install can have one and not the other.
-
-    """
-    from .. import utils
-
-    fc = utils.fastcore
-    return fc is not None and hasattr(fc, "TpsTransform") and hasattr(fc, "MlsTransform")
-
-
-def resolve_backend(requested=None, available=None, fallback="binary") -> str:
+def resolve_backend(requested=None, fallback="binary") -> str:
     """Resolve a backend request to either "fastcore" or `fallback`.
 
     Parameters
@@ -87,9 +99,6 @@ def resolve_backend(requested=None, available=None, fallback="binary") -> str:
                 `None` defers to `navis.config.default_transform_backend`.
                 "binary" and "python" both mean "do not use fastcore"; which of
                 the two comes back is decided by `fallback`, not by the request.
-    available : callable, optional
-                Predicate deciding whether fastcore can serve this transform.
-                Defaults to the CMTK/elastix probe.
     fallback :  str
                 What to return when fastcore is not used.
 
@@ -102,23 +111,13 @@ def resolve_backend(requested=None, available=None, fallback="binary") -> str:
             f'Unknown transform backend "{requested}". Must be one of {BACKENDS}.'
         )
 
-    if available is None:
-        available = fastcore_transforms_available
-
     if requested in FALLBACK_BACKENDS:
+        warn_if_deprecated_backend(requested, stacklevel=4)
         return fallback
 
-    if requested == "fastcore":
-        if not available():
-            raise ValueError(
-                'Transform backend "fastcore" was requested but navis-fastcore is '
-                "either not installed or too old to provide this transform. "
-                "Try `pip install -U navis-fastcore`."
-            )
-        return "fastcore"
-
-    # "auto": use fastcore if we can, else fall back
-    return "fastcore" if available() else fallback
+    # Both "auto" and "fastcore" resolve to fastcore - it is a hard requirement,
+    # so there is nothing left to probe for.
+    return "fastcore"
 
 
 class BackendMixin:
@@ -133,8 +132,8 @@ class BackendMixin:
     setting `navis.config.default_transform_backend` after `import flybrains`
     would silently have no effect.
 
-    Subclasses whose fastcore implementation is not the CMTK/elastix one
-    override `_fallback_backend` and `_fastcore_available`.
+    Subclasses whose non-fastcore implementation is not the CMTK/elastix one
+    override `_fallback_backend`.
 
     """
 
@@ -143,17 +142,10 @@ class BackendMixin:
     #: What this transform calls its non-fastcore implementation.
     _fallback_backend = "binary"
 
-    #: Predicate deciding whether fastcore can serve this transform.
-    _fastcore_available = staticmethod(fastcore_transforms_available)
-
     @property
     def backend(self) -> str:
         """The backend this transform will actually use."""
-        return resolve_backend(
-            self._backend,
-            available=self._fastcore_available,
-            fallback=self._fallback_backend,
-        )
+        return resolve_backend(self._backend, fallback=self._fallback_backend)
 
 
 # Parsing a registration costs 3.5-37ms, so we cache the parsed objects. The
@@ -227,15 +219,14 @@ def set_transform_backend(backend: str = None, elastix_invertible: bool = None):
     Parameters
     ----------
     backend :   "auto" | "fastcore" | "binary" | "python", optional
-                - "auto" (default) uses navis-fastcore's in-process Rust
-                  implementation if available, and falls back to the original
-                  implementation otherwise
-                - "fastcore" forces the Rust path and raises if it isn't available
+                - "auto" (default) and "fastcore" both use navis-fastcore's
+                  in-process Rust implementation
                 - "binary"/"python" force the original implementation: the
                   external binaries (`streamxform`, `transformix`) for
                   CMTK/elastix, `morphops`/`molesq` for the landmark
                   transforms. The two names are interchangeable - each
-                  transform reports whichever fits it.
+                  transform reports whichever fits it. **Both are deprecated
+                  and will be removed in 3.0**; selecting one warns.
     elastix_invertible : bool, optional
                 Whether the bridging graph may traverse an elastix registration
                 backwards (only possible on the fastcore backend). Off by
@@ -245,7 +236,7 @@ def set_transform_backend(backend: str = None, elastix_invertible: bool = None):
     Examples
     --------
     >>> import navis
-    >>> navis.transforms.set_transform_backend('binary')
+    >>> navis.transforms.set_transform_backend('fastcore')
     >>> navis.transforms.set_transform_backend('auto')
 
     """
@@ -254,6 +245,10 @@ def set_transform_backend(backend: str = None, elastix_invertible: bool = None):
             raise ValueError(
                 f'Unknown transform backend "{backend}". Must be one of {BACKENDS}.'
             )
+        # Warn *here*, where the choice is actually made: `stacklevel=2` puts the
+        # blame on the caller's frame, which is what Python's default filters need
+        # to show it at all.
+        warn_if_deprecated_backend(backend, stacklevel=3)
         config.default_transform_backend = backend
 
     if elastix_invertible is not None:

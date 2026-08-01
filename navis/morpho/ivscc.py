@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 from scipy.stats import wasserstein_distance
 from typing import Union, Sequence
 
-from .. import config, graph, core, utils
+from .. import config, core, utils
 from . import subset_neuron, tortuosity
 
 # Set up logging
@@ -81,24 +81,18 @@ class Features(ABC):
             node_ids = self.neuron.nodes.node_id.values
             parent_ids = self.neuron.nodes.parent_id.values
 
-            if utils.fastcore:
-                dists, _ = utils.fastcore.geodesic_farthest(
+            dists, _ = utils.fastcore.geodesic_farthest(
+                node_ids,
+                parent_ids,
+                sources=leafs,
+                directed=True,
+                weights=utils.fastcore.dag.parent_dist(
                     node_ids,
                     parent_ids,
-                    sources=leafs,
-                    directed=True,
-                    weights=utils.fastcore.dag.parent_dist(
-                        node_ids,
-                        parent_ids,
-                        self.neuron.nodes[["x", "y", "z"]].values,
-                        root_dist=0,
-                    ),
-                )
-            else:
-                dmat = graph.geodesic_matrix(self.neuron, leafs, directed=True)
-                # Replace infinities with -1
-                dmat[dmat == float("inf")] = -1
-                dists = dmat.values.max(axis=1)
+                    self.neuron.nodes[["x", "y", "z"]].values,
+                    root_dist=0,
+                ),
+            )
 
             self.max_leaf_dist = pd.Series(dists, index=leafs)
 

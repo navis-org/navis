@@ -14,22 +14,8 @@ import numpy as np
 import pytest
 
 import navis
-from navis import utils
+
 from navis.core.core_utils import tangents_and_alpha, _degenerate_mask
-
-HAS_FASTCORE_DOTPROPS = utils.fastcore is not None and hasattr(
-    utils.fastcore, "dotprops"
-)
-
-needs_fastcore = pytest.mark.skipif(
-    not HAS_FASTCORE_DOTPROPS, reason="navis-fastcore has no `dotprops`"
-)
-
-
-@pytest.fixture
-def no_fastcore(monkeypatch):
-    """Force the scipy/numpy path."""
-    monkeypatch.setattr(utils, "fastcore", None)
 
 
 @pytest.fixture
@@ -247,60 +233,76 @@ def test_recalculate_tangents_dtypes(dtype):
     assert out.vect.dtype == expected and out.alpha.dtype == expected
 
 
-# ------------------------------------------------------------ backend parity
+# ------------------------------------------------------- against the definition
 
 
-@needs_fastcore
 @pytest.mark.parametrize("k", [5, 20])
-def test_backend_parity_on_a_real_neuron(k, monkeypatch):
-    """Both backends must agree on everything but tie-broken neighbourhoods."""
-    n = navis.example_neurons(1, kind="skeleton")
+def test_tangents_match_an_explicit_pca(k):
+    """Ground truth: for each point, take its k nearest neighbours, form the
+    scatter matrix about their centroid and take its principal direction.
 
-    fast = navis.make_dotprops(n, k=k)
-    monkeypatch.setattr(utils, "fastcore", None)
-    slow = navis.make_dotprops(n, k=k)
+    Computed here with an explicit KD-tree and per-point SVD - the definition,
+    written out - rather than by asking a second implementation.
+    """
+    from scipy.spatial import cKDTree
 
-    assert len(fast.points) == len(slow.points)
-    assert np.array_equal(np.asarray(fast.points), np.asarray(slow.points))
-
-    dots = np.abs(np.einsum("ij,ij->i", np.asarray(fast.vect, float),
-                            np.asarray(slow.vect, float)))
-    # Ties are the only legitimate source of disagreement and are rare.
-    differing = (dots < 1 - 1e-5).mean()
-    assert differing < 0.05, f"{differing:.1%} of tangents differ - too many"
-
-
-@needs_fastcore
-def test_backend_parity_without_ties(monkeypatch):
-    """With no tied distances the two backends must agree to floating point."""
     rng = np.random.default_rng(0)
-    pts = rng.normal(size=(2000, 3)) * 100
+    pts = rng.normal(size=(500, 3)) * 100  # continuous coords -> no tied distances
 
-    v_fast, a_fast = tangents_and_alpha(pts, 10)
-    monkeypatch.setattr(utils, "fastcore", None)
-    v_slow, a_slow = tangents_and_alpha(pts, 10)
+    vect, alpha = tangents_and_alpha(pts, k)
 
-    assert np.allclose(a_fast, a_slow, atol=1e-12)
-    assert np.allclose(np.abs(np.einsum("ij,ij->i", v_fast, v_slow)), 1, atol=1e-10)
+    tree = cKDTree(pts)
+    _, ix = tree.query(pts, k=k)
+    nb = pts[ix.reshape(len(pts), k)]
+    cpt = nb - nb.mean(axis=1)[:, None, :]
+    inertia = cpt.transpose((0, 2, 1)) @ cpt
+    _, s, vh = np.linalg.svd(inertia)
+
+    expected_vect = vh[:, 0, :]
+    expected_alpha = (s[:, 0] - s[:, 1]) / s.sum(axis=1)
+
+    assert np.allclose(alpha, expected_alpha, atol=1e-10)
+    # Eigenvectors are only defined up to sign, so compare |dot|
+    dots = np.abs(np.einsum("ij,ij->i", vect, expected_vect))
+    assert np.allclose(dots, 1, atol=1e-8)
 
 
-@needs_fastcore
-def test_backend_parity_on_degenerates(monkeypatch):
-    """The alpha=0 / unit-vector convention must match across backends."""
+def test_tangents_are_unit_vectors_and_alpha_is_bounded():
+    """Whatever the input, the tangents are unit length and alpha lies in [0, 1]."""
+    rng = np.random.default_rng(1)
+    pts = rng.normal(size=(1000, 3)) * 100
+
+    vect, alpha = tangents_and_alpha(pts, 10)
+
+    assert np.allclose(np.linalg.norm(vect, axis=1), 1)
+    assert ((alpha >= 0) & (alpha <= 1)).all()
+
+
+def test_tangents_on_a_straight_line_point_along_it():
+    """A perfectly collinear neighbourhood has alpha 1 and a tangent along the line."""
+    pts = np.stack([np.arange(100.0), np.zeros(100), np.zeros(100)], axis=1)
+
+    vect, alpha = tangents_and_alpha(pts, 5)
+
+    assert np.allclose(alpha, 1, atol=1e-6)
+    assert np.allclose(np.abs(vect[:, 0]), 1, atol=1e-6)
+
+
+def test_degenerate_neighbourhoods_are_zero_not_nan():
+    """A neighbourhood of coincident points has a zero scatter matrix, i.e. 0/0.
+    It must be reported as alpha 0 with some unit vector, never a NaN.
+    """
     pts = np.vstack([np.zeros((6, 3)), np.arange(60.0).reshape(20, 3)])
 
-    v_fast, a_fast = tangents_and_alpha(pts, 5)
-    monkeypatch.setattr(utils, "fastcore", None)
-    v_slow, a_slow = tangents_and_alpha(pts, 5)
+    vect, alpha = tangents_and_alpha(pts, 5)
 
-    assert np.allclose(a_fast[:6], 0) and np.allclose(a_slow[:6], 0)
-    assert not np.isnan(a_fast).any() and not np.isnan(a_slow).any()
-    assert np.allclose(np.linalg.norm(v_fast, axis=1), 1)
-    assert np.allclose(np.linalg.norm(v_slow, axis=1), 1)
+    assert np.allclose(alpha[:6], 0)
+    assert not np.isnan(alpha).any()
+    assert not np.isnan(vect).any()
+    assert np.allclose(np.linalg.norm(vect, axis=1), 1)
 
 
-def test_make_dotprops_without_fastcore(no_fastcore):
-    """The scipy fallback must still produce usable dotprops."""
+def test_make_dotprops_produces_usable_dotprops():
     n = navis.example_neurons(1, kind="skeleton")
     dp = navis.make_dotprops(n, k=5)
     assert len(dp.points) > 0

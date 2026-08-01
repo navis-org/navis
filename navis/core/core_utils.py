@@ -20,7 +20,7 @@ import numpy as np
 import trimesh as tm
 
 from collections import namedtuple
-from scipy.spatial import cKDTree
+
 from typing import Union, Optional, Callable
 from typing_extensions import Literal
 
@@ -41,15 +41,12 @@ def tangents_and_alpha(points, k):
     scatter matrix of that neighbourhood about its centroid, and return the
     principal direction plus `(l1 - l2) / (l1 + l2 + l3)` for its eigenvalues.
 
-    Uses `navis_fastcore.dotprops` if available - it fuses the k-NN and the
-    eigendecomposition into one parallel Rust pass and is ~15x faster than the
-    `cKDTree` + N-SVDs route below - and falls back to scipy/numpy otherwise.
+    `navis_fastcore.dotprops` fuses the k-NN and the eigendecomposition into one
+    parallel Rust pass.
 
-    Note the two agree exactly except where the k-NN search hits a *tied*
-    distance, which grid-quantised coordinates produce readily: there the k-th
-    neighbour is ambiguous and the two trees may pick different points. That
-    affects ~0.3% of points on the example neurons and moves NBLAST scores by
-    ~1e-4 without changing match ranking.
+    Note that where the k-NN search hits a *tied* distance - which grid-quantised
+    coordinates produce readily - the k-th neighbour is ambiguous and which point
+    is picked is arbitrary (though deterministic).
 
     Parameters
     ----------
@@ -62,46 +59,11 @@ def tangents_and_alpha(points, k):
     vect :      (N, 3) array
                 Unit tangent vectors. The sign is arbitrary (an eigenvector is
                 only defined up to sign, and NBLAST scores on `|dot|`) but
-                deterministic within a backend.
+                deterministic.
     alpha :     (N, ) array
 
     """
-    if utils.fastcore is not None and hasattr(utils.fastcore, 'dotprops'):
-        return utils.fastcore.dotprops(points, k=k)
-
-    tree = cKDTree(points)
-    _, ix = tree.query(points, k=k)
-
-    # This makes sure we have a (N, k) shaped array even if k = 1
-    ix = ix.reshape(points.shape[0], k)
-
-    # Get points: array of (N, k, 3)
-    pt = points[ix]
-
-    # Generate centers for each cloud of k nearest neighbors
-    centers = np.mean(pt, axis=1)
-
-    # Generate vector from center
-    cpt = pt - centers.reshape((pt.shape[0], 1, 3))
-
-    # Get inertia (N, 3, 3)
-    inertia = cpt.transpose((0, 2, 1)) @ cpt
-
-    # Extract vector and alpha
-    u, s, vh = np.linalg.svd(inertia)
-    vect = vh[:, 0, :]
-    with np.errstate(invalid='ignore'):
-        alpha = (s[:, 0] - s[:, 1]) / np.sum(s, axis=1)
-
-    # A neighbourhood of coincident points has a zero scatter matrix, so alpha
-    # is 0/0. Report it as 0 with an arbitrary unit vector - matching fastcore -
-    # rather than a NaN that would silently poison every downstream score.
-    degen = ~np.isfinite(alpha)
-    if degen.any():
-        alpha = np.where(degen, 0.0, alpha)
-        vect = np.where(degen[:, None], np.array([1.0, 0.0, 0.0]), vect)
-
-    return vect, alpha
+    return utils.fastcore.dotprops(points, k=k)
 
 
 def _degenerate_mask(points, k, alpha):
@@ -112,7 +74,7 @@ def _degenerate_mask(points, k, alpha):
     the symptom of duplicate coordinates in the input.
 
     `alpha == 0` exactly is a *necessary* condition (a zero scatter matrix gives
-    0/0, which both backends report as 0) and is free to test, so it is used to
+    0/0, which is reported as 0) and is free to test, so it is used to
     skip the expensive part: an exact duplicate count costs ~2.5x the tangent
     computation itself, and on real data no point trips the prefilter at all.
     It is not *sufficient* - a perfectly symmetric neighbourhood can also give

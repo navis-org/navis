@@ -90,11 +90,11 @@ Before we get our feet wet, two things to keep in mind:
 
     - **`n_cores`**: every NBLAST function takes one, and it defaults to half your cores. This is the main dial.
     - **[pykdtree](https://github.com/storpipfugl/pykdtree)** (`pip3 install pykdtree`) gives the nearest-neighbour search a ~2x boost.
-    - **[navis-fastcore](https://github.com/schlegelp/fastcore-rs)** (`pip3 install navis-fastcore`) reimplements {{ navis }}' hot paths in Rust.
-      {{ navis }} reaches for it on its own wherever it can - generating the dotprops, for one - but its NBLAST *backend* is a separate,
-      opt-in thing: see [choosing a backend](#choosing-a-backend) below.
+    - **[navis-fastcore](https://github.com/schlegelp/fastcore-rs)** reimplements {{ navis }}' hot paths in Rust. It is a required
+      dependency, so you already have it, and {{ navis }} reaches for it on its own wherever it can - generating the dotprops, for one.
+      Its NBLAST *backend*, though, is a separate and opt-in thing: see [choosing a backend](#choosing-a-backend) below.
 
-    If you installed {{ navis }} with the `pip install navis[all]` option you already have all of these.
+    If you installed {{ navis }} with the `pip install navis[all]` option you already have `pykdtree` too.
 
     See [Scaling up](#scaling-up) at the end for what to do when one machine is not enough.
 
@@ -190,7 +190,7 @@ plt.tight_layout()
 # | [`navis.nblast`][] | classic query :octicons-arrow-right-24: target NBLAST | matching neurons between two datasets |
 # | [`navis.nblast_allbyall`][] | pairwise, all-by-all NBLAST | clustering neurons into morphologically similar groups |
 # | [`navis.nblast_smart`][] | a "smart" NBLAST that cuts corners | running very large NBLASTs |
-# | [`navis.nblast_knn`][] | only the top `k` matches per query | matching against a large reference set (needs navis-fastcore) |
+# | [`navis.nblast_knn`][] | only the top `k` matches per query | matching against a large reference set |
 #
 # ## Another flavour: syNBLAST
 #
@@ -363,7 +363,7 @@ plt.tight_layout()
 # | Backend | Needs | Notes |
 # |---|---|---|
 # | `builtin` | — | {{ navis }}' own implementation, and the default. Supports every option, and is the only one that can spread an NBLAST across machines. |
-# | `fastcore` | `pip install navis-fastcore` | NBLAST reimplemented in Rust — considerably faster, and computes the whole matrix in one call. Doesn't support `approx_nn`, `scores="both"` or custom/analytic scoring functions. |
+# | `fastcore` | — | NBLAST reimplemented in Rust — considerably faster, and computes the whole matrix in one call. Doesn't support `approx_nn`, `scores="both"` or custom/analytic scoring functions. |
 #
 # `backend="auto"` picks the fastest backend that can serve the request and falls back to
 # `builtin` for anything it can't. Set it for the whole session with
@@ -376,7 +376,7 @@ plt.tight_layout()
 # !!! tip "Don't build a matrix you're going to throw away"
 #     If all you want is the best few matches per query — the usual case when matching
 #     against a large reference set — [`navis.nblast_knn`][] returns just those instead of
-#     materialising the full `N x M` matrix. It needs `navis-fastcore`.
+#     materialising the full `N x M` matrix.
 #
 # ### Another set of machines
 #
@@ -413,8 +413,8 @@ plt.tight_layout()
 # !!! warning "`fastcore` stays on one machine"
 #     The `fastcore` backend computes the whole matrix in a single Rust call using its own
 #     threads, so it has nothing to hand to a parallel backend and will run everything
-#     locally. That's not the default — but it *is* what `backend="auto"` picks where
-#     navis-fastcore is installed, so use `backend="builtin"` when you mean to distribute.
+#     locally. That's not the default — but it *is* what `backend="auto"` picks, so use
+#     `backend="builtin"` when you mean to distribute.
 #
 # See the [multiprocessing tutorial](../6_misc/tutorial_misc_00_multiprocess) for the full
 # picture on backends.

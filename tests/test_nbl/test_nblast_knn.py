@@ -1,7 +1,7 @@
 """Tests for `navis.nblast_knn`.
 
 Unlike the other NBLAST functions this one has no built-in implementation - it
-exists only in navis-fastcore - so everything here skips without it.
+exists only in navis-fastcore, which is a hard requirement.
 
 The parity tests below compare against a full `nblast_allbyall` with a
 tolerance rather than asserting exact equality.
@@ -26,20 +26,6 @@ import pandas as pd
 import pytest
 
 import navis
-from navis.nbl.backends import get_backend
-
-HAS_KNN = (
-    get_backend("fastcore").available()
-    and not get_backend("fastcore").unsupported("nblast_knn")
-)
-
-needs_knn = pytest.mark.skipif(
-    not HAS_KNN, reason="navis-fastcore does not provide `nblast_knn`"
-)
-
-pytestmark = needs_knn
-
-
 @pytest.fixture(scope="module")
 def dps():
     """Example neurons as dotprops, in microns (what the FCWB matrix expects)."""
@@ -212,33 +198,8 @@ def test_builtin_backend_is_rejected(dps):
         navis.nblast_knn(dps, k=2, backend="builtin", progress=False)
 
 
-def test_without_fastcore(dps, monkeypatch):
-    """Without fastcore we must raise, not fall back to a backend that can't."""
-    from navis import utils
-
-    monkeypatch.setattr(utils, "fastcore", None)
-    with pytest.raises(ValueError, match="No available NBLAST backend"):
-        navis.nblast_knn(dps, k=2, progress=False)
-
-
-def test_with_outdated_fastcore(dps, monkeypatch):
-    """An older fastcore serves the other operations but must be told apart."""
-    from navis import utils
-
-    real = utils.fastcore
-
-    class Outdated:
-        def __getattr__(self, name):
-            if name == "nblast_knn":
-                raise AttributeError(name)
-            return getattr(real, name)
-
-    monkeypatch.setattr(utils, "fastcore", Outdated())
-    with pytest.raises(ValueError, match="too old"):
-        navis.nblast_knn(dps, k=2, progress=False)
-
-    # ... and the operations it *does* have still work
-    assert navis.nblast_allbyall(dps, backend="fastcore", progress=False).shape == (
-        len(dps),
-        len(dps),
-    )
+# N.B. there used to be two tests here for a missing or too-old navis-fastcore.
+# Both are gone with the optional dependency: fastcore is required now, and the
+# version floor (`>=0.9.0`) guarantees `nblast_knn`, so neither state is
+# reachable. `test_builtin_backend_rejected` above still covers the one case
+# that remains - asking a backend that genuinely does not implement k-NN.

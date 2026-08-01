@@ -14,42 +14,22 @@
 
 """This module contains functions to analyse and manipulate neuron morphology."""
 
-import warnings
-
 import pandas as pd
 import numpy as np
 import networkx as nx
 import sparsecubes
 import trimesh as tm
 
-from itertools import combinations
-from typing import Union, Optional, Sequence, List, Set, Tuple, Callable
+from typing import Union, Optional, Sequence, List, Set, Callable
 from typing_extensions import Literal
 
-try:
-    from pykdtree.kdtree import KDTree
-except ModuleNotFoundError:
-    from scipy.spatial import cKDTree as KDTree
-
 import scipy.spatial
-
-from scipy.sparse import coo_matrix
-from scipy.sparse.csgraph import breadth_first_order
-from scipy.sparse.csgraph import connected_components as _sparse_cc
 
 from . import mmetrics, subset
 from .. import graph, utils, config, core
 
 # Set up logging
 logger = config.get_logger(__name__)
-
-# Knobs for the nearest-neighbour search in `_stitch_edges`:
-# - the largest `k` we are willing to escalate to before falling back to an
-#   exclusion query (see `_resolve_by_exclusion`)
-# - the largest (nodes x k) neighbour matrix we allow ourselves to materialise;
-#   queries are chunked to stay below this, which keeps memory flat in `k`
-_KNN_MAX_K = 128
-_KNN_MAX_ELEMENTS = 2_000_000
 
 __all__ = sorted(
     [
@@ -464,71 +444,33 @@ def _prune_twigs_simple(
     else:
         mask_nodes = None
 
-    if utils.fastcore:
-        nodes_to_keep = utils.fastcore.prune_twigs(
+    nodes_to_keep = utils.fastcore.prune_twigs(
+        neuron.nodes.node_id.values,
+        neuron.nodes.parent_id.values,
+        threshold=size,
+        weights=utils.fastcore.dag.parent_dist(
             neuron.nodes.node_id.values,
             neuron.nodes.parent_id.values,
-            threshold=size,
-            weights=utils.fastcore.dag.parent_dist(
-                neuron.nodes.node_id.values,
-                neuron.nodes.parent_id.values,
-                neuron.nodes[["x", "y", "z"]].values,
-            ),
-            mask=(
-                neuron.nodes.node_id.isin(mask_nodes).values
-                if mask_nodes is not None
-                else None
-            ),
-        )
+            neuron.nodes[["x", "y", "z"]].values,
+        ),
+        mask=(
+            neuron.nodes.node_id.isin(mask_nodes).values
+            if mask_nodes is not None
+            else None
+        ),
+    )
 
-        if len(nodes_to_keep) < neuron.n_nodes:
-            subset.subset_neuron(neuron, nodes_to_keep, inplace=True)
+    if len(nodes_to_keep) < neuron.n_nodes:
+        subset.subset_neuron(neuron, nodes_to_keep, inplace=True)
 
-            if recursive:
-                _prune_twigs_simple(
-                    neuron,
-                    size=size,
-                    inplace=True,
-                    recursive=recursive - 1,
-                    mask=mask_nodes,
-                )
-    else:
-        # Find terminal nodes
-        leafs = neuron.nodes[neuron.nodes.type == "end"].node_id.values
-
-        # Find terminal segments
-        segs = graph._break_segments(neuron)
-        segs = np.array([s for s in segs if s[0] in leafs], dtype=object)
-
-        # Get segment lengths
-        seg_lengths = np.array([graph.segment_length(neuron, s) for s in segs])
-
-        # Find out which to delete
-        segs_to_delete = segs[seg_lengths <= size]
-
-        # If mask is given, only consider nodes in mask
-        if mask_nodes is not None:
-            segs_to_delete = [s for s in segs_to_delete if s[0] in mask_nodes]
-
-        if len(segs_to_delete):
-            # Unravel the into list of node IDs -> skip the last parent
-            nodes_to_delete = [n for s in segs_to_delete for n in s[:-1]]
-
-            # Subset neuron
-            nodes_to_keep = neuron.nodes[
-                ~neuron.nodes.node_id.isin(nodes_to_delete)
-            ].node_id.values
-            subset.subset_neuron(neuron, nodes_to_keep, inplace=True)
-
-            # Go recursive
-            if recursive:
-                prune_twigs(
-                    neuron,
-                    size=size,
-                    inplace=True,
-                    recursive=recursive - 1,
-                    mask=mask_nodes,
-                )
+        if recursive:
+            _prune_twigs_simple(
+                neuron,
+                size=size,
+                inplace=True,
+                recursive=recursive - 1,
+                mask=mask_nodes,
+            )
 
     return neuron
 
@@ -542,46 +484,21 @@ def _subtree_height(neuron: "core.Skeleton", weight: str = "weight") -> pd.Serie
     them runs straight down and `dist(v -> l) == depth(l) - depth(v)`. That turns
     "how far is the furthest leaf under v" into "what is the deepest leaf under v",
     which one upward sweep answers.
-
-    Uses `navis_fastcore.subtree_height` if available.
     """
     nid = neuron.nodes.node_id.values
     pid = neuron.nodes.parent_id.values
 
-    if utils.fastcore:
-        heights = utils.fastcore.subtree_height(
-            nid,
-            pid,
-            weights=None
-            if weight is None
-            else utils.fastcore.dag.parent_dist(
-                nid, pid, neuron.nodes[["x", "y", "z"]].values, root_dist=0
-            ),
-        )
-        # Fastcore works in float32; keep the float64 the callers used to get
-        return pd.Series(np.asarray(heights, dtype=float), index=nid)
-
-    ix = {n: i for i, n in enumerate(nid.tolist())}
-    parent_ix = np.array([ix.get(p, -1) for p in pid.tolist()], dtype=np.int64)
-
-    d = graph.dist_to_root(neuron, weight=weight)
-    depth = np.array([d[n] for n in nid.tolist()], dtype=float)
-
-    # Leafs are the nodes that are nobody's parent
-    leaf_ix = np.where(~np.isin(nid, pid))[0]
-
-    # Walk up from each leaf, deepest first. Once we hit a node already carrying a
-    # value >= ours, every ancestor above it does too and we can stop - so each
-    # node is written exactly once and the whole sweep is O(N).
-    deepest = np.full(len(nid), -np.inf)
-    for i in leaf_ix[np.argsort(-depth[leaf_ix])]:
-        dl = depth[i]
-        v = i
-        while v != -1 and deepest[v] < dl:
-            deepest[v] = dl
-            v = parent_ix[v]
-
-    return pd.Series(deepest - depth, index=nid)
+    heights = utils.fastcore.subtree_height(
+        nid,
+        pid,
+        weights=None
+        if weight is None
+        else utils.fastcore.dag.parent_dist(
+            nid, pid, neuron.nodes[["x", "y", "z"]].values, root_dist=0
+        ),
+    )
+    # Fastcore works in float32; keep the float64 the callers used to get
+    return pd.Series(np.asarray(heights, dtype=float), index=nid)
 
 
 def _prune_twigs_precise(
@@ -2262,10 +2179,19 @@ def _stitch_mst(
     min_size: Optional[float] = None,
     use_radius: Union[bool, float] = False,
     mask: Optional[Sequence] = None,
-    progress: bool = False,
     inplace: bool = False,
 ) -> Optional["core.Skeleton"]:
     """Stitch disconnected neuron using a minimum spanning tree.
+
+    `fastcore.heal_skeleton` builds a minimum spanning tree over the fragments,
+    pruning its nearest-neighbour search *by fragment* - which is what a plain
+    KDTree over all candidate nodes cannot do, and why this is orders of
+    magnitude faster whenever the fragments are separated by an actual gap (the
+    norm for real, fragmented skeletons).
+
+    Note that where several bridges are of exactly the same length the choice
+    between them is arbitrary: the MST is not unique, so an equally valid tree of
+    identical total length may assign a different `parent_id` column.
 
     Parameters
     ----------
@@ -2292,9 +2218,6 @@ def _stitch_mst(
     mask :          list-like, optional
                     Either a boolean mask or a list of node IDs. If provided
                     will only heal breaks between these nodes.
-    progress :      bool
-                    If True, show a progress bar tracking the fragments as they
-                    are merged.
     inplace :       bool
                     If True, will stitch the original neuron in place.
 
@@ -2327,114 +2250,13 @@ def _stitch_mst(
             "Neuron must have a `radius` column for the `use_radius` option"
         )
 
-    # Fast path: fastcore's stitcher prunes the nearest-neighbour search by
-    # fragment, which our KDTree can't do (see `_stitch_edges`). That makes it
-    # orders of magnitude faster whenever the fragments are separated by an
-    # actual gap - which is the norm for real, fragmented skeletons.
-    if utils.fastcore is not None and hasattr(utils.fastcore, "heal_skeleton"):
-        return _stitch_fastcore(
-            x,
-            nodes=nodes,
-            max_dist=max_dist,
-            min_size=min_size,
-            use_radius=use_radius,
-            mask=mask,
-            inplace=inplace,
-        )
-
-    # Get the fragment each node belongs to (as a positionally aligned array)
-    cc, n_comp = _component_labels(x)
-    if n_comp == 1:
-        # There's only one component -- no healing necessary
-        return x
-
-    to_use = x.nodes
-
-    # Collect the restrictions on which nodes may be used to bridge fragments in
-    # a single mask - subsetting the node table once is much cheaper than doing
-    # it for each restriction in turn.
-    keep = np.ones(len(to_use), dtype=bool)
-
-    # Drop fragments smaller than threshold
-    if not isinstance(min_size, type(None)):
-        sizes = np.bincount(cc, minlength=n_comp)
-        keep &= sizes[cc] >= min_size
-
-    # Filter to leaf nodes if applicable
-    if nodes == "LEAFS":
-        keep &= to_use["type"].isin(["end", "root"]).values
-
-    # If mask, drop everything that is not in the mask
-    if not isinstance(mask, type(None)):
-        keep &= to_use.node_id.isin(mask).values
-
-    if not keep.all():
-        to_use = to_use.iloc[keep]
-        cc = cc[keep]
-
-    # Prepare the data
-    cols_to_use = ["x", "y", "z"]
-    if use_radius:
-        to_use = to_use.copy()
-        to_use["radius_seg"] = _segment_radii(x, to_use, use_radius)
-        cols_to_use.append("radius_seg")
-
-    # Find the bridges that connect the fragments with minimal added cable
-    to_add = _stitch_edges(
-        to_use[cols_to_use].values,
-        to_use.node_id.values,
-        cc,
-        max_dist,
-        progress=progress,
-    )
-
-    # Rewire the neuron: add the bridges to the existing edges and re-root
-    return _rewire_from_edges(x, to_add, inplace=inplace)
-
-
-def _stitch_fastcore(
-    x: "core.Skeleton",
-    nodes: Union[Literal["LEAFS"], Literal["ALL"]] = "ALL",
-    max_dist: Optional[float] = np.inf,
-    min_size: Optional[int] = None,
-    use_radius: Union[bool, float] = False,
-    mask: Optional[Sequence] = None,
-    inplace: bool = False,
-) -> "core.Skeleton":
-    """Stitch a fragmented neuron using fastcore.
-
-    This is the fast path for [`_stitch_mst`][]: `fastcore.heal_skeleton` finds
-    the same minimum spanning tree over the fragments but prunes its search by
-    fragment, which a KDTree cannot do (see `_stitch_edges` for why that matters).
-
-    Note that where several bridges are of exactly the same length the two
-    implementations may pick different ones. Both trees are then valid minimum
-    spanning trees of identical total length - the MST simply isn't unique - but
-    the resulting `parent_id` column may differ.
-
-    Parameters
-    ----------
-    x :             Skeleton
-    nodes :         "ALL" | "LEAFS"
-    max_dist :      float
-                    Use `np.inf` for no limit.
-    min_size :      int, optional
-    use_radius :    bool | float
-    mask :          array of node IDs, optional
-    inplace :       bool
-
-    Returns
-    -------
-    Skeleton
-
-    """
     fastcore = utils.fastcore
 
     node_ids = x.nodes.node_id.values
     parent_ids = x.nodes.parent_id.values
 
     # Bail if there is only one fragment. Note we deliberately return `x`
-    # untouched (rather than a rewired copy) to match `_stitch_mst`.
+    # untouched rather than a rewired copy.
     if len(np.unique(fastcore.connected_components(node_ids, parent_ids))) == 1:
         return x
 
@@ -2455,501 +2277,9 @@ def _stitch_fastcore(
         x = x.copy()
 
     x.nodes["parent_id"] = new_parents
-
     x._clear_temp_attr()
 
     return x
-
-
-def _component_labels(x: "core.Skeleton") -> Tuple[np.ndarray, int]:
-    """Label each node with the connected component (fragment) it belongs to.
-
-    Unlike [`navis.graph._connected_components`][] this returns a plain integer
-    array positionally aligned with the node table rather than a list of sets.
-    That matters here: turning the sets back into a per-node label used to go via
-    a `{node_id: component}` dict and a `.map()` over it, which is a Python-level
-    pass over every node and dominated the runtime of `_stitch_mst` on large
-    skeletons.
-
-    Parameters
-    ----------
-    x :         Skeleton
-
-    Returns
-    -------
-    labels :    (N, ) int array
-                Component label for each node, in node table order. Labels are
-                contiguous (`0 .. n_components - 1`) but otherwise arbitrary.
-    n :         int
-                Number of connected components.
-
-    """
-    node_ids = x.nodes.node_id.values
-    parent_ids = x.nodes.parent_id.values
-    N = len(node_ids)
-
-    if not N:
-        return np.zeros(0, dtype=np.int64), 0
-
-    # Existing child -> parent edges (roots have no parent and are dropped)
-    id2ix = pd.Series(np.arange(N), index=node_ids)
-    par_ix = id2ix.reindex(parent_ids).values
-    has_parent = ~np.isnan(par_ix)
-
-    edges = np.stack(
-        [np.arange(N)[has_parent], par_ix[has_parent].astype(np.int64)], axis=1
-    )
-
-    if utils.fastcore is not None and hasattr(
-        utils.fastcore, "connected_components_graph"
-    ):
-        # Straight off the edge list - no sparse matrix to build. N.B. fastcore
-        # labels each component by its *smallest member index*, but callers
-        # index a `bincount` with these, so relabel to a contiguous 0..n-1.
-        labels = utils.fastcore.connected_components_graph(edges, N)
-        uniq, labels = np.unique(labels, return_inverse=True)
-        return labels.astype(np.int64, copy=False).reshape(-1), len(uniq)
-
-    adj = coo_matrix(
-        (np.ones(len(edges), dtype=np.int8), (edges[:, 0], edges[:, 1])),
-        shape=(N, N),
-    ).tocsr()
-
-    n, labels = _sparse_cc(adj, directed=False)
-
-    return labels, int(n)
-
-
-def _segment_radii(
-    x: "core.Skeleton",
-    to_use: pd.DataFrame,
-    use_radius: Union[bool, float],
-) -> pd.Series:
-    """Radius to use as an extra "spatial" dimension when stitching.
-
-    For each node this is the mean radius of the segment it belongs to, scaled by
-    `use_radius`. Using the segment mean rather than the node's own radius makes
-    the value more robust to noisy per-node radii.
-
-    Isolated nodes (a root without children) belong to no segment and therefore
-    have no segment radius; they fall back to their own radius, and to 0 if that
-    is missing too.
-
-    Parameters
-    ----------
-    x :             Skeleton
-                    The (fragmented) neuron. Segments are taken from here, i.e.
-                    from *all* nodes - not just the candidates.
-    to_use :        DataFrame
-                    Node table of the candidate nodes to return radii for.
-    use_radius :    bool | float
-                    Scaling factor for the radius: higher values give the radius
-                    more influence over which nodes get bridged.
-
-    Returns
-    -------
-    pandas.Series
-                    Scaled radius for each node in `to_use` (same index).
-
-    """
-    if "radius" not in x.nodes.columns:
-        raise ValueError(
-            "Neuron must have a `radius` column for the `use_radius` option"
-        )
-
-    rad = dict(zip(x.nodes.node_id.values, x.nodes.radius.values))
-
-    # Mean radius of each node's segment
-    seg_rad = {}
-    for seg in x.small_segments:
-        rad_mean = np.mean([rad[node] for node in seg]) * float(use_radius)
-        seg_rad.update({node: rad_mean for node in seg})
-
-    # Note that the fallback must be mapped through `node_id`: passing the `rad`
-    # dict straight to `.fillna()` would key it off the DataFrame's *index*
-    # instead and hand isolated nodes some other node's radius. It also has to be
-    # scaled, just like the segment radii above.
-    own_rad = to_use.node_id.map(rad) * float(use_radius)
-
-    return to_use.node_id.map(seg_rad).fillna(own_rad).fillna(0)
-
-
-def _rewire_from_edges(
-    x: "core.Skeleton",
-    new_edges: Sequence,
-    inplace: bool = False,
-) -> "core.Skeleton":
-    """Regenerate a neuron's `parent_id` column after adding new edges.
-
-    This is the counterpart to `_stitch_edges`: it takes the neuron's existing
-    child->parent edges plus a set of new (undirected) edges and re-derives a
-    valid rooted forest via a single breadth-first search.
-
-    Note that we deliberately do *not* compute a minimum spanning tree here (as
-    e.g. [`navis.rewire_skeleton`][] does): the bridges produced by
-    `_stitch_edges` each merge two *distinct* fragments, so the resulting graph
-    is guaranteed to be acyclic already. A plain BFS is both sufficient and much
-    faster.
-
-    Parameters
-    ----------
-    x :         Skeleton
-                Neuron to rewire.
-    new_edges : (M, 2) array-like
-                Pairs of node IDs to connect. Can be empty.
-    inplace :   bool
-                If True, will rewire `x` in place.
-
-    Returns
-    -------
-    Skeleton
-
-    """
-    if not inplace:
-        x = x.copy()
-
-    node_ids = x.nodes.node_id.values
-    parent_ids = x.nodes.parent_id.values
-    N = len(node_ids)
-
-    if not N:
-        return x
-
-    # We map node IDs to positional indices which requires unique IDs. This is a
-    # given for Skeletons but let's fail loudly rather than silently produce
-    # garbage if it ever isn't.
-    id2ix = pd.Series(np.arange(N), index=node_ids)
-    if not id2ix.index.is_unique:
-        raise ValueError("Unable to rewire neuron with duplicate node IDs.")
-
-    # Existing child -> parent edges (roots map to NaN and are dropped)
-    par_ix = id2ix.reindex(parent_ids).values
-    has_parent = ~np.isnan(par_ix)
-    sources = np.arange(N)[has_parent]
-    targets = par_ix[has_parent].astype(np.int64)
-
-    # Add the new edges
-    new_edges = np.asarray(new_edges).reshape(-1, 2)
-    if len(new_edges):
-        sources = np.concatenate([sources, id2ix.loc[new_edges[:, 0]].values])
-        targets = np.concatenate([targets, id2ix.loc[new_edges[:, 1]].values])
-
-    # Pick a seed (i.e. the new root) for each connected component:
-    # 1. The neuron's current root if the component contains it
-    # 2. Else any other pre-existing root in the component
-    # 3. Else the lowest-index node in the component
-    # This preserves the neuron's orientation wherever possible.
-    adj = coo_matrix(
-        (np.ones(len(sources), dtype=np.int8), (sources, targets)), shape=(N, N)
-    ).tocsr()
-    adj = adj + adj.T
-    _, labels = _sparse_cc(adj, directed=False)
-
-    seeds = np.full(labels.max() + 1, -1, dtype=np.int64)
-    # Fill in lowest-index node per component (np.unique returns the first
-    # occurrence which, since labels are in node order, is the lowest index)
-    comps, first = np.unique(labels, return_index=True)
-    seeds[comps] = first
-    # Pre-existing roots take precedence (iterate in reverse so that the *first*
-    # root in table order wins), and the current root trumps all.
-    roots = np.where(parent_ids < 0)[0]
-    for r in roots[::-1]:
-        seeds[labels[r]] = r
-
-    # Rather than running one BFS per component we attach a virtual super-root
-    # (index N) to every seed and run a single BFS from it. Each component is
-    # only reachable via its own seed, so this yields exactly the same forest.
-    sources = np.concatenate([sources, np.full(len(seeds), N, dtype=np.int64)])
-    targets = np.concatenate([targets, seeds.astype(np.int64)])
-    adj = coo_matrix(
-        (np.ones(len(sources), dtype=np.int8), (sources, targets)), shape=(N + 1, N + 1)
-    ).tocsr()
-    adj = adj + adj.T
-
-    _, preds = breadth_first_order(
-        adj, N, directed=False, return_predecessors=True
-    )
-    par_ix = preds[:N]
-
-    # Seeds have the super-root as predecessor; unreachable nodes get scipy's
-    # null marker (-9999). Both become roots (-1).
-    par_ix = np.where(par_ix >= N, -1, par_ix)
-    par_ix = np.where(par_ix < 0, -1, par_ix)
-
-    new_parents = np.full(N, -1, dtype=node_ids.dtype)
-    is_child = par_ix >= 0
-    new_parents[is_child] = node_ids[par_ix[is_child]]
-
-    x.nodes["parent_id"] = new_parents
-
-    x._clear_temp_attr()
-
-    return x
-
-
-def _resolve_by_exclusion(
-    tree,
-    coords: np.ndarray,
-    nodes: np.ndarray,
-    super_of: np.ndarray,
-    bound: np.ndarray,
-    best_dist: np.ndarray,
-    best_target: np.ndarray,
-    max_dist: float,
-) -> None:
-    """Find each node's nearest neighbour outside its own component.
-
-    This is the fallback for nodes that the `k`-nearest-neighbour search in
-    `_stitch_edges` could not resolve - i.e. nodes sitting so deep inside a large,
-    well-separated fragment that none of their `_KNN_MAX_K` nearest neighbours is
-    in another component.
-
-    Rather than escalating `k` (which would cost O(n * fragment size) in both time
-    and memory) we ask the tree for the nearest neighbour while excluding the
-    node's own component. `pykdtree` can do this directly via its `mask` argument;
-    with scipy we have to build a temporary tree over the remaining nodes.
-
-    Updates `best_dist`, `best_target` and `bound` in place.
-    """
-    if not len(nodes):
-        return
-
-    has_mask = "pykdtree" in type(tree).__module__
-    n = len(coords)
-
-    # One query per component that still has unresolved nodes
-    for comp in np.unique(super_of[nodes]):
-        in_comp = nodes[super_of[nodes] == comp]
-        is_self = super_of == comp
-
-        # We only care about edges that could still beat this component's best
-        upper = min(bound[comp], max_dist)
-
-        if has_mask:
-            dist, ix = tree.query(
-                coords[in_comp], k=1, distance_upper_bound=upper, mask=is_self
-            )
-            # pykdtree signals "nothing found" with an out-of-range index
-            found = ix < n
-        else:
-            others = np.where(~is_self)[0]
-            if not len(others):
-                continue
-            dist, ix = KDTree(coords[others]).query(
-                coords[in_comp], k=1, distance_upper_bound=upper
-            )
-            found = ix < len(others)
-            ix = others[np.where(found, ix, 0)]
-
-        dist = np.atleast_1d(dist)
-        ix = np.atleast_1d(ix)
-        found = np.atleast_1d(found) & (dist <= max_dist)
-
-        if not found.any():
-            continue
-
-        best_dist[in_comp[found]] = dist[found]
-        best_target[in_comp[found]] = ix[found]
-        bound[comp] = min(bound[comp], dist[found].min())
-
-
-def _stitch_edges(
-    coords: np.ndarray,
-    ids: np.ndarray,
-    cc: np.ndarray,
-    max_dist: float,
-    progress: bool = False,
-) -> np.ndarray:
-    """Find the minimal-length set of edges connecting a labelled point set.
-
-    This is Borůvka's algorithm over the fragments: in each round every
-    (super-)component contributes its single cheapest outgoing edge, those edges
-    are added and the components they connect are merged. The number of
-    components at least halves each round, so only O(log F) rounds are needed.
-    The result is a true minimum spanning tree over the fragments.
-
-    The expensive part is finding, for every node, its nearest neighbour in a
-    *different* component. We do this by querying a single KDTree (built once)
-    for each node's `k` nearest neighbours and taking the first one that sits in
-    another component. Nodes for which none of the `k` neighbours qualify - i.e.
-    those sitting deep inside a large fragment - escalate to a larger `k`.
-
-    The escalation is kept in check by a per-component bound: the length of the
-    best cross-component edge any of the component's nodes has found so far this
-    round. Once a node's k-th neighbour is farther away than that bound, the node
-    cannot possibly supply the component's minimum and is dropped. This keeps the
-    result exact while confining the deep-inside nodes - which would otherwise
-    have to search across their entire fragment - to a small ball.
-
-    Note this works purely in coordinate space and is therefore agnostic to what
-    the points actually are: skeleton nodes for [`_stitch_mst`][], mesh vertices
-    for [`navis.heal_mesh`][].
-
-    Parameters
-    ----------
-    coords :        (N, D) array
-                    Coordinates of the candidate points. `D` can be more than
-                    three - any extra dimensions simply participate in the
-                    distance metric. `heal_skeleton`'s `use_radius` uses this to
-                    bias stitching towards fragments of similar calibre.
-    ids :           (N, ) array
-                    ID for each candidate point - this is what the returned
-                    edges are made of. For meshes these are vertex indices.
-    cc :            (N, ) array
-                    Component label for each candidate point (positionally
-                    aligned). Labels need not be contiguous.
-    max_dist :      float
-                    Maximum length for any single new edge.
-    progress :      bool
-                    If True, show a progress bar tracking the fragments as they
-                    are merged.
-
-    Returns
-    -------
-    (M, 2) array
-                    Pairs of IDs to connect. At most `(#fragments - 1)` long;
-                    fewer if `max_dist` prevented some fragments from being
-                    connected.
-
-    """
-    coords = np.ascontiguousarray(coords, dtype=np.float64)
-    node_ids = np.asarray(ids)
-    n = len(node_ids)
-
-    # Compress the (potentially non-contiguous) component labels to 0..F-1 so we
-    # can use them as array indices
-    _, frag_ix = np.unique(np.asarray(cc), return_inverse=True)
-    n_frags = int(frag_ix.max()) + 1 if n else 0
-
-    if n_frags < 2:
-        return np.zeros((0, 2), dtype=node_ids.dtype)
-
-    tree = KDTree(coords)
-
-    # Union-find over the *fragments* (not the nodes!) with path halving
-    uf = np.arange(n_frags, dtype=np.int64)
-
-    def _find(a):
-        root = a
-        while uf[root] != root:
-            root = uf[root]
-        while uf[a] != root:
-            uf[a], a = root, uf[a]
-        return root
-
-    edges: List[List[int]] = []
-    n_sets = n_frags
-
-    pbar = config.tqdm(
-        total=n_frags - 1,
-        desc="Stitching",
-        disable=config.pbar_hide or not progress,
-        leave=config.pbar_leave,
-    )
-
-    while n_sets > 1:
-        # Map each node onto the super-component it currently belongs to
-        root_of_frag = np.fromiter(
-            (_find(f) for f in range(n_frags)), dtype=np.int64, count=n_frags
-        )
-        super_of = root_of_frag[frag_ix]
-
-        best_dist = np.full(n, np.inf)
-        best_target = np.full(n, -1, dtype=np.int64)
-        # Per-super-component pruning bound (see docstring)
-        bound = np.full(n_frags, max_dist, dtype=np.float64)
-        active = np.ones(n, dtype=bool)
-
-        k = 8
-        while active.any() and k <= _KNN_MAX_K:
-            kk = min(k, n)
-            # Process the query in chunks: the (chunk, k) neighbour matrix is by
-            # far the largest allocation here, so this is what keeps the memory
-            # footprint flat instead of scaling with `k`.
-            chunk = max(1, _KNN_MAX_ELEMENTS // kk)
-            for query_ix in np.array_split(
-                np.where(active)[0], max(1, int(np.ceil(active.sum() / chunk)))
-            ):
-                if not len(query_ix):
-                    continue
-
-                dist, ix = tree.query(coords[query_ix], k=kk)
-                if dist.ndim == 1:  # k=1 returns flat arrays
-                    dist, ix = dist[:, None], ix[:, None]
-
-                my_comp = super_of[query_ix]
-                # For each node: which of its k neighbours are in another component?
-                is_cross = super_of[ix] != my_comp[:, None]
-                has_cross = is_cross.any(axis=1)
-                # Neighbours are sorted by distance, so the first cross-component
-                # hit is that node's nearest cross-component neighbour
-                first = np.argmax(is_cross, axis=1)
-                rows = np.arange(len(query_ix))
-                hit_dist, hit_ix = dist[rows, first], ix[rows, first]
-
-                found = has_cross & (hit_dist <= max_dist)
-                best_dist[query_ix[found]] = hit_dist[found]
-                best_target[query_ix[found]] = hit_ix[found]
-
-                # Tighten each component's bound with what we just found
-                np.minimum.at(bound, my_comp[found], hit_dist[found])
-
-                # Retire nodes that either found their neighbour or can no longer
-                # beat their component's bound
-                exhausted = dist[:, -1] >= bound[my_comp]
-                active[query_ix[has_cross | exhausted]] = False
-
-            if kk >= n:
-                break
-            k *= 4
-
-        # Whatever is still active sits so deep inside its fragment that none of
-        # its `_KNN_MAX_K` nearest neighbours belongs to another component - which
-        # happens when fragments are large and well separated. Escalating `k`
-        # further would cost O(n * fragment size) time and memory, so we instead
-        # ask the tree directly for the nearest neighbour *outside* the node's own
-        # component. That is O(n) in memory and keeps the result exact.
-        _resolve_by_exclusion(
-            tree, coords, np.where(active)[0], super_of, bound,
-            best_dist, best_target, max_dist,
-        )
-
-        candidates = np.where(best_target >= 0)[0]
-        if not len(candidates):
-            # No fragment can reach another within `max_dist`
-            break
-
-        # Reduce to the single cheapest outgoing edge per super-component and add
-        # them cheapest-first (which keeps the result deterministic)
-        order = candidates[np.lexsort((candidates, best_dist[candidates]))]
-        seen: Set[int] = set()
-        cheapest = []
-        for node in order:
-            comp = super_of[node]
-            if comp not in seen:
-                seen.add(comp)
-                cheapest.append(node)
-
-        merged = 0
-        for node in cheapest:
-            target = int(best_target[node])
-            ra, rb = _find(frag_ix[node]), _find(frag_ix[target])
-            if ra == rb:
-                # Already merged earlier this round
-                continue
-            uf[ra] = rb
-            n_sets -= 1
-            merged += 1
-            edges.append([node_ids[node], node_ids[target]])
-
-        pbar.update(merged)
-
-        if not merged:
-            break
-
-    pbar.close()
-
-    return np.asarray(edges, dtype=node_ids.dtype).reshape(-1, 2)
 
 
 @utils.map_neuronlist(desc="Pruning", must_zip=["source"], allow_parallel=True)
@@ -3154,7 +2484,7 @@ def drop_fluff(
             inplace=inplace,
         )
 
-    # This function uses navis_fastcore if available
+    # This function runs on navis_fastcore
     cc = sorted(graph.graph_utils._connected_components(x, epsilon=epsilon), key=lambda x: len(x), reverse=True)
 
     # Translate keep_size to number of nodes

@@ -26,19 +26,17 @@ from .. import config, utils
 logger = config.logger
 
 
-def _fastcore_matrix(scores, func):
-    """The score matrix as an array `func` can take, or `None` to use numpy.
+def _fastcore_matrix(scores):
+    """The score matrix as an array fastcore can take, or `None` to use numpy.
 
     navis-fastcore needs a float16/32/64 buffer that is C- or F-contiguous. A
     DataFrame's `.values` is a view onto the underlying block as long as the
     frame has a single dtype - including *after* a transpose, which is what lets
     `extract_matches` serve `axis=1` without copying a matrix that may well be
-    tens of GB.
+    tens of GB. A mixed-dtype or otherwise non-contiguous frame gets the numpy
+    route instead of a copy.
 
     """
-    if utils.fastcore is None or not hasattr(utils.fastcore, func):
-        return None
-
     vals = scores.values
     if vals.dtype not in (np.float16, np.float32, np.float64):
         return None
@@ -88,10 +86,12 @@ def extract_matches(scores, N=None, threshold=None, percentage=None,
 
     Notes
     -----
-    Uses [navis-fastcore](https://github.com/schlegelp/fastcore-rs) if available
-    (~20-90x faster for `N`, ~4-10x for `percentage`) and numpy otherwise. The
-    two agree except where scores *tie*, in which case which of the equal
-    matches comes first is arbitrary and differs between the backends.
+    Uses [navis-fastcore](https://github.com/schlegelp/fastcore-rs) (~20-90x
+    faster for `N`, ~4-10x for `percentage`), falling back to numpy for a score
+    matrix whose buffer fastcore cannot read directly - a mixed-dtype or
+    non-contiguous frame - rather than copying it. The two agree except where
+    scores *tie*, in which case which of the equal matches comes first is
+    arbitrary and differs between the two routes.
 
     `NaN`s are skipped, not ranked: a query scored against some targets but not
     others gets its best *valid* matches rather than a `NaN` match. If a query
@@ -139,7 +139,7 @@ def extract_matches(scores, N=None, threshold=None, percentage=None,
 
 def _extract_matches_n(scores, N=None, distances=False):
     """Return top N matches."""
-    arr = _fastcore_matrix(scores, 'top_matches')
+    arr = _fastcore_matrix(scores)
     if arr is not None:
         # `axis=0` because `extract_matches` has already transposed if needed
         top_n, top_scores = utils.fastcore.top_matches(arr, N, axis=0,
@@ -220,7 +220,7 @@ def _collate_matches_n(scores, top_n, top_scores, N):
 def _extract_matches_threshold(scores, threshold=.3, distances=False,
                                max_matches=None):
     """Extract all matches above a given threshold from score matrix."""
-    arr = _fastcore_matrix(scores, 'matches_above')
+    arr = _fastcore_matrix(scores)
     if arr is not None:
         offsets, cols, values = utils.fastcore.matches_above(
             arr, threshold=threshold, axis=0, distances=distances,
@@ -246,7 +246,7 @@ def _extract_matches_threshold(scores, threshold=.3, distances=False,
 
 def _extract_matches_perc(scores, perc=.05, distances=False, max_matches=None):
     """Extract all matches within a given percentage of the top match."""
-    arr = _fastcore_matrix(scores, 'matches_above')
+    arr = _fastcore_matrix(scores)
     if arr is not None:
         offsets, cols, values = utils.fastcore.matches_above(
             arr, percentage=perc, axis=0, distances=distances,

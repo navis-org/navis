@@ -19,7 +19,7 @@ import pandas as pd
 
 from scipy.spatial.distance import cdist
 
-from .backends import BackendMixin, fastcore_landmarks_available
+from .backends import BackendMixin
 from .base import BaseTransform
 
 
@@ -48,11 +48,12 @@ mops.lmk_util.distance_matrix = distance_matrix
 class TPStransform(BackendMixin, BaseTransform):
     """Thin Plate Spline transforms of 3D spatial data.
 
-    Runs on `morphops`, or - if navis-fastcore is installed - on its Rust
-    implementation. See the `backend` parameter. The spline is always *fitted*
-    with `morphops` (numpy's LAPACK-backed solve is faster than fastcore's here);
-    the fastcore backend only changes how points are *transformed*, which is
-    where it is ~10-15x faster. The two agree to ~1e-13.
+    Runs on navis-fastcore's Rust implementation; the deprecated "python"
+    backend runs on `morphops` instead (see the `backend` parameter). The spline
+    is always *fitted* with `morphops` - numpy's LAPACK-backed solve is faster
+    than fastcore's here - so the backend only changes how points are
+    *transformed*, which is where fastcore is ~10-15x faster. The two agree to
+    ~1e-13.
 
     Notes
     -----
@@ -79,7 +80,8 @@ class TPStransform(BackendMixin, BaseTransform):
                         materialises that matrix in the first place.
     backend :           "auto" | "fastcore" | "python", optional
                         Which implementation to use. `None` (default) defers to
-                        `navis.config.default_transform_backend`.
+                        `navis.config.default_transform_backend`. "python" is
+                        deprecated and will be removed in 3.0.
 
     Examples
     --------
@@ -97,7 +99,6 @@ class TPStransform(BackendMixin, BaseTransform):
     """
 
     _fallback_backend = "python"
-    _fastcore_available = staticmethod(fastcore_landmarks_available)
 
     def __init__(
         self,

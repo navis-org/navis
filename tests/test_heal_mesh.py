@@ -14,27 +14,6 @@ from scipy.sparse.csgraph import minimum_spanning_tree
 
 from navis.graph.graph_utils import _mesh_component_labels
 
-# N.B. grab the module itself, not just a flag: the `backend` fixture below
-# swaps `navis.utils.fastcore` out, so `test_backend_parity` needs a handle on
-# the real thing to put back
-FASTCORE = navis.utils.fastcore
-HAS_FASTCORE = FASTCORE is not None
-
-
-@pytest.fixture(params=["builtin", "fastcore"], autouse=True)
-def backend(request, monkeypatch):
-    """Run every test in this module against both backends.
-
-    `heal_mesh` uses fastcore when it is installed, so without this the numpy
-    implementation would silently stop being tested.
-    """
-    if request.param == "builtin":
-        monkeypatch.setattr(navis.utils, "fastcore", None)
-    elif not HAS_FASTCORE:
-        pytest.skip("navis-fastcore not installed")
-    return request.param
-
-
 @pytest.fixture
 def mesh():
     return navis.example_neurons(1, kind="mesh")
@@ -296,32 +275,3 @@ def test_wrong_type():
 def test_heal_skeleton_points_at_heal_mesh(mesh):
     with pytest.raises(TypeError, match="heal_mesh"):
         navis.heal_skeleton(mesh)
-
-
-# ---------------------------------------------------------------------------
-# Backend parity
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.skipif(not HAS_FASTCORE, reason="navis-fastcore not installed")
-# This test drives both backends itself, so pin the fixture to one param -
-# without this it would run twice over identical code
-@pytest.mark.parametrize("backend", ["fastcore"], indirect=True)
-@pytest.mark.parametrize("max_dist", [None, 400, 62.5])
-def test_backend_parity(mesh, max_dist, monkeypatch):
-    """Both backends must find an MST of the same total length.
-
-    The MST itself is not unique - where several bridges are of exactly the same
-    length the two implementations may pick different ones - so we compare the
-    total added length rather than the edges.
-    """
-    monkeypatch.setattr(navis.utils, "fastcore", FASTCORE)
-    with_fc = navis.heal_mesh(mesh, max_dist=max_dist)
-
-    monkeypatch.setattr(navis.utils, "fastcore", None)
-    without_fc = navis.heal_mesh(mesh, max_dist=max_dist)
-
-    assert with_fc.n_extra_edges == without_fc.n_extra_edges
-    assert added_length(mesh, with_fc) == pytest.approx(
-        added_length(mesh, without_fc)
-    )
