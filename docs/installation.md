@@ -115,33 +115,32 @@ directly, are listed below:
 
     ---
 
-    #### `pathos`: [pathos](https://github.com/uqfoundation/pathos)
+    #### `joblib`: [joblib](https://joblib.readthedocs.io)
 
-    One of the backends {{ navis }} can use to parallelize functions across lists of
-    neurons (see [`navis.set_parallel_backend`][]). It is the default where installed
-    because it serializes with `dill`, which means it can also run lambdas and
-    functions defined in a notebook.
+    The parallel backend {{ navis }} prefers where it is installed (see
+    [`navis.set_parallel_backend`][]). It serializes with `cloudpickle`, so it can
+    run lambdas and functions defined in a notebook, and it keeps its worker
+    processes alive between calls - which makes a sequence of `parallel=True` calls
+    markedly faster than rebuilding a pool each time. `joblib.parallel_config` also
+    lets you route the work through dask, ray or ipyparallel.
 
     Parallel processing works without it - {{ navis }} falls back to the standard
-    library's process pool - so this is only worth installing if you use
-    `NeuronList.apply()` with a lambda.
+    library's process pool - but that one cannot ship lambdas.
 
     ``` shell
-    pip install pathos
+    pip install joblib
     ```
 
     ---
 
-    #### `joblib`: [joblib](https://joblib.readthedocs.io)
+    #### `pathos`: [pathos](https://github.com/uqfoundation/pathos)
 
     An alternative parallel backend (see [`navis.set_parallel_backend`][]). Like
-    `pathos` it can ship lambdas, and it keeps its worker processes alive between
-    calls - which makes a sequence of `parallel=True` calls markedly faster.
-    `joblib.parallel_config` also lets you route the work through dask, ray or
-    ipyparallel.
+    `joblib` it serializes with `dill` and so can ship lambdas, but it builds a
+    fresh worker pool for every call, which makes it the slower of the two.
 
     ``` shell
-    pip install joblib
+    pip install pathos
     ```
 
     ---

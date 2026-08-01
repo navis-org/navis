@@ -94,7 +94,7 @@ pip install git+https://github.com/navis-org/navis@master
         navis.prune_twigs(nl, 5, parallel=True)
     ```
 
-    `backend="auto"` (the default) prefers `pathos` where installed, so this is not intended to change anything for existing users. Third parties can register their own with `navis.compute.register_backend`.
+    `backend="auto"` (the default) prefers `joblib`, then `pathos`, then the standard library's pool. **This changes which backend existing `parallel=True` calls use**: `pathos` was the only option before. The two behave the same - both serialize with a by-value pickler, so lambdas keep working - but `joblib` keeps its workers alive between calls where `pathos` builds a fresh pool each time, which makes a sequence of parallel calls measurably faster. Pass `backend="pathos"`, or set `navis.set_parallel_backend("pathos")`, to keep the old one. Third parties can register their own with `navis.compute.register_backend`.
 
 ##### Improvements
 - a mesh's unique edges now come from navis-fastcore where available (new `navis.utils.mesh_unique_edges`) instead of `trimesh.edges_unique`, which sorts an `(n_faces * 3, 2)` array to find them. This sits underneath [`neuron2nx`][navis.neuron2nx]/[`neuron2igraph`][navis.neuron2igraph] for `MeshNeurons` and hence everything built on a mesh graph - geodesic distances, connected components, [`drop_fluff`][navis.drop_fluff], [`fix_mesh`][navis.fix_mesh]. The results are seeded into trimesh's own cache (index and inverse included, so `faces_unique_edges` & co. stay consistent), meaning a mesh that has already computed its edges pays nothing.

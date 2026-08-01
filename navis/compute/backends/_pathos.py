@@ -27,8 +27,9 @@ class PathosBackend(ParallelBackend):
     """Run in separate processes using `pathos`.
 
     Serialises with `dill`, so it can ship lambdas, closures and functions
-    defined in a notebook - which is why it is the highest-priority backend
-    and why `NeuronList.apply(lambda ...)` works on it.
+    defined in a notebook, which is what makes `NeuronList.apply(lambda ...)`
+    work on it. `joblib` does the same via `cloudpickle` and reuses its pool,
+    so it is preferred where both are installed.
 
     Note that `multiprocess` (pathos' fork of `multiprocessing`) defaults to
     starting workers with `fork` on every platform, including macOS where the
@@ -38,7 +39,7 @@ class PathosBackend(ParallelBackend):
     """
 
     name = 'pathos'
-    priority = 20
+    priority = 10
 
     isolated = True
     pickles_by_value = True

@@ -117,6 +117,26 @@ def test_auto_skips_explicit_only_backends():
     assert picked.name not in ('serial', 'threads')
 
 
+def test_auto_preference_order():
+    """joblib > pathos > processes.
+
+    joblib and pathos can both ship lambdas; joblib is preferred because it
+    keeps its workers alive between calls where pathos rebuilds the pool every
+    time. `processes` needs no dependency at all but cannot ship lambdas, so it
+    is the fallback.
+    """
+    order = [b.name for b in
+             sorted(available_backends(), key=lambda b: -b.priority)
+             if b.auto_select]
+    # Only assert over the optional ones that are actually installed here.
+    # `processes` needs nothing, so this is never empty.
+    expected = [n for n in ('joblib', 'pathos', 'processes') if n in order]
+    assert order == expected
+
+    # ... and that really is what resolution hands back
+    assert resolve_backend('auto').name == expected[0]
+
+
 def test_auto_respects_by_value_requirement(registry):
     """A backend that can't ship lambdas is skipped when one is needed."""
     # Leave only backends that serialise by reference

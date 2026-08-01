@@ -109,8 +109,8 @@ time_func (
 #
 # | Backend | Needs | Notes |
 # |---|---|---|
-# | `pathos` | `pip install pathos` | Default where installed. Serializes with `dill`, so it can run lambdas. |
-# | `joblib` | `pip install joblib` | Also handles lambdas, and keeps workers alive between calls. |
+# | `joblib` | `pip install joblib` | Default where installed. Handles lambdas, and keeps its workers alive between calls. |
+# | `pathos` | `pip install pathos` | Also handles lambdas (via `dill`), but builds a fresh pool for every call. |
 # | `processes` | - | Standard library. No dependencies, but cannot ship lambdas. |
 # | `threads` | - | Only helps for work that releases the GIL. |
 # | `serial` | - | No parallelism at all - handy for debugging. |

@@ -36,13 +36,14 @@ __all__ = ['JoblibBackend']
 class JoblibBackend(ParallelBackend):
     """Run via `joblib.Parallel`.
 
-    Serialises with `cloudpickle`, so lambdas and notebook-defined functions
-    work. Workers are separate processes (loky) that are kept alive between
-    calls.
+    The default where installed. Serialises with `cloudpickle`, so lambdas and
+    notebook-defined functions work, and its workers (loky) are kept alive
+    between calls - which makes a sequence of `parallel=True` calls noticeably
+    faster than rebuilding a pool each time.
     """
 
     name = 'joblib'
-    priority = 10
+    priority = 20
 
     isolated = True
     pickles_by_value = True

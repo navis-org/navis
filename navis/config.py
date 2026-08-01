@@ -75,8 +75,8 @@ warn_caching = True
 
 # Default backend for `parallel=True`, i.e. where per-neuron work is run:
 #   "auto" (default) picks the highest-priority installed backend that can run
-#   the request - `pathos`, then `joblib`, then the dependency-free stdlib
-#   process pool. Name one ("pathos", "joblib", "processes", "threads",
+#   the request - `joblib`, then `pathos`, then the dependency-free stdlib
+#   process pool. Name one ("joblib", "pathos", "processes", "threads",
 #   "serial") to force it.
 # Prefer `navis.set_parallel_backend()` over setting this directly: it
 # validates the name up front and also accepts a `concurrent.futures.Executor`,
