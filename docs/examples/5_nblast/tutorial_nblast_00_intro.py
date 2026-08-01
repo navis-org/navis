@@ -70,6 +70,9 @@ $$
     by running two NBLASTs (query :octicons-arrow-right-24: target and target :octicons-arrow-right-24: query), or by passing e.g. `scores="mean"`
     to the respective NBLAST function.
 
+    [`navis.nblast`][] also takes `scores="both"`, which keeps the two directions apart instead of combining them: you get one row per query per
+    direction, stacked under a `(query, score)` index, so you can decide what to do with them yourself.
+
 ## Running NBLAST
 
 Broadly speaking, there are two applications for NBLAST:
@@ -83,9 +86,17 @@ Before we get our feet wet, two things to keep in mind:
 - neurons should have similar sampling resolution (i.e. points per unit of cable)
 
 ??? example "Speeding up NBLAST"
-    For a ~2x speed boost, install the [pykdtree](https://github.com/storpipfugl/pykdtree) library: `pip3 install pykdtree`.
+    Three independent knobs, cheapest first:
 
-    If you installed {{ navis }} with the `pip install navis[all]` option you should already have it.
+    - **`n_cores`**: every NBLAST function takes one, and it defaults to half your cores. This is the main dial.
+    - **[pykdtree](https://github.com/storpipfugl/pykdtree)** (`pip3 install pykdtree`) gives the nearest-neighbour search a ~2x boost.
+    - **[navis-fastcore](https://github.com/schlegelp/fastcore-rs)** (`pip3 install navis-fastcore`) reimplements {{ navis }}' hot paths in Rust.
+      {{ navis }} reaches for it on its own wherever it can - generating the dotprops, for one - but its NBLAST *backend* is a separate,
+      opt-in thing: see [choosing a backend](#choosing-a-backend) below.
+
+    If you installed {{ navis }} with the `pip install navis[all]` option you already have all of these.
+
+    See [Scaling up](#scaling-up) at the end for what to do when one machine is not enough.
 
 OK, let's get started!
 
@@ -172,13 +183,14 @@ sns.despine(trim=True, bottom=True)
 plt.tight_layout()
 
 # %%
-# We'll leave it there for now. Here are the NBLAST functions we've seen so far, plus [`navis.nblast_smart`][] — and when to reach for each:
+# We'll leave it there for now. Here are the NBLAST functions we've seen so far, plus two for when things get big — and when to reach for each:
 #
 # | Function | What it does | Use when |
 # |----------|--------------|----------|
 # | [`navis.nblast`][] | classic query :octicons-arrow-right-24: target NBLAST | matching neurons between two datasets |
 # | [`navis.nblast_allbyall`][] | pairwise, all-by-all NBLAST | clustering neurons into morphologically similar groups |
 # | [`navis.nblast_smart`][] | a "smart" NBLAST that cuts corners | running very large NBLASTs |
+# | [`navis.nblast_knn`][] | only the top `k` matches per query | matching against a large reference set (needs navis-fastcore) |
 #
 # ## Another flavour: syNBLAST
 #
@@ -323,6 +335,89 @@ plt.tight_layout()
 # %%
 # Note how clusters 3 and 8 look a bit odd? That's because these likely still contain more than one type of neuron. We should probably
 # have gone with a slightly finer clustering. But this little demo should be enough to get you started!
+
+# %%
+# ## Scaling up
+#
+# The examples above are small enough that none of this mattered. An NBLAST is `N x M`
+# comparisons and the cost grows with the *product*, so at real sizes the parameters we
+# have been ignoring start to matter.
+#
+# ### More cores
+#
+# Every NBLAST function takes `n_cores`, and it defaults to half of them. {{ navis }} cuts
+# the query :octicons-arrow-right-24: target matrix into blocks and runs those side by side:
+#
+# ```python
+# aba = navis.nblast_allbyall(dps, n_cores=8)
+# ```
+#
+# You don't size the blocks yourself: {{ navis }} times a single query and picks a grid
+# where each block is a bounded amount of work — small enough that no core sits idle
+# waiting for a straggler, large enough that handing one over isn't the expensive part.
+#
+# ### Choosing a backend
+#
+# `backend=` selects the engine that does the scoring:
+#
+# | Backend | Needs | Notes |
+# |---|---|---|
+# | `builtin` | — | {{ navis }}' own implementation, and the default. Supports every option, and is the only one that can spread an NBLAST across machines. |
+# | `fastcore` | `pip install navis-fastcore` | NBLAST reimplemented in Rust — considerably faster, and computes the whole matrix in one call. Doesn't support `approx_nn`, `scores="both"` or custom/analytic scoring functions. |
+#
+# `backend="auto"` picks the fastest backend that can serve the request and falls back to
+# `builtin` for anything it can't. Set it for the whole session with
+# `navis.config.default_nblast_backend = "auto"`, or per call:
+#
+# ```python
+# aba = navis.nblast_allbyall(dps, backend="auto")
+# ```
+#
+# !!! tip "Don't build a matrix you're going to throw away"
+#     If all you want is the best few matches per query — the usual case when matching
+#     against a large reference set — [`navis.nblast_knn`][] returns just those instead of
+#     materialising the full `N x M` matrix. It needs `navis-fastcore`.
+#
+# ### Another set of machines
+#
+# `n_cores` runs out at the size of your machine. Past that, [`navis.set_parallel_backend`][]
+# says *where* work runs, and the same NBLAST call runs there — the blocks of the score
+# matrix are the units that travel:
+#
+# === "dask"
+#
+#     ```python
+#     from dask.distributed import Client
+#
+#     client = Client("tcp://scheduler:8786")   # or LocalCluster(), SLURMCluster(), ...
+#
+#     with navis.set_parallel_backend(client):
+#         scores = navis.nblast(query, target)
+#     ```
+#
+# === "submitit (SLURM)"
+#
+#     ```python
+#     import submitit
+#
+#     ex = submitit.AutoExecutor(folder="logs")
+#     ex.update_parameters(slurm_partition="cpu", timeout_min=60, mem_gb=8)
+#
+#     with navis.set_parallel_backend(ex):
+#         scores = navis.nblast(query, target)
+#     ```
+#
+# Both need `pip install navis[cluster]`. How finely the matrix gets cut is read off the
+# cluster where {{ navis }} can see it, so `n_cores` on your laptop doesn't cap it.
+#
+# !!! warning "`fastcore` stays on one machine"
+#     The `fastcore` backend computes the whole matrix in a single Rust call using its own
+#     threads, so it has nothing to hand to a parallel backend and will run everything
+#     locally. That's not the default — but it *is* what `backend="auto"` picks where
+#     navis-fastcore is installed, so use `backend="builtin"` when you mean to distribute.
+#
+# See the [multiprocessing tutorial](../6_misc/tutorial_misc_00_multiprocess) for the full
+# picture on backends.
 
 # %%
 # ## What next?

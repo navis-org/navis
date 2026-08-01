@@ -343,11 +343,13 @@ print(navis.list_parallel_backends())
 # {{ navis }} can read it, so `n_cores` on your laptop doesn't cap it.
 #
 # !!! warning "navis-fastcore does not distribute"
-#     Where [navis-fastcore](https://github.com/schlegelp/fastcore-rs) is installed it is
-#     the default NBLAST backend, and it computes the whole matrix in a single Rust call
-#     using its own threads. It therefore ignores the parallel backend completely: point
-#     {{ navis }} at a cluster and it will still do all the work on the machine you are
-#     sitting at. Pass `backend="builtin"` for a distributed NBLAST.
+#     The [navis-fastcore](https://github.com/schlegelp/fastcore-rs) NBLAST backend
+#     computes the whole matrix in a single Rust call using its own threads, so it ignores
+#     the parallel backend completely: select it, point {{ navis }} at a cluster, and all
+#     the work still happens on the machine you are sitting at. It is not the default -
+#     but it *is* what `navis.config.default_nblast_backend = "auto"` picks where it is
+#     installed. Leave that at `"builtin"`, or pass `backend="builtin"` per call, when you
+#     want the NBLAST spread over the cluster.
 
 # %%
 

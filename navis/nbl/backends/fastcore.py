@@ -39,11 +39,14 @@ class FastcoreBackend(NblastBackend):
 
     Note that this backend computes the whole matrix in a single call and
     parallelises it with *threads inside that call*. It therefore ignores
-    [`navis.set_parallel_backend`][] entirely: pointing navis at a cluster and
-    then running an NBLAST on this backend will quietly do all the work on the
-    machine you are sitting at. Use ``backend='builtin'`` to spread an NBLAST
-    across a cluster - it cuts the score matrix into blocks and hands those to
-    whatever backend is configured.
+    [`navis.set_parallel_backend`][] entirely: point navis at a cluster, select
+    this backend, and all the work still happens on the machine you are sitting
+    at. Only the built-in backend distributes - it cuts the score matrix into
+    blocks and hands those to whatever parallel backend is configured.
+
+    Reaching this backend is opt-in (`navis.config.default_nblast_backend` is
+    ``"builtin"``), so that is a choice rather than a trap - but it is a choice
+    worth knowing about before setting it to ``"auto"`` on a cluster.
     """
 
     name = "fastcore"
