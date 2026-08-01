@@ -171,13 +171,43 @@ class Chunk(NamedTuple):
     tasks: Sequence[Tuple[Callable, Sequence, dict]]
 
 
+def _unshare_pbar_lock() -> None:
+    """Stop tqdm allocating a cross-process lock in a worker.
+
+    The first progress bar built in a process - even a disabled one, since the
+    lock is taken in `tqdm.__new__` - makes tqdm allocate a
+    `multiprocessing.RLock`, i.e. a named POSIX semaphore, so that bars drawn
+    from several processes don't interleave. Our workers never draw one, so
+    that lock is pointless everywhere and actively harmful under `pathos`: its
+    workers are started by `multiprocess`, a fork of `multiprocessing` carrying
+    its own resource tracker, so the *stdlib* tracker has never been started
+    there and each worker spawns a fresh one. Nothing unlinks the semaphore
+    when the worker exits, so every one of them signs off with
+
+        UserWarning: resource_tracker: There appear to be 1 leaked semaphore
+        objects to clean up at shutdown
+
+    `set_lock` is tqdm's own way of saying "these bars are not shared across
+    processes"; a plain thread lock keeps them safe against navis' own threads.
+    """
+    from threading import RLock
+    # `hasattr` rather than an unconditional set: this runs once per chunk, and
+    # replacing the lock out from under a bar that is already using it would be
+    # a poor trade for saving a semaphore.
+    if not hasattr(config.tqdm_class, '_lock'):
+        config.tqdm_class.set_lock(RLock())
+
+
 def run_chunk(chunk: Chunk):
     """Run one chunk of tasks. Runs in the worker.
 
     Module level so it pickles by reference - a closure or lambda here would
     force every backend to serialise by value.
     """
+    # A context means the worker is somewhere else, so both of these are ours
+    # to set up; in-process, they would clobber the parent's own.
     if chunk.context is not None:
+        _unshare_pbar_lock()
         chunk.context.apply()
 
     results = []

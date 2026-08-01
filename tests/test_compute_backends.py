@@ -9,6 +9,8 @@ deterministically, which is impossible with a real pool.
 
 import concurrent.futures as cf
 import functools
+import subprocess
+import sys
 
 import pytest
 
@@ -647,6 +649,46 @@ def test_optional_backends_agree(name, tasks):
         pytest.skip(f'{name} not installed')
     res = dispatch.map_tasks(tasks, backend=be, n_workers=2, disable=True)
     assert res == [i * 2 for i in range(7)]
+
+
+#: Runs a task that builds a progress bar in the worker - which is any navis
+#: function worth parallelising. Has to be a separate interpreter: the warning
+#: we are looking for is printed by a resource tracker *the worker* spawned, so
+#: there is nothing in this process to observe.
+_PBAR_IN_WORKER = '''
+import navis
+from navis import config
+from navis.compute import dispatch
+from navis.compute.backends import get_backend
+
+def bar(x):
+    with config.tqdm(total=1, disable=True):
+        return x
+
+if __name__ == '__main__':
+    dispatch.map_tasks([(bar, (i,), {}) for i in range(2)],
+                       backend=get_backend('pathos'), n_workers=2, disable=True)
+'''
+
+
+def test_pathos_workers_do_not_leak_semaphores(tmp_path):
+    """tqdm's cross-process lock is a semaphore no pathos worker cleans up.
+
+    Its workers come from `multiprocess`, which carries its own resource
+    tracker, so the stdlib one has never been started there and each worker
+    spawns a fresh one - which then reports the lock as leaked on the way out.
+    Four workers, four scary warnings, for a bar that was disabled anyway.
+    """
+    if not get_backend('pathos').available():
+        pytest.skip('pathos not installed')
+
+    script = tmp_path / 'pbar_in_worker.py'
+    script.write_text(_PBAR_IN_WORKER)
+    res = subprocess.run([sys.executable, str(script)], timeout=300,
+                         capture_output=True, text=True)
+
+    assert res.returncode == 0, res.stderr
+    assert 'leaked semaphore' not in res.stderr
 
 
 def test_lambda_on_plain_pickle_backend_explains_itself():
