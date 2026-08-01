@@ -451,14 +451,60 @@ def test_worker_context_only_when_isolated(tasks):
 
 
 def test_worker_context_roundtrips_config():
-    """A spawned worker re-imports navis; the context is what carries state."""
+    """A spawned worker re-imports navis; the context is what carries state.
+
+    Deliberately not tested on `pbar_hide` - that one is overridden on the way
+    in, see below.
+    """
+    assert 'warn_caching' in config.WORKER_SETTINGS
+    before = config.warn_caching
+    try:
+        config.warn_caching = not before
+        ctx = dispatch.WorkerContext.snapshot()
+        config.warn_caching = before
+        ctx.apply()
+        assert config.warn_caching is (not before)
+    finally:
+        config.warn_caching = before
+
+
+def test_worker_hides_progress_bars():
+    """Progress bars are the one setting a worker must not inherit.
+
+    Every worker writes to the same terminal, so a step that draws a bar draws
+    one per worker - interleaved, each stuck on its own single task - on top of
+    the bar the parent is already drawing for the job as a whole.
+    """
+    seen = []
     before = config.pbar_hide
     try:
-        config.pbar_hide = True
-        ctx = dispatch.WorkerContext.snapshot()
+        # The parent wants bars - the snapshot has to be taken from that state
         config.pbar_hide = False
-        ctx.apply()
-        assert config.pbar_hide is True
+        chunk = dispatch.Chunk(
+            index=0, context=dispatch.WorkerContext.snapshot(),
+            catch=False, want_traceback=False,
+            tasks=[(lambda _: seen.append(config.pbar_hide), (1,), {})])
+
+        dispatch.run_chunk(chunk)
+
+        assert seen == [True], "a worker inherited the parent's bars"
+        assert config.pbar_hide is False, 'running a chunk must restore config'
+    finally:
+        config.pbar_hide = before
+
+
+def test_shared_memory_worker_leaves_progress_bars_alone():
+    """No context means we are in the parent - touching its config would race."""
+    seen = []
+    chunk = dispatch.Chunk(index=0, context=None, catch=False,
+                           want_traceback=False,
+                           tasks=[(lambda _: seen.append(config.pbar_hide), (1,), {})])
+
+    before = config.pbar_hide
+    try:
+        config.pbar_hide = False
+        dispatch.run_chunk(chunk)
+        assert seen == [False]
     finally:
         config.pbar_hide = before
 

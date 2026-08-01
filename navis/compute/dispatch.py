@@ -206,19 +206,31 @@ def run_chunk(chunk: Chunk):
     """
     # A context means the worker is somewhere else, so both of these are ours
     # to set up; in-process, they would clobber the parent's own.
+    hidden = None
     if chunk.context is not None:
         _unshare_pbar_lock()
         chunk.context.apply()
+        # The one piece of parent state a worker must not inherit. Every worker
+        # writes to the same terminal, so a function that draws a progress bar
+        # draws one per worker - interleaved, each stuck on its own single task
+        # - on top of the bar the parent is already drawing for the whole job.
+        # Scoped to the chunk rather than set once in `apply`, so that running
+        # a chunk leaves the config exactly as it found it.
+        hidden, config.pbar_hide = config.pbar_hide, True
 
     results = []
-    for func, args, kwargs in chunk.tasks:
-        try:
-            results.append(func(*args, **kwargs))
-        except BaseException as e:
-            if not chunk.catch:
-                raise
-            results.append(_FailedTask(
-                e, traceback.format_exc() if chunk.want_traceback else None))
+    try:
+        for func, args, kwargs in chunk.tasks:
+            try:
+                results.append(func(*args, **kwargs))
+            except BaseException as e:
+                if not chunk.catch:
+                    raise
+                results.append(_FailedTask(
+                    e, traceback.format_exc() if chunk.want_traceback else None))
+    finally:
+        if hidden is not None:
+            config.pbar_hide = hidden
 
     return chunk.index, results
 
