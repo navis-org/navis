@@ -220,57 +220,80 @@ def test_memory_usage_estimate_matches_the_slow_path(kind):
     estimate = n.memory_usage(estimate=True)
 
     assert estimate > 0
-    assert 0.8 <= estimate / exact <= 1.0
+    assert 0.9 <= estimate / exact <= 1.0
 
 
-def test_memory_usage_handles_extension_dtypes():
-    """Neurons with connectors carry text columns; those are the awkward ones."""
-    n = navis.example_neurons(1)
-    assert n.has_connectors
-    # An extension dtype with no `itemsize` at all is the case that used to blow up
-    assert any(not hasattr(dt, "itemsize") for dt in n.connectors.dtypes)
+def _awkward_columns():
+    """Columns whose dtype cannot be priced from the dtype alone.
 
-    # Not just non-zero - the connectors have to actually be counted
-    without = navis.example_neurons(1)
-    without._connectors = None
-    assert n.memory_usage(estimate=True) > without.memory_usage(estimate=True)
+    Each of these broke a different way when navis modelled pandas' storage
+    itself: `string` has no `itemsize`, Arrow-backed text reports `0`, and a
+    categorical's real cost is a code per row, whose width pandas picks by a
+    rule of its own (signed, so it steps up at 127 categories, not 128).
+    """
+    cols = {
+        "string": pd.array(["a" * 50] * 5_000, dtype="string"),
+        "categorical_small": pd.Categorical(["c0"] * 5_000,
+                                            categories=[f"c{i}" for i in range(4)]),
+        # >127 categories is where the signed/unsigned code width diverges
+        "categorical_wide": pd.Categorical(["c0"] * 5_000,
+                                           categories=[f"c{i}" for i in range(200)]),
+    }
+    try:
+        import pyarrow as pa
+        cols["arrow_string"] = pd.array(["a" * 50] * 5_000,
+                                        dtype=pd.ArrowDtype(pa.string()))
+    except ImportError:
+        pass
+    return cols
 
 
-def test_memory_usage_counts_categorical_codes():
-    """The per-row codes dwarf the categories, so they cannot be skipped."""
-    n = navis.example_neurons(1)
-    cat_cols = [c for c, dt in n.nodes.dtypes.items()
-                if isinstance(dt, pd.CategoricalDtype)]
-    assert cat_cols, "example skeleton should have categorical node columns"
+@pytest.mark.parametrize("name", list(_awkward_columns()))
+def test_memory_usage_agrees_with_pandas_on_awkward_dtypes(name):
+    """navis must ask pandas for these, not guess at how it stores them."""
+    column = _awkward_columns()[name]
+    df = pd.DataFrame({name: column})
 
-    estimate = n.memory_usage(estimate=True)
-    # One byte per row per categorical column is the floor for the codes alone
-    assert estimate > n.n_nodes * len(cat_cols)
+    class Carrier(navis.core.BaseNeuron):
+        pass
+
+    n = Carrier()
+    n._df = df
+
+    expected = int(df.memory_usage(index=False, deep=False).sum())
+    assert expected > 0  # a dtype priced at zero would make this vacuous
+    assert n.memory_usage(estimate=True) == expected
 
 
 def test_neuronlist_memory_usage():
     nl = navis.example_neurons(5)
+    size = nl.memory_usage(estimate=True)
 
-    assert nl.memory_usage(estimate=True) > 0
-    assert isinstance(nl.memory_usage(estimate=True), int)
-    # Roughly the sum of its parts
-    parts = sum(n.memory_usage(estimate=True) for n in nl)
-    assert nl.memory_usage(estimate=True) == parts
+    assert size > 0
+    assert isinstance(size, int)
+    # The sum of its parts, exactly
+    assert size == sum(n.memory_usage(estimate=True) for n in nl)
 
-    # Sampling extrapolates from every 10th neuron, so it is approximate but
-    # must be in the right ballpark rather than zero
+    # Sampling extrapolates from every 10th neuron, so it is approximate
     sampled = nl.memory_usage(estimate=True, sample=True)
-    assert 0.2 <= sampled / parts <= 5
+    assert 0.5 <= sampled / size <= 2
 
     assert navis.NeuronList([]).memory_usage() == 0
 
 
-def test_neuronlist_memory_usage_survives_a_broken_neuron():
-    """It backs `__str__`, so it must not be why a NeuronList cannot print."""
+def test_neuronlist_repr_survives_a_broken_neuron():
+    """Printing must not be what fails - but callers still get the error.
+
+    `memory_usage` returning 0 on failure would be indistinguishable from a
+    genuinely empty list, and the chunking policy that consumes it has its own
+    fallback that a swallowed error pre-empts.
+    """
     class Broken(navis.TreeNeuron):
         def memory_usage(self, deep=False, estimate=False):
             raise RuntimeError("no idea")
 
     nl = navis.NeuronList([Broken(navis.example_neurons(1))])
-    assert nl.memory_usage(estimate=True) == 0
+
     assert "NeuronList" in str(nl)
+    with pytest.raises(RuntimeError, match="no idea"):
+        nl.memory_usage(estimate=True)

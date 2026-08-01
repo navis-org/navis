@@ -45,43 +45,19 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
-def _bytes_per_value(dtype) -> int:
-    """Width of a single value of `dtype`, in bytes.
+def _extension_bytes(column: pd.Series) -> int:
+    """Size of a column whose dtype has no dependable width.
 
-    numpy dtypes state their own width, and most of pandas' extension dtypes
-    do too. The string ones do not: `StringDtype` has no `itemsize` at all,
-    and from pandas 3 it is what a column of text gets by default - so this is
-    reached by any neuron carrying connectors. Those store references, which
-    is also what the numpy `object` column they replaced would have cost.
+    pandas' extension dtypes cannot be priced from the dtype alone: a
+    `StringDtype` exposes no `itemsize`, an Arrow-backed one reports `0`, and a
+    categorical's real cost is its codes, whose width pandas picks by a rule of
+    its own. So ask pandas rather than keeping a copy of how it stores things -
+    modelling another library's layout is what broke this in the first place.
+
+    It answers from the array's buffers, and `deep=False` is what keeps that
+    O(1) instead of walking the values.
     """
-    itemsize = getattr(dtype, "itemsize", None)
-    if itemsize is not None:
-        return itemsize
-
-    # Nullable and Arrow-backed dtypes wrap something that does know
-    numpy_dtype = getattr(dtype, "numpy_dtype", None)
-    if numpy_dtype is not None:
-        return numpy_dtype.itemsize
-
-    return np.dtype(object).itemsize
-
-
-def _estimated_bytes(dtype, n_values: int) -> int:
-    """Estimated memory for `n_values` values of `dtype`.
-
-    Prices a column from its dtype rather than by walking it - much faster,
-    and the point of `memory_usage(estimate=True)`.
-    """
-    if isinstance(dtype, pd.CategoricalDtype):
-        # The values are stored once, however many rows there are, plus a
-        # code per row - narrow, but for a skeleton's `label`/`type` columns
-        # the codes are the larger of the two by a wide margin.
-        categories = dtype.categories
-        codes_width = np.min_scalar_type(max(len(categories) - 1, 0)).itemsize
-        return len(categories) * _bytes_per_value(categories.dtype) + \
-            n_values * codes_width
-
-    return n_values * _bytes_per_value(dtype)
+    return int(column.memory_usage(index=False, deep=False))
 
 
 def Neuron(
@@ -884,24 +860,31 @@ class BaseNeuron(UnitObject):
             if mu["deep"] == deep and mu["estimate"] == estimate:
                 return mu["size"]
 
+        # An ndarray costs the same either way, so only the pandas containers
+        # branch on `estimate`. Estimating prices each column from its dtype -
+        # much faster than walking it - and materialises the column only for
+        # the dtypes that cannot be priced that way. Iterating `dtypes` rather
+        # than columns is the point: building a Series per column costs more
+        # than the sizing itself.
         size = 0
-        if not estimate:
-            for k, v in self.__dict__.items():
-                if isinstance(v, np.ndarray):
-                    size += v.nbytes
-                elif isinstance(v, pd.DataFrame):
+        for v in self.__dict__.values():
+            if isinstance(v, np.ndarray):
+                size += v.nbytes
+            elif isinstance(v, pd.DataFrame):
+                if not estimate:
                     size += v.memory_usage(deep=deep).sum()
-                elif isinstance(v, pd.Series):
+                    continue
+                for col, dtype in v.dtypes.items():
+                    size += (dtype.itemsize * v.shape[0]
+                             if isinstance(dtype, np.dtype)
+                             else _extension_bytes(v[col]))
+            elif isinstance(v, pd.Series):
+                if not estimate:
                     size += v.memory_usage(deep=deep)
-        else:
-            for k, v in self.__dict__.items():
-                if isinstance(v, np.ndarray):
-                    size += v.dtype.itemsize * v.size
-                elif isinstance(v, pd.DataFrame):
-                    for dt in v.dtypes.values:
-                        size += _estimated_bytes(dt, v.shape[0])
-                elif isinstance(v, pd.Series):
-                    size += _estimated_bytes(v.dtype, v.shape[0])
+                elif isinstance(v.dtype, np.dtype):
+                    size += v.dtype.itemsize * v.shape[0]
+                else:
+                    size += _extension_bytes(v)
 
         size = int(size)
         self._memory_usage = {"deep": deep, "estimate": estimate, "size": size}

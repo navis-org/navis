@@ -176,6 +176,31 @@ class NeuronList:
         return self.__dict__.get('neurons', [])
 
     @property
+    def pipeline(self):
+        """Start a [`navis.Pipeline`][] bound to this NeuronList.
+
+        Steps are collected as you chain them and nothing runs until `.run()`.
+        Handy for one-off chains; build a [`navis.Pipeline`][] directly if you
+        want to re-use it across several lists.
+
+        Examples
+        --------
+        >>> import navis
+        >>> nl = navis.example_neurons(3)
+        >>> res = (nl.pipeline
+        ...          .heal_skeleton()
+        ...          .prune_twigs(5000)
+        ...          .run())
+        >>> len(res)
+        3
+
+        """
+        # A property, not an attribute: `__getstate__` filters callables out of
+        # `__dict__`, and `__setattr__` warns about names the neurons also have.
+        from .pipeline import _BoundPipeline, Pipeline
+        return _BoundPipeline(self, Pipeline())
+
+    @property
     def is_mixed(self):
         """Return True if contains more than one type of neuron."""
         return len(self.types) > 1
@@ -226,15 +251,21 @@ class NeuronList:
 
     def __reprheader__(self, html=False):
         """Generate header for representation."""
-        if len(self) <= 2000:
-            size = utils.sizeof_fmt(self.memory_usage(deep=False, estimate=True))
-            head = f'{type(self)} containing {len(self)} neurons ({size})'
-        else:
-            # For larger lists, extrapolate from sampling 10% of the list
-            size = utils.sizeof_fmt(self.memory_usage(deep=False,
-                                                      sample=True,
-                                                      estimate=True))
+        sample = len(self) > 2000  # for larger lists, extrapolate from 10%
+        try:
+            size = utils.sizeof_fmt(self.memory_usage(deep=False, estimate=True,
+                                                      sample=sample))
+        except Exception as e:
+            # Being unable to size the neurons must not be the reason a
+            # NeuronList cannot be printed - but this is the only caller that
+            # has to swallow it. Everyone else gets the error.
+            logger.debug(f'Could not determine memory usage: {e}')
+            size = '?'
+
+        if sample:
             head = f'{type(self)} containing {len(self)} neurons (est. {size})'
+        else:
+            head = f'{type(self)} containing {len(self)} neurons ({size})'
 
         if html:
             head = head.replace('<', '&lt;').replace('>', '&gt;')
@@ -672,6 +703,18 @@ class NeuronList:
 
         # Delayed import to avoid circular import
         from .core_utils import NeuronProcessor
+        from .pipeline import Pipeline
+
+        # A pipeline knows how to run itself - and has to, because it decides
+        # whether its steps may work in place from the backend, which it can
+        # only do before the work is handed out.
+        if isinstance(func, Pipeline):
+            if kwargs:
+                raise TypeError('A Pipeline takes its arguments when its steps '
+                                f'are added, not here: {sorted(kwargs)}')
+            return func(self, parallel=parallel, n_cores=n_cores,
+                        chunksize=chunksize, backend=backend,
+                        progress=progress, omit_failures=omit_failures)
         proc = NeuronProcessor(self,
                                func,
                                parallel=parallel,
@@ -714,28 +757,18 @@ class NeuronList:
         Returns
         -------
         int
-                    Memory usage in bytes. Zero if it could not be determined -
-                    see the note below.
+                    Memory usage in bytes.
 
         """
         if self.empty:
             return 0
 
-        sampled = self.neurons[::10] if sample else self.neurons
-
-        try:
-            size = sum(n.memory_usage(deep=deep, estimate=estimate)
-                       for n in sampled)
-        except BaseException as e:
-            # This backs `__str__`, so it must not be the reason a NeuronList
-            # cannot be printed. But swallowing silently is how a crash in the
-            # estimating path went unnoticed for a whole pandas release, so say
-            # so where anyone looking will see it.
-            logger.debug(f'Could not determine memory usage: {e}')
-            return 0
+        neurons = self.neurons[::10] if sample else self.neurons
+        size = sum(n.memory_usage(deep=deep, estimate=estimate)
+                   for n in neurons)
 
         if sample:
-            size *= len(self.neurons) / len(sampled)
+            size *= len(self.neurons) / len(neurons)
 
         return int(size)
 
