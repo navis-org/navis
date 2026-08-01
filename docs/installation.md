@@ -162,6 +162,37 @@ directly, are listed below:
     pip install open3d pyfqmr
     ```
 
+??? info "Cluster computing"
+
+    For spreading `parallel=True` across more than one machine (see
+    [`navis.set_parallel_backend`][]). Neither is part of `navis[all]` - install
+    them explicitly with `pip install navis[cluster]` or individually:
+
+    ---
+
+    #### `dask`: [dask.distributed](https://distributed.dask.org)
+
+    Runs the work on a dask cluster - anything from a `LocalCluster` on your
+    laptop to a `SLURMCluster`/`KubeCluster` spanning a compute centre. Hand
+    {{ navis }} the `Client` and it will size the units of work against the
+    cluster and send the neurons straight to the workers.
+
+    ``` shell
+    pip install "dask[distributed]"
+    ```
+
+    ---
+
+    #### `submitit`: [submitit](https://github.com/facebookincubator/submitit)
+
+    Submits the work to a scheduler - SLURM, or your local machine for a dry
+    run - as an array job. Use this where you would otherwise write a batch
+    script: nothing has to stay connected while the jobs sit in the queue.
+
+    ``` shell
+    pip install submitit
+    ```
+
 ??? example "Visualization"
 
     {{ navis }} supports various different backends for 2D and 3D visualization. For 2D visualizations we

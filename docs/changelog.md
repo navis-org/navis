@@ -96,6 +96,22 @@ pip install git+https://github.com/navis-org/navis@master
 
     `backend="auto"` (the default) prefers `joblib`, then `pathos`, then the standard library's pool. **This changes which backend existing `parallel=True` calls use**: `pathos` was the only option before. The two behave the same - both serialize with a by-value pickler, so lambdas keep working - but `joblib` keeps its workers alive between calls where `pathos` builds a fresh pool each time, which makes a sequence of parallel calls measurably faster. Pass `backend="pathos"`, or set `navis.set_parallel_backend("pathos")`, to keep the old one. Third parties can register their own with `navis.compute.register_backend`.
 
+- **`parallel=True` can now run across a cluster**, via two new backends: `dask` (a [dask.distributed](https://distributed.dask.org) cluster, from a `LocalCluster` to a compute centre) and `submitit` (an array job on SLURM). Install with `pip install navis[cluster]` - deliberately *not* part of `navis[all]`.
+
+    Nothing about how you call {{ navis }} changes: `parallel=True` still only means "spread this over the neurons", and all scheduler configuration stays on your own object. [`navis.set_parallel_backend`][] now takes a `dask.distributed.Client` (or a cluster, or an already-active client) and a `submitit.Executor` directly, alongside any `concurrent.futures.Executor`. Neither backend is ever selected automatically.
+
+    ```python
+    ex = submitit.AutoExecutor(folder="logs")
+    ex.update_parameters(slurm_partition="cpu", timeout_min=60, mem_gb=8)
+
+    with navis.set_parallel_backend(ex):
+        navis.prune_twigs(nl, 5, parallel=True)
+    ```
+
+    Both bundle neurons into fewer, larger units of work - one neuron per task is right on one machine but means a round trip per neuron over a network, or a queued job per neuron on SLURM. {{ navis }} aims for enough units to keep every worker busy while capping each at ~128 MB of neurons, sizing against the *cluster's* worker count where it can see it; `chunksize=` still overrides it per call. The `dask` backend also reads the cluster's actual layout rather than guessing, so a `LocalCluster(processes=False)` - whose workers share memory with you - correctly does *not* get a caller's `inplace=False` turned into an in-place operation.
+
+    See the [multiprocessing tutorial](../generated/gallery/6_misc/tutorial_misc_00_multiprocess) for both in context.
+
 ##### Improvements
 - a mesh's unique edges now come from navis-fastcore where available (new `navis.utils.mesh_unique_edges`) instead of `trimesh.edges_unique`, which sorts an `(n_faces * 3, 2)` array to find them. This sits underneath [`neuron2nx`][navis.neuron2nx]/[`neuron2igraph`][navis.neuron2igraph] for `MeshNeurons` and hence everything built on a mesh graph - geodesic distances, connected components, [`drop_fluff`][navis.drop_fluff], [`fix_mesh`][navis.fix_mesh]. The results are seeded into trimesh's own cache (index and inverse included, so `faces_unique_edges` & co. stay consistent), meaning a mesh that has already computed its edges pays nothing.
 

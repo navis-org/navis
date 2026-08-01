@@ -14,11 +14,10 @@
 """Backend abstraction and registry for parallel processing.
 
 A *backend* is somewhere `parallel=True` can run work: a process pool, a thread
-pool, or - once the cluster adapters land - a scheduler on another set of
-machines. Backends are pure executor adapters: they receive a picklable
-function and a list of payloads and know nothing about neurons. That is what
-lets a `dask.distributed.Client` or a `submitit.AutoExecutor` be dropped in
-without touching the dispatch layer.
+pool, or a scheduler on another set of machines. Backends are pure executor
+adapters: they receive a picklable function and a list of payloads and know
+nothing about neurons. That is what lets a `dask.distributed.Client` or a
+`submitit.AutoExecutor` be dropped in without touching the dispatch layer.
 
 Third-party libraries can register their own via :func:`register_backend`.
 

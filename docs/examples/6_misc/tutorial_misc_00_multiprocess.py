@@ -114,6 +114,8 @@ time_func (
 # | `processes` | - | Standard library. No dependencies, but cannot ship lambdas. |
 # | `threads` | - | Only helps for work that releases the GIL. |
 # | `serial` | - | No parallelism at all - handy for debugging. |
+# | `dask` | `pip install navis[cluster]` | Another set of machines. See [below](#running-on-a-cluster). |
+# | `submitit` | `pip install navis[cluster]` | Submits to a scheduler (SLURM). See [below](#running-on-a-cluster). |
 
 print(navis.list_parallel_backends())
 
@@ -134,22 +136,69 @@ print(navis.list_parallel_backends())
 # ```
 
 # %%
-# !!! tip "Running on a cluster"
-#     [`navis.set_parallel_backend`][] also accepts any `concurrent.futures.Executor`,
-#     which is how you point {{ navis }} at more than one machine. Configure the executor
-#     with its own library's API - {{ navis }} deliberately has no `slurm_partition`-style
-#     parameters of its own - and hand it over:
+# ## Running on a cluster
+#
+# Nothing above changes when the work leaves your machine. `parallel=True` still just
+# means "spread this over the neurons"; you point [`navis.set_parallel_backend`][] at a
+# cluster and the same calls run there.
+#
+# The scheduler is configured with *its* library's API, never with {{ navis }} arguments -
+# there is deliberately no `slurm_partition=` anywhere in {{ navis }}. You build the
+# object, {{ navis }} runs the work on it.
+#
+# === "dask"
 #
 #     ```python
 #     from dask.distributed import Client
 #
-#     client = Client("tcp://scheduler:8786")
-#     with navis.set_parallel_backend(client.get_executor()):
+#     client = Client("tcp://scheduler:8786")   # or LocalCluster(), SLURMCluster(), ...
+#
+#     with navis.set_parallel_backend(client):
 #         navis.resample_skeleton(nl, resample_to=125, parallel=True)
 #     ```
 #
-#     Note that neurons are sent to the workers, so for remote backends it pays to raise
-#     `chunksize` - shipping one neuron per task is a lot of overhead for a short job.
+#     Best when you already have a cluster up and want results back interactively.
+#
+# === "submitit"
+#
+#     ```python
+#     import submitit
+#
+#     ex = submitit.AutoExecutor(folder="logs")
+#     ex.update_parameters(slurm_partition="cpu", timeout_min=60, mem_gb=8)
+#
+#     with navis.set_parallel_backend(ex):
+#         navis.resample_skeleton(nl, resample_to=125, parallel=True)
+#     ```
+#
+#     Best where you would otherwise write a batch script: the work goes into the queue
+#     as an array job. `cluster="local"` runs the same thing as subprocesses, which is
+#     the cheap way to check a pipeline before submitting it.
+#
+# Both need `pip install navis[cluster]`. A `dask.distributed.Client`, a
+# `submitit.Executor` and any plain `concurrent.futures.Executor` are all accepted
+# directly - so ipyparallel, `mpi4py.futures` and friends work too, without {{ navis }}
+# knowing anything about them.
+
+# %%
+# ### How the work gets split up
+#
+# Sending one neuron per task is right on one machine and wasteful across a network - a
+# neuron is a few hundred kilobytes, and on a scheduler each task would be a whole *job*.
+# So the cluster backends bundle neurons into fewer, larger units: enough units to keep
+# every worker busy, but never more than ~128 MB of neurons in any one of them.
+#
+# You shouldn't need to tune this, but `chunksize` overrides it for a single call:
+#
+# ```python
+# navis.resample_skeleton(nl, resample_to=125, parallel=True, chunksize=50)
+# ```
+#
+# !!! note "What `n_cores` means on a cluster"
+#     For `submitit` it only decides how the neurons are *divided up* - how many of those
+#     jobs run at once is the scheduler's business, set on the executor (e.g.
+#     `slurm_array_parallelism`). For `dask` it isn't used for sizing at all: {{ navis }}
+#     reads the real worker count off the cluster.
 
 # %%
 

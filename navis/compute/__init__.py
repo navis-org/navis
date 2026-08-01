@@ -15,8 +15,7 @@
 
 `parallel=True` means "spread this over the neurons"; this module decides
 *where* that happens. Point it at a different backend and the same call runs on
-threads, on all your cores, or - once the cluster adapters land - on another
-set of machines::
+threads, on all your cores, or on another set of machines::
 
     navis.set_parallel_backend('joblib')
     navis.prune_twigs(nl, 5, parallel=True)
@@ -25,7 +24,7 @@ Scheduler configuration is deliberately not navis' business: configure your
 executor with its own library's API and hand the object over, so navis never
 has to grow a `slurm_partition` keyword::
 
-    with navis.set_parallel_backend(client.get_executor()):
+    with navis.set_parallel_backend(dask_client):
         navis.prune_twigs(nl, 5, parallel=True)
 
 """

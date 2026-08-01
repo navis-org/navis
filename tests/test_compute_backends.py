@@ -9,7 +9,6 @@ deterministically, which is impossible with a real pool.
 
 import concurrent.futures as cf
 
-import numpy as np
 import pytest
 
 import navis

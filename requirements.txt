@@ -27,6 +27,11 @@ pathos>=0.2.7 #extra: pathos
 
 joblib>=1.3 #extra: joblib
 
+# Cluster backends. Deliberately not part of `navis[all]` - see `specialized`
+# in setup.py.
+dask[distributed]>=2023.1  #extra: cluster
+submitit>=1.4  #extra: cluster
+
 Shapely>=1.6.0  #extra: shapely
 
 rpy2  #extra: r
@@ -78,6 +83,10 @@ pytest-xvfb
 pytest-timeout
 gitpython
 scikit-image
+# Repeated from `cluster` so CI actually exercises those backends - they are
+# kept out of `navis[all]` but should not go untested.
+dask[distributed]>=2023.1
+submitit>=1.4
 
 #extra: docs
 
