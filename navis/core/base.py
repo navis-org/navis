@@ -45,6 +45,45 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
+def _bytes_per_value(dtype) -> int:
+    """Width of a single value of `dtype`, in bytes.
+
+    numpy dtypes state their own width, and most of pandas' extension dtypes
+    do too. The string ones do not: `StringDtype` has no `itemsize` at all,
+    and from pandas 3 it is what a column of text gets by default - so this is
+    reached by any neuron carrying connectors. Those store references, which
+    is also what the numpy `object` column they replaced would have cost.
+    """
+    itemsize = getattr(dtype, "itemsize", None)
+    if itemsize is not None:
+        return itemsize
+
+    # Nullable and Arrow-backed dtypes wrap something that does know
+    numpy_dtype = getattr(dtype, "numpy_dtype", None)
+    if numpy_dtype is not None:
+        return numpy_dtype.itemsize
+
+    return np.dtype(object).itemsize
+
+
+def _estimated_bytes(dtype, n_values: int) -> int:
+    """Estimated memory for `n_values` values of `dtype`.
+
+    Prices a column from its dtype rather than by walking it - much faster,
+    and the point of `memory_usage(estimate=True)`.
+    """
+    if isinstance(dtype, pd.CategoricalDtype):
+        # The values are stored once, however many rows there are, plus a
+        # code per row - narrow, but for a skeleton's `label`/`type` columns
+        # the codes are the larger of the two by a wide margin.
+        categories = dtype.categories
+        codes_width = np.min_scalar_type(max(len(categories) - 1, 0)).itemsize
+        return len(categories) * _bytes_per_value(categories.dtype) + \
+            n_values * codes_width
+
+    return n_values * _bytes_per_value(dtype)
+
+
 def Neuron(
     x: Union[nx.DiGraph, str, pd.DataFrame, "TreeNeuron", "MeshNeuron"], **metadata
 ):
@@ -860,16 +899,11 @@ class BaseNeuron(UnitObject):
                     size += v.dtype.itemsize * v.size
                 elif isinstance(v, pd.DataFrame):
                     for dt in v.dtypes.values:
-                        if isinstance(dt, pd.CategoricalDtype):
-                            size += len(dt.categories) * dt.itemsize
-                        else:
-                            size += dt.itemsize * v.shape[0]
+                        size += _estimated_bytes(dt, v.shape[0])
                 elif isinstance(v, pd.Series):
-                    if isinstance(v.dtype, pd.CategoricalDtype):
-                        size += len(v.dtype.categories) * v.dtype.itemsize
-                    else:
-                        size += v.dtype.itemsize * v.shape[0]
+                    size += _estimated_bytes(v.dtype, v.shape[0])
 
+        size = int(size)
         self._memory_usage = {"deep": deep, "estimate": estimate, "size": size}
 
         return size

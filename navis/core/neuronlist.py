@@ -714,25 +714,30 @@ class NeuronList:
         Returns
         -------
         int
-                    Memory usage in bytes.
+                    Memory usage in bytes. Zero if it could not be determined -
+                    see the note below.
 
         """
         if self.empty:
             return 0
 
-        if not sample:
-            try:
-                return sum([n.memory_usage(deep=deep,
-                                           estimate=estimate) for n in self.neurons])
-            except BaseException:
-                return 0
-        else:
-            try:
-                s = sum([n.memory_usage(deep=deep,
-                                        estimate=estimate) for n in self.neurons[::10]])
-                return s * (len(self.neurons) / len(self.neurons[::10]))
-            except BaseException:
-                return 0
+        sampled = self.neurons[::10] if sample else self.neurons
+
+        try:
+            size = sum(n.memory_usage(deep=deep, estimate=estimate)
+                       for n in sampled)
+        except BaseException as e:
+            # This backs `__str__`, so it must not be the reason a NeuronList
+            # cannot be printed. But swallowing silently is how a crash in the
+            # estimating path went unnoticed for a whole pandas release, so say
+            # so where anyone looking will see it.
+            logger.debug(f'Could not determine memory usage: {e}')
+            return 0
+
+        if sample:
+            size *= len(self.neurons) / len(sampled)
+
+        return int(size)
 
     def sample(self, N: Union[int, float] = 1) -> 'NeuronList':
         """Return random subset of neurons."""

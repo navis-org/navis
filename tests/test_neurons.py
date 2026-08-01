@@ -196,3 +196,81 @@ def test_edges2neuron_cycle():
 
     assert n.n_nodes == 4
     assert n.is_tree  # cycle was broken
+
+
+# --------------------------------------------------------------------------- #
+# memory_usage
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("kind", ["skeleton", "mesh", "dotprops", "voxels"])
+def test_memory_usage_estimate_matches_the_slow_path(kind):
+    """`estimate=True` prices columns from their dtype instead of walking them.
+
+    It is allowed to come in a little low, but it has to work: it used to raise
+    on any neuron carrying connectors, because from pandas 3 a text column is a
+    `StringDtype`, which has no `itemsize`.
+    """
+    if kind in ("skeleton", "mesh"):
+        n = navis.example_neurons(1, kind=kind)
+    elif kind == "dotprops":
+        n = navis.make_dotprops(navis.example_neurons(1), k=5)
+    else:
+        n = navis.voxelize(navis.example_neurons(1), pitch="2 microns")
+
+    exact = n.memory_usage(estimate=False)
+    estimate = n.memory_usage(estimate=True)
+
+    assert estimate > 0
+    assert 0.8 <= estimate / exact <= 1.0
+
+
+def test_memory_usage_handles_extension_dtypes():
+    """Neurons with connectors carry text columns; those are the awkward ones."""
+    n = navis.example_neurons(1)
+    assert n.has_connectors
+    # An extension dtype with no `itemsize` at all is the case that used to blow up
+    assert any(not hasattr(dt, "itemsize") for dt in n.connectors.dtypes)
+
+    # Not just non-zero - the connectors have to actually be counted
+    without = navis.example_neurons(1)
+    without._connectors = None
+    assert n.memory_usage(estimate=True) > without.memory_usage(estimate=True)
+
+
+def test_memory_usage_counts_categorical_codes():
+    """The per-row codes dwarf the categories, so they cannot be skipped."""
+    n = navis.example_neurons(1)
+    cat_cols = [c for c, dt in n.nodes.dtypes.items()
+                if isinstance(dt, pd.CategoricalDtype)]
+    assert cat_cols, "example skeleton should have categorical node columns"
+
+    estimate = n.memory_usage(estimate=True)
+    # One byte per row per categorical column is the floor for the codes alone
+    assert estimate > n.n_nodes * len(cat_cols)
+
+
+def test_neuronlist_memory_usage():
+    nl = navis.example_neurons(5)
+
+    assert nl.memory_usage(estimate=True) > 0
+    assert isinstance(nl.memory_usage(estimate=True), int)
+    # Roughly the sum of its parts
+    parts = sum(n.memory_usage(estimate=True) for n in nl)
+    assert nl.memory_usage(estimate=True) == parts
+
+    # Sampling extrapolates from every 10th neuron, so it is approximate but
+    # must be in the right ballpark rather than zero
+    sampled = nl.memory_usage(estimate=True, sample=True)
+    assert 0.2 <= sampled / parts <= 5
+
+    assert navis.NeuronList([]).memory_usage() == 0
+
+
+def test_neuronlist_memory_usage_survives_a_broken_neuron():
+    """It backs `__str__`, so it must not be why a NeuronList cannot print."""
+    class Broken(navis.TreeNeuron):
+        def memory_usage(self, deep=False, estimate=False):
+            raise RuntimeError("no idea")
+
+    nl = navis.NeuronList([Broken(navis.example_neurons(1))])
+    assert nl.memory_usage(estimate=True) == 0
+    assert "NeuronList" in str(nl)
