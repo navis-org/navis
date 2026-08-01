@@ -31,7 +31,7 @@ from .base import Blaster, NestedIndices
 from .smat import Lookup2d
 from .backends import resolve_backend
 
-from .nblast_funcs import nblast_preflight, smat_fcwb
+from .nblast_funcs import nblast_preflight, smat_fcwb, COMBINED_SCORES
 
 try:
     from pykdtree.kdtree import KDTree
@@ -314,6 +314,11 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
                 The original morphology-based NBLAST.
 
     """
+    # `SynBlaster` has no reverse-score path, so an unchecked value used to
+    # come back as the forward score - silently, and under whatever label was
+    # asked for.
+    utils.eval_param(scores, name='scores', allowed_values=COMBINED_SCORES)
+
     # Make sure we're working on NeuronList
     query = NeuronList(query)
     target = NeuronList(target)

@@ -54,6 +54,33 @@ def _run_job(blaster):
     raise ValueError(f"Unknown block operation '{op}'")
 
 
+def _empty_scores(query_ids, target_ids, dtype, scores='forward'):
+    """Allocate the full matrix that the blocks get written into."""
+    if scores == 'both':
+        # `multi_query_target` stacks the two directions per query, so the
+        # matrix is twice as tall as it has queries.
+        index = pd.MultiIndex.from_product([query_ids, ['forward', 'reverse']],
+                                           names=['query', 'score'])
+    else:
+        index = pd.Index(query_ids, name='query')
+
+    return pd.DataFrame(np.empty((len(index), len(target_ids)), dtype=dtype),
+                        index=index,
+                        columns=pd.Index(target_ids, name='target'))
+
+
+def _row_positions(queries_ix, scores='forward'):
+    """Where a block's rows belong in the matrix `_empty_scores` allocated.
+
+    With `scores='both'` each query owns two adjacent rows - forward then
+    reverse - which is the order `multi_query_target` emits them in.
+    """
+    if scores != 'both':
+        return queries_ix
+    queries_ix = np.asarray(queries_ix)
+    return np.stack([queries_ix * 2, queries_ix * 2 + 1], axis=1).ravel()
+
+
 class BuiltinBackend(NblastBackend):
     """The built-in multiprocessing NBLAST backend."""
 
@@ -203,13 +230,10 @@ class BuiltinBackend(NblastBackend):
             return res
 
         # Multiple blocks: stitch results into the big matrix
-        out = pd.DataFrame(np.empty((len(query_dps), len(target_dps)),
-                                    dtype=nb.dtype),
-                           index=query_dps.id, columns=target_dps.id)
-        out.index.name = 'query'
-        out.columns.name = 'target'
+        out = _empty_scores(query_dps.id, target_dps.id, nb.dtype, scores)
         for this, res in self._map(jobs, n_cores, progress):
-            out.iloc[this.queries_ix, this.targets_ix] = res.values
+            out.iloc[_row_positions(this.queries_ix, scores),
+                     this.targets_ix] = res.values
 
         return out
 

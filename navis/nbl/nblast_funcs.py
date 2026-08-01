@@ -58,7 +58,12 @@ MIN_BLOCKS_PER_CORE = 2
 # NBLAST
 OMP_NUM_THREADS_LIMIT = 1
 
-ALLOWED_SCORES = ('forward', 'mean', 'min', 'max', 'both')
+# Scores that combine the query->target and target->query directions into a
+# single value, so the result is one matrix the same shape as query x target.
+COMBINED_SCORES = ('forward', 'mean', 'min', 'max')
+# `both` instead returns the two directions side by side, stacked under a
+# (query, score) MultiIndex. Only `nblast` knows how to assemble that.
+ALLOWED_SCORES = COMBINED_SCORES + ('both',)
 
 
 class NBlaster(Blaster):
@@ -380,7 +385,9 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     """
     utils.eval_param(criterion, name='criterion',
                      allowed_values=("percentile", "score", "N"))
-    utils.eval_param(scores, name='scores', allowed_values=ALLOWED_SCORES)
+    # Not `ALLOWED_SCORES`: the second pass here scores individual pairs, and
+    # there is nowhere in a single matrix to put a second score per pair.
+    utils.eval_param(scores, name='scores', allowed_values=COMBINED_SCORES)
 
     # All-by-all if no target was provided
     aba = isinstance(target, type(None))
