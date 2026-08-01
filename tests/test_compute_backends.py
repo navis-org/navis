@@ -19,8 +19,9 @@ from navis.compute.backends import (ParallelBackend, register_backend,
                                     get_backend, list_backends,
                                     available_backends, resolve_backend,
                                     set_parallel_backend, SerialBackend,
-                                    ProcessBackend)
-from navis.compute.backends.base import _BACKENDS
+                                    ProcessBackend, WrappedExecutorBackend,
+                                    auto_chunksize)
+from navis.compute.backends.base import _BACKENDS, REMOTE_CHUNKS_PER_WORKER
 
 
 # --------------------------------------------------------------------------- #
@@ -239,6 +240,106 @@ def test_default_chunksize_is_one_task(tasks):
     assert [len(p[3]) for p in be.calls[0]['payloads']] == [1] * 7
 
 
+# --------------------------------------------------------------------------- #
+# Chunking policy
+# --------------------------------------------------------------------------- #
+def test_shipped_backends_send_one_task_per_unit():
+    """Bundling is for remote transports - a local pool must not pay for it."""
+    for name in ('serial', 'threads', 'processes', 'joblib', 'pathos'):
+        assert get_backend(name).chunksize(10_000, 8) == 1
+
+
+def test_requested_chunksize_always_wins():
+    be = DummyBackend()
+    be.chunks_per_worker = 8
+    assert be.chunksize(10_000, 20, requested=3) == 3
+    # ... but never a nonsensical one
+    assert be.chunksize(10_000, 20, requested=0) == 1
+
+
+def test_auto_chunksize_bounds_the_number_of_units():
+    """The count bound is the one that normally binds."""
+    cs = auto_chunksize(10_000, 20, chunks_per_worker=8)
+    n_units = -(-10_000 // cs)
+    assert n_units <= 20 * 8
+    # ... and is not needlessly finer than asked for
+    assert -(-10_000 // (cs - 1)) > 20 * 8
+
+
+def test_auto_chunksize_caps_payload_size():
+    """With enough tasks the byte bound takes over from the count bound."""
+    mb = 1024 ** 2
+    kwargs = dict(chunks_per_worker=8, max_bytes=128 * mb)
+    # ~309 KB per neuron -> at most 434 per unit
+    big = auto_chunksize(10_000_000, 20, size_hint=lambda: 309_000, **kwargs)
+    assert big == 434
+    # Without the hint the count bound alone would have allowed far more
+    assert auto_chunksize(10_000_000, 20, **kwargs) > big
+
+
+def test_auto_chunksize_stays_in_range():
+    # Never zero, never more tasks than exist
+    assert auto_chunksize(1, 20, chunks_per_worker=8) == 1
+    assert auto_chunksize(5, 20, chunks_per_worker=8) == 1
+    assert auto_chunksize(3, 1, chunks_per_worker=1) == 3
+    # `n_workers=None` reaches here from an executor that sets its own
+    assert auto_chunksize(100, None, chunks_per_worker=8) == 13
+
+
+def test_size_hint_is_not_called_when_it_cannot_matter():
+    """Sampling the data costs real time on the neuron path."""
+    calls = []
+
+    def hint():
+        calls.append(1)
+        return 1.0
+
+    # Count bound already says 1 task per unit - nothing left to shrink
+    auto_chunksize(5, 20, chunks_per_worker=8, max_bytes=10, size_hint=hint)
+    assert not calls
+
+
+def test_broken_size_hint_falls_back_to_task_count():
+    def hint():
+        raise RuntimeError('no idea how big these are')
+
+    assert auto_chunksize(10_000, 20, chunks_per_worker=8, max_bytes=1,
+                          size_hint=hint) == 63
+
+
+def test_chunking_policy_reaches_the_backend(tasks):
+    be = DummyBackend()
+    be.chunks_per_worker = 2
+    dispatch.map_tasks(tasks, backend=be, n_workers=2)
+    # 7 tasks, 2 workers, 2 units each -> 4 units -> 2 tasks per unit
+    assert [len(p[3]) for p in be.calls[0]['payloads']] == [2, 2, 2, 1]
+
+
+def test_remote_executor_is_bundled_when_handed_over_bare():
+    """`set_parallel_backend(client.get_executor())` must chunk like `dask`."""
+    class ClientExecutor:
+        pass
+
+    ClientExecutor.__module__ = 'distributed.cfexecutor'
+
+    be = WrappedExecutorBackend(ClientExecutor())
+    assert be.chunks_per_worker == REMOTE_CHUNKS_PER_WORKER
+    assert be.pickles_by_value is True
+
+    # Explicit beats inferred
+    be = WrappedExecutorBackend(ClientExecutor(), chunks_per_worker=1)
+    assert be.chunks_per_worker == 1
+
+
+def test_local_executor_is_not_bundled():
+    with cf.ThreadPoolExecutor(2) as ex:
+        assert WrappedExecutorBackend(ex).chunks_per_worker is None
+        assert WrappedExecutorBackend(ex).chunksize(10_000, 8) == 1
+
+
+# --------------------------------------------------------------------------- #
+# Dispatch seam (continued)
+# --------------------------------------------------------------------------- #
 def test_results_are_reordered(tasks):
     """The backend yields backwards; the caller must still get input order."""
     be = DummyBackend(reverse=True)

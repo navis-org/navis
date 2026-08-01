@@ -271,6 +271,9 @@ def map_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
     cs = max(1, int(cs))
 
     chunks = [tasks[i:i + cs] for i in range(0, len(tasks), cs)]
+    if cs > 1:
+        logger.debug(f"'{backend.name}': {len(tasks)} tasks in {len(chunks)} "
+                     f'units of up to {cs}.')
 
     # Only ship the context where it's needed: applying it in-process would
     # clobber the parent's own config.

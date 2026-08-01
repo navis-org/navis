@@ -35,7 +35,8 @@ logger = config.get_logger(__name__)
 
 __all__ = ['ParallelBackend', 'ExecutorBackend', 'register_backend',
            'get_backend', 'list_backends', 'available_backends',
-           'resolve_backend', 'set_parallel_backend', 'non_forking_context']
+           'resolve_backend', 'set_parallel_backend', 'non_forking_context',
+           'auto_chunksize']
 
 # Registry of name -> backend instance
 _BACKENDS = {}
@@ -69,6 +70,14 @@ class ParallelBackend(ABC):
                     Whether the backend can send functions that cannot be
                     imported by name - lambdas, closures, notebook-defined
                     functions. `pickle` cannot; `dill` and `cloudpickle` can.
+    chunks_per_worker : int | None
+                    How many units of work to aim for per worker. `None` (the
+                    default) means "don't bundle": one task per unit, which is
+                    right for a local pool where handing over a task costs
+                    microseconds. See :func:`auto_chunksize`.
+    max_chunk_bytes : int
+                    Ceiling on the estimated payload of one unit. Only consulted
+                    when `chunks_per_worker` is set.
 
     """
 
@@ -79,6 +88,9 @@ class ParallelBackend(ABC):
     concurrent: bool = True
     isolated: bool = True
     pickles_by_value: bool = False
+
+    chunks_per_worker: Optional[int] = None
+    max_chunk_bytes: int = 128 * 1024 ** 2
 
     def __repr__(self):
         return f"<ParallelBackend '{self.name}' (priority={self.priority})>"
@@ -128,10 +140,19 @@ class ParallelBackend(ABC):
         separate job - hence the hook. `size_hint` is a *callable* returning
         the estimated bytes per task, so backends that don't need it never pay
         for computing it.
+
+        An explicit `requested` always wins; otherwise backends that set
+        `chunks_per_worker` get the policy in :func:`auto_chunksize` and the
+        rest get one task per unit.
         """
         if requested is not None:
             return max(1, int(requested))
-        return 1
+        if not self.chunks_per_worker:
+            return 1
+        return auto_chunksize(n_tasks, n_workers,
+                              chunks_per_worker=self.chunks_per_worker,
+                              max_bytes=self.max_chunk_bytes,
+                              size_hint=size_hint)
 
     @abstractmethod
     def map(self, func: Callable, payloads: Sequence, *,
@@ -190,14 +211,19 @@ class WrappedExecutorBackend(ExecutorBackend):
 
     auto_select = False
 
-    def __init__(self, executor, *, isolated=None, pickles_by_value=None):
+    def __init__(self, executor, *, isolated=None, pickles_by_value=None,
+                 chunks_per_worker=None):
         self.executor = executor
         self.name = f'custom:{type(executor).__name__}'
 
-        inferred_isolated, inferred_by_value = _infer_capabilities(executor)
-        self.isolated = inferred_isolated if isolated is None else bool(isolated)
-        self.pickles_by_value = (inferred_by_value if pickles_by_value is None
+        caps = _infer_capabilities(executor)
+        self.isolated = caps['isolated'] if isolated is None else bool(isolated)
+        self.pickles_by_value = (caps['pickles_by_value']
+                                 if pickles_by_value is None
                                  else bool(pickles_by_value))
+        self.chunks_per_worker = (caps['chunks_per_worker']
+                                  if chunks_per_worker is None
+                                  else int(chunks_per_worker))
 
     def get_executor(self, n_workers):
         return self.executor
@@ -205,6 +231,74 @@ class WrappedExecutorBackend(ExecutorBackend):
     def release_executor(self, executor):
         # The user owns this executor - never shut it down for them
         pass
+
+
+# --------------------------------------------------------------------------- #
+# Chunking policy
+# --------------------------------------------------------------------------- #
+#: Units of work per worker for backends where a unit crosses a network. Shared
+#: so that a dask executor handed to `set_parallel_backend` directly is chunked
+#: the same way as one reached through the named `dask` backend.
+REMOTE_CHUNKS_PER_WORKER = 8
+
+
+def auto_chunksize(n_tasks: int, n_workers: int, *,
+                   chunks_per_worker: int,
+                   max_bytes: Optional[int] = None,
+                   size_hint: Optional[Callable[[], float]] = None) -> int:
+    """Bundle `n_tasks` into units sized for an expensive transport.
+
+    Locally, one neuron per unit is fine - handing a task to a worker on the
+    same machine costs microseconds. Once the unit has to cross a network, or
+    *is* a scheduler job, that stops being true: 10,000 neurons would mean
+    10,000 round trips, or 10,000 SLURM jobs.
+
+    Two bounds decide the size:
+
+    - **How many units.** Aim for `chunks_per_worker` units per worker. One
+      unit each would leave every worker idle the moment it finishes early, so
+      a small multiple buys load balancing; a large one just pays the transport
+      cost again. This is the bound that normally binds.
+    - **How big a unit.** With `size_hint`, no unit is allowed past `max_bytes`
+      of estimated payload. This only binds for very large jobs, and it is a
+      safety valve rather than a target: it keeps a worker from having to hold
+      an unreasonable slice of the data, and limits how much work one failure
+      takes down with it.
+
+    Parameters
+    ----------
+    n_tasks :           int
+    n_workers :         int
+    chunks_per_worker : int
+                        Units of work to aim for per worker.
+    max_bytes :         int, optional
+                        Ceiling on the estimated payload of a unit.
+    size_hint :         callable, optional
+                        Returns the estimated bytes of a single task. Only
+                        called when it could actually change the answer.
+
+    Returns
+    -------
+    int
+                        Tasks per unit; always >= 1.
+
+    """
+    n_workers = max(1, int(n_workers or 1))
+    units = max(1, n_workers * int(chunks_per_worker))
+    cs = -(-n_tasks // units)  # ceil
+
+    # Don't ask for a size estimate we can't act on - it costs a sample of the
+    # data on the neuron path.
+    if max_bytes and size_hint is not None and cs > 1:
+        try:
+            per_task = float(size_hint())
+        except Exception as e:
+            logger.debug(f'Size hint failed ({e}); chunking by task count only.')
+            per_task = 0
+        if per_task > 0:
+            cs = min(cs, max(1, int(max_bytes // per_task)))
+
+    return max(1, min(cs, n_tasks))
 
 
 def non_forking_context(mp):
@@ -234,30 +328,36 @@ def non_forking_context(mp):
     return ctx
 
 
-def _infer_capabilities(executor):
-    """Guess (isolated, pickles_by_value) for a user-supplied executor.
+def _infer_capabilities(executor) -> dict:
+    """Guess the capability flags for a user-supplied executor.
 
     We can recognise the common ones. For anything else we deliberately guess
     the *safe* values: `isolated=False` means we never turn a caller's
-    `inplace=False` into an in-place operation, which at worst costs a copy.
+    `inplace=False` into an in-place operation, which at worst costs a copy,
+    and no bundling means the work is at least correctly distributed.
     """
+    def caps(isolated, pickles_by_value, chunks_per_worker=None):
+        return dict(isolated=isolated, pickles_by_value=pickles_by_value,
+                    chunks_per_worker=chunks_per_worker)
+
     if isinstance(executor, cf.ThreadPoolExecutor):
-        return False, True
+        return caps(False, True)
     if isinstance(executor, cf.ProcessPoolExecutor):
-        return True, False
+        return caps(True, False)
 
     mod = type(executor).__module__ or ''
     if mod.startswith('joblib') or 'loky' in mod:
-        return True, True
+        return caps(True, True)
     if mod.startswith('distributed') or mod.startswith('dask'):
         # dask uses cloudpickle; workers are separate processes by default but
         # a LocalCluster(processes=False) shares memory - hence the safe guess.
-        return False, True
+        # Every task is a scheduler round trip, so bundle (see DaskBackend).
+        return caps(False, True, REMOTE_CHUNKS_PER_WORKER)
 
     logger.debug(f'Unrecognised executor {type(executor).__name__}; assuming '
                  'it shares memory with the parent. Pass `isolated=True` to '
                  '`navis.set_parallel_backend` if it does not.')
-    return False, False
+    return caps(False, False)
 
 
 # --------------------------------------------------------------------------- #
@@ -421,7 +521,7 @@ class _BackendSetter:
 
 
 def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
-                         pickles_by_value=None):
+                         pickles_by_value=None, chunks_per_worker=None):
     """Set where `parallel=True` runs its work.
 
     Parameters
@@ -443,6 +543,12 @@ def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
     pickles_by_value : bool, optional
                 Only for a bare executor: whether it can ship lambdas and
                 closures (i.e. uses `dill`/`cloudpickle` rather than `pickle`).
+    chunks_per_worker : int, optional
+                Only for a bare executor: how many units of work to aim for per
+                worker. `None` (the default) sends one neuron per unit, which is
+                right on one machine and wasteful across a network - recognised
+                remote executors are bundled automatically, so this is for
+                tuning that or for an executor we don't recognise.
 
     Returns
     -------
@@ -461,7 +567,8 @@ def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
     """
     if isinstance(backend, cf.Executor):
         backend = WrappedExecutorBackend(backend, isolated=isolated,
-                                         pickles_by_value=pickles_by_value)
+                                         pickles_by_value=pickles_by_value,
+                                         chunks_per_worker=chunks_per_worker)
     elif isinstance(backend, str) and backend != 'auto':
         # Fail loudly here rather than at the next `parallel=True`
         get_backend(backend)
