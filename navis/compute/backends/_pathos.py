@@ -16,7 +16,7 @@
 import importlib.util
 
 from ... import config
-from .base import ParallelBackend
+from .base import ParallelBackend, non_forking_context
 
 logger = config.get_logger(__name__)
 
@@ -30,10 +30,11 @@ class PathosBackend(ParallelBackend):
     defined in a notebook - which is why it is the highest-priority backend
     and why `NeuronList.apply(lambda ...)` works on it.
 
-    Note that `multiprocess` (pathos' fork of `multiprocessing`) starts workers
-    with `fork` even on macOS. That makes it markedly cheaper to start than a
-    spawning pool, but forking a threaded process is exactly what CPython is
-    moving away from.
+    Note that `multiprocess` (pathos' fork of `multiprocessing`) defaults to
+    starting workers with `fork` on every platform, including macOS where the
+    standard library does not. We override that - see `non_forking_context`
+    for why. Left as-is, a pool started after navis had done any real work
+    would hang forever with no error and no output.
     """
 
     name = 'pathos'
@@ -51,8 +52,11 @@ class PathosBackend(ParallelBackend):
         # because the latter ignores `chunksize`, see
         # https://stackoverflow.com/questions/55611806/how-to-set-chunk-size-when-using-pathos-processingpools-map
         import pathos
+        import multiprocess
+
+        ctx = non_forking_context(multiprocess)
 
         # Payloads are already chunked by the dispatcher, so pathos must not
         # chunk them a second time.
-        with pathos.pools._ProcessPool(n_workers) as pool:
+        with pathos.pools._ProcessPool(n_workers, context=ctx) as pool:
             yield from pool.imap_unordered(func, payloads, chunksize=1)

@@ -21,7 +21,7 @@ import concurrent.futures as cf
 from concurrent.futures.process import BrokenProcessPool
 
 from ... import config
-from .base import ParallelBackend, ExecutorBackend
+from .base import ParallelBackend, ExecutorBackend, non_forking_context
 
 logger = config.get_logger(__name__)
 
@@ -81,27 +81,11 @@ _POOL_TIMER = None
 _POOL_LOCK = threading.RLock()
 
 
-def _default_mp_context():
-    """Pick a start method, avoiding `fork`.
-
-    Forking a process that already has threads running risks deadlocks, which
-    is why CPython deprecated it in 3.12 and, from 3.14, no longer defaults to
-    it on Linux. navis pulls in plenty of threaded libraries, so we opt out
-    early rather than inherit the platform default where that is still `fork`.
-    """
-    ctx = mp.get_context()
-    if ctx.get_start_method() != 'fork':
-        return ctx
-    if 'forkserver' in mp.get_all_start_methods():
-        return mp.get_context('forkserver')
-    return mp.get_context('spawn')
-
-
 def _get_pool(n_workers):
     """Return a (possibly reused) process pool."""
     global _POOL, _POOL_KEY, _POOL_TIMER
 
-    ctx = _default_mp_context()
+    ctx = non_forking_context(mp)
     # The pid is part of the key so a forked child never inherits - and then
     # deadlocks on - its parent's pool.
     key = (n_workers, ctx.get_start_method(), os.getpid())

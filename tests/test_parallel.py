@@ -99,6 +99,34 @@ def test_backend_parity(nl, backend):
     assert [n.n_nodes for n in got] == ref
 
 
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize('backend', LOCAL_BACKENDS + ['pathos', 'joblib'],
+                         indirect=True)
+def test_parallel_after_serial_work(backend):
+    """Running serially first must not break the parallel run that follows.
+
+    Real work brings up native thread pools - BLAS, and Accelerate on macOS -
+    which are invisible to `threading.enumerate()` and do not survive a fork.
+    A forking backend deadlocks here: no error, no output, no progress. Running
+    something serially and then in parallel is the most ordinary workflow there
+    is, so it has to work on every backend.
+
+    Mesh skeletonization is used because it reliably brings those pools up;
+    the pure-Python skeleton functions elsewhere in this file do not, which is
+    why they never caught this.
+    """
+    proto = navis.example_neurons(kind='mesh')
+    nl = navis.NeuronList([proto[i % len(proto)].copy() for i in range(4)])
+
+    # Warm the process: this is what makes the subsequent fork unsafe
+    navis.skeletonize(nl, heal=True, parallel=False)
+
+    res = navis.skeletonize(nl, heal=True, parallel=True, n_cores=2,
+                            backend=backend)
+
+    assert len(res) == len(nl)
+
+
 def test_bare_executor_backend(nl):
     """A user-supplied Executor - the path a cluster client takes.
 

@@ -35,7 +35,7 @@ logger = config.get_logger(__name__)
 
 __all__ = ['ParallelBackend', 'ExecutorBackend', 'register_backend',
            'get_backend', 'list_backends', 'available_backends',
-           'resolve_backend', 'set_parallel_backend']
+           'resolve_backend', 'set_parallel_backend', 'non_forking_context']
 
 # Registry of name -> backend instance
 _BACKENDS = {}
@@ -205,6 +205,33 @@ class WrappedExecutorBackend(ExecutorBackend):
     def release_executor(self, executor):
         # The user owns this executor - never shut it down for them
         pass
+
+
+def non_forking_context(mp):
+    """Return a start-method context for `mp` that is not `fork`.
+
+    `mp` is either the standard library's `multiprocessing` or pathos'
+    `multiprocess`, which mirrors its API but defaults to `fork` on every
+    platform - including macOS, where the standard library does not.
+
+    Forking is unsafe once a process has done real work. Only the forking
+    thread survives into the child, so any native thread pool the parent had
+    spun up - BLAS/OpenMP, or Accelerate on macOS - is gone, while the locks
+    those pools held are inherited in whatever state they were in. The first
+    call in the child that touches one then blocks forever, with no error and
+    no output. navis reaches that state almost immediately: skeletonizing a
+    mesh is enough. CPython deprecated fork-with-threads in 3.12 and stopped
+    defaulting to it on Linux in 3.14; we opt out everywhere.
+    """
+    ctx = mp.get_context()
+    if ctx.get_start_method() != 'fork':
+        return ctx
+    # forkserver forks from a process started before any of that work, so it
+    # keeps most of fork's cheapness without inheriting the hazard.
+    for method in ('forkserver', 'spawn'):
+        if method in mp.get_all_start_methods():
+            return mp.get_context(method)
+    return ctx
 
 
 def _infer_capabilities(executor):
