@@ -73,7 +73,6 @@ OPTIONAL_SUBMODULES = (
     "navis.interfaces.h01",
     "navis.interfaces.brain_image_library",
     "navis.interfaces.cytoscape",
-    "navis.interfaces.r",
 )
 
 

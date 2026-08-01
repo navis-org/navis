@@ -21,7 +21,7 @@ import warnings
 import navis
 
 # Submodules that aren't imported by default. These pull in optional
-# third-party dependencies (neuron, caveclient, rpy2, ...) and some of them
+# third-party dependencies (neuron, caveclient, py2cytoscape, ...) and some of them
 # raise at import time when those are missing. Import them defensively: a
 # missing optional dependency should cost us that module's API reference page,
 # not the entire docs build.
@@ -36,7 +36,6 @@ OPTIONAL_SUBMODULES = (
     "navis.interfaces.h01",
     "navis.interfaces.brain_image_library",
     "navis.interfaces.cytoscape",
-    "navis.interfaces.r",
 )
 
 for _module in OPTIONAL_SUBMODULES:

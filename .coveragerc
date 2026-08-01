@@ -4,5 +4,4 @@ omit =
     navis/__version__.py
     navis/interfaces/blender.py
     navis/interfaces/cytoscape.py
-    navis/interfaces/r.py
     setup.py

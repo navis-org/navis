@@ -115,7 +115,7 @@ def test_signatures_are_stripped_of_annotations(files):
 def test_no_unresolved_entries(gen, files):
     """Every api.md target resolves, or is explained by a missing optional dep.
 
-    `navis.interfaces.*` needs backends (neuron, rpy2, py2cytoscape, ...) that
+    `navis.interfaces.*` needs backends (neuron, py2cytoscape, caveclient, ...) that
     a plain test environment won't have; the docs CI installs them all. Those
     entries are expected to render as a labelled placeholder. Anything else
     failing to resolve means api.md points at something that doesn't exist.

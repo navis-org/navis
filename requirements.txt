@@ -19,7 +19,7 @@ trimesh>=3.8
 fuzzywuzzy>=0.18
 molesq>=0.2.0
 sparse-cubes[skeleton]>=0.5.0
-rdata>=0.5
+rdata>=1.0  # 1.0 is the first version that can *write* .rds/.rda files
 igraph!=0.10.0,!=0.10.1
 skeletor>=1.0.0
 
@@ -33,8 +33,6 @@ dask[distributed]>=2023.1  #extra: cluster
 submitit>=1.4  #extra: cluster
 
 Shapely>=1.6.0  #extra: shapely
-
-rpy2  #extra: r
 
 # Inline tags, not a `#extra: kdtree` section header - a header would also
 # claim every line below it, inline tag or not.

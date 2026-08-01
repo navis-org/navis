@@ -84,6 +84,41 @@ s = navis.skeletonize(n)
 ## natverse
 
 The [natverse](http://natverse.org/) is {{ navis }}'s equivalent in R. While we
-are aiming for feature parity, it can be useful to access ``natverse`` functions
-from Python. For this, {{ navis }} offers some convenience functions using the
-R-Python interface ``rpy2``. Check out the [tutorial](../generated/gallery/).
+are aiming for feature parity, it can be useful to move data between the two.
+
+That happens via R data files, which {{ navis }} reads and writes natively - no
+R installation and no ``rpy2`` required on either end:
+
+```python
+import navis
+
+nl = navis.example_neurons(3)
+
+# Write to an .rds (single object) or .rda (named objects) file
+navis.write_rds(nl, 'neurons.rds')
+navis.write_rda({'neurons': nl, 'LH': navis.example_volume('LH')}, 'data.rda')
+
+# ... and read R data files back in
+nl2 = navis.read_rds('neurons.rds')
+```
+
+``` r
+# In R:
+library(nat)
+nl <- readRDS('neurons.rds')
+plot3d(nl)
+```
+
+Skeletons, dotprops, meshes, image data and neuronlists all map onto their
+`nat`/`rgl` counterparts. See the
+[natverse tutorial](generated/gallery/0_io/tutorial_io_03_r) for the full
+round trip.
+
+!!! info "The `rpy2` interface has been retired"
+
+    {{ navis }} used to ship a `navis.interfaces.r` module that called
+    ``natverse`` functions through ``rpy2``. It has been removed: the file-based
+    exchange above covers the data side without needing R installed, and its
+    other functions have native equivalents ([`navis.nblast`][],
+    [`navis.xform_brain`][] and [`navis.mirror_brain`][] with
+    [flybrains](https://github.com/navis-org/navis-flybrains)).

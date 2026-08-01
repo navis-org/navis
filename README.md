@@ -23,8 +23,8 @@ NBLAST preconditions).
 * **remote data**: load neurons directly from [neuPrint](https://neuprint.janelia.org), [neuromorpho.org](http://neuromorpho.org) and other online repositories
 * **model** neurons and networks using the *NEURON* simulator
 * **render**: use Blender 3D for high quality [visualizations](https://youtu.be/wl3sFG7WQJc)
-* **R** neuron libraries: interfaces with [nat](https://github.com/jefferis/nat), [rcatmaid](https://github.com/jefferis/rcatmaid), [elmr](https://github.com/jefferis/elmr) and more
 * **import-export**: read/write SWCs, neuroglancer's ["*precomputed*"](https://github.com/google/neuroglancer/tree/master/src/datasource/precomputed) format, NMX/NML, NRRD, mesh-files and more
+* **R-friendly**: exchange neurons with the [natverse](http://natverse.org) by reading/writing `.rds`/`.rda` files - no R or `rpy2` required
 * **fast**: uses functions compiled in Rust under-the-hood (see [fastcore](https://github.com/schlegelp/fastcore-rs))
 * **scalable**: out-of-the-box support for multiprocessing
 * **extensible**: build your own package on top of navis - see [pymaid](https://pymaid.readthedocs.io/en/latest/) for example

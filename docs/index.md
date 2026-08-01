@@ -345,7 +345,7 @@ morphology. It stands on the shoulders of the excellent
     ---
 
     Read and write from/to SWC, NRRD, Neuroglancer's precomputed format,
-    OBJ, STL and [more](generated/gallery/#import-export)!
+    OBJ, STL, R's `.rds`/`.rda` and [more](generated/gallery/#import-export)!
 
 -   :octicons-globe-24:{ .lg .middle } __Connected__
 

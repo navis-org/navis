@@ -36,7 +36,6 @@ In addition {{ navis }} has interfaces to various external datasets and tools:
 - [Blender 3D](#blender-api)
 - [Cytoscape](#cytoscape-api)
 - [Allen MICrONS datasets](#allen-microns-datasets)
-- [R and the natverse libraries](#r-interface)
 <!-- - [Allen Cell Type Atlas]() -->
 
 Most of these functions include examples of how to use them. Click on them to
@@ -620,6 +619,7 @@ Functions to import neurons.
 | [`navis.read_nmx()`][navis.read_nmx] | {{ autosummary("navis.read_nmx") }} |
 | [`navis.read_nml()`][navis.read_nml] | {{ autosummary("navis.read_nml") }} |
 | [`navis.read_rda()`][navis.read_rda] | {{ autosummary("navis.read_rda") }} |
+| [`navis.read_rds()`][navis.read_rds] | {{ autosummary("navis.read_rds") }} |
 | [`navis.read_json()`][navis.read_json] | {{ autosummary("navis.read_json") }} |
 | [`navis.read_precomputed()`][navis.read_precomputed] | {{ autosummary("navis.read_precomputed") }} |
 | [`navis.read_parquet()`][navis.read_parquet] | {{ autosummary("navis.read_parquet") }} |
@@ -636,6 +636,8 @@ Functions to export neurons.
 | [`navis.write_json()`][navis.write_json] | {{ autosummary("navis.write_json") }} |
 | [`navis.write_precomputed()`][navis.write_precomputed] | {{ autosummary("navis.write_precomputed") }} |
 | [`navis.write_parquet()`][navis.write_parquet] | {{ autosummary("navis.write_parquet") }} |
+| [`navis.write_rda()`][navis.write_rda] | {{ autosummary("navis.write_rda") }} |
+| [`navis.write_rds()`][navis.write_rds] | {{ autosummary("navis.write_rds") }} |
 
 ## Utility
 
@@ -1015,29 +1017,6 @@ from navis.interfaces import h01
 Please also see the [H01 tutorial](../generated/gallery/4_remote/tutorial_remote_04_h01/).
 
 
-### R interface
-
-Bundle of functions to use R natverse libraries.
-
-_Not imported at top level! Must be imported explicitly:_
-
-```python
-from navis.interfaces import r
-```
-
-| Function | Description |
-|----------|-------------|
-| [`r.data2py()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.data2py") }} |
-| [`r.get_neuropil()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.get_neuropil") }} |
-| [`r.init_rcatmaid()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.init_rcatmaid") }} |
-| [`r.load_rda()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.load_rda") }} |
-| [`r.nblast()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.nblast") }} |
-| [`r.nblast_allbyall()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.nblast_allbyall") }} |
-| [`r.NBLASTresults()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.NBLASTresults") }} |
-| [`r.neuron2py()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.neuron2py") }} |
-| [`r.neuron2r()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.neuron2r") }} |
-| [`r.xform_brain()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.xform_brain") }} |
-| [`r.mirror_brain()`][navis.interfaces.r.data2py] | {{ autosummary("navis.interfaces.r.mirror_brain") }} |
 
 ## Neuron types and functions
 

@@ -245,18 +245,6 @@ directly, are listed below:
 
 ??? question "Miscellaneous"
 
-    #### `r`: [Rpy2](https://rpy2.readthedocs.io/en/version_2.8.x/overview.html#installation)
-
-    Provides interface with R. This allows you to use e.g. the [natverse](https://natverse.org)
-    R packages. Note that this package is not installed automatically as it would fail if R is
-    not already installed on the system. You have to install Rpy2 manually!
-
-    ``` shell
-    pip install rpy2
-    ```
-
-    ---
-
     #### `shapely`: [Shapely](https://shapely.readthedocs.io/en/latest/)
 
     This is used to get 2D outlines of `navis.Volumes` when plotting in 2D
