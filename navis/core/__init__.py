@@ -13,18 +13,22 @@
 
 from .volumes import Volume
 from .base import Neuron, BaseNeuron
-from .skeleton import TreeNeuron
-from .mesh import MeshNeuron
+from .skeleton import Skeleton
+from .mesh import Mesh
 from .dotprop import Dotprops
-from .voxel import VoxelNeuron
+from .voxel import Voxels
 from .neuronlist import NeuronList
 from .core_utils import make_dotprops, to_neuron_space, cast_neuron, NeuronProcessor
 from .pipeline import Pipeline, PipelineStepError
 
+from .skeleton import TreeNeuron  # noqa: F401  pre-2.0 name, see navis/_deprecated.py
+from .mesh import MeshNeuron  # noqa: F401
+from .voxel import VoxelNeuron  # noqa: F401
+
 from typing import Union
 
-NeuronObject = Union[NeuronList, TreeNeuron, BaseNeuron, MeshNeuron]
+NeuronObject = Union[NeuronList, Skeleton, BaseNeuron, Mesh]
 
-__all__ = ['Volume', 'Neuron', 'BaseNeuron', 'TreeNeuron', 'MeshNeuron',
-           'Dotprops', 'VoxelNeuron', 'NeuronList', 'make_dotprops',
+__all__ = ['Volume', 'Neuron', 'BaseNeuron', 'Skeleton', 'Mesh',
+           'Dotprops', 'Voxels', 'NeuronList', 'make_dotprops',
            'cast_neuron', 'Pipeline', 'PipelineStepError']

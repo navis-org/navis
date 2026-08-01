@@ -20,13 +20,13 @@ import scipy.spatial
 from typing import Union
 from typing_extensions import Literal
 
-from ..core import TreeNeuron, NeuronList
+from ..core import Skeleton, NeuronList
 from .. import config, graph
 
 # Set up logging
 logger = config.get_logger(__name__)
 
-NeuronObject = Union[TreeNeuron, NeuronList]
+NeuronObject = Union[Skeleton, NeuronList]
 
 
 def cable_overlap(a: NeuronObject,
@@ -39,7 +39,7 @@ def cable_overlap(a: NeuronObject,
 
     Parameters
     ----------
-    a,b :       TreeNeuron | NeuronList
+    a,b :       Skeleton | NeuronList
                 Neuron(s) for which to compute cable within distance. It is
                 highly recommended to resample neurons to guarantee an even
                 sampling rate.
@@ -91,9 +91,9 @@ def cable_overlap(a: NeuronObject,
     >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
 
     """
-    if not isinstance(a, (TreeNeuron, NeuronList)) \
-       or not isinstance(b, (TreeNeuron, NeuronList)):
-        raise TypeError(f'Expected `TreeNeurons`, got "{type(a)}" and "{type(b)}"')
+    if not isinstance(a, (Skeleton, NeuronList)) \
+       or not isinstance(b, (Skeleton, NeuronList)):
+        raise TypeError(f'Expected `Skeletons`, got "{type(a)}" and "{type(b)}"')
 
     if not isinstance(a, NeuronList):
         a = NeuronList(a)

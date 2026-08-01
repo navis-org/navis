@@ -79,8 +79,8 @@ def branch_angles(x, degrees=True):
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                Neuron to analyze. If MeshNeuron, will generate and use a
+    x :         Skeleton | Mesh | NeuronList
+                Neuron to analyze. If Mesh, will generate and use a
                 skeleton representation.
     degrees :   bool
                 If True (default), angles are returned in degrees, otherwise in
@@ -111,7 +111,7 @@ def branch_angles(x, degrees=True):
     True
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     coords = x.nodes.set_index("node_id")[["x", "y", "z"]].astype(float)
     parents = x.nodes.set_index("node_id").parent_id.to_dict()
@@ -151,8 +151,8 @@ def path_angles(x, degrees=True):
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                Neuron to analyze. If MeshNeuron, will generate and use a
+    x :         Skeleton | Mesh | NeuronList
+                Neuron to analyze. If Mesh, will generate and use a
                 skeleton representation.
     degrees :   bool
                 If True (default), angles are returned in degrees, otherwise in
@@ -181,7 +181,7 @@ def path_angles(x, degrees=True):
     True
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     coords = x.nodes.set_index("node_id")[["x", "y", "z"]].astype(float)
     pid = x.nodes.set_index("node_id").parent_id
@@ -233,10 +233,10 @@ def root_angles(x, degrees=True):
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                Neuron to analyze. If MeshNeuron, will generate and use a
+    x :         Skeleton | Mesh | NeuronList
+                Neuron to analyze. If Mesh, will generate and use a
                 skeleton representation. For a meaningful result the neuron
-                should be rooted at its soma (see [`navis.TreeNeuron.reroot`][]).
+                should be rooted at its soma (see [`navis.Skeleton.reroot`][]).
     degrees :   bool
                 If True (default), angles are returned in degrees, otherwise in
                 radians.
@@ -259,7 +259,7 @@ def root_angles(x, degrees=True):
     True
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     coords = x.nodes.set_index("node_id")[["x", "y", "z"]].astype(float)
     pid = x.nodes.set_index("node_id").parent_id
@@ -311,13 +311,13 @@ def soma_exit_angles(x, degrees=True):
     pointing from the root to the respective stem.
 
     For a meaningful result the neuron should be rooted at its soma (see
-    [`navis.TreeNeuron.reroot`][]). Fragmented neurons (multiple roots) are
+    [`navis.Skeleton.reroot`][]). Fragmented neurons (multiple roots) are
     handled by returning the stem angles for every root.
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                Neuron to analyze. If MeshNeuron, will generate and use a
+    x :         Skeleton | Mesh | NeuronList
+                Neuron to analyze. If Mesh, will generate and use a
                 skeleton representation.
     degrees :   bool
                 If True (default), angles are returned in degrees, otherwise in
@@ -345,7 +345,7 @@ def soma_exit_angles(x, degrees=True):
     ['root_id', 'soma_exit_angle']
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     coords = x.nodes.set_index("node_id")[["x", "y", "z"]].astype(float)
     childs = graph.generate_list_of_childs(x)

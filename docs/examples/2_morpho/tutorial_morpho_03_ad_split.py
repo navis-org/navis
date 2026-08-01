@@ -33,7 +33,7 @@ _So how do we determine what's axon and what's dendrite?_
     labels from the pre-/postsynapses and propagates them across the neuron. Slower, but returns
     per-node/-vertex probabilities.
 
-Both methods work on neuron skeletons (`TreeNeurons`) as well as meshes (`MeshNeuron`), and require
+Both methods work on neuron skeletons (`Skeletons`) as well as meshes (`Mesh`), and require
 the neuron to have pre- and postsynapses as `.connectors`. See the table at the bottom for a direct
 comparison.
 
@@ -193,8 +193,8 @@ _ = ax.set_title("dendrite probability")
 #
 # |                             | [`split_axon_dendrite`][navis.split_axon_dendrite] (flow)    | [`split_axon_dendrite_prop`][navis.split_axon_dendrite_prop] (propagation) |
 # |-----------------------------|---------------------------|----------------------------|
-# | Works on `TreeNeurons`?     | Yes                       | Yes                        |
-# | Works on `MeshNeurons`?     | Yes but still operates on the skeleton         | Yes   |
+# | Works on `Skeletons`?     | Yes                       | Yes                        |
+# | Works on `Meshes`?     | Yes but still operates on the skeleton         | Yes   |
 # | Returns probabilities?      | No                        | Yes                        |
 # | Defines a "linker"?         | Yes                       | Not directly               |
 # | Finds cell body fibers?     | Yes                       | No                         |

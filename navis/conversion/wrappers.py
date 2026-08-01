@@ -25,8 +25,8 @@ logger = config.get_logger(__name__)
 
 
 @utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
-def skeletonize(x: Union['core.MeshNeuron', 'core.Dotprops',
-                         'core.VoxelNeuron', np.ndarray],
+def skeletonize(x: Union['core.Mesh', 'core.Dotprops',
+                         'core.Voxels', np.ndarray],
                 **kwargs):
     """Turn neuron into skeleton.
 
@@ -36,7 +36,7 @@ def skeletonize(x: Union['core.MeshNeuron', 'core.Dotprops',
 
     Parameters
     ----------
-    x :         MeshNeuron | trimesh.Trimesh | Dotprops | VoxelNeuron
+    x :         Mesh | trimesh.Trimesh | Dotprops | Voxels
                 Object(s) to skeletonize. Note that the quality of the results
                 very much depends on the input, so it might be worth doing some
                 pre-processing (see below).
@@ -49,7 +49,7 @@ def skeletonize(x: Union['core.MeshNeuron', 'core.Dotprops',
 
     Returns
     -------
-    skeleton :  navis.TreeNeuron
+    skeleton :  navis.Skeleton
                 For meshes, this has a `.vertex_map` attribute that maps each
                 vertex in the input mesh to a skeleton node ID.
 
@@ -84,9 +84,9 @@ def skeletonize(x: Union['core.MeshNeuron', 'core.Dotprops',
     >>> sk = navis.skeletonize(vx)
 
     """
-    if isinstance(x, (core.MeshNeuron, tm.Trimesh)):
+    if isinstance(x, (core.Mesh, tm.Trimesh)):
         return mesh2skeleton(x, **kwargs)
-    elif isinstance(x, core.VoxelNeuron):
+    elif isinstance(x, core.Voxels):
         return voxels2skeleton(x, **kwargs)
     elif isinstance(x, (core.Dotprops, )):
         sk = points2skeleton(x.points, **kwargs)
@@ -107,12 +107,12 @@ def voxelize(x: 'core.BaseNeuron',
              counts: bool = False,
              vectors: bool = False,
              alphas: bool = False,
-             smooth: int = 0) -> 'core.VoxelNeuron':
+             smooth: int = 0) -> 'core.Voxels':
     """Turn neuron into voxels.
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | Dotprops
+    x :             Skeleton | Mesh | Dotprops
                     Neuron(s) to voxelize. Uses the neurons' nodes, vertices and
                     points, respectively.
     pitch :         float | iterable thereof
@@ -136,7 +136,7 @@ def voxelize(x: 'core.BaseNeuron',
 
     Returns
     -------
-    VoxelNeuron
+    Voxels
                     Has the voxel grid as `.grid` and (optionally) `.vectors`
                     and `.alphas` properties. `.grid` data type depends
                     on settings:
@@ -156,7 +156,7 @@ def voxelize(x: 'core.BaseNeuron',
     >>> vx = navis.voxelize(n, pitch='5 microns')
 
     """
-    if isinstance(x, (core.TreeNeuron, core.MeshNeuron, core.Dotprops)):
+    if isinstance(x, (core.Skeleton, core.Mesh, core.Dotprops)):
         return neuron2voxels(x,
                              pitch=pitch,
                              bounds=bounds,
@@ -169,17 +169,17 @@ def voxelize(x: 'core.BaseNeuron',
 
 
 @utils.map_neuronlist(desc='Meshing', allow_parallel=True)
-def mesh(x: Union['core.VoxelNeuron', np.ndarray, 'core.TreeNeuron'],
-         **kwargs) -> Union[tm.Trimesh, 'core.MeshNeuron']:
+def mesh(x: Union['core.Voxels', np.ndarray, 'core.Skeleton'],
+         **kwargs) -> Union[tm.Trimesh, 'core.Mesh']:
     """Generate mesh from object(s).
 
-    VoxelNeurons or (N, 3) arrays of voxel coordinates will be meshed using
-    a marching cubes algorithm. TreeNeurons will be meshed by creating
+    Voxels or (N, 3) arrays of voxel coordinates will be meshed using
+    a marching cubes algorithm. Skeletons will be meshed by creating
     cylinders using the radii.
 
     Parameters
     ----------
-    x :             VoxelNeuron | (N, 3) np.array | TreeNeuron
+    x :             Voxels | (N, 3) np.array | Skeleton
                     Object to mesh. See notes above.
     **kwargs
                     Keyword arguments are passed through to the respective
@@ -188,17 +188,17 @@ def mesh(x: Union['core.VoxelNeuron', np.ndarray, 'core.TreeNeuron'],
 
     Returns
     -------
-    mesh :          trimesh.Trimesh | MeshNeuron
-                    Returns a trimesh or MeshNeuron depending on the input.
+    mesh :          trimesh.Trimesh | Mesh
+                    Returns a trimesh or Mesh depending on the input.
                     Data tables (e.g. `connectors`) are not carried over from
                     input neuron.
 
     """
-    if isinstance(x, core.VoxelNeuron) or (
+    if isinstance(x, core.Voxels) or (
         isinstance(x, np.ndarray) and x.ndim == 2 and x.shape[1] == 3
     ):
         return voxels2mesh(x, **kwargs)
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.Skeleton):
         return tree2meshneuron(x, **kwargs)
 
     raise TypeError(f'Unable to create mesh from data of type {type(x)}')

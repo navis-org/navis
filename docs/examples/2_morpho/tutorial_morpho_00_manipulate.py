@@ -7,7 +7,7 @@ Prune, resample, smooth and reshape neuron morphology.
 See the [API reference](../../api#neuron-morphology) for a complete list of available functions.
 
 Some manipulations work on all (or most) neuron types; others only make sense for a specific type -
-rerooting, for example, only applies to a [`navis.TreeNeuron`][]. As a rule of thumb, a generically
+rerooting, for example, only applies to a [`navis.Skeleton`][]. As a rule of thumb, a generically
 named function like [`downsample_neuron`][navis.downsample_neuron] accepts multiple types, while a
 specialized one like [`reroot_skeleton`][navis.reroot_skeleton] is type-specific. Depending on your
 data you may therefore need to convert between neuron types first.
@@ -15,7 +15,7 @@ data you may therefore need to convert between neuron types first.
 This tutorial covers the operations below - the table doubles as an index and shows which neuron types
 each supports:
 
-| Operation | `TreeNeuron` | `MeshNeuron` | `Dotprops` | `VoxelNeuron` |
+| Operation | `Skeleton` | `Mesh` | `Dotprops` | `Voxels` |
 |-----------|:---:|:---:|:---:|:---:|
 | [Reroot](#rerooting) ([`reroot_skeleton`][navis.reroot_skeleton]) | ✅ | — | — | — |
 | [Downsample](#simplifying) ([`downsample_neuron`][navis.downsample_neuron]) | ✅ | ✅ | ✅ | ✅ |
@@ -24,14 +24,14 @@ each supports:
 | [Cut & prune](#cutting-pruning) ([`cut_skeleton`][navis.cut_skeleton], [`prune_twigs`][navis.prune_twigs]) | ✅ | ✅ | — | — |
 | [Subset to volume](#intersecting-with-volumes) ([`in_volume`][navis.in_volume]) | ✅ | ✅ | ✅ | ✅ |
 
-Cutting or pruning a [`navis.MeshNeuron`][] operates on its skeleton and propagates the changes back to
+Cutting or pruning a [`navis.Mesh`][] operates on its skeleton and propagates the changes back to
 the mesh, so the result may not be perfect (e.g. not watertight).
 
 ## Rerooting
 
-[`navis.TreeNeurons`][navis.TreeNeuron] are hierarchical trees and as such typically have a single "root" node (fragmented neurons
+[`navis.Skeletons`][navis.Skeleton] are hierarchical trees and as such typically have a single "root" node (fragmented neurons
 will have multiple roots). The root is important because it is used as the reference/origin for a bunch of analyses such
-as Strahler order. Typically, you want the root to be the soma. Because the root is so important, [`TreeNeuron`][navis.TreeNeuron]
+as Strahler order. Typically, you want the root to be the soma. Because the root is so important, [`Skeleton`][navis.Skeleton]
 can be rerooted:
 """
 
@@ -48,7 +48,7 @@ navis.reroot_skeleton(n, n.soma, inplace=True)
 
 # %%
 # !!! note
-#     The root is implicitly also important for [`navis.MeshNeuron`][] because we're
+#     The root is implicitly also important for [`navis.Mesh`][] because we're
 #     using their skeleton representations for a couple operations/analyses!
 #
 # ## Simplifying
@@ -56,7 +56,7 @@ navis.reroot_skeleton(n, n.soma, inplace=True)
 # Downsampling/simplifying is handy before, say, plotting large lists of neurons. It works on all
 # neuron types (see the table at the top), though the implementation differs per type.
 #
-# For [`TreeNeurons`][navis.TreeNeuron] downsampling means skipping N nodes (here 10):
+# For [`Skeletons`][navis.Skeleton] downsampling means skipping N nodes (here 10):
 
 # %%
 sk = navis.example_neurons(n=1, kind="skeleton")
@@ -67,7 +67,7 @@ sk_downsampled = navis.downsample_neuron(sk, downsampling_factor=10, inplace=Fal
 print(sk_downsampled.n_nodes)
 
 # %%
-# For [`MeshNeurons`][navis.MeshNeuron] downsampling will reduce the number of faces by a factor of N:
+# For [`Meshes`][navis.Mesh] downsampling will reduce the number of faces by a factor of N:
 
 # %%
 me = navis.example_neurons(n=1, kind="mesh")
@@ -79,13 +79,13 @@ print(me_downsampled.n_faces)
 
 # %%
 # !!! note
-#     Under the hood [`downsample_neuron`][navis.downsample_neuron] calls [`navis.simplify_mesh`][] for [`MeshNeurons`][navis.MeshNeuron].
+#     Under the hood [`downsample_neuron`][navis.downsample_neuron] calls [`navis.simplify_mesh`][] for [`Meshes`][navis.Mesh].
 #     That function then requires one of the supported backends for mesh operations to be installed: Blender
 #     3D, `pymeshlab` or `open3d`. If none is available, it will prompt you to install one.
 #
 # ## Resampling
 #
-# [`TreeNeurons`][navis.TreeNeuron] can also be "resampled" (up or down) to a given resolution (i.e. distance between nodes):
+# [`Skeletons`][navis.Skeleton] can also be "resampled" (up or down) to a given resolution (i.e. distance between nodes):
 
 # %%
 sk = navis.example_neurons(n=1, kind="skeleton")
@@ -186,7 +186,7 @@ sk_smoothed
 # ## Cutting & Pruning
 #
 # Cutting and pruning work best if there is a sense of topology which implicitly requires a skeleton. Many
-# functions will also work on [MeshNeurons][navis.MeshNeuron] though. That's because the operation is performed
+# functions will also work on [Meshes][navis.Mesh] though. That's because the operation is performed
 # on their skeleton and changes are propagated back to the mesh. Fair warning though: this may not be perfect
 # (e.g. the resulting mesh might not be watertight) - should be good enough for a first pass though!
 #
@@ -296,7 +296,7 @@ plt.tight_layout()
 
 # %%
 # We can also turn this around and remove only the higher order branches. Let's use this example to
-# show that we can also do this with [`MeshNeurons`][navis.MeshNeuron]:
+# show that we can also do this with [`Meshes`][navis.Mesh]:
 
 # %%
 # Load an example mesh neuron
@@ -357,7 +357,7 @@ plt.tight_layout()
 
 # %%
 # As the table at the top of this tutorial shows, not every operation applies to every neuron type:
-# [`Dotprops`][navis.Dotprops] and [`VoxelNeurons`][navis.VoxelNeuron] can't be cut, for example, but they
+# [`Dotprops`][navis.Dotprops] and [`Voxels`][navis.Voxels] can't be cut, for example, but they
 # *can* be subset to a volume. See the [API reference](../../../api.md#neuron-types-and-functions) for the
 # full matrix.
 

@@ -50,8 +50,8 @@ voxels, and plot, process and compare them — often in just a few lines.
     m = navis.example_neurons(1, kind="mesh")
 
     # convert it into the other neuron types
-    sk = navis.skeletonize(m)                 # TreeNeuron
-    vx = navis.voxelize(m, pitch="1 micron")  # VoxelNeuron
+    sk = navis.skeletonize(m)                 # Skeleton
+    vx = navis.voxelize(m, pitch="1 micron")  # Voxels
     dp = navis.make_dotprops(m, k=5)          # Dotprops
     ```
 

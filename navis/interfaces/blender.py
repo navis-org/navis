@@ -113,7 +113,7 @@ class Handler:
     cn_dict["abutting"] = cn_dict[3]
 
     # Some other parameters
-    cn_dict["display"] = "lines"  # "lines" or "spheres", overriden if MeshNeuron
+    cn_dict["display"] = "lines"  # "lines" or "spheres", overriden if Mesh
     cn_dict["size"] = 0.01  # sets size of spheres only
 
     defaults = dict(bevel_depth=0.007, bevel_resolution=5, resolution_u=10)
@@ -180,12 +180,12 @@ class Handler:
 
         Parameters
         ----------
-        x :             TreeNeuron | MeshNeuron | NeuronList | core.Volume
+        x :             Skeleton | Mesh | NeuronList | core.Volume
                         Objects to import into Blender.
         neurites :      bool, optional
-                        Plot neurites. TreeNeurons only.
+                        Plot neurites. Skeletons only.
         soma :          bool, optional
-                        Plot somas. TreeNeurons only.
+                        Plot somas. Skeletons only.
         connectors :    bool, optional
                         Plot connectors. Uses a defaults dictionary to set
                         color/type. See Examples on how to change.
@@ -193,12 +193,12 @@ class Handler:
                         If True, will redraw window after each neuron. This
                         will slow down loading!
         use_radii :     bool, optional
-                        If True, will use node radii. For TreeNeurons only.
+                        If True, will use node radii. For Skeletons only.
         skip_existing : bool, optional
                         If True, will skip neurons that are already loaded.
         downsample :    False | int, optional
                         If integer < 1, will downsample neurites upon import.
-                        Preserves branch point/roots. TreeNeurons only.
+                        Preserves branch point/roots. Skeletons only.
         collection :    str, optional
                         Only for Blender >2.8: add object(s) to given collection.
                         If collection does not exist, will be created.
@@ -380,7 +380,7 @@ class Handler:
 
         mat = bpy.data.materials.get(mat_name, bpy.data.materials.new(mat_name))
 
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             if neurites:
                 self._create_skeleton(
                     x,
@@ -391,10 +391,10 @@ class Handler:
                 )
             if soma and not isinstance(x.soma, type(None)):
                 self._create_soma(x, mat, collection=collection)
-        elif isinstance(x, core.MeshNeuron):
+        elif isinstance(x, core.Mesh):
             self._create_mesh(x, mat, collection=collection)
         else:
-            raise TypeError(f'Expected Mesh/TreeNeuron, got "{type(x)}"')
+            raise TypeError(f'Expected Mesh/Skeleton, got "{type(x)}"')
 
         if connectors and x.has_connectors:
             self._create_connectors(x, collection=collection)
@@ -402,7 +402,7 @@ class Handler:
         return
 
     def _create_mesh(self, x, mat, collection=None):
-        """Create mesh from MeshNeuron."""
+        """Create mesh from Mesh."""
         name = getattr(x, "name", "")
 
         # Make copy of vertices as we are potentially modifying them
@@ -665,9 +665,9 @@ class Handler:
 
             ob_name = f'{settings["name"]} of {x.id}'
 
-            # Only plot as lines if this is a TreeNeuron
+            # Only plot as lines if this is a Skeleton
             if self.cn_dict.get("display", "lines") == "lines" and isinstance(
-                x, core.TreeNeuron
+                x, core.Skeleton
             ):
                 cn_coords = cn_coords[:, self.axes_order]
                 cn_coords *= float(self.scaling)

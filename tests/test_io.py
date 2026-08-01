@@ -153,7 +153,7 @@ def test_r_data_types():
     mesh = navis.example_neurons(1, kind="mesh")
     dps = navis.make_dotprops(nl, k=5)
     vol = navis.example_volume("LH")
-    vox = navis.VoxelNeuron(
+    vox = navis.Voxels(
         np.arange(24).reshape(2, 3, 4).astype("float32"),
         offset=(10, 20, 30),
         units="4 nm",
@@ -218,7 +218,7 @@ def test_r_data_object_order(keys):
         "dps": navis.make_dotprops(nl, k=5),
         "vol": navis.example_volume("LH"),
         "mesh": navis.example_neurons(1, kind="mesh"),
-        "vox": navis.VoxelNeuron(
+        "vox": navis.Voxels(
             np.zeros((2, 3, 4), dtype="float32"), offset=(0, 0, 0), units="1 nm"
         ),
     }

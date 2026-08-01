@@ -19,7 +19,7 @@ from typing import Union
 
 from .. import core, utils
 
-NeuronObject = Union["core.NeuronList", "core.TreeNeuron"]
+NeuronObject = Union["core.NeuronList", "core.Skeleton"]
 
 __all__ = ["smooth_voxels", "thin_voxels"]
 
@@ -37,7 +37,7 @@ def smooth_voxels(
 
     Parameters
     ----------
-    x :             VoxelNeuron | NeuronList
+    x :             Voxels | NeuronList
                     Neuron(s) to be processed.
     sigma :         int | (3, ) ints, optional
                     Standard deviation for Gaussian kernel, **in voxels** (not
@@ -72,7 +72,7 @@ def smooth_voxels(
 
     Returns
     -------
-    VoxelNeuron/List
+    Voxels/List
                     Smoothed neuron(s). Note that smoothing spreads values
                     outwards, so the neuron will occupy more voxels than
                     before.
@@ -87,14 +87,14 @@ def smooth_voxels(
     See Also
     --------
     [`navis.smooth_mesh`][]
-                    For smoothing MeshNeurons and other mesh-likes.
+                    For smoothing Meshes and other mesh-likes.
     [`navis.smooth_skeleton`][]
-                    For smoothing TreeNeurons.
+                    For smoothing Skeletons.
 
     """
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.VoxelNeuron):
-        raise TypeError(f"Can only process VoxelNeurons, not {type(x)}")
+    if not isinstance(x, core.Voxels):
+        raise TypeError(f"Can only process Voxels, not {type(x)}")
 
     utils.eval_param(
         backend, name="backend", allowed_values=("sparsecubes", "scipy")
@@ -151,7 +151,7 @@ def thin_voxels(x, backend="auto", inplace=False, **kwargs):
 
     Parameters
     ----------
-    x :         VoxelNeuron | numpy array
+    x :         Voxels | numpy array
                 The image to thin. Arrays are interpreted as dense image data
                 (not as voxel coordinates).
     backend :   "auto" | "sparsecubes" | "skimage"
@@ -169,7 +169,7 @@ def thin_voxels(x, backend="auto", inplace=False, **kwargs):
                     Note that 2D arrays always go to "skimage": sparse-cubes
                     is 3D only.
     inplace :   bool
-                For VoxelNeurons only: Whether to manipulate the neuron
+                For Voxels only: Whether to manipulate the neuron
                 in place.
     **kwargs
                 For the "sparsecubes" backend: passed through to
@@ -178,7 +178,7 @@ def thin_voxels(x, backend="auto", inplace=False, **kwargs):
     Returns
     -------
     thin
-                Thinned VoxelNeuron or numpy array.
+                Thinned Voxels or numpy array.
 
     Examples
     --------
@@ -192,7 +192,7 @@ def thin_voxels(x, backend="auto", inplace=False, **kwargs):
         backend, name="backend", allowed_values=("auto", "sparsecubes", "skimage")
     )
 
-    if not isinstance(x, (core.VoxelNeuron, np.ndarray)):
+    if not isinstance(x, (core.Voxels, np.ndarray)):
         raise TypeError(f"Unable to thin data of type {type(x)}")
 
     # sparse-cubes is 3D only, so 2D image data can only go to scikit-image
@@ -214,8 +214,8 @@ def thin_voxels(x, backend="auto", inplace=False, **kwargs):
 
 def _thin_sparsecubes(x, inplace=False, **kwargs):
     """Thin via sparse-cubes, straight off the sparse voxels."""
-    if isinstance(x, core.VoxelNeuron):
-        # The VoxelNeuron method already carries the surviving voxels' values
+    if isinstance(x, core.Voxels):
+        # The Voxels method already carries the surviving voxels' values
         if inplace:
             x.thin(inplace=True, **kwargs)
             return x
@@ -245,7 +245,7 @@ def _thin_skimage(x, inplace=False, **kwargs):
             "  pip install scikit-image"
         )
 
-    if isinstance(x, core.VoxelNeuron):
+    if isinstance(x, core.Voxels):
         if not inplace:
             x = x.copy()
 

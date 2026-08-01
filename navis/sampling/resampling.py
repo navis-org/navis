@@ -75,7 +75,7 @@ def resample_skeleton(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 Skeleton | NeuronList
                         Neuron(s) to resample.
     resample_to :       int | float | str
                         Target sampling resolution, i.e. one node every
@@ -115,7 +115,7 @@ def resample_skeleton(x: 'core.NeuronObject',
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
                         Downsampled neuron(s).
 
     Examples
@@ -144,7 +144,7 @@ def resample_skeleton(x: 'core.NeuronObject',
                         align with given 1-dimensional grid.
 
     """
-    if not isinstance(x, core.TreeNeuron):
+    if not isinstance(x, core.Skeleton):
         raise TypeError(f'Unable to resample data of type "{type(x)}"')
 
     if method not in INTERP_METHODS and not isinstance(method, (int, np.integer)):
@@ -334,7 +334,7 @@ def _reduce_segment_volumes(radius, step, offsets):
 def _segment_volumes(x):
     """Radius-based volume of each of `x`'s small segments.
 
-    Uses the same truncated-cone (frustum) model as `TreeNeuron.volume`: an edge
+    Uses the same truncated-cone (frustum) model as `Skeleton.volume`: an edge
     of length L between nodes of radius r1 and r2 has volume
     `(π L / 3)(r1² + r1 r2 + r2²)`. This is the exact `∫ π r(s)² ds` for a radius
     that varies linearly along the edge - i.e. the quantity `preserve_volume`
@@ -765,14 +765,14 @@ def _nearest(dist, values, new_dist):
 
 
 @utils.map_neuronlist(desc='Binning', allow_parallel=True)
-def resample_along_axis(x: 'core.TreeNeuron',
+def resample_along_axis(x: 'core.Skeleton',
                         interval: Union[int, float, str],
                         axis: int = 2,
                         old_nodes: Union[Literal['remove'],
                                          Literal['keep'],
                                          Literal['snap']] = 'remove',
                         inplace: bool = False
-                        ) -> Optional['core.TreeNeuron']:
+                        ) -> Optional['core.Skeleton']:
     """Resample neuron such that nodes lie exactly on given 1d grid.
 
     This function does not simply snap nodes to the closest grid line but
@@ -781,7 +781,7 @@ def resample_along_axis(x: 'core.TreeNeuron',
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             Skeleton | NeuronList
                     Neuron(s) to resample.
     interval :      float | int | str
                     Intervals defining a 1-dimensional grid along given axes
@@ -805,7 +805,7 @@ def resample_along_axis(x: 'core.TreeNeuron',
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
                     The resampled neuron(s).
 
     See Also
@@ -836,7 +836,7 @@ def resample_along_axis(x: 'core.TreeNeuron',
     utils.eval_param(axis, name='axis', allowed_values=(0, 1, 2))
     utils.eval_param(old_nodes, name='old_nodes',
                      allowed_values=("remove", "keep", "snap"))
-    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+    utils.eval_param(x, name='x', allowed_types=(core.Skeleton, ))
 
     interval = x.map_units(interval, on_error='raise')
 

@@ -29,7 +29,7 @@ __all__ = sorted(["subset_neuron"])
 @utils.map_neuronlist(desc="Subsetting", allow_parallel=True)
 @utils.lock_neuron
 def subset_neuron(
-    x: Union["core.TreeNeuron", "core.MeshNeuron"],
+    x: Union["core.Skeleton", "core.Mesh"],
     subset: Union[Sequence[Union[int, str]], nx.DiGraph, pd.DataFrame, Callable],
     inplace: bool = False,
     keep_disc_cn: bool = False,
@@ -37,22 +37,22 @@ def subset_neuron(
 ) -> "core.NeuronObject":
     """Subset a neuron to a given set of nodes/vertices.
 
-    Note that for `MeshNeurons` it is not guaranteed that all vertices in
+    Note that for `Meshes` it is not guaranteed that all vertices in
     `subset` survive because we will also drop degenerate vertices that do
     not participate in any faces.
 
     Parameters
     ----------
-    x :                   TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :                   Skeleton | Mesh | Dotprops | NeuronList
                           Neuron to subset. When passing a NeuronList, it's advised
                           to use a function for `subset` (see below).
     subset :              list-like | set | NetworkX.Graph | pandas.DataFrame | Callable
                           Subset of the neuron to keep. Depending on the neuron:
-                            For TreeNeurons:
+                            For Skeletons:
                              - node IDs
                              - a boolean mask matching the number of nodes
                              - DataFrame with `node_id` column
-                            For MeshNeurons:
+                            For Meshes:
                              - vertex indices
                              - a boolean mask matching either the number of
                                vertices or faces
@@ -75,7 +75,7 @@ def subset_neuron(
 
     Returns
     -------
-    TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    Skeleton | Mesh | Dotprops | NeuronList
 
     Examples
     --------
@@ -115,7 +115,7 @@ def subset_neuron(
         x = x[0]
 
     utils.eval_param(
-        x, name="x", allowed_types=(core.TreeNeuron, core.MeshNeuron, core.Dotprops)
+        x, name="x", allowed_types=(core.Skeleton, core.Mesh, core.Dotprops)
     )
 
     if callable(subset):
@@ -135,14 +135,14 @@ def subset_neuron(
         )
         return x
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         x = _subset_treeneuron(
             x,
             subset=subset,
             keep_disc_cn=keep_disc_cn,
             prevent_fragments=prevent_fragments,
         )
-    elif isinstance(x, core.MeshNeuron):
+    elif isinstance(x, core.Mesh):
         x = _subset_meshneuron(
             x,
             subset=subset,
@@ -211,10 +211,10 @@ def _subset_dotprops(x, subset, keep_disc_cn):
 
 
 def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
-    """Subset MeshNeuron."""
+    """Subset Mesh."""
     if not utils.is_iterable(subset):
         raise TypeError(
-            "Can only subset MeshNeuron to list, set or "
+            "Can only subset Mesh to list, set or "
             f'numpy.ndarray, not "{type(subset)}"'
         )
 
@@ -337,10 +337,10 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
         # Filter tags
         x.tags = {
             t: [tn for tn in x.tags[t] if tn in x.nodes.node_id.values] for t in x.tags
-        }  # type: ignore  # TreeNeuron has no tags
+        }  # type: ignore  # Skeleton has no tags
 
         # Remove empty tags
-        x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}  # type: ignore  # TreeNeuron has no tags
+        x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}  # type: ignore  # Skeleton has no tags
 
     # Fix graph representations (avoids having to recompute them)
     if "_graph_nx" in x.__dict__:

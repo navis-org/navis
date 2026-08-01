@@ -51,7 +51,7 @@ def chunk_neuron(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron
+    x :         Skeleton | Mesh
     size :      int
                 Number of nodes (skeleton) / vertices (mesh) per fragment.
     mode :      "partition" | "cover" | "random" | "spaced"
@@ -307,7 +307,7 @@ def sample_patches(
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron
+    x :                 Skeleton | Mesh
     n_points :          int
                         Points per patch (fixed count). Keyword-only.
     density :           float, optional
@@ -490,19 +490,19 @@ def sample_patches(
     else:
         rs_sample, rs_chunk, rs_fov = np.random.default_rng(random_state).spawn(3)
 
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         cloud = sample_surface(
             x, density=density, spacing=spacing, mode=surface_mode,
             attributes=attributes, random_state=rs_sample,
         )
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.Skeleton):
         cloud = sample_cable(
             x, density=density, spacing=spacing, interpolate=interpolate,
             weights=weights, random_state=rs_sample,
         )
     else:
         raise TypeError(
-            f"sample_patches requires a TreeNeuron or MeshNeuron, got {type(x)}."
+            f"sample_patches requires a Skeleton or Mesh, got {type(x)}."
         )
 
     n_samples = len(cloud)
@@ -1108,7 +1108,7 @@ def _connected_cloud_backend(x, cloud):
     """
     edges, weights, n, ids = _cluster_graph(x, "weight")
     src = cloud["source_id"].to_numpy()
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         # `source_id` is a node id; `ids` maps graph vertex -> node id.
         svtx = pd.Index(ids).get_indexer(src).astype(np.int64)
     else:
@@ -1285,19 +1285,19 @@ def _finalize(region, dist, focus, size, undersized, pad_value):
 
 def _node_coords(x):
     """(N, 3) float coordinates aligned with positional indices."""
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         return x.nodes[["x", "y", "z"]].values.astype(float)
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         return np.asarray(x.vertices, dtype=float)
-    raise TypeError(f"Expected TreeNeuron or MeshNeuron, got {type(x)}")
+    raise TypeError(f"Expected Skeleton or Mesh, got {type(x)}")
 
 
 def _n_nodes(x):
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         return len(x.nodes)
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         return len(x.vertices)
-    raise TypeError(f"Expected TreeNeuron or MeshNeuron, got {type(x)}")
+    raise TypeError(f"Expected Skeleton or Mesh, got {type(x)}")
 
 
 def _build_csr(edges, weights, n_nodes):

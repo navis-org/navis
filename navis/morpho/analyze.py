@@ -31,7 +31,7 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
-def find_soma(x: 'core.TreeNeuron', *, dist_factor: float = 3.0) -> Optional[int]:
+def find_soma(x: 'core.Skeleton', *, dist_factor: float = 3.0) -> Optional[int]:
     """Try finding a neuron's soma.
 
     Uses the neuron's `.soma_detection_radius` and/or `.soma_detection_label`
@@ -52,7 +52,7 @@ def find_soma(x: 'core.TreeNeuron', *, dist_factor: float = 3.0) -> Optional[int
 
     Parameters
     ----------
-    x :             TreeNeuron
+    x :             Skeleton
     dist_factor :   float
                     Candidate nodes within `dist_factor` times a candidate's
                     radius are treated as belonging to the same cluster. Larger
@@ -71,8 +71,8 @@ def find_soma(x: 'core.TreeNeuron', *, dist_factor: float = 3.0) -> Optional[int
     4177
 
     """
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Input must be TreeNeuron, not "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Input must be Skeleton, not "{type(x)}"')
 
     soma_radius = getattr(x, 'soma_detection_radius', None)
     soma_label = getattr(x, 'soma_detection_label', None)
@@ -144,7 +144,7 @@ def find_soma(x: 'core.TreeNeuron', *, dist_factor: float = 3.0) -> Optional[int
     return node_ids.dtype.type(best)
 
 
-def _resolve_threshold(x: 'core.TreeNeuron', soma_radius) -> float:
+def _resolve_threshold(x: 'core.Skeleton', soma_radius) -> float:
     """Resolve a soma-detection radius to a plain number in neuron space.
 
     Unlike `find_soma_mesh` this must not raise (it runs on every `.soma`
@@ -168,7 +168,7 @@ class SomaEllipsoid:
     ----------
     center :            (3, ) array
                         XYZ center of the soma (the point of maximum inscribed
-                        radius). This is what gets assigned to a MeshNeuron's
+                        radius). This is what gets assigned to a Mesh's
                         `.soma_pos`.
     radii :             (3, ) array
                         Semi-axis lengths, sorted descending (a >= b >= c).
@@ -350,7 +350,7 @@ def _estimate_edge_length(vertices: np.ndarray, faces: np.ndarray, sample: int =
     Uses a strided sample of faces so the cost is independent of mesh size. This
     is only used as a (rarely binding) floor on the search-grid pitch, so an
     estimate is plenty - computing the exact mean over every edge (as
-    `MeshNeuron.sampling_resolution` does) would dominate on very large meshes.
+    `Mesh.sampling_resolution` does) would dominate on very large meshes.
     """
     if not len(faces):
         return 1.0
@@ -363,7 +363,7 @@ def _estimate_edge_length(vertices: np.ndarray, faces: np.ndarray, sample: int =
 
 @utils.map_neuronlist(desc="Detecting somas", allow_parallel=True)
 def find_soma_mesh(
-    x: "core.MeshNeuron",
+    x: "core.Mesh",
     *,
     min_soma_radius: Union[str, float] = "1 micron",
     dist_factor: float = 3.0,
@@ -371,8 +371,8 @@ def find_soma_mesh(
     max_points: int = 200_000,
     n_rays: int = 10,
     inplace: bool = False,
-) -> Optional[Union["SomaEllipsoid", "core.MeshNeuron"]]:
-    """Detect the soma of a MeshNeuron from its geometry.
+) -> Optional[Union["SomaEllipsoid", "core.Mesh"]]:
+    """Detect the soma of a Mesh from its geometry.
 
     Finds the thickest region of the mesh - the point of largest inscribed
     sphere - and fits an oriented ellipsoid to the surrounding surface. The
@@ -380,11 +380,11 @@ def find_soma_mesh(
     library. Note that this works directly on the mesh (no skeletonization
     required) and returns the soma as an ellipsoid.
 
-    For skeletons (TreeNeurons) use [`navis.find_soma`][] instead.
+    For skeletons (Skeletons) use [`navis.find_soma`][] instead.
 
     Parameters
     ----------
-    x :                 MeshNeuron | NeuronList
+    x :                 Mesh | NeuronList
                         Neuron(s) to detect the soma for.
     min_soma_radius :   str | float
                         Minimum inscribed-sphere radius for a region to count as
@@ -420,13 +420,13 @@ def find_soma_mesh(
                         If a soma was found and `inplace=False`.
     None
                         If no soma was found and `inplace=False`.
-    MeshNeuron
+    Mesh
                         If `inplace=True` (with `.soma_pos` set).
 
     See Also
     --------
     [`navis.find_soma`][]
-                        The equivalent for skeletons (TreeNeurons).
+                        The equivalent for skeletons (Skeletons).
 
     Examples
     --------
@@ -443,8 +443,8 @@ def find_soma_mesh(
     """
     import ncollpyde
 
-    if not isinstance(x, core.MeshNeuron):
-        raise TypeError(f'Expected MeshNeuron, got "{type(x)}"')
+    if not isinstance(x, core.Mesh):
+        raise TypeError(f'Expected Mesh, got "{type(x)}"')
 
     def _finish(ell):
         if inplace:

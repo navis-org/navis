@@ -46,12 +46,12 @@ class NeuronList:
 
     Parameters
     ----------
-    x :                 list | array | TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :                 list | array | Skeleton | Mesh | Dotprops | NeuronList
                         Data to construct neuronlist from. Can be either:
 
-                        1. Tree/MeshNeuron(s) or Dotprops
+                        1. Skeleton/Mesh(s) or Dotprops
                         2. NeuronList(s)
-                        3. Anything that constructs a Tree/MeshNeuron
+                        3. Anything that constructs a Skeleton/Mesh
                         4. List of the above
 
     make_copy :         bool, optional
@@ -70,7 +70,7 @@ class NeuronList:
                         Number of cores to use for when `parallel=True`.
                         Defaults to half the available cores.
     **kwargs
-                        Will be passed to constructor of Tree/MeshNeuron (see
+                        Will be passed to constructor of Skeleton/Mesh (see
                         `make_using`).
 
     """
@@ -113,7 +113,7 @@ class NeuronList:
             self.neurons = [n for n in x.neurons]
         elif utils.is_iterable(x):
             # If x is a list of mixed objects we need to unpack/flatten that
-            # E.g. x = [NeuronList, NeuronList, core.TreeNeuron]
+            # E.g. x = [NeuronList, NeuronList, core.Skeleton]
             # We need to make sure the order is retained though (important for
             # e.g. plotting)
             self.neurons = []
@@ -1059,7 +1059,7 @@ class NeuronList:
         **kwargs
                     Keyword arguments passed to neuron's `.copy()` method::
 
-                    deepcopy :  bool, for TreeNeurons only
+                    deepcopy :  bool, for Skeletons only
                                 If False, `.graph` (NetworkX DiGraphs) will be
                                 returned as views - changes to nodes/edges can
                                 progagate back! `.igraph` (iGraph) - if

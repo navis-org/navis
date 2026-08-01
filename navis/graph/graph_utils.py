@@ -77,7 +77,7 @@ def _generate_segments(
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         Skeleton | NeuronList
                 May contain multiple neurons.
     weight :    'weight' | None, optional
                 If `"weight"` use physical, geodesic length to determine
@@ -104,11 +104,11 @@ def _generate_segments(
     >>> weighted = navis.graph_utils._generate_segments(n, weight='weight')
 
     """
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Expected TreeNeuron, got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise ValueError(f'Expected Skeleton, got "{type(x)}"')
 
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
+    # At this point x is Skeleton
+    x: core.Skeleton
 
     assert weight in ("weight", None), f'Unable to use weight "{weight}"'
 
@@ -244,7 +244,7 @@ def _merge_labels(labels: np.ndarray, edges: Optional[np.ndarray]) -> np.ndarray
 
 
 def _mesh_component_labels(
-    x: Union["core.MeshNeuron", "tm.Trimesh"],
+    x: Union["core.Mesh", "tm.Trimesh"],
 ) -> Tuple[np.ndarray, int]:
     """Label each vertex with the connected component it belongs to.
 
@@ -258,7 +258,7 @@ def _mesh_component_labels(
 
     Parameters
     ----------
-    x :         MeshNeuron | Trimesh
+    x :         Mesh | Trimesh
 
     Returns
     -------
@@ -295,7 +295,7 @@ def _mesh_component_labels(
     return labels.astype(np.int64, copy=False), int(n)
 
 
-def skeleton_edges(x: "core.TreeNeuron"):
+def skeleton_edges(x: "core.Skeleton"):
     """A skeleton's child -> parent edges as 0-based node *indices*.
 
     The fastcore graph primitives all work in index space (`0 .. n_nodes - 1`)
@@ -339,10 +339,10 @@ def _fastcore_has(name: str) -> bool:
 
 def _connected_components(
     x: Union[
-        "core.TreeNeuron",
-        "core.MeshNeuron",
+        "core.Skeleton",
+        "core.Mesh",
         "core.Dotprops",
-        "core.VoxelNeuron",
+        "core.Voxels",
         "tm.Trimesh",
     ],
     epsilon: Optional[float] = None,
@@ -355,14 +355,14 @@ def _connected_components(
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | Dotprops | VoxelNeuron | Trimesh
+    x :             Skeleton | Mesh | Dotprops | Voxels | Trimesh
                     Neuron for which to extract connected components.
     epsilon :       float, optional
                     For Dotprops only: distance threshold to consider two points
                     connected. If not provided, will use 5 x the average distance
                     between points.
     connectivity :  6 | 18 | 26, optional
-                    For VoxelNeurons only: which neighbours count as connected.
+                    For Voxels only: which neighbours count as connected.
                     6 = faces only, 18 = faces + edges, 26 (default) = faces +
                     edges + corners.
 
@@ -370,7 +370,7 @@ def _connected_components(
     -------
     list
                 List containing sets of node/vertex IDs for each subgraph. For
-                VoxelNeurons these are indices into `.voxels`.
+                Voxels these are indices into `.voxels`.
 
     Examples
     --------
@@ -388,21 +388,21 @@ def _connected_components(
     assert isinstance(
         x,
         (
-            core.TreeNeuron,
-            core.MeshNeuron,
+            core.Skeleton,
+            core.Mesh,
             core.Dotprops,
-            core.VoxelNeuron,
+            core.Voxels,
             tm.Trimesh,
         ),
     )
 
-    if isinstance(x, core.VoxelNeuron):
+    if isinstance(x, core.Voxels):
         # `sparse-cubes` labels the components straight off the sparse voxels,
         # so this never builds a graph (or the dense grid)
         ms = x.connected_components(connectivity=connectivity)
         return _group_by_label(ms)
 
-    if isinstance(x, core.TreeNeuron) and utils.fastcore:
+    if isinstance(x, core.Skeleton) and utils.fastcore:
         # This returns for each node the ID of its root
         ms = utils.fastcore.connected_components(
             x.nodes.node_id.values, x.nodes.parent_id.values
@@ -410,7 +410,7 @@ def _connected_components(
         # Translate into list of arrays of IDs
         node_ids = x.nodes.node_id.values
         cc = [node_ids[group] for group in _group_by_label(ms)]
-    elif isinstance(x, (core.MeshNeuron, tm.Trimesh)):
+    elif isinstance(x, (core.Mesh, tm.Trimesh)):
         # Translate the per-vertex labels into a list of arrays of vertex indices
         cc = _group_by_label(_mesh_component_labels(x)[0])
     else:
@@ -422,11 +422,11 @@ def _connected_components(
         vc = G.components(mode="WEAK")
         # Membership maps indices to connected components
         ms = np.array(vc.membership)
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             # For skeletons we need node IDs
             ids = np.array(G.vs["node_id"])
         else:
-            # For MeshNeurons we can use the indices directly
+            # For Meshes we can use the indices directly
             ids = np.array(G.vs.indices)
 
         # Extract node IDs/vertex indices for each component
@@ -440,7 +440,7 @@ def _break_segments(x: "core.NeuronObject") -> list:
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         Skeleton | NeuronList
                 May contain multiple neurons.
 
     Returns
@@ -459,14 +459,14 @@ def _break_segments(x: "core.NeuronObject") -> list:
     """
     if isinstance(x, core.NeuronList):
         return [_break_segments(x[i]) for i in range(len(x))]
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.Skeleton):
         pass
     else:
         logger.error("Unexpected datatype: %s" % str(type(x)))
         raise ValueError
 
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
+    # At this point x is Skeleton
+    x: core.Skeleton
 
     if utils.fastcore:
         seg_list = utils.fastcore.break_segments(
@@ -510,13 +510,13 @@ def _break_segments(x: "core.NeuronObject") -> list:
 
 @utils.lock_neuron
 def dist_to_root(
-    x: "core.TreeNeuron", weight=None, igraph_indices: bool = False
+    x: "core.Skeleton", weight=None, igraph_indices: bool = False
 ) -> dict:
     """Calculate distance to root for each node.
 
     Parameters
     ----------
-    x :                 TreeNeuron
+    x :                 Skeleton
     weight :            str, optional
                         Use "weight" if you want geodesic distance and `None`
                         if you want node count.
@@ -543,8 +543,8 @@ def dist_to_root(
                         For distances between all points.
 
     """
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Expected TreeNeuron, got {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"Expected Skeleton, got {type(x)}")
 
     G: igraph.Graph = x.igraph
     ids = np.asarray(G.vs["node_id"])
@@ -585,7 +585,7 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         Skeleton | NeuronList
                 Neuron(s) whose nodes to classify.
     categorical : bool
                 If True (default), will use categorical data type which takes
@@ -596,7 +596,7 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
 
     Examples
     --------
@@ -608,8 +608,8 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
     if not inplace:
         x = x.copy()
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Expected Skeleton(s), got "{type(x)}"')
 
     if x.nodes.empty:
         x.nodes["type"] = None
@@ -656,7 +656,7 @@ def classify_nodes(x: "core.NeuronObject", categorical=True, inplace: bool = Tru
 
 @utils.lock_neuron
 def distal_to(
-    x: "core.TreeNeuron",
+    x: "core.Skeleton",
     a: Optional[Union[str, int, List[Union[str, int]]]] = None,
     b: Optional[Union[str, int, List[Union[str, int]]]] = None,
 ) -> Union[bool, pd.DataFrame]:
@@ -674,7 +674,7 @@ def distal_to(
 
     Parameters
     ----------
-    x :     TreeNeuron
+    x :     Skeleton
     a,b :   single node ID | list of node IDs | None, optional
             If no node IDs are provided, will consider all node. Note that for
             large sets of nodes it might be more efficient to use
@@ -728,11 +728,11 @@ def distal_to(
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f"Please pass a single TreeNeuron, got {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise ValueError(f"Please pass a single Skeleton, got {type(x)}")
 
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
+    # At this point x is Skeleton
+    x: core.Skeleton
 
     if not isinstance(a, type(None)):
         tnA = utils.make_iterable(a)
@@ -794,7 +794,7 @@ def skeleton_adjacency_matrix(
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
                 Neuron for which to generate adjacency matrix.
     sort :      bool, optional
                 If True, will sort the adjacency matrix by topology.
@@ -820,7 +820,7 @@ def skeleton_adjacency_matrix(
             x = x[0]
         else:
             raise ValueError("Cannot process more than a single neuron.")
-    elif not isinstance(x, (core.TreeNeuron,)):
+    elif not isinstance(x, (core.Skeleton,)):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     # Generate the empty adjacency matrix
@@ -856,20 +856,20 @@ def geodesic_matrix(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
+    x :         Skeleton | Mesh | NeuronList
                 If list, must contain a SINGLE neuron.
     from_ :     list | numpy.ndarray, optional
-                Node IDs (for TreeNeurons) or vertex indices (for MeshNeurons).
+                Node IDs (for Skeletons) or vertex indices (for Meshes).
                 If provided, will compute distances only FROM this subset to
                 all other nodes/vertices.
     to_ :       list | numpy.ndarray, optional
-                Node IDs (for TreeNeurons) or vertex indices (for MeshNeurons).
+                Node IDs (for Skeletons) or vertex indices (for Meshes).
                 If provided, will compute distances only TO this subset. Use
                 together with `from_` to get just the block you need instead of
                 slicing a full matrix afterwards - that can be the difference
                 between a few MB and a few GB on a large neuron.
     directed :  bool, optional
-                For TreeNeurons only: if True, pairs without a child->parent
+                For Skeletons only: if True, pairs without a child->parent
                 path will be returned with `distance = "inf"`.
     weight :    'weight' | None, optional
                 If "weight" distances are given as physical length.
@@ -916,7 +916,7 @@ def geodesic_matrix(
             raise ValueError("Input must be a single neuron.")
         x = x[0]
 
-    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
+    if not isinstance(x, (core.Skeleton, core.Mesh)):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     limit = x.map_units(limit, on_error="raise")
@@ -932,7 +932,7 @@ def geodesic_matrix(
         return sel
 
     # Use fastcore if available
-    if utils.fastcore and isinstance(x, core.TreeNeuron):
+    if utils.fastcore and isinstance(x, core.Skeleton):
         node_ids = x.nodes.node_id.values
 
         # Calculate node distances
@@ -968,13 +968,13 @@ def geodesic_matrix(
             columns=node_ids if to_ is None else to_,
         )
 
-    # Makes no sense to use directed for MeshNeurons
-    if isinstance(x, core.MeshNeuron):
+    # Makes no sense to use directed for Meshes
+    if isinstance(x, core.Mesh):
         directed = False
 
     if (
         utils.fastcore
-        and isinstance(x, core.MeshNeuron)
+        and isinstance(x, core.Mesh)
         # Meshes with extra edges need the graph (rather than the mesh) variant;
         # without it we fall through to the igraph/scipy path below, which gets
         # its edges from `mesh_unique_edges` and hence sees them too
@@ -1025,7 +1025,7 @@ def geodesic_matrix(
     # Grab graph once to avoid overhead from stale checks
     G: igraph.Graph = x.igraph
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         nodeList = np.array(G.vs.get_attribute_values("node_id"))
     else:
         nodeList = np.arange(len(G.vs))
@@ -1060,7 +1060,7 @@ def geodesic_matrix(
 
 
 def _geodesic_nearest(
-    x: "core.TreeNeuron",
+    x: "core.Skeleton",
     targets: Iterable[int],
     query: Optional[Iterable[int]] = None,
     weight: Optional[str] = None,
@@ -1086,7 +1086,7 @@ def _geodesic_nearest(
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
     targets :   iterable of node IDs
                 Candidate nodes to snap to.
     query :     iterable of node IDs, optional
@@ -1107,8 +1107,8 @@ def _geodesic_nearest(
                 Distance to that nearest target (`np.inf` if unreachable).
 
     """
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Expected TreeNeuron, got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise ValueError(f'Expected Skeleton, got "{type(x)}"')
 
     node_ids = x.nodes.node_id.values
     parent_ids = x.nodes.parent_id.values
@@ -1202,7 +1202,7 @@ def _geodesic_nearest(
 
 
 def geodesic_clusters(
-    x: Union["core.TreeNeuron", "core.MeshNeuron"],
+    x: Union["core.Skeleton", "core.Mesh"],
     max_dist: float,
     weight: Optional[str] = "weight",
     seeds: Optional[Iterable[int]] = None,
@@ -1243,7 +1243,7 @@ def geodesic_clusters(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron
+    x :         Skeleton | Mesh
     max_dist :  float
                 Maximum distance from a cluster's seed, in the neuron's units
                 (or in hops if `weight=None`). Must be finite and non-negative.
@@ -1265,7 +1265,7 @@ def geodesic_clusters(
     -------
     labels :    np.ndarray
                 Cluster index for each node, aligned with `x.nodes` (or
-                `x.vertices` for a MeshNeuron) and contiguous in
+                `x.vertices` for a Mesh) and contiguous in
                 `[0, n_clusters)`. Every node is labelled, so the number of
                 clusters is `labels.max() + 1`.
 
@@ -1352,7 +1352,7 @@ def _split_disconnected(edges, labels, n_nodes):
 
 def _cluster_graph(x, weight):
     """Edge list, edge weights, node count and node IDs for `geodesic_clusters`."""
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         edges, ids = skeleton_edges(x)
         if weight == "weight":
             co = x.nodes[["x", "y", "z"]].values.astype(np.float64)
@@ -1361,7 +1361,7 @@ def _cluster_graph(x, weight):
             w = None
         return edges, w, len(ids), ids
 
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         edges = np.asarray(utils.mesh_unique_edges(x.trimesh), dtype=np.int64)
         if weight == "weight":
             co = np.asarray(x.vertices, dtype=np.float64)
@@ -1371,7 +1371,7 @@ def _cluster_graph(x, weight):
         n = len(x.vertices)
         return edges, w, n, np.arange(n)
 
-    raise TypeError(f"Expected TreeNeuron or MeshNeuron, got {type(x)}")
+    raise TypeError(f"Expected Skeleton or Mesh, got {type(x)}")
 
 
 def _geodesic_clusters_scipy(edges, weights, n_nodes, max_dist, seed_ix):
@@ -1417,7 +1417,7 @@ def _geodesic_clusters_scipy(edges, weights, n_nodes, max_dist, seed_ix):
 
 
 @utils.lock_neuron
-def segment_length(x: "core.TreeNeuron", segment: List[int]) -> float:
+def segment_length(x: "core.Skeleton", segment: List[int]) -> float:
     """Get length of a linear segment.
 
     This function is superfast but has no checks - you must provide a
@@ -1425,7 +1425,7 @@ def segment_length(x: "core.TreeNeuron", segment: List[int]) -> float:
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
                 Neuron to which this segment belongs.
     segment :   list of ints
                 Linear segment as list of node IDs ordered child->parent.
@@ -1448,13 +1448,13 @@ def segment_length(x: "core.TreeNeuron", segment: List[int]) -> float:
     56356
 
     """
-    if not isinstance(x, core.TreeNeuron):
+    if not isinstance(x, core.Skeleton):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
     return float(segment_lengths(x, [segment])[0])
 
 
-def segment_lengths(x: "core.TreeNeuron", segments: Sequence[Sequence[int]]):
+def segment_lengths(x: "core.Skeleton", segments: Sequence[Sequence[int]]):
     """Get the length of each of many linear segments.
 
     Same as calling [`navis.segment_length`][] on each segment but builds the node
@@ -1499,10 +1499,10 @@ def dist_between(x: "core.NeuronObject", a, b):
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | NeuronList
+    x :             Skeleton | Mesh | NeuronList
                     If NeuronList must contain only a single neuron.
     a,b :           int | list of int
-                    Node IDs (for TreeNeurons) or vertex indices (MeshNeurons)
+                    Node IDs (for Skeletons) or vertex indices (Meshes)
                     to check the distance between. Can be single nodes or
                     matched arrays of nodes, in which case distances are
                     computed pairwise (`a[0]` to `b[0]`, `a[1]` to `b[1]`, ...).
@@ -1548,9 +1548,9 @@ def dist_between(x: "core.NeuronObject", a, b):
         if len(x) == 1:
             x = x[0]
         else:
-            raise ValueError(f"Need a single TreeNeuron, got {len(x)}")
+            raise ValueError(f"Need a single Skeleton, got {len(x)}")
 
-    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron, igraph.Graph, nx.DiGraph)):
+    if not isinstance(x, (core.Skeleton, core.Mesh, igraph.Graph, nx.DiGraph)):
         raise ValueError(f"Unable to process data of type {type(x)}")
 
     # Scalar in -> scalar out. Note that a length-1 iterable counts as a scalar
@@ -1570,7 +1570,7 @@ def dist_between(x: "core.NeuronObject", a, b):
         )
     a, b = np.broadcast_arrays(a, b)
 
-    if isinstance(x, core.TreeNeuron) and utils.fastcore:
+    if isinstance(x, core.Skeleton) and utils.fastcore:
         node_ids = x.nodes.node_id.values
         parent_ids = x.nodes.parent_id.values
 
@@ -1592,7 +1592,7 @@ def dist_between(x: "core.NeuronObject", a, b):
         return float(dist[0]) if scalar else dist
 
     G: Union[igraph.Graph, nx.DiGraph] = (
-        x.igraph if isinstance(x, (core.TreeNeuron, core.MeshNeuron)) else x
+        x.igraph if isinstance(x, (core.Skeleton, core.Mesh)) else x
     )
 
     # If we're working with a networkx DiGraph
@@ -1606,7 +1606,7 @@ def dist_between(x: "core.NeuronObject", a, b):
         )
         return int(dist[0]) if scalar else dist
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         id2ix = dict(zip(G.vs["node_id"], G.vs.indices))
         a = np.array([id2ix[i] for i in a.tolist()])
         b = np.array([id2ix[i] for i in b.tolist()])
@@ -1638,7 +1638,7 @@ def find_main_branchpoint(
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             Skeleton | NeuronList
                     May contain multiple neurons.
     method :        "longest_neurite" | "centrality"
                     The method to use:
@@ -1673,20 +1673,20 @@ def find_main_branchpoint(
     >>> split                                                   # doctest: +SKIP
     <class 'navis.core.neuronlist.NeuronList'> of 3 neurons
               type  n_nodes  n_connectors  n_branches  n_leafs   cable_length    soma
-    0  TreeNeuron     2572             0         170      176  475078.177926    None
-    1  TreeNeuron      139             0           1        3   89983.511392  [3490]
-    2  TreeNeuron     3656             0          63       66  648285.745750    None
+    0  Skeleton     2572             0         170      176  475078.177926    None
+    1  Skeleton      139             0           1        3   89983.511392  [3490]
+    2  Skeleton     3656             0          63       66  648285.745750    None
 
     """
     utils.eval_param(
         method, name="method", allowed_values=("longest_neurite", "betweenness")
     )
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Expected Skeleton(s), got "{type(x)}"')
 
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
+    # At this point x is Skeleton
+    x: core.Skeleton
 
     # If no branches
     if x.nodes[x.nodes.type == "branch"].empty:
@@ -1749,7 +1749,7 @@ def split_into_fragments(
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron | NeuronList
+    x :                 Skeleton | Mesh | NeuronList
                         Must be a single neuron.
     n :                 int, optional
                         Number of fragments to split into. Must be >1.
@@ -1784,14 +1784,14 @@ def split_into_fragments(
                 f"{x.shape[0]} neurons provided. Please provide only a single neuron!"
             )
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected a single TreeNeuron, got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Expected a single Skeleton, got "{type(x)}"')
 
     if n < 2:
         raise ValueError("Number of fragments must be at least 2.")
 
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
+    # At this point x is Skeleton
+    x: core.Skeleton
 
     min_size = x.map_units(min_size, on_error="raise")
 
@@ -1907,7 +1907,7 @@ def longest_neurite(
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 Skeleton | NeuronList
                         Neuron(s) to prune.
     n :                 int | slice
                         Number of longest neurites to preserve. For example:
@@ -1928,7 +1928,7 @@ def longest_neurite(
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
                         Pruned neuron.
 
     See Also
@@ -1948,14 +1948,14 @@ def longest_neurite(
     >>> ln3 = navis.longest_neurite(n, n=slice(1, None), reroot_soma=True)
 
     """
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron(s), got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Expected Skeleton(s), got "{type(x)}"')
 
     if isinstance(n, numbers.Number) and n < 1:
         raise ValueError("Number of longest neurites to preserve must be >=1")
 
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
+    # At this point x is Skeleton
+    x: core.Skeleton
 
     if not inplace:
         x = x.copy()
@@ -2020,12 +2020,12 @@ def longest_neurite(
 @utils.lock_neuron
 def reroot_skeleton(
     x: "core.NeuronObject", new_root: Union[int, str], inplace: bool = False
-) -> "core.TreeNeuron":
+) -> "core.Skeleton":
     """Reroot neuron to new root.
 
     Parameters
     ----------
-    x :        TreeNeuron | NeuronList
+    x :        Skeleton | NeuronList
                List must contain only a SINGLE neuron.
     new_root : int | iterable
                Node ID(s) of node(s) to reroot to. If multiple new roots are
@@ -2036,13 +2036,13 @@ def reroot_skeleton(
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
                Rerooted neuron.
 
     See Also
     --------
-    [`navis.TreeNeuron.reroot`][]
-                Quick access to reroot directly from TreeNeuron/List
+    [`navis.Skeleton.reroot`][]
+                Quick access to reroot directly from Skeleton/List
                 objects.
 
     Examples
@@ -2059,7 +2059,7 @@ def reroot_skeleton(
         else:
             raise ValueError(f"Expected a single neuron, got {len(x)}")
 
-    if not isinstance(x, core.TreeNeuron):
+    if not isinstance(x, core.Skeleton):
         raise ValueError(f'Unable to reroot object of type "{type(x)}"')
 
     # Make new root an iterable
@@ -2101,8 +2101,8 @@ def reroot_skeleton(
             "Use `navis.find_soma(x)` to root the neuron at its soma."
         )
 
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
+    # At this point x is Skeleton
+    x: core.Skeleton
     # At this point new_roots is list of int
     new_roots: Iterable[int]
 
@@ -2218,7 +2218,7 @@ def cut_skeleton(
 
     Parameters
     ----------
-    x :        TreeNeuron | NeuronList
+    x :        Skeleton | NeuronList
                Must be a single skeleton.
     where :    int | str | list
                Node ID(s) or tag(s) of the node(s) to cut. The edge that is
@@ -2259,9 +2259,9 @@ def cut_skeleton(
 
     See Also
     --------
-    [`navis.TreeNeuron.prune_distal_to`][]
-    [`navis.TreeNeuron.prune_proximal_to`][]
-            `TreeNeuron/List` shorthands to this function.
+    [`navis.Skeleton.prune_distal_to`][]
+    [`navis.Skeleton.prune_proximal_to`][]
+            `Skeleton/List` shorthands to this function.
     [`navis.subset_neuron`][]
             Returns a neuron consisting of a subset of its nodes.
 
@@ -2272,10 +2272,10 @@ def cut_skeleton(
         if len(x) == 1:
             x = x[0]
         else:
-            raise Exception(f"Expected a single TreeNeuron, got {len(x)}")
+            raise Exception(f"Expected a single Skeleton, got {len(x)}")
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected a single TreeNeuron, got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Expected a single Skeleton, got "{type(x)}"')
 
     if x.n_trees != 1:
         raise ValueError(
@@ -2284,8 +2284,8 @@ def cut_skeleton(
             " to fix."
         )
 
-    # At this point x is TreeNeuron
-    x: core.TreeNeuron
+    # At this point x is Skeleton
+    x: core.Skeleton
 
     # Turn cut node into iterable
     if not utils.is_iterable(where):
@@ -2344,8 +2344,8 @@ def cut_skeleton(
 
 
 def _cut_igraph(
-    x: "core.TreeNeuron", cut_node: int, ret: str
-) -> Union["core.TreeNeuron", Tuple["core.TreeNeuron", "core.TreeNeuron"]]:
+    x: "core.Skeleton", cut_node: int, ret: str
+) -> Union["core.Skeleton", Tuple["core.Skeleton", "core.Skeleton"]]:
     """Use iGraph to cut a neuron."""
     # Make a copy
     g = x.igraph.copy()
@@ -2405,7 +2405,7 @@ def generate_list_of_childs(x: "core.NeuronObject") -> Dict[int, List[int]]:
 
     Parameters
     ----------
-    x :     TreeNeuron | NeuronList
+    x :     Skeleton | NeuronList
             If List, must contain a SINGLE neuron.
 
     Returns
@@ -2414,7 +2414,7 @@ def generate_list_of_childs(x: "core.NeuronObject") -> Dict[int, List[int]]:
         `{parent_id: [child_id, child_id, ...]}`
 
     """
-    assert isinstance(x, core.TreeNeuron)
+    assert isinstance(x, core.Skeleton)
 
     # The node table already *is* a child->parent map, so we can invert it directly
     # instead of building a graph and asking it for `in_edges` once per node.
@@ -2430,14 +2430,14 @@ def generate_list_of_childs(x: "core.NeuronObject") -> Dict[int, List[int]]:
 
 
 def node_label_sorting(
-    x: "core.TreeNeuron", weighted: bool = False
+    x: "core.Skeleton", weighted: bool = False
 ) -> List[Union[str, int]]:
     """Return nodes ordered by node label sorting according to Cuntz
     et al., PLoS Computational Biology (2010).
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
     weighted :  bool
                 If True will use actual distances instead of just node count.
                 Depending on how evenly spaced your points are, this might not
@@ -2452,8 +2452,8 @@ def node_label_sorting(
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected a singleTreeNeuron, got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Expected a single Skeleton, got "{type(x)}"')
 
     if len(x.root) > 1:
         raise ValueError("Unable to process multi-root neurons!")
@@ -2516,7 +2516,7 @@ def node_label_sorting(
     return np.concatenate(node_list, dtype=int)
 
 
-def subset_igraph(x: "core.TreeNeuron", keep) -> "igraph.Graph":
+def subset_igraph(x: "core.Skeleton", keep) -> "igraph.Graph":
     """Induce the sub-graph of a neuron's igraph on a set of node IDs.
 
     The igraph equivalent of `x.graph.subgraph(keep)`, but without paying to build
@@ -2528,7 +2528,7 @@ def subset_igraph(x: "core.TreeNeuron", keep) -> "igraph.Graph":
     return G.subgraph(np.where(np.isin(ids, keep))[0])
 
 
-def connected_components_of(x: "core.TreeNeuron", keep) -> List[Set[int]]:
+def connected_components_of(x: "core.Skeleton", keep) -> List[Set[int]]:
     """Weakly connected components of the sub-graph induced on `keep`.
 
     Returns sets of node IDs, mirroring `nx.connected_components`.
@@ -2582,13 +2582,13 @@ def _igraph_to_sparse(graph, weight_attr=None, transpose=False):
 
 
 def connected_subgraph(
-    x: Union["core.TreeNeuron", nx.DiGraph], ss: Sequence[Union[str, int]]
+    x: Union["core.Skeleton", nx.DiGraph], ss: Sequence[Union[str, int]]
 ) -> Tuple[np.ndarray, Union[int, str]]:
     """Return set of nodes necessary to connect all nodes in subset `ss`.
 
     Parameters
     ----------
-    x :         navis.TreeNeuron | nx.DiGraph
+    x :         navis.Skeleton | nx.DiGraph
                 Neuron (or graph thereof) to get subgraph for.
     ss :        list | array-like
                 Node IDs of node to subset to.
@@ -2613,24 +2613,24 @@ def connected_subgraph(
     True
 
     """
-    # `src` is the TreeNeuron we can pull node/parent arrays from (if any). For a
+    # `src` is the Skeleton we can pull node/parent arrays from (if any). For a
     # bare graph we fall back to reading its edges.
     src = None
     g = None
     if isinstance(x, core.NeuronList):
         if len(x) == 1:
             src = x[0]
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.Skeleton):
         src = x
     elif isinstance(x, (nx.DiGraph, igraph.Graph)):
         g = x
     else:
-        raise TypeError(f'Input must be a single TreeNeuron or graph, got "{type(x)}".')
+        raise TypeError(f'Input must be a single Skeleton or graph, got "{type(x)}".')
 
     # Build a `node -> parent` map and the set of nodes in the graph.
     # `parent.get(n)` returns None for roots (which have no parent) - this is our
     # natural walk terminator (mirrors `next(g.successors(n), None)`).
-    # For a TreeNeuron we can build this straight from the node table (faster and
+    # For a Skeleton we can build this straight from the node table (faster and
     # avoids touching a graph library at all); for a bare graph (e.g. the induced
     # sub-graph passed by `split_axon_dendrite`) we do a single pass over its edges.
     if src is not None:
@@ -2751,17 +2751,17 @@ def connected_subgraph(
 
 
 def insert_nodes(
-    x: "core.TreeNeuron",
+    x: "core.Skeleton",
     where: List[tuple],
     coords: List[tuple] = None,
     validate: bool = True,
     inplace: bool = False,
-) -> Optional["core.TreeNeuron"]:
+) -> Optional["core.Skeleton"]:
     """Insert new nodes between existing nodes.
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
                 Neuron to insert new nodes into.
     where :     list of node pairs
                 Must be a list of node ID pairs. A new node will be added
@@ -2784,7 +2784,7 @@ def insert_nodes(
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     Examples
     --------
@@ -2800,7 +2800,7 @@ def insert_nodes(
     4565
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     where = np.asarray(where)
     if where.ndim != 2 or where.shape[1] != 2:
@@ -2893,15 +2893,15 @@ def insert_nodes(
 
 
 def remove_nodes(
-    x: "core.TreeNeuron", which: List[int], inplace: bool = False
-) -> Optional["core.TreeNeuron"]:
+    x: "core.Skeleton", which: List[int], inplace: bool = False
+) -> Optional["core.Skeleton"]:
     """Drop nodes from neuron without disconnecting it.
 
     Dropping node 2 from 1->2->3 will lead to connectivity 1->3.
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
                 Neuron to remove nodes from.
     which :     list of node IDs
                 IDs of nodes to remove.
@@ -2911,7 +2911,7 @@ def remove_nodes(
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     Examples
     --------
@@ -2934,7 +2934,7 @@ def remove_nodes(
             the neuron.
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     if not utils.is_iterable(which):
         which = [which]
@@ -2967,16 +2967,16 @@ def remove_nodes(
 
 
 def collapse_nodes(
-    x: "core.TreeNeuron",
+    x: "core.Skeleton",
     which: List[int],
     new_co: Iterable[Union[float, int]] = None,
     inplace: bool = False,
-) -> Optional["core.TreeNeuron"]:
+) -> Optional["core.Skeleton"]:
     """Collapse group of nodes into a single node.
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
                 Neuron to collapse nodes in.
     which :     list of node IDs
                 IDs of nodes to collapse. The first node in the list will be
@@ -2990,7 +2990,7 @@ def collapse_nodes(
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     Examples
     --------
@@ -3014,7 +3014,7 @@ def collapse_nodes(
             Remove nodes from the neuron without changing the structure.
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     if not utils.is_iterable(which):
         which = [which]
@@ -3075,8 +3075,8 @@ def collapse_nodes(
 
 
 def rewire_skeleton(
-    x: "core.TreeNeuron", g: nx.Graph, root: Optional[id] = None, inplace: bool = False
-) -> Optional["core.TreeNeuron"]:
+    x: "core.Skeleton", g: nx.Graph, root: Optional[id] = None, inplace: bool = False
+) -> Optional["core.Skeleton"]:
     """Rewire neuron from graph.
 
     This function takes a graph representation of a neuron and rewires its
@@ -3086,7 +3086,7 @@ def rewire_skeleton(
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
                 Neuron to be rewired.
     g :         networkx.Graph
                 Graph to use for rewiring. Please note that directionality (if
@@ -3102,7 +3102,7 @@ def rewire_skeleton(
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     Examples
     --------
@@ -3119,7 +3119,7 @@ def rewire_skeleton(
     2
 
     """
-    assert isinstance(x, core.TreeNeuron), f"Expected TreeNeuron, got {type(x)}"
+    assert isinstance(x, core.Skeleton), f"Expected Skeleton, got {type(x)}"
     assert isinstance(g, nx.Graph), f"Expected networkx graph, got {type(g)}"
 
     if not inplace:
@@ -3161,13 +3161,13 @@ def rewire_skeleton(
 
 
 def match_mesh_skeleton(mesh, skeleton):
-    """Match vertices of MeshNeuron to nodes of TreeNeuron.
+    """Match vertices of Mesh to nodes of Skeleton.
 
     Parameters
     ----------
-    mesh :      MeshNeuron
-                MeshNeuron to match.
-    skeleton :  TreeNeuron
+    mesh :      Mesh
+                Mesh to match.
+    skeleton :  Skeleton
                 Skeleton to match.
 
     Returns
@@ -3176,11 +3176,11 @@ def match_mesh_skeleton(mesh, skeleton):
                 Array of skeleton node IDs for each vertex in the mesh.
 
     """
-    if not isinstance(mesh, core.MeshNeuron):
-        raise TypeError(f"Expected MeshNeuron, got {type(mesh)}")
+    if not isinstance(mesh, core.Mesh):
+        raise TypeError(f"Expected Mesh, got {type(mesh)}")
 
-    if not isinstance(skeleton, core.TreeNeuron):
-        raise TypeError(f"Expected TreeNeuron, got {type(skeleton)}")
+    if not isinstance(skeleton, core.Skeleton):
+        raise TypeError(f"Expected Skeleton, got {type(skeleton)}")
 
     # Generate a KDTree for the skeleton
     tree = graph.neuron2KDTree(skeleton)
@@ -3207,7 +3207,7 @@ def propagate_labels(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron
+    x :         Skeleton | Mesh
                 Neuron(s) to propagate labels in.
     labels :    array | dict | str
                 Labels to propagate. Can be:
@@ -3231,7 +3231,7 @@ def propagate_labels(
                 labels are treated equally.
     directed :  bool
                 Whether to treat the graph as directed during propagation. Only
-                applicable for TreeNeurons. If `True`, labels will only propagate
+                applicable for Skeletons. If `True`, labels will only propagate
                 from parent to child nodes. If `False` (default), labels can propagate in both
                 directions.
     max_iter :  int
@@ -3290,8 +3290,8 @@ def propagate_labels(
     >>> # navis.plot3d(n, color_by=prop_labels, palette={"pre": "red", "post": "blue"})
 
     """
-    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
-        raise TypeError(f"Expected TreeNeuron or MeshNeuron, got {type(x)}")
+    if not isinstance(x, (core.Skeleton, core.Mesh)):
+        raise TypeError(f"Expected Skeleton or Mesh, got {type(x)}")
 
     assert return_probs in (
         False,
@@ -3303,7 +3303,7 @@ def propagate_labels(
     assert isinstance(tol, (int, float)) and tol > 0, "tol must be a positive float"
 
     if isinstance(labels, str):
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             if labels not in x.nodes.columns:
                 raise ValueError(f'No node property "{labels}" found in neuron.')
             elif getattr(x, labels).shape[0] != len(x.nodes):
@@ -3311,7 +3311,7 @@ def propagate_labels(
                     f'Length of node property "{labels}" does not match number of nodes ({len(x.nodes)})'
                 )
             labels = dict(zip(x.nodes.node_id.values, x.nodes[labels].values))
-        elif isinstance(x, core.MeshNeuron):
+        elif isinstance(x, core.Mesh):
             if not hasattr(x, labels):
                 raise ValueError(f'No vertex property "{labels}" found in neuron.')
             elif getattr(x, labels).shape[0] != len(x.vertices):
@@ -3320,13 +3320,13 @@ def propagate_labels(
                 )
             labels = dict(zip(range(len(x.vertices)), getattr(x, labels)))
     elif not isinstance(labels, dict):
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             if len(labels) != len(x.nodes):
                 raise ValueError(
                     f"Length of labels ({len(labels)}) does not match number of nodes ({len(x.nodes)})"
                 )
             labels = dict(zip(x.nodes.node_id.values, labels))
-        elif isinstance(x, core.MeshNeuron):
+        elif isinstance(x, core.Mesh):
             if len(labels) != len(x.vertices):
                 raise ValueError(
                     f"Length of labels ({len(labels)}) does not match number of vertices ({len(x.vertices)})"
@@ -3341,7 +3341,7 @@ def propagate_labels(
     # is the same as it was when this used networkx.
     G: igraph.Graph = x.igraph
 
-    nodes = G.vs["node_id"] if isinstance(x, core.TreeNeuron) else list(G.vs.indices)
+    nodes = G.vs["node_id"] if isinstance(x, core.Skeleton) else list(G.vs.indices)
     n = len(nodes)
     node_index = {node: i for i, node in enumerate(nodes)}
 
@@ -3362,7 +3362,7 @@ def propagate_labels(
                     )
                 label_weights[label_index[l]] = float(w)
         elif isinstance(weights, str):
-            if isinstance(x, core.TreeNeuron):
+            if isinstance(x, core.Skeleton):
                 if weights not in x.nodes.columns:
                     raise ValueError(f'No node property "{weights}" found in neuron.')
                 elif getattr(x, weights).shape[0] != len(x.nodes):
@@ -3370,7 +3370,7 @@ def propagate_labels(
                         f'Length of node property "{weights}" does not match number of nodes ({len(x.nodes)})'
                     )
                 per_node_weights = getattr(x, weights).values.astype(np.float32)
-            elif isinstance(x, core.MeshNeuron):
+            elif isinstance(x, core.Mesh):
                 if not hasattr(x, weights):
                     raise ValueError(f'No vertex property "{weights}" found in neuron.')
                 elif getattr(x, weights).shape[0] != len(x.vertices):
@@ -3399,7 +3399,7 @@ def propagate_labels(
                 )
 
     # Adjacency matrix (sparse, float32). `_igraph_to_sparse` already emits both
-    # directions for an undirected graph (i.e. MeshNeurons); a skeleton's graph is
+    # directions for an undirected graph (i.e. Meshes); a skeleton's graph is
     # directed child->parent and needs symmetrising by hand. Skeletons have no
     # reciprocal edges, so adding the transpose can't double-count.
     A = _igraph_to_sparse(G, weight_attr="weight").astype(np.float32)
@@ -3507,7 +3507,7 @@ def propagate_labels(
     # `str` (-> ArrowStringArray) for string labels while pandas < 3 gives `object`,
     # and `np.array` on an all-labeled mesh yields a fixed-width `<U*` array that
     # cannot hold NaN.
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         keys = x.nodes.node_id.values
     else:
         keys = range(len(x.vertices))

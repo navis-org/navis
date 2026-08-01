@@ -50,7 +50,7 @@ def neuron2tangents(x: "core.NeuronObject") -> "core.Dotprops":
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         Skeleton | NeuronList
 
     Returns
     -------
@@ -70,8 +70,8 @@ def neuron2tangents(x: "core.NeuronObject") -> "core.Dotprops":
     """
     if isinstance(x, core.NeuronList):
         return [neuron2tangents(n) for n in x]
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron/List, got "{type(x)}"')
+    elif not isinstance(x, core.Skeleton):
+        raise TypeError(f'Expected Skeleton/List, got "{type(x)}"')
 
     # Collect nodes
     nodes = x.nodes[x.nodes.parent_id >= 0]
@@ -235,14 +235,14 @@ def network2igraph(
 def neuron2nx(
     x: "core.NeuronObject", simplify=False, epsilon=None, connectivity=6
 ) -> nx.DiGraph:
-    """Turn Tree-, Mesh- or VoxelNeuron into an NetworkX graph.
+    """Turn Skeleton, Mesh or Voxels into an NetworkX graph.
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList
+    x :         Skeleton | Mesh | Voxels | NeuronList
                 Neuron(s) to convert.
     simplify :  bool
-                For TreeNeurons only: simplify the graph by keeping only roots,
+                For Skeletons only: simplify the graph by keeping only roots,
                 leaves and branching points. Preserves the original
                 branch lengths (i.e. weights).
     epsilon :   float, optional
@@ -250,7 +250,7 @@ def neuron2nx(
                 connect them. If `None`, will use 5x the average distance
                 between points (i.e. `5 * x.sampling_resolution`).
     connectivity : 6 | 18 | 26
-                For VoxelNeurons only. Defines the connectedness:
+                For Voxels only. Defines the connectedness:
                  - 6 = faces (default)
                  - 18 = faces + edges
                  - 26 = faces + edges + vertices
@@ -259,9 +259,9 @@ def neuron2nx(
     -------
     graph:      networkx.Graph | networkx.DiGraph
                 NetworkX representation of the neuron. Returns list of graphs
-                if x is multiple neurons. Graph is directed for TreeNeurons
-                and undirected for Mesh- and VoxelNeurons. Graph is weighted
-                for Tree- and MeshNeurons.
+                if x is multiple neurons. Graph is directed for Skeletons
+                and undirected for Meshes and Voxels. Graph is weighted
+                for Skeletons and Meshes.
 
     """
     if isinstance(x, core.NeuronList):
@@ -272,7 +272,7 @@ def neuron2nx(
             for n in x
         ]
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         # Collect nodes
         nodes = x.nodes.set_index("node_id", inplace=False)
         # Collect edges
@@ -299,7 +299,7 @@ def neuron2nx(
 
         if simplify:
             simplify_graph(G, inplace=True)
-    elif isinstance(x, core.MeshNeuron):
+    elif isinstance(x, core.Mesh):
         G = nx.Graph()
         G.add_nodes_from(np.arange(x.n_vertices))
         elist, elengths = utils.mesh_unique_edges(x.trimesh, return_lengths=True)
@@ -319,7 +319,7 @@ def neuron2nx(
         G = nx.Graph()
         G.add_nodes_from(np.arange(x.n_points))
         G.add_edges_from(tree.query_pairs(epsilon))
-    elif isinstance(x, core.VoxelNeuron):
+    elif isinstance(x, core.Voxels):
         # `sparsecubes` gives us the adjacency straight off the sparse voxels.
         # Note the nodes it returns are deduplicated and sorted, and the edge
         # indices refer to *those* rows - hence we index into `nodes`, not
@@ -327,7 +327,7 @@ def neuron2nx(
         nodes, edges = sparsecubes.edges(x.voxels, connectivity=connectivity)
 
         G = nx.Graph()
-        # Nodes are keyed by coordinate tuple (not index) for VoxelNeurons
+        # Nodes are keyed by coordinate tuple (not index) for Voxels
         G.add_nodes_from([tuple(v) for v in x.voxels])
         G.add_edges_from(
             [(tuple(nodes[i]), tuple(nodes[j])) for i, j in edges]
@@ -434,11 +434,11 @@ def simplify_graph(G, inplace=False):
 
 
 def _voxels2edges(x, connectivity=18):
-    """Turn VoxelNeuron into an edge list.
+    """Turn Voxels into an edge list.
 
     Parameters
     ----------
-    x :             VoxelNeuron
+    x :             Voxels
     connectivity :  6 | 18 | 26
                     Connectedness:
                      - 6 = faces
@@ -450,7 +450,7 @@ def _voxels2edges(x, connectivity=18):
     edges :         (N, 2) numpy array
                     Undirected edges as index pairs into `x.voxels` (each edge
                     appears once). Note that duplicate voxels - which a
-                    VoxelNeuron should not have - are collapsed onto their
+                    Voxels should not have - are collapsed onto their
                     first occurrence.
 
     """
@@ -459,7 +459,7 @@ def _voxels2edges(x, connectivity=18):
         18,
         26,
     ), f'`connectivity` must be 6, 18 or 26, not "{connectivity}"'
-    assert isinstance(x, core.VoxelNeuron)
+    assert isinstance(x, core.Voxels)
 
     voxels = x.voxels
 
@@ -487,18 +487,18 @@ def neuron2igraph(
     connectivity: int = 18,
     epsilon: Optional[float] = None
 ) -> "igraph.Graph":
-    """Turn Tree-, Mesh- or VoxelNeuron(s) into an iGraph graph.
+    """Turn Skeleton, Mesh or Voxels into an iGraph graph.
 
     Parameters
     ----------
-    x :                     TreeNeuron | MeshNeuron | VoxelNeuron | NeuronList
+    x :                     Skeleton | Mesh | Voxels | NeuronList
                             Neuron(s) to convert.
     simplify :              bool
-                            For TreeNeurons only: simplify the graph by keeping only roots,
+                            For Skeletons only: simplify the graph by keeping only roots,
                             leaves and branching points. Preserves the original branch
                             lengths (i.e. weights).
     connectivity :          6 | 18 | 26
-                            For VoxelNeurons only. Defines the connectedness:
+                            For Voxels only. Defines the connectedness:
                              - 6 = faces
                              - 18 = faces + edges
                              - 26 = faces + edges + vertices
@@ -511,8 +511,8 @@ def neuron2igraph(
     -------
     igraph.Graph
                 Representation of the neuron. Returns list of graphs
-                if x is multiple neurons. Directed for TreeNeurons, undirected
-                for MeshNeurons.
+                if x is multiple neurons. Directed for Skeletons, undirected
+                for Meshes.
 
     """
     if isinstance(x, core.NeuronList):
@@ -521,7 +521,7 @@ def neuron2igraph(
             for i in range(x.shape[0])
         ]
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         # Make sure we have correctly numbered indices
         nodes = x.nodes.reset_index(inplace=False, drop=True)
 
@@ -541,7 +541,7 @@ def neuron2igraph(
         except KeyError:
             miss = nodes[~nodes.parent_id.isin(nodes.node_id)].node_id.unique()
             raise KeyError(
-                f"{len(miss)} nodes (e.g. {miss[0]}) in TreeNeuron "
+                f"{len(miss)} nodes (e.g. {miss[0]}) in Skeleton "
                 f"{x.id} connect to non-existent parent nodes."
             )
         except BaseException:
@@ -569,11 +569,11 @@ def neuron2igraph(
 
         if simplify:
             simplify_graph(G, inplace=True)
-    elif isinstance(x, core.MeshNeuron):
+    elif isinstance(x, core.Mesh):
         elist, elengths = utils.mesh_unique_edges(x.trimesh, return_lengths=True)
         G = igraph.Graph(elist, n=x.n_vertices, directed=False)
         G.es["weight"] = elengths
-    elif isinstance(x, core.VoxelNeuron):
+    elif isinstance(x, core.Voxels):
         edges = _voxels2edges(x, connectivity=connectivity)
         G = igraph.Graph(edges, n=len(x.voxels), directed=False)
     elif isinstance(x, core.Dotprops):
@@ -598,7 +598,7 @@ def nx2neuron(
     break_cycles: bool = False,
     **kwargs,
 ) -> pd.DataFrame:
-    """Create TreeNeuron from NetworkX Graph.
+    """Create Skeleton from NetworkX Graph.
 
     This function will try to generate a neuron-like tree structure from
     the Graph. Therefore the graph must not contain loops!
@@ -619,11 +619,11 @@ def nx2neuron(
                     up at risk of disconnecting parts of the graph.
     **kwargs
                     Keyword arguments are passed to the construction of
-                    [`navis.TreeNeuron`][].
+                    [`navis.Skeleton`][].
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     Examples
     --------
@@ -632,7 +632,7 @@ def nx2neuron(
     >>> G = nx.balanced_tree(2, 3)
     >>> tn = navis.nx2neuron(G)
     >>> tn
-    type            navis.TreeNeuron
+    type            navis.Skeleton
     name                        None
     n_nodes                       15
     n_connectors                None
@@ -735,11 +735,11 @@ def nx2neuron(
         vals = nx.get_node_attributes(G, at)
         tn_table[at] = tn_table.index.map(vals).fillna(defaults.get(at, None))
 
-    return core.TreeNeuron(tn_table.reset_index(drop=False, inplace=False), **kwargs)
+    return core.Skeleton(tn_table.reset_index(drop=False, inplace=False), **kwargs)
 
 
 def edges2neuron(edges, vertices=None, validate=True, **kwargs):
-    """Create TreeNeuron from edges and (optional) vertex coordinates.
+    """Create Skeleton from edges and (optional) vertex coordinates.
 
     Parameters
     ----------
@@ -754,11 +754,11 @@ def edges2neuron(edges, vertices=None, validate=True, **kwargs):
                     you are absolutely sure your data are good.
     **kwargs
                     Additional keyword arguments are passed to
-                    initialization of the TreeNeuron.
+                    initialization of the Skeleton.
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     Examples
     --------
@@ -829,7 +829,7 @@ def edges2neuron(edges, vertices=None, validate=True, **kwargs):
     nodes.insert(0, 'node_id', nodes.index)
     nodes.insert(1, 'parent_id', nodes.index.map(parents).fillna(-1).astype(int))
 
-    return core.TreeNeuron(nodes, **kwargs)
+    return core.Skeleton(nodes, **kwargs)
 
 
 
@@ -876,7 +876,7 @@ def neuron2KDTree(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | VoxelNeuron | Dotprops
+    x :         Skeleton | Mesh | Voxels | Dotprops
                 A single neuron to turn into a KDTree.
     tree_type : 'c' | 'normal'
                 Type of KDTree:
@@ -885,7 +885,7 @@ def neuron2KDTree(
     data :      'auto' | str
                 Data used to generate tree. "auto" will pick the core data
                 depending on neuron type: `nodes`, `vertices`, `voxels` and
-                `points` for TreeNeuron, MeshNeuron, VoxelNeuron and Dotprops,
+                `points` for Skeleton, Mesh, Voxels and Dotprops,
                 respectively. Other values (e.g. "connectors" or "nodes") must
                 map to a neuron property that is either (N, 3) array or
                 DataFrame with x/y/z columns.
@@ -905,16 +905,16 @@ def neuron2KDTree(
         if len(x) == 1:
             x = x[0]
         else:
-            raise ValueError("Need a single TreeNeuron")
+            raise ValueError("Need a single Skeleton")
     elif not isinstance(x, core.BaseNeuron):
         raise TypeError(f'Need Neuron, got "{type(x)}"')
 
     if data == "auto":
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             data = "nodes"
-        if isinstance(x, core.MeshNeuron):
+        if isinstance(x, core.Mesh):
             data = "vertices"
-        if isinstance(x, core.VoxelNeuron):
+        if isinstance(x, core.Voxels):
             data = "voxels"
         if isinstance(x, core.Dotprops):
             data = "points"

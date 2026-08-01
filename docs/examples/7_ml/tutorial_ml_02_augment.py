@@ -7,7 +7,7 @@ Augment neuron training sets with realistic perturbations for robust models.
 The `navis.ml` module provides a set of geometric and sampling augmentations.
 Every one of them:
 
-- accepts a [`navis.TreeNeuron`][], [`navis.MeshNeuron`][], [`navis.Dotprops`][]
+- accepts a [`navis.Skeleton`][], [`navis.Mesh`][], [`navis.Dotprops`][]
   or a [`navis.NeuronList`][] (each neuron in a list is augmented
   **independently** - a fresh random draw each),
 - takes a `random_state` (int or `np.random.Generator`) for reproducibility,
@@ -78,7 +78,7 @@ plt.tight_layout()
 #   branching structure survives.
 #
 # !!! note
-#     `drop_nodes` supports `TreeNeuron` and `Dotprops` but **not** `MeshNeuron`
+#     `drop_nodes` supports `Skeleton` and `Dotprops` but **not** `Mesh`
 #     (deleting vertices tears the surface - convert to skeleton/dotprops first).
 #     For skeletons, connectors on a dropped node are reattached to the nearest
 #     surviving ancestor, so none are left dangling.

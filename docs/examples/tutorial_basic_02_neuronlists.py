@@ -17,7 +17,7 @@ to quickly sort, filter and manipulate neurons.
 
 import navis
 
-# Grab three example skeletons (TreeNeurons) as a NeuronList
+# Grab three example skeletons (Skeletons) as a NeuronList
 nl = navis.example_neurons(n=3)
 nl
 
@@ -78,13 +78,13 @@ nl_mix = navis.example_neurons(n=2, kind='mix')
 nl_mix
 
 # %%
-# Note how `nl_mix` contains a [`TreeNeuron`][navis.TreeNeuron] and a [`MeshNeuron`][navis.MeshNeuron]?
+# Note how `nl_mix` contains a [`Skeleton`][navis.Skeleton] and a [`Mesh`][navis.Mesh]?
 #
 # In such cases you have to be a bit more careful about asking for attributes that are not shared across all neurons:
 #
 # !!! warning "Missing attributes"
 #     ```python
-#     # MeshNeurons have no `cable_length` - so this raises an error:
+#     # Meshes have no `cable_length` - so this raises an error:
 #     nl_mix.cable_length
 #     ```
 
@@ -217,7 +217,7 @@ nl_um.units
 2 == 1
 
 # %%
-# For [`navis.TreeNeuron`][] this comparison is done by looking at the neurons' attributes:
+# For [`navis.Skeleton`][] this comparison is done by looking at the neurons' attributes:
 # morphologies (soma & root nodes, cable length, etc) and meta data (name).
 
 # %%
@@ -230,7 +230,7 @@ nl[0] == nl[1]
 # To find out which attributes are compared, check out:
 
 # %%
-navis.TreeNeuron.EQ_ATTRIBUTES
+navis.Skeleton.EQ_ATTRIBUTES
 
 # %%
 # Edit this list to establish your own criteria for equality.

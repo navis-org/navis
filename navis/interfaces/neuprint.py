@@ -61,7 +61,7 @@ import pandas as pd
 
 from .. import config, utils
 
-from ..core import Volume, TreeNeuron, MeshNeuron, NeuronList
+from ..core import Volume, Skeleton, Mesh, NeuronList
 from ..graph import neuron2KDTree
 from ..morpho import subset_neuron
 
@@ -318,7 +318,7 @@ def fetch_mesh_neuron(
     client=None,
     **kwargs,
 ):
-    """Fetch neuron meshes as navis.MeshNeuron.
+    """Fetch neuron meshes as navis.Mesh.
 
     Requires additional packages depending on the mesh source.
 
@@ -373,7 +373,7 @@ def fetch_mesh_neuron(
     Returns
     -------
     navis.Neuronlist
-                    Containing [`navis.MeshNeuron`][]. Note that meshes are
+                    Containing [`navis.Mesh`][]. Note that meshes are
                     resized to raw voxel size to match other spatial data from
                     neuprint (synapses, skeletons, etc).
 
@@ -559,7 +559,7 @@ def fetch_mesh_neuron(
 
 
 def __fetch_mesh(bodyId, *, vol, lod, missing_mesh="raise"):
-    """Fetch a single mesh (+ synapses) and construct navis MeshNeuron."""
+    """Fetch a single mesh (+ synapses) and construct navis Mesh."""
     # Fetch mesh
     import cloudvolume
 
@@ -583,7 +583,7 @@ def __fetch_mesh(bodyId, *, vol, lod, missing_mesh="raise"):
     if isinstance(mesh, dict):
         mesh = mesh[bodyId]
 
-    n = MeshNeuron(mesh)
+    n = Mesh(mesh)
     n.lod = lod
     n.id = bodyId
 
@@ -602,7 +602,7 @@ def fetch_skeletons(
     max_threads=5,
     client=None,
 ):
-    """Fetch neuron skeletons as navis.TreeNeurons.
+    """Fetch neuron skeletons as navis.Skeletons.
 
     Notes
     -----
@@ -721,7 +721,7 @@ def fetch_skeletons(
 def __fetch_skeleton(
     r, client, with_synapses=True, dedup=True, missing_swc="raise", heal=False, max_distance=None
 ):
-    """Fetch a single skeleton + synapses and construct navis TreeNeuron."""
+    """Fetch a single skeleton + synapses and construct navis Skeleton."""
     # Use this thread's own client (and hence session) if we have one - see
     # `_init_worker`. Falls back to the passed client when called directly.
     client = getattr(_thread_local, "client", client)
@@ -741,7 +741,7 @@ def __fetch_skeleton(
             raise
 
     # Generate neuron
-    n = TreeNeuron(
+    n = Skeleton(
         data, units=_voxel_size_to_units(client)
     )
 
@@ -813,19 +813,19 @@ def __fetch_skeleton(
 
 
 def remove_soma_hairball(
-    x: "core.TreeNeuron", radius: float = 500, inplace: bool = False
+    x: "core.Skeleton", radius: float = 500, inplace: bool = False
 ):
     """Remove hairball around soma.
 
     Parameters
     ----------
-    x :         core.TreeNeuron
+    x :         core.Skeleton
     radius :    float
                 Radius around the soma to check for hairball
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
                 If inplace=False.
     """
     if not inplace:

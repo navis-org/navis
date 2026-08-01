@@ -481,7 +481,7 @@ def meshneuron_skeleton(
     reroot_soma: bool = False,
     heal: bool = False,
 ):
-    """Decorate function such that MeshNeurons are automatically skeletonized,
+    """Decorate function such that Meshes are automatically skeletonized,
     the function is run on the skeleton and changes are propagated
     back to the meshe.
 
@@ -489,21 +489,21 @@ def meshneuron_skeleton(
     ----------
     method :    str
                 What to do with the results:
-                  - 'subset': subset MeshNeuron to what's left of the skeleton
-                  - 'split': split MeshNeuron following the skeleton's splits
+                  - 'subset': subset Mesh to what's left of the skeleton
+                  - 'split': split Mesh following the skeleton's splits
                   - 'node_to_vertex': map the returned node ID to the vertex IDs
                   - 'node_properties' map node properties to vertices (requires
                     `node_props` parameter)
                   - 'pass_through' simply passes through the return value
     include_connectors : bool
-                If True, will try to make sure that if the MeshNeuron has
+                If True, will try to make sure that if the Mesh has
                 connectors, they will be carried over to the skeleton.
     copy_properties : list
                 Any additional properties that need to be copied from the
                 skeleton to the mesh.
     disallowed_kwargs : dict
                 Keyword arguments (name + value) that are not permitted when
-                input is MeshNeuron.
+                input is Mesh.
     node_props : list
                 For method 'node_properties'. String must be column names in
                 node table of skeleton.
@@ -564,19 +564,19 @@ def meshneuron_skeleton(
                     f"{fnname}:\n {args}\n {kwargs}"
                 )
 
-            # If input not a MeshNeuron, just pass through
+            # If input not a Mesh, just pass through
             # Note delayed import to avoid circular imports and IMPORTANTLY
             # funky interactions with pickle/dill
             from .. import core
 
-            if not isinstance(x, core.MeshNeuron):
+            if not isinstance(x, core.Mesh):
                 return function(x, *args, **kwargs)
 
             # Check for disallowed kwargs
             for k, v in disallowed_kwargs.items():
                 if k in kwargs and kwargs[k] == v:
                     raise ValueError(
-                        f"{k}={v} is not allowed when input is MeshNeuron(s)."
+                        f"{k}={v} is not allowed when input is Mesh(s)."
                     )
 
             # See if this is meant to be done inplace

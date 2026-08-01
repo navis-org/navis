@@ -65,7 +65,7 @@ class MeshReader(base.BaseReader):
     @base.handle_errors
     def read_buffer(
         self, f, attrs: Optional[Dict[str, Any]] = None
-    ) -> Union[tm.Trimesh, "core.Volume", "core.MeshNeuron"]:
+    ) -> Union[tm.Trimesh, "core.Volume", "core.Mesh"]:
         """Read buffer into mesh.
 
         Parameters
@@ -77,7 +77,7 @@ class MeshReader(base.BaseReader):
 
         Returns
         -------
-        Trimesh | MeshNeuron | Volume
+        Trimesh | Mesh | Volume
 
         """
         if isinstance(f, HTTPResponse):
@@ -101,8 +101,8 @@ class MeshReader(base.BaseReader):
         elif self.output == "volume":
             return core.Volume(mesh.vertices, mesh.faces, **attrs)
 
-        # Turn into a MeshNeuron
-        n = core.MeshNeuron(mesh)
+        # Turn into a Mesh
+        n = core.Mesh(mesh)
 
         # Try adding properties one-by-one. If one fails, we'll keep track of it
         # in the `.meta` attribute
@@ -168,13 +168,13 @@ def read_mesh(
                          - a list is expected to be a list of filenames to read from
                            the folder/archive
     **kwargs
-                        Keyword arguments passed to [`navis.MeshNeuron`][]
+                        Keyword arguments passed to [`navis.Mesh`][]
                         or [`navis.Volume`][]. You can use this to e.g.
                         set the units on the neurons.
 
     Returns
     -------
-    MeshNeuron
+    Mesh
                         If `output="neuron"` (default).
     Volume
                         If `output="volume"`.
@@ -182,7 +182,7 @@ def read_mesh(
                         If `output="trimesh"`.
     NeuronList
                         If `output="neuron"` and import has multiple meshes
-                        will return NeuronList of MeshNeurons.
+                        will return NeuronList of Meshes.
     list
                         If `output!="neuron"` and import has multiple meshes
                         will return list of Volumes or Trimesh.
@@ -195,7 +195,7 @@ def read_mesh(
     Examples
     --------
 
-    Read a single file into [`navis.MeshNeuron`][]:
+    Read a single file into [`navis.Mesh`][]:
 
     >>> m = navis.read_mesh('mesh.obj')                         # doctest: +SKIP
 
@@ -221,17 +221,17 @@ def read_mesh(
 
 
 def write_mesh(
-    x: Union["core.NeuronList", "core.MeshNeuron", "core.Volume", "tm.Trimesh"],
+    x: Union["core.NeuronList", "core.Mesh", "core.Volume", "tm.Trimesh"],
     filepath: Optional[str] = None,
     filetype: str = None,
 ) -> None:
-    """Export meshes (MeshNeurons, Volumes, Trimeshes) to disk.
+    """Export meshes (Meshes, Volumes, Trimeshes) to disk.
 
     Under the hood this is using trimesh to export meshes.
 
     Parameters
     ----------
-    x :                 MeshNeuron | Volume | Trimesh | NeuronList
+    x :                 Mesh | Volume | Trimesh | NeuronList
                         If multiple objects, will generate a file for each
                         neuron (see also `filepath`).
     filepath :          None | str | list, optional
@@ -261,7 +261,7 @@ def write_mesh(
     Examples
     --------
 
-    Write `MeshNeurons` to folder:
+    Write `Meshes` to folder:
 
     >>> import navis
     >>> nl = navis.example_neurons(3, kind='mesh')
@@ -303,12 +303,12 @@ def write_mesh(
 
 
 def _write_mesh(
-    x: Union["core.MeshNeuron", "core.Volume", "tm.Trimesh"],
+    x: Union["core.Mesh", "core.Volume", "tm.Trimesh"],
     filepath: Optional[str] = None,
 ) -> None:
     """Write single mesh to disk."""
     if filepath and os.path.isdir(filepath):
-        if isinstance(x, core.MeshNeuron):
+        if isinstance(x, core.Mesh):
             if  x.id is None:
                 raise ValueError(
                     "Neuron(s) must have an ID when destination " "is a folder"
@@ -319,7 +319,7 @@ def _write_mesh(
         else:
             raise ValueError(f"Unable to generate filename for {type(x)}")
 
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         mesh = x.trimesh
     elif isinstance(x, tm.Trimesh):
         mesh = x

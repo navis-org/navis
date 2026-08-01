@@ -43,14 +43,14 @@ learn more!
 
 ## Neurons & NeuronLists
 
-``TreeNeurons``, ``MeshNeurons``, ``VoxelNeurons`` and ``Dotprops`` are neuron
+``Skeletons``, ``Meshes``, ``Voxels`` and ``Dotprops`` are neuron
 classes. ``NeuronLists`` are containers thereof.
 
 | Class | Description |
 |------|------|
-| [`navis.TreeNeuron`][] | Skeleton representation of a neuron. |
-| [`navis.MeshNeuron`][] | Meshes with vertices and faces. |
-| [`navis.VoxelNeuron`][] | 3D images (e.g. from confocal stacks). |
+| [`navis.Skeleton`][] | Skeleton representation of a neuron. |
+| [`navis.Mesh`][] | Meshes with vertices and faces. |
+| [`navis.Voxels`][] | 3D images (e.g. from confocal stacks). |
 | [`navis.Dotprops`][] | Point cloud + vector representations, used for NBLAST. |
 | [`navis.NeuronList`][] | Containers for neurons. |
 
@@ -97,53 +97,53 @@ to all neurons:
 
 ### Skeletons
 
-A [`navis.TreeNeuron`][] represents a skeleton. These are class methods available specific for
+A [`navis.Skeleton`][] represents a skeleton. These are class methods available specific for
 this neuron type. Note that most of them are simply short-hands for the other
 {{ navis }} functions:
 
 | Method | Description |
 |--------|-------------|
-| [`TreeNeuron.convert_units()`][navis.BaseNeuron.convert_units] | {{ autosummary("navis.TreeNeuron.convert_units") }} |
-| [`TreeNeuron.cell_body_fiber()`][navis.TreeNeuron.cell_body_fiber] | {{ autosummary("navis.TreeNeuron.cell_body_fiber") }} |
-| [`TreeNeuron.downsample()`][navis.TreeNeuron.downsample] | {{ autosummary("navis.TreeNeuron.downsample") }} |
-| [`TreeNeuron.get_graph_nx()`][navis.TreeNeuron.get_graph_nx] | {{ autosummary("navis.TreeNeuron.get_graph_nx") }} |
-| [`TreeNeuron.get_igraph()`][navis.TreeNeuron.get_igraph] | {{ autosummary("navis.TreeNeuron.get_igraph") }} |
-| [`TreeNeuron.prune_by_longest_neurite()`][navis.TreeNeuron.prune_by_longest_neurite] | {{ autosummary("navis.TreeNeuron.prune_by_longest_neurite") }} |
-| [`TreeNeuron.prune_by_strahler()`][navis.TreeNeuron.prune_by_strahler] | {{ autosummary("navis.TreeNeuron.prune_by_strahler") }} |
-| [`TreeNeuron.prune_by_volume()`][navis.TreeNeuron.prune_by_volume] | {{ autosummary("navis.TreeNeuron.prune_by_volume") }} |
-| [`TreeNeuron.prune_distal_to()`][navis.TreeNeuron.prune_distal_to] | {{ autosummary("navis.TreeNeuron.prune_distal_to") }} |
-| [`TreeNeuron.prune_proximal_to()`][navis.TreeNeuron.prune_proximal_to] | {{ autosummary("navis.TreeNeuron.prune_proximal_to") }} |
-| [`TreeNeuron.prune_twigs()`][navis.TreeNeuron.prune_twigs] | {{ autosummary("navis.TreeNeuron.prune_twigs") }} |
-| [`TreeNeuron.reload()`][navis.TreeNeuron.reload] | {{ autosummary("navis.TreeNeuron.reload") }} |
-| [`TreeNeuron.reroot()`][navis.TreeNeuron.reroot] | {{ autosummary("navis.TreeNeuron.reroot") }} |
-| [`TreeNeuron.resample()`][navis.TreeNeuron.resample] | {{ autosummary("navis.TreeNeuron.resample") }} |
-| [`TreeNeuron.snap()`][navis.TreeNeuron.snap] | {{ autosummary("navis.TreeNeuron.snap") }} |
+| [`Skeleton.convert_units()`][navis.BaseNeuron.convert_units] | {{ autosummary("navis.Skeleton.convert_units") }} |
+| [`Skeleton.cell_body_fiber()`][navis.Skeleton.cell_body_fiber] | {{ autosummary("navis.Skeleton.cell_body_fiber") }} |
+| [`Skeleton.downsample()`][navis.Skeleton.downsample] | {{ autosummary("navis.Skeleton.downsample") }} |
+| [`Skeleton.get_graph_nx()`][navis.Skeleton.get_graph_nx] | {{ autosummary("navis.Skeleton.get_graph_nx") }} |
+| [`Skeleton.get_igraph()`][navis.Skeleton.get_igraph] | {{ autosummary("navis.Skeleton.get_igraph") }} |
+| [`Skeleton.prune_by_longest_neurite()`][navis.Skeleton.prune_by_longest_neurite] | {{ autosummary("navis.Skeleton.prune_by_longest_neurite") }} |
+| [`Skeleton.prune_by_strahler()`][navis.Skeleton.prune_by_strahler] | {{ autosummary("navis.Skeleton.prune_by_strahler") }} |
+| [`Skeleton.prune_by_volume()`][navis.Skeleton.prune_by_volume] | {{ autosummary("navis.Skeleton.prune_by_volume") }} |
+| [`Skeleton.prune_distal_to()`][navis.Skeleton.prune_distal_to] | {{ autosummary("navis.Skeleton.prune_distal_to") }} |
+| [`Skeleton.prune_proximal_to()`][navis.Skeleton.prune_proximal_to] | {{ autosummary("navis.Skeleton.prune_proximal_to") }} |
+| [`Skeleton.prune_twigs()`][navis.Skeleton.prune_twigs] | {{ autosummary("navis.Skeleton.prune_twigs") }} |
+| [`Skeleton.reload()`][navis.Skeleton.reload] | {{ autosummary("navis.Skeleton.reload") }} |
+| [`Skeleton.reroot()`][navis.Skeleton.reroot] | {{ autosummary("navis.Skeleton.reroot") }} |
+| [`Skeleton.resample()`][navis.Skeleton.resample] | {{ autosummary("navis.Skeleton.resample") }} |
+| [`Skeleton.snap()`][navis.Skeleton.snap] | {{ autosummary("navis.Skeleton.snap") }} |
 
-In addition, a [`navis.TreeNeuron`][] has a range of different properties:
+In addition, a [`navis.Skeleton`][] has a range of different properties:
 
 | Method | Description |
 |--------|-------------|
-| [`TreeNeuron.adjacency_matrix`][navis.TreeNeuron.adjacency_matrix] | {{ autosummary("navis.TreeNeuron.adjacency_matrix") }} |
-| [`TreeNeuron.cable_length`][navis.TreeNeuron.cable_length] | {{ autosummary("navis.TreeNeuron.cable_length") }} |
-| [`TreeNeuron.cycles`][navis.TreeNeuron.cycles] | {{ autosummary("navis.TreeNeuron.cycles") }} |
-| [`TreeNeuron.downsample`][navis.TreeNeuron.downsample] | {{ autosummary("navis.TreeNeuron.downsample") }} |
-| [`TreeNeuron.edges`][navis.TreeNeuron.edges] | {{ autosummary("navis.TreeNeuron.edges") }} |
-| [`TreeNeuron.edge_coords`][navis.TreeNeuron.edge_coords] | {{ autosummary("navis.TreeNeuron.edge_coords") }} |
-| [`TreeNeuron.igraph`][navis.TreeNeuron.igraph] | {{ autosummary("navis.TreeNeuron.igraph") }} |
-| [`TreeNeuron.is_tree`][navis.TreeNeuron.is_tree] | {{ autosummary("navis.TreeNeuron.is_tree") }} |
-| [`TreeNeuron.n_branches`][navis.TreeNeuron.n_branches] | {{ autosummary("navis.TreeNeuron.n_branches") }} |
-| [`TreeNeuron.n_leafs`][navis.TreeNeuron.n_leafs] | {{ autosummary("navis.TreeNeuron.n_leafs") }} |
-| [`TreeNeuron.n_skeletons`][navis.TreeNeuron.n_skeletons] | {{ autosummary("navis.TreeNeuron.n_skeletons") }} |
-| [`TreeNeuron.n_trees`][navis.TreeNeuron.n_trees] | {{ autosummary("navis.TreeNeuron.n_trees") }} |
-| [`TreeNeuron.nodes`][navis.TreeNeuron.nodes] | {{ autosummary("navis.TreeNeuron.nodes") }} |
-| [`TreeNeuron.root`][navis.TreeNeuron.root] | {{ autosummary("navis.TreeNeuron.root") }} |
-| [`TreeNeuron.sampling_resolution`][navis.TreeNeuron.sampling_resolution] | {{ autosummary("navis.TreeNeuron.sampling_resolution") }} |
-| [`TreeNeuron.segments`][navis.TreeNeuron.segments] | {{ autosummary("navis.TreeNeuron.segments") }} |
-| [`TreeNeuron.simple`][navis.TreeNeuron.simple] | {{ autosummary("navis.TreeNeuron.simple") }} |
-| [`TreeNeuron.soma_pos`][navis.TreeNeuron.soma_pos] | {{ autosummary("navis.TreeNeuron.soma_pos") }} |
-| [`TreeNeuron.subtrees`][navis.TreeNeuron.subtrees] | {{ autosummary("navis.TreeNeuron.subtrees") }} |
-| [`TreeNeuron.vertices`][navis.TreeNeuron.vertices] | {{ autosummary("navis.TreeNeuron.vertices") }} |
-| [`TreeNeuron.volume`][navis.TreeNeuron.volume] | {{ autosummary("navis.TreeNeuron.volume") }} |
+| [`Skeleton.adjacency_matrix`][navis.Skeleton.adjacency_matrix] | {{ autosummary("navis.Skeleton.adjacency_matrix") }} |
+| [`Skeleton.cable_length`][navis.Skeleton.cable_length] | {{ autosummary("navis.Skeleton.cable_length") }} |
+| [`Skeleton.cycles`][navis.Skeleton.cycles] | {{ autosummary("navis.Skeleton.cycles") }} |
+| [`Skeleton.downsample`][navis.Skeleton.downsample] | {{ autosummary("navis.Skeleton.downsample") }} |
+| [`Skeleton.edges`][navis.Skeleton.edges] | {{ autosummary("navis.Skeleton.edges") }} |
+| [`Skeleton.edge_coords`][navis.Skeleton.edge_coords] | {{ autosummary("navis.Skeleton.edge_coords") }} |
+| [`Skeleton.igraph`][navis.Skeleton.igraph] | {{ autosummary("navis.Skeleton.igraph") }} |
+| [`Skeleton.is_tree`][navis.Skeleton.is_tree] | {{ autosummary("navis.Skeleton.is_tree") }} |
+| [`Skeleton.n_branches`][navis.Skeleton.n_branches] | {{ autosummary("navis.Skeleton.n_branches") }} |
+| [`Skeleton.n_leafs`][navis.Skeleton.n_leafs] | {{ autosummary("navis.Skeleton.n_leafs") }} |
+| [`Skeleton.n_skeletons`][navis.Skeleton.n_skeletons] | {{ autosummary("navis.Skeleton.n_skeletons") }} |
+| [`Skeleton.n_trees`][navis.Skeleton.n_trees] | {{ autosummary("navis.Skeleton.n_trees") }} |
+| [`Skeleton.nodes`][navis.Skeleton.nodes] | {{ autosummary("navis.Skeleton.nodes") }} |
+| [`Skeleton.root`][navis.Skeleton.root] | {{ autosummary("navis.Skeleton.root") }} |
+| [`Skeleton.sampling_resolution`][navis.Skeleton.sampling_resolution] | {{ autosummary("navis.Skeleton.sampling_resolution") }} |
+| [`Skeleton.segments`][navis.Skeleton.segments] | {{ autosummary("navis.Skeleton.segments") }} |
+| [`Skeleton.simple`][navis.Skeleton.simple] | {{ autosummary("navis.Skeleton.simple") }} |
+| [`Skeleton.soma_pos`][navis.Skeleton.soma_pos] | {{ autosummary("navis.Skeleton.soma_pos") }} |
+| [`Skeleton.subtrees`][navis.Skeleton.subtrees] | {{ autosummary("navis.Skeleton.subtrees") }} |
+| [`Skeleton.vertices`][navis.Skeleton.vertices] | {{ autosummary("navis.Skeleton.vertices") }} |
+| [`Skeleton.volume`][navis.Skeleton.volume] | {{ autosummary("navis.Skeleton.volume") }} |
 
 
 #### Skeleton utility functions
@@ -160,65 +160,65 @@ In addition, a [`navis.TreeNeuron`][] has a range of different properties:
 
 ### Mesh neurons
 
-Properties specific to [`navis.MeshNeuron`][]:
+Properties specific to [`navis.Mesh`][]:
 
 | Property | Description |
 |------|------|
-| [`MeshNeuron.faces`][navis.MeshNeuron.faces] | {{ autosummary("navis.MeshNeuron.faces") }} |
-| [`MeshNeuron.vertices`][navis.MeshNeuron.vertices] | {{ autosummary("navis.MeshNeuron.vertices") }} |
-| [`MeshNeuron.extra_edges`][navis.MeshNeuron.extra_edges] | {{ autosummary("navis.MeshNeuron.extra_edges") }} |
-| [`MeshNeuron.trimesh`][navis.MeshNeuron.trimesh] | {{ autosummary("navis.MeshNeuron.trimesh") }} |
-| [`MeshNeuron.volume`][navis.MeshNeuron.volume] | {{ autosummary("navis.MeshNeuron.volume") }} |
-| [`MeshNeuron.sampling_resolution`][navis.MeshNeuron.sampling_resolution] | {{ autosummary("navis.MeshNeuron.sampling_resolution") }} |
+| [`Mesh.faces`][navis.Mesh.faces] | {{ autosummary("navis.Mesh.faces") }} |
+| [`Mesh.vertices`][navis.Mesh.vertices] | {{ autosummary("navis.Mesh.vertices") }} |
+| [`Mesh.extra_edges`][navis.Mesh.extra_edges] | {{ autosummary("navis.Mesh.extra_edges") }} |
+| [`Mesh.trimesh`][navis.Mesh.trimesh] | {{ autosummary("navis.Mesh.trimesh") }} |
+| [`Mesh.volume`][navis.Mesh.volume] | {{ autosummary("navis.Mesh.volume") }} |
+| [`Mesh.sampling_resolution`][navis.Mesh.sampling_resolution] | {{ autosummary("navis.Mesh.sampling_resolution") }} |
 
-Methods specific to [`navis.MeshNeuron`][]:
+Methods specific to [`navis.Mesh`][]:
 
 | Method | Description |
 |--------|-------------|
-| [`MeshNeuron.skeletonize()`][navis.MeshNeuron.skeletonize] | {{ autosummary("navis.MeshNeuron.skeletonize") }} |
-| [`MeshNeuron.snap()`][navis.MeshNeuron.snap] | {{ autosummary("navis.MeshNeuron.snap") }} |
-| [`MeshNeuron.validate()`][navis.MeshNeuron.validate] | {{ autosummary("navis.MeshNeuron.validate") }} |
+| [`Mesh.skeletonize()`][navis.Mesh.skeletonize] | {{ autosummary("navis.Mesh.skeletonize") }} |
+| [`Mesh.snap()`][navis.Mesh.snap] | {{ autosummary("navis.Mesh.snap") }} |
+| [`Mesh.validate()`][navis.Mesh.validate] | {{ autosummary("navis.Mesh.validate") }} |
 
 
 ### Voxel neurons
 
-[VoxelNeurons][navis.VoxelNeuron] (e.g. from confocal image stacks) are a relatively
+[Voxels][navis.Voxels] (e.g. from confocal image stacks) are a relatively
 recet addition to {{ navis }} and the interface might still change.
 
-These are methods and properties specific to [VoxelNeurons][navis.VoxelNeuron]:
+These are methods and properties specific to [Voxels][navis.Voxels]:
 
 | Property | Description |
 |------|------|
-| [`VoxelNeuron.centroid`][navis.VoxelNeuron.centroid] | {{ autosummary("navis.VoxelNeuron.centroid") }} |
-| [`VoxelNeuron.closing()`][navis.VoxelNeuron.closing] | {{ autosummary("navis.VoxelNeuron.closing") }} |
-| [`VoxelNeuron.connected_components()`][navis.VoxelNeuron.connected_components] | {{ autosummary("navis.VoxelNeuron.connected_components") }} |
-| [`VoxelNeuron.densify()`][navis.VoxelNeuron.densify] | {{ autosummary("navis.VoxelNeuron.densify") }} |
-| [`VoxelNeuron.density`][navis.VoxelNeuron.density] | {{ autosummary("navis.VoxelNeuron.density") }} |
-| [`VoxelNeuron.dice()`][navis.VoxelNeuron.dice] | {{ autosummary("navis.VoxelNeuron.dice") }} |
-| [`VoxelNeuron.difference()`][navis.VoxelNeuron.difference] | {{ autosummary("navis.VoxelNeuron.difference") }} |
-| [`VoxelNeuron.dilate()`][navis.VoxelNeuron.dilate] | {{ autosummary("navis.VoxelNeuron.dilate") }} |
-| [`VoxelNeuron.distance_transform()`][navis.VoxelNeuron.distance_transform] | {{ autosummary("navis.VoxelNeuron.distance_transform") }} |
-| [`VoxelNeuron.erode()`][navis.VoxelNeuron.erode] | {{ autosummary("navis.VoxelNeuron.erode") }} |
-| [`VoxelNeuron.fill_cavities()`][navis.VoxelNeuron.fill_cavities] | {{ autosummary("navis.VoxelNeuron.fill_cavities") }} |
-| [`VoxelNeuron.grid`][navis.VoxelNeuron.grid] | {{ autosummary("navis.VoxelNeuron.grid") }} |
-| [`VoxelNeuron.intersection()`][navis.VoxelNeuron.intersection] | {{ autosummary("navis.VoxelNeuron.intersection") }} |
-| [`VoxelNeuron.iou()`][navis.VoxelNeuron.iou] | {{ autosummary("navis.VoxelNeuron.iou") }} |
-| [`VoxelNeuron.max`][navis.VoxelNeuron.max] | {{ autosummary("navis.VoxelNeuron.max") }} |
-| [`VoxelNeuron.mesh()`][navis.VoxelNeuron.mesh] | {{ autosummary("navis.VoxelNeuron.mesh") }} |
-| [`VoxelNeuron.min`][navis.VoxelNeuron.min] | {{ autosummary("navis.VoxelNeuron.min") }} |
-| [`VoxelNeuron.nnz`][navis.VoxelNeuron.nnz] | {{ autosummary("navis.VoxelNeuron.nnz") }} |
-| [`VoxelNeuron.offset`][navis.VoxelNeuron.offset] | {{ autosummary("navis.VoxelNeuron.offset") }} |
-| [`VoxelNeuron.opening()`][navis.VoxelNeuron.opening] | {{ autosummary("navis.VoxelNeuron.opening") }} |
-| [`VoxelNeuron.shape`][navis.VoxelNeuron.shape] | {{ autosummary("navis.VoxelNeuron.shape") }} |
-| [`VoxelNeuron.skeletonize()`][navis.VoxelNeuron.skeletonize] | {{ autosummary("navis.VoxelNeuron.skeletonize") }} |
-| [`VoxelNeuron.sparsify()`][navis.VoxelNeuron.sparsify] | {{ autosummary("navis.VoxelNeuron.sparsify") }} |
-| [`VoxelNeuron.strip()`][navis.VoxelNeuron.strip] | {{ autosummary("navis.VoxelNeuron.strip") }} |
-| [`VoxelNeuron.surface_area`][navis.VoxelNeuron.surface_area] | {{ autosummary("navis.VoxelNeuron.surface_area") }} |
-| [`VoxelNeuron.symmetric_difference()`][navis.VoxelNeuron.symmetric_difference] | {{ autosummary("navis.VoxelNeuron.symmetric_difference") }} |
-| [`VoxelNeuron.thin()`][navis.VoxelNeuron.thin] | {{ autosummary("navis.VoxelNeuron.thin") }} |
-| [`VoxelNeuron.threshold()`][navis.VoxelNeuron.threshold] | {{ autosummary("navis.VoxelNeuron.threshold") }} |
-| [`VoxelNeuron.union()`][navis.VoxelNeuron.union] | {{ autosummary("navis.VoxelNeuron.union") }} |
-| [`VoxelNeuron.voxels`][navis.VoxelNeuron.voxels] | {{ autosummary("navis.VoxelNeuron.voxels") }} |
+| [`Voxels.centroid`][navis.Voxels.centroid] | {{ autosummary("navis.Voxels.centroid") }} |
+| [`Voxels.closing()`][navis.Voxels.closing] | {{ autosummary("navis.Voxels.closing") }} |
+| [`Voxels.connected_components()`][navis.Voxels.connected_components] | {{ autosummary("navis.Voxels.connected_components") }} |
+| [`Voxels.densify()`][navis.Voxels.densify] | {{ autosummary("navis.Voxels.densify") }} |
+| [`Voxels.density`][navis.Voxels.density] | {{ autosummary("navis.Voxels.density") }} |
+| [`Voxels.dice()`][navis.Voxels.dice] | {{ autosummary("navis.Voxels.dice") }} |
+| [`Voxels.difference()`][navis.Voxels.difference] | {{ autosummary("navis.Voxels.difference") }} |
+| [`Voxels.dilate()`][navis.Voxels.dilate] | {{ autosummary("navis.Voxels.dilate") }} |
+| [`Voxels.distance_transform()`][navis.Voxels.distance_transform] | {{ autosummary("navis.Voxels.distance_transform") }} |
+| [`Voxels.erode()`][navis.Voxels.erode] | {{ autosummary("navis.Voxels.erode") }} |
+| [`Voxels.fill_cavities()`][navis.Voxels.fill_cavities] | {{ autosummary("navis.Voxels.fill_cavities") }} |
+| [`Voxels.grid`][navis.Voxels.grid] | {{ autosummary("navis.Voxels.grid") }} |
+| [`Voxels.intersection()`][navis.Voxels.intersection] | {{ autosummary("navis.Voxels.intersection") }} |
+| [`Voxels.iou()`][navis.Voxels.iou] | {{ autosummary("navis.Voxels.iou") }} |
+| [`Voxels.max`][navis.Voxels.max] | {{ autosummary("navis.Voxels.max") }} |
+| [`Voxels.mesh()`][navis.Voxels.mesh] | {{ autosummary("navis.Voxels.mesh") }} |
+| [`Voxels.min`][navis.Voxels.min] | {{ autosummary("navis.Voxels.min") }} |
+| [`Voxels.nnz`][navis.Voxels.nnz] | {{ autosummary("navis.Voxels.nnz") }} |
+| [`Voxels.offset`][navis.Voxels.offset] | {{ autosummary("navis.Voxels.offset") }} |
+| [`Voxels.opening()`][navis.Voxels.opening] | {{ autosummary("navis.Voxels.opening") }} |
+| [`Voxels.shape`][navis.Voxels.shape] | {{ autosummary("navis.Voxels.shape") }} |
+| [`Voxels.skeletonize()`][navis.Voxels.skeletonize] | {{ autosummary("navis.Voxels.skeletonize") }} |
+| [`Voxels.sparsify()`][navis.Voxels.sparsify] | {{ autosummary("navis.Voxels.sparsify") }} |
+| [`Voxels.strip()`][navis.Voxels.strip] | {{ autosummary("navis.Voxels.strip") }} |
+| [`Voxels.surface_area`][navis.Voxels.surface_area] | {{ autosummary("navis.Voxels.surface_area") }} |
+| [`Voxels.symmetric_difference()`][navis.Voxels.symmetric_difference] | {{ autosummary("navis.Voxels.symmetric_difference") }} |
+| [`Voxels.thin()`][navis.Voxels.thin] | {{ autosummary("navis.Voxels.thin") }} |
+| [`Voxels.threshold()`][navis.Voxels.threshold] | {{ autosummary("navis.Voxels.threshold") }} |
+| [`Voxels.union()`][navis.Voxels.union] | {{ autosummary("navis.Voxels.union") }} |
+| [`Voxels.voxels`][navis.Voxels.voxels] | {{ autosummary("navis.Voxels.voxels") }} |
 
 
 ### Dotprops
@@ -1022,14 +1022,14 @@ Please also see the [H01 tutorial](../generated/gallery/4_remote/tutorial_remote
 
 As you can imagine not all functions will work on all neuron types. For example
 it is currently not possible to find the longest neurite via
-[`longest_neurite()`][navis.longest_neurite] for a [`VoxelNeuron`][navis.VoxelNeuron].
+[`longest_neurite()`][navis.longest_neurite] for a [`Voxels`][navis.Voxels].
 Conversely, some functionality like "smoothing" makes sense for multiple neuron types but the
 application is so vastly different between e.g. meshes and skeletons that
 there are specicialized functions for every neuron type.
 
 Below table has an overview for which functions work with which neuron types:
 
-|                            | TreeNeuron | MeshNeuron | VoxelNeuron | Dotprops |
+|                            | Skeleton | Mesh | Voxels | Dotprops |
 |----------------------------|------------|------------|-------------|----------|
 | [`navis.plot2d`][]             | yes        | yes        | limited     | yes      |
 | [`navis.plot3d`][]             | yes        | yes        | see backend | yes      |

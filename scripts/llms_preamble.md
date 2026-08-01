@@ -23,16 +23,16 @@ A neuron is one of four types:
 
 | Type | Holds | Made from |
 |---|---|---|
-| `TreeNeuron` | skeleton: node table with `node_id`/`parent_id`/`x`/`y`/`z`/`radius` | SWC, `navis.skeletonize()` |
-| `MeshNeuron` | vertices + faces | OBJ/STL, `navis.mesh()` |
-| `VoxelNeuron` | 3D image | NRRD/TIFF, `navis.voxelize()` |
+| `Skeleton` | skeleton: node table with `node_id`/`parent_id`/`x`/`y`/`z`/`radius` | SWC, `navis.skeletonize()` |
+| `Mesh` | vertices + faces | OBJ/STL, `navis.mesh()` |
+| `Voxels` | 3D image | NRRD/TIFF, `navis.voxelize()` |
 | `Dotprops` | points + local vectors | `navis.make_dotprops()` — **required for NBLAST** |
 
 Explicit conversions go through `navis.skeletonize()`, `navis.mesh()`, `navis.voxelize()`
 and `navis.make_dotprops()`. Not every pairing is supported — see the
 "Neuron types and functions" compatibility matrix in the API index.
 
-Some functions will implicitly convert a neuron to the required type and then map the result back to the original type. For example, `navis.strahler_index` works on a `MeshNeuron` by converting it to a `TreeNeuron`, computing the Strahler index, and mapping it back to the `MeshNeuron`.
+Some functions will implicitly convert a neuron to the required type and then map the result back to the original type. For example, `navis.strahler_index` works on a `Mesh` by converting it to a `Skeleton`, computing the Strahler index, and mapping it back to the `Mesh`.
 
 `NeuronList` is the container. Most functions accept either a single neuron or
 a `NeuronList` and return the same shape.
@@ -78,7 +78,7 @@ n_um = n * 8 / 1000           # convert to microns
 (c) in the same template space.
 
 - **(a) is a hard error** with the fix in the message:
-  `TypeError: 'query' must be Dotprop(s), got "(<class '...TreeNeuron'>,)". Use 'navis.make_dotprops' to convert neurons.`
+  `TypeError: 'query' must be Dotprop(s), got "(<class '...Skeleton'>,)". Use 'navis.make_dotprops' to convert neurons.`
 - **(b) is only a warning:**
   `NBLAST is optimized for data in microns and it looks like your queries may not be in microns.`
   Scores are still returned, and they are not comparable to published ones.
@@ -123,7 +123,7 @@ res = pipe(nl, parallel=True, n_cores=8)
 
 ### 5. Names that look alike and aren't
 
-- `navis.mesh()` converts *to* a mesh; `navis.MeshNeuron` is the class;
+- `navis.mesh()` converts *to* a mesh; `navis.Mesh` is the class;
   `navis.read_mesh()` loads one from disk.
 - `navis.smooth_skeleton()` / `smooth_mesh()` / `smooth_voxels()` are three
   different functions — there is no generic `smooth()`.
@@ -141,7 +141,7 @@ check that a snippet runs before pointing it at the user's data:
 
 ```python
 import navis
-nl = navis.example_neurons(2)      # skeletons; kind='mesh' for MeshNeurons
+nl = navis.example_neurons(2)      # skeletons; kind='mesh' for Meshes
 nl.summary()                       # cheap overview: type, cable_length, units, ...
 ```
 

@@ -10,7 +10,7 @@ What we *can* do is color the neuron by depth - i.e. by distance to the camera -
 
 !!! note "matplotlib only"
     Depth-coloring currently works only with [`navis.plot2d`][] (the `matplotlib` backend). It supports
-    both [`TreeNeurons`][navis.TreeNeuron] and [`MeshNeurons`][navis.MeshNeuron] and methods `2d` and `3d`.
+    both [`Skeletons`][navis.Skeleton] and [`Meshes`][navis.Mesh] and methods `2d` and `3d`.
 """
 
 import navis

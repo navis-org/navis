@@ -22,7 +22,7 @@ def simplify_mesh_open3d(x, F, method='quadric', inplace=False, **kwargs):
 
     Parameters
     ----------
-    x :         MeshNeuron | Volume | Trimesh
+    x :         Mesh | Volume | Trimesh
                 Mesh object to simplify.
     F :         float | int
                 For method `quadric` this is the target face count (integer).
@@ -72,7 +72,7 @@ def smooth_mesh_open3d(x, iterations=5, L=0.5, inplace=False):
 
     Parameters
     ----------
-    x :             MeshNeuron | Volume | Trimesh
+    x :             Mesh | Volume | Trimesh
                     Mesh object to simplify.
     iterations :    int
                     Round of smoothing to apply.
@@ -89,8 +89,8 @@ def smooth_mesh_open3d(x, iterations=5, L=0.5, inplace=False):
                     Smoothed mesh object.
 
     """
-    if not isinstance(x, (core.MeshNeuron, core.Volume, tm.Trimesh)):
-        raise TypeError('Expected MeshNeuron, Volume or trimesh.Trimesh, '
+    if not isinstance(x, (core.Mesh, core.Volume, tm.Trimesh)):
+        raise TypeError('Expected Mesh, Volume or trimesh.Trimesh, '
                         f'got "{type(x)}"')
 
     mesh_o3d = make_o3d_mesh(x)

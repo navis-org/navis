@@ -8,7 +8,7 @@ Load and save mesh neurons in OBJ, PLY, STL and other formats.
 
 | Class | Use for |
 |-------|---------|
-| [`navis.MeshNeuron`][] | Neurons stored as meshes, e.g. from EM segmentation. |
+| [`navis.Mesh`][] | Neurons stored as meshes, e.g. from EM segmentation. |
 | [`navis.Volume`][]     | Meshes that are *not* neurons, e.g. neuropils or brain outlines. |
 
 !!! note
@@ -34,7 +34,7 @@ import navis
 # meshes = navis.read_mesh('neurons/*.stl')        # (2)!
 # ```
 #
-# 1.  A single mesh file - returns a [`navis.MeshNeuron`][].
+# 1.  A single mesh file - returns a [`navis.Mesh`][].
 # 2.  All matching files in a folder. You must give the extension (e.g. `*.stl`) so {{ navis }} knows what to read.
 
 # %%
@@ -50,7 +50,7 @@ import navis
 # %%
 # ## Manual construction
 #
-# It's super easy to construct [`navis.MeshNeuron`][] or [`navis.Volume`][] from scratch -
+# It's super easy to construct [`navis.Mesh`][] or [`navis.Volume`][] from scratch -
 # they are just vertices and faces after all.
 #
 # So if e.g. your mesh file format is not covered by [`navis.read_mesh`][] or you created
@@ -67,8 +67,8 @@ vertices = np.array([[1, 0, 0],
 faces = np.array([[0, 1, 2]])
 
 # %%
-# Turn into MeshNeuron
-m = navis.MeshNeuron((vertices, faces), name='my_mesh', id=1, units='microns')
+# Turn into Mesh
+m = navis.Mesh((vertices, faces), name='my_mesh', id=1, units='microns')
 m
 
 # %%
@@ -83,7 +83,7 @@ vol
 # %%
 # ## To files
 #
-# Save [`navis.MeshNeurons`][navis.MeshNeuron] or [`navis.Volumes`][navis.Volume] with [`navis.write_mesh`][]:
+# Save [`navis.Meshes`][navis.Mesh] or [`navis.Volumes`][navis.Volume] with [`navis.write_mesh`][]:
 #
 # ```python
 # m = navis.example_neurons(1, kind='mesh')
@@ -108,12 +108,12 @@ vol
 # %%
 # !!! warning "Triangular faces only"
 #     {{ navis }} works exclusively with triangular faces - no quads or polygons. See the
-#     [`navis.MeshNeuron`][] and [`navis.Volume`][] docs for details.
+#     [`navis.Mesh`][] and [`navis.Volume`][] docs for details.
 #
 # This tutorial has hopefully given you some entry points on how to load your data. See also the [I/O API reference](../../../api.md#importexport).
 # Also note that all {{ navis }} neurons can be stored to disk using ``pickle`` - see the [pickling tutorial](../tutorial_io_04_pickle).
 #
-# Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`MeshNeurons`][navis.MeshNeuron]
+# Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`Meshes`][navis.Mesh]
 # (see also the API reference on [neuron conversion](../../../api.md#converting-between-types)).
 
 # mkdocs_gallery_thumbnail_path = '_static/mesh_thumbnail.png'

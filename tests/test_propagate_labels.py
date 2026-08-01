@@ -3,7 +3,7 @@
 These pin down the *return type* of `propagate_labels`, which used to be inferred by
 pandas/numpy and therefore varied with the installed pandas version: `Series.map()` on
 string labels yields an `ArrowStringArray` under pandas >= 3 (where `future.infer_string`
-defaults to True) but a plain object array under pandas < 3. The MeshNeuron branch had a
+defaults to True) but a plain object array under pandas < 3. The Mesh branch had a
 related problem: `np.array` of an all-labeled vertex list gives a fixed-width `<U*` array
 that cannot hold NaN.
 
@@ -43,7 +43,7 @@ def _synapse_labels(n):
 
 
 def test_propagate_labels_skeleton_dtype(skeleton):
-    """TreeNeuron: must return an object-dtype ndarray, not an ArrowStringArray."""
+    """Skeleton: must return an object-dtype ndarray, not an ArrowStringArray."""
     n = skeleton
     prop = gu.propagate_labels(n, _synapse_labels(n), clamping=False)
 
@@ -54,7 +54,7 @@ def test_propagate_labels_skeleton_dtype(skeleton):
 
 
 def test_propagate_labels_mesh_dtype(mesh):
-    """MeshNeuron: must be object-dtype even when *every* vertex ends up labeled.
+    """Mesh: must be object-dtype even when *every* vertex ends up labeled.
 
     Regression guard for the fixed-width `<U4` array that `np.array([...])` produced
     when no vertex was left unlabeled. The example mesh has ~70 connected components,
@@ -88,7 +88,7 @@ def test_propagate_labels_unvisited_is_nan():
             "z": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         }
     )
-    n = navis.TreeNeuron(nodes)
+    n = navis.Skeleton(nodes)
     assert n.n_trees == 2  # sanity
 
     # Only label the first component.

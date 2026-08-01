@@ -30,7 +30,7 @@ __all__ = ['sample_skeleton']
 # ---------------------------------------------------------------------------
 
 
-def _ss_build_tree(x: 'core.TreeNeuron'):
+def _ss_build_tree(x: 'core.Skeleton'):
     """Return (parent_map, depth_map, root_dist, root_id, children, xyz)."""
     nodes   = x.nodes.set_index('node_id')
     root_id = x.nodes.loc[x.nodes.parent_id < 0, 'node_id'].values[0]
@@ -178,7 +178,7 @@ def sample_skeleton(
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         Skeleton | NeuronList
                 Neuron(s) to sample.
     n_points :  int, optional
                 Fixed number of points to draw. Mutually exclusive with
@@ -227,8 +227,8 @@ def sample_skeleton(
                 Reduce node count while preserving topology.
 
     """
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'sample_skeleton requires a TreeNeuron, got {type(x)}.')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'sample_skeleton requires a Skeleton, got {type(x)}.')
     which = _one_of(n_points, density, spacing)
 
     _, _, _, root_id, children, xyz = _ss_build_tree(x)
@@ -298,7 +298,7 @@ def sample_cable(
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             Skeleton | NeuronList
     n_points :      int, optional
                     Fixed number of points to draw. Mutually exclusive with
                     `density`/`spacing` - give exactly one of the three.
@@ -364,8 +364,8 @@ def sample_cable(
     ['x', 'y', 'z', 'radius', 'source_id']
 
     """
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"sample_cable requires a TreeNeuron, got {type(x)}.")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"sample_cable requires a Skeleton, got {type(x)}.")
     if _one_of(n_points, density, spacing) == "spacing":
         # spacing and density are reciprocal along a 1-D cable, so convert now and
         # let the shared `_count_from_measure` (below) resolve the count either way.
@@ -520,7 +520,7 @@ def sample_surface(
 
     Parameters
     ----------
-    x :             MeshNeuron | NeuronList
+    x :             Mesh | NeuronList
     n_points :      int, optional
                     Fixed number of points to draw. Mutually exclusive with
                     `density`/`spacing` - give exactly one of the three.
@@ -588,8 +588,8 @@ def sample_surface(
     """
     import trimesh
 
-    if not isinstance(x, core.MeshNeuron):
-        raise TypeError(f"sample_surface requires a MeshNeuron, got {type(x)}.")
+    if not isinstance(x, core.Mesh):
+        raise TypeError(f"sample_surface requires a Mesh, got {type(x)}.")
     if mode not in ("even", "surface", "vertex"):
         raise ValueError(f'`mode` must be "even", "surface" or "vertex", got {mode!r}')
 
@@ -625,7 +625,7 @@ def sample_surface(
     else:
         if tm is None:
             raise ValueError(
-                f"MeshNeuron {x.id} has no faces; use mode='vertex' to sample vertices."
+                f"Mesh {x.id} has no faces; use mode='vertex' to sample vertices."
             )
         points, face = _sample_surface_pts(tm, n_points, mode, rng, radius, top_up)
         # Provenance: nearest of the source face's three corners.
@@ -656,7 +656,7 @@ def _resolve_surface_target(area, n_points, density, spacing, mode, neuron_id):
     which = _one_of(n_points, density, spacing)
     if which in ("density", "spacing") and area is None:
         raise ValueError(
-            f"MeshNeuron {neuron_id} has no faces, so its surface area is undefined; "
+            f"Mesh {neuron_id} has no faces, so its surface area is undefined; "
             f"`{which}` needs it. Pass `n_points` instead."
         )
 

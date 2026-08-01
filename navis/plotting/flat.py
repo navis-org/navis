@@ -70,7 +70,7 @@ def plot_flat(
 
     Parameters
     ----------
-    x :                     TreeNeuron
+    x :                     Skeleton
                             A single neuron to plot.
     layout :                'subway' | 'dot' | 'neato' | 'fdp' | 'sfpd' | 'twopi' | 'circo'
                             Layout to use. All but 'subway' require graphviz to
@@ -131,7 +131,7 @@ def plot_flat(
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
     utils.eval_param(
         layout,
         name="layout",
@@ -501,7 +501,7 @@ def print_skeleton(x, print_func=print, add_props=None):
 
     Parameters
     ----------
-    x :             TreeNeuron
+    x :             Skeleton
                     Neuron to print.
     print_func :    callable, optional
                     Function to use for printing. Default is `print`.

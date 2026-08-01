@@ -4,7 +4,7 @@ Neuron Topology
 
 Plot neurons as abstract topology graphs using several layout algorithms.
 
-Skeletons in {{ navis }} are hierarchical trees (hence the name [`TreeNeuron`][navis.TreeNeuron]).
+Skeletons in {{ navis }} are hierarchical trees (hence the name [`Skeleton`][navis.Skeleton]).
 As such they can be visualized as dendrograms or flat, graph-like plots using [`navis.plot_flat`][].
 This is useful to unravel otherwise complicated, overlapping branching patterns - e.g. when
 you want to show compartments or synapse positions within the neuron. Let's demo some layouts!

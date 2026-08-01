@@ -85,19 +85,19 @@ class PrecomputedMeshReader(PrecomputedReader):
     @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.MeshNeuron":
-        """Read buffer into a MeshNeuron.
+    ) -> "core.Mesh":
+        """Read buffer into a Mesh.
 
         Parameters
         ----------
         f :         IO
                     Readable buffer - must be bytes.
         attrs :     dict | None
-                    Arbitrary attributes to include in the MeshNeuron.
+                    Arbitrary attributes to include in the Mesh.
 
         Returns
         -------
-        core.MeshNeuron
+        core.Mesh
         """
         if not isinstance(f.read(0), bytes):
             raise ValueError(f"Expected bytes, got {type(f.read(0))}")
@@ -108,7 +108,7 @@ class PrecomputedMeshReader(PrecomputedReader):
         )
         faces = np.frombuffer(f.read(), np.uint32).reshape(-1, 3)
 
-        return core.MeshNeuron(
+        return core.Mesh(
             {"vertices": vertices, "faces": faces},
             **(
                 self._make_attributes(
@@ -139,19 +139,19 @@ class PrecomputedSkeletonReader(PrecomputedReader):
     @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.TreeNeuron":
-        """Read buffer into a TreeNeuron.
+    ) -> "core.Skeleton":
+        """Read buffer into a Skeleton.
 
         Parameters
         ----------
         f :         IO
                     Readable buffer - must be bytes.
         attrs :     dict | None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
-        core.TreeNeuron
+        core.Skeleton
 
         """
         if not isinstance(f.read(0), bytes):
@@ -181,7 +181,7 @@ class PrecomputedSkeletonReader(PrecomputedReader):
                 for i in range(n_comp):
                     swc[f"{attr['id']}_{i}"] = values[:, i]
 
-        return core.TreeNeuron(
+        return core.Skeleton(
             swc,
             **(
                 self._make_attributes(
@@ -301,7 +301,7 @@ def read_precomputed(
 
     Returns
     -------
-    navis.MeshNeuron
+    navis.Mesh
     navis.NeuronList
 
     See Also
@@ -426,7 +426,7 @@ class PrecomputedWriter(base.Writer):
 
 
 def write_precomputed(
-    x: Union["core.NeuronList", "core.TreeNeuron", "core.MeshNeuron", "core.Volume"],
+    x: Union["core.NeuronList", "core.Skeleton", "core.Mesh", "core.Volume"],
     filepath: Optional[str] = None,
     write_info: bool = True,
     write_manifest: bool = False,
@@ -441,7 +441,7 @@ def write_precomputed(
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron | Volume | Trimesh | NeuronList
+    x :                 Skeleton | Mesh | Volume | Trimesh | NeuronList
                         If multiple neurons, will generate a file for each
                         neuron (see also `filepath`). For use in neuroglancer
                         coordinates should generally be in nanometers.
@@ -463,7 +463,7 @@ def write_precomputed(
                         because colons aren't allowed in file names and on OSX
                         the colon will show up as a `/` in the Finder.
     radius :            bool
-                        For TreeNeurons only: whether to write radius as
+                        For Skeletons only: whether to write radius as
                         additional vertex property.
 
     Returns
@@ -514,7 +514,7 @@ def write_precomputed(
 
 
 def _write_precomputed(
-    x: Union["core.TreeNeuron", "core.MeshNeuron", "core.Volume"],
+    x: Union["core.Skeleton", "core.Mesh", "core.Volume"],
     filepath: Optional[str] = None,
     write_info: bool = True,
     write_manifest: bool = False,
@@ -533,7 +533,7 @@ def _write_precomputed(
         else:
             raise ValueError(f"Unable to generate filename for {type(x)}")
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         return _write_skeleton(x, filepath, radius=radius)
     elif utils.is_mesh(x):
         return _write_mesh(x.vertices, x.faces, filepath, write_manifest=write_manifest)
@@ -564,7 +564,7 @@ def write_info_file(data, filepath, add_props={}):
 
     if utils.is_mesh(data):
         info["@type"] = "neuroglancer_legacy_mesh"
-    elif isinstance(data, core.TreeNeuron):
+    elif isinstance(data, core.Skeleton):
         info["@type"] = "neuroglancer_skeletons"
 
         # If we know the units add transform from "stored model"

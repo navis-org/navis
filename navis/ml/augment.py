@@ -21,9 +21,9 @@ vectors, mesh vertices and (for scaling) radii/units all move consistently.
 
 All functions:
 
-- accept a `TreeNeuron`, `MeshNeuron`, `Dotprops` or a `NeuronList` (each neuron
+- accept a `Skeleton`, `Mesh`, `Dotprops` or a `NeuronList` (each neuron
   in a list is augmented **independently** - different random draw each). The one
-  exception is `drop_nodes`, which does not support `MeshNeuron` (deleting
+  exception is `drop_nodes`, which does not support `Mesh` (deleting
   vertices tears the surface - convert to skeleton/dotprops/points first),
 - take a `random_state` (int or ``np.random.Generator``) for reproducibility,
 - and return a **copy** (the input is never modified).
@@ -70,7 +70,7 @@ def jitter_neuron(x, sigma, random_state=None):
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :         Skeleton | Mesh | Dotprops | NeuronList
     sigma :     float | (3,) array-like
                 Standard deviation of the noise **in coordinate units** (per-axis
                 if a 3-vector). Note this is absolute: for a neuron normalized to
@@ -128,7 +128,7 @@ def rotate_neuron(x, axis=None, max_angle=None, random_state=None):
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :         Skeleton | Mesh | Dotprops | NeuronList
     axis :      None | "x" | "y" | "z" | (3,) array-like
                 Rotation axis. If None, rotate about a uniformly random axis (a
                 full uniformly-random orientation when `max_angle` is also None).
@@ -180,7 +180,7 @@ def translate_neuron(x, magnitude, random_state=None):
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :         Skeleton | Mesh | Dotprops | NeuronList
     magnitude : float | (3,) array-like
                 Maximum absolute displacement **in coordinate units** (per-axis if
                 a 3-vector). Each axis's offset is drawn uniformly from
@@ -243,7 +243,7 @@ def scale_neuron(x, scale_range=(0.8, 1.25), anisotropic=False, random_state=Non
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :         Skeleton | Mesh | Dotprops | NeuronList
     scale_range : (low, high)
                 Range of scale factors. Drawn **log-uniformly** so that, e.g.,
                 0.8 and 1.25 are equally likely (they are reciprocals). Both must
@@ -303,7 +303,7 @@ def warp_neuron(x, sigma=0.5, magnitude=0.05, grid=3, random_state=None):
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :         Skeleton | Mesh | Dotprops | NeuronList
     sigma :     float
                 Smoothness of the warp as a fraction of the bounding-box diagonal:
                 the Gaussian kernel's length scale. Small (~0.1) = local wiggles,
@@ -365,19 +365,19 @@ def drop_nodes(x, fraction=0.1, random_state=None):
 
     Simulates a sparser or partial reconstruction.
 
-    - **TreeNeuron**: drops random *non-branch, non-root* nodes and reconnects
+    - **Skeleton**: drops random *non-branch, non-root* nodes and reconnects
       their children through the gap (via [`navis.remove_nodes`][]), so the arbor
       stays connected and its branching structure is preserved - only the node
       density drops. Connectors on a dropped node are reattached to its nearest
       surviving ancestor (the node its children collapse into), so none are left
       pointing at a removed node.
     - **Dotprops**: drops random points (a point cloud has no topology to keep).
-    - **MeshNeuron**: not supported - deleting vertices tears the surface. Convert
+    - **Mesh**: not supported - deleting vertices tears the surface. Convert
       to skeleton/dotprops/points first.
 
     Parameters
     ----------
-    x :         TreeNeuron | Dotprops | NeuronList
+    x :         Skeleton | Dotprops | NeuronList
     fraction :  float
                 Fraction of nodes/points to drop, in ``[0, 1)``. For skeletons this
                 is a fraction of *all* nodes but only droppable (non-branch,
@@ -406,7 +406,7 @@ def drop_nodes(x, fraction=0.1, random_state=None):
     if not (0 <= fraction < 1):
         raise ValueError(f"`fraction` must be in [0, 1), got {fraction!r}")
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         n_total = len(x.nodes)
         protected = set(np.atleast_1d(x.root).tolist())
         protected |= set(x.branch_points.node_id.values.tolist())
@@ -433,8 +433,8 @@ def drop_nodes(x, fraction=0.1, random_state=None):
         return subset_neuron(x, keep, inplace=False)
 
     raise TypeError(
-        f"`drop_nodes` supports TreeNeuron and Dotprops, not {type(x).__name__}. "
-        "MeshNeurons would tear on vertex removal - convert to dotprops/points first."
+        f"`drop_nodes` supports Skeleton and Dotprops, not {type(x).__name__}. "
+        "Meshes would tear on vertex removal - convert to dotprops/points first."
     )
 
 
@@ -463,7 +463,7 @@ def augment_neuron(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :         Skeleton | Mesh | Dotprops | NeuronList
     drop :      float | dict, optional
                 `fraction` for [`navis.ml.drop_nodes`][].
     warp :      float | dict, optional
@@ -524,9 +524,9 @@ def augment_neuron(
 # --------------------------------------------------------------------------- #
 def _coords(x):
     """(N, 3) float coordinates that define the neuron's pose."""
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         return x.nodes[["x", "y", "z"]].values.astype(float)
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         return np.asarray(x.vertices, dtype=float)
     if isinstance(x, core.Dotprops):
         return np.asarray(x.points, dtype=float)
@@ -606,7 +606,7 @@ def _fix_scale_dependent(xf, x, s):
     Mirrors the fix in `navis.ml.normalize` - see there for the rationale (xform's
     radius/unit correction is quantized to powers of 10).
     """
-    if isinstance(x, core.TreeNeuron) and "radius" in x.nodes.columns:
+    if isinstance(x, core.Skeleton) and "radius" in x.nodes.columns:
         xf.nodes["radius"] = x.nodes["radius"].values * s
     if isinstance(getattr(x, "soma_radius", None), numbers.Number):
         xf.soma_radius = x.soma_radius * s
@@ -661,7 +661,7 @@ def _restore_scale_attrs(xf, x):
     original values straight back - unlike `_fix_scale_dependent`, this rescales
     by nothing and leaves the exact units object untouched.
     """
-    if isinstance(x, core.TreeNeuron) and "radius" in x.nodes.columns:
+    if isinstance(x, core.Skeleton) and "radius" in x.nodes.columns:
         xf.nodes["radius"] = x.nodes["radius"].values
     if isinstance(getattr(x, "soma_radius", None), numbers.Number):
         xf.soma_radius = x.soma_radius

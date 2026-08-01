@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 
 from .. import config, utils
-from ..core import TreeNeuron, NeuronList
+from ..core import Skeleton, NeuronList
 
 logger = config.get_logger(__name__)
 dataset = None
@@ -90,7 +90,7 @@ def fetch_neurons(ids):
 
 
 def _parse_morphology(morphology):
-    """Convert allensdk morphology to TreeNeuron."""
+    """Convert allensdk morphology to Skeleton."""
     assert isinstance(morphology, allensdk.core.swc.Morphology)
 
     nodes = []
@@ -101,7 +101,7 @@ def _parse_morphology(morphology):
     nodes = nodes.astype(DTYPES)
 
     # I'm guessing these are all in microns
-    n = TreeNeuron(nodes, units='1 um')
+    n = Skeleton(nodes, units='1 um')
 
     if getattr(morphology, 'soma', None):
         n.soma = morphology.soma['id']

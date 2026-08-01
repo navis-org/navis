@@ -1,6 +1,6 @@
-"""Tests for `navis.VoxelNeuron`.
+"""Tests for `navis.Voxels`.
 
-`VoxelNeuron` stores its data in one of two backings, picked at construction and
+`Voxels` stores its data in one of two backings, picked at construction and
 reported by `._base_data_type`:
 
   - "grid":   a dense 3D array; values live in the array itself
@@ -48,7 +48,7 @@ def grid_neuron():
     # `sparsify=False` is load-bearing: this neuron is sparse enough that the
     # default ("auto") would store it as voxels and these tests would silently
     # stop exercising the grid backing at all
-    return navis.VoxelNeuron(
+    return navis.Voxels(
         grid, units=UNITS, offset=OFFSET.copy(), sparsify=False
     )
 
@@ -56,7 +56,7 @@ def grid_neuron():
 @pytest.fixture
 def voxel_neuron():
     """The same neuron, backed by sparse coordinates + values."""
-    n = navis.VoxelNeuron(VOXELS.copy(), units=UNITS, offset=OFFSET.copy())
+    n = navis.Voxels(VOXELS.copy(), units=UNITS, offset=OFFSET.copy())
     n.values = VALUES.copy()
     return n
 
@@ -91,19 +91,19 @@ def test_construction_sparsify_auto():
     """By default a sparse-enough grid is stored as voxels, a dense one is not."""
     sparse_grid = np.zeros((40, 40, 40), dtype=np.float64)
     sparse_grid[0, 0, 0] = sparse_grid[1, 2, 3] = 1
-    assert navis.VoxelNeuron(sparse_grid)._base_data_type == "voxels"
+    assert navis.Voxels(sparse_grid)._base_data_type == "voxels"
 
     # Above the break-even density the dense grid is the compact one. Note this
     # is dtype-dependent: bool breaks even at ~4% but float64 only at ~25%.
     dense_grid = np.ones((20, 20, 20), dtype=bool)
-    assert navis.VoxelNeuron(dense_grid)._base_data_type == "grid"
+    assert navis.Voxels(dense_grid)._base_data_type == "grid"
 
     # ...and the decision can always be forced either way
-    assert navis.VoxelNeuron(dense_grid, sparsify=True)._base_data_type == "voxels"
-    assert navis.VoxelNeuron(sparse_grid, sparsify=False)._base_data_type == "grid"
+    assert navis.Voxels(dense_grid, sparsify=True)._base_data_type == "voxels"
+    assert navis.Voxels(sparse_grid, sparsify=False)._base_data_type == "grid"
 
     with pytest.raises(ValueError, match="sparsify"):
-        navis.VoxelNeuron(sparse_grid, sparsify="yes")
+        navis.Voxels(sparse_grid, sparsify="yes")
 
 
 def test_construction_sparsify_preserves_data():
@@ -114,7 +114,7 @@ def test_construction_sparsify_preserves_data():
     grid[0, 0, 0] = 5
     grid[1, 2, 3] = 7
 
-    n = navis.VoxelNeuron(grid)
+    n = navis.Voxels(grid)
     assert n._base_data_type == "voxels"
     assert n.shape == grid.shape
     assert np.array_equal(n.grid, grid)
@@ -125,7 +125,7 @@ def test_values_uses_nonzero_not_positive():
     """`.values` must line up with `.voxels`/`.nnz`, which use non-zero."""
     grid = np.zeros((3, 3, 3), dtype=np.float64)
     grid[0, 0, 0], grid[1, 1, 1], grid[2, 2, 2] = 5, -2, 3
-    n = navis.VoxelNeuron(grid, sparsify=False)
+    n = navis.Voxels(grid, sparsify=False)
 
     assert n.voxels.shape[0] == n.values.shape[0] == n.nnz == 3
     # The negative voxel is a real value, not an empty one
@@ -147,7 +147,7 @@ def test_construction_from_xyz_values():
     array of ones.
     """
     data = np.column_stack((VOXELS, VALUES))
-    n = navis.VoxelNeuron(data)
+    n = navis.Voxels(data)
 
     assert np.array_equal(n.voxels, VOXELS)
     assert np.array_equal(n.values, VALUES)
@@ -161,7 +161,7 @@ def test_construction_casts_float_coordinates():
     whole input array - coordinates included - to float.
     """
     data = np.column_stack((VOXELS, VALUES))  # float, because VALUES is float
-    n = navis.VoxelNeuron(data)
+    n = navis.Voxels(data)
 
     assert np.issubdtype(n.voxels.dtype, np.integer)
     assert n.grid.shape == SHAPE  # would raise if coordinates were float
@@ -178,12 +178,12 @@ def test_construction_casts_float_coordinates():
 )
 def test_construction_rejects_bad_shapes(data):
     with pytest.raises(navis.utils.ConstructionError):
-        navis.VoxelNeuron(data)
+        navis.Voxels(data)
 
 
 def test_construction_rejects_non_array():
     with pytest.raises(navis.utils.ConstructionError):
-        navis.VoxelNeuron([[1, 2, 3]])
+        navis.Voxels([[1, 2, 3]])
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +200,7 @@ def test_dtype_reports_value_dtype(grid_neuron, voxel_neuron):
     assert grid_neuron.dtype == np.float64
     assert voxel_neuron.dtype == np.float64
 
-    as_int = navis.VoxelNeuron(VOXELS.copy())
+    as_int = navis.Voxels(VOXELS.copy())
     as_int.values = VALUES.astype(np.uint8)
     assert as_int.dtype == np.uint8
 
@@ -215,7 +215,7 @@ def test_volume_uses_all_three_axes():
     Regression: the z dimension used to be squared and y dropped entirely, which
     only showed up for anisotropic neurons.
     """
-    n = navis.VoxelNeuron(VOXELS.copy(), units=["1 nm", "2 nm", "4 nm"])
+    n = navis.Voxels(VOXELS.copy(), units=["1 nm", "2 nm", "4 nm"])
     # 3 voxels of 1 x 2 x 4 nm each
     assert n.volume.to("nm ** 3").magnitude == pytest.approx(3 * 8)
 
@@ -345,7 +345,7 @@ def test_normalize_scales_values_not_coordinates(neuron):
 
 def test_normalize_integer_scales_to_dtype_max():
     """Integer data is scaled to the full range of its dtype."""
-    n = navis.VoxelNeuron(VOXELS.copy())
+    n = navis.Voxels(VOXELS.copy())
     n.values = np.array([1, 2, 4], dtype=np.uint8)
 
     assert n.normalize().max() == pytest.approx(np.iinfo(np.uint8).max)
@@ -450,7 +450,7 @@ def empty_neuron(request):
     Note that with `sparsify` at its default this ends up voxel-backed with an
     empty coordinate array - the case that used to blow up.
     """
-    return navis.VoxelNeuron(
+    return navis.Voxels(
         np.zeros((10, 10, 10), dtype=np.float64),
         units=UNITS,
         offset=OFFSET.copy(),
@@ -471,7 +471,7 @@ def test_empty_neuron_keeps_its_shape(empty_neuron):
     assert empty_neuron.grid.shape == (10, 10, 10)
     assert not np.any(empty_neuron.grid)
     assert np.allclose(empty_neuron.bbox[:, 0], OFFSET)
-    assert "VoxelNeuron" in repr(empty_neuron)
+    assert "Voxels" in repr(empty_neuron)
 
 
 def test_empty_neuron_survives_manipulation(empty_neuron):
@@ -488,7 +488,7 @@ def test_emptied_neuron_is_usable():
     grid = np.zeros((20, 20, 20), dtype=np.uint8)
     grid[5:15, 10, 10] = 1  # one voxel thin, so a single erosion clears it
 
-    n = navis.VoxelNeuron(grid, units=UNITS)
+    n = navis.Voxels(grid, units=UNITS)
     eroded = n.erode()
 
     assert eroded.nnz == 0
@@ -496,7 +496,7 @@ def test_emptied_neuron_is_usable():
     # The canvas survives, i.e. the empty neuron still occupies the same space
     assert eroded.shape == n.shape
     assert np.array_equal(eroded.bbox, n.bbox)
-    assert "VoxelNeuron" in repr(eroded)
+    assert "Voxels" in repr(eroded)
     # ...and it can be fed straight back into the set operations
     assert eroded.union(n).nnz == n.nnz
     assert eroded.iou(n) == 0
@@ -540,8 +540,8 @@ def test_convert_units_preserves_physical_size(neuron):
     """Converting units re-labels the neuron without resizing it.
 
     Regression: `convert_units` is implemented in `BaseNeuron` as `n *= conv`,
-    which assumes the Tree/MeshNeuron convention where multiplication scales the
-    coordinates and the units move inversely. A VoxelNeuron cannot scale its
+    which assumes the Skeleton/Mesh convention where multiplication scales the
+    coordinates and the units move inversely. A Voxels neuron cannot scale its
     coordinates - they are grid indices - so its `__mul__` scales the voxel size
     instead, and converting used to shrink the neuron by the conversion factor
     (125x for 8 nm -> um) while missing the target unit entirely.
@@ -573,7 +573,7 @@ def test_convert_units_roundtrip(neuron):
 
 def test_convert_units_anisotropic():
     """Non-isometric units convert per axis."""
-    n = navis.VoxelNeuron(VOXELS.copy(), units=["1 nm", "2 nm", "4 nm"])
+    n = navis.Voxels(VOXELS.copy(), units=["1 nm", "2 nm", "4 nm"])
 
     out = n.convert_units("um")
 
@@ -596,7 +596,7 @@ def test_convert_units_inplace(neuron):
 @pytest.fixture
 def far_apart():
     """Two voxels at opposite corners: trivial data, astronomical dense grid."""
-    return navis.VoxelNeuron(np.array([[0, 0, 0], [100_000, 100_000, 100_000]]))
+    return navis.Voxels(np.array([[0, 0, 0], [100_000, 100_000, 100_000]]))
 
 
 def test_grid_nbytes_does_not_allocate(far_apart):
@@ -661,11 +661,11 @@ def test_voxelize_roundtrip():
     m = navis.example_neurons(1, kind="mesh")
     vx = navis.voxelize(m, pitch="2 microns")
 
-    assert isinstance(vx, navis.VoxelNeuron)
+    assert isinstance(vx, navis.Voxels)
     assert vx.nnz > 0
 
     mesh = navis.conversion.voxels2mesh(vx)
-    assert isinstance(mesh, navis.MeshNeuron)
+    assert isinstance(mesh, navis.Mesh)
     assert mesh.n_vertices > 0
 
     dp = navis.make_dotprops(vx, k=5)
@@ -684,7 +684,7 @@ def test_sparsify_densify_roundtrip():
     grid = np.zeros((5, 5, 5))
     grid[0, 0, 0] = 5
     grid[1, 2, 3] = 7
-    n = navis.VoxelNeuron(grid, units="8 nm", sparsify=False)
+    n = navis.Voxels(grid, units="8 nm", sparsify=False)
 
     sparse = n.sparsify()
     assert sparse._base_data_type == "voxels"
@@ -700,7 +700,7 @@ def test_sparsify_densify_roundtrip():
 
 def test_sparsify_densify_from_voxels():
     """Same round-trip, starting from a voxel-backed neuron."""
-    n = navis.VoxelNeuron(np.array([[0, 0, 0, 3.0], [1, 1, 1, 4.0]]))
+    n = navis.Voxels(np.array([[0, 0, 0, 3.0], [1, 1, 1, 4.0]]))
 
     dense = n.densify()
     assert dense._base_data_type == "grid"
@@ -717,7 +717,7 @@ def test_sparsify_negative_values():
     """Negative voxels must not desync coordinates from values."""
     grid = np.zeros((3, 3, 3))
     grid[0, 0, 0], grid[1, 1, 1], grid[2, 2, 2] = 5, -2, 3
-    n = navis.VoxelNeuron(grid)
+    n = navis.Voxels(grid)
 
     sparse = n.sparsify()
     assert sparse.voxels.shape[0] == sparse.values.shape[0]
@@ -729,7 +729,7 @@ def test_sparsify_densify_inplace_and_noop():
     """`inplace=True` returns None; converting twice is a no-op."""
     grid = np.zeros((3, 3, 3))
     grid[0, 0, 0] = 1
-    n = navis.VoxelNeuron(grid)
+    n = navis.Voxels(grid)
 
     assert n.sparsify(inplace=True) is None
     assert n._base_data_type == "voxels"
@@ -744,7 +744,7 @@ def test_sparsify_preserves_metadata():
     """Units, offset, name and connectors survive the conversion."""
     grid = np.zeros((3, 3, 3))
     grid[0, 0, 0] = 1
-    n = navis.VoxelNeuron(grid, units="8 nm", name="test", offset=(1, 2, 3))
+    n = navis.Voxels(grid, units="8 nm", name="test", offset=(1, 2, 3))
 
     sparse = n.sparsify()
     assert sparse.units == n.units
@@ -758,7 +758,7 @@ def test_supplied_grid_never_fails_to_rebuild():
     """A grid we were handed fits in memory, so `.grid` must never refuse it."""
     grid = np.zeros((40, 40, 40), dtype=np.float64)
     grid[0, 0, 0] = grid[1, 2, 3] = 1
-    n = navis.VoxelNeuron(grid)
+    n = navis.Voxels(grid)
     assert n._base_data_type == "voxels"  # auto-sparsified, grid dropped
 
     navis.config.max_grid_size = 1  # anything at all is now "too big"
@@ -769,14 +769,14 @@ def test_supplied_grid_never_fails_to_rebuild():
         assert np.array_equal(pickle.loads(pickle.dumps(n)).grid, grid)
 
         # ...but a grid grown past what we were given is guarded again
-        grown = navis.VoxelNeuron(grid.copy())
+        grown = navis.Voxels(grid.copy())
         grown.voxels = np.array([[0, 0, 0], [5000, 5000, 5000]])
         with pytest.raises(MemoryError):
             grown.grid
 
         # ...as is one that never came from a grid at all
         with pytest.raises(MemoryError):
-            navis.VoxelNeuron(np.array([[0, 0, 0], [39, 39, 39]])).grid
+            navis.Voxels(np.array([[0, 0, 0], [39, 39, 39]])).grid
     finally:
         navis.config.max_grid_size = 2 * 1024**3
 
@@ -786,7 +786,7 @@ def test_canvas_survives_temp_attr_clearing():
     grid = np.zeros((6, 6, 6), dtype=np.float64)
     grid[0, 0, 0] = 5
     grid[1, 2, 3] = 7  # trailing empty planes: canvas > bounding box
-    n = navis.VoxelNeuron(grid)
+    n = navis.Voxels(grid)
     assert n.shape == grid.shape
 
     # Each of these clears temp attributes; none may reshape the neuron
@@ -805,7 +805,7 @@ def test_flip_roundtrip_survives_clearing():
     grid = np.zeros((6, 6, 6), dtype=np.float64)
     grid[0, 0, 0] = 5
     grid[1, 2, 3] = 7
-    n = navis.VoxelNeuron(grid)
+    n = navis.Voxels(grid)
 
     n.flip("x", inplace=True)
     n.offset = np.array([0, 0, 0])  # clears temp attrs mid-flight
@@ -820,7 +820,7 @@ def test_strip_clears_the_canvas():
     grid = np.zeros((6, 6, 6), dtype=np.float64)
     grid[0, 0, 0] = 5
     grid[1, 2, 3] = 7
-    stripped = navis.VoxelNeuron(grid).strip()
+    stripped = navis.Voxels(grid).strip()
 
     assert stripped.shape == (2, 3, 4)
     stripped.offset = np.array([9, 9, 9])  # must not spring back to (6, 6, 6)
@@ -831,7 +831,7 @@ def test_canvas_never_clips_grown_data():
     """A canvas must not hide voxels that have grown past it."""
     grid = np.zeros((6, 6, 6), dtype=np.float64)
     grid[0, 0, 0] = 1
-    n = navis.VoxelNeuron(grid)
+    n = navis.Voxels(grid)
 
     n.voxels = np.array([[0, 0, 0], [9, 9, 9]])
     assert n.shape == (10, 10, 10)
@@ -852,7 +852,7 @@ def cube():
     """
     coords = np.argwhere(np.ones((5, 5, 5))) + 1
     values = np.arange(1, len(coords) + 1, dtype=float)
-    return navis.VoxelNeuron(np.column_stack([coords, values]), units=UNITS)
+    return navis.Voxels(np.column_stack([coords, values]), units=UNITS)
 
 
 @pytest.mark.parametrize("op", ["erode", "opening", "thin"])
@@ -905,8 +905,8 @@ def test_connectivity_is_passed_through(cube):
 
 
 def test_set_algebra():
-    a = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]]), units=UNITS)
-    b = navis.VoxelNeuron(np.array([[2, 2, 2], [3, 3, 3]]), units=UNITS)
+    a = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]]), units=UNITS)
+    b = navis.Voxels(np.array([[2, 2, 2], [3, 3, 3]]), units=UNITS)
 
     def vox(n):
         return sorted(map(tuple, n.voxels.tolist()))
@@ -918,7 +918,7 @@ def test_set_algebra():
 
 
 def test_set_algebra_accepts_raw_voxels():
-    a = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
+    a = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
 
     out = a.difference(np.array([[1, 1, 1]]))
     assert out.voxels.tolist() == [[0, 0, 0]]
@@ -926,8 +926,8 @@ def test_set_algebra_accepts_raw_voxels():
 
 def test_union_prefers_own_values():
     """On overlap, this neuron's value wins; the other's voxels get `fill`."""
-    a = navis.VoxelNeuron(np.array([[0, 0, 0, 5.0], [1, 1, 1, 6.0]]), units=UNITS)
-    b = navis.VoxelNeuron(np.array([[1, 1, 1, 99.0], [2, 2, 2, 99.0]]), units=UNITS)
+    a = navis.Voxels(np.array([[0, 0, 0, 5.0], [1, 1, 1, 6.0]]), units=UNITS)
+    b = navis.Voxels(np.array([[1, 1, 1, 99.0], [2, 2, 2, 99.0]]), units=UNITS)
 
     out = a.union(b, fill=-1)
     got = {tuple(v): x for v, x in zip(out.voxels.tolist(), out.values)}
@@ -939,9 +939,9 @@ def test_union_prefers_own_values():
 
 def test_offsets_are_translated_onto_a_common_lattice():
     """Neurons on the same lattice but different origins are aligned, not rejected."""
-    a = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]]), units=UNITS)
+    a = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]]), units=UNITS)
     # voxel 0 here sits at 16 nm, which is voxel 2 of `a`
-    shifted = navis.VoxelNeuron(
+    shifted = navis.Voxels(
         np.array([[0, 0, 0]]), units=UNITS, offset=np.array([16.0, 16.0, 16.0])
     )
 
@@ -957,8 +957,8 @@ def test_offsets_are_translated_onto_a_common_lattice():
     ],
 )
 def test_misaligned_neurons_are_rejected(other, match):
-    a = navis.VoxelNeuron(np.array([[0, 0, 0]]), units=UNITS)
-    b = navis.VoxelNeuron(np.array([[0, 0, 0]]), **other)
+    a = navis.Voxels(np.array([[0, 0, 0]]), units=UNITS)
+    b = navis.Voxels(np.array([[0, 0, 0]]), **other)
 
     with pytest.raises(ValueError, match=match):
         a.union(b)
@@ -966,7 +966,7 @@ def test_misaligned_neurons_are_rejected(other, match):
 
 def test_growing_past_the_origin_shifts_the_frame():
     """Dilating a voxel at index 0 must not produce negative coordinates."""
-    n = navis.VoxelNeuron(
+    n = navis.Voxels(
         np.array([[0, 0, 0]]), units=UNITS, offset=np.array([100.0, 100.0, 100.0])
     )
 
@@ -1005,7 +1005,7 @@ def test_binary_ops_work_on_grid_backed(grid_neuron):
 
 def test_erode_to_empty_is_not_an_error():
     """A thin neuron can erode away entirely."""
-    n = navis.VoxelNeuron(np.array([[1, 1, 1]]), units=UNITS)
+    n = navis.Voxels(np.array([[1, 1, 1]]), units=UNITS)
 
     out = n.erode()
     assert out.nnz == 0
@@ -1023,7 +1023,7 @@ def test_mesh_shorthand():
 
     m = vx.mesh()
 
-    assert isinstance(m, navis.MeshNeuron)
+    assert isinstance(m, navis.Mesh)
     assert m.n_vertices > 0
     assert m.n_vertices == navis.mesh(vx).n_vertices
 
@@ -1042,7 +1042,7 @@ def test_mesh_shorthand_passes_kwargs():
 @pytest.fixture
 def solid():
     """A solid 4x4x4 block, one voxel off the origin."""
-    return navis.VoxelNeuron(np.argwhere(np.ones((4, 4, 4))) + 1, units=UNITS)
+    return navis.Voxels(np.argwhere(np.ones((4, 4, 4))) + 1, units=UNITS)
 
 
 def test_volume_is_not_double_scaled(solid, monkeypatch):
@@ -1071,8 +1071,8 @@ def test_surface_area(solid):
 
 
 def test_surface_area_scales_with_units():
-    small = navis.VoxelNeuron(np.argwhere(np.ones((4, 4, 4))), units="1 nm")
-    big = navis.VoxelNeuron(np.argwhere(np.ones((4, 4, 4))), units="2 nm")
+    small = navis.Voxels(np.argwhere(np.ones((4, 4, 4))), units="1 nm")
+    big = navis.Voxels(np.argwhere(np.ones((4, 4, 4))), units="2 nm")
 
     ratio = big.surface_area.to("nm ** 2") / small.surface_area.to("nm ** 2")
     assert ratio.magnitude == pytest.approx(4)  # area goes with the square
@@ -1080,7 +1080,7 @@ def test_surface_area_scales_with_units():
 
 def test_centroid_includes_offset():
     """The centroid is in units and sits inside the bounding box."""
-    n = navis.VoxelNeuron(
+    n = navis.Voxels(
         np.argwhere(np.ones((4, 4, 4))), units=UNITS, offset=OFFSET.copy()
     )
 
@@ -1124,7 +1124,7 @@ def fluffy():
         ]
     )
     values = np.arange(1, len(coords) + 1, dtype=float)
-    return navis.VoxelNeuron(np.column_stack([coords, values]), units=UNITS)
+    return navis.Voxels(np.column_stack([coords, values]), units=UNITS)
 
 
 def test_connected_components_on_voxels(fluffy):
@@ -1139,7 +1139,7 @@ def test_connected_components_on_voxels(fluffy):
 def test_connected_components_connectivity(fluffy):
     """`connectivity` is passed through to sparse-cubes."""
     # Two voxels touching only at a corner: one component at 26, two at 6
-    diag = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
+    diag = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
 
     cc = navis.graph.graph_utils._connected_components
     assert len(cc(diag, connectivity=26)) == 1
@@ -1248,7 +1248,7 @@ def test_thin_voxels_dense_array_roundtrip():
 
 
 def test_thin_voxels_rejects_bad_backend():
-    vx = navis.VoxelNeuron(VOXELS.copy())
+    vx = navis.Voxels(VOXELS.copy())
 
     with pytest.raises(ValueError):
         navis.thin_voxels(vx, backend="nope")
@@ -1284,8 +1284,8 @@ def test_mesh_rejects_other_arrays():
 
 
 def test_iou_and_dice():
-    a = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
-    b = navis.VoxelNeuron(np.array([[1, 1, 1], [2, 2, 2]]), units=UNITS)
+    a = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
+    b = navis.Voxels(np.array([[1, 1, 1], [2, 2, 2]]), units=UNITS)
 
     # one shared voxel out of three total
     assert a.iou(b) == pytest.approx(1 / 3)
@@ -1294,7 +1294,7 @@ def test_iou_and_dice():
 
 
 def test_iou_bounds():
-    a = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
+    a = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
 
     assert a.iou(a) == pytest.approx(1.0)
     assert a.dice(a) == pytest.approx(1.0)
@@ -1303,16 +1303,16 @@ def test_iou_bounds():
 
 def test_iou_respects_frame_alignment():
     """Similarity uses the same lattice alignment as the set operations."""
-    a = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
+    a = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
     # voxel 0 here is at 8 nm, i.e. voxel [1, 1, 1] of `a`
-    shifted = navis.VoxelNeuron(
+    shifted = navis.Voxels(
         np.array([[0, 0, 0]]), units=UNITS, offset=np.array([8.0, 8.0, 8.0])
     )
 
     assert a.iou(shifted) == pytest.approx(0.5)
 
     with pytest.raises(ValueError, match="different voxel sizes"):
-        a.iou(navis.VoxelNeuron(np.array([[0, 0, 0]]), units="4 nm"))
+        a.iou(navis.Voxels(np.array([[0, 0, 0]]), units="4 nm"))
 
 
 # ---------------------------------------------------------------------------
@@ -1323,7 +1323,7 @@ def test_iou_respects_frame_alignment():
 @pytest.fixture
 def blob():
     """A solid 6x6x6 block, off the origin."""
-    return navis.VoxelNeuron(np.argwhere(np.ones((6, 6, 6))) + 2, units=UNITS)
+    return navis.Voxels(np.argwhere(np.ones((6, 6, 6))) + 2, units=UNITS)
 
 
 @pytest.mark.parametrize("connectivity,metric", [(6, "manhattan"), (26, "chebyshev")])
@@ -1355,7 +1355,7 @@ def test_voxels2edges_survives_unsorted_input():
 
     coords = np.argwhere(np.ones((4, 4, 4)))
     rng = np.random.RandomState(0)
-    shuffled = navis.VoxelNeuron(coords[rng.permutation(len(coords))], units=UNITS)
+    shuffled = navis.Voxels(coords[rng.permutation(len(coords))], units=UNITS)
 
     edges = _voxels2edges(shuffled, connectivity=6)
     delta = np.abs(shuffled.voxels[edges[:, 0]] - shuffled.voxels[edges[:, 1]])
@@ -1366,7 +1366,7 @@ def test_voxels2edges_survives_unsorted_input():
 def test_voxels2edges_single_voxel():
     from navis.graph.converters import _voxels2edges
 
-    edges = _voxels2edges(navis.VoxelNeuron(np.array([[1, 1, 1]])), connectivity=6)
+    edges = _voxels2edges(navis.Voxels(np.array([[1, 1, 1]])), connectivity=6)
     assert edges.shape == (0, 2)
 
 
@@ -1422,7 +1422,7 @@ def test_downsample_voxels_carries_values():
     """Values are aggregated (max by default), not dropped."""
     coords = np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]])
     values = np.array([1.0, 9.0, 2.0, 3.0])
-    n = navis.VoxelNeuron(np.column_stack([coords, values]), units=UNITS)
+    n = navis.Voxels(np.column_stack([coords, values]), units=UNITS)
 
     out = navis.downsample_neuron(n, 2)
 
@@ -1436,7 +1436,7 @@ def test_downsample_voxels_never_allocates_the_grid():
     Regression: this went through `ndimage.zoom(x.grid, ...)`, so it tripped the
     dense-grid memory guard on exactly the sparse neurons worth downsampling.
     """
-    far = navis.VoxelNeuron(np.array([[0, 0, 0], [100_000, 100_000, 100_000]]))
+    far = navis.Voxels(np.array([[0, 0, 0], [100_000, 100_000, 100_000]]))
     assert far.grid_nbytes > navis.config.max_grid_size  # would refuse to densify
 
     out = navis.downsample_neuron(far, 10)
@@ -1450,7 +1450,7 @@ def test_downsample_voxels_rounds_non_integer_factor(caplog):
     The factor scales both the pooling and the units, so using the raw float for
     one and the rounded int for the other would resize the neuron.
     """
-    n = navis.VoxelNeuron(np.argwhere(np.ones((8, 8, 8))), units=UNITS)
+    n = navis.Voxels(np.argwhere(np.ones((8, 8, 8))), units=UNITS)
     before = n.extents.copy()
 
     out = navis.downsample_neuron(n, 2.5)
@@ -1473,7 +1473,7 @@ def voxelized_neuron():
 def test_voxels2skeleton(voxelized_neuron, method):
     sk = navis.conversion.voxels2skeleton(voxelized_neuron, method=method)
 
-    assert isinstance(sk, navis.TreeNeuron)
+    assert isinstance(sk, navis.Skeleton)
     assert sk.n_nodes > 0
     assert not sk.nodes[["x", "y", "z"]].isna().any().any()
     # radii should be meaningful, not all zero
@@ -1496,8 +1496,8 @@ def test_skeleton_lands_in_the_right_place(voxelized_neuron, method):
 def test_skeleton_offset_is_applied():
     """A shifted neuron produces a correspondingly shifted skeleton."""
     coords = np.argwhere(np.ones((3, 3, 12)))
-    a = navis.VoxelNeuron(coords, units=UNITS)
-    b = navis.VoxelNeuron(coords, units=UNITS, offset=np.array([1000.0, 2000.0, 3000.0]))
+    a = navis.Voxels(coords, units=UNITS)
+    b = navis.Voxels(coords, units=UNITS, offset=np.array([1000.0, 2000.0, 3000.0]))
 
     sk_a = navis.conversion.voxels2skeleton(a)
     sk_b = navis.conversion.voxels2skeleton(b)
@@ -1516,10 +1516,10 @@ def test_skeleton_carries_metadata(voxelized_neuron):
 
 
 def test_skeletonize_dispatches_to_voxels(voxelized_neuron):
-    """`navis.skeletonize` used to reject VoxelNeurons outright."""
+    """`navis.skeletonize` used to reject Voxels outright."""
     sk = navis.skeletonize(voxelized_neuron)
 
-    assert isinstance(sk, navis.TreeNeuron)
+    assert isinstance(sk, navis.Skeleton)
     assert sk.n_nodes > 0
 
 
@@ -1533,7 +1533,7 @@ def test_skeletonize_method_shorthand(voxelized_neuron):
 def test_voxels2skeleton_accepts_raw_array(voxelized_neuron):
     sk = navis.conversion.voxels2skeleton(voxelized_neuron.voxels)
 
-    assert isinstance(sk, navis.TreeNeuron)
+    assert isinstance(sk, navis.Skeleton)
     assert sk.n_nodes > 0
 
 
@@ -1558,7 +1558,7 @@ def test_skeletonize_neuronlist(voxelized_neuron):
     out = navis.skeletonize(nl)
 
     assert isinstance(out, navis.NeuronList)
-    assert all(isinstance(n, navis.TreeNeuron) and n.n_nodes > 0 for n in out)
+    assert all(isinstance(n, navis.Skeleton) and n.n_nodes > 0 for n in out)
 
 
 def test_skeletonize_defaults_to_wavefront(voxelized_neuron):
@@ -1627,7 +1627,7 @@ def test_smooth_voxels_matches_scipy_exactly():
     pts = rng.randint(5, 25, size=(40, 3))
     grid[pts[:, 0], pts[:, 1], pts[:, 2]] = rng.rand(40) + 0.5
 
-    n = navis.VoxelNeuron(grid, sparsify=True)
+    n = navis.Voxels(grid, sparsify=True)
     out = navis.smooth_voxels(n, sigma=2)
 
     dense = gaussian_filter(grid, sigma=2, mode="constant", cval=0)
@@ -1723,7 +1723,7 @@ def test_smooth_backends_agree(touches_edge, sigma):
     pts = rng.randint(lo, hi, size=(60, 3))
     grid[pts[:, 0], pts[:, 1], pts[:, 2]] = rng.rand(60) + 0.5
 
-    n = navis.VoxelNeuron(grid, sparsify=True)
+    n = navis.Voxels(grid, sparsify=True)
 
     sparse = _rasterize(navis.smooth_voxels(n, sigma=sigma), shape)
     dense = _rasterize(navis.smooth_voxels(n, sigma=sigma, backend="scipy"), shape)
@@ -1735,7 +1735,7 @@ def test_smooth_conserves_mass():
     """Constant/zero boundaries mean smoothing redistributes, never creates."""
     grid = np.zeros((30, 30, 30))
     grid[10:20, 10:20, 10:20] = 1.0
-    n = navis.VoxelNeuron(grid, sparsify=True)
+    n = navis.Voxels(grid, sparsify=True)
 
     out = navis.smooth_voxels(n, sigma=2)
 
@@ -1746,7 +1746,7 @@ def test_smooth_scipy_honours_truncate():
     """`truncate` reaches the scipy backend too, not just sparse-cubes."""
     grid = np.zeros((40, 40, 40))
     grid[20, 20, 20] = 1.0
-    n = navis.VoxelNeuron(grid, sparsify=False)
+    n = navis.Voxels(grid, sparsify=False)
 
     wide = navis.smooth_voxels(n, sigma=2, backend="scipy", truncate=4.0)
     tight = navis.smooth_voxels(n, sigma=2, backend="scipy", truncate=1.0)

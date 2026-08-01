@@ -22,7 +22,7 @@ def messy_box():
     box = tm.creation.box((1, 1, 1))
     verts, faces = np.asarray(box.vertices), np.asarray(box.faces)
     faces = np.vstack([faces, faces[0:1], [[0, 0, 1]]])
-    return navis.MeshNeuron((verts, faces), process=False)
+    return navis.Mesh((verts, faces), process=False)
 
 
 @pytest.mark.parametrize(
@@ -112,7 +112,7 @@ def test_fix_mesh_trimesh_in_trimesh_out(messy_box):
 
 
 def test_validate(messy_box):
-    """`MeshNeuron.validate()` routes here and defaults to returning a copy."""
+    """`Mesh.validate()` routes here and defaults to returning a copy."""
     assert len(messy_box.validate().faces) == 12
     assert len(messy_box.faces) == 14
 
@@ -122,18 +122,18 @@ def test_validate(messy_box):
 
 @pytest.mark.parametrize("process", [True, False])
 def test_validate_on_construction(messy_box, process):
-    """`MeshNeuron(validate=True)` must actually fix the mesh.
+    """`Mesh(validate=True)` must actually fix the mesh.
 
     With `process=True` trimesh's own constructor does it; with `process=False`
     it is down to us.
     """
     verts, faces = messy_box.vertices, messy_box.faces
 
-    built = navis.MeshNeuron((verts, faces), process=process, validate=True)
+    built = navis.Mesh((verts, faces), process=process, validate=True)
     assert len(built.faces) == 12
 
     # ... and must not fix it when not asked to
-    assert len(navis.MeshNeuron((verts, faces), process=process).faces) == 14
+    assert len(navis.Mesh((verts, faces), process=process).faces) == 14
 
 
 @pytest.mark.skipif(

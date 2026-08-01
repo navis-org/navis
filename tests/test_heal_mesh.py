@@ -47,7 +47,7 @@ def two_boxes():
     b = tm.creation.box((1, 1, 1))
     b.apply_translation([10, 0, 0])
     comb = tm.util.concatenate([a, b])
-    return navis.MeshNeuron((np.asarray(comb.vertices), np.asarray(comb.faces)))
+    return navis.Mesh((np.asarray(comb.vertices), np.asarray(comb.faces)))
 
 
 def bridge_lengths(x, edges):
@@ -284,7 +284,7 @@ def test_existing_extra_edges_are_kept(mesh):
 
 
 def test_empty_mesh():
-    assert navis.heal_mesh(navis.MeshNeuron(None)).n_extra_edges == 0
+    assert navis.heal_mesh(navis.Mesh(None)).n_extra_edges == 0
 
 
 def test_wrong_type():

@@ -169,9 +169,9 @@ def make_dotprops(
     x: Union[
         pd.DataFrame,
         np.ndarray,
-        "core.TreeNeuron",
-        "core.MeshNeuron",
-        "core.VoxelNeuron",
+        "core.Skeleton",
+        "core.Mesh",
+        "core.Voxels",
         "core.NeuronList",
     ],
     k: int = 20,
@@ -194,7 +194,7 @@ def make_dotprops(
                 calculation:
 
                   - `k=0` or `k=None` is possible but only for
-                    `TreeNeurons` where we then use the midpoints between
+                    `Skeletons` where we then use the midpoints between
                     child -> parent nodes and their vectors
                   - `k` is only guaranteed if the input has at least `k`
                     points
@@ -205,16 +205,16 @@ def make_dotprops(
     resample :  float | int | str, optional
                 If provided will resample neurons to the given resolution:
 
-                  - for `MeshNeurons`, `VoxelNeurons` and point clouds, we are using
+                  - for `Meshes`, `Voxels` and point clouds, we are using
                     `trimesh.points.remove_close` to remove surface vertices
                     closer than the given resolution. Note that this is only
-                    approximate and also means that `Mesh/VoxelNeurons`
+                    approximate and also means that `Mesh/Voxels`
                     can not be up-sampled!
                   - if the neuron has `.units` set you can also provide this
                     as string, e.g. "1 micron".
 
     threshold : float, optional
-                Only for `VoxelNeurons`: determines which voxels will be
+                Only for `Voxels`: determines which voxels will be
                 converted to dotprops points.
     on_issue :  "warn" (default) | "raise" | "fix"
                 What to do if issues are found during processing:
@@ -267,7 +267,7 @@ def make_dotprops(
         if not all(np.isin(["x", "y", "z"], x.columns)):
             raise ValueError('DataFrame must contain "x", "y" and "z" columns.')
         x = x[["x", "y", "z"]].values
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.Skeleton):
         if resample:
             x = x.resample(resample_to=resample, inplace=False)
         properties.update({"units": x.units, "name": x.name, "id": x.id})
@@ -284,7 +284,7 @@ def make_dotprops(
             )
 
         x = x.nodes[["x", "y", "z"]].values
-    elif isinstance(x, core.MeshNeuron):
+    elif isinstance(x, core.Mesh):
         properties.update({"units": x.units, "name": x.name, "id": x.id})
         x = x.vertices
         if resample:
@@ -294,7 +294,7 @@ def make_dotprops(
         x = x.points
         if resample:
             x, _ = tm.points.remove_close(x, resample)
-    elif isinstance(x, core.VoxelNeuron):
+    elif isinstance(x, core.Voxels):
         properties.update({"name": x.name, "id": x.id})
         if not x.units.dimensionless:
             # We are scaling the units - hence all are set to 1
@@ -317,7 +317,7 @@ def make_dotprops(
         raise ValueError(f"Expected input of shape (N, 3), got {x.shape}")
 
     if isinstance(k, type(None)) or k <= 0:
-        raise ValueError("`k` must be > 0 when converting non-TreeNeurons to Dotprops.")
+        raise ValueError("`k` must be > 0 when converting non-Skeletons to Dotprops.")
 
     # Drop rows with NAs
     contains_nan = np.any(np.isnan(x), axis=1)
@@ -487,11 +487,11 @@ def cast_neuron(x: "core.NeuronObject",
 
     Which data is converted depends on the neuron type:
 
-    - `TreeNeurons`: the `x`, `y`, `z` and `radius` node columns
-    - `MeshNeurons`: the vertices (faces are indices and stay untouched)
+    - `Skeletons`: the `x`, `y`, `z` and `radius` node columns
+    - `Meshes`: the vertices (faces are indices and stay untouched)
     - `Dotprops`: the points and - for float dtypes - the tangent vectors
       and alpha values
-    - `VoxelNeurons`: the voxel values (i.e. `.grid` or `.values`)
+    - `Voxels`: the voxel values (i.e. `.grid` or `.values`)
 
     Connectors (if present) are converted for all neuron types. Anything that
     indexes into the above (mesh faces, voxel coordinates, node/parent IDs) is
@@ -541,13 +541,13 @@ def cast_neuron(x: "core.NeuronObject",
     if not inplace:
         x = x.copy()
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         _cast_treeneuron(x, dtype)
-    elif isinstance(x, core.MeshNeuron):
+    elif isinstance(x, core.Mesh):
         _cast_meshneuron(x, dtype)
     elif isinstance(x, core.Dotprops):
         _cast_dotprops(x, dtype)
-    elif isinstance(x, core.VoxelNeuron):
+    elif isinstance(x, core.Voxels):
         _cast_voxelneuron(x, dtype)
     else:
         raise TypeError(f'Unable to convert data of type "{type(x)}"')
@@ -561,8 +561,8 @@ def cast_neuron(x: "core.NeuronObject",
 
 
 def _cast_treeneuron(x, dtype):
-    """Convert TreeNeuron node coordinates."""
-    assert isinstance(x, core.TreeNeuron)
+    """Convert Skeleton node coordinates."""
+    assert isinstance(x, core.Skeleton)
 
     for c in ('x', 'y', 'z', 'radius'):
         if c in x.nodes.columns:
@@ -573,8 +573,8 @@ def _cast_treeneuron(x, dtype):
 
 
 def _cast_meshneuron(x, dtype):
-    """Convert MeshNeuron vertices."""
-    assert isinstance(x, core.MeshNeuron)
+    """Convert Mesh vertices."""
+    assert isinstance(x, core.Mesh)
 
     # Note: faces are indices into `vertices` and hence left alone
     x._vertices = x._vertices.astype(dtype, copy=False)
@@ -604,8 +604,8 @@ def _cast_dotprops(x, dtype):
 
 
 def _cast_voxelneuron(x, dtype):
-    """Convert VoxelNeuron values."""
-    assert isinstance(x, core.VoxelNeuron)
+    """Convert Voxels values."""
+    assert isinstance(x, core.Voxels)
 
     if x._base_data_type == 'grid':
         x._data = x._data.astype(dtype, copy=False)

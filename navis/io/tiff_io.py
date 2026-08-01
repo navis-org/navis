@@ -70,7 +70,7 @@ class TiffReader(base.ImageReader):
     @base.handle_errors
     def read_buffer(
         self, f, attrs: Optional[Dict[str, Any]] = None
-    ) -> Union[np.ndarray, "core.Dotprops", "core.VoxelNeuron"]:
+    ) -> Union[np.ndarray, "core.Dotprops", "core.Voxels"]:
         """Read buffer into (image, header) or a neuron.
 
         Parameters
@@ -82,7 +82,7 @@ class TiffReader(base.ImageReader):
 
         Returns
         -------
-        core.Dotprops | core.VoxelNeuron | np.ndarray
+        core.Dotprops | core.Voxels | np.ndarray
 
         """
         import tifffile
@@ -251,16 +251,16 @@ def read_tiff(
 
     Returns
     -------
-    navis.VoxelNeuron
+    navis.Voxels
                         If `output="voxels"` (default): requires TIFF data to
-                        be 3-dimensional voxels. VoxelNeuron will have TIFF file
+                        be 3-dimensional voxels. Voxels will have TIFF file
                         info as `.tiff_header` attribute.
     navis.Dotprops
                         If `output="dotprops"`. Dotprops will contain TIFF
                         header as `.tiff_header` attribute.
     navis.NeuronList
                         If import of multiple TIFF will return NeuronList of
-                        Dotprops/VoxelNeurons.
+                        Dotprops/Voxels.
     (image, header)     (np.ndarray, OrderedDict)
                         If `output='raw'` return raw data contained in TIFF
                         file.

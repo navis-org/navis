@@ -65,12 +65,12 @@ def fetch_neurons(
                     Max number of parallel threads to use.
     **kwargs
                     Keyword arguments are passed through to the initialization
-                    of the ``navis.MeshNeurons``.
+                    of the ``navis.Meshes``.
 
     Returns
     -------
     navis.Neuronlist
-                    Containing :class:`navis.MeshNeuron`.
+                    Containing :class:`navis.Mesh`.
 
     """
     client = get_cave_client(datastack)

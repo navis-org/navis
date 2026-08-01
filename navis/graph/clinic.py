@@ -21,11 +21,11 @@ __all__ = ['health_check', 'merge_duplicate_nodes']
 
 
 def health_check(x: 'core.NeuronObject', verbose: bool = True) -> None:
-    """Run a health check on TreeNeurons and flag potential issues.
+    """Run a health check on Skeletons and flag potential issues.
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         Skeleton | NeuronList
                 Neuron(s) whose nodes to classify nodes.
     verbose :   bool
                 If True, will print errors in addition to returning them.
@@ -46,8 +46,8 @@ def health_check(x: 'core.NeuronObject', verbose: bool = True) -> None:
         for n in x:
             _ = health_check(x)
         return
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Excepted TreeNeuron/List, got "{type(x)}"')
+    elif not isinstance(x, core.Skeleton):
+        raise TypeError(f'Excepted Skeleton/List, got "{type(x)}"')
 
     issues = []
 
@@ -88,7 +88,7 @@ def merge_duplicate_nodes(x, round=False, inplace=False):
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         Skeleton | NeuronList
                 Neuron(s) to fix.
     round :     int, optional
                 If provided will round node locations to given decimals. This
@@ -99,7 +99,7 @@ def merge_duplicate_nodes(x, round=False, inplace=False):
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
                 Fixed neuron. Only if `inplace=False`.
 
     Examples
@@ -123,8 +123,8 @@ def merge_duplicate_nodes(x, round=False, inplace=False):
             return x
         return
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron, got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Expected Skeleton, got "{type(x)}"')
 
     if not inplace:
         x = x.copy()

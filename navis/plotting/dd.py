@@ -82,7 +82,7 @@ def plot2d(
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron | NeuronList | Volume | Dotprops | np.ndarray
+    x :                 Skeleton | Mesh | NeuronList | Volume | Dotprops | np.ndarray
                         Objects to plot:
                          - multiple objects can be passed as list (see examples)
                          - numpy array of shape (N, 3) is intepreted as points for
@@ -94,15 +94,15 @@ def plot2d(
 
                         Plot soma if one exists. Size of the soma is determined
                         by the neuron's `.soma_radius` property which defaults
-                        to the "radius" column for `TreeNeurons`. You can also
+                        to the "radius" column for `Skeletons`. You can also
                         pass `soma` as a dictionary to customize the appearance
                         of the soma - for example `soma={"color": "red", "lw": 2, "ec": 1}`.
 
     radius :            bool | "auto", default=False
 
-                        If "auto" will plot neurites of `TreeNeurons` with radius
+                        If "auto" will plot neurites of `Skeletons` with radius
                         if they have radii. If True, will try plotting neurites of
-                        `TreeNeurons` with radius regardless. The radius can be
+                        `Skeletons` with radius regardless. The radius can be
                         scaled by `linewidth`. Note that this will increase rendering
                         time.
 
@@ -132,7 +132,7 @@ def plot2d(
                         Color neurons by a property. Can be:
                           - a list/array of labels, one per each neuron
                           - a neuron property (str)
-                          - a column name in the node table of `TreeNeurons`
+                          - a column name in the node table of `Skeletons`
                           - a list/array of values for each node
                         Numerical values will be normalized. You can control
                         the normalization by passing a `vmin` and/or `vmax` parameter.
@@ -142,7 +142,7 @@ def plot2d(
                         Similar to `color_by` but will affect only the alpha
                         channel of the color. If `shade_by='strahler'` will
                         compute Strahler order if not already part of the node
-                        table (TreeNeurons only). Numerical values will be
+                        table (Skeletons only). Numerical values will be
                         normalized. You can control the normalization by passing
                         a `smin` and/or `smax` parameter.
 
@@ -155,8 +155,8 @@ def plot2d(
 
     mesh_shade :        bool, default=False
 
-                        Only relevant for meshes (e.g. `MeshNeurons`) and
-                        `TreeNeurons` with radius, and when method is 3d or
+                        Only relevant for meshes (e.g. `Meshes`) and
+                        `Skeletons` with radius, and when method is 3d or
                         3d complex. Whether to shade the object which will give it
                         a 3D look.
 
@@ -489,14 +489,14 @@ def plot2d(
         )
     ):
         if not settings.connectors_only:
-            if isinstance(neuron, core.TreeNeuron) and neuron.nodes.empty:
-                logger.warning(f"Skipping TreeNeuron w/o nodes: {neuron.label}")
+            if isinstance(neuron, core.Skeleton) and neuron.nodes.empty:
+                logger.warning(f"Skipping Skeleton w/o nodes: {neuron.label}")
                 continue
-            if isinstance(neuron, core.TreeNeuron) and neuron.nodes.shape[0] == 1:
-                logger.warning(f"Skipping single-node TreeNeuron: {neuron.label}")
+            if isinstance(neuron, core.Skeleton) and neuron.nodes.shape[0] == 1:
+                logger.warning(f"Skipping single-node Skeleton: {neuron.label}")
                 continue
-            elif isinstance(neuron, core.MeshNeuron) and neuron.faces.size == 0:
-                logger.warning(f"Skipping MeshNeuron w/o faces: {neuron.label}")
+            elif isinstance(neuron, core.Mesh) and neuron.faces.size == 0:
+                logger.warning(f"Skipping Mesh w/o faces: {neuron.label}")
                 continue
             elif isinstance(neuron, core.Dotprops) and neuron.points.size == 0:
                 logger.warning(f"Skipping Dotprops w/o points: {neuron.label}")
@@ -528,17 +528,17 @@ def plot2d(
                 if isinstance(neuron_cmap[i], np.ndarray) and neuron_cmap[i].ndim == 2:
                     neuron_cmap[i] = neuron_cmap[i][neuron.vertex_map]
 
-            if isinstance(neuron, core.TreeNeuron):
+            if isinstance(neuron, core.Skeleton):
                 lc, sc = _plot_skeleton(neuron, neuron_cmap[i], ax, settings)
                 # Keep track of visuals related to this neuron
                 visuals[neuron] = {"skeleton": lc, "somata": sc}
-            elif isinstance(neuron, core.MeshNeuron):
+            elif isinstance(neuron, core.Mesh):
                 m = _plot_mesh(neuron, neuron_cmap[i], ax, settings)
                 visuals[neuron] = {"mesh": m}
             elif isinstance(neuron, core.Dotprops):
                 dp = _plot_dotprops(neuron, neuron_cmap[i], ax, settings)
                 visuals[neuron] = {"dotprop": dp}
-            elif isinstance(neuron, core.VoxelNeuron):
+            elif isinstance(neuron, core.Voxels):
                 dp = _plot_voxels(
                     neuron,
                     neuron_cmap[i],
@@ -615,7 +615,7 @@ def plot2d(
             # No need for normaliser - already happened
             c.set_norm(None)
 
-            if isinstance(neuron, core.TreeNeuron) and not isinstance(
+            if isinstance(neuron, core.Skeleton) and not isinstance(
                 getattr(neuron, "soma", None), type(None)
             ):
                 # Get depth of soma(s)
@@ -764,9 +764,9 @@ def _plot_scatter(points, ax, settings):
 
 
 def _plot_voxels(vx, color, ax, settings, **scatter_kws):
-    """Plot VoxelNeuron as scatter plot."""
+    """Plot Voxels as scatter plot."""
     # Use only the top N voxels
-    assert isinstance(vx, core.VoxelNeuron)
+    assert isinstance(vx, core.Voxels)
     n_pts = 1000000
     v = vx.values
     pts = vx.voxels
@@ -863,7 +863,7 @@ def _plot_connectors(neuron, color, ax, settings):
 
 
 def _plot_mesh(neuron, color, ax, settings):
-    """Plot mesh (i.e. MeshNeuron)."""
+    """Plot mesh (i.e. Mesh)."""
     # Map vertex colors to faces (if need be)
     if isinstance(color, np.ndarray) and color.ndim == 2:
         if len(color) != len(neuron.faces) and len(color) == len(neuron.vertices):
@@ -1061,7 +1061,7 @@ def _collapse_colored_segments(neuron, node_colors):
 
     Parameters
     ----------
-    neuron :        TreeNeuron
+    neuron :        Skeleton
     node_colors :   (N, 4) array
                     One RGBA color for each node in `neuron.nodes` (row order).
 

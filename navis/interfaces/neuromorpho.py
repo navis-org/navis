@@ -25,7 +25,7 @@ import numpy as np
 from typing import List, Dict, Union, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from ..core import TreeNeuron, NeuronList
+from ..core import Skeleton, NeuronList
 from ..io import read_swc
 from .. import utils, config
 
@@ -166,7 +166,7 @@ def get_neuron_info(x: Union[str, int]) -> pd.Series:
 def get_neuron(x: Union[str, int, Dict[str, str]],
                parallel: bool = True,
                max_threads: int = 4,
-               **kwargs) -> TreeNeuron:
+               **kwargs) -> Skeleton:
     """Fetch neuron by ID or by name.
 
     Parameters
@@ -184,7 +184,7 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     Examples
     --------
@@ -192,7 +192,7 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
     >>> # Get a neuron by its ID
     >>> n = nm.get_neuron(1)
     >>> n
-    type            TreeNeuron
+    type            Skeleton
     name                   SWC
     n_nodes               1274
     n_connectors             0

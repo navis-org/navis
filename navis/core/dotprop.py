@@ -661,8 +661,8 @@ class Dotprops(BaseNeuron):
 
     def to_skeleton(self,
                     scale_vec: Union[float, Literal['auto']] = 'auto'
-                    ) -> core.TreeNeuron:
-        """Turn Dotprop into a TreeNeuron.
+                    ) -> core.Skeleton:
+        """Turn Dotprop into a Skeleton.
 
         This does *not* skeletonize the neuron but rather generates a line
         segment for each point based on the tangent vector. This is mainly
@@ -682,7 +682,7 @@ class Dotprops(BaseNeuron):
 
         Returns
         -------
-        TreeNeuron
+        Skeleton
 
         """
         if not isinstance(scale_vec, numbers.Number) and scale_vec != 'auto':
@@ -708,8 +708,8 @@ class Dotprops(BaseNeuron):
         nodes['parent_id'] = -1
         nodes.loc[1::2, 'parent_id'] = nodes.index.values[::2]
 
-        # Produce a minimal TreeNeuron
-        tn = core.TreeNeuron(nodes, units=self.units, id=self.id)
+        # Produce a minimal Skeleton
+        tn = core.Skeleton(nodes, units=self.units, id=self.id)
 
         # Carry over the label
         if getattr(self, '_label', None):

@@ -52,16 +52,16 @@ def normalize_neuron(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :         Skeleton | Mesh | Dotprops | NeuronList
                 Neuron(s) to normalize. Each neuron in a `NeuronList` is
                 normalized **independently** (into its own canonical frame).
-                `VoxelNeurons` are not supported - rotating a dense grid needs
+                `Voxels` are not supported - rotating a dense grid needs
                 resampling; convert to points/mesh first.
     center :    "centroid" | "bbox" | "soma" | (x, y, z) | None
                 Reference point moved to the origin.
                 - "centroid" (default): mean of the coordinates.
                 - "bbox": midpoint of the axis-aligned bounding box.
-                - "soma": the soma position (`TreeNeuron` with a soma only).
+                - "soma": the soma position (`Skeleton` with a soma only).
                 - an explicit ``(x, y, z)`` coordinate.
                 - None: no centering.
     rotate :    "pca" | None
@@ -144,10 +144,10 @@ def normalize_neuron(
             return core.NeuronList(neurons), matrices
         return core.NeuronList(out)
 
-    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron, core.Dotprops)):
+    if not isinstance(x, (core.Skeleton, core.Mesh, core.Dotprops)):
         raise TypeError(
-            "`normalize_neuron` expects a TreeNeuron, MeshNeuron, Dotprops or a "
-            f"NeuronList thereof, got {type(x)}. VoxelNeurons are not supported "
+            "`normalize_neuron` expects a Skeleton, Mesh, Dotprops or a "
+            f"NeuronList thereof, got {type(x)}. Voxels are not supported "
             "(rotating a grid needs resampling) - convert to points or a mesh "
             "first."
         )
@@ -222,7 +222,7 @@ def _fix_scale_dependent(xf, x, s):
     scaled values, so the result is exact regardless of what `xform` guessed.
     Coordinates/connectors are left as `xform` set them (already exact).
     """
-    if isinstance(x, core.TreeNeuron) and "radius" in x.nodes.columns:
+    if isinstance(x, core.Skeleton) and "radius" in x.nodes.columns:
         xf.nodes["radius"] = x.nodes["radius"].values * s
     if isinstance(getattr(x, "soma_radius", None), numbers.Number):
         xf.soma_radius = x.soma_radius * s
@@ -234,9 +234,9 @@ def _fix_scale_dependent(xf, x, s):
 
 def _reference_coords(x):
     """(N, 3) float coordinates that define the neuron's pose."""
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         return x.nodes[["x", "y", "z"]].values.astype(float)
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         return np.asarray(x.vertices, dtype=float)
     if isinstance(x, core.Dotprops):
         return np.asarray(x.points, dtype=float)

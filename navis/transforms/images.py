@@ -79,16 +79,16 @@ class ImageXformer:
 
         Parameters
         ----------
-        image : VoxelNeuron | (M, N, K) numpy array
+        image : Voxels | (M, N, K) numpy array
                 Image in source space to transform.
 
         Returns
         -------
-        VoxelNeuron
+        Voxels
                 Image in target space.
 
         """
-        if isinstance(image, core.VoxelNeuron):
+        if isinstance(image, core.Voxels):
             image = image.grid
 
         # Generate the coordinates for each pixel in the target space
@@ -155,7 +155,7 @@ class ImageXformer:
                 ix_array_target[i : i + self.stepsize, 2],
             ] = ndimage.map_coordinates(image, ix_array_source.T, order=self.interpolation_order)
 
-        return core.VoxelNeuron(img_xf, offset=self.target_offset, units=self.target_spacing)
+        return core.Voxels(img_xf, offset=self.target_offset, units=self.target_spacing)
 
 
 def xform_image(img, source, target, progress=True):
@@ -163,7 +163,7 @@ def xform_image(img, source, target, progress=True):
 
     Parameters
     ----------
-    img :       VoxelNeuron | (M, N, K) numpy array
+    img :       Voxels | (M, N, K) numpy array
                 Image to transform.
     source :    str
                 The source template space.
@@ -174,14 +174,14 @@ def xform_image(img, source, target, progress=True):
 
     Returns
     -------
-    VoxelNeuron
+    Voxels
                 Image in target space.
 
     """
-    if isinstance(img, core.VoxelNeuron):
+    if isinstance(img, core.Voxels):
         img = img.grid
     elif not isinstance(img, np.ndarray):
-        raise TypeError(f'Expected VoxelNeuron or numpy array, got "{type(img)}"')
+        raise TypeError(f'Expected Voxels or numpy array, got "{type(img)}"')
 
     if img.ndim != 3:
         raise ValueError('Image must be 3D.')

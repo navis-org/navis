@@ -77,7 +77,7 @@ class BasePlottingSettings(Settings):
 
     _name = "BasePlottingSettings"
 
-    # For TreeNeurons
+    # For Skeletons
     soma: bool = True
     radius: bool = False  # True | False | "auto"
     linewidth: float = 1

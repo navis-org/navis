@@ -12,7 +12,7 @@
 #    GNU General Public License for more details.
 
 
-from ..core import MeshNeuron, NeuronList
+from ..core import Mesh, NeuronList
 from .. import config, utils
 import pandas as pd
 import numpy as np
@@ -187,12 +187,12 @@ def fetch_neurons(
                     integer is provided will use that version.
     **kwargs
                     Keyword arguments are passed through to the initialization
-                    of the ``navis.MeshNeurons``.
+                    of the ``navis.Meshes``.
 
     Returns
     -------
     navis.Neuronlist
-                    Containing :class:`navis.MeshNeuron`.
+                    Containing :class:`navis.Mesh`.
 
     """
     x = utils.make_iterable(x, force_type=int)
@@ -280,7 +280,7 @@ def _fetch_single_neuron(
     else:
         mesh = vol.mesh.get(id, deduplicate_chunk_boundaries=False)[id]
 
-    n = MeshNeuron(mesh, id=id, units="nm", **kwargs)
+    n = Mesh(mesh, id=id, units="nm", **kwargs)
 
     if materialization == "auto":
         materialization = roots_to_mat(id, client, verbose=False)

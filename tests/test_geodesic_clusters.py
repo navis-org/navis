@@ -178,7 +178,7 @@ def test_bad_max_dist_raises(neuron, bad):
 
 def test_rejects_wrong_neuron_type():
     dp = navis.make_dotprops(navis.example_neurons(1, kind="skeleton"), k=5)
-    with pytest.raises(TypeError, match="TreeNeuron or MeshNeuron"):
+    with pytest.raises(TypeError, match="Skeleton or Mesh"):
         geodesic_clusters(dp, 1000)
 
 

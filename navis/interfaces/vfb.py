@@ -257,8 +257,8 @@ def _fetch_single_skeleton(img, **kwargs):
     swc.columns = ['node_id', 'label',
                    'x', 'y', 'z', 'radius',
                    'parent_id']
-    # Turn into a TreeNeuron
-    n = core.TreeNeuron(swc,
+    # Turn into a Skeleton
+    n = core.Skeleton(swc,
                         name=img['label'],
                         id=img['short_form'],
                         vfb_meta=img,

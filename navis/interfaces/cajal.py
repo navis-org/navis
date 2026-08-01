@@ -40,7 +40,7 @@ from typing_extensions import Literal
 from scipy.spatial.distance import cdist, pdist, squareform
 
 from .. import config, utils
-from ..core import TreeNeuron, NeuronList
+from ..core import Skeleton, NeuronList
 
 logger = config.get_logger(__name__)
 
@@ -58,7 +58,7 @@ def _icdm_worker(args: tuple) -> tuple:
 
     Parameters
     ----------
-    args : (TreeNeuron, int, str, list or None)
+    args : (Skeleton, int, str, list or None)
         Neuron, n_points, metric ('euclidean' or 'geodesic'), feature_cols.
 
     Returns
@@ -76,7 +76,7 @@ def _icdm_worker(args: tuple) -> tuple:
 # ---------------------------------------------------------------------------
 
 
-def _get_skeleton_edges(x: TreeNeuron):
+def _get_skeleton_edges(x: Skeleton):
     """Return a list of edges as (parent_id, parent_xyz, child_id, child_xyz, length) tuples.
 
     Returns
@@ -156,7 +156,7 @@ def _collect_euclidean_points(edges, root_id, root_xyz, step_size: float):
     return np.array(pts, dtype=np.float64), parent_ids, child_ids, fractions
 
 
-def _icdm_euclidean(x: TreeNeuron, n_points: int, feature_cols=None):
+def _icdm_euclidean(x: Skeleton, n_points: int, feature_cols=None):
     """Compute an NxN Euclidean intracellular distance matrix.
 
     Samples ``n_points`` evenly-spaced points along the skeleton's edges
@@ -165,7 +165,7 @@ def _icdm_euclidean(x: TreeNeuron, n_points: int, feature_cols=None):
 
     Parameters
     ----------
-    x :            TreeNeuron
+    x :            Skeleton
     n_points :     int
     feature_cols : list of str or None
 
@@ -232,7 +232,7 @@ def _icdm_euclidean(x: TreeNeuron, n_points: int, feature_cols=None):
 # ---------------------------------------------------------------------------
 
 
-def _build_tree_structure(x: TreeNeuron):
+def _build_tree_structure(x: Skeleton):
     """Build auxiliary tree data structures for geodesic computations.
 
     Returns
@@ -350,7 +350,7 @@ def _collect_geodesic_samples(root_id, children, root_dist, xyz, step_size: floa
     return samples
 
 
-def _icdm_geodesic(x: TreeNeuron, n_points: int, feature_cols=None):
+def _icdm_geodesic(x: Skeleton, n_points: int, feature_cols=None):
     """Compute an NxN geodesic intracellular distance matrix.
 
     Samples ``n_points`` evenly-spaced points along the skeleton's arbor
@@ -365,7 +365,7 @@ def _icdm_geodesic(x: TreeNeuron, n_points: int, feature_cols=None):
 
     Parameters
     ----------
-    x :            TreeNeuron
+    x :            Skeleton
     n_points :     int
     feature_cols : list of str or None
 
@@ -447,7 +447,7 @@ def _icdm_geodesic(x: TreeNeuron, n_points: int, feature_cols=None):
 # ---------------------------------------------------------------------------
 
 
-def _extract_features(x: TreeNeuron, parent_ids, child_ids, fractions, feature_cols):
+def _extract_features(x: Skeleton, parent_ids, child_ids, fractions, feature_cols):
     """Interpolate node-table feature columns onto sampled points.
 
     For float columns the value is linearly interpolated between the parent
@@ -456,7 +456,7 @@ def _extract_features(x: TreeNeuron, parent_ids, child_ids, fractions, feature_c
 
     Parameters
     ----------
-    x :            TreeNeuron
+    x :            Skeleton
     parent_ids :   list of node IDs (length N)
     child_ids :    list of node IDs (length N)
     fractions :    list of float    (length N)  — 0=parent end, 1=child end
@@ -568,8 +568,8 @@ def _fgw_worker(args: tuple) -> float:
 
 
 def cajal_gw(
-    query: Union[TreeNeuron, NeuronList],
-    target: Optional[Union[TreeNeuron, NeuronList]] = None,
+    query: Union[Skeleton, NeuronList],
+    target: Optional[Union[Skeleton, NeuronList]] = None,
     n_points: int = 50,
     metric: Literal["euclidean", "geodesic"] = "geodesic",
     n_cores: int = max(1, os.cpu_count() // 2),
@@ -594,9 +594,9 @@ def cajal_gw(
 
     Parameters
     ----------
-    query :          TreeNeuron | NeuronList
+    query :          Skeleton | NeuronList
                      Query neuron(s).
-    target :         TreeNeuron | NeuronList, optional
+    target :         Skeleton | NeuronList, optional
                      Target neuron(s).  If not provided, runs an all-by-all
                      comparison of ``query`` against itself.
     n_points :       int, optional
@@ -718,10 +718,10 @@ def cajal_gw(
     # Validate neuron types
     for nl, label in [(query_nl, "query"), (target_nl, "target")]:
         for n in nl:
-            if not isinstance(n, TreeNeuron):
+            if not isinstance(n, Skeleton):
                 raise TypeError(
-                    f"{label} neuron {n.id!r} is not a TreeNeuron. "
-                    "cajal_gw currently supports TreeNeurons only."
+                    f"{label} neuron {n.id!r} is not a Skeleton. "
+                    "cajal_gw currently supports Skeletons only."
                 )
 
     # Require unique IDs

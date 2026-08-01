@@ -125,7 +125,7 @@ def plot3d(
 
                         - a list/array of labels, one per each neuron
                         - a neuron property (str)
-                        - a column name in the node table of `TreeNeurons`
+                        - a column name in the node table of `Skeletons`
                         - a list/array of values for each node
 
                       Numerical values will be normalized. You can control
@@ -137,36 +137,36 @@ def plot3d(
                       Similar to `color_by` but will affect only the alpha
                       channel of the color. If `shade_by='strahler'` will
                       compute Strahler order if not already part of the node
-                      table (TreeNeurons only). Numerical values will be
+                      table (Skeletons only). Numerical values will be
                       normalized. You can control the normalization by passing
                       a `smin` and/or `smax` parameter. Does not work with
                       `k3d` backend.
 
     radius :          bool | "auto", default=False
 
-                      If "auto" will plot neurites of `TreeNeurons` with radius
+                      If "auto" will plot neurites of `Skeletons` with radius
                       if they have radii. If True, will try plotting neurites of
-                      `TreeNeurons` with radius regardless. The radius can be
+                      `Skeletons` with radius regardless. The radius can be
                       scaled by `linewidth`. Note that this will increase rendering
                       time.
 
     soma :            bool, default=True
 
-                      TreeNeurons only: Whether to plot soma if it exists. Size
+                      Skeletons only: Whether to plot soma if it exists. Size
                       of the soma is determined by the neuron's `.soma_radius`
                       property which defaults to the "radius" column for
-                      `TreeNeurons`.
+                      `Skeletons`.
 
     linewidth :       float, default=3 for plotly and 1 for all others
 
-                      TreeNeurons only. Note that with `radius=True` this is a
+                      Skeletons only. Note that with `radius=True` this is a
                       multiplier on the radius rather than a line width, and
                       there it defaults to 1 in every backend - so plotly's
                       default of 3 applies to lines only.
 
     linestyle :       str, default='-'
 
-                      TreeNeurons only. Follows the same rules as in matplotlib.
+                      Skeletons only. Follows the same rules as in matplotlib.
 
     scatter_kws :     dict, optional
 

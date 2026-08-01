@@ -340,7 +340,7 @@ def test_single_neuron_passes_through():
 
     res = navis.Pipeline(*STEPS)(n)
 
-    assert isinstance(res, navis.TreeNeuron)
+    assert isinstance(res, navis.Skeleton)
     assert n.n_nodes == nodes_before, 'the caller\'s neuron was modified'
 
 

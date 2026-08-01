@@ -22,7 +22,7 @@ def simplify_mesh_fqmr(x, F, inplace=False, **kwargs):
 
     Parameters
     ----------
-    x :         MeshNeuron | Volume | Trimesh
+    x :         Mesh | Volume | Trimesh
                 Mesh object to simplify.
     F :         int
                 Target face count (integer).

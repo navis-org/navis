@@ -51,7 +51,7 @@ def use_radius(neuron, settings) -> bool:
     `radius="auto"` it has to be made for each neuron individually.
 
     """
-    if not isinstance(neuron, core.TreeNeuron) or not settings.radius:
+    if not isinstance(neuron, core.Skeleton) or not settings.radius:
         return False
 
     if settings.radius == "auto":
@@ -73,7 +73,7 @@ def resolve_connectors(neuron, settings):
 
     Parameters
     ----------
-    neuron :    TreeNeuron | MeshNeuron | Dotprops
+    neuron :    Skeleton | Mesh | Dotprops
     settings :  BasePlottingSettings
 
     Returns
@@ -173,7 +173,7 @@ def resolve_somata(neuron, color, settings):
 
     Parameters
     ----------
-    neuron :    TreeNeuron
+    neuron :    Skeleton
     color :     color | np.ndarray
                 The neuron's color as it came out of the colormap. A 2d array
                 is taken to be one color per node and indexed accordingly;

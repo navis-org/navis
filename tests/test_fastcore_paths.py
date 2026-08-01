@@ -179,7 +179,7 @@ def test_dist_between_unreachable():
             "z": [0.0, 0.0, 0.0, 0.0],
         }
     )
-    x = navis.TreeNeuron(nodes)
+    x = navis.Skeleton(nodes)
     d = G.dist_between(x, [0, 0], [1, 3])
     assert np.isfinite(d[0])
     assert np.isinf(d[1])
@@ -196,7 +196,7 @@ def _two_fragments():
     a caller-supplied list of node IDs ambiguous (see its docstring).
     """
     def bar(ids, x0):
-        return navis.TreeNeuron(
+        return navis.Skeleton(
             pd.DataFrame(
                 {
                     "node_id": ids,
@@ -218,7 +218,7 @@ def test_stitch_skeletons_node_list():
 
     stitched = navis.stitch_skeletons(frags, method=allowed)
 
-    assert isinstance(stitched, navis.TreeNeuron)
+    assert isinstance(stitched, navis.Skeleton)
     assert stitched.n_nodes == 6
     assert len(stitched.root) == 1  # fragments joined up
 
@@ -313,11 +313,11 @@ def test_break_segments_order_is_node_table_order(monkeypatch):
     # seeds are 7 (branch, row 2), 20 (leaf, row 3) and 3 (leaf, row 4)
     expected = [[7, 50], [20, 90, 7], [3, 7]]
 
-    got = [list(s) for s in G._break_segments(navis.TreeNeuron(nodes.copy()))]
+    got = [list(s) for s in G._break_segments(navis.Skeleton(nodes.copy()))]
     assert got == expected
 
     monkeypatch.setattr(utils, "fastcore", None)
-    got = [list(s) for s in G._break_segments(navis.TreeNeuron(nodes.copy()))]
+    got = [list(s) for s in G._break_segments(navis.Skeleton(nodes.copy()))]
     assert got == expected
 
 
@@ -365,7 +365,7 @@ def test_classify_nodes_matches_fallback(n, categorical, monkeypatch):
 def test_classify_nodes_topologies(node_ids, parent_ids, expected, monkeypatch):
     """The fastcore and numpy paths must agree on the awkward topologies."""
     def build():
-        return navis.TreeNeuron(
+        return navis.Skeleton(
             pd.DataFrame(
                 {
                     "node_id": node_ids,
@@ -397,10 +397,10 @@ def test_classify_nodes_uint64(monkeypatch):
         }
     )
     expected = ["root", "branch", "end", "end"]
-    assert list(navis.graph.classify_nodes(navis.TreeNeuron(nodes)).nodes.type.astype(str)) == expected
+    assert list(navis.graph.classify_nodes(navis.Skeleton(nodes)).nodes.type.astype(str)) == expected
 
     monkeypatch.setattr(utils, "fastcore", None)
-    assert list(navis.graph.classify_nodes(navis.TreeNeuron(nodes)).nodes.type.astype(str)) == expected
+    assert list(navis.graph.classify_nodes(navis.Skeleton(nodes)).nodes.type.astype(str)) == expected
 
 
 # ------------------------------------------------------- geodesic_matrix (meshes)
@@ -479,11 +479,11 @@ def test_subtree_height_definition(monkeypatch):
 
     from navis.morpho.manipulation import _subtree_height
 
-    x = navis.TreeNeuron(nodes)
+    x = navis.Skeleton(nodes)
     assert list(_subtree_height(x, weight=None).loc[[0, 1, 2, 3, 4]]) == expected
 
     monkeypatch.setattr(utils, "fastcore", None)
-    x = navis.TreeNeuron(nodes)
+    x = navis.Skeleton(nodes)
     assert list(_subtree_height(x, weight=None).loc[[0, 1, 2, 3, 4]]) == expected
 
 
@@ -500,9 +500,9 @@ def test_subtree_height_fragmented(monkeypatch):
     )
     from navis.morpho.manipulation import _subtree_height
 
-    fast = _subtree_height(navis.TreeNeuron(nodes), weight="weight")
+    fast = _subtree_height(navis.Skeleton(nodes), weight="weight")
     monkeypatch.setattr(utils, "fastcore", None)
-    slow = _subtree_height(navis.TreeNeuron(nodes), weight="weight")
+    slow = _subtree_height(navis.Skeleton(nodes), weight="weight")
 
     assert np.allclose(fast.values, slow.values, rtol=1e-4)
     assert np.allclose(fast.loc[[0, 1, 2, 3]].values, [1.0, 0.0, 1.0, 0.0], rtol=1e-4)

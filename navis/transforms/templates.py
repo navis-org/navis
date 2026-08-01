@@ -1047,7 +1047,7 @@ def xform_brain(
     approach works reasonably well with base 10 increments (e.g. nm -> um) but
     may be off with odd changes in units (e.g. physical -> voxel space).
     Regardless of whether hard-coded or inferred, any change in units is used to
-    update the `.units` property and node/soma radii for TreeNeurons.
+    update the `.units` property and node/soma radii for Skeletons.
 
     Parameters
     ----------
@@ -1253,13 +1253,13 @@ def symmetrize_brain(
 
     if isinstance(x, core.BaseNeuron):
         x = x.copy()
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             x.nodes = symmetrize_brain(x.nodes, template=template, via=via)
         elif isinstance(x, core.Dotprops):
             x.points = symmetrize_brain(x.points, template=template, via=via)
             # Set tangent vectors and alpha to None so they will be regenerated
             x._vect = x._alpha = None
-        elif isinstance(x, core.MeshNeuron):
+        elif isinstance(x, core.Mesh):
             x.vertices = symmetrize_brain(x.vertices, template=template, via=via)
         else:
             raise TypeError(f"Don't know how to transform neuron of type '{type(x)}'")
@@ -1472,7 +1472,7 @@ def mirror_brain(
 
     if isinstance(x, core.BaseNeuron):
         x = x.copy()
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             x.nodes = mirror_brain(
                 x.nodes, template=template, mirror_axis=mirror_axis, warp=warp
             )
@@ -1503,7 +1503,7 @@ def mirror_brain(
                 # Set tangent vectors and alpha to None so they will be
                 # regenerated on demand
                 x._vect = x._alpha = None
-        elif isinstance(x, core.MeshNeuron):
+        elif isinstance(x, core.Mesh):
             x.vertices = mirror_brain(
                 x.vertices, template=template, mirror_axis=mirror_axis, warp=warp
             )
@@ -1655,7 +1655,7 @@ def render_template(
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | Dotprops | NeuronList
+    x :             Skeleton | Mesh | Dotprops | NeuronList
                     Neuron(s) to render. Uses each neuron's nodes, points or
                     (solid-voxelized) mesh, respectively. Multiple neurons are
                     accumulated into the same grid.
@@ -1667,11 +1667,11 @@ def render_template(
                     If not provided, will assume that the neuron(s) are already
                     in the `template` space.
     depth :         bool
-                    Only affects MeshNeurons: if True, weigh each mesh voxel by
+                    Only affects Meshes: if True, weigh each mesh voxel by
                     its distance to the surface (via
                     [`sparsecubes.measure.distance_transform`][]) instead of a
                     flat occupancy of 1. Thick regions (e.g. the soma) then
-                    contribute more than thin neurites. TreeNeurons and
+                    contribute more than thin neurites. Skeletons and
                     Dotprops are unaffected (still binned by point count).
     smooth :        int
                     If non-zero, will apply a Gaussian filter with `smooth`
@@ -1759,7 +1759,7 @@ def render_template(
 
     # Iterate over neurons and fill the image grid
     for neuron in core.NeuronList(x):
-        if isinstance(neuron, core.MeshNeuron):
+        if isinstance(neuron, core.Mesh):
             # Meshes are voxelized properly - walking the surface and filling
             # the interior via `sparsecubes` - rather than just binning their
             # vertices, which would miss any face larger than a voxel.
@@ -1789,8 +1789,8 @@ def render_template(
                 _accumulate(voxels - offset, weights)
             else:
                 _accumulate(voxels - offset)
-        elif isinstance(neuron, (core.TreeNeuron, core.Dotprops)):
-            if isinstance(neuron, core.TreeNeuron):
+        elif isinstance(neuron, (core.Skeleton, core.Dotprops)):
+            if isinstance(neuron, core.Skeleton):
                 # Resample first so that long edges don't leave gaps between
                 # nodes in the grid
                 neuron = sampling.resample_skeleton(

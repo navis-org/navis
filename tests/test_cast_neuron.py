@@ -82,7 +82,7 @@ def test_dotprops_integer_keeps_vectors(dotprops):
 
 def test_voxelneuron_grid():
     grid = (np.random.rand(20, 20, 20) > 0.8).astype(np.float64)
-    n = navis.VoxelNeuron(grid)
+    n = navis.Voxels(grid)
     assert n._base_data_type == "grid"
 
     conv = navis.cast_neuron(n, np.float32)

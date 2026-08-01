@@ -13,9 +13,9 @@ To cater for these different representations, neurons in {{ navis }} come in fou
 
 | Neuron type             | Description                                                           | Core data                           |
 |-------------------------|-----------------------------------------------------------------------|-------------------------------------|
-| [`navis.TreeNeuron`][]  | A hierarchical skeleton consisting<br> of nodes and edges.            | - `.nodes`: the SWC node table      |
-| [`navis.MeshNeuron`][]  | A mesh with faces and vertices.                                       | - `.vertices`: `(N, 3)` array of x/y/z vertex coordinates<br>- `.faces`: `(M, 3)` array of faces |
-| [`navis.VoxelNeuron`][] | An image represented by either a<br> 2d array of voxels or a 3d voxel grid. | - `.voxels`: `(N, 3)` array of voxels<br>- `.values`: `(N, )` array of values (i.e. intensity)<br>- `.grid`: `(N, M, K)` 3D voxelgrid |
+| [`navis.Skeleton`][]  | A hierarchical skeleton consisting<br> of nodes and edges.            | - `.nodes`: the SWC node table      |
+| [`navis.Mesh`][]  | A mesh with faces and vertices.                                       | - `.vertices`: `(N, 3)` array of x/y/z vertex coordinates<br>- `.faces`: `(M, 3)` array of faces |
+| [`navis.Voxels`][] | An image represented by either a<br> 2d array of voxels or a 3d voxel grid. | - `.voxels`: `(N, 3)` array of voxels<br>- `.values`: `(N, )` array of values (i.e. intensity)<br>- `.grid`: `(N, M, K)` 3D voxelgrid |
 | [`navis.Dotprops`][]    | A cloud of points, each with an<br> associated local vector.          | - `.points`: `(N, 3)` array of point coordinates<br>- `.vect`: `(N, 3)` array of normalized vectors |
 
 Note that functions in {{ navis }} may only work on a subset of neuron types:
@@ -28,16 +28,16 @@ different neuron types (see further [below](#converting-neuron-types))!
     To learn how to load your own neurons into {{ navis }} please see the tutorials on
     [Import/Export](index.md#import-export).
 
-## TreeNeurons
+## Skeletons
 
-[`TreeNeurons`][navis.TreeNeuron] represent a neuron as a tree-like "skeleton" - effectively a directed
+[`Skeletons`][navis.Skeleton] represent a neuron as a tree-like "skeleton" - effectively a directed
 acyclic graph, i.e. they consist of nodes and each node connects to at most one parent.
 This format is commonly used to describe a neuron's topology and often shared using
 [SWC](http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html) files.
 
 ![skeleton](../../_static/skeleton.png)
 
-A [`navis.TreeNeuron`][] is typically loaded from an SWC file via [`navis.read_swc`][]
+A [`navis.Skeleton`][] is typically loaded from an SWC file via [`navis.read_swc`][]
 but you can also construct one yourself from e.g. `pandas.DataFrame` or a `networkx.DiGraph`.
 See the [skeleton I/O](../0_io/tutorial_io_00_skeletons) tutorial for details.
 
@@ -58,19 +58,19 @@ sk = navis.example_neurons(n=1, kind="skeleton")
 sk
 
 # %%
-# [`navis.TreeNeuron`][] stores nodes and other data as attached `pandas.DataFrames`:
+# [`navis.Skeleton`][] stores nodes and other data as attached `pandas.DataFrames`:
 
 # %%
 sk.nodes.head()
 
 # %%
-# ## MeshNeurons
+# ## Meshes
 #
-# [`MeshNeurons`][navis.MeshNeuron] consist of vertices and faces, and are a typical output of e.g. image segmentation.
+# [`Meshes`][navis.Mesh] consist of vertices and faces, and are a typical output of e.g. image segmentation.
 #
 # ![mesh](../../_static/mesh.png)
 #
-# A [`navis.MeshNeuron`][] can be constructed from any object that has `.vertices` and `.faces` properties, a
+# A [`navis.Mesh`][] can be constructed from any object that has `.vertices` and `.faces` properties, a
 # dictionary of `vertices` and `faces` or a file that can be parsed by `trimesh.load`.
 # See the [mesh I/O](../0_io/tutorial_io_01_meshes) tutorial for details.
 #
@@ -81,7 +81,7 @@ m = navis.example_neurons(n=1, kind="mesh")
 m
 
 # %%
-# [`navis.MeshNeuron`][] stores vertices and faces as attached numpy arrays:
+# [`navis.Mesh`][] stores vertices and faces as attached numpy arrays:
 
 # %%
 m.vertices, m.faces
@@ -112,17 +112,17 @@ dp.points, dp.vect
 # %%
 # Check out the NBLAST tutorial for further details on dotprops!
 #
-# ## VoxelNeurons
+# ## Voxels
 #
-# [`VoxelNeurons`][navis.VoxelNeuron] represent neurons as either 3d image or x/y/z voxel coordinates
+# [`Voxels`][navis.Voxels] represent neurons as either 3d image or x/y/z voxel coordinates
 # typically obtained from e.g. light-level microscopy.
 #
 # ![voxels](../../_static/voxel.png)
 #
-# [`navis.VoxelNeuron`][] consist of either a dense 3d `(N, M, K)` array (a "grid") or a sparse 2d `(N, 3)`
+# [`navis.Voxels`][] consist of either a dense 3d `(N, M, K)` array (a "grid") or a sparse 2d `(N, 3)`
 # array of voxel coordinates (COO format). You will probably find yourself loading these
 # data from image files (e.g. `.nrrd` via [`navis.read_nrrd()`][navis.read_nrrd]). That said we can
-# also "voxelize" other neuron types to produce [`VoxelNeurons`][navis.VoxelNeuron]:
+# also "voxelize" other neuron types to produce [`Voxels`][navis.Voxels]:
 
 # Load an example mesh
 m = navis.example_neurons(n=1, kind="mesh")
@@ -198,7 +198,7 @@ n = navis.example_neurons(1)
 n.soma
 
 # %%
-# In case of this exemplary [`navis.TreeNeuron`][], the `.soma` points to an ID in the node table.
+# In case of this exemplary [`navis.Skeleton`][], the `.soma` points to an ID in the node table.
 # We can also get the position:
 
 # %%
@@ -206,7 +206,7 @@ n.soma_pos
 
 # %%
 # Other neuron types also support soma annotations but they may look slightly different. For a
-# [`navis.MeshNeuron`][], annotating a node position makes little sense. Instead, we track
+# [`navis.Mesh`][], annotating a node position makes little sense. Instead, we track
 # the x/y/z position directly:
 
 # %%
@@ -222,7 +222,7 @@ n.soma = 1
 n.soma
 
 # %%
-# Drop soma from MeshNeuron
+# Drop soma from Mesh
 m.soma_pos = None
 
 # %%
@@ -306,7 +306,7 @@ navis.config.add_units = False  # reset to default
 #     ```python
 #     neuron * [4, 4, 40]
 #     ```
-#     Note that for `TreeNeurons`, this is expected to be scaling factors for
+#     Note that for `Skeletons`, this is expected to be scaling factors for
 #     `(x, y, z, radius)`.
 #
 #
@@ -422,7 +422,7 @@ n1 == n2
 # To find out which attributes are compared, check out the neuron's `.EQ_ATTRIBUTES` property:
 
 # %%
-navis.TreeNeuron.EQ_ATTRIBUTES
+navis.Skeleton.EQ_ATTRIBUTES
 
 # %%
 # Edit this list to establish your own criteria for equality.
@@ -431,7 +431,7 @@ navis.TreeNeuron.EQ_ATTRIBUTES
 #
 # Under the hood {{ navis }} calculates certain properties when you load a neuron: e.g. it produces
 # a graph representation (`.graph` or `.igraph`) and a list of linear segments (`.segments`) for
-# [`TreeNeurons`][navis.TreeNeuron]. These data are attached to a neuron and are crucial for many
+# [`Skeletons`][navis.Skeleton]. These data are attached to a neuron and are crucial for many
 # functions. Therefore {{ navis }} makes sure that any changes to a neuron automatically propagate
 # into these derived properties. See this example:
 
@@ -469,7 +469,7 @@ print(f"Nodes in graph after: {len(n.graph.nodes)}")
 # %%
 # Here, the changes to the node table automatically triggered a regeneration of the graph. This works
 # because {{ navis }} checks hash values of neurons and in this instance it detected that the node
-# table - which represents the core data for [`TreeNeurons`][navis.TreeNeuron] - had changed.
+# table - which represents the core data for [`Skeletons`][navis.Skeleton] - had changed.
 # It would not work the other way around: changing the graph does not trigger changes in the node table.
 #
 # Again: as long as you are using built-in functions, you don't have to worry about this. If you do
@@ -494,10 +494,10 @@ print(f"Nodes in graph after: {len(n.graph.nodes)}")
 #
 # ```mermaid
 # graph LR
-#     M(MeshNeuron) -->|"skeletonize()"| T(TreeNeuron)
+#     M(Mesh) -->|"skeletonize()"| T(Skeleton)
 #     T -->|"mesh()"| M
 #     T -->|"make_dotprops()"| D(Dotprops)
-#     M -->|"voxelize()"| V(VoxelNeuron)
+#     M -->|"voxelize()"| V(Voxels)
 #     V -->|"mesh()"| M
 # ```
 #
@@ -564,7 +564,7 @@ navis.plot3d([vx, mm], fig_autosize=True)
 #
 # On top of that, each type carries its own core data:
 #
-# === "TreeNeuron"
+# === "Skeleton"
 #     - `nodes`: the SWC node table
 #     - `cable_length`: cable length(s)
 #     - `soma`: node ID(s) of the soma (if applicable)
@@ -572,12 +572,12 @@ navis.plot3d([vx, mm], fig_autosize=True)
 #     - `segments`: list of linear segments
 #     - `graph` / `igraph`: NetworkX / iGraph representation of the neuron
 #
-# === "MeshNeuron"
+# === "Mesh"
 #     - `vertices` / `faces`: the mesh vertices and faces
 #     - `volume`: volume of the mesh
 #     - `soma_pos`: x/y/z position of the soma
 #
-# === "VoxelNeuron"
+# === "Voxels"
 #     - `voxels`: `(N, 3)` sparse representation
 #     - `grid`: `(N, M, K)` dense voxel grid
 #

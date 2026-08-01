@@ -11,12 +11,12 @@ def neuron():
 
 
 def toy_neuron(coords, parents, **kwargs):
-    """Build a TreeNeuron from explicit coordinates and parents."""
+    """Build a Skeleton from explicit coordinates and parents."""
     nodes = pd.DataFrame(np.asarray(coords, dtype=np.float32), columns=["x", "y", "z"])
     nodes["node_id"] = np.arange(len(nodes))
     nodes["parent_id"] = np.asarray(parents, dtype=np.int64)
     nodes["radius"] = kwargs.pop("radius", 1.0)
-    return navis.TreeNeuron(nodes, **kwargs)
+    return navis.Skeleton(nodes, **kwargs)
 
 
 def line(n_nodes, step=1.0):

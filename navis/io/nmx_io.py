@@ -64,8 +64,8 @@ class NMLReader(base.BaseReader):
     @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.TreeNeuron":
-        """Read .nml buffer into a TreeNeuron.
+    ) -> "core.Skeleton":
+        """Read .nml buffer into a Skeleton.
 
         NML files are XML-encoded files containing data for a single neuron.
 
@@ -74,18 +74,18 @@ class NMLReader(base.BaseReader):
         f :         IO
                     Readable buffer (must be bytes).
         attrs :     dict | None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
-        core.TreeNeuron
+        core.Skeleton
         """
         return self.read_nml(f.read(), attrs=attrs)
 
     def read_nml(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.TreeNeuron":
-        """Read .nml buffer into a TreeNeuron.
+    ) -> "core.Skeleton":
+        """Read .nml buffer into a Skeleton.
 
         NML files are XML files containing a single neuron.
 
@@ -94,11 +94,11 @@ class NMLReader(base.BaseReader):
         f :         IO
                     Readable buffer.
         attrs :     dict | None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
-        core.TreeNeuron
+        core.Skeleton
         """
         if isinstance(f, bytes):
             f = f.decode()
@@ -128,7 +128,7 @@ class NMLReader(base.BaseReader):
         nodes["parent_id"] = nodes.parent_id.fillna(-1).astype(self._dtypes["node_id"])
         nodes.sort_values("node_id", inplace=True)
 
-        return core.TreeNeuron(
+        return core.Skeleton(
             nodes, **(self._make_attributes({"name": "NML", "origin": "nml"}, attrs))
         )
 
@@ -152,8 +152,8 @@ class NMXReader(NMLReader):
     @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.TreeNeuron":
-        """Read .nmx buffer into a TreeNeuron.
+    ) -> "core.Skeleton":
+        """Read .nmx buffer into a Skeleton.
 
         NMX files are zip files containing XML-encoded .nml files containing
         data for a single neuron.
@@ -163,11 +163,11 @@ class NMXReader(NMLReader):
         f :         IO
                     Readable buffer (must be bytes).
         attrs :     dict | None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
-        core.TreeNeuron
+        core.Skeleton
         """
         if not isinstance(f.read(0), bytes):
             raise ValueError(f'Expected bytes, got "{type(f.read(0))}"')
@@ -235,7 +235,7 @@ def read_nmx(
                         mesh will be skipped. Can result in empty output.
     **kwargs
                         Keyword arguments passed to the construction of
-                        `navis.TreeNeuron`. You can use this to e.g. set
+                        `navis.Skeleton`. You can use this to e.g. set
                         meta data.
 
     Returns
@@ -305,7 +305,7 @@ def read_nml(
                            the folder/archive
     **kwargs
                         Keyword arguments passed to the construction of
-                        `navis.TreeNeuron`. You can use this to e.g. set
+                        `navis.Skeleton`. You can use this to e.g. set
                         meta data.
 
     Returns

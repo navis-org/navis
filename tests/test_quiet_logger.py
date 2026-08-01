@@ -79,7 +79,7 @@ def test_failure_does_not_silence_navis(func, logger_state, monkeypatch):
     monkeypatch.setattr(navis.utils, 'fastcore', None)
     # Both spellings - two of the four go through the function, two the method
     monkeypatch.setattr(navis.sampling, 'downsample_neuron', boom)
-    monkeypatch.setattr(navis.TreeNeuron, 'downsample', boom)
+    monkeypatch.setattr(navis.Skeleton, 'downsample', boom)
 
     with pytest.raises(RuntimeError, match='boom'):
         func(n)
@@ -98,7 +98,7 @@ def test_thumbnail_failure_leaves_matplotlib_alone(logger_state, monkeypatch):
     config.pbar_hide = False
     plt.ion()
 
-    monkeypatch.setattr(navis.TreeNeuron, 'plot2d',
+    monkeypatch.setattr(navis.Skeleton, 'plot2d',
                         lambda *a, **kw: (_ for _ in ()).throw(RuntimeError('boom')))
 
     try:

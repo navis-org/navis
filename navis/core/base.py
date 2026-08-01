@@ -61,16 +61,16 @@ def _extension_bytes(column: pd.Series) -> int:
 
 
 def Neuron(
-    x: Union[nx.DiGraph, str, pd.DataFrame, "TreeNeuron", "MeshNeuron"], **metadata
+    x: Union[nx.DiGraph, str, pd.DataFrame, "Skeleton", "Mesh"], **metadata
 ):
     """Constructor for Neuron objects. Depending on the input, either a
-    `TreeNeuron` or a `MeshNeuron` is returned.
+    `Skeleton` or a `Mesh` is returned.
 
     Parameters
     ----------
     x
-                        Anything that can construct a [`navis.TreeNeuron`][]
-                        or [`navis.MeshNeuron`][].
+                        Anything that can construct a [`navis.Skeleton`][]
+                        or [`navis.Mesh`][].
     **metadata
                         Any additional data to attach to neuron.
 
@@ -84,10 +84,10 @@ def Neuron(
 
     """
     try:
-        return core.TreeNeuron(x, **metadata)
+        return core.Skeleton(x, **metadata)
     except utils.ConstructionError:
         try:
-            return core.MeshNeuron(x, **metadata)
+            return core.Mesh(x, **metadata)
         except utils.ConstructionError:
             pass
         except BaseException:
@@ -275,9 +275,9 @@ class BaseNeuron(UnitObject):
         common enough to be worth naming the way out.
         """
         converters = {
-            core.TreeNeuron: "navis.skeletonize(x)",
-            core.MeshNeuron: "navis.mesh(x)",
-            core.VoxelNeuron: "navis.voxelize(x, pitch=...)",
+            core.Skeleton: "navis.skeletonize(x)",
+            core.Mesh: "navis.mesh(x)",
+            core.Voxels: "navis.voxelize(x, pitch=...)",
             core.Dotprops: "navis.make_dotprops(x)",
         }
         others = [

@@ -179,7 +179,7 @@ def star():
             )
             parent = nid
             nid += 1
-    return navis.TreeNeuron(pd.DataFrame(rows), units="1 nm")
+    return navis.Skeleton(pd.DataFrame(rows), units="1 nm")
 
 
 @pytest.mark.parametrize("geodesic", [False, True], ids=["euclidean", "geodesic"])

@@ -33,3 +33,9 @@ from .utils import *
 # (`navis.ml.chunk_neuron`, ...) rather than lifting them to the top level.
 # Imported last so its dependencies (graph, sampling, core) are already loaded.
 from . import ml
+
+# `navis.TreeNeuron` & co: the pre-2.0 class names, served lazily so that using
+# one warns. This is the only namespace that warns - see `navis/_deprecated.py`.
+from ._deprecated import deprecated_getattr as _deprecated_getattr
+
+__getattr__ = _deprecated_getattr(__name__)

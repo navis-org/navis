@@ -40,7 +40,7 @@ try:
 except ModuleNotFoundError:
     xxhash = None
 
-__all__ = ['TreeNeuron']
+__all__ = ['Skeleton']
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -65,7 +65,7 @@ def requires_nodes(func):
     return wrapper
 
 
-class TreeNeuron(BaseNeuron):
+class Skeleton(BaseNeuron):
     """Neuron represented as hierarchical tree (i.e. a skeleton).
 
     Parameters
@@ -83,7 +83,7 @@ class TreeNeuron(BaseNeuron):
                      - `networkx.DiGraph` parsed by [`navis.nx2neuron`][]
                      - `skeletor.Skeleton`
                      - `sparsecubes.Skeleton`
-                     - `TreeNeuron` - in this case we will try to copy every
+                     - `Skeleton` - in this case we will try to copy every
                        attribute
                      - `None` will initialize an empty neuron
     units :         str | pint.Units | pint.Quantity
@@ -121,7 +121,7 @@ class TreeNeuron(BaseNeuron):
     #: table. Default = 'radius'.
     soma_radius: Union[float, int, str] = 'radius'
     # Set default function for soma finding. Default = [`navis.morpho.find_soma`][]
-    _soma: Union[Callable[['TreeNeuron'], Sequence[int]], int] = morpho.find_soma
+    _soma: Union[Callable[['Skeleton'], Sequence[int]], int] = morpho.find_soma
 
     tags: Optional[Dict[str, List[int]]] = None
 
@@ -145,7 +145,7 @@ class TreeNeuron(BaseNeuron):
                  x: Union[pd.DataFrame,
                           BufferedIOBase,
                           str,
-                          'TreeNeuron',
+                          'Skeleton',
                           nx.DiGraph],
                  units: Union[pint.Unit, str] = None,
                  **metadata
@@ -187,7 +187,7 @@ class TreeNeuron(BaseNeuron):
                 # `to_swc()` chokes on an empty skeleton, so short-circuit it
                 nodes = pd.DataFrame(columns=cols)
             self.nodes = nodes
-        elif isinstance(x, TreeNeuron):
+        elif isinstance(x, Skeleton):
             self.__dict__.update(x.copy().__dict__)
             # Try to copy every attribute
             for at in self.__dict__:
@@ -204,7 +204,7 @@ class TreeNeuron(BaseNeuron):
             # This is a essentially an empty neuron
             pass
         else:
-            raise utils.ConstructionError(f'Unable to construct TreeNeuron from "{type(x)}"')
+            raise utils.ConstructionError(f'Unable to construct Skeleton from "{type(x)}"')
 
         for k, v in metadata.items():
             try:
@@ -516,7 +516,7 @@ class TreeNeuron(BaseNeuron):
 
         See also
         --------
-        :attr:`TreeNeuron.cycles`
+        :attr:`Skeleton.cycles`
                     If your neuron is not a tree, this will help you identify
                     cycles.
 
@@ -585,7 +585,7 @@ class TreeNeuron(BaseNeuron):
             raise
 
     @property
-    def simple(self) -> 'TreeNeuron':
+    def simple(self) -> 'Skeleton':
         """Simplified representation consisting only of root, branch points and leafs."""
         if not hasattr(self, '_simple'):
             self._simple = self.copy()
@@ -602,7 +602,7 @@ class TreeNeuron(BaseNeuron):
         """Search for soma and return node ID(s).
 
         `None` if no soma. You can assign either a function that accepts a
-        TreeNeuron as input or a fix value. The default is [`navis.find_soma`][].
+        Skeleton as input or a fix value. The default is [`navis.find_soma`][].
 
         """
         if callable(self._soma):
@@ -699,7 +699,7 @@ class TreeNeuron(BaseNeuron):
     @property
     def type(self) -> str:
         """Neuron type."""
-        return 'navis.TreeNeuron'
+        return 'navis.Skeleton'
 
     @property
     @requires_nodes
@@ -860,7 +860,7 @@ class TreeNeuron(BaseNeuron):
             # Reclassify nodes
             graph.classify_nodes(self, inplace=True)
 
-    def copy(self, deepcopy: bool = False) -> 'TreeNeuron':
+    def copy(self, deepcopy: bool = False) -> 'Skeleton':
         """Return a copy of the neuron.
 
         Parameters
@@ -873,7 +873,7 @@ class TreeNeuron(BaseNeuron):
 
         Returns
         -------
-        TreeNeuron
+        Skeleton
 
         """
         no_copy = ['_lock']
@@ -994,7 +994,7 @@ class TreeNeuron(BaseNeuron):
 
     def reroot(self,
                new_root: Union[int, str],
-               inplace: bool = False) -> Optional['TreeNeuron']:
+               inplace: bool = False) -> Optional['Skeleton']:
         """Reroot neuron to given node ID or node tag.
 
         Parameters
@@ -1027,7 +1027,7 @@ class TreeNeuron(BaseNeuron):
 
     def prune_distal_to(self,
                         node: Union[str, int],
-                        inplace: bool = False) -> Optional['TreeNeuron']:
+                        inplace: bool = False) -> Optional['Skeleton']:
         """Cut off nodes distal to given nodes.
 
         Parameters
@@ -1064,7 +1064,7 @@ class TreeNeuron(BaseNeuron):
 
     def prune_proximal_to(self,
                           node: Union[str, int],
-                          inplace: bool = False) -> Optional['TreeNeuron']:
+                          inplace: bool = False) -> Optional['Skeleton']:
         """Remove nodes proximal to given node. Reroots neuron to cut node.
 
         Parameters
@@ -1104,7 +1104,7 @@ class TreeNeuron(BaseNeuron):
 
     def prune_by_strahler(self,
                           to_prune: Union[int, List[int], slice],
-                          inplace: bool = False) -> Optional['TreeNeuron']:
+                          inplace: bool = False) -> Optional['Skeleton']:
         """Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 
         Will reroot neuron to soma if possible.
@@ -1151,7 +1151,7 @@ class TreeNeuron(BaseNeuron):
                     size: float,
                     inplace: bool = False,
                     recursive: Union[int, bool, float] = False
-                    ) -> Optional['TreeNeuron']:
+                    ) -> Optional['Skeleton']:
         """Prune terminal twigs under a given size.
 
         Parameters
@@ -1187,7 +1187,7 @@ class TreeNeuron(BaseNeuron):
                        depth: Union[float, int],
                        source: Optional[int] = None,
                        inplace: bool = False
-                       ) -> Optional['TreeNeuron']:
+                       ) -> Optional['Skeleton']:
         """Prune all neurites past a given distance from a source.
 
         Parameters
@@ -1203,7 +1203,7 @@ class TreeNeuron(BaseNeuron):
 
         Returns
         -------
-        TreeNeuron/List
+        Skeleton/List
                         Pruned neuron(s).
 
         See Also
@@ -1226,7 +1226,7 @@ class TreeNeuron(BaseNeuron):
     def cell_body_fiber(self,
                         reroot_soma: bool = True,
                         inplace: bool = False,
-                        ) -> Optional['TreeNeuron']:
+                        ) -> Optional['Skeleton']:
         """Prune neuron to its cell body fiber.
 
         Parameters
@@ -1262,7 +1262,7 @@ class TreeNeuron(BaseNeuron):
                                  n: int = 1,
                                  reroot_soma: bool = False,
                                  inplace: bool = False,
-                                 ) -> Optional['TreeNeuron']:
+                                 ) -> Optional['Skeleton']:
         """Prune neuron down to the longest neurite.
 
         Parameters
@@ -1304,7 +1304,7 @@ class TreeNeuron(BaseNeuron):
                         mode: Union[Literal['IN'], Literal['OUT']] = 'IN',
                         prevent_fragments: bool = False,
                         inplace: bool = False
-                        ) -> Optional['TreeNeuron']:
+                        ) -> Optional['Skeleton']:
         """Prune neuron by intersection with given volume(s).
 
         Parameters
@@ -1370,21 +1370,21 @@ class TreeNeuron(BaseNeuron):
 
     def reload(self,
                inplace: bool = False,
-               ) -> Optional['TreeNeuron']:
+               ) -> Optional['Skeleton']:
         """Reload neuron. Must have filepath as `.origin` as attribute.
 
         Returns
         -------
-        TreeNeuron
+        Skeleton
                 If `inplace=False`.
 
         """
         if not hasattr(self, 'origin'):
-            raise AttributeError('To reload TreeNeuron must have `.origin` '
+            raise AttributeError('To reload Skeleton must have `.origin` '
                                  'attribute')
 
         if self.origin in ('DataFrame', 'string'):
-            raise ValueError('Unable to reload TreeNeuron: it appears to have '
+            raise ValueError('Unable to reload Skeleton: it appears to have '
                              'been created from string or DataFrame.')
 
         kwargs = {}
@@ -1456,3 +1456,8 @@ class TreeNeuron(BaseNeuron):
             id = self.connectors.connector_id.values[ix]
 
         return id, dist
+
+
+# Pre-2.0 name. Must be a plain alias: `pickle` resolves classes by their
+# defining module and has to find this one without a warning.
+TreeNeuron = Skeleton

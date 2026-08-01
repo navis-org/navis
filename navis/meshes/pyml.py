@@ -29,7 +29,7 @@ def simplify_mesh_pyml(x, F, method='quadric', inplace=False, **kwargs):
 
     Parameters
     ----------
-    x :         MeshNeuron | Volume | Trimesh
+    x :         Mesh | Volume | Trimesh
                 Mesh object to simplify.
     F :         float [0-1]
                 For method "quadric" this is the target number of faces as
@@ -66,8 +66,8 @@ def simplify_mesh_pyml(x, F, method='quadric', inplace=False, **kwargs):
                      name='method',
                      allowed_values=('quadric', 'cluster'))
 
-    if not isinstance(x, (core.MeshNeuron, tm.Trimesh, core.Volume)):
-        raise TypeError(f'Expected MeshNeuron, Volume or Trimesh, got "{type(x)}"')
+    if not isinstance(x, (core.Mesh, tm.Trimesh, core.Volume)):
+        raise TypeError(f'Expected Mesh, Volume or Trimesh, got "{type(x)}"')
 
     if (F <= 0) or (F >= 1):
         raise ValueError(f'`t` must be between 0-1, got {F}')
@@ -118,7 +118,7 @@ def simplify_mesh_pyml(x, F, method='quadric', inplace=False, **kwargs):
     x.vertices = new_verts
     x.faces = new_faces
 
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         x._clear_temp_attr()
 
     return x

@@ -297,7 +297,7 @@ class H5ReaderV1(BaseH5Reader):
         return parsed_an
 
     def read_treeneuron(self, id, strict=False, prefer_raw=False, **kwargs):
-        """Read given TreeNeuron from file."""
+        """Read given Skeleton from file."""
         # Get the group for this neuron
         neuron_grp = self.f[id]
 
@@ -315,7 +315,7 @@ class H5ReaderV1(BaseH5Reader):
                                             'x', 'y', 'z',
                                             'radius'] if strict else None)
 
-        n = core.TreeNeuron(nodes, id=id)
+        n = core.Skeleton(nodes, id=id)
 
         # Check if we have units
         self.parse_add_units(sk_grp, neuron_grp, n)
@@ -368,7 +368,7 @@ class H5ReaderV1(BaseH5Reader):
         return n
 
     def read_meshneuron(self, id, strict=False, prefer_raw=False, **kwargs):
-        """Read given MeshNeuron from file."""
+        """Read given Mesh from file."""
         # Get the group for this neuron
         neuron_grp = self.f[id]
 
@@ -385,7 +385,7 @@ class H5ReaderV1(BaseH5Reader):
         verts = me_grp['vertices'][:]
         faces = me_grp['faces'][:]
 
-        n = core.MeshNeuron({'vertices': verts, 'faces': faces},
+        n = core.Mesh({'vertices': verts, 'faces': faces},
                             id=id,
                             name=neuron_grp.attrs.get('neuron_name'))
 
@@ -525,10 +525,10 @@ class H5WriterV1(BaseH5Writer):
                                    annotations=annotations, **kwargs)
             return
 
-        if isinstance(neuron, core.TreeNeuron):
+        if isinstance(neuron, core.Skeleton):
             self.write_treeneuron(neuron, serialized=serialized, raw=raw,
                                   overwrite=overwrite, **kwargs)
-        elif isinstance(neuron, core.MeshNeuron):
+        elif isinstance(neuron, core.Mesh):
             self.write_meshneuron(neuron, serialized=serialized, raw=raw,
                                   overwrite=overwrite, **kwargs)
         elif isinstance(neuron, core.Dotprops):
@@ -578,8 +578,8 @@ class H5WriterV1(BaseH5Writer):
     def write_treeneuron(self, neuron,
                          serialized=True, raw=False,
                          overwrite=True, **kwargs):
-        """Write TreeNeuron to file."""
-        assert isinstance(neuron, core.TreeNeuron)
+        """Write Skeleton to file."""
+        assert isinstance(neuron, core.Skeleton)
 
         # Get the group for this neuron -> this also write BaseInfo
         neuron_grp = self.get_neuron_group(neuron)
@@ -655,8 +655,8 @@ class H5WriterV1(BaseH5Writer):
     def write_meshneuron(self, neuron,
                          serialized=True, raw=False,
                          overwrite=True, **kwargs):
-        """Write MeshNeuron to file."""
-        assert isinstance(neuron, core.MeshNeuron)
+        """Write Mesh to file."""
+        assert isinstance(neuron, core.Mesh)
 
         # Get the group for this neuron -> this also write BaseInfo
         neuron_grp = self.get_neuron_group(neuron)

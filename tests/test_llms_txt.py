@@ -61,9 +61,9 @@ def test_core_classes_are_indexed(gen):
     """
     targets = {t for s in gen.parse_api_index() for t in s.targets}
     for cls in (
-        "navis.TreeNeuron",
-        "navis.MeshNeuron",
-        "navis.VoxelNeuron",
+        "navis.Skeleton",
+        "navis.Mesh",
+        "navis.Voxels",
         "navis.Dotprops",
         "navis.NeuronList",
     ):
@@ -202,7 +202,7 @@ def test_type_compatibility_matrix_is_inlined(files):
     """
     index = files["llms.txt"]
     assert "Neuron types and functions" in index
-    assert "| TreeNeuron | MeshNeuron | VoxelNeuron | Dotprops |" in index
+    assert "| Skeleton | Mesh | Voxels | Dotprops |" in index
 
 
 def test_cli_writes_files(gen, tmp_path):

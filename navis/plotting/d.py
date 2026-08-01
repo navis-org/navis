@@ -53,7 +53,7 @@ def plot1d(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         Skeleton | NeuronList
                 Neuron(s) to plot.
     ax :        matplotlib.ax, optional
     color :     tuple | dict
@@ -63,7 +63,7 @@ def plot1d(x: 'core.NeuronObject',
                 not specified will pick colors from this palette.
     color_by :  str | array | list of arrays, default = None
                 Can be the name of a column in the node table of
-                `TreeNeurons` or an array of (numerical or categorical)
+                `Skeletons` or an array of (numerical or categorical)
                 values for each node. Numerical values will be normalized.
                 You can control the normalization by passing a `vmin`
                 and/or `vmax` parameter.
@@ -93,8 +93,8 @@ def plot1d(x: 'core.NeuronObject',
     """
     if isinstance(x, core.NeuronList):
         if x.is_mixed:
-            raise TypeError('NeuronList contains MeshNeuron(s). Unable to plot1d.')
-    elif isinstance(x, core.TreeNeuron):
+            raise TypeError('NeuronList contains Mesh(s). Unable to plot1d.')
+    elif isinstance(x, core.Skeleton):
         x = core.NeuronList(x)
     else:
         raise TypeError(f'Unable plot1d data of type "{type(x)}"')

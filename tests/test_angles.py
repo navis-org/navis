@@ -3,7 +3,7 @@
 Correctness is pinned against a small hand-built neuron whose geometry has
 angles we can work out by hand (90-degree bifurcations, a straight path, a
 90-degree bend, 45-degree root angles). The example (insect) neurons are only
-used for smoke-testing shapes, ranges and the NeuronList/MeshNeuron plumbing -
+used for smoke-testing shapes, ranges and the NeuronList/Mesh plumbing -
 angle *values* on those are not biologically meaningful.
 """
 
@@ -40,7 +40,7 @@ def toy():
             "z": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         }
     )
-    n = navis.TreeNeuron(nodes)
+    n = navis.Skeleton(nodes)
     n.soma = 1
     return n
 
@@ -111,7 +111,7 @@ def test_example_neuron_ranges(func, value_col):
 
 
 def test_meshneuron_skeletonized():
-    """MeshNeuron input should be skeletonized transparently."""
+    """Mesh input should be skeletonized transparently."""
     m = navis.example_neurons(1, kind="mesh")
     res = navis.branch_angles(m)
     assert isinstance(res, pd.DataFrame)
@@ -176,7 +176,7 @@ def test_multi_root(toy):
         }
     )
     combined = pd.concat([toy.nodes[["node_id", "parent_id", "x", "y", "z"]], frag])
-    n = navis.TreeNeuron(combined)
+    n = navis.Skeleton(combined)
     assert len(n.root) == 2
 
     # soma_exit_angles should report a pair for each root's stems

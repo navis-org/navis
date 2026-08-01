@@ -216,7 +216,7 @@ elastix_invertible = False
 
 # Maximum size (in bytes) of a dense voxel grid that navis will allocate.
 # Voxel grids are allocated from a *shape*, not from the number of filled
-# voxels: `VoxelNeuron.shape` is derived from the voxel coordinates, so a
+# voxels: `Voxels.shape` is derived from the voxel coordinates, so a
 # handful of far-apart voxels can imply a grid of terabytes. On systems that
 # overcommit, numpy hands out such an array without complaint and the process
 # is then OOM-killed (SIGKILL, no traceback) once the pages are touched - hence

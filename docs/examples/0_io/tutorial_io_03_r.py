@@ -12,10 +12,10 @@ installation, no `rpy2` and no running R session required. The serialisation is 
 
 | navis | natverse |
 |-------|----------|
-| [`TreeNeuron`][navis.TreeNeuron] | `nat::neuron` |
+| [`Skeleton`][navis.Skeleton] | `nat::neuron` |
 | [`Dotprops`][navis.Dotprops] | `nat::dotprops` |
-| [`MeshNeuron`][navis.MeshNeuron] / [`Volume`][navis.Volume] | `rgl::mesh3d` |
-| [`VoxelNeuron`][navis.VoxelNeuron] | `nat::im3d` |
+| [`Mesh`][navis.Mesh] / [`Volume`][navis.Volume] | `rgl::mesh3d` |
+| [`Voxels`][navis.Voxels] | `nat::im3d` |
 | [`NeuronList`][navis.NeuronList] | `nat::neuronlist` |
 """
 

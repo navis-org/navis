@@ -20,7 +20,7 @@ import pandas as pd
 from typing import Union, Optional
 from typing_extensions import Literal
 
-from ..core import Volume, NeuronList, TreeNeuron, MeshNeuron
+from ..core import Volume, NeuronList, Skeleton, Mesh
 from ..io import read_swc
 from ..graph import nx2neuron
 
@@ -40,7 +40,7 @@ vols = sorted([f for f in os.listdir(vols_path) if f.endswith(".obj")])
 obj = sorted([f for f in os.listdir(obj_path) if f.endswith(".obj")])
 syn = sorted([f for f in os.listdir(syn_path) if f.endswith(".csv")])
 
-NeuronObject = Union[TreeNeuron, MeshNeuron, NeuronList]
+NeuronObject = Union[Skeleton, Mesh, NeuronList]
 
 # Soma positions for the example neurons (for the meshes)
 SOMA_POS = {
@@ -83,9 +83,9 @@ def example_neurons(
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
                 If `n=1` and `kind='skeleton'`.
-    MeshNeuron
+    Mesh
                 If `n=1` and `kind='mesh'`.
     NeuronList
                 List of the above neuron types if `n>1`.
@@ -148,7 +148,7 @@ def example_neurons(
     if kind in ["mesh", "mix"]:
         files = [os.path.join(obj_path, f) for f in obj[:n_mesh]]
         nl += [
-            MeshNeuron(fp, units="8 nm", name=f.split(".")[0], id=int(f.split(".")[0]))
+            Mesh(fp, units="8 nm", name=f.split(".")[0], id=int(f.split(".")[0]))
             for f, fp in zip(obj, files)
         ]
         for n in nl:
@@ -158,7 +158,7 @@ def example_neurons(
         for n in nl:
             n.connectors = pd.read_csv(os.path.join(syn_path, f"{n.id}.csv"))
 
-            if isinstance(n, MeshNeuron):
+            if isinstance(n, Mesh):
                 n._connectors.drop("node_id", axis=1, inplace=True)
 
     with open(os.path.join(fp, "meta.json"), "r") as f:

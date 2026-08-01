@@ -111,7 +111,7 @@ nl = navis.example_neurons()
 
 # %%
 # NBLAST works on dotprops - these consist of points and tangent vectors describing the shape of a neuron and are represented by the [`navis.Dotprops`][] class
-# in {{ navis }}. You can generate those dotprops from skeletons (i.e. [`TreeNeurons`][navis.TreeNeuron]), meshes (i.e. [`MeshNeurons`][navis.MeshNeuron])
+# in {{ navis }}. You can generate those dotprops from skeletons (i.e. [`Skeletons`][navis.Skeleton]), meshes (i.e. [`Meshes`][navis.Mesh])
 # (see [`navis.make_dotprops`][] for details) or straight from image data (see [`navis.read_nrrd`][] and [`navis.read_tiff`][]) - e.g. confocal stacks.
 
 # Convert neurons into microns (they are 8nm)

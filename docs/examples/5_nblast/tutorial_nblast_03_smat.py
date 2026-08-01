@@ -71,7 +71,7 @@ RNG = np.random.default_rng(2021)
 
 
 def augment_neuron(
-    nrn: navis.TreeNeuron, scale_sigma=0.1, translation_sigma=50, jitter_sigma=10
+    nrn: navis.Skeleton, scale_sigma=0.1, translation_sigma=50, jitter_sigma=10
 ):
     """Mutate a neuron by translating, scaling and jittering its nodes."""
     nrn = nrn.copy(deepcopy=True)

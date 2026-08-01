@@ -104,7 +104,7 @@ def test_connected_subgraph_matches_old(neuron):
 
 
 def test_connected_subgraph_treeneuron_input(neuron):
-    """Passing the TreeNeuron directly must match passing its graph."""
+    """Passing the Skeleton directly must match passing its graph."""
     n = neuron
     rng = np.random.default_rng(1)
     ids = n.nodes.node_id.values

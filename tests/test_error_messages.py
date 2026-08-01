@@ -116,7 +116,7 @@ def test_cable_length_names_the_type_that_has_it(request, kind):
 
     msg = str(exc.value)
     assert type(neuron).__name__ in msg
-    assert "TreeNeuron" in msg, "should say which type does have it"
+    assert "Skeleton" in msg, "should say which type does have it"
     assert "navis.skeletonize(x)" in msg, "should give the conversion"
 
 

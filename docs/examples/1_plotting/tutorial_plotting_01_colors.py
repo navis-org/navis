@@ -147,7 +147,7 @@ plt.tight_layout()
 # !!! note
 #     You can use the `vmin` and `vmax` parameters to control the normalization of the color scale.
 #
-# All of this also works with [`MeshNeurons`][navis.MeshNeuron]. Here, we have to provide a label for each vertex in the mesh:
+# All of this also works with [`Meshes`][navis.Mesh]. Here, we have to provide a label for each vertex in the mesh:
 
 m = navis.example_neurons(1, kind="mesh")
 navis.strahler_index(m)

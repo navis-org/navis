@@ -1,4 +1,4 @@
-"""Tests for `MeshNeuron.extra_edges` - edges that are not part of any face.
+"""Tests for `Mesh.extra_edges` - edges that are not part of any face.
 
 These express connectivity that the mesh surface itself does not have (e.g.
 bridges between disconnected fragments). Two things need testing: that the
@@ -118,7 +118,7 @@ def test_pickle_roundtrip(bridged):
 def test_constructor_inherits_from_trimesh(mesh):
     m = TrimeshPlus(mesh.vertices, mesh.faces, process=False)
     m.add_extra_edges([[0, 100]])
-    assert navis.MeshNeuron(m, process=False).extra_edges.tolist() == [[0, 100]]
+    assert navis.Mesh(m, process=False).extra_edges.tolist() == [[0, 100]]
 
 
 @pytest.mark.parametrize("op", ["mul", "div", "add", "sub"])

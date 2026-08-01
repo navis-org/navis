@@ -70,7 +70,7 @@ class NrrdReader(base.ImageReader):
     @base.handle_errors
     def read_buffer(
         self, f, attrs: Optional[Dict[str, Any]] = None
-    ) -> Union[np.ndarray, "core.Dotprops", "core.VoxelNeuron"]:
+    ) -> Union[np.ndarray, "core.Dotprops", "core.Voxels"]:
         """Read buffer into (image, header) or a neuron.
 
         Parameters
@@ -82,7 +82,7 @@ class NrrdReader(base.ImageReader):
 
         Returns
         -------
-        core.Dotprops | core.VoxelNeuron | np.ndarray
+        core.Dotprops | core.Voxels | np.ndarray
 
         """
         if isinstance(f, HTTPResponse):
@@ -122,11 +122,11 @@ def write_nrrd(
     compression_level: int = 3,
     attrs: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Write VoxelNeurons or Dotprops to NRRD file(s).
+    """Write Voxels or Dotprops to NRRD file(s).
 
     Parameters
     ----------
-    x :                 VoxelNeuron | Dotprops | NeuronList
+    x :                 Voxels | Dotprops | NeuronList
                         If multiple neurons, will generate a NRRD file
                         for each neuron (see also `filepath`).
     filepath :          str | pathlib.Path | list thereof
@@ -187,7 +187,7 @@ def write_nrrd(
     See Also
     --------
     [`navis.read_nrrd`][]
-                        Import VoxelNeuron from NRRD files.
+                        Import Voxels from NRRD files.
 
     """
     compression_level = int(compression_level)
@@ -203,14 +203,14 @@ def write_nrrd(
 
 
 def _write_nrrd(
-    x: Union["core.VoxelNeuron", "core.Dotprops"],
+    x: Union["core.Voxels", "core.Dotprops"],
     filepath: Optional[str] = None,
     compression_level: int = 1,
     **attrs,
 ) -> None:
     """Write single neuron to NRRD file."""
-    if not isinstance(x, (core.VoxelNeuron, core.Dotprops)):
-        raise TypeError(f'Expected VoxelNeuron or Dotprops, got "{type(x)}"')
+    if not isinstance(x, (core.Voxels, core.Dotprops)):
+        raise TypeError(f'Expected Voxels or Dotprops, got "{type(x)}"')
 
     # Copy so we don't mutate the neuron's own stored header
     header = dict(getattr(x, "nrrd_header", {}))
@@ -219,7 +219,7 @@ def _write_nrrd(
     header["space units"] = [str(x.units_xyz.units)] * 3
     header.update(attrs or {})
 
-    if isinstance(x, core.VoxelNeuron):
+    if isinstance(x, core.Voxels):
         data = x.grid
         if data.dtype == bool:
             data = data.astype("uint8")
@@ -329,9 +329,9 @@ def read_nrrd(
 
     Returns
     -------
-    navis.VoxelNeuron
+    navis.Voxels
                         If `output="voxels"` (default): requires NRRD data to
-                        be 3-dimensional voxels. VoxelNeuron will have NRRD file
+                        be 3-dimensional voxels. Voxels will have NRRD file
                         header as `.nrrd_header` attribute.
     navis.Dotprops
                         If `output="dotprops"`: requires NRRD data to be
@@ -347,7 +347,7 @@ def read_nrrd(
                         attribute.
     navis.NeuronList
                         If import of multiple NRRD will return NeuronList of
-                        Dotprops/VoxelNeurons.
+                        Dotprops/Voxels.
     (image, header)     (np.ndarray, OrderedDict)
                         If `output='raw'` return raw data contained in NRRD
                         file.

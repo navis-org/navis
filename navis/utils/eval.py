@@ -159,7 +159,7 @@ def eval_id(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
 
     Parameters
     ----------
-    x :                str | uuid.UUID | Tree/MeshNeuron | NeuronList | DataFrame
+    x :                str | uuid.UUID | Skeleton/Mesh | NeuronList | DataFrame
                        For Neuron/List or pandas.DataFrames/Series will
                        look for `id` attribute/column.
     warn_duplicates :  bool, optional
@@ -214,7 +214,7 @@ def eval_id(x: Union[uuid.UUID, str, 'core.NeuronObject', pd.DataFrame],
 
 def eval_neurons(x: Any,
                  warn_duplicates: bool = True,
-                 raise_other: bool = True) -> Optional[List['core.TreeNeuron']]:
+                 raise_other: bool = True) -> Optional[List['core.Skeleton']]:
     """Extract neurons.
 
     Parameters
@@ -273,11 +273,11 @@ def eval_node_ids(x: Union[int, str,
 
     Parameters
     ----------
-    x :             int | str | TreeNeuron | NeuronList | DataFrame
+    x :             int | str | Skeleton | NeuronList | DataFrame
                     Your options are either::
                     1. int or list of ints will be assumed to be node IDs
                     2. str or list of str will be checked if convertible to int
-                    3. For TreeNeuron/List or pandas.DataFrames will try
+                    3. For Skeleton/List or pandas.DataFrames will try
                        to extract node IDs
 
     Returns
@@ -305,7 +305,7 @@ def eval_node_ids(x: Union[int, str,
         # Preserving the order after making a set is super costly
         # return sorted(set(ids), key=ids.index)
         return list(set(ids))
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.Skeleton):
         return x.nodes.node_id.astype(int).tolist()
     elif isinstance(x, core.NeuronList):
         to_return: List[int] = []

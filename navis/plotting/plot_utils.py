@@ -33,13 +33,13 @@ logger = config.get_logger(__name__)
 
 
 def tn_pairs_to_coords(
-    x: core.TreeNeuron, modifier: Optional[Tuple[float, float, float]] = (1, 1, 1)
+    x: core.Skeleton, modifier: Optional[Tuple[float, float, float]] = (1, 1, 1)
 ) -> np.ndarray:
     """Return pairs of child->parent node coordinates.
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
                 Must contain the nodes.
     modifier :  ints, optional
                 Use to modify/invert x/y/z axes.
@@ -69,7 +69,7 @@ def tn_pairs_to_coords(
 
 
 def segments_to_coords(
-    x: core.TreeNeuron,
+    x: core.Skeleton,
     modifier: Optional[Tuple[float, float, float]] = (1, 1, 1),
     node_colors: Optional[np.ndarray] = None,
 ) -> List[np.ndarray]:
@@ -79,7 +79,7 @@ def segments_to_coords(
 
     Parameters
     ----------
-    x :             TreeNeuron
+    x :             Skeleton
                     Must contain the nodes
     node_colors :   numpy.ndarray, optional
                     A color for each node in `x.nodes`. If provided, will

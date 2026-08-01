@@ -55,7 +55,7 @@ def points2skeleton(x: Union['core.Dotprops', np.ndarray],
 
     Returns
     -------
-    skeleton :  navis.TreeNeuron
+    skeleton :  navis.Skeleton
 
     Examples
     --------
@@ -141,7 +141,7 @@ def points2skeleton(x: Union['core.Dotprops', np.ndarray],
 
 
 @utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
-def mesh2skeleton(x: 'core.MeshNeuron',
+def mesh2skeleton(x: 'core.Mesh',
                   method: str = 'wavefront',
                   fix_mesh: bool = False,
                   shave: bool = True,
@@ -157,7 +157,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
 
     Parameters
     ----------
-    x :         MeshNeuron | trimesh.Trimesh
+    x :         Mesh | trimesh.Trimesh
                 Mesh(es) to skeletonize. Note that the quality of the results
                 very much depends on the mesh, so it might be worth doing some
                 pre-processing (see below).
@@ -198,7 +198,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
 
     Returns
     -------
-    skeleton :  navis.TreeNeuron
+    skeleton :  navis.Skeleton
                 Has a `.vertex_map` attribute that maps each vertex in the
                 input mesh to a skeleton node ID.
 
@@ -220,7 +220,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
     array([938, 990, 990, ...,  39, 234, 234])
 
     """
-    utils.eval_param(x, name='x', allowed_types=(core.MeshNeuron, tm.Trimesh))
+    utils.eval_param(x, name='x', allowed_types=(core.Mesh, tm.Trimesh))
     utils.eval_param(method, name='method', allowed_values=('wavefront', 'teasar'))
 
     if method == 'teasar' and inv_dist is None:
@@ -228,7 +228,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
                          '"teasar". A good starting value is around 2-5 microns.')
 
     props = {'soma': None}
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         props.update({'id': x.id, 'name': x.name, 'units': x.units})
         if x.has_soma_pos:
             props['soma_pos'] = x.soma_pos
@@ -239,7 +239,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
         mesh = x.trimesh
     else:
         mesh = x
-        x = core.MeshNeuron(x)
+        x = core.Mesh(x)
 
     if fix_mesh:
         mesh = sk.pre.fix_mesh(mesh, remove_disconnected=False)
@@ -256,7 +256,7 @@ def mesh2skeleton(x: 'core.MeshNeuron',
 
     props['vertex_map'] = skeleton.mesh_map
 
-    s = core.TreeNeuron(skeleton.swc, **props)
+    s = core.Skeleton(skeleton.swc, **props)
 
     if s.has_soma:
         s.reroot(s.soma, inplace=True)
@@ -347,11 +347,11 @@ def mesh2skeleton(x: 'core.MeshNeuron',
 
 
 @utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
-def voxels2skeleton(vox: Union['core.VoxelNeuron', np.ndarray],
+def voxels2skeleton(vox: Union['core.Voxels', np.ndarray],
                     method: str = 'wavefront',
                     spacing: Union[str, np.ndarray] = 'auto',
                     heal: bool = False,
-                    **kwargs) -> 'core.TreeNeuron':
+                    **kwargs) -> 'core.Skeleton':
     """Turn voxels into a skeleton.
 
     Uses [`sparsecubes`][], which works directly off the sparse voxels instead
@@ -359,8 +359,8 @@ def voxels2skeleton(vox: Union['core.VoxelNeuron', np.ndarray],
 
     Parameters
     ----------
-    vox :           VoxelNeuron | (N, 3) np.array
-                    Object to skeletonize. Can be a VoxelNeuron or an (N, 3)
+    vox :           Voxels | (N, 3) np.array
+                    Object to skeletonize. Can be a Voxels neuron or an (N, 3)
                     array of x, y, z voxel coordinates.
     method :        "wavefront" | "teasar" | "thin"
                     Which algorithm to use:
@@ -378,7 +378,7 @@ def voxels2skeleton(vox: Union['core.VoxelNeuron', np.ndarray],
                     Note this mirrors [`navis.conversion.mesh2skeleton`][],
                     which also defaults to "wavefront".
     spacing :       "auto" | (3, ) array
-                    Voxel size. If "auto" and input is a `VoxelNeuron` we use
+                    Voxel size. If "auto" and input is a `Voxels` we use
                     the neuron's `.units`, else spacing will be `(1, 1, 1)`.
     heal :          bool
                     Whether to heal the resulting skeleton if it has multiple
@@ -391,7 +391,7 @@ def voxels2skeleton(vox: Union['core.VoxelNeuron', np.ndarray],
 
     Returns
     -------
-    skeleton :      navis.TreeNeuron
+    skeleton :      navis.Skeleton
                     Note that data tables (e.g. `connectors`) are not carried
                     over from the input neuron.
 
@@ -410,17 +410,17 @@ def voxels2skeleton(vox: Union['core.VoxelNeuron', np.ndarray],
     True
 
     """
-    utils.eval_param(vox, 'vox', allowed_types=(core.VoxelNeuron, np.ndarray))
+    utils.eval_param(vox, 'vox', allowed_types=(core.Voxels, np.ndarray))
     utils.eval_param(method, 'method',
                      allowed_values=('wavefront', 'teasar', 'thin'))
 
     if isinstance(spacing, str) and spacing == 'auto':
-        if not isinstance(vox, core.VoxelNeuron):
+        if not isinstance(vox, core.Voxels):
             spacing = np.array([1, 1, 1])
         else:
             spacing = vox.units_xyz.magnitude
 
-    voxels = vox.voxels if isinstance(vox, core.VoxelNeuron) else vox
+    voxels = vox.voxels if isinstance(vox, core.Voxels) else vox
 
     if voxels.ndim != 2 or voxels.shape[1] != 3:
         raise ValueError(f'Voxels must be shape (N, 3), got {voxels.shape}')
@@ -446,14 +446,14 @@ def voxels2skeleton(vox: Union['core.VoxelNeuron', np.ndarray],
     swc['label'] = swc.label.astype(int)
 
     props = {}
-    if isinstance(vox, core.VoxelNeuron):
+    if isinstance(vox, core.Voxels):
         # Skeleton coordinates are in the voxel grid's own frame - shift them
         # into the same space as the neuron's bounding box and connectors
         swc[['x', 'y', 'z']] += vox.offset
         # `spacing` has already been applied, so one unit is now one `units`
         props = {'units': f'1 {vox.units.units}', 'id': vox.id, 'name': vox.name}
 
-    s = core.TreeNeuron(swc, **props)
+    s = core.Skeleton(swc, **props)
 
     if heal:
         _ = morpho.heal_skeleton(s, inplace=True, method='ALL')
@@ -468,7 +468,7 @@ def _make_voxels(x: 'core.BaseNeuron',
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops
+    x :         Skeleton | Mesh | Dotprops
                 Neuron(s) to voxelize. Uses the neurons' nodes, vertices and
                 points, respectively.
     pitch :     float | iterable thereof
@@ -502,14 +502,14 @@ def _make_voxels(x: 'core.BaseNeuron',
     elif len(pitch) != 3:
         raise ValueError('`pitch` must be single number or a list of three')
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         pts = x.nodes[['x', 'y', 'z']].values
     elif isinstance(x, core.Dotprops):
         pts = x.points
-    elif isinstance(x, (core.MeshNeuron, tm.Trimesh)):
+    elif isinstance(x, (core.Mesh, tm.Trimesh)):
         pts = np.array(x.vertices)
     else:
-        raise TypeError(f'Expected TreeNeuron, Dotprops or MeshNeuron, got '
+        raise TypeError(f'Expected Skeleton, Dotprops or Mesh, got '
                         f'"{type(x)}"')
 
     # Convert points to voxel indices
@@ -535,15 +535,15 @@ def neuron2voxels(x: 'core.BaseNeuron',
                   fill: bool = True,
                   fill_cavities: bool = False,
                   depth: bool = False,
-                  smooth: int = 0) -> 'core.VoxelNeuron':
+                  smooth: int = 0) -> 'core.Voxels':
     """Turn neuron into voxels.
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | Dotprops
-                    Neuron(s) to voxelize. TreeNeurons and Dotprops are
+    x :             Skeleton | Mesh | Dotprops
+                    Neuron(s) to voxelize. Skeletons and Dotprops are
                     voxelized by binning their nodes and points, respectively.
-                    MeshNeurons are voxelized properly via
+                    Meshes are voxelized properly via
                     [`sparsecubes.voxelize`][]: their surface is walked and the
                     interior filled, which - unlike binning the vertices -
                     does not miss faces larger than a voxel. Note that
@@ -565,19 +565,19 @@ def neuron2voxels(x: 'core.BaseNeuron',
                     If True, will also return a grid with alpha values as
                     `.alpha` property.
     fill :          bool
-                    Only for MeshNeurons voxelized via `sparsecubes` (i.e. when
+                    Only for Meshes voxelized via `sparsecubes` (i.e. when
                     `counts`, `vectors` and `alphas` are all False): if True
                     (default), fill the mesh interior; if False, keep only the
                     surface shell. The shell is a robust fallback for meshes
                     where the interior fill misbehaves (e.g. badly
                     non-watertight meshes).
     fill_cavities : bool
-                    Only for MeshNeurons voxelized via `sparsecubes`: if True,
+                    Only for Meshes voxelized via `sparsecubes`: if True,
                     fill enclosed cavities via
                     [`sparsecubes.binary.fill_cavities`][]. Useful to patch
                     voids left by a non-watertight surface.
     depth :         bool
-                    Only for MeshNeurons voxelized via `sparsecubes`: if True,
+                    Only for Meshes voxelized via `sparsecubes`: if True,
                     weigh each voxel by its distance to the surface (via
                     [`sparsecubes.measure.distance_transform`][]) instead of a
                     plain True/False occupancy, producing a float grid in which
@@ -590,7 +590,7 @@ def neuron2voxels(x: 'core.BaseNeuron',
 
     Returns
     -------
-    VoxelNeuron
+    Voxels
                     Has the voxel grid as `.grid` and (optionally) `.vectors`
                     and `.alphas` properties. `.grid` data type depends
                     on settings:
@@ -626,11 +626,11 @@ def neuron2voxels(x: 'core.BaseNeuron',
     # surface and filling the interior - instead of just binning their vertices,
     # which misses any face larger than a voxel. `counts`, `vectors` and
     # `alphas` are per-point quantities though, so those still need the points.
-    is_mesh = isinstance(x, (core.MeshNeuron, tm.Trimesh))
+    is_mesh = isinstance(x, (core.Mesh, tm.Trimesh))
     mesh_voxelize = is_mesh and not counts and not vectors and not alphas
 
     if depth and not is_mesh:
-        raise ValueError("`depth=True` is only available for MeshNeurons.")
+        raise ValueError("`depth=True` is only available for Meshes.")
     if depth and (counts or vectors or alphas):
         raise ValueError(
             "`depth=True` is mutually exclusive with `counts`, `vectors` and "
@@ -673,7 +673,7 @@ def neuron2voxels(x: 'core.BaseNeuron',
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             vxl = sparsecubes.voxelize(
-                x.trimesh if isinstance(x, core.MeshNeuron) else x,
+                x.trimesh if isinstance(x, core.Mesh) else x,
                 spacing=pitch,
                 solid=fill,
             )
@@ -743,17 +743,17 @@ def neuron2voxels(x: 'core.BaseNeuron',
     units = [f'{p * u} {x.units.units}' for p, u in zip(utils.make_iterable(pitch),
                                                         x.units_xyz.magnitude)]
     offset = offset * pitch * x.units_xyz.magnitude
-    n = core.VoxelNeuron(grid, id=x.id, name=x.name, units=units, offset=offset)
+    n = core.Voxels(grid, id=x.id, name=x.name, units=units, offset=offset)
 
     # If no vectors required, we can just return now
     if not vectors and not alphas:
         return n
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         pts = x.nodes[['x', 'y', 'z']].values
     elif isinstance(x, core.Dotprops):
         pts = x.points
-    elif isinstance(x, core.MeshNeuron):
+    elif isinstance(x, core.Mesh):
         pts = np.array(x.vertices)
 
     # Generate an empty vector field
@@ -806,20 +806,20 @@ def neuron2voxels(x: 'core.BaseNeuron',
 
 
 @utils.map_neuronlist(desc='Converting', allow_parallel=True)
-def tree2meshneuron(x: 'core.TreeNeuron',
+def tree2meshneuron(x: 'core.Skeleton',
                     tube_points: int = 8,
                     radius_scale_factor: float = 1,
                     use_normals: bool = True,
                     warn_missing_radii: bool = True
-                    ) -> 'core.MeshNeuron':
-    """Convert TreeNeuron to MeshNeuron.
+                    ) -> 'core.Mesh':
+    """Convert Skeleton to Mesh.
 
     Uses the `radius` to convert skeleton to 3D tube mesh. Missing radii are
     treated as zeros.
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             Skeleton | NeuronList
                     Neuron to convert.
     tube_points :   int
                     Number of points making up the circle of the cross-section
@@ -833,7 +833,7 @@ def tree2meshneuron(x: 'core.TreeNeuron',
 
     Returns
     -------
-    TreeNeuron
+    Mesh
                     Data tables (e.g. `connectors`) are not carried over from
                     the input neuron.
 
@@ -849,8 +849,8 @@ def tree2meshneuron(x: 'core.TreeNeuron',
     # Delay to avoid circular imports
     from ..plotting.plot_utils import make_tube
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Expected TreeNeuron, got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Expected Skeleton, got "{type(x)}"')
 
     # Map segments of node IDs to segments of node indices
     id2ix = dict(zip(x.nodes.node_id, np.arange(len(x.nodes))))
@@ -873,7 +873,7 @@ def tree2meshneuron(x: 'core.TreeNeuron',
 
     # Note: the `process=False` is necessary to not break correspondence
     # by e.g. merging duplicate vertices
-    m = core.MeshNeuron({'vertices': vertices, 'faces': faces},
+    m = core.Mesh({'vertices': vertices, 'faces': faces},
                         units=x.units, name=x.name, id=x.id, process=False)
 
 

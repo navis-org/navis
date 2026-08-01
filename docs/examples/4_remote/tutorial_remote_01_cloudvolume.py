@@ -66,7 +66,7 @@ vol = cv.CloudVolume(
 # %%
 # Fetch neuron meshes:
 
-# Setting `as_navis=True` will get us MeshNeurons
+# Setting `as_navis=True` will get us Meshes
 m = vol.mesh.get([4335355146, 2913913713, 2137190164, 2268989790], as_navis=True, lod=3)
 m
 

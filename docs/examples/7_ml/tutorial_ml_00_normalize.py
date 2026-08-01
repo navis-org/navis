@@ -190,9 +190,9 @@ plt.tight_layout()
 
 # %%
 # !!! tip
-#     `normalize_neuron` also works on [`navis.MeshNeuron`][] and
+#     `normalize_neuron` also works on [`navis.Mesh`][] and
 #     [`navis.Dotprops`][] (whose tangent vectors are rotated along with the
-#     points). `VoxelNeurons` are not supported - rotating a dense grid needs
+#     points). `Voxels` are not supported - rotating a dense grid needs
 #     resampling; convert to points or a mesh first.
 #
 # ## What's next

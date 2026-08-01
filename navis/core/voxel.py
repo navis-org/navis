@@ -33,7 +33,7 @@ except ModuleNotFoundError:
     xxhash = None
 
 
-__all__ = ["VoxelNeuron"]
+__all__ = ["Voxels"]
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -44,7 +44,7 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
-class VoxelNeuron(BaseNeuron):
+class Voxels(BaseNeuron):
     """Neuron represented as voxels.
 
     Parameters
@@ -69,7 +69,7 @@ class VoxelNeuron(BaseNeuron):
                     "micrometer" or "8 nanometers".
     sparsify :      "auto" | bool
                     Whether to store a dense grid as sparse voxels (see
-                    [`navis.VoxelNeuron.sparsify`][]). Neurons are typically
+                    [`navis.Voxels.sparsify`][]). Neurons are typically
                     sparse enough that this saves a lot of memory - the example
                     neurons here shrink by 7-46x. Ignored if `x` is already
                     sparse.
@@ -126,7 +126,7 @@ class VoxelNeuron(BaseNeuron):
 
         if not isinstance(x, (np.ndarray, type(None))):
             raise utils.ConstructionError(
-                f'Unable to construct VoxelNeuron from "{type(x)}".'
+                f'Unable to construct Voxels from "{type(x)}".'
             )
 
         if isinstance(x, np.ndarray):
@@ -149,7 +149,7 @@ class VoxelNeuron(BaseNeuron):
                 self._data = np.ascontiguousarray(x)
             else:
                 raise utils.ConstructionError(
-                    f"Unable to construct VoxelNeuron from {x.shape} array."
+                    f"Unable to construct Voxels from {x.shape} array."
                 )
 
         for k, v in metadata.items():
@@ -334,7 +334,7 @@ class VoxelNeuron(BaseNeuron):
 
         This is the area of the voxel faces that border the background, so it
         follows the voxel grid rather than a smoothed surface - meshing the
-        neuron first and taking `MeshNeuron.area` will give you a somewhat
+        neuron first and taking `Mesh.area` will give you a somewhat
         smaller number.
 
         Requires sparse-cubes >= 0.4.0.
@@ -474,7 +474,7 @@ class VoxelNeuron(BaseNeuron):
     def values(self, values):
         if self._base_data_type == "grid":
             raise ValueError(
-                "Unable to set values for VoxelNeurons that were "
+                "Unable to set values for Voxels that were "
                 "initialized with a grid"
             )
 
@@ -583,7 +583,7 @@ class VoxelNeuron(BaseNeuron):
     @property
     def type(self) -> str:
         """Neuron type."""
-        return "navis.VoxelNeuron"
+        return "navis.Voxels"
 
     @property
     def density(self) -> float:
@@ -609,10 +609,10 @@ class VoxelNeuron(BaseNeuron):
 
     def convert_units(
         self, to: Union[pint.Unit, str], inplace: bool = False
-    ) -> Optional["VoxelNeuron"]:
+    ) -> Optional["Voxels"]:
         """Convert coordinates to different unit.
 
-        For `VoxelNeurons` this is purely a re-labelling: the voxel grid is
+        For `Voxels` this is purely a re-labelling: the voxel grid is
         left untouched (its coordinates are indices, not coordinates) and the
         neuron keeps occupying the exact same space.
 
@@ -651,7 +651,7 @@ class VoxelNeuron(BaseNeuron):
 
         return n
 
-    def copy(self, deepcopy=False) -> "VoxelNeuron":
+    def copy(self, deepcopy=False) -> "Voxels":
         """Return a copy of the neuron."""
         copy_fn = copy.deepcopy if deepcopy else copy.copy
         no_copy = ["_lock"]
@@ -665,7 +665,7 @@ class VoxelNeuron(BaseNeuron):
 
         return x
 
-    def flip(self, axis: str, inplace: bool = False) -> Optional["VoxelNeuron"]:
+    def flip(self, axis: str, inplace: bool = False) -> Optional["Voxels"]:
         """Flip the volume along the specified axis.
 
         Parameters
@@ -677,7 +677,7 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                     Flipped copy of original neuron. Only if `inplace=False`.
 
         """
@@ -721,7 +721,7 @@ class VoxelNeuron(BaseNeuron):
         if not inplace:
             return x
 
-    def strip(self, inplace=False) -> "VoxelNeuron":
+    def strip(self, inplace=False) -> "Voxels":
         """Strip empty voxels (leading/trailing planes of zeros)."""
         x = self
         if not inplace:
@@ -758,7 +758,7 @@ class VoxelNeuron(BaseNeuron):
         if not inplace:
             return x
 
-    def threshold(self, threshold, inplace=False) -> "VoxelNeuron":
+    def threshold(self, threshold, inplace=False) -> "Voxels":
         """Drop below-threshold voxels."""
         x = self
         if not inplace:
@@ -777,7 +777,7 @@ class VoxelNeuron(BaseNeuron):
         if not inplace:
             return x
 
-    def normalize(self, inplace=False) -> "VoxelNeuron":
+    def normalize(self, inplace=False) -> "Voxels":
         """Normalize voxel values.
 
         For float data, this scales values to the [0-1] range.
@@ -806,14 +806,14 @@ class VoxelNeuron(BaseNeuron):
         if not inplace:
             return x
 
-    def densify(self, inplace: bool = False) -> Optional["VoxelNeuron"]:
+    def densify(self, inplace: bool = False) -> Optional["Voxels"]:
         """Convert to a dense grid representation.
 
-        VoxelNeurons are backed by either a dense 3D grid or a sparse (N, 3)
+        Voxels are backed by either a dense 3D grid or a sparse (N, 3)
         array of voxel coordinates plus values. Both views are available via
         `.grid` and `.voxels`/`.values` whatever the backing - this method
         changes which one is actually stored. See
-        [`navis.VoxelNeuron.sparsify`][] for the inverse.
+        [`navis.Voxels.sparsify`][] for the inverse.
 
         Note that the grid's shape is derived from the voxel coordinates and
         can be orders of magnitude larger than the sparse data it replaces.
@@ -826,14 +826,14 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                     Densified copy of original neuron. Only if `inplace=False`.
 
         Examples
         --------
         >>> import navis
         >>> import numpy as np
-        >>> n = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]]))
+        >>> n = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]]))
         >>> n._base_data_type
         'voxels'
         >>> dense = n.densify()
@@ -863,14 +863,14 @@ class VoxelNeuron(BaseNeuron):
         if not inplace:
             return x
 
-    def sparsify(self, inplace: bool = False) -> Optional["VoxelNeuron"]:
+    def sparsify(self, inplace: bool = False) -> Optional["Voxels"]:
         """Convert to a sparse voxel representation.
 
-        VoxelNeurons are backed by either a dense 3D grid or a sparse (N, 3)
+        Voxels are backed by either a dense 3D grid or a sparse (N, 3)
         array of voxel coordinates plus values. Both views are available via
         `.grid` and `.voxels`/`.values` whatever the backing - this method
         changes which one is actually stored. See
-        [`navis.VoxelNeuron.densify`][] for the inverse.
+        [`navis.Voxels.densify`][] for the inverse.
 
         Parameters
         ----------
@@ -879,7 +879,7 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                     Sparsified copy of original neuron. Only if `inplace=False`.
 
         Examples
@@ -888,7 +888,7 @@ class VoxelNeuron(BaseNeuron):
         >>> import numpy as np
         >>> grid = np.zeros((3, 3, 3))
         >>> grid[0, 0, 0] = grid[1, 1, 1] = 1
-        >>> n = navis.VoxelNeuron(grid, sparsify=False)  # keep the dense grid
+        >>> n = navis.Voxels(grid, sparsify=False)  # keep the dense grid
         >>> n._base_data_type
         'grid'
         >>> sparse = n.sparsify()
@@ -946,7 +946,7 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.MeshNeuron`][]
+        [`navis.Mesh`][]
                     Note that data tables (e.g. `connectors`) are not carried
                     over from the input neuron.
 
@@ -957,7 +957,7 @@ class VoxelNeuron(BaseNeuron):
         >>> vx = navis.voxelize(n, pitch='2 microns')
         >>> m = vx.mesh()
         >>> type(m)
-        <class 'navis.core.mesh.MeshNeuron'>
+        <class 'navis.core.mesh.Mesh'>
 
         """
         from ..conversion import mesh
@@ -978,7 +978,7 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.TreeNeuron`][]
+        [`navis.Skeleton`][]
                     Note that data tables (e.g. `connectors`) are not carried
                     over from the input neuron.
 
@@ -989,7 +989,7 @@ class VoxelNeuron(BaseNeuron):
         >>> vx = navis.voxelize(n, pitch='2 microns')
         >>> sk = vx.skeletonize()
         >>> type(sk)
-        <class 'navis.core.skeleton.TreeNeuron'>
+        <class 'navis.core.skeleton.Skeleton'>
 
         """
         from ..conversion import skeletonize
@@ -1055,7 +1055,7 @@ class VoxelNeuron(BaseNeuron):
         connectivity: int = 6,
         fill=None,
         inplace: bool = False,
-    ) -> Optional["VoxelNeuron"]:
+    ) -> Optional["Voxels"]:
         """Grow the neuron by its voxel neighbourhood.
 
         Adds every background voxel adjacent to the neuron, `iterations` times
@@ -1078,19 +1078,19 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                         Only if `inplace=False`.
 
         See Also
         --------
-        [`navis.VoxelNeuron.erode`][]
+        [`navis.Voxels.erode`][]
                         The inverse operation.
 
         Examples
         --------
         >>> import navis
         >>> import numpy as np
-        >>> n = navis.VoxelNeuron(np.array([[5, 5, 5]]))
+        >>> n = navis.Voxels(np.array([[5, 5, 5]]))
         >>> n.dilate().nnz  # doctest: +SKIP
         7
 
@@ -1105,12 +1105,12 @@ class VoxelNeuron(BaseNeuron):
         iterations: int = 1,
         connectivity: int = 6,
         inplace: bool = False,
-    ) -> Optional["VoxelNeuron"]:
+    ) -> Optional["Voxels"]:
         """Shrink the neuron by peeling voxels that touch the background.
 
         A voxel survives only if *all* of its `connectivity` neighbours are also
         part of the neuron, so the outer shell is always removed. Note this can
-        consume a thin neuron entirely - use [`navis.VoxelNeuron.thin`][] if you
+        consume a thin neuron entirely - use [`navis.Voxels.thin`][] if you
         want to preserve topology.
 
         Parameters
@@ -1118,13 +1118,13 @@ class VoxelNeuron(BaseNeuron):
         iterations :    int, optional
                         Number of erosion steps.
         connectivity :  6 | 18 | 26, optional
-                        See [`navis.VoxelNeuron.dilate`][].
+                        See [`navis.Voxels.dilate`][].
         inplace :       bool, optional
                         If False, will return a modified copy.
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                         Only if `inplace=False`. Surviving voxels keep their
                         values.
 
@@ -1138,16 +1138,16 @@ class VoxelNeuron(BaseNeuron):
         connectivity: int = 6,
         fill=None,
         inplace: bool = False,
-    ) -> Optional["VoxelNeuron"]:
+    ) -> Optional["Voxels"]:
         """Erode, then dilate: strips specks and thin spurs, keeps bulk shape.
 
         Small structures that the erosion destroys do not come back, which makes
         this the standard way to remove surface noise before meshing or
-        skeletonizing. See [`navis.VoxelNeuron.dilate`][] for the parameters.
+        skeletonizing. See [`navis.Voxels.dilate`][] for the parameters.
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                         Only if `inplace=False`.
 
         """
@@ -1162,17 +1162,17 @@ class VoxelNeuron(BaseNeuron):
         connectivity: int = 6,
         fill=None,
         inplace: bool = False,
-    ) -> Optional["VoxelNeuron"]:
+    ) -> Optional["Voxels"]:
         """Dilate, then erode: bridges narrow gaps and fills small pits.
 
         Note this **can fuse structures** that pass within `2 * iterations`
         voxels of each other. To fill enclosed voids without that risk use
-        [`navis.VoxelNeuron.fill_cavities`][], which is topology-safe. See
-        [`navis.VoxelNeuron.dilate`][] for the parameters.
+        [`navis.Voxels.fill_cavities`][], which is topology-safe. See
+        [`navis.Voxels.dilate`][] for the parameters.
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                         Only if `inplace=False`.
 
         """
@@ -1181,10 +1181,10 @@ class VoxelNeuron(BaseNeuron):
         )
         return self._replace_voxels(out, self._carry_values(out, fill), inplace)
 
-    def thin(self, inplace: bool = False, **kwargs) -> Optional["VoxelNeuron"]:
+    def thin(self, inplace: bool = False, **kwargs) -> Optional["Voxels"]:
         """Thin the neuron to a one-voxel-wide medial curve (centerline).
 
-        Unlike [`navis.VoxelNeuron.erode`][] this preserves topology and
+        Unlike [`navis.Voxels.erode`][] this preserves topology and
         endpoints. Note that - unlike [`navis.thin_voxels`][], which goes
         through scikit-image and a dense grid - this works straight off the
         sparse voxels and never allocates the bounding box.
@@ -1199,7 +1199,7 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                     Only if `inplace=False`. Surviving voxels keep their values.
 
         """
@@ -1208,10 +1208,10 @@ class VoxelNeuron(BaseNeuron):
 
     def fill_cavities(
         self, fill=None, inplace: bool = False, **kwargs
-    ) -> Optional["VoxelNeuron"]:
+    ) -> Optional["Voxels"]:
         """Fill enclosed background voids.
 
-        Unlike [`navis.VoxelNeuron.closing`][] this is topology-safe: it only
+        Unlike [`navis.Voxels.closing`][] this is topology-safe: it only
         fills voids that are actually enclosed and can never fuse two separate
         structures.
 
@@ -1228,7 +1228,7 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                     Only if `inplace=False`.
 
         """
@@ -1237,7 +1237,7 @@ class VoxelNeuron(BaseNeuron):
 
     def union(
         self, *others, fill=None, inplace: bool = False
-    ) -> Optional["VoxelNeuron"]:
+    ) -> Optional["Voxels"]:
         """Voxels present in this neuron *or* any of the others.
 
         Note that `others` must live on the same voxel lattice: same voxel size,
@@ -1246,7 +1246,7 @@ class VoxelNeuron(BaseNeuron):
 
         Parameters
         ----------
-        *others :   VoxelNeuron | (N, 3) array
+        *others :   Voxels | (N, 3) array
                     One or more neurons (or raw voxel indices) to combine with.
         fill :      int | float, optional
                     Value given to voxels contributed by `others`. Defaults to
@@ -1257,7 +1257,7 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                     Only if `inplace=False`.
 
         """
@@ -1265,21 +1265,21 @@ class VoxelNeuron(BaseNeuron):
         out = sparsecubes.binary.union(*sets)
         return self._replace_voxels(out, self._carry_values(out, fill), inplace)
 
-    def intersection(self, *others, inplace: bool = False) -> Optional["VoxelNeuron"]:
+    def intersection(self, *others, inplace: bool = False) -> Optional["Voxels"]:
         """Voxels present in this neuron *and* in every one of the others.
 
-        See [`navis.VoxelNeuron.union`][] for how neurons are aligned.
+        See [`navis.Voxels.union`][] for how neurons are aligned.
 
         Parameters
         ----------
-        *others :   VoxelNeuron | (N, 3) array
+        *others :   Voxels | (N, 3) array
                     One or more neurons (or raw voxel indices) to intersect with.
         inplace :   bool, optional
                     If False, will return a modified copy.
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                     Only if `inplace=False`. The result is a subset of this
                     neuron, so all voxels keep their values.
 
@@ -1288,21 +1288,21 @@ class VoxelNeuron(BaseNeuron):
         out = sparsecubes.binary.intersection(*sets)
         return self._replace_voxels(out, self._carry_values(out), inplace)
 
-    def difference(self, other, inplace: bool = False) -> Optional["VoxelNeuron"]:
+    def difference(self, other, inplace: bool = False) -> Optional["Voxels"]:
         """Voxels in this neuron but not in `other` (set subtraction).
 
-        See [`navis.VoxelNeuron.union`][] for how neurons are aligned.
+        See [`navis.Voxels.union`][] for how neurons are aligned.
 
         Parameters
         ----------
-        other :     VoxelNeuron | (N, 3) array
+        other :     Voxels | (N, 3) array
                     Neuron (or raw voxel indices) to subtract.
         inplace :   bool, optional
                     If False, will return a modified copy.
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                     Only if `inplace=False`. The result is a subset of this
                     neuron, so all voxels keep their values.
 
@@ -1312,14 +1312,14 @@ class VoxelNeuron(BaseNeuron):
 
     def symmetric_difference(
         self, other, fill=None, inplace: bool = False
-    ) -> Optional["VoxelNeuron"]:
+    ) -> Optional["Voxels"]:
         """Voxels in exactly one of this neuron and `other` (set XOR).
 
-        See [`navis.VoxelNeuron.union`][] for how neurons are aligned.
+        See [`navis.Voxels.union`][] for how neurons are aligned.
 
         Parameters
         ----------
-        other :     VoxelNeuron | (N, 3) array
+        other :     Voxels | (N, 3) array
                     Neuron (or raw voxel indices) to compare against.
         fill :      int | float, optional
                     Value given to voxels contributed by `other`. Defaults to
@@ -1329,7 +1329,7 @@ class VoxelNeuron(BaseNeuron):
 
         Returns
         -------
-        [`navis.VoxelNeuron`][]
+        [`navis.Voxels`][]
                     Only if `inplace=False`.
 
         """
@@ -1340,11 +1340,11 @@ class VoxelNeuron(BaseNeuron):
         """Intersection over union (Jaccard index) with `other`.
 
         A pure overlap measure on the occupied voxels - values are ignored.
-        See [`navis.VoxelNeuron.union`][] for how the two neurons are aligned.
+        See [`navis.Voxels.union`][] for how the two neurons are aligned.
 
         Parameters
         ----------
-        other :     VoxelNeuron | (N, 3) array
+        other :     Voxels | (N, 3) array
                     Neuron (or raw voxel indices) to compare against.
 
         Returns
@@ -1354,15 +1354,15 @@ class VoxelNeuron(BaseNeuron):
 
         See Also
         --------
-        [`navis.VoxelNeuron.dice`][]
+        [`navis.Voxels.dice`][]
                     The Dice coefficient, which weights the overlap higher.
 
         Examples
         --------
         >>> import navis
         >>> import numpy as np
-        >>> a = navis.VoxelNeuron(np.array([[0, 0, 0], [1, 1, 1]]))
-        >>> b = navis.VoxelNeuron(np.array([[1, 1, 1], [2, 2, 2]]))
+        >>> a = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1]]))
+        >>> b = navis.Voxels(np.array([[1, 1, 1], [2, 2, 2]]))
         >>> a.iou(b)
         0.3333333333333333
 
@@ -1372,12 +1372,12 @@ class VoxelNeuron(BaseNeuron):
     def dice(self, other) -> float:
         """Dice coefficient (F1 score) with `other`.
 
-        Like [`navis.VoxelNeuron.iou`][] but counts the intersection twice, so
+        Like [`navis.Voxels.iou`][] but counts the intersection twice, so
         it is more forgiving of partial overlap. Values are ignored.
 
         Parameters
         ----------
-        other :     VoxelNeuron | (N, 3) array
+        other :     Voxels | (N, 3) array
                     Neuron (or raw voxel indices) to compare against.
 
         Returns
@@ -1403,9 +1403,9 @@ class VoxelNeuron(BaseNeuron):
                 )
             return other.astype(np.int64, copy=False)
 
-        if not isinstance(other, VoxelNeuron):
+        if not isinstance(other, Voxels):
             raise TypeError(
-                f'Expected VoxelNeuron or (N, 3) array, got "{type(other)}"'
+                f'Expected Voxels or (N, 3) array, got "{type(other)}"'
             )
 
         try:
@@ -1417,13 +1417,13 @@ class VoxelNeuron(BaseNeuron):
             )
         except pint.DimensionalityError:
             raise ValueError(
-                "Unable to combine VoxelNeurons with incompatible units: "
+                "Unable to combine Voxels with incompatible units: "
                 f"{self.units} vs {other.units}."
             )
 
         if not np.allclose(other_units, self.units_xyz.magnitude):
             raise ValueError(
-                "Unable to combine VoxelNeurons with different voxel sizes "
+                "Unable to combine Voxels with different voxel sizes "
                 f"({self.units} vs {other.units}). Resample one of them first."
             )
 
@@ -1432,7 +1432,7 @@ class VoxelNeuron(BaseNeuron):
         delta = (other_offset - self.offset) / self.units_xyz.magnitude
         if not np.allclose(delta, np.round(delta)):
             raise ValueError(
-                "Unable to combine VoxelNeurons whose offsets differ by a "
+                "Unable to combine Voxels whose offsets differ by a "
                 f"non-integer number of voxels (differ by {delta} voxels). "
                 "Their grids do not line up."
             )
@@ -1459,7 +1459,7 @@ class VoxelNeuron(BaseNeuron):
 
     def _replace_voxels(
         self, voxels: np.ndarray, values: np.ndarray, inplace: bool
-    ) -> Optional["VoxelNeuron"]:
+    ) -> Optional["Voxels"]:
         """Return this neuron with its data swapped for `voxels`/`values`."""
         x = self if inplace else self.copy()
 
@@ -1496,3 +1496,8 @@ class VoxelNeuron(BaseNeuron):
     def max(self) -> Union[int, float]:
         """Maximum value (excludes zeros)."""
         return self.values.max()
+
+
+# Pre-2.0 name. Must be a plain alias: `pickle` resolves classes by their
+# defining module and has to find this one without a warning.
+VoxelNeuron = Voxels

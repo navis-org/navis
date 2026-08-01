@@ -157,7 +157,6 @@ time_func(pipe, nl, parallel=True, n_cores=2)
 #     the gap grows with how big your neurons are and how many steps you chain. Five
 #     small example skeletons and three steps is about as unflattering as it gets.
 #
-# %%
 # There is a second saving that does not show up in the task count. Normally every
 # {{ navis }} function has to copy the neuron it is given, because it must not modify
 # yours. A pipeline keeps track of *who owns* the neuron flowing through it: as soon as

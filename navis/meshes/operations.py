@@ -74,11 +74,11 @@ def available_backends(only_first=False):
 
 @utils.map_neuronlist(desc='Simplifying', allow_parallel=True)
 def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
-    """Simplify meshes (TriMesh, MeshNeuron, Volume).
+    """Simplify meshes (TriMesh, Mesh, Volume).
 
     Parameters
     ----------
-    x :         navis.MeshNeuron/List | navis.Volume | trimesh.Trimesh
+    x :         navis.Mesh/List | navis.Volume | trimesh.Trimesh
                 Mesh(es) to simplify.
     F :         float | int
                 Determines how much the mesh is simplified:
@@ -222,7 +222,7 @@ def combine_meshes(meshes, max_dist='auto', progress=True):
 
 @utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
 def smooth_mesh(x, iterations=5, L=.5, backend='auto', inplace=False):
-    """Smooth meshes (TriMesh, MeshNeuron, Volume).
+    """Smooth meshes (TriMesh, Mesh, Volume).
 
     Uses Laplacian smoothing. Not necessarily because that is always the best
     approach but because there are three backends (see below) that offer similar
@@ -230,7 +230,7 @@ def smooth_mesh(x, iterations=5, L=.5, backend='auto', inplace=False):
 
     Parameters
     ----------
-    x :             navis.MeshNeuron/List | navis.Volume | trimesh.Trimesh
+    x :             navis.Mesh/List | navis.Volume | trimesh.Trimesh
                     Mesh(es) to simplify.
     iterations :    int
                     Round of smoothing to apply.

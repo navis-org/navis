@@ -61,7 +61,7 @@ TRIMESH_HAS_FACE_FILTERS = _version_tuple(tm.__version__) >= (3, 23)
 
 
 def fix_mesh(
-    mesh: Union[tm.Trimesh, "core.MeshNeuron"],
+    mesh: Union[tm.Trimesh, "core.Mesh"],
     fill_holes: bool = False,
     remove_fragments: bool = False,
     inplace: bool = False,
@@ -78,7 +78,7 @@ def fix_mesh(
 
     Parameters
     ----------
-    mesh :              trimesh.Trimesh | navis.MeshNeuron
+    mesh :              trimesh.Trimesh | navis.Mesh
     fill_holes :        bool
                         If True will try to fix holes in the mesh.
     remove_fragments :  False | int
@@ -93,13 +93,13 @@ def fix_mesh(
 
     Returns
     -------
-    fixed object :      trimesh.Trimesh or navis.MeshNeuron
+    fixed object :      trimesh.Trimesh or navis.Mesh
 
     """
     if not inplace:
         mesh = mesh.copy()
 
-    if isinstance(mesh, core.MeshNeuron):
+    if isinstance(mesh, core.Mesh):
         m = mesh.trimesh
     else:
         m = mesh
@@ -134,8 +134,8 @@ def fix_mesh(
     m.fix_normals()
     m.remove_unreferenced_vertices()
 
-    # If we started with a MeshNeuron, map back the verts/faces
-    if isinstance(mesh, core.MeshNeuron):
+    # If we started with a Mesh, map back the verts/faces
+    if isinstance(mesh, core.Mesh):
         mesh.vertices, mesh.faces = m.vertices, m.faces
         mesh._clear_temp_attr()
 
@@ -147,7 +147,7 @@ def smooth_mesh_trimesh(x, iterations=5, L=0.5, inplace=False):
 
     Parameters
     ----------
-    x :             MeshNeuron | Volume | Trimesh
+    x :             Mesh | Volume | Trimesh
                     Mesh object to simplify.
     iterations :    int
                     Round of smoothing to apply.
@@ -167,7 +167,7 @@ def smooth_mesh_trimesh(x, iterations=5, L=0.5, inplace=False):
     if L > 1 or L < 0:
         raise ValueError(f'`L` (lambda) must be between 0 and 1, got "{L}"')
 
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         mesh = x.trimesh.copy()
     elif isinstance(x, core.Volume):
         mesh = tm.Trimesh(x.vertices, x.faces)
@@ -175,7 +175,7 @@ def smooth_mesh_trimesh(x, iterations=5, L=0.5, inplace=False):
         mesh = x.copy()
     else:
         raise TypeError(
-            f'Expected MeshNeuron, Volume or trimesh.Trimesh, got "{type(x)}"'
+            f'Expected Mesh, Volume or trimesh.Trimesh, got "{type(x)}"'
         )
 
     assert isinstance(mesh, tm.Trimesh)
@@ -597,7 +597,7 @@ def face_dist_sorting(
 
     Parameters
     ----------
-    x :         navis.MeshNeuron
+    x :         navis.Mesh
                 Mesh to sort faces for.
     from_ :     int | list of int
                 Must be either a vertex index (single int) or an x/y/z coordinate.
@@ -611,7 +611,7 @@ def face_dist_sorting(
 
     Returns
     -------
-    navis.MeshNeuron
+    navis.Mesh
 
     Examples
     --------

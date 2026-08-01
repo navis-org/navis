@@ -132,16 +132,16 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
             return x.__class__(xf)
 
     if isinstance(x, core.BaseNeuron):
-        # VoxelNeurons are a special case and have hence their own function
-        if isinstance(x, core.VoxelNeuron):
+        # Voxels are a special case and have hence their own function
+        if isinstance(x, core.Voxels):
             return _xform_image(x, transform=transform)
 
         xf = x.copy()
         # We will collate spatial data to reduce overhead from calling
         # R's xform_brain
-        if isinstance(xf, core.TreeNeuron):
+        if isinstance(xf, core.Skeleton):
             xyz = xf.nodes[['x', 'y', 'z']].values
-        elif isinstance(xf, core.MeshNeuron):
+        elif isinstance(xf, core.Mesh):
             xyz = xf.vertices
         elif isinstance(xf, core.Dotprops):
             xyz = xf.points
@@ -180,7 +180,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
         # change = np.around(change, decimals=-magnitude)
 
         # Map xformed coordinates back
-        if isinstance(xf, core.TreeNeuron):
+        if isinstance(xf, core.Skeleton):
             xf.nodes[['x', 'y', 'z']] = xyz_xf[:xf.n_nodes]
             # Fix radius based on our best estimate
             if 'radius' in xf.nodes.columns:
@@ -198,7 +198,7 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
                 vect = xf.points - hp
                 vect = vect / np.linalg.norm(vect, axis=1).reshape(-1, 1)
                 xf._vect = vect
-        elif isinstance(xf, core.MeshNeuron):
+        elif isinstance(xf, core.Mesh):
             xf.vertices = xyz_xf[:xf.vertices.shape[0]]
 
         if xf.has_connectors:
@@ -242,25 +242,25 @@ def xform(x: Union['core.NeuronObject', 'pd.DataFrame', 'np.ndarray'],
     return transform.xform(x, affine_fallback=affine_fallback)
 
 
-def _xform_image(x: 'core.VoxelNeuron',
+def _xform_image(x: 'core.Voxels',
                  transform: Union[BaseTransform, TransformSequence]
-                 ) -> 'core.VoxelNeuron':
+                 ) -> 'core.Voxels':
     """Apply transform(s) to image (voxel) data.
 
     Parameters
     ----------
-    x :                 VoxelNeuron
+    x :                 Voxels
                         Data to transform.
     transform :         Transform/Sequence or list thereof
                         Either a single transform or a transform sequence.
 
     Returns
     -------
-    VoxelNeuron
+    Voxels
                         Copy of neuron with transformed coordinates.
 
     """
-    if not isinstance(x, core.VoxelNeuron):
+    if not isinstance(x, core.Voxels):
         raise TypeError(f'Unable to transform image of type "{type(x)}"')
 
     # Get a target->source mapping

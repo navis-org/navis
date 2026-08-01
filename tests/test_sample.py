@@ -23,12 +23,12 @@ def uneven_line():
     nodes["parent_id"] = [-1] + list(range(len(xs) - 1))
     nodes["radius"] = xs.astype(np.float32)                 # radius == x
     nodes["label"] = (xs >= 0.5).astype(np.int64)           # categorical-ish
-    return navis.TreeNeuron(nodes, units="1 um")
+    return navis.Skeleton(nodes, units="1 um")
 
 
 def box_mesh():
     import trimesh
-    return navis.MeshNeuron(trimesh.creation.box(extents=[1, 1, 1]))
+    return navis.Mesh(trimesh.creation.box(extents=[1, 1, 1]))
 
 
 # =========================================================================== #

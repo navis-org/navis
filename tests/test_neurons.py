@@ -122,7 +122,7 @@ def test_neuronlist_inplace_mesh_no_copy():
 
 def test_from_swc(swc_source):
     n = navis.read_swc(swc_source)
-    assert isinstance(n, navis.TreeNeuron)
+    assert isinstance(n, navis.Skeleton)
 
 
 @pytest.mark.parametrize("parallel", ["auto", True, 2, False])
@@ -133,7 +133,7 @@ def test_from_swc_multi(swc_source_multi, parallel):
 
 def test_from_gml():
     n = navis.example_neurons(n=1, source='gml')
-    assert isinstance(n, navis.TreeNeuron)
+    assert isinstance(n, navis.Skeleton)
 
 
 def test_empty_skeleton_graph_functions():
@@ -151,7 +151,7 @@ def test_empty_skeleton_graph_functions():
             "z": pd.Series([], dtype=float),
         }
     )
-    n = navis.TreeNeuron(nodes)
+    n = navis.Skeleton(nodes)
 
     assert n.n_nodes == 0
     assert not bool(n.igraph)
@@ -173,7 +173,7 @@ def test_edges2neuron(validate):
 
     n = navis.edges2neuron(edges, vertices=verts, validate=validate)
 
-    assert isinstance(n, navis.TreeNeuron)
+    assert isinstance(n, navis.Skeleton)
     assert n.n_nodes == 4
     assert n.is_tree
     # Same tree either way, regardless of how it ends up rooted
@@ -288,7 +288,7 @@ def test_neuronlist_repr_survives_a_broken_neuron():
     genuinely empty list, and the chunking policy that consumes it has its own
     fallback that a swallowed error pre-empts.
     """
-    class Broken(navis.TreeNeuron):
+    class Broken(navis.Skeleton):
         def memory_usage(self, deep=False, estimate=False):
             raise RuntimeError("no idea")
 

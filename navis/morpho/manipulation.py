@@ -71,7 +71,7 @@ __all__ = sorted(
     ]
 )
 
-NeuronObject = Union["core.NeuronList", "core.TreeNeuron"]
+NeuronObject = Union["core.NeuronList", "core.Skeleton"]
 
 
 # Default colors for compartments (used in split_axon_dendrite)
@@ -102,7 +102,7 @@ def cell_body_fiber(
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | NeuronList
+    x :             Skeleton | Mesh | NeuronList
     method :        "longest_neurite" | "betweenness"
                     The method to use:
                       - "longest_neurite" assumes that the main branch point
@@ -126,7 +126,7 @@ def cell_body_fiber(
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
                     Pruned neuron(s). Neurons without branches (i.e. w/ a single
                     long segment) will be returned unaltered.
 
@@ -154,8 +154,8 @@ def cell_body_fiber(
     )
 
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Expected TreeNeuron(s), got {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"Expected Skeleton(s), got {type(x)}")
 
     if not inplace:
         x = x.copy()
@@ -209,7 +209,7 @@ def prune_by_strahler(
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | NeuronList
+    x :             Skeleton | Mesh | NeuronList
                     Neuron(s) to prune.
     to_prune :      int | list | range | slice
                     Strahler indices (SI) to prune. For example:
@@ -235,7 +235,7 @@ def prune_by_strahler(
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
                     Pruned neuron(s).
 
     Examples
@@ -248,8 +248,8 @@ def prune_by_strahler(
 
     """
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Expected TreeNeuron(s), got {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"Expected Skeleton(s), got {type(x)}")
 
     # Make a copy if necessary before making any changes
     neuron = x
@@ -344,7 +344,7 @@ def prune_twigs(
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | NeuronList
+    x :             Skeleton | Mesh | NeuronList
     size :          int | float | str
                     Twigs shorter than this will be pruned. If the neuron has
                     its `.units` set, you can also pass a string including the
@@ -366,7 +366,7 @@ def prune_twigs(
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
                     Pruned neuron(s).
 
     Examples
@@ -412,8 +412,8 @@ def prune_twigs(
 
     """
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Expected TreeNeuron(s), got {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"Expected Skeleton(s), got {type(x)}")
 
     # Convert to neuron units - numbers will be passed through
     size = x.map_units(size, on_error="raise")
@@ -427,14 +427,14 @@ def prune_twigs(
 
 
 def _prune_twigs_simple(
-    neuron: "core.TreeNeuron",
+    neuron: "core.Skeleton",
     size: float,
     inplace: bool = False,
     mask: Optional[Union[Sequence[int], Callable]] = None,
     recursive: Union[int, bool, float] = False,
 ) -> Optional[NeuronObject]:
     """Prune twigs using simple method."""
-    if not isinstance(neuron, core.TreeNeuron):
+    if not isinstance(neuron, core.Skeleton):
         raise TypeError(f"Expected Neuron/List, got {type(neuron)}")
 
     # If people set recursive=True, assume that they mean float("inf")
@@ -533,7 +533,7 @@ def _prune_twigs_simple(
     return neuron
 
 
-def _subtree_height(neuron: "core.TreeNeuron", weight: str = "weight") -> pd.Series:
+def _subtree_height(neuron: "core.Skeleton", weight: str = "weight") -> pd.Series:
     """Geodesic distance from each node down to the furthest leaf below it.
 
     Returns a Series of heights indexed by node ID (leafs have height 0).
@@ -585,14 +585,14 @@ def _subtree_height(neuron: "core.TreeNeuron", weight: str = "weight") -> pd.Ser
 
 
 def _prune_twigs_precise(
-    neuron: "core.TreeNeuron",
+    neuron: "core.Skeleton",
     size: float,
     inplace: bool = False,
     mask: Optional[Union[Sequence[int], Callable]] = None,
     recursive: Union[int, bool, float] = False,
 ) -> Optional[NeuronObject]:
     """Prune twigs using precise method."""
-    if not isinstance(neuron, core.TreeNeuron):
+    if not isinstance(neuron, core.Skeleton):
         raise TypeError(f"Expected Neuron/List, got {type(neuron)}")
 
     if size <= 0:
@@ -732,9 +732,9 @@ def split_axon_dendrite(
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron | NeuronList
+    x :                 Skeleton | Mesh | NeuronList
                         Neuron(s) to split into axon, dendrite (and cell body fiber if possible).
-                        Always operates on the skeleton. For MeshNeurons, we will use the
+                        Always operates on the skeleton. For Meshes, we will use the
                         `.skeleton` attribute if it exists or generate the skeleton on the fly.
     metric :            'synapse_flow_centrality' | 'bending_flow' | 'segregation_index' | "flow_centrality"
                         Defines which flow metric we will try to maximize when
@@ -837,8 +837,8 @@ def split_axon_dendrite(
 
     """
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f'Can only process TreeNeurons, got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f'Can only process Skeletons, got "{type(x)}"')
 
     if not x.has_connectors:
         if metric != "flow_centrality":
@@ -1105,7 +1105,7 @@ def split_axon_dendrite_prop(
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron | NeuronList
+    x :                 Skeleton | Mesh | NeuronList
                         Neuron(s) to split into axon and dendrite.
     use_weights :       bool or "balance"
                         Whether to use weights for the label propagation:
@@ -1149,9 +1149,9 @@ def split_axon_dendrite_prop(
 
                         If `label_only=True`, will return the original neuron(s)
                         but with compartments (axon/dendrite) annotated.
-                        For TreeNeurons, there will be two new columns in their node
+                        For Skeletons, there will be two new columns in their node
                         table: `compartment` and `compartment_prob`.
-                        For MeshNeurons, there will be a new `compartment` and
+                        For Meshes, there will be a new `compartment` and
                         `compartment_prob` property.
                         Important: any existing compartment annotations will be
                         quietly overwritten!
@@ -1199,7 +1199,7 @@ def split_axon_dendrite_prop(
         pre_nodes_unique, pre_count = np.unique(pre_nodes, return_counts=True)
         post_nodes_unique, post_count = np.unique(post_nodes, return_counts=True)
 
-        n = len(x.nodes) if isinstance(x, core.TreeNeuron) else len(x.vertices)
+        n = len(x.nodes) if isinstance(x, core.Skeleton) else len(x.vertices)
         pre_weights = np.zeros(n, dtype=np.float32)
         post_weights = np.zeros(n, dtype=np.float32)
 
@@ -1229,8 +1229,8 @@ def split_axon_dendrite_prop(
         return prepost, prepost_weight_balanced
 
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
-        raise TypeError(f'Can only process Tree- and MeshNeurons, got "{type(x)}"')
+    if not isinstance(x, (core.Skeleton, core.Mesh)):
+        raise TypeError(f'Can only process Skeletons and Meshes, got "{type(x)}"')
 
     if not x.has_connectors:
         raise ValueError("Neuron must have connectors.")
@@ -1273,7 +1273,7 @@ def split_axon_dendrite_prop(
     comp[diff < 0] = "dendrite"
 
     if label_only:
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             x.nodes["compartment"] = comp
             x.nodes["compartment_prob"] = probs_norm.max(axis=1)
         else:
@@ -1309,7 +1309,7 @@ def combine_neurons(
     ----------
     x :                 NeuronList | Neuron/List
                         Neurons to combine. Must all be of the same type. Does
-                        not yet work with VoxelNeurons. The combined neuron will
+                        not yet work with Voxels. The combined neuron will
                         inherit its name, id, units, etc. from the first neuron
                         in `x`.
 
@@ -1354,9 +1354,9 @@ def combine_neurons(
     if len(nl.types) > 1:
         raise TypeError("Unable to combine neurons of different types")
 
-    if isinstance(nl[0], core.TreeNeuron):
+    if isinstance(nl[0], core.Skeleton):
         x = stitch_skeletons(*nl, method="NONE", master="FIRST")
-    elif isinstance(nl[0], core.MeshNeuron):
+    elif isinstance(nl[0], core.Mesh):
         x = nl[0].copy()
         comb = tm.util.concatenate([n.trimesh for n in nl])
         x._vertices = comb.vertices
@@ -1389,8 +1389,8 @@ def combine_neurons(
                 [n.connectors for n in nl],  # type: ignore  # no stubs for concat
                 ignore_index=True,
             )
-    elif isinstance(nl[0], core.VoxelNeuron):
-        raise TypeError("Combining VoxelNeuron not (yet) supported")
+    elif isinstance(nl[0], core.Voxels):
+        raise TypeError("Combining Voxels not (yet) supported")
     else:
         raise TypeError(f"Unable to combine {type(nl[0])}")
 
@@ -1406,7 +1406,7 @@ def stitch_skeletons(
     max_dist: Optional[float] = None,
     min_size: Optional[int] = None,
     use_radius: Union[bool, float] = False,
-) -> "core.TreeNeuron":
+) -> "core.Skeleton":
     """Stitch multiple skeletons together.
 
     Uses minimum spanning tree to determine a way to connect all fragments
@@ -1420,7 +1420,7 @@ def stitch_skeletons(
 
     Parameters
     ----------
-    x :                 NeuronList | list of TreeNeuron/List
+    x :                 NeuronList | list of Skeleton/List
                         Neurons to stitch (see examples).
     method :            'LEAFS' | 'ALL' | 'NONE' | list of node IDs
                         Set stitching method:
@@ -1462,14 +1462,14 @@ def stitch_skeletons(
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
                         Stitched neuron.
 
     See Also
     --------
     [`navis.combine_neurons`][]
                         Combines multiple neurons of the same type into one
-                        without stitching. Works on TreeNeurons, MeshNeurons
+                        without stitching. Works on Skeletons, Meshes
                         and Dotprops.
 
     Examples
@@ -1582,7 +1582,7 @@ def stitch_skeletons(
         )
 
     if not m.has_tags or not isinstance(m.tags, dict):
-        m.tags = {}  # type: ignore  # TreeNeuron has no tags
+        m.tags = {}  # type: ignore  # Skeleton has no tags
 
     for n in nl:
         for k, v in (getattr(n, "tags", None) or {}).items():
@@ -1618,8 +1618,8 @@ def stitch_skeletons(
 def average_skeletons(
     x: "core.NeuronList",
     limit: Union[int, str] = 10,
-    base_neuron: Optional[Union[int, "core.TreeNeuron"]] = None,
-) -> "core.TreeNeuron":
+    base_neuron: Optional[Union[int, "core.Skeleton"]] = None,
+) -> "core.Skeleton":
     """Compute an average from a list of skeletons.
 
     This is a very simple implementation which may give odd results if used
@@ -1633,13 +1633,13 @@ def average_skeletons(
                     Max distance for nearest neighbour search. If the neurons
                     have `.units` set, you can also pass a string such as e.g.
                     "2 microns".
-    base_neuron :   neuron id | TreeNeuron, optional
+    base_neuron :   neuron id | Skeleton, optional
                     Neuron to use as template for averaging. If not provided,
                     the first neuron in the list is used as template!
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     Examples
     --------
@@ -1669,11 +1669,11 @@ def average_skeletons(
 
     # Generate KDTrees for each neuron
     for n in x:
-        n.tree = graph.neuron2KDTree(n, tree_type="c", data="nodes")  # type: ignore  # TreeNeuron has no tree
+        n.tree = graph.neuron2KDTree(n, tree_type="c", data="nodes")  # type: ignore  # Skeleton has no tree
 
     # Set base for average: we will use this neurons nodes to query
     # the KDTrees
-    if isinstance(base_neuron, core.TreeNeuron):
+    if isinstance(base_neuron, core.Skeleton):
         bn = base_neuron.copy()
     elif isinstance(base_neuron, int):
         bn = x[base_neuron].copy()
@@ -1753,7 +1753,7 @@ def despike_skeleton(
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 Skeleton | NeuronList
                         Neuron(s) to be processed.
     sigma :             float | int, optional
                         Threshold for spike detection. Smaller sigma = more
@@ -1769,7 +1769,7 @@ def despike_skeleton(
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
                 Despiked neuron(s). Only if `inplace=False`.
 
     Examples
@@ -1785,8 +1785,8 @@ def despike_skeleton(
     # -> as intermediate step: assign all new positions at once
 
     # The decorator makes sure that we have single neurons at this point
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Can only process TreeNeurons, not {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"Can only process Skeletons, not {type(x)}")
 
     if not inplace:
         x = x.copy()
@@ -1863,7 +1863,7 @@ def guess_radius(
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             Skeleton | NeuronList
                     Neuron(s) to be processed.
     method :        str, optional
                     Method to be used to interpolate unknown radii. See
@@ -1880,7 +1880,7 @@ def guess_radius(
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
 
     Examples
     --------
@@ -1890,8 +1890,8 @@ def guess_radius(
 
     """
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Can only process TreeNeurons, not {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"Can only process Skeletons, not {type(x)}")
 
     if not hasattr(x, "connectors") or x.connectors.empty:
         raise ValueError("Neuron must have connectors!")
@@ -1975,7 +1975,7 @@ def smooth_skeleton(
 
     Parameters
     ----------
-    x :             TreeNeuron | NeuronList
+    x :             Skeleton | NeuronList
                     Neuron(s) to be processed.
     window :        int, optional
                     Size (N observations) of the rolling window in number of
@@ -1988,7 +1988,7 @@ def smooth_skeleton(
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
                     Smoothed neuron(s).
 
     Examples
@@ -2006,14 +2006,14 @@ def smooth_skeleton(
     See Also
     --------
     [`navis.smooth_mesh`][]
-                    For smoothing MeshNeurons and other mesh-likes.
+                    For smoothing Meshes and other mesh-likes.
     [`navis.smooth_voxels`][]
-                    For smoothing VoxelNeurons.
+                    For smoothing Voxels.
 
     """
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Can only process TreeNeurons, not {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"Can only process Skeletons, not {type(x)}")
 
     if not inplace:
         x = x.copy()
@@ -2054,7 +2054,7 @@ def smooth_skeleton(
 
 
 def break_fragments(
-    x: Union["core.TreeNeuron", "core.MeshNeuron"],
+    x: Union["core.Skeleton", "core.Mesh"],
     labels_only: bool = False,
     min_size: Optional[int] = None,
 ) -> "core.NeuronList":
@@ -2065,12 +2065,12 @@ def break_fragments(
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron
+    x :             Skeleton | Mesh
                     Fragmented neuron.
     labels_only :   bool
                     If True, will only label each node/vertex by which
-                    fragment it belongs to. For TreeNeurons, this adds a
-                    `"fragment"` column and for MeshNeurons, it adds a
+                    fragment it belongs to. For Skeletons, this adds a
+                    `"fragment"` column and for Meshes, it adds a
                     `.fragments` property.
     min_size :      int, optional
                     Fragments smaller than this (# of nodes/vertices) will be
@@ -2101,8 +2101,8 @@ def break_fragments(
     if isinstance(x, core.NeuronList) and len(x) == 1:
         x = x[0]
 
-    if not isinstance(x, (core.TreeNeuron, core.MeshNeuron)):
-        raise TypeError(f'Expected Tree- or MeshNeuron, got "{type(x)}"')
+    if not isinstance(x, (core.Skeleton, core.Mesh)):
+        raise TypeError(f'Expected Skeleton or Mesh, got "{type(x)}"')
 
     # Get connected components
     comp = graph._connected_components(x)
@@ -2111,9 +2111,9 @@ def break_fragments(
 
     if labels_only:
         cc_id = {n: i for i, cc in enumerate(comp) for n in cc}
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             x.nodes["fragment"] = x.nodes.node_id.map(cc_id).astype(str)
-        elif isinstance(x, core.MeshNeuron):
+        elif isinstance(x, core.Mesh):
             x.fragments = np.array([cc_id[i] for i in range(x.n_vertices)]).astype(str)
         return x
 
@@ -2148,7 +2148,7 @@ def heal_skeleton(
 
     Parameters
     ----------
-    x :         TreeNeuron/List
+    x :         Skeleton/List
                 Fragmented skeleton(s).
     method :    'LEAFS' | 'ALL', optional
                 Method used to heal fragments:
@@ -2183,7 +2183,7 @@ def heal_skeleton(
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
 
 
     See Also
@@ -2222,9 +2222,9 @@ def heal_skeleton(
     method = str(method).upper()
 
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.TreeNeuron):
-        msg = f'Expected TreeNeuron(s), got "{type(x)}"'
-        if isinstance(x, core.MeshNeuron):
+    if not isinstance(x, core.Skeleton):
+        msg = f'Expected Skeleton(s), got "{type(x)}"'
+        if isinstance(x, core.Mesh):
             msg += ". Use `navis.heal_mesh` to heal fragmented meshes."
         raise TypeError(msg)
 
@@ -2256,7 +2256,7 @@ def heal_skeleton(
 
 
 def _stitch_mst(
-    x: "core.TreeNeuron",
+    x: "core.Skeleton",
     nodes: Union[Literal["LEAFS"], Literal["ALL"], list] = "ALL",
     max_dist: Optional[float] = np.inf,
     min_size: Optional[float] = None,
@@ -2264,12 +2264,12 @@ def _stitch_mst(
     mask: Optional[Sequence] = None,
     progress: bool = False,
     inplace: bool = False,
-) -> Optional["core.TreeNeuron"]:
+) -> Optional["core.Skeleton"]:
     """Stitch disconnected neuron using a minimum spanning tree.
 
     Parameters
     ----------
-    x :             TreeNeuron
+    x :             Skeleton
                     Neuron to stitch.
     nodes :         "ALL" | "LEAFS" | list of IDs
                     Nodes that can be used to stitch the neuron. Can be "ALL"
@@ -2300,11 +2300,11 @@ def _stitch_mst(
 
     Return
     ------
-    TreeNeuron
+    Skeleton
                     Only if `inplace=True`.
 
     """
-    assert isinstance(x, core.TreeNeuron)
+    assert isinstance(x, core.Skeleton)
     if nodes not in ("ALL", "LEAFS"):
         raise ValueError(
             f'`nodes` must be "ALL" or "LEAFS", got "{nodes}". To restrict '
@@ -2393,14 +2393,14 @@ def _stitch_mst(
 
 
 def _stitch_fastcore(
-    x: "core.TreeNeuron",
+    x: "core.Skeleton",
     nodes: Union[Literal["LEAFS"], Literal["ALL"]] = "ALL",
     max_dist: Optional[float] = np.inf,
     min_size: Optional[int] = None,
     use_radius: Union[bool, float] = False,
     mask: Optional[Sequence] = None,
     inplace: bool = False,
-) -> "core.TreeNeuron":
+) -> "core.Skeleton":
     """Stitch a fragmented neuron using fastcore.
 
     This is the fast path for [`_stitch_mst`][]: `fastcore.heal_skeleton` finds
@@ -2414,7 +2414,7 @@ def _stitch_fastcore(
 
     Parameters
     ----------
-    x :             TreeNeuron
+    x :             Skeleton
     nodes :         "ALL" | "LEAFS"
     max_dist :      float
                     Use `np.inf` for no limit.
@@ -2425,7 +2425,7 @@ def _stitch_fastcore(
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     """
     fastcore = utils.fastcore
@@ -2461,7 +2461,7 @@ def _stitch_fastcore(
     return x
 
 
-def _component_labels(x: "core.TreeNeuron") -> Tuple[np.ndarray, int]:
+def _component_labels(x: "core.Skeleton") -> Tuple[np.ndarray, int]:
     """Label each node with the connected component (fragment) it belongs to.
 
     Unlike [`navis.graph._connected_components`][] this returns a plain integer
@@ -2473,7 +2473,7 @@ def _component_labels(x: "core.TreeNeuron") -> Tuple[np.ndarray, int]:
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
 
     Returns
     -------
@@ -2521,7 +2521,7 @@ def _component_labels(x: "core.TreeNeuron") -> Tuple[np.ndarray, int]:
 
 
 def _segment_radii(
-    x: "core.TreeNeuron",
+    x: "core.Skeleton",
     to_use: pd.DataFrame,
     use_radius: Union[bool, float],
 ) -> pd.Series:
@@ -2537,7 +2537,7 @@ def _segment_radii(
 
     Parameters
     ----------
-    x :             TreeNeuron
+    x :             Skeleton
                     The (fragmented) neuron. Segments are taken from here, i.e.
                     from *all* nodes - not just the candidates.
     to_use :        DataFrame
@@ -2575,10 +2575,10 @@ def _segment_radii(
 
 
 def _rewire_from_edges(
-    x: "core.TreeNeuron",
+    x: "core.Skeleton",
     new_edges: Sequence,
     inplace: bool = False,
-) -> "core.TreeNeuron":
+) -> "core.Skeleton":
     """Regenerate a neuron's `parent_id` column after adding new edges.
 
     This is the counterpart to `_stitch_edges`: it takes the neuron's existing
@@ -2593,7 +2593,7 @@ def _rewire_from_edges(
 
     Parameters
     ----------
-    x :         TreeNeuron
+    x :         Skeleton
                 Neuron to rewire.
     new_edges : (M, 2) array-like
                 Pairs of node IDs to connect. Can be empty.
@@ -2602,7 +2602,7 @@ def _rewire_from_edges(
 
     Returns
     -------
-    TreeNeuron
+    Skeleton
 
     """
     if not inplace:
@@ -2616,7 +2616,7 @@ def _rewire_from_edges(
         return x
 
     # We map node IDs to positional indices which requires unique IDs. This is a
-    # given for TreeNeurons but let's fail loudly rather than silently produce
+    # given for Skeletons but let's fail loudly rather than silently produce
     # garbage if it ever isn't.
     id2ix = pd.Series(np.arange(N), index=node_ids)
     if not id2ix.index.is_unique:
@@ -2965,7 +2965,7 @@ def prune_at_depth(
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | NeuronList
+    x :             Skeleton | Mesh | NeuronList
     depth :         int | float | str
                     Distance from source at which to start pruning. If neuron
                     has its `.units` set, you can also pass this as a string such
@@ -2980,7 +2980,7 @@ def prune_at_depth(
 
     Returns
     -------
-    TreeNeuron/List
+    Skeleton/List
                     Pruned neuron(s).
 
     Examples
@@ -2999,8 +2999,8 @@ def prune_at_depth(
 
     """
     # The decorator makes sure that at this point we only have single neurons
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Expected TreeNeuron, got {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"Expected Skeleton, got {type(x)}")
 
     depth = x.map_units(depth, on_error="raise")
     if depth < 0:
@@ -3024,7 +3024,7 @@ def prune_at_depth(
 
 
 def _drop_fluff_voxels(x, keep_size, n_largest, connectivity, inplace):
-    """Remove small disconnected fragments from a VoxelNeuron.
+    """Remove small disconnected fragments from a Voxels neuron.
 
     Kept separate from the generic path because voxels have no graph and are
     not supported by `subset_neuron` - and because `sparse-cubes` can do the
@@ -3066,7 +3066,7 @@ def _drop_fluff_voxels(x, keep_size, n_largest, connectivity, inplace):
 
 @utils.map_neuronlist(desc="Removing fluff", allow_parallel=True)
 def drop_fluff(
-    x: Union["core.TreeNeuron", "core.MeshNeuron", "core.NeuronList"],
+    x: Union["core.Skeleton", "core.Mesh", "core.NeuronList"],
     keep_size: Optional[float] = None,
     n_largest: Optional[int] = None,
     epsilon: Optional[float] = None,
@@ -3082,7 +3082,7 @@ def drop_fluff(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | Dotprops | VoxelNeuron | NeuronList
+    x :         Skeleton | Mesh | Dotprops | Voxels | NeuronList
                 The neuron(s) to remove fluff from.
     keep_size : float, optional
                 Use this to set a size (in number of nodes/vertices/voxels) for
@@ -3096,7 +3096,7 @@ def drop_fluff(
                 connected. If `None`, will use the default value of 5 times
                 the average node distance (`x.sampling_resolution`).
     connectivity : 6 | 18 | 26, optional
-                For VoxelNeurons: which neighbouring voxels count as connected.
+                For Voxels: which neighbouring voxels count as connected.
                 6 = faces only, 18 = faces + edges, 26 (default) = faces +
                 edges + corners.
     inplace :   bool, optional
@@ -3137,15 +3137,15 @@ def drop_fluff(
         x,
         name="x",
         allowed_types=(
-            core.TreeNeuron,
-            core.MeshNeuron,
+            core.Skeleton,
+            core.Mesh,
             core.Dotprops,
-            core.VoxelNeuron,
+            core.Voxels,
         ),
     )
 
     # Voxels have no graph to subset, so they get their own (much shorter) path
-    if isinstance(x, core.VoxelNeuron):
+    if isinstance(x, core.Voxels):
         return _drop_fluff_voxels(
             x,
             keep_size=keep_size,

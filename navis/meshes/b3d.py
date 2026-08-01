@@ -23,7 +23,7 @@ def simplify_mesh_blender(x, F, inplace=False):
 
     Parameters
     ----------
-    x :         MeshNeuron | Volume | Trimesh
+    x :         Mesh | Volume | Trimesh
                 Mesh object to simplify.
     F :         float [0-1]
                 Ratio to which to reduce the mesh. For example, `F=0.5`
@@ -55,14 +55,14 @@ def simplify_mesh_blender(x, F, inplace=False):
     if F > 1 or F < 0:
         raise ValueError(f'`F` must be between 0 and 1, got "{F}"')
 
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         mesh = x.trimesh
     elif isinstance(x, core.Volume):
         mesh = tm.Trimesh(x.vertices, x.faces)
     elif isinstance(x, tm.Trimesh):
         mesh = x
     else:
-        raise TypeError('Expected MeshNeuron, Volume or trimesh.Trimesh, '
+        raise TypeError('Expected Mesh, Volume or trimesh.Trimesh, '
                         f'got "{type(x)}"')
 
     assert isinstance(mesh, tm.Trimesh)
@@ -103,7 +103,7 @@ def smooth_mesh_blender(x, iterations=5, L=0.5, inplace=False):
 
     Parameters
     ----------
-    x :             MeshNeuron | Volume | Trimesh
+    x :             Mesh | Volume | Trimesh
                     Mesh object to simplify.
     iterations :    int
                     Round of smoothing to apply.
@@ -127,14 +127,14 @@ def smooth_mesh_blender(x, iterations=5, L=0.5, inplace=False):
     if L > 1 or L < 0:
         raise ValueError(f'`L` (lambda) must be between 0 and 1, got "{L}"')
 
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         mesh = x.trimesh
     elif isinstance(x, core.Volume):
         mesh = tm.Trimesh(x.vertices, x.faces)
     elif isinstance(x, tm.Trimesh):
         mesh = x
     else:
-        raise TypeError('Expected MeshNeuron, Volume or trimesh.Trimesh, '
+        raise TypeError('Expected Mesh, Volume or trimesh.Trimesh, '
                         f'got "{type(x)}"')
 
     assert isinstance(mesh, tm.Trimesh)

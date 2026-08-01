@@ -33,7 +33,7 @@ logger = config.get_logger(__name__)
 __all__ = sorted(['form_factor'])
 
 
-def form_factor(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
+def form_factor(x: Union['core.Skeleton', 'core.Mesh'],
                 start: int = -3,
                 stop: int = 3,
                 num: int = 601,
@@ -48,7 +48,7 @@ def form_factor(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
     Parameters
     ----------
-    x :         TreeNeuron | Meshneuron | Dotprops | NeuronList
+    x :         Skeleton | Meshneuron | Dotprops | NeuronList
                 Neurons to calculate form factor for. A few notes:
                   - data should be in micron - if not, you might want to adjust
                     start/stop/min!
@@ -133,13 +133,13 @@ def form_factor(x: Union['core.TreeNeuron', 'core.MeshNeuron'],
 
         return np.vstack(Fq)
 
-    utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron,
+    utils.eval_param(x, name='x', allowed_types=(core.Skeleton,
                                                  core.Dotprops,
-                                                 core.MeshNeuron))
+                                                 core.Mesh))
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         coor = x.nodes[['x', 'y', 'z']].values
-    elif isinstance(x, core.MeshNeuron):
+    elif isinstance(x, core.Mesh):
         coor = x.vertices
     elif isinstance(x, core.Dotprops):
         coor = x.points

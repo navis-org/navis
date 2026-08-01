@@ -33,7 +33,7 @@ from typing import Union, Optional, List
 
 from .. import config
 
-from ..core import Volume, TreeNeuron, NeuronList
+from ..core import Volume, Skeleton, NeuronList
 from ..utils import make_url, make_iterable
 
 logger = config.get_logger(__name__)
@@ -445,7 +445,7 @@ def get_skeletons_experiment(id) -> 'NeuronList':
                 swc.drop('skeleton_id', axis=1, inplace=True)
                 swc['parent_id'] = swc.parent_id.fillna(-1).astype(int)
                 # Create neuron
-                tn = TreeNeuron(swc,
+                tn = Skeleton(swc,
                                 id=sk.get('id', 1),
                                 name=neuron.get('name', 'NA'),
                                 annotations=neuron.get('annotations', []),
@@ -644,7 +644,7 @@ def _fetch_single_neuron(url, **kwargs):
     swc.columns = ['node_id', 'label', 'x', 'y', 'z', 'radius', 'parent_id']
     swc['radius'] /= 2
 
-    return TreeNeuron(swc, units='um', soma=None, **kwargs)
+    return Skeleton(swc, units='um', soma=None, **kwargs)
 
 
 def search_neurons(name=None, short_name=None, species=None, sex=None,

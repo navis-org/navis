@@ -37,7 +37,7 @@ def write_json(x: 'core.NeuronObject', filepath, **kwargs) -> str:
 
     Parameters
     ----------
-    x :         TreeNeuron | NeuronList
+    x :         Skeleton | NeuronList
                 Neuron(s) to save.
     filepath :  str, optional
                 File to save data to. If `None` will return a json-formatted
@@ -57,7 +57,7 @@ def write_json(x: 'core.NeuronObject', filepath, **kwargs) -> str:
                 Read json back into navis neurons.
 
     """
-    if not isinstance(x, (core.TreeNeuron, core.NeuronList)):
+    if not isinstance(x, (core.Skeleton, core.NeuronList)):
         raise TypeError(f'Unable to convert data of type "{type(x)}"')
 
     if isinstance(x, core.BaseNeuron):
@@ -137,7 +137,7 @@ def read_json(s: str, **kwargs) -> 'core.NeuronList':
     nl = core.NeuronList([])
 
     for n in data:
-        cn = core.TreeNeuron(None)
+        cn = core.Skeleton(None)
 
         if '_nodes' in n:
             try:

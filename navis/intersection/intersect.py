@@ -106,7 +106,7 @@ def in_volume(
                         will use default number of rays (3 for ncollpyde, 1 for
                         pyoctree).
     prevent_fragments : bool, optional
-                        Only relevant if input is TreeNeuron(s). If True, will
+                        Only relevant if input is Skeleton(s). If True, will
                         attempt to keep neuron from fragmenting.
     validate :          bool, optional
                         If True, validate `volume` and try to fix issues using
@@ -143,7 +143,7 @@ def in_volume(
     >>> lh = navis.example_volume('LH')
     >>> n_lh = navis.in_volume(n, lh, inplace=False)
     >>> n_lh                                                    # doctest: +SKIP
-    type            navis.TreeNeuron
+    type            navis.Skeleton
     name                  1734350788
     id                    1734350788
     n_nodes                      344
@@ -258,13 +258,13 @@ def in_volume(
             x = x.copy()
 
     if isinstance(x, (core.BaseNeuron)):
-        if isinstance(x, core.TreeNeuron):
+        if isinstance(x, core.Skeleton):
             data = x.nodes[["x", "y", "z"]].values
         elif isinstance(x, core.Dotprops):
             data = x.points
-        elif isinstance(x, core.MeshNeuron):
+        elif isinstance(x, core.Mesh):
             data = x.vertices
-        elif isinstance(x, core.VoxelNeuron):
+        elif isinstance(x, core.Voxels):
             data = x.voxels * x.units_xyz.magnitude + x.units_xyz.magnitude / 2
             data += x.offset
 
@@ -278,18 +278,18 @@ def in_volume(
 
         # Only subset if there are actually nodes to remove
         if not all(in_v):
-            if isinstance(x, core.TreeNeuron):
+            if isinstance(x, core.Skeleton):
                 _ = morpho.subset_neuron(
                     x,
                     subset=x.nodes[in_v].node_id.values,
                     inplace=True,
                     prevent_fragments=prevent_fragments,
                 )
-            elif isinstance(x, (core.MeshNeuron, core.Dotprops)):
+            elif isinstance(x, (core.Mesh, core.Dotprops)):
                 _ = morpho.subset_neuron(
                     x, subset=in_v, inplace=True, prevent_fragments=prevent_fragments
                 )
-            elif isinstance(x, core.VoxelNeuron):
+            elif isinstance(x, core.Voxels):
                 values = x.values[in_v]
                 x._data = x.voxels[in_v]
                 x.values = values
@@ -349,7 +349,7 @@ def intersection_matrix(
                       Volume(s) to intersect with.
     attr :            str | None, optional
                       Attribute to return for intersected neurons (e.g.
-                      'cable_length' for TreeNeurons). If None, will return
+                      'cable_length' for Skeletons). If None, will return
                       the neuron subset to the volumes.
     **kwargs
                       Keyword arguments passed to [`navis.in_volume`][].

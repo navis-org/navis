@@ -77,7 +77,7 @@ def matching_pipeline(scores: pd.DataFrame,
     query_source :  str | function | NeuronList
                     Source for query neurons. Can be::
                       - str: path to folder with `.swc` or `.obj` files
-                      - function: must accept single ID and return TreeNeuron
+                      - function: must accept single ID and return Skeleton
                       - NeuronList
     match_source :  str | function | NeuronList
                     Source for potential matches.

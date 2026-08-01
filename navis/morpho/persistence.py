@@ -47,8 +47,8 @@ def persistence_points(x: 'core.NeuronObject',
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                Neuron(s) to calculate persistence poinst for. For MeshNeurons,
+    x :         Skeleton | Mesh | NeuronList
+                Neuron(s) to calculate persistence poinst for. For Meshes,
                 we will use the skeleton produced by/associated with its
                 `.skeleton` property.
     descriptor : 'root_dist'
@@ -85,10 +85,10 @@ def persistence_points(x: 'core.NeuronObject',
     if descriptor not in ('root_dist', ):
         raise ValueError(f'Unknown "descriptor" parameter: {descriptor}')
 
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         x = x.skeleton
-    elif not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
+    elif not isinstance(x, core.Skeleton):
+        raise ValueError(f'Expected Skeleton(s), got "{type(x)}"')
 
     if remove_cbf and x.has_soma:
         # Reroot to soma
@@ -394,8 +394,8 @@ def persistence_vector_plot(x, normalize=True, ax=None,
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                Neuron(s) to calculate persistence points for. For MeshNeurons,
+    x :         Skeleton | Mesh | NeuronList
+                Neuron(s) to calculate persistence points for. For Meshes,
                 we will use the skeleton produced by/associated with its
                 `.skeleton` property.
 

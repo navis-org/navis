@@ -152,7 +152,7 @@ def prepare_connector_cmap(x) -> Dict[str, Tuple[float, float, float]]:
             Maps type to color. Will be empty if no types.
 
     """
-    if isinstance(x, (core.NeuronList, core.TreeNeuron)):
+    if isinstance(x, (core.NeuronList, core.Skeleton)):
         connectors = getattr(x, 'connectors', None)
 
         if not isinstance(connectors, pd.DataFrame) or connectors.empty:
@@ -237,15 +237,15 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
         # For convenience we will compute this if required
         if by == 'strahler_index':
             for n in neurons:
-                if isinstance(n, core.TreeNeuron):
+                if isinstance(n, core.Skeleton):
                     if 'strahler_index' not in n.nodes:
                         _ = morpho.strahler_index(n)
-                elif isinstance(n, core.MeshNeuron):
+                elif isinstance(n, core.Mesh):
                     if not hasattr(n, 'strahler_index'):
                         _ = morpho.strahler_index(n)
         values = []
         for n in neurons:
-            if isinstance(n, core.TreeNeuron):
+            if isinstance(n, core.Skeleton):
                 # If column exists add to values
                 if by in n.nodes.columns:
                     values.append(n.nodes[by].values)
@@ -255,7 +255,7 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
                 # about it later
                 else:
                     values.append(np.repeat(np.nan, n.nodes.shape[0]))
-            elif isinstance(n, core.MeshNeuron):
+            elif isinstance(n, core.Mesh):
                 if hasattr(n, by):
                     values.append(getattr(n, by))
                 elif na == 'raise':
@@ -282,11 +282,11 @@ def vertex_colors(neurons, by, palette, alpha=1, use_alpha=False, vmin=None, vma
 
     # We also expect to have a value for every single node/vertex
     for n, v in zip(neurons, values):
-        if isinstance(n, core.TreeNeuron):
+        if isinstance(n, core.Skeleton):
             if len(v) != n.n_nodes:
                 raise ValueError(f'Got {len(v)} for {neurons.n_nodes} nodes '
                                  f'for neuron {n.id}')
-        elif isinstance(n, core.MeshNeuron):
+        elif isinstance(n, core.Mesh):
             if len(v) != n.n_faces and len(v) != n.n_vertices:
                 raise ValueError(f'Got {len(v)} for {neurons.n_faces} faces '
                                  f'and {neurons.n_vertices} vertices for '
@@ -446,8 +446,8 @@ def parse_color_by(color_by, neurons, palette=None):
     if isinstance(color_by, str):
         has_prop = hasattr(neurons[0], color_by)
 
-        # For TreeNeurons a node property takes precedence over a neuron property
-        if isinstance(neurons[0], core.TreeNeuron):
+        # For Skeletons a node property takes precedence over a neuron property
+        if isinstance(neurons[0], core.Skeleton):
             if color_by in neurons[0].nodes.columns:
                 has_prop = False
 

@@ -143,7 +143,7 @@ def read_parquet(
 
     Returns
     -------
-    navis.TreeNeuron/Dotprops
+    navis.Skeleton/Dotprops
                         If parquet file contains a single neuron.
     navis.NeuronList
                         If parquet file contains multiple neurons.
@@ -255,7 +255,7 @@ def _extract_skeleton(nodes, id, metadata):
     this_meta = {k: v for k, v in this_meta.items() if v != "None"}
 
     # The soma needs to be added separately because it is typically stored as
-    # list (e.g. [0]) which the TreeNeuron initialisation doesn't like
+    # list (e.g. [0]) which the Skeleton initialisation doesn't like
     if "soma" in this_meta:
         soma = this_meta.pop("soma")
         # Parse a list string (e.g. "[1]") back into a list
@@ -268,7 +268,7 @@ def _extract_skeleton(nodes, id, metadata):
 
     # Make the neuron
     this_meta["id"] = id
-    tn = core.TreeNeuron(nodes, **this_meta)
+    tn = core.Skeleton(nodes, **this_meta)
 
     # Fix soma
     if soma:
@@ -320,16 +320,16 @@ def _bytes_to_int(x):
 def write_parquet(
     x: "core.NeuronObject", filepath: Union[str, Path], write_meta: bool = True
 ) -> None:
-    """Write TreeNeuron(s) or Dotprops to parquet file.
+    """Write Skeleton(s) or Dotprops to parquet file.
 
     See [here](https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md)
     for format specifications.
 
     Parameters
     ----------
-    x :                 TreeNeuron | Dotprop | NeuronList thereof
+    x :                 Skeleton | Dotprop | NeuronList thereof
                         Neuron(s) to save. If NeuronList must contain either
-                        only TreeNeurons or only Dotprops.
+                        only Skeletons or only Dotprops.
     filepath :          str | pathlib.Path
                         Destination for the file.
     write_meta :        bool | list of str
@@ -373,38 +373,38 @@ def write_parquet(
     """
     filepath = Path(filepath).expanduser()
 
-    # Make sure inputs are only TreeNeurons or Dotprops
+    # Make sure inputs are only Skeletons or Dotprops
     if isinstance(x, core.NeuronList):
         types = x.types
-        if types == (core.TreeNeuron,):
+        if types == (core.Skeleton,):
             _write_parquet = _write_parquet_skeletons
         elif types == (core.Dotprops,):
             _write_parquet = _write_parquet_dotprops
         else:
             raise TypeError(
-                "Can only write either TreeNeurons or Dotprops to "
+                "Can only write either Skeletons or Dotprops to "
                 f"parquet but NeuronList contains {types}"
             )
         if x.is_degenerated:
             raise ValueError("NeuronList must not contain non-unique IDs")
     else:
-        if isinstance(x, (core.TreeNeuron,)):
+        if isinstance(x, (core.Skeleton,)):
             _write_parquet = _write_parquet_skeletons
         elif isinstance(x, (core.Dotprops,)):
             _write_parquet = _write_parquet_dotprops
         else:
             raise TypeError(
-                f'Can only write TreeNeurons or Dotprops to parquet, got "{type(x)}"'
+                f'Can only write Skeletons or Dotprops to parquet, got "{type(x)}"'
             )
 
     return _write_parquet(x, filepath=filepath, write_meta=write_meta)
 
 
-def _write_parquet_skeletons(x: 'core.TreeNeuron',
+def _write_parquet_skeletons(x: 'core.Skeleton',
                              filepath: Union[str, Path],
                              write_meta: bool = True,
                              ) -> None:
-    """Write TreeNeurons to parquet file."""
+    """Write Skeletons to parquet file."""
     try:
         import pyarrow as pa
         import pyarrow.parquet as pq

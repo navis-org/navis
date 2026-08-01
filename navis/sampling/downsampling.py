@@ -44,19 +44,19 @@ def downsample_neuron(
     Parameters
     ----------
     x :                     single neuron | NeuronList
-                            Neuron(s) to downsample. Note that for MeshNeurons
+                            Neuron(s) to downsample. Note that for Meshes
                             we use the first available backend.
     downsampling_factor :   int | float('inf')
-                            Factor by which downsample. For TreeNeuron, Dotprops
-                            and MeshNeurons this reduces the node, point
-                            and face count, respectively. For VoxelNeurons it
+                            Factor by which downsample. For Skeleton, Dotprops
+                            and Meshes this reduces the node, point
+                            and face count, respectively. For Voxels it
                             reduces the dimensions by given factor.
     preserve_nodes :        str | list, optional
                             Can be either list of node IDs to exclude from
                             downsampling or a string to a DataFrame attached
                             to the neuron (e.g. "connectors"). DataFrame must
                             have `node_id` column. Only relevant for
-                            TreeNeurons.
+                            Skeletons.
     method :                "simple" | "uniform" | "fps" | "decimate"
                             How to pick which points to keep. Only relevant for
                             Dotprops (ignored for all other neuron types):
@@ -75,7 +75,7 @@ def downsample_neuron(
 
     Returns
     -------
-    TreeNeuron/Dotprops/VoxelNeurons/NeuronList
+    Skeleton/Dotprops/Voxels/NeuronList
                             Same datatype as input.
 
     Examples
@@ -94,7 +94,7 @@ def downsample_neuron(
                              This function resamples a neuron to given
                              resolution. This will change node IDs!
     [`navis.simplify_mesh`][]
-                             This is the function used for `MeshNeurons`. Use
+                             This is the function used for `Meshes`. Use
                              directly for more control of the simplification.
 
     """
@@ -104,7 +104,7 @@ def downsample_neuron(
     if not inplace:
         x = x.copy()
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         _ = _downsample_treeneuron(
             x, downsampling_factor=downsampling_factor, preserve_nodes=preserve_nodes
         )
@@ -112,9 +112,9 @@ def downsample_neuron(
         _ = _downsample_dotprops(
             x, downsampling_factor=downsampling_factor, method=method
         )
-    elif isinstance(x, core.VoxelNeuron):
+    elif isinstance(x, core.Voxels):
         _ = _downsample_voxels(x, downsampling_factor=downsampling_factor)
-    elif isinstance(x, core.MeshNeuron):
+    elif isinstance(x, core.Mesh):
         _ = meshes.simplify_mesh(x, F=1 / downsampling_factor, inplace=True)
     else:
         raise TypeError(f'Unable to downsample data of type "{type(x)}"')
@@ -130,7 +130,7 @@ def _downsample_voxels(x, downsampling_factor, agg="max"):
     neuron sparse enough to be worth downsampling is exactly the kind whose grid
     may not fit in memory (see `navis.config.max_grid_size`).
     """
-    assert isinstance(x, core.VoxelNeuron)
+    assert isinstance(x, core.Voxels)
 
     # Pooling voxels into coarse cells only makes sense for whole factors.
     # Note we must use the *same* integer for the units below - scaling them by
@@ -139,7 +139,7 @@ def _downsample_voxels(x, downsampling_factor, agg="max"):
     factor = int(round(downsampling_factor))
     if factor != downsampling_factor:
         logger.warning(
-            f"VoxelNeurons can only be downsampled by whole factors - rounding "
+            f"Voxels can only be downsampled by whole factors - rounding "
             f"{downsampling_factor} to {factor}."
         )
 
@@ -220,8 +220,8 @@ def _downsample_dotprops(x, downsampling_factor, method="simple"):
 
 
 def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
-    """Downsample TreeNeuron."""
-    assert isinstance(x, core.TreeNeuron)
+    """Downsample Skeleton."""
+    assert isinstance(x, core.Skeleton)
 
     if not isinstance(preserve_nodes, type(None)):
         if isinstance(preserve_nodes, str):

@@ -376,9 +376,9 @@ def _extract_coords(n):
     """Extract xyz coordinates from given object."""
     if isinstance(n, np.ndarray):
         return n
-    elif isinstance(n, core.MeshNeuron):
+    elif isinstance(n, core.Mesh):
         return n.vertices
-    elif isinstance(n, core.TreeNeuron):
+    elif isinstance(n, core.Skeleton):
         return n.nodes[['x', 'y', 'z']].values
     elif isinstance(n, core.Dotprops):
         return n.points
@@ -392,9 +392,9 @@ def _set_coords(n, new_co):
         new_co = new_co.flatten()
 
     if new_co.ndim == 2:
-        if isinstance(n, core.MeshNeuron):
+        if isinstance(n, core.Mesh):
             n.vertices = new_co
-        elif isinstance(n, core.TreeNeuron):
+        elif isinstance(n, core.Skeleton):
             n.nodes[['x', 'y', 'z']] = new_co
         elif isinstance(n, core.Dotprops):
             n.points = new_co
@@ -402,10 +402,10 @@ def _set_coords(n, new_co):
             raise TypeError(f'Unable to extract coordinates from {type(n)}')
     # If this is a single vector
     else:
-        if isinstance(n, core.MeshNeuron):
+        if isinstance(n, core.Mesh):
             for i in range(3):
                 n.vertices[:, i] = new_co
-        elif isinstance(n, core.TreeNeuron):
+        elif isinstance(n, core.Skeleton):
             for i in 'xyz':
                 n.nodes[i] = new_co
         elif isinstance(n, core.Dotprops):

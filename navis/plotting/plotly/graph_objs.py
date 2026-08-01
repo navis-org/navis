@@ -219,7 +219,7 @@ def neuron2plotly(x, colormap, settings):
                 color = color[neuron.vertex_map]
 
         if not settings.connectors_only:
-            if isinstance(neuron, core.TreeNeuron):
+            if isinstance(neuron, core.Skeleton):
                 trace_data += skeleton2plotly(
                     neuron,
                     label=label,
@@ -228,7 +228,7 @@ def neuron2plotly(x, colormap, settings):
                     color=color,
                     settings=settings,
                 )
-            elif isinstance(neuron, core.MeshNeuron):
+            elif isinstance(neuron, core.Mesh):
                 trace_data += mesh2plotly(
                     neuron,
                     label=label,
@@ -237,7 +237,7 @@ def neuron2plotly(x, colormap, settings):
                     color=color,
                     settings=settings,
                 )
-            elif isinstance(neuron, core.VoxelNeuron):
+            elif isinstance(neuron, core.Voxels):
                 trace_data += voxel2plotly(
                     neuron,
                     label=label,
@@ -272,7 +272,7 @@ def neuron2plotly(x, colormap, settings):
                 c = f"rgb({c[0]},{c[1]},{c[2]})"
 
                 if cn_lay["display"] == "circles" or isinstance(
-                    neuron, core.MeshNeuron
+                    neuron, core.Mesh
                 ):
                     trace_data.append(
                         go.Scatter3d(
@@ -343,7 +343,7 @@ def neuron2plotly(x, colormap, settings):
 
 
 def mesh2plotly(neuron, legendgroup, showlegend, label, color, settings):
-    """Convert MeshNeuron to plotly object."""
+    """Convert Mesh to plotly object."""
     # Skip empty neurons
     if neuron.n_vertices == 0:
         return []
@@ -401,7 +401,7 @@ def mesh2plotly(neuron, legendgroup, showlegend, label, color, settings):
 def voxel2plotly(
     neuron, legendgroup, showlegend, label, color, settings, as_scatter=True
 ):
-    """Convert VoxelNeuron to plotly object.
+    """Convert Voxels to plotly object.
 
     Turns out that plotly is horrendous for plotting voxel data (Volumes):
     anything more than a few thousand voxels (e.g. 40x40x40) and the html
@@ -497,12 +497,12 @@ def voxel2plotly(
 
 
 def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
-    """Convert skeleton (i.e. TreeNeuron) to plotly line plot."""
+    """Convert skeleton (i.e. Skeleton) to plotly line plot."""
     if not hasattr(neuron, "nodes") or neuron.nodes.empty:
-        logger.warning(f"Skipping TreeNeuron w/o nodes: {neuron.label}")
+        logger.warning(f"Skipping Skeleton w/o nodes: {neuron.label}")
         return []
     elif neuron.nodes.shape[0] == 1:
-        logger.warning(f"Skipping single-node TreeNeuron: {neuron.label}")
+        logger.warning(f"Skipping single-node Skeleton: {neuron.label}")
         return []
 
     coords = segments_to_coords(neuron)

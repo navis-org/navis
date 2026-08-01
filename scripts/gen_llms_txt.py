@@ -197,7 +197,7 @@ def kind(obj) -> str:
 # name in the first cell. Two row dialects exist and both are load-bearing:
 #
 #   | [`navis.prune_twigs()`][navis.prune_twigs] | {{ autosummary("navis.prune_twigs") }} |
-#   | [`navis.TreeNeuron`][]                     | Skeleton representation of a neuron.   |
+#   | [`navis.Skeleton`][]                     | Skeleton representation of a neuron.   |
 #
 # Keying only off the `autosummary` macro misses the second dialect, which is
 # how the core neuron classes are listed. Restricting to table rows (rather

@@ -51,7 +51,7 @@ class CompartmentNotFoundError(Exception):
 
 
 class Features(ABC):
-    def __init__(self, neuron: "core.TreeNeuron", label=None, verbose=False):
+    def __init__(self, neuron: "core.Skeleton", label=None, verbose=False):
         self.neuron = neuron
         self.verbose = verbose
 
@@ -184,7 +184,7 @@ class BasicFeatures(Features):
 class CompartmentFeatures(BasicFeatures):
     """Base class for compartment-specific features."""
 
-    def __init__(self, neuron: "core.TreeNeuron", compartment, verbose=False):
+    def __init__(self, neuron: "core.Skeleton", compartment, verbose=False):
         if "label" not in neuron.nodes.columns:
             raise ValueError(
                 f"No 'label' column found in node table for neuron {neuron.id}"
@@ -216,7 +216,7 @@ class CompartmentFeatures(BasicFeatures):
 class AxonFeatures(CompartmentFeatures):
     """Extract features from an axon."""
 
-    def __init__(self, neuron: "core.TreeNeuron", verbose=False):
+    def __init__(self, neuron: "core.Skeleton", verbose=False):
         super().__init__(neuron, "axon", verbose=verbose)
 
     def extract_features(self):
@@ -259,7 +259,7 @@ class AxonFeatures(CompartmentFeatures):
 class BasalDendriteFeatures(CompartmentFeatures):
     """Extract features from a basal dendrite."""
 
-    def __init__(self, neuron: "core.TreeNeuron", verbose=False):
+    def __init__(self, neuron: "core.Skeleton", verbose=False):
         super().__init__(neuron, "basal_dendrite", verbose=verbose)
 
     def extract_features(self):
@@ -281,7 +281,7 @@ class BasalDendriteFeatures(CompartmentFeatures):
 class ApicalDendriteFeatures(CompartmentFeatures):
     """Extract features from a apical dendrite."""
 
-    def __init__(self, neuron: "core.TreeNeuron", verbose=False):
+    def __init__(self, neuron: "core.Skeleton", verbose=False):
         super().__init__(neuron, "apical_dendrite", verbose=verbose)
 
     def extract_features(self):
@@ -344,7 +344,7 @@ class OverlapFeatures(Features):
 
 
 def ivscc_features(
-    x: "core.TreeNeuron",
+    x: "core.Skeleton",
     features=None,
     missing_compartments="ignore",
     verbose=False,
@@ -356,7 +356,7 @@ def ivscc_features(
 
     Parameters
     ----------
-    x :                     TreeNeuron | NeuronList
+    x :                     Skeleton | NeuronList
                             Neuron(s) to calculate IVSCC for.
     features :              Sequence[Features], optional
                             Provide specific features to calculate.
@@ -376,7 +376,7 @@ def ivscc_features(
 
     """
 
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         x = core.NeuronList([x])
 
     if features is None:

@@ -31,7 +31,7 @@ from .. import utils, config, meshes, conversion, graph
 from ..utils.subclasses import TrimeshPlus, validate_extra_edges
 from .base import BaseNeuron
 from .neuronlist import NeuronList
-from .skeleton import TreeNeuron
+from .skeleton import Skeleton
 from .core_utils import temp_property, add_units
 
 
@@ -41,7 +41,7 @@ except ModuleNotFoundError:
     xxhash = None
 
 
-__all__ = ['MeshNeuron']
+__all__ = ['Mesh']
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -52,7 +52,7 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
-class MeshNeuron(BaseNeuron):
+class Mesh(BaseNeuron):
     """Neuron represented as mesh with vertices and faces.
 
     Parameters
@@ -64,7 +64,7 @@ class MeshNeuron(BaseNeuron):
                      - a tuple `(vertices, faces)`
                      - a dictionary `{"vertices": (N, 3), "faces": (M, 3)}`
                      - filepath to a file that can be read by `trimesh.load`
-                     - `None` will initialize an empty MeshNeuron
+                     - `None` will initialize an empty Mesh
                      - `skeletor.Skeleton` will use the mesh and the skeleton
                        (including the vertex to node map)
 
@@ -116,7 +116,7 @@ class MeshNeuron(BaseNeuron):
         self._lock = 1
         self._trimesh = None  # this is required to avoid recursion during init
 
-        if isinstance(x, MeshNeuron):
+        if isinstance(x, Mesh):
             self.__dict__.update(x.copy().__dict__)
             self.vertices, self.faces = x.vertices, x.faces
         elif hasattr(x, 'faces') and hasattr(x, 'vertices'):
@@ -136,13 +136,13 @@ class MeshNeuron(BaseNeuron):
             self.vertices, self.faces = np.zeros((0, 3)), np.zeros((0, 3))
         elif isinstance(x, sk.Skeleton):
             self.vertices, self.faces = x.mesh.vertices, x.mesh.faces
-            self._skeleton = TreeNeuron(x)
+            self._skeleton = Skeleton(x)
         elif isinstance(x, tuple):
             if len(x) != 2 or any([not isinstance(v, np.ndarray) for v in x]):
                 raise TypeError('Expect tuple to be two arrays: (vertices, faces)')
             self.vertices, self.faces = x[0], x[1]
         else:
-            raise utils.ConstructionError(f'Unable to construct MeshNeuron from "{type(x)}"')
+            raise utils.ConstructionError(f'Unable to construct Mesh from "{type(x)}"')
 
         for k, v in metadata.items():
             try:
@@ -406,7 +406,7 @@ class MeshNeuron(BaseNeuron):
 
     @property
     @temp_property
-    def skeleton(self) -> 'TreeNeuron':
+    def skeleton(self) -> 'Skeleton':
         """Skeleton representation of this neuron.
 
         Uses [`navis.conversion.mesh2skeleton`][].
@@ -420,15 +420,15 @@ class MeshNeuron(BaseNeuron):
     def skeleton(self, s):
         """Attach skeleton respresentation for this neuron."""
         if isinstance(s, (sk.Skeleton, sparsecubes.Skeleton)):
-            s = TreeNeuron(s, id=self.id, name=self.name)
-        elif not isinstance(s, TreeNeuron):
-            raise TypeError(f'`.skeleton` must be a TreeNeuron, got "{type(s)}"')
+            s = Skeleton(s, id=self.id, name=self.name)
+        elif not isinstance(s, Skeleton):
+            raise TypeError(f'`.skeleton` must be a Skeleton, got "{type(s)}"')
         self._skeleton = s
 
     @property
     def soma(self):
-        """Not implemented for MeshNeurons - use `.soma_pos`."""
-        raise AttributeError("MeshNeurons have a soma position (`.soma_pos`), not a soma.")
+        """Not implemented for Meshes - use `.soma_pos`."""
+        raise AttributeError("Meshes have a soma position (`.soma_pos`), not a soma.")
 
     @property
     def soma_pos(self):
@@ -456,7 +456,7 @@ class MeshNeuron(BaseNeuron):
     @property
     def type(self) -> str:
         """Neuron type."""
-        return 'navis.MeshNeuron'
+        return 'navis.Mesh'
 
     @property
     @temp_property
@@ -475,7 +475,7 @@ class MeshNeuron(BaseNeuron):
                 self._trimesh._extra_edges = self.extra_edges
         return self._trimesh
 
-    def copy(self) -> 'MeshNeuron':
+    def copy(self) -> 'Mesh':
         """Return a copy of the neuron."""
         no_copy = ['_lock']
 
@@ -538,7 +538,7 @@ class MeshNeuron(BaseNeuron):
 
         return ix, dist
 
-    def skeletonize(self, method='wavefront', heal=True, inv_dist=None, **kwargs) -> 'TreeNeuron':
+    def skeletonize(self, method='wavefront', heal=True, inv_dist=None, **kwargs) -> 'Skeleton':
         """Skeletonize mesh.
 
         See [`navis.conversion.mesh2skeleton`][] for details.
@@ -560,7 +560,7 @@ class MeshNeuron(BaseNeuron):
 
         Returns
         -------
-        skeleton :  navis.TreeNeuron
+        skeleton :  navis.Skeleton
 
         """
         return conversion.mesh2skeleton(self, method=method, heal=heal,
@@ -573,3 +573,8 @@ class MeshNeuron(BaseNeuron):
 
         """
         return meshes.fix_mesh(self, inplace=inplace)
+
+
+# Pre-2.0 name. Must be a plain alias: `pickle` resolves classes by their
+# defining module and has to find this one without a warning.
+MeshNeuron = Mesh

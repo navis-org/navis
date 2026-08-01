@@ -37,7 +37,7 @@ and build from there. There are two types of models:
 ## Compartment models
 
 A [`CompartmentModel`][navis.interfaces.neuron.comp.CompartmentModel] represents a single neuron (although you
-can connect multiple of these neurons) and is constructed from a skeleton (i.e. [`navis.TreeNeuron`][], see also
+can connect multiple of these neurons) and is constructed from a skeleton (i.e. [`navis.Skeleton`][], see also
 [`navis.conversion.mesh2skeleton`][]). The full pipeline looks like this:
 
 ```mermaid

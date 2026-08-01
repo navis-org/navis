@@ -481,7 +481,7 @@ class BaseReader(ABC):
         zippath :   str | os.PathLike
                     Path to zip file.
         attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
@@ -526,7 +526,7 @@ class BaseReader(ABC):
         limit :     int, optional
                     Limit the number of files read from this directory.
         attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
@@ -560,7 +560,7 @@ class BaseReader(ABC):
         limit :     int, optional
                     Limit the number of files read from this directory.
         attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
@@ -670,7 +670,7 @@ class BaseReader(ABC):
         limit :     int, optional
                     Limit the number of files read from this directory.
         attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
@@ -721,7 +721,7 @@ class BaseReader(ABC):
                     and in the correct directory. If "GLOBAL", we will look for a
                     `_FTP` global variable.
         attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
@@ -775,7 +775,7 @@ class BaseReader(ABC):
         limit :     int, optional
                     Limit the number of files read from this directory.
         attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
@@ -815,7 +815,7 @@ class BaseReader(ABC):
         gcsfs :     gcsfs.GCSFileSystem or None
                     The Google Cloud Storage filesystem client.
         attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
@@ -875,7 +875,7 @@ class BaseReader(ABC):
         limit :             int, optional
                             Limit the number of files read from this directory.
         attrs :             dict or None
-                            Arbitrary attributes to include in the TreeNeurons
+                            Arbitrary attributes to include in the Skeletons
                             of the NeuronList
 
         Returns
@@ -1097,7 +1097,7 @@ class BaseReader(ABC):
                             "auto" or True for n_cores // 2, otherwise int for
                             number of jobs, or False for serial.
         attrs :             dict or None
-                            Arbitrary attributes to include in each TreeNeuron
+                            Arbitrary attributes to include in each Skeleton
                             of the NeuronList.
 
         Returns
@@ -1369,7 +1369,7 @@ class ImageReader(BaseReader):
                     "i.e. 2D. Could this be a point cloud or dotprops "
                     "instead of voxels?"
                 )
-            x = core.VoxelNeuron(data, units=units)
+            x = core.Voxels(data, units=units)
 
         # Header is special - we do not want to register it
         setattr(x, f"{self.name_fallback.lower()}_header", header)

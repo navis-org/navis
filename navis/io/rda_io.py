@@ -289,8 +289,8 @@ def _fix_parents(d: pd.DataFrame, obj: Mapping[str, Any]) -> pd.DataFrame:
 
 def neuron_constructor(obj: Any,
                        attrs: Mapping[Union[str, bytes], Any],
-                       ) -> 'core.TreeNeuron':
-    """Convert nat neuron/catmaidneuron to navis TreeNeuron."""
+                       ) -> 'core.Skeleton':
+    """Convert nat neuron/catmaidneuron to navis Skeleton."""
     # Data to skip: nat's topology fields, all of which navis derives itself
     DO_NOT_USE = ['nTrees', 'SegList', 'SubTrees', 'NumPoints', 'StartPoint',
                   'EndPoints', 'BranchPoints', 'NumSegs']
@@ -298,7 +298,7 @@ def neuron_constructor(obj: Any,
     RENAME = {'NeuronName': 'name', 'skid': 'id'}
 
     # Construct neuron from just the nodes
-    n = core.TreeNeuron(_fix_parents(obj.pop('d'), obj))
+    n = core.Skeleton(_fix_parents(obj.pop('d'), obj))
 
     # R uses diameter, not radius - let's fix that
     if 'radius' in n.nodes.columns:
@@ -640,8 +640,8 @@ def _nat_topology(node_ids: np.ndarray, parent_ids: np.ndarray):
     return subtrees, {ix[node]: len(cn) for node, cn in children.items()}
 
 
-def _neuron2r(x: "core.TreeNeuron") -> _RObj:
-    """Convert a TreeNeuron into a nat `neuron`."""
+def _neuron2r(x: "core.Skeleton") -> _RObj:
+    """Convert a Skeleton into a nat `neuron`."""
     nodes = x.nodes
 
     node_ids = nodes.node_id.values
@@ -766,7 +766,7 @@ def _dotprops2r(x: "core.Dotprops") -> _RObj:
 
 
 def _mesh2r(x) -> _RObj:
-    """Convert a MeshNeuron/Volume/trimesh into an rgl `mesh3d` object."""
+    """Convert a Mesh/Volume/trimesh into an rgl `mesh3d` object."""
     vertices = np.asarray(x.vertices, dtype=np.float64)
     faces = np.asarray(x.faces)
 
@@ -814,8 +814,8 @@ def _material(color) -> Union[list, dict]:
     return material
 
 
-def _voxels2r(x: "core.VoxelNeuron") -> _RObj:
-    """Convert a VoxelNeuron into a nat `im3d` object."""
+def _voxels2r(x: "core.Voxels") -> _RObj:
+    """Convert Voxels into a nat `im3d` object."""
     # Note that `im3d` is dense, so this materialises the whole grid
     grid = x.grid
     dtype = np.int32 if grid.dtype.kind in "biu" else np.float64
@@ -891,13 +891,13 @@ def _any2r(x, add_metadata: bool = True) -> Any:
     """
     if isinstance(x, core.NeuronList):
         return _neuronlist2r(x, add_metadata=add_metadata)
-    elif isinstance(x, core.TreeNeuron):
+    elif isinstance(x, core.Skeleton):
         return _neuron2r(x)
     elif isinstance(x, core.Dotprops):
         return _dotprops2r(x)
-    elif isinstance(x, (core.MeshNeuron, core.Volume)):
+    elif isinstance(x, (core.Mesh, core.Volume)):
         return _mesh2r(x)
-    elif isinstance(x, core.VoxelNeuron):
+    elif isinstance(x, core.Voxels):
         return _voxels2r(x)
     elif isinstance(x, dict):
         return {str(k): _any2r(v, add_metadata=add_metadata) for k, v in x.items()}
@@ -982,10 +982,10 @@ def write_rds(
                     Object(s) to write. Neurons are converted to their nat
                     equivalents:
 
-                     - `TreeNeuron` -> `nat::neuron`
+                     - `Skeleton` -> `nat::neuron`
                      - `Dotprops` -> `nat::dotprops`
-                     - `MeshNeuron`/`Volume` -> `rgl::mesh3d`
-                     - `VoxelNeuron` -> `nat::im3d`
+                     - `Mesh`/`Volume` -> `rgl::mesh3d`
+                     - `Voxels` -> `nat::im3d`
                      - `NeuronList` -> `nat::neuronlist`
 
                     Dicts, lists, DataFrames and numpy arrays are written as

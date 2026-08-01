@@ -48,7 +48,7 @@ __all__ = sorted(
 
 
 def _component_counts(
-    x: "core.TreeNeuron", counted: np.ndarray, index: np.ndarray
+    x: "core.Skeleton", counted: np.ndarray, index: np.ndarray
 ) -> pd.Series:
     """For each node in `index`, count how many of `counted` sit in its fragment.
 
@@ -84,13 +84,13 @@ def _component_counts(
 
 
 def parent_dist(
-    x: Union["core.TreeNeuron", pd.DataFrame], root_dist: Optional[int] = None
+    x: Union["core.Skeleton", pd.DataFrame], root_dist: Optional[int] = None
 ) -> None:
     """Get child->parent distances for skeleton nodes.
 
     Parameters
     ----------
-    x :         TreeNeuron | node table
+    x :         Skeleton | node table
     root_dist : int | None
                 `parent_dist` for the root's row. Set to `None`, to leave
                 at `NaN` or e.g. to `0` to set to 0.
@@ -101,12 +101,12 @@ def parent_dist(
                 Array with distances in same order and size as node table.
 
     """
-    if isinstance(x, core.TreeNeuron):
+    if isinstance(x, core.Skeleton):
         nodes = x.nodes
     elif isinstance(x, pd.DataFrame):
         nodes = x
     else:
-        raise TypeError(f'Need TreeNeuron or DataFrame, got "{type(x)}"')
+        raise TypeError(f'Need Skeleton or DataFrame, got "{type(x)}"')
 
     if not utils.fastcore:
         # Extract node coordinates
@@ -153,7 +153,7 @@ def strahler_index(
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron | NeuronList
+    x :                 Skeleton | Mesh | NeuronList
     method :            'standard' | 'greedy', optional
                         Method used to calculate Strahler indices: 'standard'
                         will use the method described above; 'greedy' will
@@ -173,8 +173,8 @@ def strahler_index(
     -------
     neuron
                 Adds "strahler_index" as column in the node table (for
-                TreeNeurons) or as `."strahler_index` property
-                (for MeshNeurons).
+                Skeletons) or as `."strahler_index` property
+                (for Meshes).
 
     See Also
     --------
@@ -196,7 +196,7 @@ def strahler_index(
     5
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     if method not in ["standard", "greedy"]:
         raise ValueError(f'`method` must be "standard" or "greedy", got "{method}"')
@@ -334,7 +334,7 @@ def segment_analysis(x: "core.NeuronObject") -> "core.NeuronObject":
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron
+    x :                 Skeleton | Mesh
                         Neuron(s) to produce segment analysis for.
 
     Returns
@@ -416,7 +416,7 @@ def segment_analysis(x: "core.NeuronObject") -> "core.NeuronObject":
     1734350908      761.0  363.0  203.0  116.0  20.0  33.0   NaN
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     if "strahler_index" not in x.nodes:
         strahler_index(x)
@@ -576,7 +576,7 @@ def arbor_segregation_index(x: "core.NeuronObject") -> "core.NeuronObject":
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
+    x :         Skeleton | Mesh | NeuronList
                 Neuron(s) to calculate segregation indices for. Must have
                 connectors!
 
@@ -584,8 +584,8 @@ def arbor_segregation_index(x: "core.NeuronObject") -> "core.NeuronObject":
     -------
     neuron
                 Adds "segregation_index" as column in the node table (for
-                TreeNeurons) or as `.segregation_index` property
-                (for MeshNeurons).
+                Skeletons) or as `.segregation_index` property
+                (for Meshes).
 
     Examples
     --------
@@ -609,8 +609,8 @@ def arbor_segregation_index(x: "core.NeuronObject") -> "core.NeuronObject":
             Split the neuron into axon, dendrite and primary neurite.
 
     """
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise ValueError(f'Expected Skeleton(s), got "{type(x)}"')
 
     if not x.has_connectors:
         raise ValueError("Neuron must have connectors.")
@@ -728,15 +728,15 @@ def bending_flow(x: "core.NeuronObject") -> "core.NeuronObject":
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
+    x :         Skeleton | Mesh | NeuronList
                 Neuron(s) to calculate bending flow for. Must have connectors!
 
     Returns
     -------
     neuron
                 Adds "bending_flow" as column in the node table (for
-                TreeNeurons) or as `.bending_flow` property
-                (for MeshNeurons).
+                Skeletons) or as `.bending_flow` property
+                (for Meshes).
 
     Examples
     --------
@@ -759,8 +759,8 @@ def bending_flow(x: "core.NeuronObject") -> "core.NeuronObject":
             Split the neuron into axon, dendrite and primary neurite.
 
     """
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise ValueError(f'Expected Skeleton(s), got "{type(x)}"')
 
     if not x.has_connectors:
         raise ValueError("Neuron must have connectors.")
@@ -864,7 +864,7 @@ def _flow_centrality_igraph(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
+    x :         Skeleton | Mesh | NeuronList
                 Neuron(s) to calculate flow centrality for. Must have
                 connectors!
     mode :      'centrifugal' | 'centripetal' | 'sum', optional
@@ -877,15 +877,15 @@ def _flow_centrality_igraph(
     -------
     neuron
                 Adds "synapse_flow_centrality" as column in the node table (for
-                TreeNeurons) or as `.synapse_flow_centrality` property
-                (for MeshNeurons).
+                Skeletons) or as `.synapse_flow_centrality` property
+                (for Meshes).
 
     """
     if mode not in ["centrifugal", "centripetal", "sum"]:
         raise ValueError(f'Unknown "mode" parameter: {mode}')
 
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise ValueError(f'Expected Skeleton(s), got "{type(x)}"')
 
     if not x.has_connectors:
         raise ValueError("Neuron must have connectors.")
@@ -999,7 +999,7 @@ def synapse_flow_centrality(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
+    x :         Skeleton | Mesh | NeuronList
                 Neuron(s) to calculate synapse flow centrality for. Must have
                 connectors!
     mode :      'centrifugal' | 'centripetal' | 'sum', optional
@@ -1012,8 +1012,8 @@ def synapse_flow_centrality(
     -------
     neuron
                 Adds "synapse_flow_centrality" as column in the node table (for
-                TreeNeurons) or as `.synapse_flow_centrality` property
-                (for MeshNeurons).
+                Skeletons) or as `.synapse_flow_centrality` property
+                (for Meshes).
 
     Examples
     --------
@@ -1047,8 +1047,8 @@ def synapse_flow_centrality(
     if mode not in ["centrifugal", "centripetal", "sum"]:
         raise ValueError(f'Unknown "mode" parameter: {mode}')
 
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise ValueError(f'Expected Skeleton(s), got "{type(x)}"')
 
     if not x.has_connectors:
         raise ValueError("Neuron must have connectors.")
@@ -1209,15 +1209,15 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
+    x :         Skeleton | Mesh | NeuronList
                 Neuron(s) to calculate flow centrality for.
 
     Returns
     -------
     neuron
                 Adds "flow_centrality" as column in the node table (for
-                TreeNeurons) or as `.flow_centrality` property
-                (for MeshNeurons).
+                Skeletons) or as `.flow_centrality` property
+                (for Meshes).
 
     Examples
     --------
@@ -1249,8 +1249,8 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
     warnings.warn(msg, DeprecationWarning)
     logger.warning(msg)
 
-    if not isinstance(x, core.TreeNeuron):
-        raise ValueError(f'Expected TreeNeuron(s), got "{type(x)}"')
+    if not isinstance(x, core.Skeleton):
+        raise ValueError(f'Expected Skeleton(s), got "{type(x)}"')
 
     if np.any(x.soma) and not np.all(np.isin(x.soma, x.root)):
         logger.warning(f"Neuron {x.id} is not rooted to its soma!")
@@ -1331,8 +1331,8 @@ def tortuosity(
 
     Parameters
     ----------
-    x :                 TreeNeuron | MeshNeuron | NeuronList
-                        Neuron to analyze. If MeshNeuron, will generate and
+    x :                 Skeleton | Mesh | NeuronList
+                        Neuron to analyze. If Mesh, will generate and
                         use a skeleton representation.
     seg_length :        int | float | str | list thereof, optional
                         Target segment length(s) `L`. If `seg_length` is
@@ -1353,7 +1353,7 @@ def tortuosity(
     -------
     tortuosity :        float | np.array | pandas.DataFrame
                         If x is NeuronList, will return DataFrame.
-                        If x is single TreeNeuron, will return either a
+                        If x is single Skeleton, will return either a
                         single float (if no or a single seg_length is queried)
                         or a DataFrame (if multiple seg_lengths are queried).
 
@@ -1396,10 +1396,10 @@ def tortuosity(
         df.index.name = "seg_length"
         return df
 
-    if isinstance(x, core.MeshNeuron):
+    if isinstance(x, core.Mesh):
         x = x.skeleton
-    elif not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Expected TreeNeuron(s), got {type(x)}")
+    elif not isinstance(x, core.Skeleton):
+        raise TypeError(f"Expected Skeleton(s), got {type(x)}")
 
     if isinstance(seg_length, (list, np.ndarray)):
         return [tortuosity(x, l) for l in seg_length]
@@ -1410,7 +1410,7 @@ def tortuosity(
         return _tortuosity_segmented(x, seg_length)
 
 
-def _tortuosity_simple(x: "core.TreeNeuron") -> float:
+def _tortuosity_simple(x: "core.Skeleton") -> float:
     """Calculate tortuosity for neuron as-is."""
     # Iterate over segments
     locs = x.nodes.set_index("node_id")[["x", "y", "z"]].astype(float)
@@ -1430,7 +1430,7 @@ def _tortuosity_simple(x: "core.TreeNeuron") -> float:
     return np.mean(T_all)
 
 
-def _tortuosity_segmented(x: "core.TreeNeuron", seg_length: Union[int, float, str]) -> float:
+def _tortuosity_segmented(x: "core.Skeleton", seg_length: Union[int, float, str]) -> float:
     """Calculate tortuosity for segmented neuron."""
     # From here on out seg length is single value
     seg_length: float = x.map_units(seg_length, on_error="raise")
@@ -1502,8 +1502,8 @@ def sholl_analysis(
 
     Parameters
     ----------
-    x :         TreeNeuron | MeshNeuron | NeuronList
-                Neuron to analyze. If MeshNeuron, will generate and
+    x :         Skeleton | Mesh | NeuronList
+                Neuron to analyze. If Mesh, will generate and
                 use a skeleton representation.
     radii :     int | list-like
                 If integer, will produce N evenly space radii covering the
@@ -1546,12 +1546,12 @@ def sholl_analysis(
     >>> sha = navis.sholl_analysis(n, radii=100, center='root', geodesic=True)
 
     """
-    # Use MeshNeuron's skeleton
-    if isinstance(x, core.MeshNeuron):
+    # Use Mesh's skeleton
+    if isinstance(x, core.Mesh):
         x = x.skeleton
 
-    if not isinstance(x, core.TreeNeuron):
-        raise TypeError(f"Expected TreeNeuron or MeshNeuron(s), got {type(x)}")
+    if not isinstance(x, core.Skeleton):
+        raise TypeError(f"Expected Skeleton or Mesh(s), got {type(x)}")
 
     if geodesic and len(x.root) > 1:
         raise ValueError(
@@ -1671,7 +1671,7 @@ def betweeness_centrality(
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | NeuronList
+    x :             Skeleton | Mesh | NeuronList
     from_ :         "leafs" | "branch_points" | iterable, optional
                     If provided will only consider paths from given nodes to
                     root(s):
@@ -1687,8 +1687,8 @@ def betweeness_centrality(
     -------
     neuron
                 Adds "betweenness" as column in the node table (for
-                TreeNeurons) or as `.betweenness` property
-                (for MeshNeurons).
+                Skeletons) or as `.betweenness` property
+                (for Meshes).
 
     Examples
     --------
@@ -1704,7 +1704,7 @@ def betweeness_centrality(
     59637
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     if isinstance(from_, str):
         utils.eval_param(from_, name="from_", allowed_values=("leafs", "branch_points"))
@@ -1757,7 +1757,7 @@ def cable_length(x, mask=None) -> Union[int, float]:
 
     Parameters
     ----------
-    x :             TreeNeuron | MeshNeuron | NeuronList
+    x :             Skeleton | Mesh | NeuronList
                     Neuron(s) for which to calculate cable length.
     mask :          None | boolean array | callable
                     If provided, will only consider nodes where
@@ -1770,7 +1770,7 @@ def cable_length(x, mask=None) -> Union[int, float]:
                     Cable length of the neuron(s).
 
     """
-    utils.eval_param(x, name="x", allowed_types=(core.TreeNeuron,))
+    utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))
 
     nodes = x.nodes
     if mask is not None:

@@ -28,9 +28,9 @@ n
 
 # %%
 # In above code we loaded one of the example neurons. {{ navis }} represents neurons as
-# [`navis.TreeNeuron`][], [`navis.MeshNeuron`][], [`navis.VoxelNeuron`][] or [`navis.Dotprops`][].
+# [`navis.Skeleton`][], [`navis.Mesh`][], [`navis.Voxels`][] or [`navis.Dotprops`][].
 #
-# In the above example we asked for a skeleton, so the neuron returned is a [`TreeNeuron`][navis.TreeNeuron].
+# In the above example we asked for a skeleton, so the neuron returned is a [`Skeleton`][navis.Skeleton].
 # This class is essentially a wrapper around the actual neuron data (the SWC table in this case) and has
 # some convenient features.
 #
@@ -50,8 +50,8 @@ n.nodes.head()
 #     Type `n.` and hit ++tab++ - most attributes and functions are accessible via autocompletion.
 #     Not sure what something does? Ask for `help()` (or browse the [API documentation](../../../api)):
 #     ```python
-#     help(navis.TreeNeuron.root)
-#     help(navis.TreeNeuron.downsample)
+#     help(navis.Skeleton.root)
+#     help(navis.Skeleton.downsample)
 #     ```
 
 # %%
@@ -68,7 +68,7 @@ n.downsample(10, inplace=True)
 n
 
 # %%
-# [`navis.TreeNeuron`][] functions such as [`.downsample()`][navis.TreeNeuron.downsample] are shorthands for calling the actual
+# [`navis.Skeleton`][] functions such as [`.downsample()`][navis.Skeleton.downsample] are shorthands for calling the actual
 # {{ navis }} functions. So above code is equivalent to:
 
 # %%

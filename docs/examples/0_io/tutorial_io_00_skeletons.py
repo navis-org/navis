@@ -6,7 +6,7 @@ Load and save skeletons from SWC and other formats, or build them from scratch.
 
 Skeletons are probably the most common representation of neurons and are stored as a series
 of connected nodes (the "skeleton"). In {{ navis }}, skeletons are represented by the
-[`navis.TreeNeuron`][] class.
+[`navis.Skeleton`][] class.
 
 Build them manually (see the [bottom of this page](#manual-construction)) or use one of the built-in
 readers for the various skeleton file formats:
@@ -41,7 +41,7 @@ readers for the various skeleton file formats:
 
     ---
 
-    Roll your own [`TreeNeuron`][navis.TreeNeuron] from an SWC-like table.
+    Roll your own [`Skeleton`][navis.Skeleton] from an SWC-like table.
 
     [:octicons-arrow-right-24: Manual construction](#manual-construction)
 
@@ -166,7 +166,7 @@ navis.plot2d(nl[:10], method='2d', radius=False)
 # %%
 # !!! note
 #     If you encounter an error message while reading: NMX files don't always contain skeletons.
-#     If {{ navis }} comes across one that can't be turned into a [`navis.TreeNeuron`][],
+#     If {{ navis }} comes across one that can't be turned into a [`navis.Skeleton`][],
 #     it will skip the file and produce a warning.
 #
 # ## From Neuroglancer Precomputed
@@ -183,7 +183,7 @@ navis.plot2d(nl[:10], method='2d', radius=False)
 # ## Manual construction
 #
 # What if you have some obscure data format for which {{ navis }} does not have a read function? The data underlying
-# a [`navis.TreeNeuron`][] is a simple SWC table - so as long as you can produce that from your data, you can create
+# a [`navis.Skeleton`][] is a simple SWC table - so as long as you can produce that from your data, you can create
 # your own skeletons.
 #
 # Here's a quick & dirty example:
@@ -203,20 +203,20 @@ swc['radius'] = 0
 swc
 
 # %%
-# This SWC can now be used to construct a [`TreeNeuron`][navis.TreeNeuron]:
+# This SWC can now be used to construct a [`Skeleton`][navis.Skeleton]:
 
 # %%
-s = navis.TreeNeuron(swc, name='my_neuron', units='microns')
+s = navis.Skeleton(swc, name='my_neuron', units='microns')
 s
 
 # %%
-# There are a few other ways to construct a [`navis.TreeNeuron`][] (e.g. using a graph) - see the docstring for details.
+# There are a few other ways to construct a [`navis.Skeleton`][] (e.g. using a graph) - see the docstring for details.
 #
 # Also note that all {{ navis }} neurons can be stored to disk using `pickle` - see the [pickling tutorial](../tutorial_io_04_pickle).
 #
 # Hopefully the above has given you some entry points on how to load your data. See also the [I/O API reference](../../../api.md#importexport).
 #
-# Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`MeshNeurons`][navis.MeshNeuron]
+# Please also keep in mind that you can also convert one neuron type into another - for example by skeletonizing [`Meshes`][navis.Mesh]
 # (see also the API reference on [neuron conversion](../../../api.md#converting-between-types)).
 #
 # *[SWC]: A plain-text format storing a neuron skeleton as a table of connected nodes.

@@ -55,8 +55,8 @@ mbons.head(3)
 # | Function | Returns |
 # |----------|---------|
 # | [`fetch_roi`][navis.interfaces.neuprint.fetch_roi] | a [`navis.Volume`][] from a ROI |
-# | [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] | fully-fledged [`navis.TreeNeurons`][navis.TreeNeuron] - nodes, synapses, soma and all |
-# | [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] | [`navis.MeshNeurons`][navis.MeshNeuron] - including synapses |
+# | [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] | fully-fledged [`navis.Skeletons`][navis.Skeleton] - nodes, synapses, soma and all |
+# | [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] | [`navis.Meshes`][navis.Mesh] - including synapses |
 #
 # Start by fetching the mesh for the right mushroom body ROI:
 mb = neu.fetch_roi("MB(R)")

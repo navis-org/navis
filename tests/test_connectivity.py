@@ -31,7 +31,7 @@ def test_neuron_connector():
 
 
 def path_neuron(path: List[int]):
-    nrn = navis.TreeNeuron(None)
+    nrn = navis.Skeleton(None)
     nrn.name = "".join(str(n) for n in path)
     dtypes = {
         "node_id": np.uint64,
@@ -51,7 +51,7 @@ def path_neuron(path: List[int]):
 
 
 def add_connectors(
-    nrn: navis.TreeNeuron,
+    nrn: navis.Skeleton,
     incoming: List[Tuple[int, int]],
     outgoing: List[Tuple[int, int]],
 ):

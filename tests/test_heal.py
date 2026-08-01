@@ -462,7 +462,7 @@ def _chain_fragments(n_frags, per_frag, sep):
                 "radius": 1.0,
             })
         )
-    return navis.TreeNeuron(pd.concat(frames, ignore_index=True))
+    return navis.Skeleton(pd.concat(frames, ignore_index=True))
 
 
 @pytest.mark.parametrize("sep", [10, 10_000])

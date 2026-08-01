@@ -1,5 +1,5 @@
 from typing import Iterable, Optional, NamedTuple
-from ..core import TreeNeuron
+from ..core import Skeleton
 import networkx as nx
 import pandas as pd
 import numpy as np
@@ -30,7 +30,7 @@ class NeuronConnector:
     See the `to_(multi)digraph` method for output.
     """
 
-    def __init__(self, nrns: Optional[Iterable[TreeNeuron]] = None) -> None:
+    def __init__(self, nrns: Optional[Iterable[Skeleton]] = None) -> None:
         self.neurons = dict()
         self.connector_xyz = dict()
         # connectors and the treenodes presynaptic to them
@@ -44,14 +44,14 @@ class NeuronConnector:
     def __len__(self) -> int:
         return len(self.neurons)
 
-    def add_neurons(self, nrns: Iterable[TreeNeuron]):
+    def add_neurons(self, nrns: Iterable[Skeleton]):
         """Add several neurons to the connector.
 
         All neurons must have unique names.
 
         Parameters
         ----------
-        nrns : Iterable[TreeNeuron]
+        nrns : Iterable[Skeleton]
 
         Returns
         -------
@@ -61,14 +61,14 @@ class NeuronConnector:
             self.add_neuron(nrn)
         return self
 
-    def add_neuron(self, nrn: TreeNeuron):
+    def add_neuron(self, nrn: Skeleton):
         """Add a single neuron to the connector.
 
         All neurons must have unique names.
 
         Parameters
         ----------
-        nrn : TreeNeuron
+        nrn : Skeleton
 
         Returns
         -------

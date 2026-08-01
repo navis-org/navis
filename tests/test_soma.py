@@ -98,7 +98,7 @@ def test_soma_ellipsoid_scale():
 
     sphere = trimesh.creation.icosphere(subdivisions=4, radius=1000.0)
 
-    n = navis.MeshNeuron(sphere, id=1)
+    n = navis.Mesh(sphere, id=1)
     ell = navis.find_soma_mesh(n, min_soma_radius=100)
     assert np.allclose(ell.radii, 1000, rtol=0.01)
     assert np.isclose(ell.volume, 4 / 3 * np.pi * 1000**3, rtol=0.03)
@@ -108,12 +108,12 @@ def test_soma_ellipsoid_scale():
 
     # Same for an anisotropic shell (a, b, c = 1000, 600, 400)
     scaled = trimesh.Trimesh(sphere.vertices * [1.0, 0.6, 0.4], sphere.faces)
-    ell = navis.find_soma_mesh(navis.MeshNeuron(scaled, id=2), min_soma_radius=100)
+    ell = navis.find_soma_mesh(navis.Mesh(scaled, id=2), min_soma_radius=100)
     assert np.allclose(ell.radii, [1000, 600, 400], rtol=0.01)
 
 
 def test_find_soma_mesh_rejects_treeneuron():
-    """A TreeNeuron should be rejected - use `find_soma` for skeletons."""
+    """A Skeleton should be rejected - use `find_soma` for skeletons."""
     sk = navis.example_neurons(1, kind="skeleton")
     with pytest.raises(TypeError):
         navis.find_soma_mesh(sk)

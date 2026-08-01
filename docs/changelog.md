@@ -21,6 +21,20 @@ pip install git+https://github.com/navis-org/navis@master
 ```
 
 ##### Breaking
+- **the neuron classes have been renamed.** The old names said "neuron" three times over and buried the part that actually distinguishes them; the new ones just name the representation:
+
+    | Old | New |
+    |---------|-------------|
+    | `navis.TreeNeuron` | [`navis.Skeleton`][] |
+    | `navis.MeshNeuron` | [`navis.Mesh`][] |
+    | `navis.VoxelNeuron` | [`navis.Voxels`][] |
+    | `navis.Dotprops` | [`navis.Dotprops`][] (unchanged) |
+
+    The old names still work and will be removed in a future version. They are **aliases**, not subclasses - `isinstance(x, navis.TreeNeuron)` and `class MyNeuron(navis.TreeNeuron)` behave exactly as before, so downstream packages keep working until they get around to it. Neurons pickled by earlier versions still load.
+
+    `navis.TreeNeuron` raises a `DeprecationWarning` once per session. Python hides those by default outside `__main__`, so run with `python -W default::DeprecationWarning` (or `pytest -W default`) to find the old names in your code.
+
+    The `.type` property follows the class, so it now reads `"navis.Skeleton"` rather than `"navis.TreeNeuron"`. Code matching on that string - including anything filtering a [`NeuronList.summary()`][navis.NeuronList.summary] table by `type` - needs updating.
 - **NBLAST scores shift very slightly with [navis-fastcore](https://github.com/schlegelp/fastcore-rs) `>= 0.8.0`.** fastcore now picks its internal coordinate precision from the dtype of the input rather than always widening to float64. {{ navis }} `Dotprops` store `points`/`vect` as **float32**, so NBLAST now runs on float32 coordinates - cutting peak memory on a large all-by-all by ~45%, at a cost of ~1e-5 on the scores. Nothing in {{ navis }} changed; upgrading fastcore is enough to see it.
 
     The scoring maths itself is untouched (it still accumulates in float64) and this does not change which neurons match: on the example neurons the k-nearest-neighbour identities are unchanged. But it is enough to break a bit-for-bit comparison against previously saved scores. Cast `.points` and `.vect` to `float64` before NBLASTing if you need the old numbers exactly.
@@ -31,7 +45,7 @@ pip install git+https://github.com/navis-org/navis@master
     This **changes ~29% of the bridging paths in `navis-flybrains`** (no routes gained or lost). Most of that is {{ navis }} no longer inverting a registration when a purpose-built one for that direction was sitting right next to it - e.g. `BANC`→`Cell07` used to invert `Cell07_IS2.list` and now simply uses `IS2_Cell07.list`, at the same path length. 360 fewer routes traverse *any* transform backwards.
 - transforms now declare how expensive they are to invert, via `BaseTransform.inverse_weight_factor`. It is `1` wherever the inverse is stored or exact (`AffineTransform`, `H5transform`, `TPStransform`), `2` for [`CMTKtransform`][navis.transforms.CMTKtransform] and `5` for [`ElastixTransform`][navis.transforms.ElastixTransform] - both of which have to *solve* for the inverse numerically. `register_transform`'s `weight_inv` now defaults to `weight * inverse_weight_factor`; passing it explicitly still overrides that.
 - `reciprocal` is deprecated in favour of `inverse_weight` (`bridging_graph`, `find_bridging_path`, `find_all_bridging_paths`) - one name for one knob. Its default also changed from `0.5` to `1`: {{ navis }} no longer discounts inverse transforms across the board, since each transform now says for itself what inverting it costs. Passing `reciprocal` still works but warns.
-- **[`VoxelNeurons`][navis.VoxelNeuron] now avoid the dense grid wherever possible**, which requires [sparse-cubes](https://github.com/navis-org/sparse-cubes) `>= 0.5.0` - now pulled in as `sparse-cubes[skeleton]`, so that its [dijkstra3d-sparse](https://github.com/schlegelp/dijkstra3d-sparse) accelerator comes along too (skeletonization falls back to `scipy` without it, but TEASAR is ~11x slower at 100k voxels and the gap widens with size). Materialising a grid larger than `navis.config.max_grid_size` (4 GiB) now raises a `MemoryError` instead of being silently OOM-killed - a neuron's grid is sized by its *bounding box*, so a handful of far-apart voxels can imply terabytes. Raise or disable the limit if you hit it on data you know fits.
+- **[`Voxels`][navis.Voxels] now avoid the dense grid wherever possible**, which requires [sparse-cubes](https://github.com/navis-org/sparse-cubes) `>= 0.5.0` - now pulled in as `sparse-cubes[skeleton]`, so that its [dijkstra3d-sparse](https://github.com/schlegelp/dijkstra3d-sparse) accelerator comes along too (skeletonization falls back to `scipy` without it, but TEASAR is ~11x slower at 100k voxels and the gap widens with size). Materialising a grid larger than `navis.config.max_grid_size` (4 GiB) now raises a `MemoryError` instead of being silently OOM-killed - a neuron's grid is sized by its *bounding box*, so a handful of far-apart voxels can imply terabytes. Raise or disable the limit if you hit it on data you know fits.
 - [`navis.smooth_voxels`][navis.smooth_voxels] treats everything outside the neuron as empty (scipy's `mode="constant"`). It previously used scipy's default, which *reflects* at the canvas boundary and invents signal outside the imaged volume; results change for neurons touching that edge.
 - **[`navis.find_soma`][navis.find_soma] now returns a single node ID (or `None`) instead of an array of candidates.** It used to hand back every node passing the radius/label filter and leave the choice to the caller, which meant a thick primary neurite could be returned alongside - or instead of - the actual soma. Candidates are now scored by the mean radius of the candidates around them (within `dist_factor` times their own radius, new argument) so that the fattest *region* wins rather than the fattest single node, and the fattest node of that region is returned; the label-only path takes the most central node of the largest connected label component. Nodes whose radius is missing (`NaN` or `<= 0`, as `guess_radius` writes) are no longer treated as candidates, and a radius criterion that matches nothing usable no longer suppresses the label criterion. Code doing `find_soma(n)[0]` or `len(find_soma(n))` needs updating.
 - **the `rpy2`-based R interface is gone.** `navis.interfaces.r` required a working R installation plus `rpy2` on top of it, and existed mainly to move data in and out of the [natverse](https://natverse.org). That job is now done by plain files - [`navis.read_rda`][], [`navis.read_rds`][], [`navis.write_rda`][] and [`navis.write_rds`][] (see below), which need neither R nor `rpy2` - and everything else it did has a native equivalent. `from navis.interfaces import r` now raises with a pointer to the replacement, and the `navis[r]` install extra no longer exists. There is a new [natverse tutorial](../generated/gallery/0_io/tutorial_io_03_r) covering the round trip.
@@ -49,16 +63,16 @@ pip install git+https://github.com/navis-org/navis@master
     Concretely, `navis.Viewer` **has been removed**: the viewer is now `octarine.Viewer`, which [`navis.plot3d`][] returns and whose [documentation](https://schlegelp.github.io/octarine/) covers its methods. [`navis.get_viewer`][], [`navis.clear3d`][], [`navis.pop3d`][] and [`navis.close3d`][] are unaffected - they were never vispy-specific and work on whatever viewer is active. `navis.utils.check_vispy` is gone with no replacement. The vispy-only [`navis.plot3d`][] arguments go with it: `combine`, `shading`, `shininess` and `name` (`title` is unaffected - it was always plotly-only).
 
     `navis.matching.matching_pipeline` built its own vispy `Viewer` and has been ported to octarine. It behaves the same, except that the vispy-only "cycle through neurons by hiding them" mode is not available.
-- dependencies: `sparse-cubes[skeleton]` is now a **core** requirement (it backs the [`VoxelNeuron`][navis.VoxelNeuron] work above), and the minimum `navis-fastcore` moved from `0.6.1` to `0.7.1` - still optional, but note that several of the additions below want `>= 0.8.0`.
+- dependencies: `sparse-cubes[skeleton]` is now a **core** requirement (it backs the [`Voxels`][navis.Voxels] work above), and the minimum `navis-fastcore` moved from `0.6.1` to `0.7.1` - still optional, but note that several of the additions below want `>= 0.8.0`.
 
 ##### Additions
-- **new [`navis.find_soma_mesh`][navis.find_soma_mesh]: soma detection for [`MeshNeurons`][navis.MeshNeuron], straight off the mesh.** No skeletonization involved: it finds the thickest part of the neuron (the point of largest inscribed sphere) and fits an oriented ellipsoid to the surrounding surface, returning the new [`navis.SomaEllipsoid`][navis.SomaEllipsoid] - `center`, `radii`, principal `axes`, `inscribed_radius`, plus `volume`, `equiv_radius`, `contains()` and `distance_to_surface()`. With `inplace=True` it simply sets the neuron's `.soma_pos`. The approach is inspired by [skeliner](https://github.com/berenslab/skeliner). `min_soma_radius` (accepts e.g. `"1 micron"` if the neuron has units) is the main accept/reject knob and should be tuned to your data.
-- **fixed [`navis.fix_mesh`][navis.fix_mesh], which raised an `AttributeError` on `trimesh >= 4.10`.** `Trimesh.remove_duplicate_faces`/`.remove_degenerate_faces` were replaced by `.unique_faces()`/`.nondegenerate_faces()` in trimesh 3.23, deprecated in 4.0 and finally removed in 4.10; `fix_mesh` now picks the right pair based on the installed version, so it works across the whole supported range (`trimesh >= 3.8`) and no longer emits a `DeprecationWarning` in between. This also unbroke [`MeshNeuron.validate()`][navis.MeshNeuron.validate] and `MeshNeuron(..., validate=True)`, which route through it.
-- **fixed `MeshNeuron(..., validate=True)` silently doing nothing when `process=False`.** It fixed a *copy* of the mesh and threw it away; the neuron itself was left untouched.
+- **new [`navis.find_soma_mesh`][navis.find_soma_mesh]: soma detection for [`Meshes`][navis.Mesh], straight off the mesh.** No skeletonization involved: it finds the thickest part of the neuron (the point of largest inscribed sphere) and fits an oriented ellipsoid to the surrounding surface, returning the new [`navis.SomaEllipsoid`][navis.SomaEllipsoid] - `center`, `radii`, principal `axes`, `inscribed_radius`, plus `volume`, `equiv_radius`, `contains()` and `distance_to_surface()`. With `inplace=True` it simply sets the neuron's `.soma_pos`. The approach is inspired by [skeliner](https://github.com/berenslab/skeliner). `min_soma_radius` (accepts e.g. `"1 micron"` if the neuron has units) is the main accept/reject knob and should be tuned to your data.
+- **fixed [`navis.fix_mesh`][navis.fix_mesh], which raised an `AttributeError` on `trimesh >= 4.10`.** `Trimesh.remove_duplicate_faces`/`.remove_degenerate_faces` were replaced by `.unique_faces()`/`.nondegenerate_faces()` in trimesh 3.23, deprecated in 4.0 and finally removed in 4.10; `fix_mesh` now picks the right pair based on the installed version, so it works across the whole supported range (`trimesh >= 3.8`) and no longer emits a `DeprecationWarning` in between. This also unbroke [`Mesh.validate()`][navis.Mesh.validate] and `Mesh(..., validate=True)`, which route through it.
+- **fixed `Mesh(..., validate=True)` silently doing nothing when `process=False`.** It fixed a *copy* of the mesh and threw it away; the neuron itself was left untouched.
 - **new [`navis.heal_mesh`][navis.heal_mesh]: the mesh counterpart to [`navis.heal_skeleton`][navis.heal_skeleton].** Meshes often consist of several disconnected fragments - because the segmentation had a gap, or because meshing produced separate closed surfaces where the neuron is continuous. `heal_mesh` reconnects them with the set of bridges that minimises the total added length (a true minimum spanning tree over the fragments), subject to the same `max_dist`, `min_size`, `mask` and `drop_disc` knobs as its skeleton sibling. The repair is purely topological: bridges land in `.extra_edges` (see below) so vertices, faces, area and volume are all untouched. Healing the 70-fragment example mesh takes ~2 ms; a 100k-vertex mesh ~15 ms with [navis-fastcore](https://github.com/schlegelp/fastcore-rs) installed.
-- **new [`MeshNeuron.extra_edges`][navis.MeshNeuron.extra_edges]: connectivity that the surface itself does not have.** A mesh's topology is implied by its faces, so there is no way to express "these two vertices are connected" without inventing geometry. Extra edges are exactly that: an `(N, 2)` array of vertex indices that is part of the *graph* but not of the *surface*, so vertices, faces, area and volume all stay bit-identical. Everything in {{ navis }} that derives connectivity from a mesh now sees them - [`navis.geodesic_matrix`][navis.geodesic_matrix], [`navis.geodesic_clusters`][navis.geodesic_clusters], [`navis.break_fragments`][navis.break_fragments], [`navis.drop_fluff`][navis.drop_fluff], `.igraph`/`.graph` - while anything describing the surface (e.g. `.sampling_resolution`) does not. They are remapped through [`navis.subset_neuron`][navis.subset_neuron] and [`navis.combine_neurons`][navis.combine_neurons], and dropped whenever the number of vertices changes (e.g. after simplification), since they are indices. Note that mesh file formats have no place for them: they are lost on export.
-- **new functions for analyzing the angles in a skeleton** (see the new section in the morphometrics tutorial): [`navis.branch_angles`][navis.branch_angles] (between child branches at each branch point - all pairwise angles at higher-order branch points), [`navis.path_angles`][navis.path_angles] (in- vs outgoing edge at each continuation node, i.e. how much the path bends), [`navis.root_angles`][navis.root_angles] (how far each edge deviates from pointing radially away from the root) and [`navis.soma_exit_angles`][navis.soma_exit_angles] (between the neurites emanating from the soma). All return a tidy per-node DataFrame, work on `MeshNeurons` via their skeleton, and map over `NeuronLists`.
-- **new [`navis.cast_neuron`][navis.cast_neuron]: convert a neuron's data to a given dtype.** What gets cast depends on the neuron type - node `x`/`y`/`z`/`radius` for skeletons, vertices for meshes, points (and, for float dtypes, tangent vectors and alpha) for `Dotprops`, voxel *values* for `VoxelNeurons` - plus connectors for all of them. Anything that *indexes* into those (mesh faces, voxel coordinates, node/parent IDs) is left alone. Handy for e.g. the float32/float64 NBLAST question above.
+- **new [`Mesh.extra_edges`][navis.Mesh.extra_edges]: connectivity that the surface itself does not have.** A mesh's topology is implied by its faces, so there is no way to express "these two vertices are connected" without inventing geometry. Extra edges are exactly that: an `(N, 2)` array of vertex indices that is part of the *graph* but not of the *surface*, so vertices, faces, area and volume all stay bit-identical. Everything in {{ navis }} that derives connectivity from a mesh now sees them - [`navis.geodesic_matrix`][navis.geodesic_matrix], [`navis.geodesic_clusters`][navis.geodesic_clusters], [`navis.break_fragments`][navis.break_fragments], [`navis.drop_fluff`][navis.drop_fluff], `.igraph`/`.graph` - while anything describing the surface (e.g. `.sampling_resolution`) does not. They are remapped through [`navis.subset_neuron`][navis.subset_neuron] and [`navis.combine_neurons`][navis.combine_neurons], and dropped whenever the number of vertices changes (e.g. after simplification), since they are indices. Note that mesh file formats have no place for them: they are lost on export.
+- **new functions for analyzing the angles in a skeleton** (see the new section in the morphometrics tutorial): [`navis.branch_angles`][navis.branch_angles] (between child branches at each branch point - all pairwise angles at higher-order branch points), [`navis.path_angles`][navis.path_angles] (in- vs outgoing edge at each continuation node, i.e. how much the path bends), [`navis.root_angles`][navis.root_angles] (how far each edge deviates from pointing radially away from the root) and [`navis.soma_exit_angles`][navis.soma_exit_angles] (between the neurites emanating from the soma). All return a tidy per-node DataFrame, work on `Meshes` via their skeleton, and map over `NeuronLists`.
+- **new [`navis.cast_neuron`][navis.cast_neuron]: convert a neuron's data to a given dtype.** What gets cast depends on the neuron type - node `x`/`y`/`z`/`radius` for skeletons, vertices for meshes, points (and, for float dtypes, tangent vectors and alpha) for `Dotprops`, voxel *values* for `Voxels` - plus connectors for all of them. Anything that *indexes* into those (mesh faces, voxel coordinates, node/parent IDs) is left alone. Handy for e.g. the float32/float64 NBLAST question above.
 - **new [`navis.transforms.SimilarityTransform`][navis.transforms.SimilarityTransform]**: a rotation, a translation and a single uniform scale factor fitted to matched landmarks - the least-squares optimal solution in closed form via SVD (Umeyama, 1991), with optional per-landmark `weights`. Set `scale=False` for a pure rigid transform. Unlike a [`TPStransform`][navis.transforms.thinplate.TPStransform] it has only 7 degrees of freedom and so will generally *not* map the landmarks onto each other exactly - which is the point when you want the landmarks to constrain a global transform rather than warp space to fit them.
 - **[`navis.make_dotprops`][navis.make_dotprops] is ~12x faster** when [navis-fastcore](https://github.com/schlegelp/fastcore-rs) `>= 0.8.0` is installed: the tangent vectors and alpha values (96% of its runtime) now come from one parallel Rust pass instead of a `scipy.spatial.cKDTree` query plus N 3x3 SVDs. Same for [`navis.Dotprops.recalculate_tangents`][navis.Dotprops.recalculate_tangents]. The scipy route remains as a fallback.
 
@@ -83,17 +97,17 @@ pip install git+https://github.com/navis-org/navis@master
 - elastix transforms are now *invertible* when navis-fastcore is installed - something `transformix` cannot do at all. Note the bridging graph does not use this by default: set `navis.config.elastix_invertible = True` to let it (see the notes on [`ElastixTransform`][navis.transforms.ElastixTransform] for why it is off).
 - `find_bridging_path`, `find_all_bridging_paths` and `shortest_bridging_seq` gained a `prefer_forward` argument (default `True`): where two templates are connected by both a purpose-built registration and the inverse of its counterpart, use the purpose-built one - regardless of weight. Set it to `False` to have your graph's weights taken entirely at face value.
 - `MovingLeastSquaresTransform` gained a `.matrix_affine` property, analogous to `TPStransform.matrix_affine`: since moving least squares is a *locally* weighted affine transform, this returns the global (least-squares) affine that it converges to far away from the landmarks
-- **[`VoxelNeurons`][navis.VoxelNeuron] gained a proper toolkit**, all of it working straight off the sparse voxels:
+- **[`Voxels`][navis.Voxels] gained a proper toolkit**, all of it working straight off the sparse voxels:
     - morphology and set algebra: `dilate`, `erode`, `opening`, `closing`, `thin`, `fill_cavities`, `union`, `intersection`, `difference`, `symmetric_difference`. Per-voxel values are carried through; set operations align neurons onto a common lattice and refuse to combine ones that do not line up.
     - measurements: `surface_area`, `centroid`, `distance_transform`, `connected_components`, `iou`, `dice`, `grid_nbytes`/`voxels_nbytes`.
     - shorthands `.mesh()` and `.skeletonize()`.
-- **[`navis.skeletonize`][navis.skeletonize] now accepts [`VoxelNeurons`][navis.VoxelNeuron]** (via the new [`navis.conversion.voxels2skeleton`][navis.conversion.voxels2skeleton]), closing a gap its own docstring used to flag. Defaults to `method="wavefront"` - ~4x faster than `"teasar"` and radii come free from the ring contraction rather than being snapped to the voxel lattice; `"teasar"` and `"thin"` remain available.
-- **existing functions stopped densifying.** [`navis.drop_fluff`][navis.drop_fluff] and `graph_utils._connected_components` now handle `VoxelNeurons`; [`navis.smooth_voxels`][navis.smooth_voxels], [`navis.thin_voxels`][navis.thin_voxels] and [`navis.downsample_neuron`][navis.downsample_neuron] no longer allocate the grid (the latter could trip the new memory cap on exactly the sparse neurons worth downsampling). Voxel adjacency - behind `neuron2nx`/`neuron2igraph` - is ~100x faster and no longer needs the *undeclared* scikit-learn dependency. `smooth_voxels`/`thin_voxels` keep a `backend` argument if you want the old scipy/scikit-image route.
+- **[`navis.skeletonize`][navis.skeletonize] now accepts [`Voxels`][navis.Voxels]** (via the new [`navis.conversion.voxels2skeleton`][navis.conversion.voxels2skeleton]), closing a gap its own docstring used to flag. Defaults to `method="wavefront"` - ~4x faster than `"teasar"` and radii come free from the ring contraction rather than being snapped to the voxel lattice; `"teasar"` and `"thin"` remain available.
+- **existing functions stopped densifying.** [`navis.drop_fluff`][navis.drop_fluff] and `graph_utils._connected_components` now handle `Voxels`; [`navis.smooth_voxels`][navis.smooth_voxels], [`navis.thin_voxels`][navis.thin_voxels] and [`navis.downsample_neuron`][navis.downsample_neuron] no longer allocate the grid (the latter could trip the new memory cap on exactly the sparse neurons worth downsampling). Voxel adjacency - behind `neuron2nx`/`neuron2igraph` - is ~100x faster and no longer needs the *undeclared* scikit-learn dependency. `smooth_voxels`/`thin_voxels` keep a `backend` argument if you want the old scipy/scikit-image route.
 - **new `navis.ml` module: helpers for preparing neurons as machine-learning inputs.** These live under their own `navis.ml.*` namespace (deliberately *not* lifted to the top level) and come with three tutorials. Three steps:
     - **normalize** - [`navis.ml.normalize_neuron`][navis.ml.normalize_neuron] maps a neuron into a canonical frame with a single rigid-plus-uniform-scale transform (`p' = s · R · (p - c)`): center on the centroid/bbox/soma/an explicit point, PCA-orient (signs disambiguated deterministically and handedness preserved - neurons are never mirrored), and scale to unit RMS / extent / enclosing sphere. It goes through [`navis.xform`][navis.xform], so connectors, `Dotprops` tangent vectors, radii and `.units` are all carried along consistently; `return_matrix=True` returns the 4x4 matrix so predictions made in the normalized frame can be mapped back to the original coordinates.
     - **augment** - a suite of geometry/sampling augmentations, each taking a `random_state` and returning a copy: [`navis.ml.jitter_neuron`][navis.ml.jitter_neuron] (per-point Gaussian noise), [`navis.ml.warp_neuron`][navis.ml.warp_neuron] (smooth elastic deformation), [`navis.ml.rotate_neuron`][navis.ml.rotate_neuron] and [`navis.ml.scale_neuron`][navis.ml.scale_neuron] (about the centroid; scale is isotropic or anisotropic), [`navis.ml.translate_neuron`][navis.ml.translate_neuron] and [`navis.ml.drop_nodes`][navis.ml.drop_nodes] (a sparser reconstruction - keeps the arbor connected and reattaches connectors to surviving nodes). [`navis.ml.augment_neuron`][navis.ml.augment_neuron] chains them in one seeded, reproducible call.
     - **sample & chunk** - turn a variable-sized neuron into a fixed-size model input: new [`navis.ml.sample_cable`][navis.ml.sample_cable] (arclength-uniform, stratified point sampling along a skeleton that interpolates `radius`/other columns and records provenance) and [`navis.ml.sample_surface`][navis.ml.sample_surface] (area-weighted mesh-surface sampling, again with per-vertex provenance), plus [`navis.ml.chunk_neuron`][navis.ml.chunk_neuron] (tile a neuron into evenly-sized fragments - geodesic-connected or Euclidean - for batching). The existing `sample_points_uniform` (uniform subsampling of a point cloud) is also surfaced under `navis.ml`.
-- **new [`navis.write_rds`][navis.write_rds] and [`navis.write_rda`][navis.write_rda]: hand data to R's [natverse](https://natverse.org) without `rpy2`.** This closes the loop on `navis.read_rda`: {{ navis }} can now *write* the R representations too - `TreeNeuron` :material-arrow-right-thin: `nat::neuron` (including nat's `SegList`/`SubTrees` topology, so `resample()`, `prune_*()`, `as.ngraph()` etc. work on the result), `Dotprops` :material-arrow-right-thin: `nat::dotprops`, `MeshNeuron`/`Volume` :material-arrow-right-thin: `rgl::mesh3d`, `VoxelNeuron` :material-arrow-right-thin: `nat::im3d` and `NeuronList` :material-arrow-right-thin: `nat::neuronlist` (with its meta data `data.frame` attached). Plain dicts, lists, arrays and `DataFrames` are written as the corresponding R types. Nothing here talks to R: the serialisation is done by [rdata](https://github.com/vnmabus/rdata), so no R installation and no `rpy2` are required on either end. Read the files in R with `readRDS()`/`load()`. Both take `compression` and `compresslevel`; the default level of 6 matches R's own `saveRDS` and is ~8x faster to write than the maximum for ~1% more bytes.
+- **new [`navis.write_rds`][navis.write_rds] and [`navis.write_rda`][navis.write_rda]: hand data to R's [natverse](https://natverse.org) without `rpy2`.** This closes the loop on `navis.read_rda`: {{ navis }} can now *write* the R representations too - `Skeleton` :material-arrow-right-thin: `nat::neuron` (including nat's `SegList`/`SubTrees` topology, so `resample()`, `prune_*()`, `as.ngraph()` etc. work on the result), `Dotprops` :material-arrow-right-thin: `nat::dotprops`, `Mesh`/`Volume` :material-arrow-right-thin: `rgl::mesh3d`, `Voxels` :material-arrow-right-thin: `nat::im3d` and `NeuronList` :material-arrow-right-thin: `nat::neuronlist` (with its meta data `data.frame` attached). Plain dicts, lists, arrays and `DataFrames` are written as the corresponding R types. Nothing here talks to R: the serialisation is done by [rdata](https://github.com/vnmabus/rdata), so no R installation and no `rpy2` are required on either end. Read the files in R with `readRDS()`/`load()`. Both take `compression` and `compresslevel`; the default level of 6 matches R's own `saveRDS` and is ~8x faster to write than the maximum for ~1% more bytes.
 - **new [`navis.read_rds`][navis.read_rds]**, the counterpart to [`navis.read_rda`][navis.read_rda] for `.rds` files (a single, unnamed R object rather than a whole workspace).
 - **`neuprint` interface: new `dedup` option for fetching synapses.** In insect connectomes synapses are polyadic - a single presynapse connects to multiple postsynapses - and `neuprint-python` de-duplicates presynapses so each is reported only once. [`navis.interfaces.neuprint.fetch_synapses`][navis.interfaces.neuprint.fetch_synapses] (a new thin wrapper over `neuprint.fetch_synapses`), [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] and [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] now take `dedup` (default `True`, i.e. unchanged behaviour). With `dedup=False` each presynapse is instead reported once per postsynaptic site it connects to, so presynapse counts reflect the number of downstream connections.
 
@@ -138,7 +152,7 @@ pip install git+https://github.com/navis-org/navis@master
         The [navis-fastcore](https://github.com/schlegelp/fastcore-rs) NBLAST backend computes the whole matrix in one Rust call with its own threads, so it ignores the parallel backend entirely and runs everything locally. It is not the default (`navis.config.default_nblast_backend` is `"builtin"`), but it is what `"auto"` picks where it is installed - so leave that alone, or pass `backend="builtin"`, when you want a distributed NBLAST.
 
 ##### Improvements
-- a mesh's unique edges now come from navis-fastcore where available (new `navis.utils.mesh_unique_edges`) instead of `trimesh.edges_unique`, which sorts an `(n_faces * 3, 2)` array to find them. This sits underneath [`neuron2nx`][navis.neuron2nx]/[`neuron2igraph`][navis.neuron2igraph] for `MeshNeurons` and hence everything built on a mesh graph - geodesic distances, connected components, [`drop_fluff`][navis.drop_fluff], [`fix_mesh`][navis.fix_mesh]. The results are seeded into trimesh's own cache (index and inverse included, so `faces_unique_edges` & co. stay consistent), meaning a mesh that has already computed its edges pays nothing.
+- a mesh's unique edges now come from navis-fastcore where available (new `navis.utils.mesh_unique_edges`) instead of `trimesh.edges_unique`, which sorts an `(n_faces * 3, 2)` array to find them. This sits underneath [`neuron2nx`][navis.neuron2nx]/[`neuron2igraph`][navis.neuron2igraph] for `Meshes` and hence everything built on a mesh graph - geodesic distances, connected components, [`drop_fluff`][navis.drop_fluff], [`fix_mesh`][navis.fix_mesh]. The results are seeded into trimesh's own cache (index and inverse included, so `faces_unique_edges` & co. stay consistent), meaning a mesh that has already computed its edges pays nothing.
 
 ##### Fixes
 - **`parallel=True` could hang forever once the process had done any real work.** `pathos` starts its workers with `fork` on every platform - including macOS, where the standard library does not - and forking is unsafe after native thread pools (BLAS, or Accelerate on macOS) have come up. Only the forking thread survives into the child, so the first call that touches one blocks forever: no error, no output, no progress bar. Skeletonizing a handful of meshes was enough to trigger it, and doing anything serially before going parallel - benchmarking both ways, say - made it reliable. {{ navis }} now starts `pathos` workers with `forkserver`/`spawn`, as it already did for the standard-library backend. This bug predates the backend layer.
@@ -172,8 +186,8 @@ pip install git+https://github.com/navis-org/navis@master
     Three inconsistencies are resolved by construction rather than fixed: k3d ignored `cn_mesh_colors` entirely and checked a `cn_colors` dict *before* `"neuron"`, so it disagreed with the other two on which wins; and the cap on runaway soma detection was applied three different ways (matplotlib's 2d path warned and then plotted them anyway, its 3d path used a threshold of 5, plotly/k3d used 10). All backends now use plotly/k3d's behaviour: 10 or more somata on one neuron are taken as a detection failure and skipped, with a warning.
 
     Still outstanding: `cn_colors="neuron"` combined with `color_by=<node property>` is broken in all three backends, because there is no single "neuron color" to give the connectors in that case.
-- **a batch of [`VoxelNeuron`][navis.VoxelNeuron] bugs, most of them on the sparse (voxels + values) backing**, which until now was barely exercised - values and coordinates were free to drift apart. `threshold()` filtered the coordinates but not the values, leaving the two different lengths; `normalize()` scaled the *coordinates* instead of the values, corrupting the geometry outright; the documented `(N, 4)` constructor input silently discarded its value column; and changing `.values` did not invalidate a cached `.grid`. Also fixed: `convert_units()` resized the neuron instead of re-labelling it (125x too small for 8 nm → µm), `.volume` squared the z voxel size and dropped y, `.density` crashed on numpy 2, `copy.deepcopy()` raised a `TypeError`, `flip()` moved the neuron and mirrored connectors in the wrong space, and `.bbox` disagreed between the two backings by one voxel.
-- **[`VoxelNeurons`][navis.VoxelNeuron] with no filled voxels raised `ValueError: zero-size array to reduction` on `.shape`** - and hence on `.grid`, `.bbox`, `repr()` and `summary()`. Empty neurons are not exotic: an all-zero grid auto-sparsifies to nothing, and `erode()`/`thin()`/`difference()` can consume a thin neuron entirely. `.shape` now falls back to the canvas the neuron was left on (or `(0, 0, 0)` if it never had one), and `strip()`/`normalize()` no-op instead of raising.
+- **a batch of [`Voxels`][navis.Voxels] bugs, most of them on the sparse (voxels + values) backing**, which until now was barely exercised - values and coordinates were free to drift apart. `threshold()` filtered the coordinates but not the values, leaving the two different lengths; `normalize()` scaled the *coordinates* instead of the values, corrupting the geometry outright; the documented `(N, 4)` constructor input silently discarded its value column; and changing `.values` did not invalidate a cached `.grid`. Also fixed: `convert_units()` resized the neuron instead of re-labelling it (125x too small for 8 nm → µm), `.volume` squared the z voxel size and dropped y, `.density` crashed on numpy 2, `copy.deepcopy()` raised a `TypeError`, `flip()` moved the neuron and mirrored connectors in the wrong space, and `.bbox` disagreed between the two backings by one voxel.
+- **[`Voxels`][navis.Voxels] with no filled voxels raised `ValueError: zero-size array to reduction` on `.shape`** - and hence on `.grid`, `.bbox`, `repr()` and `summary()`. Empty neurons are not exotic: an all-zero grid auto-sparsifies to nothing, and `erode()`/`thin()`/`difference()` can consume a thin neuron entirely. `.shape` now falls back to the canvas the neuron was left on (or `(0, 0, 0)` if it never had one), and `strip()`/`normalize()` no-op instead of raising.
 - **assigning `.voxels` a different number of voxels left the old `.values` in place**, so `.nnz`/`.volume` kept counting voxels that no longer existed and `.grid` raised a broadcasting error. Mismatched values are now dropped (with a warning); values that still line up row for row are kept. Latent in `1.12.0` but easy to hit now that grids auto-sparsify, i.e. now that a grid-constructed neuron carries values at all.
 - [`navis.mesh`][navis.mesh] raised `AttributeError` on the `(N, 3)` voxel arrays it documents (it tested `.ndims`, which numpy spells `.ndim`).
 - **[`navis.make_dotprops`][navis.make_dotprops] silently produced wrong tangent vectors for point clouds containing duplicate coordinates.** Points whose `k` nearest neighbours are *all* at distance zero are dropped (they have no defined tangent), but the neighbour indices were then offset by a flat `n_dropped` - which is only correct if every duplicate happens to sit at the *start* of the array. Anywhere else the indices ran past the end or went negative, and because numpy reads negative indices from the back this raised nothing: it just computed each tangent from an unrelated neighbourhood. On a 40-point cloud with a 4-point duplicate block in the middle, **39 of the 40 surviving points came back with the wrong tangent** (worst case nearly perpendicular to the correct one) and alpha off by up to 0.55. The neighbour indices are no longer remapped at all.
@@ -187,7 +201,7 @@ pip install git+https://github.com/navis-org/navis@master
 - **`neuprint` interface: [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] shared one client - and hence one `requests.Session` - across all its worker threads**, which `requests` does not support. `neuprint-python` normally hands each thread its own deepcopy of the client, but passing an explicit client into a thread bypasses that; {{ navis }} now does the copying itself in the pool's initializer. The copies get a fresh connection pool and do not re-run `Client.__init__`, so this costs no extra requests.
 - `navis.interfaces.brain_image_library`: a failing *root* directory listing now raises instead of quietly returning an empty file table, and partial listing failures further down warn that the result is incomplete rather than passing it off as the whole dataset.
 - [`navis.conversion.mesh2skeleton`][navis.conversion.mesh2skeleton] ignored the `progress` keyword argument it accepts
-- **[`navis.plot3d`][navis.plot3d] raised for *any* skeleton plotted with `connectors=True` on the `plotly` backend.** {{ navis }} passed `opacity` into plotly's `scatter3d.Line`, which has no such property. Plotly's default connector layout is `display="lines"`, so the only way past it was `cn_layout={"display": "circles"}` or plotting a `MeshNeuron`. Connector transparency now sits on the trace, as it already did for the neurites. An alpha channel on an explicit `cn_colors` is honoured too, instead of being emitted as a malformed `rgb(r,g,b,a)` string that plotly accepts but browsers do not render.
+- **[`navis.plot3d`][navis.plot3d] raised for *any* skeleton plotted with `connectors=True` on the `plotly` backend.** {{ navis }} passed `opacity` into plotly's `scatter3d.Line`, which has no such property. Plotly's default connector layout is `display="lines"`, so the only way past it was `cn_layout={"display": "circles"}` or plotting a `Mesh`. Connector transparency now sits on the trace, as it already did for the neurites. An alpha channel on an explicit `cn_colors` is honoured too, instead of being emitted as a malformed `rgb(r,g,b,a)` string that plotly accepts but browsers do not render.
 - **`cn_colors` was broken in [`navis.plot2d`][navis.plot2d]** for two of its three documented forms: `"neuron"` was tested against `cn_layout` (a dict, so never equal) and reached matplotlib as a literal color name, and a `{type: color}` dict replaced each whole per-type layout entry rather than just its color. Both now behave as they do in the other backends.
 - **`color_by=<neuron property>` worked only in the `matplotlib` and `vispy` backends.** `plotly` and `k3d` skipped the "is this a neuron property or a per-node property?" resolution and went straight to the per-node path, so e.g. `plot3d(nl, color_by="cell_type", palette="viridis")` raised `ValueError: Column "cell_type" does not exist`. All four backends now share one implementation, which also makes `color_by` require a `palette` consistently everywhere.
 - **`radius="auto"` was decided once for the whole [`NeuronList`][navis.NeuronList] instead of per neuron.** The auto-detection wrote its verdict back onto the shared settings object, so as soon as one neuron had too few radii every *subsequent* neuron was forced onto lines regardless of its own radii. Affected all four backends.
@@ -202,7 +216,7 @@ _Date: 13/06/26_
 ##### Breaking
 - [`mirror_brain`][navis.mirror_brain] now defaults to `mirror_axis="auto"`, i.e. takes the mirror axis from the template brain's meta data (falling back to `x`). This can change results for templates whose mirror axis is not `x`
 - `TPStransform.matrix_rigid` (added in 1.11.0) was renamed to `.matrix_affine`
-- {{ navis }}' internal graph algorithms no longer fall back to `networkx` - consequently `navis.config.use_igraph` is gone. `TreeNeuron.graph`, [`neuron2nx`][navis.neuron2nx] & co. are unaffected
+- {{ navis }}' internal graph algorithms no longer fall back to `networkx` - consequently `navis.config.use_igraph` is gone. `Skeleton.graph`, [`neuron2nx`][navis.neuron2nx] & co. are unaffected
 - `requests-futures` is no longer a dependency: it was only used for the parallel URL reader, which now uses a plain `ThreadPoolExecutor`
 - note that a number of bug fixes below **change outputs**: see the entries for flow centrality on fragmented neurons, [`resample_skeleton`][navis.resample_skeleton], [`plot1d`][navis.plot1d], `classify_nodes` and `small_segments`
 
@@ -225,7 +239,7 @@ _Date: 13/06/26_
 - the subtree height (the geodesic distance from a node down to the farthest leaf below it) is now computed with `navis-fastcore` if available: 14-31x faster and ~10x less memory. This backs [`prune_twigs`][navis.prune_twigs] with `exact=True` (2.2x faster, 4x less memory) and `node_label_sorting`
 - `node_label_sorting` no longer builds a directed geodesic matrix (**4.6 GB** for a 71k node skeleton - the single largest allocation in {{ navis }}): 4.6x faster and 31x less memory. The resulting order is unchanged. This also speeds up [`plot1d`][navis.plot1d] and [`skeleton_adjacency_matrix`][navis.graph.skeleton_adjacency_matrix] with `sort=True`
 - [`ivscc_features`][navis.ivscc_features] no longer builds a leafs-by-all-nodes distance matrix (**8.5 GB** for a 71k node skeleton!) to compute a single number: `max_path_length` is now 185x faster and uses 350x less memory
-- [`geodesic_matrix`][navis.geodesic_matrix] now uses `navis-fastcore` for `MeshNeurons` too: ~19-68x faster and ~30-60x less memory
+- [`geodesic_matrix`][navis.geodesic_matrix] now uses `navis-fastcore` for `Meshes` too: ~19-68x faster and ~30-60x less memory
 - [`longest_neurite`][navis.longest_neurite] with `from_root=False` no longer builds a leafs-by-leafs distance matrix just to take its maximum: 29x faster and 125x less memory (722ms/785MB -> 25ms/6.3MB for a 71k node skeleton)
 - [`distal_to`][navis.distal_to] now uses `navis-fastcore` if available: 13x faster and 5x less memory (it previously asked igraph for a source-by-target block, which igraph answers by running an all-sources search)
 - [`arbor_segregation_index`][navis.arbor_segregation_index], [`bending_flow`][navis.bending_flow], [`synapse_flow_centrality`][navis.synapse_flow_centrality], [`flow_centrality`][navis.flow_centrality], [`longest_neurite`][navis.longest_neurite] and `node_label_sorting` now request only the geodesic distances they actually use (see `to_` above)
@@ -233,7 +247,7 @@ _Date: 13/06/26_
 - major speed-up for [`resample_skeleton`][navis.resample_skeleton]: ~15-20x faster with the default `method="linear"` (e.g. 100ms -> 7ms for the example neuron; 425ms -> 64ms when densifying it to 132k nodes, as [`xform_brain`][navis.xform_brain] does) by interpolating all segments and columns in one go instead of fitting one `scipy.interpolate.interp1d` per column *per segment*. Non-linear methods (e.g. `"cubic"`) can't share that trick but still gain ~4x. It also no longer builds a KDTree and an indexed copy of the node table when the neuron has no soma, connectors or tags to re-map
 - [`reroot_skeleton`][navis.reroot_skeleton] builds a node ID -> vertex index map once instead of scanning all vertices for each root: much faster on heavily fragmented neurons
 - [`split_axon_dendrite`][navis.split_axon_dendrite] no longer runs out of memory on very large (100k+ nodes) neurons - the assignment of orphan nodes used to build a full orphans-by-all-nodes geodesic matrix - and is faster (igraph instead of `networkx`)
-- [`drop_fluff`][navis.drop_fluff], [`fix_mesh`][navis.fix_mesh] and everything else built on connected components are faster: `navis-fastcore` is now used for `MeshNeurons` too, igraph otherwise
+- [`drop_fluff`][navis.drop_fluff], [`fix_mesh`][navis.fix_mesh] and everything else built on connected components are faster: `navis-fastcore` is now used for `Meshes` too, igraph otherwise
 - [`skeletonize`][navis.skeletonize] with `shave=True`: fixing up the vertex map was an O(n_bristles x n_vertices) Python loop and is now a single vectorized map - a major bottleneck on large meshes
 - [`rewire_skeleton`][navis.rewire_skeleton] now skips the minimum spanning tree if the graph is already a forest (i.e. has no cycles)
 - [`H5transform`][navis.transforms.H5transform] and [`GridTransform`][navis.transforms.GridTransform] use `scipy.ndimage.map_coordinates` (~2x faster), and copies of an `H5transform` now carry over the cache - previously [`xform_brain`][navis.xform_brain] copied the transform and hence never benefitted from caching
@@ -247,7 +261,7 @@ _Date: 13/06/26_
 - neurons read from a list of URLs **in parallel** came back stripped of their identity: the parallel reader handed the downloaded *bytes* (instead of the URL) to the parser, so the filename was never parsed. Affected neurons had no `file`, an `origin` of `"string"`, a `name` of `"SWC"`/`"MESH"`/... and a random `id`, and any `fmt` was silently ignored - i.e. the same input produced different neurons depending on `parallel`. [`read_mesh`][navis.read_mesh] failed outright (`ReadError`) since it needs the filename to determine the file type
 - [`read_swc`][navis.read_swc] & co. no longer choke on URLs with a query string (e.g. `.../neuron.swc?token=123`, whose file extension was previously parsed as `swc?token=123`) and now decode percent-encoded filenames (`%20` -> a space)
 - [`flow_centrality`][navis.flow_centrality], [`synapse_flow_centrality`][navis.synapse_flow_centrality] and [`arbor_segregation_index`][navis.arbor_segregation_index] returned wrong values for **fragmented neurons**: all three work out how many leafs/synapses are *proximal* to a node as `total - distal`, which is only valid on a single-rooted neuron. Nodes in another fragment are neither distal nor proximal but were silently counted as proximal, inflating the flow. Totals are now counted within each node's own fragment. **This changes the output for fragmented neurons** (they were previously wrong); single-rooted neurons are unaffected. Note that [`synapse_flow_centrality`][navis.synapse_flow_centrality] was only affected without `navis-fastcore`, so the two backends used to disagree; `bending_flow` was never affected
-- `TreeNeuron.small_segments` returned the segments in a different **order** depending on whether `navis-fastcore` was installed (without it, {{ navis }} walked a Python `set`, i.e. in arbitrary hash order). They are now always ordered by the node table position of their seed node, which is what `navis-fastcore` already did. Several functions `enumerate()` the segments, so the order was ending up in their output - most visibly the **row order of [`segment_analysis`][navis.segment_analysis]**
+- `Skeleton.small_segments` returned the segments in a different **order** depending on whether `navis-fastcore` was installed (without it, {{ navis }} walked a Python `set`, i.e. in arbitrary hash order). They are now always ordered by the node table position of their seed node, which is what `navis-fastcore` already did. Several functions `enumerate()` the segments, so the order was ending up in their output - most visibly the **row order of [`segment_analysis`][navis.segment_analysis]**
 - `classify_nodes`: a node whose parent does not exist is now classified as `root` instead of `end`. Such a neuron is already broken (it raises in `neuron2igraph`)
 - [`despike_skeleton`][navis.despike_skeleton]: nodes whose flanking nodes coincided were assigned a spike ratio read from uninitialised memory and were hence flagged as spikes (and removed) at random
 - [`plot1d`][navis.plot1d]: the bars were drawn using the length of each segment's *first edge* rather than the length of the whole segment. The x-axis was therefore far too short and distorted per-segment; for the example neuron it spanned 74,934 instead of 266,477 units of cable. **This changes the rendered plot** (it was previously wrong)
@@ -288,9 +302,9 @@ _Date: 27/02/26_
 - add `progress` parameter to [`mirror_brain`][navis.mirror_brain], [`symmetrize_brain`][navis.symmetrize_brain] and [`combine_meshes`][navis.meshes.operations.combine_meshes]
 - [`persistence_vectors`][navis.persistence_vectors] now accepts list of distances to be sampled as `samples`
 - [`make_dotprops`][navis.make_dotprops] has a new `on_issue` parameter that determines what to do when issues with the inputs are encountered (e.g. NaNs)
-- two new [`VoxelNeuron`][navis.VoxelNeuron] methods:
-    - [`flip()`][navis.VoxelNeuron.flip] flips the neuron along specified axes
-    - [`normalize()`][navis.VoxelNeuron.normalize] scales values to a 0-1 range
+- two new [`Voxels`][navis.Voxels] methods:
+    - [`flip()`][navis.Voxels.flip] flips the neuron along specified axes
+    - [`normalize()`][navis.Voxels.normalize] scales values to a 0-1 range
 - `neuprint` interface:
     - [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] and [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] will now also look for `tosomaLocation` to set the root/soma if there is no `somaLocation`
     - avoid fetching unused ROI info in [`fetch_skeletons`][navis.interfaces.neuprint.fetch_skeletons] and [`fetch_mesh_neuron`][navis.interfaces.neuprint.fetch_mesh_neuron] (minor speed-up)
@@ -371,13 +385,13 @@ and various other quality of life improvements.
     - [`read_nrrd`][navis.read_nrrd], [`read_tiff`][navis.read_tiff] and [`read_mesh`][navis.read_mesh] now use the same backend as e.g. [`read_swc`][navis.read_swc] which enables some niceties such as reading directly from URLs and archives, parallel processing, etc
     - all `read_*` functions now have an `error` parameter that can be used to skip errors
 - Image data:
-    - new function: [`navis.thin_voxels`][] can be used to thin images and `VoxelNeurons` to single-pixel width (see also below)
+    - new function: [`navis.thin_voxels`][] can be used to thin images and `Voxels` to single-pixel width (see also below)
     - new `thin` parameter for [`read_nrrd`][navis.read_nrrd], [`read_tiff`][navis.read_tiff]
-- [`TreeNeurons`][navis.TreeNeuron]:
+- [`Skeletons`][navis.Skeleton]:
     - skeletons can now be initialized from a `(vertices, edges)` tuple - see also [`navis.edges2neuron`][]
-    - new property: `TreeNeuron.vertices` gives read-only to node (vertex) coordinates
-- [`VoxelNeurons`][navis.VoxelNeuron]:
-    - new properties: `VoxelNeuron.nnz` and `VoxelNeuron.density`
+    - new property: `Skeleton.vertices` gives read-only to node (vertex) coordinates
+- [`Voxels`][navis.Voxels]:
+    - new properties: `Voxels.nnz` and `Voxels.density`
 - [`navis.drop_fluff`][] and [`navis.neuron2nx`][] now also works with [`Dotprops`][navis.Dotprops]
 
 ##### Experimental
@@ -408,7 +422,7 @@ more consistent and easier to use.
 - New [`NeuronList`][navis.NeuronList] method: [`get_neuron_attributes`][navis.NeuronList.get_neuron_attributes] is analagous to `dict.get`
 - [`NeuronLists`][navis.NeuronList] now implement the `|` (`__or__`) operator which can be used to get the union of two [`NeuronLists`][navis.NeuronList]
 - [`navis.Volume`][] now have an (optional) `.units` property similar to neurons
-- `Tree/MeshNeurons` and `Dotprops` now support addition/subtraction (similar to the already existing multiplication and division) to allow offsetting neurons
+- `Tree/Meshes` and `Dotprops` now support addition/subtraction (similar to the already existing multiplication and division) to allow offsetting neurons
 
 ##### Improvements
 - Plotting:
@@ -437,7 +451,7 @@ more consistent and easier to use.
 - Memory usage of `Neuron/Lists` is now correctly re-calculated when the neuron is modified
 - Various fixes and improvements for the MICrONS interface (`navis.interfaces.microns`)
 - [`navis.graph.node_label_sorting`][] now correctly prioritizes total branch length
-- [`navis.TreeNeuron.simple`][] now correctly drops soma nodes if they aren't root, branch or leaf points themselves
+- [`navis.Skeleton.simple`][] now correctly drops soma nodes if they aren't root, branch or leaf points themselves
 
 **Full Changelog**: [v1.7.0...v1.8.0](https://github.com/navis-org/navis/compare/v1.7.0...v1.8.0)
 
@@ -457,7 +471,7 @@ _Date: 25/07/24_
 - `navis.NeuronList` will only search the first 100 neurons for autocompletion to avoid freezing with large lists
 - Plotting functions: `color_by` now accepts either a list of labels (one per neuron) or the name of a neuron property
 - `navis.subset_neuron` is now faster and more memory efficient when subsetting meshes
-- `navis.TreeNeuron.cable_length` is now faster
+- `navis.Skeleton.cable_length` is now faster
 - Fixed a bug in plotting when using vertex colors
 - Fixed the progress bar in `navis.interfaces.neuprint.fetch_mesh_neuron`
 - Fixed a bug in `navis.synblast` that caused multiprocessing to fail (pickling issue with `pykdtree`)
@@ -474,7 +488,7 @@ _Date: 07/04/24_
 - `navis.write_swc` no longer supports writing Dotprops to SWC files
 
 ##### Additions
-- New property `TreeNeuron.surface_area`
+- New property `Skeleton.surface_area`
 - New (experimental) functions `navis.read_parquet` and `navis.write_parquet` store skeletons and dotprops in parquet files (see [here](https://github.com/clbarnes/neurarrow) for format specs)
 - New `navis.read_nml` function to read single NML file
 - New `navis.NeuronConnector` class for creating connectivity graphs from groups neurons with consistent connector IDs
@@ -624,9 +638,9 @@ _Date: 18/11/21_
 _Date: 11/11/21_
 
 ##### Breaking
-- `navis.MeshNeuron`: `__getattr__` does not search `trimesh` representation anymore
+- `navis.Mesh`: `__getattr__` does not search `trimesh` representation anymore
 - NBLASTs: queries/targets now MUST be `navis.Dotprops` (no more automatic conversion, use `navis.make_dotprops`)
-- Renamed functions to make it clear they work only on `TreeNeurons`:
+- Renamed functions to make it clear they work only on `Skeletons`:
 - `smooth_neuron` :octicons-arrow-right-24: `navis.smooth_skeleton`
 - `reroot_neuron` :octicons-arrow-right-24: `navis.reroot_skeleton`
 - `rewire_neuron` :octicons-arrow-right-24: `navis.rewire_skeleton`
@@ -645,20 +659,20 @@ _Date: 11/11/21_
 
 ##### Additions & Improvements
 - `navis.NeuronList.apply()` now allows omitting failures
-- `navis.VoxelNeuron`:
+- `navis.Voxels`:
     - new class representing neurons as voxels
     - new (experimental) class representing neurons as voxels
-    - `navis.read_nrrd` now returns `VoxelNeuron` instead of `Dotprops` by default
+    - `navis.read_nrrd` now returns `Voxels` instead of `Dotprops` by default
     - currently works with only a selection of functions
-- `navis.TreeNeuron`:
+- `navis.Skeleton`:
     - can now be initialized directly with `skeletor.Skeleton`
-    - new method: `navis.TreeNeuron.snap`
-- `navis.MeshNeuron`:
-    - `navis.in_volume`, `navis.subset_neuron` and `navis.break_fragments` now work on `MeshNeurons`
+    - new method: `navis.Skeleton.snap`
+- `navis.Mesh`:
+    - `navis.in_volume`, `navis.subset_neuron` and `navis.break_fragments` now work on `Meshes`
     - new properties: `.skeleton`, `.graph` and `.igraph`
-    - new methods: `navis.MeshNeuron.skeletonize` and `navis.MeshNeuron.snap`
+    - new methods: `navis.Mesh.skeletonize` and `navis.Mesh.snap`
     - can now be initialized with `skeletor.Skeleton` and `(vertices, faces)` tuple
-    - plotting: `color_by` parameter now works with `MeshNeurons`
+    - plotting: `color_by` parameter now works with `Meshes`
 - `navis.Dotprops`:
     - new property: `.sampling_resolution` (used e.g. for scaling vectors for plotting)
     - new method: `navis.Dotprops.snap`
@@ -685,16 +699,16 @@ _Date: 11/11/21_
 - Transforms:
     - support for elastix (`navis.transforms.ElastixTransform`)
     - whether transforms are invertible is now determined by existence of `__neg__` method
-- Most functions that work with `TreeNeurons` now also work with `MeshNeurons`
+- Most functions that work with `Skeletons` now also work with `Meshes`
 - New high-level wrappers to convert neurons: `navis.voxelize`, `navis.mesh` and `navis.skeletonize`
 - `navis.make_dotprops` now accepts `parallel=True` parameter for parallel processing
 - `navis.smooth_skeleton` can now be used to smooth arbitrary numeric columns in the node table
 - New function `navis.drop_fluff` removes small disconnected bits and pieces from neurons
 - New function `navis.patch_cloudvolume` monkey-patches `cloudvolume` (see the new tutorial)
-- New function `navis.write_nrrd` writes `VoxelNeurons` to NRRD files
-- New functions to read/write `MeshNeurons`: `navis.read_mesh` and `navis.write_mesh`
+- New function `navis.write_nrrd` writes `Voxels` to NRRD files
+- New functions to read/write `Meshes`: `navis.read_mesh` and `navis.write_mesh`
 - New function `navis.read_nmx` reads pyKNOSSOS files
-- New function `navis.smooth_mesh` smoothes meshes and `MeshNeurons`
+- New function `navis.smooth_mesh` smoothes meshes and `Meshes`
 - Improved/updated the InsectBrain DB interface (see the tutorial)
 - Under-the-hood fixes and improvements to: `navis.plot2d`, `navis.split_axon_dendrite`, `navis.tortuosity`, `navis.resample_skeleton`, `navis.mirror_brain`
 - First pass at a `NEURON` interface (see the new tutorial)
@@ -726,7 +740,7 @@ _Date: 12/05/21_
 - `navis.cut_skeleton` now always returns a single `NeuronList`
 - `navis.mirror_brain` now works with `k=0/None` Dotprops
 - all `reroot_to_soma` parameters have been renamed to `reroot_soma`
-- `navis.TreeNeuron` now has a `soma_pos` property that can also be used to set the soma by position
+- `navis.Skeleton` now has a `soma_pos` property that can also be used to set the soma by position
 - made transforms more robust against points outside deformation fields
 - better deal if node ID of soma is `0` (e.g. during plotting)
 - `navis.neuron2tangents` now drops zero-length vectors
@@ -945,7 +959,7 @@ _Date: 15/08/20_
 _Date: 20/04/20_
 
 ##### Additions
-- New `plot3d` parameter: with plotly backend, use `radius=True` plots TreeNeurons with radius
+- New `plot3d` parameter: with plotly backend, use `radius=True` plots Skeletons with radius
 - New `plot2d` parameter: `orthogonal=False` sets view to perspective
 
 ##### Improvements
@@ -955,11 +969,11 @@ _Date: 20/04/20_
 _Date: 29/06/20_
 
 ##### Breaking
-- `navis.nx2neuron` now returns a `navis.TreeNeuron` instead of a `DataFrame`
+- `navis.nx2neuron` now returns a `navis.Skeleton` instead of a `DataFrame`
 
 ##### Additions
-- New neuron class `navis.MeshNeuron`
-- New `navis.TreeNeuron` property `.volume`
+- New neuron class `navis.Mesh`
+- New `navis.Skeleton` property `.volume`
 - New example data from the Janelia hemibrain data set
 
 ##### Improvements
@@ -981,7 +995,7 @@ _Date: 15/05/20_
 ##### Improvements
 - Improvements to R and Blender interface
 - Improved loading from SWCs (up to 2x faster)
-- `TreeNeurons`: allow rerooting by setting the `.root` attribute
+- `Skeletons`: allow rerooting by setting the `.root` attribute
 
 ## Version `0.1.14` { data-toc-label="0.1.14" }
 _Date: 05/05/20_

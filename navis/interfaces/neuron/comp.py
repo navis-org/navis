@@ -121,7 +121,7 @@ class CompartmentModel:
 
     Parameters
     ----------
-    x :         navis.TreeNeuron
+    x :         navis.Skeleton
                 Neuron to generate model for. Has to be in microns!
     res :       int
                 Approximate length [um] of segments. This guarantees that
@@ -131,9 +131,9 @@ class CompartmentModel:
 
     """
 
-    def __init__(self, x: 'core.TreeNeuron', res=10):
+    def __init__(self, x: 'core.Skeleton', res=10):
         """Initialize Neuron."""
-        utils.eval_param(x, name='x', allowed_types=(core.TreeNeuron, ))
+        utils.eval_param(x, name='x', allowed_types=(core.Skeleton, ))
 
         # Note that we make a copy to make sure that the data underlying the
         # model will not accidentally be changed
@@ -878,7 +878,7 @@ class DrosophilaPN(CompartmentModel):
 
     Parameters
     ----------
-    x :         navis.TreeNeuron
+    x :         navis.Skeleton
                 Neuron to generate model for. Has to be in microns!
     res :       int
                 Approximate length [um] of segments. This guarantees that

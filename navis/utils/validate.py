@@ -23,7 +23,7 @@ from .iterables import *
 logger = config.get_logger(__name__)
 
 
-def validate_options(x: 'core.TreeNeuron',
+def validate_options(x: 'core.Skeleton',
                      options: Union[List[str], str],
                      kwargs: dict,
                      raise_on_error: bool = True) -> None:
@@ -33,7 +33,7 @@ def validate_options(x: 'core.TreeNeuron',
 
     Parameters
     ----------
-    x :                 TreeNeuron
+    x :                 Skeleton
                         Neuron to check for data.
     options :           str | list of str
                         Options to check, e.g. "plot".

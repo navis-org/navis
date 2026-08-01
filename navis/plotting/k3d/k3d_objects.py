@@ -128,7 +128,7 @@ def neuron2k3d(x, colormap, settings):
                 color = color[neuron.vertex_map]
 
         if not settings.connectors_only:
-            if isinstance(neuron, core.TreeNeuron):
+            if isinstance(neuron, core.Skeleton):
                 trace_data += skeleton2k3d(
                     neuron,
                     label=label,
@@ -137,7 +137,7 @@ def neuron2k3d(x, colormap, settings):
                     color=color,
                     settings=settings,
                 )
-            elif isinstance(neuron, core.MeshNeuron):
+            elif isinstance(neuron, core.Mesh):
                 trace_data += mesh2k3d(
                     neuron,
                     label=label,
@@ -155,7 +155,7 @@ def neuron2k3d(x, colormap, settings):
                     color=color,
                     settings=settings,
                 )
-            elif isinstance(neuron, core.VoxelNeuron):
+            elif isinstance(neuron, core.Voxels):
                 trace_data += voxel2k3d(
                     neuron,
                     label=label,
@@ -175,7 +175,7 @@ def neuron2k3d(x, colormap, settings):
                 cn_label = f'{cn_lay.get(j, {"name": "connector"})["name"]} of {name}'
 
                 if cn_lay["display"] == "circles" or not isinstance(
-                    neuron, core.TreeNeuron
+                    neuron, core.Skeleton
                 ):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")
@@ -230,7 +230,7 @@ def neuron2k3d(x, colormap, settings):
 
 
 def mesh2k3d(neuron, legendgroup, showlegend, label, color, settings):
-    """Convert MeshNeuron to k3d object."""
+    """Convert Mesh to k3d object."""
     # Skip empty neurons
     if neuron.n_vertices == 0:
         return []
@@ -266,7 +266,7 @@ def mesh2k3d(neuron, legendgroup, showlegend, label, color, settings):
 
 
 def voxel2k3d(neuron, legendgroup, showlegend, label, color, settings):
-    """Convert VoxelNeuron to k3d object."""
+    """Convert Voxels to k3d object."""
     # Skip empty neurons
     if min(neuron.shape) == 0:
         return []
@@ -289,9 +289,9 @@ def voxel2k3d(neuron, legendgroup, showlegend, label, color, settings):
 
 
 def skeleton2k3d(neuron, legendgroup, showlegend, label, color, settings):
-    """Convert skeleton (i.e. TreeNeuron) to plotly line plot."""
+    """Convert skeleton (i.e. Skeleton) to plotly line plot."""
     if neuron.nodes.empty:
-        logger.warning(f"Skipping TreeNeuron w/o nodes: {neuron.label}")
+        logger.warning(f"Skipping Skeleton w/o nodes: {neuron.label}")
         return []
     elif neuron.nodes.shape[0] == 1:
         logger.warning(f"Skipping single-node skeleton: {neuron.label}")

@@ -908,7 +908,7 @@ class CMTKtransform(BackendMixin, BaseTransform):
 
 def parse_target_specs(target):
     """Parse target specs into argument that can be passed to CMTK."""
-    # Note to self: this function should also deal with VoxelNeurons and NRRD filepaths
+    # Note to self: this function should also deal with Voxels and NRRD filepaths
     # For NRRD filepaths: we need to add an empty "--" before the filepath (I think)
 
     from .templates import TemplateBrain  # avoid circular import

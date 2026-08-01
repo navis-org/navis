@@ -32,14 +32,14 @@ import sparsecubes
 logger = config.get_logger(__name__)
 
 
-def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
+def voxels2mesh(vox: Union['core.Voxels', np.ndarray],
                 spacing: Union[Literal['auto'], np.ndarray] = 'auto',
                 step_size: int = 1,
                 smooth: bool = True,
                 chunk_size: Optional[int] = None,
                 pad_chunks: Optional[bool] = None,
                 merge_fragments: Optional[bool] = None,
-                progress: Optional[bool] = None) -> Union[tm.Trimesh, 'core.MeshNeuron']:
+                progress: Optional[bool] = None) -> Union[tm.Trimesh, 'core.Mesh']:
     """Generate mesh from voxels.
 
     Uses [`sparsecubes.mesh`][], which works directly off the sparse voxels
@@ -47,12 +47,12 @@ def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
 
     Parameters
     ----------
-    vox :           VoxelNeuron | (N, 3) np.array
-                    Object to voxelize. Can be a VoxelNeuron or an (N, 3) array
+    vox :           Voxels | (N, 3) np.array
+                    Object to voxelize. Can be a Voxels neuron or an (N, 3) array
                     of x, y, z voxel coordinates.
     spacing :       np.array
                     (3, ) array with x, y, z voxel size. If `auto` and input is
-                    a `VoxelNeuron` we will use the neuron's `.units` property,
+                    a `Voxels` we will use the neuron's `.units` property,
                     else spacing will be `(1, 1, 1)`.
     step_size :     int, optional
                     Step size for the meshing algorithm.
@@ -79,13 +79,13 @@ def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
 
     Returns
     -------
-    mesh :          trimesh.Trimesh | MeshNeuron
-                    Returns a trimesh or MeshNeuron depending on the input.
+    mesh :          trimesh.Trimesh | Mesh
+                    Returns a trimesh or Mesh depending on the input.
                     Data tables (e.g. `connectors`) are not carried over from
                     input neuron.
 
     """
-    utils.eval_param(vox, 'vox', allowed_types=(core.VoxelNeuron, np.ndarray))
+    utils.eval_param(vox, 'vox', allowed_types=(core.Voxels, np.ndarray))
 
     # `sparsecubes` works straight off the sparse voxels, so the machinery that
     # existed only to keep marching cubes' dense grid in check is moot
@@ -105,12 +105,12 @@ def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
     # caller passes it explicitly, and comparing that to a string is not a
     # scalar bool
     if isinstance(spacing, str) and spacing == 'auto':
-        if not isinstance(vox, core.VoxelNeuron):
+        if not isinstance(vox, core.Voxels):
             spacing = [1, 1, 1]
         else:
             spacing = vox.units_xyz.magnitude
 
-    if isinstance(vox, core.VoxelNeuron):
+    if isinstance(vox, core.Voxels):
         voxels = vox.voxels
     else:
         voxels = vox
@@ -123,11 +123,11 @@ def voxels2mesh(vox: Union['core.VoxelNeuron', np.ndarray],
                             step_size=step_size,
                             smooth=smooth)
 
-    if isinstance(vox, core.VoxelNeuron):
+    if isinstance(vox, core.Voxels):
         # `smooth=False` keeps the voxels' integer dtype, which an in-place add
         # of a float offset would refuse - so reassign rather than `+=`
         mesh.vertices = mesh.vertices + vox.offset
-        mesh = core.MeshNeuron(mesh, units=f'1 {vox.units.units}', id=vox.id)
+        mesh = core.Mesh(mesh, units=f'1 {vox.units.units}', id=vox.id)
 
     return mesh
 

@@ -313,7 +313,7 @@ def unpack_neurons(
     >>> type(unpacked)
     <class 'list'>
     >>> type(unpacked[0])
-    <class 'navis.core.skeleton.TreeNeuron'>
+    <class 'navis.core.skeleton.Skeleton'>
     >>> len(unpacked)
     6
 
@@ -503,13 +503,13 @@ def mesh_unique_edges(x, return_lengths=False, extra_edges=True):
 
     Parameters
     ----------
-    x :         MeshNeuron | Trimesh | mesh-like
+    x :         Mesh | Trimesh | mesh-like
                 A mesh to get unique edges from.
     return_lengths : bool
                 If True, will also return the lengths of the edges.
     extra_edges : bool
                 Whether to include any edges that are not part of the faces
-                (see `MeshNeuron.extra_edges`). These come last in the returned
+                (see `Mesh.extra_edges`). These come last in the returned
                 array. Set to False if you are after the mesh *surface* rather
                 than its connectivity.
 
@@ -524,7 +524,7 @@ def mesh_unique_edges(x, return_lengths=False, extra_edges=True):
     if not is_mesh(x):
         raise TypeError(f"Expected mesh-like, got {type(x)}")
 
-    mesh = x.trimesh if isinstance(x, core.MeshNeuron) else x
+    mesh = x.trimesh if isinstance(x, core.Mesh) else x
 
     if not isinstance(mesh, tm.Trimesh):
         mesh = tm.Trimesh(vertices=x.vertices, faces=x.faces, process=False)

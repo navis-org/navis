@@ -42,13 +42,13 @@ __all__ = ["heal_mesh"]
 
 @utils.map_neuronlist(desc="Healing", allow_parallel=True)
 def heal_mesh(
-    x: "core.MeshNeuron",
+    x: "core.Mesh",
     max_dist: Optional[float] = None,
     min_size: Optional[int] = None,
     drop_disc: bool = False,
     mask: Optional[Sequence] = None,
     inplace: bool = False,
-) -> "core.MeshNeuron":
+) -> "core.Mesh":
     """Heal fragmented mesh(es).
 
     Meshes often consist of several disconnected fragments - e.g. because the
@@ -58,7 +58,7 @@ def heal_mesh(
     total added length (a minimum spanning tree over the fragments).
 
     Note that this is a purely *topological* repair: the bridges are added to
-    the neuron's [`extra_edges`][navis.MeshNeuron.extra_edges] and no vertices
+    the neuron's [`extra_edges`][navis.Mesh.extra_edges] and no vertices
     or faces are touched. Vertices, faces, surface area and volume are all
     unchanged - only anything reading the mesh's *connectivity* (e.g.
     [`navis.geodesic_matrix`][], [`navis.break_fragments`][],
@@ -66,7 +66,7 @@ def heal_mesh(
 
     Parameters
     ----------
-    x :         MeshNeuron | NeuronList
+    x :         Mesh | NeuronList
                 Fragmented mesh(es).
     max_dist :  float | str, optional
                 This effectively sets the max length for newly added edges. Use
@@ -92,7 +92,7 @@ def heal_mesh(
 
     Returns
     -------
-    MeshNeuron/List
+    Mesh/List
 
     See Also
     --------
@@ -126,8 +126,8 @@ def heal_mesh(
 
     """
     # The decorator makes sure that at this point we have single neurons
-    if not isinstance(x, core.MeshNeuron):
-        raise TypeError(f'Expected MeshNeuron(s), got "{type(x)}"')
+    if not isinstance(x, core.Mesh):
+        raise TypeError(f'Expected Mesh(s), got "{type(x)}"')
 
     if max_dist is not None:
         max_dist = float(x.map_units(max_dist, on_error="raise"))
@@ -173,7 +173,7 @@ def heal_mesh(
     return x
 
 
-def _vertex_mask(x: "core.MeshNeuron", mask: Sequence) -> np.ndarray:
+def _vertex_mask(x: "core.Mesh", mask: Sequence) -> np.ndarray:
     """Turn `mask` (boolean mask or vertex indices) into a boolean mask."""
     mask = np.asarray(mask)
 

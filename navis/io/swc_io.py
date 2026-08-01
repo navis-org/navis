@@ -75,19 +75,19 @@ class SwcReader(base.BaseReader):
     @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.TreeNeuron":
-        """Read buffer into a TreeNeuron.
+    ) -> "core.Skeleton":
+        """Read buffer into a Skeleton.
 
         Parameters
         ----------
         f :         IO
                     Readable buffer (if bytes, interpreted as utf-8).
         attrs :     dict | None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
-        core.TreeNeuron
+        core.Skeleton
         """
         if isinstance(f, HTTPResponse):
             f = io.StringIO(f.data.decode())
@@ -122,7 +122,7 @@ class SwcReader(base.BaseReader):
                 nodes.columns = NODE_COLUMNS
         except pd.errors.EmptyDataError:
             # If file is totally empty, return an empty neuron
-            # Note that the TreeNeuron will still complain but it's a better
+            # Note that the Skeleton will still complain but it's a better
             # error message
             nodes = pd.DataFrame(columns=NODE_COLUMNS)
 
@@ -141,20 +141,20 @@ class SwcReader(base.BaseReader):
     @base.handle_errors
     def read_dataframe(
         self, nodes: pd.DataFrame, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.TreeNeuron":
-        """Convert a SWC-like DataFrame into a TreeNeuron.
+    ) -> "core.Skeleton":
+        """Convert a SWC-like DataFrame into a Skeleton.
 
         Parameters
         ----------
         nodes :     pandas.DataFrame
         attrs :     dict or None
-                    Arbitrary attributes to include in the TreeNeuron.
+                    Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
-        core.TreeNeuron
+        core.Skeleton
         """
-        n = core.TreeNeuron(
+        n = core.Skeleton(
             sanitise_nodes(nodes.astype(self._dtypes, errors="ignore")),
             connectors=self._extract_connectors(nodes),
         )
@@ -345,7 +345,7 @@ def read_swc(
                         will be read as neuron properties. `fmt` still takes
                         precedence. Will try to assign meta data directly as
                         neuron attribute (e.g. `neuron.id`). Failing that
-                        (can happen for properties intrinsic to `TreeNeurons`),
+                        (can happen for properties intrinsic to `Skeletons`),
                         will add a `.meta` dictionary to the neuron.
     limit :             int | str | slice | list, optional
                         When reading from a folder or archive you can use this parameter to
@@ -364,16 +364,16 @@ def read_swc(
                         mesh will be skipped. Can result in empty output.
     **kwargs
                         Keyword arguments passed to the construction of
-                        `navis.TreeNeuron`. You can use this to e.g. set
+                        `navis.Skeleton`. You can use this to e.g. set
                         meta data.
 
     Returns
     -------
-    navis.TreeNeuron
+    navis.Skeleton
                         Contains SWC file header as `.swc_header` attribute.
     navis.NeuronList
                         If import of multiple SWCs will return NeuronList of
-                        TreeNeurons.
+                        Skeletons.
 
     See Also
     --------
@@ -458,14 +458,14 @@ def write_swc(
     export_connectors: bool = False,
     return_node_map: bool = False,
 ) -> None:
-    """Write TreeNeuron(s) to SWC.
+    """Write Skeleton(s) to SWC.
 
     Follows the format specified
     [here](http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html).
 
     Parameters
     ----------
-    x :                 TreeNeuron | NeuronList
+    x :                 Skeleton | NeuronList
                         If multiple neurons, will generate a single SWC file
                         for each neuron (see also `filepath`).
     filepath :          str | pathlib.Path | list thereof
@@ -554,19 +554,19 @@ def write_swc(
     >>> navis.write_swc(nl, tmp_dir / 'skel-{neuron.name}.swc@neuronlist.zip')
 
     """
-    # Make sure inputs are only TreeNeurons
+    # Make sure inputs are only Skeletons
     if isinstance(x, core.NeuronList):
         for n in x:
-            if not isinstance(n, core.TreeNeuron):
-                msg = f'Can only write TreeNeurons to SWC, not "{type(n)}"'
+            if not isinstance(n, core.Skeleton):
+                msg = f'Can only write Skeletons to SWC, not "{type(n)}"'
                 if isinstance(n, core.Dotprops):
                     msg += (
                         ". For Dotprops, you can use either `navis.write_nrrd`"
                         " or `navis.write_parquet`."
                     )
                 raise TypeError(msg)
-    elif not isinstance(x, core.TreeNeuron):
-        msg = f'Can only write TreeNeurons to SWC, not "{type(x)}"'
+    elif not isinstance(x, core.Skeleton):
+        msg = f'Can only write Skeletons to SWC, not "{type(x)}"'
         if isinstance(x, core.Dotprops):
             msg += (
                 ". For Dotprops, you can use either `navis.write_nrrd`"
@@ -588,7 +588,7 @@ def write_swc(
 
 
 def _write_swc(
-    x: Union["core.TreeNeuron", "core.Dotprops"],
+    x: Union["core.Skeleton", "core.Dotprops"],
     filepath: Union[str, Path],
     header: Optional[str] = None,
     write_meta: Union[bool, List[str], dict] = True,
@@ -596,7 +596,7 @@ def _write_swc(
     export_connectors: bool = False,
     return_node_map: bool = False,
 ) -> None:
-    """Write single TreeNeuron to file."""
+    """Write single Skeleton to file."""
     # Generate SWC table
     res = make_swc_table(
         x,
@@ -661,7 +661,7 @@ def _write_swc(
 
 
 def make_swc_table(
-    x: Union["core.TreeNeuron", "core.Dotprops"],
+    x: Union["core.Skeleton", "core.Dotprops"],
     labels: Union[str, dict, bool] = None,
     export_connectors: bool = False,
     return_node_map: bool = False,
@@ -673,7 +673,7 @@ def make_swc_table(
 
     Parameters
     ----------
-    x :                 TreeNeuron | Dotprops
+    x :                 Skeleton | Dotprops
                         Dotprops will be turned from points + vectors to
                         individual segments.
     labels :            str | dict | bool, optional

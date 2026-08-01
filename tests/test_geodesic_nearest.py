@@ -85,7 +85,7 @@ def test_geodesic_nearest_disconnected():
             "z": 0,
         }
     )
-    forest = navis.TreeNeuron(nodes)
+    forest = navis.Skeleton(nodes)
 
     # Targets only in component B -> all of component A is unreachable.
     nearest, dist = graph._geodesic_nearest(

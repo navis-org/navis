@@ -12,9 +12,9 @@ def skeleton():
 
 
 def _coords(n):
-    if isinstance(n, navis.TreeNeuron):
+    if isinstance(n, navis.Skeleton):
         return n.nodes[["x", "y", "z"]].values
-    if isinstance(n, navis.MeshNeuron):
+    if isinstance(n, navis.Mesh):
         return n.vertices
     return n.points  # Dotprops
 
@@ -436,7 +436,7 @@ def test_augment_pipeline_runs_and_is_reproducible(skeleton):
     kw = dict(drop=0.1, warp=0.03, rotate=True, scale=(0.8, 1.25), translate=200, jitter=20)
     a = navis.ml.augment_neuron(skeleton, random_state=0, **kw)
     b = navis.ml.augment_neuron(skeleton, random_state=0, **kw)
-    assert isinstance(a, navis.TreeNeuron)
+    assert isinstance(a, navis.Skeleton)
     assert a.n_nodes < skeleton.n_nodes                        # drop happened
     assert a.n_nodes == b.n_nodes
     assert np.array_equal(a.nodes[["x", "y", "z"]].values, b.nodes[["x", "y", "z"]].values)
@@ -648,7 +648,7 @@ def _two_parallel_branches(gap=0.05, length=5.0, step=0.05):
     nodes = pd.DataFrame(np.array(coords), columns=["x", "y", "z"])
     nodes["node_id"] = np.arange(len(coords))
     nodes["parent_id"] = parents
-    return navis.TreeNeuron(nodes)
+    return navis.Skeleton(nodes)
 
 
 def _mean_branch_mix(df):

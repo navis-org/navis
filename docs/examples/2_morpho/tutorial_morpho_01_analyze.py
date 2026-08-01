@@ -6,7 +6,7 @@ Measure morphometrics — segment lengths, geodesic distances and branch angles.
 
 Disclaimer: As you might imagine some properties can be gathered for all/most neuron types while others will only work
 on specific types. For example, topological properties such as cable length, branch points, etc. are easy to get for
-a skeleton (i.e. a [`TreeNeuron`][navis.TreeNeuron]) but not for an image (i.e. a [`VoxelNeuron`][navis.VoxelNeuron]).
+a skeleton (i.e. a [`Skeleton`][navis.Skeleton]) but not for an image (i.e. a [`Voxels`][navis.Voxels]).
 Make sure to check the respective function's docstring for details!
 
 
@@ -29,7 +29,7 @@ sns.set_color_codes("muted")
 # %%
 # Accessing attributes for a single neuron:
 
-# Load a single skeleton (i.e. a TreeNeuron)
+# Load a single skeleton (i.e. a Skeleton)
 n = navis.example_neurons(n=1, kind="skeleton")
 print(f"This neuron has {n.cable_length} of cable")
 
@@ -52,10 +52,10 @@ df = nl.summary()
 df.head()
 
 # %%
-# For [`MeshNeurons`][navis.MeshNeuron] the available properties look different. For example,
+# For [`Meshes`][navis.Mesh] the available properties look different. For example,
 # you can get its volume:
 
-# Load a single MeshNeuron
+# Load a single Mesh
 m = navis.example_neurons(n=1, kind="mesh")
 print(f"Neuron volume: {m.volume}")
 
@@ -64,18 +64,18 @@ print(f"Neuron volume: {(m.volume * n.units **3).to('microns ** 3')}")
 
 # %%
 # For topological properties, we need to convert to skeleton. The fastest way is to simply access
-# the [`MeshNeuron`][navis.MeshNeuron]'s `.skeleton` property:
+# the [`Mesh`][navis.Mesh]'s `.skeleton` property:
 
 print(f"Mesh cable length: {m.skeleton.cable_length * m.units}")
 
 # %%
 # !!! note
-#     The above `.skeleton` property is simply an automatically generated [`TreeNeuron`][navis.TreeNeuron]
+#     The above `.skeleton` property is simply an automatically generated [`Skeleton`][navis.Skeleton]
 #     representation of the mesh. It uses sensible defaults but as said initially: it's good practice to
 #     create and check the skeleton yourself via [`navis.skeletonize`][].
 #
 # Importantly, some {{ navis }} functions (e.g. [`navis.segment_analysis`][], see below) that accept
-# [`MeshNeurons`][navis.MeshNeuron] as input, really use this skeleton representation under-the-hood.
+# [`Meshes`][navis.Mesh] as input, really use this skeleton representation under-the-hood.
 #
 # The skeleton representation of the mesh lets us access many topological properties:
 

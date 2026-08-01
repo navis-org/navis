@@ -54,7 +54,7 @@ FRAG_B = [10, 11, 12, 13]
 
 def _neuron(ids=None):
     ids = NODES.node_id.values if ids is None else ids
-    n = navis.TreeNeuron(NODES[NODES.node_id.isin(ids)].copy())
+    n = navis.Skeleton(NODES[NODES.node_id.isin(ids)].copy())
     n.connectors = CONNECTORS[CONNECTORS.node_id.isin(ids)].copy()
     return n
 

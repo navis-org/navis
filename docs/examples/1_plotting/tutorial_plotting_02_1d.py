@@ -20,7 +20,7 @@ plt.tight_layout()
 
 # %%
 # !!! important
-#     [`navis.plot1d`][] only works with [`navis.TreeNeurons`][navis.TreeNeuron]. These neurons must have
+#     [`navis.plot1d`][] only works with [`navis.Skeletons`][navis.Skeleton]. These neurons must have
 #     only a single root (i.e. a single connected component) which is used as the point of reference for
 #     the sorting.
 

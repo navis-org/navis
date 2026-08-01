@@ -17,4 +17,6 @@ For example, skeletons pickled with previous versions of navis will expect to
 still find a `navis.core.neurons.TreeNeuron`.
 """
 
-from ..core import Dotprops, MeshNeuron, TreeNeuron
+from .dotprop import Dotprops  # noqa: F401
+from .mesh import MeshNeuron  # noqa: F401
+from .skeleton import TreeNeuron  # noqa: F401
