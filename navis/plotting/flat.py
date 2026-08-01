@@ -242,22 +242,19 @@ def _plot_subway(
     if "parent_dist" not in x.nodes.columns:
         x.nodes["parent_dist"] = parent_dist(x, 0)
 
-    # First collect leafs, branches and root
+    # First collect leafs and branches
     leaf_nodes = x.leafs.node_id.values
-    root_nodes = x.root
     branch_nodes = set(x.branch_points.node_id.values)
 
-    # Convert node IDs to igraph vertex indices. Note `vs.select(node_id_in=...)`
-    # would scan every vertex in Python.
-    ids = np.asarray(x.igraph.vs["node_id"])
-    leaf_vs = np.where(np.isin(ids, leaf_nodes))[0].tolist()
-    root_vs = np.where(np.isin(ids, root_nodes))[0].tolist()
-
-    # Now get paths from all tips to the root
-    paths = x.igraph.get_shortest_paths(root_vs[0], leaf_vs, mode="ALL")
-
-    # Translate indices back into node ids
-    paths_tn = [ids[p] for p in paths]
+    # Now get paths from all tips to the root. This neuron is single-rooted (checked
+    # above), so following parent pointers up from each leaf is the same walk the
+    # graph search did - reversed, since these come back source-first.
+    paths_tn = [
+        np.asarray(p)[::-1]
+        for p in utils.fastcore.paths_to_root(
+            x.nodes.node_id.values, x.nodes.parent_id.values, leaf_nodes
+        )
+    ]
 
     # Generate DataFrame with all the info
     nodes = x.nodes.set_index("node_id")

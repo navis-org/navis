@@ -39,9 +39,13 @@ def _reference_sorting(x, weighted=False):
         np.where(geo == float("inf"), np.nan, geo), columns=geo.columns, index=geo.index
     )
 
-    G = graph.simplify_graph(x.graph)
+    # Same simplified skeleton and same child order as the implementation - what is
+    # under test here is the *sort key* (matrix vs the two O(N) terms), not how the
+    # children are enumerated. Enumerating them differently would make the two walks
+    # disagree wherever two children's keys tie, which says nothing about the keys.
+    childs = gu._simplified_childs(x)
     curr_points = sorted(
-        list(G.predecessors(x.root[0])),
+        childs[x.root[0]],
         key=lambda n: dist_mat[n].max() + dist_mat.loc[n, x.root[0]],
         reverse=True,
     )
@@ -52,7 +56,7 @@ def _reference_sorting(x, weighted=False):
         if nodes_walked[-1] not in term:
             curr_points = (
                 sorted(
-                    list(G.predecessors(nodes_walked[-1])),
+                    childs[nodes_walked[-1]],
                     key=lambda n: dist_mat[n].max() + dist_mat.loc[n, nodes_walked[-1]],
                     reverse=True,
                 )
@@ -73,6 +77,19 @@ def test_node_label_sorting_matches_matrix(neuron, weighted):
     expected = _reference_sorting(neuron, weighted=weighted)
 
     assert got == expected
+
+
+def test_node_label_sorting_is_stable(neuron):
+    """Ties must break the same way every time.
+
+    Children are enumerated in node-table order, so two branches whose sort keys are
+    equal always come out in the same order. The networkx graph this replaced yielded
+    them in the insertion order of a set, which carried no such guarantee.
+    """
+    first = list(graph.node_label_sorting(neuron))
+
+    for _ in range(3):
+        assert list(graph.node_label_sorting(neuron)) == first
 
 
 def test_node_label_sorting_is_complete(neuron):

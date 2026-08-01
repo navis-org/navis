@@ -521,11 +521,13 @@ class Skeleton(BaseNeuron):
                     cycles.
 
         """
-        # A graph is a forest iff it has no cycles, i.e. iff every component is a
-        # tree and therefore contributes exactly (n_vertices - 1) edges. Cheaper
-        # than walking the graph (which is what networkx's is_forest does).
-        G = self.igraph
-        return G.ecount() == G.vcount() - len(G.components(mode="WEAK"))
+        # Every node in the table names exactly one parent, so the only way this is
+        # not a forest is a cycle - walking parents from some node never reaches a
+        # root. That is a single linear pass over the parent vector; the graph this
+        # replaced cost more to build than the answer did.
+        return not utils.fastcore.has_cycles(
+            self.nodes.node_id.values, self.nodes.parent_id.values
+        )
 
     @property
     def subtrees(self) -> List[List[int]]:

@@ -600,3 +600,40 @@ def test_longest_neurite_k1_is_the_diameter(n):
     dmat[~np.isfinite(dmat)] = -1
 
     assert got.cable_length == pytest.approx(dmat.max(), rel=1e-4)
+
+
+def test_collapse_nodes_preserves_structure(n):
+    """Collapsing a group must merge exactly that group and leave a valid tree."""
+    which = n.nodes.node_id.values[[100, 101, 102, 103]]
+
+    got = navis.collapse_nodes(n, which, inplace=False)
+
+    # Exactly the non-representative members are gone
+    assert got.n_nodes == n.n_nodes - (len(which) - 1)
+    assert set(got.nodes.node_id) == set(n.nodes.node_id) - set(which[1:])
+    assert got.is_tree
+    # Collapsing does not re-root the neuron
+    assert list(got.root) == list(n.root)
+
+
+def test_collapse_nodes_with_large_node_ids():
+    """Node IDs are IDs, not row numbers.
+
+    Segmentation backends hand out node IDs in the 7e17 range. This used to build an
+    igraph contraction mapping of vertex *indices* and write node IDs into it, which
+    only worked while IDs happened to run 1..N - on real IDs igraph tried to allocate
+    a vector sized by the ID and raised `MemoryError`.
+    """
+    offset = 720575940379000000
+    x = navis.example_neurons(1, kind="skeleton").copy()
+    pid = x.nodes.parent_id.values.astype(np.int64)
+    x.nodes["node_id"] = x.nodes.node_id.values.astype(np.int64) + offset
+    x.nodes["parent_id"] = np.where(pid >= 0, pid + offset, -1)
+    x._clear_temp_attr()
+
+    which = x.nodes.node_id.values[[500, 501, 502]]
+    got = navis.collapse_nodes(x, which, inplace=False)
+
+    assert got.n_nodes == x.n_nodes - 2
+    assert got.is_tree
+    assert set(got.nodes.node_id) == set(x.nodes.node_id) - set(which[1:])

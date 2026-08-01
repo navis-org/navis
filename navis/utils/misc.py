@@ -544,7 +544,11 @@ def mesh_unique_edges(x, return_lengths=False, extra_edges=True):
         else:
             edges, index, inverse = res
 
-        # Update cache (mirrors what trimesh's `edges_unique` populates)
+        # Update cache (mirrors what trimesh's `edges_unique` populates). N.B. the
+        # cast: fastcore hands back `uint32` (a node ID under its dtype rules) but
+        # trimesh's own `edges_unique` is `int64`, and this is a *trimesh* cache key
+        # that third-party code reads and may do signed arithmetic on.
+        edges = edges.astype(np.int64)
         mesh._cache["edges_unique"] = edges
         mesh._cache["edges_unique_idx"] = index
         mesh._cache["edges_unique_inverse"] = inverse

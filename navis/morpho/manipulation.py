@@ -16,7 +16,6 @@
 
 import pandas as pd
 import numpy as np
-import networkx as nx
 import sparsecubes
 import trimesh as tm
 
@@ -155,15 +154,11 @@ def cell_body_fiber(
         x, method=method, threshold=threshold, reroot_soma=False
     )
 
-    # Find the path to root (and account for multiple roots)
-    for r in x.root:
-        try:
-            path = nx.shortest_path(x.graph, target=r, source=cut)
-            break
-        except nx.NetworkXNoPath:
-            continue
-        except BaseException:
-            raise
+    # Find the path to root. No need to try each root in turn: following parent
+    # pointers up from `cut` arrives at whichever root its own fragment has.
+    path = utils.fastcore.paths_to_root(
+        x.nodes.node_id.values, x.nodes.parent_id.values, [cut]
+    )[0]
 
     if not inverse:
         keep = path

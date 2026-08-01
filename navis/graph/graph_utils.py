@@ -12,7 +12,6 @@
 #    GNU General Public License for more details.
 
 import numbers
-import warnings
 
 from collections import defaultdict
 
@@ -113,12 +112,7 @@ def _generate_segments(
     assert weight in ("weight", None), f'Unable to use weight "{weight}"'
 
     if weight == "weight":
-        weight = utils.fastcore.dag.parent_dist(
-            x.nodes.node_id.values,
-            x.nodes.parent_id.values,
-            x.nodes[["x", "y", "z"]].values,
-            root_dist=0,
-        )
+        weight = morpho.mmetrics.parent_dist(x, root_dist=0)
 
     segs, lengths = utils.fastcore.generate_segments(
         x.nodes.node_id.values, x.nodes.parent_id.values, weights=weight
@@ -460,9 +454,7 @@ def dist_to_root(
         parents,
         weights=None
         if weight is None
-        else utils.fastcore.dag.parent_dist(
-            ids, parents, x.nodes[["x", "y", "z"]].values, root_dist=0
-        ),
+        else morpho.mmetrics.parent_dist(x, root_dist=0),
     )
 
     # Unreachable nodes (i.e. those in another fragment) come back as -1 and are
@@ -798,12 +790,7 @@ def geodesic_matrix(
 
         # Calculate node distances
         if weight == "weight":
-            weight = utils.fastcore.dag.parent_dist(
-                node_ids,
-                x.nodes.parent_id.values,
-                x.nodes[["x", "y", "z"]].values,
-                root_dist=0,
-            )
+            weight = morpho.mmetrics.parent_dist(x, root_dist=0)
 
         from_ = None if from_ is None else _check(from_, node_ids)
         to_ = None if to_ is None else _check(to_, node_ids)
@@ -862,6 +849,12 @@ def geodesic_matrix(
             sources=from_,
             targets=to_,
             limit=limit_,
+            # `lengths` is float64 (trimesh vertices are), and fastcore takes the
+            # distances' width from the weights' - which would make this the one
+            # branch of this function returning float64. The other two can't
+            # follow: `geodesic_matrix_mesh` reads nothing off `vertices` and the
+            # skeleton kernels are float32 only.
+            dtype=np.float32,
         )
 
     # Fastcore returns -1 for unreachable vertex pairs
@@ -935,13 +928,7 @@ def _geodesic_nearest(
         )
 
     # Per-node distance to parent (root = 0). `None` -> unweighted (hop count).
-    weights = (
-        utils.fastcore.dag.parent_dist(
-            node_ids, parent_ids, x.nodes[["x", "y", "z"]].values, root_dist=0
-        )
-        if weight == "weight"
-        else None
-    )
+    weights = morpho.mmetrics.parent_dist(x, root_dist=0) if weight == "weight" else None
 
     distances, nearest = utils.fastcore.geodesic_nearest(
         node_ids,
@@ -1271,12 +1258,7 @@ def dist_between(x: "core.NeuronObject", a, b):
         node_ids = x.nodes.node_id.values
         parent_ids = x.nodes.parent_id.values
 
-        weights = utils.fastcore.dag.parent_dist(
-            node_ids,
-            parent_ids,
-            x.nodes[["x", "y", "z"]].values,
-            root_dist=0,
-        )
+        weights = morpho.mmetrics.parent_dist(x, root_dist=0)
         dist = utils.fastcore.geodesic_pairs(
             node_ids,
             parent_ids,
@@ -1387,21 +1369,21 @@ def find_main_branchpoint(
         x = x.reroot(x.soma, inplace=False)
 
     if method == "longest_neurite":
-        G: igraph.Graph = x.igraph
-        ids = np.asarray(G.vs["node_id"])
+        ids = x.nodes.node_id.values
+        parents = x.nodes.parent_id.values
 
-        # First, find longest path
-        longest = _longest_weighted_path(G, weight="weight")
+        # The second longest path - i.e. the longest of what remains once the
+        # longest itself has been peeled off
+        _, sc_longest = utils.fastcore.longest_paths(
+            ids,
+            parents,
+            2,
+            weights=morpho.mmetrics.parent_dist(x, root_dist=0),
+        )
 
-        # Remove it and find the second longest path through what's left
-        g = G.copy()
-        g.delete_vertices(longest)
-        sc_longest = _longest_weighted_path(g, weight="weight")
-
-        # Parent of the last node in sc_longest is the common branch point
-        last = int(np.asarray(g.vs["node_id"])[sc_longest[-1]])
-        id2ix = {nid: ix for ix, nid in enumerate(ids.tolist())}
-        bp = ids[G.successors(id2ix[last])[0]]
+        # Paths run distal -> proximal, so the parent of the second path's last
+        # node is where the two converge
+        bp = parents[ids == sc_longest[-1]][0]
     else:
         # Get betweenness for each node
         x = morpho.betweeness_centrality(x, directed=True, from_="branch_points")
@@ -1489,50 +1471,34 @@ def split_into_fragments(
     if reroot_soma and not isinstance(x.soma, type(None)):
         x.reroot(x.soma, inplace=True)
 
-    # Collect nodes of the n longest neurites. We work on a copy of the igraph and
-    # delete each claimed neurite from it, rather than rebuilding the whole graph
-    # from the node table on every iteration.
-    g: igraph.Graph = x.igraph.copy()
+    ids = x.nodes.node_id.values
+    parents = x.nodes.parent_id.values
+    weights = morpho.mmetrics.parent_dist(x, root_dist=0)
 
-    fragments = []
-    i = 0
-    while i < n and g.vcount():
-        path = _longest_weighted_path(g, weight="weight")
-
-        if not len(path):
-            break
-
-        # Check if fragment is still long enough. Note this sums the weight of
-        # every edge *pointing into* the path - not just the path's own edges.
-        # Preserved as-is from the networkx implementation.
-        if min_size:
-            edges = np.asarray(g.get_edgelist(), dtype=np.int64).reshape(-1, 2)
-            weights = np.asarray(g.es["weight"])
-            this_length = weights[np.isin(edges[:, 1], path)].sum()
-            if this_length <= min_size:
-                break
-
-        fragments.append(np.asarray(g.vs["node_id"])[path])
-
-        # Drop the claimed nodes so the next iteration finds the next-longest
-        g.delete_vertices(path)
-
-        i += 1
+    # Collect nodes of the n longest neurites. Each is peeled off before the next
+    # is sought, which is what makes the second one the longest of the *remainder*.
+    # N.B. `min_length` reproduces the quirk this check has always had: it measures
+    # the path's whole catchment (every edge whose parent lies on the path, so each
+    # twig hanging off it contributes its first edge too), compares with `<=`, and
+    # stops the search rather than skipping the one path.
+    fragments = utils.fastcore.longest_paths(
+        ids,
+        parents,
+        len(ids) if not np.isfinite(n) else int(n),
+        weights=weights,
+        min_length=min_size if min_size else None,
+    )
 
     # Next, make some virtual cuts and get the complement of nodes for each
     # fragment. The first fragment starts out as the whole neuron; every other one
     # is the sub-tree distal to its proximal-most node.
-    G: igraph.Graph = x.igraph
-    ids = np.asarray(G.vs["node_id"])
-    id2ix = {nid: ix for ix, nid in enumerate(ids.tolist())}
-
     node_sets = [set(ids.tolist())]
-    for fr in fragments[1:]:
-        # mode="IN" walks edges backwards (child->parent reversed), i.e. collects
-        # everything distal to this node - the igraph equivalent of the
-        # `nx.bfs_tree(..., reverse=True)` this replaced.
-        distal = G.subcomponent(id2ix[fr[-1]], mode="IN")
-        node_sets.append(set(ids[distal].tolist()))
+    node_sets += [
+        set(d.tolist())
+        for d in utils.fastcore.descendants(
+            ids, parents, [fr[-1] for fr in fragments[1:]]
+        )
+    ]
 
     # Remove nodes that are claimed by a subsequent (i.e. more distal) fragment
     for i, s in enumerate(node_sets):
@@ -1545,41 +1511,6 @@ def split_into_fragments(
     )
 
     return nl
-
-
-def _longest_weighted_path(g: "igraph.Graph", weight="weight") -> np.ndarray:
-    """Find the longest weighted path in an in-forest (edges point child->parent).
-
-    Every maximal path in such a graph is fixed by its starting node - just follow
-    the parents up to a sink - so the longest one starts at whichever node is
-    furthest from its sink. That makes this a distances-to-sinks problem rather
-    than the general (NP-hard) longest-path problem.
-    """
-    n = g.vcount()
-    sinks = np.where(np.asarray(g.outdegree()) == 0)[0]
-    if not len(sinks):
-        return np.empty(0, dtype=int)
-
-    # Join every sink to one virtual super-sink at zero cost and run a *single*
-    # search. Each node in an in-forest reaches exactly one sink, so its distance
-    # to the super-sink is the distance to its own sink. Searching from each sink
-    # separately would be O(sinks x N) - and note that lopping off a neurite turns
-    # every severed branch into a fresh sink, so `sinks` is not small.
-    h = g.copy()
-    h.add_vertices(1)
-    h.add_edges([(int(s), n) for s in sinks])
-    h.es[weight] = np.concatenate(
-        [np.asarray(g.es[weight]), np.zeros(len(sinks))]
-    ).tolist()
-
-    dists = np.asarray(h.distances(source=[n], weights=weight, mode="IN")[0][:n])
-    dists[~np.isfinite(dists)] = -1
-    start = int(np.argmax(dists))
-
-    # Path from `start` to the super-sink, minus the super-sink itself
-    path = h.get_shortest_paths(start, to=n, weights=weight, mode="OUT")[0]
-
-    return np.asarray(path[:-1])
 
 
 @utils.map_neuronlist(desc="Pruning", allow_parallel=True)
@@ -1665,12 +1596,7 @@ def longest_neurite(
             x.nodes.parent_id.values,
             sources=leafs,
             targets=leafs,
-            weights=utils.fastcore.dag.parent_dist(
-                x.nodes.node_id.values,
-                x.nodes.parent_id.values,
-                x.nodes[["x", "y", "z"]].values,
-                root_dist=0,
-            ),
+            weights=morpho.mmetrics.parent_dist(x, root_dist=0),
         )
 
         # The longest neurite has two ends and either is a valid place to root it.
@@ -1798,95 +1724,30 @@ def reroot_skeleton(
         _ = reroot_skeleton(x, new_root=new_roots, inplace=True)
         return x
 
-    # Keep track of node ID dtype
-    nodeid_dtype = x.nodes.node_id.dtype
+    # Keep track of parent ID dtype
+    parentid_dtype = x.nodes.parent_id.dtype
 
-    # Go over each new root
+    # One call per root, not one call with every root: `new_root` is documented to
+    # reroot "in sequence", so two roots naming the *same* component must leave the
+    # second one as that component's root. Passing both at once would instead have
+    # them compete. Only the edges between each new root and the root it displaces
+    # are reversed; components nobody names keep the root they had.
     for new_root in new_roots:
         # Skip if new root is old root
         if any(x.root == new_root):
             continue
 
-        # Grab graph once to avoid overhead from stale checks
-        g: igraph.Graph = x.igraph
+        x.nodes["parent_id"] = utils.fastcore.reroot(
+            x.nodes.node_id.values, x.nodes.parent_id.values, [new_root]
+        )
 
-        # Map node ID -> vertex index up front. `vs.select(node_id_in=...)` and
-        # `vs.find(node_id=...)` both scan every vertex in Python, and we're inside
-        # a loop over the new roots.
-        id2ix = {nid: ix for ix, nid in enumerate(g.vs["node_id"])}
+    # Make sure parent ID has the same dtype as before: `reroot` promotes to int64
+    # where the ID dtype cannot hold the -1 root sentinel.
+    if x.nodes.parent_id.dtype != parentid_dtype:
+        x.nodes["parent_id"] = x.nodes.parent_id.astype(parentid_dtype)
 
-        # Vertices of the current root(s), in the same order as x.root
-        vs_roots = [id2ix[r] for r in x.root]
-
-        # Prevent warnings in the following code - querying paths between
-        # unreachable nodes will otherwise generate a runtime warning
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-
-            # Find paths to all roots
-            path = g.get_shortest_paths(id2ix[new_root], vs_roots)
-            epath = g.get_shortest_paths(
-                id2ix[new_root],
-                vs_roots,
-                output="epath",
-            )
-
-        # Extract paths that actually worked (i.e. within a continuous fragment)
-        path = [p for p in path if p][0]
-        epath = [p for p in epath if p][0]
-
-        edges = [(s, t) for s, t in zip(path[:-1], path[1:])]
-
-        weights = [g.es[e]["weight"] for e in epath]
-
-        # Get all weights and append inversed new weights
-        all_weights = g.es["weight"] + weights
-
-        # Add inverse edges: old_root->new_root
-        g.add_edges([(e[1], e[0]) for e in edges])
-
-        # Re-set weights
-        g.es["weight"] = all_weights
-
-        # Remove new_root->old_root
-        g.delete_edges(edges)
-
-        # Get degree of old root for later categorisation
-        old_root_deg = len(g.es.select(_target=path[-1]))
-
-        # Translate path indices to node IDs
-        ix2id = {
-            ix: n for ix, n in zip(g.vs.indices, g.vs.get_attribute_values("node_id"))
-        }
-        path = [ix2id[i] for i in path]
-
-        # Set index to node ID for later
-        x.nodes.set_index("node_id", inplace=True)
-
-        # Propagate changes in graph back to node table
-        # Assign new node type to old root
-        x.nodes.loc[path[1:], "parent_id"] = path[:-1]
-        if old_root_deg == 1:
-            x.nodes.loc[path[-1], "type"] = "slab"
-        elif old_root_deg > 1:
-            x.nodes.loc[path[-1], "type"] = "branch"
-        else:
-            x.nodes.loc[path[-1], "type"] = "end"
-        # Make new root node type "root"
-        x.nodes.loc[path[0], "type"] = "root"
-
-        # Set new root's parent to None
-        x.nodes.loc[new_root, "parent_id"] = -1
-
-        # Reset index
-        x.nodes.reset_index(drop=False, inplace=True)
-
-    # Make sure node ID has the same datatype as before
-    if x.nodes.node_id.dtype != nodeid_dtype:
-        x.nodes["node_id"] = x.nodes.node_id.astype(nodeid_dtype)
-
-    # Finally: only reset non-graph related attributes
-    x._clear_temp_attr(exclude=["igraph", "classify_nodes"])
+    # Node types are stale for the old and new roots - let them be recomputed
+    x._clear_temp_attr()
 
     return x
 
@@ -2015,7 +1876,7 @@ def cut_skeleton(
         res.remove(to_cut)
 
         # Cut neuron
-        cut = _cut_igraph(to_cut, cn, ret)
+        cut = _cut_skeleton(to_cut, cn, ret)
 
         # If ret != 'both', we will get only a single neuron - therefore
         # make sure cut is iterable
@@ -2028,54 +1889,37 @@ def cut_skeleton(
     return core.NeuronList(res)
 
 
-def _cut_igraph(
+def _cut_skeleton(
     x: "core.Skeleton", cut_node: int, ret: str
 ) -> Union["core.Skeleton", Tuple["core.Skeleton", "core.Skeleton"]]:
-    """Use iGraph to cut a neuron."""
-    # Make a copy
-    g = x.igraph.copy()
+    """Cut a neuron at a single node."""
+    ids = x.nodes.node_id.values
 
-    # Get vertex index
-    cut_ix = g.vs.find(node_id=cut_node).index
-
-    # Get edge to parent
-    e = g.es.find(_source=cut_ix)
-
-    # Remove edge
-    g.delete_edges(e)
-
-    # Make graph undirected -> otherwise .decompose() throws an error
-    # This issue is fixed in the up-to-date branch of igraph-python
-    # (which is not on PyPI O_o )
-    g.to_undirected(combine_edges="first")
-
-    # Get subgraph -> fastest way to get sets of nodes for subsetting
-    a, b = g.decompose(mode="WEAK")
-    # IMPORTANT: a,b are now UNDIRECTED graphs -> we must not keep using them!
-
-    if x.root[0] in a.vs["node_id"]:
-        dist_graph, prox_graph = b, a
-    else:
-        dist_graph, prox_graph = a, b
+    # Cutting at a node is just splitting off its sub-tree: everything distal to
+    # the cut node (itself included) goes one way, everything else the other. The
+    # cut node belongs to both halves - it becomes the distal fragment's root and
+    # the proximal fragment's leaf.
+    distal = utils.fastcore.descendants(ids, x.nodes.parent_id.values, [cut_node])[0]
 
     if ret == "distal" or ret == "both":
-        dist = morpho.subset_neuron(x, subset=dist_graph.vs["node_id"], inplace=False)
+        dist = morpho.subset_neuron(x, subset=distal, inplace=False)
 
         # Change new root for dist
         dist.nodes.loc[dist.nodes.node_id == cut_node, "type"] = "root"
 
         # Clear other temporary attributes
-        dist._clear_temp_attr(exclude=["igraph", "type", "classify_nodes"])
+        dist._clear_temp_attr(exclude=["type", "classify_nodes"])
 
     if ret == "proximal" or ret == "both":
-        ss: Sequence[int] = prox_graph.vs["node_id"] + [cut_node]
+        # Everything above the cut, cut node included - in node-table order
+        ss = ids[~np.isin(ids, distal[distal != cut_node])]
         prox = morpho.subset_neuron(x, subset=ss, inplace=False)
 
         # Change new root for dist
         prox.nodes.loc[prox.nodes.node_id == cut_node, "type"] = "end"
 
         # Clear other temporary attributes
-        prox._clear_temp_attr(exclude=["igraph", "type", "classify_nodes"])
+        prox._clear_temp_attr(exclude=["type", "classify_nodes"])
 
     if ret == "both":
         return dist, prox
@@ -2110,6 +1954,30 @@ def generate_list_of_childs(x: "core.NeuronObject") -> Dict[int, List[int]]:
     has_parent = pid >= 0
     for c, p in zip(nid[has_parent].tolist(), pid[has_parent].tolist()):
         childs[p].append(c)
+
+    return childs
+
+
+def _simplified_childs(x: "core.Skeleton") -> Dict[int, List[int]]:
+    """`{node: [children]}` on the skeleton reduced to roots, leafs and branches.
+
+    The simplified counterpart to [`generate_list_of_childs`][navis.graph.generate_list_of_childs]:
+    the interior of each segment is dropped, so a branch point's children are the
+    next branch points or leafs below it rather than its immediate neighbours.
+
+    N.B. children come out in node-table order, which is what makes a walk over
+    this reproducible where two of them tie on whatever key the caller sorts by.
+    Anything comparing itself against this walk has to enumerate children the same
+    way, so call this rather than rebuilding it.
+    """
+    ids, parents, _ = utils.fastcore.simplify_skeleton(
+        x.nodes.node_id.values, x.nodes.parent_id.values
+    )
+
+    childs: Dict[int, List[int]] = defaultdict(list)
+    for c, p in zip(ids.tolist(), parents.tolist()):
+        if p >= 0:
+            childs[p].append(c)
 
     return childs
 
@@ -2166,11 +2034,10 @@ def node_label_sorting(
 
     # Get starting points (i.e. branches off the root) and sort by longest
     # path to a terminal (note we're operating on the simplified version
-    # of the skeleton)
-    G = graph.simplify_graph(x.graph)
-    curr_points = sorted(
-        list(G.predecessors(x.root[0])), key=sort_key(x.root[0]), reverse=True
-    )
+    # of the skeleton - roots, leafs and branch points only)
+    childs = _simplified_childs(x)
+
+    curr_points = sorted(childs[x.root[0]], key=sort_key(x.root[0]), reverse=True)
 
     # Walk from root towards terminals, prioritising longer branches
     nodes_walked = []
@@ -2181,7 +2048,7 @@ def node_label_sorting(
             pass
         else:
             new_points = sorted(
-                list(G.predecessors(nodes_walked[-1])),
+                childs[nodes_walked[-1]],
                 key=sort_key(nodes_walked[-1]),
                 reverse=True,
             )
@@ -2240,24 +2107,34 @@ def connected_components_of(x: "core.Skeleton", keep) -> List[Set[int]]:
     ]
 
 
-def _igraph_to_sparse(graph, weight_attr=None, transpose=False):
-    n = graph.vcount()
-    edges = np.asarray(graph.get_edgelist(), dtype=np.int64).reshape(-1, 2)
+def _sparse_adjacency(x: "core.NeuronObject", directed: bool = True) -> csr_matrix:
+    """Weighted adjacency matrix of a neuron, in node/vertex table order.
 
-    if weight_attr is None:
-        weights = np.ones(len(edges))
-    else:
-        weights = np.asarray(graph.es[weight_attr])
+    Rows and columns are indices into the node (Skeleton) or vertex (Mesh) table.
+    `directed=True` keeps a skeleton's child->parent orientation; a mesh has no
+    orientation to keep, so both directions are always emitted for it.
+    """
+    if isinstance(x, core.Skeleton):
+        indptr, indices, data = utils.fastcore.adjacency(
+            x.nodes.node_id.values,
+            x.nodes.parent_id.values,
+            weights=morpho.mmetrics.parent_dist(x, root_dist=0),
+        )
+        n = len(x.nodes)
+        A = csr_matrix((data, indices, indptr), shape=(n, n), dtype=np.float32)
+        # A skeleton has no reciprocal edges, so the transpose can't double-count
+        return (A + A.T).tocsr() if not directed else A
 
-    rows, cols = edges[:, 0], edges[:, 1]
-    if not graph.is_directed():
-        rows, cols = np.concatenate([rows, cols]), np.concatenate([cols, rows])
-        weights = np.concatenate([weights, weights])
-
-    if transpose:
-        rows, cols = cols, rows
-
-    return csr_matrix((weights, (rows, cols)), shape=(n, n))
+    # A Mesh's edges are undirected to begin with, so both directions go in and
+    # `directed` has nothing to act on. N.B. straight off the edge list, the same
+    # way `geodesic_matrix` gets a mesh's adjacency - building the igraph first
+    # only to read its edges back out is what this used to do.
+    edges, lengths = utils.mesh_unique_edges(x, return_lengths=True)
+    n = len(x.vertices)
+    rows = np.concatenate([edges[:, 0], edges[:, 1]])
+    cols = np.concatenate([edges[:, 1], edges[:, 0]])
+    data = np.concatenate([lengths, lengths]).astype(np.float32)
+    return csr_matrix((data, (rows, cols)), shape=(n, n), dtype=np.float32)
 
 
 def connected_subgraph(
@@ -2716,32 +2593,21 @@ def collapse_nodes(
         )
     x.nodes.loc[x.nodes.node_id == center_node, ["x", "y", "z"]] = new_co
 
-    # Make igraph
-    G = graph.neuron2igraph(x)
+    # `mapping` is in ID space, not index space (see the large-ID regression test)
+    node_ids = x.nodes.node_id.values
+    collapsed = np.isin(node_ids, which)
+    mapping = node_ids.copy()
+    mapping[collapsed] = center_node
 
-    # Mapping for old to new IDs
-    mapping = np.arange(len(G.vs))
-    node_ids = np.array(G.vs["node_id"])
-    mapping[np.isin(node_ids, which)] = center_node
+    _, new_parents = utils.fastcore.contract_nodes(
+        node_ids, x.nodes.parent_id.values, mapping
+    )
 
-    # Contract nodes
-    G.contract_vertices(mapping, combine_attrs="first")
-
-    # Depth-first search from center node (vertex IDs/parent IDs)
-    vids, pids = G.dfs(center_node, mode="all")
-
-    # Rewire nodes
-    lop = dict(zip(x.nodes.node_id.values, x.nodes.parent_id.values))
-    new_node_ids = np.array(G.vs["node_id"])
-    lop.update(dict(zip(new_node_ids[vids], new_node_ids[pids])))
-    lop[center_node] = -1
-
-    # Rewire neuron
-    x.nodes["parent_id"] = x.nodes.node_id.map(lop)
-
-    # Drop nodes
-    keep = ~x.nodes.node_id.isin(which) | (x.nodes.node_id == center_node)
-    x.nodes = x.nodes[keep].copy()
+    # Rewire and drop the collapsed nodes in one step: the survivors are every node
+    # bar the ones we just folded away, which is exactly what `contract_nodes`
+    # returns - in the same order.
+    x.nodes = x.nodes[~collapsed | (node_ids == center_node)].copy()
+    x.nodes["parent_id"] = new_parents.astype(x.nodes.parent_id.dtype)
 
     # Check if there is a vertex map to update
     if hasattr(x, "_vertex_map"):
@@ -2804,35 +2670,59 @@ def rewire_skeleton(
     if not inplace:
         x = x.copy()
 
+    # A *view*: nothing below cares about direction (the fastcore calls all treat
+    # edges as undirected), so all this has to do is collapse a reciprocal pair
+    # into one edge. `to_undirected()` proper deep-copies every node and edge
+    # attribute dict, which cost more than the rest of this function put together.
     if g.is_directed():
-        g = g.to_undirected()
+        g = g.to_undirected(as_view=True)
+
+    if not root:
+        root = x.root[0] if x.root[0] in g.nodes else next(iter(g.nodes), None)
+
+    # Work in index space from here on: `parents_from_edges` takes edges as
+    # indices into 0..n-1. Nodes in the graph but not in the table are dropped
+    # (as they always were); nodes in the table but not in the graph name no edge
+    # and so come back as isolated roots, which is the same as before.
+    ids = x.nodes.node_id.values
+    ix = pd.Series(np.arange(len(ids)), index=ids)
+
+    # Drop any edge with an endpoint outside the node table, then translate to
+    # indices. N.B. keep these arrays *typed* - an object-dtype edge array turns
+    # the `isin` below into a quadratic scan (and it is the hot path here).
+    raw = np.asarray(list(g.edges)).reshape(-1, 2)
+    keep = np.isin(raw[:, 0], ids) & np.isin(raw[:, 1], ids)
+    edges = np.stack(
+        [ix.reindex(raw[keep, 0]).values, ix.reindex(raw[keep, 1]).values], axis=1
+    ).astype(np.int32)
 
     # The MST is only needed to break cycles. If the graph is already a forest
     # (which is the common case - e.g. when edges were only removed, or when
     # fragments were bridged) we can skip it: the MST of a forest is that same
-    # forest, and computing it is expensive on large neurons.
-    if g.number_of_edges() != (g.number_of_nodes() - nx.number_connected_components(g)):
-        g = nx.minimum_spanning_tree(g, weight="weight")
+    # forest, and computing it is expensive on large neurons. Note the MST is what
+    # decides *which* edge of a cycle to drop (the heaviest); `parents_from_edges`
+    # only decides which way the survivors point.
+    n_cc = len(np.unique(utils.fastcore.connected_components_graph(edges, len(ids))))
+    if len(edges) != (len(ids) - n_cc):
+        weights = np.fromiter(
+            (g.edges[u, v].get("weight", 1) for u, v in raw[keep]),
+            dtype=np.float32,
+            count=int(keep.sum()),
+        )
+        edges = edges[
+            utils.fastcore.minimum_spanning_tree(edges, len(ids), weights=weights)
+        ]
 
-    if not root:
-        root = x.root[0] if x.root[0] in g.nodes else next(iter(g.nodes))
+    # One search over the whole graph, rather than a DFS per component. Components
+    # holding no named root fall back to their lowest node index - the docstring
+    # already promises nothing better than "arbitrary" for those.
+    roots = None if root is None else [int(ix[root])]
+    parents = utils.fastcore.parents_from_edges(edges, len(ids), roots=roots)[0]
 
-    # Generate tree for the main component
-    tree = nx.dfs_tree(g, source=root)
-
-    # Generate list of parents
-    lop = {e[1]: e[0] for e in tree.edges}
-
-    # If the graph has more than one connected component,
-    # the remaining components have arbitrary roots
-    if len(tree.edges) != len(g.edges):
-        for cc in nx.connected_components(g):
-            if root not in cc:
-                tree = nx.dfs_tree(g, source=cc.pop())
-                lop.update({e[1]: e[0] for e in tree.edges})
-
-    # Update parent IDs
-    x.nodes["parent_id"] = x.nodes.node_id.map(lambda x: lop.get(x, -1))
+    # Update parent IDs (translating back out of index space; -1 stays -1)
+    x.nodes["parent_id"] = np.where(parents >= 0, ids[parents], -1).astype(
+        x.nodes.parent_id.dtype
+    )
 
     x._clear_temp_attr()
 
@@ -3015,12 +2905,13 @@ def propagate_labels(
     # Drop missing labels from the dict
     labels = {k: v for k, v in labels.items() if not pd.isnull(v)}
 
-    # Convert neuron to graph. Note igraph's vertex order is identical to the
-    # node/vertex table, so the row order of `F` (which `return_probs` exposes)
-    # is the same as it was when this used networkx.
-    G: igraph.Graph = x.igraph
+    # Row order throughout is the node/vertex table's own order, which is what
+    # `return_probs` exposes as the row order of `F`.
+    is_skeleton = isinstance(x, core.Skeleton)
 
-    nodes = G.vs["node_id"] if isinstance(x, core.Skeleton) else list(G.vs.indices)
+    nodes = (
+        x.nodes.node_id.values.tolist() if is_skeleton else list(range(len(x.vertices)))
+    )
     n = len(nodes)
     node_index = {node: i for i, node in enumerate(nodes)}
 
@@ -3077,14 +2968,7 @@ def propagate_labels(
                     f"({n}) or the number of labeled nodes ({len(labels)})."
                 )
 
-    # Adjacency matrix (sparse, float32). `_igraph_to_sparse` already emits both
-    # directions for an undirected graph (i.e. Meshes); a skeleton's graph is
-    # directed child->parent and needs symmetrising by hand. Skeletons have no
-    # reciprocal edges, so adding the transpose can't double-count.
-    A = _igraph_to_sparse(G, weight_attr="weight").astype(np.float32)
-    if not directed and G.is_directed():
-        A = A + A.T
-    A = A.tocsr()
+    A = _sparse_adjacency(x, directed=directed)
 
     # Row-normalize adjacency (sparse)
     row_sums = np.asarray(A.sum(axis=1)).flatten().astype(np.float32)

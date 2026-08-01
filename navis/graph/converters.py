@@ -795,39 +795,23 @@ def edges2neuron(edges, vertices=None, validate=True, **kwargs):
     # can skip certain checks and make the process a bit faster
 
     if validate:
-        G = igraph.Graph(n=len(vertices), edges=edges.tolist(), directed=False)
-
-        # Drop cycles. A spanning forest keeps every vertex connected while
-        # removing exactly the edges that close a cycle.
-        if G.ecount() != G.vcount() - len(G.components(mode="WEAK")):
-            G = G.spanning_tree()
-
-        # Root each connected component at its lowest vertex index and orient the
-        # edges towards it. We do this with a single breadth-first search from a
-        # virtual node joined to every root - one search per component would be
-        # O(components * N), which degrades badly on fragmented input.
-        roots = [min(c) for c in G.components(mode="WEAK")]
-
-        H = G.copy()
-        virtual = H.vcount()
-        H.add_vertices(1)
-        H.add_edges([(virtual, r) for r in roots])
-
-        # igraph's BFS reports the root's parent as -1, which is also navis'
-        # convention for a root - so the roots need no special-casing here.
-        pred = H.bfs(virtual)[2]
-
-        parents = dict(zip(range(G.vcount()), pred))
-        for r in roots:
-            parents[r] = -1
+        # Orient the edges into a rooted forest: one parent per vertex, -1 at the
+        # roots, cycles broken. One search covers every component, so this does not
+        # degrade on fragmented input, and each component is rooted at its lowest
+        # vertex index. N.B. *which* edge of a cycle is dropped differs from a
+        # spanning tree's choice - the result is a valid neuron either way.
+        parents = utils.fastcore.parents_from_edges(
+            edges.astype(np.int32), len(vertices)
+        )[0]
     else:
         # Caller vouches for the data: edges are already (child, parent) and
         # cycle-free. Anything without a parent is a root.
-        parents = dict(zip(edges[:, 0].tolist(), edges[:, 1].tolist()))
+        parents = np.full(len(vertices), -1, dtype=np.int64)
+        parents[edges[:, 0]] = edges[:, 1]
 
     nodes = pd.DataFrame(vertices, columns=['x', 'y', 'z'])
     nodes.insert(0, 'node_id', nodes.index)
-    nodes.insert(1, 'parent_id', nodes.index.map(parents).fillna(-1).astype(int))
+    nodes.insert(1, 'parent_id', parents.astype(int))
 
     return core.Skeleton(nodes, **kwargs)
 

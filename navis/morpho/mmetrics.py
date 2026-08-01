@@ -1494,37 +1494,44 @@ def betweeness_centrality(
             allowed_types=(type(None), np.ndarray, list, tuple, set),
         )
 
-    G = x.igraph
     if isinstance(from_, type(None)):
-        bc = dict(
-            zip(G.vs.get_attribute_values("node_id"), G.betweenness(directed=directed))
+        # Shortest paths in a tree are unique, so betweenness has a closed form
+        # (descendants x ancestors) and needs neither Brandes nor a graph object.
+        # Counts are int64: an undirected 100k-node skeleton reaches ~5e9.
+        x.nodes["betweenness"] = utils.fastcore.betweenness(
+            x.nodes.node_id.values, x.nodes.parent_id.values, directed=directed
         )
+        return x
+
+    if not directed:
+        raise ValueError("`from_!=None` only implemented for `directed=True`")
+
+    # N.B. this branch does not compute betweenness at all: it walks root->source
+    # paths and tallies every node but the source, which is simply "how many of
+    # `from_` lie strictly below this node" - i.e. a descendant count.
+    #
+    # It used to additionally drop paths of <= 2 nodes, so a source within one hop
+    # of a root contributed nothing. That was an artefact of the networkx original,
+    # not a definition, and it only ever suppressed counts at the root itself and
+    # its immediate children. Those nodes now count like every other.
+    node_ids = x.nodes.node_id.values
+    parent_ids = x.nodes.parent_id.values
+
+    if isinstance(from_, str):
+        # Child counts straight off the parent array - `x.leafs` / `x.branch_points`
+        # go via the `type` column, which classifies a childless root as "root"
+        # rather than "end" and would therefore miss it here.
+        n_childs = np.bincount(
+            pd.Index(node_ids).get_indexer(parent_ids[parent_ids >= 0]),
+            minlength=len(node_ids),
+        )
+        sources = node_ids[n_childs == 0 if from_ == "leafs" else n_childs >= 2]
     else:
-        if not directed:
-            raise ValueError("`from_!=None` only implemented for `directed=True`")
-        paths = []
+        sources = node_ids[np.isin(node_ids, list(from_))]
 
-        if from_ == "leafs":
-            sources = G.vs.select(_indegree=0)
-        elif from_ == "branch_points":
-            sources = G.vs.select(_indegree_ge=2)
-        else:
-            # Note: `vs.select(node_id_in=...)` scans every vertex in Python
-            ids = np.asarray(G.vs["node_id"])
-            sources = G.vs[np.where(np.isin(ids, from_))[0].tolist()]
-
-        roots = G.vs.select(_outdegree=0)
-        for r in roots:
-            paths += G.get_shortest_paths(r, to=sources, mode="in")
-        # Drop too short paths
-        paths = [p for p in paths if len(p) > 2]
-        flat_ix = [i for p in paths for i in p[:-1]]
-        ix, counts = np.unique(flat_ix, return_counts=True)
-        ids = [G.vs[i]["node_id"] for i in ix]
-        bc = {i: 0 for i in x.nodes.node_id.values}
-        bc.update(dict(zip(ids, counts)))
-
-    x.nodes["betweenness"] = x.nodes.node_id.map(bc).astype(int)
+    x.nodes["betweenness"] = utils.fastcore.descendant_counts(
+        node_ids, parent_ids, targets=sources
+    )
 
     return x
 
