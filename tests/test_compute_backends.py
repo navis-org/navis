@@ -657,3 +657,47 @@ def test_lambda_on_plain_pickle_backend_explains_itself():
                            n_workers=2, disable=True)
     assert 'set_parallel_backend' in str(exc.value)
     assert 'parallel=False' in str(exc.value)
+
+
+def _live_pool(name):
+    """The executor a backend is currently holding open, if any."""
+    if name == 'processes':
+        from navis.compute.backends import local
+        return local._POOL
+    from joblib.externals.loky import reusable_executor
+    return reusable_executor._executor
+
+
+def test_shutdown_releases_the_pools_backends_keep_alive():
+    """Keeping workers warm is only acceptable if you can get them back.
+
+    Each worker is a full navis import (~300 MB), so `compute.shutdown()` -
+    which also runs at interpreter exit - has to reach every backend that holds
+    a pool open between calls. `joblib` used to be missed, i.e. the default one.
+    """
+    pools = []
+    for name in ('processes', 'joblib'):
+        be = get_backend(name)
+        if not be.available():
+            continue
+        dispatch.map_tasks([(double, (1,), {})], backend=be, n_workers=2,
+                           disable=True)
+        pools.append((name, _live_pool(name)))
+
+    assert pools, 'expected at least the stdlib process pool'
+    for name, pool in pools:
+        assert pool is not None, f"'{name}' did not keep a pool alive"
+
+    navis.compute.shutdown()
+
+    for name, pool in pools:
+        with pytest.raises(RuntimeError):
+            pool.submit(len, 'ab')
+
+    # ... and the next call gets a working pool again
+    for name, _ in pools:
+        res = dispatch.map_tasks([(double, (2,), {})], backend=get_backend(name),
+                                 n_workers=2, disable=True)
+        assert res == [4]
+    navis.compute.shutdown()
+

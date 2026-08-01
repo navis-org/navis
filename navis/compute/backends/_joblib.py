@@ -66,3 +66,25 @@ class JoblibBackend(ParallelBackend):
 
         par = self._parallel(joblib, n_workers)
         yield from par(joblib.delayed(func)(p) for p in payloads)
+
+    def shutdown(self):
+        """Tear down loky's reusable pool, if one is up.
+
+        Keeping the workers alive is most of why this backend is the default,
+        but each one is a whole navis interpreter, so somebody who is done with
+        them has to be able to get that memory back.
+
+        There is no public handle on the pool: `get_reusable_executor()` would
+        *create* one, which is the opposite of what is wanted here. So we read
+        loky's own global, and treat any change in its shape as "nothing to
+        shut down" rather than an error - shutting the pool down is a courtesy,
+        and loky expires it on its own timer anyway.
+        """
+        try:
+            from joblib.externals.loky import reusable_executor
+        except ImportError:
+            return
+
+        executor = getattr(reusable_executor, '_executor', None)
+        if executor is not None:
+            executor.shutdown(wait=False)
