@@ -23,8 +23,6 @@ in benchmarking was the single biggest factor for repeated `parallel=True`
 calls - starting workers costs far more than the work itself for small jobs.
 """
 
-import importlib.util
-
 from ... import config
 from .base import ParallelBackend
 
@@ -44,15 +42,10 @@ class JoblibBackend(ParallelBackend):
 
     name = 'joblib'
     priority = 20
+    requires = 'joblib'
 
     isolated = True
     pickles_by_value = True
-
-    def available(self):
-        # Deliberately a spec lookup rather than an import: this runs on every
-        # `backend="auto"` resolution, and importing joblib costs ~15ms that
-        # users who never select it should not pay.
-        return importlib.util.find_spec('joblib') is not None
 
     def _parallel(self, joblib, n_workers):
         """Build a `Parallel` that streams results as they land.

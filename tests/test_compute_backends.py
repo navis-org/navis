@@ -20,7 +20,7 @@ from navis.compute.backends import (ParallelBackend, register_backend,
                                     set_parallel_backend, SerialBackend,
                                     ProcessBackend, WrappedExecutorBackend,
                                     auto_chunksize)
-from navis.compute.backends.base import _BACKENDS, REMOTE_CHUNKS_PER_WORKER
+from navis.compute.backends.base import _BACKENDS
 
 
 # --------------------------------------------------------------------------- #
@@ -206,11 +206,9 @@ def test_cluster_backends_are_never_auto_selected():
 
 
 def test_unrecognised_object_says_what_was_expected():
-    with pytest.raises(TypeError, match='Cannot run work on a'):
-        resolve_backend(object())
-
-    with pytest.raises(TypeError, match='Cannot run navis on a'):
-        set_parallel_backend(object())
+    for call in (resolve_backend, set_parallel_backend):
+        with pytest.raises(TypeError, match='Cannot run navis on a'):
+            call(object())
 
 
 def test_adopt_is_offered_every_object(registry):
@@ -220,14 +218,15 @@ def test_adopt_is_offered_every_object(registry):
     class Claimable:
         pass
 
+    Claimable.__module__ = 'somelib.executors'
+
     class Claiming(DummyBackend):
         name = 'claiming'
+        adopts = ('somelib',)
 
-        def adopt(self, obj, **overrides):
+        def _adopt(self, obj, **overrides):
             seen.append(obj)
-            if isinstance(obj, Claimable):
-                return self
-            return None
+            return self
 
     register_backend(Claiming())
     obj = Claimable()
@@ -235,13 +234,32 @@ def test_adopt_is_offered_every_object(registry):
     assert seen and seen[-1] is obj
 
 
-def test_capability_overrides_need_an_executor(registry):
+def test_adopt_never_looks_at_objects_from_other_modules(registry):
+    """`_adopt` imports the library, so it must not run speculatively.
+
+    Otherwise handing navis any object at all would try to import every
+    registered backend's dependency.
+    """
+    class Claiming(DummyBackend):
+        name = 'claiming'
+        adopts = ('a_library_that_is_not_installed',)
+
+        def _adopt(self, obj, **overrides):
+            raise AssertionError('_adopt must not be reached')
+
+    register_backend(Claiming())
+    with pytest.raises(TypeError, match='Cannot run navis on a'):
+        resolve_backend(object())
+
+
+def test_capability_overrides_need_an_executor():
     """They describe an executor - silently ignoring them would be worse."""
     with pytest.raises(TypeError, match='describe an executor'):
         set_parallel_backend('threads', isolated=True)
 
-    with pytest.raises(TypeError, match='Unknown capability'):
-        WrappedExecutorBackend(cf.ThreadPoolExecutor(1), islolated=True)
+    with cf.ThreadPoolExecutor(1) as ex:
+        with pytest.raises(TypeError, match='Unknown capability'):
+            WrappedExecutorBackend(ex, islolated=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -277,13 +295,13 @@ def test_chunking_splits_as_requested(tasks):
     dispatch.map_tasks(tasks, backend=be, n_workers=2, chunksize=3)
 
     payloads = be.calls[0]['payloads']
-    assert [len(p[3]) for p in payloads] == [3, 3, 1]
+    assert [len(p.tasks) for p in payloads] == [3, 3, 1]
 
 
 def test_default_chunksize_is_one_task(tasks):
     be = DummyBackend()
     dispatch.map_tasks(tasks, backend=be, n_workers=2)
-    assert [len(p[3]) for p in be.calls[0]['payloads']] == [1] * 7
+    assert [len(p.tasks) for p in be.calls[0]['payloads']] == [1] * 7
 
 
 # --------------------------------------------------------------------------- #
@@ -304,12 +322,12 @@ def test_requested_chunksize_always_wins():
 
 
 def test_auto_chunksize_bounds_the_number_of_units():
-    """The count bound is the one that normally binds."""
-    cs = auto_chunksize(10_000, 20, chunks_per_worker=8)
-    n_units = -(-10_000 // cs)
-    assert n_units <= 20 * 8
-    # ... and is not needlessly finer than asked for
-    assert -(-10_000 // (cs - 1)) > 20 * 8
+    """The count bound is the one that normally binds.
+
+    10,000 tasks over 20 workers at 8 units each is 160 units of 63 - the
+    smallest size that keeps the unit count at or under the target.
+    """
+    assert auto_chunksize(10_000, 20, chunks_per_worker=8) == 63
 
 
 def test_auto_chunksize_caps_payload_size():
@@ -358,29 +376,48 @@ def test_chunking_policy_reaches_the_backend(tasks):
     be.chunks_per_worker = 2
     dispatch.map_tasks(tasks, backend=be, n_workers=2)
     # 7 tasks, 2 workers, 2 units each -> 4 units -> 2 tasks per unit
-    assert [len(p[3]) for p in be.calls[0]['payloads']] == [2, 2, 2, 1]
-
-
-def test_remote_executor_is_bundled_when_handed_over_bare():
-    """`set_parallel_backend(client.get_executor())` must chunk like `dask`."""
-    class ClientExecutor:
-        pass
-
-    ClientExecutor.__module__ = 'distributed.cfexecutor'
-
-    be = WrappedExecutorBackend(ClientExecutor())
-    assert be.chunks_per_worker == REMOTE_CHUNKS_PER_WORKER
-    assert be.pickles_by_value is True
-
-    # Explicit beats inferred
-    be = WrappedExecutorBackend(ClientExecutor(), chunks_per_worker=1)
-    assert be.chunks_per_worker == 1
+    assert [len(p.tasks) for p in be.calls[0]['payloads']] == [2, 2, 2, 1]
 
 
 def test_local_executor_is_not_bundled():
     with cf.ThreadPoolExecutor(2) as ex:
         assert WrappedExecutorBackend(ex).chunks_per_worker is None
         assert WrappedExecutorBackend(ex).chunksize(10_000, 8) == 1
+        # Explicit beats inferred
+        assert WrappedExecutorBackend(ex, chunks_per_worker=4).chunksize(
+            10_000, 8) > 1
+
+
+def test_worker_count_is_the_seam_for_remote_backends(registry):
+    """A cluster backend corrects the worker count without restating policy."""
+    class Cluster(DummyBackend):
+        name = 'cluster'
+        chunks_per_worker = 2
+
+        def worker_count(self, hint):
+            return 100
+
+    be = Cluster()
+    # 100 workers x 2 units, not the 2 workers the caller thinks it has
+    assert be.chunksize(10_000, n_workers=2) == 50
+    # ... but an explicit request is still the last word
+    assert be.chunksize(10_000, n_workers=2, requested=7) == 7
+
+
+def test_tiny_workloads_never_ask_the_cluster_how_big_it_is(registry):
+    """Counting remote workers is a round trip; skip it when it can't matter."""
+    asked = []
+
+    class Cluster(DummyBackend):
+        name = 'cluster'
+        chunks_per_worker = 8
+
+        def worker_count(self, hint):
+            asked.append(1)
+            return 100
+
+    assert Cluster().chunksize(4, n_workers=2) == 1
+    assert not asked
 
 
 # --------------------------------------------------------------------------- #
@@ -402,11 +439,12 @@ def test_n_workers_reaches_the_backend(tasks):
 def test_worker_context_only_when_isolated(tasks):
     isolated = DummyBackend(isolated=True)
     dispatch.map_tasks(tasks, backend=isolated, n_workers=2)
-    assert isinstance(isolated.calls[0]['payloads'][0][1], dispatch.WorkerContext)
+    assert isinstance(isolated.calls[0]['payloads'][0].context,
+                      dispatch.WorkerContext)
 
     shared = DummyBackend(isolated=False)
     dispatch.map_tasks(tasks, backend=shared, n_workers=2)
-    assert shared.calls[0]['payloads'][0][1] is None
+    assert shared.calls[0]['payloads'][0].context is None
 
 
 def test_worker_context_roundtrips_config():
@@ -476,8 +514,11 @@ def test_failures_propagate_by_default():
 
 def test_marshalling_backend_lets_the_worker_raise(tasks):
     """The normal case: the transport carries the exception home itself."""
-    dispatch.map_tasks(tasks, backend=(be := DummyBackend()), n_workers=2)
-    assert be.calls[0]['payloads'][0][2] is False
+    be = DummyBackend()
+    dispatch.map_tasks(tasks, backend=be, n_workers=2)
+    payload = be.calls[0]['payloads'][0]
+    assert payload.catch is False
+    assert payload.want_traceback is False
 
 
 def test_unmarshalled_exceptions_still_arrive_as_themselves():
@@ -493,8 +534,10 @@ def test_unmarshalled_exceptions_still_arrive_as_themselves():
     with pytest.raises(ValueError, match='boom'):
         dispatch.map_tasks(failing, backend=be, n_workers=2)
 
-    # The worker was asked to hand failures back rather than raise them
-    assert be.calls[0]['payloads'][0][2] is True
+    # The worker was asked to hand failures back rather than raise them, and
+    # to pay for a traceback because the parent is going to re-raise
+    payload = be.calls[0]['payloads'][0]
+    assert (payload.catch, payload.want_traceback) == (True, True)
 
 
 def test_remote_traceback_is_chained():
@@ -515,6 +558,23 @@ def test_unmarshalled_failures_still_honour_omit_failures():
                              omit_failures=True)
     assert [type(r).__name__ for r in res] == ['int', 'int', 'FailedRun', 'int']
     assert isinstance(res[2].exception, ValueError)
+
+
+@pytest.mark.parametrize('marshals', [True, False])
+def test_omitted_failures_do_not_pay_for_tracebacks(marshals):
+    """Nothing reads them - `FailedRun` only carries the exception.
+
+    Formatting one costs ~0.1 ms and a couple of kB *per failed task*, shipped
+    back from the worker, so a run with many failures would pay a lot for
+    strings that are dropped on arrival.
+    """
+    be = DummyBackend(marshals=marshals)
+    failing = [(boom, (2,), {})]
+    res = dispatch.map_tasks(failing, backend=be, n_workers=1,
+                             omit_failures=True)
+
+    assert be.calls[0]['payloads'][0].want_traceback is False
+    assert isinstance(res[0].exception, ValueError)
 
 
 def test_user_typeerror_is_not_blamed_on_serialisation():

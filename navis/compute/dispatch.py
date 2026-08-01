@@ -31,7 +31,8 @@ import pickle
 import traceback
 
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional, Sequence, Tuple
+from typing import (Any, Callable, List, NamedTuple, Optional, Sequence,
+                    Tuple)
 
 from .. import config
 
@@ -148,31 +149,47 @@ class _FailedTask:
         raise self.exception
 
 
-def run_chunk(payload):
+class Chunk(NamedTuple):
+    """One unit of work, as it travels to a worker.
+
+    Module level (and a plain tuple underneath) so it pickles by reference on
+    backends that serialise with stdlib `pickle`.
+    """
+
+    #: Position in the input, so the parent can restore order from results
+    #: that arrive in completion order.
+    index: int
+    #: Parent state a fresh interpreter cannot see. None for in-process
+    #: backends, where applying it would clobber the parent's own config.
+    context: Optional[WorkerContext]
+    #: Hand failures back as data instead of raising them.
+    catch: bool
+    #: Also pay for a formatted traceback, because the parent is going to
+    #: re-raise and would otherwise lose the worker's frames.
+    want_traceback: bool
+    tasks: Sequence[Tuple[Callable, Sequence, dict]]
+
+
+def run_chunk(chunk: Chunk):
     """Run one chunk of tasks. Runs in the worker.
 
     Module level so it pickles by reference - a closure or lambda here would
     force every backend to serialise by value.
-
-    `catch_failures` says whether a failure should be handed back as data
-    rather than raised. The caller sets it for `omit_failures=True`, and also
-    for transports that cannot carry an exception home intact.
     """
-    index, context, catch_failures, tasks = payload
-
-    if context is not None:
-        context.apply()
+    if chunk.context is not None:
+        chunk.context.apply()
 
     results = []
-    for func, args, kwargs in tasks:
+    for func, args, kwargs in chunk.tasks:
         try:
             results.append(func(*args, **kwargs))
         except BaseException as e:
-            if not catch_failures:
+            if not chunk.catch:
                 raise
-            results.append(_FailedTask(e, traceback.format_exc()))
+            results.append(_FailedTask(
+                e, traceback.format_exc() if chunk.want_traceback else None))
 
-    return index, results
+    return chunk.index, results
 
 
 # --------------------------------------------------------------------------- #
@@ -306,8 +323,11 @@ def map_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
     # error a caller sees depend on which backend is configured. Have the
     # worker hand failures back as data instead and raise them here. The cost
     # is that the remaining units run to completion first.
-    catch = omit_failures or not getattr(backend, 'marshals_exceptions', True)
-    payloads = [(i, context, catch, c) for i, c in enumerate(chunks)]
+    reraises_here = not backend.marshals_exceptions and not omit_failures
+    payloads = [Chunk(index=i, context=context,
+                      catch=omit_failures or reraises_here,
+                      want_traceback=reraises_here, tasks=c)
+                for i, c in enumerate(chunks)]
 
     # Results come back in completion order - that's the only contract every
     # transport can honour - so we put them back using the index we sent.

@@ -24,11 +24,10 @@ do three things the wrapper cannot:
 
 """
 
-import importlib.util
+import concurrent.futures as cf
 
 from ... import config
-from .base import (ParallelBackend, apply_overrides, auto_chunksize,
-                   REMOTE_CHUNKS_PER_WORKER)
+from .base import ParallelBackend, WrappedExecutorBackend, apply_overrides
 
 logger = config.get_logger(__name__)
 
@@ -54,10 +53,14 @@ class DaskBackend(ParallelBackend):
 
     name = 'dask'
     auto_select = False
+    requires = 'distributed'
+    adopts = ('distributed', 'dask')
 
     isolated = True
     pickles_by_value = True     # cloudpickle
-    chunks_per_worker = REMOTE_CHUNKS_PER_WORKER
+    # Every unit is a scheduler round trip plus a transfer, so bundle. Eight
+    # per worker still leaves plenty of room to even out stragglers.
+    chunks_per_worker = 8
 
     def __init__(self, client=None, **overrides):
         self.client = client
@@ -65,18 +68,7 @@ class DaskBackend(ParallelBackend):
             self.isolated = _workers_are_processes(client)
         apply_overrides(self, **overrides)
 
-    def available(self):
-        # A spec lookup rather than an import: `distributed` is slow to import
-        # and this runs on every backend listing.
-        return importlib.util.find_spec('distributed') is not None
-
-    def adopt(self, obj, **overrides):
-        # Recognise it without importing distributed - `adopt` is offered every
-        # object handed to `set_parallel_backend`, including on machines where
-        # dask isn't installed at all.
-        if type(obj).__module__.split('.')[0] not in ('distributed', 'dask'):
-            return None
-
+    def _adopt(self, obj, **overrides):
         import distributed
 
         if isinstance(obj, distributed.Client):
@@ -85,8 +77,18 @@ class DaskBackend(ParallelBackend):
             return DaskBackend(obj._client, **overrides)
         # A bare cluster (LocalCluster, SLURMCluster, ...) - a client for it is
         # cheap and is what actually submits work.
-        if hasattr(obj, 'scheduler_address') and not isinstance(obj, type):
+        if hasattr(obj, 'scheduler_address'):
             return DaskBackend(distributed.Client(obj), **overrides)
+        # Some other dask executor. We can't read its cluster, but we still
+        # know more about it than the generic guess would: cloudpickle, and
+        # units that are worth bundling. `None` means "not stated", so these
+        # are defaults rather than overrides of the user's own values.
+        if isinstance(obj, cf.Executor):
+            for key, value in (('pickles_by_value', True),
+                               ('chunks_per_worker', self.chunks_per_worker)):
+                if overrides.get(key) is None:
+                    overrides[key] = value
+            return WrappedExecutorBackend(obj, **overrides)
         return None
 
     def get_client(self):
@@ -113,29 +115,21 @@ class DaskBackend(ParallelBackend):
                 "    navis.set_parallel_backend(client)"
             ) from None
 
-    def chunksize(self, n_tasks, n_workers, requested=None, size_hint=None):
+    def worker_count(self, hint):
         """Size units against the cluster, not against this machine.
 
-        `n_workers` defaults to half the *local* core count, which says nothing
-        about how big the cluster is. Where we can see the real worker count,
-        use it.
+        `n_cores` defaults to half the *local* core count, which says nothing
+        about how big the cluster is. Fall back to it only if the scheduler
+        won't tell us.
         """
-        if requested is None and self.chunks_per_worker:
-            n_workers = self._n_workers() or n_workers
-            return auto_chunksize(n_tasks, n_workers,
-                                  chunks_per_worker=self.chunks_per_worker,
-                                  max_bytes=self.max_chunk_bytes,
-                                  size_hint=size_hint)
-        return super().chunksize(n_tasks, n_workers, requested=requested,
-                                 size_hint=size_hint)
-
-    def _n_workers(self):
-        """Workers currently in the cluster, or None if we can't tell."""
         try:
-            return len(self.get_client().scheduler_info()['workers']) or None
+            # `n_workers=0` asks for the count without the per-worker state
+            # dicts, which are ~1 KB each and all we would do is len() them.
+            return self.get_client().scheduler_info(n_workers=0)['n_workers'] \
+                or hint
         except Exception as e:
             logger.debug(f'Could not read the dask cluster size ({e}).')
-            return None
+            return hint
 
     def map(self, func, payloads, *, n_workers):
         import distributed

@@ -35,8 +35,7 @@ backend at all - hand it straight to `navis.set_parallel_backend()`.
 from .base import (ParallelBackend, ExecutorBackend, WrappedExecutorBackend,
                    register_backend, get_backend, list_backends,
                    available_backends, resolve_backend, set_parallel_backend,
-                   auto_chunksize)
-from .base import adopt_object, apply_overrides
+                   auto_chunksize, adopt_object, apply_overrides)
 from .local import SerialBackend, ThreadBackend, ProcessBackend, shutdown_pool
 from ._pathos import PathosBackend
 from ._joblib import JoblibBackend

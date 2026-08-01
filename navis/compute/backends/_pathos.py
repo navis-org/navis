@@ -13,8 +13,6 @@
 
 """The pathos backend - what `parallel=True` has always used."""
 
-import importlib.util
-
 from ... import config
 from .base import ParallelBackend, non_forking_context
 
@@ -40,13 +38,10 @@ class PathosBackend(ParallelBackend):
 
     name = 'pathos'
     priority = 10
+    requires = 'pathos'
 
     isolated = True
     pickles_by_value = True
-
-    def available(self):
-        # Spec lookup rather than an import - see the note in `_joblib.py`
-        return importlib.util.find_spec('pathos') is not None
 
     def map(self, func, payloads, *, n_workers):
         # Note we use the private `_ProcessPool` rather than `ProcessingPool`
