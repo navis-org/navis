@@ -36,21 +36,30 @@ from .base import (ParallelBackend, ExecutorBackend, WrappedExecutorBackend,
                    register_backend, get_backend, list_backends,
                    available_backends, resolve_backend, set_parallel_backend,
                    auto_chunksize)
+from .base import adopt_object, apply_overrides
 from .local import SerialBackend, ThreadBackend, ProcessBackend, shutdown_pool
 from ._pathos import PathosBackend
 from ._joblib import JoblibBackend
+from ._dask import DaskBackend
+from ._submitit import SubmititBackend
 
 # Register the backends shipped with navis. `serial` must always be present -
 # it is what the dispatcher degrades to when there is nothing to parallelise.
+# The cluster backends are registered too even where their dependencies are
+# missing: they are what recognises a `Client`/`AutoExecutor` handed to
+# `set_parallel_backend`, and `auto_select = False` keeps them out of the way.
 register_backend(SerialBackend())
 register_backend(ThreadBackend())
 register_backend(ProcessBackend())
 register_backend(JoblibBackend())
 register_backend(PathosBackend())
+register_backend(DaskBackend())
+register_backend(SubmititBackend())
 
 __all__ = ['ParallelBackend', 'ExecutorBackend', 'WrappedExecutorBackend',
            'register_backend', 'get_backend', 'list_backends',
            'available_backends', 'resolve_backend', 'set_parallel_backend',
            'SerialBackend', 'ThreadBackend', 'ProcessBackend',
-           'PathosBackend', 'JoblibBackend', 'shutdown_pool',
-           'auto_chunksize']
+           'PathosBackend', 'JoblibBackend', 'DaskBackend', 'SubmititBackend',
+           'shutdown_pool', 'auto_chunksize', 'adopt_object',
+           'apply_overrides']

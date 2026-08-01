@@ -45,9 +45,10 @@ class DummyBackend(ParallelBackend):
     priority = 999
     auto_select = False
 
-    def __init__(self, *, isolated=True, reverse=False):
+    def __init__(self, *, isolated=True, reverse=False, marshals=True):
         self.isolated = isolated
         self.reverse = reverse
+        self.marshals_exceptions = marshals
         self.calls = []
 
     def map(self, func, payloads, *, n_workers):
@@ -196,6 +197,52 @@ def test_resolve_accepts_instance_and_executor():
 def test_resolve_falls_back_to_config(registry):
     config.default_parallel_backend = 'threads'
     assert resolve_backend(None).name == 'threads'
+
+
+def test_cluster_backends_are_never_auto_selected():
+    """Spinning up a cluster is a decision, not a default."""
+    for name in ('dask', 'submitit'):
+        assert get_backend(name).auto_select is False
+    assert resolve_backend('auto').name not in ('dask', 'submitit')
+
+
+def test_unrecognised_object_says_what_was_expected():
+    with pytest.raises(TypeError, match='Cannot run work on a'):
+        resolve_backend(object())
+
+    with pytest.raises(TypeError, match='Cannot run navis on a'):
+        set_parallel_backend(object())
+
+
+def test_adopt_is_offered_every_object(registry):
+    """A backend can claim something that is not a `cf.Executor`."""
+    seen = []
+
+    class Claimable:
+        pass
+
+    class Claiming(DummyBackend):
+        name = 'claiming'
+
+        def adopt(self, obj, **overrides):
+            seen.append(obj)
+            if isinstance(obj, Claimable):
+                return self
+            return None
+
+    register_backend(Claiming())
+    obj = Claimable()
+    assert resolve_backend(obj) is get_backend('claiming')
+    assert seen and seen[-1] is obj
+
+
+def test_capability_overrides_need_an_executor(registry):
+    """They describe an executor - silently ignoring them would be worse."""
+    with pytest.raises(TypeError, match='describe an executor'):
+        set_parallel_backend('threads', isolated=True)
+
+    with pytest.raises(TypeError, match='Unknown capability'):
+        WrappedExecutorBackend(cf.ThreadPoolExecutor(1), islolated=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -426,6 +473,49 @@ def test_failures_propagate_by_default():
     tasks = [(boom, (i,), {}) for i in range(4)]
     with pytest.raises(ValueError, match='boom'):
         dispatch.map_tasks(tasks, backend=DummyBackend(), n_workers=2)
+
+
+def test_marshalling_backend_lets_the_worker_raise(tasks):
+    """The normal case: the transport carries the exception home itself."""
+    dispatch.map_tasks(tasks, backend=(be := DummyBackend()), n_workers=2)
+    assert be.calls[0]['payloads'][0][2] is False
+
+
+def test_unmarshalled_exceptions_still_arrive_as_themselves():
+    """A transport that mangles exceptions must not change what callers catch.
+
+    submitit records a failure as a traceback *string* and raises its own
+    `FailedJobError` regardless of what went wrong. Without this, the exception
+    you catch would depend on which backend happened to be configured.
+    """
+    be = DummyBackend(marshals=False)
+    failing = [(boom, (i,), {}) for i in range(4)]
+
+    with pytest.raises(ValueError, match='boom'):
+        dispatch.map_tasks(failing, backend=be, n_workers=2)
+
+    # The worker was asked to hand failures back rather than raise them
+    assert be.calls[0]['payloads'][0][2] is True
+
+
+def test_remote_traceback_is_chained():
+    """The worker's frames must survive - the exception arrives without them."""
+    be = DummyBackend(marshals=False)
+    with pytest.raises(ValueError) as exc:
+        dispatch.map_tasks([(boom, (2,), {})], backend=be, n_workers=1)
+
+    cause = exc.value.__cause__
+    assert isinstance(cause, dispatch.RemoteTraceback)
+    assert 'in boom' in str(cause)
+
+
+def test_unmarshalled_failures_still_honour_omit_failures():
+    be = DummyBackend(marshals=False)
+    failing = [(boom, (i,), {}) for i in range(4)]
+    res = dispatch.map_tasks(failing, backend=be, n_workers=2,
+                             omit_failures=True)
+    assert [type(r).__name__ for r in res] == ['int', 'int', 'FailedRun', 'int']
+    assert isinstance(res[2].exception, ValueError)
 
 
 def test_user_typeerror_is_not_blamed_on_serialisation():

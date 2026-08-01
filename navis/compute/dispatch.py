@@ -28,6 +28,7 @@ imports are an easy way to break pickling of the functions we ship to workers.
 import os
 import sys
 import pickle
+import traceback
 
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, Sequence, Tuple
@@ -116,6 +117,16 @@ class FailedRun:
                 f'kwargs={self.kwargs}, exception={self.exception})')
 
 
+class RemoteTraceback(Exception):
+    """Carries a worker-side traceback into the parent's.
+
+    A traceback object cannot be pickled, so an exception that has travelled
+    arrives with `__traceback__` stripped and would otherwise point only at the
+    dispatcher. Chaining this as the `__cause__` puts the worker's frames back
+    in the printed traceback - the same trick `concurrent.futures` uses.
+    """
+
+
 class _FailedTask:
     """A failure on its way back from a worker.
 
@@ -124,10 +135,17 @@ class _FailedTask:
     failure. The parent already has the args and rebuilds the `FailedRun`.
     """
 
-    __slots__ = ('exception',)
+    __slots__ = ('exception', 'traceback')
 
-    def __init__(self, exception):
+    def __init__(self, exception, traceback=None):
         self.exception = exception
+        self.traceback = traceback
+
+    def reraise(self):
+        """Raise the original exception, worker frames and all."""
+        if self.traceback:
+            raise self.exception from RemoteTraceback(f'\n{self.traceback}')
+        raise self.exception
 
 
 def run_chunk(payload):
@@ -135,8 +153,12 @@ def run_chunk(payload):
 
     Module level so it pickles by reference - a closure or lambda here would
     force every backend to serialise by value.
+
+    `catch_failures` says whether a failure should be handed back as data
+    rather than raised. The caller sets it for `omit_failures=True`, and also
+    for transports that cannot carry an exception home intact.
     """
-    index, context, omit_failures, tasks = payload
+    index, context, catch_failures, tasks = payload
 
     if context is not None:
         context.apply()
@@ -146,9 +168,9 @@ def run_chunk(payload):
         try:
             results.append(func(*args, **kwargs))
         except BaseException as e:
-            if not omit_failures:
+            if not catch_failures:
                 raise
-            results.append(_FailedTask(e))
+            results.append(_FailedTask(e, traceback.format_exc()))
 
     return index, results
 
@@ -278,7 +300,14 @@ def map_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
     # Only ship the context where it's needed: applying it in-process would
     # clobber the parent's own config.
     context = WorkerContext.snapshot() if backend.isolated else None
-    payloads = [(i, context, omit_failures, c) for i, c in enumerate(chunks)]
+
+    # A transport that can't carry an exception home intact (submitit turns
+    # every one of them into a generic "job failed") would otherwise make the
+    # error a caller sees depend on which backend is configured. Have the
+    # worker hand failures back as data instead and raise them here. The cost
+    # is that the remaining units run to completion first.
+    catch = omit_failures or not getattr(backend, 'marshals_exceptions', True)
+    payloads = [(i, context, catch, c) for i, c in enumerate(chunks)]
 
     # Results come back in completion order - that's the only contract every
     # transport can honour - so we put them back using the index we sent.
@@ -301,6 +330,8 @@ def map_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
     for chunk, results in zip(chunks, out):
         for (func, args, kwargs), r in zip(chunk, results):
             if isinstance(r, _FailedTask):
+                if not omit_failures:
+                    r.reraise()
                 res.append(FailedRun(func, args, kwargs, r.exception))
             else:
                 res.append(r)

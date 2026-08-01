@@ -36,7 +36,7 @@ logger = config.get_logger(__name__)
 __all__ = ['ParallelBackend', 'ExecutorBackend', 'register_backend',
            'get_backend', 'list_backends', 'available_backends',
            'resolve_backend', 'set_parallel_backend', 'non_forking_context',
-           'auto_chunksize']
+           'auto_chunksize', 'adopt_object', 'apply_overrides']
 
 # Registry of name -> backend instance
 _BACKENDS = {}
@@ -78,6 +78,12 @@ class ParallelBackend(ABC):
     max_chunk_bytes : int
                     Ceiling on the estimated payload of one unit. Only consulted
                     when `chunks_per_worker` is set.
+    marshals_exceptions : bool
+                    Whether an exception raised in a worker arrives here as
+                    itself. False for transports that only carry a "the job
+                    failed" marker plus text (submitit); the dispatcher then
+                    brings failures back as data instead, so callers see the
+                    same exception they would have seen locally.
 
     """
 
@@ -88,6 +94,7 @@ class ParallelBackend(ABC):
     concurrent: bool = True
     isolated: bool = True
     pickles_by_value: bool = False
+    marshals_exceptions: bool = True
 
     chunks_per_worker: Optional[int] = None
     max_chunk_bytes: int = 128 * 1024 ** 2
@@ -98,6 +105,19 @@ class ParallelBackend(ABC):
     def available(self) -> bool:
         """Whether this backend's dependencies are importable."""
         return True
+
+    def adopt(self, obj, **overrides) -> Optional['ParallelBackend']:
+        """Return a backend wrapping `obj`, or None if it isn't ours.
+
+        This is how an object that is *not* a `concurrent.futures.Executor` -
+        a `submitit.AutoExecutor`, a `dask.distributed.Client` - can still be
+        handed to [`navis.set_parallel_backend`][].
+
+        Every registered backend is asked, including ones whose dependencies
+        are missing, so an implementation must recognise `obj` *before*
+        importing its library - check `type(obj).__module__` first.
+        """
+        return None
 
     def unsupported(self, **requirements) -> list:
         """Return reasons why this backend cannot serve `requirements`.
@@ -211,19 +231,13 @@ class WrappedExecutorBackend(ExecutorBackend):
 
     auto_select = False
 
-    def __init__(self, executor, *, isolated=None, pickles_by_value=None,
-                 chunks_per_worker=None):
+    def __init__(self, executor, **overrides):
         self.executor = executor
         self.name = f'custom:{type(executor).__name__}'
 
-        caps = _infer_capabilities(executor)
-        self.isolated = caps['isolated'] if isolated is None else bool(isolated)
-        self.pickles_by_value = (caps['pickles_by_value']
-                                 if pickles_by_value is None
-                                 else bool(pickles_by_value))
-        self.chunks_per_worker = (caps['chunks_per_worker']
-                                  if chunks_per_worker is None
-                                  else int(chunks_per_worker))
+        for key, value in _infer_capabilities(executor).items():
+            setattr(self, key, value)
+        apply_overrides(self, **overrides)
 
     def get_executor(self, n_workers):
         return self.executor
@@ -328,6 +342,24 @@ def non_forking_context(mp):
     return ctx
 
 
+#: Capability flags a user may override when handing over an executor, and how
+#: to coerce them. One vocabulary, so a typo is an error rather than an ignored
+#: keyword that silently leaves the inferred value in place.
+_CAPABILITIES = {'isolated': bool, 'pickles_by_value': bool,
+                 'chunks_per_worker': int}
+
+
+def apply_overrides(backend, **overrides):
+    """Set capability flags a user stated explicitly. `None` means "keep"."""
+    for key, value in overrides.items():
+        if key not in _CAPABILITIES:
+            raise TypeError(f"Unknown capability '{key}'. Expected one of "
+                            f'{list(_CAPABILITIES)}.')
+        if value is not None:
+            setattr(backend, key, _CAPABILITIES[key](value))
+    return backend
+
+
 def _infer_capabilities(executor) -> dict:
     """Guess the capability flags for a user-supplied executor.
 
@@ -397,6 +429,25 @@ def available_backends() -> list:
     return [b for b in _BACKENDS.values() if b.available()]
 
 
+def adopt_object(obj, **overrides) -> Optional[ParallelBackend]:
+    """Wrap a user-supplied executor-like object in a backend.
+
+    Asks each registered backend whether it recognises `obj` (see
+    :meth:`ParallelBackend.adopt`) and falls back to the generic wrapper for
+    anything implementing `concurrent.futures.Executor`. Returns None if
+    nothing claims it.
+    """
+    for be in list(_BACKENDS.values()):
+        adopted = be.adopt(obj, **overrides)
+        if adopted is not None:
+            return adopted
+
+    if isinstance(obj, cf.Executor):
+        return WrappedExecutorBackend(obj, **overrides)
+
+    return None
+
+
 def resolve_backend(backend=None, *, parallel: bool = True,
                     n_tasks: int = 2, n_workers: Optional[int] = None,
                     **requirements) -> ParallelBackend:
@@ -441,8 +492,16 @@ def resolve_backend(backend=None, *, parallel: bool = True,
     if isinstance(backend, ParallelBackend):
         return backend
 
-    if isinstance(backend, cf.Executor):
-        return WrappedExecutorBackend(backend)
+    if not isinstance(backend, (str, type(None))):
+        adopted = adopt_object(backend)
+        if adopted is None:
+            raise TypeError(
+                f'Cannot run work on a {type(backend).__name__}. Expected the '
+                'name of a backend, a ParallelBackend, a '
+                '`concurrent.futures.Executor`, or an object one of the '
+                f'installed backends recognises ({list_backends()}).'
+            )
+        return adopted
 
     if backend in (None, 'auto'):
         rejected = {}
@@ -526,14 +585,18 @@ def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
 
     Parameters
     ----------
-    backend :   str | ParallelBackend | concurrent.futures.Executor, optional
+    backend :   str | ParallelBackend | executor, optional
                 One of the registered backend names (see
                 [`navis.list_parallel_backends`][]), `"auto"` to pick the best
-                available, a backend instance, or any
-                `concurrent.futures.Executor`. The last of these is how you
-                point navis at a cluster: configure your executor with its own
-                library's API and hand it over. `None` leaves the setting
+                available, or a backend instance. `None` leaves the setting
                 unchanged.
+
+                It also takes a scheduler object directly - any
+                `concurrent.futures.Executor`, a `dask.distributed.Client` or
+                a `submitit.Executor` - which is how you point navis at a
+                cluster. Configure it with its own library's API and hand it
+                over; navis deliberately has no `slurm_partition`-style
+                parameters of its own.
     n_workers : int, optional
                 Default number of workers. `None` leaves it unchanged.
     isolated :  bool, optional
@@ -565,12 +628,27 @@ def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
     >>> _ = navis.set_parallel_backend('auto')
 
     """
-    if isinstance(backend, cf.Executor):
-        backend = WrappedExecutorBackend(backend, isolated=isolated,
-                                         pickles_by_value=pickles_by_value,
-                                         chunks_per_worker=chunks_per_worker)
-    elif isinstance(backend, str) and backend != 'auto':
+    overrides = dict(isolated=isolated, pickles_by_value=pickles_by_value,
+                     chunks_per_worker=chunks_per_worker)
+
+    if isinstance(backend, str) and backend != 'auto':
         # Fail loudly here rather than at the next `parallel=True`
         get_backend(backend)
+    elif backend is not None and not isinstance(backend, (str, ParallelBackend)):
+        adopted = adopt_object(backend, **overrides)
+        if adopted is None:
+            raise TypeError(
+                f'Cannot run navis on a {type(backend).__name__}. Expected the '
+                f'name of a backend ({list_backends()}), a '
+                '`concurrent.futures.Executor`, or a scheduler object one of '
+                'the installed backends recognises (e.g. a '
+                '`dask.distributed.Client` or a `submitit.AutoExecutor`).'
+            )
+        backend, overrides = adopted, {}
+
+    if any(v is not None for v in overrides.values()):
+        raise TypeError('`isolated`, `pickles_by_value` and '
+                        '`chunks_per_worker` describe an executor - pass them '
+                        'together with one, not with a backend name.')
 
     return _BackendSetter(backend, n_workers)
