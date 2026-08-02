@@ -72,10 +72,11 @@ pip install git+https://github.com/navis-org/navis@master
     Two behavioural notes. `navis.geodesic_matrix` on a `Mesh` no longer accepts `directed=True` as anything but a no-op (it was already ignored for meshes). And the private helpers behind skeleton stitching - `_stitch_edges`, `_segment_radii`, `_rewire_from_edges`, `_component_labels` - have been removed along with the KDTree stitcher they made up; `navis.heal_skeleton` and `navis.heal_mesh` are unaffected.
 - **the non-fastcore transform backends are deprecated and will be removed in 3.0.** The CMTK/elastix `"binary"` backend (shelling out to `streamxform`/`transformix`) and the `"python"` landmark backend (`morphops`/`molesq`) still work, but selecting either now emits a `DeprecationWarning`. `"auto"` - the default - has always preferred fastcore, so this only affects code that asked for them by name. Image transforms (`xform_image`, `to_dfield`) still need CMTK and are not affected.
 - dependencies: `sparse-cubes[skeleton]` is now a **core** requirement (it backs the [`Voxels`][navis.Voxels] work above).
-- **`navis.betweeness_centrality(from_=...)` now counts sources within one hop of a root.** That branch never computed betweenness: it walked root→source paths and tallied every node but the source, which is simply "how many of `from_` lie below this node". It additionally discarded paths of two nodes or fewer, an artefact inherited from the networkx original, so a source sitting on or next to a root contributed nothing. Those sources now count like any other. In practice only the root and its immediate children move - on the example neuron exactly one node changes, by 3. [`navis.find_main_branchpoint`][navis.find_main_branchpoint] (the one caller) is unaffected, since roots are never branch points.
+- **`navis.betweenness_centrality(from_=...)` now counts sources within one hop of a root.** That branch never computed betweenness: it walked root→source paths and tallied every node but the source, which is simply "how many of `from_` lie below this node". It additionally discarded paths of two nodes or fewer, an artefact inherited from the networkx original, so a source sitting on or next to a root contributed nothing. Those sources now count like any other. In practice only the root and its immediate children move - on the example neuron exactly one node changes, by 3. [`navis.find_main_branchpoint`][navis.find_main_branchpoint] (the one caller) is unaffected, since roots are never branch points.
 - **[`navis.collapse_nodes`][navis.collapse_nodes] no longer re-roots the neuron at the collapsed node.** That was a side effect of how it rewired, not a documented behaviour; roots are now left where they were. It also no longer raises on real node IDs - see Fixes.
 - **[`navis.rewire_skeleton`][navis.rewire_skeleton] roots leftover components at their lowest node ID** rather than at whatever `set.pop()` returned. Same edge set, same tree; the docstring already promised nothing better than "arbitrary" for those roots, but the choice is now deterministic where before it rode on Python's set iteration order.
 - **`navis.graph.node_label_sorting` breaks ties differently.** Where two branches have exactly equal sort keys their order now follows the node table, deterministically. It used to follow the edge-insertion order of the networkx graph underneath, which came off a set and carried no stability guarantee at all. On the example neuron 14 of 1217 positions move; the node *set* and the keys themselves are unchanged. This feeds `skeleton_adjacency_matrix(sort=True)`.
+- [`navis.betweenness_centrality`][navis.betweenness_centrality] is now the only spelling of the function. The old `navis.betweeness_centrality` is gone.
 
 ##### Additions
 - **new [`navis.plot3d`][]`(..., snapshot=True)`: a rendered 3D scene on a matplotlib axes, in data coordinates.** Between [`navis.plot2d`][], which draws real matplotlib artists but has no renderer behind it, and [`navis.plot3d`][], which renders properly but hands back an interactive window, there was no way to get a *figure*: something you can annotate, arrange into a panel and save as PDF, with meshes actually shaded and neurites actually occluding each other. `snapshot=True` is that missing third option - it renders the scene through octarine's offscreen canvas and returns `(fig, ax)` with the image already placed.
@@ -201,9 +202,9 @@ pip install git+https://github.com/navis-org/navis@master
 
     | Function | Before | After |
     |---|---|---|
-    | [`betweeness_centrality`][navis.betweeness_centrality] (`directed=True`) | 11.1 ms | 0.48 ms |
-    | [`betweeness_centrality`][navis.betweeness_centrality] (`directed=False`) | 217 ms | 0.49 ms |
-    | [`betweeness_centrality`][navis.betweeness_centrality] (`from_=...`) | 10.6 ms | 0.83 ms |
+    | [`betweenness_centrality`][navis.betweenness_centrality] (`directed=True`) | 11.1 ms | 0.48 ms |
+    | [`betweenness_centrality`][navis.betweenness_centrality] (`directed=False`) | 217 ms | 0.49 ms |
+    | [`betweenness_centrality`][navis.betweenness_centrality] (`from_=...`) | 10.6 ms | 0.83 ms |
     | [`find_main_branchpoint`][navis.find_main_branchpoint] (`"longest_neurite"`) | 2.8 ms | 0.40 ms |
     | [`find_main_branchpoint`][navis.find_main_branchpoint] (`"betweenness"`) | 9.3 ms | 1.4 ms |
     | [`split_into_fragments`][navis.split_into_fragments] (`n=5`) | 20.1 ms | 7.6 ms |
@@ -216,7 +217,7 @@ pip install git+https://github.com/navis-org/navis@master
     | `node_label_sorting` | 14.4 ms | 3.5 ms |
     | [`Skeleton.is_tree`][navis.Skeleton.is_tree] | 2.3 ms | 0.65 ms |
 
-    `betweeness_centrality` gains the most because shortest paths in a tree are unique, so betweenness has a closed form (descendants × ancestors) and needs neither Brandes nor a graph. Values are unchanged - bit-identical to igraph's, counted in `int64` since an undirected 100k-node skeleton reaches ~5e9.
+    `betweenness_centrality` gains the most because shortest paths in a tree are unique, so betweenness has a closed form (descendants × ancestors) and needs neither Brandes nor a graph. Values are unchanged - bit-identical to igraph's, counted in `int64` since an undirected 100k-node skeleton reaches ~5e9.
 
     [`Skeleton.is_tree`][navis.Skeleton.is_tree] is the same observation in miniature: every node in the table names exactly one parent, so the only way the neuron is not a forest is a cycle. `health_check`'s message for it now names the check actually performed - it said `networkx.is_forest`, which it had not been for some time.
 - a mesh's unique edges now come from navis-fastcore where available (new `navis.utils.mesh_unique_edges`) instead of `trimesh.edges_unique`, which sorts an `(n_faces * 3, 2)` array to find them. This sits underneath [`neuron2nx`][navis.neuron2nx]/[`neuron2igraph`][navis.neuron2igraph] for `Meshes` and hence everything built on a mesh graph - geodesic distances, connected components, [`drop_fluff`][navis.drop_fluff], [`fix_mesh`][navis.fix_mesh]. The results are seeded into trimesh's own cache (index and inverse included, so `faces_unique_edges` & co. stay consistent), meaning a mesh that has already computed its edges pays nothing.
@@ -323,7 +324,7 @@ _Date: 13/06/26_
 - [`rewire_skeleton`][navis.rewire_skeleton] now skips the minimum spanning tree if the graph is already a forest (i.e. has no cycles)
 - [`H5transform`][navis.transforms.H5transform] and [`GridTransform`][navis.transforms.GridTransform] use `scipy.ndimage.map_coordinates` (~2x faster), and copies of an `H5transform` now carry over the cache - previously [`xform_brain`][navis.xform_brain] copied the transform and hence never benefitted from caching
 - [`skeletonize`][navis.skeletonize] for point clouds/[`Dotprops`][navis.Dotprops] uses `scipy`'s minimum spanning tree instead of `networkx` and now correctly handles duplicate points
-- `betweeness_centrality`, [`plot_flat`][navis.plot_flat] and [`segment_analysis`][navis.segment_analysis] are faster
+- `betweenness_centrality`, [`plot_flat`][navis.plot_flat] and [`segment_analysis`][navis.segment_analysis] are faster
 - reading from URLs with the default `parallel="auto"` now goes parallel from 5 files onwards instead of 200. The 200 was tuned for the process pool used to read local files; URLs are read in a *thread* pool and are network- rather than CPU-bound. Reading e.g. 100 neurons off a remote server no longer means 100 sequential blocking requests
 - URL reads now share a single `requests.Session`, so connections to the same host are pooled and kept alive
 - `read_*` functions can now read from Google buckets (`gs://...`) without `gcsfs` installed
@@ -675,7 +676,7 @@ _Date: 25/02/22_
 _Date: 24/02/22_
 
 ##### Additions
-- New function: `navis.betweeness_centrality`
+- New function: `navis.betweenness_centrality`
 - New function: `navis.combine_neurons` to simply concatenate neurons
 - New set of persistence functions: `navis.persistence_vectors`, `navis.persistence_points` and `navis.persistence_distances`
 - Added a new interface with the Allen Cell Types Atlas

@@ -14,7 +14,7 @@
 from .mmetrics import (strahler_index, bending_flow,
                        flow_centrality, synapse_flow_centrality, sholl_analysis,
                        segregation_index, arbor_segregation_index, tortuosity,
-                       betweeness_centrality, segment_analysis, cable_length)
+                       betweenness_centrality, segment_analysis, cable_length)
 from .manipulation import (prune_by_strahler, stitch_skeletons,
                            split_axon_dendrite, split_axon_dendrite_prop, average_skeletons,
                            despike_skeleton, guess_radius, smooth_skeleton,
@@ -40,7 +40,7 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_ce
            'find_soma', 'find_soma_mesh', 'SomaEllipsoid',
            'prune_at_depth', 'cell_body_fiber', 'drop_fluff',
            'subset_neuron', 'smooth_voxels', 'sholl_analysis',
-           'persistence_points', 'betweeness_centrality',
+           'persistence_points', 'betweenness_centrality',
            'persistence_vectors', 'persistence_distances', 'combine_neurons',
            'segment_analysis', 'form_factor', 'ivscc_features', "thin_voxels",
            'branch_angles', 'path_angles', 'root_angles', 'soma_exit_angles']

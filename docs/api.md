@@ -367,7 +367,7 @@ Functions to analyze morphology.
 | [`navis.ivscc_features()`][navis.ivscc_features] | {{ autosummary("navis.ivscc_features") }} |
 | [`navis.sholl_analysis()`][navis.sholl_analysis] | {{ autosummary("navis.sholl_analysis") }} |
 | [`navis.tortuosity()`][navis.tortuosity] | {{ autosummary("navis.tortuosity") }} |
-| [`navis.betweeness_centrality()`][navis.betweeness_centrality] | {{ autosummary("navis.betweeness_centrality") }} |
+| [`navis.betweenness_centrality()`][navis.betweenness_centrality] | {{ autosummary("navis.betweenness_centrality") }} |
 | [`navis.branch_angles()`][navis.branch_angles] | {{ autosummary("navis.branch_angles") }} |
 | [`navis.path_angles()`][navis.path_angles] | {{ autosummary("navis.path_angles") }} |
 | [`navis.root_angles()`][navis.root_angles] | {{ autosummary("navis.root_angles") }} |

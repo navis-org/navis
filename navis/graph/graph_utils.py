@@ -1386,7 +1386,7 @@ def find_main_branchpoint(
         bp = parents[ids == sc_longest[-1]][0]
     else:
         # Get betweenness for each node
-        x = morpho.betweeness_centrality(x, directed=True, from_="branch_points")
+        x = morpho.betweenness_centrality(x, directed=True, from_="branch_points")
         # Get branch points with highest centrality
         high_between = (
             x.branch_points.betweenness >= x.branch_points.betweenness.max() * threshold

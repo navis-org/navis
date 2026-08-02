@@ -123,9 +123,9 @@ def cell_body_fiber(
     [`navis.find_main_branchpoint`][]
                     Find the main branch point.
 
-    [`navis.betweeness_centrality`][]
-                    Calculate the per-node betweeness centrality. This is used
-                    under the hood for `method='betweeness'`.
+    [`navis.betweenness_centrality`][]
+                    Calculate the per-node betweenness centrality. This is used
+                    under the hood for `method='betweenness'`.
 
     """
     utils.eval_param(

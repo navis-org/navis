@@ -40,7 +40,7 @@ __all__ = sorted(
         "synapse_flow_centrality",
         "segregation_index",
         "tortuosity",
-        "betweeness_centrality",
+        "betweenness_centrality",
         "segment_analysis",
         "cable_length",
     ]
@@ -1438,7 +1438,7 @@ def sholl_analysis(
 @utils.meshneuron_skeleton(
     method="node_properties", reroot_soma=True, node_props=["betweenness"]
 )
-def betweeness_centrality(
+def betweenness_centrality(
     x: "core.NeuronObject",
     from_: Optional[Union[Literal["leafs"], Literal["branch_points"], Sequence]] = None,
     directed: bool = True,
@@ -1474,11 +1474,11 @@ def betweeness_centrality(
     >>> import navis
     >>> n = navis.example_neurons(2, kind='skeleton')
     >>> n.reroot(n.soma, inplace=True)
-    >>> _ = navis.betweeness_centrality(n)
+    >>> _ = navis.betweenness_centrality(n)
     >>> n[0].nodes.betweenness.max()
     436866
     >>> m = navis.example_neurons(1, kind='mesh')
-    >>> _ = navis.betweeness_centrality(m)
+    >>> _ = navis.betweenness_centrality(m)
     >>> m.betweenness.max()
     123584
 
