@@ -2438,24 +2438,24 @@ def drop_fluff(
     >>> import navis
     >>> m = navis.example_neurons(1, kind='mesh')
     >>> m.n_vertices
-    6309
+    17369
     >>> # Remove all but the largest connected component
     >>> top = navis.drop_fluff(m)
     >>> top.n_vertices
-    5951
+    17058
     >>> # Keep the ten largest connected components
     >>> two = navis.drop_fluff(m, n_largest=10)
     >>> two.n_vertices
-    6069
+    17354
     >>> # Keep all fragments with at least 100 vertices
     >>> clean = navis.drop_fluff(m, keep_size=100)
     >>> clean.n_vertices
-    5951
-    >>> # Keep the two largest fragments with at least 50 vertices each
-    >>> # (for this neuron the result is just the largest fragment)
-    >>> clean2 = navis.drop_fluff(m, keep_size=50, n_largest=2)
+    17298
+    >>> # Keep the two largest fragments with at least 10 vertices each
+    >>> # (three fragments are that big, so `n_largest` caps it at two)
+    >>> clean2 = navis.drop_fluff(m, keep_size=10, n_largest=2)
     >>> clean2.n_vertices
-    6037
+    17298
 
     """
     utils.eval_param(

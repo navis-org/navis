@@ -108,7 +108,7 @@ def heal_mesh(
     >>> m = navis.example_neurons(1, kind='mesh')
     >>> # This mesh consists of a main body plus a bunch of small fragments
     >>> len(navis.break_fragments(m))
-    70
+    14
     >>> healed = navis.heal_mesh(m)
     >>> len(navis.break_fragments(healed))
     1
@@ -120,7 +120,7 @@ def heal_mesh(
 
     >>> partial = navis.heal_mesh(m, max_dist='500 nm')
     >>> len(navis.break_fragments(partial))
-    13
+    4
 
     """
     # The decorator makes sure that at this point we have single neurons

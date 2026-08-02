@@ -1480,7 +1480,7 @@ def betweeness_centrality(
     >>> m = navis.example_neurons(1, kind='mesh')
     >>> _ = navis.betweeness_centrality(m)
     >>> m.betweenness.max()
-    59637
+    123584
 
     """
     utils.eval_param(x, name="x", allowed_types=(core.Skeleton,))

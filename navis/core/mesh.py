@@ -509,7 +509,7 @@ class Mesh(BaseNeuron):
         >>> n = navis.example_neurons(1, kind='mesh')
         >>> ix, dist = n.snap([0, 0, 0])
         >>> ix
-        4134
+        300
 
         """
         locs = np.asarray(locs).astype(self.vertices.dtype)

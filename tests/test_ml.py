@@ -571,16 +571,35 @@ def test_sample_patches_returns_long_frame_with_chunk_id(kind, density):
 
 
 def test_sample_patches_density_fixes_physical_patch_extent():
-    """n_points + density pin each patch's radius; it's ~constant across patches."""
+    """n_points + density pin each patch's physical scale.
+
+    Measured as the cloud's local point spacing, not the patch's Euclidean radius:
+    a fixed-count patch covers a fixed *surface area*, and on a thin neurite that
+    area is a long axial sleeve rather than a flat disk (see `sample_patches`'
+    docstring) - so the radius legitimately varies several-fold with local geometry
+    while the density does not.
+    """
+    from scipy.spatial import cKDTree
     m = navis.example_neurons(1, kind="mesh")
-    df = sample_patches(m, n_points=64, density=1e-5, mode="spaced", random_state=0)
-    radii = []
-    for _, g in df.groupby("chunk_id"):
-        c = g[["x", "y", "z"]].values
-        radii.append(np.linalg.norm(c - c.mean(0), axis=1).max())
-    radii = np.array(radii)
+
+    def spacings(density):
+        df = sample_patches(m, n_points=64, density=density, mode="spaced",
+                            random_state=0)
+        out = []
+        for _, g in df.groupby("chunk_id"):
+            c = g[["x", "y", "z"]].values
+            out.append(np.median(cKDTree(c).query(c, k=2)[0][:, 1]))
+        return np.array(out)
+
+    sparse = spacings(1e-5)
     # coefficient of variation is small -> the resampled cloud is uniform-density
-    assert radii.std() / radii.mean() < 0.5
+    assert sparse.std() / sparse.mean() < 0.15
+
+    # ... and the scale is the requested one: spacing ~ 1 / sqrt(density), so
+    # quadrupling the density halves it
+    dense = spacings(4e-5)
+    assert dense.std() / dense.mean() < 0.15
+    assert 1.8 < sparse.mean() / dense.mean() < 2.4
 
 
 def test_sample_patches_spacing_and_attribute_passthrough():
@@ -672,23 +691,32 @@ def test_sample_patches_connected_follows_topology():
 
 def test_sample_patches_connected_partition_is_compact():
     """connected=True keeps partition patches spatially compact; Euclidean scatters
-    far-flung stragglers as the unassigned points deplete."""
+    far-flung stragglers as the unassigned points deplete.
+
+    Counted over a handful of clouds: whether any *single* patch ends up with a
+    straggler is a coin flip either way, but their rate is not.
+    """
     from scipy.spatial import cKDTree
     m = navis.example_neurons(1, kind="mesh")
+    spacing = 500 / 8
 
-    def worst_gap(d):                       # largest nearest-neighbour gap in any patch
-        w = 0.0
+    def n_stragglers(d):     # points >3x the target spacing from their patch-mates
+        n = 0
         for _, g in d.groupby("chunk_id"):
             c = g[["x", "y", "z"]].values
             if len(c) > 1:
-                w = max(w, float(cKDTree(c).query(c, k=2)[0][:, 1].max()))
-        return w
+                gaps = cKDTree(c).query(c, k=2)[0][:, 1]
+                n += int((gaps > 3 * spacing).sum())
+        return n
 
-    kw = dict(n_points=500, spacing=500 / 8, mode="partition",
-              undersized="discard", random_state=0)
-    conn = sample_patches(m, connected=True, **kw)
-    euc = sample_patches(m, connected=False, **kw)
-    assert worst_gap(conn) < 0.5 * worst_gap(euc)
+    conn = euc = 0
+    for seed in range(5):
+        kw = dict(n_points=500, spacing=spacing, mode="partition",
+                  undersized="discard", random_state=seed)
+        conn += n_stragglers(sample_patches(m, connected=True, **kw))
+        euc += n_stragglers(sample_patches(m, connected=False, **kw))
+
+    assert conn < 0.5 * euc
 
 
 def test_sample_patches_connected_default_and_mesh():

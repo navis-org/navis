@@ -576,7 +576,7 @@ def sample_surface(
     >>> # constant density instead of constant count (count now varies with area):
     >>> pts = navis.ml.sample_surface(m, density=1e-5, random_state=0)
     >>> len(pts)
-    644
+    607
     >>> bool(pts.attrs["density"] > 0)
     True
     >>> # transfer a per-vertex label:

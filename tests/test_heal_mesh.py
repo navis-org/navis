@@ -1,8 +1,10 @@
 """Tests for `navis.heal_mesh`.
 
-Note that the example mesh genuinely consists of 70 connected components (one
-main body of 5951 vertices plus 69 small bits), so it doubles as a real-world
-fixture here - no artificial fragmentation needed.
+Note that the example mesh genuinely consists of several connected components
+(one main body plus a handful of small bits), so it doubles as a real-world
+fixture here - no artificial fragmentation needed. The exact counts depend on
+whatever mesh is currently vendored, so the tests below derive them from the
+fixture rather than hard-coding them.
 """
 
 import navis
@@ -79,12 +81,13 @@ def n_fragments(x):
 
 
 def test_heals(mesh):
-    assert n_fragments(mesh) == 70
+    n_frags = n_fragments(mesh)
+    assert n_frags > 1  # the example mesh is genuinely fragmented
 
     healed = navis.heal_mesh(mesh)
 
     assert n_fragments(healed) == 1
-    assert healed.n_extra_edges == 69  # one bridge per fragment merged
+    assert healed.n_extra_edges == n_frags - 1  # one bridge per fragment merged
 
 
 def test_geometry_is_untouched(mesh):
@@ -138,14 +141,15 @@ def test_copy_semantics(mesh):
     inplace = mesh.copy()
     out = navis.heal_mesh(inplace, inplace=True)
     assert out is inplace
-    assert inplace.n_extra_edges == 69
+    assert inplace.n_extra_edges == n_fragments(mesh) - 1
 
 
 def test_neuronlist(mesh):
+    n_bridges = n_fragments(mesh) - 1
     nl = navis.NeuronList([mesh, mesh.copy()])
     healed = navis.heal_mesh(nl)
 
-    assert [n.n_extra_edges for n in healed] == [69, 69]
+    assert [n.n_extra_edges for n in healed] == [n_bridges, n_bridges]
     assert [n.n_extra_edges for n in nl] == [0, 0]
 
 
@@ -184,10 +188,11 @@ def test_max_dist_too_small(mesh):
 def test_min_size(mesh):
     """Fragments below `min_size` are ignored and stay disconnected."""
     sizes = frag_sizes(mesh)
-    # Only two fragments have >= 10 vertices
-    assert (sizes >= 10).sum() == 2
+    # A cutoff at the second-largest fragment leaves exactly the two largest
+    min_size = sorted(sizes)[-2]
+    assert (sizes >= min_size).sum() == 2
 
-    healed = navis.heal_mesh(mesh, min_size=10)
+    healed = navis.heal_mesh(mesh, min_size=min_size)
 
     assert healed.n_extra_edges == 1
     assert n_fragments(healed) == len(sizes) - 1
@@ -218,12 +223,12 @@ def test_mask_wrong_length(mesh):
 
 def test_drop_disc(mesh):
     """Whatever is left fragmented after healing gets dropped."""
-    sizes = frag_sizes(mesh)
+    sizes = sorted(frag_sizes(mesh))
 
-    healed = navis.heal_mesh(mesh, min_size=10, drop_disc=True)
+    healed = navis.heal_mesh(mesh, min_size=sizes[-2], drop_disc=True)
 
     assert n_fragments(healed) == 1
-    assert healed.n_vertices == sorted(sizes)[-1] + sorted(sizes)[-2]
+    assert healed.n_vertices == sizes[-1] + sizes[-2]
     # The bridge must have survived (and been remapped)
     assert healed.n_extra_edges == 1
 
@@ -247,7 +252,7 @@ def test_already_connected_is_noop(two_boxes):
 
 def test_existing_extra_edges_are_kept(mesh):
     """Pre-existing bridges count as connections and must survive."""
-    labels, _ = _mesh_component_labels(mesh)
+    labels, n_frags = _mesh_component_labels(mesh)
     a = int(np.where(labels == labels[0])[0][0])
     b = int(np.where(labels != labels[0])[0][0])
 
@@ -257,8 +262,9 @@ def test_existing_extra_edges_are_kept(mesh):
     healed = navis.heal_mesh(pre)
 
     assert n_fragments(healed) == 1
-    # One fewer bridge needed - those two fragments were already connected
-    assert healed.n_extra_edges == 69 - 1 + 1
+    # One fewer bridge needed - those two fragments were already connected -
+    # but the pre-existing one is kept, so the total is unchanged
+    assert healed.n_extra_edges == (n_frags - 1) - 1 + 1
     assert [a, b] in healed.extra_edges.tolist()
 
 
