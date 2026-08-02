@@ -11,5 +11,5 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-__version__ = "2.0.0rc1"
+__version__ = "2.0.0-rc.1"
 __version_vector__ = (2, 0, 0)

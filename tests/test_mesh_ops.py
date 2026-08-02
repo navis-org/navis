@@ -34,6 +34,7 @@ def messy_box():
         ("4.12.2", (4, 12, 2)),
         # Pre-releases and dev versions must compare as their release
         ("4.10.0rc1", (4, 10, 0)),
+        ("4.10.0-rc.1", (4, 10, 0)),
         ("4.0.0.dev3", (4, 0, 0)),
     ],
 )
