@@ -62,8 +62,8 @@ k3d #extra: k3d
 
 #extra: octarine-default
 
-octarine3d[all]>=0.2.3
-octarine-navis-plugin>=0.1.3
+octarine3d[all]>=0.8.0
+octarine-navis-plugin>=0.1.8
 
 #extra: meshes
 
