@@ -38,7 +38,8 @@ def _version_tuple(version: str) -> tuple:
     """Parse a version string into a comparable tuple of ints.
 
     Stops at the first non-numeric component so that pre-releases and dev
-    versions (e.g. "4.10.0rc1") compare as their release ("4.10.0").
+    versions (e.g. "4.10.0rc1", "4.10.0-rc.1") compare as their release
+    ("4.10.0").
     """
     parts = []
     for part in str(version).split("."):
@@ -47,9 +48,13 @@ def _version_tuple(version: str) -> tuple:
             if not char.isdigit():
                 break
             digits += char
-        if not digits:
+        if digits:
+            parts.append(int(digits))
+        # Anything trailing the digits marks the end of the release number - what
+        # comes after is pre-release/dev metadata, whether it is glued to this
+        # component ("0rc1", "0-rc") or split off into the next (".dev3", ".1").
+        if digits != part:
             break
-        parts.append(int(digits))
     return tuple(parts)
 
 
