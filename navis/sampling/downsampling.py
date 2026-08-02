@@ -39,7 +39,8 @@ def downsample_neuron(
     For skeletons: preserves root, leafs, branchpoints by default. Preservation
     of nodes with synapses can be toggled - see `preserve_nodes` parameter.
     Use `downsampling_factor=float('inf')` to get a skeleton consisting only
-    of root, branch and end points.
+    of root, branch and end points. Connectors and tags sitting on a node that
+    does not survive are moved onto the geodesically nearest node that does.
 
     Parameters
     ----------
@@ -311,9 +312,69 @@ def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
 
     logger.debug(f"Nodes before/after: {len(x.nodes)}/{len(new_nodes)}")
 
+    # Connectors and tags refer to nodes by ID and some of those nodes are about
+    # to disappear. Move them first - the search below needs the full topology.
+    _remap_dropped_refs(x, kept=set(new_parents))
+
     x.nodes = new_nodes
 
     # This is essential -> otherwise e.g. graph.neuron2graph will fail
     x.nodes.reset_index(inplace=True, drop=True)
 
     x._clear_temp_attr()
+
+
+def _remap_dropped_refs(x, kept):
+    """Move connectors and tags off the nodes downsampling is about to remove.
+
+    Both refer to nodes by ID, so without this they would keep pointing at nodes
+    that are no longer in the table - a neuron that looks fine until something
+    tries to look one of them up.
+
+    They are moved rather than dropped because downsampling only thins slabs: it
+    does not remove any part of the neuron, so the geodesically nearest survivor
+    is the same stretch of the same branch, just sampled more coarsely. Use
+    `preserve_nodes="connectors"` to pin them exactly instead.
+
+    Must run *before* the thinned node table is assigned - finding the nearest
+    survivor needs the original topology.
+
+    """
+    has_tags = x.has_tags and isinstance(x.tags, dict)
+    if not x.has_connectors and not has_tags:
+        return
+
+    # Everything referred to from outside the node table, resolved in one search
+    referenced = set()
+    if x.has_connectors:
+        referenced.update(x.connectors.node_id.values.tolist())
+    if has_tags:
+        referenced.update(n for nodes in x.tags.values() for n in nodes)
+
+    dropped = np.array([n for n in referenced if n not in kept])
+    if not len(dropped):
+        return
+
+    nearest, _ = graph._geodesic_nearest(
+        x,
+        targets=np.array(list(kept)),
+        query=dropped,
+        weight="weight",
+        directed=False,
+    )
+
+    # Every fragment keeps its root, so there is always something to snap to and
+    # `-1` (unreachable) should not happen - but if it somehow does, leaving the
+    # ID alone beats silently moving the connector to an arbitrary node.
+    reachable = nearest >= 0
+    node_map = pd.Series(nearest[reachable], index=dropped[reachable])
+
+    if x.has_connectors:
+        cn = x.connectors.node_id.values.copy()
+        moved = np.isin(cn, node_map.index.values)
+        cn[moved] = node_map.loc[cn[moved]].values
+        x.connectors["node_id"] = cn
+
+    if has_tags:
+        lookup = node_map.to_dict()
+        x.tags = {t: [lookup.get(n, n) for n in nodes] for t, nodes in x.tags.items()}
