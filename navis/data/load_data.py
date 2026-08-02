@@ -31,13 +31,13 @@ fp = os.path.dirname(__file__)
 gml_path = os.path.join(fp, "gml")
 swc_path = os.path.join(fp, "swc")
 vols_path = os.path.join(fp, "volumes")
-obj_path = os.path.join(fp, "obj")
+ply_path = os.path.join(fp, "ply")
 syn_path = os.path.join(fp, "synapses")
 
 gml = sorted([f for f in os.listdir(gml_path) if f.endswith(".gml")])
 swc = sorted([f for f in os.listdir(swc_path) if f.endswith(".swc")])
 vols = sorted([f for f in os.listdir(vols_path) if f.endswith(".obj")])
-obj = sorted([f for f in os.listdir(obj_path) if f.endswith(".obj")])
+ply = sorted([f for f in os.listdir(ply_path) if f.endswith(".ply")])
 syn = sorted([f for f in os.listdir(syn_path) if f.endswith(".csv")])
 
 NeuronObject = Union[Skeleton, Mesh, NeuronList]
@@ -112,7 +112,7 @@ def example_neurons(
 
     if isinstance(n, type(None)):
         if kind == "mix":
-            n = len(swc) + len(obj)
+            n = len(swc) + len(ply)
         else:
             n = len(swc)
     elif not isinstance(n, int):
@@ -146,10 +146,10 @@ def example_neurons(
             raise ValueError(f'Source must be "swc" or "gml", not "{source}"')
 
     if kind in ["mesh", "mix"]:
-        files = [os.path.join(obj_path, f) for f in obj[:n_mesh]]
+        files = [os.path.join(ply_path, f) for f in ply[:n_mesh]]
         nl += [
             Mesh(fp, units="8 nm", name=f.split(".")[0], id=int(f.split(".")[0]))
-            for f, fp in zip(obj, files)
+            for f, fp in zip(ply, files)
         ]
         for n in nl:
             n.soma_pos = SOMA_POS[n.id]
