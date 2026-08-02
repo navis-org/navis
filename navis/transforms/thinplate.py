@@ -13,7 +13,6 @@
 
 """Functions to perform thin plate spline transforms. Requires morphops."""
 
-import morphops as mops
 import numpy as np
 import pandas as pd
 
@@ -21,14 +20,6 @@ from scipy.spatial.distance import cdist
 
 from .backends import BackendMixin
 from .base import BaseTransform
-
-
-# Hotfix for morphops (unmaintained since 2021): it still calls `np.row_stack`,
-# which was deprecated in numpy 1.24 and removed in numpy 2.0+. `row_stack` was
-# always just an alias for `vstack`, so we restore it if it's missing. Remove
-# once the pending morphops PR is merged and released.
-if not hasattr(np, "row_stack"):
-    np.row_stack = np.vstack
 
 
 def distance_matrix(X, Y):
@@ -41,8 +32,45 @@ def distance_matrix(X, Y):
     return cdist(X, Y)
 
 
-# Replace morphops's original slow distance_matrix function
-mops.lmk_util.distance_matrix = distance_matrix
+#: Set on first use by `_morphops()`.
+_mops = None
+
+
+def _morphops():
+    """Import (and patch) morphops on first use.
+
+    Deferred so that `import navis` does not pay for it and so that an install
+    without morphops still gets the rest of this module. Note this is *not* only
+    the deprecated "python" backend's dependency: the spline is fitted with
+    morphops on either backend (see `_calc_tps_coefs`), so a TPS transform needs
+    it either way.
+
+    """
+    global _mops
+    if _mops is not None:
+        return _mops
+
+    try:
+        import morphops
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "Thin plate spline transforms require the `morphops` library:\n"
+            "  pip3 install morphops"
+        )
+
+    # Hotfix for morphops (unmaintained since 2021): it still calls
+    # `np.row_stack`, which was deprecated in numpy 1.24 and removed in numpy
+    # 2.0+. `row_stack` was always just an alias for `vstack`, so we restore it
+    # if it's missing. Remove once the pending morphops PR is merged and
+    # released.
+    if not hasattr(np, "row_stack"):
+        np.row_stack = np.vstack
+
+    # Replace morphops's original slow distance_matrix function
+    morphops.lmk_util.distance_matrix = distance_matrix
+
+    _mops = morphops
+    return _mops
 
 
 class TPStransform(BackendMixin, BaseTransform):
@@ -178,7 +206,7 @@ class TPStransform(BackendMixin, BaseTransform):
         # fastcore backend the coefficients are then handed to
         # `TpsTransform.from_coefs` (see `_fastcore_tps`), so the fast xform is
         # applied to a numpy-fitted spline.
-        self._W, self._A = mops.tps_coefs(self.source, self.target)
+        self._W, self._A = _morphops().tps_coefs(self.source, self.target)
 
     @property
     def W(self):
@@ -244,6 +272,7 @@ class TPStransform(BackendMixin, BaseTransform):
             # the output array.
             return self._fastcore_tps.xform(np.asarray(points))
 
+        mops = _morphops()
         batch_size = self.batch_size if self.batch_size else points.shape[0]
         points_xf = []
         for i in range(0, points.shape[0], batch_size):

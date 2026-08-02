@@ -15,7 +15,6 @@ from copy import deepcopy
 
 import numpy as np
 import pandas as pd
-from molesq import Transformer
 
 from .backends import BackendMixin
 from .base import BaseTransform
@@ -34,13 +33,14 @@ class MovingLeastSquaresTransform(BackendMixin, BaseTransform):
     ) -> None:
         """Moving Least Squares transforms of 3D spatial data.
 
-        Uses the [molesq](https://github.com/clbarnes/molesq) library, which packages the
+        Runs on navis-fastcore's Rust implementation of the affine algorithm
+        published in [Schaefer et al. 2006](https://dl.acm.org/doi/pdf/10.1145/1179352.1141920).
+        The deprecated "python" backend runs on
+        [molesq](https://github.com/clbarnes/molesq) instead, which packages the
         [implementation](https://github.com/ceesem/catalysis/blob/master/catalysis/transform.py)
-        by Casey Schneider-Mizell of the affine algorithm published in
-        [Schaefer et al. 2006](https://dl.acm.org/doi/pdf/10.1145/1179352.1141920).
-        Runs on navis-fastcore's Rust implementation of the same algorithm; the
-        deprecated "python" backend runs on `molesq` instead - see the `backend`
-        parameter.
+        by Casey Schneider-Mizell of the same algorithm - see the `backend`
+        parameter. `molesq` is imported on demand and is only needed for that
+        backend.
 
         Notes
         -----
@@ -88,11 +88,46 @@ class MovingLeastSquaresTransform(BackendMixin, BaseTransform):
 
         """
         assert direction in ("forward", "inverse")
-        self.transformer = Transformer(landmarks_source, landmarks_target)
+
+        self.source = np.asarray(landmarks_source)
+        self.target = np.asarray(landmarks_target)
+
+        # Same checks molesq's `Transformer` would do, kept here so that they
+        # still happen up front now that it is only built on demand.
+        if self.source.shape != self.target.shape:
+            raise ValueError("Landmarks must have the same shape")
+        if self.source.ndim != 2:
+            raise ValueError("Landmarks must be a 2D array")
+
         self.reverse = direction == "inverse"
         self.batch_size = int(batch_size)
         self._backend = backend
         self._fc = None
+        self._transformer = None
+
+    @property
+    def transformer(self):
+        """The (lazily built) molesq transformer used by the "python" backend.
+
+        molesq is imported here rather than at module level so that `import
+        navis` does not pay for it and, more to the point, so that an install
+        without it can still run moving least squares on the default (fastcore)
+        backend - which needs nothing but the landmarks.
+
+        """
+        if self._transformer is None:
+            try:
+                from molesq import Transformer
+            except ModuleNotFoundError:
+                raise ModuleNotFoundError(
+                    'The deprecated "python" backend for moving least squares '
+                    "requires the `molesq` library:\n"
+                    "  pip3 install molesq\n"
+                    'Drop the explicit backend (or use "fastcore") to do '
+                    "without it."
+                )
+            self._transformer = Transformer(self.source, self.target)
+        return self._transformer
 
     @property
     def _fastcore_mls(self):
@@ -111,10 +146,7 @@ class MovingLeastSquaresTransform(BackendMixin, BaseTransform):
         if self._fc is None:
             from .. import utils
 
-            self._fc = utils.fastcore.MlsTransform(
-                self.transformer.control_points,
-                self.transformer.deformed_control_points,
-            )
+            self._fc = utils.fastcore.MlsTransform(self.source, self.target)
         return self._fc
 
     def xform(self, points: np.ndarray) -> np.ndarray:
@@ -194,8 +226,7 @@ class MovingLeastSquaresTransform(BackendMixin, BaseTransform):
         return True
 
     def _control_points(self):
-        cp1 = self.transformer.control_points
-        cp2 = self.transformer.deformed_control_points
+        cp1, cp2 = self.source, self.target
         if self.reverse:
             cp2, cp1 = cp1, cp2
         return cp1, cp2

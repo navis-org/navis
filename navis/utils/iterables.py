@@ -11,7 +11,6 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import six
 import pint
 
 import numpy as np
@@ -45,7 +44,7 @@ def make_iterable(x,
     if isinstance(x, pint.Quantity) and not isinstance(x.magnitude, np.ndarray):
         return config.ureg.Quantity(np.array([x.magnitude]), x.units)
 
-    if not isinstance(x, Iterable) or isinstance(x, six.string_types):
+    if not isinstance(x, Iterable) or isinstance(x, str):
         x = [x]
 
     if isinstance(x, (dict, set)):
@@ -96,7 +95,7 @@ def is_iterable(x: Any) -> bool:
     if isinstance(x, pint.Quantity):
         x = x.magnitude
 
-    if isinstance(x, Iterable) and not isinstance(x, (six.string_types, pd.DataFrame)):
+    if isinstance(x, Iterable) and not isinstance(x, (str, pd.DataFrame)):
         return True
     else:
         return False
