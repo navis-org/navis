@@ -6,22 +6,22 @@ import numpy as np
 from pathlib import Path
 
 
-@pytest.mark.parametrize("filename", ['', '{neuron.id}.swc',
-                                      'neurons.zip',
-                                      '{neuron.id}.swc@neurons.zip'])
+@pytest.mark.parametrize(
+    "filename", ["", "{neuron.id}.swc", "neurons.zip", "{neuron.id}.swc@neurons.zip"]
+)
 def test_swc_io(filename):
     with tempfile.TemporaryDirectory() as tempdir:
         filepath = Path(tempdir) / filename
 
         # Load example neurons
-        n = navis.example_neurons(2, kind='skeleton')
+        n = navis.example_neurons(2, kind="skeleton")
 
         # Save to file / folder
         navis.write_swc(n, filepath)
 
         # Load again
-        if str(filepath).endswith('.zip'):
-            n2 = navis.read_swc(Path(tempdir) / 'neurons.zip')
+        if str(filepath).endswith(".zip"):
+            n2 = navis.read_swc(Path(tempdir) / "neurons.zip")
         else:
             n2 = navis.read_swc(tempdir)
 
@@ -29,22 +29,20 @@ def test_swc_io(filename):
         assert len(n) == len(n2)
 
 
-@pytest.mark.parametrize("filename", ['',
-                                      'neurons.zip',
-                                      '{neuron.id}@neurons.zip'])
+@pytest.mark.parametrize("filename", ["", "neurons.zip", "{neuron.id}@neurons.zip"])
 def test_precomputed_skeleton_io(filename):
     with tempfile.TemporaryDirectory() as tempdir:
         filepath = Path(tempdir) / filename
 
         # Load example neurons
-        n = navis.example_neurons(2, kind='skeleton')
+        n = navis.example_neurons(2, kind="skeleton")
 
         # Save to file / folder
         navis.write_precomputed(n, filepath, radius=True)
 
         # Load again
-        if str(filepath).endswith('.zip'):
-            n2 = navis.read_precomputed(Path(tempdir) / 'neurons.zip')
+        if str(filepath).endswith(".zip"):
+            n2 = navis.read_precomputed(Path(tempdir) / "neurons.zip")
         else:
             n2 = navis.read_precomputed(tempdir)
 
@@ -52,22 +50,20 @@ def test_precomputed_skeleton_io(filename):
         assert len(n) == len(n2)
 
 
-@pytest.mark.parametrize("filename", ['',
-                                      'neurons.zip',
-                                      '{neuron.id}@neurons.zip'])
+@pytest.mark.parametrize("filename", ["", "neurons.zip", "{neuron.id}@neurons.zip"])
 def test_precomputed_mesh_io(filename):
     with tempfile.TemporaryDirectory() as tempdir:
         filepath = Path(tempdir) / filename
 
         # Load example neurons
-        n = navis.example_neurons(2, kind='mesh')
+        n = navis.example_neurons(2, kind="mesh")
 
         # Save to file / folder
         navis.write_precomputed(n, filepath, write_manifest=True)
 
         # Load again
-        if str(filepath).endswith('.zip'):
-            n2 = navis.read_precomputed(Path(tempdir) / 'neurons.zip')
+        if str(filepath).endswith(".zip"):
+            n2 = navis.read_precomputed(Path(tempdir) / "neurons.zip")
         else:
             n2 = navis.read_precomputed(tempdir)
 
@@ -75,26 +71,25 @@ def test_precomputed_mesh_io(filename):
         assert len(n) == len(n2)
 
 
-@pytest.mark.parametrize("filename", ['neurons.zip',
-                                      '*.ply'])
+@pytest.mark.parametrize("filename", ["neurons.zip", "*.ply"])
 def test_mesh_io(filename):
     with tempfile.TemporaryDirectory() as tempdir:
         tempdir = Path(tempdir)
 
         # Load example neurons
-        n = navis.example_neurons(2, kind='mesh')
+        n = navis.example_neurons(2, kind="mesh")
 
         # Save to neurons folder
-        if str(filename).endswith('.zip'):
+        if str(filename).endswith(".zip"):
             # Into a zip file
-            navis.write_mesh(n, tempdir / 'neurons.zip', filetype='ply')
+            navis.write_mesh(n, tempdir / "neurons.zip", filetype="ply")
         else:
             # As individual files
-            navis.write_mesh(n, tempdir, filetype='ply')
+            navis.write_mesh(n, tempdir, filetype="ply")
 
         # Load again
-        if str(filename).endswith('.zip'):
-            n2 = navis.read_mesh(tempdir / 'neurons.zip')
+        if str(filename).endswith(".zip"):
+            n2 = navis.read_mesh(tempdir / "neurons.zip")
         else:
             n2 = navis.read_mesh(tempdir / filename)
 
@@ -276,11 +271,14 @@ def _have_nat():
     if not shutil.which("Rscript"):
         return False
     try:
-        return subprocess.run(
-            ["Rscript", "-e", 'stopifnot(requireNamespace("nat", quietly=TRUE))'],
-            capture_output=True,
-            timeout=120,
-        ).returncode == 0
+        return (
+            subprocess.run(
+                ["Rscript", "-e", 'stopifnot(requireNamespace("nat", quietly=TRUE))'],
+                capture_output=True,
+                timeout=120,
+            ).returncode
+            == 0
+        )
     except (OSError, subprocess.SubprocessError):
         return False
 
@@ -374,3 +372,307 @@ def test_r_data_nat_roundtrip():
 
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip().endswith("OK")
+
+
+def _sorted_connectors(n):
+    cols = ["connector_id", "node_id", "type", "x", "y", "z"]
+    return n.connectors[cols].sort_values(cols[:3]).reset_index(drop=True)
+
+
+def test_parquet_roundtrip():
+    """Skeletons - including their connectors - must survive a round-trip."""
+    with tempfile.TemporaryDirectory() as tempdir:
+        filepath = Path(tempdir) / "skeletons.parquet"
+
+        nl = navis.example_neurons(3, kind="skeleton")
+        navis.write_parquet(nl, filepath)
+
+        # Connectors go into a sidecar file
+        assert (Path(tempdir) / "skeletons.connectors.parquet").is_file()
+
+        nl2 = navis.read_parquet(filepath)
+        assert len(nl2) == len(nl)
+
+        for n2 in nl2:
+            n = nl.idx[n2.id]
+            assert n.n_nodes == n2.n_nodes
+            assert np.array_equal(
+                n.nodes.sort_values("node_id")[
+                    ["node_id", "parent_id", "x", "y", "z"]
+                ].values,
+                n2.nodes.sort_values("node_id")[
+                    ["node_id", "parent_id", "x", "y", "z"]
+                ].values,
+            )
+            assert n.name == n2.name
+            assert str(n.units) == str(n2.units)
+            # This is the bit that used to silently go missing
+            assert n2.connectors is not None
+            assert n.n_connectors == n2.n_connectors
+            assert _sorted_connectors(n).equals(_sorted_connectors(n2))
+
+
+def test_parquet_single_neuron():
+    """A file with a single neuron must read back as a single neuron."""
+    with tempfile.TemporaryDirectory() as tempdir:
+        filepath = Path(tempdir) / "skeleton.parquet"
+
+        n = navis.example_neurons(1, kind="skeleton")
+        navis.write_parquet(n, filepath)
+
+        n2 = navis.read_parquet(filepath)
+        assert isinstance(n2, navis.Skeleton)
+        assert n.n_nodes == n2.n_nodes
+        assert n.n_connectors == n2.n_connectors
+
+        # ... but subsetting always gives a NeuronList
+        nl = navis.read_parquet(filepath, subset=[n2.id])
+        assert isinstance(nl, navis.NeuronList) and len(nl) == 1
+
+
+def test_parquet_no_connectors():
+    """`write_connectors=False` must not leave a stale sidecar behind."""
+    with tempfile.TemporaryDirectory() as tempdir:
+        filepath = Path(tempdir) / "skeletons.parquet"
+        sidecar = Path(tempdir) / "skeletons.connectors.parquet"
+
+        nl = navis.example_neurons(2, kind="skeleton")
+        navis.write_parquet(nl, filepath)
+        assert sidecar.is_file()
+
+        navis.write_parquet(nl, filepath, write_connectors=False)
+        assert not sidecar.is_file()
+        assert all(n.connectors is None for n in navis.read_parquet(filepath))
+
+        # Neurons without connectors don't produce a sidecar in the first place
+        for n in nl:
+            n.connectors = None
+        navis.write_parquet(nl, filepath)
+        assert not sidecar.is_file()
+
+
+def test_parquet_dotprops_roundtrip():
+    with tempfile.TemporaryDirectory() as tempdir:
+        filepath = Path(tempdir) / "dotprops.parquet"
+
+        dp = navis.make_dotprops(navis.example_neurons(2, kind="skeleton"), k=5)
+        navis.write_parquet(dp, filepath)
+
+        dp2 = navis.read_parquet(filepath)
+        assert len(dp2) == len(dp)
+        for n2 in dp2:
+            n = dp.idx[n2.id]
+            assert np.allclose(n.points, n2.points)
+            assert np.allclose(n.vect, n2.vect)
+            assert n.k == n2.k
+
+
+@pytest.mark.parametrize("kind", ["skeleton", "dotprops"])
+def test_parquet_neurarrow_roundtrip(kind):
+    """Neurons written to the neurarrow spec must read back in.
+
+    Note that neurarrow has no place for navis' scale factor (e.g. "8
+    nanometer"), so coordinates come back converted into the base unit.
+    """
+    pq = pytest.importorskip("pyarrow.parquet")
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        filepath = Path(tempdir) / "neurons.parquet"
+
+        nl = navis.example_neurons(2, kind="skeleton")
+        if kind == "dotprops":
+            nl = navis.make_dotprops(nl, k=5)
+        navis.write_parquet(nl, filepath, format="neurarrow", context="test")
+
+        schema = pq.read_schema(filepath)
+        meta = {k.decode(): v.decode() for k, v in schema.metadata.items()}
+        assert meta["context"] == "test"
+        assert meta["unit"] == "nanometer"
+        # Required fields must be non-nullable and correctly typed
+        for field in ("sample_id", "fragment_id"):
+            assert schema.field(field).type == "uint64"
+            assert not schema.field(field).nullable
+        for field in ("x", "y", "z"):
+            assert schema.field(field).type == "double"
+            assert not schema.field(field).nullable
+        assert "neuron" not in schema.names and "node_id" not in schema.names
+
+        table = pq.read_table(filepath).to_pandas()
+        # Sample IDs must be unique across the whole file
+        assert table.sample_id.nunique() == len(table)
+
+        if kind == "skeleton":
+            # Roots are encoded as a null parent - one per neuron
+            assert schema.field("parent_id").nullable
+            assert table.parent_id.isnull().sum() == len(nl)
+        else:
+            assert meta["neighborhood_size"] == "5"
+
+        nl2 = navis.read_parquet(filepath)
+        assert len(nl2) == len(nl)
+        for n2 in nl2:
+            n = nl.idx[n2.id]
+            scale = n.units.to("nm").magnitude
+            if kind == "skeleton":
+                assert np.array_equal(n.nodes.node_id.values, n2.nodes.node_id.values)
+                assert np.array_equal(
+                    n.nodes.parent_id.values, n2.nodes.parent_id.values
+                )
+                assert np.allclose(
+                    n.nodes[["x", "y", "z"]].values * scale,
+                    n2.nodes[["x", "y", "z"]].values,
+                )
+                assert n.n_connectors == n2.n_connectors
+            else:
+                assert np.allclose(n.points * scale, n2.points)
+                assert np.allclose(n.vect, n2.vect)
+                assert n.k == n2.k
+
+
+def test_parquet_neurarrow_rejects_mixed_units():
+    """neurarrow tracks units per file, so they have to be homogeneous."""
+    with tempfile.TemporaryDirectory() as tempdir:
+        nl = navis.example_neurons(2, kind="skeleton")
+        nl[0].units = "1 micron"
+
+        with pytest.raises(ValueError, match="share the same units"):
+            navis.write_parquet(
+                nl, Path(tempdir) / "neurons.parquet", format="neurarrow"
+            )
+
+
+def test_parquet_unknown_format():
+    with tempfile.TemporaryDirectory() as tempdir:
+        nl = navis.example_neurons(1, kind="skeleton")
+        with pytest.raises(ValueError, match="format"):
+            navis.write_parquet(nl, Path(tempdir) / "n.parquet", format="swc")
+
+
+def test_parquet_scan():
+    with tempfile.TemporaryDirectory() as tempdir:
+        filepath = Path(tempdir) / "skeletons.parquet"
+
+        nl = navis.example_neurons(3, kind="skeleton")
+        navis.write_parquet(nl, filepath)
+
+        scan = navis.scan_parquet(filepath)
+        assert set(scan.id) == set(nl.id)
+        assert "name" in scan.columns
+        assert "units" in scan.columns
+
+        # `limit` reads the first N neurons off the back of the scan
+        assert len(navis.read_parquet(filepath, limit=2)) == 2
+
+
+def test_parquet_legacy_files():
+    """Files written before connectors/`label` were added must still read."""
+    pa = pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+
+    old_columns = ("node_id", "x", "y", "z", "radius", "parent_id", "neuron")
+
+    def old_write(x, filepath):
+        """The pre-sidecar writer, verbatim."""
+        nodes = x.nodes[x.nodes.columns[np.isin(x.nodes.columns, old_columns)]]
+        table = pa.Table.from_pandas(nodes)
+        metadata = {}
+        for n in navis.NeuronList(x):
+            metadata[f"{n.id}:id"] = str(n.id)
+            for p in ("name", "units", "soma"):
+                if getattr(n, p, None):
+                    metadata[f"{n.id}:{p}"] = str(getattr(n, p, None))
+        schema = pa.schema(
+            [table.schema.field(i) for i in range(len(table.schema))],
+            metadata=metadata,
+        )
+        pq.write_table(table.cast(schema), filepath)
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        nl = navis.example_neurons(3, kind="skeleton")
+
+        multi = Path(tempdir) / "old_multi.parquet"
+        old_write(nl, multi)
+        nl2 = navis.read_parquet(multi)
+        assert len(nl2) == 3
+        for n2 in nl2:
+            n = nl.idx[n2.id]
+            assert n.n_nodes == n2.n_nodes
+            assert n.name == n2.name
+            assert str(n.units) == str(n2.units)
+            assert n2.connectors is None  # these files never had any
+
+        assert set(navis.scan_parquet(multi).id) == set(nl.id)
+        assert len(navis.read_parquet(multi, limit=2)) == 2
+
+        # A single neuron used to be written without the `neuron` column
+        single = Path(tempdir) / "old_single.parquet"
+        old_write(nl[0], single)
+        assert "neuron" not in pq.read_schema(single).names
+        n2 = navis.read_parquet(single)
+        assert isinstance(n2, navis.Skeleton)
+        assert n2.n_nodes == nl[0].n_nodes
+
+
+def test_parquet_read_foreign_neurarrow():
+    """Read a neurarrow file written by some other tool."""
+    pa = pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        filepath = Path(tempdir) / "foreign.skeletons.parquet"
+
+        # Two little trees. No navis meta data whatsoever, roots as null
+        # parents, SWC structure IDs via the net.clbarnes.swc extension.
+        parent = np.array([0, 1, 2, 2, 0, 10, 11], dtype=np.uint64)
+        is_root = np.array([True, False, False, False, True, False, False])
+        xyz = np.arange(21, dtype=np.float64).reshape(7, 3)
+
+        schema = pa.schema(
+            [
+                pa.field("sample_id", pa.uint64(), False),
+                pa.field("fragment_id", pa.uint64(), False),
+                pa.field("x", pa.float64(), False),
+                pa.field("y", pa.float64(), False),
+                pa.field("z", pa.float64(), False),
+                pa.field("parent_id", pa.uint64(), True),
+                pa.field("net.clbarnes.swc:type_id", pa.int64(), False),
+            ],
+            metadata={
+                "version": "0.2.1",
+                "context": "some-uuid",
+                "unit": "micrometer",
+                "net.clbarnes.swc:version": "0.1",
+            },
+        )
+        pq.write_table(
+            pa.Table.from_arrays(
+                [
+                    pa.array(np.array([1, 2, 3, 4, 10, 11, 12], dtype=np.uint64)),
+                    pa.array(np.array([7, 7, 7, 7, 9, 9, 9], dtype=np.uint64)),
+                    pa.array(xyz[:, 0]),
+                    pa.array(xyz[:, 1]),
+                    pa.array(xyz[:, 2]),
+                    pa.array(parent, mask=is_root, type=pa.uint64()),
+                    pa.array(np.array([1, 3, 3, 3, 1, 3, 3], dtype=np.int64)),
+                ],
+                schema=schema,
+            ),
+            filepath,
+        )
+
+        nl = navis.read_parquet(filepath)
+        assert len(nl) == 2
+        assert set(nl.id) == {7, 9}
+
+        n = nl.idx[7]
+        assert np.array_equal(n.nodes.node_id.values, [1, 2, 3, 4])
+        # Null parents become navis' -1 roots
+        assert np.array_equal(n.nodes.parent_id.values, [-1, 1, 2, 2])
+        assert n.n_trees == 1
+        # The file-level unit applies to every neuron
+        assert str(n.units) == "1 micrometer"
+        assert np.array_equal(n.nodes.label.values, [1, 3, 3, 3])
+
+        # Without per-neuron meta data, scanning falls back to the ID column
+        assert set(navis.scan_parquet(filepath).id) == {7, 9}
+        assert len(navis.read_parquet(filepath, subset=[9])) == 1

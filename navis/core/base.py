@@ -575,19 +575,7 @@ class BaseNeuron(UnitObject):
         Requires a "type" column in connector table. Will look for type labels
         that include "pre" or that equal 0 or "0".
         """
-        if not isinstance(getattr(self, "connectors", None), pd.DataFrame):
-            raise ValueError("No connector table found.")
-        # Make an educated guess what presynapses are
-        types = self.connectors["type"].unique()
-        pre = [t for t in types if "pre" in str(t).lower() or t in [0, "0"]]
-
-        if len(pre) == 0:
-            logger.debug(f"Unable to find presynapses in types: {types}")
-            return self.connectors.iloc[0:0]  # return empty DataFrame
-        elif len(pre) > 1:
-            raise ValueError(f"Found ambigous presynapse labels: {pre}")
-
-        return self.connectors[self.connectors["type"] == pre[0]]
+        return self._filter_connectors("pre")
 
     @property
     def postsynapses(self):
@@ -596,19 +584,22 @@ class BaseNeuron(UnitObject):
         Requires a "type" column in connector table. Will look for type labels
         that include "post" or that equal 1 or "1".
         """
+        return self._filter_connectors("post")
+
+    def _filter_connectors(self, kind: str) -> pd.DataFrame:
+        """Filter the connector table down to pre- or postsynapses."""
         if not isinstance(getattr(self, "connectors", None), pd.DataFrame):
             raise ValueError("No connector table found.")
-        # Make an educated guess what presynapses are
+
         types = self.connectors["type"].unique()
-        post = [t for t in types if "post" in str(t).lower() or t in [1, "1"]]
+        # Make an educated guess which label means what
+        label = utils.guess_connector_type(types, kind)
 
-        if len(post) == 0:
-            logger.debug(f"Unable to find postsynapses in types: {types}")
+        if label is None:
+            logger.debug(f"Unable to find {kind}synapses in types: {types}")
             return self.connectors.iloc[0:0]  # return empty DataFrame
-        elif len(post) > 1:
-            raise ValueError(f"Found ambigous postsynapse labels: {post}")
 
-        return self.connectors[self.connectors["type"] == post[0]]
+        return self.connectors[self.connectors["type"] == label]
 
     @property
     def is_stale(self) -> bool:

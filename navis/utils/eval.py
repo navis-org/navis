@@ -28,6 +28,41 @@ logger = config.get_logger(__name__)
 # Boolean, unsigned integer, signed integer, float, complex.
 _NUMERIC_KINDS = set('buifc')
 
+# Values that mean "pre-" and "postsynaptic" besides the labels themselves
+_CONNECTOR_TYPE_ALIASES = {'pre': [0, '0'], 'post': [1, '1']}
+
+
+def guess_connector_type(types, kind: str):
+    """Guess which connector `type` label corresponds to `kind`.
+
+    Connector tables use no fixed vocabulary, so we look for labels that
+    contain `kind` or that are one of its conventional numeric aliases.
+
+    Parameters
+    ----------
+    types :     iterable
+                The unique values of a connector table's `type` column.
+    kind :      "pre" | "post"
+                Which kind of connector to look for.
+
+    Returns
+    -------
+    The matching label or `None` if there is no match.
+
+    Raises
+    ------
+    ValueError
+                If more than one label matches.
+
+    """
+    aliases = _CONNECTOR_TYPE_ALIASES[kind]
+    matches = [t for t in types if kind in str(t).lower() or t in aliases]
+
+    if len(matches) > 1:
+        raise ValueError(f'Found ambigous {kind}synapse labels: {matches}')
+
+    return matches[0] if matches else None
+
 
 def eval_param(value: Any,
                name: str,

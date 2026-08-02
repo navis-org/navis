@@ -20,7 +20,7 @@ from .misc import (is_jupyter, set_loggers, set_pbars, unpack_neurons,
 from .subclasses import TrimeshPlus, validate_extra_edges
 from .validate import validate_options, validate_table
 from .eval import (eval_node_ids, eval_neurons, eval_id, eval_conditions,
-                   is_mesh, is_numeric, eval_param)
+                   is_mesh, is_numeric, eval_param, guess_connector_type)
 from .exceptions import (ConstructionError, VolumeError, CMTKError)
 from .cv import (patch_cloudvolume)
 from .decorators import (meshneuron_skeleton, map_neuronlist_df, map_neuronlist,

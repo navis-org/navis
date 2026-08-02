@@ -28,7 +28,10 @@ Let's assume we want to store two neurons with IDs `12345` and `67890`, respecti
      4847          3   30.000000  15970  36362  23044  67890
 ```
 
-A node table must contain the following columns: `node_id`, `x`, `y`, `z`, `parent_id` and `neuron`. Additional columns (such as  `radius`) are allowed but may be ignored by the reader.
+A node table must contain the following columns: `node_id`, `x`, `y`, `z`, `parent_id` and `neuron`. Additional columns (such as  `radius` or `label`) are allowed but may be ignored by the reader.
+
+Note that `node_id`s only have to be unique *within* a neuron, and that roots are
+encoded as `parent_id = -1`.
 
 ### Dotprops
 
@@ -37,7 +40,7 @@ Dotprops are point clouds with associated vectors indicating directionality.
 The table for two dotprops with IDs `12345` and `67890` would look like this:
 
 ```
-      x      y      z     vec_x     vec_y     vec_z  neuron
+      x      y      z    vect_x    vect_y    vect_z  neuron
   15784  37250  28062 -0.300205 -0.393649  0.868860   12345
   15764  37230  28082 -0.108453 -0.211375  0.971369   12345
   15744  37190  28122 -0.043569 -0.455931  0.888948   12345
@@ -52,7 +55,7 @@ The table for two dotprops with IDs `12345` and `67890` would look like this:
 ```
 
 The node table must contain the following columns: `x`, `y`, `z`, and `neuron`.
-Additional columns such as `vec_x`, `vec_y`, `vec_z` or `alpha` are allowed but
+Additional columns such as `vect_x`, `vect_y`, `vect_z` or `alpha` are allowed but
 may be ignored by the reader.
 
 ### Meta data
@@ -79,18 +82,81 @@ them.
 In the future, we could add additional meta data to determine data
 types e.g. via `{"_dtype:name": "str", "_dtype:id": "int"}`.
 
-### Synapses (not implemented yet)
+### Connectors
 
-Synapses and other similar data typically associated with a neuron must be
-stored in separate parquet files.
-
-We propose using a simple zip archive where:
+Connectors (synapses, gap junctions and similar point annotations) live in a
+*sidecar* file next to the file holding the neurons. The sidecar is named after
+the main file with a `.connectors` infix:
 
 ```bash
-skeletons.parquet.zip
-├── skeletons.parquet  <- contains the actual skeletons
-└── synapses.parquet   <- contains the synapse data
+skeletons.parquet             <- contains the actual skeletons
+skeletons.connectors.parquet  <- contains the connector data
 ```
+
+Keeping them in a separate file rather than a zip archive means readers can
+still use parquet's column pruning and predicate pushdown on both tables.
+
+The connector table is the neurons' connector tables stacked on top of each
+other, plus the same `neuron` column used by the node table:
+
+```
+  connector_id  node_id  type      x      y      z  neuron
+             0     1436   pre   6444  21608  14516   12345
+             1     1436   pre   6457  21634  14474   12345
+             2     2638  post   4728  23538  14179   12345
+           ...      ...   ...    ...    ...    ...     ...
+             0     4843  post  15450  35582  23284   67890
+             1     4844   pre  15830  36182  23124   67890
+```
+
+A connector table must contain the columns `connector_id`, `node_id`, `type`,
+`x`, `y`, `z` and `neuron`. Any further columns (e.g. `roi` or `confidence`) are
+written as-is and read back verbatim.
+
+Note that `connector_id`s are only guaranteed to be unique within a neuron.
+
+The sidecar carries the same meta data as the main file, so
+[`navis.scan_parquet`][] works on it too.
+
+## Relationship to neurarrow
+
+[neurarrow](https://neurarrow.readthedocs.io) is a specification for
+neuroanatomical data on Apache Arrow which was originally based on this format
+but has since evolved separately. `navis.write_parquet(..., format="neurarrow")`
+writes neurarrow-compliant files, and `navis.read_parquet` detects and reads
+them. The two formats differ as follows:
+
+| | navis | neurarrow |
+|---|---|---|
+| point IDs | `node_id`, unique per neuron | `sample_id`, `uint64`, unique per context |
+| neuron IDs | `neuron`, any dtype | `fragment_id`, `uint64` |
+| roots | `parent_id = -1` | `parent_id` is null |
+| coordinates | as-loaded | `float64` |
+| SWC labels | `label` | `net.clbarnes.swc:type_id` |
+| dotprops | `vect_x/y/z`, `alpha` | `tangent_x/y/z`, `colinearity` |
+| units | per neuron (`{ID}:units`) | per file (`unit`), no scale factor |
+| dotprops `k` | per neuron (`{ID}:k`) | per file (`neighborhood_size`) |
+| neuron properties | `{ID}:{PROPERTY}` | `frag:{ID}:{PROPERTY}` |
+| spec version | - | `version`, `context` (both required) |
+| connectors | sidecar, table as-is | sidecar, `net.clbarnes.connectors` schema |
+
+Two consequences are worth calling out:
+
+- neurarrow tracks units for the whole file and has no place for a scale factor,
+  so writing a neuron with e.g. `8 nanometer` units converts its coordinates
+  into nanometers. All neurons in a file must share the same units (and, for
+  dotprops, the same `k`).
+- navis' connector table is a set of point annotations, one row per
+  node/connector pair. neurarrow's `connections` schema instead describes
+  *edges* between two known samples, which navis does not have. We therefore
+  write connectors using the
+  [`net.clbarnes.connector`](https://github.com/clbarnes/neurarrow-ext/blob/main/extensions/connector.md)
+  extension, which stores one row per connector with lists of pre- and
+  postsynaptic samples. That has no room for extra columns such as `roi` or
+  `confidence` - they are dropped with a warning.
+
+In short: use the default `format="navis"` for lossless round-trips, and
+`format="neurarrow"` to hand data to other tools.
 
 ## Benchmarks
 
